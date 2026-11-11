@@ -44,8 +44,9 @@ function shared(dock, seas = false, ajax = false) {
     since: world.turn,
     recall: null,
   });
-  for (const actor of Object.values(world.actors))
-    if (actor.place === "greek-ship")
+  // Patroclus is a sealed card aboard until the quay invites him; he stays.
+  for (const [id, actor] of Object.entries(world.actors))
+    if (actor.place === "greek-ship" && id !== "greek-patroclus")
       actor.place = world.transports["greek-ship"].dock;
   for (const id of players) world.actors[id].place = dock;
   // Residents' errands (BoardyAI's introductions, a rhapsode bound for
@@ -100,9 +101,7 @@ function play(world, actor, kind, fields) {
 const move = (w, actor, target) => play(w, actor, "move", { target });
 
 describe("Greek ports and fixed roads", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip.each(
+  it.each(
     docks.flatMap((from) =>
       docks.filter((to) => to !== from).map((to) => [from, to]),
     ),
@@ -151,10 +150,7 @@ describe("Greek ports and fixed roads", () => {
       expect(w.actors.mara.place).toBe(to);
     },
   );
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("opens both new port stops with Dione's invitation", () => {
+  it("opens both new port stops with Dione's invitation", () => {
     const before = atticOpening();
     before.actors.vale.place = "greek-ship";
     before.transports["greek-ship"].destination = "pond";
@@ -173,10 +169,7 @@ describe("Greek ports and fixed roads", () => {
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-athens");
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-piraeus");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip.each(
+  it.each(
     Object.entries(pack.places).filter(
       ([id, p]) => p.road && !localRoadEnds(id),
     ),
@@ -210,9 +203,7 @@ describe("Greek ports and fixed roads", () => {
   );
 
   const near = docks;
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip.each(near)("brings an empty ship to a traveler waiting at %s", (port) => {
+  it.each(near)("brings an empty ship to a traveler waiting at %s", (port) => {
     let w = shared(near.find((p) => p !== port));
     w.actors.vale.place = port;
     for (
@@ -226,10 +217,7 @@ describe("Greek ports and fixed roads", () => {
     expect(w.actors.boardyai.place).toBe("boardyai-parlour");
     expect(w.actors.vale.place).toBe("greek-ship");
   });
-
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("gives a human aboard the first choice of port ahead of resident passengers", () => {
+  it("gives a human aboard the first choice of port ahead of resident passengers", () => {
     let w = shared("greek-harbor");
     w.actors.moth.place = "greek-ship";
     w = move(w, "vale", "greek-ship");

@@ -177,12 +177,6 @@ const ruleFile = (name) =>
 const thermos = "ratiradio-thermos";
 // The plays to add before frozen step `index`, then before local command
 // `index`. The frozen journey carries the Thermos on to the Listening Room.
-const lockPlays = (index) =>
-  index === 43
-    ? [["drop", thermos], ["take", thermos]]
-    : index === 56
-      ? [["talk", "ratiradio-rati"]]
-      : [];
 const localLockPlays = (index) =>
   index === 42
     ? [["drop", thermos], ["take", thermos]]
@@ -224,33 +218,26 @@ function assertReturn(world, at, added = 0) {
   }
 }
 
-// package 6 fixtures: the recorded trace plays claims
-// the rules no longer have, so only the frozen 131 replay runs.
-for (const historical of [true, false])
-  // package 6 fixtures: the recorded trace plays claims the rules no longer have.
-  (historical ? it : it.skip)(
-    `reaches Raven's awakening and second-traveler return (${historical ? "frozen 131" : "current agreement"})`,
+// Only the frozen rules-131 replay runs. Replaying that recorded trace on the
+// current rules (the old "current agreement" variant) was deleted: rules 133
+// put the Raven Figurine in a locked box at the cottage, so the recorded
+// plays are no longer offered. The current-rules journey is the local route
+// test below, played from createWorld.
+it(
+    `reaches Raven's awakening and second-traveler return (frozen 131)`,
     { timeout: 30000 },
     () => {
-      const engine = currentSharedEngine(historical ? 131 : null);
+      const engine = currentSharedEngine(131);
       const run = (request) =>
         JSON.parse(engine.cardShared(JSON.stringify(request)));
-      let world = historical
-        ? structuredClone(ravenTrace.initial)
-        : sorted(
-            dispatchShared({
-              op: "create",
-              seed: 92,
-              save: encodeSave(createWorld({ seed: 92 })),
-            }).world,
-          );
+      let world = structuredClone(ravenTrace.initial);
       if (
         ruleFile("engine.rs")
           .toString()
           .includes('const VERSION: &str = "full-card-world/131"')
       )
         expect(digest(world)).toBe(ravenTrace.initialSha256);
-      if (historical) {
+      {
         expect(sha(ruleFile("engine-v131.js"))).toBe(ravenTrace.engineSha256);
         expect(
           sha(
@@ -264,35 +251,9 @@ for (const historical of [true, false])
         ).toBe(ravenTrace.contentSha256);
         expect(digest(world)).toBe(ravenTrace.initialSha256);
       }
-      let fork,
-        added = 0;
-      const context = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+      let fork;
       for (const [index, step] of ravenTrace.steps.entries()) {
-        for (const [kind, to] of historical ? [] : lockPlays(index)) {
-          const action = run({ op: "view", ...context, world }).actions.find(
-            (a) => a.kind === kind && (a.item === to || a.target === to),
-          );
-          expect(action, `${kind} ${to}`).toBeDefined();
-          const extra = {
-            op: "play",
-            ...context,
-            action,
-            revision: world.revision,
-            world,
-          };
-          const result = run(extra);
-          expect(result.ok, result.error).toBe(true);
-          expect(dispatchShared(extra)).toEqual(result);
-          world = sorted(result.world);
-          added++;
-        }
-        const request = {
-            ...step.request,
-            ...(!historical && step.request.op === "play"
-              ? { revision: world.revision }
-              : {}),
-            world,
-          },
+        const request = { ...step.request, world },
           before = structuredClone(request);
         if (request.op === "play")
           expect(run({ ...request, op: "view" }).actions).toContainEqual(
@@ -301,27 +262,12 @@ for (const historical of [true, false])
         const result = run(request);
         expect(request).toEqual(before);
         expect(result.ok, result.error).toBe(true);
-        if (historical) expect(digest(result.world)).toBe(step.worldSha256);
-        else {
-          expect(dispatchShared(request)).toEqual(result);
-          expect(request).toEqual(before);
-          validateWorld(structuredClone(result.world));
-          expect(reload(result.world)).toEqual(result.world);
-          expect(
-            dispatchShared({
-              ...request,
-              op: "view",
-              world: reload(result.world),
-            }),
-          ).toEqual(
-            dispatchShared({ ...request, op: "view", world: result.world }),
-          );
-        }
+        expect(digest(result.world)).toBe(step.worldSha256);
         world = sorted(result.world);
-        assertReturn(world, index + 1, added);
+        assertReturn(world, index + 1);
         if (index === 57) fork = structuredClone(world);
-        // Raven's wander is a function of the turn, which the added plays shift.
-        if (historical && index >= 60 && index <= 63)
+        // Raven's wander is a function of the turn.
+        if (index >= 60 && index <= 63)
           expect(world.actors[raven].place).toBe(
             ["ratiradio-dispatch-window", kitchen, "station", "pond"][
               index - 60
@@ -351,41 +297,28 @@ for (const historical of [true, false])
       }
       // Deposit history alone is insufficient. RATi need not be present.
       for (const [index, step] of ravenTrace.negativeFork.steps.entries()) {
-        const request = {
-            ...step.request,
-            ...(!historical && step.request.op === "play"
-              ? { revision: fork.revision }
-              : {}),
-            world: fork,
-          },
+        const request = { ...step.request, world: fork },
           before = structuredClone(request);
         expect(run({ ...request, op: "view" }).actions).toContainEqual(
           request.action,
         );
         const result = run(request);
         expect(result.ok, result.error).toBe(true);
-        if (historical) expect(digest(result.world)).toBe(step.worldSha256);
-        else {
-          expect(dispatchShared(request)).toEqual(result);
-          validateWorld(structuredClone(result.world));
-          expect(reload(result.world)).toEqual(result.world);
-        }
+        expect(digest(result.world)).toBe(step.worldSha256);
         expect(request).toEqual(before);
         fork = sorted(result.world);
         expect(!!fork.packs.ratiradio.flags["raven-awake"]).toBe(index === 13);
-        if (historical && index === 12)
+        if (index === 12)
           expect(fork.actors["ratiradio-rati"].place).toBe(
             "ratiradio-dispatch-window",
           );
       }
-      expect(fork.packs.ratiradio.receipts[receipt]).toBe(68 + added);
-      if (historical) expect(fork.actors["ratiradio-rati"].place).toBe(kitchen);
+      expect(fork.packs.ratiradio.receipts[receipt]).toBe(68);
+      expect(fork.actors["ratiradio-rati"].place).toBe(kitchen);
     },
   );
 
-// Held: rules 133 lets residents roam on (#2638), so Raven ends the recorded
-// trace in the attic, not at the pond. Not an old-fixture case; needs the owner.
-it.skip("reaches a local Raven return using the local NPC route and reloads every play", () => {
+it("reaches a local Raven return using the local NPC route and reloads every play", () => {
   let world = createWorld({ seed: 92 }),
     met,
     awakened,

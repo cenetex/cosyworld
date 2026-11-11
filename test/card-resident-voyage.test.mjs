@@ -122,9 +122,7 @@ function wait(rules, rounds = 16) {
 }
 
 describe("residents embark to their own destination", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("sails the Bard to Piraeus, sets him ashore, and answers Mara's call", () => {
+  it("sails the Bard to Piraeus, sets him ashore, and answers Mara's call", () => {
     const run = wait(current);
     expect(run.bardAt).toContain(SHIP);
     expect(run.bardAt).toContain(PIRAEUS);
@@ -144,28 +142,19 @@ describe("residents embark to their own destination", () => {
     expect(run.bardAt).toContain(SHIP);
     expect(run.bardAt).not.toContain(PIRAEUS);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("plays out the same way every time", () => {
+  it("plays out the same way every time", () => {
     expect(JSON.stringify(wait(current).world)).toBe(
       JSON.stringify(wait(current).world),
     );
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("leaves the course to a human aboard, under the cargo rule", () => {
+  it("leaves the course to a human aboard, under the cargo rule", () => {
     const s = decodeSave(JSON.stringify(startSave()));
     expect(courseOptions(s, SHIP, BARD)).toContain(PIRAEUS);
     s.actors.vale.place = SHIP;
     expect(courseOptions(s, SHIP, BARD)).toEqual([]);
     expect(courseOptions(s, SHIP, "vale")).not.toContain(PIRAEUS);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("never carries a player's avatar past a cargo gate, even while away", () => {
+  it("never carries a player's avatar past a cargo gate, even while away", () => {
     // Vale boards beside the Bard and goes away (#2139 review). Her avatar
     // still rides by the cargo rule, so the Bard cannot sail them both to
     // Piraeus; the stuck ship goes home, everyone goes ashore, and the Bard
@@ -198,10 +187,7 @@ describe("residents embark to their own destination", () => {
     expect(home).toBe(true);
     expect(world.actors[BARD].gaveUp?.target).toBe(PIRAEUS);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("sets a resident bound for its own dock ashore instead of sailing", () => {
+  it("sets a resident bound for its own dock ashore instead of sailing", () => {
     const s = decodeSave(JSON.stringify(startSave()));
     s.actors[BARD].want = { ...s.actors[BARD].want, target: HARBOR };
     expect(courseToward(s, SHIP, HARBOR, BARD)).toBe(null);

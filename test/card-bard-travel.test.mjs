@@ -1,4 +1,4 @@
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import {
   recitalContext,
@@ -151,25 +151,23 @@ describe("ordinary bard travel", () => {
     s = act(s, "drop", { item: "mask" }, "mara");
     expect(play(s, stale, s.revision, "mara").ok).toBe(false);
   });
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps a known AI verse author through save reload and uses truthful song facts", () => {
-    const s = openingFixture("exposure").closed;
+  it("keeps a known AI verse author through save reload and uses truthful song facts", () => {
+    const s = funeralJourney().buried;
     const pack = packDefinition("greek-drama");
-    const record = s.packs[pack.id].recitals["greek-report-plan"];
+    const record = s.packs[pack.id].recitals["greek-return-water-jar"];
     record.actor = "keeper";
     record.visit = s.turn;
     expect(validRecitals(s, pack)).toBe(true);
     const loaded = decodeSave(encodeSave(s));
     expect(
       recitalContext(loaded, [pack], singer).stanzas.find(
-        (v) => v.id === "greek-report-plan",
+        (v) => v.id === "greek-return-water-jar",
       ),
     ).toMatchObject({ authorId: "keeper", authorName: "The keeper" });
     record.actor = null;
     expect(
       recitalContext(s, [pack], singer).stanzas.find(
-        (v) => v.id === "greek-report-plan",
+        (v) => v.id === "greek-return-water-jar",
       ),
     ).toMatchObject({ authorId: null, authorName: "an earlier traveler" });
   });

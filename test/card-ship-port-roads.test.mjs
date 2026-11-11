@@ -427,16 +427,13 @@ describe("ports reachable on foot or by a free leg home", () => {
     expect(s.actors.vale.place).toBe("greek-harbor");
     expect(s.items["greek-provisions"].holder).toBe("vale");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("walks the land route home from Piraeus once the truce opens the Long Walls", () => {
+  it("walks the land route home from Piraeus once the truce opens the Long Walls", () => {
     // After the invitation: Vale ashore at Piraeus, the ship called to the
     // harbor and the provisions carried ashore there. Until the herald's
     // truce the quays have no road (the call brings the ship back, above).
     // With the truce the Long Walls open, and the guard holding Creon's
     // writ opens the City Gate, so the land route leads home.
-    let s = openDoorStart("burial");
+    let s = openDoorStart();
     // The defiant burial went through the guard; the live gate never
     // latches (rules 102), so it opens only while he holds the writ.
     expect(s.openedRoutes || []).not.toContain(CITY_GATE);
@@ -645,19 +642,18 @@ describe("the roads home keep the Greek story gates", () => {
     });
 });
 
-// The exposure ending: the guard's tablet settles Thebes and the City Gate
-// never opens. A sea arrival stays at Piraeus until the truce, and the truce
-// is only reached through the gate, so the land route waits. Everywhere a
-// traveler can get to still leads home with every key carried off.
-describe("the exposure ending with the City Gate shut", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("strands nobody", () => {
+// The City Gate shut: it opens only while the guard holds Creon's writ. A sea
+// arrival stays at Piraeus until the truce, and the truce is only reached
+// through the gate, so the land route waits. Everywhere a traveler can get to
+// still leads home with every key carried off. The exposure ending that once
+// kept the gate shut for good was removed in rules 133, so the writ is taken
+// out of the guard's hands here.
+describe("the City Gate shut", () => {
+  it("strands nobody", () => {
     // Myrto has packed a load of provisions (rules 95).
-    const s = stowProvisions(
-      openDoorStart("exposure", { gate: false }),
-      "greek-harbor",
-    );
+    const shut = openDoorStart();
+    shut.items["greek-creon-writ"].holder = "greek-palace";
+    const s = stowProvisions(shut, "greek-harbor");
     expect(s.openedRoutes || []).not.toContain(CITY_GATE);
     const reached = reach(s, "greek-harbor", {
       pinned: ["greek-creon-writ", "greek-decree"],

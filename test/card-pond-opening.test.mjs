@@ -68,27 +68,22 @@ describe("the attic opening and saved pond journeys", () => {
         expect(world.actors[avatar.id].place).toBe(avatar.home.id);
     }
   });
-
-
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("meets Vale's lamp want and then the keeper through the pond and station", () => {
+  it("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
     // A player takes its own quest by a tap; give Vale the lamp quest.
     world.actors.vale.want = { kind: "item", target: "lamp", since: 0, refusals: 0 };
     world = selectLamp(world, "lamp");
+    const xp = world.actors.vale.xp;
     world = act(world, "wait");
-    expect(world.actors.vale.xp).toBe(1);
+    expect(world.actors.vale.xp).toBe(xp + 1);
     expect(exits(world, "pond")).toEqual(["station", "attic"]);
     world = act(world, "wait");
     world = act(world, "move", "station");
-    expect(world.opening.met.keeper).toBe(3);
+    expect(world.opening.met.keeper).toBe(world.turn);
     world = act(world, "move", "pond");
     expect(world.actors.vale.place).toBe("pond");
   });
-
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("keeps the attic reflection and its dry-lamp recovery on the pond", () => {
+  it("keeps the attic reflection and its dry-lamp recovery on the pond", () => {
     let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
     expect(exits(world, "attic")).toEqual([]);
@@ -104,9 +99,7 @@ it.skip("meets Vale's lamp want and then the keeper through the pond and station
 
   // The planner has no lamp special case: the lit mirror is no route, so
   // it waits; once the lamp is doused by a play, the mirror is the way out.
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("plans the mirror departure only once the carried lamp is doused", () => {
+  it("plans the mirror departure only once the carried lamp is doused", () => {
     const world = fresh();
     world.actors.vale.place = "attic";
     world.actors.vale.want = wantPlace("pond");
@@ -116,10 +109,7 @@ it.skip("meets Vale's lamp want and then the keeper through the pond and station
     const dark = selectLamp(world);
     expect(plan(dark).action).toMatchObject({ kind: "move", target: "pond" });
   });
-
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("keeps the cottage return and pond rescue after the attic light goes out", () => {
+  it("keeps the cottage return and pond rescue after the attic light goes out", () => {
     let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
     world.items.cloth.holder = "attic";
@@ -147,10 +137,7 @@ it.skip("meets Vale's lamp want and then the keeper through the pond and station
     world = act(world, "move", "pond");
     expect(world.actors.vale.place).toBe("pond");
   });
-
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("lets a stranded resident return from the attic through the pond", () => {
+  it("lets a stranded resident return from the attic through the pond", () => {
     const world = fresh();
     world.actors.moth.place = "attic";
     world.items.lamp.holder = "moth";
@@ -169,10 +156,7 @@ it.skip("meets Vale's lamp want and then the keeper through the pond and station
     expect(result.state.actors.moth.place).toBe("pond");
     expect(result.state.items.lamp.holder).toBe("moth");
   });
-
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("lets a resident stow a fueled lamp to leave the dark-gated attic", () => {
+  it("lets a resident stow a fueled lamp to leave the dark-gated attic", () => {
     const world = fresh();
     world.actors.moth.place = "attic";
     world.items.lamp.holder = "moth";

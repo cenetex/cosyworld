@@ -104,7 +104,6 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
 }
 
 #[test]
-#[ignore = "package 6 fixtures"]
 fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journal() {
     let (path, c, id, mut world) = fixture();
     assert_eq!(world.version, engine::VERSION);

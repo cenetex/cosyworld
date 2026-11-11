@@ -621,9 +621,7 @@ describe("authored topics keep their saved deed identity", () => {
     if (originalTopics === undefined) delete pack.topics;
     else pack.topics = originalTopics;
   });
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("records the plea's receipt once at the Talk and teaches it from the words", () => {
+  it("records the plea's receipt once at the Talk and teaches it from the words", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",
     );
@@ -657,10 +655,7 @@ describe("authored topics keep their saved deed identity", () => {
       "greek-aethra",
     );
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("lets a resident who seeks Vale out tell the plea without making her choice", () => {
+  it("lets a resident who seeks Vale out tell the plea without making her choice", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",
     );
@@ -717,10 +712,7 @@ describe("authored topics keep their saved deed identity", () => {
     expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
     expect(decodeSave(encodeSave(world))).toEqual(world);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("records the source scene after its public fact was learned earlier", () => {
+  it("records the source scene after its public fact was learned earlier", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",
     );

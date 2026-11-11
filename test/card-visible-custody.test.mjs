@@ -6,10 +6,7 @@ import { encodeSave, decodeSave, nameOf } from "../v2/card-game/world.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { knownActors } from "../v2/card-game/want.mjs";
-
-// Skipped: replays a recorded save through the removed Theban-response
-// branch; retired with the fixtures in package 6 fixtures.
-it.skip("keeps a received hand through Talk/reload and each speaker's private inventory", () => {
+it("keeps a received hand through Talk/reload and each speaker's private inventory", () => {
   let world = narrativeContractCases().find((c) => c.name === "accepted give").world;
   for (const phase of ["give", "talk", "reload"]) {
     if (phase === "talk") world = playCard(world, "talk", null, "moth");
@@ -31,10 +28,7 @@ it.skip("keeps a received hand through Talk/reload and each speaker's private in
   expect(world.actors.moth.heldItem).toBe("lamp");
   expect(asleep.entities.find((e) => e.id === "vale").facts.find((f) => f.startsWith("At the dialogue scene:"))).not.toContain(nameOf("lamp"));
 });
-
-// Skipped: replays a recorded save through the removed Theban-response
-// branch; retired with the fixtures in package 6 fixtures.
-it.skip("keeps chosen hands within the item cap after the committed action item", () => {
+it("keeps chosen hands within the item cap after the committed action item", () => {
   let world = narrativeContractCases().find((c) => c.name === "Theban report").world;
   world.packs["greek-drama"].scope = "full";
   world.sharedVersion = 1;

@@ -12,6 +12,8 @@ mod concurrency_tests;
 mod content;
 mod engine;
 #[cfg(test)]
+mod js_bridge_tests;
+#[cfg(test)]
 mod live_rules_tests;
 #[cfg(test)]
 mod move_tests;
