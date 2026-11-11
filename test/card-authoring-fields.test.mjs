@@ -34,15 +34,15 @@ const small = (value) => ({
 });
 const future = ["pack", "choices", 0, "future"];
 
-it("edits Antigone's completion flag while retaining the full handwritten step", () => {
+it("edits the Shade's completion flag while retaining the full handwritten step", () => {
   const original = JSON.stringify(greek);
-  const path = ["pack", "avatars", "greek-antigone", "want", "step", "finish"];
+  const path = ["pack", "avatars", "greek-polynices-shade", "want", "step", "finish"];
   const field = fieldAt(greek, path);
   assert.equal(field.type, "string");
   assert.deepEqual(field.path, path);
   const result = apply(greek, field, "greek-funeral-complete");
   const expected = structuredClone(greek);
-  expected.pack.avatars["greek-antigone"].want.step.finish =
+  expected.pack.avatars["greek-polynices-shade"].want.step.finish =
     "greek-funeral-complete";
   assert.deepEqual(result.source, expected);
   assert.equal(
@@ -52,38 +52,34 @@ it("edits Antigone's completion flag while retaining the full handwritten step",
   assert.equal(JSON.stringify(greek), original);
 });
 
-it("edits one route hint and preserves its gate, alternative roads and unknown data", () => {
+it("edits one route field and preserves its gate, alternative roads and unknown data", () => {
   const source = structuredClone(greek);
   source.pack.future = { opaque: ["kept", { version: 3 }] };
-  const path = ["pack", "routes", route, "sealed", "reason"];
+  const to = greek.pack.routes[route].to;
+  const path = ["pack", "places", to, "text"];
   const result = apply(
     source,
     fieldAt(source, path),
     "Bring the account.\n雪 stays on the road.",
   );
   const expected = structuredClone(source);
-  expected.pack.routes[route].sealed.reason =
+  expected.pack.places[to].text =
     "Bring the account.\n雪 stays on the road.";
   assert.deepEqual(result.source, expected);
   assert.deepEqual(applySourceEdit(result.source, result.undo).source, source);
   const unchanged = authoringFieldEdit(
     source,
     fieldAt(source, path),
-    source.pack.routes[route].sealed.reason,
+    source.pack.places[to].text,
   );
   assert.deepEqual(unchanged.changes, []);
 });
 
-it("edits the ship lane hint while preserving cargo alternatives and cross-pack ports", () => {
-  const path = [...lane, "reason"];
-  const result = apply(
-    greek,
-    fieldAt(greek, path),
-    "Bring provisions or a Hoppy Cat item aboard.",
-  );
+it("toggles the ship lane's locked card while preserving cargo alternatives and cross-pack ports", () => {
+  const path = [...lane, "sealed"];
+  const result = apply(greek, fieldAt(greek, path));
   const expected = structuredClone(greek);
-  expected.bridge.transports["greek-ship"].lanes[1].reason =
-    "Bring provisions or a Hoppy Cat item aboard.";
+  expected.bridge.transports["greek-ship"].lanes[1].sealed = false;
   assert.deepEqual(result.source, expected);
   for (const [path, role] of [
     [lane, "field"],

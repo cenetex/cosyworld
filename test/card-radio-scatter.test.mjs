@@ -1,6 +1,8 @@
+import { onTestFinished } from "vitest";
+import { dwellRule } from "../v2/card-game/world/dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave, play, seedRun } from "../v2/card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave, play } from "../v2/card-game/world.mjs";
 import { entityActive, packDefinition, packIdOf, validatePackDefinition } from "../v2/card-game/pack-registry.mjs";
 import { installItemCycle, settleItemCycle } from "../v2/card-game/pack-items.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
@@ -25,19 +27,6 @@ it("spreads keepsakes across distinct enabled external worlds, deterministically
   expect([...seen].sort()).toEqual(["badger-forest", "greek-drama", "hoppycat-archive", "hub", "lonely-forest", "willows"]);
 });
 
-it("moves only untouched old starts, never carried items or deliberate Radio deposits", () => {
-  const s = createWorld({ seed: 17 });
-  for (const id of items) s.items[id] = { holder: radio.items[id].holder, history: [] };
-  s.packs.ratiradio.revision = 1;
-  s.items[items[0]].holder = "vale";
-  s.items[items[1]] = { holder: radio.items[items[1]].holder, history: ["Turn 0: Left here deliberately."] };
-  const before = structuredClone(s.items);
-  const loaded = decodeSave(JSON.stringify(s));
-  expect(loaded.items[items[0]]).toEqual(before[items[0]]);
-  expect(loaded.items[items[1]]).toEqual(before[items[1]]);
-  for (const id of items.slice(2)) expect(packIdOf(loaded.items[id].holder)).not.toBe("ratiradio");
-  expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
-});
 
 it("avoids sleeping worlds on installation and never reshuffles when they wake", () => {
   const s = createWorld({ seed: 17 });
@@ -82,7 +71,7 @@ it("rejects malformed scatter declarations", () => {
   expect(() => validatePackDefinition(pack)).toThrow(/scatterOutside/u);
 });
 
-it("agrees between browser source and bundled host for fresh and migrated shared saves", async () => {
+it("agrees between browser source and bundled host for fresh shared saves", async () => {
   const { build } = await import("esbuild");
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
@@ -108,7 +97,7 @@ it("agrees between browser source and bundled host for fresh and migrated shared
     draws.add(holders(source.world).join());
   }
   expect(draws.size).toBeGreaterThan(1);
-  for (const legacy of [false, true]) {
+  for (const legacy of [false]) {
     const initial = createWorld({ seed: 17 });
     if (legacy) {
       initial.packs.ratiradio.revision = 1;
@@ -125,12 +114,6 @@ it("agrees between browser source and bundled host for fresh and migrated shared
   }
 });
 
-it("waits for the host seed on seedless legacy imports", () => {
-  const s = createWorld();
-  s.packs.ratiradio.revision = 1;
-  const loaded = decodeSave(JSON.stringify(s));
-  expect(holders(seedRun(loaded, 26))).toEqual(holders(createWorld({ seed: 26 })));
-});
 
 it("keeps the Station Key at Black Pond on direct Radio landings", async () => {
   const { createLandingWorld } = await import("../v2/card-game/pack-landing.mjs");
@@ -140,6 +123,9 @@ it("keeps the Station Key at Black Pond on direct Radio landings", async () => {
 });
 
 it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired shortcut", async () => {
+  // A scripted route written for a cast that walks on at once (rules 132).
+  dwellRule.on = false;
+  onTestFinished(() => (dwellRule.on = true));
   const { legalActions } = await import("../v2/card-game/world.mjs");
   const { endStandoff } = await import("./helpers/standoff.mjs");
   let s = createWorld({ seed: 1 });

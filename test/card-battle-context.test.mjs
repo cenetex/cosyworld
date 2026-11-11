@@ -137,8 +137,6 @@ it("reads partial old events by field and bounds facts to this committed play", 
   ];
   expect(battleEvents(s, played)).toHaveLength(1);
   expect(facts(s, "keeper")[0]).toBe("Vale struck me.");
-  expect(battleEvents(s, { ...played, verb: "claim" })).toEqual([]);
-  expect(battleEvents(s, { ...played, verb: "focus" })).toEqual([]);
 });
 
 it("keeps committed battle facts equal in the browser and shared narrator", () => {

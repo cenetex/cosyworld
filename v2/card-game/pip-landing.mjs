@@ -1,9 +1,7 @@
-import { addLog, createWorld } from "./world.mjs";
+import { addLog, createWorld, legalActions, play } from "./world.mjs";
 import { newMemories } from "./memory.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import landings from "./pack-landings.json" with { type: "json" };
-import { questFor } from "./talk-quest.mjs";
-import { pushQuest } from "./want.mjs";
 
 // A physical Pip card opens its own local world. Explicit world links win.
 export function pipEntry(href) {
@@ -28,11 +26,26 @@ export function createPipWorld(seed = newRunSeed()) {
   return world;
 }
 
-export function beginPipJourney(seed = newRunSeed()) {
+// Pip's Talk is the rules' own: it records the want he told, and his quest
+// then lies as his card to open and accept (rules 133). The table plays it as
+// any Talk; this is the same play for the world builders and tests.
+export function talkToPip(world) {
+  const talk = legalActions(world).find(
+    (a) => a.kind === "talk" && a.target === "moth",
+  );
+  const result = talk && play(world, talk);
+  return result?.ok ? result.state : world;
+}
+
+// The first world after Pip's card: Vale in the attic, carrying what Pip told
+// her and the quest she accepted from him (nothing, when none was accepted).
+export function beginPipJourney(seed = newRunSeed(), prelude = talkToPip(createPipWorld(seed))) {
   const world = createLandingWorld(null, seed);
-  pushQuest(world, "vale", {
-    ...questFor(world, "moth", world.actors.moth.want),
-    story: true,
-  });
+  const { heard, want } = prelude.actors.vale;
+  if (heard) world.actors.vale.heard = structuredClone(heard);
+  // The quest she accepted from Pip is the one she carries on: the same want,
+  // so the pond's offer of it is not a second one.
+  if (want)
+    world.actors.vale.want = { ...structuredClone(want), since: world.turn };
   return world;
 }

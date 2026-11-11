@@ -10,7 +10,6 @@ import { levelOf } from "./want.mjs";
 import { nameOf } from "./world.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelTier, romanLevel } from "./rarity.mjs";
-import { hiddenFor } from "./unlock-view.mjs";
 import { cachedWorldTier, tintByTier, worldLevel } from "./world-level.mjs";
 
 // ☰ lists the passkey's worlds, each with the avatars that have entered it
@@ -296,12 +295,6 @@ export function installAvatarMenu({
     });
     queueTitleIntro(made.id);
     await leavePage(() => (location.href = sharedLink(made.id)));
-  }
-  // "+ Find Mara": the quest to talk to the avatar hidden here (#1936).
-  async function seek(avatar) {
-    await command(session.id, { op: "seek" });
-    menu.hidePopover();
-    result = `Find ${avatar.name} here and talk to them.`;
   }
   // The chosen seat's action: Leave for yours, the owner's Free for
   // another's once armed, or Nudge for a player in the same room.
@@ -590,16 +583,12 @@ export function installAvatarMenu({
       row.append(title, seats);
       box.append(row);
     }
-    // The avatar hidden in the world being played is the one to find next;
-    // with none hidden here, a new world hides the next, for the card's
-    // avatar when it is in no world, else the first in no world.
-    const world = session?.state.world;
-    const hidden = session && hiddenFor(world, here().actor, unlocked);
+    // A new world hides the next avatar, for the card's avatar when it is in
+    // no world, else the first in no world.
     const avatar =
       view.deck.find((a) => a.id === shown?.id) || view.deck[0] || null;
-    const fresh = hidden
-      ? act(`+ Find ${hidden.name}`, () => seek(hidden), "avatar-find")
-      : avatar && view.canCreate
+    const fresh =
+      avatar && view.canCreate
         ? act("+ New world", () => create(avatar), "avatar-new-world")
         : null;
     if (fresh) {

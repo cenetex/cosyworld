@@ -8,6 +8,7 @@ import {
   reflectionOpen,
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
+import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
 function cards(s, ...ids) {
   s = endStandoff(s);
@@ -38,7 +39,8 @@ describe("playing the world through cards", () => {
     s = cards(s, "attic");
     // The lit attic holds only itself: Pip cannot follow the lamp through
     // the pond's dark mirror, and the attic mirror stays shut (#1600).
-    expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
+    expect(availableCards(s)).toEqual(["vale", "lamp", "attic", "pond"]);
+    expect(isLockedBox(s, "pond")).toBe(true);
     s = selectLamp(s);
     expect(availableCards(s)).toContain("pond");
   });

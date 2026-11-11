@@ -81,7 +81,7 @@ const SOUNDS = {
 };
 export const COMBAT_SOUNDS = Object.freeze(Object.keys(SOUNDS));
 
-function voice(context, out, at, jitter, spec) {
+export function voice(context, out, at, jitter, spec) {
   const [kind, type, from, to, peak, attack, decay, q = 1] = spec;
   const scale = kind === "tone" ? jitter.pitch : jitter.filter;
   const end = at + attack + decay;

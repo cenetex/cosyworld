@@ -10,14 +10,14 @@ import {
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
-import { questXp } from "../v2/card-game/want.mjs";
+import { halfwayXp } from "../v2/card-game/want.mjs";
 
 function rest(eventSeq = 1) {
   let world = createWorld();
   world.actors.vale.place = "attic";
   world.turn = world.revision = 30;
   world.eventSeq = eventSeq;
-  world.actors.vale.xp = questXp(2);
+  world.actors.vale.xp = halfwayXp(1);
   world.actors.vale.level = 1;
   world.actors.moth.want = world.actors.keeper.want = null;
   for (const sleep of [false, true]) {
@@ -52,15 +52,12 @@ const element = () => ({
 function view(reduced = false) {
   const root = element(),
     stage = element(),
-    dealt = vi.fn(),
     shown = vi.fn();
   const v = createSleepView({
     root,
     stage,
     speechRow: element(),
-    hand: element(),
     reducedMotion: { matches: reduced },
-    dealQuests: dealt,
     showWake: shown,
   });
   const start = (world = rest()) => {
@@ -73,12 +70,12 @@ function view(reduced = false) {
     v.tap();
     v.tap();
   };
-  const quest = () => {
+  const readDream = () => {
     v.words("failed");
     v.revealed(JSON.stringify(`dream:${shown.mock.lastCall[0].seq}`));
     v.tap();
   };
-  return { v, root, stage, dealt, shown, start, dream, quest };
+  return { v, root, stage, shown, start, dream, readDream };
 }
 beforeEach(() => {
   vi.useFakeTimers();
@@ -90,14 +87,13 @@ afterEach(() => {
 });
 
 for (const reduced of [false, true]) {
-  for (const phase of ["fade", "dreaming", "quest", "done"]) {
+  for (const phase of ["fade", "dreaming", "light", "done"]) {
     it(`resets ${phase} and forgets the outgoing dream (reduced=${reduced})`, () => {
-      const { v, root, stage, dealt, start, dream, quest } = view(reduced);
+      const { v, root, stage, start, dream, readDream } = view(reduced);
       const old = start();
       if (phase !== "fade") dream();
-      if (["quest", "done"].includes(phase)) quest();
+      if (["light", "done"].includes(phase)) readDream();
       if (phase === "done") vi.advanceTimersByTime(10_000);
-      const count = dealt.mock.calls.length;
       v.reset(createWorld(), "vale");
       expect(v.active).toBe(false);
       expect(v.dream()).toBeNull();
@@ -111,7 +107,6 @@ for (const reduced of [false, true]) {
       expect(v.light(5)).toEqual({ turn: 5, cut: false });
       v.tap();
       vi.advanceTimersByTime(100_000);
-      expect(dealt).toHaveBeenCalledTimes(count);
       // A new run may use exactly the same event/turn identity.
       v.observe(old, "vale");
       expect(v.active).toBe(true);
@@ -157,17 +152,16 @@ for (const reject of [false, true]) {
     expect(v.dream().beat.pending).toBe(true);
   });
 }
-it("ordinary observation preserves the dream and deals its quest once", () => {
-  const { v, start, dream, quest, dealt, shown } = view();
+it("ordinary observation preserves the dream and shows the wake once", () => {
+  const { v, start, dream, readDream, shown } = view();
   const world = start();
   dream();
   v.observe(structuredClone(world), "vale");
   expect(shown).toHaveBeenCalledTimes(1);
-  quest();
+  readDream();
   expect(v.dream()).not.toBeNull();
   v.tap();
   vi.advanceTimersByTime(10_000);
-  expect(dealt).toHaveBeenCalledTimes(1);
   expect(v.active).toBe(false);
   expect(v.dream()).not.toBeNull();
   expect(
@@ -242,7 +236,7 @@ function appBoundary(sleepView, world) {
 }
 for (const action of ["reset", "storage"]) {
   it(`the app's ${action} boundary releases the old dream and seeds the replacement`, () => {
-    const { v, start, dream, dealt } = view();
+    const { v, start, dream } = view();
     const old = start();
     dream();
     v.words("pending");
@@ -253,7 +247,6 @@ for (const action of ["reset", "storage"]) {
     expect(v.active).toBe(false);
     expect(v.dream()).toBeNull();
     vi.advanceTimersByTime(100_000);
-    expect(dealt).not.toHaveBeenCalled();
     expect(app.world.turn).toBe(replacement.turn);
   });
 }

@@ -1,22 +1,28 @@
-import { readFileSync } from "node:fs";
-import { createContext, runInContext } from "node:vm";
-import { decodeSave } from "../../v2/card-game/world.mjs";
+import {
+  createWorld,
+  holdChoice,
+  legalActions,
+  play,
+} from "../../v2/card-game/world.mjs";
 
-const realm = createContext({});
-runInContext(
-  readFileSync(
-    new URL(
-      "../../v2/orchestrator-rust/src/card_shared/engine-v20.js",
-      import.meta.url,
-    ),
-    "utf8",
-  ),
-  realm,
-);
-const result = JSON.parse(realm.cardShared(JSON.stringify({ op: "create" })));
-if (!result.ok) throw Error(result.error);
-
-// Keep a real released pond save for its continuing journeys, loaded as a player would.
+// Vale at Black pond with the lamp in her hand, reached by play: the table
+// opens in the attic, the lamp is put out, she steps through the mirror, and
+// takes the lamp up again. This used to load a recorded rules-20 save.
 export function pondOpening() {
-  return decodeSave(JSON.stringify(result.world));
+  let world = createWorld({ opening: true });
+  const hold = (item) => {
+    const next = structuredClone(world);
+    holdChoice(next, "vale", { item, revision: next.revision });
+    world = next;
+  };
+  hold(null);
+  const move = legalActions(world).find(
+    (a) => a.kind === "move" && a.target === "pond",
+  );
+  if (!move) throw new Error("The mirror stayed shut with the lamp out");
+  const result = play(world, move, world.revision);
+  if (!result.ok) throw new Error(result.error);
+  world = result.state;
+  hold("lamp");
+  return world;
 }

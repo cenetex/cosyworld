@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { expect, it } from "vitest";
 import { createWorld } from "../v2/card-game/world.mjs";
 import { perception, listenerOf } from "../v2/card-game/perception.mjs";

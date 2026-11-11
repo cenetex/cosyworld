@@ -21,15 +21,12 @@ import {
 export function createSleepView({
   stage,
   speechRow,
-  hand,
   root = document.body,
   reducedMotion = { matches: false },
   // Draws the table again (app.mjs render).
   render = () => {},
   // Finishes writing the line in front.
   finishReveal = () => {},
-  // Deals the quests held back for the dream (app.mjs showQuests).
-  dealQuests = () => {},
   showWake = () => {},
 }) {
   let seen = null,
@@ -89,21 +86,6 @@ export function createSleepView({
     catcher.hidden = !active;
     markDreamer(active ? wake?.id : null);
     if (beat === "enter") riseIn(speechRow, { reduced });
-    if (beat === "quest") {
-      dealQuests(wake.quests);
-      // Folded, the quest arrives as the face-down card behind the dreamer;
-      // open, as its own face-down card that then turns (card-entry.mjs).
-      for (const key of wake.quests) {
-        const card = [...hand.querySelectorAll(".want-card")].find(
-          (el) => el.dataset.questEntry === key,
-        );
-        const frame = card?.closest(".want-frame");
-        riseIn(
-          frame && !frame.hidden ? frame : hand.querySelector(".quest-fold"),
-          { reduced },
-        );
-      }
-    }
     if (!active) {
       sequence = null;
       wake = null;
@@ -186,14 +168,6 @@ export function createSleepView({
         turn,
         cut: DARK_BEATS.has(sequence.beat) || sequence.beat === "light",
       };
-    },
-    // A quest the dream deals stays face down, unturned, until its beat.
-    holdsQuest(key) {
-      if (!sequence || !wake?.dream) return false;
-      return (
-        wake.quests.includes(key) &&
-        ["fade", "held", "enter", "dreaming", "dream"].includes(sequence.beat)
-      );
     },
     // The dreamer's own spoken line on waking is not shown: the dream is.
     hidesLine(entry) {

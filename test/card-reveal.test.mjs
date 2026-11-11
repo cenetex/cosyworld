@@ -2,17 +2,25 @@ import { describe, expect, it } from "vitest";
 import { REVEAL_TIERS, flashRate, revealPlan } from "../v2/card-game/card-reveal.mjs";
 
 describe("covered card reveal", () => {
-  it("grows richer from common to legendary within 900 ms", () => {
+  it("grows richer from common to mythic within a second", () => {
     const plans = REVEAL_TIERS.map((tier) => revealPlan(tier));
-    expect(REVEAL_TIERS).toEqual(["common", "uncommon", "rare", "epic", "legendary"]);
+    expect(REVEAL_TIERS).toEqual(["common", "uncommon", "rare", "epic", "legendary", "mythic"]);
     for (const [a, b] of plans.slice(1).map((plan, i) => [plans[i], plan])) {
       expect(b.ms).toBeGreaterThan(a.ms);
       expect(b.lift).toBeGreaterThanOrEqual(a.lift);
       expect(b.glow).toBeGreaterThan(a.glow);
     }
-    expect(plans.at(-1).ms).toBeLessThanOrEqual(900);
+    expect(plans.at(-1).ms).toBeLessThanOrEqual(1000);
     expect(plans[0]).toMatchObject({ pulses: 0, lift: 0, sheen: false });
     expect(plans.at(-1)).toMatchObject({ pulses: 2, sheen: true });
+  });
+
+  it("holds longer before a rarer card turns, and not at all for a common one", () => {
+    const holds = REVEAL_TIERS.map((tier) => revealPlan(tier).hold);
+    expect(holds[0]).toBe(0);
+    for (let i = 1; i < holds.length; i++) expect(holds[i]).toBeGreaterThan(holds[i - 1]);
+    for (const tier of REVEAL_TIERS)
+      expect(revealPlan(tier, { reduced: true }).hold).toBe(0);
   });
 
   it("stays under three flashes a second", () => {
@@ -35,6 +43,6 @@ describe("covered card reveal", () => {
   });
 
   it("treats an unknown tier as common", () => {
-    expect(revealPlan("mythic")).toEqual({ ...revealPlan("common"), tier: "mythic" });
+    expect(revealPlan("bogus")).toEqual({ ...revealPlan("common"), tier: "bogus" });
   });
 });

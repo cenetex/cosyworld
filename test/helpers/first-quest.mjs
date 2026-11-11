@@ -1,5 +1,5 @@
-// A player holds no quest until it first reaches the Black Pond. Tests about
-// later play start as if that had happened, with Vale's authored lamp want.
+// A player holds no quest until it takes one by a tap. Tests about later play
+// start as if Vale had taken the lamp quest at the Black Pond.
 export function questing(s) {
   const vale = s.actors.vale;
   if (!vale.visited.includes("pond")) vale.visited = [...vale.visited, "pond"];

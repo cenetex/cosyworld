@@ -170,7 +170,7 @@ describe("sleeping art", () => {
   );
 
   it("publishes the complete pack and never mirrors the keeper's clock", () => {
-    expect(sleepPortraitAssets).toHaveLength(20);
+    expect(sleepPortraitAssets).toHaveLength(21);
     const published = new Set(publicAssets.map(({ file }) => file));
     for (const file of sleepPortraitAssets) {
       expect(published.has(file), file).toBe(true);

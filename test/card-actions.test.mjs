@@ -124,7 +124,7 @@ describe("named card actions", () => {
     for (const action of story)
       expect(legalActions(world)).toContainEqual(action);
   });
-  it("offers an authored play when the item has no ordinary action", () => {
+  it("offers no authored choose play, even for a choice with no trigger", () => {
     const pack = packDefinitions.find((p) => p.id === "badger-forest");
     const { choices } = pack;
     pack.choices = [
@@ -141,18 +141,9 @@ describe("named card actions", () => {
     try {
       const world = createWorld();
       world.actors.vale.place = "clearing";
-      world.items.cloth.holder = "clearing";
-      expect(cardChoices(world, "cloth").map(playLabel)).toContain(
-        "Inspect the cloth",
-      );
-      expect(kinds(world, ["cloth"])).toEqual(["take"]);
       world.items.cloth.holder = "vale";
-      const { action } = cardPlay(world, ["cloth"]);
-      expect(action).toMatchObject({
-        kind: "choose",
-        label: "Inspect the cloth",
-      });
-      expect(cardActions(world, ["cloth"]).actions).toEqual([action]);
+      expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
+      expect(kinds(world, ["cloth"])).not.toContain("choose");
     } finally {
       if (choices === undefined) delete pack.choices;
       else pack.choices = choices;

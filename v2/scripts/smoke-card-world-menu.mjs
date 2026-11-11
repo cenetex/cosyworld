@@ -256,8 +256,14 @@ try {
         };
         await showLeave();
         await leave.click();
-        const handCard = page.locator('#hand [data-card="rue"]');
+        // Rue lies face down in a closed pack on a fresh table, where Enter
+        // would fall through to Leave, so choose the face-up pond.
+        const handCard = page.locator('#hand [data-card="pond"]');
+        await handCard.waitFor({ state: "visible" });
         await handCard.focus();
+        await page.waitForFunction(
+          () => document.activeElement?.dataset.card === "pond",
+        );
         await page.keyboard.press("Enter");
         await panel.waitFor({ state: "hidden" });
         assert.equal(releases, 0, "choosing another card clears Leave");

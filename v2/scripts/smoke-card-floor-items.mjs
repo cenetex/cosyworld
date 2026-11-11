@@ -12,14 +12,14 @@ const output = new URL("../../output/floor-props/", import.meta.url);
 await mkdir(output, { recursive: true });
 
 // The rules place the bell and the storybook map at the station from the
-// start. Boardy's calling card waits there too, but it shows only while
+// start, and RatiRadio's request slip lies beside the bell. Boardy's calling card waits there too, but it shows only while
 // BoardyAI does, with two connected humans. Since the Swede's kit is
 // scattered (#1692), the willows camp floor holds the map, pot and spoon.
 const station = createWorld({ opening: true });
 station.actors.vale.place = "station";
 assert.deepEqual(
   sceneStaging(station, { currentState: true }).floorItems.map(({ id }) => id),
-  ["bell"],
+  ["bell", "ratiradio-request-slip"],
 );
 const willows = createWorld({ opening: true });
 willows.actors.vale.place = "willows-camp";

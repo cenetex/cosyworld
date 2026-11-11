@@ -1,9 +1,9 @@
-// The player's quest stack, drawn as quest cards in the hand: each its
-// target's art with the rules' own words for the want as the caption.
-// Nothing here is authored or decides anything; the rules own the stack
-// (want.mjs).
-import { CONNECT_TARGET, questRewardsOf, questsOf, wantKey } from "./want.mjs";
+// The player's one quest, drawn as a quest card in the hand: its target's
+// art with the rules' own words for the want as the caption. Nothing here is
+// authored or decides anything; the rules own the want (want.mjs).
+import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
+import { wantWords } from "./world/want-words.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
@@ -12,7 +12,6 @@ import {
   nameOf,
   places,
   rootHolder,
-  wantText,
 } from "./world.mjs";
 
 export const QUEST_CARD = "quest";
@@ -30,12 +29,6 @@ function burial(world, want) {
         : 0;
   return {
     art: `assets/greek-drama/polynices-${stages[stage]}.webp`,
-    rite: [
-      "Give Antigone the oil in Polynices’ Hollow",
-      "Hand Antigone the cloth",
-      "Hand Antigone the shovel",
-      "Polynices is buried",
-    ][stage],
     riteVerb: ["Anoint", "Veil", "Bury", "Buried"][stage],
     remaining: want.step.items.slice(stage),
   };
@@ -53,133 +46,70 @@ export function questVisible(world, quest) {
     ), quest.actor);
 }
 
-// Each quest in the player's stack, top first. A card's key changes when its
-// quest is met, set aside or moves on a step.
+// The quest the player holds: a list of none or one (questsOf is the rules'
+// zero-or-one view of the single want). A card's key changes when its quest
+// is met, set aside or moves on a step.
+const questShape = (world, actor, want, key, index) => ({
+  key,
+  index,
+  actor,
+  kind: want.kind,
+  target: want.target === CONNECT_TARGET ? null : want.target,
+  xp: world.actors[actor].xp,
+  // A level quest: the level it leads to and the steps still to go.
+  level: want.quest?.level ?? null,
+  left: want.quest?.left ?? 0,
+  step: want.step ?? null,
+  ...(want.lit === undefined ? {} : { lit: want.lit }),
+  // A home quest (want.mjs) says "home"; no other bring does.
+  ...(want.story ? { story: true } : {}),
+  ...burial(world, want),
+});
 export const questCards = (world, actor = currentActor(world)) =>
-  questsOf(world, actor).map((want, index) => questFromWant(world, actor, want, index));
-const questFromWant = (world, actor, want, index) => ({
-    key: wantKey(actor, want),
-    index,
-    actor,
-    kind: want.kind,
-    target: want.target === CONNECT_TARGET ? null : want.target,
-    xp: world.actors[actor].xp,
-    // A level quest: the level it leads to and the steps still to go.
-    level: want.quest?.level ?? null,
-    left: want.quest?.left ?? 0,
-    step: want.step ?? null,
-    ...(want.lit === undefined ? {} : { lit: want.lit }),
-    ...burial(world, want),
-  });
-// Each saved deed keeps its identity until its owner collects it.
-export const questRewardCards = (world, actor = currentActor(world)) =>
-  questRewardsOf(world, actor).slice().reverse().map((reward) => ({
-    ...questFromWant(world, actor, reward.want, null),
-    key: `reward:${actor}:${reward.id}`,
-    receiptId: reward.id,
-    earnedXp: reward.xp,
-    earnedLevel: reward.level,
-  }));
-// The top quest, the one the folded card shows, or null.
+  questsOf(world, actor).map((want, index) =>
+    questShape(world, actor, want, wantKey(actor, want), index),
+  );
+// An offered quest in the held quest's own shape, so one face draws both.
+// The offer's id is its key and it has no index: nothing is held yet.
+export const offerQuest = (world, offer, actor = currentActor(world)) =>
+  questShape(world, actor, offer.want, offer.id, -1);
+// The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
 
-function hideQuestStep(quest, words, covered, known) {
-  const { step } = quest;
-  if (!step) return words;
-  const hiddenPlace = step.at && !known(step.at);
-  const hiddenRecipient = step.to && !known(step.to);
-  if (step.verb === "bring" && quest.kind === "item" && hiddenPlace) {
-    if (covered && (!step.to || hiddenRecipient))
-      return "find something and bring it somewhere";
-    words = step.to
-      ? words.replace(` at ${nameOf(step.at)}`, "")
-      : words.replace(` home to ${nameOf(step.at)}`, " somewhere");
-  } else if (hiddenPlace) {
-    words =
-      step.verb === "bring"
-        ? words.replace(` to ${nameOf(step.at)}`, " somewhere")
-        : words.replace(` at ${nameOf(step.at)}`, " somewhere");
-  }
-  if (
-    hiddenRecipient &&
-    !(step.verb === "bring" && quest.kind === "person" && step.at)
-  ) {
-    words = words.replace(
-      ` to ${nameOf(step.to)}`,
-      places[step.to] ? " somewhere" : " to someone",
-    );
-  }
-  if (step.with && !known(step.with))
-    words = words.replace(` with ${nameOf(step.with)}`, " with someone");
-  if (step.items?.some((id) => !known(id)))
-    words = words.replace(
-      step.items.map(nameOf).join(", "),
-      [
-        ...new Set(
-          step.items.map((id) => (known(id) ? nameOf(id) : "something")),
-        ),
-      ].join(", "),
-    );
-  return words;
-}
-
-// Each card in the rules' description gets its name when revealed.
+// A quest in words: the one wording of a want (world/want-words.mjs), with
+// the first letter raised. A card the traveler has not discovered is worded
+// as unknown; `covered` marks the target as one even when `known` is not given.
+// The burial rite words what is still to lay in the Hollow.
 export function questCaption(
   quest,
   covered = false,
   verb = null,
   known = () => true,
 ) {
-  covered ||= Boolean(quest.target && !known(quest.target));
-  if (quest.rite && quest.riteVerb !== "Lay") {
-    if (
-      covered ||
-      !known("greek-antigone") ||
-      (quest.remaining?.[0] && !known(quest.remaining[0]))
-    )
-      return "Prepare the burial";
-    return quest.rite;
-  }
-  const words = wantText({
-    kind: quest.kind,
-    target: quest.target,
-    ...(quest.step ? { step: quest.step } : {}),
+  const shown = (id) => !(covered && id === quest.target) && known(id);
+  const want = quest.riteVerb
+    ? {
+        kind: "place",
+        target: quest.target,
+        ...(quest.remaining?.length
+          ? { step: { verb: "lay", items: quest.remaining } }
+          : {}),
+      }
+    : {
+        kind: quest.kind,
+        target: quest.target,
+        ...(quest.step ? { step: quest.step } : {}),
+        ...(quest.lit === undefined ? {} : { lit: quest.lit }),
+        ...(quest.story ? { story: true } : {}),
+      };
+  const words = wantWords(want, shown, {
+    // The accessible goal names the same verb as the place card, including
+    // places whose name is known but which this avatar has not visited yet.
+    approach:
+      verb === "Discover" ? "discover" : verb === "Go to" ? "go to" : null,
   });
-  const unknown = {
-    item: "something",
-    person: "someone",
-    place: "a place",
-  };
-  let shown =
-    covered && quest.target
-      ? words.replace(nameOf(quest.target), unknown[quest.kind])
-      : words;
-  if (covered && quest.target) {
-    if (!quest.step)
-      shown =
-        quest.kind === "person"
-          ? "find someone to talk to"
-          : `find ${unknown[quest.kind]}`;
-    else if (quest.kind === "place" && quest.step.verb === "rest")
-      shown = "find a place and rest there";
-    else if (quest.kind === "item" && quest.step.verb !== "find")
-      shown = shown.replace(/^(\w+) something/u, "find something and $1 it");
-    else if (quest.kind === "person" && quest.step.verb === "bring")
-      shown = shown.replace(/^bring someone/u, "find someone and bring them");
-  }
-  shown = hideQuestStep(quest, shown, covered, known);
-  // The accessible goal names the same verb as the place card, including
-  // places whose name is known but which this avatar has not visited yet.
-  if (
-    !covered &&
-    quest.kind === "place" &&
-    (verb === "Discover" || verb === "Go to")
-  ) {
-    shown = `${verb === "Discover" ? "discover" : "go to"} ${nameOf(quest.target)}`;
-    if (quest.step?.verb === "rest") shown += " and rest there";
-  }
-  const caption = shown[0].toUpperCase() + shown.slice(1);
+  const caption = words[0].toUpperCase() + words.slice(1);
   return quest.level ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
 }
 
@@ -294,43 +224,15 @@ export function questTier(quest, world = null, known = () => true) {
   return levelTier(Math.max(quest.level ?? 0, ...levels));
 }
 
-// The quests shown before that the rules have since met: each left the
-// stack, or moved on a step, with a `want_met` event after `seq`.
-export function metQuests(before, world, seq) {
-  const live = new Set(questCards(world, before[0]?.actor).map((q) => q.key));
-  const gone = before.filter((q) => !live.has(q.key));
-  const met = [];
-  for (const e of world.log)
-    if (e.seq > seq && e.verb === "want_met") {
-      const i = gone.findIndex(
-        (q) =>
-          (e.wantKey === undefined || q.key === e.wantKey) &&
-          q.actor === e.actorId &&
-          q.kind === e.wantMet?.kind &&
-          (q.target ?? CONNECT_TARGET) === e.wantMet.target,
-      );
-      if (i >= 0) {
-        const [quest] = gone.splice(i, 1);
-        met.push({
-          ...quest,
-          ...burial(world, quest),
-          earnedXp: e.questXp ?? 1,
-        });
-      }
-    }
-  return met;
-}
+// The hand id of the quest card: there is only ever the one.
+export const questId = () => `${QUEST_CARD}:0`;
+// Only the held quest's own id: the offers (`quest:from:`, `quest:box:`,
+// `quest:home:`, `quest:level`) are ordinary cards of the table.
+export const isQuestId = (id) => id === questId();
 
-// Hand ids for quest cards: met ones still sealed, then the stack top first.
-export const questId = (index, met = false) =>
-  `${QUEST_CARD}${met ? "-met" : ""}:${index}`;
-export const isQuestId = (id) =>
-  typeof id === "string" &&
-  (id.startsWith(`${QUEST_CARD}:`) || id.startsWith(`${QUEST_CARD}-met:`));
-
-// The hand with the quest cards after the player's avatar and what it
-// carries.
-export function questHand(cards, world, ids = []) {
+// The hand with the quest card after the player's avatar and what it
+// carries (a quest card never lies ahead of a carried thing, #2295).
+export function handWithQuest(cards, world, ids = []) {
   const hand = cards.filter((id) => !isQuestId(id));
   if (!ids.length) return hand;
   const actor = currentActor(world);
@@ -344,17 +246,4 @@ export function questHand(cards, world, ids = []) {
     at++;
   hand.splice(at, 0, ...ids);
   return hand;
-}
-
-// Within the player's avatar's group the order is always the avatar, what
-// it carries, then its quests: no quest card lies ahead of a carried thing,
-// whichever is chosen (#2295).
-export function avatarGroupOrdered(hand, world) {
-  const actor = currentActor(world),
-    first = hand.findIndex(isQuestId);
-  if (first < 0) return true;
-  if (hand.indexOf(actor) > first) return false;
-  return !hand
-    .slice(first)
-    .some((id) => world.items[id] && rootHolder(world, id) === actor);
 }
