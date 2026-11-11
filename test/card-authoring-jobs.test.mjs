@@ -1132,3 +1132,28 @@ it.each([false, true])(
     ).toHaveLength(1);
   },
 );
+
+it("retains a paid image and retry after a same-draft edit", async () => {
+  const server = fakeJobs();
+  const f = boundaryFixture(server.fetch, { env: server.env });
+  await f.session.accept(
+    seedEdit(f.session.snapshot(), { kind: "world", cards }),
+  );
+  f.sweep.open({ key: "A" });
+  const { done } = await f.start();
+  await vi.waitFor(() => expect(server.posts).toHaveLength(1));
+  f.session.stage({ document: "Edited while drawing" });
+  server.complete("job-1", {
+    image: server.put(png),
+    basis: server.posts[0].request.basis,
+  });
+  await done;
+  expect(await f.store.readJobs("A")).toHaveLength(1);
+  const retry = f.visuals.tools().find((t) => t.id === "retry-unsaved-artwork");
+  expect(retry.describe().note).toContain("editor changed");
+  await f.session.run((ctx) => retry.run({}, ctx));
+  expect(await f.store.readJobs("A")).toEqual([]);
+  expect(
+    (await f.library()).filter((set) => set.label.startsWith("Generated")),
+  ).toHaveLength(1);
+});

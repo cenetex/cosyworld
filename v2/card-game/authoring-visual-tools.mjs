@@ -41,6 +41,7 @@ export function createAuthoringVisualTools({
     activeContext,
     unsaved,
     failure,
+    opening = 0,
     jobStatus = "",
     urls = [];
   // Jobs this tab does not wait for (found again after a reload) and the
@@ -59,9 +60,10 @@ export function createAuthoringVisualTools({
     if (job) await track.settled(job);
   }
   // Keep the provider original before anything else uses it.
-  async function keep(target, input, image, job, context) {
+  async function keep(target, input, image, job, context, draftKey, started) {
+    if (started !== opening) throw new Error("This editor changed.");
     const pending = (unsaved = {
-      draftKey: context.snapshot().key,
+      draftKey,
       avatarId: target.id,
       variant: target.variant,
       description: input.description,
@@ -74,11 +76,9 @@ export function createAuthoringVisualTools({
     try {
       await archive(context);
     } catch (error) {
-      try {
-        context.snapshot();
-      } catch (stale) {
+      if (started !== opening) {
         if (unsaved === pending) unsaved = null;
-        throw stale;
+        throw error;
       }
       if (unsaved === pending) failure = error.message.replace(/[.\s]+$/u, "");
     }
@@ -91,7 +91,8 @@ export function createAuthoringVisualTools({
         context = activeContext,
         tool = owner,
         pinned = binding,
-        draftKey = context.snapshot().key;
+        draftKey = context.snapshot().key,
+        started = opening;
       let record;
       jobStatus = "";
       try {
@@ -122,14 +123,22 @@ export function createAuthoringVisualTools({
             },
           },
         );
-        await keep(target, input, result.image, record?.id, context);
+        await keep(
+          target,
+          input,
+          result.image,
+          record?.id,
+          context,
+          draftKey,
+          started,
+        );
         return result;
       } catch (error) {
         cooldown.set("image", error);
         if (record && !unsaved) {
           if (
             error.name === "AbortError" ||
-            /earlier design/u.test(error.message)
+            /earlier design|editor changed/u.test(error.message)
           )
             await track.dropped(record);
           else if (!WAITING.has(error.code)) await track.settled(record.id);
@@ -141,8 +150,9 @@ export function createAuthoringVisualTools({
       }
     },
   });
-  function clear(opening = false) {
-    if (opening) {
+  function clear(reopened = false) {
+    if (reopened) {
+      opening++;
       unsaved = null;
       failure = null;
     }
@@ -257,6 +267,7 @@ export function createAuthoringVisualTools({
   // A job found again after a reload, or finished while its card was closed.
   // It is applied only to the avatar it was made for, exactly as it was asked.
   async function adoptJob(job, rec, run) {
+    const opened = opening;
     remote.delete(rec.toolId);
     if (job.status === "failed") {
       const failed = failedJob(job);
@@ -294,7 +305,7 @@ export function createAuthoringVisualTools({
         )
           why = "this avatar's artwork changed after you asked";
       }
-      await keep(target, input, image, rec.id, context);
+      await keep(target, input, image, rec.id, context, rec.draftKey, opened);
       if (unsaved) return "later";
       context.snapshot();
       if (why) {
