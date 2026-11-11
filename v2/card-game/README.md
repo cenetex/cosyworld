@@ -656,6 +656,40 @@ the avatar's own card is already face up); a table this browser already
 knows keeps the cards its player has uncovered. The first tap selects the closed box without showing its contents. Its
 context button opens it without spending a turn and keeps it selected.
 Tapping the selected box again lowers it without opening it.
+**The pack.** Three or more cards not yet turned (the place's own card, its
+residents, items, ways, locked boxes and offered quests, closed boxes too) lie
+together in the hand as one face-down stack, its thickness hinting at the
+count (`pack-opening.mjs`; the ways stack's own folded layers). A new game's
+opening and the new-world title are not packs; one or two unturned cards turn
+in place as above. Tapping the stack raises the hand and the cards rise into
+the row face down, the place's card first. The one button then reads Reveal
+all. Inside an open pack the first tap on a face-down card turns it at once
+(the only place a first tap opens a card: outside a pack the first tap still
+only selects, as above, and a turned card in the pack is chosen like any
+card). Reveal all turns the rest one after another, commons first and the
+rarest last; its button reads Tap to finish while it plays, and a tap on it,
+on a card, or away finishes the run with every card turned, never half turned.
+With every card turned the button reads Done, and Done (or tapping away, or
+Escape) settles the cards back into their normal places a beat apart, the
+rarest last. Cards still face down when the pack is put away stay face down and
+form a pack again if three or more remain; a card arriving while a pack is open
+forms the next pack. A locked box in a pack is turned like the others and stays
+locked: opening it is still the rules' play. While face down in an open pack, a
+card of Rare or better shows a slow rim glow in its tier colour and nothing
+else (no number, name or art; its level still reads 1 everywhere): `data-tell`,
+set from the real tier in `card()` and `offerFrame()`, drawn by `tellCard` in
+`card-reveal.mjs`. Every card turn, in a pack or not, plays a flip sound; each
+tier above Common adds a held breath before the lid moves (the glow building
+and a rising tone through it, `turnPlan` in `pack-opening.mjs`) and more glow
+and colour, and a Common card has no hold. The same turn and sound open a
+locked box when the rules unlock it. The sounds are made in the browser
+(`card-sfx.mjs`) and follow the Voices switch and the volume. Reduced motion
+shows the cards in the row and crossfades each turn with no hold, the tier
+carried by colour and sound. A line from a covered speaker still turns that
+card wherever it lies: the pack tolerates a turn from outside its run and does
+not hold the line. A pack is cosmetic and per browser and seat, like every
+turn; nothing is journaled. A Reveal all announces once: the count and the
+rarest tier.
 A place widens from the upright cover to its wider card as the lid lifts;
 with reduced motion it crossfades.
 An uncovered new card glows in its tier colour and carries no text badge.
