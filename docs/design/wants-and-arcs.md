@@ -514,6 +514,32 @@ It falls short in that a cap of three keeps a situation small. Per the
 Pact, a symbolic act is a fictional world action, never treatment or
 diagnosis.
 
+### Bonds: what trust unlocks
+
+The owner's ladder (2026-11-10, #2620). Trust is 0 to 3 per pair.
+
+1. Trust one: the resident tells you their desire.
+2. Trust two: they will travel with you.
+3. Trust three: they step in when you are threatened, and their home
+   opens to you.
+
+A gift is "gave them the thing they want". People keep hours. A resident's
+staged wants are their route.
+
+This is trust unlocking what a resident will DO (tell, travel, step in, open
+a home). It is not the "stages of a bond" that the arcs section did not
+choose, where trust picks which want a resident has.
+
+| Rung | What the rules do today | Smallest rules change |
+| --- | --- | --- |
+| Gifts earn trust | One source: `trustGiver` in `world.mjs` adds 1 for a plain Give or accepted Ask of the wanted item; a pack `on: "give"` choice on it skips trust | Keep one source; staged unordered wants (slice 10) let it reach three |
+| Tell the desire | Talk reveals the want at the first Talk, any trust (`want-talk.mjs`, `talk-quest.mjs`) | `want.minTrust` |
+| Travel | Every read is "any trust above 0"; an invited resident accepts (`accompanyDecision`, `world.mjs`), and also accepts with no trust when the trip serves its want or the player carries the wanted item | Read `>= 2` |
+| Step in | A resident covers a trusted friend after the first blow (`wantPlan`, `world.mjs`) | Read `>= 3` |
+| Home opens | `trusted` is accepted only in `passWhen`, `appearsWhen`, crossings and lanes, not in routes, residents' `requires`, topics or choices | `trusted` in `route.travelerRequires`, so a home is a per-traveler locked box |
+| Companion who stays | An invited resident walks home after the trip (`resident-home.mjs`) | A companion state that holds |
+| Hours | Sleep only (`world-life.json`) | `schedule` |
+
 ### The three ethos questions
 
 1. **What can the player do differently?** Open what is shut in front of
@@ -575,6 +601,50 @@ finale stays reachable through `greek-bury-polynices`; the Cithaeron road
 is already unconditional. Once the claim is gone its four phrases are no
 longer checked, and nothing can make them true. `guard-tablet.webp` and
 its provenance entries become unused and stay in place.
+
+### With the rules bump: Patroclus aboard the Charybdis (#2620)
+
+Slice A of #2620 was tried as pack data and stopped. He ships with the bump.
+Art is ready in `docs/design/assets/patroclus/`.
+
+Why it is not pack data:
+
+- Adding a resident to a mounted pack makes existing saves and shared worlds
+  unloadable (`v2/docs/card-packs.md`, "do not add a resident to a pack that
+  is already mounted"; `validPackState` needs an actor for every pack
+  resident). With him added, `test/card-greek-section-upgrade.test.mjs`
+  fails on its real version-9 saves. He needs a pack revision bump with a
+  save upgrade in `legacy-saves.mjs`, or this bump's world reset.
+- A resident cannot start aboard a ship. `passengers()` in
+  `pack-transport.mjs` counts every actor at the ship's place, including
+  inactive ones, so the ship is occupied before the burial, is never called,
+  and sails itself until `validTransports` fails. The fix is one line: filter
+  `passengers` by `entityActive`.
+
+What worked in a prototype that put him at the Wine-Dark Harbor quay:
+
+- `place: "greek-harbor"`, `home: "greek-piraeus"`, `requires` flag
+  `greek-burial-performed`, `want: {kind: "item", target: "greek-bread"}`,
+  and `"greek-patroclus": { "sails": true }` in `world-life.json` (content,
+  not engine code). Once the fix above lands, `place` becomes `greek-ship`.
+- No provisions condition belongs in `requires`: it is saved state, so he
+  would vanish when the provisions leave the deck, including at Piraeus where
+  he lives. The burial flag alone keeps a pre-burial crossing free of him.
+- Talk gives the quest "give him bread". A plain Give earns trust 1, and no
+  pack give-choice intercepts it. At trust 1 an invitation aboard is
+  accepted, and the course to Piraeus works with Talk at sea.
+- After arrival he steps ashore at Piraeus one round later, lives there and
+  sleeps at night. He keeps the bread, the provisions stay on deck, and the
+  ship still sails.
+- Bread given at the harbor is passed to Myrto within a round, so the
+  "holding bread" pose would rarely show. Bread and provisions loops stay
+  intact: after the burial the wheat sits at Piraeus, and bread by play is
+  provisions, Piraeus, wheat, ride back, water jar and wheat to Dione, take
+  bread. Sailing consumes nothing (rules 102).
+
+Not tested: at trust 0 an invitation is accepted while the player carries the
+bread (the want is served), so the decline case needs a player without bread;
+and the standoff cover (`plan` after a threat).
 
 ### Earlier work to reuse
 
