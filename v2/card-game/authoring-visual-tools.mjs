@@ -80,7 +80,8 @@ export function createAuthoringVisualTools({
       const target = design,
         context = activeContext,
         tool = owner,
-        pinned = binding;
+        pinned = binding,
+        draftKey = context.snapshot().key;
       let record;
       jobStatus = "";
       try {
@@ -92,6 +93,7 @@ export function createAuthoringVisualTools({
               holdJob(job.id);
               record = {
                 id: job.id,
+                draftKey,
                 kind: "image",
                 toolId: tool,
                 avatarId: target.id,
@@ -269,6 +271,7 @@ export function createAuthoringVisualTools({
         why = "other artwork is waiting to be confirmed";
       else {
         next = await readAvatarDesign(record, id);
+        context.snapshot();
         const [, revision, base] = JSON.parse(basis);
         if (
           (rec.role === "pose-sheet" &&
@@ -278,6 +281,7 @@ export function createAuthoringVisualTools({
           why = "this avatar's artwork changed after you asked";
       }
       await keep(target, input, image, rec.id, context);
+      context.snapshot();
       if (why) {
         notices.set(rec.toolId, kept(rec.role, why));
         changed();
@@ -292,6 +296,7 @@ export function createAuthoringVisualTools({
       visual.open(design.value);
       const started = design;
       await visual.adopt(rec.role, image);
+      context.snapshot();
       await landed(id, rec.role, context, started);
     });
   }
@@ -418,9 +423,9 @@ export function createAuthoringVisualTools({
                       ? state.error
                       : notices.get(action)
                         ? notices.get(action)
-                      : role === "portrait"
-                        ? "Generate a full-body transparent cutout with GPT Image 2.6 Flare. Review it before replacing saved art."
-                        : "Generate happy, sad, hit, strike, brace and sleep poses from the saved cutout in one image request. Review all six before saving.",
+                        : role === "portrait"
+                          ? "Generate a full-body transparent cutout with GPT Image 2.6 Flare. Review it before replacing saved art."
+                          : "Generate happy, sad, hit, strike, brace and sleep poses from the saved cutout in one image request. Review all six before saving.",
                 actions: [
                   {
                     label: reason || (confirming ? "Confirm artwork" : name),

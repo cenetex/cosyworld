@@ -181,6 +181,10 @@ keeps the current draft open during an asynchronous import. `onOpen` clears the
 temporary state only after a successful, approved open.
 Use `stage({document,title})` to keep text, `snapshot({pending:false})` to read it, and `save()` to check and persist the draft.
 
+Generation recovery keeps each job bound to the local draft that requested it.
+Switching drafts during a job lookup or image download leaves its recovery record
+intact for the original draft. Late request callbacks retain that same binding.
+
 Local store `beginCreate(key, owner, generation)` saves the account, request UUID,
 source and files before transfer. `readCreate` resumes that snapshot after reload;
 `finishCreate` records its matching first receipt and releases the copied files.

@@ -68,7 +68,7 @@ export function authoringSeedTools({
         const known = await readNames(record);
         if (opened !== life || token !== request) return;
         loading = false;
-        await draw.find(known);
+        await draw.find(known, record.key);
         const { status, code, retryAfterMs } = state();
         cooldown.set("avatars", { status, code, retryAfterMs });
       } catch (failure) {
@@ -280,6 +280,8 @@ export function authoringSeedTools({
       if (loading || state().busy || keeping) return "later";
       await run(async (context) => {
         const known = await readNames(context.snapshot({ assets: true }));
+        if (context.snapshot().key !== rec.draftKey)
+          throw new Error("This editor changed.");
         if (state().mode !== rec.mode) draw.setMode(rec.mode);
         draw.adopt(job.result?.candidate ?? null, rec.sample, known);
       });

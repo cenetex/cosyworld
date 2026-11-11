@@ -34,18 +34,27 @@ export function createJobSweep({
   // Handed to the tools that start jobs, so a reload can find them again.
   const track = {
     accepted: (record) =>
-      store.putJob({ ...record, draftKey: key }).catch(() => {}),
+      store.putJob({ draftKey: key, ...record }).catch(() => {}),
     settled: (id) => store.deleteJob(id).catch(() => {}),
     dropped: (record) =>
-      store.putJob({ ...record, draftKey: key, dropped: true }).catch(() => {}),
+      store.putJob({ draftKey: key, ...record, dropped: true }).catch(() => {}),
   };
-  async function settle(rec, job) {
+  async function settle(rec, job, current) {
+    const guardedRun = (callback) => {
+      if (!current()) throw new Error("This editor changed.");
+      return run((context) => {
+        if (!current() || context.snapshot().key !== rec.draftKey)
+          throw new Error("This editor changed.");
+        return callback(context);
+      });
+    };
     try {
-      if ((await adopters[rec.kind].adoptJob(job, rec, run)) === "later")
+      if ((await adopters[rec.kind].adoptJob(job, rec, guardedRun)) === "later")
         return "later";
     } catch (error) {
       if (retriable(error)) return "retry";
     }
+    if (!current()) return "later";
     await store.deleteJob(rec.id).catch(() => {});
     return "done";
   }
@@ -62,7 +71,7 @@ export function createJobSweep({
         signal: controller.signal,
         env,
         fetch,
-        onUpdate: (next) => adopter.progressJob?.(rec, next),
+        onUpdate: (next) => opened === life && adopter.progressJob?.(rec, next),
       },
     ).then(
       () => {
@@ -71,43 +80,48 @@ export function createJobSweep({
       },
       () => {
         watching.delete(rec.id);
-        adopter.progressJob?.(rec, null);
+        if (opened === life) adopter.progressJob?.(rec, null);
       },
     );
   }
   async function pass() {
-    const opened = life;
-    const records = (await store.readJobs(key)).filter(
+    const opened = life,
+      draftKey = key,
+      current = () => opened === life && draftKey === key;
+    const records = (await store.readJobs(draftKey)).filter(
       (rec) => adopters[rec.kind] && !isLive(rec.id),
     );
-    if (!records.length) return;
+    if (!current() || !records.length) return;
     let jobs;
     try {
       jobs = await listJobs({ fetch });
     } catch {
       return;
     }
+    if (!current()) return;
     const byId = new Map(jobs.map((job) => [job.id, job]));
     let later = false;
     for (const rec of records) {
-      if (opened !== life) return;
+      if (!current()) return;
       let job = byId.get(rec.id);
       if (!job) {
         try {
           job = await readJob(rec.id, { fetch });
         } catch (error) {
+          if (!current()) return;
           if (error.status === 404)
             await store.deleteJob(rec.id).catch(() => {});
           continue;
         }
       }
+      if (!current()) return;
       if (!finished(job)) {
         watch(rec, job);
         continue;
       }
-      if ((await settle(rec, job)) === "retry") later = true;
+      if ((await settle(rec, job, current)) === "retry") later = true;
     }
-    if (later && retries++ < 40) {
+    if (current() && later && retries++ < 40) {
       clearTimeout(timer);
       timer = setTimeout(() => poke({ force: true }), retryMs);
     }

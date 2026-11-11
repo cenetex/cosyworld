@@ -80,7 +80,8 @@ export function createCharacterDraw({
     return true;
   }
   // One paid reply, held while this tab waits for it and applies it.
-  async function ask(input, signal, sample) {
+  async function ask(input, signal, sample, draftKey) {
+    const askedMode = mode;
     let job;
     try {
       const value = await generate(input, {
@@ -91,10 +92,11 @@ export function createCharacterDraw({
           holdJob(accepted.id);
           job = {
             id: accepted.id,
+            ...(draftKey ? { draftKey } : {}),
             kind: "avatars",
-            mode,
+            mode: askedMode,
             // Story text stays out of the record unless adopting a reply needs it.
-            ...(mode === "extract" ? { sample } : {}),
+            ...(askedMode === "extract" ? { sample } : {}),
           };
           return Promise.resolve(track.accepted(job)).catch(() => {});
         },
@@ -196,7 +198,7 @@ export function createCharacterDraw({
       cancel();
       notify();
     },
-    async find(known = []) {
+    async find(known = [], draftKey) {
       cancel();
       const token = epoch;
       controller = new AbortController();
@@ -229,6 +231,7 @@ export function createCharacterDraw({
             },
             signal,
             sample,
+            draftKey,
           );
           try {
             const value = asked.value;
@@ -249,7 +252,7 @@ export function createCharacterDraw({
           } finally {
             if (asked.job) {
               releaseJob(asked.job.id);
-              await track.settled(asked.job.id);
+              if (token === epoch) await track.settled(asked.job.id);
             }
           }
         }
