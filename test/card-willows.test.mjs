@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";

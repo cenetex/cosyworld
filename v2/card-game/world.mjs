@@ -228,6 +228,30 @@ import {
 } from "./resident-home.mjs";
 import { bedtime, residentAsleep, validSleep } from "./resident-sleep.mjs";
 import {
+  attending,
+  dwellRule,
+  startAttend,
+  dwelling as dwellingNow,
+  startDwell as startDwellNow,
+  validDwell,
+} from "./world/dwell.mjs";
+// Arrivals always record a stay (so a browser and the shared engine agree);
+// story suites hold world life off, and a journey resident is moved by its
+// journey: neither is held by one.
+const dwelling = (s, id) =>
+  dwellRule.on &&
+  worldLife.on &&
+  !packPeople[id]?.journey &&
+  (dwellingNow(s, id) ||
+    (attending(s, id) &&
+      Object.keys(s.actors).some(
+        (h) =>
+          controlledByHuman(s, h) &&
+          humanPresent(s, h) &&
+          s.actors[h].place === s.actors[id].place,
+      )));
+const startDwell = (s, id) => dwellRule.on && startDwellNow(s, id);
+import {
   guardableWays,
   guardPost,
   guardOf,
@@ -1686,6 +1710,9 @@ function travelParty(s, actors, destination) {
   for (const actor of actors) {
     if (through) s.actors[actor].crossed += 1;
     s.actors[actor].place = destination;
+    // A resident that arrives stays a while (rules 133).
+    if (!controlledByHuman(s, actor) && !transportPlace(destination))
+      startDwell(s, actor);
     for (const id of carried(s, actor))
       remember(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
   }
@@ -2081,17 +2108,17 @@ function residentRound(s, acted) {
       transportPlace(a.place)
     )
       continue;
-    // A resident sleeps at home: away, it walks home first if it can.
+    // A resident with a home sleeps there only (rules 133): away, it stays
+    // up and walks home at its own pace (dwell holds each step), then sleeps
+    // if the window is still open. An avatar with no range sleeps where it
+    // stands, as before.
     const home = lifeHome(id, s);
     prepareResidentLamp(s, id, home);
-    if (
-      rangeOf(s, id) !== null &&
-      home &&
-      a.place !== home &&
-      entityActive(s, home) &&
-      stepToward(s, id, home).action?.kind === "move"
-    ) {
-      a.homeward = true;
+    if (rangeOf(s, id) !== null && home && a.place !== home) {
+      // Only a resident with a way home is marked walking: one with none
+      // keeps to its wants instead of standing idle.
+      if (entityActive(s, home) && stepToward(s, id, home).action?.kind === "move")
+        a.homeward = true;
       continue;
     }
     a.slept = w.start;
@@ -2129,11 +2156,16 @@ function residentRound(s, acted) {
     }
     const goal = wantPlace(s, id);
     const ranged = Number.isFinite(rangeOf(s, id));
+    // A resident that just arrived stays, whatever it would do next.
+    const settled = dwelling(s, id);
     const idleAway = ranged && here !== home && !(goal && inRange(s, id, goal));
     const target =
-      here !== home && (walksHome(s, id) || idleAway || (ranged && dawnOrDusk))
+      !settled &&
+      here !== home &&
+      (walksHome(s, id) || idleAway || (ranged && dawnOrDusk))
         ? home
-        : dawnOrDusk &&
+        : !settled &&
+            dawnOrDusk &&
             wanders(s, id) &&
             goal &&
             goal !== here &&
@@ -2950,7 +2982,10 @@ function wantPlan(s, actor) {
   }
   const levelHome = levelReturnHome(s, actor);
   if (levelHome) {
-    const step = here === levelHome ? {} : stepToward(s, actor, levelHome);
+    const step =
+      here === levelHome || dwelling(s, actor)
+        ? {}
+        : stepToward(s, actor, levelHome);
     return { ...step, action: step.action || idle().action };
   }
   // Rules 100: a resident walking home goes home first, and one kept to a
@@ -2963,8 +2998,12 @@ function wantPlan(s, actor) {
     const step = home && here !== home ? stepToward(s, actor, home) : null;
     return step?.action ? { action: step.action } : idle();
   };
-  const drift = () => (ranged && worldLife.on ? homeStep() : idle());
-  if (walksHome(s, actor)) return homeStep();
+  // A resident that just arrived stays a while (rules 133): it neither drifts
+  // home nor goes for a want until its dwell is over.
+  const settled = dwelling(s, actor);
+  const drift = () =>
+    ranged && worldLife.on && !settled ? homeStep() : idle();
+  if (walksHome(s, actor)) return settled ? idle() : homeStep();
   // A resident eats what it holds when a quest of its wants it eaten, there
   // and with that companion if named.
   const meal = acts.find(
@@ -2994,6 +3033,7 @@ function wantPlan(s, actor) {
   // A maker leaves what it makes for others to carry.
   if (want.kind === "item" && makerChoice(actor, want.target)) return idle();
   const go = (place) => {
+    if (settled) return idle();
     if (!travels(actor, s) || staysPut(actor, s) || keepsHome(s, actor))
       return drift();
     const step = stepToward(s, actor, place);
@@ -3235,6 +3275,20 @@ export function play(
     ]),
   ];
   const respondent = perform(next, exact, round, residents);
+  // A human's Talk, Ask, Give, Trade or refused Accompany holds the resident
+  // in the room a moment (rules 133).
+  if (
+    dwellRule.on &&
+    controlledByHuman(next, actor) &&
+    ["talk", "ask", "give", "trade", "accompany"].includes(exact.kind) &&
+    exact.target &&
+    exact.target !== actor &&
+    !controlledByHuman(next, exact.target) &&
+    next.actors[exact.target]?.place === next.actors[actor].place &&
+    (exact.kind !== "accompany" ||
+      !next.log.findLast((e) => e.verb === "accompany")?.accepted)
+  )
+    startAttend(next, exact.target);
   // A box this play opened pays one XP, once per avatar per box (rules 133).
   creditOpened(s, next, actor);
   if (
@@ -3311,7 +3365,10 @@ export function play(
     // Residents put ashore set that pursuit aside.
     if (voyage.kind === "home")
       for (const id of voyage.ashore)
-        if (!humanHeld(next, id)) setAsideWant(next, id, wantAPI(next));
+        if (!humanHeld(next, id)) {
+          setAsideWant(next, id, wantAPI(next));
+          startDwell(next, id);
+        }
   }
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
@@ -3535,6 +3592,7 @@ export function validateWorld(s) {
     !validLife(s, Object.keys(places)) ||
     !validHome(s) ||
     !validCompanions(s, actorIds) ||
+    !validDwell(s) ||
     !validSleep(s, places) ||
     !validGuard(s, places)
   )

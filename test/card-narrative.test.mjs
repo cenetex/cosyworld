@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
 import { rest } from "./fixtures/card-rest.mjs";

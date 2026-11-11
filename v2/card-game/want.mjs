@@ -19,6 +19,7 @@ import { DAYLIGHT_TURNS, packDiscovered, runHash } from "./pack-rules.mjs";
 import { drawGlimpse, validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
+import { MAX_DWELL } from "./world/dwell.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A want may name a verb beyond the kind's own (hold, be at, talk). State
@@ -669,6 +670,12 @@ export function setAsideWant(s, actor, api) {
 // that keeps to its scene acts only when someone is there, so time spent
 // unseen is not a stall: its want can stall only after it has tried and been
 // refused at least once.
+// Where a want's stall clock starts: its draw, or the latest arrival if later
+// (rules 133). A resident dwelling between steps is making progress at the
+// pace of its stays, so each arrival restarts the clock. `dwellUntil` less
+// the longest stay is never after the arrival.
+const stallStart = (s, id, want) =>
+  Math.max(want.since, (s.actors[id].dwellUntil ?? 0) - MAX_DWELL);
 export function reviseStalledWants(s, actors, api) {
   // A resident's want clock starts when he first becomes active: while his card
   // is shut or he is absent, the want is kept fresh, so he does not arrive
@@ -682,7 +689,7 @@ export function reviseStalledWants(s, actors, api) {
       want &&
       !api.player(id) &&
       (travels(id, s) || api.wanders?.(id) || want.refusals > 0) &&
-      s.turn - want.since >= STALL_TURNS
+      s.turn - stallStart(s, id, want) >= STALL_TURNS
     )
       giveUp(s, id, api);
   }

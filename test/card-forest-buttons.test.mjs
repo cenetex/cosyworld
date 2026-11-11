@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";

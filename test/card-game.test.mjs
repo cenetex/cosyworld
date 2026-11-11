@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { readFileSync } from "node:fs";
 import { setImmediate as yieldToRunner } from "node:timers/promises";

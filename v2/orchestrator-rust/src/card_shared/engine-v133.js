@@ -1859,6 +1859,36 @@
     );
   }
 
+  // v2/card-game/world/dwell.mjs
+  var dwellRule = { on: true };
+  var DWELL_TURNS = 24;
+  var DWELL_SPREAD = 6;
+  var MAX_DWELL = DWELL_TURNS + DWELL_SPREAD - 1;
+  function scatter(id, turn) {
+    let h = 2166136261;
+    for (const ch of `${id}@${turn}`) {
+      h ^= ch.codePointAt(0);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h % DWELL_SPREAD;
+  }
+  function startDwell(s, id) {
+    s.actors[id].dwellUntil = s.turn + DWELL_TURNS + scatter(id, s.turn);
+  }
+  var dwelling = (s, id) => (s.actors[id]?.dwellUntil ?? 0) > s.turn;
+  var ATTEND_TURNS = 2;
+  var ATTEND_CAP = DWELL_TURNS;
+  function startAttend(s, id) {
+    const a = s.actors[id], t = s.turn;
+    if (!a.attend || t >= a.attend.since + 2 * ATTEND_CAP)
+      a.attend = { since: t, until: t + ATTEND_TURNS };
+    else a.attend.until = Math.min(t + ATTEND_TURNS, a.attend.since + ATTEND_CAP);
+  }
+  var attending = (s, id) => (s.actors[id]?.attend?.until ?? 0) > s.turn;
+  var validDwell = (s) => Object.values(s.actors).every(
+    (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
+  );
+
   // v2/card-game/want.mjs
   var WANT_KINDS = ["item", "place", "person", "connect"];
   var STEP_VERBS = {
@@ -2213,13 +2243,14 @@
   function setAsideWant(s, actor, api) {
     if (s.actors[actor]?.want) giveUp(s, actor, api);
   }
+  var stallStart = (s, id, want) => Math.max(want.since, (s.actors[id].dwellUntil ?? 0) - MAX_DWELL);
   function reviseStalledWants(s, actors2, api) {
     for (const [id, a] of Object.entries(s.actors))
       if (a.want && !api.player(id) && !entityActive(s, id))
         a.want.since = s.turn;
     for (const id of actors2) {
       const want = wantOf(s, id);
-      if (want && !api.player(id) && (travels(id, s) || api.wanders?.(id) || want.refusals > 0) && s.turn - want.since >= STALL_TURNS)
+      if (want && !api.player(id) && (travels(id, s) || api.wanders?.(id) || want.refusals > 0) && s.turn - stallStart(s, id, want) >= STALL_TURNS)
         giveUp(s, id, api);
     }
   }
@@ -6430,13 +6461,13 @@
     if (action.enable) return { text: `${name} returns as it was.` };
     for (const g of ORDER)
       if (groupAwake(off, g) && !groupAwake(next, g))
-        for (const pack of GROUPS[g].packs) scatter(s, pack, api);
+        for (const pack of GROUPS[g].packs) scatter2(s, pack, api);
     return {
       text: `${name} goes quiet. Everyone and everything from elsewhere there is scattered.`
     };
   }
   var byId = (o) => Object.entries(o).sort(([x], [y]) => x < y ? -1 : 1);
-  function scatter(s, pack, api) {
+  function scatter2(s, pack, api) {
     const mine = (x) => packIdOf(x) === pack;
     const at = ENTRIES[pack].filter((e) => packOn(s, e.joins) && entityActive(s, e.at)).map((e) => e.at);
     const spots = at.length ? [...new Set(at)] : [firstStart(s)];
@@ -6500,11 +6531,11 @@
     const pack = !humanAvatar(id) && packPeople[id]?.packId;
     return world_life_default.packs?.[pack]?.sleep ?? world_life_default.defaults.sleep;
   }
-  var scatter2 = (s, key3) => runHash(s, key3) % (2 * SLEEP_SCATTER + 1) - SLEEP_SCATTER;
+  var scatter3 = (s, key3) => runHash(s, key3) % (2 * SLEEP_SCATTER + 1) - SLEEP_SCATTER;
   function sleepWindow(s, id, day) {
     const z = sleepSchedule(id);
     if (!z) return null;
-    const start = day * DAY_TURNS2 + z.from + scatter2(s, `sleep:${id}:${day}`), end = (z.to > z.from ? day : day + 1) * DAY_TURNS2 + z.to + scatter2(s, `wake:${id}:${day}`);
+    const start = day * DAY_TURNS2 + z.from + scatter3(s, `sleep:${id}:${day}`), end = (z.to > z.from ? day : day + 1) * DAY_TURNS2 + z.to + scatter3(s, `wake:${id}:${day}`);
     return end > start ? { start, end } : null;
   }
   function bedtime(s, id) {
@@ -7281,6 +7312,10 @@
   };
 
   // v2/card-game/world.mjs
+  var dwelling2 = (s, id) => dwellRule.on && worldLife.on && !packPeople[id]?.journey && (dwelling(s, id) || attending(s, id) && Object.keys(s.actors).some(
+    (h) => controlledByHuman(s, h) && humanPresent(s, h) && s.actors[h].place === s.actors[id].place
+  ));
+  var startDwell2 = (s, id) => dwellRule.on && startDwell(s, id);
   var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
   var lifeProblems = lifeDataProblems(places, people);
   if (lifeProblems.length)
@@ -8273,6 +8308,8 @@
     for (const actor of actors2) {
       if (through) s.actors[actor].crossed += 1;
       s.actors[actor].place = destination;
+      if (!controlledByHuman(s, actor) && !transportPlace(destination))
+        startDwell2(s, actor);
       for (const id of carried(s, actor))
         remember3(s, id, `${nameOf(actor)} carried it to ${nameOf(destination)}.`);
     }
@@ -8533,8 +8570,9 @@
         continue;
       const home = lifeHome(id, s);
       prepareResidentLamp(s, id, home);
-      if (rangeOf(s, id) !== null && home && a.place !== home && entityActive(s, home) && stepToward(s, id, home).action?.kind === "move") {
-        a.homeward = true;
+      if (rangeOf(s, id) !== null && home && a.place !== home) {
+        if (entityActive(s, home) && stepToward(s, id, home).action?.kind === "move")
+          a.homeward = true;
         continue;
       }
       a.slept = w.start;
@@ -8562,8 +8600,9 @@
       }
       const goal = wantPlace(s, id);
       const ranged = Number.isFinite(rangeOf(s, id));
+      const settled = dwelling2(s, id);
       const idleAway = ranged && here !== home && !(goal && inRange(s, id, goal));
-      const target = here !== home && (walksHome(s, id) || idleAway || ranged && dawnOrDusk) ? home : dawnOrDusk && wanders(s, id) && goal && goal !== here && inRange(s, id, goal) ? goal : null;
+      const target = !settled && here !== home && (walksHome(s, id) || idleAway || ranged && dawnOrDusk) ? home : !settled && dawnOrDusk && wanders(s, id) && goal && goal !== here && inRange(s, id, goal) ? goal : null;
       if (!target) continue;
       steps += 1;
       prepareResidentLamp(s, id, target);
@@ -9236,7 +9275,7 @@
     }
     const levelHome = levelReturnHome(s, actor);
     if (levelHome) {
-      const step = here === levelHome ? {} : stepToward(s, actor, levelHome);
+      const step = here === levelHome || dwelling2(s, actor) ? {} : stepToward(s, actor, levelHome);
       return { ...step, action: step.action || idle().action };
     }
     const home = lifeHome(actor, s), ranged = Number.isFinite(rangeOf(s, actor) ?? Infinity);
@@ -9244,8 +9283,9 @@
       const step = home && here !== home ? stepToward(s, actor, home) : null;
       return step?.action ? { action: step.action } : idle();
     };
-    const drift = () => ranged && worldLife.on ? homeStep() : idle();
-    if (walksHome(s, actor)) return homeStep();
+    const settled = dwelling2(s, actor);
+    const drift = () => ranged && worldLife.on && !settled ? homeStep() : idle();
+    if (walksHome(s, actor)) return settled ? idle() : homeStep();
     const meal = acts.find(
       (a) => a.kind === "eat" && (() => {
         const w = wantOf(s, actor);
@@ -9261,6 +9301,7 @@
     if (resting(s, actor)) return idle();
     if (want.kind === "item" && makerChoice(actor, want.target)) return idle();
     const go = (place) => {
+      if (settled) return idle();
       if (!travels(actor, s) || staysPut(actor, s) || keepsHome(s, actor))
         return drift();
       const step = stepToward(s, actor, place);
@@ -9432,6 +9473,8 @@
       ])
     ];
     const respondent = perform(next, exact, round2, residents);
+    if (dwellRule.on && controlledByHuman(next, actor) && ["talk", "ask", "give", "trade", "accompany"].includes(exact.kind) && exact.target && exact.target !== actor && !controlledByHuman(next, exact.target) && next.actors[exact.target]?.place === next.actors[actor].place && (exact.kind !== "accompany" || !next.log.findLast((e) => e.verb === "accompany")?.accepted))
+      startAttend(next, exact.target);
     creditOpened(s, next, actor);
     if (next.opening && !next.locations.attic.anchored && ["light", "snuff"].includes(exact.kind) && next.actors.vale.place === "attic") {
       next.locations.attic.anchored = true;
@@ -9482,7 +9525,10 @@
       );
       if (voyage.kind === "home") {
         for (const id of voyage.ashore)
-          if (!humanHeld(next, id)) setAsideWant(next, id, wantAPI(next));
+          if (!humanHeld(next, id)) {
+            setAsideWant(next, id, wantAPI(next));
+            startDwell2(next, id);
+          }
       }
     }
     const worldLine = (text2, locationId) => addLog(next, "World", text2, { kind: "narration", locationId });
@@ -9604,7 +9650,7 @@
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
     if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
-    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validSleep(s, places) || !validGuard(s, places))
+    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validDwell(s) || !validSleep(s, places) || !validGuard(s, places))
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
       fail();
