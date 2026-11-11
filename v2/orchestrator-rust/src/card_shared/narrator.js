@@ -1946,6 +1946,14 @@
   }
   var wantHeard = (world, played, id, player2) => id === player2 || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
 
+  // v2/card-game/world/dwell.mjs
+  var DWELL_TURNS = 24;
+  var DWELL_SPREAD = 6;
+  var MAX_DWELL = DWELL_TURNS + DWELL_SPREAD - 1;
+  var validDwell = (s) => Object.values(s.actors).every(
+    (a) => a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL
+  );
+
   // v2/card-game/want.mjs
   var WANT_KINDS = ["item", "place", "person", "connect"];
   var STEP_VERBS = {
@@ -19623,7 +19631,7 @@
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
     if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
-    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validSleep(s, places) || !validGuard(s, places))
+    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validDwell(s) || !validSleep(s, places) || !validGuard(s, places))
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
       fail();

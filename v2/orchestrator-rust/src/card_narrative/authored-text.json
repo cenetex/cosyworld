@@ -71,6 +71,7 @@
 "v2/card-game/world/catalog.mjs",
 "v2/card-game/world/company.mjs",
 "v2/card-game/world/create.mjs",
+"v2/card-game/world/dwell.mjs",
 "v2/card-game/world/geography.mjs",
 "v2/card-game/world/home.mjs",
 "v2/card-game/world/items.mjs",
