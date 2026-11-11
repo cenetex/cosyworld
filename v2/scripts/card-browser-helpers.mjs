@@ -22,7 +22,14 @@ export const topicForChoice = (choiceId) =>
 export async function tapCard(card) {
   await card.scrollIntoViewIfNeeded();
   const { width } = await card.boundingBox();
-  await card.click({ position: { x: width / 2, y: 16 } });
+  const top = { x: width / 2, y: 16 };
+  // A neighbour may lie over the top: tap the card's visible part instead.
+  const covered = await card.evaluate((el, at) => {
+    const box = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + at.x, box.top + at.y);
+    return !(hit === el || el.contains(hit));
+  }, top);
+  await card.click({ position: covered ? await visibleSpot(card) : top });
 }
 
 // ☰ > Settings is a hand of cards (settings-cards.mjs). A setting lies in
@@ -215,9 +222,9 @@ export async function selectCard(page, id, { touch = false } = {}) {
       (await owner.getAttribute("aria-pressed")) === "true" &&
       !(await owner.evaluate((el) => el.classList.contains("location")))
     ) {
-      await owner.scrollIntoViewIfNeeded();
-      if (touch) await owner.tap();
-      else await owner.click();
+      const position = await visibleSpot(owner);
+      if (touch) await owner.tap({ position });
+      else await owner.click({ position });
     }
   }
 }

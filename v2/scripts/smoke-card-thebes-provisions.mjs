@@ -242,10 +242,9 @@ try {
     assert.equal(docked.items["greek-provisions"].holder, "greek-ship");
     assert.ok(!docked.usedUp.includes("greek-provisions"));
     await shot("07-provisions-still-aboard");
-    // The way home is free: with the provisions back in hand, the harbour
-    // course is still offered.
-    await primary("greek-provisions");
-    assert.equal((await state()).items["greek-provisions"].holder, "vale");
+    // The way home is free: the provisions still on deck, the harbour
+    // course is offered and sailed. With them back in hand the dock
+    // is left in one tap: a held thing never leaves the player without a button.
     await primary("greek-harbor");
     for (
       let n = 0;
@@ -256,6 +255,8 @@ try {
       n++
     )
       await primary("greek-ship");
+    await primary("greek-provisions");
+    assert.equal((await state()).items["greek-provisions"].holder, "vale");
     await primary("greek-harbor");
     const home = await state();
     assert.equal(home.actors.vale.place, "greek-harbor");
