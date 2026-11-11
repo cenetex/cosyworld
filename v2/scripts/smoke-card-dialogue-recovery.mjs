@@ -272,6 +272,7 @@ try {
     assert.deepEqual((await state()).actors, committed.actors);
     assert.deepEqual((await state()).items, committed.items);
     await noFailureUi();
+    await ready();
     // Slow words keep the Thinking card but not the hand: after a short
     // grace the next choice is offered, and the late line still types in.
     mode = "slow";
@@ -299,15 +300,23 @@ try {
     await page.locator('#hand [data-card="pond"]').click();
     await page.locator("#card-actions .card-primary").click();
     assert.equal((await state()).turn, slow.turn, "the next play waits");
-    const lineFor = (turn) =>
-      page.waitForFunction(
-        (turn) =>
-          document
-            .querySelector("#dialogue-text")
-            .textContent.includes(`speaks on turn ${turn}`),
-        turn,
-        { timeout: 12_000 },
-      );
+    // A line waits for a tap before the next one, so read on while waiting.
+    const lineFor = async (turn) => {
+      const shown = () =>
+        page.evaluate(
+          (turn) =>
+            document
+              .querySelector("#dialogue-text")
+              .textContent.includes(`speaks on turn ${turn}`),
+          turn,
+        );
+      for (let i = 0; i < 300 && !(await shown()); i++) {
+        if (turn > slow.turn && (await page.locator("#dialogue-advance").isVisible()))
+          await page.locator("#dialogue-advance").click();
+        await page.waitForTimeout(40);
+      }
+      assert(await shown(), `the line for turn ${turn} came`);
+    };
     await lineFor(slow.turn);
     assert(!abandoned.includes(slow.revision), "the late line is not dropped");
     await noFailureUi();

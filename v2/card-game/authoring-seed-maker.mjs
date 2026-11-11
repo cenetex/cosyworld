@@ -102,6 +102,7 @@ export function createSeedMaker({
               holding = accepted.id;
               job = {
                 id: accepted.id,
+                draftKey: record.key,
                 kind: "seed",
                 tool,
                 input: structuredClone(input),
@@ -191,7 +192,13 @@ export function createSeedMaker({
       if (pending?.job === rec.id || running) return "later";
       await run(async (context) => {
         const record = context.snapshot();
-        if (pending || !available() || !sameWorld(record, rec.input, rec.basis)) {
+        if (record.key !== rec.draftKey)
+          throw new Error("This editor changed.");
+        if (
+          pending ||
+          !available() ||
+          !sameWorld(record, rec.input, rec.basis)
+        ) {
           notices.set(
             rec.tool,
             "A draw you asked for finished but was not applied, because this world changed after you asked. Draw again.",
