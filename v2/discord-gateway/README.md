@@ -28,6 +28,9 @@ imports discord.js.
 
 ## Status
 
-Phase 1a: bind (`/setup`), room view (`/who`), unbind, privacy card. Talk
-routing needs a server-side narrative endpoint (the browser's `/card-game/text`
-expects a same-origin, fully-built scene) and lands in Phase 1b.
+Phase 1a: bind (`/setup`), room view (`/who`), unbind, privacy card.
+Phase 1c/1d: `src/talk.mjs` routes a message to the shared `/talk` endpoint
+(target resolution, request build, line parsing) — tested with mocks. The
+remaining integration is world/avatar resolution (the `/card-game/shared/worlds`
+list format) and posting the resident lines as per-message webhooks in
+`index.mjs`'s `messageCreate`.
