@@ -20,11 +20,15 @@ describe("alternate place paintings", () => {
   it("shows today's painting everywhere no alternate condition holds", () => {
     expect(paintings(createWorld())).toEqual({
       ...mounted(before.day),
+      "greek-road-athens-eleusis":
+        "./assets/greek-drama/sacred-way-dipylon.webp",
       "greek-polynices-hollow":
         "./assets/greek-drama/polynices-hollow-fallen-day.webp",
     });
     expect(paintings(night(createWorld()))).toEqual({
       ...mounted(before.night),
+      "greek-road-athens-eleusis":
+        "./assets/greek-drama/sacred-way-dipylon-night.webp",
       "greek-polynices-hollow":
         "./assets/greek-drama/polynices-hollow-fallen-night.webp",
       "willows-landing": "./assets/willows/landing-night.webp",

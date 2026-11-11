@@ -57,3 +57,10 @@ export function shipPaintingWorld(phase, night) {
     );
   return world;
 }
+
+export function sacredWayPaintingWorld(night) {
+  const world = createWorld({ packScopes: { "greek-drama": "full" } });
+  world.crossings["pond-greek-harbor"].discovered = true;
+  world.actors.vale.place = "greek-road-athens-eleusis";
+  return atNight(world, night);
+}
