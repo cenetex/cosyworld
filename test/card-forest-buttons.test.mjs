@@ -1,4 +1,3 @@
-import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -118,48 +117,16 @@ describe("a button in each traveler's own colour", () => {
     expect(entityActive(world, "forest-button-mara")).toBe(false);
   });
 
-  it("makes finding the hidden button the traveler's quest", () => {
-    let world = meetRati();
-    const spot = world.items[BUTTON].holder;
-    expect(world.actors.vale.under[0]).toEqual({
+  it("makes finding the hidden button RATi's want and hands the traveler nothing", () => {
+    const world = meetRati();
+    expect(world.actors.rati.want).toMatchObject({
       kind: "item",
       target: BUTTON,
-      since: world.turn,
       refusals: 0,
-      story: true,
     });
-    validateWorld(reload(world));
-    const xp = world.actors.vale.xp;
-    // The button is an ordinary thing where it rests: anyone there can take it.
-    world.actors.vale.place = spot;
-    world = act(world, "take", { item: BUTTON });
-    expect(world.actors.vale.xp).toBe(xp);
-    world = collectRewards(world);
-    expect(world.actors.vale.xp).toBe(xp + 1);
-    expect(
-      world.log.some((e) => e.verb === "want_met" && e.itemId === BUTTON),
-    ).toBe(true);
     expect(world.actors.vale.want?.target).not.toBe(BUTTON);
-  });
-
-  it("keeps both active quests when the one-time button quest arrives", () => {
-    const start = attic();
-    start.actors.vale.want = {
-      kind: "person",
-      target: "keeper",
-      since: 0,
-      refusals: 0,
-      quest: { level: 2, left: 2 },
-    };
-    start.actors.vale.under = [{ kind: "place", target: "pond", since: 0, refusals: 0 }];
-    const world = act(start, "move", { target: COTTAGE });
-    expect(world.actors.vale.under[1]).toMatchObject({
-      target: BUTTON,
-      story: true,
-    });
-    expect(world.actors.vale.want.quest).toEqual({ level: 2, left: 2 });
+    expect(world.actors.vale.under).toBeUndefined();
     validateWorld(reload(world));
-    expect(act(reload(world), "wait").actors.vale.under.filter((w) => w.target === BUTTON)).toHaveLength(1);
   });
 
   it("lets RATi say she would sew it into a scarf", () => {

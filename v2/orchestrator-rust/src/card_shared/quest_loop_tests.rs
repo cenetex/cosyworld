@@ -62,7 +62,6 @@ fn play(world: &World, pick: impl Fn(&Value) -> bool) -> Value {
 fn quests(world: &World) -> Vec<Value> {
     let vale = &world.game["actors"]["vale"];
     std::iter::once(vale["want"].clone())
-        .chain(vale["under"].as_array().cloned().unwrap_or_default())
         .filter(|w| !w.is_null())
         .collect()
 }
@@ -77,14 +76,13 @@ fn woke(world: &World) -> Option<Value> {
         .cloned()
 }
 
-// Rules 99 in the C QuickJS host: a Talk quest given and met reaches
-// halfway, the quest to sleep at a sanctuary dreams the glimpse, and the
-// long rest at full dreams the level quest that honours it. The journal
-// replays every new record (`heard`, `halfwayIssued`, `glimpse`) exactly,
-// and the glimpse is the one the browser rules draw for the same plays
-// (test/card-quest-loop-agreement.test.mjs).
+// Rules 133 in the C QuickJS host: one want per avatar. A Talk records the
+// want told and hands the player nothing; giving the item the keeper wants
+// pays the helper one XP at once (no claim) and raises the keeper's trust, a
+// long rest at halfway dreams the glimpse and never a quest. The journal
+// replays every new record (`heard`, `halfwayIssued`, `glimpse`) exactly.
 #[test]
-fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
+fn rules_133_one_want_commits_and_replays_in_the_c_host() {
     let mut world = created(engine::VERSION);
     let game = &mut world.game;
     game.as_object_mut().unwrap().remove("opening");
@@ -99,7 +97,6 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
         json!({"kind":"item","target":"bell","since":2,"refusals":0});
     game["actors"]["vale"]["level"] = json!(1);
     game["actors"]["vale"]["xp"] = json!(1);
-    game["actors"]["vale"]["want"] = json!({"kind":"place","target":"pond","since":0,"refusals":0});
     let (path, c, id) = fixture("quest-loop", &world);
     let commit = |w: &mut World, command: Value| {
         full_store::commit(&c, &id, w, command.clone(), now())
@@ -118,20 +115,17 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
         .expect("direct Talk has durable participants");
     assert_eq!(conversation["turn"], world.game["turn"]);
     assert!(conversation["seq"].as_u64().unwrap() > 0);
-    assert_eq!(
-        quests(&world)[1],
-        json!({"kind":"item","target":"bell","since":3,"refusals":0,
-            "step":{"verb":"give","to":"keeper"}})
-    );
+    // Talk tells the want and hands the player nothing.
+    assert!(quests(&world).is_empty());
     assert_eq!(
         world.game["actors"]["vale"]["heard"],
         json!({"keeper":"item:bell"})
     );
-    // Re-hearing the want adds nothing.
+    // Hearing it again changes nothing.
     let again = play(&world, |a| a["kind"] == "talk" && a["target"] == "keeper");
-    let held = quests(&world);
     commit(&mut world, again);
-    assert_eq!(quests(&world), held);
+    assert!(quests(&world).is_empty());
+    assert!(play_missing(&world, |a| a["kind"] == "claim" || a["kind"] == "focus"));
 
     let give = play(&world, |a| {
         a["kind"] == "give" && a["target"] == "keeper" && a["item"] == "bell"
@@ -140,12 +134,12 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
     let stow = json!({"op":"hold","actor":"vale","choice":{
         "item":null,"revision":world.game["revision"]}});
     commit(&mut world, stow);
-    assert_eq!(world.game["actors"]["vale"]["xp"], 1);
-    let reward = play(&world, |a| a["kind"] == "claim");
-    commit(&mut world, reward);
+    // Helping the keeper meet his want pays one XP on the play and one trust.
     assert_eq!(world.game["actors"]["vale"]["xp"], 2);
+    assert_eq!(world.game["actors"]["keeper"]["trust"]["vale"], 1);
     assert_eq!(world.game["actors"]["vale"]["halfwayIssued"], 2);
-    assert!(quests(&world).iter().all(|w| w["step"]["verb"] != "rest"));
+    assert!(world.game["actors"]["vale"].get("questRewards").is_none());
+    assert!(quests(&world).is_empty());
 
     let wait = |w: &World| play(w, |a| a["kind"] == "wait" && a["sleep"] != true);
     let sleep = |w: &World| play(w, |a| a["sleep"] == true);
@@ -171,28 +165,9 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
     };
     let event = long_rest(&mut world);
     assert_eq!(event["dream"], "glimpse");
-    let glimpse = world.game["actors"]["vale"]["glimpse"].clone();
-    assert_eq!(
-        glimpse,
-        json!({"level":2,"kind":"place","id":"attic","at":"attic"})
-    );
-    let visit = play(&world, |a| a["kind"] == "move" && a["target"] == "pond");
-    commit(&mut world, visit);
-    let reward = play(&world, |a| a["kind"] == "claim");
-    commit(&mut world, reward);
-    assert_eq!(world.game["actors"]["vale"]["xp"], 3);
-    let hold = json!({"op":"hold","actor":"vale","choice":{
-        "item":"lamp","revision":world.game["revision"]}});
-    commit(&mut world, hold);
-    let home = play(&world, |a| a["kind"] == "move" && a["target"] == "attic");
-    commit(&mut world, home);
-    let event = long_rest(&mut world);
-    assert_eq!(event["dream"], "quest");
-    let level = quests(&world)
-        .into_iter()
-        .find(|w| w.get("quest").is_some())
-        .expect("the level quest");
-    assert_eq!(level["quest"]["level"], 2);
+    assert_eq!(world.game["actors"]["vale"]["glimpse"]["level"], 2);
+    // A long rest deals the glimpse and never a quest.
+    assert!(quests(&world).is_empty());
 
     // The journal alone rebuilds the same world, here and reopened.
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
@@ -203,6 +178,14 @@ fn rules_99_quest_loop_commits_and_replays_in_the_c_host() {
     full_store::schema(&reopened).unwrap();
     assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), world);
     let _ = std::fs::remove_file(path);
+}
+
+fn play_missing(world: &World, pick: impl Fn(&Value) -> bool) -> bool {
+    !world.project(0).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(pick)
 }
 
 // A rules 98 world mid-opening upgrades to 99 through the one recorded

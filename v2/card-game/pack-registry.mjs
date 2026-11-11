@@ -9,7 +9,7 @@ import {
   agreeJourney,
   advanceJourney,
 } from "./pack-journeys.mjs";
-import { pushQuest } from "./want.mjs";
+import { newWant, setWant } from "./want.mjs";
 import { usedUp, useUp, bringBack } from "./item-use.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
@@ -826,15 +826,13 @@ export function applyPackChoice(
         placeIds,
       );
       note(e.item);
-      // Whoever lost it wants it back: finding it is a story quest on top of
-      // their stack. Nothing they already hold is wiped (#1831).
-      pushQuest(world, action.actor, {
-        kind: "item",
-        target: e.item,
-        since: world.turn,
-        refusals: 0,
-        story: true,
-      });
+      // The one who hid it wants it back, and says so in Talk; the traveler
+      // is handed nothing (#2605).
+      if (world.actors[choice.subject])
+        setWant(
+          world.actors[choice.subject],
+          newWant("item", e.item, world.turn),
+        );
     }
     // A cosmetic upgrade is one-way: it joins the traveler's set and stays.
     if (e.kind === "upgrade") {

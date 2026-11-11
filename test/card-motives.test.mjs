@@ -326,24 +326,6 @@ describe("shore wants and grievances", () => {
       expect(s.motives.grievances.moth[0].repaired).toBe(lit);
     });
 
-  it("answers an item want beneath the top of the recipient's stack", () => {
-    let s = together(fresh());
-    s.items.bell.holder = "vale";
-    s = act(s, "ring", { item: "bell" });
-    const bell = s.actors.keeper.want;
-    expect(bell).toMatchObject({ kind: "item", target: "bell" });
-    s.actors.keeper.want = {
-      kind: "place",
-      target: "pond",
-      since: 0,
-      refusals: 0,
-    };
-    s.actors.keeper.under = [bell];
-    s = act(s, "give", { item: "bell", target: "keeper" });
-    expect(repairs(s).length).toBe(1);
-    expect(s.motives.grievances.keeper[0].repaired).toBe(true);
-  });
-
   it("repairs nothing when the aggrieved avatar is not there to see the gift", () => {
     let s = together(fresh());
     s.items.lamp.holder = "vale";

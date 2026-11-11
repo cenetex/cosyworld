@@ -16,14 +16,7 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { sendShipHome } from "./pack-transport.mjs";
-import { humanAvatarIds } from "./human-cast.mjs";
-import {
-  mergeSanctuaryQuests,
-  allQuestsOf,
-  QUEST_LIMIT,
-  restStep,
-  setQuests,
-} from "./want.mjs";
+import { restStep, wantOf } from "./want.mjs";
 
 const ORDER = Object.keys(GROUPS);
 const rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
@@ -77,9 +70,6 @@ export function packToggleBlock(s, id, actor) {
     return "Not before the first crossing";
   return null;
 }
-
-// What a quest names: its target and its step's places.
-const names = (w) => [w?.target, w?.step?.to, w?.step?.at].filter(Boolean);
 
 // The play: { kind: "pack", pack: group, enable }. `api` lends the world's
 // rules: closeStandoff, want (the want rules' api) and hash.
@@ -179,22 +169,13 @@ function scatter(s, pack, api) {
     } else if ((mine(state.dock) || mine(state.destination)) && !mine(t.at))
       sendShipHome(s, ship);
   }
-  // Quests naming it go to the bottom of the stack as they are; a sanctuary
-  // in it is forgotten, and a rest step there turns to an awake one (F5).
+  // A sanctuary in it is forgotten, and a rest step there turns to an awake
+  // one (F5). A want naming it is kept as it is: it waits for the pack.
   for (const [id, a] of byId(s.actors)) {
     if (mine(id)) continue;
     if (mine(a.sanctuary)) delete a.sanctuary;
-    const list = mergeSanctuaryQuests(
-      allQuestsOf(s, id).map((w) =>
-        w.step?.verb === "rest" && mine(w.target)
-          ? restStep(s, id, api.want, w.quest)
-          : w,
-      ),
-    );
-    const named = (w) => names(w).some(mine);
-    const count = humanAvatarIds.includes(id) ? QUEST_LIMIT : list.length;
-    const active = list.slice(0, count);
-    const order = [...active.filter((w) => !named(w)), ...active.filter(named), ...list.slice(count)];
-    if (order.length) setQuests(a, order);
+    const w = wantOf(s, id);
+    if (w?.step?.verb === "rest" && mine(w.target))
+      a.want = restStep(s, id, api.want, w.quest);
   }
 }

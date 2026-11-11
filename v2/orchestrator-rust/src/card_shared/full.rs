@@ -584,15 +584,6 @@ pub(super) fn run(
                     time,
                 )?;
             }
-            "seek" => {
-                store::commit(
-                    c,
-                    id,
-                    &mut w,
-                    json!({"op":"seek","actor":actor_id(a)}),
-                    time,
-                )?;
-            }
             "play" => {
                 if b.key.len() < 16
                     || b.key.len() > 80

@@ -37,11 +37,11 @@ function decisions() {
 }
 
 describe("want data", () => {
-  it("authors one want for the hub cast and the desiring residents", () => {
+  it("authors a want for Pip, the keeper and the desiring residents, none for the player", () => {
     expect(
       Object.fromEntries(hub.map((id) => [id, forest.people[id].want])),
     ).toEqual({
-      vale: { kind: "item", target: "lamp" },
+      vale: undefined,
       moth: { kind: "item", target: "lamp", lit: true },
       keeper: { kind: "item", target: "bell" },
     });

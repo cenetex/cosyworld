@@ -38,7 +38,7 @@ import {
   applySharedReflections,
 } from "./reflections.mjs";
 import { resetAvatar } from "./avatar-reset.mjs";
-import { arrive, hideAvatar, seekHidden } from "./hidden-avatar.mjs";
+import { arrive, hideAvatar } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
@@ -235,12 +235,6 @@ export function dispatchShared(request) {
     resetAvatar(world, actor);
     validateTransition(world);
     return response(world);
-  }
-  if (request.op === "seek") {
-    seekHidden(world, actor);
-    world.revision += 1;
-    validateTransition(world);
-    return response(world, view(world, actor));
   }
   if (request.op === "hold") {
     if (

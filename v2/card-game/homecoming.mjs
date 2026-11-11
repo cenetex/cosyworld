@@ -16,7 +16,7 @@ import {
 } from "./pack-registry.mjs";
 import { seedHash } from "./pack-specials.mjs";
 import { hidingPlaces } from "./hidden-avatar.mjs";
-import { newWant, pushQuest } from "./want.mjs";
+import { newWant, setWant } from "./want.mjs";
 
 // A homecoming avatar starts at the pond, where every world begins.
 const START = "pond";
@@ -86,9 +86,7 @@ export function homecoming(world, actor) {
     story: true,
     step: { verb: "bring", at: avatar.home.id },
   };
-  world.actors[actor].want = null;
-  delete world.actors[actor].under;
-  pushQuest(world, actor, want);
+  setWant(world.actors[actor], want);
   return world;
 }
 

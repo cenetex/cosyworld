@@ -4,6 +4,8 @@ import { journeyWorlds } from "./helpers/journey.mjs";
 import { greekGateOpen, greekGateOpenFull } from "./journeys/greek-before-funeral.mjs";
 import { questCard, questCards, questVisible, questVerb } from "../v2/card-game/quest-card.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
+import { questFor } from "../v2/card-game/talk-quest.mjs";
+import { setWant } from "../v2/card-game/want.mjs";
 import {
   createWorld,
   decodeSave,
@@ -24,9 +26,18 @@ const antigone = "greek-antigone";
 const oil = "greek-oil-flask";
 const cloth = "greek-funeral-cloth";
 const shovel = "greek-shovel";
-// A played world still carries Vale's earlier lamp quest on top of the stack;
-// the burial is the quest that has a rite (an art stage) to show.
+// The burial is the quest that has a rite (an art stage) to show.
 const burialCard = (world) => questCards(world).find((quest) => quest.art) ?? null;
+// Talk tells the burial and the player takes it by a tap. Until Accept quest
+// is a play (a later package), take it here as the tap would.
+const accept = (world) => {
+  const teller = [antigone, "greek-polynices-shade"].find(
+    (id) => world.actors[id]?.want?.step?.verb === "lay",
+  );
+  if (teller && !world.actors.vale.want)
+    setWant(world.actors.vale, questFor(world, teller, world.actors[teller].want));
+  return world;
+};
 const rites = [
   "greek-anoint-polynices",
   "greek-shroud-polynices",
@@ -91,6 +102,7 @@ it.each(["opening", "full"])(
       world = result.state;
     };
     act({ kind: "talk", target: antigone });
+    accept(world);
     expect(burialCard(world)?.art).toContain("polynices-fallen");
     act({ kind: "move", target: "greek-battlefield" });
     world.turn = world.revision = 36;
@@ -138,6 +150,7 @@ it("keeps a meeting with the shade after dawn", () => {
   world.turn = world.revision = 36;
   const result = play(world, talk(world));
   expect(result.ok, result.error).toBe(true);
+  accept(result.state);
   result.state.turn = result.state.revision = 48;
   const dawn = decodeSave(encodeSave(result.state));
   expect(talk(dawn)).toBeUndefined();

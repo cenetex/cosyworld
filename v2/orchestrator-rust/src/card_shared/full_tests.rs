@@ -2693,8 +2693,8 @@ fn stowing_the_lamp_then_playing_meets_vales_want_once_and_replays() {
     let mut w = World::create(None).unwrap();
     w.claimed = [1, 0, 0, 0, 0, 0, 0, 0];
     w.present = w.claimed;
-    // A player holds no quest before the Black Pond (#1768), so this test
-    // gives Vale the lamp want she used to start with.
+    // A player holds no quest until it takes one by a tap, so this test
+    // gives Vale the lamp quest.
     assert!(w.game["actors"]["vale"]["want"].is_null());
     w.game["actors"]["vale"]["want"] =
         json!({"kind":"item","target":"lamp","since":0,"refusals":0});
@@ -2729,18 +2729,10 @@ fn stowing_the_lamp_then_playing_meets_vales_want_once_and_replays() {
     assert_eq!(first.len(), 1);
     assert_eq!(first[0]["wantMet"], json!({"kind":"item","target":"lamp"}));
     assert_eq!(first[0]["turn"], w.game["turn"]);
-    assert_eq!(w.game["actors"]["vale"]["xp"], 0);
-    let reward = home_action(&w, 0, "claim");
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"vale","action":reward}),
-        now(),
-    )
-    .unwrap();
+    // The want is paid on the play that meets it: no reward to claim.
     assert_eq!(w.game["actors"]["vale"]["xp"], 1);
-    assert_ne!(w.game["actors"]["vale"]["want"]["target"], "lamp");
+    assert!(w.game["actors"]["vale"]["want"].is_null());
+    assert!(w.game["actors"]["vale"].get("questRewards").is_none());
     assert!(w.game.get("quests").is_none());
     for _ in 0..2 {
         let action = home_action(&w, 0, "wait");

@@ -3,7 +3,7 @@ import { newMemories } from "./memory.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import landings from "./pack-landings.json" with { type: "json" };
 import { questFor } from "./talk-quest.mjs";
-import { pushQuest } from "./want.mjs";
+import { takeQuest } from "./want.mjs";
 
 // A physical Pip card opens its own local world. Explicit world links win.
 export function pipEntry(href) {
@@ -30,7 +30,7 @@ export function createPipWorld(seed = newRunSeed()) {
 
 export function beginPipJourney(seed = newRunSeed()) {
   const world = createLandingWorld(null, seed);
-  pushQuest(world, "vale", {
+  takeQuest(world, "vale", {
     ...questFor(world, "moth", world.actors.moth.want),
     story: true,
   });

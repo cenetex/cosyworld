@@ -18,7 +18,8 @@ import {
   sealedReason,
 } from "../v2/card-game/cards.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
-import { CONTENT_TURNS, pushQuest, questsOf } from "../v2/card-game/want.mjs";
+import { CONTENT_TURNS, questsOf, setWant } from "../v2/card-game/want.mjs";
+import { acceptQuest } from "./helpers/accept-quest.mjs";
 import { upgradeGreekDecreeSave } from "../v2/card-game/legacy-saves.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands, openingFixture } from "./helpers/greek-opening.mjs";
@@ -116,8 +117,10 @@ describe("the guard and the decree", () => {
     expect(availableCards(s)).toContain(FIELD);
     expect(sealedReason(s, FIELD)).toBe("The Gate Guard is guarding this card");
     expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
-    // Talk with him gives his quest: bring him the bread.
+    // Talk with him tells his want: bring him the bread. A tap takes it.
     const talked = act(s, "talk", { target: GUARD });
+    expect(questsOf(talked, "vale")).toEqual([]);
+    acceptQuest(talked, GUARD);
     expect(questsOf(talked, "vale")).toContainEqual(
       expect.objectContaining({
         kind: "item",
@@ -257,7 +260,7 @@ describe("eat and drink quests", () => {
 
   it("meets an eat quest only with the named companion at the named place", () => {
     const quest = (s, step) =>
-      pushQuest(s, "vale", {
+      setWant(s.actors.vale, {
         kind: "item",
         target: "greek-wine-skin",
         since: s.turn,

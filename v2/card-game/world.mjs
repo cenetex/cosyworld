@@ -82,17 +82,9 @@ import {
   knownActors as readKnownActors,
   installWants,
   wake,
-  repairRestTargets,
   dropQuest,
-  focusQuest,
-  claimQuestReward,
-  questRewardsOf,
-  pushQuest,
+  takeQuest,
   questsOf,
-  questTerms,
-  allQuestsOf,
-  beginQuestPlay,
-  endQuestPlay,
   levelOf,
   levelReturnHome,
   settleHomeLevels,
@@ -514,10 +506,12 @@ const bundle = (s, item) => [
   ...(s.items.cloth.holder === item ? ["cloth"] : []),
 ];
 // An item is needed when it is, or carries, the actor's wanted item.
-const needed = (s, actor, item) =>
-  questsOf(s, actor).some(
-    (want) => want.kind === "item" && bundle(s, item).includes(want.target),
+const needed = (s, actor, item) => {
+  const want = wantOf(s, actor);
+  return Boolean(
+    want?.kind === "item" && bundle(s, item).includes(want.target),
   );
+};
 // An away traveler's avatar, played as a resident, is no one's to ask,
 // threaten, trade with or draw into a fight (rules 98).
 const humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
@@ -588,9 +582,8 @@ function shareDecision(s, actor, companion) {
     s.peaceUntil[companion] <= s.turn &&
     !resentment(s, companion, actor) &&
     ((s.actors[companion].trust?.[actor] || 0) > 0 ||
-      questsOf(s, companion).some(
-        (w) => w.step?.verb === "eat" && w.step.with === actor,
-      ))
+      (wantOf(s, companion)?.step?.verb === "eat" &&
+        wantOf(s, companion).step.with === actor))
   );
 }
 function refusalReason(s, a) {
@@ -666,7 +659,6 @@ export function wantAPI(s) {
     active: (id) => entityActive(s, id),
     sanctuaries,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
-    questsBeginAt: forest.questsBeginAt,
     placeOf: (item) => itemPlace(s, item),
     distance: (from, to, actor) =>
       from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
@@ -1230,8 +1222,7 @@ export function legalActions(s, actor = currentActor(s)) {
       (e) =>
         e.kind === "action" &&
         e.actorId === actor &&
-        !e.generated &&
-        e.verb !== "claim",
+        !e.generated,
     )?.verb === "wait"
   )
     out.push(sleep);
@@ -1590,35 +1581,13 @@ export function legalActions(s, actor = currentActor(s)) {
       action.key += ":" + receive;
       out.push(action);
     }
-  out.push(...fixtureOffers(s, actor, sensesFor(s)), ...packChoices(s, actor));
-  if (actor === currentActor(s) || controlledByHuman(s, actor))
-    for (const reward of questRewardsOf(s, actor))
-      out.push({
-        ...offer(
-          "claim",
-          actor,
-          null,
-          null,
-          reward.paid
-            ? `${nameOf(actor)} collects a completed quest.`
-            : `${nameOf(actor)} claims ${reward.xp} XP for a completed quest.`,
-          [],
-        ),
-        receipt: reward.id,
-        label: "Claim reward",
-        key: `claim:${actor}:${reward.id}`,
-      });
-  // A player may drop any quest in its stack (a level quest costs
-  // experience, `dropCost`), or choose one from beneath, which brings it to the top
-  // without taking a turn.
-  // A sealed card gives its quest, unless that quest is already on top.
+  out.push(...fixtureOffers(s, actor, sensesFor(s)));
+  // A player holds one quest and may set it down (a level quest costs
+  // experience, `dropCost`). A sealed card gives its quest to a player who
+  // holds none.
   if (controlledByHuman(s, actor))
     for (const r of sealedWays(s, actor)) {
-      if (
-        !r.sealed.quest ||
-        allQuestsOf(s, actor).some((w) => questTerms(w) === questTerms(gateQuest(s, r.sealed.quest)))
-      )
-        continue;
+      if (!r.sealed.quest || wantOf(s, actor)) continue;
       out.push(offer("gate", actor, null, r.to, r.sealed.reason, [r.to]));
     }
   if (actor === currentActor(s) || controlledByHuman(s, actor))
@@ -1636,17 +1605,6 @@ export function legalActions(s, actor = currentActor(s)) {
         [],
       );
       out.push({ ...drop, quest, key: `${drop.key}:${quest}` });
-      if (quest > 0) {
-        const focus = offer(
-          "focus",
-          actor,
-          null,
-          null,
-          `${nameOf(actor)} turns to another quest.`,
-          [],
-        );
-        out.push({ ...focus, quest, key: `${focus.key}:${quest}` });
-      }
     });
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
@@ -1789,9 +1747,8 @@ const WAKE_REASONS = [
   "rested",
 ];
 const SLEEP_TURNS = 24;
-// What a long rest may dream (rules 99): the halfway glimpse, or the level
-// quest it brings.
-const DREAMS = ["glimpse", "quest"];
+// What a long rest may dream (rules 99): the halfway glimpse.
+const DREAMS = ["glimpse"];
 // Sleep always ends by the next light change, so no sleep is longer than one
 // light period. A long rest needs half of one: two cannot both begin and end
 // within one light period, so a sanctuary dreams at most once per period.
@@ -1807,7 +1764,7 @@ function wakeUp(s, id, woke, text) {
     long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
   if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
   renewWant(s, id, wantAPI(s));
-  // A long rest may bring one dream: the halfway glimpse or the level quest.
+  // A long rest may bring one dream: the halfway glimpse.
   const dream = long ? wake(s, id, wantAPI(s)) : null;
   addLog(s, "World", text, {
     kind: "action",
@@ -2099,7 +2056,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "drop" && !a.item) {
-    dropQuest(s, a.actor, wantAPI(s), a.quest);
+    dropQuest(s, a.actor);
     addLog(s, "World", a.text, {
       kind: "action",
       actorId: a.actor,
@@ -2156,9 +2113,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
       break;
     case "course":
       setCourse(s, here, a.target);
-      break;
-    case "choose":
-      applyPackChoice(s, a);
       break;
     case "accompany": {
       const respondentConflict = standoffFor(s, a.target);
@@ -2396,7 +2350,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     kind: "action",
     actorId: a.actor,
     verb: a.kind,
-    ...(a.kind === "choose" ? { packId: a.packId, choiceId: a.choiceId } : {}),
     fromLocationId: here,
     witnesses,
     itemId: a.item,
@@ -2483,12 +2436,15 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     ]),
     wantAPI(s),
     ["ask", "give", "trade", "eat"].includes(a.kind)
-      ? { ...a, accepted: !a.target || requestAccepted }
+      ? {
+          ...a,
+          accepted: !a.target || requestAccepted,
+          ...(handover ? { pressured: true } : {}),
+        }
       : a,
   );
-  // A Talk quest whose want has changed leaves; a player's Talk that
-  // reveals a want new to them gives one (#2196, rules 99).
-  pruneTalkQuests(s, wantAPI(s));
+  // A player's Talk that reveals a want new to them records what was said, so
+  // Accept quest can offer it while it is still the want told (#2605).
   if (a.kind === "talk") talkQuest(s, a.actor, a.target, wantAPI(s));
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)
@@ -2792,13 +2748,15 @@ function wantPlan(s, actor) {
   const meal = acts.find(
     (a) =>
       a.kind === "eat" &&
-      questsOf(s, actor).some(
-        (w) =>
-          w.step?.verb === "eat" &&
-          w.target === a.item &&
-          (w.step.with ?? null) === (a.target ?? null) &&
-          (!w.step.at || w.step.at === here),
-      ),
+      (() => {
+        const w = wantOf(s, actor);
+        return Boolean(
+          w?.step?.verb === "eat" &&
+            w.target === a.item &&
+            (w.step.with ?? null) === (a.target ?? null) &&
+            (!w.step.at || w.step.at === here),
+        );
+      })(),
   );
   if (meal) return { action: meal };
   if (!want) return drift();
@@ -2965,43 +2923,12 @@ export function play(
   const next = structuredClone(s);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-  // Claim pays a saved reward once and advances the saved revision.
-  // Rest, combat and residents keep their current turn.
-  if (exact.kind === "claim") {
-    next.revision += 1;
-    claimQuestReward(next, actor, exact.receipt, wantAPI(next));
-    addLog(next, "World", exact.text, {
-      kind: "action",
-      actorId: actor,
-      verb: "claim",
-      receipt: exact.receipt,
-      witnesses: [actor],
-    });
-    settleStationExits(next);
-    validateWorld(next);
-    return { ok: true, state: next };
-  }
-  // Choosing which quest is on top is only picking a card: it is journaled
-  // like a play, but no turn passes and the world does not move on.
-  if (exact.kind === "focus") {
-    next.revision += 1;
-    focusQuest(next, actor, exact.quest);
-    addLog(next, "World", exact.text, {
-      kind: "action",
-      actorId: actor,
-      verb: "focus",
-      witnesses: [actor],
-    });
-    settleStationExits(next);
-    validateWorld(next);
-    return { ok: true, state: next };
-  }
   // A sealed card hands its quest to the traveller, as picking a quest does:
   // no turn passes (rules 95).
   if (exact.kind === "gate") {
     next.revision += 1;
     const way = sealedWays(next, actor).find((r) => r.to === exact.target);
-    const quest = pushQuest(next, actor, gateQuest(next, way.sealed.quest));
+    const quest = takeQuest(next, actor, gateQuest(next, way.sealed.quest));
     const what = wantText(quest).replace(/(^| )The /gu, "$1the ");
     addLog(next, "World", `${nameOf(actor)} takes up a quest: ${what}.`, {
       kind: "action",
@@ -3016,7 +2943,6 @@ export function play(
   }
   // Any other play ends a player's guard (rules 100), and an away avatar's
   // resident sleep becomes its returning player's own.
-  beginQuestPlay(next);
   if (!exact.guards) delete next.actors[actor].guarding;
   const dozing = next.actors[actor].sleeping;
   if (dozing?.until !== undefined)
@@ -3181,7 +3107,6 @@ export function play(
   }
   settleHeldItems(next, handSnapshot(s));
   settleLamp(next);
-  endQuestPlay(next);
   settleStationExits(next);
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
@@ -3477,9 +3402,7 @@ export function validateWorld(s) {
       !validWant(s, id) ||
       a.visited.length > Object.keys(places).length ||
       a.visited.some((place) => !Object.hasOwn(places, place)) ||
-      allQuestsOf(s, id).some(
-        (w) => w.kind === "place" && !Object.hasOwn(places, w.target),
-      )
+      (a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
     )
       fail();
   }
@@ -3584,8 +3507,6 @@ export function validateWorld(s) {
     "course",
     "take",
     "drop",
-    "focus",
-    "claim",
     "craft",
     "gate",
     "pack",
@@ -3645,18 +3566,7 @@ export function validateWorld(s) {
         (!holderIds.has(e.holderId) && !ids.includes(e.holderId)))
     )
       fail();
-    if (
-      e.verb === "claim"
-        ? e.kind !== "action" ||
-          e.generated ||
-          !actorIds.includes(e.actorId) ||
-          !Number.isSafeInteger(e.seq) ||
-          !Number.isSafeInteger(e.receipt) ||
-          e.receipt < 1 ||
-          e.receipt >= e.seq
-        : e.receipt !== undefined
-    )
-      fail();
+    if (e.receipt !== undefined) fail();
     if (
       (e.outcome !== undefined && !OUTCOMES.includes(e.outcome)) ||
       (e.droppedItemIds !== undefined &&
@@ -3789,7 +3699,6 @@ export function decodeSave(text) {
         !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world)),
     });
     installJourneyProgress(s, packDefinitions);
-    repairRestTargets(s, wantAPI(s));
     // An earlier save records the gates already open as it loads, and its
     // guards take their posts (rules 100).
     installConversations(s);

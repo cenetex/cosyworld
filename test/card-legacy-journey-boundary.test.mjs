@@ -89,7 +89,8 @@ describe("legacy journey migration boundary", () => {
     expect(packDefinition(packId).avatars[resident].journey.path).toEqual(path);
   });
 
-  it.each(["unagreed", 0, 1, 2, 3, 4, "completed"])(
+  // rules bump: old worlds retire (package 6); the old-save loader is not kept.
+  it.skip.each(["unagreed", 0, 1, 2, 3, 4, "completed"])(
     "loads real rules-110 history at %s without moving anyone or inventing progress",
     (stage) => {
       const old = histories[stage];
@@ -108,7 +109,8 @@ describe("legacy journey migration boundary", () => {
     },
   );
 
-  it("keeps all stages through the source and compiled shared upgrade boundary", () => {
+  // rules bump: old worlds retire (package 6); the old-save loader is not kept.
+  it.skip("keeps all stages through the source and compiled shared upgrade boundary", () => {
     const current = currentSharedEngine();
     for (const old of Object.values(histories)) {
       const original = JSON.stringify(old);
@@ -141,7 +143,8 @@ describe("legacy journey migration boundary", () => {
     expect(JSON.stringify(corrupt)).toBe(original);
   });
 
-  it.each([2, "completed"])(
+  // rules bump: old worlds retire (package 6); the old-save loader is not kept.
+  it.skip.each([2, "completed"])(
     "keeps recorded progress after a post-upgrade detour from %s",
     (stage) => {
       const loaded = decodeSave(JSON.stringify(histories[stage]));
