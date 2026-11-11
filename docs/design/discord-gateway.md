@@ -102,6 +102,42 @@ commits the play, awaits one voice pass inline, and returns the view with the
 resident lines — the owner chose synchronous-over-poll (2026-11-11), with the
 model call's internal timeout as the bound. The human's `text` line (step 3)
 still follows in a later slice.
+
+## Anonymous Talk (owner rule, 2026-11-11)
+
+A Talk from Discord is a real Talk in a real world: journaled with
+`surface: "discord"`, part of the corpus, and — for a **linked** account — it
+changes trust like any Talk. An **unlinked** user's chat is the anonymous
+traveler: it is journaled as **unowned**, raises no trust, unlocks nothing,
+takes no quest, and is never credited to a later link.
+
+This is a server rule, not a gateway rule. The mechanism:
+
+- Every play carries a `surface` (`browser` | `discord`) into the journal, so
+  the corpus can separate the surfaces.
+- An unlinked Discord snowflake resolves to an **anonymous traveler** — a
+  visitor that voices a scene without a `card_members`/`card_bindings` row. The
+  play record's `user` is a sentinel (`anonymous:<snowflake>`), never an
+  account id, so nothing on a real account moves.
+- Trust, quests, unlocks and claims all key off the avatar binding; an
+  unowned visitor has none, so the four "no change" guarantees fall out of the
+  binding model rather than out of special cases.
+- Linking later never credits the sentinel, so earlier anonymous chat is not
+  retroactively owned.
+
+Four tests:
+
+1. A linked Talk moves trust.
+2. An unlinked Talk does not.
+3. An unlinked Talk is journaled with `surface: "discord"` and no account.
+4. Linking afterwards does not credit earlier anonymous chat.
+
+The open engine question: today the shared world refuses a play from an
+unclaimed avatar ("Claim an avatar first"). The anonymous traveler needs the
+engine to allow a **visitor** that is present without claiming a seat — or a
+reserved, never-claimable visitor avatar per world. That is the one
+design decision to confirm before the four tests can pass.
+
 - New orchestrator endpoints (thin, read/write of links and bindings):
   - `POST /auth/discord/start` — returns the authorize URL + state.
   - `POST /auth/discord/callback` — exchanges the code, links or creates the
