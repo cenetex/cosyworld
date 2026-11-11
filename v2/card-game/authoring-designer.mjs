@@ -311,6 +311,8 @@ export function installWorldDesigner({
     workspace.choose(id, { expand: true });
   }
   return {
+    // For work that finishes off-screen, such as a job found after a reload.
+    run: (callback) => session.run(callback),
     open(value) {
       document.activeElement?.blur();
       if (value) {

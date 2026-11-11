@@ -7,31 +7,23 @@ import {
   sampleSource,
 } from "./authoring-cast.mjs";
 
+import { holdJob, releaseJob, runJob } from "./authoring-jobs.mjs";
+
+const noTrack = { accepted() {}, settled() {}, dropped() {} };
+const WAITING = new Set(["generation_waiting", "network"]);
 // Generation requests carry session text. Callers persist acceptedOutput only.
-export async function generateCharacter(input, { signal } = {}) {
-  const response = await fetch("/card-game/authoring/generate/avatars", {
-    method: "POST",
-    credentials: "same-origin",
-    cache: "no-store",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-    signal: AbortSignal.any(
-      [signal, AbortSignal.timeout(65_000)].filter(Boolean),
-    ),
+export async function generateCharacter(input, options = {}) {
+  const { signal, fetch, env, onJob, onUpdate } = options;
+  const result = await runJob("avatars", input, {
+    signal,
+    fetch,
+    env,
+    onJob,
+    onUpdate,
   });
-  const value = await response.json().catch(() => ({}));
-  if (!response.ok || value.error)
-    throw Object.assign(
-      new Error(value.error || "Character generation needs another try."),
-      {
-        status: response.status,
-        code: value.code,
-        retryAfterMs: value.retryAfterMs,
-      },
-    );
-  if (!Object.hasOwn(value, "candidate"))
+  if (!result || !Object.hasOwn(result, "candidate"))
     throw new Error("Character generation returned an incomplete result.");
-  return value.candidate;
+  return result.candidate;
 }
 
 export function acceptedOutput({
@@ -55,6 +47,9 @@ export function createCharacterDraw({
   changed = () => {},
   randomSeed = () => crypto.getRandomValues(new Uint32Array(1))[0],
   id = () => crypto.randomUUID(),
+  track = noTrack,
+  fetch,
+  env,
 } = {}) {
   let text = "",
     mode = "extract",
@@ -66,6 +61,7 @@ export function createCharacterDraw({
     error = "",
     completed = 0,
     status = 0,
+    queued = false,
     code = "",
     retryAfterMs = 0;
   const notify = () => changed(api.state);
@@ -74,7 +70,63 @@ export function createCharacterDraw({
     controller?.abort();
     busy = false;
   }
+  function append(checked, reserved) {
+    if (characterKeys(checked).some((key) => reserved.has(key))) return false;
+    const candidate = { id: id(), ...acceptedOutput(checked) };
+    cards = addDistinctCharacters(
+      cards.filter((card) => selected.has(card.id)),
+      [...cards.filter((card) => !selected.has(card.id)), candidate],
+    ).characters;
+    return true;
+  }
+  // One paid reply, held while this tab waits for it and applies it.
+  async function ask(input, signal, sample) {
+    let job;
+    try {
+      const value = await generate(input, {
+        signal,
+        fetch,
+        env,
+        onJob(accepted) {
+          holdJob(accepted.id);
+          job = {
+            id: accepted.id,
+            kind: "avatars",
+            mode,
+            // Story text stays out of the record unless adopting a reply needs it.
+            ...(mode === "extract" ? { sample } : {}),
+          };
+          return Promise.resolve(track.accepted(job)).catch(() => {});
+        },
+        onUpdate(next) {
+          if ((next.status === "queued") === queued) return;
+          queued = next.status === "queued";
+          notify();
+        },
+      });
+      return { value, job };
+    } catch (failure) {
+      if (job) {
+        releaseJob(job.id);
+        if (!WAITING.has(failure.code)) await track.settled(job.id);
+      }
+      throw failure;
+    } finally {
+      queued = false;
+    }
+  }
   const api = {
+    // A reply found again after a reload: it joins the cards like any other.
+    adopt(value, sample, known = []) {
+      if (value === null) return false;
+      const checked =
+        mode === "idea"
+          ? readSuggestedCharacter(value)
+          : readCharacter(value, sample);
+      const added = append(checked, new Set(known.flatMap(characterKeys)));
+      notify();
+      return added;
+    },
     get text() {
       return text;
     },
@@ -86,6 +138,7 @@ export function createCharacterDraw({
         busy,
         error,
         completed,
+        queued,
         status,
         code,
         retryAfterMs,
@@ -168,34 +221,37 @@ export function createCharacterDraw({
           attempt++
         ) {
           const sample = samples[attempt % samples.length];
-          const value = await generate(
+          const asked = await ask(
             {
               sample,
               excluded: [...new Set(names)].slice(-54),
               ...(mode === "idea" ? { mode } : {}),
             },
-            { signal },
+            signal,
+            sample,
           );
-          if (token !== epoch) return;
-          completed++;
-          if (value === null) {
+          try {
+            const value = asked.value;
+            if (token !== epoch) return;
+            completed++;
+            if (value === null) {
+              notify();
+              if (samples.length === 1) break;
+              continue;
+            }
+            const checked =
+              mode === "idea"
+                ? readSuggestedCharacter(value)
+                : readCharacter(value, sample);
+            names.push(checked.name, ...checked.aliases);
+            append(checked, reserved);
             notify();
-            if (samples.length === 1) break;
-            continue;
+          } finally {
+            if (asked.job) {
+              releaseJob(asked.job.id);
+              await track.settled(asked.job.id);
+            }
           }
-          const checked =
-            mode === "idea"
-              ? readSuggestedCharacter(value)
-              : readCharacter(value, sample);
-          names.push(checked.name, ...checked.aliases);
-          if (!characterKeys(checked).some((key) => reserved.has(key))) {
-            const candidate = { id: id(), ...acceptedOutput(checked) };
-            cards = addDistinctCharacters(
-              cards.filter((card) => selected.has(card.id)),
-              [...cards.filter((card) => !selected.has(card.id)), candidate],
-            ).characters;
-          }
-          notify();
         }
       } catch (failure) {
         if (token !== epoch) return;

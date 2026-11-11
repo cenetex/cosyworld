@@ -3,6 +3,7 @@ import { createCharacterDraw, acceptedOutput } from "./authoring-draw.mjs";
 import { prepareAcceptedAvatars, acceptedCharacterNames } from "./authoring-draw-output.mjs";
 import { WORLD } from "./authoring-collections.mjs";
 import { authoringCardId } from "./authoring-tree.mjs";
+import { createCooldown, failedJob } from "./authoring-jobs.mjs";
 const AVATARS = authoringCardId(["pack", "avatars"], "collection");
 const label = (mode) => (mode === "idea" ? "World idea" : "Story text");
 const baseline = ({ key, generation, draft, launch }) =>
@@ -14,6 +15,11 @@ export function authoringSeedTools({
   prepare = prepareAcceptedAvatars,
   readNames = acceptedCharacterNames,
   requireSignIn = () => "sign-in",
+  track,
+  fetch: jobFetch,
+  env,
+  poke = () => {},
+  cooldown = createCooldown({ changed }),
 } = {}) {
   let life = 0,
     request = 0,
@@ -23,7 +29,9 @@ export function authoringSeedTools({
     error = "",
     authenticated = false,
     cached;
-  const draw = createDraw({ changed });
+  const draw = createDraw({ changed, track, fetch: jobFetch, env });
+  // Replies found again after a reload, by job id.
+  const remote = new Map();
   draw.setMode("idea");
   const invalidate = () => {
     request++;
@@ -61,6 +69,8 @@ export function authoringSeedTools({
         if (opened !== life || token !== request) return;
         loading = false;
         await draw.find(known);
+        const { status, code, retryAfterMs } = state();
+        cooldown.set("avatars", { status, code, retryAfterMs });
       } catch (failure) {
         if (opened === life && token === request) error = failure.message;
       } finally {
@@ -132,7 +142,9 @@ export function authoringSeedTools({
   function tools() {
     const current = state(),
       opened = life,
-      busy = loading || current.busy,
+      away = remote.size > 0,
+      waiting = [...remote.values()].every((value) => value === "queued"),
+      busy = loading || current.busy || away,
       count = current.selected.length,
       needsSignIn = current.status === 401 && !authenticated;
     const save = {
@@ -155,11 +167,20 @@ export function authoringSeedTools({
       (busy
         ? loading
           ? "Reading the current cast."
-          : `Finding avatars · ${current.completed} of 6 replies.`
+          : current.queued || (away && waiting)
+            ? `Waiting in line · ${current.completed} of 6 replies.`
+            : `Finding avatars · ${current.completed} of 6 replies.`
         : current.mode === "idea"
           ? "Describe a world to suggest its characters."
           : "Paste story text to find its characters.");
-    const controls = busy
+    const hold = cooldown.label("avatars");
+    const controls = away && !loading && !current.busy
+      ? {
+          label: waiting ? "Waiting in line…" : "Drawing…",
+          run: "find",
+          disabled: true,
+        }
+      : busy
       ? { label: "Cancel draw", run: "cancel" }
       : needsSignIn
         ? { label: "Sign in", run: "sign-in" }
@@ -168,11 +189,10 @@ export function authoringSeedTools({
               ? "Saving…"
               : !draw.text.trim()
                 ? "Type a seed first"
-                : current.cards.length
-                  ? "Find more"
-                  : "Find avatars",
+                : hold ||
+                  (current.cards.length ? "Find more" : "Find avatars"),
             run: "find",
-            disabled: !draw.text.trim() || keeping,
+            disabled: !draw.text.trim() || keeping || Boolean(hold),
           };
     const cards = [
       { id: "world-seed", anchor: WORLD, view: { actions: [open] } },
@@ -239,6 +259,7 @@ export function authoringSeedTools({
       })),
     ];
     return cards.map(({ view, ...card }) => ({
+      select: () => poke(),
       ...card,
       describe: () => view,
       run,
@@ -246,6 +267,30 @@ export function authoringSeedTools({
   }
   return {
     tools,
+    // Reattach: a reply to a draw made before a reload joins the cards.
+    async adoptJob(job, rec, run) {
+      remote.delete(rec.id);
+      if (job.status === "failed") {
+        const failed = failedJob(job);
+        cooldown.set("avatars", failed);
+        error = failed.message;
+        changed();
+        return;
+      }
+      if (loading || state().busy || keeping) return "later";
+      await run(async (context) => {
+        const known = await readNames(context.snapshot({ assets: true }));
+        if (state().mode !== rec.mode) draw.setMode(rec.mode);
+        draw.adopt(job.result?.candidate ?? null, rec.sample, known);
+      });
+    },
+    progressJob(rec, job) {
+      if (job && job.status !== "done" && job.status !== "failed")
+        remote.set(rec.id, job.status);
+      else remote.delete(rec.id);
+      changed();
+    },
+    poke,
     transientState: () =>
       draw.text || state().cards.length ? JSON.stringify([life, request, state()]) : null,
     signedIn() {

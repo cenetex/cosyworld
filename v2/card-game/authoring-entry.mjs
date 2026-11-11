@@ -6,6 +6,7 @@ import { openAuthoringStore } from "./authoring-local-store.mjs";
 import { createSampleWorld } from "./authoring-sample.mjs";
 import { emptySeedWorld } from "./authoring-seed-world.mjs";
 import { createSeedMaker } from "./authoring-seed-maker.mjs";
+import { createJobSweep } from "./authoring-job-sweep.mjs";
 import { authoringCreateTools } from "./authoring-create-tools.mjs";
 import { installWorldDesigner } from "./authoring-designer.mjs";
 import { authoringImportTools } from "./authoring-import-tools.mjs";
@@ -121,6 +122,9 @@ async function start() {
   const store = {
     readCreate: (...args) => database.readCreate(...args),
     beginCreate: (...args) => database.beginCreate(...args),
+    putJob: (...args) => database.putJob(...args),
+    deleteJob: (...args) => database.deleteJob(...args),
+    readJobs: (...args) => database.readJobs(...args),
     finishCreate: (...args) => database.finishCreate(...args),
     async read(key) {
       const record = await database.read(key);
@@ -164,6 +168,17 @@ async function start() {
     };
     cacheAssets(key, 0, record.draft, record.assets);
   }
+  // Paid generations run on the server; this finds them again after a reload.
+  const adopters = {};
+  const sweep = createJobSweep({
+    store,
+    adopters,
+    run: (callback) => designer.run(callback),
+  });
+  const jobs = { track: sweep.track, poke: sweep.poke };
+  addEventListener("visibilitychange", () => {
+    if (!document.hidden) sweep.poke();
+  });
   const imports = authoringImportTools({ store, chooseFiles });
   const accountHome = () => designer.chooseTool("sign-in");
   const accounts = createAuthoringAccountTools({
@@ -176,6 +191,7 @@ async function start() {
   });
   let resumeAccount = accountHome;
   const seed = authoringSeedTools({
+    ...jobs,
     requireSignIn() {
       resumeAccount = () => seed.signedIn();
       return accounts.requireSignIn();
@@ -184,6 +200,7 @@ async function start() {
     chooseTool: (id) => designer.chooseTool(id),
   });
   const maker = createSeedMaker({
+    ...jobs,
     accounts: {
       requireSignIn() {
         resumeAccount = () => maker.signedIn();
@@ -195,6 +212,7 @@ async function start() {
       id === "world" ? designer.chooseWorld() : designer.chooseTool(id),
   });
   const visuals = createAuthoringVisualTools({
+    ...jobs,
     accounts: { requireSignIn() {
       resumeAccount = visuals.signedIn;
       return accounts.requireSignIn();
@@ -202,6 +220,7 @@ async function start() {
     changed: () => designer?.refresh(),
     choose: (id, here) => designer.chooseTool(id, here),
   });
+  Object.assign(adopters, { image: visuals, seed: maker, avatars: seed });
   const artLibrary = createArtLibraryTools({
     changed: () => designer?.refresh(),
     choose: (id) => designer.chooseTool(id),
@@ -261,6 +280,7 @@ async function start() {
       visuals.clear();
       artLibrary.clear();
       creator.open(status);
+      sweep.open(status);
       resumeAccount = accountHome;
     },
     onScene(place, source, status) {
