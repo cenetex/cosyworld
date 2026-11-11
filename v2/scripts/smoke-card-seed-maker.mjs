@@ -72,6 +72,12 @@ try {
     const entity = (group, id) =>
       choose(authoringCardId(["pack", group, id], "entity"));
     const action = () => press(page.locator("#card-actions button"));
+    // A paid action needs two taps; a second tap in the same gesture is ignored.
+    const twice = async () => {
+      await action();
+      await page.waitForTimeout(450);
+      await action();
+    };
     const read = () =>
       page.evaluate(async () => {
         const { openAuthoringStore } = await import(
@@ -233,8 +239,12 @@ try {
     });
     const bytes = Buffer.from(png, "base64");
     let imageCalls = 0;
-    await page.route("**/authoring/generate/image", (route) => {
+    let gate = null;
+    let requested = null;
+    await page.route("**/authoring/generate/image", async (route) => {
       const input = route.request().postDataJSON();
+      requested?.();
+      await gate?.promise;
       assert.equal(input.description, "A keeper in a green coat.");
       imageCalls++;
       assert.equal(input.kind, "avatar");
@@ -256,7 +266,13 @@ try {
       await category("avatars");
       await entity("avatars", avatar);
       await tool(`art-${avatar}-${role}`);
+      const button = page.locator("#card-actions button");
       await action();
+      assert.equal(
+        await button.innerText(),
+        `Tap again to generate ${role === "portrait" ? "avatar" : "poses"}`,
+      );
+      await page.waitForTimeout(450);
       await action();
       const physical = page.getByRole("textbox", {
         name: "Physical description only",
@@ -265,12 +281,34 @@ try {
       if (first) await physical.waitFor();
       if (await physical.isVisible()) {
         await physical.fill("A keeper in a green coat.");
-        await action();
-        await action();
+        let release;
+        if (first) {
+          // Hold the paid image back while the maker taps around the table.
+          const seen = new Promise((resolve) => (requested = resolve));
+          gate = { promise: new Promise((resolve) => (release = resolve)) };
+          await twice();
+          await seen;
+          assert.equal(await button.innerText(), "Generating…");
+          assert.equal(await button.isDisabled(), true);
+          await category("items");
+          await entity("items", item);
+          await press(page.locator("#menu-button"));
+          await press(page.locator("#history-button"));
+          release();
+          gate = requested = null;
+        } else await twice();
       }
       if (first) {
         // The first portrait is archived, then saved: wait for the saved art.
         await until((v) => Boolean(v.avatars?.[avatar]?.portrait));
+        const body = await page.locator("body").innerText();
+        assert(!/editor changed|could not be saved/u.test(body), body);
+        assert.equal(
+          await page
+            .locator('[data-setting="designer-tool-retry-unsaved-artwork"]')
+            .count(),
+          0,
+        );
         return;
       }
       await page

@@ -109,3 +109,31 @@ it("keeps a changed draft safe from a late draw and lets the player draw again",
   await next;
   expect(f.writes()).toBe(1);
 });
+it("keeps a paid draw when another card is selected meanwhile", async () => {
+  let finish;
+  const f = fixture(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const draw = f.run();
+  f.session.dispatch({ type: "cancel" });
+  expect(f.describe()).toMatchObject({
+    info: "Drawing…",
+    actions: [{ label: "Drawing…", disabled: true }],
+  });
+  finish(Response.json({ cards }));
+  await draw;
+  expect(f.writes()).toBe(1);
+  expect(f.selected()).toBe("world");
+});
+it("names why Create is disabled", () => {
+  const f = fixture(async () => Response.json({ cards }));
+  const label = () => f.describe().actions[0];
+  expect(label()).toMatchObject({ label: "Create", disabled: false });
+  f.describe().edit.onInput(" ");
+  expect(label()).toMatchObject({ label: "Type a seed first", disabled: true });
+  f.describe().edit.onInput("x".repeat(6001));
+  expect(label()).toMatchObject({ label: "Seed is too long", disabled: true });
+});

@@ -164,6 +164,7 @@ export function installCardWorkspace({
     fanned = null,
     cards = [],
     armed = null,
+    armedAt = 0,
     problem = "",
     beat = null;
   const changed = () =>
@@ -189,8 +190,11 @@ export function installCardWorkspace({
     const mine = generation;
     if (action.confirm && armed !== `${chosen}:${index}`) {
       armed = `${chosen}:${index}`;
+      armedAt = performance.now();
       return render();
     }
+    // A second tap in the same gesture has not seen the "Tap again" label.
+    if (action.confirm && layout && performance.now() - armedAt < 400) return;
     armed = null;
     problem = "";
     const cardId = chosen;
@@ -454,6 +458,9 @@ export function installCardWorkspace({
     },
     close,
     choose,
+    get chosen() {
+      return chosen;
+    },
     focus(id = chosen) {
       hand.querySelector(id ? `[data-setting="${id}"]` : ".card")?.focus();
     },

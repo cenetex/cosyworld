@@ -53,16 +53,16 @@
       "smokes": ["smoke-authoring-create-store", "smoke-authoring-local-store"]
     },
     {
-      "paths": "^v2/card-game/authoring-(entry|seed-maker|seed-world)\\.",
-      "smokes": ["smoke-card-seed-maker", "smoke-card-authoring-entry"]
+      "paths": "^v2/card-game/(authoring-[a-z-]+|settings-screen|settings-cards|card-tree-layout)\\.mjs$",
+      "smokes": [
+        "smoke-card-seed-maker",
+        "smoke-authoring-avatar-design",
+        "smoke-card-authoring-entry"
+      ]
     },
     {
       "paths": "^v2/card-game/authoring-(designer|session|import-tools)\\.",
       "smokes": ["smoke-authoring-transient-discard"]
-    },
-    {
-      "paths": "^v2/card-game/authoring-avatar-design\\.mjs$",
-      "smokes": ["smoke-authoring-avatar-design"]
     },
     {
       "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative)\\.",

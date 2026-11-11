@@ -17,6 +17,7 @@ export function createSeedMaker({
     key,
     seed = "",
     pending,
+    running,
     returning,
     details = false;
   const entity = (c) =>
@@ -24,10 +25,21 @@ export function createSeedMaker({
   const available = () => source?.pack?.id === "made-world";
   const cards = () => seedCards(source?.pack);
   const refresh = () => changed();
+  const working = (tool, verb = "Drawing…") =>
+    running === tool ? (pending ? "Saving…" : verb) : "";
   async function save(context, input, tool) {
     const record = context.snapshot();
     if (pending && pending.tool !== tool)
       throw new Error("Retry the prepared save first.");
+    running = tool;
+    changed();
+    try {
+      await draw(context, input, tool, record);
+    } finally {
+      running = null;
+    }
+  }
+  async function draw(context, input, tool, record) {
     if (!pending) {
       let proposal;
       if (input.kind && !input.discard) {
@@ -67,16 +79,26 @@ export function createSeedMaker({
     choose("world");
   }
   function operation(id, name, holder, input, note, verb = name) {
+    const busy = input.discard ? "Saving…" : "Drawing…";
     return {
       id,
       name,
       holder,
       describe: () => ({
+        ...(running === id ? { info: working(id, busy) } : {}),
         note,
         actions: [
           {
-            label: pending?.tool === id ? "Retry save" : verb,
-            disabled: Boolean(pending && pending.tool !== id),
+            label:
+              working(id, busy) ||
+              (pending && pending.tool !== id
+                ? "Retry the prepared save first"
+                : pending?.tool === id
+                  ? "Retry save"
+                  : verb),
+            disabled: Boolean(
+              working(id, busy) || (pending && pending.tool !== id),
+            ),
           },
         ],
       }),
@@ -143,7 +165,7 @@ export function createSeedMaker({
         ...(filled ? {} : { anchor: WORLD }),
         describe: ({ status }) => ({
           name: "Enter world seed",
-          info: status.busy ? "Creating" : "Type your idea below",
+          info: running === "maker-seed" ? "Drawing…" : "Type your idea below",
           note: "Describe a world. Create draws an avatar, an item and a location.",
           edit: {
             key: `${key}:maker-seed`,
@@ -158,8 +180,18 @@ export function createSeedMaker({
             ? []
             : [
                 {
-                  label: pending ? "Retry save" : "Create",
-                  disabled: !seed.trim() || seed.length > 6000,
+                  label:
+                    working("maker-seed") ||
+                    (pending
+                      ? "Retry save"
+                      : !seed.trim()
+                        ? "Type a seed first"
+                        : seed.length > 6000
+                          ? "Seed is too long"
+                          : "Create"),
+                  disabled:
+                    Boolean(working("maker-seed")) ||
+                    (!pending && (!seed.trim() || seed.length > 6000)),
                 },
               ],
         }),

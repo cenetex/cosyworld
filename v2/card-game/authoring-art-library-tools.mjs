@@ -31,6 +31,12 @@ export function createArtLibraryTools({
     owner = binding = null;
     loading = false;
   }
+  const why = () =>
+    loading ? "Looking through saved artwork…" : blocked() || "";
+  const reason = () => {
+    const value = why();
+    return value === true ? "Finish the current artwork first" : value;
+  };
   function available() {
     if (blocked() || loading)
       throw new Error("Finish the current artwork action first.");
@@ -94,7 +100,10 @@ export function createArtLibraryTools({
                 ? `${sets.length} saved artwork sets. Choose one to preview or use again.`
                 : "Browse this avatar's saved artwork. Reusing it costs no image request.",
             actions: [
-              { label: "Browse saved artwork", disabled: blocked() || loading },
+              {
+                label: reason() || "Browse saved artwork",
+                disabled: Boolean(reason()),
+              },
             ],
           }),
           run: (_action, context) => browse(id, context),
@@ -128,9 +137,15 @@ export function createArtLibraryTools({
                 ? []
                 : [
                     {
-                      label: poseSet ? "Use avatar and poses" : "Use avatar",
+                      label:
+                        reason() ||
+                        (!compatible
+                          ? "Switch to that avatar first"
+                          : poseSet
+                            ? "Use avatar and poses"
+                            : "Use avatar"),
                       confirm: true,
-                      disabled: !compatible || blocked() || loading,
+                      disabled: !compatible || Boolean(reason()),
                     },
                   ],
             }),

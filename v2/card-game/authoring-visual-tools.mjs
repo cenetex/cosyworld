@@ -23,6 +23,7 @@ export function createAuthoringVisualTools({
     owner,
     activeContext,
     unsaved,
+    failure,
     urls = [];
   async function archive(context) {
     if (!unsaved) return;
@@ -55,10 +56,7 @@ export function createAuthoringVisualTools({
       try {
         await archive(context);
       } catch (error) {
-        changed();
-        throw new Error(
-          `Artwork is in memory but could not be saved: ${error.message}. Keep this tab open and retry saving artwork.`,
-        );
+        failure = error.message.replace(/[.\s]+$/u, "");
       }
       return result;
     },
@@ -71,6 +69,7 @@ export function createAuthoringVisualTools({
     design = binding = prepared = owner = returning = null;
   }
   const toolId = (id, role) => `art-${id}-${role}`;
+  const retryId = "retry-unsaved-artwork";
   function previews() {
     for (const url of urls) URL.revokeObjectURL(url);
     const state = visual.state;
@@ -103,7 +102,7 @@ export function createAuthoringVisualTools({
     });
     if (saved) {
       clear();
-      choose(toolId(id, role));
+      choose(toolId(id, role), true);
     }
   }
   async function generate(id, role, context) {
@@ -134,6 +133,7 @@ export function createAuthoringVisualTools({
       changed();
       return;
     }
+    failure = "";
     const started = design;
     activeContext = context;
     try {
@@ -152,11 +152,17 @@ export function createAuthoringVisualTools({
       choose(accounts.requireSignIn());
       return;
     }
+    previews();
+    if (unsaved) {
+      changed();
+      choose(retryId);
+      return;
+    }
     if (role === "portrait" && !design.value.base && visual.state.role)
       await save(id, role, context);
-    previews();
     changed();
-    if (owner) choose(owner);
+    // Follow the result only for a maker who is still on this card.
+    choose(owner, true);
   }
   return {
     sync(next) {
@@ -166,6 +172,14 @@ export function createAuthoringVisualTools({
     clear,
     pendingArtwork: () =>
       Boolean(unsaved || visual.state.role || visual.state.busy),
+    pendingReason: () =>
+      visual.state.busy
+        ? "Wait for the image"
+        : unsaved
+          ? "Save the artwork first"
+          : visual.state.role
+            ? "Confirm or discard the preview first"
+            : "",
     transient: () =>
       unsaved
         ? JSON.stringify(["unsaved-artwork", unsaved.avatarId])
@@ -190,15 +204,23 @@ export function createAuthoringVisualTools({
       const tools = [];
       if (unsaved)
         tools.push({
-          id: "retry-unsaved-artwork",
+          id: retryId,
           name: "Retry saving artwork",
           describe: () => ({
-            note: "Your generated image is still in memory. Keep this tab open. Retry saves the original to this device without generating or charging again.",
+            note: `${failure ? `Artwork is in memory but could not be saved: ${failure}. ` : "Your generated image is still in memory. "}Keep this tab open. Retry saves the original to this device without generating or charging again.`,
             actions: [{ label: "Retry saving artwork" }],
           }),
           async run(_action, context) {
+            const { avatarId, role } = unsaved;
             await archive(context);
-            clear();
+            const first =
+              owner === toolId(avatarId, role) &&
+              role === "portrait" &&
+              !design?.value.base &&
+              visual.state.role;
+            if (first) await save(avatarId, role, context);
+            else if (owner) previews();
+            else clear();
             changed();
           },
         });
@@ -215,35 +237,48 @@ export function createAuthoringVisualTools({
             id: action,
             name,
             holder,
-            describe: () => ({
-              edit:
-                active && !unsaved && !state.busy && !state.role
-                  ? {
-                      key: owner,
-                      label: "Physical description only",
-                      value: state.description,
-                      onInput: (value) => visual.describe(value),
-                    }
-                  : null,
-              note:
-                active && !state.described
-                  ? "Describe only visible appearance: body, face, hair, clothing and colours. Leave out dialogue, personality, goals and story."
-                  : active && state.error
-                    ? state.error
-                    : role === "portrait"
-                      ? "Generate a full-body transparent cutout with GPT Image 2.6 Flare. Review it before replacing saved art."
-                      : "Generate happy, sad, hit, strike, brace and sleep poses from the saved cutout in one image request. Review all six before saving.",
-              actions: [
-                {
-                  label: active && state.role ? "Confirm artwork" : name,
-                  disabled:
-                    Boolean(unsaved) ||
-                    Boolean(owner && !active && (state.role || state.busy)) ||
-                    Boolean(state.busy),
-                  confirm: !(active && state.role),
-                },
-              ],
-            }),
+            describe: ({ status } = {}) => {
+              const working = active && (state.busy || status?.busy);
+              const confirming = active && state.role;
+              const reason = working
+                ? confirming
+                  ? "Saving artwork…"
+                  : "Generating…"
+                : unsaved
+                  ? "Save the artwork first"
+                  : state.busy
+                    ? "Wait for the image"
+                    : owner && !active && state.role
+                      ? "Confirm or discard the preview first"
+                      : "";
+              return {
+                ...(working ? { info: reason } : {}),
+                edit:
+                  active && !unsaved && !state.busy && !state.role
+                    ? {
+                        key: owner,
+                        label: "Physical description only",
+                        value: state.description,
+                        onInput: (value) => visual.describe(value),
+                      }
+                    : null,
+                note:
+                  active && !state.described
+                    ? "Describe only visible appearance: body, face, hair, clothing and colours. Leave out dialogue, personality, goals and story."
+                    : active && state.error
+                      ? state.error
+                      : role === "portrait"
+                        ? "Generate a full-body transparent cutout with GPT Image 2.6 Flare. Review it before replacing saved art."
+                        : "Generate happy, sad, hit, strike, brace and sleep poses from the saved cutout in one image request. Review all six before saving.",
+                actions: [
+                  {
+                    label: reason || (confirming ? "Confirm artwork" : name),
+                    disabled: Boolean(reason),
+                    confirm: !confirming,
+                  },
+                ],
+              };
+            },
             async run(_action, context) {
               if (active && state.role) {
                 await save(id, role, context);
