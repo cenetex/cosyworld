@@ -1,3 +1,5 @@
+import { onTestFinished } from "vitest";
+import { dwellRule } from "../v2/card-game/world/dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave, play } from "../v2/card-game/world.mjs";
@@ -121,6 +123,9 @@ it("keeps the Station Key at Black Pond on direct Radio landings", async () => {
 });
 
 it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired shortcut", async () => {
+  // A scripted route written for a cast that walks on at once (rules 132).
+  dwellRule.on = false;
+  onTestFinished(() => (dwellRule.on = true));
   const { legalActions } = await import("../v2/card-game/world.mjs");
   const { endStandoff } = await import("./helpers/standoff.mjs");
   let s = createWorld({ seed: 1 });

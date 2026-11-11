@@ -1,3 +1,4 @@
+import { MAX_DWELL } from "../v2/card-game/world/dwell.mjs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
@@ -113,9 +114,13 @@ describe("Antigone's home is the Hollow", () => {
       world = act(world, "wait");
     expect(antigone(world).place).toBe(GATE);
     world = act(world, "talk", { target: "greek-polynices-shade" });
-    for (let turn = 0; turn < 8 && antigone(world).place !== HOLLOW; turn++)
+    // Each step is a move of her own, so she dwells at the gate and again on
+    // the battlefield (rules 133): wait for her, not for a count of turns.
+    const talked = world.turn;
+    for (let turn = 0; turn < 120 && antigone(world).place !== HOLLOW; turn++)
       world = act(world, "wait");
     expect(antigone(world).place).toBe(HOLLOW);
+    expect(world.turn - talked).toBeLessThanOrEqual(2 * MAX_DWELL + 2);
     // She does not fetch or carry the burial items: residents do not yet take
     // or carry toward a want (the next rules batch).
     expect(holdsNone(world)).toBe(true);

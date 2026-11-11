@@ -60,7 +60,8 @@ describe("sticky companions in the shipping content", () => {
     expect(legalActions(s, "whiskerwind").some((a) => a.kind === "wait")).toBe(true);
     Object.assign(s.items.lamp, { holder: "attic", lit: true, fuel: 12, fuelRooms: 3, fuelPlace: "attic" });
     s.items.cloth.holder = "attic";
-    for (let i = 0; i < 12; i++) s = wait(s);
+    for (let i = 0; i < 150 && !/^forest-/u.test(s.actors.whiskerwind.place); i++)
+      s = wait(s);
     expect(s.actors.whiskerwind.place).toMatch(/^forest-/u);
   });
 

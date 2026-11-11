@@ -83,6 +83,12 @@ const wait = (s, n = 1) => {
   for (let i = 0; i < n; i++) s = step(s, "wait");
   return s;
 };
+// Wait until a condition holds (a released resident walks home at the dwell
+// pace, rules 133), up to a few game days.
+const waitUntil = (s, done, max = 200) => {
+  for (let i = 0; i < max && !done(s); i++) s = step(s, "wait");
+  return s;
+};
 const invite = (s, who, to) => step(s, "accompany", { target: who, destination: to });
 const at = (s, id) => s.actors[id].place;
 const offered = (s, who, to) =>
@@ -277,8 +283,9 @@ describe("walking home when released", () => {
     expect(companionOf(s, "vale")).toBeNull();
     // Her tickets now only cover the way home.
     expect(s.invitedPlaces?.[ANN]).toEqual(expect.arrayContaining(["co-far"]));
-    s = wait(s, 30);
+    s = waitUntil(s, (w) => at(w, ANN) === "co-a");
     expect(at(s, ANN)).toBe("co-a");
+    s = wait(s);
     expect(s.invitedPlaces?.[ANN]).toBeUndefined();
   });
   it("a released resident waits at a shut way, lives there, and goes home when it opens", () => {
@@ -298,7 +305,7 @@ describe("walking home when released", () => {
     expect(legalActions(s, ANN).some((a) => a.kind === "wait")).toBe(true);
     // The key goes back to the yard and the way opens for her.
     s.items["co-key"].holder = "co-yard";
-    s = wait(s, 6);
+    s = waitUntil(s, (w) => at(w, ANN) === "co-a");
     expect(at(s, ANN)).toBe("co-a");
   });
   it("REPORTED, not fixed: a key door shuts behind a companion who leaves with the key", () => {
@@ -365,6 +372,7 @@ describe("fixed by role", () => {
       s.actors[ANN].trust.vale = 0;
       s = wait(s, 4);
       expect(companionOf(s, "vale")).toBeNull();
+      s = waitUntil(s, (w) => at(w, ANN) === "co-a");
       // Released away from home, the ordinary range-0 leash walks her back.
       expect(at(s, ANN)).toBe("co-a");
     } finally {
