@@ -29,10 +29,12 @@ export const topicForChoice = (choiceId) =>
 
 // On phones and tablets the dialogue lies over the hand's foot (#1897), so
 // a player taps a card's top, which always shows above it.
-export async function tapCard(card) {
+export async function tapCard(card, { touch = false } = {}) {
   await card.scrollIntoViewIfNeeded();
   const { width } = await card.boundingBox();
-  await card.click({ position: { x: width / 2, y: 16 } });
+  const options = { position: { x: width / 2, y: 16 } };
+  if (touch) await card.tap(options);
+  else await card.click(options);
 }
 
 // ☰ > Settings is a hand of cards (settings-cards.mjs). A setting lies in
@@ -179,7 +181,10 @@ export async function endStandoff(page, world, actor = "vale") {
   await page.locator('#card-actions [data-action="wait"]').click();
   return true;
 }
-export async function selectCard(page, id, { touch = false } = {}) {
+export async function selectCard(
+  page, id, { touch = false, exposedTop = false } = {},
+) {
+  const tap = (card) => exposedTop ? tapCard(card, { touch: true }) : card.tap();
   const frame = page.locator(`#hand [data-card="${id}"]`).locator("..");
   const wasSelected =
     (await frame.locator(".card").getAttribute("aria-pressed")) === "true";
@@ -189,12 +194,12 @@ export async function selectCard(page, id, { touch = false } = {}) {
       : null;
   const card = await revealCard(page, id, { keepSelected: true });
   if (wasSelected || (await card.getAttribute("aria-pressed")) !== "true") {
-    if (touch) await card.tap();
+    if (touch) await tap(card);
     else await card.click();
   }
   // A rested held card first opens its details; this helper's toggle lowers it.
   if (wasSelected && (await card.getAttribute("aria-pressed")) === "true") {
-    if (touch) await card.tap();
+    if (touch) await tap(card);
     else await card.click();
   }
   // Keep the chosen child raised while returning its browsing avatar to the stack.
@@ -205,7 +210,7 @@ export async function selectCard(page, id, { touch = false } = {}) {
       !(await owner.evaluate((el) => el.classList.contains("location")))
     ) {
       await owner.scrollIntoViewIfNeeded();
-      if (touch) await owner.tap();
+      if (touch) await tap(owner);
       else await owner.click();
     }
   }
