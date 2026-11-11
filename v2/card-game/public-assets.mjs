@@ -310,6 +310,7 @@ const files = [
   "world/boxes.mjs",
   "world/lock-goals.mjs",
   "world/want-words.mjs",
+  "world/company.mjs",
   "world/geography.mjs",
   "world/home.mjs",
   "world/offers.mjs",

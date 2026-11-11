@@ -10,6 +10,7 @@ import {
   advanceJourney,
 } from "./pack-journeys.mjs";
 import { newWant, setWant } from "./want.mjs";
+import { partyOf } from "./world/company.mjs";
 import { usedUp, useUp, bringBack } from "./item-use.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
@@ -482,6 +483,13 @@ export const packRouteOpen = (world, from, to) =>
   );
 // Personal entry requirements remain true for each traveller, even when
 // the world has latched the physical gate open.
+// A traveler's own condition on a way is met by its party: the traveler or
+// its companion holding the key, or trusted by the keeper, opens the door for
+// both (sticky companions, rules 133).
+export const partyMet = (world, pack, conditions, actor) =>
+  partyOf(world, actor).some((who) =>
+    conditionsMet(world, pack, conditions, who),
+  );
 export function personalRouteOpen(world, from, to, actor) {
   const routes = packDefinitions.flatMap((pack) =>
     (pack.routes || [])
@@ -493,7 +501,7 @@ export function personalRouteOpen(world, from, to, actor) {
     routes.some(
       ({ pack, route }) =>
         routeOpen(world, pack, route) &&
-        conditionsMet(world, pack, route.travelerRequires, actor),
+        partyMet(world, pack, route.travelerRequires, actor),
     )
   );
 }
@@ -528,7 +536,7 @@ export function packExits(world, place, actor = null) {
         (r) =>
           r.from === place &&
           routeOpen(world, pack.id, r) &&
-          conditionsMet(
+          partyMet(
             world,
             pack.id,
             r.travelerRequires,

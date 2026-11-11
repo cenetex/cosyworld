@@ -452,7 +452,8 @@ test("a trusted companion can board and disembark with Vale", () => {
   assert.equal(s.actors.moth.place, "greek-ship");
   s = reload(s);
   s = act(act(s, "course", null, "greek-harbor"), "wait");
-  s = pair(s, "greek-harbor");
+  // Aboard together, Moth is Vale's companion: the landing is a plain move.
+  s = act(s, "move", null, "greek-harbor");
   assert.equal(s.actors.vale.place, "greek-harbor");
   assert.equal(s.actors.moth.place, "greek-harbor");
   assert.equal(s.transports["greek-ship"].dock, "greek-harbor");

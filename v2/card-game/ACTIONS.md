@@ -26,7 +26,7 @@ holder's group. Transfers move the cards into the new holder's group.
 | Quest card (see below)                    | Open box, then Accept quest                  |
 | Your quest card                           | Discard, with the XP cost in its label       |
 | Current place                             | Wait and local actions                       |
-| Person + destination                      | Invite that person along                     |
+| Person + destination                      | Invite that person along; your companion just Travels with you; a resident who cannot says why |
 | Own item + person                         | Give to that person                          |
 | Their item + person                       | Ask them for it                              |
 | Own item + their item                     | Trade the named items                        |

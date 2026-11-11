@@ -263,6 +263,7 @@
     world.presentActors = [...present];
     return world;
   }
+  var heldByHuman = (world, id) => (world.heldActors || world.controlledActors || ["vale"]).includes(id);
   var residentAvatar = (world, id) => sharedEnabled(world) && Boolean(humanAvatar(id)) && !controlledByHuman(world, id) && !world.absent?.includes(id);
   var roomHumanCount = (world, place) => humanAvatarIds.filter(
     (id) => humanPresent(world, id) && world.actors[id]?.place === place
@@ -352,7 +353,9 @@
             travel: `through ${a.home.entrance.name.toLowerCase()}`,
             scenery: { open: a.home.entrance.text, cardArt: a.home.image },
             // Shown as a shut card at its door in a shared world (rules 133).
-            sealed: {}
+            sealed: {
+              reason: `Bring the ${a.item.name.toLowerCase()} here to open ${a.home.name}`
+            }
           },
           {
             id: `${a.home.id}-${door}`,
@@ -390,7 +393,7 @@
       {
         from: "attic",
         to: "pond",
-        sealed: {},
+        sealed: { reason: "Put the lamp out" },
         requires: [
           { kind: "item_present", item: "lamp", place: "attic" },
           { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
@@ -399,7 +402,7 @@
       {
         from: "pond",
         to: "attic",
-        sealed: {},
+        sealed: { reason: "Light the lamp on the shore" },
         requires: [{ kind: "light", item: "lamp", at: ["pond"], uncovered: true }]
       }
     ],
@@ -694,6 +697,23 @@
       const r = records[v.choice];
       return r && Object.keys(r).sort().join() === "actor,visit" && (r.actor === null || Object.hasOwn(world.actors, r.actor)) && (r.visit === null || v.summons && Number.isSafeInteger(r.visit) && r.visit >= state.receipts[v.choice] && r.visit <= world.turn);
     });
+  }
+  function upgradeRecitals(world, packs) {
+    for (const pack of packs) {
+      const state = world.packs?.[pack.id];
+      if (!pack.recital || !state || state.recitals !== void 0) continue;
+      state.recitals = {};
+      for (const v of pack.recital.verses) {
+        if (!Object.hasOwn(state.receipts || {}, v.choice)) continue;
+        const event = world.log?.find(
+          (e) => e.choiceId === v.choice && e.packId === pack.id
+        );
+        state.recitals[v.choice] = {
+          actor: Object.hasOwn(world.actors, event?.actorId) ? event.actorId : null,
+          visit: null
+        };
+      }
+    }
   }
   function recitalContext(world, packs, actor) {
     const pack = packs.find((p) => p.recital?.actor === actor);
@@ -998,9 +1018,112 @@
     ].join("").split(" ").map((pair) => pair.split(":"))
   );
   var VOWELS = /* @__PURE__ */ new Set([..."aeiou"]);
+  var newKnowledge = () => ({
+    version: KNOWLEDGE_VERSION,
+    facts: {},
+    known: {},
+    pending: []
+  });
   var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
   var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
+  function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
+    const knowledge = world.knowledge;
+    if (knowsFact(world, actor, fact.id)) return false;
+    const known = knowledge.known[actor] ??= {};
+    known[fact.id] = { kind, teller, eventSeq, learnedTurn };
+    const ordered = Object.keys(known).sort(
+      (a, b) => known[b].learnedTurn - known[a].learnedTurn || known[b].eventSeq - known[a].eventSeq || a.localeCompare(b)
+    );
+    for (const id of ordered.slice(KNOWLEDGE_PERSON_LIMIT)) delete known[id];
+    knowledge.pending = knowledge.pending.filter(
+      (p) => knowsFact(world, p.speaker, p.factId)
+    );
+    return owns(known, fact.id);
+  }
   var GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+  function pinnedFacts(world) {
+    const facts = world.knowledge?.facts || {};
+    const byPlay = {};
+    for (const f of Object.values(facts).sort(compareFacts))
+      if (f.source.kind === "event")
+        (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
+    const rank2 = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
+    const grievances = world.motives?.grievances || {};
+    const standing = Object.keys(grievances).sort().flatMap((holder) => grievances[holder].map((g, i) => ({ holder, g, i }))).sort(
+      (a, b) => rank2(a.g) - rank2(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
+    );
+    const pinned = /* @__PURE__ */ new Set();
+    for (const { holder, g } of standing) {
+      const evidence = g.incident ? owns(facts, g.incident) ? [facts[g.incident]] : [] : (byPlay[`${g.other}|${g.turn}`] || []).filter(
+        (f) => f.source.witnesses.includes(holder)
+      );
+      for (const f of evidence) {
+        if (pinned.size >= GRIEVANCE_PIN_LIMIT) return pinned;
+        if (f.source.kind === "event") pinned.add(f.id);
+      }
+    }
+    return pinned;
+  }
+  function retainFact(world, fact) {
+    const knowledge = world.knowledge;
+    if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
+    if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
+      const eventFacts = Object.values(knowledge.facts).filter((f) => f.source.kind !== "topic").sort(compareFacts);
+      const pinned = pinnedFacts(world);
+      const old = [...eventFacts].reverse().find((f) => !pinned.has(f.id)) || eventFacts.at(-1);
+      if (!old) return null;
+      delete knowledge.facts[old.id];
+      for (const known of Object.values(knowledge.known)) delete known[old.id];
+      knowledge.pending = knowledge.pending.filter((p) => p.factId !== old.id);
+    }
+    knowledge.facts[fact.id] = fact;
+    return fact;
+  }
+  var newsVerbs = /* @__PURE__ */ new Set([
+    "give",
+    "trade",
+    "attack",
+    "threaten",
+    "accompany",
+    "choose"
+  ]);
+  function witnessKnowledge(world, entry, eligible = () => true, topics = []) {
+    if (!world.knowledge || entry.generated || entry.kind !== "action" && !entry.consequence || !newsVerbs.has(entry.verb) && !entry.consequence || !validFactText(entry.text) || !entry.seq || !world.actors[entry.actorId] || entry.verb === "choose" && topics.some(
+      (topic) => topic.packId === entry.packId && topic.choiceId === entry.choiceId
+    ))
+      return null;
+    const witnesses = [
+      .../* @__PURE__ */ new Set([
+        entry.actorId,
+        ...entry.cast || [],
+        ...entry.witnesses || []
+      ])
+    ].filter((id) => world.actors[id] && eligible(id)).sort();
+    const fact = retainFact(world, {
+      id: `event:${entry.seq}`,
+      text: entry.text.trim(),
+      source: {
+        kind: "event",
+        eventSeq: entry.seq,
+        turn: entry.turn,
+        actorId: entry.actorId,
+        locationId: entry.locationId,
+        witnesses,
+        topic: null
+      }
+    });
+    if (!fact) return null;
+    for (const actor of witnesses)
+      remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
+    return fact;
+  }
+  function installKnowledge(world, eligible = () => true, topics = []) {
+    if (world.knowledge !== void 0) return world.knowledge;
+    world.knowledge = newKnowledge();
+    for (const entry of world.log || [])
+      witnessKnowledge(world, entry, eligible, topics);
+    return world.knowledge;
+  }
   function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
     const pending = (world.knowledge?.pending || []).filter(
       (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && (!knowsFact(world, p.listener, p.factId) || p.commitChoice)
@@ -1388,8 +1511,11 @@
 
   // v2/card-game/pack-transport.mjs
   var TRANSPORT_VERSION = 3;
+  var IDLE_ROUNDS = 3;
+  var VOYAGE = "@voyage";
   var PHASES = ["docked", "course", "sea", "arrived"];
   var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
+  var transportPlace = (place) => Boolean(shipAt(place));
   var passengers = (s, id) => Object.entries(s.actors).filter(
     ([actor, a]) => a.place === transports[id].place && entityActive(s, actor)
   ).map(([, a]) => a);
@@ -1437,6 +1563,26 @@
       return true;
     return storyDock(s, from) || storyDock(s, to);
   }
+  function learnLane(s, actor, from, to) {
+    const t = Object.values(transports).find(
+      (t2) => lanesFrom(t2, from).includes(to)
+    );
+    if (!t || !s.actors[actor]) return false;
+    const edges = [seaEdge(from, to)];
+    if (lanesFrom(t, to).includes(from)) edges.push(seaEdge(to, from));
+    const key2 = ([x, y]) => `${x}>${y}`;
+    const known = new Map(
+      (s.routeKnowledge?.[actor] || []).map((edge) => [key2(edge), edge])
+    );
+    const before = known.size;
+    for (const edge of edges) known.set(key2(edge), edge);
+    if (known.size === before) return false;
+    s.routeKnowledge ??= {};
+    s.routeKnowledge[actor] = [...known.values()].sort(
+      (x, y) => key2(x).localeCompare(key2(y))
+    );
+    return true;
+  }
   var laneGate = (t, from, to) => (t.lanes || []).find(
     (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
   )?.opensWith ?? null;
@@ -1461,6 +1607,7 @@
     const state = s.transports?.[id];
     return state?.version === 2 ? upgradeTransportState(s, id, state) : state;
   };
+  var own = (s, id) => s.transports[id] = read(s, id);
   var freshState = (dock, turn = 0) => ({
     version: TRANSPORT_VERSION,
     phase: "docked",
@@ -1497,6 +1644,16 @@
     }
     return s;
   }
+  function settleEmpty(state, turn) {
+    Object.assign(state, {
+      phase: "docked",
+      dock: state.recall || state.dock,
+      destination: null,
+      riders: [],
+      since: turn,
+      recall: null
+    });
+  }
   var humanAboard = (s, t) => Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who)
   );
@@ -1516,6 +1673,37 @@
     if (actor && s.actors[actor]?.place !== t.place) return [];
     if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
     return openLanes(s, t, state.dock, actor, residentVoyage(s, t, actor));
+  }
+  function stuckShip(s, id) {
+    const t = transports[id], state = read(s, id);
+    if (!state || !["docked", "arrived"].includes(state.phase)) return false;
+    if (!passengers(s, id).length || s.turn - state.since < IDLE_ROUNDS)
+      return false;
+    if ((s.standoffs || []).some((c) => c?.location === t.place)) return false;
+    if (openLanes(s, t, state.dock)[0] === t.at) return false;
+    const gated = lanesFrom(t, state.dock).filter(
+      (to) => laneGate(t, state.dock, to) && entityActive(s, to)
+    );
+    return gated.length > 0 && !gated.some(
+      (to) => conditionsMet(s, t.packId, laneGate(t, state.dock, to))
+    ) && entityActive(s, t.at);
+  }
+  function sendShipHome(s, id) {
+    const t = transports[id], state = own(s, id), from = state.dock, ashore = [];
+    for (const actor of passengerIds(s, id))
+      if (humanRoomAvailable(s, actor, t.at)) {
+        s.actors[actor].place = t.at;
+        ashore.push(actor);
+      }
+    Object.assign(state, {
+      phase: "docked",
+      dock: t.at,
+      destination: null,
+      riders: [],
+      since: s.turn
+    });
+    if (state.recall) settleEmpty(state, s.turn);
+    return { id, kind: "home", from, dock: t.at, ashore };
   }
   function transportExits(s, place, previous = null, actor = null) {
     const found2 = shipAt(place);
@@ -1742,7 +1930,10 @@
   var crossingOpen = (s, c, senses2, actor = senses2?.player ?? null) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId, actor));
   var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
-    (c) => c.from === place && (mayCross(c, actor, senses2) || s.invitedPlaces?.[actor]?.includes(c.from) && (packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null)) && crossingOpen(s, c, senses2, actor)
+    (c) => c.from === place && (mayCross(c, actor, senses2) || // A resident taken along walks home by the same way: from a
+    // ticketed place into its own part of the world, or on to
+    // another ticketed place on that way (rules 133).
+    s.invitedPlaces?.[actor]?.includes(c.from) && ((packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null) || s.invitedPlaces[actor].includes(c.to))) && crossingOpen(s, c, senses2, actor)
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
   var packDiscovered = (s, packId) => crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
@@ -1965,6 +2156,8 @@
   );
   var travels = (id, s = null) => !isPackActor(id) || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
   var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
+  var QUEST_STEP_LEVELS = 5;
+  var questSteps = (level) => Math.ceil(level / QUEST_STEP_LEVELS);
   var startXp = (id) => {
     const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
     return level * (level - 1) / 2;
@@ -1976,8 +2169,14 @@
     w.step ? Object.keys(w.step).sort().map((key2) => [key2, w.step[key2]]) : null,
     w.lit ?? null
   ]);
+  var wantKey = (id, want) => `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
   var questsOf = (s, id) => s.actors[id]?.want ? [s.actors[id].want] : [];
   var contentOf = (s, id) => Boolean(s.actors[id]?.content && !s.actors[id].want);
+  function setWant(a, want) {
+    a.want = want ?? null;
+    if (a.want) delete a.content;
+    return a.want;
+  }
   var newWant = (kind, target, turn) => ({
     kind,
     target,
@@ -2018,6 +2217,56 @@
       a.visited ??= [a.place];
       a.talked ??= [];
     }
+  }
+  function hash(text2) {
+    let h = 2166136261;
+    for (const c of text2) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+    return h;
+  }
+  function wantCandidates(s, actor, api, previous = null, wide = false, anywhere = false) {
+    const a = s.actors[actor];
+    const held = api.carried(actor);
+    const floor = Math.max(
+      1,
+      ...held.length ? [Math.min(...held.map((id) => api.valueOf(actor, id)))] : []
+    );
+    const reach = travels(actor, s) || api.wanders?.(actor) ? api.reachable(actor) : [];
+    const near = /* @__PURE__ */ new Set([a.place, ...reach]);
+    const inRange2 = anywhere ? null : api.rangeTest?.(actor);
+    const within = (place) => (wide || near.has(place)) && (!inRange2 || inRange2(place));
+    const items2 = Object.keys(s.items).filter((id) => {
+      const owner2 = api.rootHolder(id);
+      const person = Object.hasOwn(s.actors, owner2);
+      return entityActive(s, id) && owner2 !== actor && person && within(s.actors[owner2].place) && !(s.actors[owner2].want?.kind === "item" && s.actors[owner2].want.target === id) && api.valueOf(actor, id) > floor && (wide || !api.obtainable || api.obtainable(actor, id));
+    });
+    const places2 = reach.filter((id) => wide || !a.visited.includes(id));
+    const people2 = knownActors(s).filter(
+      (id) => id !== actor && (wide || !a.talked.includes(id)) && within(s.actors[id].place)
+    );
+    return [
+      ...items2.map((target) => ["item", target]),
+      ...places2.map((target) => ["place", target]),
+      ...people2.map((target) => ["person", target])
+    ].filter(
+      ([kind, target]) => (kind !== previous?.kind || target !== previous.target) && !(a.gaveUp?.target === target && s.turn - a.gaveUp.turn < CONTENT_TURNS)
+    ).map(([kind, target]) => `${kind}:${target}`).sort();
+  }
+  function nextWant(s, actor, api, previous = null) {
+    const staged = stagedNext(s, actor, previous);
+    if (staged) return staged;
+    const roll = hash(`${actor}:${s.turn}`);
+    let pool = wantCandidates(s, actor, api, previous);
+    if (!pool.length) {
+      const a = s.actors[actor];
+      a.visited = [a.place];
+      a.talked = [];
+      pool = wantCandidates(s, actor, api, previous);
+    }
+    if (!pool.length) pool = wantCandidates(s, actor, api, previous, true);
+    if (!pool.length) pool = wantCandidates(s, actor, api, null, true, true);
+    if (!pool.length) return null;
+    const [kind, target] = pool[roll % pool.length].split(":");
+    return newWant(kind, target, s.turn);
   }
   var introduced = (s, actor, talk) => {
     const here2 = s.actors[actor]?.place;
@@ -2077,6 +2326,14 @@
     }
     return holder;
   }
+  function giveUp(s, actor, api) {
+    const a = s.actors[actor], want = a.want;
+    a.gaveUp = { target: want.target, turn: s.turn };
+    setWant(a, nextWant(s, actor, api, want));
+  }
+  function setAsideWant(s, actor, api) {
+    if (s.actors[actor]?.want) giveUp(s, actor, api);
+  }
   var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
   function validStep(s, w, id) {
     const { verb, ...cards } = w.step;
@@ -2118,6 +2375,35 @@
     return Boolean(
       w && typeof w === "object" && Object.keys(w).length === 4 + (w.quest === void 0 ? 0 : 1) + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && (w.story === void 0 || w.story === true && !w.quest) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left === 1) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
     );
+  }
+
+  // v2/card-game/world/company.mjs
+  var companionOf = (s, who) => s.actors?.[who]?.companion ?? null;
+  function travelerOf(s, resident) {
+    for (const id of Object.keys(s.actors || {}).sort())
+      if (s.actors[id].companion === resident) return id;
+    return null;
+  }
+  function partyOf(s, who) {
+    const here2 = s.actors?.[who]?.place;
+    if (here2 === void 0) return [who];
+    const party = [who];
+    const mine = companionOf(s, who);
+    if (mine && s.actors[mine]?.place === here2) party.push(mine);
+    const traveler = travelerOf(s, who);
+    if (traveler && s.actors[traveler]?.place === here2) party.push(traveler);
+    return party;
+  }
+  function validCompanions(s, actorIds2) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const [id, a] of Object.entries(s.actors || {})) {
+      if (a.actedAt !== void 0 && (a.companion === void 0 || !Number.isSafeInteger(a.actedAt) || a.actedAt < 0 || a.actedAt > s.turn)) return false;
+      if (a.companion === void 0) continue;
+      if (typeof a.companion !== "string" || a.companion === id || !actorIds2.includes(a.companion) || seen.has(a.companion))
+        return false;
+      seen.add(a.companion);
+    }
+    return true;
   }
 
   // v2/card-game/packs.json
@@ -2697,7 +2983,7 @@
               "greek-eleusis"
             ],
             backdrop: "assets/greek-drama/bacchae-cithaeron-day.webp",
-            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. It stays open both ways. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. From the battlefield it opens only while a Theban account of the burial is there or on Dione\u2019s table: the Burial Account, Creon\u2019s Writ or the Guard\u2019s Tablet. Travelers can meet, talk, rest and carry their belongings here.",
             road: [
               "greek-battlefield",
               "greek-eleusis"
@@ -3687,48 +3973,71 @@
             startLevel: 20,
             text: "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
             place: "greek-gate",
-            home: "greek-polynices-hollow",
+            home: "greek-gate",
             seed: "Antigone, daughter of Oedipus.",
             portrait: "assets/greek-drama/chthonic-antigone.png",
-            wants: [
-              {
-                want: {
-                  kind: "place",
-                  target: "greek-polynices-hollow",
-                  step: {
-                    verb: "lay",
-                    items: [
-                      "greek-oil-flask",
-                      "greek-funeral-cloth",
-                      "greek-shovel"
-                    ],
-                    finish: "greek-burial-performed"
-                  }
-                }
-              },
-              {
-                want: {
-                  kind: "place",
-                  target: "greek-polynices-hollow"
-                },
-                when: [
-                  {
-                    kind: "holding",
-                    item: "greek-creon-writ",
-                    actor: "greek-guard"
-                  },
-                  {
-                    kind: "flag",
-                    key: "greek-burial-performed",
-                    value: false
-                  }
-                ]
+            want: {
+              kind: "place",
+              target: "greek-polynices-hollow",
+              step: {
+                verb: "lay",
+                items: [
+                  "greek-oil-flask",
+                  "greek-funeral-cloth",
+                  "greek-shovel"
+                ],
+                finish: "greek-burial-performed"
               }
-            ],
+            },
             tastes: {
               likes: "practical help, care for the dead",
               sore: "being told that family grief is an inconvenience",
               reason: "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+            },
+            homeWhen: {
+              place: "greek-polynices-hollow",
+              requires: [
+                {
+                  kind: "any",
+                  conditions: [
+                    {
+                      kind: "holding",
+                      item: "greek-creon-writ",
+                      actor: "greek-guard"
+                    },
+                    {
+                      kind: "flag",
+                      key: "greek-burial-performed",
+                      value: true
+                    }
+                  ]
+                },
+                {
+                  kind: "any",
+                  conditions: [
+                    {
+                      kind: "flag",
+                      key: "greek-polynices-heard",
+                      value: true
+                    },
+                    {
+                      kind: "flag",
+                      key: "greek-polynices-anointed",
+                      value: true
+                    },
+                    {
+                      kind: "flag",
+                      key: "greek-polynices-veiled",
+                      value: true
+                    },
+                    {
+                      kind: "flag",
+                      key: "greek-burial-performed",
+                      value: true
+                    }
+                  ]
+                }
+              ]
             }
           },
           "greek-ismene": {
@@ -3971,9 +4280,6 @@
               likes: "being heard in her own words",
               sore: "others deciding her identity from a rumor",
               reason: "She checks the traveler's account against a witness tablet."
-            },
-            sealed: {
-              at: "greek-egypt-tomb"
             }
           },
           "greek-menelaus-egypt": {
@@ -3996,9 +4302,6 @@
               likes: "a reliable witness, provisions for the crew",
               sore: "confident claims without a source",
               reason: "Salt stains his cloak. He has kept the ship's passenger tally."
-            },
-            sealed: {
-              at: "greek-egypt-tomb"
             }
           },
           "greek-helen-troy": {
@@ -4022,9 +4325,6 @@
               likes: "being heard in her own words",
               sore: "others deciding her identity from a rumor",
               reason: "She checks the traveler's account against a witness tablet."
-            },
-            sealed: {
-              at: "greek-troy-beach"
             }
           },
           "greek-menelaus-troy": {
@@ -4047,9 +4347,6 @@
               likes: "a reliable witness, provisions for the crew",
               sore: "confident claims without a source",
               reason: "Salt stains his cloak. He has kept the ship's passenger tally."
-            },
-            sealed: {
-              at: "greek-troy-beach"
             }
           },
           "greek-electra-aeschylus": {
@@ -4072,9 +4369,6 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
-            },
-            sealed: {
-              at: "greek-argos-tomb"
             }
           },
           "greek-orestes-aeschylus": {
@@ -4097,9 +4391,6 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
-            },
-            sealed: {
-              at: "greek-argos-tomb"
             }
           },
           "greek-electra-sophocles": {
@@ -4123,9 +4414,6 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
-            },
-            sealed: {
-              at: "greek-mycenae-palace"
             }
           },
           "greek-orestes-sophocles": {
@@ -4149,9 +4437,6 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
-            },
-            sealed: {
-              at: "greek-mycenae-palace"
             }
           },
           "greek-electra-euripides": {
@@ -4174,9 +4459,6 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
-            },
-            sealed: {
-              at: "greek-argive-farm"
             }
           },
           "greek-orestes-euripides": {
@@ -4199,9 +4481,6 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
-            },
-            sealed: {
-              at: "greek-argive-farm"
             }
           },
           "greek-aethra": {
@@ -4223,9 +4502,6 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "Olive branches rest across her knees. She makes room for the mothers beside Demeter\u2019s altar."
-            },
-            sealed: {
-              at: "greek-eleusis"
             }
           },
           "greek-adrastus": {
@@ -4247,9 +4523,6 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen."
-            },
-            sealed: {
-              at: "greek-eleusis"
             }
           },
           "greek-argive-mother": {
@@ -4278,7 +4551,8 @@
               reason: "She holds a strip of cloth between both hands. Her son\u2019s name is written beside the urn."
             },
             sealed: {
-              at: "greek-eleusis"
+              at: "greek-eleusis",
+              reason: "She is not here until the Argive dead are returned."
             }
           },
           "greek-iphis": {
@@ -4307,7 +4581,8 @@
               reason: "He sits beside the shrine steps. A place remains empty at his side."
             },
             sealed: {
-              at: "greek-eleusis"
+              at: "greek-eleusis",
+              reason: "He is not here until the account of the pyre is heard."
             }
           },
           "greek-theseus": {
@@ -4330,9 +4605,6 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "A petition table stands beside him. He waits for the mothers\u2019 own account."
-            },
-            sealed: {
-              at: "greek-athens"
             }
           },
           "greek-quay-host": {
@@ -4356,7 +4628,8 @@
               reason: "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
             },
             sealed: {
-              at: "greek-piraeus"
+              at: "greek-piraeus",
+              reason: "Finish the funeral at the Hollow, or give Dione an earlier Theban account."
             }
           },
           "greek-colonus-keeper": {
@@ -4378,9 +4651,6 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "The keeper sets a cup beside the boundary stone. A pot of honey catches the light."
-            },
-            sealed: {
-              at: "greek-colonus"
             }
           },
           "greek-marathon-keeper": {
@@ -4402,9 +4672,6 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
-            },
-            sealed: {
-              at: "greek-marathon"
             }
           },
           "greek-household-witness": {
@@ -4447,7 +4714,8 @@
               reason: "She has walked beside the mourners and knows the work that follows a funeral."
             },
             sealed: {
-              at: "greek-eleusis"
+              at: "greek-eleusis",
+              reason: "She is not here until the urn is placed in the mothers\u2019 care."
             }
           },
           "greek-ajax-tecmessa": {
@@ -4470,9 +4738,6 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
-            },
-            sealed: {
-              at: "greek-ajax-household"
             }
           },
           "greek-ajax-teucer": {
@@ -4495,9 +4760,6 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
-            },
-            sealed: {
-              at: "greek-greek-camp"
             }
           },
           "greek-ajax-odysseus": {
@@ -4521,9 +4783,6 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
-            },
-            sealed: {
-              at: "greek-greek-camp"
             }
           },
           "greek-polynices-shade": {
@@ -4563,81 +4822,6 @@
               likes: "care for his kin",
               sore: "the neglect of the dead",
               reason: "He asks that his sister be allowed to lay him to rest."
-            }
-          },
-          "greek-patroclus": {
-            name: "Patroclus",
-            text: "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus.",
-            place: "greek-ship",
-            home: "greek-piraeus",
-            values: {
-              "greek-bread": 2
-            },
-            seed: "Patroclus, a sailor from Piraeus.",
-            portrait: "assets/greek-drama/patroclus.png",
-            poses: [
-              {
-                portrait: "assets/greek-drama/patroclus-bread.png",
-                requires: [
-                  {
-                    kind: "holding",
-                    item: "greek-bread",
-                    actor: "greek-patroclus"
-                  }
-                ]
-              }
-            ],
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-burial-performed",
-                value: true
-              }
-            ],
-            want: {
-              kind: "item",
-              target: "greek-bread",
-              minTrust: 1
-            },
-            tastes: {
-              likes: "bread shared on deck, a steady voyage home",
-              sore: "being treated as cargo",
-              reason: "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus."
-            },
-            appearsWhen: [
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "flag",
-                    key: "greek-patroclus-met",
-                    value: true
-                  },
-                  {
-                    kind: "ship_at",
-                    transport: "greek-ship",
-                    dock: "greek-piraeus"
-                  }
-                ]
-              },
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "flag",
-                    key: "greek-patroclus-met",
-                    value: true
-                  },
-                  {
-                    kind: "item_at",
-                    item: "greek-provisions",
-                    place: "greek-ship"
-                  }
-                ]
-              }
-            ],
-            sealed: {
-              at: "greek-ship"
             }
           }
         },
@@ -5090,6 +5274,20 @@
             holder: "greek-creon",
             art: "assets/greek-drama/creon-writ.webp"
           },
+          "greek-guard-tablet": {
+            name: "The Guard's Tablet",
+            text: "A wax tablet from the gate. It records a warning that the household meant to bury the brother.",
+            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            holder: "greek-gate",
+            art: "assets/greek-drama/guard-tablet.webp",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-guard-warned",
+                value: true
+              }
+            ]
+          },
           "greek-pyre-account": {
             name: "The Pyre Account",
             text: "Aethra\u2019s written account of the rite at Eleusis: the cloths, the urn in the mothers\u2019 care, and the losses beside the pyre.",
@@ -5187,6 +5385,7 @@
               }
             ],
             sealed: {
+              reason: "Speak to Polynices\u2019 Shade to learn the way into the Hollow.",
               quest: {
                 kind: "person",
                 target: "greek-polynices-shade"
@@ -5202,14 +5401,7 @@
                 key: "greek-helen-account",
                 value: "egypt"
               }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "greek-helen-accounts",
-                to: "greek-shipmaster"
-              }
-            }
+            ]
           },
           {
             from: "greek-egypt-tomb",
@@ -5224,14 +5416,7 @@
                 key: "greek-helen-account",
                 value: "troy"
               }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "greek-helen-accounts",
-                to: "greek-elder"
-              }
-            }
+            ]
           },
           {
             from: "greek-troy-beach",
@@ -5246,14 +5431,7 @@
                 key: "greek-atreid-account",
                 value: "aeschylus"
               }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "greek-atreid-record",
-                to: "greek-ismene"
-              }
-            }
+            ]
           },
           {
             from: "greek-argos-tomb",
@@ -5268,14 +5446,7 @@
                 key: "greek-atreid-account",
                 value: "sophocles"
               }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "greek-atreid-record",
-                to: "greek-creon"
-              }
-            }
+            ]
           },
           {
             from: "greek-mycenae-palace",
@@ -5290,14 +5461,7 @@
                 key: "greek-atreid-account",
                 value: "euripides"
               }
-            ],
-            sealed: {
-              quest: {
-                kind: "item",
-                target: "greek-atreid-record",
-                to: "greek-baker"
-              }
-            }
+            ]
           },
           {
             from: "greek-argive-farm",
@@ -5312,13 +5476,7 @@
                 key: "greek-atreid-account",
                 value: "aeschylus"
               }
-            ],
-            sealed: {
-              quest: {
-                kind: "place",
-                target: "greek-argos-palace"
-              }
-            }
+            ]
           },
           {
             from: "greek-argos-palace",
@@ -5357,7 +5515,8 @@
               quest: {
                 kind: "place",
                 target: "greek-road-athens-eleusis"
-              }
+              },
+              reason: "Opens once the mothers\u2019 request is heard and their petition is in the Sanctuary or the Agora."
             }
           },
           {
@@ -5379,7 +5538,8 @@
               quest: {
                 kind: "place",
                 target: "greek-road-athens-piraeus"
-              }
+              },
+              reason: "Opens once the mothers\u2019 petition is laid before Theseus and the Herald\u2019s Truce is in the Agora."
             }
           },
           {
@@ -5401,7 +5561,8 @@
               quest: {
                 kind: "place",
                 target: "greek-road-athens-piraeus"
-              }
+              },
+              reason: "Opens once the mothers\u2019 petition is laid before Theseus and the Herald\u2019s Truce is in the Agora."
             }
           }
         ],
@@ -5472,6 +5633,394 @@
               }
             ],
             on: "meet"
+          },
+          {
+            id: "greek-prepare-burial-ground",
+            subject: "greek-battlefield",
+            at: "greek-battlefield",
+            label: "Prepare the burial ground",
+            text: "Vale digs a grave beside the fallen brother.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-decree-known",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-grave-prepared",
+                value: false
+              },
+              {
+                kind: "item_near",
+                item: "greek-shovel",
+                place: "greek-battlefield"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-grave-prepared",
+                value: true
+              }
+            ],
+            textTemplate: "{actor} digs a grave beside the fallen brother.",
+            on: "wait",
+            archived: true
+          },
+          {
+            id: "greek-perform-burial",
+            subject: "greek-battlefield",
+            at: "greek-battlefield",
+            label: "Perform the burial",
+            text: "Vale lays cloth and oil at the grave. The brother is buried against the decree.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-decree-known",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-grave-prepared",
+                value: true
+              },
+              {
+                kind: "item_near",
+                item: "greek-funeral-cloth",
+                place: "greek-battlefield"
+              },
+              {
+                kind: "item_near",
+                item: "greek-oil-flask",
+                place: "greek-battlefield"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-theban-response"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-theban-response",
+                value: "burial"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-burial-performed",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "greek-funeral-cloth"
+              },
+              {
+                kind: "retire_item",
+                item: "greek-oil-flask"
+              }
+            ],
+            summary: "The brother was buried. The decree remains in force, and the household must answer for the defiance.",
+            textTemplate: "{actor} lays cloth and oil at the grave. The brother is buried against the decree.",
+            on: "wait",
+            archived: true
+          },
+          {
+            id: "greek-petition-burial",
+            subject: "greek-creon",
+            at: "greek-palace",
+            label: "Receive Creon\u2019s writ",
+            text: "Creon holds his decree again. With his writ, Vale may see the brother buried under witness.",
+            requires: [
+              {
+                kind: "holding",
+                item: "greek-creon-writ",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-decree",
+                actor: "greek-creon"
+              }
+            ],
+            effects: [
+              {
+                kind: "choose",
+                key: "greek-theban-response",
+                value: "concession"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-burial-permitted",
+                value: true
+              }
+            ],
+            summary: "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
+            textTemplate: "Creon holds his decree again. With his writ, {actor} may see the brother buried under witness.",
+            on: "meet",
+            archived: true
+          },
+          {
+            id: "greek-perform-permitted-burial",
+            subject: "greek-battlefield",
+            at: "greek-battlefield",
+            label: "Complete the permitted burial",
+            text: "Vale lays cloth and oil at the grave. The brother is buried under Creon's writ.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-theban-response",
+                value: "concession"
+              },
+              {
+                kind: "flag",
+                key: "greek-grave-prepared",
+                value: true
+              },
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: false
+              },
+              {
+                kind: "item_near",
+                item: "greek-funeral-cloth",
+                place: "greek-battlefield"
+              },
+              {
+                kind: "item_near",
+                item: "greek-oil-flask",
+                place: "greek-battlefield"
+              }
+            ],
+            effects: [
+              {
+                kind: "set_flag",
+                key: "greek-burial-performed",
+                value: true
+              },
+              {
+                kind: "retire_item",
+                item: "greek-funeral-cloth"
+              },
+              {
+                kind: "retire_item",
+                item: "greek-oil-flask"
+              }
+            ],
+            textTemplate: "{actor} lays cloth and oil at the grave. The brother is buried under Creon's writ.",
+            on: "wait",
+            archived: true
+          },
+          {
+            id: "greek-report-plan",
+            subject: "greek-guard",
+            at: "greek-gate",
+            label: "Report the intended burial",
+            text: "Vale hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-decree-known",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-shovel",
+                role: "actor"
+              },
+              {
+                kind: "holding",
+                item: "greek-funeral-cloth",
+                role: "actor"
+              },
+              {
+                kind: "choice_unset",
+                key: "greek-theban-response"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-shovel",
+                place: "greek-gate"
+              },
+              {
+                kind: "place_item",
+                item: "greek-funeral-cloth",
+                place: "greek-gate"
+              },
+              {
+                kind: "choose",
+                key: "greek-theban-response",
+                value: "exposure"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-guard-warned",
+                value: true
+              }
+            ],
+            textTemplate: "{actor} hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
+            on: "give",
+            archived: true
+          },
+          {
+            id: "greek-courtyard-burial",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Tell the courtyard what happened",
+            text: "Vale sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-theban-response",
+                value: "burial"
+              },
+              {
+                kind: "holding",
+                item: "greek-burial-account",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-burial-account",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-burial-public",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-open-door-open",
+                value: true
+              }
+            ],
+            textTemplate: "{actor} sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
+            on: "give"
+          },
+          {
+            id: "greek-courtyard-concession",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Share the public exception",
+            text: "Vale sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-theban-response",
+                value: "concession"
+              },
+              {
+                kind: "holding",
+                item: "greek-creon-writ",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-creon-writ",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-concession-public",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-open-door-open",
+                value: true
+              }
+            ],
+            textTemplate: "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
+            on: "give"
+          },
+          {
+            id: "greek-courtyard-permitted-burial",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Tell Dione about the grave",
+            text: "Vale sets the Burial Account on Dione's table.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-theban-response",
+                value: "concession"
+              },
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: true
+              },
+              {
+                kind: "holding",
+                item: "greek-burial-account",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-burial-account",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-permitted-burial-public",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-open-door-open",
+                value: true
+              }
+            ],
+            textTemplate: "{actor} sets the Burial Account on Dione's table.",
+            on: "give"
+          },
+          {
+            id: "greek-courtyard-exposure",
+            subject: "greek-baker",
+            at: "greek-courtyard",
+            label: "Explain the warning",
+            text: "Vale sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
+            requires: [
+              {
+                kind: "choice",
+                key: "greek-theban-response",
+                value: "exposure"
+              },
+              {
+                kind: "holding",
+                item: "greek-guard-tablet",
+                role: "actor"
+              }
+            ],
+            effects: [
+              {
+                kind: "place_item",
+                item: "greek-guard-tablet",
+                place: "greek-courtyard"
+              },
+              {
+                kind: "set_flag",
+                key: "greek-exposure-public",
+                value: true
+              },
+              {
+                kind: "set_flag",
+                key: "greek-open-door-open",
+                value: true
+              }
+            ],
+            textTemplate: "{actor} sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
+            on: "give"
           },
           {
             id: "greek-helen-egypt",
@@ -8384,33 +8933,6 @@
               }
             ],
             on: "talk"
-          },
-          {
-            id: "greek-meet-patroclus",
-            subject: "greek-patroclus",
-            at: "greek-piraeus",
-            label: "Meet Patroclus",
-            text: "Patroclus steps down onto the quay and makes room beside Vale.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-patroclus-met",
-                value: false
-              }
-            ],
-            effects: [
-              {
-                kind: "trust",
-                level: 3
-              },
-              {
-                kind: "set_flag",
-                key: "greek-patroclus-met",
-                value: true
-              }
-            ],
-            textTemplate: "Patroclus steps down onto the quay and makes room beside {actor}.",
-            on: "meet"
           }
         ],
         works: [
@@ -9360,8 +9882,7 @@
             "greek-colonus-keeper",
             "greek-market-neighbor",
             "greek-household-witness",
-            "greek-polynices-shade",
-            "greek-patroclus"
+            "greek-polynices-shade"
           ],
           items: [
             "greek-water-jar",
@@ -9384,6 +9905,7 @@
             "greek-olive-branch",
             "greek-burial-account",
             "greek-creon-writ",
+            "greek-guard-tablet",
             "greek-pyre-account",
             "greek-figs",
             "greek-wine-skin",
@@ -9394,6 +9916,15 @@
             "greek-return-water-jar",
             "greek-hear-decree",
             "greek-gather-witness",
+            "greek-prepare-burial-ground",
+            "greek-perform-burial",
+            "greek-petition-burial",
+            "greek-perform-permitted-burial",
+            "greek-report-plan",
+            "greek-courtyard-burial",
+            "greek-courtyard-concession",
+            "greek-courtyard-permitted-burial",
+            "greek-courtyard-exposure",
             "greek-open-door-hear-mothers",
             "greek-open-door-hear-adrastus",
             "greek-open-door-register-plea",
@@ -9419,8 +9950,7 @@
             "greek-anoint-polynices",
             "greek-shroud-polynices",
             "greek-bury-polynices",
-            "greek-hear-polynices",
-            "greek-meet-patroclus"
+            "greek-hear-polynices"
           ]
         },
         recital: {
@@ -9435,7 +9965,21 @@
                 "his body lies in the grave"
               ],
               anyChoices: [
+                "greek-perform-burial",
+                "greek-perform-permitted-burial",
                 "greek-bury-polynices"
+              ]
+            },
+            {
+              phrases: [
+                "creon gave leave",
+                "creon has granted",
+                "creon granted permission",
+                "the king gave permission"
+              ],
+              anyChoices: [
+                "greek-petition-burial",
+                "greek-perform-permitted-burial"
               ]
             },
             {
@@ -9481,6 +10025,46 @@
             {
               choice: "greek-return-water-jar",
               quest: "story-quest-greek-table",
+              summons: true
+            },
+            {
+              choice: "greek-petition-burial",
+              quest: "story-quest-greek-burial",
+              summons: false
+            },
+            {
+              choice: "greek-perform-burial",
+              quest: "story-quest-greek-burial",
+              summons: true
+            },
+            {
+              choice: "greek-perform-permitted-burial",
+              quest: "story-quest-greek-burial",
+              summons: true
+            },
+            {
+              choice: "greek-report-plan",
+              quest: "story-quest-greek-burial",
+              summons: true
+            },
+            {
+              choice: "greek-courtyard-burial",
+              quest: "story-quest-greek-courtyard",
+              summons: true
+            },
+            {
+              choice: "greek-courtyard-concession",
+              quest: "story-quest-greek-courtyard",
+              summons: true
+            },
+            {
+              choice: "greek-courtyard-exposure",
+              quest: "story-quest-greek-courtyard",
+              summons: true
+            },
+            {
+              choice: "greek-courtyard-permitted-burial",
+              quest: "story-quest-greek-courtyard",
               summons: true
             },
             {
@@ -10291,6 +10875,7 @@
                 from: "greek-harbor",
                 to: "greek-piraeus",
                 oneWay: true,
+                reason: "Put the Travel Provisions down on deck",
                 opensWith: [
                   {
                     kind: "any",
@@ -10307,8 +10892,7 @@
                       }
                     ]
                   }
-                ],
-                sealed: true
+                ]
               },
               {
                 from: "greek-piraeus",
@@ -13895,7 +14479,8 @@
               quest: {
                 kind: "place",
                 target: "forest-trail"
-              }
+              },
+              reason: "Open only while the Wolfprint Charm is at the Old Oak Tree."
             }
           },
           {
@@ -13912,7 +14497,8 @@
               quest: {
                 kind: "place",
                 target: "forest-trail"
-              }
+              },
+              reason: "Opens once the garden drain is cleared."
             }
           }
         ],
@@ -15254,49 +15840,15 @@
               sore: "A possession mistaken for its owner",
               reason: "RATi listens for the small things people leave unsaid."
             },
+            want: {
+              kind: "place",
+              target: "ratiradio-staff-kitchen"
+            },
             requires: [
               {
                 kind: "flag",
                 key: "rati-awake",
                 value: true
-              }
-            ],
-            wants: [
-              {
-                want: {
-                  kind: "place",
-                  target: "ratiradio-listening-room",
-                  step: {
-                    verb: "lay",
-                    items: [
-                      "ratiradio-red-beanie"
-                    ]
-                  }
-                }
-              },
-              {
-                want: {
-                  kind: "place",
-                  target: "ratiradio-listening-room",
-                  step: {
-                    verb: "lay",
-                    items: [
-                      "ratiradio-raven-figurine"
-                    ]
-                  }
-                }
-              },
-              {
-                want: {
-                  kind: "place",
-                  target: "ratiradio-listening-room",
-                  step: {
-                    verb: "lay",
-                    items: [
-                      "ratiradio-glass"
-                    ]
-                  }
-                }
               }
             ]
           },
@@ -15325,7 +15877,8 @@
               }
             ],
             sealed: {
-              at: "ratiradio-listening-room"
+              at: "ratiradio-listening-room",
+              reason: "Put the glass, raven figurine, red beanie down in the Listening Room together."
             }
           }
         },
@@ -15439,7 +15992,8 @@
               quest: {
                 kind: "item",
                 target: "ratiradio-red-beanie"
-              }
+              },
+              reason: "Carry the Red Beanie to open this passage."
             }
           },
           {
@@ -15456,7 +16010,8 @@
               quest: {
                 kind: "place",
                 target: "ratiradio-listening-room"
-              }
+              },
+              reason: "Put the Thermos down at the Dispatch Window to open this passage."
             }
           },
           {
@@ -15473,7 +16028,8 @@
               quest: {
                 kind: "place",
                 target: "ratiradio-broadcast-booth"
-              }
+              },
+              reason: "Talk with RATi while holding the Raven Figurine to open this passage."
             }
           }
         ],
@@ -16040,8 +16596,8 @@
         "oneWay",
         "opensWith",
         "spends",
-        "sealed"
-      ]) || lane.sealed !== void 0 && (!lane.opensWith || lane.sealed !== true) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
+        "reason"
+      ]) || lane.reason !== void 0 && (!lane.opensWith || typeof lane.reason !== "string" || !lane.reason.trim() || lane.reason.length > 240) || !docks.includes(lane.from) || !docks.includes(lane.to) || lane.from === lane.to || lane.oneWay !== void 0 && lane.oneWay !== true) {
         out.push("has a lane that does not join two of its docks");
         continue;
       }
@@ -16063,9 +16619,9 @@
     return out;
   }
   function specialsProblems(pack) {
-    const sp = pack.specials, pool = Array.isArray(sp?.pool) ? sp.pool : [], ids3 = pool.map((e) => e?.id).filter(Boolean), own2 = (id) => ["places", "avatars", "items"].some((k) => owns3(pack[k], id));
+    const sp = pack.specials, pool = Array.isArray(sp?.pool) ? sp.pool : [], ids3 = pool.map((e) => e?.id).filter(Boolean), own3 = (id) => ["places", "avatars", "items"].some((k) => owns3(pack[k], id));
     const ok = keysOk(sp, ["draw", "pool"]) && keysOk(sp.draw, ["places", "avatars", "items"]) && Object.values(sp.draw).every((n) => intOk(n, 0, 8)) && pool.length > 0 && pool.length <= 64 && new Set(ids3).size === ids3.length && !ids3.includes(pack.entry) && pool.every(
-      (e) => Object.hasOwn(RARITY_WEIGHTS, e?.rarity) && (e.none === true ? keysOk(e, ["none", "rarity"]) : keysOk(e, ["id", "rarity", "anchor"]) && own2(e.id) && (e.anchor === void 0 || owns3(pack.places, e.anchor) && !ids3.includes(e.anchor)))
+      (e) => Object.hasOwn(RARITY_WEIGHTS, e?.rarity) && (e.none === true ? keysOk(e, ["none", "rarity"]) : keysOk(e, ["id", "rarity", "anchor"]) && own3(e.id) && (e.anchor === void 0 || owns3(pack.places, e.anchor) && !ids3.includes(e.anchor)))
     );
     return ok ? [] : ["specials needs a bounded draw and a pool of own entities"];
   }
@@ -16244,7 +16800,7 @@
     check(record3(places2) && Object.keys(places2).length > 0, "needs places");
     check(record3(avatars), "avatars must be a map");
     check(record3(fixtures), "fixtures must be a map");
-    const own2 = [
+    const own3 = [
       ...Object.keys(places2),
       ...Object.keys(avatars),
       ...Object.keys(fixtures),
@@ -16256,11 +16812,11 @@
       ...hub2?.items || []
     ];
     check(
-      new Set(own2).size === own2.length && own2.every(idOk2),
+      new Set(own3).size === own3.length && own3.every(idOk2),
       "entity ids must be distinct, lowercase and hyphenated"
     );
     check(
-      own2.every((id) => !hubIds2.includes(id)),
+      own3.every((id) => !hubIds2.includes(id)),
       "entity ids must not reuse hub ids"
     );
     check(owns3(places2, pack.entry), "entry must name one of the pack's places");
@@ -16716,8 +17272,8 @@
         if (!asks) requirements(entry?.when, `avatar ${id} wants[${n}] when`);
       }
       check(
-        a.sealed === void 0 || keysOk(a.sealed, ["at"]) && owns3(places2, a.sealed.at) && Array.isArray(a.requires) && a.requires.length > 0,
-        `avatar ${id} sealed card needs a place and activation requirements`
+        a.sealed === void 0 || keysOk(a.sealed, ["at", "reason"]) && owns3(places2, a.sealed.at) && textOk(a.sealed.reason, 240) && Array.isArray(a.requires) && a.requires.length > 0,
+        `avatar ${id} sealed card needs a place, a reason and activation requirements`
       );
       for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
         requirements(p?.requires, `avatar ${id} pose ${n + 1} requires`);
@@ -16788,8 +17344,8 @@
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);
       check(
-        i.sealed === void 0 || keysOk(i.sealed, ["live"]) && (i.sealed.live === void 0 || i.sealed.live === true) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
-        `item ${id} sealed needs requires and a place of the pack where it lies (home, if any, the same place)`
+        i.sealed === void 0 || keysOk(i.sealed, ["reason", "live"]) && textOk(i.sealed.reason, 240) && (i.sealed.live === void 0 || i.sealed.live === true) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
+        `item ${id} sealed needs a reason, requires, and a place of the pack where it lies (home, if any, the same place)`
       );
       requirements(i.reservedUntil, `item ${id} reservedUntil`);
       check(
@@ -16820,8 +17376,8 @@
       );
       const q = r.sealed?.quest;
       check(
-        r.sealed === void 0 || keysOk(r.sealed, ["quest"]) && Boolean(r.requires?.length || r.travelerRequires?.length) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns3(items2, q.target) && (q.to === void 0 || owns3(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns3(places2, q.target) : q.kind === "person" && owns3(avatars, q.target))),
-        `route ${r.from}>${r.to} sealed card needs a gate and a quest`
+        r.sealed === void 0 || keysOk(r.sealed, ["quest", "reason"]) && Boolean(r.requires?.length || r.travelerRequires?.length) && textOk(r.sealed.reason, 240) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns3(items2, q.target) && (q.to === void 0 || owns3(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns3(places2, q.target) : q.kind === "person" && owns3(avatars, q.target))),
+        `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`
       );
       requirements(r.requires, "route requires");
       requirements(r.travelerRequires, "route traveller requires", true, true);
@@ -16853,7 +17409,7 @@
           (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
         ) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
-        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && (c.archived === void 0 || c.archived === true) && !choiceIds.has(c.id) && own2.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
+        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && (c.archived === void 0 || c.archived === true) && !choiceIds.has(c.id) && own3.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -17069,17 +17625,17 @@
           r.places.includes(c.at) && [...r.places, ...r.avatars, ...r.items].includes(c.subject),
           "release choice is unavailable"
         );
-      const reachable = /* @__PURE__ */ new Set([pack.entry]);
-      for (const id of reachable)
+      const reachable2 = /* @__PURE__ */ new Set([pack.entry]);
+      for (const id of reachable2)
         for (const to of [
           ...places2[id].exits,
           ...Object.values(pack.transports || {}).filter((t) => Array.isArray(t.docks) && t.docks.includes(id)).map((t) => t.place),
           ...Object.values(pack.transports || {}).filter((t) => t.place === id).flatMap((t) => t.docks),
           ...routes.filter((r2) => r2.from === id).map((r2) => r2.to)
         ].filter((id2) => r.places.includes(id2)))
-          reachable.add(to);
+          reachable2.add(to);
       check(
-        r.places.every((p) => reachable.has(p) || places2[p]?.retired === true),
+        r.places.every((p) => reachable2.has(p) || places2[p]?.retired === true),
         "release contains a disconnected place"
       );
     }
@@ -17199,8 +17755,8 @@
         `${name} requires must be a list`
       );
       check(
-        c.sealed === void 0 || keysOk(c.sealed, []) && Boolean(c.requires?.length) && !c.transport,
-        `${name} sealed card needs a gate`
+        c.sealed === void 0 || keysOk(c.sealed, ["reason"]) && Boolean(c.requires?.length) && !c.transport && textOk(c.sealed.reason, 240),
+        `${name} sealed card needs a gate and a reason`
       );
       for (const r of c?.requires || []) condition(r, `${name} condition`);
       for (const field of ["opened", "closed"])
@@ -17367,9 +17923,15 @@
       ))
     ).map(([id, place]) => [id, place.road])
   );
+  var localRoadEnds = (id) => localRoads.get(id) || null;
   var retiredPlaces = new Map(
     Object.entries(packPlaces).filter(([, place]) => place.retired === true && !place.road).map(([id, place]) => [id, place.exits[0]])
   );
+  var retiredPlace = (id) => retiredPlaces.has(id);
+  var canonicalPlace = (id) => {
+    const end = localRoadEnds(id)?.[0] || id;
+    return retiredPlaces.get(end) || end;
+  };
   var transports = merge("transports");
   var packPeople = merge("avatars");
   var packFixtures = merge("fixtures");
@@ -17416,6 +17978,7 @@
   var packOf = (id) => packDefinition(entities[id]?.packId);
   var roamingQuestActor = (id, world = null) => packPeople[id]?.roamingQuest === "latest-completion" && (!world || conditionsMet(world, packPeople[id].packId, packPeople[id].requires));
   var freed = (world, id) => !!world && Array.isArray(packPeople[id]?.stayUntil) && conditionsMet(world, packPeople[id].packId, packPeople[id].stayUntil, id);
+  var staysPut = (id, world = null) => packPeople[id]?.travels === false && !freed(world, id);
   var fixturesAt = (place) => Object.entries(packFixtures).filter(([, f]) => f.at === place).map(([id, f]) => ({ id, ...f }));
   var packProfiles = Object.fromEntries([
     ...Object.entries(packThings).map(([id, item]) => [
@@ -17576,12 +18139,15 @@
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
     )
   );
+  var partyMet = (world, pack, conditions, actor) => partyOf(world, actor).some(
+    (who) => conditionsMet(world, pack, conditions, who)
+  );
   function personalRouteOpen(world, from, to, actor) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter((r) => r.from === from && r.to === to).map((route) => ({ pack: pack.id, route }))
     );
     return !routes.some(({ route }) => route.travelerRequires?.length) || routes.some(
-      ({ pack, route }) => routeOpen(world, pack, route) && conditionsMet(world, pack, route.travelerRequires, actor)
+      ({ pack, route }) => routeOpen(world, pack, route) && partyMet(world, pack, route.travelerRequires, actor)
     );
   }
   function latchRoutes(world) {
@@ -17605,7 +18171,7 @@
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && routeOpen(world, pack.id, r) && conditionsMet(
+        (r) => r.from === place && routeOpen(world, pack.id, r) && partyMet(
           world,
           pack.id,
           r.travelerRequires,
@@ -17799,16 +18365,6 @@
     const item = world.items[RADIO_ITEM];
     return !item || !Object.hasOwn(item, "radioOn") || typeof item.radioOn === "boolean";
   }
-
-  // v2/card-game/world/catalog.mjs
-  var places = { ...forest_default.places, ...packPlaces };
-  var sanctuaries = Object.keys(places).filter(
-    (id) => places[id].sanctuary === true
-  );
-  var people = { ...forest_default.people, ...packPeople };
-  var things = { ...packThings, ...forest_default.things };
-  validatePackLinks(places, people, things);
-  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 
   // v2/card-game/lamp-room-fuel.mjs
   var LAMP_ROOM_LIMIT = 3;
@@ -18200,15 +18756,15 @@
   for (const c of crossings)
     if (!c.retired)
       link(c.from, c.transport ? transports[c.transport].place : c.to);
-  function placeDoors(s, own2 = null) {
+  function placeDoors(s, own3 = null) {
     const seed = s.run?.seed ?? 0, used = {}, doors = {};
     const order = [
       ...visitors.filter((a) => a.home.doors.length === 1),
-      ...visitors.filter((a) => a.id === own2 && a.home.doors.length > 1),
-      ...visitors.filter((a) => a.id !== own2 && a.home.doors.length > 1)
+      ...visitors.filter((a) => a.id === own3 && a.home.doors.length > 1),
+      ...visitors.filter((a) => a.id !== own3 && a.home.doors.length > 1)
     ];
     for (const a of order) {
-      const wanted = a.id === own2 ? lampless(a.home.doors) : a.home.doors;
+      const wanted = a.id === own3 ? lampless(a.home.doors) : a.home.doors;
       const free = wanted.filter(
         (p) => ships.has(p) || (linked.get(p)?.size ?? 0) + (used[p] || 0) < LINK_CAP
       );
@@ -18339,6 +18895,42 @@
     for (const entry of world.log) rememberSightings(world, entry, missing);
     for (const id of missing) world.memories[id].seen ??= {};
   }
+  function rememberEvent(world, entry) {
+    const related2 = /* @__PURE__ */ new Set([
+      entry.locationId,
+      entry.fromLocationId,
+      entry.actorId,
+      entry.entityId,
+      entry.itemId,
+      entry.receiveId,
+      entry.targetId,
+      ...entry.witnesses || [],
+      ...entry.cast || [],
+      ...(entry.items || []).map((item) => item.id)
+    ]);
+    for (const id of related2) {
+      if (!profiles[id]) continue;
+      if (profiles[id].kind === "avatar" && world.controlledActors?.includes(id) && !world.presentActors?.includes(id) && entry.actorId !== id)
+        continue;
+      const memory = world.memories[id];
+      rememberSightings(world, entry, [id]);
+      if (memory.events.some((event) => event.seq === entry.seq)) continue;
+      memory.events.push({
+        seq: entry.seq,
+        turn: entry.turn,
+        kind: entry.generated ? "expression" : "event",
+        text: `${entry.speaker}: ${entry.text}`.slice(0, 650)
+      });
+      memory.events = memory.events.slice(-MEMORY_LIMIT);
+      if (entry.consequence || entry.kind === "action" && ["give", "trade", "threaten", "attack", "accompany", "choose"].includes(
+        entry.verb
+      )) {
+        memory.landmarks ??= [];
+        memory.landmarks.push({ ...memory.events.at(-1) });
+        memory.landmarks = memory.landmarks.slice(-6);
+      }
+    }
+  }
   function validInnerLife(life, turn) {
     if (life === void 0 || life === null) return true;
     const text2 = (value, limit) => typeof value === "string" && value.trim().length > 0 && value.length <= limit && !/[\u0000-\u001f\u007f]/u.test(value);
@@ -18421,6 +19013,37 @@
       s.life = { version: LIFE_VERSION, actors: {} };
     for (const id of Object.keys(s.actors))
       if (include(id)) s.life.actors[id] ??= newLife();
+  }
+  function fromKey(s, e) {
+    const [, other, pair, place] = e.key.split(":");
+    return {
+      other: e.kind === "care" ? null : other && other !== "self" ? other : null,
+      item: e.kind === "care" && s.items?.[other] ? other : pair ? pair.split("+")[0] : null,
+      place: place || null
+    };
+  }
+  function migrateLife(s) {
+    const old = s.life;
+    if (!old || old.version === LIFE_VERSION) return;
+    s.life = { version: LIFE_VERSION, actors: {} };
+    for (const [id, life] of Object.entries(old.actors || {})) {
+      if (!s.actors[id]) continue;
+      s.life.actors[id] = {
+        experiences: (life.experiences || []).filter((e) => experienceKinds.includes(e?.kind)).map((e) => ({
+          ...e,
+          ...typeof e.key === "string" ? fromKey(s, e) : {}
+        })).map(({ kind, turn, other, item, place }) => ({
+          kind,
+          turn,
+          // Early saves left empty fields out.
+          other: other ?? null,
+          item: item ?? null,
+          place: place ?? null
+        })),
+        attachments: life.attachments || {},
+        company: life.company || {}
+      };
+    }
   }
   function keepReason(s, actor, item) {
     const attachment = lifeOf(s, actor)?.attachments[item];
@@ -18564,12 +19187,203 @@
     );
   }
 
+  // v2/card-game/world-life.json
+  var world_life_default = {
+    defaults: {
+      range: 2,
+      sails: false,
+      sleep: { from: 32, to: 0 }
+    },
+    packs: {
+      "greek-drama": { sleep: { from: 30, to: 47 } }
+    },
+    residents: {
+      "greek-antigone": { range: 0 },
+      "greek-polynices-shade": { range: 0, sleep: null },
+      moth: { sleep: { from: 0, to: 20 } },
+      keeper: { sleep: { from: 35, to: 2 } },
+      badger: { sleep: { from: 28, to: 46 } },
+      oak: { range: 0 },
+      rati: { range: 1 },
+      "greek-aethra": { range: 1 },
+      "greek-adrastus": { range: 1 },
+      "greek-argive-mother": { range: 1 },
+      "greek-iphis": { range: 1 },
+      "greek-theseus": { range: 1 },
+      "greek-quay-host": { range: 1 },
+      "greek-colonus-keeper": { range: 1 },
+      "greek-marathon-keeper": { range: 1 },
+      "greek-ajax-tecmessa": { range: 1 },
+      "greek-ajax-teucer": { range: 1 },
+      "greek-ajax-odysseus": { range: 1 },
+      "hoppycat-nix-fermata": { sleep: { from: 46, to: 22 } },
+      "greek-guard": { range: 0, sleep: null, guards: "greek-battlefield" },
+      "greek-shipmaster": { sails: true, sleep: { from: 30, to: 45 } },
+      "greek-rhapsode": { sleep: null },
+      boardyai: { sleep: null }
+    },
+    guardable: [{ from: "greek-gate", to: "greek-battlefield" }]
+  };
+
+  // v2/card-game/resident-home.mjs
+  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
+  var own2 = (o, k) => Boolean(o) && Object.hasOwn(o, k);
+  var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
+  var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
+  function lifeDataProblems(places2, people2) {
+    const problems2 = [];
+    if (!recordOk(world_life_default.defaults, ["range", "sails", "sleep"]))
+      problems2.push("defaults need a range, sails and a sleep schedule");
+    for (const [id, p] of Object.entries(world_life_default.packs || {}))
+      if (!packDefinitions.some((d) => d.id === id) || !recordOk(p, ["sleep"]))
+        problems2.push(`pack ${id} needs a known pack and a sleep schedule`);
+    for (const r of world_life_default.guardable || [])
+      if (Object.keys(r).sort().join() !== "from,to" || !own2(places2, r.from) || !own2(places2, r.to) || !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to))
+        problems2.push(`guardable way ${r.from}>${r.to} needs an authored route`);
+    for (const [id, r] of Object.entries(world_life_default.residents || {}))
+      if (!own2(people2, id) || !recordOk(r, ["range", "sails", "sleep", "guards"]) || r.guards !== void 0 && !(world_life_default.guardable || []).some(
+        (w) => w.from === lifeHome(id) && w.to === r.guards
+      ))
+        problems2.push(`resident ${id} has an unknown or invalid field`);
+    return problems2;
+  }
+  var lifeField = (id, key2) => own2(world_life_default.residents?.[id], key2) ? world_life_default.residents[id][key2] : void 0;
+  function lifeHome(id, world) {
+    const resident = packPeople[id];
+    const next = resident?.homeWhen;
+    if (world && next && conditionsMet(world, resident.packId, next.requires, id))
+      return next.place;
+    return resident?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? resident?.place ?? null;
+  }
+  function rangeOf(s, id) {
+    if (own2(forest_default.people, id)) return id === "vale" ? null : Infinity;
+    const a = packPeople[id];
+    if (!a || humanAvatar(id) || id === BOARDY || roamingQuestActor(id) || a.journey || a.personalQuests || freed(s, id))
+      return null;
+    return staysPut(id, s) ? 0 : lifeField(id, "range") ?? world_life_default.defaults.range;
+  }
+  var wanders = (s, id) => Boolean(packPeople[id]) && !humanAvatar(id) && (rangeOf(s, id) ?? 0) > 0;
+  var adjacency = null;
+  var hopTables = /* @__PURE__ */ new Map();
+  function hopsFrom(from) {
+    if (!adjacency) {
+      adjacency = /* @__PURE__ */ new Map();
+      for (const [a, b] of authoredRouteEdges()) {
+        if (!adjacency.has(a)) adjacency.set(a, /* @__PURE__ */ new Set());
+        adjacency.get(a).add(b);
+      }
+    }
+    let found2 = hopTables.get(from);
+    if (found2) return found2;
+    found2 = /* @__PURE__ */ new Map([[from, 0]]);
+    const queue = [from];
+    for (let i = 0; i < queue.length; i++)
+      for (const next of adjacency.get(queue[i]) || [])
+        if (!found2.has(next)) {
+          found2.set(next, found2.get(queue[i]) + 1);
+          queue.push(next);
+        }
+    hopTables.set(from, found2);
+    return found2;
+  }
+  function rangeTest(s, id) {
+    const range = rangeOf(s, id), home = lifeHome(id, s);
+    if (range === null || range === Infinity || !home) return null;
+    const table = hopsFrom(home);
+    return (place) => (table.get(place) ?? Infinity) <= range;
+  }
+  var validHome = (s) => Object.values(s.actors).every(
+    (a) => a.homeward === void 0 || a.homeward === true
+  );
+
+  // v2/card-game/resident-guard.mjs
+  var guardable = null;
+  var returns2 = null;
+  var residentGuards = null;
+  var guardians = null;
+  function guardData() {
+    if (guardable) return;
+    guardable = /* @__PURE__ */ new Map();
+    returns2 = /* @__PURE__ */ new Map();
+    for (const { from, to } of world_life_default.guardable || []) {
+      if (!guardable.has(from)) guardable.set(from, /* @__PURE__ */ new Set());
+      guardable.get(from).add(to);
+      if (!returns2.has(to)) returns2.set(to, /* @__PURE__ */ new Set());
+      returns2.get(to).add(from);
+    }
+    residentGuards = Object.keys(world_life_default.residents || {}).filter(
+      (id) => lifeField(id, "guards") && packPeople[id] && !humanAvatar(id)
+    ).sort();
+    guardians = [...residentGuards, ...humanAvatarIds];
+  }
+  var isGuardable = (from, to) => {
+    guardData();
+    return Boolean(guardable.get(from)?.has(to));
+  };
+  var guardPost = (id) => lifeField(id, "guards") && !humanAvatar(id) ? { from: lifeHome(id), to: lifeField(id, "guards") } : null;
+  var wayLifted = (s, from, to) => packRouteOpen(s, from, to);
+  function guardedExits(_s, place) {
+    guardData();
+    return [...guardable.get(place) || [], ...returns2.get(place) || []];
+  }
+  var guardedWay = (from, to) => isGuardable(from, to) ? [from, to] : isGuardable(to, from) ? [to, from] : null;
+  function guardOf(s, from, to, traveller = null) {
+    const way = guardedWay(from, to);
+    if (!way) return null;
+    const [post, beyond] = way;
+    for (const id of guardians) {
+      const a = s.actors[id];
+      if (id === traveller || a?.guarding !== beyond || a.place !== post || !entityActive(s, id))
+        continue;
+      if (!humanAvatar(id)) {
+        const person = packPeople[id];
+        if (traveller && person?.passWhen && partyMet(s, person.packId, person.passWhen, traveller))
+          continue;
+        return id;
+      }
+      if (humanPresent(s, id) && !(traveller && controlledByHuman(s, traveller)))
+        return id;
+    }
+    return null;
+  }
+  var guardedFrom = (place) => guardedExits(null, place);
+  var inStandoff = (s, id) => (s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, id));
+  function settleGuards(s) {
+    guardData();
+    for (const id of residentGuards) {
+      const a = s.actors[id], post = guardPost(id);
+      if (!a) continue;
+      if (a.place === post.from && entityActive(s, id) && !wayLifted(s, post.from, post.to) && !inStandoff(s, id))
+        a.guarding = post.to;
+      else delete a.guarding;
+    }
+    for (const id of humanAvatarIds) {
+      const a = s.actors[id];
+      if (a?.guarding !== void 0 && (!humanPresent(s, id) || !isGuardable(a.place, a.guarding) || inStandoff(s, id)))
+        delete a.guarding;
+    }
+    return s;
+  }
+  function validGuard(s, places2) {
+    for (const [id, a] of Object.entries(s.actors)) {
+      if (a.guarding === void 0) continue;
+      const post = guardPost(id);
+      if (!Object.hasOwn(places2, a.guarding) || (post ? post.to !== a.guarding : !humanAvatar(id)))
+        return false;
+    }
+    return true;
+  }
+
   // v2/card-game/pack-items.mjs
   var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
   var packKits = packDefinitions.flatMap(
     (pack) => (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id }))
   );
   var kitThings = new Set(packKits.flatMap((kit) => kit.items));
+  var reservedItem = (s, id) => {
+    const thing = packThings[id];
+    return Boolean(thing?.reservedUntil?.length && !conditionsMet(s, thing.packId, thing.reservedUntil));
+  };
   function rootOf4(s, id) {
     let holder = s.items[id].holder;
     for (let i = 0; i < 32 && s.items[holder]; i++)
@@ -18642,13 +19456,110 @@
   ));
 
   // v2/card-game/legacy-saves.mjs
-  var SAVE_SCHEMA = 8;
-  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
-    if (!s || s.schema !== SAVE_SCHEMA)
+  var QUEST_FIELDS = [
+    "quests",
+    "questCompletions",
+    "roamingQuests",
+    "introductionVisits",
+    "storyQuests"
+  ];
+  var QUEST_VERBS = ["drop-quest", "join-quest", "share-quest", "pursue"];
+  function forgetQuests(s) {
+    for (const field of QUEST_FIELDS) delete s[field];
+    for (const actor of Object.values(s.actors || {})) delete actor.progress;
+    if (s.motives) delete s.motives.questPrograms;
+    if (Array.isArray(s.log))
+      s.log = s.log.filter((e) => e?.kind !== "quest" && !QUEST_VERBS.includes(e?.verb)).map(({ questPlan, consequence, questKey, ...e }) => e);
+    migrateLife(s);
+  }
+  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null, setAside = () => {
+  } }) {
+    if (!s || ![6, 7].includes(s.schema))
       throw new Error("This save needs a fresh start.");
+    const beforeItemCycle = !Array.isArray(s.usedUp);
     const reworked = new Set(
       packDefinitions.filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision).map((p) => p.id)
     );
+    if (s.packs?.ratiradio?.revision === 1 && packDefinitions.some((p) => p.id === "ratiradio" && p.revision >= 2))
+      s.packs.ratiradio.revision = 2;
+    const radioPack = packDefinitions.find((p) => p.id === "ratiradio");
+    if (s.packs?.ratiradio?.revision === 2 && radioPack?.revision >= 3) {
+      const id = "ratiradio-portable-radio";
+      s.items[id] ??= { holder: radioPack.items[id].holder, history: [] };
+      s.memories[id] ??= newMemories()[id];
+      s.packs.ratiradio.revision = 3;
+    }
+    upgradeHoppyTableSave(s);
+    forgetQuests(s);
+    if (s?.schema === 6) {
+      upgradeSteamClockSave(s);
+      upgradeTransportSave(s);
+      upgradeGreekSectionSave(s);
+      upgradeGreekHomecomingSave(s);
+      upgradeGreekRoadSave(s);
+      upgradeGreekTownSave(s);
+      upgradeGreekAjaxSave(s);
+      upgradeGreekOneRoadSave(s);
+      upgradeGreekPassSave(s);
+      upgradeGreekShipSignalSave(s);
+      upgradeGreekFuneralSave(s);
+      s.schema = 7;
+      installPacks2(s);
+    } else if (s?.schema === 7 && s.packs && typeof s.packs === "object" && s.crossings && typeof s.crossings === "object") {
+      upgradeTransportSave(s);
+      upgradeGreekSectionSave(s);
+      upgradeGreekHomecomingSave(s);
+      upgradeGreekRoadSave(s);
+      upgradeGreekTownSave(s);
+      upgradeGreekAjaxSave(s);
+      upgradeGreekOneRoadSave(s);
+      upgradeGreekPassSave(s);
+      upgradeGreekShipSignalSave(s);
+      upgradeGreekFuneralSave(s);
+      installPacks2(s);
+    }
+    if (s?.schema === 7) {
+      if (s.items?.oil) delete s.items.oil.doses;
+      if (s.locations?.pond?.answer === "call") s.locations.pond.answer = null;
+      for (const entry of Array.isArray(s.log) ? s.log : [])
+        if (entry?.verb === "refill") entry.verb = "refuel";
+      for (const a of Object.values(s.actors || {})) delete a?.sleepUntil;
+      for (const a of Object.values(s.actors || {}))
+        for (const w of [a?.want, ...a?.under || []])
+          if (w?.quest && w.quest.left > questSteps(w.quest.level) + 1)
+            w.quest.left = questSteps(w.quest.level) + 1;
+      for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
+        if (c && !c.steppedBack && c.challenger && c.defender)
+          c.steppedBack = { [c.challenger]: false, [c.defender]: false };
+      upgradeShoreRouteSave(s);
+      upgradeBoardyStationSave(s);
+      restoreBoardyStationSave(s);
+      upgradeBoardyAtticSave(s);
+      upgradeHoppyCatSeaSave(s);
+      upgradeHoppyCatInteriorsSave(s);
+      upgradeBoardingSave(s);
+      upgradeForestButtonsSave(s);
+      upgradeForestRevisionSave(s);
+      upgradeWillowsKitSave(s);
+      upgradeGreekThebesSave(s);
+      upgradeGreekDistrictSave(s);
+      upgradeGreekCithaeronSave(s);
+      upgradeGreekDistrictRoadsSave(s);
+      upgradeGreekOpenDoorSave(s);
+      upgradeGreekEastSeaSave(s);
+      upgradeGreekThreeLinksSave(s);
+      upgradeGreekLandRouteSave(s);
+      upgradeGreekForecourtSave(s);
+      upgradeGreekDecreeSave(s);
+      if (s.packs?.["greek-drama"]?.revision === 20)
+        s.packs["greek-drama"].revision = 21;
+      if (s.packs?.["greek-drama"]?.revision === 21)
+        s.packs["greek-drama"].revision = 22;
+      upgradeGreekCithaeronOpenSave(s);
+      if (s.packs?.["greek-drama"]?.revision === 23)
+        s.packs["greek-drama"].revision = 24;
+      upgradeRecitals(s, packDefinitions);
+    }
     upgradeSightings(s);
     installPacks2(s);
     reconcileContent(s);
@@ -18660,6 +19571,19 @@
       else if (reworked.size) forgetFact(s.knowledge, id);
     }
     reconcileTopics(s, reworked);
+    if (s?.schema === 7)
+      installKnowledge(
+        s,
+        void 0,
+        packDefinitions.flatMap(
+          (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
+        )
+      );
+    if (beforeItemCycle) {
+      for (const id of Object.keys(transports))
+        if (s.transports?.[id] && stuckShip(s, id))
+          for (const actor of sendShipHome(s, id).ashore) setAside(s, actor);
+    }
     return s;
   }
   function reconcileContent(s) {
@@ -18862,6 +19786,1014 @@
       return [next];
     });
   }
+  function upgradeShoreRouteSave(s) {
+    const moved2 = /* @__PURE__ */ new Set(["attic"]);
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      let changed = false;
+      const expanded = known.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const [from, to] = edge;
+        if (moved2.has(from) && to === "station" || from === "station" && moved2.has(to)) {
+          changed = true;
+          return [
+            [from, "pond"],
+            ["pond", to]
+          ];
+        }
+        return [edge];
+      });
+      if (changed)
+        s.routeKnowledge[actor] = [
+          ...new Map(
+            expanded.map((edge) => [JSON.stringify(edge), edge])
+          ).values()
+        ];
+    }
+  }
+  function upgradeBoardyStationSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "boardyai");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+    const card = s.items?.["boardyai-calling-card"];
+    if (card?.holder === "pond") card.holder = "station";
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          known.map((edge) => {
+            if (Array.isArray(edge) && edge.length === 2) {
+              if (edge[0] === "pond" && edge[1] === "boardyai-parlour")
+                edge = ["station", "boardyai-parlour"];
+              else if (edge[0] === "boardyai-parlour" && edge[1] === "pond")
+                edge = ["boardyai-parlour", "station"];
+            }
+            return [JSON.stringify(edge), edge];
+          })
+        ).values()
+      ];
+    }
+    saved.revision = 2;
+  }
+  function upgradeBoardyAtticSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "boardyai");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+    const path = ["station", "pond", "attic", "boardyai-parlour"];
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      const expanded = known.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const route = edge[0] === path[0] && edge[1] === path.at(-1) ? path : edge[0] === path.at(-1) && edge[1] === path[0] ? [...path].reverse() : null;
+        return route ? route.slice(1).map((to, i) => [route[i], to]) : [edge];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(expanded.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    saved.revision = 3;
+  }
+  function restoreBoardyStationSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "boardyai");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 4 || ![2, 3].includes(saved?.revision)) return;
+    if (saved.revision === 3 && s.opening?.crossed && s.crossings?.["station-boardyai-parlour"]?.discovered)
+      s.opening.leftHome = true;
+    if (saved.revision === 3)
+      for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+        if (!Array.isArray(known)) continue;
+        const translated = known.map((edge) => Array.isArray(edge) && edge.length === 2 && edge.includes("boardyai-parlour") ? edge.map((place) => place === "attic" ? "station" : place) : edge);
+        s.routeKnowledge[actor] = [...new Map(translated.map((edge) => [JSON.stringify(edge), edge])).values()];
+      }
+    saved.revision = 4;
+  }
+  function upgradeHoppyCatSeaSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+    const home = (place) => Object.hasOwn(pack.places, place);
+    const ships2 = new Set(Object.values(transports).map((t) => t.place));
+    const visited = (actor) => home(s.actors[actor]?.place) || (s.log || []).some(
+      (e) => e?.actorId === actor && (home(e.locationId) || home(e.fromLocationId))
+    ) || Object.values(s.memories?.[actor]?.seen || {}).some(
+      (v) => home(v?.place)
+    ) || // A walked route into or out of Hoppy Cat; the new ship berth is no visit.
+    (s.routeKnowledge?.[actor] || []).some(
+      (edge) => Array.isArray(edge) && edge.some(home) && !edge.some((p) => ships2.has(p))
+    );
+    for (const actor of Object.keys(s.actors || {}).sort())
+      if (!Object.hasOwn(pack.avatars, actor) && visited(actor))
+        learnLane(s, actor, "greek-piraeus", "hoppycat-signal-jetty");
+    saved.revision = 2;
+  }
+  function upgradeHoppyCatInteriorsSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+    const authored = new Set(authoredRouteEdges().map((e) => JSON.stringify(e)));
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      const paths = edges.flatMap((edge) => {
+        if (authored.has(JSON.stringify(edge)) || !edge.every((id) => Object.hasOwn(pack.places, id)))
+          return [edge];
+        const path = walkablePath(...edge);
+        return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    saved.revision = 3;
+  }
+  function upgradeHoppyTableSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "hoppycat-archive");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 4 || !saved || saved.revision >= 4) return;
+    upgradeHoppyCatSeaSave(s);
+    upgradeHoppyCatInteriorsSave(s);
+    if (Array.isArray(saved.specials)) {
+      const pool = new Set(pack.specials.pool.map((e) => e.id));
+      saved.specials = [
+        ...new Set(
+          saved.specials.map((id) => {
+            if (id === "hoppycat-loop-token") return "hoppycat-goldfish-tank";
+            const entity = pack.avatars[id] || pack.items[id];
+            const place = entity?.place || entity?.holder || id;
+            return canonicalPlace(pack.avatars[place]?.place || place);
+          }).filter((id) => pool.has(id))
+        )
+      ];
+    }
+    const home = (id) => Object.hasOwn(pack.places, id);
+    for (const actor of Object.values(s.actors || {})) {
+      for (const key2 of ["place", "home"])
+        if (home(actor[key2])) actor[key2] = canonicalPlace(actor[key2]);
+      for (const want of [actor.want, ...actor.under || []])
+        if (want?.kind === "place" && home(want.target))
+          want.target = canonicalPlace(want.target);
+    }
+    for (const item of Object.values(s.items || {}))
+      if (home(item.holder)) item.holder = canonicalPlace(item.holder);
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+      s.routeKnowledge[actor] = [
+        ...new Map(
+          edges.flatMap((edge) => {
+            if (!edge.every(home)) return [edge];
+            const [from, to] = edge.map(canonicalPlace);
+            const path = walkablePath(from, to);
+            return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+          }).map((edge) => [JSON.stringify(edge), edge])
+        ).values()
+      ];
+    for (const [id, avatar] of Object.entries(pack.avatars)) {
+      if (!s.actors?.[id]) continue;
+      s.actors[id].place = avatar.place;
+      if (s.actors[id].home) s.actors[id].home = avatar.place;
+    }
+    for (const [id, oldHome] of [
+      ["hoppycat-loop-token", "hoppycat-goldfish-tank"],
+      ["hoppycat-context-seed", "hoppycat-meraki-atelier"],
+      ["hoppycat-return-path-checklist", "hoppycat-signal-jetty"]
+    ]) {
+      const item = s.items?.[id];
+      if (item?.holder === oldHome && !item.history?.length)
+        item.holder = pack.items[id].holder;
+    }
+    saved.revision = 4;
+  }
+  function upgradeGreekRoadSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (saved?.revision !== 4) return;
+    const fresh = newMemories();
+    for (const [id, place] of Object.entries(pack.places))
+      if (place.road || id === "greek-athens-harbor")
+        s.memories[id] ??= fresh[id];
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      const expanded = known.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const [from, to] = edge;
+        let path;
+        if (from === "greek-harbor" && to === "greek-athens")
+          path = [
+            from,
+            "greek-ship",
+            "greek-athens-harbor",
+            "greek-road-athens-harbor",
+            to
+          ];
+        else if (from === "greek-athens" && to === "greek-harbor")
+          path = [
+            from,
+            "greek-road-athens-harbor",
+            "greek-athens-harbor",
+            "greek-ship",
+            to
+          ];
+        else if ([from, to].includes("greek-harbor") && [from, to].includes("greek-piraeus"))
+          path = [from, "greek-ship", to];
+        else {
+          const road = pack.places[from]?.exits.find(
+            (id) => pack.places[id]?.road?.includes(to)
+          );
+          if (road) path = [from, road, to];
+        }
+        return path ? path.slice(1).map((end, i) => [path[i], end]) : [edge];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(expanded.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    saved.revision = 5;
+  }
+  function upgradeGreekTownSave(s) {
+    const saved = s.packs?.["greek-drama"];
+    if (saved?.revision !== 5) return;
+    foldRetiredRoads(s);
+    saved.revision = 6;
+  }
+  function upgradeGreekOneRoadSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 8 || saved?.revision !== 7) return;
+    restoreThebanRoad(s, pack);
+    joinDistantTowns(s, pack, saved);
+    foldRetiredRoads(s);
+    saved.revision = 8;
+  }
+  function upgradeGreekShipSignalSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 10 || saved?.revision !== 9) return;
+    const state = s.crossings?.["pond-greek-harbor"];
+    if (state && (state.phase > 2 || state.phase === 2 && !state.discovered))
+      state.phase = 0;
+    saved.revision = 10;
+  }
+  function upgradeGreekThreeLinksSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 17 || saved?.revision !== 16) return;
+    foldRetiredRoads(s);
+    saved.revision = 17;
+  }
+  function upgradeGreekLandRouteSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 18 || saved?.revision !== 17) return;
+    foldRetiredRoads(s);
+    if (Array.isArray(s.openedRoutes)) {
+      s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+      if (s.openedRoutes.includes("greek-athens>greek-road-athens-piraeus"))
+        s.openedRoutes = [
+          .../* @__PURE__ */ new Set([
+            ...s.openedRoutes,
+            "greek-piraeus>greek-road-athens-piraeus"
+          ])
+        ].sort();
+      if (!s.openedRoutes.length) delete s.openedRoutes;
+    }
+    leaveTheRumours(s, pack);
+    const sailed = new Set(laneEdges().map((edge) => JSON.stringify(edge)));
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+      if (Array.isArray(edges))
+        s.routeKnowledge[actor] = edges.filter(
+          (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge))
+        );
+    saved.revision = 18;
+  }
+  function upgradeGreekForecourtSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 19 || saved?.revision !== 18) return;
+    foldRetiredRoads(s);
+    saved.revision = 19;
+  }
+  function upgradeGreekDecreeSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 20 || saved?.revision !== 19) return;
+    if (Array.isArray(s.openedRoutes)) {
+      s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+      if (!s.openedRoutes.length) delete s.openedRoutes;
+    }
+    for (const [id, item] of Object.entries(pack.items))
+      if (item.home && !item.regrow && !item.locked && s.usedUp?.includes(id)) {
+        s.usedUp = s.usedUp.filter((used) => used !== id);
+        s.items[id].holder = item.home;
+      }
+    saved.revision = 20;
+  }
+  var RUMOURS = {
+    "greek-marathon": "greek-piraeus",
+    "greek-ajax-landing": "greek-harbor",
+    "greek-greek-camp": "greek-harbor",
+    "greek-ajax-household": "greek-harbor",
+    "greek-ajax-grave": "greek-harbor",
+    "greek-road-north": "greek-harbor"
+  };
+  function leaveTheRumours(s, pack) {
+    const back = Object.fromEntries(
+      Object.entries(RUMOURS).filter(([place]) => !entityEnabled(s, place))
+    );
+    for (const [id, actor] of Object.entries(s.actors || {}))
+      if (back[actor.place] && pack.avatars[id]?.place !== actor.place)
+        actor.place = back[actor.place];
+    for (const [id, item] of Object.entries(s.items || {}))
+      if (back[item.holder] && pack.items[id]?.holder !== item.holder)
+        item.holder = back[item.holder];
+    const saved = s.packs[pack.id];
+    if (pack.release && saved.scope !== "full") {
+      for (const [id, avatar] of Object.entries(pack.avatars))
+        if (s.actors[id] && !pack.release.avatars.includes(id) && pack.recital?.actor !== id && !departed(pack, saved, id)) {
+          Object.assign(s.actors[id], {
+            place: avatar.place,
+            crossed: 0,
+            lastTalk: -9
+          });
+          delete saved.met?.[id];
+          delete s.opening?.met?.[id];
+        }
+      for (const [id, item] of Object.entries(pack.items))
+        if (s.items[id] && !pack.release.items.includes(id))
+          Object.assign(s.items[id], { holder: item.holder, history: [] });
+      const rumour = /* @__PURE__ */ new Set([
+        ...Object.keys(back),
+        ...Object.keys(pack.places).filter((id) => pack.places[id].retired),
+        ...Object.keys(pack.avatars).filter(
+          (id) => !pack.release.avatars.includes(id) && pack.recital?.actor !== id
+        ),
+        ...Object.keys(pack.items).filter(
+          (id) => !pack.release.items.includes(id)
+        )
+      ]);
+      const names2 = (w) => [w.target, w.step?.to, w.step?.at].some((id) => rumour.has(id));
+      for (const a of Object.values(s.actors || {})) {
+        const quests = [a?.want, ...a?.under || []].filter(Boolean);
+        const kept = quests.filter((w) => !names2(w));
+        if (kept.length === quests.length) continue;
+        a.want = kept[0] ?? null;
+        if (kept.length > 1) a.under = kept.slice(1);
+        else delete a.under;
+      }
+    }
+    const ship = transports["greek-ship"], old = s.transports?.["greek-ship"];
+    if (!ship || !old) return;
+    const state = old.version === 2 ? upgradeTransportState(s, "greek-ship", old) : old;
+    const sails = (dock) => !dock || ship.docks.includes(dock);
+    if (sails(state.dock) && sails(state.destination)) {
+      if (!sails(state.recall))
+        s.transports["greek-ship"] = { ...state, recall: null };
+      return;
+    }
+    const aboard = Object.keys(s.actors || {}).filter((id) => s.actors[id].place === ship.place).sort();
+    s.transports["greek-ship"] = {
+      version: state.version,
+      phase: aboard.length ? "arrived" : "docked",
+      dock: "greek-piraeus",
+      destination: null,
+      riders: aboard,
+      since: s.turn || 0,
+      recall: null
+    };
+  }
+  function upgradeGreekDistrictRoadsSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 14 || saved?.revision !== 13) return;
+    foldRetiredRoads(s);
+    saved.revision = 14;
+  }
+  function upgradeGreekCithaeronSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 13 || saved?.revision !== 12) return;
+    foldRetiredRoads(s);
+    saved.revision = 13;
+  }
+  function upgradeGreekCithaeronOpenSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 23 || saved?.revision !== 22) return;
+    if (Array.isArray(s.openedRoutes)) {
+      s.openedRoutes = s.openedRoutes.filter(
+        (key2) => key2 !== "greek-battlefield>greek-cithaeron"
+      );
+      if (!s.openedRoutes.length) delete s.openedRoutes;
+    }
+    saved.revision = 23;
+  }
+  function upgradeGreekDistrictSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 12 || saved?.revision !== 11) return;
+    for (const [id, state] of Object.entries(s.transports || {})) {
+      if (![state?.dock, state?.destination, state?.recall].some(retiredPlace))
+        continue;
+      const dock = canonicalPlace(state.destination || state.dock);
+      s.transports[id] = upgradeTransportState(s, id, {
+        ...state,
+        dock,
+        destination: dock,
+        recall: state.recall && canonicalPlace(state.recall)
+      });
+    }
+    foldRetiredRoads(s);
+    saved.revision = 12;
+  }
+  function restoreThebanRoad(s, pack) {
+    const road = "greek-road-thebes";
+    const [harbor, town] = pack.places[road].road;
+    const direct = (from, to) => from === harbor && to === town || from === town && to === harbor;
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(edges)) continue;
+      const paths = edges.flatMap(
+        (edge) => Array.isArray(edge) && direct(...edge) ? [
+          [edge[0], road],
+          [road, edge[1]]
+        ] : [edge]
+      );
+      s.routeKnowledge[actor] = [
+        ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+  }
+  function walkablePath(from, to) {
+    const edges = authoredRouteEdges().filter(
+      ([a, b]) => canonicalPlace(a) === a && canonicalPlace(b) === b
+    );
+    const queue = [[from]], seen = /* @__PURE__ */ new Set([from]);
+    while (queue.length) {
+      const path = queue.shift(), here2 = path.at(-1);
+      if (here2 === to) return path;
+      for (const [a, b] of edges)
+        if (a === here2 && !seen.has(b)) {
+          seen.add(b);
+          queue.push([...path, b]);
+        }
+    }
+    return null;
+  }
+  function foldRetiredRoads(s) {
+    for (const actor of Object.values(s.actors || {}))
+      for (const field of ["place", "home"])
+        if (retiredPlace(actor[field]))
+          actor[field] = canonicalPlace(actor[field]);
+    for (const [id, actor] of Object.entries(s.actors || {})) {
+      const ends = localRoadEnds(actor.place)?.map(canonicalPlace);
+      if (!ends) continue;
+      const count = (place) => humanAvatarIds.filter((human) => s.actors[human]?.place === place).length;
+      actor.place = humanAvatarIds.includes(id) && count(ends[0]) >= 4 ? ends[1] : ends[0];
+    }
+    for (const item of Object.values(s.items || {}))
+      item.holder = canonicalPlace(item.holder);
+    const authored = new Set(
+      authoredRouteEdges().map((edge) => JSON.stringify(edge))
+    );
+    const greek = (id) => packPlaces[id]?.packId === "greek-drama";
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {})) {
+      const paths = edges.filter(
+        (edge) => !(laneOfEdge(edge) || []).some(retiredPlace) && !(edge.some(retiredPlace) && !edge.every(greek))
+      ).map(([from, to]) => [canonicalPlace(from), canonicalPlace(to)]).filter(([from, to]) => from !== to).flatMap((edge) => {
+        if (authored.has(JSON.stringify(edge)) || !edge.every(greek))
+          return [edge];
+        const path = walkablePath(...edge);
+        return path ? path.slice(1).map((end, i) => [path[i], end]) : [];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    for (const actor of Object.values(s.actors || {})) {
+      for (const want of [actor.want, ...actor.under || []])
+        if (want?.kind === "place") want.target = canonicalPlace(want.target);
+      if (Array.isArray(actor.visited))
+        actor.visited = [...new Set(actor.visited.map(canonicalPlace))];
+    }
+    s.standoffs = (s.standoffs || []).filter(
+      (conflict) => canonicalPlace(conflict.location) === conflict.location
+    );
+  }
+  function upgradeGreekPassSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 9 || saved?.revision !== 8) return;
+    const id = "greek-olive-branch";
+    s.items[id] ??= { holder: pack.items[id].holder, history: [] };
+    s.memories[id] ??= newMemories()[id];
+    saved.revision = 9;
+  }
+  function upgradeGreekAjaxSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 7 || saved?.revision !== 6) return;
+    addGreekEntities(
+      s,
+      pack,
+      ["greek-ajax-tecmessa", "greek-ajax-teucer", "greek-ajax-odysseus"],
+      [
+        "greek-ajax-shield",
+        "greek-ajax-plea",
+        "greek-ajax-cloth",
+        "greek-ajax-tools"
+      ]
+    );
+    const fresh = newMemories();
+    for (const id of [
+      "greek-ajax-landing",
+      "greek-ajax-household",
+      "greek-ajax-grave"
+    ])
+      s.memories[id] ??= fresh[id];
+    saved.revision = 7;
+  }
+  var GREEK_ROAD_LINKS = {
+    "greek-athens|greek-delphi": "greek-road-sacred-way",
+    "greek-delphi|greek-trachis": "greek-oeta",
+    "greek-susa|greek-troy": "greek-road-royal"
+  };
+  var GREEK_CUT_LINKS = /* @__PURE__ */ new Set([
+    "greek-piraeus|greek-tauris",
+    "greek-piraeus|greek-sicily",
+    "greek-aulis|greek-greek-camp",
+    "greek-scythian-crag|greek-susa"
+  ]);
+  var GREEK_TROJAN_SIDE = {
+    "greek-greek-camp": "greek-aulis",
+    "greek-troy": "greek-aulis",
+    "greek-trojan-camp": "greek-aulis",
+    "greek-lemnos": "greek-aulis",
+    "greek-thrace": "greek-aulis",
+    "greek-susa": "greek-aulis",
+    "greek-scythian-crag": "greek-aulis",
+    "greek-tauris": "greek-piraeus"
+  };
+  function joinDistantTowns(s, pack, saved) {
+    const fresh = newMemories();
+    for (const id of [
+      "greek-road-sacred-way",
+      "greek-road-royal",
+      "greek-road-black-sea",
+      "greek-road-colonists"
+    ])
+      if (s.memories) s.memories[id] ??= fresh[id];
+    for (const [actor, known] of Object.entries(s.routeKnowledge || {})) {
+      if (!Array.isArray(known)) continue;
+      const paths = known.flatMap((edge) => {
+        if (!Array.isArray(edge) || edge.length !== 2) return [edge];
+        const [from, to] = edge;
+        const key2 = [from, to].sort().join("|");
+        if (GREEK_CUT_LINKS.has(key2)) return [];
+        const road = GREEK_ROAD_LINKS[key2];
+        return road ? [
+          [from, road],
+          [road, to]
+        ] : [edge];
+      });
+      s.routeKnowledge[actor] = [
+        ...new Map(paths.map((edge) => [JSON.stringify(edge), edge])).values()
+      ];
+    }
+    if (!saved.flags?.["greek-ajax-open"])
+      for (const [id, actor] of Object.entries(s.actors || {})) {
+        const home = GREEK_TROJAN_SIDE[actor.place];
+        if (home && !GREEK_TROJAN_SIDE[pack.avatars[id]?.place])
+          actor.place = home;
+      }
+  }
+  function upgradeGreekSectionSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+    const avatars = [
+      "greek-aethra",
+      "greek-adrastus",
+      "greek-argive-mother",
+      "greek-iphis",
+      "greek-theseus",
+      "greek-quay-host",
+      "greek-colonus-keeper",
+      "greek-marathon-keeper"
+    ];
+    const items2 = [
+      "greek-burial-petition",
+      "greek-return-cloths",
+      "greek-provision-basket",
+      "greek-ash-urn",
+      "greek-return-list",
+      "greek-grove-cup",
+      "greek-grove-honey",
+      "greek-shelter-blanket",
+      "greek-refuge-tablet"
+    ];
+    addGreekEntities(s, pack, avatars, items2);
+    saved.revision = 3;
+  }
+  function upgradeGreekHomecomingSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 4 || saved?.revision !== 3) return;
+    addGreekEntities(s, pack, ["greek-household-witness"], []);
+    saved.revision = 4;
+  }
+  function upgradeGreekFuneralSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack?.avatars["greek-polynices-shade"] || !saved || saved.revision > 20) return;
+    addGreekEntities(s, pack, ["greek-polynices-shade"], []);
+    const antigone = s.actors["greek-antigone"];
+    if (antigone && !saved.flags?.["greek-burial-performed"])
+      delete antigone.want;
+  }
+  function addGreekEntities(s, pack, avatars, items2) {
+    const fresh = newMemories();
+    if (!s.actors || !s.items || !s.memories || !s.peaceUntil || avatars.some(
+      (id) => !pack.avatars[id] || s.actors[id] || s.memories[id] || Object.hasOwn(s.peaceUntil, id) || Object.hasOwn(s.motives?.grievances || {}, id)
+    ) || items2.some((id) => !pack.items[id] || s.items[id] || s.memories[id]) || Object.values(s.actors).some(
+      (actor) => !actor.trust || avatars.some((id) => Object.hasOwn(actor.trust, id))
+    ))
+      throw new Error(
+        "This earlier Greek save needs its original entity records."
+      );
+    const actorIds2 = [...Object.keys(s.actors), ...avatars];
+    for (const id of avatars) {
+      s.actors[id] = {
+        place: pack.avatars[id].place,
+        crossed: 0,
+        lastTalk: -9,
+        trust: Object.fromEntries(
+          actorIds2.filter((other) => other !== id).map((other) => [other, 0])
+        ),
+        ...newTemperament(id)
+      };
+      s.peaceUntil[id] = 0;
+      s.memories[id] = fresh[id];
+      if (s.motives) s.motives.grievances[id] = [];
+    }
+    for (const id of items2) {
+      s.items[id] = { holder: pack.items[id].holder, history: [] };
+      s.memories[id] = fresh[id];
+    }
+    for (const [id, actor] of Object.entries(s.actors))
+      for (const other of avatars) if (other !== id) actor.trust[other] ??= 0;
+  }
+  var RUMOURED_DOCKS = [
+    "greek-ajax-landing",
+    "greek-marathon",
+    "greek-lemnos",
+    "greek-thrace",
+    "greek-egypt-tomb",
+    "greek-tauris",
+    "greek-sicily"
+  ];
+  var savedDocks = (s, id) => id === "greek-ship" && (s.packs?.["greek-drama"]?.revision ?? 18) < 18 ? [...transports[id].docks, ...RUMOURED_DOCKS] : transports[id].docks;
+  function upgradeBoardingSave(s) {
+    for (const id of Object.keys(transports)) {
+      const docks = savedDocks(s, id);
+      const state = s.transports?.[id];
+      if (!state || state.version !== void 0) continue;
+      const occupied = passengers(s, id).length > 0;
+      const valid = Object.keys(state).sort().join() === "destination,dock,recall" && (occupied ? state.dock === null && docks.includes(state.destination) && (state.recall === null || docks.includes(state.recall)) : docks.includes(state.dock) && state.destination === null && state.recall === null);
+      if (!valid) throw new Error("This save has an invalid ship record.");
+      if (occupied) state.dock = docks.find((dock) => dock !== state.destination);
+      state.version = 2;
+    }
+    for (const id of Object.keys(transports)) {
+      const state = s.transports?.[id];
+      if (state?.version !== 2) continue;
+      if (Object.keys(state).sort().join() !== "destination,dock,recall,version" || !savedDocks(s, id).includes(state.dock))
+        throw new Error("This save has an invalid ship record.");
+      s.transports[id] = upgradeTransportState(s, id, state);
+    }
+  }
+  function upgradeTransportSave(s) {
+    const pack = s.packs?.["greek-drama"];
+    if (pack?.revision !== 1) return;
+    const signal = s.crossings?.["pond-greek-harbor"];
+    if (signal && (!Number.isInteger(signal.phase) || signal.phase < 0 || signal.phase > 4))
+      throw new Error("Invalid legacy lamp signal.");
+    if (s.transports?.["greek-ship"] !== void 0)
+      throw new Error("Conflicting legacy ship record.");
+    s.transports ??= {};
+    s.transports["greek-ship"] = {
+      dock: signal?.phase === 4 ? "pond" : "greek-harbor",
+      destination: null,
+      recall: null
+    };
+    if (s.memories)
+      s.memories["greek-ship"] ??= {
+        events: [],
+        landmarks: [],
+        text: null,
+        turn: null
+      };
+    pack.revision = 2;
+  }
+  function upgradeSteamClockSave(s) {
+    const clock = s.steamClock;
+    delete s.steamClock;
+    s.crossings ??= {};
+    s.packs ??= {};
+    if (clock !== void 0 && (!clock || typeof clock !== "object" || Array.isArray(clock)))
+      throw new Error("Invalid legacy crossing record.");
+    if (clock) {
+      s.crossings["pond-clearing"] = {
+        discovered: clock.discovered,
+        phase: clock.rings,
+        until: clock.openUntil ?? 0
+      };
+      s.crossings["clearing-pond"] = { discovered: false };
+      s.packs["badger-forest"] = {
+        revision: 1,
+        sounds: { "steam-clock": clock.returnRingingUntil ?? 0 }
+      };
+      if (s.actors?.badger?.wakeCause === "bell")
+        s.actors.badger.wakeCause = "sound";
+    }
+    const old = s.packs["greek-drama"];
+    if (old !== void 0) {
+      const allowed = ["revision", "choices", "flags", "receipts", "met"], current = [...allowed, "sounds", "scope"];
+      const keys = old && typeof old === "object" ? Object.keys(old).sort().join() : "";
+      if (keys === current.sort().join() || keys === [...current, "recitals"].sort().join()) {
+        if (s.locations?.pond?.shipSignal !== void 0)
+          throw new Error("Conflicting legacy lamp signal.");
+        return;
+      }
+      if (!old || typeof old !== "object" || Array.isArray(old) || keys !== allowed.sort().join())
+        throw new Error("Invalid legacy Greek pack record.");
+      old.sounds = {};
+      old.scope = "full";
+      const phase = s.locations?.pond?.shipSignal ?? 0;
+      if (!Number.isInteger(phase) || phase < 0 || phase > 4)
+        throw new Error("Invalid legacy lamp signal.");
+      const discovered = phase === 4 || Object.keys(old.met || {}).length > 0 || String(s.actors?.vale?.place).startsWith("greek-");
+      s.crossings["pond-greek-harbor"] = { discovered, phase, until: 0 };
+      s.crossings["greek-harbor-pond"] = { discovered: false };
+    }
+    if (s.locations?.pond) delete s.locations.pond.shipSignal;
+  }
+  var FOREST_RETIRED_ITEMS = [
+    "forest-story-button",
+    "forest-dewbright-button",
+    "forest-watch-bell"
+  ];
+  var FOREST_RETIRED_CHOICES = ["forest-mend-scarf", "forest-share-symbols"];
+  var FOREST_RETIRED_FLAGS = ["forest-scarf-mended", "forest-symbols-shared"];
+  function upgradeForestButtonsSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "lonely-forest");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+    const retired = new Set(FOREST_RETIRED_ITEMS);
+    for (const id of FOREST_RETIRED_ITEMS) {
+      delete s.items?.[id];
+      delete s.memories?.[id];
+    }
+    const fresh = newMemories();
+    for (const [id, item] of Object.entries(pack.items)) {
+      if (s.items[id]) continue;
+      s.items[id] = { holder: item.holder, history: [] };
+      s.memories[id] ??= fresh[id];
+    }
+    const bell = "forest-set-watch-bell", tracks = "forest-mark-pawprints";
+    if (Object.hasOwn(saved.receipts, bell)) {
+      saved.receipts[tracks] = saved.receipts[bell];
+      delete saved.receipts[bell];
+      if (saved.choices["forest-watch-style"] === "bell")
+        saved.choices["forest-watch-style"] = "tracks";
+      if (saved.recitals?.[bell]) {
+        saved.recitals[tracks] = saved.recitals[bell];
+        delete saved.recitals[bell];
+      }
+    }
+    for (const id of FOREST_RETIRED_CHOICES) {
+      delete saved.receipts[id];
+      if (saved.recitals) delete saved.recitals[id];
+    }
+    for (const key2 of FOREST_RETIRED_FLAGS) delete saved.flags[key2];
+    s.log = (s.log || []).flatMap((entry) => {
+      if (entry.packId === pack.id && FOREST_RETIRED_CHOICES.includes(entry.choiceId) || retired.has(entry.itemId) || retired.has(entry.receiveId) || /forest-(story|dewbright)-button|forest-watch-bell/.test(
+        JSON.stringify([entry.questPlan, entry.program, entry.target])
+      ))
+        return [];
+      const next = { ...entry };
+      if (next.packId === pack.id && next.choiceId === bell) {
+        next.choiceId = tracks;
+        next.text = choiceText(
+          pack.choices.find((c) => c.id === tracks),
+          next.actorId
+        );
+      }
+      if (retired.has(next.entityId)) delete next.entityId;
+      if (retired.has(next.targetId)) delete next.targetId;
+      if (Array.isArray(next.items))
+        next.items = next.items.filter(
+          (item) => !retired.has(item?.id) && !retired.has(item?.holder)
+        );
+      if (next.witnesses)
+        next.witnesses = next.witnesses.filter((id) => !retired.has(id));
+      return [next];
+    });
+    const forget = (value) => {
+      if (Array.isArray(value)) value.forEach(forget);
+      else if (value && typeof value === "object") {
+        if (retired.has(value.item)) value.item = null;
+        Object.values(value).forEach(forget);
+      }
+    };
+    for (const life of Object.values(s.life?.actors || {})) {
+      for (const id of FOREST_RETIRED_ITEMS) delete life.attachments?.[id];
+      forget(life);
+    }
+    forgetRetiredThings(s, retired);
+    saved.revision = 2;
+  }
+  var FOREST_FORKS = {
+    "forest-set-stones": "forest-clear-drain",
+    "forest-tell-path": "forest-tell-hearth"
+  };
+  function upgradeForestRevisionSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "lonely-forest");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 3 || saved?.revision !== 2) return;
+    const renamed = {};
+    for (const [was, now] of Object.entries(FOREST_FORKS)) {
+      const turn = saved.receipts?.[was];
+      if (turn === void 0) continue;
+      delete saved.receipts[was];
+      if (saved.recitals) {
+        if (saved.recitals[was] && !Object.hasOwn(saved.receipts, now))
+          saved.recitals[now] ??= saved.recitals[was];
+        delete saved.recitals[was];
+      }
+      if (Object.hasOwn(saved.receipts, now)) continue;
+      saved.receipts[now] = turn;
+      renamed[was] = now;
+    }
+    s.log = (s.log || []).flatMap((entry) => {
+      if (entry?.packId !== pack.id || !Object.hasOwn(FOREST_FORKS, entry.choiceId))
+        return [entry];
+      const now = renamed[entry.choiceId];
+      if (!now) return [];
+      return [
+        {
+          ...entry,
+          choiceId: now,
+          text: choiceText(
+            pack.choices.find((c) => c.id === now),
+            entry.actorId
+          )
+        }
+      ];
+    });
+    saved.choices = {};
+    saved.revision = 3;
+  }
+  var WILLOWS_RETIRED_CHOICES = [
+    "willows-prepare-canoe",
+    "willows-set-paddle",
+    "willows-choose-departure",
+    "willows-choose-watch",
+    "willows-watch-otter",
+    "willows-watch-boatman"
+  ];
+  var WILLOWS_KIT_WAS = {
+    "willows-paddle": "willows-landing",
+    "willows-sheet": "willows-camp",
+    "willows-rope": "willows-camp",
+    "willows-provisions": "willows-camp"
+  };
+  function upgradeWillowsKitSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "willows");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 2 || saved?.revision !== 1) return;
+    for (const id of WILLOWS_RETIRED_CHOICES) {
+      delete saved.receipts[id];
+      if (saved.recitals) delete saved.recitals[id];
+    }
+    for (const flag of ["gear-laid", "paddle-laid", "otter-seen", "boatman-seen"])
+      delete saved.flags[`willows-${flag}`];
+    delete saved.choices["willows-response"];
+    s.log = (s.log || []).filter(
+      (e) => !(e.packId === pack.id && WILLOWS_RETIRED_CHOICES.includes(e.choiceId))
+    );
+    for (const [id, was] of Object.entries(WILLOWS_KIT_WAS))
+      if (s.items[id]?.holder === was) s.items[id].holder = pack.items[id].holder;
+    saved.revision = 2;
+  }
+  var THEBAN_RETIRED_CHOICES = [
+    "prepare-permitted-burial",
+    "decline-burial",
+    "courtyard-refusal",
+    "open-door-invite-burial",
+    "open-door-invite-concession",
+    "open-door-invite-refusal",
+    "open-door-invite-exposure"
+  ].map((id) => `greek-${id}`);
+  function upgradeGreekThebesSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 11 || saved?.revision !== 10) return;
+    foldRetiredRoads(s);
+    for (const id of THEBAN_RETIRED_CHOICES) {
+      delete saved.receipts[id];
+      if (saved.recitals) delete saved.recitals[id];
+    }
+    if (saved.choices["greek-theban-response"] === "refusal") {
+      delete saved.choices["greek-theban-response"];
+      delete saved.flags["greek-refusal-public"];
+      delete saved.flags["greek-open-door-open"];
+    }
+    if (["burial", "concession", "exposure"].some(
+      (b) => Object.hasOwn(saved.receipts, `greek-courtyard-${b}`)
+    ))
+      saved.flags["greek-open-door-open"] = true;
+    s.log = (s.log || []).filter(
+      (e) => !(e.packId === pack.id && THEBAN_RETIRED_CHOICES.includes(e.choiceId))
+    );
+    for (const fact of Object.values(s.knowledge?.facts || {})) {
+      const told = fact?.source?.kind === "topic" && fact.source.topic;
+      const topic = told?.packId === pack.id && (pack.topics || []).find((t) => t.id === told.id);
+      if (topic) told.choiceId = topic.choiceId ?? null;
+    }
+    saved.revision = 11;
+  }
+  var OPEN_DOOR_RETIRED = {
+    "open-door-request-truce": null,
+    "open-door-request-recovery": null,
+    "open-door-hear-recovery-report": "open-door-hear-truce-report",
+    "open-door-eleusis-pledge": null,
+    "open-door-eleusis-care": null,
+    "open-door-open-berth": "open-door-family-berth",
+    "open-door-colonus-family": "open-door-colonus-custom",
+    "open-door-marathon-alcmene": null,
+    "open-door-marathon-hearing": null,
+    "homecoming-report-agora-force": "homecoming-report-agora-truce",
+    "homecoming-report-eleusis-care": "homecoming-report-eleusis-pledge",
+    "homecoming-report-piraeus-family": null,
+    "homecoming-report-piraeus-open": null,
+    "homecoming-report-colonus-family": "homecoming-report-colonus-custom",
+    "homecoming-report-marathon-hearing": "homecoming-report-marathon-alcmene",
+    "homecoming-receive-open": "homecoming-receive-family",
+    "homecoming-read-basket-family": "homecoming-report-piraeus-family",
+    "homecoming-read-berth-family": "homecoming-report-piraeus-family",
+    "homecoming-read-basket-open": "homecoming-report-piraeus-family",
+    "homecoming-read-berth-open": "homecoming-report-piraeus-family"
+  };
+  function upgradeGreekOpenDoorSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 15 || saved?.revision !== 14) return;
+    const renamed = {};
+    for (const [old, next] of Object.entries(OPEN_DOOR_RETIRED)) {
+      const was = `greek-${old}`, now = next && `greek-${next}`;
+      const turn = saved.receipts[was];
+      delete saved.receipts[was];
+      if (turn === void 0 || !now || Object.hasOwn(saved.receipts, now))
+        continue;
+      saved.receipts[now] = turn;
+      renamed[was] = now;
+      if (saved.recitals?.[was]) saved.recitals[now] ??= saved.recitals[was];
+    }
+    const retired = Object.keys(OPEN_DOOR_RETIRED).map((id) => `greek-${id}`);
+    if (saved.recitals) {
+      for (const id of retired) delete saved.recitals[id];
+      for (const v of pack.recital.verses)
+        if (Object.hasOwn(saved.receipts, v.choice))
+          saved.recitals[v.choice] ??= { actor: null, visit: null };
+    }
+    s.log = (s.log || []).flatMap(
+      (e) => e?.packId !== pack.id || !retired.includes(e.choiceId) ? [e] : renamed[e.choiceId] ? [{ ...e, choiceId: renamed[e.choiceId] }] : []
+    );
+    const story = (key2) => /^greek-(open-door|homecoming)-/.test(key2);
+    for (const record5 of [saved.choices, saved.flags])
+      for (const key2 of Object.keys(record5)) if (story(key2)) delete record5[key2];
+    for (const [id] of Object.entries(saved.receipts).sort((a, b) => a[1] - b[1]))
+      for (const e of pack.choices.find((c) => c.id === id)?.effects || []) {
+        if (!story(e.key)) continue;
+        if (e.kind === "choose") saved.choices[e.key] ??= e.value;
+        if (e.kind === "set_flag") saved.flags[e.key] = e.value;
+      }
+    const k = s.knowledge, topic = "greek-open-door-hear-recovery-report";
+    if (k?.facts?.[topic]) {
+      delete k.facts[topic];
+      for (const known of Object.values(k.known || {})) delete known[topic];
+      k.pending = (k.pending || []).filter((p) => p.factId !== topic);
+    }
+    saved.revision = 15;
+  }
+  function upgradeGreekEastSeaSave(s) {
+    const pack = packDefinitions.find((p) => p.id === "greek-drama");
+    const saved = s.packs?.[pack?.id];
+    if (!pack || pack.revision < 16 || saved?.revision !== 15) return;
+    foldRetiredRoads(s);
+    const sailed = new Set(laneEdges().map((edge) => JSON.stringify(edge)));
+    for (const [actor, edges] of Object.entries(s.routeKnowledge || {}))
+      if (Array.isArray(edges))
+        s.routeKnowledge[actor] = edges.filter(
+          (edge) => !laneOfEdge(edge) || sailed.has(JSON.stringify(edge))
+        );
+    saved.revision = 16;
+  }
 
   // v2/card-game/visit-speech.mjs
   var moved = (entry, id) => !entry.generated && entry.fromLocationId && entry.fromLocationId !== entry.locationId && (entry.actorId === id || entry.verb === "accompany" && entry.accepted && entry.targetId === id);
@@ -18905,79 +20837,6 @@
     return null;
   }
 
-  // v2/card-game/world-life.json
-  var world_life_default = {
-    defaults: {
-      range: 2,
-      sails: false,
-      sleep: { from: 32, to: 0 }
-    },
-    packs: {
-      "greek-drama": { sleep: { from: 30, to: 47 } }
-    },
-    residents: {
-      "greek-antigone": { range: 0 },
-      "greek-polynices-shade": { range: 0, sleep: null },
-      moth: { sleep: { from: 0, to: 20 } },
-      keeper: { sleep: { from: 35, to: 2 } },
-      badger: { sleep: { from: 28, to: 46 } },
-      oak: { range: 0 },
-      rati: { range: 1 },
-      "greek-aethra": { range: 1 },
-      "greek-adrastus": { range: 1 },
-      "greek-argive-mother": { range: 1 },
-      "greek-iphis": { range: 1 },
-      "greek-theseus": { range: 1 },
-      "greek-quay-host": { range: 1 },
-      "greek-colonus-keeper": { range: 1 },
-      "greek-marathon-keeper": { range: 1 },
-      "greek-ajax-tecmessa": { range: 1 },
-      "greek-ajax-teucer": { range: 1 },
-      "greek-ajax-odysseus": { range: 1 },
-      "hoppycat-nix-fermata": { sleep: { from: 46, to: 22 } },
-      "greek-guard": { range: 0, sleep: null, guards: "greek-battlefield" },
-      "greek-shipmaster": { sails: true, sleep: { from: 30, to: 45 } },
-      "greek-patroclus": { sails: true },
-      "greek-rhapsode": { sleep: null },
-      boardyai: { sleep: null }
-    },
-    guardable: [{ from: "greek-gate", to: "greek-battlefield" }]
-  };
-
-  // v2/card-game/resident-home.mjs
-  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
-  var own = (o, k) => Boolean(o) && Object.hasOwn(o, k);
-  var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
-  var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
-  function lifeDataProblems(places2, people2) {
-    const problems2 = [];
-    if (!recordOk(world_life_default.defaults, ["range", "sails", "sleep"]))
-      problems2.push("defaults need a range, sails and a sleep schedule");
-    for (const [id, p] of Object.entries(world_life_default.packs || {}))
-      if (!packDefinitions.some((d) => d.id === id) || !recordOk(p, ["sleep"]))
-        problems2.push(`pack ${id} needs a known pack and a sleep schedule`);
-    for (const r of world_life_default.guardable || [])
-      if (Object.keys(r).sort().join() !== "from,to" || !own(places2, r.from) || !own(places2, r.to) || !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to))
-        problems2.push(`guardable way ${r.from}>${r.to} needs an authored route`);
-    for (const [id, r] of Object.entries(world_life_default.residents || {}))
-      if (!own(people2, id) || !recordOk(r, ["range", "sails", "sleep", "guards"]) || r.guards !== void 0 && !(world_life_default.guardable || []).some(
-        (w) => w.from === lifeHome(id) && w.to === r.guards
-      ))
-        problems2.push(`resident ${id} has an unknown or invalid field`);
-    return problems2;
-  }
-  var lifeField = (id, key2) => own(world_life_default.residents?.[id], key2) ? world_life_default.residents[id][key2] : void 0;
-  function lifeHome(id, world) {
-    const resident = packPeople[id];
-    const next = resident?.homeWhen;
-    if (world && next && conditionsMet(world, resident.packId, next.requires, id))
-      return next.place;
-    return resident?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? resident?.place ?? null;
-  }
-  var validHome = (s) => Object.values(s.actors).every(
-    (a) => a.homeward === void 0 || a.homeward === true
-  );
-
   // v2/card-game/resident-sleep.mjs
   var whole5 = (n) => Number.isSafeInteger(n);
   function validSleep(s, places2) {
@@ -18993,83 +20852,15 @@
     return true;
   }
 
-  // v2/card-game/resident-guard.mjs
-  var guardable = null;
-  var returns2 = null;
-  var residentGuards = null;
-  var guardians = null;
-  function guardData() {
-    if (guardable) return;
-    guardable = /* @__PURE__ */ new Map();
-    returns2 = /* @__PURE__ */ new Map();
-    for (const { from, to } of world_life_default.guardable || []) {
-      if (!guardable.has(from)) guardable.set(from, /* @__PURE__ */ new Set());
-      guardable.get(from).add(to);
-      if (!returns2.has(to)) returns2.set(to, /* @__PURE__ */ new Set());
-      returns2.get(to).add(from);
-    }
-    residentGuards = Object.keys(world_life_default.residents || {}).filter(
-      (id) => lifeField(id, "guards") && packPeople[id] && !humanAvatar(id)
-    ).sort();
-    guardians = [...residentGuards, ...humanAvatarIds];
-  }
-  var isGuardable = (from, to) => {
-    guardData();
-    return Boolean(guardable.get(from)?.has(to));
-  };
-  var guardPost = (id) => lifeField(id, "guards") && !humanAvatar(id) ? { from: lifeHome(id), to: lifeField(id, "guards") } : null;
-  var wayLifted = (s, from, to) => packRouteOpen(s, from, to);
-  function guardedExits(_s, place) {
-    guardData();
-    return [...guardable.get(place) || [], ...returns2.get(place) || []];
-  }
-  var guardedWay = (from, to) => isGuardable(from, to) ? [from, to] : isGuardable(to, from) ? [to, from] : null;
-  function guardOf(s, from, to, traveller = null) {
-    const way = guardedWay(from, to);
-    if (!way) return null;
-    const [post, beyond] = way;
-    for (const id of guardians) {
-      const a = s.actors[id];
-      if (id === traveller || a?.guarding !== beyond || a.place !== post || !entityActive(s, id))
-        continue;
-      if (!humanAvatar(id)) {
-        const person = packPeople[id];
-        if (traveller && person?.passWhen && conditionsMet(s, person.packId, person.passWhen, traveller))
-          continue;
-        return id;
-      }
-      if (humanPresent(s, id) && !(traveller && controlledByHuman(s, traveller)))
-        return id;
-    }
-    return null;
-  }
-  var guardedFrom = (place) => guardedExits(null, place);
-  var inStandoff = (s, id) => (s.standoffs || []).some((c) => Object.hasOwn(c.resolve || {}, id));
-  function settleGuards(s) {
-    guardData();
-    for (const id of residentGuards) {
-      const a = s.actors[id], post = guardPost(id);
-      if (!a) continue;
-      if (a.place === post.from && entityActive(s, id) && !wayLifted(s, post.from, post.to) && !inStandoff(s, id))
-        a.guarding = post.to;
-      else delete a.guarding;
-    }
-    for (const id of humanAvatarIds) {
-      const a = s.actors[id];
-      if (a?.guarding !== void 0 && (!humanPresent(s, id) || !isGuardable(a.place, a.guarding) || inStandoff(s, id)))
-        delete a.guarding;
-    }
-    return s;
-  }
-  function validGuard(s, places2) {
-    for (const [id, a] of Object.entries(s.actors)) {
-      if (a.guarding === void 0) continue;
-      const post = guardPost(id);
-      if (!Object.hasOwn(places2, a.guarding) || (post ? post.to !== a.guarding : !humanAvatar(id)))
-        return false;
-    }
-    return true;
-  }
+  // v2/card-game/world/catalog.mjs
+  var places = { ...forest_default.places, ...packPlaces };
+  var sanctuaries = Object.keys(places).filter(
+    (id) => places[id].sanctuary === true
+  );
+  var people = { ...forest_default.people, ...packPeople };
+  var things = { ...packThings, ...forest_default.things };
+  validatePackLinks(places, people, things);
+  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
 
   // v2/card-game/world/senses.mjs
   var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
@@ -19239,7 +21030,8 @@
     return ways2.filter((r) => !open.includes(r.to)).flatMap((r) => {
       const guard = guardOf(s, here2, r.to, actor);
       if (!guard) return r.sealed ? [r] : [];
-      return [{ ...r, sealed: {}, guardedBy: guard }];
+      const reason = `${nameOf(guard)} is guarding this card`;
+      return [{ ...r, sealed: { reason }, guardedBy: guard }];
     }).filter((r) => !seen.has(r.to) && seen.add(r.to));
   }
 
@@ -19270,7 +21062,7 @@
         at: packThings[id].holder,
         id,
         pack: packThings[id].packId,
-        sealed: true
+        sealed: packThings[id].sealed.reason
       } : {
         kind: "item",
         at: packThings[id].home,
@@ -19283,11 +21075,12 @@
   var residentDefs = () => Object.entries(packPeople).filter(([, person]) => person.sealed).map(([id, person]) => ({
     kind: "resident",
     at: person.sealed.at,
-    id
+    id,
+    reason: person.sealed.reason
   }));
   function laneDefs() {
     return Object.entries(transports).flatMap(
-      ([transport, t]) => (t.lanes || []).filter((lane) => lane.sealed).map((lane) => ({
+      ([transport, t]) => (t.lanes || []).filter((lane) => lane.reason).map((lane) => ({
         kind: "lane",
         at: t.place,
         id: lane.to,
@@ -19305,8 +21098,10 @@
     crossing: c
   }));
   for (const r of forest_default.reflectionRoutes || [])
-    if (r.sealed !== void 0 && !(Object.keys(r.sealed).length === 0 && r.requires?.length))
-      throw new Error(`Reflection ${r.from}>${r.to} sealed card needs a gate.`);
+    if (r.sealed !== void 0 && !(Object.keys(r.sealed).join() === "reason" && typeof r.sealed.reason === "string" && r.sealed.reason.length > 0 && r.sealed.reason.length <= 240 && r.requires?.length))
+      throw new Error(
+        `Reflection ${r.from}>${r.to} sealed card needs a gate and a reason.`
+      );
   var hubDefs = () => (forest_default.reflectionRoutes || []).filter((r) => r.sealed).map((route) => ({ kind: "hub", at: route.from, id: route.to, route }));
   var boxDefs = () => [
     ...wayDefs().values(),
@@ -19328,6 +21123,7 @@
 
   // v2/card-game/world/home.mjs
   var homeOf2 = (id) => packPeople[id]?.levelAtHome && packPeople[id].home || tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+  var restsAt = (actor, place) => sanctuaries.includes(place) || Boolean(place) && humanAvatarIds.includes(actor) && homeOf2(actor) === place;
 
   // v2/card-game/world/lanes.mjs
   var atPort = (s, actor) => Object.values(transports).some(
@@ -19520,12 +21316,126 @@
   }
   var REFUSAL_REASONS = ["grudge", "needs-it", "wants-something-else"];
   var REFUSED_VERBS = ["give", "trade", "ask", "accompany", "eat"];
+  function reachable(s, actor, within = null) {
+    const from = s.actors[actor].place, seen = /* @__PURE__ */ new Set([from]), queue = [from];
+    for (let i = 0; i < queue.length; i++)
+      for (const next of exits(s, queue[i], actor))
+        if (!seen.has(next) && entityActive(s, next) && (!within || within(next))) {
+          seen.add(next);
+          queue.push(next);
+        }
+    return [...seen].filter((id) => id !== from && !transportPlace(id)).sort();
+  }
+  function wantAPI(s) {
+    return {
+      carried: (actor) => carried(s, actor),
+      rootHolder: (item) => rootHolder(s, item),
+      valueOf: (actor, item) => !controlledByHuman(s, actor) && reservedItem(s, item) ? 1 : valueOf(s, actor, item),
+      // A resident holding the item directly would give it, or take something
+      // the actor carries in trade. A human holder or a nested item may yet.
+      obtainable: (actor, item) => {
+        const owner2 = s.items[item].holder;
+        return !actorIds.includes(owner2) || controlledByHuman(s, owner2) || willingToGive(s, owner2, item, actor) || carried(s, actor).some(
+          (give) => give !== item && tradeWilling(s, actor, give, item)
+        );
+      },
+      // A resident kept to a range only wants what lies within it (rules 100).
+      reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
+      rangeTest: (actor) => rangeTest(s, actor),
+      wanders: (actor) => wanders(s, actor),
+      places: () => Object.keys(places),
+      home: homeOf2,
+      active: (id) => entityActive(s, id),
+      sanctuaries,
+      restsAt,
+      player: (id) => id === currentActor(s) || heldByHuman(s, id),
+      placeOf: (item) => itemPlace(s, item),
+      distance: (from, to, actor) => from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
+      log: (actor, want, xp) => addLog(
+        s,
+        "World",
+        want.kind === "item" ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.` : want.kind === "place" ? `${nameOf(actor)} reaches ${nameOf(want.target)}.` : want.kind === "connect" ? `${nameOf(actor)} makes an introduction at last.` : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
+        {
+          kind: "narration",
+          actorId: actor,
+          verb: "want_met",
+          wantMet: { kind: want.kind, target: want.target },
+          wantKey: wantKey(actor, want),
+          ...xp > 1 ? { questXp: xp } : {},
+          ...want.kind === "item" ? { itemId: want.target } : {},
+          ...want.kind === "person" ? { targetId: want.target } : {}
+        }
+      )
+    };
+  }
+  function addLog(s, speaker, text2, detail = {}) {
+    const actorId = detail.actorId ?? actorIds.find((id) => nameOf(id) === speaker) ?? null;
+    const locationId = detail.locationId || s.actors[actorId || currentActor(s)].place;
+    if (s.eventSeq === void 0) {
+      s.log.forEach((entry2, index) => {
+        entry2.seq = index + 1;
+      });
+      s.eventSeq = s.log.length;
+    }
+    s.eventSeq += 1;
+    s.log.push({
+      seq: s.eventSeq,
+      turn: s.turn,
+      speaker,
+      text: text2,
+      kind: detail.kind || (speaker === "You" ? "input" : actorId ? "dialogue" : "narration"),
+      actorId,
+      locationId,
+      cast: knownActors2(s).filter(
+        (id) => s.actors[id].place === locationId && (!controlledByHuman(s, id) || humanPresent(s, id))
+      ),
+      items: ids.filter((id) => entityActive(s, id) && itemPlace(s, id) === locationId).map((id) => {
+        const { history, ...item } = s.items[id];
+        return { id, ...item };
+      }),
+      light: shining(s) && itemPlace(s, "lamp") === locationId,
+      ...detail
+    });
+    const entry = s.log.at(-1);
+    if (!entry.generated && entry.actorId === currentActor(s) && entry.fromLocationId && entry.fromLocationId !== entry.locationId && (["move", "retreat", "sent-home"].includes(entry.verb) || entry.verb === "accompany" && entry.accepted))
+      s.arrival = {
+        seq: entry.seq,
+        fromLocationId: entry.fromLocationId,
+        locationId: entry.locationId
+      };
+    rememberEvent(s, entry);
+    witnessKnowledge(
+      s,
+      entry,
+      (id) => entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id)),
+      authoredKnowledgeTopics()
+    );
+    trimLog(s);
+  }
   var authoredKnowledgeTopics = () => packDefinitions.flatMap(
     (pack) => (pack.topics || []).map((topic) => ({ ...topic, packId: pack.id }))
   );
   var LOG_LIMIT = 100;
   var LAMP_FUEL = 12;
   var GENERATED_LOG_LIMIT = 100;
+  function trimLog(s) {
+    const authoritative = () => s.log.filter((entry) => !entry.generated).length;
+    while (authoritative() > LOG_LIMIT) {
+      const last = s.log.findLastIndex((entry) => !entry.generated);
+      const hint = s.log.findIndex(
+        (entry, index) => !entry.generated && index < last && ["input", "hint"].includes(entry.kind)
+      );
+      s.log.splice(
+        hint >= 0 ? hint : s.log.findIndex((entry) => !entry.generated),
+        1
+      );
+    }
+    while (s.log.filter((entry) => entry.generated).length > GENERATED_LOG_LIMIT || s.log[0]?.generated)
+      s.log.splice(
+        s.log.findIndex((entry) => entry.generated),
+        1
+      );
+  }
   var fuelItems = Object.keys(forest_default.things).filter(
     (id) => forest_default.things[id].refuels
   );
@@ -19551,13 +21461,46 @@
   var SLEEP_TURNS = 24;
   var DREAMS = ["glimpse"];
   var LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
+  function routeBetween(s, from, target, actor = null) {
+    const reads = planningReadsFor(s);
+    if (!reads) return readRouteBetween(s, from, target, actor);
+    const routes = reads.routes ??= /* @__PURE__ */ new Map();
+    if (!routes.has(actor)) routes.set(actor, /* @__PURE__ */ new Map());
+    const origins = routes.get(actor);
+    if (!origins.has(from)) origins.set(from, /* @__PURE__ */ new Map());
+    const destinations = origins.get(from);
+    if (!destinations.has(target))
+      destinations.set(target, readRouteBetween(s, from, target, actor));
+    return destinations.get(target)?.slice();
+  }
+  function readRouteBetween(s, from, target, actor = null) {
+    const queue = [[from]], visited = /* @__PURE__ */ new Set([from]);
+    while (queue.length) {
+      const route = queue.shift();
+      if (route.at(-1) === target) return route;
+      const here2 = route.at(-1);
+      const projected = s.actors[actor] && s.actors[actor].place !== here2 ? {
+        ...s,
+        actors: {
+          ...s.actors,
+          [actor]: { ...s.actors[actor], place: here2 }
+        }
+      } : s;
+      const previous = route.at(-2) ?? (transportPlace(here2) ? VOYAGE : null);
+      for (const next of exits(projected, here2, actor, previous))
+        if (!visited.has(next)) {
+          visited.add(next);
+          queue.push([...route, next]);
+        }
+    }
+  }
   function validateWorld(s) {
     const fail = () => {
       throw new Error(
         "This save needs a fresh start. Your previous save is kept until you choose New game."
       );
     };
-    if (!s || s.schema !== SAVE_SCHEMA || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn)
+    if (!s || s.schema !== 7 || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn)
       fail();
     if (!validStationExitOrder(s, stationTargets)) fail();
     if (!validKnowledge(
@@ -19606,7 +21549,7 @@
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
     if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
-    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validSleep(s, places) || !validGuard(s, places))
+    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validSleep(s, places) || !validGuard(s, places))
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
       fail();
@@ -19792,7 +21735,8 @@
       upgradeSave(s, {
         actorIds,
         installPacks,
-        laneText: laneFactText
+        laneText: laneFactText,
+        setAside: (world, id) => !humanHeld(world, id) && setAsideWant(world, id, wantAPI(world))
       });
       installJourneyProgress(s, packDefinitions);
       installConversations(s);
@@ -19831,6 +21775,7 @@
   var itemPlace = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
   var covered = (s, id) => s.items.cloth.holder === id;
+  var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
 
   // v2/card-game/lamp-state.mjs
   function installLampFuel(world) {
@@ -20001,11 +21946,11 @@
 
   // v2/card-game/speech-occasions.mjs
   function playedEntry(world) {
-    const own2 = world.log.filter(
+    const own3 = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && entry.kind === "action" && entry.actorId === currentActor(world)
     );
-    return own2.findLast(
-      (entry) => !(entry.verb === "choose" && own2.some(
+    return own3.findLast(
+      (entry) => !(entry.verb === "choose" && own3.some(
         (talk) => talk.seq < entry.seq && talk.verb === "talk" && talk.targetId === entry.targetId
       ))
     );
@@ -20702,8 +22647,7 @@
   ]);
   var residentSleepPortraits = {
     "greek-antigone": "assets/sleep/residents/greek-antigone-sleeping.png",
-    "greek-baker": "assets/sleep/greek-baker-sleeping.png",
-    "greek-patroclus": "assets/sleep/residents/greek-patroclus-sleeping.png"
+    "greek-baker": "assets/sleep/greek-baker-sleeping.png"
   };
   var sleepPortraitAssets = [
     ...[...travelers].flatMap(
@@ -22018,9 +23962,6 @@
     front: [
       "assets/ratiradio/rati.webp",
       "assets/ratiradio/raven.webp",
-      "assets/greek-drama/patroclus.png",
-      "assets/greek-drama/patroclus-bread.png",
-      "assets/sleep/residents/greek-patroclus-sleeping.png",
       ...Object.values(rarityForms).filter((form) => form.facing === "front").map((form) => form.portrait),
       "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
       "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",

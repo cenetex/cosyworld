@@ -1405,8 +1405,11 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
         assert_eq!(w.game["items"]["routes"]["holder"], "rue");
         if agrees {
             assert_eq!(w.game["invitedPlaces"]["moth"], json!(["train"]));
+            // Moth is now Rue's companion (rules 133).
+            assert_eq!(w.game["actors"]["rue"]["companion"], "moth");
         } else {
             assert!(w.game["invitedPlaces"].is_null());
+            assert!(w.game["actors"]["rue"]["companion"].is_null());
         }
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);

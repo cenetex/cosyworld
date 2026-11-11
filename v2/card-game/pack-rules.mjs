@@ -311,9 +311,13 @@ export const crossingExits = (s, place, actor, senses) =>
       (c) =>
         c.from === place &&
         (mayCross(c, actor, senses) ||
+          // A resident taken along walks home by the same way: from a
+          // ticketed place into its own part of the world, or on to
+          // another ticketed place on that way (rules 133).
           (s.invitedPlaces?.[actor]?.includes(c.from) &&
-            (packPeople[actor]?.packId ?? null) ===
-              (packPlaces[c.to]?.packId ?? null))) &&
+            ((packPeople[actor]?.packId ?? null) ===
+              (packPlaces[c.to]?.packId ?? null) ||
+              s.invitedPlaces[actor].includes(c.to)))) &&
         crossingOpen(s, c, senses, actor),
     )
     .map((c) => (c.transport ? transports[c.transport].place : c.to));

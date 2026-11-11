@@ -12,6 +12,12 @@
 import { setWant, wantOf } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
 import { pruneOffers, rollOffer } from "./offer-chance.mjs";
+import { staysByRole } from "./resident-guard.mjs";
+
+// A resident who cannot leave its place (the Oak, Badger, a guard at his
+// post) is never asked to be escorted: its quest is to bring the other
+// person to it (sticky companions, rules 133).
+const fixedResident = (s, id) => staysByRole(s, id);
 
 const key = (want) => `${want.kind}:${want.target}`;
 
@@ -52,21 +58,59 @@ export function questFor(s, them, want) {
     };
   if (want.step?.verb === "lay")
     return { ...base, kind: "place", target: want.target, step: want.step };
+  // One who cannot travel is not escorted: a place it wants is no quest, and
+  // the person it wants is brought to it ("bring Pip to the Oak").
+  const fixed = fixedResident(s, them);
   if (want.kind === "place")
-    return {
-      kind: "person",
-      target: them,
-      ...base,
-      step: { verb: "bring", at: want.target },
-    };
+    return fixed
+      ? null
+      : {
+          kind: "person",
+          target: them,
+          ...base,
+          step: { verb: "bring", at: want.target },
+        };
   if (want.kind === "person")
-    return {
-      kind: "person",
-      target: them,
-      ...base,
-      step: { verb: "bring", to: want.target },
-    };
+    return fixed
+      ? {
+          kind: "person",
+          target: want.target,
+          ...base,
+          step: { verb: "bring", to: them },
+        }
+      : {
+          kind: "person",
+          target: them,
+          ...base,
+          step: { verb: "bring", to: want.target },
+        };
   return null;
+}
+
+// The avatar whose want a held Talk quest serves, or null: the escort or
+// meeting a traveler took on from them. A quest reads two ways round: "bring
+// them to Q" (they want Q) or, for one who cannot travel, "bring Q to them".
+export function askerOf(s, w) {
+  if (!w?.step || w.quest || w.story) return null;
+  const them = talkQuestFrom(w);
+  if (them && s.actors[them] && askerWants(s.actors[them].want, served(w)))
+    return them;
+  if (w.kind === "person" && w.step.verb === "bring" && w.step.to) {
+    const asker = s.actors[w.step.to];
+    if (asker && askerWants(asker.want, { kind: "person", target: w.target }))
+      return w.step.to;
+  }
+  return null;
+}
+const askerWants = (want, wanted) =>
+  want?.kind === wanted.kind && want.target === wanted.target;
+// The resident a held quest asks the traveler to bring or meet, whose bond it
+// pins: an escort or meeting, never an errand for an item.
+export function pinnedCompanion(s, traveler) {
+  const w = wantOf(s, traveler);
+  return w?.kind === "person" && w.step?.verb === "bring"
+    ? askerOf(s, w)
+    : null;
 }
 
 // A player's Talk with `them`: the want of theirs that Talk reveals is
@@ -97,12 +141,9 @@ export function pruneTalkQuests(s, api) {
   pruneOffers(s);
   for (const id of Object.keys(s.actors)) {
     if (!api.player(id)) continue;
-    const w = wantOf(s, id),
-      them = talkQuestFrom(w);
-    if (!them) continue;
-    const want = s.actors[them]?.want,
-      wanted = served(w);
-    if (!(want?.kind === wanted.kind && want.target === wanted.target))
-      setWant(s.actors[id], null);
+    const w = wantOf(s, id);
+    if (!talkQuestFrom(w) && !(w?.step && !w.quest && !w.story && w.kind === "person" && w.step.to))
+      continue;
+    if (!askerOf(s, w)) setWant(s.actors[id], null);
   }
 }
