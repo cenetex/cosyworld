@@ -39,7 +39,6 @@ import {
   cardChoices,
   sealedReason,
 } from "../v2/card-game/cards.mjs";
-import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { hub, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
