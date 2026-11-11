@@ -253,7 +253,6 @@ fn a_reassigned_seat_unlocks_for_its_new_passkey() {
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
         .unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), live);
-    run(&mut c, &id, "bob", &body("seek", None)).unwrap();
     stand_beside(&c, &id);
     let result = talk(&mut c, &id);
     assert!(result["events"]
@@ -288,16 +287,6 @@ fn a_reassigned_seat_unlocks_for_its_new_passkey() {
             .len(),
         worlds.len()
     );
-}
-
-#[test]
-fn seek_gives_the_quest_to_talk_to_the_hidden_avatar() {
-    let (_path, mut c) = open();
-    let id = found(&mut c, "ann", "vale").unwrap();
-    let view = run(&mut c, &id, "ann", &body("seek", None)).unwrap();
-    let hidden = view["world"]["hidden"]["actor"].clone();
-    assert_eq!(view["world"]["actors"]["vale"]["want"]["target"], hidden);
-    assert_eq!(view["world"]["actors"]["vale"]["want"]["kind"], "person");
 }
 
 #[test]

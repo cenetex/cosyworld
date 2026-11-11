@@ -10,6 +10,7 @@ import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
+import { acceptQuest } from "./helpers/accept-quest.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 
@@ -101,6 +102,7 @@ describe("locked boxes", () => {
     // his (rules 102).
     expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
     s = act(s, "talk", { target: "greek-guard" });
+    acceptQuest(s, "greek-guard");
     expect(questsOf(s, "vale")).toContainEqual(
       expect.objectContaining({ kind: "item", target: "greek-bread" }),
     );

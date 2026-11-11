@@ -2,8 +2,6 @@ import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld as baseCreateWorld,
-  decodeSave,
-  encodeSave,
   legalActions,
   nameOf,
   play,
@@ -20,7 +18,6 @@ import {
   questCard,
   questBox,
   questCards,
-  questRewardCards,
   questDistance,
   questGround,
   questHand,
@@ -30,9 +27,6 @@ import {
   questVerb,
 } from "../v2/card-game/quest-card.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
-import { questEntryKey } from "../v2/card-game/card-entry.mjs";
-import { funeralJourney } from "./helpers/greek-funeral.mjs";
-import { QUEST_LIMIT } from "../v2/card-game/want.mjs";
 
 describe("the quest card", () => {
   it("shows a Give's place only when the gift is bound to one", () => {
@@ -340,25 +334,19 @@ describe("the quest card", () => {
     expect(avatarGroupOrdered(ahead, s)).toBe(false);
   });
 
-  it("shows the whole stack, top first", () => {
+  it("shows the one held quest", () => {
     const s = createWorld();
-    s.actors.vale.under = [
-      { kind: "place", target: "pond", since: 0, refusals: 0 },
-    ];
-    expect(questCards(s).map((q) => [q.index, q.target])).toEqual([
-      [0, "lamp"],
-      [1, "pond"],
-    ]);
+    expect(questCards(s).map((q) => [q.index, q.target])).toEqual([[0, "lamp"]]);
     expect(questCard(s).target).toBe("lamp");
+    s.actors.vale.want = null;
+    expect(questCards(s)).toEqual([]);
   });
 
   it("seals a quest only when the rules met it", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.lamp.holder = "attic";
-    s.actors.vale.under = [
-      { kind: "place", target: "pond", since: 0, refusals: 0 },
-    ];
+    s.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
     const before = questCards(s),
       seq = s.eventSeq;
     const move = legalActions(s).find(
@@ -386,13 +374,13 @@ describe("the quest card", () => {
     expect(metQuests(shown, s, at)).toEqual([]);
   });
 
-  it("never shows more quest cards than the stack holds through a long run", () => {
+  it("never shows more than the one quest card through a long run", () => {
     let s = createWorld();
     for (let turn = 0; turn < 400; turn++) {
       const actions = legalActions(s);
       s = play(s, actions[(turn * 7919) % actions.length]).state;
       const cards = questCards(s);
-      expect(cards.length).toBeLessThanOrEqual(QUEST_LIMIT);
+      expect(cards.length).toBeLessThanOrEqual(1);
       for (const quest of cards) {
         expect(questCaption(quest)).toMatch(/^[A-Z]/);
         expect(typeof questNear(s, quest)).toBe("boolean");
@@ -400,35 +388,4 @@ describe("the quest card", () => {
     }
     expect(validateWorld(s)).toBe(s);
   });
-});
-
-it("keeps repeated saved deeds separate across reload and collection", () => {
-  let world = createWorld();
-  for (let i = 0; i < 2; i++) {
-    world.actors.vale.want = { kind: "place", target: "station", since: 0, refusals: 0 };
-    world = play(world, legalActions(world).find((a) => a.kind === "wait")).state;
-  }
-  world = decodeSave(encodeSave(world));
-  const cards = questRewardCards(world);
-  expect(cards).toHaveLength(2);
-  expect(new Set(cards.map(questEntryKey)).size).toBe(2);
-  expect(cards[0].receiptId).toBeGreaterThan(cards[1].receiptId);
-  const claim = legalActions(world).find((a) => a.kind === "claim" && a.receipt === cards[1].receiptId);
-  const claimed = play(world, claim).state;
-  expect(questRewardCards(decodeSave(encodeSave(claimed)))).toEqual([{ ...cards[0], xp: claimed.actors.vale.xp }]);
-  expect(claimed.actors.vale.xp).toBe(world.actors.vale.xp + 1);
-  expect(claimed.turn).toBe(world.turn);
-});
-
-it("keeps the saved funeral card after leaving and closing its pack", () => {
-  let world = funeralJourney().buried;
-  const card = questRewardCards(world).find((q) => q.target === "greek-polynices-hollow");
-  expect(card).toMatchObject({ riteVerb: "Buried", earnedXp: 1, earnedLevel: null });
-  world.actors.vale.place = "pond";
-  const closed = play(world, { kind: "pack", pack: "sea", enable: false });
-  expect(closed.ok, closed.error).toBe(true);
-  world = closed.state;
-  expect(questRewardCards(decodeSave(encodeSave(world)))).toContainEqual(card);
-  const claim = legalActions(world).find((a) => a.kind === "claim" && a.receipt === card.receiptId);
-  expect(questRewardCards(play(world, claim).state)).not.toContainEqual(card);
 });

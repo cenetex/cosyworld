@@ -1,7 +1,6 @@
 import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
 import { settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { itemPlace as lampPlace } from "../v2/card-game/world.mjs";
-import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { describe, expect, it } from "vitest";
 import {
   decodeSave,
@@ -70,7 +69,7 @@ describe("the attic opening and saved pond journeys", () => {
     }
   });
 
-  it("keeps a released pond save beside Pip with Vale's authored want", () => {
+  it("keeps a released pond save beside Pip, with no authored want for Vale", () => {
     const before = pondOpening();
     const world = decodeSave(encodeSave(before));
     expect(world).toEqual(before);
@@ -80,17 +79,15 @@ describe("the attic opening and saved pond journeys", () => {
       crossed: true,
       met: { vale: 0, moth: 0 },
     });
-    expect(world.actors.vale.want).toMatchObject({
-      kind: "item",
-      target: "lamp",
-    });
+    expect(world.actors.vale.want).toBeNull();
   });
 
   it("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
+    // A player takes its own quest by a tap; give Vale the lamp quest.
+    world.actors.vale.want = { kind: "item", target: "lamp", since: 0, refusals: 0 };
     world = selectLamp(world, "lamp");
     world = act(world, "wait");
-    world = collectRewards(world);
     expect(world.actors.vale.xp).toBe(1);
     expect(exits(world, "pond")).toEqual(["station", "attic"]);
     world = act(world, "wait");
@@ -242,12 +239,9 @@ describe("the attic opening and saved pond journeys", () => {
     expect(restored.actors.vale.want).toBeNull();
     expect(exits(restored, "station")).toEqual(["pond"]);
     const shore = act(restored, "move", "pond");
-    expect(shore.actors.vale.want).not.toBeNull();
-    const attic = collectRewards(act(shore, "move", "attic"));
-    // The quest drawn at the pond goes on, or was met on the way back.
-    expect(attic.actors.vale.want !== null || attic.actors.vale.xp > 0).toBe(
-      true,
-    );
+    expect(shore.actors.vale.want).toBeNull();
+    const attic = act(shore, "move", "attic");
+    expect(attic.actors.vale.want).toBeNull();
     expect(attic.opening.version).toBe(1);
     expect(attic.items.lamp.holder).toBe("vale");
     expect(attic.log[0]).toEqual(before.log[0]);

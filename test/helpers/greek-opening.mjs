@@ -24,6 +24,15 @@ export function openingFixture(branch, { water = true, reportFirst = true } = {}
   const states = JSON.parse(gunzipSync(readFileSync(new URL(
     `../fixtures/greek-before-funeral/${name}.json.gz`, import.meta.url,
   ))));
+  // The recorded worlds predate rules 133 (one want): drop the stack and the
+  // reward receipts, which the rules no longer keep, before loading them.
+  const oneWant = (world) => {
+    for (const a of Object.values(world.actors)) {
+      delete a.under;
+      delete a.questRewards;
+    }
+    return world;
+  };
   return Object.fromEntries(Object.entries(states).map(([key, world]) =>
-    [key, decodeSave(JSON.stringify(world))]));
+    [key, decodeSave(JSON.stringify(oneWant(world)))]));
 }

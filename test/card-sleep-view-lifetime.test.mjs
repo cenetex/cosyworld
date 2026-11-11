@@ -26,6 +26,12 @@ function rest(eventSeq = 1) {
     );
     world = play(world, action, world.revision, "vale").state;
   }
+  // The rules deal no quest in a dream any more (rules 133); the view still
+  // shows one until the client package removes it, so stage one by hand.
+  world.actors.vale.want = {
+    kind: "place", target: "attic", since: world.turn, refusals: 0,
+    quest: { level: 2, left: 1 }, step: { verb: "rest" },
+  };
   return world;
 }
 const element = () => ({

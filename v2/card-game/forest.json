@@ -1,5 +1,4 @@
 {
-  "questsBeginAt": { "kind": "arrived", "place": "pond" },
   "homeGates": {
     "attic": {
       "item": "lamp",
@@ -71,8 +70,7 @@
         "sore": "Changed terms"
       },
       "home": "attic",
-      "values": { "lamp": 8, "oil": 5, "bell": 5, "cloth": 4 },
-      "want": { "kind": "item", "target": "lamp" }
+      "values": { "lamp": 8, "oil": 5, "bell": 5, "cloth": 4 }
     },
     "moth": {
       "name": "Pip",

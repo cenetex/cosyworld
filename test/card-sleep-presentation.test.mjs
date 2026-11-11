@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { DAYLIGHT_TURNS, isNight } from "../v2/card-game/daylight.mjs";
 import { questXp, questsOf } from "../v2/card-game/want.mjs";
-import { questEntryKey } from "../v2/card-game/card-entry.mjs";
 import {
   CONFIRM_MS,
   DREAM_WAIT_MS,
@@ -96,7 +95,7 @@ function sequence(plan) {
 const DREAM_PLAN = sleepPlan({ dream: true, crossed: true, quests: ["q"] });
 
 describe("waking from a sleep", () => {
-  it("brings the dream flow only when a long rest deals a level quest", () => {
+  it("deals no quest in a long rest, even with experience for the next level", () => {
     const { world, before } = sleepFrom(30);
     expect(world.turn).toBe(2 * DAYLIGHT_TURNS);
     const wake = sleepWake(world, "vale", before);
@@ -106,23 +105,11 @@ describe("waking from a sleep", () => {
       long: true,
       crossed: true,
       night: false,
-      dream: true,
-      quests: [expect.stringMatching(/^vale:/)],
+      dream: false,
+      quests: [],
     });
-    const dealt = questsOf(world, "vale").find(
-      (q) => q.quest && q.since === world.turn,
-    );
-    expect(wake.quests).toEqual([questEntryKey({ ...dealt, actor: "vale", level: dealt.quest.level })]);
-    expect(sleepPlan(wake)).toEqual([
-      "fade",
-      "held",
-      "enter",
-      "dreaming",
-      "dream",
-      "quest",
-      "light",
-      "done",
-    ]);
+    expect(questsOf(world, "vale")).toEqual([]);
+    expect(sleepPlan(wake)).toEqual(["fade", "held", "light", "done"]);
   });
 
   it("shows no dream card for an ordinary long rest, only the dusk or dawn", () => {

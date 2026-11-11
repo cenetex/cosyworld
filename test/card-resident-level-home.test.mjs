@@ -36,7 +36,6 @@ const fixture = () => {
     place: "greek-well",
     sanctuary: "attic",
     want: newWant("place", "greek-well", 0),
-    under: [newWant("place", "greek-harbor", 0)],
   });
   return s;
 };
@@ -60,7 +59,7 @@ describe("resident levels earned at a fixed home", () => {
   );
   afterEach(restore);
 
-  it("banks XP away, walks home, then resumes roaming with identical replay", () => {
+  it("banks XP away, walks home, then rests content with identical replay", () => {
     let s = fixture();
     const start = encodeSave(s),
       journal = [];
@@ -88,9 +87,10 @@ describe("resident levels earned at a fixed home", () => {
     act();
     expect(s.actors[resident]).toMatchObject({ place: home, xp: 1, level: 2 });
     expect(levelReturnHome(s, resident)).toBeNull();
-    expect(s.actors[resident].want.target).toBe("greek-harbor");
+    // One want per card: the met want leaves it content until it draws again.
+    expect(s.actors[resident].want).toBeNull();
     act();
-    expect(s.actors[resident].place).toBe("greek-palace");
+    expect(s.actors[resident].place).toBe(home);
     expect(levelOf(s, resident)).toBe(2);
     const replay = journal.reduce(apply, decodeSave(start));
     expect(encodeSave(replay)).toBe(encodeSave(s));

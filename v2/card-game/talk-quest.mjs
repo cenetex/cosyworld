@@ -1,15 +1,15 @@
-// Talk gives a quest (#2196, rules 99). A player's Talk that reveals the
-// other avatar's top want, new to the player, gives the player an ordinary
-// quest to meet it with them:
+// Talk tells a quest (#2196, rules 99; #2605). A player's Talk that reveals the
+// other avatar's want says it; the player takes it by a tap (Accept quest),
+// and nothing is pushed at the player. The quest that meets a want is read
+// from its shape (`questFor`):
 //   their item X   -> give(X, them):     the item, step give to them;
 //   their place P  -> bring(them, P):    the person, step bring at P;
 //   their person Q -> introduce(them, Q): the person, step bring to Q.
-// The quest is read from its own shape, so the stack holds no extra record;
-// `heard` keeps, per avatar, the last want the player was told. A quest whose
-// want has since changed leaves at the next settle, not as a refusal. Met,
-// it is a want met like any other, so it counts toward the gap of ordinary
-// wants between level quests.
-import { allQuestsOf, nextWant, pushQuest, questTerms, setQuests } from "./want.mjs";
+// `heard` keeps, per avatar, the want the player was last told, so a tap
+// offered after a Talk lasts only while that want is still the one told. A
+// quest whose want has since changed leaves at the next settle, not as a
+// refusal. Met, it is a want met like any other.
+import { setWant, wantOf } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
 
 const key = (want) => `${want.kind}:${want.target}`;
@@ -68,40 +68,36 @@ export function questFor(s, them, want) {
   return null;
 }
 
-// A player's Talk with `them`: their top want, if Talk reveals it and the
-// player has not been told it by them before, becomes a quest. One already
-// held keeps its place. New quests join the saved queue and preserve focus.
+// A player's Talk with `them`: the want of theirs that Talk reveals is
+// recorded as heard (`heard[them]` is its key), and nothing else changes. The
+// quest it would be is `questFor(s, them, want)`. Null when nothing is told.
 export function talkQuest(s, actor, them, api) {
   const a = s.actors[actor],
     want = s.actors[them]?.want;
   if (!api.player(actor) || them === actor || !want) return null;
   const quest = revealed(s, them, want, actor) && questFor(s, them, want);
-  if (!quest || a.heard?.[them] === key(want)) return null;
-  const held = allQuestsOf(s, actor);
-  // A level quest's step that is this very quest already asks it.
-  if (held.some((w) => w.quest && questTerms(w) === questTerms(quest))) return null;
-  const top = pushQuest(s, actor, quest);
+  if (!quest) return null;
   a.heard = { ...a.heard, [them]: key(want) };
-  return top;
+  return quest;
+}
+// Whether the player was told this avatar's want and it is still theirs: the
+// condition under which Accept quest may be offered.
+export function toldWant(s, actor, them) {
+  const want = s.actors[them]?.want;
+  return Boolean(want && s.actors[actor]?.heard?.[them] === key(want));
 }
 
-// A Talk quest whose want they no longer hold on top, met by someone else
-// or set aside, leaves the player's stack. Nothing is refused: a quest left
-// with none beneath draws the next.
+// A Talk quest whose want they no longer hold, met by someone else or set
+// aside, leaves the player. Nothing is refused and nothing is drawn.
 export function pruneTalkQuests(s, api) {
   for (const id of Object.keys(s.actors)) {
     if (!api.player(id)) continue;
-    const list = allQuestsOf(s, id);
-    const kept = list.filter((w) => {
-      const them = talkQuestFrom(w);
-      if (!them) return true;
-      const want = s.actors[them]?.want,
-        wanted = served(w);
-      return want?.kind === wanted.kind && want.target === wanted.target;
-    });
-    if (kept.length === list.length) continue;
-    setQuests(s.actors[id], kept);
-    if (!s.actors[id].want)
-      setQuests(s.actors[id], [nextWant(s, id, api)].filter(Boolean));
+    const w = wantOf(s, id),
+      them = talkQuestFrom(w);
+    if (!them) continue;
+    const want = s.actors[them]?.want,
+      wanted = served(w);
+    if (!(want?.kind === wanted.kind && want.target === wanted.target))
+      setWant(s.actors[id], null);
   }
 }

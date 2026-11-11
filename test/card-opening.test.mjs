@@ -45,20 +45,15 @@ const meetEveryone = () =>
   });
 
 describe("dousing the lamp in the attic", () => {
-  it("brings the first quest on arrival at the Black Pond, and keeps it", () => {
+  it("brings no quest on arrival at the Black Pond: a player takes its own", () => {
     let s = selectLamp(fresh());
     expect(s.actors.vale.want).toBeNull();
     s = act(s, "move", { target: "pond" });
     expect(s.actors.vale.place).toBe("pond");
-    const first = s.actors.vale.want;
-    expect(first).not.toBeNull();
-    // A save already past the pond keeps its quest through later plays.
+    expect(s.actors.vale.want).toBeNull();
     s = decodeSave(encodeSave(s));
     s = act(s, "wait");
-    // Its quest is still there, or was met and its next one drawn in rest.
-    expect(
-      s.actors.vale.want !== null || s.actors.vale.metTurn !== undefined,
-    ).toBe(true);
+    expect(s.actors.vale.want).toBeNull();
     expect(s.actors.vale.visited).toContain("pond");
   });
 
