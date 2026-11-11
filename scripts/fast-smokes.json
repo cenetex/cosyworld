@@ -25,6 +25,10 @@
       "smokes": ["smoke-card-ratiradio"]
     },
     {
+      "paths": "^v2/card-game/(combat|defeat-view)|^v2/card-game/(app|cards|scene|world|held-item|lamp-state|standoff[\\w-]*)\\.mjs$|^v2/card-game/style\\.css$|^v2/scripts/smoke-card-combat\\.mjs$",
+      "smokes": ["smoke-card-combat"]
+    },
+    {
       "paths": "^v2/card-game/sleep-(view|presentation)\\.mjs$",
       "smokes": ["smoke-card-sleep-dream"]
     },
@@ -67,10 +71,6 @@
     {
       "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative)\\.",
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
-    },
-    {
-      "paths": "^v2/card-game/(combat|defeat-view)",
-      "smokes": ["smoke-card-combat"]
     },
     {
       "paths": "^v2/card-game/card-(exit|ghost|swap|entry)\\.",

@@ -17,7 +17,7 @@ describe("fast check smoke selection", () => {
     ]) expect(pick(path)).toContain(smoke);
     const selected = pick("v2/content/ratiradio/card-world.json", "v2/card-game/app.mjs");
     expect(selected.slice(config.core.length)).toEqual([
-      "smoke-card-ratiradio", smoke, "smoke-card-speech-queue",
+      "smoke-card-ratiradio", "smoke-card-combat", smoke,
     ]);
     expect(config.max).toBe(3);
     const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
@@ -123,10 +123,30 @@ describe("fast check smoke selection", () => {
     );
     expect(smokes).toEqual([
       ...config.core,
-      "smoke-card-dialogue-timing",
       "smoke-card-combat",
+      "smoke-card-dialogue-timing",
       "smoke-card-pond-access",
     ]);
+  });
+
+  it("runs the combat smoke for every file its hand, fight and rules depend on", () => {
+    for (const file of [
+      "v2/scripts/smoke-card-combat.mjs",
+      "v2/card-game/app.mjs",
+      "v2/card-game/cards.mjs",
+      "v2/card-game/scene.mjs",
+      "v2/card-game/world.mjs",
+      "v2/card-game/held-item.mjs",
+      "v2/card-game/style.css",
+      "v2/card-game/combat.css",
+      "v2/card-game/combat-view.mjs",
+      "v2/card-game/defeat-view.mjs",
+    ])
+      expect(pick(file), file).toContain("smoke-card-combat");
+    // Broad changes that match many rules still keep it inside the cap.
+    expect(
+      pick("v2/card-game/app.mjs", "v2/card-game/world.mjs", "v2/card-game/beats.mjs"),
+    ).toContain("smoke-card-combat");
   });
 
   it("keeps the RatiRadio route in the integration smoke budget", () => {
