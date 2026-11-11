@@ -1,4 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+// Request ordering owns this fixture; reset-storage tests cover the adapter.
+vi.mock("../v2/card-game/account-reset-storage.mjs", () => ({
+  accountStorage: { removeItem: (key) => globalThis.localStorage?.removeItem(key) },
+  accountSessionStorage: {
+    getItem: (key) => globalThis.sessionStorage.getItem(key),
+    setItem: (key, value) => globalThis.sessionStorage.setItem(key, value),
+    removeItem: (key) => globalThis.sessionStorage.removeItem(key),
+  },
+}));
 import { installAvatarMenu } from "../v2/card-game/avatar-menu.mjs";
 import { request } from "../v2/card-game/shared-auth.mjs";
 vi.mock("../v2/card-game/shared-auth.mjs", () => ({ request: vi.fn() }));
