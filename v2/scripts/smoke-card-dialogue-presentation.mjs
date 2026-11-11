@@ -8,7 +8,12 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import * as W from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { selectCard, smokeWidths } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  readyActionButton,
+  selectCard,
+  smokeWidths,
+} from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -26,6 +31,7 @@ const state = (page) =>
       strip: q(".beat-stack").dataset.action === "true",
       front: q("#speech-row").hidden ? null : q("#speech-row").dataset.beat,
       typing: q("#dialogue-advance").dataset.revealing === "true",
+      cooling: q("#hand").dataset.cooling === "true",
       thinking: !q("#story-status").hidden,
       caption: q("#beat-captions").lastElementChild?.textContent || "",
       note: q(".action-beat-note").hidden
@@ -60,6 +66,7 @@ async function open(width, path, route) {
     isMobile: touch,
     hasTouch: touch,
   });
+  page.setDefaultTimeout(12000);
   page.errors = [];
   page.on("pageerror", (e) => page.errors.push(e.message));
   await route(page);
@@ -68,7 +75,7 @@ async function open(width, path, route) {
     () => document.querySelector("#hand").dataset.cooling === "false",
   );
   const tap = (locator) => (touch ? locator.tap() : locator.click());
-  const choose = (id) => selectCard(page, id, { touch });
+  const choose = (id) => selectCard(page, id, { touch, exposedTop: touch });
   const shot = (name) =>
     page.screenshot({
       path: `${process.env.SHOTS || "output"}/${name}-${width}.png`,
@@ -80,12 +87,13 @@ async function open(width, path, route) {
     assert.equal(s.front, "speech", label);
   };
   // Taps on the portrait, not the words, finish each line.
-  const readAll = async () => {
-    for (let i = 0; i < 40 && !(await state(page)).panel; i++) {
+  const readAll = async (choice = true) => {
+    const done = (s) => (choice ? s.panel : !s.cooling);
+    for (let i = 0; i < 40 && !done(await state(page)); i++) {
       await tap(page.locator("#speaker-portrait")).catch(() => {});
       await page.waitForTimeout(250);
     }
-    return until(page, (s) => s.panel, "the panel returns after the line");
+    return until(page, done, "the line is read and the choice can continue");
   };
   const clickOff = () => page.mouse.click(Math.round(width * 0.3), 140);
   return { page, tap, shot, choose, waits, readAll, clickOff };
@@ -122,7 +130,7 @@ async function local(width) {
     ]),
   );
   await t.choose("moth");
-  await t.page.locator('#card-actions [data-action="talk"]').click();
+  await readyActionButton(t.page, "talk").click();
   await t.choose("pond");
   await t.waits(`local ${width} choose while typing`);
   await t.shot("local-choose-while-typing");
@@ -134,72 +142,64 @@ async function local(width) {
   const off = await until(t.page, (s) => !s.panel && !s.strip, "click off");
   assert.deepEqual([off.selected, off.front], [[], "speech"]);
   await t.shot("local-clicked-off");
-  // A silent play inscribes its effect onto the current card: no new card.
+  // Holding lights the lamp; stowing puts it out without a turn or beat.
   const speaker = await t.page.locator("#speaker").innerText();
-  await t.choose("vale");
+  const saved = () =>
+    t.page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+  const beforeHold = await saved();
   await t.choose("lamp");
-  await t.page.evaluate(() =>
-    new MutationObserver(() => {
-      const item = document.querySelector("#beat-captions .inscribe");
-      if (item)
-        window.inscribed ??= {
-          clip: getComputedStyle(item).clipPath,
-          steps: getComputedStyle(item).animationTimingFunction,
-          letters: item.querySelectorAll(".speech-letter").length,
-        };
-    }).observe(document.body, { subtree: true, childList: true }),
-  );
-  await t.page.locator('#card-actions [data-action="light"]').click();
-  await t.page.keyboard.press("Escape");
-  await t.page.waitForFunction(() => window.inscribed);
-  await t.shot("local-inscribing");
-  // It writes in letter by letter with the dialogue's reveal: no clip wipe
-  // that slices through letters.
-  const pen = await t.page.evaluate(() => window.inscribed);
-  assert.equal(pen.clip, "none", JSON.stringify(pen));
-  assert.doesNotMatch(pen.steps, /steps/, JSON.stringify(pen));
-  assert.ok(pen.letters > 3, JSON.stringify(pen));
-  const lit = await until(
-    t.page,
-    (s) => s.caption.includes("lit"),
-    "inscribed",
-  );
-  assert.equal(lit.front, "speech", "the effect has no card of its own");
+  const holding = await saved();
+  assert.equal(holding.actors.vale.heldItem, "lamp");
+  assert.equal(holding.items.lamp.lit, true);
+  assert.equal(holding.turn, beforeHold.turn);
+  assert.deepEqual(holding.log, beforeHold.log, "holding makes no action beat");
+  await t.shot("local-held-lamp");
+  await clearSelection(t.page);
+  const stowed = await saved();
+  assert.equal(stowed.actors.vale.heldItem, null);
+  assert.equal(stowed.items.lamp.lit, false);
+  assert.equal(stowed.turn, beforeHold.turn);
+  assert.deepEqual(stowed.log, beforeHold.log, "stowing makes no action beat");
+  assert.equal((await state(t.page)).front, "speech");
   assert.equal(await t.page.locator("#speaker").innerText(), speaker);
   assert.equal(await t.page.locator("#live-line").isHidden(), true);
+  await t.shot("local-stowed-lamp");
   // D3: a choice made after a play waits behind its Thinking card.
   mode = "hold";
   await t.choose("moth");
-  await t.page.locator('#card-actions [data-action="talk"]').click();
+  await readyActionButton(t.page, "talk").click();
   await t.choose("pond");
   await t.page.waitForTimeout(300);
   const thinking = await until(t.page, (s) => s.thinking, "Thinking card");
   assert.equal(thinking.panel, false, "no panel beside the Thinking card");
   await t.shot("local-thinking-after-play");
   mode = "reply";
-  while (!held.length) await t.page.waitForTimeout(50);
+  await until(t.page, () => held.length, "a reply was requested");
   await held.shift()();
   await t.waits(`local ${width} reply after a play`);
   // A new line never pulls a player who stepped back forward (#2017).
   await t.tap(t.page.locator("#speaker-portrait"));
+  const unread = await t.page.locator("#dialogue-text").innerText();
   await t.page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
-  const back = await t.page.locator("#speaker").innerText();
-  // The next line arrives after the finished line's reading pause.
+  const back = await t.page.locator("#speech-row").innerText();
+  // Unread dialogue stays ahead; only returning Live can advance it.
   await t.page.waitForFunction(
-    () => /·\s*[2-9]/.test(document.querySelector("#live-line").textContent),
+    () => /·\s*[1-9]/.test(document.querySelector("#live-line").textContent),
     null,
     { timeout: 15000 },
   );
-  assert.equal(await t.page.locator("#speaker").innerText(), back);
+  assert.equal(await t.page.locator("#speech-row").innerText(), back);
   await t.page.locator("#live-line").click();
+  assert.equal(await t.page.locator("#dialogue-text").innerText(), unread);
   // D5: a play chosen while the last line rests shows Thinking at once.
   await t.readAll();
   mode = "hold";
-  await t.page.locator("#card-actions .card-primary").click();
+  await readyActionButton(t.page).click();
   await until(t.page, (s) => s.thinking && !s.panel, "Thinking at once", 16);
   // Words that fail are "…" on the speaker's beat, and a choice comes
   // forward with no failure note and no Retry.
   mode = "fail";
+  await until(t.page, () => held.length, "the pending play requested words");
   await held.shift()();
   await until(
     t.page,
@@ -259,8 +259,15 @@ async function shared(width) {
   };
   const t = await open(width, "?world=present", (page) =>
     Promise.all([
+      page.addInitScript((seen) => {
+        localStorage.setItem(
+          "cosyworld.reflected-shore.v1.shared.present.vale.seen",
+          JSON.stringify(seen),
+        );
+        localStorage.setItem("cosyworld.dialogue.sound", "off");
+      }, availableCards(world)),
       page.route("**/auth/account", (r) =>
-        r.fulfill({ json: { authenticated: true } }),
+        r.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
       ),
       page.route(/shared\/worlds\/present(?:\/command)?$/, (route) => {
         const body = route.request().postDataJSON();
@@ -272,9 +279,8 @@ async function shared(width) {
   );
   const playWait = async () => {
     await t.choose("vale");
-    await t.page.locator("#card-actions .card-primary").click();
-    for (let i = 0; i < 100 && !queue.length; i++)
-      await t.page.waitForTimeout(50);
+    await readyActionButton(t.page).click();
+    await until(t.page, () => queue.length, "the shared play was queued");
   };
   // A reply under a choice hides the panel until it is read.
   await playWait();
@@ -336,15 +342,17 @@ async function reloads(width) {
   );
   const play = async () => {
     await t.choose("moth");
-    await t.page.locator('#card-actions [data-action="talk"]').click();
-    while (!held.length) await t.page.waitForTimeout(50);
+    await readyActionButton(t.page, "talk").click();
+    await until(t.page, () => held.length, "a reply was requested");
   };
   // D9: a reload while Thinking asks again instead of failing.
   await play();
   const before = asked;
   await t.page.reload();
   await until(t.page, (s) => s.thinking, "Thinking again after reload");
-  while (asked === before) await t.page.waitForTimeout(50);
+  await until(
+    t.page, () => asked > before, "reload requests the interrupted reply",
+  );
   await noFailureUi(t.page);
   await t.shot("reload-thinking");
   // D8: a reload mid-line shows the line whole.
@@ -356,12 +364,13 @@ async function reloads(width) {
   await t.shot("reload-whole-line");
   // A reply too long to accept is "…" after its one quiet retry.
   length = 504;
-  await t.readAll().catch(() => {});
+  // Reload cleared the choice, so finish reading without expecting a panel.
+  await t.readAll(false);
   await t.page.keyboard.press("Escape");
   held.length = 0;
   await play();
   await held.shift()();
-  while (!held.length) await t.page.waitForTimeout(50);
+  await until(t.page, () => held.length, "a reply was requested");
   await held.shift()();
   await until(t.page, (s) => s.front === "silent", "… for a long reply");
   await noFailureUi(t.page);

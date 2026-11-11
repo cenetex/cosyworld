@@ -78,7 +78,7 @@ async function check(width) {
   );
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/auth/account", (route) =>
-    route.fulfill({ json: { authenticated: true } }),
+    route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
   );
   await page.route(
     /\/card-game\/shared\/worlds\/status(?:\/command)?$/,
@@ -366,7 +366,7 @@ async function checkRefusalFits(width, height, zoom = 1) {
     hasTouch: true,
   });
   await page.route("**/auth/account", (route) =>
-    route.fulfill({ json: { authenticated: true } }),
+    route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
   );
   await page.route(
     /\/card-game\/shared\/worlds\/fits(?:\/command)?$/,

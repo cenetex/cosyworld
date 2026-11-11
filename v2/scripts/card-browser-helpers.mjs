@@ -38,7 +38,7 @@ export const topicForChoice = (choiceId) =>
 
 // On phones and tablets the dialogue lies over the hand's foot (#1897), so
 // a player taps a card's top, which always shows above it.
-export async function tapCard(card) {
+export async function tapCard(card, { touch = false } = {}) {
   await card.scrollIntoViewIfNeeded();
   const { width } = await card.boundingBox();
   const top = { x: width / 2, y: 16 };
@@ -48,7 +48,9 @@ export async function tapCard(card) {
     const hit = document.elementFromPoint(box.left + at.x, box.top + at.y);
     return !(hit === el || el.contains(hit));
   }, top);
-  await card.click({ position: covered ? await visibleSpot(card) : top });
+  const options = { position: covered ? await visibleSpot(card) : top };
+  if (touch) await card.tap(options);
+  else await card.click(options);
 }
 
 // ☰ > Settings is a hand of cards (settings-cards.mjs). A setting lies in
@@ -260,7 +262,16 @@ async function visibleSpot(card) {
     return { x: box.width / 2, y: box.height / 2 };
   });
 }
-export async function selectCard(page, id, { touch = false } = {}) {
+export async function selectCard(
+  page, id, { touch = false, exposedTop = false } = {},
+) {
+  // A touch tap at the card's exposed top (#2668) or at its visible part.
+  const press = async (card) => {
+    if (touch && exposedTop) return tapCard(card, { touch: true });
+    const position = await visibleSpot(card);
+    if (touch) await card.tap({ position });
+    else await card.click({ position });
+  };
   const frame = page.locator(`#hand [data-card="${id}"]`).locator("..");
   const wasSelected =
     (await frame.locator(".card").getAttribute("aria-pressed")) === "true";
@@ -270,15 +281,11 @@ export async function selectCard(page, id, { touch = false } = {}) {
       : null;
   const card = await revealCard(page, id, { keepSelected: true });
   if (wasSelected || (await card.getAttribute("aria-pressed")) !== "true") {
-    const position = await visibleSpot(card);
-    if (touch) await card.tap({ position });
-    else await card.click({ position });
+    await press(card);
   }
   // A rested held card first opens its details; this helper's toggle lowers it.
   if (wasSelected && (await card.getAttribute("aria-pressed")) === "true") {
-    const position = await visibleSpot(card);
-    if (touch) await card.tap({ position });
-    else await card.click({ position });
+    await press(card);
   }
   // Keep the chosen child raised while returning its browsing avatar to the stack.
   if (holder) {
@@ -287,9 +294,7 @@ export async function selectCard(page, id, { touch = false } = {}) {
       (await owner.getAttribute("aria-pressed")) === "true" &&
       !(await owner.evaluate((el) => el.classList.contains("location")))
     ) {
-      const position = await visibleSpot(owner);
-      if (touch) await owner.tap({ position });
-      else await owner.click({ position });
+      await press(owner);
     }
   }
 }

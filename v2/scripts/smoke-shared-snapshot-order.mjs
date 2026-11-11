@@ -35,7 +35,7 @@ async function checkPlayRecovery(width, scenario) {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/auth/account", (route) =>
-    route.fulfill({ json: { authenticated: true } }),
+    route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
   );
   await page.route(
     /\/card-game\/shared\/worlds\/recovery(?:\/command)?$/,
@@ -217,7 +217,7 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true } }),
+      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
     );
     let hold = false;
     let release;
