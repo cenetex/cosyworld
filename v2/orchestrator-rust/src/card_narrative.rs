@@ -835,8 +835,8 @@ pub(crate) fn same_origin(headers: &HeaderMap) -> bool {
                 .any(|prefix| origin.strip_prefix(prefix) == Some(host))
     })
 }
-/// Whether the authored-text catalog is older than the scene modules and
-/// packs this build serves. A stale catalog leaves new rules text out of
+/// Whether the authored-text catalog lists a scene module or pack this build
+/// does not serve (see `authored::catalog_current`). A stale catalog leaves new rules text out of
 /// every prompt, so startup logs it loudly and /meta reports it
 /// (`card_game.card_text.catalog_stale`).
 pub(crate) fn catalog_stale() -> bool {

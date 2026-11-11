@@ -21,8 +21,8 @@ struct CardGameMetadata {
 
 #[derive(Debug, Serialize)]
 struct CardText {
-    /// The authored-text catalog no longer matches the served scene modules
-    /// and packs (see `narrative::catalog_stale`).
+    /// The authored-text catalog lists a scene module or pack this build does
+    /// not serve (see `narrative::catalog_stale`).
     catalog_stale: bool,
 }
 
