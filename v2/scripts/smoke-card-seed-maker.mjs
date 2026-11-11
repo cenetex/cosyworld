@@ -106,22 +106,34 @@ try {
           db.close();
         }
       });
-    const saved = (generation) =>
-      page.waitForFunction(async (generation) => {
-        if (!new URL(location.href).searchParams.get("draft")) return false;
-        const { openAuthoringStore } = await import(
-          "/card-game/authoring-local-store.mjs"
-        );
-        const db = await openAuthoringStore();
-        try {
-          return (
-            (await db.read(new URL(location.href).searchParams.get("draft")))
-              ?.generation === generation
+    // waitForFunction does not await a promise, so poll the store from here.
+    const until = async (done) => {
+      for (let i = 0; i < 200; i++) {
+        const value = await page.evaluate(async () => {
+          const draft = new URL(location.href).searchParams.get("draft");
+          if (!draft) return null;
+          const { openAuthoringStore } = await import(
+            "/card-game/authoring-local-store.mjs"
           );
-        } finally {
-          db.close();
-        }
-      }, generation);
+          const db = await openAuthoringStore();
+          try {
+            const record = await db.read(draft);
+            return record
+              ? {
+                  generation: record.generation,
+                  avatars: record.draft?.pack?.avatars,
+                }
+              : null;
+          } finally {
+            db.close();
+          }
+        });
+        if (value && done(value)) return;
+        await page.waitForTimeout(100);
+      }
+      throw new Error("The saved draft did not reach the expected state.");
+    };
+    const saved = (generation) => until((v) => v.generation >= generation);
     await page.goto(`http://127.0.0.1:${server.address().port}/make`);
     await page.locator(".action-beat-note").waitFor();
     await page
@@ -258,20 +270,7 @@ try {
       }
       if (first) {
         // The first portrait is archived, then saved: wait for the saved art.
-        await page.waitForFunction(async (avatar) => {
-          const { openAuthoringStore } = await import(
-            "/card-game/authoring-local-store.mjs"
-          );
-          const db = await openAuthoringStore();
-          try {
-            const record = await db.read(
-              new URL(location.href).searchParams.get("draft"),
-            );
-            return Boolean(record?.draft.pack.avatars[avatar]?.portrait);
-          } finally {
-            db.close();
-          }
-        }, avatar);
+        await until((v) => Boolean(v.avatars?.[avatar]?.portrait));
         return;
       }
       await page
@@ -295,8 +294,17 @@ try {
       assert.deepEqual(image, [true, 300, 200]);
     };
     await generate("portrait", true);
-    const firstPortrait = (await read()).draft.pack.avatars[avatar].portrait;
-    assert(firstPortrait);
+    const firstRead = await read();
+    const firstPortrait = firstRead.draft.pack.avatars[avatar].portrait;
+    assert(
+      firstPortrait,
+      JSON.stringify({
+        generation: firstRead.generation,
+        avatar: firstRead.draft.pack.avatars[avatar],
+        assets: firstRead.draft.assets.map((a) => a.path),
+        errors,
+      }),
+    );
     await generate("portrait");
     await tool(`art-${avatar}-portrait-discard`);
     await action();
