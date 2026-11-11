@@ -25,6 +25,9 @@ export function lockedQuest(world, id, known = () => false) {
   if (preview) return { text: preview.reason, cards: [] };
   const actor = currentActor(world);
   const way = sealedWays(world, actor).find((route) => route.to === id);
+  // Discovering the locked destination cannot explain how to open its way.
+  if (way?.sealed?.quest?.kind === "place" && way.sealed.quest.target === id)
+    return { text: way.sealed.reason, cards: [] };
   const route =
     way &&
     packDefinitions

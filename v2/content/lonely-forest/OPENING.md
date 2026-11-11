@@ -31,7 +31,9 @@ Either ending closes the visit, and the other can no longer follow. The
 keep ending needs the Wait itself: carrying the charm in and giving it to
 RATi never keeps it.
 
-While the charm is at Oak, Oak opens the way to the Moonlit Trail. The charm
+Until each way opens, the Moonlit Trail lies face down as a locked box, at the
+garden until the drain is cleared and at Oak until the charm is there. While
+the charm is at Oak, Oak opens the way to the Moonlit Trail. The charm
 counts when someone present carries it, when it lies among the roots or
 when Oak holds it. Once the charm stays by the hearth, Oak's way closes, and
 the garden path to the trail stays open.

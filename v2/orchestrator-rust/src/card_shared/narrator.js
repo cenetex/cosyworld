@@ -4590,6 +4590,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "She holds a strip of cloth between both hands. Her son\u2019s name is written beside the urn."
+            },
+            sealed: {
+              at: "greek-eleusis",
+              reason: "She is not here until the Argive dead are returned."
             }
           },
           "greek-iphis": {
@@ -4618,6 +4622,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "He sits beside the shrine steps. A place remains empty at his side."
+            },
+            sealed: {
+              at: "greek-eleusis",
+              reason: "He is not here until the account of the pyre is heard."
             }
           },
           "greek-theseus": {
@@ -4665,6 +4673,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
+            },
+            sealed: {
+              at: "greek-piraeus",
+              reason: "Finish the funeral at the Hollow, or give Dione an earlier Theban account."
             }
           },
           "greek-colonus-keeper": {
@@ -4751,6 +4763,10 @@
               likes: "a place kept ready and a promise carried through",
               sore: "her household spoken for before she has answered",
               reason: "She has walked beside the mourners and knows the work that follows a funeral."
+            },
+            sealed: {
+              at: "greek-eleusis",
+              reason: "She is not here until the urn is placed in the mothers\u2019 care."
             }
           },
           "greek-ajax-tecmessa": {
@@ -5551,7 +5567,14 @@
                   }
                 ]
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "place",
+                target: "greek-road-athens-eleusis"
+              },
+              reason: "Opens once the mothers\u2019 request is heard and their petition is in the Sanctuary or the Agora."
+            }
           },
           {
             from: "greek-athens",
@@ -5567,7 +5590,14 @@
                 item: "greek-olive-branch",
                 place: "greek-athens"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "place",
+                target: "greek-road-athens-piraeus"
+              },
+              reason: "Opens once the mothers\u2019 petition is laid before Theseus and the Herald\u2019s Truce is in the Agora."
+            }
           },
           {
             from: "greek-piraeus",
@@ -5583,7 +5613,14 @@
                 item: "greek-olive-branch",
                 place: "greek-athens"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "place",
+                target: "greek-road-athens-piraeus"
+              },
+              reason: "Opens once the mothers\u2019 petition is laid before Theseus and the Herald\u2019s Truce is in the Agora."
+            }
           }
         ],
         choices: [
@@ -14500,7 +14537,14 @@
                 item: "forest-wolfprint-charm",
                 place: "forest-oak"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "place",
+                target: "forest-trail"
+              },
+              reason: "Open only while the Wolfprint Charm is at the Old Oak Tree."
+            }
           },
           {
             from: "forest-garden",
@@ -14511,7 +14555,14 @@
                 key: "forest-path-cleared",
                 value: true
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "place",
+                target: "forest-trail"
+              },
+              reason: "Opens once the garden drain is cleared."
+            }
           }
         ],
         choices: [
