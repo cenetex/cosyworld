@@ -5,6 +5,10 @@
 // is there; another offer then shows its reason as the button's label;
 // meeting the want pays XP with no Claim; at the level's threshold the
 // level-up card appears, is taken and the attic's Sleep raises the level.
+// A lock or quest that concerns a card the traveler has not discovered names
+// nothing: no word, aria label, title, alt text or image of it, in the bar,
+// the button or the quest card; it shows the face-down back, and names the
+// card once it is discovered.
 //
 //   node v2/scripts/smoke-card-quest-offers.mjs [screenshot-dir]
 import assert from "node:assert/strict";
@@ -19,6 +23,7 @@ import { questCards } from "../../test/journeys/quest-cards.mjs";
 import {
   clearSelection,
   putOutOpening,
+  revealCard,
   selectCard,
   smokeWidths,
   tapCard,
@@ -44,7 +49,7 @@ try {
   });
   for (const width of smokeWidths([1440, 390, 320])) {
     const height = width === 1440 ? 900 : width === 390 ? 844 : 640;
-    const open = async (name, world) => {
+    const open = async (name, world, covered = []) => {
       const page = await browser.newPage({
         viewport: { width, height },
         reducedMotion: "reduce",
@@ -55,10 +60,11 @@ try {
       page.on("pageerror", (error) => errors.push(error.message));
       if (world)
         await page.addInitScript(
-          ({ key, save, seen }) => {
+          ({ key, save, seen, covered }) => {
             if (!localStorage.getItem(key)) {
               localStorage.setItem(key, save);
               localStorage.setItem(`${key}.seen`, JSON.stringify(seen));
+              localStorage.setItem(`${key}.seen.covered`, JSON.stringify(covered));
             }
             localStorage.setItem("cosyworld.dialogue.sound", "off");
           },
@@ -70,6 +76,7 @@ try {
               ...Object.keys(world.items),
               ...Object.keys(world.locations),
             ],
+            covered,
           },
         );
       await page.route("**/card-game/text", (route) => {
@@ -131,6 +138,25 @@ try {
       };
       return { page, key, errors, state, ready, shot, oneButton, layout };
     };
+    // Everything the traveler can read or see of the bar, the context button
+    // and the quest cards: words, aria labels, titles, alt text and images.
+    // A card the traveler has not discovered must appear in none of it.
+    const surfaces = (page) =>
+      page.evaluate(() => {
+        const roots = [
+          ...document.querySelectorAll(
+            '#action-beat, #card-actions, #hand [data-card^="quest:"], #hand .want-frame, #hand .quest-fold',
+          ),
+        ];
+        const seen = [];
+        for (const root of roots)
+          for (const el of [root, ...root.querySelectorAll("*")]) {
+            seen.push(el.children.length ? "" : el.textContent);
+            for (const name of ["aria-label", "title", "alt", "src", "data-tap-verb"])
+              seen.push(el.getAttribute(name) ?? "");
+          }
+        return seen.filter(Boolean).join("\n");
+      });
     const offerCards = (page) => page.locator('#hand [data-card^="quest:"]');
     const label = async (page) =>
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
@@ -195,7 +221,13 @@ try {
       const shut = page.locator("#card-actions button").first();
       assert.equal(await shut.isDisabled(), true);
       assert.equal(await shut.textContent(), "Locked");
-      assert.match(await page.locator(".action-beat-text").textContent(), /lamp/iu);
+      // The Lamp is not yet discovered: the lock asks for something
+      // undiscovered, and names nothing.
+      assert.equal(
+        await page.locator(".action-beat-text").textContent(),
+        "Find something undiscovered",
+      );
+      assert.doesNotMatch(await surfaces(page), /lamp/iu);
       assert.equal(await offerCards(page).count(), 0);
       await t.shot("pond-shut");
       await putOutOpening(page);
@@ -260,6 +292,44 @@ try {
       // A held quest's one button is always Discard.
       assert.equal(await label(page), "Discard");
       await t.shot("held-step");
+      assert.deepEqual(t.errors, []);
+      await page.close();
+    }
+
+    // 2b. A quest for a card not yet discovered shows the card back and names
+    // nothing; it names the card once it is discovered.
+    {
+      const t = await open(
+        "quest-offers-covered",
+        decodeSave(encodeSave(journey.told)),
+        ["lamp"],
+      );
+      const { page } = t;
+      await page.goto(`${origin}/?table=quest-offers-covered-${width}`);
+      await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
+      await t.ready();
+      await selectCard(page, "quest:from:moth");
+      await t.ready();
+      assert.equal(await t.oneButton(), 1);
+      const hidden = await surfaces(page);
+      assert.match(hidden, /something undiscovered/u);
+      assert.doesNotMatch(hidden, /lamp/iu);
+      // Its face is the card back, not the Lamp's art.
+      const face = page.locator('#hand [data-card="quest:from:moth"] .quest-screen');
+      assert.equal(await face.locator(".quest-back").count(), 1);
+      assert.equal(await face.locator(".quest-thing").count(), 0);
+      await t.shot("offer-undiscovered");
+      // Discovered, the same quest names the Lamp and shows it.
+      await clearSelection(page);
+      await revealCard(page, "lamp");
+      await clearSelection(page);
+      await selectCard(page, "quest:from:moth");
+      await t.ready();
+      assert.match(await surfaces(page), /Lamp/u);
+      assert.equal(
+        await page.locator('#hand [data-card="quest:from:moth"] .quest-thing').count(),
+        1,
+      );
       assert.deepEqual(t.errors, []);
       await page.close();
     }

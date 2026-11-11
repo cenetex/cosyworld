@@ -1427,8 +1427,7 @@
         "reason": "She checks the traveler's account against a witness tablet."
       },
       "sealed": {
-        "at": "greek-egypt-tomb",
-        "reason": "Not here until Helen’s Egyptian account is followed."
+        "at": "greek-egypt-tomb"
       }
     },
     "greek-menelaus-egypt": {
@@ -1453,8 +1452,7 @@
         "reason": "Salt stains his cloak. He has kept the ship's passenger tally."
       },
       "sealed": {
-        "at": "greek-egypt-tomb",
-        "reason": "Not here until Helen’s Egyptian account is followed."
+        "at": "greek-egypt-tomb"
       }
     },
     "greek-helen-troy": {
@@ -1480,8 +1478,7 @@
         "reason": "She checks the traveler's account against a witness tablet."
       },
       "sealed": {
-        "at": "greek-troy-beach",
-        "reason": "Not here until Helen’s Trojan account is followed."
+        "at": "greek-troy-beach"
       }
     },
     "greek-menelaus-troy": {
@@ -1506,8 +1503,7 @@
         "reason": "Salt stains his cloak. He has kept the ship's passenger tally."
       },
       "sealed": {
-        "at": "greek-troy-beach",
-        "reason": "Not here until Helen’s Trojan account is followed."
+        "at": "greek-troy-beach"
       }
     },
     "greek-electra-aeschylus": {
@@ -1532,8 +1528,7 @@
         "reason": "She has preserved an account of the household's losses."
       },
       "sealed": {
-        "at": "greek-argos-tomb",
-        "reason": "Not here until the tomb account is followed."
+        "at": "greek-argos-tomb"
       }
     },
     "greek-orestes-aeschylus": {
@@ -1558,8 +1553,7 @@
         "reason": "He has come to hear his sister before committing himself."
       },
       "sealed": {
-        "at": "greek-argos-tomb",
-        "reason": "Not here until the tomb account is followed."
+        "at": "greek-argos-tomb"
       }
     },
     "greek-electra-sophocles": {
@@ -1585,8 +1579,7 @@
         "reason": "She has preserved an account of the household's losses."
       },
       "sealed": {
-        "at": "greek-mycenae-palace",
-        "reason": "Not here until the palace account is followed."
+        "at": "greek-mycenae-palace"
       }
     },
     "greek-orestes-sophocles": {
@@ -1612,8 +1605,7 @@
         "reason": "He has come to hear his sister before committing himself."
       },
       "sealed": {
-        "at": "greek-mycenae-palace",
-        "reason": "Not here until the palace account is followed."
+        "at": "greek-mycenae-palace"
       }
     },
     "greek-electra-euripides": {
@@ -1638,8 +1630,7 @@
         "reason": "She has preserved an account of the household's losses."
       },
       "sealed": {
-        "at": "greek-argive-farm",
-        "reason": "Not here until the farmhouse account is followed."
+        "at": "greek-argive-farm"
       }
     },
     "greek-orestes-euripides": {
@@ -1664,8 +1655,7 @@
         "reason": "He has come to hear his sister before committing himself."
       },
       "sealed": {
-        "at": "greek-argive-farm",
-        "reason": "Not here until the farmhouse account is followed."
+        "at": "greek-argive-farm"
       }
     },
     "greek-aethra": {
@@ -1689,8 +1679,7 @@
         "reason": "Olive branches rest across her knees. She makes room for the mothers beside Demeter’s altar."
       },
       "sealed": {
-        "at": "greek-eleusis",
-        "reason": "Not here until Polynices is buried."
+        "at": "greek-eleusis"
       }
     },
     "greek-adrastus": {
@@ -1714,8 +1703,7 @@
         "reason": "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen."
       },
       "sealed": {
-        "at": "greek-eleusis",
-        "reason": "Not here until Polynices is buried."
+        "at": "greek-eleusis"
       }
     },
     "greek-argive-mother": {
@@ -1744,8 +1732,7 @@
         "reason": "She holds a strip of cloth between both hands. Her son’s name is written beside the urn."
       },
       "sealed": {
-        "at": "greek-eleusis",
-        "reason": "She is not here until the Argive dead are returned."
+        "at": "greek-eleusis"
       }
     },
     "greek-iphis": {
@@ -1774,8 +1761,7 @@
         "reason": "He sits beside the shrine steps. A place remains empty at his side."
       },
       "sealed": {
-        "at": "greek-eleusis",
-        "reason": "He is not here until the account of the pyre is heard."
+        "at": "greek-eleusis"
       }
     },
     "greek-theseus": {
@@ -1800,8 +1786,7 @@
         "reason": "A petition table stands beside him. He waits for the mothers’ own account."
       },
       "sealed": {
-        "at": "greek-athens",
-        "reason": "Not here until Polynices is buried."
+        "at": "greek-athens"
       }
     },
     "greek-quay-host": {
@@ -1825,8 +1810,7 @@
         "reason": "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
       },
       "sealed": {
-        "at": "greek-piraeus",
-        "reason": "Not here until Polynices is buried."
+        "at": "greek-piraeus"
       }
     },
     "greek-colonus-keeper": {
@@ -1850,8 +1834,7 @@
         "reason": "The keeper sets a cup beside the boundary stone. A pot of honey catches the light."
       },
       "sealed": {
-        "at": "greek-colonus",
-        "reason": "Not here until Polynices is buried."
+        "at": "greek-colonus"
       }
     },
     "greek-marathon-keeper": {
@@ -1875,8 +1858,7 @@
         "reason": "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
       },
       "sealed": {
-        "at": "greek-marathon",
-        "reason": "Not here until Polynices is buried."
+        "at": "greek-marathon"
       }
     },
     "greek-household-witness": {
@@ -1919,8 +1901,7 @@
         "reason": "She has walked beside the mourners and knows the work that follows a funeral."
       },
       "sealed": {
-        "at": "greek-eleusis",
-        "reason": "She is not here until the urn is placed in the mothers’ care."
+        "at": "greek-eleusis"
       }
     },
     "greek-ajax-tecmessa": {
@@ -1945,8 +1926,7 @@
         "reason": "Ajax’s household and burial are at issue in this named Trojan account."
       },
       "sealed": {
-        "at": "greek-ajax-household",
-        "reason": "Not here until the Trojan camp’s invitation is accepted."
+        "at": "greek-ajax-household"
       }
     },
     "greek-ajax-teucer": {
@@ -1971,8 +1951,7 @@
         "reason": "Ajax’s household and burial are at issue in this named Trojan account."
       },
       "sealed": {
-        "at": "greek-greek-camp",
-        "reason": "Not here until the Trojan camp’s invitation is accepted."
+        "at": "greek-greek-camp"
       }
     },
     "greek-ajax-odysseus": {
@@ -1998,8 +1977,7 @@
         "reason": "Ajax’s household and burial are at issue in this named Trojan account."
       },
       "sealed": {
-        "at": "greek-greek-camp",
-        "reason": "Not here until the Trojan camp’s invitation is accepted."
+        "at": "greek-greek-camp"
       }
     },
     "greek-polynices-shade": {
@@ -2113,8 +2091,7 @@
         }
       ],
       "sealed": {
-        "at": "greek-ship",
-        "reason": "Not aboard until Polynices is buried and the Charybdis lies at Piraeus with provisions aboard."
+        "at": "greek-ship"
       }
     }
   },
@@ -2664,7 +2641,6 @@
         }
       ],
       "sealed": {
-        "reason": "Speak to Polynices’ Shade to learn the way into the Hollow.",
         "quest": {
           "kind": "person",
           "target": "greek-polynices-shade"
@@ -2686,8 +2662,7 @@
           "kind": "item",
           "target": "greek-helen-accounts",
           "to": "greek-shipmaster"
-        },
-        "reason": "Give Myrto Helen’s Account Tablet to follow the Egyptian account."
+        }
       }
     },
     {
@@ -2709,8 +2684,7 @@
           "kind": "item",
           "target": "greek-helen-accounts",
           "to": "greek-elder"
-        },
-        "reason": "Give the Chorus Elder Helen’s Account Tablet to follow the Trojan account."
+        }
       }
     },
     {
@@ -2732,8 +2706,7 @@
           "kind": "item",
           "target": "greek-atreid-record",
           "to": "greek-ismene"
-        },
-        "reason": "Give Ismene the Record of the House of Atreus to follow the tomb account."
+        }
       }
     },
     {
@@ -2755,8 +2728,7 @@
           "kind": "item",
           "target": "greek-atreid-record",
           "to": "greek-creon"
-        },
-        "reason": "Give Creon the Record of the House of Atreus to follow the palace account."
+        }
       }
     },
     {
@@ -2778,8 +2750,7 @@
           "kind": "item",
           "target": "greek-atreid-record",
           "to": "greek-baker"
-        },
-        "reason": "Give Dione the Record of the House of Atreus to follow the farmhouse account."
+        }
       }
     },
     {
@@ -2800,8 +2771,7 @@
         "quest": {
           "kind": "place",
           "target": "greek-argos-palace"
-        },
-        "reason": "Opens once the tomb account is followed."
+        }
       }
     },
     {
@@ -2841,8 +2811,7 @@
         "quest": {
           "kind": "place",
           "target": "greek-road-athens-eleusis"
-        },
-        "reason": "Opens once the mothers’ request is heard and their petition is in the Sanctuary or the Agora."
+        }
       }
     },
     {
@@ -2864,8 +2833,7 @@
         "quest": {
           "kind": "place",
           "target": "greek-road-athens-piraeus"
-        },
-        "reason": "Opens once the mothers’ petition is laid before Theseus and the Herald’s Truce is in the Agora."
+        }
       }
     },
     {
@@ -2887,8 +2855,7 @@
         "quest": {
           "kind": "place",
           "target": "greek-road-athens-piraeus"
-        },
-        "reason": "Opens once the mothers’ petition is laid before Theseus and the Herald’s Truce is in the Agora."
+        }
       }
     }
   ],

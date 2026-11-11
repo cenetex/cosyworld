@@ -1,6 +1,7 @@
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it, vi } from "vitest";
 import { isLockedBox } from "../v2/card-game/locked-box.mjs";
+import { lockText } from "./helpers/lock-text.mjs";
 import { readFileSync } from "node:fs";
 
 // Exercise the authored source before the release build mounts its art.
@@ -164,7 +165,7 @@ describe("Tea beneath the oak", () => {
     // The shut way lies in the hand as a locked box with its reason.
     expect(availableCards(world)).toContain(TRAIL);
     expect(isLockedBox(world, TRAIL)).toBe(true);
-    expect(sealedReason(world, TRAIL)).toMatch(/Wolfprint Charm is at the Old Oak/u);
+    expect(lockText(world, TRAIL)).toMatch(/Wolfprint Charm.*Old Oak/u);
     world = move(world, GARDEN);
     world = wait(world);
     world = move(world, TRAIL);
@@ -452,7 +453,7 @@ describe("Tea beneath the oak", () => {
     world = move(world, GARDEN);
     expect(exits(world, GARDEN, "vale")).not.toContain(TRAIL);
     expect(isLockedBox(world, TRAIL)).toBe(true);
-    expect(sealedReason(world, TRAIL)).toMatch(/garden drain is cleared/u);
+    expect(lockText(world, TRAIL)).not.toBe("A locked box.");
     world = wait(world);
     expect(exits(world, GARDEN, "vale")).toContain(TRAIL);
     expect(isLockedBox(world, TRAIL)).toBe(false);

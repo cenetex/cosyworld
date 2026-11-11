@@ -41,12 +41,11 @@ const SHOVEL = "greek-shovel",
   SKIN = "greek-wine-skin",
   gate = "greek-gate",
   sanctuary = "greek-sanctuary";
-const REASON = "Antigone keeps it until the ground is ready";
 const at = (item, place) => [{ kind: "item_at", item, place }];
 packThings[SHOVEL].requires = at(FIGS, gate);
-packThings[SHOVEL].sealed = { reason: REASON };
+packThings[SHOVEL].sealed = {};
 packThings[TOKEN].requires = at(SKIN, sanctuary);
-packThings[TOKEN].sealed = { reason: "It waits for a sign", live: true };
+packThings[TOKEN].sealed = { live: true };
 
 const world = (place = gate) => {
   const s = createWorld({ seed: 7, packScopes: { "greek-drama": "full" } });
@@ -69,7 +68,7 @@ const quiet = () => {};
 const the = (id) => id;
 
 describe("a sealed item lies shut", () => {
-  it("is drawn locked where it lies, with its reason, and keeps its record", () => {
+  it("is drawn locked where it lies, with its want, and keeps its record", () => {
     const s = world();
     expect(s.items[SHOVEL].holder).toBe(gate);
     expect(entityActive(s, SHOVEL)).toBe(false);
@@ -80,18 +79,20 @@ describe("a sealed item lies shut", () => {
         kind: "item",
         at: gate,
         open: false,
-        reason: REASON,
         want: {
           kind: "item",
           target: FIGS,
           step: { verb: "bring", at: gate },
         },
+        goals: [
+          { kind: "item", target: FIGS, step: { verb: "bring", at: gate } },
+        ],
       },
     ]);
     expect(availableCards(s)).toContain(SHOVEL);
     expect(isLockedBox(s, SHOVEL)).toBe(true);
-    expect(sealedReason(s, SHOVEL)).toBe(REASON);
-    expect(lockedQuest(s, SHOVEL).text).toBeTruthy();
+    expect(lockedQuest(s, SHOVEL, () => true).text).toMatch(/Dried Figs/);
+    expect(lockedQuest(s, SHOVEL).text).not.toMatch(/Figs/);
     expect(boxOpen(s, { kind: "item", at: gate, id: SHOVEL }, "vale")).toBe(
       false,
     );
@@ -111,7 +112,7 @@ describe("a sealed item lies shut", () => {
     // Selecting it plays nothing and says why on the button.
     const pick = cardPlay(s, [SHOVEL]);
     expect(pick.action).toBeFalsy();
-    expect(pick.hint).toBe(REASON);
+    expect(pick.hint).toBe(sealedReason(s, SHOVEL));
     // A forged play is refused.
     const forged = {
       ...legalActions(s).find((a) => a.kind === "take"),
@@ -235,7 +236,7 @@ describe("made things and consumed items", () => {
       (b) => b.id === "greek-bread",
     );
     expect(bread).toMatchObject({ kind: "item", open: false });
-    expect(bread.reason).toMatch(/consumes/u);
+    expect(bread.goals).toHaveLength(1);
     expect(s.items["greek-bread"]).toBeDefined();
   });
   it("brings a consumed sealed item home still shut", () => {
@@ -244,7 +245,7 @@ describe("made things and consumed items", () => {
     latchRoutes(s);
     s.items[SHOVEL].holder = "vale";
     // Eaten or used, a thing goes home: shut, if its seal is live.
-    packThings[SHOVEL].sealed = { reason: REASON, live: true };
+    packThings[SHOVEL].sealed = { live: true };
     try {
       s.items[FIGS].holder = sanctuary;
       consume(s, SHOVEL);
@@ -253,7 +254,7 @@ describe("made things and consumed items", () => {
       expect(entityShown(s, SHOVEL)).toBe(true);
       expect(entityActive(s, SHOVEL)).toBe(false);
     } finally {
-      packThings[SHOVEL].sealed = { reason: REASON };
+      packThings[SHOVEL].sealed = {};
     }
   });
 });
@@ -265,24 +266,24 @@ describe("schema", () => {
     return validatePackDefinition(p);
   };
   const shut = { requires: at(FIGS, gate) };
-  it("takes a reason with requires, at a place of the pack", () => {
+  it("takes requires, at a place of the pack", () => {
     expect(() => attempt(() => {})).not.toThrow();
     expect(() =>
       attempt((i) => {
-        Object.assign(i, shut, { sealed: { reason: "Shut.", live: true } });
+        Object.assign(i, shut, { sealed: { live: true } });
       }),
     ).not.toThrow();
   });
-  it("rejects a seal with nothing to open it, no reason, or a bad place", () => {
+  it("rejects a seal with nothing to open it, an authored reason, or a bad place", () => {
     const bad = (sealed, extra = {}) =>
       expect(() =>
         attempt((i) => Object.assign(i, shut, extra, { sealed })),
       ).toThrow();
-    bad({ reason: "Shut." }, { requires: [] });
-    bad({});
-    bad({ reason: "Shut.", live: false });
-    bad({ reason: "Shut.", quest: {} });
-    bad({ reason: "Shut." }, { holder: "greek-antigone" });
-    bad({ reason: "Shut." }, { home: "greek-courtyard" });
+    bad({}, { requires: [] });
+    bad({ reason: "Shut." });
+    bad({ live: false });
+    bad({ quest: {} });
+    bad({}, { holder: "greek-antigone" });
+    bad({}, { home: "greek-courtyard" });
   });
 });

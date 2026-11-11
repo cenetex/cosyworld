@@ -129,8 +129,7 @@
         }
       ],
       "sealed": {
-        "at": "ratiradio-listening-room",
-        "reason": "Put the glass, raven figurine, red beanie down in the Listening Room together."
+        "at": "ratiradio-listening-room"
       }
     }
   },
@@ -244,8 +243,7 @@
         "quest": {
           "kind": "item",
           "target": "ratiradio-red-beanie"
-        },
-        "reason": "Carry the Red Beanie to open this passage."
+        }
       }
     },
     {
@@ -262,8 +260,7 @@
         "quest": {
           "kind": "place",
           "target": "ratiradio-listening-room"
-        },
-        "reason": "Put the Thermos down at the Dispatch Window to open this passage."
+        }
       }
     },
     {
@@ -280,8 +277,7 @@
         "quest": {
           "kind": "place",
           "target": "ratiradio-broadcast-booth"
-        },
-        "reason": "Talk with RATi while holding the Raven Figurine to open this passage."
+        }
       }
     }
   ],

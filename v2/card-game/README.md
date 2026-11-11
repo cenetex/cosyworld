@@ -529,11 +529,25 @@ Cards have three states. An unseen card lies face down under the plain wooden
 back and reveals on a tap. A card with an unmet prerequisite uses the locked
 back and red edge. A revealed card shows its face. Both closed states conceal
 the name, painting, contents, and quest details. Tapping a locked box
-selects it; the existing descriptor shows the concealed card back and what
-opens it (the rules' `boxWant`), or the plain reason when no goal fits ("heard
-while holding a thing"), or "A locked box." when neither exists.
+selects it; the existing descriptor shows the concealed card back and the want
+that opens it, or "A locked box." when the data names none.
+**One wording of a want.** A lock and a quest, offered or held, show only the
+want, worded by one function (`wantWords`, `world/want-words.mjs`) from its
+structure: a fixed verb (hold, talk with, go to, give, bring, lay, eat, rest)
+and the cards it concerns. Nothing is written per pack or per lock. A lock's
+goals are read from its conditions (`world/lock-goals.mjs`): an item to hold
+or bring, a person to talk with, and, for a story flag or choice, the pack's
+own choice that sets it (give the item to its subject, or meet its subject);
+a condition that traces to nothing yields no goal, and the box only says it is
+locked. Several wants are joined with "and" (at most three; the rest appear as
+these are met). A card the traveler has not discovered, the same test that
+turns it face down (`cardIsClosed`), is never named or pictured: it reads
+"something undiscovered", "someone you have not met" or "a place you have not
+found", and its art is the card back. An undiscovered target is a want like
+any other ("Find something undiscovered"). Items, avatars and places are worded
+alike; only the kind of card differs.
 The rules keep one list of boxes in `world/boxes.mjs`: `boxesAt(s, place,
-actor)` gives `{id, kind, at, open, reason, want}` for every shut way, sealed
+actor)` gives `{id, kind, at, open, want, goals}` for every shut way, sealed
 resident, made thing, shut lane, home door (a pack crossing with `sealed`) and
 hub way (a `reflectionRoutes` entry with `sealed`) at a place. Every lock is
 drawn, even when the card behind it has conditions of its own; such a card is
@@ -548,11 +562,11 @@ enough travellers stand at one place and pays each of them.
 a disabled status, not a separate action row; selecting or tapping it never
 creates a quest or takes a turn.
 A pack draws a gated way or a conditional resident as a locked box when its
-route or card carries `sealed` (a reason, and for a way a place goal): the
+route or card carries `sealed` (empty, and for a way a place goal): the
 Lonely Forest trail, the Sacred Way, the Long Walls, and Thaleia, an Argive
 mother, Iphis and Myrine in the Greek pack. The box cannot be entered, talked
 to or acted on until its old condition holds. A way whose preview goal names
-its own locked destination shows the authored reason, not a discovery caption.
+its own locked destination shows the goals read from its gate instead.
 A way or resident whose own place
 carries the same condition has no place to lie in yet, so pack data cannot draw
 it (the Egypt, Troy and Argive accounts, the Open Door residents who share

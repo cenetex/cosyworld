@@ -37,9 +37,15 @@ import { greekErrands } from "./helpers/greek-opening.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 
 // Lock view: the Argos tomb is a place with its own `requires`; its route
-// carries a seal in the Greek pack (rules 133), so it is drawn shut.
-const TOMB_REASON =
-  "Give Ismene the Record of the House of Atreus to follow the tomb account.";
+// carries a seal in the Greek pack (rules 133), so it is drawn shut. What it
+// waits on is read from its gate: the choice that opens it is a Give.
+const TOMB_GOALS = [
+  {
+    kind: "item",
+    target: "greek-atreid-record",
+    step: { verb: "give", to: "greek-ismene" },
+  },
+];
 
 const walk = (s, place) =>
   greekTravelTargets(s.actors.vale.place, `greek-${place}`).reduce(
@@ -68,19 +74,22 @@ describe("the hub's boxes", () => {
         kind: "hub",
         at: "attic",
         open: false,
-        reason: "Put the lamp out",
         want: null,
+        goals: [{ kind: "item", target: "lamp", lit: false }],
       },
     ]);
     expect(availableCards(world)).toEqual(
       expect.arrayContaining(["attic", "lamp", "vale", "pond"]),
     );
     expect(isLockedBox(world, "pond")).toBe(true);
-    expect(sealedReason(world, "pond")).toBe("Put the lamp out");
+    // The Lamp is not yet discovered, so the lock does not name it.
     expect(lockedQuest(world, "pond")).toEqual({
-      text: "Put the lamp out",
+      text: "Find something undiscovered",
       cards: [],
     });
+    expect(lockedQuest(world, "pond", () => true).text).toBe(
+      "Hold the dark Lamp",
+    );
     // Visible does not mean openable: no move, and no card play opens it.
     expect(exits(world, "attic", "vale")).not.toContain("pond");
     expect(legalActions(world).filter((a) => a.target === "pond")).toEqual([]);
@@ -118,7 +127,7 @@ describe("the hub's boxes", () => {
         id: "attic",
         kind: "hub",
         open: false,
-        reason: "Light the lamp on the shore",
+        goals: [{ kind: "item", target: "lamp", lit: true }],
       }),
     ]);
     expect(isLockedBox(world, "attic")).toBe(true);
@@ -154,7 +163,7 @@ describe("the lock view", () => {
     ).toMatchObject({
       kind: "way",
       open: false,
-      reason: TOMB_REASON,
+      goals: TOMB_GOALS,
     });
     expect(availableCards(world)).toContain("greek-argos-tomb");
     expect(isLockedBox(world, "greek-argos-tomb")).toBe(true);
@@ -205,7 +214,7 @@ describe("the lock view", () => {
 });
 
 describe("ways, guards and made things", () => {
-  it("shows a guard's way, the reason and the goal from the rules", () => {
+  it("shows a guard's way and the goal from the rules", () => {
     const world = greekErrands().decree;
     const [box] = boxesAt(world, world.actors.vale.place, "vale").filter(
       (b) => !b.open,
@@ -214,7 +223,13 @@ describe("ways, guards and made things", () => {
       id: "greek-battlefield",
       kind: "way",
       open: false,
-      reason: expect.stringMatching(/guarding this card/u),
+      goals: [
+        {
+          kind: "item",
+          target: "greek-creon-writ",
+          step: { verb: "give", to: "greek-guard" },
+        },
+      ],
     });
     expect(boxOpen(world, box, "vale")).toBe(false);
     expect(boxWant(world, box, "vale")).toEqual({
@@ -231,12 +246,18 @@ describe("ways, guards and made things", () => {
     );
     expect(bread).toMatchObject({ kind: "item", open: false });
     expect(world.items["greek-bread"]).toBeDefined();
-    expect(bread.reason).toMatch(/consumes/u);
+    expect(bread.goals).toEqual([
+      {
+        kind: "item",
+        target: "greek-water-jar",
+        step: { verb: "bring", at: "greek-courtyard" },
+      },
+    ]);
   });
 });
 
 describe("lanes", () => {
-  it("draws a shut lane's port as a box on the ship, with its reason", () => {
+  it("draws a shut lane's port as a box on the ship, with what opens it", () => {
     const world = createWorld();
     world.packs["greek-drama"].scope = "full";
     world.actors.vale.place = "greek-ship";
@@ -250,7 +271,13 @@ describe("lanes", () => {
         id: "greek-piraeus",
         kind: "lane",
         open: false,
-        reason: "Put the Travel Provisions down on deck",
+        goals: [
+          {
+            kind: "item",
+            target: "greek-provisions",
+            step: { verb: "bring", at: "greek-ship" },
+          },
+        ],
       }),
     ]);
     expect(availableCards(world)).toContain("greek-piraeus");
@@ -307,7 +334,7 @@ describe("XP for opening a box", () => {
     const world = createWorld({ opening: false });
     const badger = packPeople.badger;
     const saved = { ...badger };
-    badger.sealed = { at: "clearing", reason: "Wait for the evening." };
+    badger.sealed = { at: "clearing" };
     badger.requires = [{ kind: "clock", from: 0, to: 5 }];
     try {
       world.crossings["pond-clearing"].discovered = true;
@@ -422,7 +449,12 @@ describe("a box shut for a shared world", () => {
       )) {
         (seen[box.id] ??= []).push(place);
         expect(box.open).toBe(false);
-        expect(box.reason).toMatch(/^Bring the .+ here to open /u);
+        expect(box.goals).toEqual([
+          expect.objectContaining({
+            kind: "item",
+            step: { verb: "bring", at: place },
+          }),
+        ]);
       }
     for (const [home, place] of doors) expect(seen[home]).toEqual([place]);
   });
@@ -432,8 +464,7 @@ describe("a lock for two", () => {
   it("opens when two travellers stand together and pays both once", () => {
     const badger = packPeople.badger;
     const saved = { ...badger };
-    const reason = "Stand together at the station.";
-    badger.sealed = { at: "station", reason };
+    badger.sealed = { at: "station" };
     badger.requires = [{ kind: "humans_at", place: "station", minimum: 2 }];
     try {
       const world = dispatchShared({ op: "create", seed: 9 }).world;
@@ -445,7 +476,6 @@ describe("a lock for two", () => {
       expect(boxesAt(world, "station", "mara")[0]).toMatchObject({
         id: "badger",
         open: false,
-        reason,
       });
       const next = act(world, "move", { target: "station" }, "ash");
       expect(entityActive(next, "badger")).toBe(true);

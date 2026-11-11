@@ -62,7 +62,10 @@ home's door, on a resident who told you their want and offers it (after Talk,
 by a chance rolled once per visit; certain if they trust you), and when your
 experience reaches the next level; the bar's caption tells them apart. You are never given a quest by draw
 or push. While you hold one, the card's button is disabled and its label is
-the reason ("Finish or discard your quest first"). The level-up quest is
+the reason ("Finish or discard your quest first"). Every quest card and every
+locked box shows only its want, worded once (`world/want-words.mjs`); a card
+the traveler has not discovered is shown as the card back and worded as
+unknown ("Give something undiscovered to Pip"). The level-up quest is
 Sleep at home: a long rest at your own home (Vale's is the Mirror attic)
 raises your level and pays no experience. Discarding it costs the experience
 that leaves you just under the threshold, so its card does not come back at

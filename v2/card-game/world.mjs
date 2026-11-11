@@ -1,4 +1,5 @@
 import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
+import { wantWords } from "./world/want-words.mjs";
 import { validLampRoomFuel } from "./lamp-room-fuel.mjs";
 import { fillLampFuel, settleLamp } from "./lamp-state.mjs";
 import { validStationExitOrder } from "./station-exits.mjs";
@@ -468,35 +469,8 @@ const hasSpace = (s, actor, id) =>
   carried(s, actor).length +
     (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <=
   3;
-// A want in words, for cards and history.
-export function wantText(want) {
-  if (!want) return "nothing in particular";
-  const step = want.step,
-    what = nameOf(want.target),
-    // Players see Strike for the attack play.
-    verb = step?.verb === "attack" ? "strike" : step?.verb;
-  if (step?.verb === "lay")
-    return `lay ${step.items.map(nameOf).join(", ")} in ${what}`;
-  if (step?.verb === "give") return `give ${what} to ${nameOf(step.to)}`;
-  // Eat or drink one, with someone, somewhere (rules 102).
-  if (step?.verb === "eat")
-    return `${consumable(want.target) === "drink" ? "drink" : "eat"} ${what}${step.with ? ` with ${nameOf(step.with)}` : ""}${step.at ? ` at ${nameOf(step.at)}` : ""}`;
-  // Talk's quest to bring a person somewhere, or to someone (rules 99).
-  if (step?.verb === "bring" && want.kind === "person")
-    return `bring ${what} to ${nameOf(step.at ?? step.to)}`;
-  if (step?.verb === "bring")
-    return step.to
-      ? `bring ${what} to ${nameOf(step.to)} at ${nameOf(step.at)}`
-      : `bring ${what} home to ${nameOf(step.at)}`;
-  if (step?.at) return `${verb} ${what} at ${nameOf(step.at)}`;
-  if (step?.verb === "rest") return `rest at ${what}`;
-  if (step) return `${verb} ${what}`;
-  if (want.kind === "item")
-    return `hold ${want.lit === undefined ? "" : want.lit ? "the lit " : "the dark "}${nameOf(want.target)}`;
-  if (want.kind === "place") return `go to ${nameOf(want.target)}`;
-  if (want.kind === "connect") return "introduce two people";
-  return `talk with ${nameOf(want.target)}`;
-}
+// A want in words, for cards and history (world/want-words.mjs).
+export const wantText = (want) => wantWords(want);
 const bundle = (s, item) => [
   item,
   ...(s.items.cloth.holder === item ? ["cloth"] : []),

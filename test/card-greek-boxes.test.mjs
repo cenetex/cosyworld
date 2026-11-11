@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { createWorld, legalActions } from "../v2/card-game/world.mjs";
-import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
+import { availableCards } from "../v2/card-game/cards.mjs";
 import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { blindLockText, lockText } from "./helpers/lock-text.mjs";
 
-// Rules 133 package 3: every locked box of the Greek pack tells its want. The
-// reason is what the context button shows when the play is blocked, so it is a
-// short phrase in the pack's own voice, and nothing is written on a card.
+// Rules 133 package 3: every locked box of the Greek pack shows its want. No
+// pack writes the words: what a lock waits on is read from its conditions and
+// worded by the one wording of a want (world/want-words.mjs).
 const pack = packDefinition("greek-drama");
 const full = () =>
   createWorld({
@@ -40,25 +41,19 @@ describe("the Greek pack's locked boxes", () => {
     for (const r of gatedRoutes) {
       const key = `${r.from}>${r.to}`;
       if (NOT_BOXES.has(key)) expect(r.sealed, key).toBeUndefined();
-      else expect(r.sealed?.reason, key).toBeTruthy();
+      else expect(r.sealed, key).toBeTruthy();
     }
     for (const [id, a] of gatedPeople) {
       if (NOT_BOXES.has(id)) expect(a.sealed, id).toBeUndefined();
-      else expect(a.sealed?.reason, id).toBeTruthy();
+      else expect(a.sealed, id).toBeTruthy();
     }
   });
 
-  it("tells each want in one short phrase that names no removed branch", () => {
-    const reasons = [
-      ...gatedRoutes.map((r) => r.sealed?.reason),
-      ...gatedPeople.map(([, a]) => a.sealed?.reason),
-    ].filter(Boolean);
-    expect(reasons.length).toBeGreaterThanOrEqual(28);
-    for (const reason of reasons) {
-      expect(reason.length, reason).toBeLessThanOrEqual(100);
-      expect(reason, reason).toMatch(/\.$/u);
-      expect(reason, reason).not.toMatch(/Theban account|earlier account/u);
-    }
+  it("writes no sentence for any lock", () => {
+    for (const r of gatedRoutes)
+      expect(r.sealed?.reason, `${r.from}>${r.to}`).toBeUndefined();
+    for (const [id, a] of gatedPeople)
+      expect(a.sealed?.reason, id).toBeUndefined();
   });
 
   it("seals each resident at the place where it stands", () => {
@@ -76,37 +71,51 @@ describe("the Greek pack's locked boxes", () => {
     const card = "greek-egypt-tomb";
     expect(availableCards(s)).toContain(card);
     expect(isLockedBox(s, card)).toBe(true);
-    expect(sealedReason(s, card)).toMatch(/Helen’s Account Tablet.*Egyptian/u);
+    // The choice that opens it is a Give of the tablet to one avatar.
+    expect(lockText(s, card)).toMatch(/^Give Helen’s Account Tablet to .+/u);
+    expect(blindLockText(s, card)).not.toMatch(/Helen|Tablet/u);
     expect(canMove(s, card)).toBe(false);
     choices(s)["greek-helen-account"] = "egypt";
     expect(isLockedBox(s, card)).toBe(false);
     expect(canMove(s, card)).toBe(true);
   });
 
-  it("draws the Atreid roads locked at the Argolid road, one for each account", () => {
+  it("draws the Atreid roads locked at the Argolid road, each waiting on its own giver", () => {
     const s = at(full(), "greek-argolid-road");
-    for (const [card, reason] of [
-      ["greek-argos-tomb", /tomb account/u],
-      ["greek-mycenae-palace", /palace account/u],
-      ["greek-argive-farm", /farmhouse account/u],
-    ]) {
+    const wants = [
+      "greek-argos-tomb",
+      "greek-mycenae-palace",
+      "greek-argive-farm",
+    ].map((card) => {
       expect(isLockedBox(s, card), card).toBe(true);
-      expect(sealedReason(s, card), card).toMatch(reason);
-    }
+      return lockText(s, card);
+    });
+    for (const want of wants) expect(want).toMatch(/^Give .+ to .+/u);
+    expect(new Set(wants).size).toBe(3);
   });
 
-  it("keeps the Open Door residents sealed until Polynices is buried", () => {
+  it("shows the Open Door residents the one want that opens them", () => {
     const s = at(full(), "greek-athens");
     flags(s)["greek-open-door-open"] = false;
-    for (const id of [
+    const ids = [
       "greek-aethra",
       "greek-adrastus",
       "greek-theseus",
       "greek-colonus-keeper",
       "greek-marathon-keeper",
-    ])
-      expect(pack.avatars[id].sealed.reason, id).toBe(
-        "Not here until Polynices is buried.",
-      );
+    ];
+    const wants = new Set();
+    for (const id of ids) {
+      const w = {
+        ...s,
+        actors: {
+          ...s.actors,
+          vale: { ...s.actors.vale, place: pack.avatars[id].sealed.at },
+        },
+      };
+      expect(isLockedBox(w, id), id).toBe(true);
+      wants.add(lockText(w, id));
+    }
+    expect([...wants]).toHaveLength(1);
   });
 });
