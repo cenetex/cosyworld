@@ -258,8 +258,12 @@ the world rules in `want.mjs`, not from authored quest chains.
   stack. A chosen offer is the only chosen card and has one button: its play's
   label ("Accept quest"), or, blocked, the disabled button whose label is the
   reason. Taking passes no turn and makes no beat (`quest` is a quiet verb).
-  Pip's `/pip` Talk is played by the rules and carries what he told into
-  Vale's first world, where his Accept quest card waits at the pond.
+  On `/pip`, Talk is the ordinary Talk: Pip's line is asked for (a failed line
+  shows "…") and his offer lies beside him as a closed box. Open it and tap
+  Accept quest: only then does the page fade into the opening, carrying that
+  same quest (so the pond offers no second one). The Lamp counts as a known
+  card on the landing, so the offer names it. Until the quest is accepted the
+  visitor stays with Pip, and reopening `/pip` resumes there.
 - **A resident's want.** Residents keep drawing wants: the next is drawn
   deterministically from the world, seeded by the avatar and turn (items
   others hold nearby that it values above what it carries, reachable places it
@@ -713,10 +717,12 @@ speaks is revealed with the line, there at once, so the words never wait.
 The rules' world and knowledge are unchanged.
 The opening of a new local world (`opening.mjs`) offers no play while the
 lamp or the attic is still face down: the context button reads a quiet
-Reveal and turns the next one. Once both are revealed the lamp is chosen, so
-the button offers the rules' own first play, Put out; it darkens the attic
-and the pond arrives face down behind it. A reload or a shared world has no
-opening beyond the reveals its player has kept.
+Reveal and turns the next one. Once both are revealed nothing is left chosen
+(the lamp is not raised for the player). The lamp is put out by choosing Vale,
+then the lamp, which darkens the attic; the pond arrives face down behind it.
+A reload or a shared world has no opening beyond the reveals its player has
+kept. A visitor from Pip's card has already opened a box, so this opening skips
+its own wooden box (the land acknowledgement and logo still play).
 
 The player's avatar knows only what its player has uncovered (#1575). Until a
 card is uncovered, the screen never names it: the place heading, world name

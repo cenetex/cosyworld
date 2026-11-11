@@ -7,16 +7,85 @@ import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { SAVE_BASE, PLAYING_KEY } from "../card-game/avatar-world.mjs";
 
 // A stranger's whole first quest (rules 133), waiting on what is on screen and
-// never on a count of turns: the box, Pip, Talk, the fade to the opening, the
-// opening's boxes, the pond, the pack that holds Pip's offer, Accept quest,
-// then the Lamp given to Pip. The text service is down, so every line is "…".
+// never on a count of turns: the box, Pip, Talk, his offer (a closed box, open,
+// Accept quest), the fade to the opening with that same quest, the opening's
+// boxes, the pond, then the Lamp given to Pip. The text service is down, so
+// every line is "…".
 async function walkToGivenLamp(browser, base) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: "reduce" });
   page.setDefaultTimeout(20000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/card-game/text", (route) => route.fulfill({ status: 503, body: "Unavailable" }));
-  // Choosing a card: tap it once, and again only if the tap was ignored.
+  const { choose, buttonReads, press, button } = helpers(page);
+  await page.goto(`${base}/pip?c=PIP-TEST-0001`);
+  // Behind the box the table is out of reach, and the tab is named for the game.
+  assert.equal(await page.title(), "Lonely Forest");
+  assert.equal(await page.evaluate(() => document.body.inert), true);
+  await page.locator('.title-intro[data-phase="card"] .card').click();
+  await page.locator(".title-intro").waitFor({ state: "detached" });
+  assert.equal(await page.evaluate(() => document.body.inert), false);
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset.card), "moth");
+  await page.locator('#card-actions [data-action="talk"]').click();
+  // Pip's offer: a closed box, then open, then one Accept quest button.
+  await page.locator('#hand [data-card="quest:from:moth"]').waitFor();
+  assert.equal(await page.locator(".title-intro").count(), 0, "Talk does not leave Pip");
+  await choose("quest:from:moth");
+  await buttonReads(/closed box/iu);
+  await press(() => buttonReads(/^Accept quest: Give Lamp to Pip$/u));
+  assert.equal(await button.count(), 1);
+  assert.equal(await page.locator(".title-intro").count(), 0, "the fade waits for Accept");
+  await press(() => page.locator('.title-intro[data-phase="ack"]').waitFor({ timeout: 4000 }));
+  // The land acknowledgement and the logo, then the opening itself: no second box.
+  let secondBox = false;
+  while (await page.locator(".title-intro").count()) {
+    if (await page.locator('.title-intro[data-phase="card"]').count()) secondBox = true;
+    await page.mouse.click(195, 300);
+    await page.waitForTimeout(250);
+  }
+  assert.equal(secondBox, false, "a scanner is not asked to open a second box");
+  await page.locator('#hand [data-card="vale"]').waitFor();
+  const carried = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
+  assert.equal(carried.actors.vale.place, "attic");
+  assert.deepEqual(carried.actors.vale.want?.step, { verb: "give", to: "moth" });
+  // The opening: open the attic, turn over the lamp. Nothing is left chosen
+  // that has no button.
+  await choose("attic");
+  await buttonReads(/closed box/iu);
+  await button.first().click();
+  await buttonReads(/turn over the next card/iu);
+  await button.first().click();
+  await page.waitForFunction(() => document.querySelector('#hand [data-card="attic"]')?.getAttribute("aria-pressed") === "true" && document.querySelector("#card-actions button"));
+  assert.equal(await page.locator('#hand [data-card="lamp"][aria-pressed="true"]').count(), 0, "the lamp is not left chosen");
+  // Put the lamp out: choose Vale to show it, raise it, lower it.
+  await choose("vale");
+  await choose("lamp");
+  await page.locator('#hand [data-card="lamp"]').click();
+  await page.waitForFunction(() => document.querySelector('#hand [data-card="lamp"]')?.dataset.lit === "false");
+  await choose("pond");
+  await buttonReads(/goes to Black pond/iu);
+  await press(() => page.waitForFunction(() => document.getElementById("place-title")?.textContent === "Black pond", null, { timeout: 2500 }));
+  // The quest she holds is Pip's own: no second offer lies at the pond.
+  assert.equal(await page.locator('#hand [data-card="quest:from:moth"]').count(), 0);
+  await choose("vale");
+  await choose("lamp");
+  await choose("moth");
+  await buttonReads(/gives the Lamp to Pip/iu);
+  await button.first().click();
+  await page.locator('#hand [data-card="quest:level"]').waitFor({ state: "attached" });
+  const saved = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
+  assert.equal(saved.items.lamp.holder, "moth");
+  assert.equal(saved.actors.vale.want, null);
+  assert.equal(saved.actors.vale.place, "pond");
+  assert.deepEqual(errors, []);
+  console.log("Pip first quest: box, Talk, offer, Accept quest, fade, opening, pond and Give passed.");
+  await page.close();
+}
+// Choosing and pressing, waiting on what the screen shows. A press soon after
+// a box opens is held back by the table, so press again until it has moved on.
+function helpers(page) {
+  const button = page.locator("#card-actions button");
+  const label = async () => (await button.first().textContent()).trim();
   const choose = async (id) => {
     const target = page.locator(`#hand [data-card="${id}"]`);
     for (let tries = 0; tries < 4; tries++) {
@@ -25,11 +94,7 @@ async function walkToGivenLamp(browser, base) {
     }
     throw new Error(`card ${id} never became the chosen card`);
   };
-  const button = page.locator("#card-actions button");
-  const label = async () => (await button.first().textContent()).trim();
   const buttonReads = (pattern) => page.waitForFunction(([source, flags]) => new RegExp(source, flags).test(document.querySelector("#card-actions button")?.textContent ?? ""), [pattern.source, pattern.flags]);
-  // A tap soon after a card is chosen can be ignored; press again until the
-  // screen has moved on.
   const press = async (settled) => {
     for (let tries = 0; tries < 4; tries++) {
       await button.first().click();
@@ -37,60 +102,7 @@ async function walkToGivenLamp(browser, base) {
     }
     throw new Error(`the button "${await label()}" never took effect`);
   };
-  await page.goto(`${base}/pip?c=PIP-TEST-0001`);
-  await page.locator('.title-intro[data-phase="card"] .card').click();
-  await page.locator(".title-intro").waitFor({ state: "detached" });
-  await page.locator('#card-actions [data-action="talk"]').click();
-  // The fade to black, then the regular opening's title: tap through it.
-  await page.locator('.title-intro[data-phase="ack"]').waitFor();
-  while (await page.locator('.title-intro:not([data-phase="card"])').count()) {
-    await page.mouse.click(195, 300);
-    await page.waitForTimeout(250);
-  }
-  await page.locator('.title-intro[data-phase="card"] .card').click();
-  await page.locator(".title-intro").waitFor({ state: "detached" });
-  // The opening: open the attic, turn over the lamp; with the lamp chosen there
-  // is no button, so lower it, choose the pond, and go.
-  await choose("attic");
-  await buttonReads(/closed box/iu);
-  await button.first().click();
-  await buttonReads(/turn over the next card/iu);
-  await button.first().click();
-  await page.waitForFunction(() => document.querySelector('#hand [data-card="lamp"][aria-pressed="true"]'));
-  assert.equal(await button.count(), 0, "the chosen lamp offers no button");
-  for (let tries = 0; tries < 4 && (await page.locator('#hand [data-card="lamp"][aria-pressed="true"]').count()); tries++) {
-    await page.locator('#hand [data-card="lamp"]').click();
-    await page.waitForTimeout(600);
-  }
-  await choose("pond");
-  await buttonReads(/goes to Black pond/iu);
-  await press(() => page.waitForFunction(() => document.getElementById("place-title")?.textContent === "Black pond", null, { timeout: 2500 }));
-  // Pip's offer lies face down in the pack of new cards: turn them all.
-  const pack = page.locator('#hand .card[aria-label*="closed boxes"]');
-  await pack.first().click();
-  await buttonReads(/^Reveal all$/u);
-  await button.first().click();
-  await buttonReads(/^Done$/u);
-  await button.first().click();
-  await page.waitForFunction(() => document.querySelector('#hand [data-card="quest:from:moth"]:not([aria-label*="Closed"])'));
-  await choose("quest:from:moth");
-  await buttonReads(/^Accept quest: Give Lamp to Pip$/u);
-  assert.equal(await button.count(), 1);
-  await press(() => page.waitForFunction(() => !document.querySelector('#hand [data-card="quest:from:moth"]')));
-  // Vale carries the Lamp: choose Vale's stack, the lamp, then Pip.
-  await choose("vale");
-  await choose("lamp");
-  await choose("moth");
-  await buttonReads(/gives the Lamp to Pip/iu);
-  await button.first().click();
-  await page.locator('#hand [data-card="quest:level"]').waitFor();
-  const saved = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
-  assert.equal(saved.items.lamp.holder, "moth");
-  assert.equal(saved.actors.vale.want, null);
-  assert.equal(saved.actors.vale.place, "pond");
-  assert.deepEqual(errors, []);
-  console.log("Pip first quest: box, Talk, fade, opening, pond, pack, Accept quest and Give passed.");
-  await page.close();
+  return { choose, buttonReads, press, button };
 }
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -148,15 +160,30 @@ try {
     assert(pip.width > 80 && pip.x >= 0 && pip.x + pip.width <= width);
     await page.screenshot({ path: new URL(`pip-${width}.png`, output).pathname });
     await talk.click();
-    await page.locator(".title-intro").waitFor();
+    // Pip's offer lies there to open; Talk does not leave him. Reopening the
+    // page before accepting resumes with Pip and the offer.
+    await page.locator('#hand [data-card="quest:from:moth"]').waitFor();
+    assert.equal(await page.locator(".title-intro").count(), 0);
+    assert.equal(JSON.parse(await page.evaluate((key) => localStorage.getItem(key), key)).actors.vale.want, null);
+    await page.reload();
+    await page.locator('#hand [data-card="quest:from:moth"]').waitFor();
+    assert.equal(await page.locator(".title-intro").count(), 0);
+    const { choose, buttonReads, press } = helpers(page);
+    await choose("quest:from:moth");
+    await buttonReads(/closed box/iu);
+    await press(() => buttonReads(/^Accept quest: Give Lamp to Pip$/u));
+    await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want, key, { timeout: 2000 }));
+    // Closed during the fade: the page returns to the fade, not to Pip.
+    await page.reload();
+    await page.locator('.title-intro[data-phase="ack"]').waitFor();
     await page.keyboard.press("Escape");
     await page.locator(".title-intro").waitFor({ state: "detached" });
     const journey = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     assert.equal(journey.actors.vale.place, "attic");
-    // Pip's Talk is the rules' own: Vale carries what he told her, and his
-    // quest waits as a card by him (it is no quest she holds yet).
+    // Pip's Talk is the rules' own: Vale carries what he told her and the quest
+    // she accepted from him, the same one the pond would have offered.
     assert.deepEqual(journey.actors.vale.heard, { moth: "item:lamp" });
-    assert.equal(journey.actors.vale.want, null);
+    assert.deepEqual(journey.actors.vale.want?.step, { verb: "give", to: "moth" });
     await page.reload();
     await page.locator('#hand [data-card="vale"]').waitFor();
     assert.equal(await talk.count(), 0);
@@ -173,7 +200,12 @@ try {
   await other.locator('.title-intro[data-phase="card"] .card').click();
   await other.locator(".title-intro").waitFor({ state: "detached" });
   await other.locator('#card-actions [data-action="talk"]').click();
-  await other.locator(".page-fade").waitFor();
+  const otherHelpers = helpers(other);
+  await other.locator('#hand [data-card="quest:from:moth"]').waitFor();
+  await otherHelpers.choose("quest:from:moth");
+  await otherHelpers.buttonReads(/closed box/iu);
+  await otherHelpers.press(() => otherHelpers.buttonReads(/^Accept quest/u));
+  await otherHelpers.press(() => other.locator(".page-fade").waitFor({ timeout: 4000 }));
   await other.evaluate(({ key, save }) => {
     localStorage.setItem(key, save);
     window.dispatchEvent(new StorageEvent("storage", { key, newValue: save }));
@@ -189,7 +221,7 @@ try {
   await page.locator('.title-intro[data-phase="card"] .card').click();
   await page.locator(".title-intro").waitFor({ state: "detached" });
   await page.locator('#card-actions [data-action="talk"]').click();
-  await page.locator(".title-intro").waitFor();
+  await page.locator('#hand [data-card="quest:from:moth"]').waitFor();
   console.log("Pip arrival: routes, black stage, Talk, Vale intro, reload, quest, save isolation and blocked storage passed.");
 } finally {
   await browser.close();
