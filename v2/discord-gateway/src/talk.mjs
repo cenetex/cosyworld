@@ -19,20 +19,14 @@ export function buildTalkRequest({ worldId, avatarId, target, text }) {
 }
 
 export function residentLines(body) {
-  const candidates = [
-    body?.lines,
-    body?.speech?.lines,
-    body?.state?.lines,
-    ...(body?.events || [])
-      .filter((event) => event?.op === "speech" || event?.kind === "speech")
-      .map((event) => event.lines),
-  ];
-  const lines = candidates.find(Array.isArray) ?? [];
+  const lines =
+    body?.lines ??
+    body?.speech?.lines ??
+    body?.state?.lines ??
+    (body?.events || []).find((e) => e?.op === "speech" || e?.kind === "speech")?.lines ??
+    [];
   return lines
-    .map((line) => ({
-      id: line?.actorId ?? line?.entityId ?? line?.id,
-      text: line?.text ?? "",
-    }))
+    .map((line) => ({ id: line?.actorId ?? line?.entityId ?? line?.id, text: line?.text ?? "" }))
     .filter((line) => line.id && line.text);
 }
 
