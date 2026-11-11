@@ -976,6 +976,14 @@ async fn generate(
             let _client_slot = _client_slot;
             let deltas = sender.clone();
             let emit = |text: &str| {
+                // Continuations must be able to quote a published line even
+                // when this stream closes before its final response.
+                let Ok(entry) = serde_json::from_str::<Value>(text) else {
+                    return false;
+                };
+                let mut value = json!({"entries": [entry]});
+                untrusted::sign_lines(&mut value, &context);
+                let text = format!("{}\n", value["entries"][0]);
                 deltas
                     .send(Event::default().data(json!({"type":"delta","text":text}).to_string()))
                     .is_ok()
@@ -2116,7 +2124,10 @@ fn listener(context: &Context, id: &str) -> Option<String> {
     if id != actor && others.iter().any(|s| *s == actor) {
         Some(actor.to_string())
     } else {
-        others.first().map(|s| s.to_string())
+        others
+            .first()
+            .map(|s| s.to_string())
+            .or_else(|| answered(context, entity(context, id)).map(|line| line.actor_id.clone()))
     }
 }
 
@@ -5136,6 +5147,39 @@ pub(crate) mod tests {
         assert!(!valid(&c));
     }
     #[test]
+    fn continuation_keeps_listener_context_and_trusts_current_turn_words() {
+        let mut c = context();
+        c.scenery = false;
+        c.focus = None;
+        c.speakers = vec!["moth".into()];
+        let mut outcome = serde_json::to_value(solo_departure()).unwrap();
+        outcome["card"]["kind"] = json!("talk");
+        outcome["card"]["target"] = json!("moth");
+        c.outcome = Some(serde_json::from_value(outcome).unwrap());
+        c.disclosures = serde_json::from_value(json!([{
+            "factId":"event:2", "speaker":"moth", "listener":"vale",
+            "eventSeq":3, "text":"Pip found a shell beside the pond."
+        }]))
+        .unwrap();
+        c.conversation = vec![SpokenLine {
+            signed: None,
+            witnesses: Some(vec!["vale".into(), "moth".into()]),
+            actor_id: "vale".into(),
+            text: "Would you stay here with me, Pip?".into(),
+        }];
+        assert!(valid(&c));
+        assert_eq!(voiced(&c), ["moth"]);
+        let mut c = untrusted::trusted(untrusted::signed(&c)).unwrap();
+        assert_eq!(c.conversation.len(), 1);
+        assert_eq!(listener(&c, "moth").as_deref(), Some("vale"));
+        assert!(conversation::user(&c, entity(&c, "moth"))
+            .contains("Would you stay here with me, Pip?"));
+        // The published actor is still the remaining speaker's listener.
+        c.entities.retain(|e| e.id != "vale");
+        assert!(!valid(&c));
+    }
+
+    #[test]
     fn validates_ordered_scene_events_and_recent_conversation() {
         let mut c = context();
         c.events = vec!["Pip leaves for Black pond.".into()];
@@ -5272,6 +5316,10 @@ pub(crate) mod tests {
         let first = std::str::from_utf8(&first).unwrap();
         assert!(first.contains("delta") && first.contains("What would you trade"));
         assert!(!first.contains("complete"));
+        let frame: Value =
+            serde_json::from_str(first.trim().strip_prefix("data: ").unwrap()).unwrap();
+        let line: Value = serde_json::from_str(frame["text"].as_str().unwrap()).unwrap();
+        assert!(line["signed"]["claims"].is_object());
         let mut rest = Vec::new();
         while let Some(chunk) = chunks.next().await {
             rest.extend_from_slice(&chunk.unwrap());

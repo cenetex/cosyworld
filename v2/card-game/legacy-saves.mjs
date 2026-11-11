@@ -75,6 +75,13 @@ export function upgradeSave(
   if (s.packs?.ratiradio?.revision === 1 &&
       packDefinitions.some((p) => p.id === "ratiradio" && p.revision >= 2))
     s.packs.ratiradio.revision = 2;
+  const radioPack = packDefinitions.find((p) => p.id === "ratiradio");
+  if (s.packs?.ratiradio?.revision === 2 && radioPack?.revision >= 3) {
+    const id = "ratiradio-portable-radio";
+    s.items[id] ??= { holder: radioPack.items[id].holder, history: [] };
+    s.memories[id] ??= newMemories()[id];
+    s.packs.ratiradio.revision = 3;
+  }
   upgradeHoppyTableSave(s);
   forgetQuests(s);
   if (s?.schema === 6) {
@@ -157,6 +164,8 @@ export function upgradeSave(
     if (s.packs?.["greek-drama"]?.revision === 21)
       s.packs["greek-drama"].revision = 22;
     upgradeGreekCithaeronOpenSave(s);
+    if (s.packs?.["greek-drama"]?.revision === 23)
+      s.packs["greek-drama"].revision = 24;
     upgradeRecitals(s, packDefinitions);
   }
   upgradeSightings(s);
@@ -334,6 +343,7 @@ export function reconcilePackProgress(s, reworked) {
       if (!a || entityEnabled(s, id, true) || departed(pack, state, id))
         continue;
       delete state.met[id];
+      delete s.opening?.met?.[id];
       if (a.place !== avatar.place && !avatar.previousHomes?.includes(a.place))
         a.place = avatar.place;
       Object.assign(a, { crossed: 0, lastTalk: -9 });

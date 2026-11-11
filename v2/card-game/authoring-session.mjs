@@ -280,7 +280,11 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
             at = epoch;
           }),
           save: guard(save),
-          accept: guard(accept),
+          accept: guard(async (prepared) => {
+            const result = await accept(prepared);
+            at = epoch;
+            return result;
+          }),
           open: guard(open),
         });
       } finally {

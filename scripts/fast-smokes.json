@@ -33,6 +33,10 @@
       "smokes": ["smoke-card-ship-fade", "smoke-card-reduced-fades"]
     },
     {
+      "paths": "^v2/card-game/(radio-(item|player|station)|music)\\.mjs$|^v2/content/ratiradio/card-world\\.json$",
+      "smokes": ["smoke-card-portable-radio"]
+    },
+    {
       "paths": "^v2/card-game/(app|shared|dialogue|scene)\\.mjs$",
       "smokes": ["smoke-card-speech-queue"]
     },
@@ -79,6 +83,10 @@
     {
       "paths": "^v2/card-game/(world|pack-rules|roaming-routes|want|want-talk|motives|life)\\.mjs|^v2/card-game/rules/",
       "smokes": ["smoke-card-actions", "smoke-card-pond-access"]
+    },
+    {
+      "paths": "^(v2/card-game/world\\.mjs|test/card-save-validation\\.test\\.mjs)$",
+      "smokes": ["smoke-card-save-validation"]
     },
     {
       "paths": "^v2/card-game/shared|^v2/orchestrator-rust/|^v2/core-c/",
@@ -154,17 +162,27 @@
     "paths": "^v2/(orchestrator-rust|ai-model-rust|core-c)/|^v2/scripts/check-rust\\.sh$",
     "max": 6,
     "default": ["card_shared.rs", "card_narrative.rs"],
-    "ignoreInputs": ["package.json"],
+    "ignoreInputs": [],
     "rules": [
       {
-        "about": "The C kernel and card session guards.",
+        "about": "The card C session guard.",
         "paths": "^v2/core-c/",
-        "modules": ["card_shared.rs", "kernel.rs"]
+        "modules": ["card_shared.rs"]
       },
       {
         "about": "build.rs embeds the public card files this script lists.",
         "paths": "^v2/scripts/build-card-assets\\.mjs$|^v2/card-game/public-assets\\.mjs$",
         "modules": ["card_game.rs"]
+      },
+      {
+        "about": "Run portable receiver journal replay when its authored rules change.",
+        "paths": "^v2/card-game/radio-item\\.mjs$",
+        "modules": ["card_shared/quest_loop_tests.rs"]
+      },
+      {
+        "about": "Run consequence replay when authored card rules change, not only generated bundles.",
+        "paths": "^v2/card-game/(world/|rules/|(world|shared-world|pack-[^/]+|opening|lamp-state|held-item|knowledge|want|resident-[^/]+)\\.mjs$)",
+        "modules": ["card_shared/world_life_tests.rs"]
       }
     ]
   }

@@ -425,7 +425,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 23,
+      "revision": 24,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2146,6 +2146,10 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "She holds a strip of cloth between both hands. Her son’s name is written beside the urn."
+          },
+          "sealed": {
+            "at": "greek-eleusis",
+            "reason": "She is not here until the Argive dead are returned."
           }
         },
         "greek-iphis": {
@@ -2174,6 +2178,10 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "He sits beside the shrine steps. A place remains empty at his side."
+          },
+          "sealed": {
+            "at": "greek-eleusis",
+            "reason": "He is not here until the account of the pyre is heard."
           }
         },
         "greek-theseus": {
@@ -2221,6 +2229,10 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
+          },
+          "sealed": {
+            "at": "greek-piraeus",
+            "reason": "Finish the funeral at the Hollow, or give Dione an earlier Theban account."
           }
         },
         "greek-colonus-keeper": {
@@ -2307,6 +2319,10 @@
             "likes": "a place kept ready and a promise carried through",
             "sore": "her household spoken for before she has answered",
             "reason": "She has walked beside the mourners and knows the work that follows a funeral."
+          },
+          "sealed": {
+            "at": "greek-eleusis",
+            "reason": "She is not here until the urn is placed in the mothers’ care."
           }
         },
         "greek-ajax-tecmessa": {
@@ -3107,7 +3123,14 @@
                 }
               ]
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-eleusis"
+            },
+            "reason": "Opens once the mothers’ request is heard and their petition is in the Sanctuary or the Agora."
+          }
         },
         {
           "from": "greek-athens",
@@ -3123,7 +3146,14 @@
               "item": "greek-olive-branch",
               "place": "greek-athens"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-piraeus"
+            },
+            "reason": "Opens once the mothers’ petition is laid before Theseus and the Herald’s Truce is in the Agora."
+          }
         },
         {
           "from": "greek-piraeus",
@@ -3139,7 +3169,14 @@
               "item": "greek-olive-branch",
               "place": "greek-athens"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-piraeus"
+            },
+            "reason": "Opens once the mothers’ petition is laid before Theseus and the Herald’s Truce is in the Agora."
+          }
         }
       ],
       "choices": [
@@ -5483,7 +5520,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-learn-shield-odysseus",
@@ -5516,7 +5554,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-learn-shield-tecmessa",
@@ -5549,7 +5588,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-deliver-shield",
@@ -5620,7 +5660,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-deliver-plea",
@@ -5996,7 +6037,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-public",
@@ -6146,7 +6188,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-household",
@@ -6301,7 +6344,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-appeal",
@@ -8192,7 +8236,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. The lamp signal calls it to the pond."
+        "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
       },
       "crossings": [
         {
@@ -8202,41 +8246,6 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "travelLabel": "Board",
-          "signal": {
-            "steps": [
-              {
-                "verb": "cover",
-                "item": "cloth",
-                "target": "lamp"
-              },
-              {
-                "verb": "take",
-                "item": "cloth",
-                "from": "lamp"
-              }
-            ],
-            "consecutive": false,
-            "opens": null,
-            "while": [
-              {
-                "kind": "light",
-                "item": "lamp",
-                "at": [
-                  "pond"
-                ]
-              },
-              {
-                "kind": "not",
-                "condition": {
-                  "kind": "sound",
-                  "at": [
-                    "pond",
-                    "clearing"
-                  ]
-                }
-              }
-            ]
-          },
           "requires": [],
           "scenery": {
             "open": "The Charybdis waits on the black water.",
@@ -8244,7 +8253,28 @@
             "cardName": "The Charybdis",
             "cardArt": "assets/greek-drama/ship-card.webp"
           },
-          "transport": "greek-ship"
+          "transport": "greek-ship",
+          "unlockWhen": [
+            {
+              "kind": "grounded",
+              "item": "lamp"
+            },
+            {
+              "kind": "light",
+              "item": "lamp",
+              "at": [
+                "pond"
+              ]
+            },
+            {
+              "kind": "in_hand",
+              "item": "cloth"
+            },
+            {
+              "kind": "actor_at",
+              "place": "pond"
+            }
+          ]
         },
         {
           "id": "greek-harbor-pond",
@@ -12063,7 +12093,14 @@
               "item": "forest-wolfprint-charm",
               "place": "forest-oak"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "forest-trail"
+            },
+            "reason": "Open only while the Wolfprint Charm is at the Old Oak Tree."
+          }
         },
         {
           "from": "forest-garden",
@@ -12074,7 +12111,14 @@
               "key": "forest-path-cleared",
               "value": true
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "forest-trail"
+            },
+            "reason": "Opens once the garden drain is cleared."
+          }
         }
       ],
       "choices": [
@@ -12248,7 +12292,8 @@
               "key": "forest-walkers-heard",
               "value": true
             }
-          ]
+          ],
+          "on": "talk"
         },
         {
           "id": "forest-hear-walkers-oak",
@@ -12275,7 +12320,8 @@
               "key": "forest-walkers-heard",
               "value": true
             }
-          ]
+          ],
+          "on": "talk"
         },
         {
           "id": "forest-sit-watch",
@@ -13357,7 +13403,7 @@
       "schemaVersion": 1,
       "id": "ratiradio",
       "packId": "cosyworld.ratiradio",
-      "revision": 2,
+      "revision": 3,
       "name": "Night Shift at RatiRadio",
       "description": "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
       "entry": "ratiradio-staff-kitchen",
@@ -13489,8 +13535,8 @@
         },
         "ratiradio-thermos": {
           "name": "Thermos",
-          "text": "Still warm at the neck. Lost beyond the station, it opens the Listening Room when carried.",
-          "persona": "A dented steel thermos with a dark lid. Its warmth opens the Listening Room. Returning it is optional.",
+          "text": "Still warm at the neck. Lost beyond the station; set it down at the Dispatch Window to open the Listening Room.",
+          "persona": "A dented steel thermos with a dark lid. Set down at the Dispatch Window, its warmth opens the Listening Room. It can be picked up again.",
           "holder": "ratiradio-dispatch-window",
           "art": "assets/ratiradio/thermos.webp",
           "reservedUntil": [
@@ -13505,7 +13551,7 @@
         },
         "ratiradio-raven-figurine": {
           "name": "Raven Figurine",
-          "text": "A small ceramic raven, lost beyond the station. Carry it to open the Broadcast Booth, then leave it in the Listening Room.",
+          "text": "A small ceramic raven, lost beyond the station. Hold it and talk with RATi to open the Broadcast Booth, then leave it in the Listening Room.",
           "persona": "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. It must rest directly in the Listening Room with the glass and beanie.",
           "holder": "ratiradio-listening-room",
           "art": "assets/ratiradio/raven-figurine.webp",
@@ -13541,6 +13587,13 @@
           "persona": "A creased radio request slip with a lost-property note. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
           "holder": "station",
           "art": "assets/ratiradio/request-slip.webp"
+        },
+        "ratiradio-portable-radio": {
+          "name": "Portable Radio",
+          "text": "A small portable radio with an on/off dial. Carry it to hear the same RatiRadio broadcast wherever you go.",
+          "persona": "A portable receiver for RatiRadio. It starts switched off. Its owner can turn it on or off; anyone in the same place can hear it while it is on.",
+          "holder": "ratiradio-broadcast-booth",
+          "art": "assets/ratiradio/portable-radio.webp"
         }
       },
       "routes": [
@@ -13574,10 +13627,10 @@
           ],
           "sealed": {
             "quest": {
-              "kind": "item",
-              "target": "ratiradio-thermos"
+              "kind": "place",
+              "target": "ratiradio-listening-room"
             },
-            "reason": "Carry the Thermos to open this passage."
+            "reason": "Put the Thermos down at the Dispatch Window to open this passage."
           }
         },
         {
@@ -13592,10 +13645,10 @@
           ],
           "sealed": {
             "quest": {
-              "kind": "item",
-              "target": "ratiradio-raven-figurine"
+              "kind": "place",
+              "target": "ratiradio-broadcast-booth"
             },
-            "reason": "Carry the Raven Figurine to open this passage."
+            "reason": "Talk with RATi while holding the Raven Figurine to open this passage."
           }
         }
       ],
@@ -13662,9 +13715,9 @@
           "text": "The Thermos warms the metal plate beside the door. Inside, the radio comes through clear; Listening Room opens.",
           "requires": [
             {
-              "kind": "holding",
+              "kind": "item_at",
               "item": "ratiradio-thermos",
-              "role": "actor"
+              "place": "ratiradio-dispatch-window"
             }
           ],
           "effects": [
@@ -13678,10 +13731,10 @@
         },
         {
           "id": "ratiradio-open-broadcast-booth",
-          "subject": "ratiradio-listening-room",
+          "subject": "ratiradio-rati",
           "at": "ratiradio-listening-room",
           "label": "The Broadcast Booth door clicks open.",
-          "text": "The figurine's glazed eye catches a sliver of light. The Broadcast Booth door clicks open.",
+          "text": "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
           "requires": [
             {
               "kind": "holding",
@@ -13696,7 +13749,51 @@
               "value": true
             }
           ],
-          "on": "meet"
+          "on": "talk"
+        },
+        {
+          "id": "ratiradio-open-broadcast-booth-kitchen",
+          "subject": "ratiradio-rati",
+          "at": "ratiradio-staff-kitchen",
+          "label": "The Broadcast Booth door clicks open.",
+          "text": "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "ratiradio-raven-figurine",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "booth-open",
+              "value": true
+            }
+          ],
+          "on": "talk"
+        },
+        {
+          "id": "ratiradio-open-broadcast-booth-dispatch",
+          "subject": "ratiradio-rati",
+          "at": "ratiradio-dispatch-window",
+          "label": "The Broadcast Booth door clicks open.",
+          "text": "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "ratiradio-raven-figurine",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "booth-open",
+              "value": true
+            }
+          ],
+          "on": "talk"
         },
         {
           "id": "ratiradio-return-things",

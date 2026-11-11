@@ -1,5 +1,5 @@
 import { newWant } from "../v2/card-game/want.mjs";
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import {
   play,
@@ -23,7 +23,7 @@ function act(s, kind, target) {
 }
 function pond() {
   let s = enableMotives(atticOpening());
-  s = act(act(s, "snuff"), "move", "pond");
+  s = act(selectLamp(s), "move", "pond");
   s.actors.moth.place = "attic";
   s.items.lamp.holder = "moth";
   s.items.bell.holder = "vale";

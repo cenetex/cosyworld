@@ -70,7 +70,7 @@ fn forest_crossing_upgrade_replays_with_two_humans(version: &str) {
         "forest-dewbright-button",
         "forest-watch-bell",
     ];
-    for (key, value) in super::saved_items::upgraded(&old.game["items"])
+    for (key, value) in super::saved_items::current_items(&old.game)
         .as_object()
         .unwrap()
     {

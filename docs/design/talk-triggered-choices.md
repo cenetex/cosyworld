@@ -1,6 +1,6 @@
 # Talk-triggered pack choices
 
-Status: design, 2026-10-31. Issue #1581.
+Status: built (2026-11-10), designed 2026-10-31. `"on": "talk"` is in `pack-schema.mjs` and applied by the Talk play in `world.mjs` (`packTalkChoice`). Issue #1581.
 
 ## Outcome
 

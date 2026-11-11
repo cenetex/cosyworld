@@ -5,27 +5,29 @@ import { createServer } from "../card-game/serve.mjs";
 import {
   createWorld,
   encodeSave,
+  holdChoice,
   legalActions,
   play,
 } from "../card-game/world.mjs";
+import { fillLampFuel, settleLamp } from "../card-game/lamp-state.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 
 const act = (s, kind, target) => {
   const action = legalActions(s).find(
     (a) => a.kind === kind && (!target || a.target === target),
   );
+  assert.ok(action, `Missing ${kind} ${target || ""}`);
   const result = play(s, action);
-  assert.ok(result.ok);
+  assert.ok(result.ok, result.error);
   return result.state;
 };
-// The opening starts lit; dousing the lamp opens the attic mirror (#1600).
+// The opening starts lit; stowing the lamp opens the attic mirror.
 let fixture = enableMotives(createWorld({ opening: true }));
 assert.equal(fixture.items.lamp.lit, true);
-fixture = act(fixture, "snuff");
+holdChoice(fixture, "vale", { item: null, revision: fixture.revision });
 fixture = act(fixture, "move", "pond");
 fixture.items.lamp.holder = "moth";
-fixture.items.lamp.lit = true;
-fixture.items.lamp.fuel = 8;
+holdChoice(fixture, "moth", { item: "lamp", revision: fixture.revision });
 fixture = act(fixture, "wait");
 // Start a fresh visit after Pip settles with the lamp. The browser's Wait
 // then tests this visit's first reply, using the same real travel rules.
@@ -121,8 +123,10 @@ try {
       await page.locator("#card-actions .card-primary").click();
       await ready();
     };
+    const beforeWait = await state();
     await waitHere();
     const kept = await state();
+    assert.equal(kept.items.lamp.fuelRooms, beforeWait.items.lamp.fuelRooms);
     assert.equal(kept.actors.moth.place, "pond");
     assert.equal(kept.items.lamp.holder, "moth");
     assert.equal(kept.items.lamp.lit, true);
@@ -149,11 +153,12 @@ try {
       await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
-    // The lamp burns down in Pip's hands; once it goes out the mirror closes.
-    // Pip rests at home just after a want is met, so he stays on the shore
-    // while its last fuel burns.
+    // Same-room waiting no longer spends fuel. Exercise an exhausted tank
+    // arriving from another tab; room-consumption itself has authority tests.
     const low = await state();
-    low.items.lamp.fuel = 1;
+    assert.equal(low.items.lamp.fuelRooms, kept.items.lamp.fuelRooms);
+    low.items.lamp.fuelRooms = 0;
+    settleLamp(low);
     low.actors.moth.metTurn = low.turn;
     if (low.actors.moth.want) low.actors.moth.want.since = low.turn;
     await page.evaluate(
@@ -166,7 +171,7 @@ try {
       { key, value: encodeSave(low) },
     );
     await page.waitForFunction(
-      (key) => JSON.parse(localStorage.getItem(key)).items.lamp.fuel === 1,
+      (key) => JSON.parse(localStorage.getItem(key)).items.lamp.fuelRooms === 0,
       key,
     );
     await ready();
@@ -181,9 +186,10 @@ try {
     assert.equal(await card("attic").count(), 0);
     // A lit lamp carried away from both shores leaves the mirror closed.
     const away = structuredClone(spent);
-    away.items.lamp.lit = true;
-    away.items.lamp.fuel = 8;
+    // A synthetic filled tank at the new room leaves fuel for the return.
     away.actors.moth.place = "station";
+    fillLampFuel(away);
+    settleLamp(away);
     await page.evaluate(
       ({ key, value }) => {
         localStorage.setItem(key, value);
@@ -203,6 +209,8 @@ try {
     const departed = away;
     // A save arriving from another tab also rebuilds availability and selection.
     departed.items.lamp.holder = "vale";
+    departed.actors.moth.heldItem = null;
+    holdChoice(departed, "vale", { item: "lamp", revision: departed.revision });
     await page.evaluate(
       ({ key, value }) => {
         localStorage.setItem(key, value);
@@ -225,34 +233,29 @@ try {
     );
     assert.equal(await card("pond").count(), 0);
     await painted("attic-lit");
-    // Its own paintings carry the light; the stage dims them only at night,
-    // when the lamp's pool (stage-light.json) stays lit. By day it is unlit.
+    // Daylight remains undimmed, independently of a portable lamp glow.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
-    assert.deepEqual(
-      await page
-        .locator("#stage")
-        .evaluate((stage) =>
-          ["--light-x", "--light-on"].map((name) =>
-            stage.style.getPropertyValue(name),
-          ),
-        ),
-      ["0.65", "0"],
-    );
-    // Dousing it shows the Black Pond in the glass and the way out.
+    // Stowing it shows the Black Pond in the glass and the way out.
     await selectCard(page, "lamp");
-    await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).items.lamp.lit, false);
     await card("pond").waitFor({ state: "attached" });
     await painted("attic-doused");
+    // With the lamp stowed, daylight has no ambient light pool.
+    assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
+    assert.equal(
+      await page
+        .locator("#stage")
+        .evaluate((stage) => stage.style.getPropertyValue("--light-on")),
+      "0",
+    );
     await page.reload();
     await ready();
     assert.equal(await card("pond").count(), 1);
     await painted("attic-doused");
     assert.equal((await state()).actors.vale.place, "attic");
-    // Relighting shuts the mirror again; dousing reopens it.
+    // Holding shuts the mirror again; stowing reopens it.
     await selectCard(page, "lamp");
-    await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal(await card("pond").count(), 0);
     await painted("attic-lit");
@@ -288,7 +291,6 @@ try {
     await page.reload();
     await ready();
     await selectCard(page, "lamp");
-    await page.locator("#card-actions .card-primary").click();
     await ready();
     await selectCard(page, "pond");
     await page.locator("#card-actions .card-primary").click();
@@ -296,7 +298,7 @@ try {
     assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);
     console.log(
-      `Douse to leave, lit at the pond to return, lit and doused paintings undimmed by day, Pip keeping the lamp at the pond, burn-out and carried-away closing, reload and relighting passed at ${width}px.`,
+      `Stow to leave, lit at the pond to return, lit and stowed paintings undimmed by day, Pip keeping room fuel at the pond, exhaustion and carried-away closing, reload and holding passed at ${width}px.`,
     );
     await page.close();
   }

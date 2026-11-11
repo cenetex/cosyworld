@@ -1,3 +1,7 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
+import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
+import { settleLamp } from "../v2/card-game/lamp-state.mjs";
+import { itemPlace as lampPlace } from "../v2/card-game/world.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
 import { describe, expect, it } from "vitest";
 import {
@@ -17,10 +21,7 @@ import { narrativeContext } from "../v2/card-game/narrative.mjs";
 function pond(opening = true) {
   let s = createWorld({ opening });
   if (opening) {
-    s = play(
-      s,
-      legalActions(s).find((a) => a.kind === "snuff"),
-    ).state;
+    s = selectLamp(s);
     s = play(
       s,
       legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
@@ -28,8 +29,9 @@ function pond(opening = true) {
   }
   s.actors.vale.place = s.actors.moth.place = "pond";
   s.items.lamp.holder = "moth";
+  s.actors.moth.heldItem = "lamp";
   s.items.lamp.lit = true;
-  s.items.lamp.fuel = 8;
+  setFuel(s, 8);
   return s;
 }
 
@@ -39,6 +41,8 @@ describe.each([true, false])("pond access (opening: %s)", (opening) => {
     (holder) => {
       const s = pond(opening);
       s.items.lamp.holder = holder;
+      if (s.actors[holder]) s.actors[holder].heldItem = "lamp";
+      settleLamp(s);
       expect(itemPlace(s, "lamp")).toBe("pond");
       expect(exits(s, "pond")).toContain("attic");
       expect(availableCards(s)).toContain("attic");
@@ -92,10 +96,13 @@ describe.each([true, false])("pond access (opening: %s)", (opening) => {
     "does not offer entry with a %s lamp, even after discovery",
     (condition) => {
       const s = pond(opening);
-      if (condition === "unlit") s.items.lamp.lit = false;
+      if (condition === "unlit") {
+        s.actors.moth.heldItem = null;
+        settleLamp(s);
+      }
       if (condition === "empty") {
         s.items.lamp.lit = false;
-        s.items.lamp.fuel = 0;
+        setFuel(s, 0);
       }
       if (condition === "covered") s.items.cloth.holder = "lamp";
       expect(exits(s, "pond")).not.toContain("attic");
@@ -110,7 +117,8 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
     s.actors.vale.place = s.actors.moth.place = "attic";
     s.locations.attic.anchored = true;
     s.items.lamp.holder = "vale";
-    s.items.lamp.lit = false;
+    s.actors.vale.heldItem = null;
+    settleLamp(s);
     return s;
   }
 
@@ -119,6 +127,9 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
     (holder) => {
       const s = attic();
       s.items.lamp.holder = holder;
+      if (s.actors[holder]) s.actors[holder].heldItem = null;
+      else setFuel(s, 0);
+      settleLamp(s);
       const result = play(s, cardPlay(s, ["pond"]).action);
       expect(result.ok).toBe(true);
       expect(result.state.actors.vale.place).toBe("pond");
@@ -139,7 +150,10 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
       expect(stale.some((a) => a.kind === "move" && a.item === "bell")).toBe(
         true,
       );
-      if (condition === "shining") s.items.lamp.lit = true;
+      if (condition === "shining") {
+        s.actors.vale.heldItem = "lamp";
+        settleLamp(s);
+      }
       if (condition === "at the station") s.items.lamp.holder = "station";
       const before = encodeSave(s);
       const rescue = condition === "at the station";
@@ -179,7 +193,9 @@ describe.each([true, false])(
         const restored = decodeSave(encodeSave(s));
         expect(reflectionOpen(restored, "pond")).toBe(false);
         expect(reflectionOpen(restored, "attic")).toBe(false);
-        restored.items.lamp.lit = false;
+        if (restored.actors[holder]) restored.actors[holder].heldItem = null;
+        else setFuel(restored, 0);
+        settleLamp(restored);
         expect(reflectionOpen(restored, "attic")).toBe(true);
       },
     );
@@ -227,3 +243,11 @@ it("removes entry after an autonomous carrier departure in the same completed tu
   expect(play(next, stale, next.revision).ok).toBe(false);
   expect(play(next, stale, s.revision).ok).toBe(false);
 });
+
+function setFuel(world, fuel) {
+  Object.assign(
+    world.items.lamp,
+    roomFuelFromTurns(fuel, lampPlace(world, "lamp")),
+  );
+  settleLamp(world);
+}

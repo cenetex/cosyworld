@@ -31,7 +31,9 @@ Either ending closes the visit, and the other can no longer follow. The
 keep ending needs the Wait itself: carrying the charm in and giving it to
 RATi never keeps it.
 
-While the charm is at Oak, Oak opens the way to the Moonlit Trail. The charm
+Until each way opens, the Moonlit Trail lies face down as a locked box, at the
+garden until the drain is cleared and at Oak until the charm is there. While
+the charm is at Oak, Oak opens the way to the Moonlit Trail. The charm
 counts when someone present carries it, when it lies among the roots or
 when Oak holds it. Once the charm stays by the hearth, Oak's way closes, and
 the garden path to the trail stays open.
@@ -110,8 +112,8 @@ lamp remedies are exhausted; they are separate from the ordinary gates.
 ## Source and art
 
 `classic-to-card.json` records every adapted place, resident and item ID.
-The source actors, locations, objects and room features live in
-`v2/content/core/`. The garden work adapts the source garden job. The card
+The source actors, locations, objects and room features lived in the
+deleted classic `core` pack (git history). The garden work adapts the source garden job. The card
 chapter owns its outcomes.
 
 The Wolfprint Charm illustration is an unchanged copy of the core

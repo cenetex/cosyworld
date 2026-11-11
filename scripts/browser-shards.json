@@ -2,6 +2,8 @@
   "about": "Browser checks for the full suite (.github/workflows/ci.yml), with measured seconds from recent runs. scripts/plan-browser-shards.mjs packs them into even runner shards of at most targetSeconds. An entry is a v2/scripts/<name>.mjs journey, <name>@<width> for one viewport width of a journey that reads COSYWORLD_SMOKE_WIDTHS. A new journey only needs a line here; give it a measured or estimated duration.",
   "targetSeconds": 400,
   "checks": {
+    "smoke-card-radio-player": 5,
+    "smoke-card-portable-radio": 40,
     "smoke-card-startup-recovery": 15,
     "smoke-authoring-create-transfer": 10,
     "smoke-authoring-create-tools": 15,
@@ -29,6 +31,8 @@
     "smoke-card-thinking": 50,
     "smoke-card-play-queue": 18,
     "smoke-card-speech-queue": 45,
+    "smoke-card-opening-hold": 20,
+    "smoke-card-dialogue-continuation": 25,
     "smoke-card-zero-turn-beats": 45,
     "smoke-card-queued-choices": 70,
     "smoke-card-sleep": 30,
@@ -98,6 +102,7 @@
     "smoke-card-shared-discovery": 13,
     "smoke-card-bard-travel": 30,
     "smoke-card-voice": 43,
-    "smoke-card-descriptor": 10
+    "smoke-card-descriptor": 10,
+    "smoke-card-save-validation": 10
   }
 }

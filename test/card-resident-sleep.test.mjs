@@ -61,6 +61,8 @@ describe("resident sleep", () => {
       expect(s.actors[id].sleeping.until).toBe(sleepWindow(s, id, 1).end);
     }
     expect(s.actors.moth.sleeping).toBeUndefined();
+    // The keeper has no errand to wake Pip with Talk during this schedule check.
+    Object.assign(s.actors.keeper, { want: null, content: true, metTurn: s.turn });
     // Day three, 11:00: Pip sleeps at the pond, the Greek cast is up.
     s = waitUntil(s, 2 * DAY_TURNS + 10);
     expect(s.actors.moth.sleeping).toMatchObject({ place: "pond" });

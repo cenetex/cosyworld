@@ -300,7 +300,7 @@ describe("Greek ports and fixed roads", () => {
             ),
           },
         });
-      expect(current.items).toMatchObject(upgradedItems(old.items));
+      expect(current.items).toMatchObject(upgradedItems(old.items, current));
       // The version 2 leg becomes a docked ship waiting for its course.
       expect(current.transports["greek-ship"]).toEqual({
         version: 3,

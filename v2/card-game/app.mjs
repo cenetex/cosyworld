@@ -1,4 +1,7 @@
+import { radioAudible } from "./radio-item.mjs";
+import { holdChoice } from "./world.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
+import { heldItem } from "./held-item.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
 import {
   nameTitleWaker,
@@ -137,6 +140,7 @@ import {
   installSharedControls,
   renderRoomStatus,
   sharedReadingLine,
+  sharedReadingState,
   sharedNextLine,
   sharedSilentLines,
   sharedSpeechState,
@@ -153,6 +157,7 @@ import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
+import { createRadioPlayer } from "./radio-player.mjs";
 import { createRoomMusic, openingRevealed } from "./music.mjs";
 import {
   CUE_TRACKS,
@@ -165,7 +170,7 @@ import {
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { recedeBackdrop } from "./combat-backdrop.mjs";
-import { createCharacterSpeech } from "./character-speech.mjs";
+import { createCharacterSpeech, createVoiceHistory, voiceLineIdentity } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
@@ -260,7 +265,7 @@ let world = sharedSession
   selectionRevision = 0,
   dragging = [],
   // The hand rests folded until a card is touched. Only a click outside
-  // the card area or Escape folds it again, and clears the choice; a play,
+  // the card area or Escape folds it again, preserving the held item; a play,
   // changing the selection and deselecting never do.
   rowCollapsed = true;
 // Name the save slot: table saves are keyed off the URL param, so a player
@@ -340,7 +345,8 @@ const localBackups =
 let openingTable = true;
 // In-app browsers and WebViews can block storage outright. The table then
 // plays a fresh world in this tab instead of refusing every card.
-let storageBlocked = false;
+let storageBlocked = false,
+  migratedRunSeed = false;
 try {
   await localBackups?.restore();
   let saved = null;
@@ -352,8 +358,10 @@ try {
   if (saved) {
     openingTable = false;
     // A save from before run seeds takes one once, as a shared world does.
+    const restored = decodeSave(saved);
+    migratedRunSeed = !restored.run;
     world = wearLocalUpgrades(
-      enableMotives(seedRun(decodeSave(saved), newRunSeed())),
+      enableMotives(seedRun(restored, newRunSeed())),
     );
   }
 } catch (error) {
@@ -361,6 +369,7 @@ try {
   saveBlocked = true;
   notice(error.message + " Use New game to start again.");
 }
+selected = [heldItem(world, currentActor(world))].filter(Boolean);
 const UNSAVED_NOTICE =
   "This browser could not save the world. Keep this tab open to keep playing.";
 if (storageBlocked) notice(UNSAVED_NOTICE);
@@ -385,21 +394,32 @@ function rememberReading(line) {
       actor: currentActor(world), seq: line.seq, seed: world.run?.seed }));
   } catch {}
 }
-function rememberWords(revision, pending = false) {
+function rememberWords(revision, pending = false, cast = null) {
   if (sharedSession) return;
   try {
     if (revision === null) localStorage.removeItem(WORDS_MARKER_KEY);
     else
       localStorage.setItem(
         WORDS_MARKER_KEY,
-        `${revision}${pending ? ":pending" : ""}`,
+        cast ? JSON.stringify({ revision, pending, cast }) : `${revision}${pending ? ":pending" : ""}`,
       );
   } catch {
     /* This tab still plays; a reload shows the caption alone. */
   }
 }
+function pendingCast() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WORDS_MARKER_KEY));
+    const cast = saved?.revision === world.revision && saved.pending && saved.cast;
+    if (Array.isArray(cast?.speakers) && cast.speakers.length <= 3 &&
+        cast.speakers.every((id) => typeof id === "string") && typeof cast.scenery === "boolean")
+      return cast;
+  } catch {}
+  return null;
+}
 // "silent", "pending" or null for the current revision.
 function wordsOnLoad() {
+  if (pendingCast()) return "pending";
   try {
     const [revision, pending] = (
       localStorage.getItem(WORDS_MARKER_KEY) || ""
@@ -491,6 +511,7 @@ const avatarKnown = () => !coveredCards.has(currentActor(world));
 // A shared viewer follows the room once their avatar and place are known.
 const selfKnown = () =>
   avatarKnown() && !coveredCards.has(world.actors[currentActor(world)].place);
+const readerState = () => sharedReadingState(sharedSession.state, selfKnown());
 function rememberCards() {
   try {
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
@@ -664,7 +685,7 @@ async function prepareScene() {
 }
 function selectionBlocked() {
   return (
-    saveBlocked || pipLeaving ||
+    saveBlocked || pipLeaving || holdingChoice ||
     covering ||
     Boolean(sharedSession && !hasSharedPlace(sharedSession.state))
   );
@@ -672,6 +693,7 @@ function selectionBlocked() {
 // The player's latest shared play, from sending until the table settles it.
 let sharedPlay = null;
 let sharedSending = false;
+let holdingChoice = false;
 let sharedRefusal = null;
 let sharedNoticeSeen;
 function ownSharedEntry() {
@@ -826,6 +848,13 @@ function finishSpokenLine() {
     exchange.revealed(line.seq);
 }
 const characterSpeech = createCharacterSpeech({
+  history: createVoiceHistory({
+    getItem: (key) => localStorage.getItem(key),
+    setItem: (key, value) => localStorage.setItem(key, value),
+  }),
+  scope: () => sharedSession
+    ? `shared:${sharedWorldId}:${sharedSession.state.actor}`
+    : `local:${SAVE_KEY}:${world.run?.seed ?? ""}`,
   changed: ({ state, message }) => {
     $("speech-row").dataset.voice = state;
     $("voice-retry").hidden = state !== "error";
@@ -870,7 +899,7 @@ new ResizeObserver(measureSpeech).observe($("dialogue-text"));
 function replyPending() {
   return sharedSession
     ? Boolean(shownSceneLine && storyStatus === "pending" &&
-        !sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+        !sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))
     : exchange.waiting;
 }
 function updateSpeechControls(complete) {
@@ -880,7 +909,7 @@ function updateSpeechControls(complete) {
   const own = frontIndex === liveIndex && pending?.own;
   const cancel = own?.cancel && (thinkingArmed ? "Confirm" : own.committed ? "Stop waiting" : "Cancel");
   const sharedForward = sharedSession && shownSceneLine && !sharedAdvanceRequested &&
-    (ownPlayInFlight() || sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq));
+    (ownPlayInFlight() || sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq));
   const forward = (reviewing && (frontIndex < liveIndex || choiceInStack())) ||
     exchange.hasNext || sharedForward || queuedChoice;
   const label = reviewing ? "Step forward to a later beat" : "Continue to the next beat";
@@ -985,7 +1014,7 @@ const reveal = createTextReveal({
       if (shownSceneLine?.silent) characterSpeech.clear();
       else
         characterSpeech.show(
-          value.key,
+          voiceLineIdentity(shownSceneLine),
           value.speaker,
           value.text,
           sharedVoiceReference(sharedSession?.state, shownSceneLine),
@@ -1119,9 +1148,9 @@ $("voice-retry").onclick = () => characterSpeech.retry();
 let musicEnabled = true,
   musicVolume = 0.3;
 function musicPlayed() {
-  return sharedSession
-    ? sharedSession.state.music_started === true
-    : world.turn > 0;
+  return (sharedSession ? sharedSession.state.music_started === true : world.turn > 0) ||
+    Boolean(world.opening && currentActor(world) === "vale" &&
+      world.actors.vale.place === "attic" && openingRevealed(world, "vale"));
 }
 // The opening attic stays silent until the lamp goes out and its mirror
 // first shows the Black pond. This world's id is remembered at that moment,
@@ -1172,7 +1201,8 @@ try {
 const music = createRoomMusic({
   audio: $("room-music"),
   cues: createMusicCues(),
-  changed: ({ enabled, started, title, playing, failed }) => {
+  radio: createRadioPlayer(),
+  changed: ({ enabled, started, title, playing, failed, radio }) => {
     $("music-toggle").textContent = `Music: ${enabled ? "on" : "off"}`;
     $("music-toggle").setAttribute("aria-pressed", String(enabled));
     $("music-status").textContent = !enabled
@@ -1182,7 +1212,7 @@ const music = createRoomMusic({
           ? "Music waits for the dark."
           : "Play your first card to start music."
         : failed
-          ? "Music is taking a moment. Switch it off and on to retry."
+          ? radio ? "RatiRadio is off the air." : "Music is taking a moment. Switch it off and on to retry."
           : playing
             ? title
             : "Tap or press a key to start music.";
@@ -1339,7 +1369,7 @@ const narrator = createNarrator({
     // Words that came, or failed, free a play waiting behind them.
     if (value !== "pending" && playQueue.pending)
       queueMicrotask(() => playQueue.flush());
-    if (value === "pending") rememberWords(world.revision, true);
+    if (value === "pending") rememberWords(world.revision, true, narrator.pendingCast());
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "failed") {
       if (error?.code === "mismatch") count("voice.mismatch");
@@ -1398,11 +1428,37 @@ const SETTLE_MS = 500;
 // A held item stays raised until it leaves the player's hands. An item that
 // arrives in the player's hands through the play, such as the other side of a
 // trade or a take, becomes the held item instead.
+async function persistHeldChoice(item) {
+  const refreshWords = localWordsPending();
+  const choice = { item, revision: world.revision };
+  holdingChoice = true;
+  try {
+    if (sharedSession)
+      await sharedSession.command({ op: "hold", action: choice });
+    else {
+      holdChoice(world, currentActor(world), choice);
+      save();
+      // Keep published words and continue only the remaining voices.
+      if (refreshWords) narrator.continuePending();
+    }
+  } catch (error) {
+    // Never resend an uncertain choice: fetch the committed state instead.
+    if (sharedSession) await sharedSession.sync().catch(() => {});
+    selected = selected.filter(
+      (id) =>
+        !world.items[id] || world.items[id].holder !== currentActor(world),
+    );
+    selected.push(...[heldItem(world, currentActor(world))].filter(Boolean));
+    notice(error.message);
+  } finally {
+    holdingChoice = false;
+    selectionRevision = world.revision;
+    queueDiscoveries();
+    render();
+  }
+}
 function heldSelection() {
-  return {
-    held: selected.filter((id) => selectedHandItem(world, [id])),
-    hands: handItems(),
-  };
+  return { hands: handItems() };
 }
 function handItems() {
   const actor = currentActor(world);
@@ -1423,11 +1479,7 @@ function keepHeldSelection(before, action = null) {
   // A standoff locks the room and takes the held things out of the hand
   // (#1775), so a raised item leaves the selection with its card.
   const shown = availableCards(world);
-  const held = (
-    received
-      ? [received]
-      : before.held.filter((id) => selectedHandItem(world, [id]))
-  ).filter((id) => shown.includes(id));
+  const held = [heldItem(world, actor)].filter((id) => id && shown.includes(id));
   const keepActor = held.length > 0 && selected.includes(actor);
   // The avatar's open stacks stay open after a deed, including a last gift.
   const expanded = expandedHolders.has(actor);
@@ -1633,15 +1685,11 @@ function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (reviewing) returnToLive();
   queueChoice();
-  if (things[id] && selected.includes(id) && restedChoice === choiceKey()) {
+  if (things[id] && selected.includes(id) &&
+    (restedChoice === choiceKey() || (rowCollapsed && cardIsClosed(id)))) {
     restedChoice = null;
     rowCollapsed = false;
     render();
-    return;
-  }
-  // A locked box is chosen, not uncovered: it opens with its quest.
-  if (cardIsCovered(id) && !isLockedBox(world, id)) {
-    uncover(id);
     return;
   }
   playQueue.clear();
@@ -1662,7 +1710,18 @@ function choose(id) {
   const withCard = [...selected, id];
   // Lower the card actually tapped before any stack-folding behavior.
   // In a pair, tapping the expanded avatar must leave its partner chosen.
-  if (selected.length > 1 && selected.includes(id))
+  if (cardIsClosed(id)) {
+    // A closed thing replaces its browsing place just like a known thing.
+    const holder = things[id] ? rootHolder(world, id) : null;
+    const knownCards = selected.filter((card) =>
+      !cardIsClosed(card) && !(places[id] && places[card]) &&
+      !(places[holder] && card === holder));
+    const partner = selectedHandItem(world, knownCards) || (knownCards.length === 1 ? knownCards[0] : null);
+    selectCards(
+      selected.includes(id) ? selected.filter((card) => card !== id) : [partner, id].filter(Boolean),
+      { keepOpen: true },
+    );
+  } else if (selected.length > 1 && selected.includes(id))
     selectCards(
       selected.filter((cardId) => cardId !== id),
       { keepOpen: true },
@@ -1720,6 +1779,11 @@ function choose(id) {
       { keepOpen: lowering },
     );
   }
+  if (world.items[id]?.holder === actor) {
+    const current = heldItem(world, actor);
+    const item = selected.includes(id) ? id : current === id ? null : current;
+    if (item !== current) void persistHeldChoice(item);
+  }
   selectionRevision = world.revision;
   render();
   const hand = $("hand");
@@ -1731,6 +1795,7 @@ function choose(id) {
   revealHandCard(id, { nextFrame: firstItem });
 }
 function dragPlay(cards) {
+  if (cards.some(cardIsClosed)) return null;
   const { action } = cardPlay(world, cards);
   if (!action) return null;
   return restPlays(
@@ -1812,6 +1877,7 @@ function performAction(action, revision) {
   });
   world = result.state;
   rememberWait(action, selected.join("+"));
+  music.setRadio(radioAudible(world, currentActor(world)));
   music.setRoom(
     world.actors[currentActor(world)].place,
     locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
@@ -2251,7 +2317,7 @@ let queuedChoice = false;
 function queueChoice() {
   queuedChoice ||= Boolean(shownSceneLine && (
     !reveal.complete || exchange.current || replyPending() ||
-    (sharedSession && sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+    (sharedSession && sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))
   ));
 }
 function lingeringWords(inFlight) {
@@ -2462,7 +2528,7 @@ function renderActions() {
       return button;
     }),
   );
-  if (quiet) {
+  if (quiet && !closed) {
     const reveal = node("button", OPENING_REVEAL, "card-primary");
     reveal.type = "button";
     reveal.dataset.quiet = "true";
@@ -2564,16 +2630,29 @@ function renderActions() {
   }
   // The context button keeps a closed box's contents concealed.
   const sealed = !rested && closed;
+  const closedCard = selected.find(cardIsClosed);
+  const openingBox = sealed && !isLockedBox(world, closedCard) ? closedCard : null;
   if (sealed) {
-    const why = node("button", "Locked", "card-action");
+    const why = node("button", openingBox ? "Tap to open" : "Locked", "card-action");
     why.type = "button";
-    why.disabled = true;
-    why.dataset.blocked = "gate";
+    why.disabled = !openingBox || selectionBlocked();
     why.title = lockShown.text;
-    why.setAttribute("aria-label", `Locked. ${lockShown.text}`);
+    if (openingBox) {
+      why.dataset.openBox = openingBox;
+      why.onclick = () => {
+        if (!selectionBlocked() && selected.includes(openingBox) && !isLockedBox(world, openingBox)) {
+          // The replacement action must not catch a second tap on Open.
+          lastPlayAt = performance.now();
+          uncover(openingBox);
+        }
+      };
+    } else {
+      why.dataset.blocked = "gate";
+      why.setAttribute("aria-label", `Locked. ${lockShown.text}`);
+    }
     row.append(why);
-    // The same descriptor and small corner cue as Continue, without a play.
-    cardTapHint(why, "Locked");
+    // The same descriptor and small corner cue as Continue.
+    cardTapHint(why, openingBox ? "Open" : "Locked");
   }
   // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
   const asleep = !sealed && !rested && !actions.length && asleepReason(world, selected);
@@ -2604,7 +2683,7 @@ function renderActions() {
     sentence &&
     row.childElementCount === 1 &&
     !row.firstElementChild.disabled &&
-    (only || quiet || row.firstElementChild.dataset.look)
+    (only || quiet || openingBox || row.firstElementChild.dataset.look)
   ) {
     const button = row.firstElementChild;
     panel.setAttribute("data-card-tap", "");
@@ -2612,7 +2691,7 @@ function renderActions() {
       button.dataset.waitSentence = "";
     nameActionTap(
       button,
-      quiet ? "Uncover" : actionTapVerb(only, button.textContent),
+      openingBox ? "Open" : quiet ? "Uncover" : actionTapVerb(only, button.textContent),
       only?.label === "Wake" ? sentence : button.textContent,
     );
     message = button;
@@ -2980,7 +3059,8 @@ function card(id) {
   el.addEventListener("click", () => choose(id));
   el.draggable = !el.disabled && !hidden;
   el.addEventListener("dragstart", (e) => {
-    if (selectionBlocked() || cardIsClosed(id)) {
+    if (selectionBlocked() || cardIsClosed(id) ||
+      (selected.includes(id) && selected.some(cardIsClosed))) {
       e.preventDefault();
       return;
     }
@@ -3082,7 +3162,7 @@ function card(id) {
   back.draggable = false;
   el.append(back);
   if (hidden) {
-    el.setAttribute("aria-label", locked ? "Locked box" : "Face-down card. Tap to reveal.");
+    el.setAttribute("aria-label", locked ? "Locked box" : "Closed box. Select to inspect.");
     el.removeAttribute("aria-describedby");
   }
   return frame;
@@ -3316,8 +3396,14 @@ async function clearQuest(button, quest) {
     while ((localWordsPending() || sleepView.active) && questClaims.get(quest.key) === reward)
       await new Promise((resolve) => setTimeout(resolve, 50));
     if (questClaims.get(quest.key) !== reward) return;
-    if (sharedSession) await sharedSession.play(action, reward.key);
-    else {
+    if (sharedSession) {
+      const result = await sharedSession.play(action, reward.key);
+      if (result.resumedPlay) {
+        questClaims.delete(quest.key);
+        resumeCurrentSharedPlay();
+        return;
+      }
+    } else {
       const result = play(world, action, world.revision);
       if (!result.ok) throw new Error(result.error);
       const before = world;
@@ -3476,13 +3562,6 @@ function returnToLive() {
   renderScene();
   if (!$("dialogue-advance").hidden) $("dialogue-advance").focus();
 }
-const litCarried = (actor) =>
-  Object.keys(world.items).find(
-    (id) =>
-      world.items[id].lit &&
-      rootHolder(world, id) === actor &&
-      !cardIsCovered(id),
-  ) || null;
 function renderHeldItem(figure, actor, itemId) {
   let preview = figure.querySelector(".portrait-held-item");
   figure.setAttribute(
@@ -3622,21 +3701,6 @@ function renderScene() {
   // place its own share and lights, such as the attic's lamp. A place with
   // no night painting takes the full night grade, cooled.
   const authored = placeLight(scene.locationId);
-  renderStageLight($("stage"), {
-    turn: sleepLight.turn,
-    strength: gradeStrength({
-      grade: authored.grade,
-      painted: Boolean(scene.daylight),
-      night: isNight({ turn: sleepLight.turn }),
-    }),
-    tint: scene.daylight ? null : UNPAINTED_NIGHT_TINT,
-    pools: (authored.lights || []).map((pool) => ({
-      ...pool,
-      on: !pool.item || lampLitHere(view, scene.locationId),
-    })),
-    sky: authored,
-    ease: stayed && !sleepLight.cut,
-  });
   renderWeather($("stage"), scene.weather, { ease: stayed });
   let overlay = $("location-overlay");
   if (scene.overlay && !overlay) {
@@ -3675,7 +3739,6 @@ function renderScene() {
   $("cast").dataset.shared = String(Boolean(sharedSession));
   $("cast").style.setProperty("--cast-count", String(staging.actors.length));
   const castKey = JSON.stringify(staging.actors.map(({ id }) => id));
-  const handItem = selectedHandItem(world, selected);
   if (castKey !== renderedCast) {
     renderedCast = castKey;
     const existing = new Map(
@@ -3748,14 +3811,12 @@ function renderScene() {
     image.dataset.source = actor.cutout;
     image.dataset.flip = String(flipStagePortrait(actor.cutout, actor.facing));
     figure.dataset.flip = image.dataset.flip;
-    // A raised hand card shows in the player's hand; otherwise a figure
-    // carrying a lit light holds it up, as Vale wakes holding the lamp.
+    // Everyone sees the same saved prop; target selection is presentation.
+    const held = heldItem(world, id);
     renderHeldItem(
       figure,
       actor,
-      sleeping
-        ? null
-        : (id === currentActor(world) && handItem) || litCarried(id),
+      sleeping || cardIsCovered(held) ? null : held,
     );
     figure.classList.toggle(
       "active",
@@ -3819,6 +3880,23 @@ function renderScene() {
     }
   });
   showPreferredLocations(staging.actors);
+  renderStageLight($("stage"), {
+    turn: sleepLight.turn,
+    strength: gradeStrength({
+      grade: authored.grade,
+      painted: Boolean(scene.daylight),
+      night: isNight({ turn: sleepLight.turn }),
+    }),
+    tint: scene.daylight ? null : UNPAINTED_NIGHT_TINT,
+    lamp: lampLitHere(view, scene.locationId),
+    pools: (authored.lights || []).filter((pool) => pool.item !== "lamp").map((pool) => ({
+      ...pool,
+      on: !pool.item || lampLitHere(view, scene.locationId),
+    })),
+    sky: authored,
+    ease: stayed && !sleepLight.cut,
+  });
+
   // A reveal off stage (a place card, someone elsewhere) fades nothing later.
   stageReveals.clear();
   hauntScene($("stage"), scene.locationId, {
@@ -3856,12 +3934,7 @@ function renderScene() {
     : undefined;
   const moreToRead =
     shownTurn !== undefined &&
-    view.log.some(
-      (entry) =>
-        entry.generated &&
-        entry.seq > liveThrough &&
-        entry.locationId === scene.locationId,
-    );
+    Boolean(sharedNextLine(readerState(), scene.locationId, liveThrough));
   const hiddenAction = (entry) =>
     (moreToRead && entry.turn > shownTurn) ||
     // A zero-turn change joins the stack after the reply being read.
@@ -4542,7 +4615,7 @@ function advanceFront() {
     syncSpeechPlayback();
     finishSpokenLine();
     if (sharedSession) {
-      if (!sharedNextLine(sharedSession.state, shownSceneLine.locationId, shownSceneLine.seq))
+      if (!sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))
         queuedChoice = false;
       sharedAdvanceRequested = true;
       syncSharedLine();
@@ -4763,6 +4836,7 @@ function render() {
   );
   hum.setStarted(musicHasStarted());
   ringHeard();
+  music.setRadio(radioAudible(world, currentActor(world)));
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
   sleepView.observe(world, currentActor(world));
@@ -4781,7 +4855,7 @@ function render() {
   if (rowCollapsed) expandedHolders.clear();
   else
     for (const id of selected) {
-      if (people[id] || id === placeHere()) expandedHolders.add(id);
+      if (!cardIsClosed(id) && (people[id] || id === placeHere())) expandedHolders.add(id);
     }
   if (rowCollapsed || waysOpen !== placeHere()) waysOpen = null;
   // Folding the avatar's stacks folds its fan and lowers a chosen quest.
@@ -4841,6 +4915,7 @@ function render() {
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
+    [...encountered],
     [...coveredCards],
     legalActions(world).map((action) => action.key),
   ]);
@@ -5296,15 +5371,11 @@ document.addEventListener("keydown", (e) => {
     (selected.length || expandedHolders.size || !rowCollapsed || questOpen)
   ) {
     playQueue.clear();
-    selected = [];
-    questOpen = false;
-    expandedHolders.clear();
-    rowCollapsed = true;
-    render();
+    foldHand();
   }
 });
-// A click outside the cards and the dialogue folds the row and clears the
-// choice, as Escape does: the action panel fades and the full dialogue card
+// A click outside the cards and dialogue folds the row, keeping the held
+// item but clearing targets: the action panel fades and the full dialogue card
 // is back. A tap on the dialogue steps its beat and leaves the
 // hand be, as do the toolbar, dialogs and buttons. Nothing else moves it.
 document.addEventListener("click", (e) => {
@@ -5336,7 +5407,8 @@ document.addEventListener("click", (e) => {
   foldHand();
 });
 function foldHand() {
-  selected = [];
+  const shown = availableCards(world);
+  selected = [heldItem(world, currentActor(world))].filter((id) => id && shown.includes(id));
   questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();
@@ -5400,7 +5472,7 @@ function resetTable(next = freshWorld()) {
   // A new game starts its hand from the left.
   renderedHandPlace = null;
   lineSeq = null;
-  selected = [];
+  selected = [heldItem(world, currentActor(world))].filter(Boolean);
   expandedHolders.clear();
   rowCollapsed = true;
   saveBlocked = false;
@@ -5493,7 +5565,7 @@ function resumeScene({ otherTab = false } = {}) {
     render();
     return;
   }
-  const words = wordsOnLoad();
+  const words = wordsOnLoad(), cast = pendingCast();
   if (openingWordsDue() && !otherTab && words !== "silent") {
     // A new game asks the dialogue model for Vale's first line, and a reload
     // that interrupted it asks again. Words that failed stay "…".
@@ -5504,7 +5576,7 @@ function resumeScene({ otherTab = false } = {}) {
     narrator.changed();
     return;
   }
-  if (!saveBlocked && !hasCurrentWords() && words === "pending" && !otherTab) {
+  if (!saveBlocked && words === "pending" && !otherTab) {
     // This turn's words were on the way before the reload: ask again,
     // quietly, under the Thinking card. Another tab that is asking keeps
     // its request; this one shows the caption alone.
@@ -5515,9 +5587,21 @@ function resumeScene({ otherTab = false } = {}) {
         entry.actorId === currentActor(world),
     );
     lineSeq = null;
+    if (hasCurrentWords()) {
+      // A reload keeps the visible line whole while its remaining voices resume.
+      const lines = shownWorld().log.filter((entry) => entry.generated &&
+        isSceneText(entry) && entry.turn === world.turn &&
+        entry.locationId === world.actors[currentActor(world)].place);
+      const saved = readingPosition();
+      const line = lines.find((entry) => saved && entry.seq >= saved.seq) || lines.at(-1);
+      if (line) completedSpeech.add(lineKey(line, line.locationId));
+      exchange.begin();
+      exchange.load(line ? lines.filter((entry) => entry.seq >= line.seq) : [], { pending: true });
+    }
     render();
     narrator.changed(
       played ? { item: played.itemId, target: played.targetId } : null,
+      { remaining: cast || true },
     );
     return;
   }
@@ -5679,6 +5763,21 @@ function sharedWorld(value) {
     seated(value.present),
   );
 }
+// A stale action yields to the play already running, without pretending
+// that action happened or advancing past its unread dialogue.
+function resumeCurrentSharedPlay() {
+  sharedPlay = null;
+  sharedRefusal = null;
+  restedChoice = null;
+  reviewing = false;
+  reviewBeat = null;
+  const shown = availableCards(world);
+  const held = [heldItem(world, currentActor(world))].filter((id) => id && shown.includes(id));
+  selectCards(held, { keepOpen: true });
+  notice("");
+  lineSeq = sharedLineSeq;
+  syncSharedLine();
+}
 async function submitSharedPlay(action) {
   if (
     sharedSending ||
@@ -5714,11 +5813,15 @@ async function submitSharedPlay(action) {
   showSharedPlay("sending");
   try {
     const hidden = hiddenFor(world, currentActor(world))?.id;
-    await sharedSession.play(
+    const result = await sharedSession.play(
       current,
       sharedPlay.key,
       [...encountered].filter((id) => !cardIsCovered(id) && id !== hidden),
     );
+    if (result.resumedPlay) {
+      resumeCurrentSharedPlay();
+      return;
+    }
     lastPlayAt = performance.now();
     if (!playQueue.pending && JSON.stringify(selected) === selection) {
       keepHeldSelection(heldBefore, current);
@@ -5748,14 +5851,7 @@ function syncSharedLine() {
   const room = world.actors[currentActor(world)].place;
   // The avatar's waking scene can speak while its surroundings stay covered.
   // Other room scenes wait for that viewer's place reveal.
-  const state = selfKnown()
-    ? sharedSession.state
-    : {
-        ...sharedSession.state,
-        history: (sharedSession.state.history || []).filter(
-          (scene) => scene.opening && scene.actor === currentActor(world),
-        ),
-      };
+  const state = readerState();
   if (
     document.hidden ||
     document.querySelector("dialog[open], .world-menu:popover-open")
@@ -5814,7 +5910,13 @@ function adoptShared(value) {
     // The Talk that met the hidden avatar unlocks it: a beat says so.
     const found =
       alreadyOpen && unlockedSince(next, value.actor, lastSeq(world));
+    const previousHeld = heldItem(world, previousActor);
     world = next;
+    const nextHeld = heldItem(world, currentActor(world));
+    if (previousHeld !== nextHeld || previousActor !== currentActor(world)) {
+      selected = selected.filter((id) => id !== previousHeld && id !== nextHeld);
+      if (nextHeld) selected.push(nextHeld);
+    }
     sharedWorldKey = key;
     if (found)
       showActionBeat({
@@ -5967,7 +6069,8 @@ if (sharedSession) {
 }
 // The title's Wake button names the avatar this world opens with.
 nameTitleWaker(pipPrelude() ? "Pip" : nameOf(currentActor(world)), pipPrelude() ? "moth" : currentActor(world));
-if (startingPip && openingTable) save();
+// Persist a legacy run's assigned identity before speech can be heard.
+if (migratedRunSeed || (startingPip && openingTable)) save();
 resumeScene();
 // The title's turn (or Escape past it) is this avatar's reveal.
 onTitleWake(() => uncover(pipPrelude() ? "moth" : currentActor(world), { flip: false }));

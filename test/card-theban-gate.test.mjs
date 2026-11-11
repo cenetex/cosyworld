@@ -9,7 +9,7 @@ import {
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { backdrop } from "../v2/card-game/scene.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 
 // The Gate Guard guards the road from the Theban City Gate out to the
 // battlefield, both ways. These fixtures establish closed and generally
@@ -60,7 +60,7 @@ describe("the Theban City Gate", () => {
   });
 
   it("keeps the road, painting and voices aligned with the papers", () => {
-    let s = openingFixture("concession").traded;
+    let s = greekErrands().traded;
     // Restore the duty order while the Writ remains with Creon.
     s.items["greek-decree"].holder = "greek-guard";
     s = reload(s);
@@ -73,7 +73,7 @@ describe("the Theban City Gate", () => {
     expect(exits(s, "greek-gate", "vale")).toEqual(
       expect.arrayContaining(["greek-courtyard"]),
     );
-    s = openingFixture("concession").opened;
+    s = greekErrands().opened;
     expect(s.items["greek-creon-writ"].holder).toBe("greek-guard");
     expect(out(s)).toBe(true);
     expect(painted(s)).toBe(true);
@@ -86,7 +86,7 @@ describe("the Theban City Gate", () => {
   });
 
   it("keeps a live route a toggle", () => {
-    const s = structuredClone(openingFixture("concession").opened);
+    const s = structuredClone(greekErrands().opened);
     s.items["greek-creon-writ"].holder = "greek-elder";
     s.items["greek-decree"].holder = "greek-guard";
     // The next round's settle puts him back on guard.

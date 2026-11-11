@@ -853,3 +853,27 @@ A resident’s optional `passWhen` conditions grant passage through that residen
 guarded way for the current traveller. `{ "kind": "trusted", "actor": "resident-id",
 "min": 1 }` reads that resident’s trust in the traveller; active grievances take
 priority. This condition belongs to live, traveller-specific checks.
+
+
+### Maker artwork descriptions
+
+Generate avatar and Generate poses use a separate **Physical description only**
+entry. Describe visible body, face, hair, clothing and colours. Card narrative,
+dialogue, goals and abilities are not used as the image description. Older cards
+without a saved physical description ask for one before an image request is
+sent; no appearance is guessed from their prose.
+
+Confirmed artwork keeps that physical description in its authoring metadata,
+separately from the original card text. Pose generation reuses it with the saved
+cutout. Image prompts exclude speech/thought bubbles, text and symbolic captions.
+
+Every returned image is saved to the local draft's artwork library before a
+preview is discarded or a pose sheet is split. The first avatar cutout becomes
+the active portrait automatically; replacements and pose sets remain reviewable.
+Changing the active selection does not remove earlier saved bytes or variants.
+Original sheets are retained even when splitting fails. This is local browser
+storage, not a cloud backup; export the draft to keep an independent copy.
+
+If local storage fails, the original remains in memory with **Retry saving
+artwork**. Keep that tab open until saving succeeds. Retry does not make another
+provider request. A failed activation can also be retried without generating.

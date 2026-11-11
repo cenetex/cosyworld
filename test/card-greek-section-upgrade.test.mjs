@@ -106,7 +106,7 @@ describe("Greek section save upgrade", () => {
       }
       for (const field of ["items", "peaceUntil"])
         for (const [id, value] of Object.entries(
-          field === "items" ? upgradedItems(before.items) : before[field],
+          field === "items" ? upgradedItems(before.items, after) : before[field],
         ))
           expect(after[field][id]).toEqual(value);
       for (const [id, memory] of Object.entries(before.memories)) {

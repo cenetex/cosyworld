@@ -4499,6 +4499,15 @@
       "phone": "assets/optimized/phone/webp/ratiradio/listening-room.webp",
       "phoneHash": "4562ee5527eb2fe35f024bb589b05a23680a30e0888d6f2d8313254feffd8fc2"
     },
+    "assets/ratiradio/portable-radio.webp": {
+      "sourceHash": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b",
+      "stage": "assets/ratiradio/portable-radio.webp",
+      "stageHash": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b",
+      "card": "assets/ratiradio/portable-radio.webp",
+      "cardHash": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b",
+      "phone": "assets/ratiradio/portable-radio.webp",
+      "phoneHash": "4bb1c29d9da541dfec05883363ca771033616c9357d186b122dbda3236b3761b"
+    },
     "assets/ratiradio/rati.webp": {
       "sourceHash": "9f82c1c6e3c0e213cf0d355f745fe2152b29d981353864cf6f065c8e42c3142e",
       "stage": "assets/ratiradio/rati.webp",
@@ -5398,6 +5407,60 @@
       "cardHash": "9a06e2f1a199de1cfe4ecb6d79524ce26058412625c580c09a55aea8c4bb96a0",
       "phone": "assets/title/transparent/lonely-forest-1-toolbar.webp",
       "phoneHash": "9a06e2f1a199de1cfe4ecb6d79524ce26058412625c580c09a55aea8c4bb96a0"
+    },
+    "assets/title/transparent/lonely-forest-1.png": {
+      "sourceHash": "6aec0b5ad68e963a722fa4f8242e4c5c261980b85bb54164d5d3b9ebbf401aa5",
+      "stage": "assets/optimized/stage/png/title/transparent/lonely-forest-1.webp",
+      "stageHash": "0393266b6aaa042ae5d2fd2e10f9c7d6dc4849aff62136dc231e8d6523cd6a74",
+      "card": "assets/optimized/card/png/title/transparent/lonely-forest-1.webp",
+      "cardHash": "7980822b4ac282a18a70bf6388bec01a75f5433e9e8b5054febca935a1220566",
+      "phone": "assets/optimized/phone/png/title/transparent/lonely-forest-1.webp",
+      "phoneHash": "9e04f38cb7bb71cd604e73c3109dbbf64a70835af17b994014d4115a6402055f"
+    },
+    "assets/title/transparent/lonely-forest-2.png": {
+      "sourceHash": "0e7654425135d67139f4ef543b2b835c4afa66cff14c6f5cc33956b7adf2ae6e",
+      "stage": "assets/optimized/stage/png/title/transparent/lonely-forest-2.webp",
+      "stageHash": "3f68509466ff4e694fe5e0ee421f3452bf8ac289728cbed3c199ff13c704576a",
+      "card": "assets/optimized/card/png/title/transparent/lonely-forest-2.webp",
+      "cardHash": "32ff2dadf530d0f44bf9069c0d35d54a32feda05bf2bc3d8093396a3a8bd9b9b",
+      "phone": "assets/optimized/phone/png/title/transparent/lonely-forest-2.webp",
+      "phoneHash": "3196149676d9784e36d5f6a0b6c230d768e89c07d9bf17626613afab01372c8b"
+    },
+    "assets/title/transparent/lonely-forest-teal-bell-and-lantern.png": {
+      "sourceHash": "0546f9ed18484ae80364d5d3ff5bf3e800e272672d3035c9852c4a19be093478",
+      "stage": "assets/optimized/stage/png/title/transparent/lonely-forest-teal-bell-and-lantern.webp",
+      "stageHash": "4e8c141ffbbd3b6df20fdb55b616f66527883c66ca0a644907d27bab2633c909",
+      "card": "assets/optimized/card/png/title/transparent/lonely-forest-teal-bell-and-lantern.webp",
+      "cardHash": "7eba6623c67823c7b9ec4f1d5365902f7bc7bd805dbae2b42ec4764b774fc908",
+      "phone": "assets/optimized/phone/png/title/transparent/lonely-forest-teal-bell-and-lantern.webp",
+      "phoneHash": "4c99c5f9ab083cb6c3cf7857b424d3bf8fc3728169255fe3b147a953633c0001"
+    },
+    "assets/title/transparent/lonely-forest-teal-lantern-left.png": {
+      "sourceHash": "19ad8609bb72b775b10023f9a01de5a10436f9a652e3e91d08b51a25eb7b96b2",
+      "stage": "assets/optimized/stage/png/title/transparent/lonely-forest-teal-lantern-left.webp",
+      "stageHash": "d3337f143999f1f8ce9c2fac5ffd378e037003df46b0815b1a1f09146bff22ca",
+      "card": "assets/optimized/card/png/title/transparent/lonely-forest-teal-lantern-left.webp",
+      "cardHash": "472390f5174d4ccba2fe6ea1f3b6083ae93628a3386b08c69d0b636919a32da3",
+      "phone": "assets/optimized/phone/png/title/transparent/lonely-forest-teal-lantern-left.webp",
+      "phoneHash": "55b82c1ec9de044113411d322ff1020361d7888ac4ffd32e4e32efa575b51323"
+    },
+    "assets/title/transparent/lonely-forest-waterline-toolbar.webp": {
+      "sourceHash": "91127e4d06a33859e760d143564435f013c0a9150520659d18de351022370281",
+      "stage": "assets/title/transparent/lonely-forest-waterline-toolbar.webp",
+      "stageHash": "91127e4d06a33859e760d143564435f013c0a9150520659d18de351022370281",
+      "card": "assets/title/transparent/lonely-forest-waterline-toolbar.webp",
+      "cardHash": "91127e4d06a33859e760d143564435f013c0a9150520659d18de351022370281",
+      "phone": "assets/title/transparent/lonely-forest-waterline-toolbar.webp",
+      "phoneHash": "91127e4d06a33859e760d143564435f013c0a9150520659d18de351022370281"
+    },
+    "assets/title/transparent/lonely-forest-waterline.png": {
+      "sourceHash": "4d7feeede8f4830f3e8bd6c9ea5602bb42cac46c0dd99264234ac4f1464470e5",
+      "stage": "assets/optimized/stage/png/title/transparent/lonely-forest-waterline.webp",
+      "stageHash": "bede92cd9f3870cb19bfb836782095339d141a19400b4a444909341159c2a252",
+      "card": "assets/optimized/card/png/title/transparent/lonely-forest-waterline.webp",
+      "cardHash": "7f4effb85275f13352ecab0eddc1335227f7f7879d5598412467b77338260085",
+      "phone": "assets/optimized/phone/png/title/transparent/lonely-forest-waterline.webp",
+      "phoneHash": "563bd4099ded291cf77d72b597da8746d2c454c086d2a40274b9fc0008877794"
     },
     "assets/vale.png": {
       "sourceHash": "f6a79cda52b36495592c5dcf3f53e4e611cdcd4b9d6573b399270b42b7991079",

@@ -66,10 +66,27 @@ Then run every row that matches the change:
 | Card table (`v2/card-game/`) | `npm run check:ui` (new UI or a core restyle needs the owner's review of `ui-inventory.json` or `ui-styles.json`); `npm test`; `npm run play:cards` and play the changed path at desktop and phone width; a new public file joins `public-assets.mjs`; run `npm run v2:card:assets:build` to refresh `media-manifest.json` (Cargo builds the Rust asset module itself) |
 | Cross-surface tests (`test/`) | `npm test` |
 | Pack/content/compiler | `npm run v2:worldpack` |
-| C kernel or ABI | `npm run v2:kernel`; `npm run v2:rust:test` |
+| Card C session guard or ABI | `npm run v2:rust:test` |
 | Rust orchestrator | `npm run v2:rust:test`; targeted Rust test while iterating |
 | Browser, HTTP, persistence, or multiplayer | `npm run v2:check` |
 | Broad V2 or release change | `npm run check:local` and the relevant build |
+
+### Test starting states
+
+A test that needs a world "just before X" plays a journey; it does not load a
+recorded save. A journey (`test/journeys/*.mjs`) names its start, then lists real
+plays (`{ kind, item, target }`, matched against `legalActions`), road walks
+(`{ walk: "gate" }`), quiet hand picks (`{ hold: "cloth" }`) and checkpoints
+(`{ at: "traded" }`). A play that is not legal fails with the journey, the
+checkpoint it was heading for and the legal plays. To add one: write the module,
+list it in `test/journeys/index.mjs`, read its worlds in a test with
+`journeyWorlds(journey)` (`test/helpers/journey.mjs`; worlds are built once per
+test file, about 0.1 s), and run `npm run test:journeys:build`. After a rules or
+pack change, `npm run test:journeys:check` (part of `v2:card:pack:check`) names
+each journey and checkpoint that moved; read the diff of
+`test/journeys/checkpoints.json`, fix any journey whose step stopped being
+legal, then rebuild. Keep recorded saves only as replay proofs: a released rule
+bundle or an old save that must still load.
 
 ### Fast check
 
@@ -92,7 +109,7 @@ every early notice path, plus the image-first, actions, beat-stack, and unveil
 journeys and the opening's Steam Clock walk, `check-card-awakening`) run on
 every pull request and main push, each in its own parallel job, and count in the `fast` result; a core smoke a path also selects runs
 once and takes no path slot. Each smoke serves the static card game; smokes
-that start the Rust server run only in the full suite. A change to the Rust crate, the C kernel, the AI model
+that start the Rust server run only in the full suite. A change to the Rust crate, the card C session guard, the AI model
 crate, or a file the crate reads (such as `v2/card-game/senses.json`,
 `packs.json`, or a test fixture) adds the `rust` job: the tests of the modules
 that own or read the changed files, from Cargo's restored cache.
@@ -131,8 +148,7 @@ dispatch. `deploy.yml` deploys .dev from a scheduled train every 30 minutes
 [agent test passkey](../docs/release.md#agent-test-passkey).
 
 The full suite is the final cross-platform authority. It uses Node 24 and stable Rust
-for lint, tests, content, kernel, Rust builds, browser and composition smokes,
-and guide checks. Browser journeys run in parallel shards from one shared
+for lint, tests, content, kernel, Rust builds, browser smokes. Browser journeys run in parallel shards from one shared
 debug binary. `scripts/plan-browser-shards.mjs` packs the measured checks in
 `scripts/browser-shards.json` into shards of about six minutes; add a new
 journey there with its duration, and split a long journey by width with
@@ -198,10 +214,6 @@ when either is missing; it will block once content versioning lands.
   for the browser model, forest data, save upgrades, and public assets.
 - `v2/orchestrator-rust/src/main.rs` is very large. Use exact searches and narrow
   reads; do not mix opportunistic refactoring into a feature fix.
-- `v2/content/official/**` is compiled output. Editing it without the owning
-  source pack produces a stale lock/bundle failure.
-- A changed official pack set changes bundle identity. Old snapshots and action
-  journals must not be silently loaded under the new identity.
 - Journal replay is more authoritative than snapshots. Snapshot-only tests do
   not prove persistence.
 - Browser/query wallet claims are development conveniences unless the explicit
@@ -226,7 +238,6 @@ Do not edit or commit these directly:
 
 - `.env`, `.env.*`, keys, wallet files, bearer tokens, logs, or runtime SQLite
   and snapshot data;
-- `v2/content/official/**` except as output from the worldpack compiler;
 - released shared rules `v2/orchestrator-rust/src/card_shared/engine-v*.js`
   and their version wiring. After rebasing a branch that changes rule modules,
   run `npm run v2:card:shared:next`; it restores main's recorded rules and claims
@@ -235,14 +246,13 @@ Do not edit or commit these directly:
   already on main (`v2/scripts/released-bundles.mjs`). To land a prepared branch, `npm run land -- <branch>`
   applies its own work onto main at main's version, regenerates the rules
   bundle and asset manifest, and commits; it stops only on a conflict in the branch's work;
-- `v2/worlds/official/pack.lock.json` except through the lock command;
 - `package-lock.json` except through an intentional dependency/version update;
 - build outputs such as `target/`, `dist/`, coverage, generated runtime assets,
   or `.runtime/`.
 
 Treat these as review-sensitive rather than forbidden:
 
-- `v2/core-c/include/cosy_kernel.h` and journal action codes, because ABI or
+- `v2/core-c/include/card_table.h` and journal action codes, because ABI or
   replay changes can invalidate history;
 - production profiles, workflows, `Dockerfile`, and `fly.toml`, because main
   supplies the next scheduled `.dev` train;
@@ -255,6 +265,6 @@ Treat these as review-sensitive rather than forbidden:
 - Authority, authorization, idempotency, and replay paths were reviewed.
 - New state survives restart; new rules have authoritative tests.
 - Generated artifacts match their source and contain no unrelated churn.
-- Public copy passes the writing-register checks.
+- Public copy follows `v2/docs/writing-style.md`.
 - No secret or local runtime file appears in the diff.
 - The PR is validated, linked to its issue, and ready to merge.

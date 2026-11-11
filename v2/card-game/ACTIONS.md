@@ -12,14 +12,21 @@ holder's group. Transfers move the cards into the new holder's group.
 
 | Selection                                 | Available plays                              |
 | ----------------------------------------- | -------------------------------------------- |
-| Person                                    | Talk and relevant story choices              |
+| Person                                    | Talk; story choices fire from it             |
 | Vale                                      | Wait; Brace during a standoff                |
 | Vale + person                             | Threaten; Brace and Strike during a standoff |
 | Loose item                                | Take                                         |
 | Someone's item                            | Ask the named owner for it                   |
 | Carried lamp or bell                      | Light, Put out, or Ring                      |
 | Vale + item                               | The item's single-card play                  |
+| Food or drink you hold                    | Eat or Drink, alone or with someone here     |
+| Your item with its verb                   | Use (the verb on its card)                   |
 | Destination, or Vale + destination        | Travel or Board                              |
+| Destination with a ship's course card     | Set course                                   |
+| Sealed way, when its card gives a quest   | Open the way and take its quest              |
+| Quest card beneath the top                | Choose quest (Focus); takes no turn          |
+| Top quest card                            | Discard, with the XP cost in its label       |
+| Completed quest card                      | Claim reward                                 |
 | Current place                             | Wait and local actions                       |
 | Person + destination                      | Invite that person along                     |
 | Own item + person                         | Give to that person                          |
@@ -40,11 +47,14 @@ nothing changes hands, and they say why. Invitations can be accepted or
 declined. Threats name the item chosen by the world rules.
 Story choices use supplies already in the inventory.
 
-Each avatar pursues one quest: an item, a place or a person. Holding the item,
-reaching the place, or talking with the person meets it and earns one point of
-experience. The residents use these same plays for their own quests, so they
-also ask, trade, threaten and get refused. There are no quest cards or quest
-buttons; Talk is how you learn what someone is after.
+Each player avatar holds up to two active quests, one of them Level Up;
+further quests wait beneath. Named residents hold up to three. A quest is an
+item to hold, a place to reach or a person to talk with, and meeting it earns
+experience, claimed with Claim reward. Choose quest brings a lower quest to the
+top without taking a turn. Discard drops one; a level quest costs experience.
+The residents use these same plays for their own quests, so they also ask,
+trade, threaten and get refused. Talk is how you learn what someone is after.
+See [a quest stack per avatar](README.md#a-quest-stack-per-avatar).
 
 Pairs work in either order. Arrow keys move between visible cards. Enter
 and Space toggle selection. Tab from a selected card reaches its action

@@ -318,7 +318,7 @@ describe("the Open Door", () => {
     );
     for (const key of ["choices", "flags", "receipts", "met"])
       expect(state(world)[key]).toEqual(earlier.packs["greek-drama"][key]);
-    for (const [id, item] of Object.entries(upgradedItems(earlier.items)))
+    for (const [id, item] of Object.entries(upgradedItems(earlier.items, world)))
       expect(world.items[id]).toEqual(item);
     expect(world.quests).toBeUndefined();
     expect(reload(world)).toEqual(world);

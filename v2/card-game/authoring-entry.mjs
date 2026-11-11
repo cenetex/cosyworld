@@ -1,3 +1,4 @@
+import { createArtLibraryTools } from "./authoring-art-library-tools.mjs";
 import { createAuthoringVisualTools } from "./authoring-visual-tools.mjs";
 import { createAuthoringAccountTools } from "./authoring-account-tools.mjs";
 import { authoringSeedTools } from "./authoring-seed-tools.mjs";
@@ -201,6 +202,11 @@ async function start() {
     changed: () => designer?.refresh(),
     choose: id => designer.chooseTool(id),
   });
+  const artLibrary = createArtLibraryTools({
+    changed: () => designer?.refresh(),
+    choose: (id) => designer.chooseTool(id),
+    blocked: () => visuals.pendingArtwork(),
+  });
   const creator = authoringCreateTools({
     store,
     accounts: { state: accounts.state, requireSignIn() {
@@ -246,18 +252,21 @@ async function start() {
       ...maker.tools(),
       ...creator.tools(),
       ...visuals.tools(),
+      ...artLibrary.tools(),
     ],
     project: maker.project,
     onOpen(status) {
       seed.open(status);
       maker.clear();
       visuals.clear();
+      artLibrary.clear();
       creator.open(status);
       resumeAccount = accountHome;
     },
     onScene(place, source, status) {
       maker.sync(source, status);
       visuals.sync(source);
+      artLibrary.sync(source);
       activeAssets = cache.get(assetKey(status));
       pruneAssets();
       const next = new URL(location.href);

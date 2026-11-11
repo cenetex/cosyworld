@@ -117,7 +117,9 @@ describe("shore wants and grievances", () => {
       refusals: 0,
     };
     expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(true);
-    s = act(s, "snuff", { item: "lamp" });
+    s.items.cloth.holder = "vale";
+    s.actors.vale.heldItem = "lamp";
+    s = act(s, "cover", { item: "cloth", target: "lamp" });
     expect(resentment(s, "moth", "vale")).toBe(1);
     s.actors.moth.place = s.actors.vale.place;
     expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(false);
@@ -156,7 +158,9 @@ describe("shore wants and grievances", () => {
     let s = together(fresh());
     s.items.lamp.holder = "vale";
     s.items.lamp.lit = true;
-    s = act(s, "snuff", { item: "lamp" });
+    s.items.cloth.holder = "vale";
+    s.actors.vale.heldItem = "lamp";
+    s = act(s, "cover", { item: "cloth", target: "lamp" });
     expect(s.motives.grievances.moth[0]).toMatchObject({
       kind: "light",
       item: "lamp",
@@ -313,6 +317,8 @@ describe("shore wants and grievances", () => {
       expect(s.actors.moth.want).toMatchObject({ target: "lamp", lit: true });
       s.items.lamp.holder = "vale";
       s.items.lamp.lit = lit;
+      s.items.lamp.fuelRooms = lit ? 3 : 0;
+      s.items.lamp.fuel = lit ? 12 : 0;
       pestered(s);
       s = act(s, "give", { item: "lamp", target: "moth" });
       expect(s.log.findLast((e) => e.verb === "give").accepted).toBe(true);

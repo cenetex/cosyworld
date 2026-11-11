@@ -1,3 +1,5 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
+import { fillLampFuel, settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { crossings } from "../v2/card-game/pack-registry.mjs";
 import { crossingOpen } from "../v2/card-game/pack-rules.mjs";
 import { senses } from "../v2/card-game/world.mjs";
@@ -41,19 +43,18 @@ function clearing() {
 function pond() {
   const s = createWorld();
   s.actors.vale.place = "pond";
-  s.items.lamp.holder = "vale";
-  s.items.lamp.lit = true;
-  s.items.lamp.fuel = 12;
+  s.items.lamp.holder = "pond";
+  fillLampFuel(s);
   s.items.cloth.holder = "vale";
-  // Cover, then uncover, the lit lamp: the whole ship signal. Pip's threat
-  // over the lamp is talked down, so the room is not locked.
-  return endStandoff(
-    act(act(s, "cover", "lamp", "cloth"), "take", null, "cloth"),
-  );
+  return endStandoff(selectLamp(s, "cloth"));
 }
 function act(s, kind, target, item) {
   s = endStandoff(s);
-  if (kind === "move" && item === null && needsVoyage(s, currentActor(s), target))
+  if (
+    kind === "move" &&
+    item === null &&
+    needsVoyage(s, currentActor(s), target)
+  )
     return sailTo(s, target);
   const a = legalActions(s).find(
     (a) =>
@@ -74,8 +75,13 @@ test("the arrived ship stays available across lamp states", () => {
   const base = pond();
   assert(greekShipPresent(base));
   for (const change of [
-    (s) => (s.items.lamp.lit = false),
-    (s) => (s.items.lamp.fuel = 0),
+    (s) => {
+      s.items.lamp.holder = "vale";
+      s.actors.vale.heldItem = null;
+    },
+    (s) => {
+      s.items.lamp.fuelRooms = 0;
+    },
     (s) => (s.items.cloth.holder = "lamp"),
     (s) => (s.items.lamp.holder = "attic"),
     (s) => {
@@ -85,6 +91,7 @@ test("the arrived ship stays available across lamp states", () => {
   ]) {
     const s = structuredClone(base);
     change(s);
+    settleLamp(s);
     assert(greekShipPresent(s));
     assert(availableCards(s).includes("greek-ship"));
   }
@@ -119,11 +126,13 @@ test("ship scene variant, overlay and travel card always agree", () => {
           for (const covered of [true, false]) {
             const s = pond();
             s.items.lamp.lit = lit;
-            s.items.lamp.fuel = fuel;
+            s.items.lamp.fuelRooms = fuel / 4;
             s.items.lamp.holder = lampHere ? "vale" : "station";
             s.items.bell.holder = "pond";
             s.items.bell.ringing = ringing;
             if (covered) s.items.cloth.holder = "lamp";
+            s.actors.vale.heldItem = lit ? "lamp" : null;
+            settleLamp(s);
             const visible = greekShipPresent(s);
             assert.equal(availableCards(s).includes("greek-ship"), visible);
             assert.equal(
@@ -164,7 +173,8 @@ test("return from Greece remains available without the entry lamp", () => {
   let s = pond();
   s = act(s, "move", "greek-ship", null);
   s = act(s, "move", "greek-harbor", null);
-  s.items.lamp.lit = false;
+  s.items.lamp.fuelRooms = 0;
+  settleLamp(s);
   assert(exits(s, "greek-harbor", "vale").includes("greek-ship"));
   s = act(s, "move", "greek-ship", null);
   s = act(s, "move", "pond", null);

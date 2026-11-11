@@ -68,7 +68,7 @@ If a gate fails, fix the world (scarcity and costs), not the model.
   bandit becomes the per-avatar adjustment on top.
 - **Reuse** the classic card-policy pieces: `v2/orchestrator-rust/src/card_policy/`,
   the `.cwrank` format, the regret-weighted pairwise trainer and its gate
-  ([card-policy ranker](../../v2/docs/card-policy-ranker.md)).
+  (the card-policy ranker in `v2/orchestrator-rust/src/card_policy/`).
 
 ## Phase 6 (optional): an offline teacher
 

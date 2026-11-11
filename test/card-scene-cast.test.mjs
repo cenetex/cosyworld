@@ -14,6 +14,9 @@ import {
 const shared = { claimed: ["vale"], present: ["vale"] };
 function* scenes() {
   let world = dispatchShared({ op: "create" }).world;
+  // Quietly stow the opening lamp so the sampled plays can leave the attic.
+  world = dispatchShared({ op: "hold", world, actor: "vale", ...shared,
+    choice: { item: null, revision: world.revision } }).world;
   for (let step = 0; step < 24; step++) {
     const options = dispatchShared({
       op: "view",

@@ -15,9 +15,7 @@ releases. [cosyworld.fly.dev](https://cosyworld.fly.dev/) tests changes from
 `main` through automatic deployment.
 
 Build new game rules in these shipping modules and check them through
-`test/card-*.test.mjs`. The [generated-world backlog](../../docs/archive/backlog/generated-world-core.md)
-keeps the useful ideas from the retired standalone engine, with its source
-revision for reference. Existing player saves use `world.mjs` and
+`test/card-*.test.mjs`. Existing player saves use `world.mjs` and
 `legacy-saves.mjs`; keep their migrations with changes to the save format.
 
 ### Allocation on the play path
@@ -466,6 +464,12 @@ witnesses); draw candidates from it with a seeded weighted draw; ship a new
 rules version with released bundles kept for replay and JS/Rust agreement.
 It shares its store with [hidden holdings](../../docs/design/hidden-holdings.md).
 
+### Later: one want per avatar, Sleep at home, arcs (#2605)
+
+Owner direction, 2026-11-10. The agreed design, with today's inventory and the
+migration slices, is [wants and arcs](../../docs/design/wants-and-arcs.md).
+Nothing in it is built; the section above describes the game as it ships.
+
 ## Image-first presentation
 
 Card faces contain the illustration and a small name. People and things stand
@@ -558,6 +562,16 @@ authored requirement, or "A locked box." when no requirement can be shown.
 "Locked" sits in the same small bottom-right position as "Continue". It is
 a disabled status, not a separate action row; selecting or tapping it never
 creates a quest or takes a turn.
+A pack draws a gated way or a conditional resident as a locked box when its
+route or card carries `sealed` (a reason, and for a way a place goal): the
+Lonely Forest trail, the Sacred Way, the Long Walls, and Thaleia, an Argive
+mother, Iphis and Myrine in the Greek pack. The box cannot be entered, talked
+to or acted on until its old condition holds. A way whose preview goal names
+its own locked destination shows the authored reason, not a discovery caption.
+A way or resident whose own place
+carries the same condition has no place to lie in yet, so pack data cannot draw
+it (the Egypt, Troy and Argive accounts, the Open Door residents who share
+their section's flag, and the Ajax residents).
 When its lock clears, the box opens with the existing card reveal
 (a crossfade under reduced motion). Held previews and quest miniatures
 use the same distinction. Newly dealt quests and folded stack layers use the
@@ -628,19 +642,22 @@ New cards arrive in their normal stacks with a carved wooden-box cover. A new
 game's opening cards, such as Vale, the lamp and the attic, start covered too, as
 do a new visitor's first cards in a shared world (after the new-world title,
 the avatar's own card is already face up); a table this browser already
-knows keeps the cards its player has uncovered. The first tap uncovers a card
-without selecting it or spending a turn; subsequent taps select it normally.
+knows keeps the cards its player has uncovered. The first tap selects the closed box without showing its contents. Its
+context button opens it without spending a turn and keeps it selected.
+Tapping the selected box again lowers it without opening it.
 A place widens from the upright cover to its wider card as the lid lifts;
 with reduced motion it crossfades.
 An uncovered new card glows in its tier colour and carries no text badge.
-Covered cards cannot be dragged or paired; a tap on one reveals it first.
+A closed box can keep a known partner selected, but neither card can be
+dragged into a play until the box is open. Locked boxes still open only
+through their quests.
 Each browser remembers which cards are still covered, including after a
 reload, per table and per shared world and seat.
 The stage shows only what its player has revealed (`stage-reveal.mjs`): a
 covered person, resident or thing lying there, and a covered light someone
 carries, are not in the scene, and a covered current place is black behind
 whoever is revealed. A new world therefore opens on Vale alone, on black; the
-lamp and the attic come in as their cards are tapped, in either order. A tap
+lamp and the attic come in as their boxes are opened, in either order. Opening
 fades the figure or item in over 900 ms and brings the place's painting up
 out of the black; reduced motion shows it at once. A covered person who
 speaks is revealed with the line, there at once, so the words never wait.
@@ -732,7 +749,8 @@ that only RATi, Skull and Whiskerwind can reach.
 
 The Wolfprint Charm opens a path from Oak to the Moonlit Trail while the charm
 is at Oak: carried by someone present, put among the roots, or given to Oak.
-Taking it away closes that entrance. The return from the trail to Oak is always
+Taking it away closes that entrance. Until then the trail lies at Oak as a
+locked box, and at the garden as one until the drain is cleared. The return from the trail to Oak is always
 open. The garden path still opens after tending the drain or stones, so a first
 visitor can reach the charm on the trail before finding this shortcut.
 
@@ -1709,3 +1727,9 @@ journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
 If table startup fails, the existing dialogue bar offers Try again. It reloads
 the same page without clearing saves. The startup title releases its overlay,
 keyboard and audio ownership before the retry becomes available.
+
+If a shared play starts in another tab before this table receives its update,
+trying another action returns directly to the current play. The table refreshes
+its server view without resending the rejected action or claiming its rewards.
+Authentication and other real errors still show normally. Covered by
+`smoke-card-resume-play.mjs` at desktop and phone widths.

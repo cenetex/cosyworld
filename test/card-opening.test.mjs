@@ -1,3 +1,6 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
+import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
+import { settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -37,13 +40,13 @@ const act = (s, kind, fields) => {
   return result.state;
 };
 const meetEveryone = () =>
-  act(act(act(fresh(), "snuff"), "move", { target: "pond" }), "move", {
+  act(act(selectLamp(fresh()), "move", { target: "pond" }), "move", {
     target: "station",
   });
 
 describe("dousing the lamp in the attic", () => {
   it("brings the first quest on arrival at the Black Pond, and keeps it", () => {
-    let s = act(fresh(), "snuff");
+    let s = selectLamp(fresh());
     expect(s.actors.vale.want).toBeNull();
     s = act(s, "move", { target: "pond" });
     expect(s.actors.vale.place).toBe("pond");
@@ -67,7 +70,9 @@ describe("dousing the lamp in the attic", () => {
     expect(sceneCast(s)).toEqual(["vale", null]);
     expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);
-    expect(cardPlay(s, ["lamp"]).action.kind).toBe("snuff");
+    expect(
+      legalActions(s).some((a) => ["light", "snuff"].includes(a.kind)),
+    ).toBe(false);
     // The first quest comes at the Black Pond.
     expect(s.actors.vale.want).toBeNull();
     expect(placeText(s, "attic")).toContain("Dust gathers");
@@ -76,31 +81,31 @@ describe("dousing the lamp in the attic", () => {
     );
   });
 
-  it("opens the mirror when the full lamp burns out by itself, with no douse", () => {
+  it("keeps the opening lit through waiting and sleeping until the lamp is stowed", () => {
     let s = fresh();
     expect(exits(s, "attic")).toEqual([]);
-    // Wait is one turn, even in the attic sanctuary.
     s = act(s, "wait");
     expect(s.turn).toBe(1);
-    expect(s.items.lamp).toMatchObject({ lit: true, fuel: 11 });
-    // Sleep wakes Vale as the lamp gutters, with one oil left.
+    expect(s.items.lamp).toMatchObject({ lit: true, fuel: 12, fuelRooms: 3 });
     s = act(s, "wait", { sleep: true });
-    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 1 });
-    expect(s.actors.vale.sleeping).toBeUndefined();
-    expect(s.log.at(-1)).toMatchObject({
-      verb: "wait",
-      woke: "lamp",
-      text: "Vale wakes as the lamp gutters.",
+    expect(s.items.lamp).toMatchObject({
+      holder: "vale",
+      lit: true,
+      fuelRooms: 3,
     });
-    // Nine turns is a short rest: no dream.
-    expect(s.log.at(-1).rest).toBeUndefined();
+    expect(s.actors.vale.sleeping).toBeUndefined();
+    expect(s.log.some((e) => e.woke === "lamp" || e.woke === "dry")).toBe(
+      false,
+    );
     expect(exits(s, "attic")).toEqual([]);
-    // With one oil left, Sleep would sleep through the burnout: only Wait.
-    expect(legalActions(s).some((a) => a.sleep)).toBe(false);
-    // The next one-turn Wait burns the last oil and opens the mirror.
-    s = act(s, "wait");
-    expect(s.log.some((e) => e.verb === "snuff")).toBe(false);
-    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: false, fuel: 0 });
+    const before = s.turn;
+    s = selectLamp(s);
+    expect(s.turn).toBe(before);
+    expect(s.items.lamp).toMatchObject({
+      holder: "vale",
+      lit: false,
+      fuelRooms: 3,
+    });
     expect(exits(s, "attic")).toEqual(["pond"]);
     expect(act(s, "move", { target: "pond" }).actors.vale.place).toBe("pond");
   });
@@ -123,16 +128,16 @@ describe("dousing the lamp in the attic", () => {
     // Vale holds no quest in the attic, so nothing is met there.
     expect(s.actors.vale.xp).toBe(0);
     expect(levelOf(s, "vale")).toBe(1);
-    // The lamp burned dry while everyone waited; its dark opens the mirror.
-    expect(s.items.lamp).toMatchObject({ lit: false, fuel: 0 });
-    expect(exits(s, "attic")).toEqual(["pond"]);
+    // Waiting does not spend room fuel or open the mirror.
+    expect(s.items.lamp).toMatchObject({ lit: true, fuel: 12 });
+    expect(exits(s, "attic")).toEqual([]);
     expect(s.actors.vale.place).toBe("attic");
     expect(knownActors(s)).toEqual(["vale"]);
   });
 
   it("reveals a path card while Vale stays in the attic, then travels when it is played", () => {
     const before = fresh();
-    const lit = act(before, "snuff");
+    const lit = selectLamp(before);
     expect(lit.actors.vale.place).toBe("attic");
     expect(lit.items.lamp).toMatchObject({
       holder: "vale",
@@ -153,16 +158,11 @@ describe("dousing the lamp in the attic", () => {
     expect(
       lit.log.some((e) => e.verb === "want_met" && e.actorId === "vale"),
     ).toBe(false);
-    expect(turnOutcome(lit)).toMatchObject({
-      card: { kind: "snuff" },
-      avatars: [{ id: "vale", location: "attic", travel: null }],
-    });
-    expect(turnOutcome(lit).items.map((i) => i.id)).toEqual(["lamp"]);
+    // A quiet hand choice makes no turn outcome or narrated action.
+    expect(lit.turn).toBe(before.turn);
+    expect(lit.log).toEqual(before.log);
     expect(currentScene(lit).locationId).toBe("attic");
     expect(sceneCast(lit)).toEqual(["vale", null]);
-    expect(narrativeContext(lit).events.join(" ")).toContain(
-      "opens a path to the pond",
-    );
     expect(JSON.stringify(narrativeContext(lit))).not.toMatch(
       /keeper|moth|Pip/,
     );
@@ -174,12 +174,12 @@ describe("dousing the lamp in the attic", () => {
     expect(s.opening).toEqual({
       version: 1,
       crossed: true,
-      met: { vale: 0, moth: 2 },
+      met: { vale: 0, moth: 1 },
     });
     expect(
       s.log.some(
         (e) =>
-          e.turn === 2 &&
+          e.turn === 1 &&
           e.kind === "action" &&
           ["moth", "keeper"].includes(e.actorId),
       ),
@@ -249,20 +249,20 @@ describe("dousing the lamp in the attic", () => {
     expect(next.entities.find((e) => e.id === "attic").facts).toContain(
       "Paths visible now: none.",
     );
-    const lit = act(s, "snuff");
+    const lit = selectLamp(act(s, "take", { item: "lamp" }));
     expect(
       narrativeContext(lit).entities.find((e) => e.id === "attic").facts,
     ).toContain("An open passage is visible in the reflection.");
   });
 
   it("meets the keeper on reaching the station", () => {
-    let s = act(fresh(), "snuff");
+    let s = selectLamp(fresh());
     s = act(s, "move", { target: "pond" });
     expect(knownActors(s)).toEqual(["vale", "moth"]);
     const keeper = structuredClone(s.actors.keeper);
     s = act(s, "move", { target: "station" });
     expect(s.actors.keeper).toEqual(keeper);
-    expect(s.opening.met.keeper).toBe(3);
+    expect(s.opening.met.keeper).toBe(2);
     // The newcomer greets; the first arrival also captions the station.
     expect(narrativeContext(s)).toMatchObject({
       occasion: "first_meeting",
@@ -282,7 +282,7 @@ describe("dousing the lamp in the attic", () => {
     s = act(s, "wait");
     expect(
       s.log.some(
-        (e) => e.turn === 4 && e.actorId === "keeper" && e.kind === "action",
+        (e) => e.turn === 3 && e.actorId === "keeper" && e.kind === "action",
       ),
     ).toBe(true);
   });
@@ -306,7 +306,7 @@ describe("dousing the lamp in the attic", () => {
       true,
     );
     s = act(s, "move", { target: "attic" });
-    s = act(act(s, "snuff"), "move", { target: "pond" });
+    s = act(selectLamp(s), "move", { target: "pond" });
     expect(s.actors.vale.place).toBe("pond");
     expect(s.opening.met.moth).toBe(s.turn);
     const ask = (world, op, extra) =>
@@ -325,14 +325,19 @@ describe("dousing the lamp in the attic", () => {
     expect(played.world.actors.vale.place).toBe("forest-cottage");
   });
 
-  it("takes the lamp when relighting it and opens the mirror when its fuel runs out", () => {
-    let dropped = act(act(fresh(), "drop", { item: "lamp" }), "snuff");
-    dropped = act(dropped, "light");
-    expect(dropped.items.lamp.holder).toBe("vale");
-    expect(dropped.actors.vale.place).toBe("attic");
+  it("keeps a placed lamp burning and restores a genuinely exhausted opening", () => {
+    const dropped = act(fresh(), "drop", { item: "lamp" });
+    expect(dropped.items.lamp).toMatchObject({
+      holder: "attic",
+      lit: true,
+      fuelRooms: 3,
+    });
+    const picked = act(dropped, "take", { item: "lamp" });
+    expect(picked.items.lamp.holder).toBe("vale");
+    expect(selectLamp(picked).items.lamp.lit).toBe(false);
     let s = fresh();
-    for (let i = 0; i < 12; i++) s = act(s, "wait");
-    expect(s.items.lamp.fuel).toBe(0);
+    Object.assign(s.items.lamp, roomFuelFromTurns(0, "attic"));
+    settleLamp(s);
     expect(s.opening.crossed).toBe(false);
     expect(knownActors(s)).toEqual(["vale"]);
     s = decodeSave(encodeSave(s));
@@ -355,7 +360,7 @@ describe("dousing the lamp in the attic", () => {
       kind: "item",
       target: "bell",
     });
-    for (const s of [fresh(), act(fresh(), "snuff"), meetEveryone()])
+    for (const s of [fresh(), selectLamp(fresh()), meetEveryone()])
       expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
@@ -390,7 +395,6 @@ describe("dousing the lamp in the attic", () => {
               "trade",
               "accompany",
               "talk",
-              "light",
             ].includes(a.kind),
           ),
           a = i % 3 ? plan(s).action : acts[seed % acts.length];

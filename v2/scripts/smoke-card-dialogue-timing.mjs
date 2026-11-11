@@ -8,6 +8,7 @@ import {
   createWorld,
   encodeSave,
   legalActions,
+  holdChoice,
   nameOf,
   play,
 } from "../card-game/world.mjs";
@@ -16,18 +17,24 @@ import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
 
 function fixture(kind) {
   let world = enableMotives(createWorld({ opening: true }));
-  // The opening starts lit: douse it to open the mirror, then relight it at
-  // the pond (#1653).
-  for (const kind of ["snuff", "move", "light"])
-    world = play(
-      world,
-      legalActions(world).find(
-        (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
-      ),
-    ).state;
+  // Hold/stow replaced the retired Light/Snuff actions. Cross using the
+  // actual dark mirror, then leave the hand empty for the selected pairing.
+  holdChoice(world, "vale", { item: null, revision: world.revision });
+  const crossing = legalActions(world).find(
+    (action) => action.kind === "move" && action.target === "pond",
+  );
+  assert.ok(crossing, "The stowed lamp opens the mirror crossing");
+  world = play(world, crossing).state;
   world.actors.keeper.place = "pond";
-  world.opening.met.keeper = 0;
-  if (kind === "light") world.items.lamp.lit = false;
+  world.opening.met.keeper = world.turn;
+  if (kind === "take") {
+    world.items.lamp.holder = "pond";
+    holdChoice(world, "vale", { item: null, revision: world.revision });
+    assert.equal(world.items.lamp.lit, true, "The grounded fueled lamp is lit");
+    assert.ok(
+      legalActions(world).some((a) => a.kind === "take" && a.item === "lamp"),
+    );
+  }
   // The keeper's pack is private until Vale's want names his cloth (#1791).
   if (kind === "ask")
     world.actors.vale.want = {
@@ -60,7 +67,7 @@ try {
     [320, 568, "reduce"],
     [390, 844, "no-preference"],
   ]) {
-    for (const kind of ["ask", "talk", "light", "wait"]) {
+    for (const kind of ["ask", "talk", "take", "wait"]) {
       const page = await browser.newPage({
         viewport: { width, height },
         reducedMotion: motion,
@@ -104,7 +111,7 @@ try {
         const id = {
           ask: "cloth",
           talk: "keeper",
-          light: "lamp",
+          take: "lamp",
           wait: "pond",
         }[kind];
         await selectCard(page, id);
@@ -112,31 +119,7 @@ try {
           '#card-actions .card-primary:not([data-revealing="true"])',
         );
         await action.waitFor();
-        if (kind === "light" && !SPEECH_OCCASIONS.includes("action")) {
-          // The earlier speech rules keep this item action quiet.
-          await action.click();
-          await page.waitForFunction(
-            () => document.querySelector("#hand").dataset.cooling === "false",
-          );
-          await page.waitForTimeout(600);
-          assert.equal(request, undefined);
-          assert.equal(await card("vale").isDisabled(), false);
-          const world = await state();
-          assert.equal(world.items.lamp.lit, true);
-          const cast = await page
-            .locator('#cast [data-avatar][aria-hidden="false"]')
-            .evaluateAll((nodes) => nodes.map((node) => node.dataset.avatar));
-          // Pip wants the lamp, so Pip stays to ask Vale for it; the keeper
-          // leaves for the bell at the station.
-          assert.deepEqual(cast.sort(), ["moth", "vale"]);
-          assert.equal(await card("keeper").count(), 0);
-          assert.equal(world.actors.moth.want?.target, "lamp");
-          assert.equal(world.actors.keeper.place, "station");
-          assert.deepEqual(errors, []);
-          report.passed = true;
-          // Skip the speech checks below; the page still closes.
-          throw null;
-        }
+        assert.equal(await action.getAttribute("data-action"), kind);
         const requested = page.waitForRequest("**/card-game/text");
         const start = performance.now();
         await action.click();
@@ -243,8 +226,12 @@ try {
         // A speaker who left this turn speaks at the destination (#1437), so
         // only the speakers still in this room take a turn here.
         const committed = await state();
-        if (kind === "light") {
+        if (kind === "take") {
           assert.equal(committed.items.lamp.lit, true);
+          const cast = await page
+            .locator('#cast [data-avatar][aria-hidden="false"]')
+            .evaluateAll((nodes) => nodes.map((node) => node.dataset.avatar));
+          assert.deepEqual(cast.sort(), ["moth", "vale"]);
           assert.equal(committed.actors.moth.want?.target, "lamp");
           assert.equal(committed.actors.keeper.place, "station");
           assert.equal(await card("keeper").count(), 0);
@@ -320,12 +307,10 @@ try {
         assert.deepEqual(errors, []);
         report.passed = true;
       } catch (error) {
-        // The silent play's checks end early by throwing null.
-        if (error !== null) report.error = error.stack;
-        if (error !== null)
-          await page.screenshot({
-            path: new URL(`${kind}-failure-${width}.png`, output).pathname,
-          });
+        report.error = error.stack;
+        await page.screenshot({
+          path: new URL(`${kind}-failure-${width}.png`, output).pathname,
+        });
       } finally {
         await page.close();
       }

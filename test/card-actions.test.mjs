@@ -78,7 +78,7 @@ describe("named card actions", () => {
     const world = meeting();
     world.items.oil.holder = "vale";
     world.items.cloth.holder = "vale";
-    expect(primary(world, ["vale", "lamp"]).kind).toBe("light");
+    expect(kinds(world, ["vale", "lamp"])).toEqual([]);
     // The flask refuels an empty lamp on its own; the pair has no play.
     expect(kinds(world, ["oil", "lamp"])).toEqual([]);
     expect(primary(world, ["cloth", "lamp"]).kind).toBe("cover");
@@ -86,9 +86,9 @@ describe("named card actions", () => {
     expect(playLabel(primary(world, ["cloth", "lamp"]))).toBe("Uncover");
     world.items.lamp.holder = "station";
     world.items.cloth.holder = "vale";
-    expect(primary(world, ["lamp", "station"]).kind).toBe("light");
+    expect(kinds(world, ["lamp", "station"])).toEqual([]);
     world.items.lamp.lit = true;
-    expect(primary(world, ["lamp", "station"]).kind).toBe("snuff");
+    expect(kinds(world, ["lamp", "station"])).toEqual([]);
     expect(primary(world, ["bell", "station"]).kind).toBe("ring");
   });
   it("shows the wait verb as Wait", () => {

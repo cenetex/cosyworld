@@ -50,7 +50,7 @@ fn a_reading_scene_keeps_the_seat_and_progress_until_the_move_can_finish() {
         grown.game["actors"]["mara"]["xp"] = json!(6);
         grown.game["actors"]["mara"]["level"] = json!(3);
         full_store::seed(&c, &first, &grown, "test", now()).unwrap();
-        let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+        let app = crate::test_app_state(Some(path.clone()));
         full::command_as(&app, &first, "player", &command("claim"), None).unwrap();
         let a = actor_index("mara").unwrap();
         // A published scene stays at the table while its words are read.
@@ -123,7 +123,7 @@ fn a_move_upgrades_rules_that_predate_reset_before_freeing_the_old_seat() {
     )
     .unwrap();
     bindings::claim(&c, &first, "player", a).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+    let app = crate::test_app_state(Some(path.clone()));
     full::command_as(&app, &second, "player", &command("claim"), None).unwrap();
     let old = full_store::world(&c, &first, now()).unwrap();
     assert_eq!(old.version, engine::VERSION);

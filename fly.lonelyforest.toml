@@ -6,16 +6,11 @@ primary_region = "sjc"
 # retired; their data remains under /data/worldpacks.
 
 [env]
-  COSYWORLD_PRIMARY_GAME = "cards"
-  COSYWORLD_CARD_POLICY_MODE = "shadow"
-  COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"
-  COSYWORLD_CARD_POLICY_TOP_K = "3"
   COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_LOG_FORMAT = "json"
   COSYWORLD_LOG_TENANT = "root"
   COSYWORLD_LOG_WORLDPACK = "official"
-  # Process and shard identity predate the single-process layout; the journal
-  # and leases are keyed to them, so they keep their tenant-era values.
+  # Process and shard identity keep their tenant-era values.
   COSYWORLD_PROCESS_ID = "lonelyforest-root"
   COSYWORLD_V2_SHARD_ID = "lonelyforest-root"
   COSYWORLD_V2_ADDR = "0.0.0.0:3000"
@@ -27,36 +22,9 @@ primary_region = "sjc"
   COSYWORLD_WEBAUTHN_EXTRA_ORIGINS = "https://www.lonelyforest.com"
   # Finish HTTP drain before Fly escalates the initial deploy signal.
   COSYWORLD_SHUTDOWN_DRAIN_MS = "3000"
-  # One volume can attach to only one Machine, so a five-second stale-owner
-  # fence is sufficient and bounds write unavailability after process restart.
-  COSYWORLD_CANONICAL_LEASE_TTL_MS = "5000"
-  COSYWORLD_RENDEZVOUS_PARTY_MAX_GUESTS = "4"
-  COSYWORLD_RENDEZVOUS_PARTY_MAX_ACTIVE_PER_GUEST = "4"
-  COSYWORLD_RENDEZVOUS_PARTY_TTL_SECS = "7200"
-  COSYWORLD_STORY_METRICS_RETENTION_DAYS = "400"
-  COSYWORLD_GENERATION_DEFAULT_MODE = "off"
-  COSYWORLD_GENERATION_FEATURE_MODES_JSON = "{\"pathway_content\":\"auto_bounded\"}"
-  COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"
-  COSYWORLD_REPLICATE_AVATAR_LORA = "immanencer/mirquo"
-  COSYWORLD_REPLICATE_AVATAR_LORA_INPUT = "lora_weights"
-  COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT = "lora_scale"
-  COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"
   COSYWORLD_AI_PROVIDER = "openrouter"
   OPENROUTER_CHAT_MODEL = "openai/gpt-6-luna"
-  COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"
-  COSYWORLD_AI_VISION_REASONING_EFFORT = "low"
   OPENROUTER_REASONING_EFFORT = "none"
-  # Directly controlled avatars use the GPT-6 Luna route. Elysium
-  # residents keep their exact bindings. Four attempts share one 12-second
-  # ceiling and give duplicate/shape feedback room to converge.
-  COSYWORLD_AI_VOICE_MAX_ATTEMPTS = "4"
-  # The most expensive raw binding is $150/M input and $600/M output. This
-  # covers four 160-token responses, a 1,200-character input, and retry feedback.
-  COSYWORLD_AI_VOICE_SPEND_CEILING_MICRODOLLARS = "650000"
-  # The decision model answers typed yes/no questions with probabilities (the
-  # OpenRouter Decisions API). Only worlds whose pack opts in use it, and every
-  # call fails open to the previous behaviour.
-  COSYWORLD_AI_DECISION_MODEL = "typesafe/jev-1.13"
   COSYWORLD_CARD_TEXT_MODEL = "openai/gpt-6-luna"
   COSYWORLD_CARD_TEXT_REASONING_EFFORT = "none"
   # Each authored card-world character keeps one exact OpenRouter model.

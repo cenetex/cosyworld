@@ -21,7 +21,7 @@ import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { CONTENT_TURNS, pushQuest, questsOf } from "../v2/card-game/want.mjs";
 import { upgradeGreekDecreeSave } from "../v2/card-game/legacy-saves.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands, openingFixture } from "./helpers/greek-opening.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { courseOptions } from "../v2/card-game/pack-transport.mjs";
 
@@ -65,7 +65,7 @@ const fetched = (s, id) => {
 
 describe("Dione's bread", () => {
   it("bakes from the returned jar and her own wheat, then sends each home", () => {
-    const states = openingFixture("burial");
+    const states = greekErrands();
     let s = states.waterOffer;
     // Locked at her courtyard, the box names who makes it from what.
     expect(locked(s, "greek-bread")).toBe(true);
@@ -90,7 +90,7 @@ describe("Dione's bread", () => {
 
   it("is eaten by whoever holds it and goes home locked", () => {
     let s = take(
-      walk(openingFixture("burial").water, "courtyard"),
+      walk(greekErrands().water, "courtyard"),
       "greek-bread",
     );
     const eat = cardActions(s, ["greek-bread"]).actions[0];
@@ -107,7 +107,7 @@ describe("Dione's bread", () => {
 
 describe("the guard and the decree", () => {
   it("guards the gate until he holds Creon's writ, and again once it leaves him", () => {
-    const states = openingFixture("concession");
+    const states = greekErrands();
     let s = states.decree;
     expect(s.items["greek-decree"].holder).toBe(GUARD);
     expect(s.items["greek-creon-writ"].holder).toBe("greek-creon");
@@ -158,7 +158,7 @@ describe("the guard and the decree", () => {
     // his post is the way out (rules 100), and the decree falls to the
     // winner's reach.
     let s = take(
-      walk(openingFixture("burial").water, "courtyard"),
+      walk(greekErrands().water, "courtyard"),
       "greek-bread",
     );
     s = walk(act(s, "eat", { item: "greek-bread", target: null }), "gate");
@@ -189,7 +189,7 @@ describe("the guard and the decree", () => {
   });
 
   it("joins the regular want system once fed", () => {
-    let s = openingFixture("burial").traded;
+    let s = greekErrands().traded;
     for (let i = 0; i <= CONTENT_TURNS && !s.actors[GUARD].want; i++)
       s = act(s, "wait");
     const want = s.actors[GUARD].want;
@@ -210,7 +210,7 @@ describe("the guard and the decree", () => {
   });
 
   it("bakes a second bread from wheat brought home", () => {
-    let s = openingFixture("burial").traded;
+    let s = greekErrands().traded;
     s = act(walk(s, "courtyard"), "drop", {
       item: "greek-decree",
       target: "greek-courtyard",
@@ -228,7 +228,7 @@ describe("the guard and the decree", () => {
 
 describe("eat and drink quests", () => {
   // The wine skin lies at the gate, its home; Antigone waits there too.
-  const atGate = () => take(openingFixture("burial").decree, "greek-wine-skin");
+  const atGate = () => take(greekErrands().decree, "greek-wine-skin");
 
   it("reads Drink for a drink and shares only with a willing companion", () => {
     let s = atGate();
@@ -323,7 +323,7 @@ describe("the Charybdis's provisions", () => {
     return s;
   }
   it("are made at the harbour, sail, stay aboard and go home locked when eaten", () => {
-    let s = walk(relock(openingFixture("exposure").water), "harbor");
+    let s = walk(relock(greekErrands().water), "harbor");
     expect(locked(s, "greek-provisions")).toBe(true);
     expect(sealedReason(s, "greek-provisions")).toBe(
       "Myrto the Shipmaster consumes the Courtyard Bread, the Dried Figs and the Wine Skin",
@@ -384,7 +384,7 @@ describe("the Charybdis's provisions", () => {
   });
 
   it("share the one bread with the guard: sea first, then land", () => {
-    let s = pack3(walk(relock(openingFixture("exposure").water), "harbor"));
+    let s = pack3(walk(relock(greekErrands().water), "harbor"));
     expect(locked(s, "greek-bread")).toBe(true);
     s = act(take(s, "greek-provisions"), "move", { target: "greek-ship" });
     s = act(s, "drop", { item: "greek-provisions", target: "greek-ship" });
@@ -422,7 +422,7 @@ describe("the Charybdis's provisions", () => {
 
 describe("the revision 20 upgrade", () => {
   it("forgets a shared world's latch on the gate", () => {
-    const s = structuredClone(openingFixture("burial").waterOffer);
+    const s = structuredClone(greekErrands().waterOffer);
     s.packs["greek-drama"].revision = 19;
     s.openedRoutes = [`${GATE}>${FIELD}`];
     upgradeGreekDecreeSave(s);

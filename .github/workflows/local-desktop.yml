@@ -118,7 +118,7 @@ jobs:
           game="$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app/Contents/Resources/game/cosyworld-orchestrator"
           voice="$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app/Contents/Resources/voice/cosyworld-voices/cosyworld-voices"
           refs="$CARGO_TARGET_DIR/release/bundle/macos/CosyWorld.app/Contents/Resources/voices/voices.json"
-          export COSYWORLD_LOCAL_APP=1 COSYWORLD_PRIMARY_GAME=cards COSYWORLD_V2_ADDR=127.0.0.1:3110
+          export COSYWORLD_LOCAL_APP=1 COSYWORLD_V2_ADDR=127.0.0.1:3110
           export COSYWORLD_AI_BASE_URL=embedded://llama COSYWORLD_AI_MODEL=gemma3:1b
           export COSYWORLD_LLAMA_MODEL="$RUNNER_TEMP/cosy-dialogue/gemma3-1b-q4.gguf"
           export COSYWORLD_LLAMA_CONTEXT=2048

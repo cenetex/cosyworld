@@ -1,3 +1,4 @@
+import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -86,7 +87,7 @@ function island() {
     questPrograms: true,
     personalQuests: true,
   });
-  world = act(world, { kind: "snuff", item: "lamp" });
+  world = selectLamp(world);
   world = move(world, "pond");
   expect(world.actors.vale.place).toBe("pond");
   world.crossings["pond-greek-harbor"].discovered = true;
@@ -250,7 +251,7 @@ describe("The Willows", () => {
       questPrograms: true,
       personalQuests: true,
     });
-    world = move(act(world, { kind: "snuff", item: "lamp" }), "pond");
+    world = move(selectLamp(world), "pond");
     world.crossings["pond-greek-harbor"].discovered = true;
     summonTransport(world, "greek-ship", "pond");
     world = move(world, "greek-ship");
