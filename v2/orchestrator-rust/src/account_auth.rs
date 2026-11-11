@@ -67,6 +67,7 @@ pub(super) struct AccountAuth {
 struct DiscordOauthAttempt {
     expires_at: Instant,
     redirect: String,
+    code_verifier: String,
 }
 
 enum AccountCeremony {
@@ -436,7 +437,7 @@ impl AccountAuth {
         Ok(())
     }
 
-    fn store_discord_state(&self, redirect: String) -> String {
+    fn store_discord_state(&self, redirect: String, code_verifier: String) -> String {
         let state = random_hex(32);
         self.cleanup_discord_states();
         if let Ok(mut states) = self.discord_states.lock() {
@@ -445,6 +446,7 @@ impl AccountAuth {
                 DiscordOauthAttempt {
                     expires_at: Instant::now() + CEREMONY_TTL,
                     redirect,
+                    code_verifier,
                 },
             );
         }
@@ -458,7 +460,7 @@ impl AccountAuth {
         }
     }
 
-    fn take_discord_state(&self, state: &str) -> AccountResult<String> {
+    fn take_discord_state(&self, state: &str) -> AccountResult<(String, String)> {
         self.cleanup_discord_states();
         let removed = self
             .discord_states
@@ -467,7 +469,7 @@ impl AccountAuth {
             .remove(state);
         removed
             .filter(|attempt| attempt.expires_at > Instant::now())
-            .map(|attempt| attempt.redirect)
+            .map(|attempt| (attempt.redirect, attempt.code_verifier))
             .ok_or_else(|| account_error("discord authorization attempt is missing or expired"))
     }
 
@@ -599,6 +601,10 @@ struct DiscordStartResponse {
     authorize_url: String,
 }
 
+fn pkce_challenge(code_verifier: &str) -> String {
+    URL_SAFE_NO_PAD.encode(Sha256::digest(code_verifier.as_bytes()))
+}
+
 fn bot_rate_limit_allow(discord_user: &str) -> bool {
     use crate::rate_limit::{RateLimit, RateLimiter};
     use std::sync::{Mutex, OnceLock};
@@ -683,7 +689,9 @@ pub(super) async fn discord_login_start(
         Ok(uri) => uri,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
-    let state = auth.store_discord_state(payload.redirect);
+    let code_verifier = random_hex(64);
+    let code_challenge = pkce_challenge(&code_verifier);
+    let state = auth.store_discord_state(payload.redirect, code_verifier);
     let authorize_url = match reqwest::Url::parse("https://discord.com/oauth2/authorize") {
         Ok(mut url) => {
             url.query_pairs_mut()
@@ -691,7 +699,9 @@ pub(super) async fn discord_login_start(
                 .append_pair("response_type", "code")
                 .append_pair("redirect_uri", &redirect_uri)
                 .append_pair("scope", "identify")
-                .append_pair("state", &state);
+                .append_pair("state", &state)
+                .append_pair("code_challenge", &code_challenge)
+                .append_pair("code_challenge_method", "S256");
             url.to_string()
         }
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
@@ -711,8 +721,8 @@ pub(super) async fn discord_login_callback(
     axum::extract::Query(params): axum::extract::Query<DiscordCallbackParams>,
 ) -> Response {
     let auth = &state.account_auth;
-    let redirect = match auth.take_discord_state(&params.state) {
-        Ok(redirect) => redirect,
+    let (redirect, code_verifier) = match auth.take_discord_state(&params.state) {
+        Ok(value) => value,
         Err(error) => return auth_message(StatusCode::BAD_REQUEST, error.to_string()),
     };
     let (client_id, client_secret) = match discord_credentials() {
@@ -732,6 +742,7 @@ pub(super) async fn discord_login_callback(
             ("grant_type", "authorization_code"),
             ("code", params.code.as_str()),
             ("redirect_uri", redirect_uri.as_str()),
+            ("code_verifier", code_verifier.as_str()),
         ])
         .send()
         .await
@@ -1647,9 +1658,21 @@ mod discord_auth_tests {
     #[test]
     fn discord_state_round_trip_and_expiry() {
         let auth = test_auth();
-        let state = auth.store_discord_state("/cards".to_string());
-        assert_eq!(auth.take_discord_state(&state).unwrap(), "/cards");
+        let state = auth.store_discord_state("/cards".to_string(), "verifier".to_string());
+        assert_eq!(
+            auth.take_discord_state(&state).unwrap(),
+            ("/cards".to_string(), "verifier".to_string())
+        );
         assert!(auth.take_discord_state(&state).is_err());
+    }
+
+    #[test]
+    fn pkce_challenge_is_base64url_sha256() {
+        // RFC 7636 appendix B test vector.
+        assert_eq!(
+            pkce_challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
+            "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+        );
     }
 
     #[test]
