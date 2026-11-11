@@ -109,6 +109,7 @@ pub(in crate::card_shared) fn command(work: &Work, entries: Vec<Value>) -> Value
 pub(in crate::card_shared) fn commit(
     state: &AppState,
     id: &str,
+    revision: &crate::account_revision::Revision,
     command: Value,
 ) -> super::Result<bool> {
     let mut c = db(state)?;
@@ -118,6 +119,7 @@ pub(in crate::card_shared) fn commit(
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(super::sql_error)?;
+    revision.check(&tx).map_err(|error| error.to_string())?;
     let play = command["play"].as_str().unwrap_or_default();
     let time = now();
     let mut w = store::world(&tx, id, time)?;
@@ -186,7 +188,8 @@ pub(in crate::card_shared) fn spawn(state: AppState, id: String, work: Work, lin
             return;
         }
         let command = command(&work, entries);
-        let done = tokio::task::spawn_blocking(move || commit(&state, &id, command)).await;
+        let done =
+            tokio::task::spawn_blocking(move || commit(&state, &id, &work.revision, command)).await;
         if !matches!(done, Ok(Ok(_))) {
             tracing::warn!(result = ?done, "a shared reflection was not kept");
         }

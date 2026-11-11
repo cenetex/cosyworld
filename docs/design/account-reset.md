@@ -34,3 +34,10 @@ admission must also check its captured revision inside its write transaction.
 The eventual endpoint needs a persistent idempotency receipt, including retry
 after a lost response, and recoverable private-file cleanup. These operations
 are deliberately not part of the revision foundation.
+
+## Shared mutation integration
+
+Shared world creation, commands and browser-supplied dialogue now capture the
+revision at admission. Creation and commands check it inside their write
+transaction; dialogue workers carry it to the final publication transaction.
+Maker guards and the reset operation are still required before enabling reset.
