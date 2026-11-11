@@ -176,7 +176,7 @@ async fn accept(
             owner.check(&tx).map_err(Failed::from)?;
             let added = tx.execute(
                 "INSERT INTO authoring_jobs(id,owner,kind,request_key,digest,status,created_at,updated_at)
-                VALUES(?,?,?,?,?,'queued',?,?)",
+                VALUES(?,?,?,?,?,'running',?,?)",
                 params![id, owner, kind, key, digest, now, now],
             );
             match added {
@@ -209,7 +209,7 @@ async fn accept(
     tokio::spawn(execute(state.clone(), owner, id.clone(), run, permit));
     Ok((
         StatusCode::ACCEPTED,
-        json!({"id":id,"kind":input.kind,"status":"queued","createdAt":now}),
+        json!({"id":id,"kind":input.kind,"status":"running","createdAt":now}),
     ))
 }
 
@@ -241,13 +241,10 @@ async fn execute(
     run: Run,
     permit: admission::Permit,
 ) {
-    // Held while the provider works and the result is stored, whoever is still listening.
-    if settle(&state, &owner, &id, "running", None, None)
-        .await
-        .is_err()
-    {
-        return;
-    }
+    // Admission committed the running claim and checked the revision atomically.
+    // Reset either commits first (admission fails) or sees this active job (reset
+    // fails). Do not add a fallible transition between acceptance and paid work.
+    // The permit stays held while the provider works and the result is stored.
     // Its own task, so a panic inside a provider call still ends in a recorded failure.
     let done = tokio::spawn(run.execute()).await.unwrap_or_else(|_| {
         Err(Failed::new(

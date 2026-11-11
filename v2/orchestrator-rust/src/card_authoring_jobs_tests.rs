@@ -253,7 +253,7 @@ async fn each_kind_runs_to_a_stored_result_that_matches_the_synchronous_route() 
 
     let (status, job) = h.create(&cookie, "avatars", avatars()).await;
     assert_eq!(status, 202);
-    assert_eq!(job["status"], "queued");
+    assert_eq!(job["status"], "running");
     assert_eq!(job["kind"], "avatars");
     assert!(job["createdAt"].as_i64().unwrap() > 0);
     let done = h.finished(&cookie, job["id"].as_str().unwrap()).await;
@@ -1025,4 +1025,59 @@ async fn late_job_file_and_settlement_keep_the_original_revision() {
         .query_row("SELECT owner FROM authoring_assets", [], |r| r.get(0))
         .unwrap();
     assert_eq!(owner, "maker");
+}
+
+#[tokio::test]
+async fn failed_running_claim_never_accepts_or_strands_paid_work() {
+    let h = Harness::new().await;
+    let cookie = h.cookie("maker");
+    *h.chat.lock().unwrap() = (StatusCode::OK, world(), "stop");
+    let c = open(&h.state).unwrap();
+    c.execute_batch(
+        "CREATE TRIGGER reject_running_insert BEFORE INSERT ON authoring_jobs
+        WHEN NEW.status='running' BEGIN SELECT RAISE(ABORT,'fixture unavailable'); END;
+        CREATE TRIGGER reject_running_update BEFORE UPDATE OF status ON authoring_jobs
+        WHEN NEW.status='running' BEGIN SELECT RAISE(ABORT,'fixture unavailable'); END;",
+    )
+    .unwrap();
+    let headers = [("idempotency-key", "0b0e3e3a-6d0c-4c0e-9d6f-4c5f2b0a9b11")];
+    let body = json!({"kind":"seed","request":seed()});
+    // Keep storage unavailable across retries, not only the first failed write.
+    for _ in 0..2 {
+        let (status, failure) = h
+            .call(&cookie, "POST", ROUTE, Some(body.clone()), &headers)
+            .await;
+        assert_eq!(status, 503, "{failure}");
+        assert_eq!(failure["code"], "jobs_unavailable");
+        let count: usize = c
+            .query_row("SELECT count(*) FROM authoring_jobs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+        assert_eq!(h.provider_calls(), 0);
+        assert_eq!(
+            h.call(
+                &cookie,
+                "GET",
+                &format!("{ROUTE}/by-request"),
+                None,
+                &headers
+            )
+            .await
+            .0,
+            404
+        );
+    }
+    c.execute_batch("DROP TRIGGER reject_running_insert; DROP TRIGGER reject_running_update;")
+        .unwrap();
+    let (status, accepted) = h
+        .call(&cookie, "POST", ROUTE, Some(body.clone()), &headers)
+        .await;
+    assert_eq!(status, 202, "{accepted}");
+    assert_eq!(accepted["status"], "running");
+    let (status, again) = h.call(&cookie, "POST", ROUTE, Some(body), &headers).await;
+    assert_eq!(status, 200, "{again}");
+    assert_eq!(again["id"], accepted["id"]);
+    let finished = h.finished(&cookie, accepted["id"].as_str().unwrap()).await;
+    assert_eq!(finished["status"], "done", "{finished}");
+    assert_eq!(h.provider_calls(), 1);
 }

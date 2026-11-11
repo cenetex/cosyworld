@@ -48,3 +48,7 @@ Pack writes, private file commits and job admission/settlement check the capture
 revision inside `BEGIN IMMEDIATE`. Paid jobs retain that token when the request
 ends. Admission and quotas still use the stable user ID. Direct generation
 routes return data only; browsers must discard their late results after reset.
+
+Job admission commits its running claim in the same fenced transaction. A reset
+that commits first rejects admission; an admitted active job blocks reset. No
+second storage transition can abandon an accepted job before provider work.
