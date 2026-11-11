@@ -1144,8 +1144,8 @@
       const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
       const place = fact.source.kind === "topic" ? null : fact.source.locationId;
       const where = place && !fact.text.includes(nameOf2(place)) ? ` at ${nameOf2(place)}` : "";
-      const stale = fact.source.kind === "event" && age >= STALE_TURNS ? " Things may have changed since." : "";
-      return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale}`.slice(
+      const stale2 = fact.source.kind === "event" && age >= STALE_TURNS ? " Things may have changed since." : "";
+      return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale2}`.slice(
         0,
         240
       );
@@ -22498,6 +22498,62 @@
       if (protector) facts.push(`${nameOf2(protector)} is covering me.`);
     }
     return facts;
+  }
+
+  // v2/card-game/account-reset-storage.mjs
+  var META = "cosyworld.account-reset";
+  var PREFIX = "cosyworld.reset-data:";
+  var DB = "cosyworld.authoring";
+  var gameKeys = /* @__PURE__ */ new Set([
+    "cosyworld.playing",
+    "cosyworld.invite",
+    "cosyworld.menu",
+    "cosyworld.local.upgrades",
+    "cosyworld.world-tier",
+    "cosyworld-card-signed-words",
+    "cosyworld.title-intro",
+    "cosyworld.title-logo",
+    "cosyworld.music-revealed"
+  ]);
+  var isAccountGameKey = (key) => gameKeys.has(key) || /^(cosyworld\.cards\.|cosyworld\.reflected-shore\.v1|cosyworld\.performance:)/u.test(key);
+  var metadata = (storage) => JSON.parse(storage.getItem(META) || "{}");
+  var databaseName = (epoch) => epoch ? `${DB}:${epoch}` : DB;
+  var physicalKey = (epoch, key) => epoch && isAccountGameKey(key) ? `${PREFIX}${epoch}:${key}` : key;
+  var stale = () => new Error("Account reset changed this browser. Reload to continue.");
+  function createAccountStorage(storage, control = storage) {
+    const initial = metadata(control);
+    function assertCurrent() {
+      const now = metadata(control);
+      if (initial.pending || now.pending || now.fence !== initial.fence) throw stale();
+    }
+    return {
+      assertCurrent,
+      databaseName: databaseName(initial.epoch),
+      keyFor: (key) => physicalKey(initial.epoch, key),
+      getItem(key) {
+        if (isAccountGameKey(key)) assertCurrent();
+        return storage.getItem(physicalKey(initial.epoch, key));
+      },
+      setItem(key, value) {
+        if (isAccountGameKey(key)) assertCurrent();
+        storage.setItem(physicalKey(initial.epoch, key), value);
+      },
+      removeItem(key) {
+        if (isAccountGameKey(key)) assertCurrent();
+        storage.removeItem(physicalKey(initial.epoch, key));
+      }
+    };
+  }
+  var browserStore;
+  try {
+    if (globalThis.localStorage) browserStore = createAccountStorage(globalThis.localStorage);
+  } catch {
+  }
+  var sessionStore;
+  try {
+    if (globalThis.sessionStorage && globalThis.localStorage)
+      sessionStore = createAccountStorage(globalThis.sessionStorage, globalThis.localStorage);
+  } catch {
   }
 
   // v2/card-game/scarves.mjs
