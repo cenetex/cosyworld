@@ -22,7 +22,7 @@ mod card_authoring_generation;
 #[path = "card_game.rs"]
 pub(crate) mod card_game;
 #[path = "card_voices.rs"]
-mod card_voices;
+pub(crate) mod card_voices;
 #[cfg(test)]
 pub(crate) use card_voices::authority::line as shared_voice_line;
 #[path = "play_metrics.rs"]
@@ -62,6 +62,11 @@ impl RequestLogContext {
             worldpack: startup::log_context_env("COSYWORLD_LOG_WORLDPACK", "card-table"),
         }
     }
+}
+
+/// Stop generation jobs a restart interrupted and begin retention.
+pub(super) fn start_authoring_jobs(state: &AppState) {
+    card_authoring_generation::start_jobs(state);
 }
 
 /// The hosted server (#1652): the card table, accounts, shared worlds,

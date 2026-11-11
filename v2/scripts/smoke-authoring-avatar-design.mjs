@@ -136,6 +136,8 @@ try {
       .locator("#card-actions button")
       .filter({ hasText: "Use avatar" });
     await press(useArt);
+    assert.equal(await useArt.innerText(), "Tap again to use avatar");
+    await page.waitForTimeout(450);
     await press(useArt);
     await savedArt.waitFor({ state: "detached" });
     await page.reload();

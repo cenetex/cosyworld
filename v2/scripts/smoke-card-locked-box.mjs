@@ -67,7 +67,7 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH });
   for (const width of smokeWidths([1440, 390]))
     for (const reduced of [false, true]) {
       const page = await browser.newPage({
@@ -122,7 +122,10 @@ try {
         });
       };
       const boxed = async () => {
+        await selectCard(page, "greek-gate");
         await revealCard(page, FIELD);
+        assert.equal(await field.locator("..").getAttribute("data-holder"), "greek-gate");
+        assert.ok(await field.evaluate((el) => el.classList.contains("item")));
         assert.equal(await attr("data-locked"), "true");
         // A real lock keeps its nameless lid and red edge.
         assert.equal(await field.locator(".name").textContent(), "");
@@ -142,6 +145,8 @@ try {
           FIELD,
         );
         assert.equal(await attr("data-locked"), "false");
+        assert.equal(await field.locator("..").getAttribute("data-holder"), null);
+        assert.ok(await field.evaluate((el) => el.classList.contains("location")));
         assert.match(await field.locator(".name").textContent(), /Battle/u);
         assert.ok(!(await field.locator(".card-back").isVisible()));
       };
@@ -152,7 +157,6 @@ try {
       await boxed();
       await selectCard(page, FIELD);
       assert.doesNotMatch(await page.locator(".action-beat-text").textContent(), /Creon|Writ/u);
-      await page.keyboard.press("Escape");
       await shot("01-locked-box");
       const lidState = (card) => card.evaluate((el) => ({
         src: el.querySelector(".card-back").src,
@@ -163,6 +167,7 @@ try {
         width: getComputedStyle(el).width,
         height: getComputedStyle(el).height,
       }));
+      assert.ok(await field.isVisible(), "measure the locked box before folding its stack");
       const closedLid = await lidState(field);
       await page.keyboard.press("Escape");
       await selectCard(page, "vale");

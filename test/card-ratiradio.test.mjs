@@ -304,13 +304,11 @@ it("draws every locked way and the sealed Raven as a box with its reason", () =>
     expect(box(s, id(card)).reason, card).toMatch(reason);
     expect(lockedQuest(s, id(card), () => true).text, card).toBeTruthy();
   }
-  // A descriptor never names a method that does not open the box: it states
-  // the aim, and the button carries the exact condition.
+  // A self-destination goal names no opening step; show the authored condition.
   for (const card of ["listening-room", "broadcast-booth"]) {
     s.actors.vale.place = id(card === "listening-room" ? "dispatch-window" : "listening-room");
-    const text = lockedQuest(s, id(card), () => true).text;
-    expect(text, card).toMatch(/^(Go to|Discover) /u);
-    expect(text, card).not.toMatch(/hold|carry|talk/iu);
+    for (const known of [false, true])
+      expect(lockedQuest(s, id(card), () => known).text, card).toBe(sealedReason(s, id(card)));
   }
 });
 

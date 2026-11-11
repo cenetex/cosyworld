@@ -95,10 +95,14 @@ fn payload(cast: &Value, speaker: &str, text: &str) -> Option<Value> {
     }))
 }
 
-async fn synthesize(config: &AiConfig, body: &Value) -> Result<Vec<u8>, String> {
-    let _budget = crate::ai_gateway::enforce_server_paid_daily_limit(config, "card_voice")
-        .await
-        .map_err(|_| "The server voice budget is spent for today.".to_string())?;
+pub(crate) async fn synthesize(config: &AiConfig, body: &Value) -> Result<Vec<u8>, String> {
+    let _budget = crate::ai_gateway::enforce_server_paid_daily_limit_estimating(
+        config,
+        "card_voice",
+        crate::ai_gateway::SERVER_PAID_VOICE_ESTIMATE_USD,
+    )
+    .await
+    .map_err(|_| "The server voice budget is spent for today.".to_string())?;
     let response = reqwest::Client::builder()
         .timeout(Duration::from_secs(25))
         .build()

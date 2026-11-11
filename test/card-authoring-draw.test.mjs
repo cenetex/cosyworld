@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { fakeJobs } from "./helpers/fake-jobs.mjs";
 import {
   acceptedOutput,
   createCharacterDraw,
@@ -15,25 +16,24 @@ const seed = "Vale, Mara and Pip wait at the shore.";
 describe("temporary character draws", () => {
   afterEach(() => vi.unstubAllGlobals());
   it("keeps retry details and reports invalid seeds through the same state", async () => {
-    vi.stubGlobal(
-      "fetch",
-      async () =>
-        new Response(
-          JSON.stringify({
-            error: "Wait before another draw.",
-            code: "ai_rate_limited",
-            retryAfterMs: 30000,
-          }),
-          { status: 503, headers: { "Content-Type": "application/json" } },
-        ),
-    );
+    const server = fakeJobs();
+    server.refuseNext(429, {
+      error: "Wait before another draw.",
+      code: "generation_rate",
+      retryAfterMs: 30000,
+    });
     const changed = vi.fn();
-    const draw = createCharacterDraw({ generate: generateCharacter, changed });
+    const draw = createCharacterDraw({
+      generate: generateCharacter,
+      changed,
+      fetch: server.fetch,
+      env: server.env,
+    });
     draw.setText(seed);
     await draw.find();
     expect(draw.state).toMatchObject({
-      status: 503,
-      code: "ai_rate_limited",
+      status: 429,
+      code: "generation_rate",
       retryAfterMs: 30000,
       busy: false,
     });

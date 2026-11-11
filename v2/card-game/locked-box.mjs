@@ -18,6 +18,9 @@ export function lockedQuest(world, id, known = () => false) {
   const box = shutBoxes(world).find((entry) => entry.id === id);
   if (!box) return null;
   if (!box.want) return { text: box.reason || LOCKED_BOX, cards: [] };
+  // Discovering the locked destination cannot explain how to open its way.
+  if (box.want.kind === "place" && box.want.target === id)
+    return { text: box.reason || LOCKED_BOX, cards: [] };
   const quest = { actor: currentActor(world), ...box.want };
   const text = questCaption(quest, false, questVerb(world, quest), known);
   return { text, cards: [] };

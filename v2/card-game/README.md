@@ -537,6 +537,16 @@ enough travellers stand at one place and pays each of them.
 "Locked" sits in the same small bottom-right position as "Continue". It is
 a disabled status, not a separate action row; selecting or tapping it never
 creates a quest or takes a turn.
+A pack draws a gated way or a conditional resident as a locked box when its
+route or card carries `sealed` (a reason, and for a way a place goal): the
+Lonely Forest trail, the Sacred Way, the Long Walls, and Thaleia, an Argive
+mother, Iphis and Myrine in the Greek pack. The box cannot be entered, talked
+to or acted on until its old condition holds. A way whose preview goal names
+its own locked destination shows the authored reason, not a discovery caption.
+A way or resident whose own place
+carries the same condition has no place to lie in yet, so pack data cannot draw
+it (the Egypt, Troy and Argive accounts, the Open Door residents who share
+their section's flag, and the Ajax residents).
 When its lock clears, the box opens with the existing card reveal
 (a crossfade under reduced motion). Held previews and quest miniatures
 use the same distinction. A newly dealt quest and folded stack layers use the
@@ -714,7 +724,8 @@ that only RATi, Skull and Whiskerwind can reach.
 
 The Wolfprint Charm opens a path from Oak to the Moonlit Trail while the charm
 is at Oak: carried by someone present, put among the roots, or given to Oak.
-Taking it away closes that entrance. The return from the trail to Oak is always
+Taking it away closes that entrance. Until then the trail lies at Oak as a
+locked box, and at the garden as one until the drain is cleared. The return from the trail to Oak is always
 open. The garden path still opens after tending the drain or stones, so a first
 visitor can reach the charm on the trail before finding this shortcut.
 
@@ -1248,6 +1259,37 @@ Shared rules version 18 adds measured action values and exploration. Versions
 2–17 retain their released interpreter bytes. An explicit upgrade keeps the
 existing world, possessions, quest, memory and persona.
 
+## Moods
+
+An avatar's face is happy or sad when something in the world makes it so.
+`mood.mjs` reads saved state only (no model, no viewer, nothing stored), so
+everyone in a place sees the same face. The plain face is the usual one; a
+mood is brief and passes when its fact does. The rules are one list, `MOODS`,
+read in order, so sad outweighs happy. Windows reuse existing timers.
+
+| Mood | Fact (first match wins) | Lasts |
+| --- | --- | --- |
+| sad | Someone who wronged them is in the room | While the grievance is active |
+| sad | A resident gave up its want (not a player's Drop) | Until a want is met, or `CONTENT_TURNS` |
+| sad | Someone here holds the item they want and refused it | `STALL_TURNS` from the want |
+| sad | Just beaten in a fight (a first or second defeat) | The three turns of peace after it |
+| happy | Their want was met (a hand-over under pressure does not count) | `CONTENT_TURNS` |
+
+Order of overrides for a face: asleep, then a standoff (the fight poses), then
+a pack `poses` entry that matches, then the mood face, then the ordinary
+portrait. Mood yields to all of them. The mood adds one line to the character's
+own context ("I feel happy."), and no text, badge or marker to the card.
+
+Not yet readable from saved state, so not built: a thing returned to its home
+or a trusted person arriving there, waking at home after a level-up, and being
+sent home after a third defeat. They need a saved turn, which is a rules change.
+
+An avatar shows a mood only if it has art for it. Register
+`registerFaceArt(id, {happy, sad, strike, brace, hit})` in `mood-art.mjs`
+(paths relative to the table); the maker's accepted poses use those names.
+Strike, brace and hit are the fight poses. An avatar with no entry looks as
+it always did. No shipped avatar has happy or sad art yet.
+
 ## Threats and standoffs
 
 Avatar cards offer Talk and Threaten. A threat opens a battle for the whole room: every avatar there, and anyone who arrives while it lasts, is a combatant with four resolve. There are no bystanders and no sides; anyone may strike or guard anyone. During a battle the selection names the play: your own card alone is Brace, your card with another combatant is Cover (their attackers hit you instead until your next play), another combatant alone is Strike (the avatar card's Talk becomes Strike), and this place's card is Wait. Nobody in the room talks. Strength goes by level tier, the card's border colour, not by the exact level: avatars in one tier are equally matched, so levels I and II fight as equals, and only a higher tier is stronger. A strike rolls its damage: 1 or 2 against the same tier, 1 to 3 against a lower tier, and exactly 1 against a higher tier. The roll is seeded from the world's run seed and the play (never `Math.random`), so the browser and the shared server agree and journals replay, and the attack event records the number rolled. Brace softens the next hit by one, with a minimum of one damage, until that avatar's next play. Four resolve now lasts two to four strikes between equals, so fights run longer and less predictably than the old fixed two. Residents compare tiers too: a higher tier is one reason a resident grows bold enough to threaten. The [combat by tier note](../../docs/design/combat-by-tier.md) has the reasoning.
@@ -1687,6 +1729,14 @@ new lane never holds up an authored scene. Lanes are saved as `sea:` edges in ro
 See the Greek pack README and `test/card-theban-release.test.mjs`; the scene
 journey is `v2/scripts/smoke-card-theban-scenery.mjs`. The weather journey is
 `node v2/scripts/smoke-card-weather.mjs`.
+
+Discoverable locked cards wait as wooden boxes in the current location's
+item stack, regardless of the type inside. Their real type and custody stay
+in the world model. Opening reveals the item, resident or destination in its
+normal position. A live condition closing again returns its card to a box;
+this does not erase player discovery or resident knowledge. Disabled packs,
+absent avatars and spent items are not automatically mysteries. Personal
+hidden-avatar discovery still uses its existing Talk interaction.
 
 If table startup fails, the existing dialogue bar offers Try again. It reloads
 the same page without clearing saves. The startup title releases its overlay,

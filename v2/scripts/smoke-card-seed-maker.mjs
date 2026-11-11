@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
+import { mockJobs } from "./authoring-jobs-mock.mjs";
 import { authoringCardId } from "../card-game/authoring-tree.mjs";
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -22,40 +22,55 @@ try {
     await page.route("**/auth/account", (route) =>
       route.fulfill({ json: { authenticated: true, display_name: "Maker" } }),
     );
-    await page.route("**/authoring/generate/seed", (route) => {
-      const input = route.request().postDataJSON();
-      calls++;
-      if (calls === 1)
-        return route.fulfill({
-          status: 401,
-          json: { error: "Sign in with your passkey." },
-        });
-      const suffix = input.kind === "world" ? "" : ` ${calls}`;
-      const all = [
-        {
-          kind: "place",
-          name: `Rainy quay${suffix}`,
-          text: "The last ferry waits here.",
-        },
-        {
-          kind: "avatar",
-          name: `Mara${suffix}`,
-          text: "The keeper needs a lamp for the ferry.",
-        },
-        {
-          kind: "item",
-          name: `Blue lamp${suffix}`,
-          text: "Blue glass shelters a steady flame.",
-        },
-      ];
-      return route.fulfill({
-        json: {
+    let png, bytes;
+    let imageCalls = 0;
+    const jobs = await mockJobs(page, {
+      seed(input) {
+        calls++;
+        if (calls === 1)
+          return {
+            refuse: {
+              status: 401,
+              json: { error: "Sign in with your passkey.", code: "unauthorized" },
+            },
+          };
+        const suffix = input.kind === "world" ? "" : ` ${calls}`;
+        const all = [
+          {
+            kind: "place",
+            name: `Rainy quay${suffix}`,
+            text: "The last ferry waits here.",
+          },
+          {
+            kind: "avatar",
+            name: `Mara${suffix}`,
+            text: "The keeper needs a lamp for the ferry.",
+          },
+          {
+            kind: "item",
+            name: `Blue lamp${suffix}`,
+            text: "Blue glass shelters a steady flame.",
+          },
+        ];
+        return {
           cards:
             input.kind === "world"
               ? all
               : all.filter((c) => c.kind === input.kind),
-        },
-      });
+        };
+      },
+      image(input, api) {
+        assert.equal(input.description, "A keeper in a green coat.");
+        imageCalls++;
+        assert.equal(input.kind, "avatar");
+        if (input.role === "pose-sheet") assert(input.reference?.sha256);
+        return {
+          basis: input.basis,
+          model: "openai/gpt-image-2.6-flare",
+          image: api.store(bytes),
+          usage: {},
+        };
+      },
     });
     const press = (locator) => (width < 700 ? locator.tap() : locator.click());
     const choose = async (id) => {
@@ -72,6 +87,12 @@ try {
     const entity = (group, id) =>
       choose(authoringCardId(["pack", group, id], "entity"));
     const action = () => press(page.locator("#card-actions button"));
+    // A paid action needs two taps; a second tap in the same gesture is ignored.
+    const twice = async () => {
+      await action();
+      await page.waitForTimeout(450);
+      await action();
+    };
     const read = () =>
       page.evaluate(async () => {
         const { openAuthoringStore } = await import(
@@ -218,7 +239,7 @@ try {
     await action();
     await saved(6);
     // Exercise real UI, image decoding/slicing and IndexedDB, with no provider charge.
-    const png = await page.evaluate(() => {
+    png = await page.evaluate(() => {
       const canvas = document.createElement("canvas");
       canvas.width = 300;
       canvas.height = 200;
@@ -231,32 +252,18 @@ try {
       }
       return canvas.toDataURL("image/png").split(",")[1];
     });
-    const bytes = Buffer.from(png, "base64");
-    let imageCalls = 0;
-    await page.route("**/authoring/generate/image", (route) => {
-      const input = route.request().postDataJSON();
-      assert.equal(input.description, "A keeper in a green coat.");
-      imageCalls++;
-      assert.equal(input.kind, "avatar");
-      if (input.role === "pose-sheet") assert(input.reference?.sha256);
-      return route.fulfill({
-        json: {
-          basis: input.basis,
-          model: "openai/gpt-image-2.6-flare",
-          image: {
-            base64: png,
-            mime: "image/png",
-            size: bytes.length,
-            sha256: createHash("sha256").update(bytes).digest("hex"),
-          },
-        },
-      });
-    });
+    bytes = Buffer.from(png, "base64");
     const generate = async (role, first = false) => {
       await category("avatars");
       await entity("avatars", avatar);
       await tool(`art-${avatar}-${role}`);
+      const button = page.locator("#card-actions button");
       await action();
+      assert.equal(
+        await button.innerText(),
+        `Tap again to generate ${role === "portrait" ? "avatar" : "poses"}`,
+      );
+      await page.waitForTimeout(450);
       await action();
       const physical = page.getByRole("textbox", {
         name: "Physical description only",
@@ -265,12 +272,31 @@ try {
       if (first) await physical.waitFor();
       if (await physical.isVisible()) {
         await physical.fill("A keeper in a green coat.");
-        await action();
-        await action();
+        if (first) {
+          // Hold the paid image back while the maker taps around the table.
+          const held = jobs.hold("image");
+          await twice();
+          await held.seen;
+          await button.filter({ hasText: "Generating…" }).waitFor();
+          assert.equal(await button.isDisabled(), true);
+          await category("items");
+          await entity("items", item);
+          await press(page.locator("#menu-button"));
+          await press(page.locator("#history-button"));
+          held.release();
+        } else await twice();
       }
       if (first) {
         // The first portrait is archived, then saved: wait for the saved art.
         await until((v) => Boolean(v.avatars?.[avatar]?.portrait));
+        const body = await page.locator("body").innerText();
+        assert(!/editor changed|could not be saved/u.test(body), body);
+        assert.equal(
+          await page
+            .locator('[data-setting="designer-tool-retry-unsaved-artwork"]')
+            .count(),
+          0,
+        );
         return;
       }
       await page
@@ -372,6 +398,72 @@ try {
     await page.reload();
     await page.locator("#history-button").waitFor();
     assert.deepEqual(await read(), final);
+    // A second avatar has no portrait yet. Its image job is still running when
+    // the page reloads; the portrait lands from the server's result afterwards.
+    await category("avatars");
+    await tool("uncover-avatar");
+    await action();
+    await until((v) => Object.keys(v.avatars || {}).length === 2);
+    const second = Object.keys((await read()).draft.pack.avatars).find(
+      (id) => id !== avatar,
+    );
+    await category("avatars");
+    await entity("avatars", second);
+    await tool(`art-${second}-portrait`);
+    const button = page.locator("#card-actions button");
+    await action();
+    await page.waitForTimeout(450);
+    await action();
+    await page
+      .getByRole("textbox", { name: "Physical description only" })
+      .fill("A keeper in a green coat.");
+    const held = jobs.hold("image");
+    await twice();
+    await held.seen;
+    // The job id is in the local store before the page goes away.
+    const recorded = () =>
+      page.evaluate(async () => {
+        const { openAuthoringStore } = await import(
+          "/card-game/authoring-local-store.mjs"
+        );
+        const db = await openAuthoringStore();
+        try {
+          return await db.readJobs(
+            new URL(location.href).searchParams.get("draft"),
+          );
+        } finally {
+          db.close();
+        }
+      });
+    for (let i = 0; i < 50 && !(await recorded()).length; i++)
+      await page.waitForTimeout(100);
+    assert.deepEqual(
+      (await recorded()).map(({ kind, role, avatarId }) => [
+        kind,
+        role,
+        avatarId,
+      ]),
+      [["image", "portrait", second]],
+    );
+    await page.reload();
+    await page.locator("#history-button").waitFor();
+    await category("avatars");
+    await entity("avatars", second);
+    await tool(`art-${second}-portrait`);
+    await button.filter({ hasText: "Generating…" }).waitFor();
+    assert.equal(await button.isDisabled(), true);
+    assert.equal((await read()).draft.pack.avatars[second].portrait, undefined);
+    held.release();
+    await until((v) => Boolean(v.avatars?.[second]?.portrait));
+    assert.equal(imageCalls, 5);
+    for (let i = 0; i < 50 && (await recorded()).length; i++)
+      await page.waitForTimeout(100);
+    assert.deepEqual(await recorded(), []);
+    assert(
+      !/could not be saved|editor changed/u.test(
+        await page.locator("body").innerText(),
+      ),
+    );
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth,

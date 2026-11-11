@@ -78,15 +78,26 @@ export function nextAcceptedAvatarRevision(record, id) {
   return latest + 1;
 }
 
-export async function acceptedAvatarOutputs(record, id) {
+// Callers that only browse pass `skip` to count a damaged record and move on;
+// accepting and applying artwork keep the strict reading.
+export async function acceptedAvatarOutputs(record, id, skip = null) {
   if (!own(record.draft.pack?.avatars, id)) return [];
   const outputs = [];
   for (const meta of record.draft.assets) {
+    try {
+      await readOutput(meta);
+    } catch (error) {
+      if (!skip) throw error;
+      skip(error);
+    }
+  }
+  return outputs.sort((a, b) => b.revision - a.revision);
+  async function readOutput(meta) {
     if (
       !meta.path.startsWith(prefix(record, id)) ||
       !meta.path.endsWith("/output.json")
     )
-      continue;
+      return;
     const bytes = record.assets?.get(meta.path);
     need(bytes instanceof Uint8Array, "Open the saved output files.");
     const actual = await assetMetadata(meta.path, meta.mime, bytes);
@@ -135,7 +146,6 @@ export async function acceptedAvatarOutputs(record, id) {
     );
     outputs.push(output);
   }
-  return outputs.sort((a, b) => b.revision - a.revision);
 }
 
 export async function acceptedAvatarOutput(record, id) {

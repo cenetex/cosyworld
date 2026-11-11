@@ -5,11 +5,15 @@ import { imageUrl } from "./images.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { portraitFormForSource } from "./rarity-portraits.mjs";
 import { castCombatStem } from "./cast-combat-art.mjs";
+import { fightPortrait } from "./mood-art.mjs";
 import poseFit from "./assets/combat/pose-fit.json" with { type: "json" };
 
 const players = new Set(humanAvatarIds);
 const poses = ["guard", "attack", "hit"];
 export function combatPortrait(id, pose, source, facing) {
+  // Art a maker-made avatar brings for strike, brace and hit comes first.
+  const own = poses.includes(pose) && fightPortrait(id, pose);
+  if (own) return `./${own}`;
   const form = portraitFormForSource(id, source),
     stem = castCombatStem(id);
   if (

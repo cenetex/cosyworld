@@ -1,11 +1,11 @@
 //! Seed passages and evidence stay in memory; the client reviews each output.
 use crate::{
-    ai_gateway::{self, ChatCompletionRequest, ModelCapability},
+    ai_gateway::{self, AiGatewayError, ChatCompletionRequest, ModelCapability},
     AppState,
 };
 use axum::{
     extract::{DefaultBodyLimit, State},
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode},
     middleware,
     response::{IntoResponse, Response},
     routing::post,
@@ -15,12 +15,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     collections::HashSet,
-    sync::{Mutex, OnceLock},
+    path::Path,
     time::{Duration, Instant},
 };
 use unicode_normalization::UnicodeNormalization;
+#[path = "card_authoring_admission.rs"]
+mod admission;
 #[path = "card_authoring_image.rs"]
 mod images;
+#[path = "card_authoring_jobs.rs"]
+mod jobs;
 #[path = "card_authoring_seed.rs"]
 mod seed;
 
@@ -65,28 +69,196 @@ struct Candidate {
     evidence: Option<String>,
 }
 
+/// Called once at boot, before the first request.
+pub(super) fn start_jobs(state: &AppState) {
+    jobs::start(state);
+}
+
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route(ROUTE, post(generate))
         .merge(seed::router())
         .layer(DefaultBodyLimit::max(64 * 1024))
         .merge(images::router())
+        .merge(jobs::router())
         .layer(middleware::map_response(
-            |mut response: Response| async move {
-                response
-                    .extensions_mut()
-                    .insert(crate::routes::ExplicitResponseStatus);
-                response
-                    .headers_mut()
-                    .insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
-                response
-            },
+            crate::card_authoring::authoring_response,
         ))
 }
 
-fn failure(status: StatusCode, error: &str) -> Response {
-    (status, Json(json!({"error":error}))).into_response()
+/// What went wrong, in words a person can act on. Every failure carries a stable
+/// `code`; provider failures also say when to try again.
+#[derive(Debug)]
+struct Failed {
+    pub status: StatusCode,
+    pub message: String,
+    pub code: &'static str,
+    pub retry_after_ms: Option<u64>,
 }
+impl Failed {
+    fn new(status: StatusCode, message: impl Into<String>, code: &'static str) -> Self {
+        Self {
+            status,
+            message: message.into(),
+            code,
+            retry_after_ms: None,
+        }
+    }
+    fn retry(mut self, ms: u64) -> Self {
+        self.retry_after_ms = Some(ms);
+        self
+    }
+    fn body(&self) -> Value {
+        let mut body = json!({"error":self.message,"ok":false,"code":self.code});
+        if let Some(ms) = self.retry_after_ms {
+            body["retryAfterMs"] = json!(ms);
+        }
+        body
+    }
+    fn response(self) -> Response {
+        (self.status, Json(self.body())).into_response()
+    }
+}
+impl From<admission::Refusal> for Failed {
+    fn from(refusal: admission::Refusal) -> Self {
+        Self::new(StatusCode::TOO_MANY_REQUESTS, refusal.message, refusal.code)
+            .retry(refusal.retry_after_ms)
+    }
+}
+const INVALID_REQUEST: &str = "request_invalid";
+
+/// The passkey account behind a mutation, or the failure to answer with.
+async fn owner(state: &AppState, headers: HeaderMap, mutation: bool) -> Result<String, Failed> {
+    let state = state.clone();
+    match tokio::task::spawn_blocking(move || crate::card_shared::user(&state, &headers, mutation))
+        .await
+    {
+        Ok(Ok(owner)) => Ok(owner),
+        Ok(Err(error)) if error == "Sign in with your passkey." => Err(Failed::new(
+            StatusCode::UNAUTHORIZED,
+            error,
+            "sign_in_required",
+        )),
+        Ok(Err(error)) if error == "Open this world on its own site." => {
+            Err(Failed::new(StatusCode::FORBIDDEN, error, "wrong_site"))
+        }
+        _ => Err(Failed::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Try signing in again.",
+            "sign_in_unavailable",
+        )),
+    }
+}
+fn scope(state: &AppState) -> Option<&Path> {
+    state.event_store_path.as_deref().map(|path| path.as_path())
+}
+
+/// A request that passed validation and holds its configured route, ready to run.
+struct Run {
+    pool: admission::Pool,
+    work: Work,
+}
+enum Work {
+    Avatars(ai_gateway::AiConfig, Input),
+    Seed(ai_gateway::AiConfig, seed::Input),
+    Image(ai_gateway::AiConfig, images::Input, Option<Vec<u8>>),
+}
+enum Done {
+    Json(Value),
+    Image(images::Drawn),
+}
+impl Run {
+    fn pool(&self) -> admission::Pool {
+        self.pool
+    }
+    /// One provider attempt, never retried, cut off at the pool's deadline.
+    async fn execute(self) -> Result<Done, Failed> {
+        let pool = self.pool;
+        let work = async {
+            match self.work {
+                Work::Avatars(config, input) => avatars(config, input).await.map(Done::Json),
+                Work::Seed(config, input) => seed::run(config, input).await.map(Done::Json),
+                Work::Image(config, input, reference) => {
+                    images::run(config, input, reference).await.map(Done::Image)
+                }
+            }
+        };
+        match tokio::time::timeout(pool.deadline(), work).await {
+            Ok(result) => result,
+            Err(_) => Err(Failed::new(
+                StatusCode::GATEWAY_TIMEOUT,
+                match pool {
+                    admission::Pool::Image => "The image took too long. Try again when ready.",
+                    admission::Pool::Text => "The draw took too long. Try again.",
+                },
+                "generation_timeout",
+            )),
+        }
+    }
+}
+
+/// Validate and configure a request of the given kind: the same code the
+/// synchronous routes use. Nothing is charged until `execute`.
+async fn prepare(state: &AppState, kind: &str, request: Value) -> Result<Run, Failed> {
+    fn read<T: serde::de::DeserializeOwned>(request: Value) -> Result<T, Failed> {
+        serde_json::from_value(request).map_err(|_| {
+            Failed::new(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                crate::card_authoring::REQUEST_FIELDS,
+                INVALID_REQUEST,
+            )
+        })
+    }
+    match kind {
+        "avatars" => prepare_avatars(state, read(request)?),
+        "seed" => seed::prepare(state, read(request)?),
+        _ => images::ready(state, read(request)?).await,
+    }
+}
+
+/// The text of a provider failure, by cause.
+fn provider_failure(pool: admission::Pool, error: &AiGatewayError) -> Failed {
+    let retry = error.retry_after().map_or(0, |v| v.as_millis() as u64);
+    describe(pool, error.code(), error.provider_http_status(), retry)
+}
+fn describe(
+    pool: admission::Pool,
+    code: &'static str,
+    http: Option<u16>,
+    mut retry: u64,
+) -> Failed {
+    let model = match pool {
+        admission::Pool::Image => "image",
+        admission::Pool::Text => "text",
+    };
+    let message = match (code, http) {
+        ("inference_timeout", _) => {
+            format!("The {model} model took too long. Try again when ready.")
+        }
+        ("inference_daily_spend_exhausted", _) => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |v| v.as_secs());
+            let seconds = 86_400 - now % 86_400;
+            retry = seconds * 1000;
+            let span = if seconds >= 5400 {
+                format!("{} hours", seconds.div_ceil(3600))
+            } else {
+                format!("{} minutes", seconds.div_ceil(60))
+            };
+            format!("Today's server budget for generation is spent. It resets at 00:00 UTC, in about {span}.")
+        }
+        ("inference_provider_error", Some(status))
+            if (400..500).contains(&status)
+                && ![401, 402, 404, 408, 425, 429].contains(&status) =>
+        {
+            format!("The {model} model refused this request. Change the description and try again.")
+        }
+        _ => format!("The {model} service is unavailable right now. Try again in a moment."),
+    };
+    Failed::new(StatusCode::SERVICE_UNAVAILABLE, message, code).retry(retry)
+}
+
 fn short(text: &str, max: usize) -> bool {
     !text.trim().is_empty()
         && text.encode_utf16().count() <= max
@@ -152,39 +324,53 @@ fn candidate(text: &str, input: &Input) -> Option<Value> {
     })
 }
 
-#[derive(Default)]
-struct Admission {
-    active: HashSet<String>,
-    limits: crate::rate_limit::RateLimiter,
-}
-fn admission() -> &'static Mutex<Admission> {
-    static GATE: OnceLock<Mutex<Admission>> = OnceLock::new();
-    GATE.get_or_init(Default::default)
-}
-struct Permit(String);
-impl Drop for Permit {
-    fn drop(&mut self) {
-        admission()
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .active
-            .remove(&self.0);
+fn prepare_avatars(state: &AppState, input: Input) -> Result<Run, Failed> {
+    if !valid_input(&input) {
+        return Err(Failed::new(
+            StatusCode::BAD_REQUEST,
+            "Choose a bounded story passage and exclusion list.",
+            INVALID_REQUEST,
+        ));
     }
-}
-fn admit(owner: String) -> Option<Permit> {
-    let mut gate = admission().lock().ok()?;
-    if gate.active.len() >= 2 || gate.active.contains(&owner) {
-        return None;
-    }
-    let limit = crate::rate_limit::RateLimit {
-        max_hits: 18,
-        window: Duration::from_secs(60),
+    let Some(mut config) = state.ai_config.as_ref().clone() else {
+        return Err(Failed::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Character generation needs its configured Haiku route.",
+            "generation_unconfigured",
+        ));
     };
-    if !gate.limits.allow(owner.clone(), limit, Instant::now()) {
-        return None;
+    config
+        .capability_models
+        .insert(ModelCapability::WorldContent, MODEL.into());
+    Ok(Run {
+        pool: admission::Pool::Text,
+        work: Work::Avatars(config, input),
+    })
+}
+
+/// The route handlers' shared tail: admit, run detached so a closed browser
+/// cannot cancel a paid call, and answer with the finished result.
+async fn respond(state: &AppState, owner: String, run: Run) -> Response {
+    let permit = match admission::admit(scope(state), run.pool(), &owner, Instant::now()) {
+        Ok(permit) => permit,
+        Err(refusal) => return Failed::from(refusal).response(),
+    };
+    let done = tokio::spawn(async move {
+        let _permit = permit;
+        run.execute().await
+    })
+    .await;
+    match done {
+        Ok(Ok(Done::Json(body))) => Json(body).into_response(),
+        Ok(Ok(Done::Image(drawn))) => Json(drawn.body()).into_response(),
+        Ok(Err(failed)) => failed.response(),
+        Err(_) => Failed::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Generation needs another try.",
+            "generation_interrupted",
+        )
+        .response(),
     }
-    gate.active.insert(owner.clone());
-    Some(Permit(owner))
 }
 
 async fn generate(
@@ -192,41 +378,17 @@ async fn generate(
     headers: HeaderMap,
     Json(input): Json<Input>,
 ) -> Response {
-    let auth_state = state.clone();
-    let owner =
-        tokio::task::spawn_blocking(move || crate::card_shared::user(&auth_state, &headers, true))
-            .await;
-    let owner = match owner {
-        Ok(Ok(owner)) => owner,
-        Ok(Err(error)) if error == "Sign in with your passkey." => {
-            return failure(StatusCode::UNAUTHORIZED, &error)
-        }
-        Ok(Err(error)) if error == "Open this world on its own site." => {
-            return failure(StatusCode::FORBIDDEN, &error)
-        }
-        _ => return failure(StatusCode::SERVICE_UNAVAILABLE, "Try signing in again."),
+    let owner = match owner(&state, headers, true).await {
+        Ok(owner) => owner,
+        Err(failed) => return failed.response(),
     };
-    if !valid_input(&input) {
-        return failure(
-            StatusCode::BAD_REQUEST,
-            "Choose a bounded story passage and exclusion list.",
-        );
+    match prepare_avatars(&state, input) {
+        Ok(run) => respond(&state, owner, run).await,
+        Err(failed) => failed.response(),
     }
-    let Some(mut config) = state.ai_config.as_ref().clone() else {
-        return failure(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Character generation needs its configured Haiku route.",
-        );
-    };
-    config
-        .capability_models
-        .insert(ModelCapability::WorldContent, MODEL.into());
-    let Some(_permit) = admit(owner) else {
-        return failure(
-            StatusCode::TOO_MANY_REQUESTS,
-            "Wait a moment before finding another character.",
-        );
-    };
+}
+
+async fn avatars(config: ai_gateway::AiConfig, input: Input) -> Result<Value, Failed> {
     let user = serde_json::to_string(&input).unwrap();
     let format = json!({"type":"json_object"});
     let result = ai_gateway::request_chat_completion(
@@ -250,13 +412,22 @@ async fn generate(
         },
     )
     .await;
+    let invalid = |message, code| Failed::new(StatusCode::BAD_GATEWAY, message, code);
     match result {
         Ok(output) if output.finish_reason == "stop" => match candidate(&output.text, &input) {
-            Some(candidate) => Json(json!({"candidate":candidate,"model":output.resolved_model_id,"usage":output.usage})).into_response(),
-            None => failure(StatusCode::BAD_GATEWAY, "Review the passage and try finding a character again."),
+            Some(candidate) => Ok(
+                json!({"candidate":candidate,"model":output.resolved_model_id,"usage":output.usage}),
+            ),
+            None => Err(invalid(
+                "Review the passage and try finding a character again.",
+                "generation_invalid_output",
+            )),
         },
-        Ok(_) => failure(StatusCode::BAD_GATEWAY, "The character reply was incomplete. Try finding it again."),
-        Err(error) => (StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":"Character generation needs another try.","code":error.code(),"retryAfterMs":error.retry_after().map_or(0, |v| v.as_millis())}))).into_response(),
+        Ok(_) => Err(invalid(
+            "The character reply was incomplete. Try finding it again.",
+            "generation_incomplete",
+        )),
+        Err(error) => Err(provider_failure(admission::Pool::Text, &error)),
     }
 }
 

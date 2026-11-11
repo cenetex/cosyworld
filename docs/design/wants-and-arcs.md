@@ -639,6 +639,12 @@ pass the 400-line budget and need `Large-Change`.
 | 12 | Generated cards arrive locked and visible | authoring code | keep | A second place drawn in `/make` is a locked box whose want names a card already in that world |
 | 13 | One quest card; the three buttons; remove the fan and Focus | client | keep | `npm run check:ui` passes with no new entry; phone and desktop |
 
+Slice 4 built (pack data): 5 of the 11 hidden gated routes and 4 of the 29
+conditional residents are now sealed (Greek 3 ways and 4 residents, Lonely
+Forest 2 ways). The rest need a rules change: a seal is drawn only when the
+card's own place is active (`sealedWays` and `sealedAvatar` read `entityActive`
+of the destination or `at`), and those places carry the same condition. Slice 4 sealed 9 of the 40.
+
 Later: resident draws from grievances, knowledge and trust (#1506, #1871);
 then the README quest section is rewritten.
 

@@ -12,21 +12,33 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave, legalActions, nameOf, play } from "../card-game/world.mjs";
+import {
+  encodeSave,
+  holdChoice,
+  legalActions,
+  nameOf,
+  play,
+} from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { combatPortrait } from "../card-game/combat-portraits.mjs";
 
 function fixture(opponent) {
   let s = enableMotives(atticOpening());
-  s = play(
-    s,
-    legalActions(s).find((a) => a.kind === "snuff"),
-  ).state;
-  s.actors[opponent].place = "pond";
-  s = play(
-    s,
-    legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
-  ).state;
+  // Played as a player does since Snuff and Light were retired: stow the lamp
+  // to open the dark mirror, cross to the pond, then let a turn pass there.
+  // The arrival beat fills the dialogue box, which adds to the hand's box; a
+  // held Lamp would turn the opponent's Strike into Give Lamp.
+  holdChoice(s, "vale", { item: null, revision: s.revision });
+  // The opponent, and Pip as the third fighter against Antigone, wait there.
+  for (const id of new Set([opponent, "moth"])) s.actors[id].place = "pond";
+  for (const step of [
+    (a) => a.kind === "move" && a.target === "pond",
+    (a) => a.kind === "wait",
+  ]) {
+    const action = legalActions(s).find(step);
+    assert.ok(action, "The stowed lamp opens the way to the pond");
+    s = play(s, action).state;
+  }
   // The opponent has the upper hand and was just struck by Vale, so it
   // strikes back: Vale's next brace loses the battle.
   const third = opponent === "moth" ? {} : { moth: 4 };
@@ -242,6 +254,14 @@ try {
         return [left, top, width, height].map(Math.round);
       });
     await page.waitForTimeout(400); // the hand rises again after Escape
+    // The dialogue box lies over the hand's foot and adds to the hand's box
+    // while it shows. Real play always has a beat there, so a table without
+    // one is not a fight the hand's layout can be judged on.
+    assert.equal(
+      await page.locator(".dialogue").evaluate((box) => !box.hidden),
+      true,
+      "The dialogue shows a beat before the strike, as after real play",
+    );
     const raisedHand = await handRect();
     const brace = readyActionButton(page, "guard");
     await brace.waitFor();

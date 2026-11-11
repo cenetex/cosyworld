@@ -57,6 +57,7 @@ import { perception } from "./perception.mjs";
 import { battleEvents, battleFacts } from "./battle-context.mjs";
 import { heldItem } from "./held-item.mjs";
 import { sleepingPortrait } from "./sleep-portraits.mjs";
+import { moodFact } from "./mood.mjs";
 
 // A refusal reaches the brief as its committed code; the refuser's line
 // says why in its own words.
@@ -464,6 +465,9 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         facts.push(
           `Holding: ${carried(world, id).map(nameOf).join(", ") || "empty hands"}.`,
         );
+        // A mood is a world fact, said once in the character's own words.
+        const mood = moodFact(world, id);
+        if (mood) facts.push(mood);
         if (quietFact && mindsNoise(id)) facts.push(quietFact);
         if (
           played?.verb === "accompany" &&
