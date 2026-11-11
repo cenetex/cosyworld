@@ -339,6 +339,7 @@ All routes need the passkey session; mutations are same-origin. Every response i
 | Route | Does |
 | --- | --- |
 | `POST /card-game/authoring/jobs` | Body `{kind: "image" \| "seed" \| "avatars", request}`. `request` is exactly the body the matching `generate/*` route accepts. Optional `Idempotency-Key` header (one UUID, as `POST /packs`). |
+| `GET /card-game/authoring/jobs/by-request` | Required `Idempotency-Key` UUID header. Returns only the signed-in owner's existing job, or 404 `job_not_found`. Never starts provider work. |
 | `GET /card-game/authoring/jobs/{id}` | One job of the signed-in owner; another account gets 404 `job_not_found`. |
 | `GET /card-game/authoring/jobs` | The owner's 50 newest jobs, newest first, in the same shape. |
 
@@ -398,6 +399,12 @@ flight during a restart may still have been charged; the message tells the maker
 was stopped and can be started again.
 
 ### Retention
+
+The request-key lookup works for queued, running and finished jobs, including jobs
+older than the recent list. Missing, malformed or repeated UUID headers return 400.
+A missing or pruned job returns 404, not permission to automatically resend a paid
+request. Lookup requires no prompt or request body and uses the same account
+scope and no-store response policy as other job reads.
 
 Finished job rows are deleted after 7 days (at boot and hourly), and each owner
 keeps at most their newest 200 rows, trimmed when a job is accepted. Job images
