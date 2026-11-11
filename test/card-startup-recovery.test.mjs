@@ -19,7 +19,10 @@ vi.mock("../v2/card-game/title-logo.mjs", () => ({
 }));
 vi.mock("../v2/card-game/page-fade.mjs", () => ({ arrivePage() {} }));
 vi.mock("../v2/card-game/build-info.mjs", () => ({ showBuildInfo() {} }));
-vi.mock("../v2/card-game/shared-auth.mjs", () => ({ membersLock: mocks.lock }));
+vi.mock("../v2/card-game/shared-auth.mjs", () => ({
+  membersLock: mocks.lock,
+  request: async () => ({ authenticated: false }),
+}));
 vi.mock("../v2/card-game/app.mjs", () => {
   mocks.app();
   return {};

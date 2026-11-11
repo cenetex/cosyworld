@@ -22,7 +22,7 @@ try {
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.route("**/auth/account", (r) =>
-      r.fulfill({ json: { authenticated: true } }),
+      r.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
     );
     // Updating twice, then open.
     let opens = 0;

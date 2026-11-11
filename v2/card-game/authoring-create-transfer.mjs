@@ -1,3 +1,4 @@
+import { accountRevision } from "./account-revision.mjs";
 import { assetMetadata, DRAFT_LIMITS, exportManifest, parseDraft } from "./authoring-draft.mjs";
 
 const fail = (message, status = 0) => Object.assign(new Error(message), { status });
@@ -59,7 +60,7 @@ export async function transferAuthoringCreate(
       cache: "no-store",
       redirect: "error",
       referrerPolicy: "no-referrer",
-      headers: { ...headers, ...(mime ? { "Content-Type": mime } : {}) },
+      headers: { ...headers, ...accountRevision.headers(), ...(mime ? { "Content-Type": mime } : {}) },
     });
     const reader = response.body?.getReader(),
       chunks = [];

@@ -1,7 +1,7 @@
 import { setupLocalService } from "./local-service.mjs";
 import { showBuildInfo } from "./build-info.mjs";
 import { arrivePage } from "./page-fade.mjs";
-import { membersLock } from "./shared-auth.mjs";
+import { membersLock, request } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
 import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { pipEntry } from "./pip-landing.mjs";
@@ -34,8 +34,11 @@ try {
   // A page another world or seat led to opens on its black and lifts it.
   arrivePage();
   const local = await setupLocalService();
+  // Capture identity before either surface starts work, including the maker.
+  // Static/local tables do not have an account service.
+  const account = !local && await request("/auth/account").catch(() => null);
   // A members-only test server shows its sign-in lock instead of the table.
-  const locked = !authoring && !local && (await membersLock());
+  const locked = !authoring && !local && (await membersLock(account));
   const params = new URLSearchParams(location.search);
   // The old "Your worlds" address (`?shared=1`) is ☰ now (#1877).
   if (!authoring && (params.has("shared") || (local && params.has("world")))) {
