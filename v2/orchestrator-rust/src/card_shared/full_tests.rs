@@ -183,6 +183,32 @@ fn home_action(w: &World, actor: usize, kind: &str) -> Value {
         .clone()
 }
 
+#[test]
+fn talk_as_commits_a_talk_play_with_a_generated_key() {
+    let (path, mut c, id) = fixture();
+    for a in 0..8 {
+        claim(&mut c, &id, a);
+    }
+    let state = crate::test_app_state(Some(path));
+    let legal = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "talk");
+    let target = legal["target"].as_str().unwrap().to_string();
+    let talk = full::Talk {
+        avatar: None,
+        target: target.clone(),
+    };
+    let snapshot = full::talk_as(&state, &id, "user0", &talk).unwrap();
+    assert!(snapshot["world"]["revision"].is_number());
+    let (action, key): (String, String) = c
+        .query_row(
+            "SELECT command, id FROM card_full_plays WHERE world=?1 AND actor=0 AND status IN ('waiting','retry')",
+            params![id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&action).unwrap(), legal);
+    assert!(key.starts_with("talk-") && key.len() >= 16);
+}
+
 fn hold(c: &rusqlite::Connection, id: &str, w: &mut World, actor: usize, item: Value) {
     let command = json!({"op":"hold","actor":actor_id(actor),"choice":{
         "item":item,"revision":w.game["revision"]}});

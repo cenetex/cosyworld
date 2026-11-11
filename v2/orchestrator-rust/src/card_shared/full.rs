@@ -59,6 +59,10 @@ pub(super) fn router() -> Router<AppState> {
             "/card-game/shared/worlds/{id}/command",
             post(command).layer(DefaultBodyLimit::max(8192)),
         )
+        .route(
+            "/card-game/shared/worlds/{id}/talk",
+            post(talk).layer(DefaultBodyLimit::max(8192)),
+        )
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -305,6 +309,18 @@ pub(super) struct Command {
     #[allow(dead_code)]
     pub moving: bool,
 }
+
+/// A client-agnostic Talk: the gateway (or any non-browser client) names a
+/// target resident and this endpoint owns the play encoding, the key, and the
+/// claimed-avatar resolution. The human's own line (`text`) arrives in the
+/// next slice; this slice commits the talk play and returns the snapshot.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Talk {
+    #[serde(default)]
+    pub(super) avatar: Option<String>,
+    pub(super) target: String,
+}
 async fn command(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -400,6 +416,64 @@ fn command_with_revision(
     let value = super::sync::response(&tx, id, u, value, cursor)?;
     tx.commit().map_err(sql_error)?;
     Ok(value)
+}
+
+async fn talk(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    h: HeaderMap,
+    Json(body): Json<Talk>,
+) -> Response {
+    let worker = state.clone();
+    let wid = id.clone();
+    let result = blocking(move || {
+        let state = worker;
+        let id = wid;
+        valid_id(&id)?;
+        let u = user(&state, &h, true)?;
+        admit(&u)?;
+        logged(&id, || talk_as(&state, &id, &u, &body))
+    })
+    .await;
+    if result.is_ok() {
+        kick(state, id);
+    }
+    reply(result)
+}
+
+pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Result<Value> {
+    let c = db(state)?;
+    store::schema(&c)?;
+    let actor = match body.avatar.as_deref() {
+        Some(avatar) => actor_index(avatar)?,
+        None => bindings::mine(&c, id, u)?.ok_or("Claim an avatar first.")?,
+    };
+    if body.target.trim().is_empty() {
+        return Err("Choose someone to talk to.".into());
+    }
+    // The engine accepts only the exact legal action object for this actor's
+    // current state, so look it up rather than authoring one by hand.
+    let world = store::world(&c, id, now())?;
+    let view = world.project(actor)?;
+    let action = view["actions"]
+        .as_array()
+        .and_then(|actions| {
+            actions
+                .iter()
+                .find(|action| action["kind"] == "talk" && action["target"] == body.target)
+                .cloned()
+        })
+        .ok_or("Choose someone here to talk to.")?;
+    let command = Command {
+        op: "play".to_string(),
+        avatar: Some(actor_id(actor).to_string()),
+        action,
+        target: Some(body.target.clone()),
+        key: format!("talk-{}", crate::random_hex(24)),
+        revealed: None,
+        moving: false,
+    };
+    command_as(state, id, u, &command, None)
 }
 // Leaving keeps the claim; releasing frees the avatar for someone else.
 fn leave(
