@@ -417,6 +417,14 @@ generated-asset budget. Proposed, not built: a route that deletes an owner's fil
 that no job result, pack or draft references, and an automatic sweep of images
 whose job rows have been pruned.
 
+### Durable intent foundation (not activated)
+
+The intent-store helpers can atomically prepare and claim a request UUID, bound
+by account revision, draft generation and request digest. They store only bounded
+adoption metadata, never full provider bodies or reference image bytes. The new
+read-only request lookup can recover a server job by UUID. No maker tool or sweep
+uses these helpers yet; the existing client behavior below is unchanged.
+
 ### The maker client
 
 Every paid generation in the maker (portrait, poses, seed draw, uncover and
