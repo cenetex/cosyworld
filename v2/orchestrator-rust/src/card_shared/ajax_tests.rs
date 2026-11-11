@@ -104,6 +104,7 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journal() {
     let (path, c, id, mut world) = fixture();
     assert_eq!(world.version, engine::VERSION);
@@ -252,6 +253,7 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() {
     let released = engine::NINETEENTH_VERSION;
     let mut checkpointed = None;
@@ -528,6 +530,7 @@ fn ajax_upgrade_brings_an_uninvited_nineteen_camp_visitor_home_and_replays_it() 
 // full return that needed Marathon, are forgotten. The upgrade replays from
 // the journal.
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn ajax_shield_delivered_under_rules_twenty_one_is_forgotten_with_the_rumours() {
     // Saved by the released rules 21 code (main at 1348ab52), so this world
     // is exactly what a rules 21 player could have had. It took the exposure

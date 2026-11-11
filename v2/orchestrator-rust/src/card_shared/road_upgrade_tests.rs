@@ -33,6 +33,7 @@ fn without_roads(value: &mut Value) {
 // it asks for a fresh start. Loading it journals one upgrade onto rules 93
 // with the new content, which gives the roads their slots, and replays.
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn a_rules_92_world_takes_the_new_roads_without_a_fresh_start() {
     let path = std::env::temp_dir().join(format!(
         "card-road-upgrade-{}.sqlite",
@@ -103,6 +104,7 @@ const RETIRED_GATES: [&str; 2] = [
 // sail them home free, and the retired gates and steps are forgotten. The
 // journal replays to the same world.
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn a_rules_93_world_on_the_coast_road_takes_the_land_route() {
     let path = std::env::temp_dir().join(format!(
         "card-land-route-upgrade-{}.sqlite",

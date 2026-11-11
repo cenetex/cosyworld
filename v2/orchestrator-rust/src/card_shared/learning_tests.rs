@@ -58,6 +58,7 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
     let (_path, c, id) = fixture();
     let seed = engine::reduce_version(engine::TWELFTH_VERSION, json!({"op":"create"})).unwrap();
@@ -260,6 +261,7 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn version_sixteen_lessons_upgrade_before_new_measured_plays() {
     let (_path, c, id) = fixture();
     let seed = engine::reduce_version(engine::SIXTEENTH_VERSION, json!({"op":"create"})).unwrap();

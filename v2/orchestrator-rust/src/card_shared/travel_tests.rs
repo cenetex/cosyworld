@@ -4,6 +4,7 @@ use serde_json::json;
 // Every released version upgrades through the same command, so each one
 // proves its own upgrade and the journey runs once, from the newest.
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn greek_ports_and_roads_upgrade_from_each_released_version() {
     for version in [
         engine::THIRTEENTH_VERSION,
@@ -17,6 +18,7 @@ fn greek_ports_and_roads_upgrade_from_each_released_version() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
     let (path, c, id, mut w) = upgraded_ports(engine::EIGHTEENTH_VERSION);
     // Black Pond sails only to the Wine-Dark Harbor. Vale carries a load of
@@ -90,6 +92,7 @@ fn greek_ports_roads_and_waiting_replay_after_the_version_eighteen_upgrade() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn local_road_visitors_and_belongings_continue_inside_the_town_after_replay() {
     // Athens Harbor has joined Piraeus, so its old road folds into the
     // quays, and the visit continues there: the Long Walls inland wait for

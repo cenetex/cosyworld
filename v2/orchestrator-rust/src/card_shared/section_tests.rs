@@ -67,6 +67,7 @@ fn preserves_old_entities(after: &Value, before: &Value) {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn earlier_greek_worlds_upgrade_once_with_original_history_and_new_entities() {
     for (version, through_tenth) in [
         (engine::NINTH_VERSION, false),

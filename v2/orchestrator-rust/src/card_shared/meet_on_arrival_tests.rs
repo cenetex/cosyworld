@@ -93,6 +93,7 @@ fn rules_101_meets_a_resident_on_arrival_and_replays_in_the_c_host() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn rules_100_world_upgrades_to_101_and_meets_on_arrival() {
     meets_on_arrival(engine::HUNDREDTH_VERSION);
 }

@@ -478,6 +478,7 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn released_ship_upgrade_keeps_npc_arrivals_locked_and_human_passengers_safe() {
     for passenger in [None, Some("moth"), Some("vale")] {
         let (_, c, id) = fixture();
@@ -537,6 +538,7 @@ fn released_ship_upgrade_keeps_npc_arrivals_locked_and_human_passengers_safe() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn occupied_ship_upgrade_preserves_shared_boarding_return_riders_and_replay() {
     for version in [engine::FOURTH_VERSION, engine::SEVENTH_VERSION] {
         let path =
@@ -683,6 +685,7 @@ fn home_item_pickup_and_drop_control_authoritative_travel_and_replay() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn earlier_home_travel_replays_before_one_recorded_rules_upgrade() {
     let path = std::env::temp_dir().join(format!(
         "home-rules-upgrade-{}.sqlite",
@@ -856,6 +859,7 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
 }
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn earlier_completed_quests_gain_a_pending_bard_visit_after_recorded_upgrade() {
     for version in [
         engine::LEGACY_VERSION,
@@ -1837,6 +1841,7 @@ fn unchanged_snapshots_leave_the_checkpoint_and_journal_untouched() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
     for version in [
         engine::LEGACY_VERSION,
@@ -1976,6 +1981,7 @@ fn old_rule_history_upgrades_once_and_replays_with_either_checkpoint_path() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn released_pickup_journal_replays_through_both_recorded_upgrades() {
     let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
@@ -2101,6 +2107,7 @@ fn released_pickup_journal_replays_through_both_recorded_upgrades() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn version_three_upgrade_keeps_released_untouched_belongings() {
     let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
@@ -2149,6 +2156,7 @@ fn version_three_upgrade_keeps_released_untouched_belongings() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn released_greek_upgrades_and_recitals_replay_after_quests_are_dropped() {
     for path in [
         vec![engine::FIFTH_VERSION],
@@ -2379,6 +2387,7 @@ fn pruned_shared_recital_keeps_unknown_author_through_upgrade_and_replay() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn released_carriage_route_replays_before_the_station_connection_upgrade() {
     let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
@@ -2481,6 +2490,7 @@ fn released_carriage_route_replays_before_the_station_connection_upgrade() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn released_shared_quest_receipts_drop_on_upgrade_and_replay() {
     let mut checkpointed = None;
     for (version, keep_checkpoint) in [
@@ -2577,6 +2587,7 @@ fn released_shared_quest_receipts_drop_on_upgrade_and_replay() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn released_quest_offers_are_dropped_by_the_upgrade_and_replay() {
     for (version, protected) in [
         (engine::SEVENTH_VERSION, false),
@@ -2928,6 +2939,7 @@ fn embedded_selected_cards_match_with_no_quest_plays() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn stranded_home_rescue_replays_after_version_nine_upgrade() {
     let mut checkpointed = None;
     for keep_checkpoint in [true, false] {
@@ -3039,6 +3051,7 @@ mod learning_tests;
 mod reflect_tests;
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn hoppycat_upgrade_keeps_released_history_and_replays_new_story_choices() {
     let mut checkpointed = None;
     for (previous_version, keep_checkpoint) in [

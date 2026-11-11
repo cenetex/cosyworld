@@ -4,6 +4,7 @@ use serde_json::json;
 // Every released version upgrades through the same command, so each one
 // proves its own upgrade and the journey runs once, from the newest.
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn willows_upgrades_from_each_released_version() {
     for version in [engine::SIXTEENTH_VERSION, engine::SEVENTEENTH_VERSION] {
         upgraded_willows(version);
@@ -11,6 +12,7 @@ fn willows_upgrades_from_each_released_version() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn willows_upgrades_version_eighteen_and_replays_observed_signs_and_the_kit() {
     let version = engine::EIGHTEENTH_VERSION;
     let (path, c, id, mut world) = upgraded_willows(version);

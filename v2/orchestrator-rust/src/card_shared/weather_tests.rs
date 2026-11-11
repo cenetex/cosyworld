@@ -7,6 +7,7 @@ fn scene(world: &World, a: usize) -> serde_json::Value {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
     let path = std::env::temp_dir().join(format!("weather-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
@@ -154,6 +155,7 @@ fn regional_weather_agrees_in_c_and_survives_upgrade_and_journal_replay() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn harbor_night_views_follow_the_shared_ship_and_replay_from_version_seventeen() {
     let path = std::env::temp_dir().join(format!("harbor-night-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();

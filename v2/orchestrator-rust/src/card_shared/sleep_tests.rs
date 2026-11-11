@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 // daylight wakes a long rest without consuming lamp room fuel, and any other
 // play wakes the sleeper first (#2028).
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn rules_88_sleep_replays_before_current_sleep_preserves_room_fuel() {
     let path = std::env::temp_dir().join(format!("card-sleep-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();

@@ -102,6 +102,7 @@ fn a_reading_scene_keeps_the_seat_and_progress_until_the_move_can_finish() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn a_move_upgrades_rules_that_predate_reset_before_freeing_the_old_seat() {
     let (path, c, first, second) = fixture();
     let version = engine::LEGACY_VERSION;

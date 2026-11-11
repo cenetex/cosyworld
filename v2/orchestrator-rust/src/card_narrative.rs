@@ -3832,7 +3832,7 @@ pub(crate) mod tests {
         value["entities"][3]["facts"] = json!([]);
         value["entities"][3]["poem"] = json!({
             "title":"Before the Burial",
-            "stanzas":[{"id":"greek-bury-polynices","turn":1,"authorId":"vale","authorName":"Vale"}]
+            "stanzas":[{"id":"greek-return-water-jar","turn":1,"authorId":"vale","authorName":"Vale"}]
         });
         value["entities"][3]["memories"] = json!([]);
         serde_json::from_value(value).unwrap()

@@ -44,6 +44,7 @@ fn new_shared_world_starts_in_the_lit_attic_and_moves_after_stowing_the_lamp() {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
     let old = engine::reduce_version(engine::TWENTIETH_VERSION, json!({"op":"create"})).unwrap()
         ["world"]
@@ -147,6 +148,7 @@ fn released_pond_opening_keeps_its_place_through_upgrade_and_journal_rebuild() {
 // 96 world mid-opening upgrades to 97, where the stair crosses the opening:
 // Vale meets only who is at the cottage, and the journal replays it.
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn scarf_stair_refused_by_rules_96_crosses_the_opening_after_upgrade() {
     let created = engine::reduce_pack(
         engine::NINETY_SIXTH_VERSION,

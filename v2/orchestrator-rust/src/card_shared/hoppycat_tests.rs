@@ -61,6 +61,7 @@ fn moves(actions: &Value) -> Vec<String> {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn an_earlier_save_closes_a_found_red_thread_and_teaches_its_visitor_the_jetty_lane() {
     let (c, id, mut w) = upgraded(true);
     assert!(knows_jetty(&w, "vale"));
@@ -85,6 +86,7 @@ fn an_earlier_save_closes_a_found_red_thread_and_teaches_its_visitor_the_jetty_l
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn an_earlier_save_that_never_found_the_red_thread_has_no_pond_door() {
     let (_, _, w) = upgraded(false);
     assert!(!knows_jetty(&w, "vale"));

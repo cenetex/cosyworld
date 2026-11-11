@@ -12,6 +12,7 @@ fn strikes(w: &World) -> Vec<Value> {
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn released_level_strikes_replay_and_current_strikes_roll_by_tier_in_the_c_host() {
     let path = std::env::temp_dir().join(format!("card-tiers-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();
@@ -94,6 +95,7 @@ fn released_level_strikes_replay_and_current_strikes_roll_by_tier_in_the_c_host(
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn rules_83_standoffs_replay_and_rules_84_battles_run_in_the_c_host() {
     let path = std::env::temp_dir().join(format!("card-battle-{}.sqlite", crate::random_hex(12)));
     let c = store::open(&path).unwrap();

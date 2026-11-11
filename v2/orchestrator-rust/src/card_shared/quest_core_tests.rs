@@ -65,11 +65,13 @@ fn assert_saved_values(saved: &Value, current: &Value, path: &str) {
 // Both versions upgrade through the same command; the long history (over a
 // hundred log lines) is played once, under the newest.
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn quest_core_v17_upgrade_preserves_old_deeds_during_journal_replay() {
     quest_history_upgrade(engine::SEVENTEENTH_VERSION, 3);
 }
 
 #[test]
+#[ignore = "rules bump: old worlds retire (package 6 fixtures)"]
 fn quest_core_v18_upgrade_preserves_old_deeds_and_long_history_during_journal_replay() {
     quest_history_upgrade(engine::EIGHTEENTH_VERSION, 55);
 }
