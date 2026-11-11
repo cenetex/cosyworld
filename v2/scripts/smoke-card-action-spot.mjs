@@ -3,7 +3,11 @@
 // the dialogue and the hand, and the hand never moves for it. Vale takes the
 // Burial Decree at the Theban Palace Forecourt (one "the" in the caption)
 // and offers it to Creon.
-import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
+import {
+  clearSelection,
+  readyActionButton,
+  selectCard,
+} from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -263,7 +267,8 @@ try {
     await panel.waitFor({ state: "hidden" });
     await settled();
     assert(await panel.isHidden(), `${name}: closing restores the rest`);
-    await page.keyboard.press("Escape");
+    // Escape keeps the held decree; stow it before choosing the offer.
+    await clearSelection(page);
     await selectCard(page, "greek-decree");
     await selectCard(page, "greek-creon");
     const give = page.locator("#card-actions .card-primary");
