@@ -1,0 +1,144 @@
+# Discord gateway
+
+Status: design proposed (2026-11-11). Nothing built. Owner decisions below
+await sign-off. Companion and home modes share one gateway; the official
+bot runs companion mode by default and home mode on our own server.
+
+## The security law
+
+No customer credentials, ever. Competitors died by custodying other people's
+Discord keys (Shapes Inc was removed for this pattern). CosyWorld has exactly
+two modes, and the middle mode — where we hold a customer's bot token or a
+pasted webhook URL — does not exist in the design, cannot be added by users,
+and is not a roadmap item.
+
+| Mode | Who holds credentials | Discord relationship |
+| --- | --- | --- |
+| Official companion bot | Only our own app's credentials, on our servers. Users invite via OAuth consent; the bot creates and manages **its own webhooks** in assigned channels. | One verified multi-tenant app. |
+| Self-hosted gateway | The operator's own application and token, beside their own orchestrator. | Their bot, their world. |
+
+A user asking "can I paste my bot key into your site?" gets a page that says
+no, explains why, and links both legitimate paths.
+
+## Owner decisions (awaiting sign-off)
+
+1. **Scope:** ship Phases 0–3 first (SSO, companion Talk, plays, pulse); home
+   mode is Phase 4 and can land later without blocking the rest. (Recommend:
+   yes.)
+2. **OAuth scope:** `identify` only — no `guilds`, no email. (Recommend: yes;
+   matches the privacy page's minimum-identity posture.)
+3. **One Discord identity per account, one account per Discord identity.**
+   (Recommend: yes; `/unlink` breaks it.)
+4. **Bind permission:** `/cosyworld bind` requires Manage Server or Manage
+   Channels. (Recommend: Manage Server for the first bind, Manage Channels
+   after; the bound channel is explicit state.)
+5. **Anonymous play:** unlinked users in a Room-mode channel speak to the
+   residents as an anonymous traveler whose acts are journaled but unowned.
+   (Recommend: yes — this is the growth path; ownership arrives on link.)
+6. **Surface field:** journaled acts record `surface: browser | discord` so
+   the corpus can separate the habitats. (Recommend: yes.)
+7. **No DMs, no pings, no @mentions, ever.** (Recommend: yes — the ecosystem
+   law; the world never asks for attention.)
+
+## Identity: Discord SSO
+
+- "Continue with Discord" on the hosted site extends the existing passkey
+  auth. OAuth2 code flow, `identify` scope, state nonce, PKCE where the
+  client supports it.
+- The callback exchanges the code for a Discord token, reads the user's id,
+  finds or creates an account linked to that id, then calls the existing
+  `AccountAuth::issue_session` and sets the session cookie — the Discord id
+  never becomes a second session mechanism, only an account link.
+- Stored: `discord_links (discord_user_id UNIQUE, account_id UNIQUE,
+  username, avatar_url, linked_at)`. No guild membership is read or stored.
+- `/link` in Discord: the gateway issues a one-time code that opens the game's
+  authorize URL with the code as state; the callback completes the link. The
+  browser path and the Discord path share the same callback.
+
+## Architecture
+
+The gateway is a client, exactly like the browser. It never embeds the
+engine, never calls a model, and never holds state that is not a view.
+
+- **`v2/discord-gateway/`** — a small Node service (discord.js v14), managed
+  beside the orchestrator, configured from env (`DISCORD_TOKEN`,
+  `DISCORD_APPLICATION_ID`, `DISCORD_PUBLIC_KEY`, `ORCHESTRATOR_URL`).
+- It speaks only the orchestrator's HTTP API and adds nothing to it that a
+  browser could not also call:
+  - `/meta` — version and mounted-pack list (channel bootstrap, asset pinning).
+  - `/card-game/text` — the existing narrative endpoint in
+    `card_narrative.rs` (`text_router`), for Talk.
+  - the card-shared action API — for plays and presence.
+- New orchestrator endpoints (thin, read/write of links and bindings):
+  - `POST /auth/discord/start` — returns the authorize URL + state.
+  - `POST /auth/discord/callback` — exchanges the code, links or creates the
+    account, sets the session cookie, returns the redirect target.
+  - `POST /auth/discord/unlink` — breaks the link (requires a session).
+  - `GET/PUT/DELETE /discord/bindings` — per-channel binding state
+    (`guild_id, channel_id, mode, pack, world_ref, budget`), authenticated by
+    a bot service token, not a user session.
+- **Persistence** lives in the accounts SQLite (the same store as
+  `AccountAuth`): `discord_links`, `discord_bindings`. Gateway-side state is
+  cache only; the store is authoritative.
+
+## The user journey
+
+1. **Discover** — the game site's "Bring your world to Discord" page, later
+   the App Directory. The page's job is trust: a plain-words permission sheet
+   (read bound channels, send messages, manage its own webhooks — nothing
+   else, no admin, no DMs).
+2. **Add** — standard OAuth invite; Discord renders the consent.
+3. **Bind** — `/cosyworld setup` in the target channel: mode picker (Room /
+   Your world / Quiet), pack picker (forest default), poem-at-dusk default.
+   Defaults good enough to need no configuration.
+4. **Link** — `/link` → button → OAuth → done.
+5. **Play** — users type as themselves; residents answer through per-message
+   webhook identity (the founding `sendAsWebhook` pattern); acts go through
+   slash commands or intent proposals rendered as Commit/Cancel embeds. Only
+   a button-press commits. Speech never creates an obligation.
+6. **Trust** — `/cosyworld privacy` posts the posture card: no message logging
+   beyond committed acts, no tokens held, no pings, the world never begs.
+   Kick the bot and Discord removes its webhooks — no residue.
+
+## Rendering
+
+- One webhook per channel; each resident message posts with per-message
+  `username` and `avatarURL` overrides pointing at the pack's served portrait
+  assets — so the Discord face and the card face are the same bytes under the
+  same `/meta.card_game.assets_sha256` contract.
+- Locked boxes render as embeds whose description is the box's want; the lock
+  condition sits in the footer.
+- Confirm cards are embeds with Commit/Cancel buttons.
+
+## Safety and compliance
+
+- Per-user and per-guild token buckets; one resident speaks per beat; the
+  voice gate and model pool stay server-side so a Discord flood never reaches
+  a provider unthrottled.
+- The world pulse (rhapsode at dusk, world-life beats) fires only when humans
+  are actually present in the bound channel — Elysium's law, doubled as cost
+  control.
+- Anonymous daily metrics only, same as the browser. No DMs, no pings. The
+  anti-dark-pattern list is the app-review narrative: this bot cannot nag,
+  streak, or decay.
+
+## Data surface
+
+The same human plays on two surfaces, one avatar, one journal. Acts record a
+`surface` field so the corpus can measure cross-surface continuity — the
+densest long-horizon signal the instrument produces. Discord is the ecosystem's
+highest-frequency habitat; the poem channel is its public save.
+
+## Phases (each within the change budget)
+
+- **Phase 0 — SSO and links:** OAuth endpoints, `discord_links` table,
+  `/unlink`, tests. No bot yet.
+- **Phase 1 — companion skeleton:** invite handling, `/cosyworld setup` and
+  bind, Room mode, webhook identity, Talk through `/card-game/text`. Users can
+  talk to Pip in their own servers.
+- **Phase 2 — plays and presence:** confirm cards, verbs, `/go`, Your-world
+  mode, co-presence.
+- **Phase 3 — pulse and poem:** dusk verses, world-life beats, presence
+  gating, Quiet mode.
+- **Phase 4 — home mode and self-host docs:** the home transfer on our guild,
+  the self-host guide, the no-keys-ever trust page.
