@@ -382,7 +382,8 @@ for (const historical of [true, false])
     },
   );
 
-// package 6 fixtures: the recorded trace plays claims the rules no longer have.
+// Held: rules 133 lets residents roam on (#2638), so Raven ends the recorded
+// trace in the attic, not at the pond. Not an old-fixture case; needs the owner.
 it.skip("reaches a local Raven return using the local NPC route and reloads every play", () => {
   let world = createWorld({ seed: 92 }),
     met,

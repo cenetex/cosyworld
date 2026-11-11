@@ -1,6 +1,3 @@
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import {
   decodeSave,
@@ -15,7 +12,6 @@ import {
   packWaitChoice,
 } from "../v2/card-game/pack-registry.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
-import { courseToward } from "../v2/card-game/pack-transport.mjs";
 import { recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";

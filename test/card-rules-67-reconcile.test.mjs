@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { reconcilePackProgress } from "../v2/card-game/legacy-saves.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 
 const fixture = JSON.parse(
@@ -36,6 +37,64 @@ const upgrade = () =>
     ...context(),
   });
 
+describe("a rules-67 shared world", () => {
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+  it.skip("opens under the current rules and plays on", () => {
+    const upgraded = upgrade();
+    expect(upgraded.error).toBeUndefined();
+    const view = dispatchShared({
+      op: "view",
+      world: upgraded.world,
+      ...context(),
+    });
+    expect(view.ok).toBe(true);
+    const again = dispatchShared({
+      op: "validate",
+      world: upgraded.world,
+      ...context(),
+    });
+    expect(again.world).toEqual(upgraded.world);
+  });
+
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+  it.skip("drops the Open Door steps the retired refusal opened", () => {
+    const before = fixture.world.packs["greek-drama"];
+    expect(before.choices["greek-theban-response"]).toBe("refusal");
+    expect(before.met["greek-theseus"]).toBeDefined();
+    const { world } = upgrade();
+    const after = world.packs["greek-drama"];
+    expect(after.flags["greek-open-door-open"]).toBeUndefined();
+    expect(
+      Object.keys(after.receipts).some((id) => /open-door|homecoming/.test(id)),
+    ).toBe(false);
+    expect(after.met["greek-theseus"]).toBeUndefined();
+    expect(world.actors["greek-theseus"]).toMatchObject({
+      place: greek.avatars["greek-theseus"].place,
+      crossed: 0,
+      lastTalk: -9,
+    });
+    // Steps the refusal did not need stay.
+    expect(after.receipts["greek-hear-decree"]).toBe(
+      before.receipts["greek-hear-decree"],
+    );
+    expect(world.log.some((e) => /open-door/.test(e.choiceId || ""))).toBe(
+      false,
+    );
+  });
+
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+  it.skip("tells a reworded topic in its current words", () => {
+    const topic = packDefinitions
+      .flatMap((p) => p.topics || [])
+      .find((t) => t.id === "forest-night-watch");
+    expect(fixture.world.knowledge.facts["forest-night-watch"].text).not.toBe(
+      topic.text,
+    );
+    expect(upgrade().world.knowledge.facts["forest-night-watch"].text).toBe(
+      topic.text,
+    );
+  });
+});
 
 describe("a save that named the retired storybook map", () => {
   const withMap = (change) => {
@@ -68,12 +127,24 @@ describe("a save that named the retired storybook map", () => {
   });
 });
 
+describe("pack progress reconcile", () => {
+  it("leaves a current save unchanged", () => {
+    for (const s of [
+      createWorld(),
+      createWorld({ opening: true }),
+      dispatchShared({ op: "create", seed: 12345 }).world,
+    ]) {
+      const copy = structuredClone(s);
+      reconcilePackProgress(copy, new Set(packDefinitions.map((p) => p.id)));
+      expect(copy).toEqual(s);
+    }
+  });
+});
 
 describe("a refused shared save", () => {
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("names where the rules refused it, and nothing of the world", async () => {
+  it("names where the rules refused it, and nothing of the world", async () => {
     await import("../v2/card-game/shared-world-entry.mjs");
-    const world = structuredClone(fixture.world);
+    const world = dispatchShared({ op: "create", seed: 12345 }).world;
     world.items.lamp.holder = "nowhere";
     const reply = JSON.parse(
       globalThis.cardShared(

@@ -142,26 +142,25 @@ it.skip("leaves aboard a player the full harbor has no room for", () => {
   });
 
 
+
   // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("spares an away traveler's quest when a pre-95 save puts the ship in", () => {
-    const s = stuck("ash");
-    s.actors.ash.want = {
-      kind: "place",
-      target: NOWHERE,
-      since: s.turn,
-      refusals: 0,
-    };
-    s.controlledActors = s.presentActors = players;
+it.skip("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {
+    // Vale threatens Myrto aboard at the harbor; the fight holds the ship.
+    let s = stuck("vale");
+    s.actors["greek-shipmaster"].place = SHIP;
+    s = act(reload(s), "vale", "threaten", "greek-shipmaster");
+    expect(s.standoffs.some((c) => c.location === SHIP)).toBe(true);
+    const idle = structuredClone(s);
+    idle.turn += IDLE_ROUNDS;
+    expect(stuckShip(idle, SHIP)).toBe(false);
     const saved = JSON.parse(encodeSave(s));
     delete saved.usedUp;
     saved.turn += IDLE_ROUNDS;
     saved.revision = Math.max(saved.revision, saved.turn);
     const w = decodeSave(JSON.stringify(saved));
-    expect(w.actors.ash.place).toBe(HOME);
-    // Ash plays as a resident while away: no set-aside (rules 98).
-    expect(w.actors.ash.want?.target).toBe(NOWHERE);
+    expect(w.actors.vale.place).toBe(SHIP);
+    expect(w.standoffs.some((c) => c.location === SHIP)).toBe(true);
   });
-
 
   // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
 it.skip("answers a lamp summon made while the ship was occupied", () => {

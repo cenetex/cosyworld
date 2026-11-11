@@ -5,9 +5,7 @@ import {
   exits,
   sealedWays,
 } from "../v2/card-game/world.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
-import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
 const PACK = "greek-drama",
   FIELD = "greek-battlefield",
@@ -42,4 +40,4 @@ describe("the Cithaeron road from the Exposed Battlefield", () => {
   );
 
 
-  });
+});

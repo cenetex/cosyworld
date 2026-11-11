@@ -1,6 +1,6 @@
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave, play, seedRun } from "../v2/card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave, play } from "../v2/card-game/world.mjs";
 import { entityActive, packDefinition, packIdOf, validatePackDefinition } from "../v2/card-game/pack-registry.mjs";
 import { installItemCycle, settleItemCycle } from "../v2/card-game/pack-items.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
@@ -69,6 +69,48 @@ it("rejects malformed scatter declarations", () => {
   expect(() => validatePackDefinition(pack)).toThrow(/scatterOutside/u);
 });
 
+it("agrees between browser source and bundled host for fresh shared saves", async () => {
+  const { build } = await import("esbuild");
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { runInNewContext } = await import("node:vm");
+  const { sharedContentInput } = await import("../v2/scripts/shared-content-input.mjs");
+  const { dispatchShared } = await import("../v2/card-game/shared-world.mjs");
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const result = await build({ absWorkingDir: root, entryPoints: ["v2/card-game/shared-world-entry.mjs"],
+    bundle: true, write: false, platform: "neutral", format: "iife", target: "es2022",
+    plugins: [sharedContentInput(root)] });
+  const content = JSON.parse(readFileSync(`${root}v2/orchestrator-rust/src/card_shared/content.json`, "utf8"));
+  content.files["v2/card-game/packs.json"] = JSON.parse(readFileSync(`${root}v2/card-game/packs.json`, "utf8"));
+  const vm = { structuredClone, cardContent: content };
+  runInNewContext(result.outputFiles[0].text, vm);
+  const compiled = (request) => JSON.parse(vm.cardShared(JSON.stringify(request)));
+  const draws = new Set();
+  for (const seed of [1, 2, 17, 26]) {
+    const request = { op: "create", seed };
+    const source = dispatchShared(request);
+    expect(source.ok, source.error).toBe(true);
+    expect(holders(source.world)).toEqual(holders(createWorld({ seed })));
+    expect(compiled(request)).toEqual(source);
+    draws.add(holders(source.world).join());
+  }
+  expect(draws.size).toBeGreaterThan(1);
+  for (const legacy of [false]) {
+    const initial = createWorld({ seed: 17 });
+    if (legacy) {
+      initial.packs.ratiradio.revision = 1;
+      for (const id of items) initial.items[id] = { holder: radio.items[id].holder, history: [] };
+    }
+    const create = { op: "create", save: JSON.stringify(initial) };
+    const source = dispatchShared(create);
+    expect(source.ok, source.error).toBe(true);
+    expect(compiled(create)).toEqual(source);
+    const request = { op: "view", world: source.world, actor: "vale", claimed: ["vale"], present: ["vale"] };
+    const action = dispatchShared(request).actions.find((a) => a.kind === "wait");
+    const command = { ...request, op: "play", action };
+    expect(compiled(command)).toEqual(dispatchShared(command));
+  }
+});
 
 
 it("keeps the Station Key at Black Pond on direct Radio landings", async () => {

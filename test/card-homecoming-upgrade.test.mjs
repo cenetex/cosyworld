@@ -1,4 +1,3 @@
-import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
 import { packDefinition as currentPackDefinition } from "../v2/card-game/pack-registry.mjs";
 const willowsItems = Object.fromEntries(
   Object.entries(currentPackDefinition("willows").items).map(([id, item]) => [
@@ -30,14 +29,7 @@ const decreeItems = Object.fromEntries(
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
-import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import {
-  branchItems,
-  upgradedActor,
-  upgradedItems,
-  withoutHomeDoors,
-} from "./fixtures/card-upgraded-items.mjs";
+import { decodeSave } from "../v2/card-game/world.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(

@@ -1,16 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  createWorld,
-  holdChoice,
-  legalActions,
-  places,
-  play,
-  sanctuaries,
-  standoffFor,
-  validateWorld,
-  decodeSave,
-  LONG_SLEEP_TURNS,
-} from "../v2/card-game/world.mjs";
+import { createWorld, holdChoice, legalActions, places, play, sanctuaries, standoffFor, validateWorld, LONG_SLEEP_TURNS } from "../v2/card-game/world.mjs";
 import {
   crossings,
   packDefinitions,

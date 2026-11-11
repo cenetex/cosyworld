@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod ajax_tests;
 mod bindings;
 #[cfg(test)]
 mod bindings_tests;
@@ -9,6 +11,8 @@ mod classic_drop_tests;
 mod concurrency_tests;
 mod content;
 mod engine;
+#[cfg(test)]
+mod live_rules_tests;
 #[cfg(test)]
 mod move_tests;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;

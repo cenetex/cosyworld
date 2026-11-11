@@ -172,10 +172,31 @@ pub(super) fn carries_progress(version: &str) -> bool {
         .and_then(|n| n.parse::<u32>().ok())
         .is_some_and(|n| n >= 80)
 }
+// What waits between seats is never lowered: a later save keeps the higher
+// level, then the higher experience, of the two.
 pub(super) fn save_progress(c: &Connection, user: &str, a: usize, progress: &Value) -> Result<()> {
+    let rank = |p: &Value| {
+        (
+            p["level"].as_u64().unwrap_or(0),
+            p["xp"].as_u64().unwrap_or(0),
+        )
+    };
+    let held: Option<String> = c
+        .query_row(
+            "SELECT progress FROM card_avatar_progress WHERE user=? AND actor=?",
+            params![user, a],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(sql_error)?;
+    let held = held.and_then(|h| serde_json::from_str::<Value>(&h).ok());
+    let kept = match held {
+        Some(held) if rank(&held) > rank(progress) => held,
+        _ => progress.clone(),
+    };
     c.execute(
         "INSERT OR REPLACE INTO card_avatar_progress(user,actor,progress) VALUES(?,?,?)",
-        params![user, a, progress.to_string()],
+        params![user, a, kept.to_string()],
     )
     .map_err(sql_error)?;
     Ok(())

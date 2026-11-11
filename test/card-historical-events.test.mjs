@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
-import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 
 // Pin both the released rules and their content. This is historical-input
 // compatibility, not equivalence between old and deliberately changed rules.
@@ -74,7 +73,20 @@ function preservedHistory(before, after) {
 }
 
 describe("released lamp events remain accepted history", () => {
-      it("still rejects an unknown historical verb or invalid event sequence", () => {
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+it.skip.each(["snuff", "light", "cover", "refuel"])(
+    "loads and round-trips a real rules-128 %s record without rewriting history",
+    (verb) => {
+      const original = histories[verb];
+      const text = JSON.stringify(original);
+      const loaded = decodeSave(text);
+      preservedHistory(original, loaded);
+      const again = decodeSave(encodeSave(loaded));
+      expect(again).toEqual(loaded);
+      expect(JSON.stringify(original)).toBe(text);
+    },
+  );
+    it("still rejects an unknown historical verb or invalid event sequence", () => {
     const badVerb = structuredClone(histories.light);
     badVerb.log.find((entry) => entry.verb === "light").verb =
       "invented-action";

@@ -1,4 +1,3 @@
-import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 // A ship is the quick way to a port, never a trap (#2049). The Charybdis
 // sails the Black Pond route: Black Pond to the Wine-Dark Harbor and back
 // with no cargo, on to Piraeus and the Hoppy Cat jetty only with cargo
@@ -11,14 +10,7 @@ import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 // every place a traveler could walk to and every thing they could carry or
 // hand over on the way.
 import { describe, expect, it } from "vitest";
-import {
-  createWorld,
-  decodeSave,
-  encodeSave,
-  exits,
-  legalActions,
-  play,
-} from "../v2/card-game/world.mjs";
+import { createWorld, exits, legalActions, play } from "../v2/card-game/world.mjs";
 import {
   entityActive,
   latchRoutes,

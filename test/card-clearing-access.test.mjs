@@ -166,4 +166,4 @@ describe("the temporary ringing path to Forest Clearing", () => {
     expect(visible(decodeSave(encodeSave(s)))).toBe(false);
   });
 
-  });
+});

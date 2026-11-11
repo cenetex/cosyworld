@@ -70,6 +70,56 @@ it("a resident's selected cloth also reveals the ship during an authoritative pl
   expect(result.ok).toBe(true);
   expect(result.state.crossings[gate].discovered).toBe(true);
 });
+// package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+it.skip("migrates a genuine completed rules128 ship signal without erasing discovery or records", () => {
+  const runtime = vm.createContext({
+    structuredClone,
+    cardContent: JSON.parse(
+      readFileSync(
+        new URL("./fixtures/released-rules/content-v128.json", import.meta.url),
+      ),
+    ),
+  });
+  vm.runInContext(
+    readFileSync(
+      new URL(
+        "../v2/orchestrator-rust/src/card_shared/engine-v128.js",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    runtime,
+  );
+  const old = (request) => {
+    const result = JSON.parse(
+      runtime.cardShared(JSON.stringify({ ...context, ...request })),
+    );
+    expect(result.ok, result.error).toBe(true);
+    return result;
+  };
+  let world = old({ op: "create", seed: 7 }).world;
+  world.actors.vale.place = "pond";
+  world.opening.crossed = true;
+  world.opening.met.moth = 0;
+  world.locations.attic.anchored = true;
+  world.items.cloth.holder = "vale";
+  for (const kind of ["cover", "take"]) {
+    const action = old({ op: "view", world }).actions.find(
+      (a) =>
+        a.kind === kind &&
+        a.item === "cloth" &&
+        (kind !== "cover" || a.target === "lamp"),
+    );
+    expect(action).toBeDefined();
+    world = old({ op: "play", world, action }).world;
+  }
+  expect(world.crossings[gate].discovered).toBe(true);
+  const migrated = decodeSave(JSON.stringify(world));
+  expect(migrated.crossings[gate]).toEqual({ discovered: true });
+  expect(migrated.log).toEqual(world.log);
+  expect(migrated.transports).toEqual(world.transports);
+  expect(decodeSave(encodeSave(migrated))).toEqual(migrated);
+});
 it("keeps an already occupied voyage accessible during save migration", () => {
   const s = arranged();
   s.actors.vale.place = "greek-ship";

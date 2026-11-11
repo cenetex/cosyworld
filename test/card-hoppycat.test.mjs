@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
 import {
   createWorld,
   decodeSave,
@@ -264,64 +263,11 @@ describe("Hoppy Cat refresh", () => {
     expect(pairs.size).toBe(6);
   });
 
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("moves earlier rooms and keeps held things, friendships and completed deeds", () => {
-    const runtime = currentSharedEngine();
-    for (const file of ["visit", "small", "completed"]) {
-      const text = readFileSync(
-        new URL(`./fixtures/hoppycat-v3/${file}.json`, import.meta.url),
-        "utf8",
-      );
-      const request = { op: "create", save: text };
-      expect(JSON.parse(runtime.cardShared(JSON.stringify(request)))).toEqual(
-        dispatchShared(request),
-      );
-      const old = JSON.parse(text),
-        world = decodeSave(text);
-      expect(world.packs[pack.id].revision).toBe(4);
-      expect(world.actors.vale.trust).toEqual({
-        ...Object.fromEntries(
-          Object.keys(createWorld().actors)
-            .filter((id) => id !== "vale")
-            .map((id) => [id, 0]),
-        ),
-        ...old.actors.vale.trust,
-        "greek-polynices-shade": 0,
-      });
-      for (const [key, turn] of Object.entries(old.packs[pack.id].receipts))
-        expect(world.packs[pack.id].receipts[key]).toBe(turn);
-      for (const [key, item] of Object.entries(old.items).filter(
-        ([, v]) => v.holder === "vale",
-      ))
-        expect(world.items[key]).toEqual(item);
-      expect(decodeSave(encodeSave(world))).toEqual(world);
-    }
-  });
 
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("keeps browser and bundled shared play in agreement", () => {
+  it("keeps browser and bundled shared play in agreement", () => {
     const runtime = currentSharedEngine();
-    // Released rules saved version 2 ships; the current rules sail version 3.
-    const v2 = (world) =>
-      world && {
-        ...world,
-        transports: Object.fromEntries(
-          Object.entries(world.transports).map(([id, t]) => [
-            id,
-            { version: 2, dock: t.dock, destination: null, recall: t.recall },
-          ]),
-        ),
-      };
-    const shipless = (out) =>
-      out.world ? { ...out, world: { ...out.world, transports: null } } : out;
     const ask = (request) =>
-      shipless(
-        JSON.parse(
-          runtime.cardShared(
-            JSON.stringify({ ...request, world: v2(request.world) }),
-          ),
-        ),
-      );
+      JSON.parse(runtime.cardShared(JSON.stringify(request)));
     let world = dispatchShared({
       op: "create",
       save: encodeSave(createLandingWorld(pack)),
@@ -334,7 +280,7 @@ it.skip("keeps browser and bundled shared play in agreement", () => {
       present: ["vale"],
     };
     const view = dispatchShared(request);
-    expect(ask(request)).toEqual(shipless(view));
+    expect(ask(request)).toEqual(view);
     // Taking the cup reveals the company at the table.
     const action = view.actions.find(
       (a) => a.kind === "take" && a.item === id("halfway-cup"),
@@ -342,6 +288,6 @@ it.skip("keeps browser and bundled shared play in agreement", () => {
     expect(action).toBeDefined();
     const command = { ...request, op: "play", action };
     // Dialogue context is narration, built outside the rules (narrator bundle).
-    expect(ask(command)).toEqual(shipless(dispatchShared(command)));
+    expect(ask(command)).toEqual(dispatchShared(command));
   });
 });

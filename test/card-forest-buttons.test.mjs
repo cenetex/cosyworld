@@ -253,7 +253,7 @@ describe("a button in each traveler's own colour", () => {
 
   // A retired fork's deed passes to the step that took it in (2026-11-01:
   // a shared world that had set the stones could not open on revision 3).
-  });
+});
 
 // Cosmetic upgrades are one-way, per passkey, and follow the traveler into
 // every world (#1873). RATi's scarf is the first.

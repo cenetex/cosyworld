@@ -177,6 +177,7 @@ describe("BoardyAI's presence and home", () => {
     expect(view(world).exits).toContain("boardyai-parlour");
   });
 
+
   it("validates his home and bounded human presence conditions", () => {
     expect(validatePackDefinition(boardyPack)).toBe(boardyPack);
     for (const minimum of [0, 9, 1.5, "2"]) {

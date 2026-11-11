@@ -4,8 +4,6 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import { openDoorAction, playOpenDoor } from "./helpers/open-door.mjs";
 import { homecomingJourney, myrineSteps } from "./helpers/greek-homecoming.mjs";
-import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
-import { DAY_TURNS, worldLife } from "../v2/card-game/resident-home.mjs";
 
 const flag = (world, key) =>
   world.packs["greek-drama"].flags[`greek-homecoming-${key}`];

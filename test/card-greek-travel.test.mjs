@@ -1,6 +1,4 @@
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, it, expect } from "vitest";
 import { openGreekGate } from "./helpers/greek-gate.mjs";
 import {
@@ -18,18 +16,9 @@ import {
   transports,
 } from "../v2/card-game/pack-registry.mjs";
 import { travelCard } from "../v2/card-game/scene.mjs";
-import {
-  lanePath,
-  lanesFrom,
-  laneGated,
-  learnLane,
-} from "../v2/card-game/pack-transport.mjs";
+import { lanePath, lanesFrom, learnLane } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
 import { ajaxCamp } from "./helpers/greek-ajax.mjs";
-import {
-  upgradedActor,
-  upgradedItems,
-} from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-piraeus"];

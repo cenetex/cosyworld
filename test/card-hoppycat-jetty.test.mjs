@@ -277,4 +277,4 @@ describe("the retired red thread", () => {
     expect(moves(loaded, "vale")).not.toContain(pack.entry);
   });
 
-  });
+});

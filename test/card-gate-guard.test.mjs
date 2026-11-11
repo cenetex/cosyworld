@@ -1,16 +1,7 @@
 // Rules 100, world life: the Gate Guard's standing Wait bars the battlefield,
 // and a player may stand guard at a guardable way.
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
-import {
-  decodeSave,
-  encodeSave,
-  exits,
-  legalActions,
-  play,
-  sealedWays,
-} from "../v2/card-game/world.mjs";
+import { encodeSave, exits, legalActions, play, sealedWays } from "../v2/card-game/world.mjs";
 import { cardActions, sealedReason } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
@@ -221,4 +212,4 @@ describe("the Exposed Battlefield", () => {
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
   });
 
-  });
+});

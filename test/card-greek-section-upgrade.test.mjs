@@ -1,12 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
-import {
-  entityActive,
-  packDefinition,
-} from "../v2/card-game/pack-registry.mjs";
-import { upgradedActor, upgradedItems, withoutHomeDoors } from "./fixtures/card-upgraded-items.mjs";
+import { decodeSave } from "../v2/card-game/world.mjs";
 
 const context = vm.createContext({});
 vm.runInContext(

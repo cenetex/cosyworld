@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, exits } from "../v2/card-game/world.mjs";
+import { createWorld, exits } from "../v2/card-game/world.mjs";
 import {
   entityActive,
   localRoadEnds,

@@ -11,12 +11,8 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { lifeHome } from "../v2/card-game/resident-home.mjs";
-import {
-  packDefinition,
-  packTalkChoice,
-} from "../v2/card-game/pack-registry.mjs";
+import { packTalkChoice } from "../v2/card-game/pack-registry.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
-import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
 const pack = "greek-drama",
   field = "greek-battlefield",

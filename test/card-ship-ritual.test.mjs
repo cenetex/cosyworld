@@ -1,12 +1,11 @@
 import { fillLampFuel, settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
-import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import {
   summonTransport,
   moveTransport,
 } from "../v2/card-game/pack-transport.mjs";
-import { crossings, packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { crossings } from "../v2/card-game/pack-registry.mjs";
 import { crossingOpen } from "../v2/card-game/pack-rules.mjs";
 import { senses } from "../v2/card-game/world.mjs";
 const gate = (id) => crossings.find((c) => c.id === id);
@@ -15,8 +14,6 @@ const greekShipPresent = (s) =>
 const shipSignalPhase = (s) => s.crossings["pond-greek-harbor"].phase;
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import {
   legalActions,
   exits,

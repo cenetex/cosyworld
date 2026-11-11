@@ -18,7 +18,9 @@ use super::{
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
-/// The oldest rules a shared world may still run on.
+/// The oldest rules a shared world may still run on. Raise it deliberately
+/// and never together with `engine::VERSION` in one change: doing both would
+/// retire every live world at once.
 pub(super) const FLOOR: u32 = 133;
 pub(super) const CLOSED: &str = "This world has closed.";
 
@@ -54,30 +56,10 @@ pub(super) fn below(c: &Connection, id: &str) -> Result<bool> {
         .map_err(sql_error)?;
     Ok(version.flatten().is_none_or(|v| old(&v)))
 }
-// Keep an avatar's level and experience for its holder's next seat. Where the
-// holder already has some waiting, the higher of the two stays.
+// Keep an avatar's level and experience for its holder's next seat (the higher
+// of any already waiting stays: bindings::save_progress), and its upgrades.
 fn keep(c: &Connection, user: &str, a: usize, game: &Value) -> Result<()> {
-    let mut progress = bindings::progress_of(game, actor_id(a));
-    let held: Option<String> = c
-        .query_row(
-            "SELECT progress FROM card_avatar_progress WHERE user=? AND actor=?",
-            params![user, a],
-            |r| r.get(0),
-        )
-        .optional()
-        .map_err(sql_error)?;
-    let rank = |p: &Value| {
-        (
-            p["level"].as_u64().unwrap_or(0),
-            p["xp"].as_u64().unwrap_or(0),
-        )
-    };
-    if let Some(held) = held.and_then(|h| serde_json::from_str::<Value>(&h).ok()) {
-        if rank(&held) >= rank(&progress) {
-            progress = held;
-        }
-    }
-    bindings::save_progress(c, user, a, &progress)?;
+    bindings::save_progress(c, user, a, &bindings::progress_of(game, actor_id(a)))?;
     bindings::record_upgrades(c, user, a, game)
 }
 /// Retire the world when its rules are older than the floor: keep each

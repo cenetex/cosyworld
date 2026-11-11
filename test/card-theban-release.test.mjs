@@ -30,7 +30,6 @@ import {
   travelCard,
 } from "../v2/card-game/scene.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
@@ -233,7 +232,7 @@ describe("the Theban release and its ship", () => {
     const aboard = act(s, "move", { target: "greek-ship" });
     expect(exits(aboard, "greek-ship", "vale")).toEqual(["pond"]);
   });
-    // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
 it.skip("keeps a halfway signal locked until the new physical arrangement", () => {
     // A partial old signal must not accidentally count as a completed unlock.
     let s = decodeSave(JSON.stringify(legacy("halfway")));

@@ -203,3 +203,42 @@ fn a_current_world_is_never_swept_and_still_replays_exactly() {
     drop(c);
     std::fs::remove_file(path).unwrap();
 }
+
+#[test]
+fn waiting_progress_is_never_lowered_by_a_later_save() {
+    let (path, c) = open();
+    let vale = actor_index("vale").unwrap();
+    bindings::save_progress(&c, "ann", vale, &json!({"xp":20,"level":4})).unwrap();
+    // A seat that empties later with less keeps the higher level waiting.
+    bindings::save_progress(&c, "ann", vale, &json!({"xp":3,"level":1})).unwrap();
+    bindings::save_progress(&c, "ann", vale, &json!({"xp":30})).unwrap();
+    assert_eq!(
+        bindings::take_progress(&c, "ann", vale).unwrap(),
+        Some(json!({"xp":20,"level":4}))
+    );
+    // Once taken by a claim, a new save starts afresh.
+    bindings::save_progress(&c, "ann", vale, &json!({"xp":1})).unwrap();
+    assert_eq!(
+        bindings::take_progress(&c, "ann", vale).unwrap(),
+        Some(json!({"xp":1}))
+    );
+    drop(c);
+    std::fs::remove_file(path).unwrap();
+}
+
+#[test]
+fn a_shared_world_from_a_retired_local_save_is_refused_as_a_fresh_start() {
+    let (path, mut c) = open();
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .unwrap();
+    let schema_7 = r#"{"schema":7,"turn":4}"#;
+    let error =
+        full::found(&tx, "ann", actor_index("vale").unwrap(), Some(schema_7), T).unwrap_err();
+    assert!(error.contains("fresh start"), "{error}");
+    // The failed founding is rolled back: no world, no row.
+    drop(tx);
+    assert_eq!(store::list(&c, "ann").unwrap()["worlds"], json!([]));
+    drop(c);
+    std::fs::remove_file(path).unwrap();
+}

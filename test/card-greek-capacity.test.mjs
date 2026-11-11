@@ -26,13 +26,9 @@ const decreeItems = Object.fromEntries(
     },
   ]),
 );
-import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
-import hoppycat from "../v2/content/hoppycat-archive/card-world.json" with { type: "json" };
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
@@ -42,7 +38,6 @@ import {
   agoraView,
   crowdedAgoraWorld,
 } from "./helpers/greek-capacity.mjs";
-import { branchItems, upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 
 // The countryside reaches the harbour only through the city, so only Piraeus

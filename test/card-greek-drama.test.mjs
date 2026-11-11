@@ -1,6 +1,5 @@
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
-import { readFileSync } from "node:fs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { describe, expect, it } from "vitest";
@@ -35,7 +34,6 @@ import {
 import { endStandoff } from "./helpers/standoff.mjs";
 import { openingFixture } from "./helpers/greek-opening.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
-import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 const PACK = "greek-drama";
 const HARBOR = "greek-harbor";
@@ -242,6 +240,62 @@ describe("the Wine-Dark Sea crossing", () => {
     });
   });
 
+  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
+it.skip("adds the pack once to an earlier shore save without overwriting its progress", () => {
+    const old = pond();
+    delete old.packs[PACK];
+    delete old.crossings["pond-greek-harbor"];
+    delete old.crossings["greek-harbor-pond"];
+    old.items.oil.holder = "keeper";
+    for (const collection of [
+      old.actors,
+      old.items,
+      old.memories,
+      old.peaceUntil,
+    ])
+      for (const id of Object.keys(collection))
+        if (id.startsWith("greek-")) delete collection[id];
+    for (const actor of Object.values(old.actors))
+      for (const id of Object.keys(actor.trust))
+        if (id.startsWith("greek-")) delete actor.trust[id];
+    if (old.opening)
+      for (const id of Object.keys(old.opening.met))
+        if (id.startsWith("greek-")) delete old.opening.met[id];
+    if (old.motives)
+      for (const id of Object.keys(old.motives.grievances))
+        if (id.startsWith("greek-")) delete old.motives.grievances[id];
+    if (old.life)
+      for (const id of Object.keys(old.life.actors))
+        if (id.startsWith("greek-")) delete old.life.actors[id];
+
+    for (const actor of Object.values(old.actors)) delete actor.heldItem;
+    const migrated = decodeSave(JSON.stringify(old));
+    expect(migrated.schema).toBe(7);
+    expect(migrated.log).toEqual(old.log);
+    expect(migrated.turn).toBe(old.turn);
+    expect(migrated.revision).toBe(old.revision);
+    for (const [id, item] of Object.entries(old.items))
+      expect(migrated.items[id]).toEqual(item);
+    for (const [id, actor] of Object.entries(old.actors))
+      expect(migrated.actors[id]).toMatchObject(actor);
+    for (const [id, memory] of Object.entries(old.memories))
+      expect(migrated.memories[id]).toEqual(memory);
+    expect(reload(migrated)).toEqual(migrated);
+    expect(move(migrated, HARBOR).actors.vale.place).toBe(HARBOR);
+
+    const incomplete = structuredClone(migrated);
+    delete incomplete.actors["greek-antigone"];
+    expect(() => decodeSave(JSON.stringify(incomplete))).toThrow();
+    for (const removeOriginalState of [
+      (world) => delete world.memories.vale,
+      (world) => delete world.actors.vale.trust.moth,
+      (world) => delete world.motives.grievances.moth,
+    ]) {
+      const corrupt = structuredClone(old);
+      removeOriginalState(corrupt);
+      expect(() => decodeSave(JSON.stringify(corrupt))).toThrow();
+    }
+  });
 
   it("keeps remote actions and unchosen Greek residents out of the shore scene", () => {
     const shore = pond();
@@ -462,15 +516,6 @@ describe("Before the Burial", () => {
     expect(stateOf(supplied).flags["greek-open-door-open"]).toBeUndefined();
   });
 
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("keeps the earlier report and its way home", () => {
-    let world = openingFixture("exposure").closed;
-    const receipts = structuredClone(stateOf(world).receipts);
-    world = walk(reload(world), HARBOR, "pond");
-    expect(stateOf(world).choices["greek-theban-response"]).toBe("exposure");
-    expect(stateOf(world).receipts).toMatchObject(receipts);
-    expect(legalActions(world).length).toBeGreaterThan(0);
-  });
 
 
 

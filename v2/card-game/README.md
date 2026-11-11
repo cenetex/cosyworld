@@ -410,7 +410,11 @@ a no-turn play). See [the design](../../docs/design/wants-and-arcs.md).
 The save schema is 8 (`SAVE_SCHEMA` in `legacy-saves.mjs`). The rules 133 bump
 retired every earlier save: a browser save of another schema is not lifted or
 opened, and the table starts fresh keeping only the traveler's level,
-experience and cosmetic upgrades (`carryLocalProgress`). Shared worlds on rules
+experience and cosmetic upgrades (`carryLocalProgress`). The old save text is
+left untouched in its slot until the first autosave writes the new schema over
+it (the desktop backup file follows on its next flush); no copy is made. Sharing
+always sends the in-memory world, so a retired save never reaches the server.
+Shared worlds on rules
 before 133 are retired too (see shared worlds); released journals keep their
 frozen rule bundles.
 
