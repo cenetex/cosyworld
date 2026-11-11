@@ -94,7 +94,8 @@ describe("anonymous play counts", () => {
     expect(playCounter({ kind: "talk" })).toBe("play.talk");
     expect(playCounter({ kind: "wait", sleep: true })).toBe("play.sleep");
     expect(playCounter({ kind: "wait" })).toBe("play.wait");
-    expect(playCounter({ kind: "focus", quest: 1 })).toBe("quest.accept");
+    expect(playCounter({ kind: "take", offer: "box" })).toBe("quest.accept");
+    expect(playCounter({ kind: "take", item: "lamp" })).toBe("play.take");
     expect(playCounter({ kind: "drop" })).toBe("quest.abandon");
     expect(playCounter({ kind: "drop", item: "lamp" })).toBe("play.drop");
     expect(playCounter({ kind: "sing" })).toBe("play.other");

@@ -312,6 +312,23 @@ keeps one record per accepted play, in order. A play's speech and, from rules
 v88, its private reflections are later records of their own (see
 [Learning and private reflection](#learning-and-private-reflection)).
 
+### The rules floor (rules 133)
+
+"We can reset": a world saved under rules older than 133 (`FLOOR` in
+`full_floor.rs`) is retired and never opened or replayed. `full_store::world`
+refuses it with "This world has closed." after reading only the checkpoint's
+(or seed's) version. The passkey's world list retires its old worlds first, and
+a claim that finds an old seat elsewhere retires that world instead of opening
+it. Retiring only sets `card_tables.retired_at` and cancels unfinished plays;
+the journal, checkpoint, members and bindings rows stay, and seat queries skip
+retired worlds. Before marking, it saves each seated passkey's avatar level
+and experience into `card_avatar_progress` (the higher where one already waits)
+and its upgrades into `card_avatar_upgrades`. Both are outside the journal, as
+are unlocks (`card_unlocks`), so the next world's `claim` journals them as
+`progress`. The traveler then starts a world through the ordinary create. The
+upgrade path in `full_store::world` stays for the next rules mint; the frozen
+bundles up to 132 are kept but no world reaches them.
+
 Rule version 3 introduced the home-item floor start. Version 4 added Greek
 story cards and saved bard visits. Versions 5–8 added collected and shared quests,
 shared journeys, quieter offers, and the first-signal ship gate. Published rule
@@ -387,12 +404,10 @@ contains the fact, so replay and every client agree.
 
 ## Quests in shared worlds
 
-Each avatar holds a stack of up to three quests, as described in the
-[card guide](../../card-game/README.md#a-quest-stack-per-avatar). New quests go
-on top and nothing wipes one already held. Meeting one is a `want_met` event in
-the shared history, so every client and the journal agree on who met what.
-Dropping a quest (`drop` naming it) and pursuing one from beneath (`focus`) are
-ordinary plays in the journal. A met quest's sealed card is each browser's own. A quest ends where it is met; only a level quest leads back,
+Each avatar holds one want, as described in the
+[card guide](../../card-game/README.md#one-want-per-avatar). Meeting it is a
+`want_met` event in the shared history, so every client and the journal agree
+on who met what. Dropping a quest (`drop`) is an ordinary play in the journal. A met quest's sealed card is each browser's own. A quest ends where it is met; only a level quest leads back,
 to the sanctuary the avatar last stood in, where a long rest raises the level
 ([rest and sanctuary](rest-and-sanctuary.md#level-quest)). Human rest counts that person's own turns;
 resident rest counts world rounds.

@@ -23,7 +23,8 @@ The Mac package embeds the same card files and uses the same release version.
 | Hoppy Cat card refresh | `v2/content/hoppycat-archive/card-world.json` and `CARD-REFRESH.md` |
 | Compiled card packs | `v2/card-game/packs.json`, built by `build-card-worldpacks.mjs` |
 | Runtime pack and avatar lookup | `v2/card-game/pack-registry.mjs` |
-| A quest stack per avatar: met, next, drop, level | `v2/card-game/want.mjs`, driven by `world.mjs` |
+| One want per avatar: met, next (residents, from staged `wants` or drawn), drop, level | `v2/card-game/want.mjs`, driven by `world.mjs` |
+| Locked boxes: one list of shut ways, residents, made things and sealed items, lanes, doors and hub ways, and XP for opening them | `v2/card-game/world/boxes.mjs`, read by `cards.mjs` and `locked-box.mjs` |
 | Starter quests | `want` on each person in `forest.json` and each pack resident |
 | A person's quest in Talk context | `v2/card-game/want-talk.mjs`, used by `narrative.mjs` |
 | Learned facts and Talk topics | `v2/card-game/knowledge.mjs` and each card pack's `topics` |
@@ -41,8 +42,10 @@ in a particular saved world.
 
 The physical Pip card points to `/pip` (also `/pip/`). It opens a separate
 local save. The existing wooden box and whispers reveal Pip's card on black.
-The card's Talk action gives his Lamp quest, then fades into the regular Vale
-intro carrying that quest. `pip-landing.mjs` sets up new visits; returning
+The card's Talk action shows his line and offers his Lamp quest as a closed
+box; accepting it fades into the regular Vale intro (no second wooden box)
+carrying that same quest. The page title is "Lonely Forest" and the table is
+inert until the box is opened. `pip-landing.mjs` sets up new visits; returning
 visits restore that save.
 Explicit world, table and pack query links keep their usual behavior.
 

@@ -24,7 +24,8 @@ describe("an owner deletes an avatar from a shared world (#1825)", () => {
     mara.level = 4;
     mara.want = {
       ...newWant("place", "attic", 0),
-      quest: { level: 5, left: 2 },
+      step: { verb: "rest" },
+      quest: { level: 5, left: 1 },
     };
     mara.trust.vale = 2;
     world.actors.vale.trust.mara = 3;
@@ -59,6 +60,7 @@ describe("an owner deletes an avatar from a shared world (#1825)", () => {
         resolve: { vale: 4, mara: 4 },
         guarding: { vale: false, mara: false },
         struck: { vale: false, mara: false },
+        steppedBack: { vale: false, mara: false },
       },
     ];
     const after = ask(world, "reset", "mara").world;

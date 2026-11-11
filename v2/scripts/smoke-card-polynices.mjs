@@ -9,6 +9,8 @@ import {
   play,
 } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { questFor } from "../card-game/talk-quest.mjs";
+import { setWant } from "../card-game/want.mjs";
 import {
   clearSelection,
   readyActionButton,
@@ -45,6 +47,15 @@ for (const match of [
   const result = play(fixture, action);
   assert.ok(result.ok, result.error);
   fixture = result.state;
+}
+// Talk tells the burial and the player takes it with a tap (Accept quest, a
+// later package). Until that play exists, take it here as the tap would.
+{
+  const teller = [antigone, "greek-polynices-shade"].find(
+    (id) => fixture.actors[id]?.want?.step?.verb === "lay",
+  );
+  assert.ok(teller, "someone tells the burial");
+  setWant(fixture.actors.vale, questFor(fixture, teller, fixture.actors[teller].want));
 }
 const output =
   process.env.COSYWORLD_POLYNICES_EVIDENCE ||
@@ -152,20 +163,10 @@ try {
         if (missing === "place") world.actors.vale.place = "greek-courtyard";
         else if (missing === antigone) world.actors[antigone].place = "greek-gate";
         else world.items[missing].holder = "greek-courtyard";
-        world.actors.vale.under = [{ kind: "place", target: "pond", since: 0, refusals: 0 }];
         await showState(world);
         assert.equal(await funeral.count(), 0, `Rite waits for ${missing}`);
         assert.equal(await page.locator('[data-quest-step]').count(), 0);
-        if (missing === "place") {
-          await selectCard(page, "vale", { touch: width === 390 });
-          const other = page.locator('#hand button[data-quest-id="quest:1"]');
-          await tapCard(other);
-          await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
-          if ((await state()).actors.vale.want.target !== "pond") await tapCard(other);
-          await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key)).actors.vale.want.target === "pond", key);
-          assert.equal(await funeral.count(), 0, "Other quest focus keeps the funeral hidden");
-          await photograph("courtyard-quest");
-        }
+        if (missing === "place") await photograph("courtyard-quest");
       }
       await showState(fixture);
       await selectCard(page, hollow, { touch: width === 390 });
@@ -185,6 +186,14 @@ try {
       await settle();
       await selectCard(page, hollow, { touch: width === 390 });
       assert.equal(await locked.getAttribute("data-locked"), "false");
+      // Antigone dwells where she is for a day (rules 133) and then walks home;
+      // the rite is played with her already there, as the walk would leave her.
+      {
+        const walked = await state();
+        walked.actors[antigone].place = hollow;
+        await showState(walked);
+        await selectCard(page, hollow, { touch: width === 390 });
+      }
       await readyActionButton(page, "move").waitFor();
       await photograph("opened");
       await readyActionButton(page, "move").click();
@@ -195,8 +204,6 @@ try {
       const pickQuest = async () => {
         await clearSelection(page);
         await selectCard(page, "vale", { touch: width === 390 });
-        if (await quest.isHidden())
-          await tapCard(page.locator('#hand .want-frame:not([hidden]) .want-card[data-met="true"]'));
         await tapCard(quest);
         await page.waitForFunction(
           () => !document.querySelector("#hand [data-revealing]"),
@@ -241,9 +248,17 @@ try {
         );
         await photograph(stage);
         const before = await state();
-        const button = page.locator(
-          '#card-actions [data-quest-step][data-action="give"]:not([data-revealing="true"])',
+        // The held quest's one button is Discard; the rite is done by
+        // choosing the supply and Antigone, as any give is.
+        assert.equal(await page.locator("#card-actions button").count(), 1);
+        assert.equal(
+          await page.locator("#card-actions [data-drop-quest]").getAttribute("data-tap-verb"),
+          "Discard",
         );
+        await clearSelection(page);
+        await selectCard(page, kit[index]);
+        await selectCard(page, antigone);
+        const button = readyActionButton(page, "give");
         await button.waitFor({ state: "visible" });
         const bounds = await button.boundingBox();
         assert.ok(
@@ -317,27 +332,11 @@ try {
       assert.equal((await state()).actors.vale.place, "greek-courtyard");
       assert.equal(await page.evaluate(() => Boolean(window.funeralSong)), false);
       console.log(JSON.stringify({ width, funeralMusic: musicBefore, travelled: true, ended: true, reload: true }));
-      // The saved checked rite follows Vale after the funeral and pack close.
-      const receipt = done.actors.vale.questRewards.find((r) => r.want.target === hollow);
-      assert.ok(receipt);
-      done.actors.vale.place = "pond";
-      const closed = play(done, { kind: "pack", pack: "sea", enable: false });
-      assert.ok(closed.ok, closed.error);
-      await showState(closed.state);
-      await selectCard(page, "vale", { touch: width === 390 });
-      const checked = page.locator(`[data-quest-key="reward:vale:${receipt.id}"]`);
-      await checked.waitFor();
-      assert.equal(await checked.getAttribute("data-met"), "true");
-      assert.equal(await checked.getAttribute("data-unrevealed"), "false");
-      await checked.scrollIntoViewIfNeeded();
-      await photograph("saved-funeral-reward");
-      await checked.click();
-      await checked.waitFor({ state: "detached" });
-      assert.equal((await state()).turn, closed.state.turn);
-      assert.equal((await state()).actors.vale.xp, closed.state.actors.vale.xp + receipt.xp);
-      await page.reload();
-      await settle();
-      assert.equal(await checked.count(), 0);
+      // The met funeral quest pays its experience on the last rite and goes:
+      // there is nothing to claim.
+      assert.equal(done.actors.vale.want, null);
+      assert.ok(done.actors.vale.xp > ready.actors.vale.xp);
+      assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(

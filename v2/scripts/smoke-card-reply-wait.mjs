@@ -365,7 +365,7 @@ try {
         }),
       );
       await shared.route("**/auth/account", (route) =>
-        route.fulfill({ json: { authenticated: true } }),
+        route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
       );
       await shared.route("**/card-game/shared/worlds/reply-wait**", (route) =>
         route.fulfill({ json: snapshot }),

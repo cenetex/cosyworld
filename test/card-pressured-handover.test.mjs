@@ -7,7 +7,7 @@ import {
   play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
-import { newWant, questRewardsOf } from "../v2/card-game/want.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
 import { actionCaption } from "../v2/card-game/beats.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 
@@ -97,22 +97,27 @@ it("keeps both actual threat grievances open after the pressured handover", () =
     Object.values(s.knowledge.facts).some((f) => f.source.kind === "repair"),
   ).toBe(false);
 });
-it("keeps the real Give quest and its claimable XP", () => {
+it("pays the real Give quest at once, and no helper XP for a coerced gift", () => {
   let s = demand();
   s.actors.vale.visited.push("pond");
   s.actors.vale.want = {
     ...newWant("item", "lamp", s.turn),
     step: { verb: "give", to: "moth" },
   };
-  delete s.actors.vale.under;
   const before = s.actors.vale.xp;
   s = act(s, "give", "moth", "lamp");
-  expect(questRewardsOf(s, "vale")).toHaveLength(1);
-  expect(questRewardsOf(s, "vale")[0]).toMatchObject({ xp: 1, paid: false });
-  expect(s.actors.vale.xp).toBe(before);
-  s = act(reload(s), "claim");
+  // One for the quest met; Pip's own want met under pressure helps no one.
   expect(s.actors.vale.xp).toBe(before + 1);
-  expect(questRewardsOf(s, "vale")).toEqual([]);
+  expect(s.actors.vale.want).toBeNull();
+  expect(s.actors.vale.questRewards).toBeUndefined();
+  expect(s.actors.moth.trust.vale).toBe(0);
+});
+it("pays a voluntary gift that meets Pip's want a helper's XP and one more trust", () => {
+  const s0 = meeting();
+  const before = s0.actors.vale.xp;
+  const s = act(s0, "give", "moth", "lamp");
+  expect(s.actors.vale.xp).toBe(before + 1);
+  expect(s.actors.moth.trust.vale).toBe(1);
 });
 it("rejects a full recipient and unrelated item or recipient requests", () => {
   const s = demand();

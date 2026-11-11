@@ -2,6 +2,7 @@
 // Split out of world.mjs (#1390).
 import {
   entityActive,
+  entityShown,
   packExits,
   actorCanVisit,
   personalRouteOpen,
@@ -210,8 +211,8 @@ export function exits(s, place, actor = null, previous = null) {
 
 // A sealed way (rules 95): a pack route that names its sealed card and the
 // quest that opens it, while it is shut from where the traveller stands.
-// A guarded way shows the same sealed card while its guard bars it, and the
-// reason names the guard (rules 100); it gives its quest if the route has one.
+// A guarded way shows the same sealed card while its guard bars it (rules
+// 100); what opens it is read from the guard (world/boxes.mjs).
 let sealedRoutes = null;
 export function sealedWays(s, actor = currentActor(s)) {
   sealedRoutes ??= packDefinitions.flatMap((pack) =>
@@ -222,7 +223,10 @@ export function sealedWays(s, actor = currentActor(s)) {
       ...sealedRoutes.filter((r) => r.from === here),
       // A guard bars his way from both sides (rules 100).
       ...guardedFrom(here).map((to) => ({ from: here, to })),
-    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
+    ]
+      // The card beyond lies shut even while its own conditions fail (rules
+      // 133); `exits` still uses `entityActive`, so it cannot be entered.
+      .filter((r) => entityShown(s, r.to) && entityActive(s, here));
   if (!ways.length) return [];
   const open = exits(s, here, actor),
     seen = new Set();
@@ -231,10 +235,9 @@ export function sealedWays(s, actor = currentActor(s)) {
     .flatMap((r) => {
       const guard = guardOf(s, here, r.to, actor);
       if (!guard) return r.sealed ? [r] : [];
-      // The card beyond a guarded way is locked; its reason names the guard
-      // and gives no quest (rules 102). Talk with him gives his.
-      const reason = `${nameOf(guard)} is guarding this card`;
-      return [{ ...r, sealed: { reason }, guardedBy: guard }];
+      // The card beyond a guarded way is locked and gives no quest (rules
+      // 102). Talk with him gives his.
+      return [{ ...r, sealed: {}, guardedBy: guard }];
     })
     .filter((r) => !seen.has(r.to) && seen.add(r.to));
 }

@@ -18,7 +18,9 @@ fn duplicated(c: &Connection, user: &str) -> Result<Vec<usize>> {
             "WITH seats(world,actor) AS (
                SELECT world,actor FROM card_bindings WHERE user=?1
                UNION SELECT world,actor FROM card_members WHERE user=?1)
-             SELECT actor FROM seats GROUP BY actor HAVING count(*)>1",
+             SELECT actor FROM seats
+             WHERE world IN (SELECT id FROM card_tables WHERE retired_at IS NULL)
+             GROUP BY actor HAVING count(*)>1",
         )
         .map_err(sql_error)?;
     let actors = q
@@ -43,7 +45,9 @@ fn duplicates(c: &Connection, user: &str) -> Result<Vec<(usize, String)>> {
                 "WITH seats(world) AS (
                    SELECT world FROM card_bindings WHERE user=?1 AND actor=?2
                    UNION SELECT world FROM card_members WHERE user=?1 AND actor=?2)
-                 SELECT world FROM seats s ORDER BY max(
+                 SELECT world FROM seats s
+                 WHERE world IN (SELECT id FROM card_tables WHERE retired_at IS NULL)
+                 ORDER BY max(
                    coalesce((SELECT seen FROM card_members m
                      WHERE m.world=s.world AND m.user=?1 AND m.actor=?2),0),
                    coalesce((SELECT max(at) FROM card_full_log l

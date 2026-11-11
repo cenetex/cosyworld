@@ -29,6 +29,7 @@
     "hoppycat-nix-fermata": { "sleep": { "from": 46, "to": 22 } },
     "greek-guard": { "range": 0, "sleep": null, "guards": "greek-battlefield" },
     "greek-shipmaster": { "sails": true, "sleep": { "from": 30, "to": 45 } },
+    "greek-patroclus": { "sails": true },
     "greek-rhapsode": { "sleep": null },
     "boardyai": { "sleep": null }
   },

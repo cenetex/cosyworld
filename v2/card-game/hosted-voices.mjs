@@ -1,3 +1,4 @@
+import { accountRevision } from "./account-revision.mjs";
 // Hosted voices: a signed-in passkey hears character lines spoken by the
 // server's voice provider, free. In a shared world the server speaks only a
 // saved scene line, so every player hears the same clip.
@@ -44,7 +45,7 @@ export function createHostedVoices({
         const response = await fetcher("/card-game/speech", {
           method: "POST",
           credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...accountRevision.headers() },
           body: JSON.stringify(
             world
               ? { world, play: reference.play, line: reference.line }

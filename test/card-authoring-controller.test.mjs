@@ -135,14 +135,14 @@ it("preserves the full funeral goal and records replacement quests for Undo", ()
       new URL("../v2/content/greek-drama/card-world.json", import.meta.url),
     ),
   );
-  const want = pack.avatars["greek-antigone"].want;
+  const want = pack.avatars["greek-polynices-shade"].want;
   const unchanged = pair(
     createAuthoringState({ pack }),
-    id("avatars", "greek-antigone", "quests"),
+    id("avatars", "greek-polynices-shade", "quests"),
     id("places", want.target),
   );
   assert.match(authoringAction(unchanged).reason, /already set/);
-  assert.deepEqual(unchanged.source.pack.avatars["greek-antigone"].want, want);
+  assert.deepEqual(unchanged.source.pack.avatars["greek-polynices-shade"].want, want);
   const source = fixture(),
     state = pair(
       createAuthoringState(source),

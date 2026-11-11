@@ -29,6 +29,26 @@ function mainTree() {
   }
 }
 const base = mainTree();
+// A rules bump that changes the save schema retires every earlier save on
+// purpose (rules 133: "we can reset"), so a world saved on main cannot load
+// until main carries that schema too. Compare the two schemas.
+const schemaOf = (text) => text.match(/SAVE_SCHEMA = (\d+)/)?.[1];
+const retiredByBump = (() => {
+  try {
+    return (
+      Boolean(base) &&
+      schemaOf(git("show", `${base}:v2/card-game/legacy-saves.mjs`)) !==
+        schemaOf(
+          readFileSync(
+            new URL("../v2/card-game/legacy-saves.mjs", import.meta.url),
+            "utf8",
+          ),
+        )
+    );
+  } catch {
+    return false;
+  }
+})();
 const at = (path) =>
   base ? git("show", `${base}:${dir}/${path}`) : here(path);
 
@@ -54,8 +74,9 @@ const load = (world, from, rules = current) =>
   });
 
 describe("a shared world saved on main loads on this branch", () => {
-  // Needs origin/main to compare against: a local run without it skips; CI fails.
-  it.skipIf(!base && !process.env.CI)("repacks onto this content", () => {
+  // Needs origin/main to compare against: a local run without it skips; CI
+  // fails. Also skipped while main still holds the schema this branch retired.
+  it.skipIf((!base && !process.env.CI) || retiredByBump)("repacks onto this content", () => {
     expect(base, "fetch origin/main").toBeTruthy();
     const from = versionOf(at("engine.rs"));
     const saved = engine(

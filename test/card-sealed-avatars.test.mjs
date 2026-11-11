@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { createWorld, legalActions } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
-import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
+import { LOCKED_BOX, isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import {
   entityActive,
   packDefinitions,
@@ -14,9 +14,8 @@ it.each([false, true])(
   (shared) => {
     const avatar = packPeople.badger,
       before = { ...avatar };
-    const reason = "Return the missing things to this room.";
     avatar.requires = [{ kind: "flag", key: "resident-returned", value: true }];
-    avatar.sealed = { at: "clearing", reason };
+    avatar.sealed = { at: "clearing" };
     try {
       const world = createWorld();
     world.crossings["pond-clearing"].discovered = true;
@@ -33,10 +32,15 @@ it.each([false, true])(
       expect(entityActive(world, "badger")).toBe(false);
       expect(availableCards(world)).toContain("badger");
       expect(isLockedBox(world, "badger")).toBe(true);
-      expect(lockedQuest(world, "badger")).toEqual({ text: reason, cards: [] });
+      // The flag has no choice that sets it, so the data names no want: the
+      // box says only that it is locked.
+      expect(lockedQuest(world, "badger")).toEqual({
+        text: LOCKED_BOX,
+        cards: [],
+      });
       expect(cardPlay(world, ["badger"])).toMatchObject({
         action: undefined,
-        hint: reason,
+        hint: LOCKED_BOX,
       });
       expect(
         legalActions(world).filter((action) => action.target === "badger"),
@@ -70,10 +74,7 @@ it("requires an authored place and activation rule for a sealed avatar", () => {
   const pack = structuredClone(
     packDefinitions.find((p) => p.id === "badger-forest"),
   );
-  pack.avatars.badger.sealed = {
-    at: "clearing",
-    reason: "Return the missing things.",
-  };
+  pack.avatars.badger.sealed = { at: "clearing" };
   expect(() => validatePackDefinition(pack)).toThrow(/sealed card/u);
   pack.avatars.badger.requires = [{ kind: "connected_humans", minimum: 2 }];
   expect(() => validatePackDefinition(pack)).not.toThrow();

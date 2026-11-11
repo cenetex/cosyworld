@@ -74,7 +74,7 @@ describe("a world updating during a release swap", () => {
         error: "This world's rules need a saved migration.",
       }),
     };
-    const account = { ok: true, json: async () => ({ authenticated: true }) };
+    const account = { ok: true, json: async () => ({ authenticated: true, user_id: "shared-fixture", account_revision: 0 }) };
     let opens = 0;
     vi.stubGlobal(
       "fetch",

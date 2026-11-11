@@ -17,12 +17,13 @@
 //                   them to listed places, seeded by the run, the kit's count
 //                   and the turn.
 import { humanAvatar, humanPresent } from "./human-cast.mjs";
-import { bringBack, usedUp, useUp } from "./item-use.mjs";
+import { bringBack, sendHome, usedUp, useUp } from "./item-use.mjs";
 import { DAYLIGHT_TURNS, conditionMet, runHash } from "./pack-rules.mjs";
 import {
   conditionsMet,
   entityActive,
   entityEnabled,
+  entityShown,
   packDefinitions,
   packPlaces,
   packIdOf,
@@ -68,7 +69,9 @@ const note = (s, id, text) => {
 // otherwise it stays used up.
 function tryBack(s, id, holder) {
   bringBack(s, id, holder);
-  if (entityEnabled(s, id)) return true;
+  // A sealed item comes home shut, which is still in play (rules 133).
+  if (entityEnabled(s, id) || (packThings[id].sealed && entityShown(s, id)))
+    return true;
   s.items[id].holder = packThings[id].holder;
   s.usedUp = [...s.usedUp, id].sort();
   return false;
@@ -126,6 +129,31 @@ export function settleCrafting(s, a, nameOf, log) {
         consumedIds: [...locked.consumes],
         holderId: s.items[id].holder,
       },
+    );
+  }
+}
+
+// A sealed item with a `live` seal (rules 133) follows its facts: while its
+// `requires` hold it is an ordinary thing, and when they stop holding it is
+// shut again. One that is not at its rest then goes there, whoever holds it,
+// as a used-up thing does, and lies there sealed. Nothing is stranded in a
+// hand that cannot use it. A latching seal (the default) never comes back.
+const liveSeals = () =>
+  Object.keys(packThings)
+    .filter((id) => packThings[id].sealed?.live)
+    .sort();
+export function settleSealedItems(s, nameOf, log) {
+  for (const id of liveSeals()) {
+    if (usedUp(s, id) || entityEnabled(s, id) || !entityShown(s, id)) continue;
+    const rest = restOf(id);
+    if (s.items[id].holder === rest) continue;
+    const root = rootOf(s, id);
+    const where = s.actors[root]?.place ?? root;
+    sendHome(s, id, rest);
+    // A shut item keeps no history: a save checks it lies as authored.
+    log(
+      `${capital(the(nameOf(id)))} goes back to ${the(nameOf(rest))} and is sealed again.`,
+      where,
     );
   }
 }

@@ -66,7 +66,7 @@ describe("switching a pack off and on (rules 98)", () => {
     expect(back.actors.vale.place).toBe("pond");
   });
 
-  it("ends a fight there and sets aside quests that name it", () => {
+  it("ends a fight there and keeps a want that names it", () => {
     const each = (v) => ({ keeper: v, "greek-elder": v });
     const w = ok(play(world(), legalActions(world())[0]));
     w.actors["greek-elder"].place = w.actors.keeper.place = "greek-well";
@@ -79,7 +79,6 @@ describe("switching a pack off and on (rules 98)", () => {
     w.standoffs[0].resolve = each(4);
     const want = (target) => ({ kind: "item", target, refusals: 0, since: 0 });
     w.actors.moth.want = want("greek-water-jar");
-    w.actors.moth.under = [want("lamp")];
     // Vale, who joined the fight on arriving, may not switch out of it.
     const busy = structuredClone(w);
     for (const field of ["guarding", "struck", "steppedBack", "resolve"])
@@ -89,7 +88,6 @@ describe("switching a pack off and on (rules 98)", () => {
     const after = ok(play(reload(w), off(SEA)));
     expect(after.standoffs).toEqual([]);
     expect(questsOf(after, "moth").map((q) => q.target)).toEqual([
-      "lamp",
       "greek-water-jar",
     ]);
     expect(after.actors.moth.gaveUp).toBeUndefined();

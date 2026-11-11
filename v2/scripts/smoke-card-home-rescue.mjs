@@ -11,7 +11,8 @@ import {
 } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { roomFuelFromTurns } from "../card-game/lamp-room-fuel.mjs";
+import { readyActionButton, selectCard, settleHand } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -20,6 +21,7 @@ const browser = await chromium.launch({ headless: true });
 await mkdir("output/home-rescue", { recursive: true });
 async function ready(page) {
   await page.waitForFunction(() => document.body.inert === false);
+  await settleHand(page);
 }
 try {
   for (const width of [1440, 390]) {
@@ -32,7 +34,9 @@ try {
     const opening = createWorld({ opening: true });
     opening.actors.vale.place = "attic";
     opening.items.lamp.holder = "attic";
-    opening.items.lamp.fuel = 0;
+    // Fuel is counted in rooms now; an empty tank is zero rooms.
+    Object.assign(opening.items.lamp, roomFuelFromTurns(0, "attic"), { fuel: 0 });
+    opening.actors.vale.heldItem = null;
     // The opening starts lit (#1653); a dry lamp cannot stay lit.
     opening.items.lamp.lit = false;
     const seen = [
@@ -69,9 +73,11 @@ try {
     await ready(page);
     assert.equal(await page.locator('#hand [data-card="station"]').count(), 0);
     await selectCard(page, "pond", { touch: width === 390 });
+    // The row fills in once the card settles; wait for its Travel button.
+    await readyActionButton(page, "move").waitFor();
     assert.match(
       await page.locator("#card-actions").innerText(),
-      /Go|Travel|Move/,
+      /Vale goes to Black pond/,
     );
     await page.locator('#card-actions [data-action="move"]').click();
     await page.waitForFunction(() =>
@@ -106,7 +112,7 @@ try {
         present,
       });
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true } }),
+      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
     );
     await page.route(
       /\/card-game\/shared\/worlds\/rescue(?:\/command)?$/,

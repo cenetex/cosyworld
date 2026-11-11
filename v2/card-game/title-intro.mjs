@@ -246,7 +246,12 @@ export function playNewWorldIntro({ arrival = false } = {}) {
   showToolbarLogo(logo);
   // The New game click is long past: the title still waits for its own tap.
   if (titleIntroAllowed(context) || (arrival && pipEntry(context.href)))
-    playTitleIntro({ storage: null, logo, song: createTitleSong({ storage }) });
+    playTitleIntro({
+      storage: null,
+      logo,
+      song: createTitleSong({ storage }),
+      boxOpened: arrival,
+    });
 }
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -621,11 +626,14 @@ const SCROLL_KEYS = [
 // Privacy link. The card turns to the avatar (card-reveal.mjs), then the song
 // fades and the table shows. Escape skips straight in at any step.
 // Resolves when the overlay is gone.
+// A box the visitor has already opened (the Pip arrival) is not shown again:
+// `boxOpened` goes from the logo straight to the deal.
 export function playTitleIntro({
   logo = LOGOS[0],
   storage = globalThis.localStorage,
   song = createTitleSong({ storage }),
   cardOnly = false,
+  boxOpened = false,
   signal,
 } = {}) {
   try {
@@ -867,6 +875,12 @@ export function playTitleIntro({
         },
       );
     layer.append(row);
+    if (boxOpened) {
+      // The deal still starts from where the box would stand, unseen.
+      row.style.opacity = "0";
+      finish();
+      return;
+    }
     if (!cardOnly) layer.append(privacy);
     fade(row, reduced ? 250 : 600, reduced ? 0 : 300);
     card.focus({ preventScroll: true });
@@ -1114,6 +1128,20 @@ export function playTitleIntro({
     layer.remove();
   })();
   shown.then(() => signal?.removeEventListener("abort", abort));
+  // The Pip box is the whole page until it is opened: the table behind it is
+  // out of reach of keys and assistive technology, and takes focus after.
+  if (cardOnly) {
+    layer.dataset.held = "true";
+    document.body.inert = true;
+    const release = () => {
+      document.body.inert = false;
+      if (wakeId)
+        document
+          .querySelector(`#hand .card[data-card="${CSS.escape(wakeId)}"]`)
+          ?.focus({ preventScroll: true });
+    };
+    shown.then(release, release);
+  }
   const hold = shown.then(() => songDone);
   musicHold = hold;
   hold.then(() => {

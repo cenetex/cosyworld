@@ -5,11 +5,12 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { labelProblems } from "./card-browser-helpers.mjs";
+import { labelProblems, revealOpening } from "./card-browser-helpers.mjs";
 
 // Hand cards wear no count badges, a chosen card has one white edge, the
 // first card and its folded quest stay inside the hand, the folded quest is
-// a full-size face-down card with a glowing tier line, and no name, long
+// the one quest card: a full-size face-down card with a glowing tier line,
+// shown as exactly one quest card when Vale's stack opens, and no name, long
 // two-line ones included, hides under a card on either side in the fan.
 const output = new URL("../../output/card-hand-frame/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -122,10 +123,8 @@ try {
   await opening.waitForSelector(".title-ack");
   await opening.keyboard.press("Escape");
   await opening.waitForSelector(".title-intro", { state: "detached" });
-  await opening.locator('#hand .card[data-card="attic"]').click();
-  await opening.waitForSelector(
-    '#hand .card[data-card="attic"][data-unrevealed="false"]',
-  );
+  // Vale, the lamp and the attic turn over in turn (the opening's reveals).
+  await revealOpening(opening);
   await opening.waitForTimeout(600);
   const widths = await opening.$eval("#hand", async (hand) => {
     const widths = [];
@@ -221,6 +220,13 @@ try {
     await card("vale").click();
     await check("vale");
     assert.equal(await card("vale").locator(".card-level").count(), 1);
+    // Opening Vale's stack shows the one quest card, and the fold goes.
+    assert.equal(
+      await page.locator("#hand .want-frame:not([hidden])").count(),
+      1,
+      `${width} one quest card`,
+    );
+    assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
     await card("vale").click();
     await card("station").scrollIntoViewIfNeeded();
     await card("station").click();

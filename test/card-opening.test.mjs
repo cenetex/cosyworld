@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
 import { settleLamp } from "../v2/card-game/lamp-state.mjs";
@@ -15,6 +16,7 @@ import {
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { knownActors, levelOf } from "../v2/card-game/want.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
+import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import {
   narrativeContext,
   turnOutcome,
@@ -45,20 +47,15 @@ const meetEveryone = () =>
   });
 
 describe("dousing the lamp in the attic", () => {
-  it("brings the first quest on arrival at the Black Pond, and keeps it", () => {
+  it("brings no quest on arrival at the Black Pond: a player takes its own", () => {
     let s = selectLamp(fresh());
     expect(s.actors.vale.want).toBeNull();
     s = act(s, "move", { target: "pond" });
     expect(s.actors.vale.place).toBe("pond");
-    const first = s.actors.vale.want;
-    expect(first).not.toBeNull();
-    // A save already past the pond keeps its quest through later plays.
+    expect(s.actors.vale.want).toBeNull();
     s = decodeSave(encodeSave(s));
     s = act(s, "wait");
-    // Its quest is still there, or was met and its next one drawn in rest.
-    expect(
-      s.actors.vale.want !== null || s.actors.vale.metTurn !== undefined,
-    ).toBe(true);
+    expect(s.actors.vale.want).toBeNull();
     expect(s.actors.vale.visited).toContain("pond");
   });
 
@@ -66,7 +63,9 @@ describe("dousing the lamp in the attic", () => {
     const s = fresh();
     expect(s.actors.vale.place).toBe("attic");
     expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true, fuel: 12 });
-    expect(availableCards(s)).toEqual(["vale", "lamp", "attic"]);
+    // The Black pond lies in the hand from the start, a locked box (rules 133).
+    expect(availableCards(s)).toEqual(["vale", "lamp", "attic", "pond"]);
+    expect(isLockedBox(s, "pond")).toBe(true);
     expect(sceneCast(s)).toEqual(["vale", null]);
     expect(exits(s, "attic")).toEqual([]);
     expect(exits(s, "station")).toEqual(["pond"]);
@@ -150,9 +149,12 @@ describe("dousing the lamp in the attic", () => {
       met: { vale: 0 },
     });
     expect(lit.locations.attic.anchored).toBe(true);
-    expect(
-      availableCards(lit).filter((id) => !availableCards(before).includes(id)),
-    ).toEqual(["pond"]);
+    // Putting the lamp out opens the pond box and pays its one XP.
+    expect(isLockedBox(before, "pond")).toBe(true);
+    expect(availableCards(lit)).toContain("pond");
+    expect(isLockedBox(lit, "pond")).toBe(false);
+    expect(lit.actors.vale.xp).toBe(before.actors.vale.xp + 1);
+    expect(lit.opened).toEqual({ pond: ["vale"] });
     expect(exits(lit, "attic")).toEqual(["pond"]);
     expect(levelOf(lit, "vale")).toBe(1);
     expect(

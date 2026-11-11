@@ -55,11 +55,11 @@ try {
       unlocked: ["vale"],
     });
     await page.locator("#open").click();
-    await reply(0, { authenticated: true });
+    await reply(0, { authenticated: true, user_id: "smoke-user", account_revision: 0 });
     await page.waitForFunction(() => pending.length === 2);
     await page.keyboard.press("Escape");
     await page.locator("#open").click();
-    await reply(2, { authenticated: true });
+    await reply(2, { authenticated: true, user_id: "smoke-user", account_revision: 0 });
     await reply(3, list("new"));
     await page.locator('[data-slot="new"]').waitFor();
     await reply(1, list("old"));
@@ -78,7 +78,7 @@ try {
       menu.hidePopover();
       menu.showPopover();
     });
-    await reply(5, { authenticated: true });
+    await reply(5, { authenticated: true, user_id: "smoke-user", account_revision: 0 });
     await reply(6, list("coalesced"));
     await page.locator('[data-slot="coalesced"]').waitFor();
     await reply(4, { authenticated: false });

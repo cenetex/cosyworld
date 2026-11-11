@@ -1,4 +1,3 @@
-import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import {
@@ -12,19 +11,7 @@ import {
 } from "../v2/card-game/world.mjs";
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
-import {
-  levelFor,
-  levelOf,
-  newWant,
-  reviseStalledWants,
-  wantCandidates,
-  wantMet,
-  REFUSAL_LIMIT,
-  dropCost,
-  STALL_TURNS,
-  CONTENT_TURNS,
-  contentOf,
-} from "../v2/card-game/want.mjs";
+import { levelFor, levelOf, newWant, reviseStalledWants, wantCandidates, wantMet, REFUSAL_LIMIT, dropCost, STALL_TURNS, CONTENT_TURNS } from "../v2/card-game/want.mjs";
 import { questCards } from "../v2/card-game/quest-card.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -101,37 +88,35 @@ describe("one want per avatar", () => {
     expect(wantMet(s, "vale", { actor: "vale", target: "keeper" })).toBe(false);
   });
 
-  it("commits want_met, adds experience and leaves the avatar content until it sleeps", () => {
+  it("commits want_met, pays one XP at once and leaves a player holding no quest", () => {
     let s = createWorld();
     s.actors.vale.want = newWant("place", "pond", 0);
     s = play(s, act(s, "move", { target: "pond" })).state;
     const [event] = metEvents(s, "vale");
     expect(event.wantMet).toEqual({ kind: "place", target: "pond" });
-    expect(s.actors.vale.xp).toBe(0);
-    s = collectRewards(s);
+    // Paid on the play that meets it: no receipt, no claim.
     expect(s.actors.vale.xp).toBe(1);
+    expect(s.actors.vale.questRewards).toBeUndefined();
+    expect(legalActions(s).some((a) => a.kind === "claim")).toBe(false);
     // The player's level waits for its level quest.
     expect(levelOf(s, "vale")).toBe(1);
-    // Enough for now: no next want, and the rules say so.
-    expect(s.actors.vale).toMatchObject({ want: null, content: true });
-    expect(contentOf(s, "vale")).toBe(true);
+    // Nothing is drawn for a player, now or after Sleep.
+    expect(s.actors.vale.want).toBeNull();
+    expect(s.actors.vale.content).toBeUndefined();
     expect(questCards(s, "vale")).toEqual([]);
     expect(
       narrativeContext(s).entities.find((e) => e.id === "vale").desire,
     ).toEqual({ items: [], location: null, avatars: [] });
     expect(decodeSave(encodeSave(s)).actors.vale).toEqual(s.actors.vale);
-    // A day of waiting draws nothing; Sleep does, on waking.
     s.turn = s.revision = s.turn + CONTENT_TURNS;
     s = play(s, act(s, "wait")).state;
-    expect(s.actors.vale.content).toBe(true);
+    expect(s.actors.vale.want).toBeNull();
     s = play(
       s,
       legalActions(s).find((a) => a.sleep),
     ).state;
     expect(s.log.findLast((e) => e.actorId === "vale" && e.woke)).toBeTruthy();
-    expect(s.actors.vale.content).toBeUndefined();
-    expect(s.actors.vale.want).toMatchObject({ refusals: 0 });
-    expect(s.actors.vale.want.since).toBeGreaterThan(event.turn);
+    expect(s.actors.vale.want).toBeNull();
     expect(validateWorld(s)).toBe(s);
   });
 
@@ -170,6 +155,7 @@ describe("one want per avatar", () => {
     // The pond is no sanctuary, so that rest leaves its defeats.
     s.actors.keeper.want = newWant("place", "pond", s.turn);
     delete s.actors.keeper.metTurn;
+    delete s.actors.keeper.dwellUntil; // its stay at the station is over
     s.defeats = { keeper: 2 };
     s = play(s, act(s, "wait")).state;
     expect(s.actors.keeper.place).toBe("pond");
@@ -237,6 +223,7 @@ describe("one want per avatar", () => {
       rootHolder: (item) => s.items[item].holder,
       valueOf: () => 5,
       reachable: () => [],
+      player: () => false,
     };
     s.turn = STALL_TURNS * 3;
     reviseStalledWants(s, [id], api);
@@ -248,14 +235,14 @@ describe("one want per avatar", () => {
     expect(s.actors[id].want?.target).not.toBe(start.target);
   });
 
-  it("never redraws a player's level step for refusals; Drop costs", () => {
+  it("never redraws a player's quest for refusals; Drop costs", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.oil.holder = "keeper";
     s.actors.keeper.place = "station";
     s.actors.keeper.want = newWant("place", "station", 0);
-    const step = { ...newWant("item", "oil", 0), quest: { level: 2, left: 2 } };
-    Object.assign(s.actors.vale, { want: step, xp: 1, level: 1 });
+    const step = { ...newWant("item", "oil", 0), quest: { level: 2, left: 1 } };
+    Object.assign(s.actors.vale, { want: step, xp: 3, level: 1 });
     let refused = 0;
     for (let i = 0; i < REFUSAL_LIMIT; i++) {
       const ask = (w) =>
@@ -294,32 +281,19 @@ describe("one want per avatar", () => {
     s.actors.moth.want = newWant("item", "bell", 0);
     s.turn = STALL_TURNS + 1;
     s.revision = s.turn;
+    // Asleep it makes no progress: a resident arriving somewhere would
+    // restart the clock (rules 133).
+    s.actors.moth.sleeping = {
+      since: s.turn - 1,
+      place: s.actors.moth.place,
+      until: s.turn + 10,
+    };
     const next = play(s, act(s, "wait")).state;
     expect(next.actors.moth.want?.target).not.toBe("bell");
   });
 
-  it("drops quest records from a legacy save and keeps its world", () => {
-    const s = createWorld();
-    const legacy = JSON.parse(encodeSave(s));
-    for (const a of Object.values(legacy.actors)) {
-      delete a.want;
-      delete a.xp;
-      delete a.visited;
-      delete a.talked;
-      a.progress = { program: 1, step: 0, marks: [1] };
-    }
-    legacy.quests = { version: 1, next: 1, records: {}, focus: {} };
-    legacy.life = { version: 2, actors: {} };
-    const loaded = decodeSave(JSON.stringify(legacy));
-    expect(loaded.quests).toBeUndefined();
-    expect(loaded.actors.moth.progress).toBeUndefined();
-    expect(loaded.actors.moth.want).toMatchObject({
-      kind: "item",
-      target: "lamp",
-    });
-  });
 
-  it("keeps a want on every active avatar but the content through a long shared run", () => {
+  it("keeps a want on every active resident but the content through a long shared run", () => {
     const players = humanAvatarIds.slice(0, 4);
     let world = dispatchShared({ op: "create" }).world;
     const ask = (op, actor, extra = {}) =>
@@ -331,19 +305,14 @@ describe("one want per avatar", () => {
         present: players,
         ...extra,
       });
-    // A player still on its way to the Black Pond holds no quest yet.
-    const waiting = (a) =>
-      !a.visited.includes("pond") && a.metTurn === undefined;
+    // A player holds a quest only when it takes one by a tap.
     const wantless = () =>
       Object.keys(world.actors).filter(
         (id) =>
           entityActive(world, id) &&
           !world.actors[id].want &&
           !world.actors[id].content &&
-          !(
-            (id === "vale" || players.includes(id)) &&
-            waiting(world.actors[id])
-          ),
+          !(id === "vale" || players.includes(id)),
       );
     expect(wantless()).toEqual([]);
     let met = 0;

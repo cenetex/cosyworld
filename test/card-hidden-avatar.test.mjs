@@ -4,7 +4,6 @@ import { entityActive, hub } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import compiled from "../v2/card-game/packs.json" with { type: "json" };
 import { hidingPlaces } from "../v2/card-game/hidden-avatar.mjs";
-import { questsOf } from "../v2/card-game/want.mjs";
 import { legalActions, validateWorld } from "../v2/card-game/world.mjs";
 
 const locked = ["rue", "ash", "tavi", "nell", "orin", "ada"];
@@ -84,39 +83,23 @@ describe("one hidden avatar per world (#1936)", () => {
     expect(talk(create()).world).toEqual(talk(create()).world);
   });
 
-  it("lets the next holder of a reset seat seek and unlock the hidden avatar", () => {
+  it("lets the next holder of a reset seat unlock the hidden avatar", () => {
     const first = talk(create()).world;
     first.hidden.met.push("ash");
     const reset = ask(first, "reset").world;
     expect(reset.hidden.met).toEqual(["ash"]);
     const joined = ask(reset, "join").world;
-    const sought = ask(joined, "seek").world;
-    expect(questsOf(sought, "vale")[0]).toMatchObject({
-      kind: "person",
-      target: "mara",
-    });
-    const next = talk(sought);
+    const next = talk(joined);
     expect(next.events.filter((e) => e.unlock)).toEqual([
       expect.objectContaining({ unlock: "mara", actorId: "vale" }),
     ]);
     expect(talk(next.world).events.filter((e) => e.unlock)).toEqual([]);
   });
 
-  it("gives the player the quest to talk to the hidden avatar", () => {
-    const sought = ask(create(), "seek").world;
-    expect(questsOf(sought, "vale")[0]).toMatchObject({
-      kind: "person",
-      target: "mara",
-    });
-    // Asking twice keeps one quest; talking meets it.
-    const twice = ask(sought, "seek").world;
-    expect(
-      questsOf(twice, "vale").filter((w) => w.target === "mara"),
-    ).toHaveLength(1);
-    const met = talk(twice).world;
-    expect(questsOf(met, "vale").some((w) => w.target === "mara" && !w.step)).toBe(false);
-    expect(met.actors.vale.questRewards[0].want.target).toBe("mara");
-    expect(() => ask(met, "seek")).toThrow(/Nobody/);
+  it("has no seek: the hidden avatar is found by looking", () => {
+    expect(() => ask(create(), "seek")).toThrow(/supported world operation/);
+    const met = talk(create()).world;
+    expect(met.actors.vale.want).toBeNull();
   });
 
   it("creates a plain world when the host hides nobody", () => {
