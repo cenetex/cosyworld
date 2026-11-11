@@ -873,37 +873,44 @@ fn kick(state: AppState, id: String) {
     };
     tokio::spawn(async move {
         let _permit = permit;
-        loop {
-            let s = state.clone();
-            let wid = id.clone();
-            let work = tokio::task::spawn_blocking(move || take_work(&s, &wid)).await;
-            let Ok(Ok(Some(work))) = work else { break };
-            reflect::replace(&id, work.actor);
-            let lines = super::full_speech::generate(&state, work.actor, &work.context).await;
-            let s = state.clone();
-            let wid = id.clone();
-            let after = lines
-                .as_ref()
-                .ok()
-                .cloned()
-                .map(|lines| (work.clone(), lines));
-            match tokio::task::spawn_blocking(move || publish(&s, &wid, work, lines)).await {
-                // The line is journaled and shown; its reflections follow.
-                Ok(Ok(published)) => {
-                    if !published {
-                        continue;
-                    }
-                    if let Some((work, lines)) = after {
-                        reflect::spawn(state.clone(), id.clone(), work, &lines);
-                    }
-                }
-                other => {
-                    tracing::warn!(result=?other,"shared card publication failed");
-                    break;
+        while voice_once(&state, &id).await.unwrap_or(false) {}
+    });
+}
+
+/// One voice pass: commits the next waiting play, voices its residents, and
+/// journals the lines. Returns Ok(true) when it voiced a play, Ok(false) when
+/// there was no waiting play, and Err when publication failed. `kick` loops
+/// it; the synchronous `/talk` endpoint awaits it once.
+async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
+    let s = state.clone();
+    let wid = id.to_string();
+    let work = tokio::task::spawn_blocking(move || take_work(&s, &wid)).await;
+    let Ok(Ok(Some(work))) = work else {
+        return Ok(false);
+    };
+    reflect::replace(id, work.actor);
+    let lines = super::full_speech::generate(state, work.actor, &work.context).await;
+    let s = state.clone();
+    let wid = id.to_string();
+    let after = lines
+        .as_ref()
+        .ok()
+        .cloned()
+        .map(|lines| (work.clone(), lines));
+    match tokio::task::spawn_blocking(move || publish(&s, &wid, work, lines)).await {
+        Ok(Ok(published)) => {
+            if published {
+                if let Some((work, lines)) = after {
+                    reflect::spawn(state.clone(), id.to_string(), work, &lines);
                 }
             }
+            Ok(true)
         }
-    });
+        other => {
+            tracing::warn!(result=?other, "shared card publication failed");
+            Err("shared card publication failed".into())
+        }
+    }
 }
 /// Journals the words. Words the rules refuse end like words that never
 /// came: the play's voices show "…" and its seat frees at once.
