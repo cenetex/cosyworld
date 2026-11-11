@@ -24,9 +24,9 @@ const at = (s, place) => {
 const canMove = (s, to) =>
   legalActions(s).some((a) => a.kind === "move" && a.target === to && !a.item);
 
-// The two the pack leaves unsealed on purpose: the guard draws his own way
-// (rules 100), and Patroclus is not on the table until the burial (#2620).
-const NOT_BOXES = new Set(["greek-gate>greek-battlefield", "greek-patroclus"]);
+// The one the pack leaves unsealed on purpose: the guard draws his own way
+// (rules 100). Patroclus is a sealed card of the Charybdis (#2620).
+const NOT_BOXES = new Set(["greek-gate>greek-battlefield"]);
 
 describe("the Greek pack's locked boxes", () => {
   const gatedRoutes = pack.routes.filter(
@@ -36,7 +36,7 @@ describe("the Greek pack's locked boxes", () => {
     ([, a]) => a.requires?.length,
   );
 
-  it("seals every gated way and conditional resident, bar two", () => {
+  it("seals every gated way and conditional resident, bar the guard", () => {
     for (const r of gatedRoutes) {
       const key = `${r.from}>${r.to}`;
       if (NOT_BOXES.has(key)) expect(r.sealed, key).toBeUndefined();

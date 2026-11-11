@@ -2124,6 +2124,42 @@
         "likes": "bread shared on deck, a steady voyage home",
         "sore": "being treated as cargo",
         "reason": "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus."
+      },
+      "appearsWhen": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "greek-patroclus-met",
+              "value": true
+            },
+            {
+              "kind": "ship_at",
+              "transport": "greek-ship",
+              "dock": "greek-piraeus"
+            }
+          ]
+        },
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "flag",
+              "key": "greek-patroclus-met",
+              "value": true
+            },
+            {
+              "kind": "item_at",
+              "item": "greek-provisions",
+              "place": "greek-ship"
+            }
+          ]
+        }
+      ],
+      "sealed": {
+        "at": "greek-ship",
+        "reason": "Not aboard until Polynices is buried and the Charybdis lies at Piraeus with provisions aboard."
       }
     }
   },

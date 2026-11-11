@@ -765,13 +765,20 @@ What worked in a prototype that put him at the Wine-Dark Harbor quay:
   provisions, Piraeus, wheat, ride back, water jar and wheat to Dione, take
   bread. Sailing consumes nothing (rules 102).
 
-Owner decision, 2026-11-11: "I would start him at trust 3". The meeting aboard
-the Charybdis sets his trust to 3 (`{kind: "trust", level: 3}`), so he
-accompanies from the meeting and tells his bread want at once; the bread gift
-adds nothing to trust (capped at 3). The pack data cannot hold him aboard until
-the meeting: a ship that docks lands any resident rider (`world.mjs` `readPlan`,
-`pack-transport.mjs` `transportArrival`, `sendShipHome`), even one with
-`travels: false` and `stayUntil`.
+Owner decisions, 2026-11-11. "I would start him at trust 3": the meeting sets
+his trust to 3 (`{kind: "trust", level: 3}`), so he accompanies from the meeting
+and the bread gift adds nothing to trust (capped at 3; it still meets his want
+and pays). And "Patroclus card unlocks on the Charybdis when you are docked at
+piraeus with the supplies aboard": this replaces "aboard on the route after the
+burial". He is a sealed card of the Charybdis. His `appearsWhen` reads the ship
+at Piraeus (`ship_at`) and the provisions on deck (`item_at`), each or the flag
+`greek-patroclus-met`; the meeting choice sets that flag, so the unlock latches
+and he stays when the provisions go or the ship sails. Built in pack data only.
+Findings: the meeting fires two plays after he appears, so a traveler who steps
+ashore at once misses it (re-boarding meets him); he is not a rider of the
+voyage that brought him, so he is not put ashore at Piraeus and rides on with
+the ship; and his authored want is already old when he appears, so the want
+clock sets it aside (a resident that appears late draws a new want).
 
 Not tested: at trust 0 an invitation is accepted while the player carries the
 bread (the want is served), so the decline case needs a player without bread;

@@ -41,6 +41,25 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
 - **Trade** Creon the decree for his writ, with the household token in hand
   and the elder's witness, to petition (revision 20: Creon holds the writ and
   wants the decree back). Given the writ, the guard stands aside.
+- **Patroclus** (rules 133, #2620) is the first companion, a sealed card of the
+  Charybdis. It opens when Polynices is buried, the Charybdis lies at Piraeus
+  and the Travel Provisions are aboard (`appearsWhen` with `ship_at` and
+  `item_at`, latched by the flag `greek-patroclus-met` that the meeting sets),
+  so he does not vanish again when the provisions go or the ship sails. The
+  meeting aboard sets his trust in the traveler to 3 (the `trust` effect on
+  `greek-meet-patroclus`; owner decisions, 2026-11-11), so Talk tells his want
+  (`want.minTrust: 1`) and he will accompany. His home is Piraeus Quays. Art:
+  the idle portrait, a holding-bread pose and a sleeping portrait are wired; the
+  talking, listening, walking, guard, attack and hit poses and the cropped
+  portrait stay in `docs/design/assets/patroclus/` (no pose slot, or the combat
+  art pipeline).
+- Antigone holds two **staged wants** (rules 133, unordered, at most three): the
+  rites laid in the Hollow, and, once the guard holds Creon's writ and until
+  the burial, being at the Hollow herself. The seeded pick chooses between the
+  open ones; after the burial her wants are drawn.
+- **Trade** Creon the decree for his writ, with the household token in hand
+  and the elder's witness, to petition (revision 20: Creon holds the writ and
+  wants the decree back). Given the writ, the guard stands aside.
 - **Patroclus** (rules 133, #2620) is the first companion. Once Polynices is
   buried he stands aboard the Charybdis. Meeting him there sets his trust in the
   traveler to 3 (the `trust` effect on `greek-meet-patroclus`; owner decision,

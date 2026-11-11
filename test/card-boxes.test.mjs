@@ -241,7 +241,11 @@ describe("lanes", () => {
     world.packs["greek-drama"].scope = "full";
     world.actors.vale.place = "greek-ship";
     expect(world.transports["greek-ship"].dock).toBe("greek-harbor");
-    expect(boxesAt(world, "greek-ship")).toEqual([
+    // Patroclus's sealed card lies there too (rules 133): the lane's box is
+    // the one under test.
+    expect(
+      boxesAt(world, "greek-ship").filter((box) => box.kind === "lane"),
+    ).toEqual([
       expect.objectContaining({
         id: "greek-piraeus",
         kind: "lane",

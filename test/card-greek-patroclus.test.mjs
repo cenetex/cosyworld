@@ -5,11 +5,15 @@ import {
   entityActive,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
+import { boxesAt } from "../v2/card-game/world/boxes.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
-import { sailTo } from "./helpers/voyage.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const PATROCLUS = "greek-patroclus";
+const SHIP = "greek-ship";
+const REASON =
+  "Not aboard until Polynices is buried and the Charybdis lies at Piraeus with provisions aboard.";
 const pack = packDefinition("greek-drama");
 
 const act = (world, kind, fields = {}) => {
@@ -34,53 +38,26 @@ const walk = (world, place) =>
 const trust = (world) => world.actors[PATROCLUS].trust?.vale || 0;
 const flags = (world) => world.packs["greek-drama"].flags;
 const received = (world, id) => world.packs["greek-drama"].receipts[id];
+const shutBox = (world) =>
+  boxesAt(world, SHIP, "vale").find((box) => box.id === PATROCLUS);
 
-// Buried, then back at the Wine-Dark Harbor with the Charybdis docked there.
-// The rules put a resident ashore when the ship docks, so he stands on the
-// quay unless a test puts him back aboard first.
-const atHarbor = () => walk(funeralJourney().buried, "harbor");
-// The rules put a resident ashore when the ship docks, even one who keeps to
-// his scene (no pack field holds him aboard; see the PR), so the meeting
-// aboard is reached by putting him back on deck before the traveler boards.
-const metAboard = () => {
-  const steps = greekTravelTargets("greek-polynices-hollow", "greek-harbor");
-  let world = funeralJourney().buried;
-  for (const target of steps.slice(0, -1))
-    world = act(world, "move", { target });
-  dockShip(world);
-  world.actors[PATROCLUS].place = "greek-ship";
-  world = act(world, "move", { target: steps.at(-1) });
-  return act(world, "move", { target: "greek-ship" });
-};
-// The rules draw a resident's want afresh when a stuck ship puts him ashore, so
-// the bread is set in his hand here, as his pack data and `minTrust` give it.
-const wantsBread = (world) => {
-  world.actors[PATROCLUS].want = {
-    kind: "item",
-    target: "greek-bread",
-    since: world.turn,
-    refusals: 0,
-  };
-  world.usedUp = (world.usedUp || []).filter((id) => id !== "greek-bread");
-  world.items["greek-bread"].holder = "vale";
-  return world;
-};
-const dockShip = (world) => {
-  const ship = world.transports["greek-ship"];
-  Object.assign(ship, {
-    phase: "docked",
-    dock: "greek-harbor",
-    destination: null,
-    riders: [],
-    since: world.turn,
-  });
-  return world;
+// Buried, at the Wine-Dark Harbor with the Charybdis docked there and Myrto's
+// packed provisions on deck (made from bread, figs and wine elsewhere).
+const provisioned = () => {
+  let world = walk(funeralJourney().buried, "harbor");
+  for (
+    let turn = 0;
+    turn < 4 && world.transports[SHIP].dock !== "greek-harbor";
+    turn++
+  )
+    world = act(world, "wait");
+  return stowProvisions(world, SHIP);
 };
 
-describe("Patroclus aboard the Charybdis", () => {
-  it("is a resident of the Greek pack with the Piraeus quays as home", () => {
+describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
+  it("is a sealed resident of the ship that opens on the ship, the dock and the load", () => {
     const person = pack.avatars[PATROCLUS];
-    expect(person.place).toBe("greek-ship");
+    expect(person.place).toBe(SHIP);
     expect(person.home).toBe("greek-piraeus");
     expect(person.want).toEqual({
       kind: "item",
@@ -90,71 +67,68 @@ describe("Patroclus aboard the Charybdis", () => {
     expect(person.requires).toEqual([
       { kind: "flag", key: "greek-burial-performed", value: true },
     ]);
-    expect(person.portrait).toBe("assets/greek-drama/patroclus.png");
+    expect(person.sealed).toEqual({ at: SHIP, reason: REASON });
+    expect(JSON.stringify(person.appearsWhen)).toContain("ship_at");
+    expect(person.portrait).toMatch(/^assets\/greek-drama\//);
     expect(pack.release.avatars).toContain(PATROCLUS);
   });
 
-  it("is absent before Polynices is buried and aboard once he is", () => {
+  it("is not aboard before the burial, and shows a locked card with its reason", () => {
     const before = funeralJourney().supplied;
-    expect(flags(before)["greek-burial-performed"]).toBeFalsy();
     expect(entityActive(before, PATROCLUS)).toBe(false);
-    const after = funeralJourney().buried;
-    expect(flags(after)["greek-burial-performed"]).toBe(true);
-    expect(entityActive(after, PATROCLUS)).toBe(true);
-    expect(after.actors[PATROCLUS].place).toBe("greek-ship");
+    expect(shutBox(before)).toMatchObject({ kind: "resident", open: false });
+    expect(shutBox(before).reason).toBe(REASON);
   });
 
-  it("does not hold the ship before the burial", () => {
-    const before = funeralJourney().supplied;
-    const aboardNow = Object.keys(before.actors).filter(
-      (id) =>
-        before.actors[id].place === "greek-ship" && entityActive(before, id),
-    );
-    expect(aboardNow).not.toContain(PATROCLUS);
+  it("does not appear before the ship docks at Piraeus, with or without the load", () => {
+    const loaded = provisioned();
+    expect(entityActive(loaded, PATROCLUS)).toBe(false);
+    expect(shutBox(loaded).reason).toBe(REASON);
+    // Without the provisions the ship cannot sail to Piraeus at all.
+    const bare = walk(funeralJourney().buried, "harbor");
+    for (let turn = 0; turn < 3; turn++) {
+      expect(entityActive(act(bare, "wait"), PATROCLUS)).toBe(false);
+    }
+    expect(
+      legalActions(bare).some((a) => a.kind === "course" && a.target),
+    ).toBe(false);
+    expect(trust(loaded)).toBe(0);
   });
 
-  it("starts at trust 3 at the meeting aboard, not at a later gift", () => {
-    // He is still aboard, with the ship docked, when the traveler arrives.
-    const steps = greekTravelTargets("greek-polynices-hollow", "greek-harbor");
-    let world = funeralJourney().buried;
-    for (const target of steps.slice(0, -1))
-      world = act(world, "move", { target });
-    dockShip(world);
-    world.actors[PATROCLUS].place = "greek-ship";
-    world = act(world, "move", { target: steps.at(-1) });
-    expect(world.actors[PATROCLUS].place).toBe("greek-ship");
+  // Aboard at Piraeus: he appears when the ship docks, and the meeting fires two
+  // plays later (a resident is met one play after he is there).
+  const atPiraeus = () => {
+    let world = act(provisioned(), "move", { target: SHIP });
+    expect(entityActive(world, PATROCLUS)).toBe(false);
+    world = act(world, "course", { target: "greek-piraeus" });
+    world = act(world, "wait");
+    expect(world.transports[SHIP].dock).toBe("greek-piraeus");
+    return world;
+  };
+
+  it("appears at the dock with the traveler aboard, and trusts them at 3 once met", () => {
+    let world = atPiraeus();
+    expect(entityActive(world, PATROCLUS)).toBe(true);
+    expect(world.actors[PATROCLUS].place).toBe(SHIP);
+    expect(shutBox(world)).toBeUndefined();
     expect(trust(world)).toBe(0);
-    world = act(world, "move", { target: "greek-ship" });
+    while (!flags(world)["greek-patroclus-met"]) world = act(world, "wait");
     expect(received(world, "greek-meet-patroclus")).toBeTruthy();
     expect(trust(world)).toBe(3);
-    expect(flags(world)["greek-patroclus-met"]).toBe(true);
   });
 
-  it("tells that he wants bread at the first Talk, and still counts the gift as his want met at trust 3", () => {
-    let world = wantsBread(metAboard());
-    world = act(world, "talk", { target: PATROCLUS });
-    expect(world.actors[PATROCLUS].want).toMatchObject({
-      kind: "item",
-      target: "greek-bread",
-    });
-    expect(trust(world)).toBe(3);
-    const before = world.actors.vale.xp;
-    world = act(world, "give", { item: "greek-bread", target: PATROCLUS });
-    // Trust stays at its cap; the gift still meets his want and pays as usual.
-    expect(trust(world)).toBe(3);
-    expect(world.actors.vale.xp - before).toBe(1);
-  });
-
-  it("sails to Piraeus, his home, with the traveler once the gift is made", () => {
-    let world = wantsBread(metAboard());
-    world = act(world, "give", { item: "greek-bread", target: PATROCLUS });
-    expect(trust(world)).toBe(3);
-    world.usedUp = (world.usedUp || []).filter(
-      (id) => id !== "greek-provisions",
-    );
-    world.items["greek-provisions"].holder = "greek-ship";
-    world = sailTo(world, "greek-piraeus");
-    expect(world.actors.vale.place).toBe("greek-piraeus");
-    expect(world.actors[PATROCLUS].place).toBe("greek-piraeus");
+  it("stays once he has appeared when the provisions go and the ship sails away", () => {
+    let world = atPiraeus();
+    while (!flags(world)["greek-patroclus-met"]) world = act(world, "wait");
+    // The load goes home, as when it is eaten, and the ship sails on.
+    world.usedUp = [...(world.usedUp || []), "greek-provisions"];
+    world.items["greek-provisions"].holder = "greek-harbor";
+    expect(entityActive(world, PATROCLUS)).toBe(true);
+    for (let turn = 0; turn < 8; turn++) {
+      world = act(world, "wait");
+      expect(entityActive(world, PATROCLUS)).toBe(true);
+    }
+    expect(world.transports[SHIP].dock).not.toBe("greek-piraeus");
+    expect(shutBox(world)).toBeUndefined();
   });
 });
