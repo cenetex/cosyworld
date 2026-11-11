@@ -66,9 +66,35 @@ engine, never calls a model, and never holds state that is not a view.
 - It speaks only the orchestrator's HTTP API and adds nothing to it that a
   browser could not also call:
   - `/meta` — version and mounted-pack list (channel bootstrap, asset pinning).
-  - `/card-game/text` — the existing narrative endpoint in
-    `card_narrative.rs` (`text_router`), for Talk.
-  - the card-shared action API — for plays and presence.
+  - `/card-game/shared/worlds/{id}/command` and `.../browser-chat` — plays and
+    human speech; the shared service already voices resident replies through
+    `full_speech::generate` → `shared_lines`.
+  - `/card-game/shared/worlds/{id}/talk` — the client-agnostic Talk endpoint
+    (below), which wraps the browser's three-step flow into one call.
+
+## Talk path
+
+The browser's Talk is three HTTP steps: submit the `talk` play
+(`command` with `op:"play"`, `action:{kind:"talk",target}`), submit the
+human's own line through `browser-chat`, then read the residents' voiced lines
+from the journaled `speech` op via `view`. No new narrative code is needed —
+`shared_lines` already turns a journaled scene into voices.
+
+The Discord gateway needs none of that encoding or polling. The refactor is a
+single endpoint that owns it server-side:
+
+`POST /card-game/shared/worlds/{id}/talk` — body `{avatar?, target, text?}`.
+
+1. Resolve the account (bot token or session) and the claimed avatar.
+2. Build and enqueue the `talk` play with a server-generated key.
+3. If `text` is present, publish it through the `browser::chat` validation
+   path so the human's own words are checked as a hosted line.
+4. Trigger and await the voice worker, then return the residents' lines.
+
+The await-the-worker half is the non-trivial piece (voice runs in the
+background `take_work` loop and publishes a `speech` op). Phase 1c lands it in
+two slices: first the endpoint that commits the talk and returns the play key,
+then the synchronous await that returns the lines.
 - New orchestrator endpoints (thin, read/write of links and bindings):
   - `POST /auth/discord/start` — returns the authorize URL + state.
   - `POST /auth/discord/callback` — exchanges the code, links or creates the
@@ -134,8 +160,8 @@ highest-frequency habitat; the poem channel is its public save.
 - **Phase 0 — SSO and links:** OAuth endpoints, `discord_links` table,
   `/unlink`, tests. No bot yet.
 - **Phase 1 — companion skeleton:** invite handling, `/cosyworld setup` and
-  bind, Room mode, webhook identity, Talk through `/card-game/text`. Users can
-  talk to Pip in their own servers.
+  bind, Room mode, webhook identity, Talk through the shared `/talk` endpoint
+  (see Talk path). Users can talk to Pip in their own servers.
 - **Phase 2 — plays and presence:** confirm cards, verbs, `/go`, Your-world
   mode, co-presence.
 - **Phase 3 — pulse and poem:** dusk verses, world-life beats, presence
