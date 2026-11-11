@@ -47,8 +47,8 @@ function setup(
     list,
     prepare,
     browse,
-    block: () => {
-      blocked = true;
+    block: (why = true) => {
+      blocked = why;
     },
   };
 }
@@ -110,6 +110,26 @@ describe("saved artwork selection", () => {
     await expect(t.tools.tools()[1].run({}, t.context)).rejects.toThrow(
       "Finish",
     );
+  });
+  it("names why Browse and Use are disabled", async () => {
+    const t = setup();
+    let finish;
+    t.list.mockImplementationOnce(
+      () => new Promise((resolve) => (finish = resolve)),
+    );
+    const browsing = t.browse();
+    expect(t.tools.tools()[0].describe().actions[0]).toMatchObject({
+      label: "Looking through saved artwork…",
+      disabled: true,
+    });
+    finish([{ id: "a", label: "Saved 1", images: [image] }]);
+    await browsing;
+    t.block("Save the artwork first");
+    for (const tool of t.tools.tools().slice(0, 2))
+      expect(tool.describe().actions[0]).toMatchObject({
+        label: "Save the artwork first",
+        disabled: true,
+      });
   });
   it("deduplicates previews without deleting assets and clears removed owners", async () => {
     const set = { id: "a", label: "Saved", images: [image] };

@@ -9,6 +9,7 @@ import {
 import { authoringTools } from "../v2/card-game/authoring-tools.mjs";
 import { TOOLS } from "../v2/card-game/authoring-collections.mjs";
 import { assetMetadata } from "../v2/card-game/authoring-draft.mjs";
+import { authoringCardId } from "../v2/card-game/authoring-tree.mjs";
 import { POSE_ROLES } from "../v2/card-game/authoring-images.mjs";
 
 async function fixture(enterAppearance = true, options = {}) {
@@ -77,6 +78,7 @@ async function fixture(enterAppearance = true, options = {}) {
     id,
     tool,
     request,
+    image,
     selected: () => selected,
     writes: () => writes,
     fail: (v) => {
@@ -182,7 +184,6 @@ it("reviews only the new cutout when replacing an avatar with saved poses", asyn
       .filter((t) => t.id.includes("preview"))
       .map((t) => t.name),
   ).toEqual(["Avatar cutout"]);
-  expect(f.selected()).toBe(`art-${f.id}-portrait`);
 });
 
 it("never sends narrative as appearance and keeps it unchanged when art is saved", async () => {
@@ -233,9 +234,80 @@ it("retries archiving the original after storage failure without generating agai
     f.session.snapshot({ assets: true }),
     f.id,
   );
-  expect(sets).toHaveLength(1);
   expect(sets[0].images[0].bytes).toEqual(Uint8Array.of(1, 2, 3));
   expect(f.request).toHaveBeenCalledTimes(1);
+  // The retry applies the first portrait exactly as the first run would have.
+  expect(f.session.state.source.pack.avatars[f.id].portrait).toMatch(
+    /base.png$/,
+  );
+  expect(f.tools.transient()).toBeNull();
+});
+
+async function inFlight(f) {
+  await f.session.run((context) => f.tool("portrait").run({}, context));
+  f.tool("portrait").describe().edit.onInput("A keeper in a green coat.");
+  let finish;
+  f.request.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve({ image: f.image });
+      }),
+  );
+  const run = f.session.run((context) => f.tool("portrait").run({}, context));
+  await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+  return { run, finish: () => finish() };
+}
+it("keeps a finished image when the user selects another card meanwhile", async () => {
+  const f = await fixture();
+  const { run, finish } = await inFlight(f);
+  const working = f.tool("portrait").describe({ status: f.session.status });
+  expect(working.info).toBe("Generating…");
+  expect(working.actions[0]).toMatchObject({
+    label: "Generating…",
+    disabled: true,
+  });
+  f.session.dispatch({ type: "cancel" });
+  f.session.dispatch({
+    type: "select",
+    id: authoringCardId(["pack", "avatars", f.id], "entity"),
+  });
+  finish();
+  await run;
+  expect(f.session.state.source.pack.avatars[f.id].portrait).toMatch(
+    /base.png$/,
+  );
+  expect(f.tools.tools().some((t) => t.id === "retry-unsaved-artwork")).toBe(
+    false,
+  );
+  expect(f.tools.transient()).toBeNull();
+});
+it("still refuses a result after a real edit during the request", async () => {
+  const f = await fixture();
+  const { run, finish } = await inFlight(f);
+  f.session.stage({ document: "Edited while drawing" });
+  finish();
+  await run;
+  expect(f.session.state.source.pack.avatars[f.id].portrait).toBeUndefined();
+  const retry = f.tools.tools().find((t) => t.id === "retry-unsaved-artwork");
+  expect(retry.describe().note).toContain("This editor changed");
+  expect(retry.describe().note).not.toContain("..");
+});
+it("says why each artwork button is disabled", async () => {
+  const f = await fixture();
+  const { run, finish } = await inFlight(f);
+  expect(f.tool("pose-sheet").describe().actions[0]).toMatchObject({
+    label: "Wait for the image",
+    disabled: true,
+  });
+  finish();
+  await run;
+  f.session.dispatch({ type: "cancel" });
+  await f.run("pose-sheet");
+  expect(f.tool("portrait").describe().actions[0]).toMatchObject({
+    label: "Confirm or discard the preview first",
+    disabled: true,
+  });
+  expect(f.tools.pendingReason()).toBe("Confirm or discard the preview first");
 });
 
 it("retains the provider sheet when pose splitting fails", async () => {

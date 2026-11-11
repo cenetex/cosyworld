@@ -200,12 +200,12 @@ async function start() {
       return accounts.requireSignIn();
     } },
     changed: () => designer?.refresh(),
-    choose: id => designer.chooseTool(id),
+    choose: (id, here) => designer.chooseTool(id, here),
   });
   const artLibrary = createArtLibraryTools({
     changed: () => designer?.refresh(),
     choose: (id) => designer.chooseTool(id),
-    blocked: () => visuals.pendingArtwork(),
+    blocked: () => visuals.pendingReason(),
   });
   const creator = authoringCreateTools({
     store,

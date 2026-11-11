@@ -136,12 +136,15 @@ export function authoringSeedTools({
       count = current.selected.length,
       needsSignIn = current.status === 401 && !authenticated;
     const save = {
-      label:
-        count && error && cached
-          ? "Retry save"
-          : count
-            ? `Keep ${count} avatar${count === 1 ? "" : "s"}`
-            : "Select avatars to keep",
+      label: keeping
+        ? "Saving…"
+        : busy
+          ? "Wait for the avatars"
+          : count && error && cached
+            ? "Retry save"
+            : count
+              ? `Keep ${count} avatar${count === 1 ? "" : "s"}`
+              : "Select avatars to keep",
       run: "keep",
       disabled: !count || busy || keeping,
     };
@@ -161,7 +164,13 @@ export function authoringSeedTools({
       : needsSignIn
         ? { label: "Sign in", run: "sign-in" }
         : {
-            label: current.cards.length ? "Find more" : "Find avatars",
+            label: keeping
+              ? "Saving…"
+              : !draw.text.trim()
+                ? "Type a seed first"
+                : current.cards.length
+                  ? "Find more"
+                  : "Find avatars",
             run: "find",
             disabled: !draw.text.trim() || keeping,
           };
@@ -203,7 +212,9 @@ export function authoringSeedTools({
           note: "World idea suggests new characters. Story text finds characters in your writing.",
           actions: [
             {
-              label: `Use ${label(current.mode === "idea" ? "extract" : "idea").toLowerCase()}`,
+              label: keeping
+                ? "Wait for the save"
+                : `Use ${label(current.mode === "idea" ? "extract" : "idea").toLowerCase()}`,
               run: "mode",
               disabled: keeping,
             },
