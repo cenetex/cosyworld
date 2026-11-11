@@ -1,11 +1,11 @@
 import { assetMetadata } from "./authoring-draft.mjs";
+import { fetchJobImage, runJob } from "./authoring-jobs.mjs";
 
 export const POSE_ROLES = Object.freeze(
   "happy sad strike brace hit sleep".split(" "),
 );
 const MIB = 1024 * 1024,
-  MAX_IMAGE = 8 * MIB,
-  MAX_JSON = 12 * MIB;
+  MAX_IMAGE = 8 * MIB;
 const need = (ok, message) => {
   if (!ok) throw new Error(message);
 };
@@ -92,29 +92,6 @@ async function bitmap(image, decode = createImageBitmap) {
   }
   return result;
 }
-async function readJSON(response, options, basis) {
-  const reader = response.body.getReader(),
-    decoder = new TextDecoder("utf8", { fatal: true });
-  let text = "",
-    count = 0;
-  try {
-    while (true) {
-      guard(options, basis);
-      const { done, value } = await reader.read();
-      if (done) break;
-      count += value.byteLength;
-      need(count <= MAX_JSON, "Keep the image response within 12 MiB.");
-      text += decoder.decode(value, { stream: true });
-    }
-    return JSON.parse(text + decoder.decode());
-  } catch (error) {
-    await reader.cancel().catch(() => {});
-    throw error;
-  } finally {
-    reader.releaseLock();
-  }
-}
-
 export async function requestAuthoringImage(body, options = {}) {
   body = structuredClone(body);
   need(
@@ -157,40 +134,25 @@ export async function requestAuthoringImage(body, options = {}) {
     "Choose a reference image for these changes.",
   );
   guard(options, body.basis);
-  const response = await (options.fetch || fetch)(
-    "/card-game/authoring/generate/image",
-    {
-      method: "POST",
-      credentials: "same-origin",
-      cache: "no-store",
-      signal: options.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    },
-  );
-  const result = await readJSON(response, options, body.basis);
+  // The job runs on the server; this waits for it and reads the stored image.
+  const result = await runJob("image", body, options);
   guard(options, body.basis);
-  if (!response.ok) {
-    const error = new Error(
-      typeof result.error === "string"
-        ? result.error.slice(0, 500)
-        : "Try this image request again.",
-    );
-    error.status = response.status;
-    if (typeof result.code === "string") error.code = result.code;
-    if (Number.isFinite(result.retryAfterMs) && result.retryAfterMs >= 0)
-      error.retryAfterMs = result.retryAfterMs;
-    throw error;
-  }
   need(
-    result.basis === body.basis,
+    result?.basis === body.basis,
     "This image response has a different design binding.",
   );
   need(
     Number.isSafeInteger(result.image?.size),
     "Check the image response size.",
   );
-  const image = await checkedImage(fromBase64(result.image));
+  const bytes = await fetchJobImage(result.image, options);
+  guard(options, body.basis);
+  const image = await checkedImage({
+    mime: result.image.mime,
+    bytes,
+    size: result.image.size,
+    sha256: result.image.sha256,
+  });
   const decoded = await bitmap(image, options.decode);
   decoded.close();
   guard(options, body.basis);

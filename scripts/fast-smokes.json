@@ -53,7 +53,7 @@
       "smokes": ["smoke-authoring-create-store", "smoke-authoring-local-store"]
     },
     {
-      "paths": "^v2/card-game/(authoring-[a-z-]+|settings-screen|settings-cards|card-tree-layout)\\.mjs$",
+      "paths": "^v2/card-game/(authoring-[a-z-]+|settings-screen|settings-cards|card-tree-layout)\\.mjs$|^v2/scripts/authoring-jobs-mock\\.mjs$",
       "smokes": [
         "smoke-card-seed-maker",
         "smoke-authoring-avatar-design",
