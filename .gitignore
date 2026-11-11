@@ -39,6 +39,7 @@ src/config/user.config.json
 .runtime/
 v2/orchestrator-rust/.runtime/
 v2/content/imports/
+v2/worldpacks/.index-recovery-*/
 
 # Terraform
 infra/aws-lonely-forest/.terraform/
