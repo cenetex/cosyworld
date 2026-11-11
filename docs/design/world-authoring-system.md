@@ -10,6 +10,9 @@ The [2026-11-06 interaction study](world-authoring-play.md) updates the entry
 flow and generation storage policy. New generation keeps seed text and expanded
 prompts in the session; accepted card output and artwork form the saved world.
 
+A 2026-11-11 draft, [the maker is the game table](maker-as-the-game.md),
+proposes replacing the tree with the game's own place view. It is not decided.
+
 ## Writing and cards
 
 The author works at the existing card table. A World Idea card opens a plain
