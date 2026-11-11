@@ -155,6 +155,10 @@
     {
       "paths": "^v2/card-game/metrics",
       "smokes": ["smoke-card-play-counts"]
+    },
+    {
+      "paths": "^v2/card-game/(app|cards|quest-card|locked-box|pip-landing|beats)\\.mjs$",
+      "smokes": ["smoke-card-quest-offers"]
     }
   ],
   "rust": {

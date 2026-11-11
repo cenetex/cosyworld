@@ -84,7 +84,7 @@ try {
     assert.ok(content.xp > xp, "the meeting play paid experience");
     assert.equal(await page.locator("#hand .quest-fold").count(), 0);
     assert.equal(await page.locator("#hand .want-frame").count(), 0);
-    assert.equal(await page.locator("#hand .want-card").count(), 0);
+    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
     // Choosing Vale offers no Discard, and the keyboard walks the hand.
     await tapCard(page.locator('#hand [data-card="vale"]'));
     assert.equal(

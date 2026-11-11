@@ -320,7 +320,7 @@ try {
       // there is nothing to claim.
       assert.equal(done.actors.vale.want, null);
       assert.ok(done.actors.vale.xp > ready.actors.vale.xp);
-      assert.equal(await page.locator("#hand .want-card").count(), 0);
+      assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(

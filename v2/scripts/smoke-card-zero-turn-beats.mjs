@@ -1,13 +1,16 @@
 // A pack change waits behind the reply already being read. The next card
 // play commits after Continue, while the return message stays in history.
 // Choosing the quest card is client-only: it commits nothing and passes no
-// turn. (Taking a quest from an offer is a no-turn rules play; its case joins
-// this smoke when the offers land, see app.mjs `takesQuest`.)
+// turn. Taking a quest from an offer card is a rules play that also passes no
+// turn: it commits at once, without waiting for the words before it, and
+// leaves the return message in history.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave } from "../card-game/world.mjs";
 import { newWant } from "../card-game/want.mjs";
+import { journeyWorlds } from "../../test/helpers/journey.mjs";
+import { questCards } from "../../test/journeys/quest-cards.mjs";
 import {
   openSettings,
   closeSettings,
@@ -23,6 +26,7 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true });
 const results = [];
+const journey = journeyWorlds(questCards);
 function fixture() {
   const s = createWorld();
   s.turn = s.revision = 3;
@@ -50,7 +54,7 @@ async function readThrough(page, key, revision) {
 }
 try {
   for (const width of [1440, 390])
-    for (const kind of ["take", "talk", "move", "quest"]) {
+    for (const kind of ["take", "talk", "move", "quest", "offer"]) {
       const page = await browser.newPage({
         viewport: { width, height: 900 },
         reducedMotion: "reduce",
@@ -60,7 +64,7 @@ try {
       page.on("pageerror", (error) => errors.push(error.message));
       const table = `zero-turn-${width}-${kind}`,
         key = `cosyworld.reflected-shore.v1.${table}`;
-      const world = fixture();
+      const world = kind === "offer" ? decodeSave(encodeSave(journey.told)) : fixture();
       await page.addInitScript(
         ({ key, save, seen }) => {
           localStorage.setItem(key, save);
@@ -99,7 +103,7 @@ try {
       });
       await page.goto(`${origin}/?table=${table}`);
       await page.locator("#hand .card").first().waitFor();
-      if (kind !== "quest") {
+      if (kind !== "quest" && kind !== "offer") {
         await selectCard(page, "moth");
         await readyActionButton(page, "talk").click();
         await page.waitForFunction(() =>
@@ -112,7 +116,7 @@ try {
       await pressSetting(page, "pack-sea");
       await pressSetting(page, "pack-sea");
       await closeSettings(page);
-      if (kind !== "quest")
+      if (kind !== "quest" && kind !== "offer")
         assert.doesNotMatch(
           await page.locator("#speech-row").textContent(),
           /returns as it was/,
@@ -124,7 +128,9 @@ try {
         ),
       );
       await clearSelection(page);
-      if (kind === "quest") {
+      if (kind === "offer") {
+        await selectCard(page, "quest:from:moth");
+      } else if (kind === "quest") {
         await selectCard(page, "vale");
         const fold = page.locator("#hand .quest-fold");
         if (await fold.isVisible()) await fold.click();
@@ -142,6 +148,24 @@ try {
           await page.waitForTimeout(250);
         }
         await readyActionButton(page, kind).click();
+      }
+      if (kind === "offer") {
+        // One button takes the quest at once: no turn passes and the words
+        // before it are left be.
+        assert.equal(await page.locator("#card-actions button").count(), 1);
+        await page.locator("#card-actions button").click();
+        await page.waitForFunction(
+          (key) => JSON.parse(localStorage.getItem(key)).actors.vale.want?.target === "lamp",
+          key,
+        );
+        const after = await saved(page, key);
+        assert.equal(after.turn, before.turn, "taking a quest passes no turn");
+        assert.equal(after.revision, before.revision + 1);
+        assert(after.log.some((e) => e.verb === "pack" && /returns as it was/.test(e.text)));
+        results.push({ width, kind, revision: after.revision, turn: after.turn });
+        assert.deepEqual(errors, []);
+        await page.close();
+        continue;
       }
       if (kind === "quest") {
         // One quest card, one button; nothing was committed.
