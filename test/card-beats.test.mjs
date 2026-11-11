@@ -67,20 +67,10 @@ describe("beat grouping", () => {
         legal = legalActions(world);
       expect(quest.target).toBe("oil");
       expect(questStep(world, quest, false, legal)?.action).toBeUndefined();
-      expect(legal.some((a) => a.kind === "focus")).toBe(false);
       expect(
         legal.some((a) => a.kind === "drop" && !a.item && a.quest === 0),
       ).toBe(true);
     }
-  });
-  it("keeps speech in front when a quest is focused or its reward collected", () => {
-    const line = said("vale", "The lamp shines beside the saved deed.");
-    const log = [
-      line,
-      did("vale", "claim", { receipt: 1 }),
-      did("vale", "focus"),
-    ];
-    expect(sceneBeats(worldOf(log))).toEqual(sceneBeats(worldOf([line])));
   });
   it("keeps a played card in front of the lines it prompts", () => {
     seq = 0;

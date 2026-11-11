@@ -120,8 +120,8 @@ async function fanWays(page, frame) {
   }
   return (await frame.getAttribute("hidden")) === null;
 }
-// The avatar's things lie in a stack beside it, its quests in another; a
-// folded stack's top card fans it out (#2256).
+// The avatar's things lie in a stack beside it, and its one quest card is a
+// card of its own; a folded stack's top card fans it out (#2256).
 async function fanAvatarStack(page, holder) {
   const folded = page.locator(
     `#hand .card-frame[data-holder="${holder}"]:not([hidden], [data-want]) > .card[aria-expanded="false"]:not(.location)`,

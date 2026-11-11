@@ -332,8 +332,9 @@ the world rules in `want.mjs`, not from authored quest chains.
   room, and otherwise goes to one who is elsewhere. Generated quests are never
   connect quests. BoardyAI is inspired by [Boardy](https://x.com/boardyai).
 
-The hand holds people, items and places, and a quest card for each quest in
-the player's own stack (`quest-card.mjs`, client only). The card shows a small 4:3 scene
+The hand holds people, items and places, and one quest card for the quest the
+player holds (`quest-card.mjs`, client only; there is never more than one).
+The card shows a small 4:3 scene
 (`quest-screen.mjs`): the player on the left doing the quest's verb with the
 target on the right, from the images the stage already uses, with attack and
 guard poses for Strike and Threaten. A place quest shows the player small in
@@ -358,33 +359,36 @@ a step's recipient and place), from their levels (`questTier`), and at least
 the tier of the level a level quest leads to; face down, and folded until it
 has first turned, it shows only the common tier. It never
 shows who holds the target or how far it is; it glows softly and steadily
-while the target is within two moves. Steps still to come lie face down behind
-the card, showing the card back. It plays nothing. The top quest folds behind the player's avatar card as
-a full-size card in its stack: face down, showing the carved card back, leaning
-out to the top left with a glowing line in its tier colour along its edge.
-Choosing the folded card opens the first quest's details and fans its stack,
-top first. Each quest card is dealt face down, showing the
+while the target is within two moves. It plays nothing. The quest folds
+behind the player's avatar card as a full-size card in its stack: face down,
+showing the carved card back, leaning out to the top left with a glowing line
+in its tier colour along its edge. Choosing the folded card, or the avatar's
+stack and then the quest card, chooses the quest and shows its details. The
+quest card is dealt face down, showing the
 carved lid, and turns to its face 520 ms after it is first seen, with the
-hand's reveal (`card-reveal.mjs`), the next quest a moment after; reduced
-motion crossfades. It turns once: folding and opening the fan, plays, redraws
-and progress on the quest (its steps, its place in the stack) leave it face
+hand's reveal (`card-reveal.mjs`); reduced
+motion crossfades. It turns once: folding and opening the stack, plays, redraws
+and progress on the quest (its steps) leave it face
 up. Its identity is whose quest it is, its kind and its target, so only a
 quest that leaves the hand and later comes back is dealt face down again. The
 hand a page or a new game opens on is already dealt: a quest in view then is
-face up at once. It takes taps while face down. In the open fan the top quest is chosen and
-offers its next step and Discard. Tapping a quest beneath brings it to the top, with no turn
-taken, and tapping the chosen one lowers that card. The rules remove a met quest at once; the browser keeps its card,
-sealed, in the fan, and the folded line glows until its player taps the card
-to clear it. Any met card can be cleared, in any order; clearing shows the one
-point of experience it brought rising from the card (a still label with
-reduced motion) and glows the avatar when it ends a level quest. Clearing is
-this browser's alone. A first quest arrives with its line glowing. There is
+face up at once. It takes taps while face down. The chosen quest card gives
+exactly one button, as any chosen card does: its next step (`quest-step.mjs`),
+or **Discard** when it has none (its label names the XP it costs when the rules
+charge any, and a second tap confirms). Tapping the chosen card lowers it. A
+met quest simply goes: the rules pay its one XP on the play that met it, and
+there is nothing to choose or claim (the old quest stack, Focus, Claim, the
+sealed met card and the "+1 XP" float are gone, rules 133). A first quest
+arrives with its line glowing. There is
 no card for anyone else's quest. Another person's quest reaches the player only
 through Talk:
 `want-talk.mjs` adds one first-person fact about the top quest ("I want the
-Lamp.") for the player and the person on the other side of a Talk play, with a
-count of the rest of the stack ("I have one other quest too."). Bystanders' quests stay
-unsaid, and a met quest is not said.
+Lamp.") for the player and the person on the other side of a Talk play. Bystanders' quests stay
+unsaid, and a met quest is not said. How a player comes to hold a quest (Take
+quest on a locked box, Accept quest after Talk, Take level up quest) is the
+rules' offers (a no-turn `take` play); drawing them as cards with that one
+button is the next client step (`takesQuest` in `app.mjs` already treats it as
+a no-turn play). See [the design](../../docs/design/wants-and-arcs.md).
 
 Loading an earlier save drops its quest programs, collections, progress and
 quest history (`forgetQuests` in `legacy-saves.mjs`) and installs each
@@ -448,15 +452,16 @@ The other ways on stack at the right end. The first is face up, with up to
 three face down behind it. Tap the top card to fan them. A lone way is
 chosen at the first tap. Tapping elsewhere folds the ways on. See
 [three links per place](../../docs/design/three-link-map.md).
-Choosing the player's avatar shows two stacks beside it, in the same way: the
-things it carries, then its quests (#2256). An empty stack is left out. Each
-shows its top card face up with the rest face down behind it, up to three;
-tapping the top card fans that stack and folds the other. Tapping a card in a
-fan chooses it, and it moves left, to the front of its own stack: the row
-stays avatar, things, then quests, so no quest ever lies ahead of a thing
+Choosing the player's avatar shows a stack beside it, in the same way: the
+things it carries, then its quest card if it holds a quest (#2256). An empty
+stack is left out. The things show their top card face up with the rest face
+down behind it, up to three; tapping the top card fans that stack. Tapping a
+card in a fan chooses it, and it moves left, to the front of its stack: the row
+stays avatar, things, then the quest, so the quest never lies ahead of a thing
 (#2295). A thing takes the avatar's place in the choice, so it pairs with the
-next card, and a quest is the choice alone, offering its next step and
-**Discard**. A quest dealt while the stacks show rises in its own slot. A stack of one card hides nothing,
+next card, and the quest is the choice alone, offering its one button: its next
+step or **Discard**. A quest dealt while the stacks show rises in its own slot.
+A stack of one card hides nothing,
 so its card is chosen at the first tap. Tapping the avatar again folds both
 stacks back to the avatar, and tapping it once more lowers it. If two or more
 cards are chosen, tapping any chosen card lowers only that card and keeps
@@ -527,7 +532,7 @@ a disabled status, not a separate action row; selecting or tapping it never
 creates a quest or takes a turn.
 When its lock clears, the box opens with the existing card reveal
 (a crossfade under reduced motion). Held previews and quest miniatures
-use the same distinction. Newly dealt quests and folded stack layers use the
+use the same distinction. A newly dealt quest and folded stack layers use the
 normal back (`locked-box.mjs`). Each browser reads its player's shared view.
 On arrival, the hand scrolls just far enough to show the new current place.
 Selection scrolls just far enough to show the chosen card, including when a

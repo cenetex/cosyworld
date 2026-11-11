@@ -3,11 +3,11 @@ import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
+import { clearSelection, revealOpening, tapCard } from "./card-browser-helpers.mjs";
 
-// Content (rules 90): a met quest with nothing beneath leaves the avatar
-// content until its next Sleep, and while content the hand shows no quest
-// card at all: no fold behind the avatar, no quest card, no Discard.
-// Waking from the Sleep draws a new quest and its card comes back.
+// A player holding no quest shows no quest card at all: no fold behind the
+// avatar, no quest card, no Discard. A met quest leaves none, and nothing is
+// drawn to replace it: waking from a Sleep deals no quest either.
 const server = createServer();
 await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const browser = await chromium.launch({ headless: true });
@@ -54,10 +54,7 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=${table}`,
     );
     await ready();
-    for (const id of ["vale", "lamp", "attic"])
-      await page
-        .locator(`#hand [data-card="${id}"]`)
-        .evaluate((el) => el.click());
+    await revealOpening(page);
     // Vale's only quest is the lamp it holds; the residents stay content so
     // the plays are Vale's own.
     await page.evaluate((key) => {
@@ -65,35 +62,31 @@ try {
       const vale = s.actors.vale;
       vale.visited = [...new Set([...vale.visited, "pond"])];
       vale.want = { kind: "item", target: "lamp", since: s.turn, refusals: 0 };
-      delete vale.under;
       for (const id of ["moth", "keeper"]) s.actors[id].want = null;
       localStorage.setItem(key, JSON.stringify(s));
     }, key);
     await page.reload();
     await ready();
     assert.equal(await page.locator("#hand .quest-fold").count(), 1);
-    // Any play meets it; the sealed card clears with its experience.
-    await page.locator('#hand [data-card="vale"]').click();
+    // Any play meets it; the card goes and its experience is paid at once.
+    const xp = (await vale()).xp;
+    await clearSelection(page);
+    await tapCard(page.locator('#hand [data-card="vale"]'));
     await play("Wait");
     await ready();
-    const fold = page.locator('#hand .quest-fold[data-glow="invite"]');
-    await fold.waitFor();
-    await fold.focus();
-    await page.keyboard.press("Enter");
-    const met = page.locator('#hand .want-card[data-met="true"]');
-    await met.waitFor();
-    await met.click();
-    await page.locator(".quest-xp").waitFor({ state: "detached" });
-    await ready();
-    // Content: no want, and no quest card anywhere in the hand.
+    await page.waitForFunction(
+      (key) => JSON.parse(localStorage.getItem(key)).actors.vale.want === null,
+      key,
+    );
+    // No want and no quest card anywhere in the hand.
     const content = await vale();
     assert.equal(content.want, null);
-    assert.equal(content.content, true);
+    assert.ok(content.xp > xp, "the meeting play paid experience");
     assert.equal(await page.locator("#hand .quest-fold").count(), 0);
     assert.equal(await page.locator("#hand .want-frame").count(), 0);
     assert.equal(await page.locator("#hand .want-card").count(), 0);
     // Choosing Vale offers no Discard, and the keyboard walks the hand.
-    await page.locator('#hand [data-card="vale"]').click();
+    await tapCard(page.locator('#hand [data-card="vale"]'));
     assert.equal(
       await page.locator("#card-actions [data-drop-quest]").count(),
       0,
@@ -111,22 +104,24 @@ try {
     }
     assert.ok(stops.size > 0, "Tab reaches the hand");
     for (const stop of stops) assert.doesNotMatch(stop, /quest|want/);
-    // After a Wait, Vale again offers Sleep; waking draws a new quest and
-    // its card is back behind Vale.
+    // After a Wait, Vale again offers Sleep; waking draws no quest, so the
+    // hand still shows none.
     await page.keyboard.press("Escape");
-    await page.locator('#hand [data-card="vale"]').click();
+    await clearSelection(page);
+    await tapCard(page.locator('#hand [data-card="vale"]'));
     await play("Sleep");
     await ready();
-    await page.waitForFunction((key) => {
-      const v = JSON.parse(localStorage.getItem(key)).actors.vale;
-      return Boolean(v.want) && !v.content && !v.sleeping;
-    }, key);
-    await page.locator("#hand .quest-fold").waitFor({ state: "attached" });
-    assert.equal(await page.locator("#hand .quest-fold").count(), 1);
+    await page.waitForFunction(
+      (key) => !JSON.parse(localStorage.getItem(key)).actors.vale.sleeping,
+      key,
+    );
+    assert.equal((await vale()).want, null);
+    assert.equal(await page.locator("#hand .quest-fold").count(), 0);
+    assert.equal(await page.locator("#hand .want-frame").count(), 0);
     await page.screenshot({ path: resolve(output, `woke-${width}.png`) });
     assert.deepEqual(errors, []);
     console.log(
-      `Content shows no quest card; Sleep brings one back at ${width}px.`,
+      `No quest held shows no quest card, before or after a Sleep, at ${width}px.`,
     );
     await page.close();
   }
