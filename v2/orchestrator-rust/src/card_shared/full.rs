@@ -4,7 +4,7 @@ use super::unlocks;
 use super::{
     admit, capacity, db, full_store as store,
     full_world::{actor_id, actor_index, World},
-    now, reply,
+    gateway_user, now, reply,
     store::{sql_error, Result},
     user, valid_id,
 };
@@ -116,7 +116,7 @@ pub(super) fn in_write_turn<T>(state: &AppState, f: impl FnOnce() -> T) -> T {
 async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
     reply(
         blocking(move || {
-            let u = user(&state, &h, false)?;
+            let u = gateway_user(&state, &h, false)?;
             let mut c = db(&state)?;
             if dedupe::pending(&c, &u)? {
                 if let Err(error) = tidy(&state, &mut c, |tx| dedupe::run(tx, &u, now())) {

@@ -149,9 +149,6 @@ fn reply(r: Result<Value>) -> Response {
         .into_response()
 }
 pub(super) fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<String> {
-    if let Some(account) = state.account_auth.account_for_bot_request(h) {
-        return Ok(account);
-    }
     if mutation {
         // JSON and same-origin requests keep the account cookie out of cross-site commands.
         if h.get("sec-fetch-site")
@@ -185,6 +182,16 @@ pub(crate) fn revision(
     let user = user(state, h, true)?;
     let c = db(state)?;
     crate::account_revision::Revision::capture(&c, &user, h).map_err(|error| error.to_string())
+}
+
+/// The gateway routes (world list, view, talk) authenticate with the bot token
+/// or a session cookie. The bot token is scoped to these routes only: it never
+/// authorizes `create`, `command`, or the browser-chat path.
+pub(super) fn gateway_user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<String> {
+    if let Some(account) = state.account_auth.account_for_bot_request(h) {
+        return Ok(account);
+    }
+    user(state, h, mutation)
 }
 fn admit(user: &str) -> Result<()> {
     use crate::rate_limit::{RateLimit, RateLimiter};

@@ -541,7 +541,16 @@ impl AccountAuth {
     /// session cookie.
     pub(super) fn account_for_bot_request(&self, headers: &HeaderMap) -> Option<String> {
         let expected = std::env::var("COSYWORLD_BOT_TOKEN").ok()?;
-        self.account_for_bot_request_with(headers, expected.as_str())
+        let discord_user = headers
+            .get("x-cosyworld-discord-user")
+            .and_then(|value| value.to_str().ok())?;
+        if !bot_rate_limit_allow(discord_user) {
+            tracing::warn!(discord_user, "discord bot token rate limited");
+            return None;
+        }
+        let account = self.account_for_bot_request_with(headers, expected.as_str())?;
+        tracing::info!(discord_user, "discord bot token authorized shared play");
+        Some(account)
     }
 
     fn account_for_bot_request_with(&self, headers: &HeaderMap, expected: &str) -> Option<String> {
@@ -552,7 +561,7 @@ impl AccountAuth {
             .get("authorization")
             .and_then(|value| value.to_str().ok())?
             .strip_prefix("Bearer ")?;
-        if token != expected {
+        if !crate::config::token_matches(token, expected) {
             return None;
         }
         let discord_user = headers
@@ -590,6 +599,27 @@ struct DiscordStartResponse {
     authorize_url: String,
 }
 
+fn bot_rate_limit_allow(discord_user: &str) -> bool {
+    use crate::rate_limit::{RateLimit, RateLimiter};
+    use std::sync::{Mutex, OnceLock};
+    use std::time::{Duration, Instant};
+    static LIMITS: OnceLock<Mutex<RateLimiter>> = OnceLock::new();
+    LIMITS
+        .get_or_init(|| Mutex::new(RateLimiter::default()))
+        .lock()
+        .map(|mut limits| {
+            limits.allow(
+                discord_user.to_string(),
+                RateLimit {
+                    max_hits: 120,
+                    window: Duration::from_secs(60),
+                },
+                Instant::now(),
+            )
+        })
+        .unwrap_or(false)
+}
+
 fn discord_credentials() -> AccountResult<(String, String)> {
     let client_id = std::env::var("DISCORD_CLIENT_ID")
         .map_err(|_| account_error("DISCORD_CLIENT_ID is not configured"))?;
@@ -604,7 +634,16 @@ fn discord_redirect_uri() -> AccountResult<String> {
 }
 
 fn valid_redirect(redirect: &str) -> bool {
-    redirect.starts_with('/') && !redirect.starts_with("//")
+    // A same-origin relative path only: a single leading slash, no backslash
+    // (browsers normalize "/\" to "//"), no control characters, and no
+    // percent-encoded backslash that would change the path shape after decode.
+    if !redirect.starts_with('/') || redirect.starts_with("//") {
+        return false;
+    }
+    if redirect.chars().any(|c| c == '\\' || c.is_control()) {
+        return false;
+    }
+    !redirect.to_ascii_lowercase().contains("%5c")
 }
 
 fn redirect_with_cookie(location: &str, cookie: String) -> Response {
@@ -1638,9 +1677,14 @@ mod discord_auth_tests {
     fn discord_redirect_accepts_only_local_paths() {
         assert!(valid_redirect("/"));
         assert!(valid_redirect("/cards"));
+        assert!(valid_redirect("/ok"));
+        assert!(!valid_redirect("/\\x"));
+        assert!(!valid_redirect("/%5Cx"));
+        assert!(!valid_redirect("/%5cx"));
         assert!(!valid_redirect("//evil.example"));
         assert!(!valid_redirect("https://evil.example"));
         assert!(!valid_redirect("javascript:alert(1)"));
         assert!(!valid_redirect(""));
+        assert!(!valid_redirect("/bad\u{7f}path"));
     }
 }
