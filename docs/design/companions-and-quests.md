@@ -434,7 +434,7 @@ bump if that batch is still open; "later" means a later batch.
 | 3 | Escort offers only from residents who can travel; the backwards "meet" wording fix; reason labels for the Oak and Badger | rules and client label | with 2 |
 | 4 | Free the Swede, Skull, Antigone and the Household witness | pack data | with 2 |
 | 5 | Residents level by sleeping at home (generalise `levelAtHome`; drop instant leveling) | rules and data, about 60 lines | later, next mint |
-| 6 | Live roads (Piraeus, Eleusis) and RatiRadio doors; the Hollow as a night door | pack data, about 60 lines and a pack revision | any time, after the owner answers 14 to 16 |
+| 6 | Live roads (Piraeus, Eleusis) and RatiRadio doors; the Hollow as a night door | pack data, about 60 lines and a pack revision | any time, after the owner answers 13 to 15 |
 | 7 | Burial kit second use at Ajax's grave | pack data, about 120 lines | any time |
 | 8 | Dead-item cull: the 9 unread items and the duplicates | pack data, about 300 lines in two pull requests | any time |
 | 9 | Patroclus and the Charybdis unlock | pack data and a ship fix | the 133 bump (see wants and arcs) |
