@@ -23,6 +23,7 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // journal replay, snapshot or scheduler.
     let state = AppState::bootstrap_card().await?;
     let _ai_readiness = start_ai_readiness_scheduler(state.ai_config.as_ref().clone());
+    routes::start_authoring_jobs(&state);
 
     let report = serve(state, boot_started, drain_budget).await?;
     info!(

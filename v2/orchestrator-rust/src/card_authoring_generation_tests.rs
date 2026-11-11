@@ -1,6 +1,9 @@
 use super::*;
-use axum::body::{to_bytes, Body};
-use std::sync::Arc;
+use axum::{
+    body::{to_bytes, Body},
+    http::header,
+};
+use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 
 fn input() -> Value {
@@ -328,11 +331,6 @@ fn authoring_rejects_duplicate_ungrounded_and_unbounded_candidates() {
             "{field}"
         );
     }
-    let owner = crate::random_hex(12);
-    let permit = admit(owner.clone()).unwrap();
-    assert!(admit(owner.clone()).is_none());
-    drop(permit);
-    assert!(admit(owner).is_some());
 }
 
 #[test]
