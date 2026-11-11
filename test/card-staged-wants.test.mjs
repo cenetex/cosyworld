@@ -153,7 +153,7 @@ describe("schema", () => {
   });
 });
 
-const STAGED = { "greek-antigone": 2, "ratiradio-rati": 3 };
+const STAGED = { "greek-antigone": 1, "ratiradio-rati": 3 };
 describe("selection", () => {
   it("installs an eligible entry, and none whose when does not hold", () => {
     stage(item("greek-figs", {}, flag("a")), item("greek-shovel"));

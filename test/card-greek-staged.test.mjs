@@ -21,11 +21,10 @@ const LISTENING = "ratiradio-listening-room";
 describe("Antigone's burial wants", () => {
   const antigone = greek.avatars["greek-antigone"];
 
-  it("carries two staged wants instead of one", () => {
+  it("carries one staged want, the rites", () => {
     expect(antigone.want).toBeUndefined();
-    expect(antigone.wants).toHaveLength(2);
-    expect(antigone.wants.length).toBeLessThanOrEqual(3);
-    const [lay, there] = antigone.wants;
+    expect(antigone.wants).toHaveLength(1);
+    const [lay] = antigone.wants;
     expect(lay.want).toMatchObject({
       kind: "place",
       target: HOLLOW,
@@ -36,7 +35,6 @@ describe("Antigone's burial wants", () => {
       },
     });
     expect(lay.when).toBeUndefined();
-    expect(there.want).toEqual({ kind: "place", target: HOLLOW });
   });
 
   it("starts with the rites she wants laid, as her single want did", () => {
@@ -48,31 +46,16 @@ describe("Antigone's burial wants", () => {
     });
   });
 
-  it("may say she wants to be at the Hollow once the guard holds the Writ, until the burial", () => {
+  it("is left no second stage to set the rites aside for", () => {
     const s = world();
     const lay = antigone.wants[0].want;
-    const flags = s.packs["greek-drama"].flags;
-    // Without the writ in the guard's hands only the rites are open.
-    expect(
-      stagedWants(s, "greek-antigone").map((entry) => entry.open),
-    ).toEqual([true, false]);
+    // Her home is the Hollow (rules 133), so being there is not a want.
     s.items["greek-creon-writ"].holder = "greek-guard";
-    expect(
-      stagedWants(s, "greek-antigone").map((entry) => entry.open),
-    ).toEqual([true, true]);
-    // The rites set aside: she wants to be at the Hollow.
-    expect(terms(stagedNext(s, "greek-antigone", lay))).toBe(
-      terms(antigone.wants[1].want),
-    );
-    // Once she is there, nothing is left open of that want.
-    s.actors["greek-antigone"].place = HOLLOW;
+    expect(stagedWants(s, "greek-antigone").map((entry) => entry.open)).toEqual([
+      true,
+    ]);
     expect(stagedNext(s, "greek-antigone", lay)).toBeNull();
-    // After the burial her wants are drawn.
-    s.actors["greek-antigone"].place = "greek-gate";
-    flags["greek-burial-performed"] = true;
-    expect(
-      stagedWants(s, "greek-antigone").map((entry) => entry.open),
-    ).toEqual([true, false]);
+    s.packs["greek-drama"].flags["greek-burial-performed"] = true;
     expect(stagedNext(s, "greek-antigone", lay)).toBeNull();
   });
 });
