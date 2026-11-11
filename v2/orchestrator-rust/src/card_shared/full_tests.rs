@@ -1048,6 +1048,11 @@ fn quiet_hold_handler_uses_the_authenticated_actor_and_replays() {
     let saved = full_store::world(&c, &id, time).unwrap();
     let mut actors = before.game["actors"].clone();
     actors["vale"]["heldItem"] = Value::Null;
+    // Putting the lamp out opens the Black pond and pays its one XP (rules
+    // 133); a level rises only through a quest, so it stays as it was.
+    actors["vale"]["xp"] = json!(1);
+    actors["vale"]["level"] = json!(1);
+    assert_eq!(saved.game["opened"], json!({"pond":["vale"]}));
     assert_eq!(saved.game["actors"], actors);
     let mut lamp = before.game["items"]["lamp"].clone();
     lamp["lit"] = json!(false);
@@ -2698,6 +2703,8 @@ fn stowing_the_lamp_then_playing_meets_vales_want_once_and_replays() {
     assert!(w.game["actors"]["vale"]["want"].is_null());
     w.game["actors"]["vale"]["want"] =
         json!({"kind":"item","target":"lamp","since":0,"refusals":0});
+    // The pond box is already open, so stowing the lamp pays nothing here.
+    w.game["opened"] = json!({"pond":["vale"]});
     full_store::seed(&c, &id, &w, "want-met", now()).unwrap();
     // Stowing changes light quietly; the next play meets the custody want.
     let turn = w.game["turn"].clone();

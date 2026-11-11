@@ -101,6 +101,10 @@ try {
   await putOutOpening(page);
   await ready();
   assert.deepEqual((await state()).opened, { pond: ["vale"] });
+  // The pond box turns over once as the lamp goes out; let the lid finish.
+  await page.waitForFunction(
+    () => !document.querySelector("#hand [data-revealing]"),
+  );
   assert.equal((await state()).items.lamp.lit, false);
   assert.equal((await state()).turn, 0);
   assert.equal((await state()).actors.vale.heldItem, null);
