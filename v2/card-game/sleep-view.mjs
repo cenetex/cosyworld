@@ -21,15 +21,12 @@ import {
 export function createSleepView({
   stage,
   speechRow,
-  hand,
   root = document.body,
   reducedMotion = { matches: false },
   // Draws the table again (app.mjs render).
   render = () => {},
   // Finishes writing the line in front.
   finishReveal = () => {},
-  // Deals the quests held back for the dream (app.mjs showQuests).
-  dealQuests = () => {},
   showWake = () => {},
 }) {
   let seen = null,
@@ -89,21 +86,6 @@ export function createSleepView({
     catcher.hidden = !active;
     markDreamer(active ? wake?.id : null);
     if (beat === "enter") riseIn(speechRow, { reduced });
-    if (beat === "quest") {
-      dealQuests(wake.quests);
-      // Folded, the quest arrives as the face-down card behind the dreamer;
-      // open, as its own face-down card that then turns (card-entry.mjs).
-      for (const key of wake.quests) {
-        const card = [...hand.querySelectorAll(".want-card")].find(
-          (el) => el.dataset.questEntry === key,
-        );
-        const frame = card?.closest(".want-frame");
-        riseIn(
-          frame && !frame.hidden ? frame : hand.querySelector(".quest-fold"),
-          { reduced },
-        );
-      }
-    }
     if (!active) {
       sequence = null;
       wake = null;
@@ -169,7 +151,8 @@ export function createSleepView({
     // The catcher and the dialogue button take the same next tap.
     get dreamTap() {
       if (!wake?.dream) return null;
-      if (shown.beat === "dreaming") return shown.armed ? "Confirm" : "Stop waiting";
+      if (shown.beat === "dreaming")
+        return shown.armed ? "Confirm" : "Stop waiting";
       if (shown.beat === "dream") return shown.revealed ? "Continue" : "Finish";
       return shown.beat === "enter" ? "Continue" : "";
     },
@@ -185,14 +168,6 @@ export function createSleepView({
         turn,
         cut: DARK_BEATS.has(sequence.beat) || sequence.beat === "light",
       };
-    },
-    // A quest the dream deals stays face down, unturned, until its beat.
-    holdsQuest(key) {
-      if (!sequence || !wake?.dream) return false;
-      return (
-        wake.quests.includes(key) &&
-        ["fade", "held", "enter", "dreaming", "dream"].includes(sequence.beat)
-      );
     },
     // The dreamer's own spoken line on waking is not shown: the dream is.
     hidesLine(entry) {
@@ -239,11 +214,13 @@ export function createSleepView({
     // bring none either.
     words(status) {
       if (!sequence || !wake?.dream) return;
+      const mine = sequence,
+        sceneWords = words;
       if (status === "pending") words.asked = true;
       if (status === "failed") sequence.failed();
       if (status === "ready" && words.asked)
         setTimeout(() => {
-          if (sequence && !words.reflecting) sequence.failed();
+          if (mine === sequence && !sceneWords.reflecting) mine.failed();
         });
     },
     // Wraps the reflection request: one that settles with no dream saved
@@ -263,6 +240,17 @@ export function createSleepView({
         Promise.resolve(result).then(settled, settled);
         return result;
       };
+    },
+    // A replacement world is already awake, just like the first table.
+    // Unlike stop(), discard the old dream, line filter and wake identity.
+    reset(world, viewer) {
+      sequence?.stop();
+      if (sequence) paint({ beat: "done" });
+      wake = dreamt = shown = null;
+      words = { asked: false, reflecting: false };
+      currentWorld = world;
+      shownTurn = world.turn;
+      seen = { key: sleepWake(world, viewer)?.key ?? null };
     },
     stop() {
       sequence?.stop();

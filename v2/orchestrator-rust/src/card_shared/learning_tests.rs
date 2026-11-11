@@ -6,15 +6,7 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
     claim(&mut c, &id, 0);
     claim(&mut c, &id, 1);
     let mut w = full_store::world(&c, &id, now()).unwrap();
-    let action = home_action(&w, 0, "snuff");
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"vale","action":action}),
-        now(),
-    )
-    .unwrap();
+    hold(&c, &id, &mut w, 0, Value::Null);
     // Only the avatar who waits after something new turns inward.
     let action = home_action(&w, 0, "wait");
     let result = full_store::commit(
@@ -66,56 +58,16 @@ fn shared_reflections_survive_restart_and_journal_rebuild_with_private_views() {
 }
 
 #[test]
-fn version_twelve_history_replays_before_the_saved_learning_upgrade() {
-    let (_path, c, id) = fixture();
-    let seed = engine::reduce_version(engine::TWELFTH_VERSION, json!({"op":"create"})).unwrap();
-    let old = World {
-        version: engine::TWELFTH_VERSION.into(),
-        game: seed["world"].clone(),
-        claimed: [0; 8],
-        present: [0; 8],
-        pack: None,
-    };
-    c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
-        .unwrap();
-    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
-        .unwrap();
-    full_store::seed(&c, &id, &old, "version-twelve", now()).unwrap();
-    let upgraded = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(upgraded.version, engine::VERSION);
-    assert_eq!(upgraded.game["turn"], old.game["turn"]);
-    for field in ["items"] {
-        for (key, value) in super::saved_items::upgraded_field(&old.game, field)
-            .as_object()
-            .unwrap()
-        {
-            assert_eq!(&upgraded.game[field][key], value);
-        }
-    }
-    assert_saved_memories(&upgraded.game["memories"], &old.game["memories"]);
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
-}
-
-#[test]
 fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
-    let mut doused = full_store::world(&c, &id, now()).unwrap();
-    let snuff = home_action(&doused, 0, "snuff");
-    full_store::commit(
-        &c,
-        &id,
-        &mut doused,
-        json!({"op":"play","actor":"vale","action":snuff}),
-        now(),
-    )
-    .unwrap();
+    let mut stowed = full_store::world(&c, &id, now()).unwrap();
+    hold(&c, &id, &mut stowed, 0, Value::Null);
     let mut queued = body("play", None);
     queued.key = "learning-publication".into();
     queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
     full::run(&c, &id, "user0", &queued, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     let duplicate = work.clone();
     let (_, ids) = full_speech::prepared(0, &work.context).unwrap();
@@ -273,74 +225,6 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
     let restored = store::open(&path).unwrap();
     full_store::schema(&restored).unwrap();
     assert_eq!(full_store::world(&restored, &id, now()).unwrap(), expected);
-}
-
-#[test]
-fn version_sixteen_lessons_upgrade_before_new_measured_plays() {
-    let (_path, c, id) = fixture();
-    let seed = engine::reduce_version(engine::SIXTEENTH_VERSION, json!({"op":"create"})).unwrap();
-    let mut old = World {
-        version: engine::SIXTEENTH_VERSION.into(),
-        game: seed["world"].clone(),
-        claimed: [0; 8],
-        present: [0; 8],
-        pack: None,
-    };
-    old.game.as_object_mut().unwrap().remove("opening");
-    old.game.as_object_mut().unwrap().remove("life");
-    old.game["motives"]
-        .as_object_mut()
-        .unwrap()
-        .remove("questPrograms");
-    for actor in old.game["actors"].as_object_mut().unwrap().values_mut() {
-        actor["progress"] = json!({"program":0,"step":0,"marks":[]});
-    }
-    old.game["actors"]["vale"]["place"] = json!("station");
-    old.game["actors"]["keeper"]["place"] = json!("station");
-    old.game["items"]["bell"]["holder"] = json!("keeper");
-    old.game["items"]["cloth"]["holder"] = json!("keeper");
-    old.apply(&json!({"op":"claim","actor":"vale"})).unwrap();
-    old.apply(&json!({"op":"enter","actor":"vale"})).unwrap();
-    let action = old.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "ask" && a["item"] == "oil")
-        .unwrap()
-        .clone();
-    old.apply(&json!({"op":"play","actor":"vale","action":action}))
-        .unwrap();
-    let earlier = old.game["memories"]["vale"]["learning"][0].clone();
-    assert_eq!(earlier["strategy"], "offer_trade");
-    c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
-        .unwrap();
-    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
-        .unwrap();
-    full_store::seed(&c, &id, &old, "sixteen-learning", now()).unwrap();
-    let mut upgraded = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(upgraded.version, engine::VERSION);
-    assert_eq!(upgraded.game["memories"]["vale"]["learning"][0], earlier);
-    let action = upgraded.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "ask" && a["item"] == "oil")
-        .unwrap()
-        .clone();
-    full_store::commit(
-        &c,
-        &id,
-        &mut upgraded,
-        json!({"op":"play","actor":"vale","action":action}),
-        now(),
-    )
-    .unwrap();
-    assert_eq!(
-        upgraded.game["memories"]["vale"]["learning"][1]["version"],
-        2
-    );
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), upgraded);
 }
 
 // An away holder's avatar stays as a resident and witnesses the room (#1846).

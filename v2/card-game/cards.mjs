@@ -1,14 +1,17 @@
+import { RADIO_ITEM } from "./radio-item.mjs";
+import { lampRoomFlame } from "./lamp-room-fuel.mjs";
 import {
   consumable,
   entityActive,
   packPlaces,
   packDefinitions,
   packThings,
+  packPeople,
   transports,
 } from "./pack-registry.mjs";
 import { dropCost } from "./want.mjs";
-import { lockedAt } from "./pack-items.mjs";
-import { shutLanes } from "./pack-transport.mjs";
+import { questCaption, questVerb } from "./quest-card.mjs";
+import { joinWants } from "./world/want-words.mjs";
 import {
   currentActor,
   places,
@@ -16,12 +19,43 @@ import {
   things,
   nameOf,
   legalActions,
+  wayHome,
   itemPlace,
   rootHolder,
   exits,
   covered,
-  sealedWays,
+  shutBoxesAt,
+  questOffers,
 } from "./world.mjs";
+import { isOfferId } from "./world/offers.mjs";
+import {
+  companionOf,
+  cannotFollowLabel,
+  staysLabel,
+  travelerOf,
+  withLabel,
+} from "./world/company.mjs";
+import { staysByRole } from "./resident-guard.mjs";
+
+// The boxes shut at the player's place: the one list the rules keep (rules
+// 133, world/boxes.mjs). The hand draws each face down and the context
+// button gives its reason.
+export const shutBoxes = (world) => {
+  const player = currentActor(world);
+  return shutBoxesAt(world, world.actors[player]?.place, player);
+};
+// The quest cards on the table (rules 133): each offer is a card, tapped to
+// take its quest. A blocked offer carries the reason for its disabled button.
+export const offerCards = (world) => questOffers(world).map((o) => o.id);
+export const offerOf = (world, id) =>
+  isOfferId(id) ? questOffers(world).find((o) => o.id === id) : undefined;
+const shutBox = (world, id) => shutBoxes(world).find((box) => box.id === id);
+// An undiscovered resident can wait as an existing locked card, without
+// becoming an active actor or receiving plays before its requirements hold.
+export const sealedAvatar = (world, id) => {
+  const box = shutBox(world, id);
+  return box?.kind === "resident" ? { at: box.at } : null;
+};
 
 export function availableCards(world) {
   const player = currentActor(world),
@@ -56,19 +90,13 @@ export function availableCards(world) {
       fight.defender === player && fight.item ? [fight.item] : [];
     return [...cast, ...demanded.filter((id) => items.includes(id)), here];
   }
+  const quests = offerCards(world);
   const road = packPlaces[here]?.road;
-  // A shut way that names its sealed card shows that card (rules 95).
-  const sealed = sealedWays(world, player)
-    .map((r) => r.to)
+  // Every shut box lies in the hand face down (rules 133): a way, a made
+  // thing waiting for its maker, a resident, a port, a door.
+  const sealed = shutBoxes(world)
+    .map((box) => box.id)
     .filter((id) => !destinations.includes(id));
-  // A made thing waits locked at its home until its maker makes it again.
-  sealed.push(...lockedAt(world, here));
-  // A port its ship cannot sail to yet, and why (rules 102).
-  sealed.push(
-    ...shutLanes(world, here)
-      .map((lane) => lane.to)
-      .filter((id) => !destinations.includes(id)),
-  );
   return [
     ...cast.flatMap((id) => [id, ...after(id)]),
     ...(road && destinations.includes(road[0]) ? [road[0]] : []),
@@ -76,9 +104,11 @@ export function availableCards(world) {
     ...after(here),
     ...destinations.filter((id) => !road || id !== road[0]),
     ...new Set(sealed),
+    ...quests,
   ];
 }
 export function cardType(id) {
+  if (isOfferId(id)) return "quest";
   return things[id] ? "item" : people[id] ? "avatar" : "location";
 }
 
@@ -143,6 +173,9 @@ function carryFull(world, id) {
 // Why an Ask, Trade or Invite is missing: the resident it needs is asleep
 // (rules 100), for the context button. Talk wakes it; a Give it keeps.
 export function asleepReason(world, selected) {
+  // A quest card held back by the quest in hand says so, in the same button.
+  const held = selected.length === 1 && offerOf(world, selected[0])?.blocked;
+  if (held) return held;
   const sleeper = selected
     .map((id) => (people[id] ? id : things[id] ? rootHolder(world, id) : null))
     .find(
@@ -151,30 +184,62 @@ export function asleepReason(world, selected) {
         id !== currentActor(world) &&
         world.actors[id]?.sleeping?.until !== undefined,
     );
-  return sleeper ? `${nameOf(sleeper)} is asleep` : null;
+  return sleeper ? `${nameOf(sleeper)} is asleep` : companyReason(world, selected);
 }
-// Why a sealed card's way is shut, from its pack data, or null. A locked
-// made thing names who makes it from what (rules 102).
-export const sealedReason = (world, id) => {
-  const lock = things[id] && packThings[id]?.locked;
-  if (lock)
-    return lockedAt(world, packThings[id].home).includes(id)
-      ? `${nameOf(lock.by)} consumes ${listOf(lock.consumes.map((c) => theThing(c)))}`
-      : null;
+// What opens a locked card, in words: each want it waits on, worded by the one
+// wording of a want (quest-card.mjs) and screened by what the traveler has
+// discovered (`known`; the default knows nothing, so it names nothing). The
+// rules own the goals (`box.goals`, world/boxes.mjs); a box with none shows
+// only that it is shut.
+export const LOCKED_BOX = "A locked box.";
+export function lockWords(world, id, known = () => false) {
+  const box = shutBox(world, id);
+  if (!box) return null;
+  const actor = currentActor(world);
+  const text = joinWants(
+    (box.goals.length ? box.goals : box.want ? [box.want] : [])
+      // The locked card itself cannot explain how to open it.
+      .filter((goal) => goal.target !== id),
+    (goal) => {
+      const quest = { actor, ...goal };
+      return questCaption(quest, false, questVerb(world, quest), known);
+    },
+  );
+  return text || LOCKED_BOX;
+}
+export const sealedReason = lockWords;
+// Why Accompany is missing for a card and a place (rules 133), as the
+// button's label, in the rules' own fixed words: "Oak stays here" for one that
+// never travels, "Dione is with Rue" for one whose company is taken. The
+// traveler's name is the one name not already on the table (wire to the
+// knowledge check when it lands).
+function companyReason(world, selected) {
+  if (selected.length !== 2) return null;
+  const player = currentActor(world);
+  const who = selected.find((id) => people[id] && id !== player);
+  const place = selected.find((id) => places[id]);
+  if (
+    !who ||
+    !place ||
+    place === world.actors[player].place ||
+    world.actors[who]?.place !== world.actors[player].place
+  )
+    return null;
+  const other = travelerOf(world, who);
+  if (other && other !== player)
+    return withLabel(nameOf(who), nameOf(other));
+  if (staysByRole(world, who)) return staysLabel(nameOf(who));
+  // A way the resident could not walk home from: it is not taken, and the
+  // pair says so before the move. Moving alone is still the place card.
+  return !cannotFollow(world, who, place) ? null : cannotFollowLabel(nameOf(who));
+}
+const cannotFollow = (world, who, place) => {
   const player = currentActor(world);
   return (
-    sealedWays(world, player).find((r) => r.to === id)?.sealed.reason ??
-    shutLanes(world, world.actors[player]?.place).find((l) => l.to === id)
-      ?.reason ??
-    null
+    legalActions(world).some((a) => a.kind === "move" && a.target === place) &&
+    !wayHome(world, player, world.actors[player].place, place, who)
   );
 };
-const theThing = (id) =>
-  /^(the|a|an) /iu.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
-const listOf = (names) =>
-  names.length > 1
-    ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
-    : names[0];
 
 // Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {
@@ -211,13 +276,20 @@ export function cardPlay(world, selected) {
         (target === undefined || a.target === target),
     );
   const use = (id) =>
-    id === "lamp"
-      ? find(world.items.lamp.lit ? "snuff" : "light", id)
+    id === RADIO_ITEM
+      ? find("radio", id)
       : id === "bell"
         ? find("ring", id)
         : undefined;
   if (cards.length === 1) {
     const id = cards[0];
+    // A quest card gives its one play, or says why it cannot.
+    const quest = offerOf(world, id);
+    if (quest)
+      return result(
+        actions.find((a) => a.kind === "take" && a.offer === id),
+        quest.blocked,
+      );
     const authored = () => choicesOn(id, actions)[0];
     const single = (found, hint) => result(found || authored(), hint);
     // A local fixture takes the place of a plain Wait.
@@ -226,15 +298,14 @@ export function cardPlay(world, selected) {
         id === here
           ? authored() || wait
           : find("move", null, id) ||
-              find("course", null, id) ||
-              find("gate", null, id),
+              find("course", null, id),
         sealedReason(world, id) || `Travel to ${nameOf(id)}.`,
       );
     if (id === currentActor(world)) return single(find("guard") || wait);
     if (people[id])
       return single(
         find("talk", null, id) || find("attack", null, id),
-        `Meet ${nameOf(id)} here.`,
+        sealedReason(world, id) || `Meet ${nameOf(id)} here.`,
       );
     if (sealedReason(world, id)) return single(null, sealedReason(world, id));
     const holder = world.items[id].holder;
@@ -260,7 +331,12 @@ export function cardPlay(world, selected) {
       (a) => a.kind === "eat" && a.item === id && !a.target,
     );
     if (meal) return result(meal);
-    if (id === "lamp") return single(use(id), "Pair the Lamp with Oil flask.");
+    if (id === "lamp")
+      return single(
+        null,
+        `${lampRoomFlame(world.items.lamp)}. Pair with this place to put it down, or tap again to put it away.`,
+      );
+    if (id === RADIO_ITEM) return single(use(id));
     if (id === "bell")
       return single(
         use(id),
@@ -308,12 +384,17 @@ export function cardPlay(world, selected) {
           : // Yourself and a guardable way stands guard (rules 100).
             actions.find((a) => a.guards === location) ||
             find("move", null, location)
-        : actions.find(
-            (a) =>
-              a.kind === "accompany" &&
-              a.target === avatar &&
-              a.destination === location,
-          ),
+        : // Already with you, a resident comes along on any move.
+          avatar === companionOf(world, player)
+          ? cannotFollow(world, avatar, location)
+            ? null
+            : find("move", null, location) || find("course", null, location)
+          : actions.find(
+              (a) =>
+                a.kind === "accompany" &&
+                a.target === avatar &&
+                a.destination === location,
+            ),
       "Pair a nearby avatar with an open path to ask them to accompany you.",
     );
   // An item lying here pairs with this place to be used where it lies.
@@ -359,6 +440,19 @@ export function cardPlay(world, selected) {
     return result(null, `Talk with ${nameOf(other)} to learn their quest.`);
   }
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
+}
+// A card tapped while a held thing is raised pairs with it only when the
+// pair plays (a give, a trade, a cover). Otherwise, if the tapped card alone
+// is taken or travelled to, the held thing is put aside so the tap leaves
+// its one button instead of a pair with no play.
+export function settledChoice(world, cards, id) {
+  if (cards.length !== 2 || !cards.includes(id)) return cards;
+  if (!things[id] && !places[id]) return cards;
+  if (cardPlay(world, cards).action) return cards;
+  const alone = cardPlay(world, [id]).action?.kind;
+  return alone === "take" || alone === "move" || alone === "course"
+    ? [id]
+    : cards;
 }
 // The row shows one play for this selection. The world owns legality.
 export function cardActions(world, selected) {
@@ -467,7 +561,6 @@ export function playLabel(action, world = null) {
     return cost ? `Discard (−${cost} XP)` : "Discard";
   }
   if (action?.kind === "focus") return "Choose quest";
-  if (action?.kind === "gate") return "Seek the way";
   if (action?.kind === "move" && action.item)
     return `Carry to ${nameOf(action.target)}`;
   return {
@@ -508,8 +601,16 @@ export function cardObservation(world, id) {
   const item = world.items[id];
   if (item) {
     const observations = [];
+    if (id === RADIO_ITEM)
+      observations.push(item.radioOn === true ? "Radio on" : "Radio off");
     if (typeof item.lit === "boolean")
-      observations.push(item.lit ? "Lit" : "Unlit");
+      observations.push(
+        id === "lamp" && item.fuelRooms !== undefined
+          ? lampRoomFlame(item)
+          : item.lit
+            ? "Lit"
+            : "Unlit",
+      );
     if (typeof item.ringing === "number")
       observations.push(
         item.ringing > 0 && !covered(world, id) ? "Ringing" : "Silent",

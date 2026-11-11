@@ -35,3 +35,14 @@ describes default abuse monitoring retention, and
 explains safety retention and account controls. The future authoring binding
 will record provider-default retention. Accepted output storage belongs to
 the authoring save path; this gateway returns bytes to its caller.
+
+## Maker controls
+
+Each avatar's card stack offers **Generate avatar** and **Generate poses**.
+The first prepares a transparent cutout; the second requires a saved cutout
+and prepares all six poses from one reference-guided sheet request. Both use
+`openai/gpt-image-2.6-flare`. Review the preview cards, then Confirm artwork,
+or Discard artwork to leave saved art unchanged. A failed local save retries
+without generating again. Generation failures never save a partial pose set.
+These controls save named pose assets and accepted visual metadata; they do
+not invent gameplay conditions for selecting those poses.

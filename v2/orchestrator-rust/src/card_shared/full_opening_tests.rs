@@ -11,11 +11,7 @@ fn fresh(a: usize) -> (crate::AppState, Connection, String) {
         .unwrap();
     let id = full::found(&tx, "owner", a, None, now()).unwrap();
     tx.commit().unwrap();
-    (
-        crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path)),
-        c,
-        id,
-    )
+    (crate::test_app_state(Some(path)), c, id)
 }
 fn command(op: &str) -> full::Command {
     full::Command {
@@ -184,4 +180,33 @@ fn opening_precedes_a_guest_play_queued_at_the_same_time() {
     .unwrap();
     let next = full::take_work(&app, &id).unwrap().unwrap();
     assert_eq!(next.id, play.key);
+}
+
+#[test]
+fn queued_opening_reads_the_latest_hand_and_keeps_its_reveal_limits() {
+    let (app, c, id) = fresh(0);
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    let mut choose = command("hold");
+    choose.action = json!({"item":null,"revision":w.game["revision"]});
+    full::run(&c, &id, "owner", &choose, now()).unwrap();
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(work.context["context"]["speakers"], json!(["vale"]));
+    assert_eq!(work.context["context"]["waking"], true);
+    assert_eq!(work.context["context"]["scenery"], false);
+    w = full_store::world(&c, &id, now()).unwrap();
+    let expected = narrator::context(&w.request("context", 0)).unwrap();
+    assert_eq!(work.context["context"]["entities"], expected["entities"]);
+    assert!(work.context["context"]["covered"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(w.room(0).unwrap())));
+    // Refresh survives a database reopen and has no extra gameplay turn.
+    let mut choose = command("hold");
+    choose.action = json!({"item":"lamp","revision":w.game["revision"]});
+    full::run(&c, &id, "owner", &choose, now()).unwrap();
+    assert!(!full::publish(&app, &id, work, Ok(words(0))).unwrap());
+    drop(c);
+    let next = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(next.context["turn"], 0);
+    assert!(full::publish(&app, &id, next, Ok(words(0))).unwrap());
 }

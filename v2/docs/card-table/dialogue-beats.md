@@ -86,6 +86,15 @@ before the reply that followed it, so a departure stays on the card it
 interrupted. While a reply is being written, the front card is the waiting
 speaker with Thinking; the play's effect is on the card behind it.
 
+## Offers and custody
+
+A resident's willingness is a conditional offer, not an action: "I'd give you
+that if you asked." Ask, Give and Trade move items only when the rules commit
+them. Voice checks reject explicit present transfers to a named recipient
+when the resolved inventory still has another owner. Questions, conditional
+offers and remembered exchanges retain their separate meanings. This is a
+bounded wording check, not a general natural-language proof of every claim.
+
 ## The depth stack
 
 Beats are cards in depth, not rows in a scroll:
@@ -317,7 +326,8 @@ unpunctuated or cut line. A flagged reply is published as written on its
 first attempt, and the server logs `card voice flagged` with its `reasons`
 and counts it under `/meta` `card_voice.flagged`.
 
-Before those checks the reply is trimmed, never retried for its shape. A
+Before those checks the reply is trimmed, never retried for its shape. A spoken
+line keeps its first three sentences (a thought, two). A
 reply cut at the token cap keeps its complete sentences; only one with none
 is `shape`. A line that is only a stage direction ("(I strum my lyre.)") is
 passed over, and a stage direction inside a line goes; both flag `stage
@@ -367,3 +377,9 @@ stack. A play leaves focus on the hand card that made it.
 
 A chosen play waits for the hand's swap deadline. If the timer wakes early,
 it checks the clock again and stays due until the hand has settled.
+
+Quiet hand changes do not end an unfinished exchange. Words already published
+stay in place; remaining speakers use the current hand and light state. Reload
+resumes pending local words without repeating published speakers. Completed and
+failed exchanges stay complete. Shared pending words refresh under the same
+committed play, without playing the action again.

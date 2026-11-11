@@ -4,9 +4,10 @@ import { backdrop } from "../v2/card-game/scene.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import before from "./fixtures/place-backdrops.json" with { type: "json" };
 
-// Every place's painting in a new world by day and by night, before any
-// alternate painting was wired (#1622). Alternates may only change the
-// places and states listed here.
+// The reviewed day/night baseline includes art for unmounted packs. Every
+// mounted place must have a baseline; alternates change only the states below.
+const mounted = (catalog) =>
+  Object.fromEntries(Object.entries(catalog).filter(([id]) => places[id]));
 const paintings = (world) =>
   Object.fromEntries(
     Object.keys(places)
@@ -17,10 +18,15 @@ const night = (world) => ({ ...world, turn: DAYLIGHT_TURNS });
 
 describe("alternate place paintings", () => {
   it("shows today's painting everywhere no alternate condition holds", () => {
-    expect(paintings(createWorld())).toEqual({...before.day, "greek-polynices-hollow": "./assets/greek-drama/polynices-hollow-fallen-day.webp"});
+    expect(paintings(createWorld())).toEqual({
+      ...mounted(before.day),
+      "greek-polynices-hollow":
+        "./assets/greek-drama/polynices-hollow-fallen-day.webp",
+    });
     expect(paintings(night(createWorld()))).toEqual({
-      ...before.night,
-      "greek-polynices-hollow": "./assets/greek-drama/polynices-hollow-fallen-night.webp",
+      ...mounted(before.night),
+      "greek-polynices-hollow":
+        "./assets/greek-drama/polynices-hollow-fallen-night.webp",
       "willows-landing": "./assets/willows/landing-night.webp",
       "willows-thicket": "./assets/willows/thicket-night.webp",
       "willows-bank": "./assets/willows/bank-night.webp",

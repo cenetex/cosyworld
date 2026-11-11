@@ -1,16 +1,11 @@
-//! Public source map for the card game and the classic compatibility fields.
+//! Public source map for the card game.
 
 use serde::Serialize;
-
-pub(crate) fn primary() -> bool {
-    std::env::var("COSYWORLD_PRIMARY_GAME").as_deref() == Ok("cards")
-}
 
 #[derive(Debug, Serialize)]
 pub(crate) struct GameMetadata {
     primary_game: &'static str,
     card_game: CardGameMetadata,
-    metadata_scopes: MetadataScopes,
 }
 
 #[derive(Debug, Serialize)]
@@ -26,8 +21,8 @@ struct CardGameMetadata {
 
 #[derive(Debug, Serialize)]
 struct CardText {
-    /// The authored-text catalog no longer matches the served scene modules
-    /// and packs (see `narrative::catalog_stale`).
+    /// The authored-text catalog lists a scene module or pack this build does
+    /// not serve (see `narrative::catalog_stale`).
     catalog_stale: bool,
 }
 
@@ -39,19 +34,7 @@ struct Catalogs {
     mounted_packs: &'static str,
 }
 
-#[derive(Debug, Serialize)]
-struct MetadataScopes {
-    worldpack: &'static str,
-    world: &'static str,
-    combat: &'static str,
-    content_engine_version: &'static str,
-}
-
 impl GameMetadata {
-    pub(crate) fn current() -> Self {
-        Self::for_primary(primary())
-    }
-
     pub(crate) fn for_primary(cards: bool) -> Self {
         Self {
             primary_game: if cards { "card-table" } else { "classic" },
@@ -70,12 +53,6 @@ impl GameMetadata {
                 card_text: CardText {
                     catalog_stale: super::narrative::catalog_stale(),
                 },
-            },
-            metadata_scopes: MetadataScopes {
-                worldpack: "classic-compatibility",
-                world: "classic-compatibility",
-                combat: "classic-compatibility",
-                content_engine_version: "classic-compatibility",
             },
         }
     }
@@ -102,11 +79,7 @@ mod tests {
                 meta["card_game"]["shared_rules_version"],
                 crate::card_shared::RULES_VERSION
             );
-            assert_eq!(
-                meta["metadata_scopes"]["worldpack"],
-                "classic-compatibility"
-            );
-            assert_eq!(meta["metadata_scopes"]["world"], "classic-compatibility");
+            assert!(meta.get("metadata_scopes").is_none());
             assert_eq!(meta["card_game"]["card_text"]["catalog_stale"], false);
             let router = super::super::router::<()>();
             let entry = meta["card_game"]["entry_url"].as_str().unwrap();
@@ -139,15 +112,10 @@ mod tests {
 
     #[test]
     fn release_metadata_keeps_versions_and_exposes_game_at_the_top_level() {
-        let value = serde_json::to_value(crate::projection_cache::MetaVersions::current()).unwrap();
-        assert_eq!(value["version"], env!("CARGO_PKG_VERSION"));
-        assert_eq!(
-            value["content_engine_version"],
-            crate::content_registry::content_engine_version()
-        );
+        let value = serde_json::to_value(GameMetadata::for_primary(true)).unwrap();
         assert!(value["primary_game"].is_string());
         assert_eq!(value["card_game"]["source_root"], "v2/card-game/");
-        let source_commit = crate::projection_cache::source_commit;
+        let source_commit = crate::card_boot::source_commit;
         assert_eq!(
             source_commit(Some("80364A5BE2F0c1d2e3f4".into())).as_deref(),
             Some("80364a5be2f0")

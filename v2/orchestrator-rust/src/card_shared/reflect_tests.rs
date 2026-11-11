@@ -1,5 +1,11 @@
 //! Shared reflections journaled after their speech (#2016).
 use super::*;
+fn revision(epoch: u64) -> crate::account_revision::Revision {
+    crate::account_revision::Revision {
+        user: "user0".into(),
+        epoch,
+    }
+}
 
 fn reflect_count(c: &rusqlite::Connection, id: &str) -> i64 {
     c.query_row(
@@ -19,20 +25,12 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     claim(&mut c, &id, 1);
     let mut w = full_store::world(&c, &id, now()).unwrap();
     assert!(full::reflect::takes_reflect(&w.version));
-    let snuff = home_action(&w, 0, "snuff");
-    full_store::commit(
-        &c,
-        &id,
-        &mut w,
-        json!({"op":"play","actor":"vale","action":snuff}),
-        now(),
-    )
-    .unwrap();
+    hold(&c, &id, &mut w, 0, Value::Null);
     let mut queued = body("play", None);
     queued.key = "reflect-after-speech".into();
     queued.action = home_action(&full_store::world(&c, &id, now()).unwrap(), 0, "wait");
     full::run(&c, &id, "user0", &queued, now()).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     assert_eq!(work.context["context"]["resting"], "vale");
     let (_, ids) = full_speech::prepared(0, &work.context).unwrap();
@@ -86,7 +84,14 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
         "persona":"A private revised persona.","evidence":evidence,
         "models":{"thought":"thought-model","persona":"persona-model"}}});
     let command = full::reflect::command(&work, vec![entry]);
-    assert!(full::reflect::commit(&app, &id, command.clone()).unwrap());
+    c.execute("INSERT INTO account_revisions VALUES('user0',1)", [])
+        .unwrap();
+    assert_eq!(
+        full::reflect::commit(&app, &id, &revision(0), command.clone()).unwrap_err(),
+        crate::account_revision::Error::Changed.to_string()
+    );
+    assert_eq!(reflect_count(&c, &id), 0);
+    assert!(full::reflect::commit(&app, &id, &revision(1), command.clone()).unwrap());
     let reflected = full_store::world(&c, &id, now()).unwrap();
     let life = &reflected.game["memories"]["vale"]["innerLife"];
     assert_eq!(life["thoughts"][0]["turn"], work.context["turn"]);
@@ -95,7 +100,7 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     assert_eq!(reflected.game["actors"], w.game["actors"]);
     assert_eq!(reflected.game["turn"], w.game["turn"]);
     // A retry is not journaled twice.
-    assert!(!full::reflect::commit(&app, &id, command).unwrap());
+    assert!(!full::reflect::commit(&app, &id, &revision(1), command).unwrap());
     assert_eq!(reflect_count(&c, &id), 1);
     // Private to its avatar, and rebuilt from the journal alone.
     let other = full_store::snapshot(&c, &id, "user1", now()).unwrap();
@@ -113,11 +118,11 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
 fn refused_or_orphan_reflections_leave_the_world_whole() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let app = crate::test_app_state(Some(path));
     let before = full_store::world(&c, &id, now()).unwrap();
     let entry = json!({"id":"vale","reflection":{"thought":"A thought.","persona":"A persona.","evidence":[999999]}});
     let orphan = json!({"op":"reflect","actor":"vale","play":"never-spoken","turn":before.game["turn"],"rest":null,"entries":[entry]});
-    assert!(!full::reflect::commit(&app, &id, orphan.clone()).unwrap());
+    assert!(!full::reflect::commit(&app, &id, &revision(0), orphan.clone()).unwrap());
     // Ungrounded evidence is refused by the rules, even if journaled directly.
     let mut w = before.clone();
     assert!(full_store::commit(&c, &id, &mut w, orphan.clone(), now()).is_err());
@@ -145,9 +150,7 @@ async fn quiet_wait_reflects_privately_and_replays() {
     let (path, mut c, id) = fixture();
     claim(&mut c, &id, 0);
     let mut w = full_store::world(&c, &id, now()).unwrap();
-    let snuff = home_action(&w, 0, "snuff");
-    let snuff = json!({"op":"play","actor":"vale","action":snuff});
-    full_store::commit(&c, &id, &mut w, snuff, now()).unwrap();
+    hold(&c, &id, &mut w, 0, Value::Null);
     let wait = home_action(&w, 0, "wait");
     full_store::commit(
         &c,
@@ -163,7 +166,7 @@ async fn quiet_wait_reflects_privately_and_replays() {
     full::run(&c, &id, "user0", &queued, now()).unwrap();
     let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let (address, server) = serve(plain_provider(seen, |_, stem| stem_reply(stem))).await;
-    let mut app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path));
+    let mut app = crate::test_app_state(Some(path));
     app.ai_config = std::sync::Arc::new(Some(test_config(address)));
     let work = full::take_work(&app, &id).unwrap().unwrap();
     assert_eq!(work.context["context"]["speakers"], json!([]));
@@ -190,7 +193,7 @@ async fn quiet_wait_reflects_privately_and_replays() {
     assert_eq!(row["turn"], work.context["turn"]);
     let life = &full_store::world(&c, &id, now()).unwrap().game["memories"]["vale"]["innerLife"];
     assert_eq!(life["thoughts"][0]["turn"], work.context["turn"]);
-    assert!(!full::reflect::commit(&app, &id, row).unwrap());
+    assert!(!full::reflect::commit(&app, &id, &revision(0), row).unwrap());
     let saved = full_store::world(&c, &id, now()).unwrap();
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), saved);

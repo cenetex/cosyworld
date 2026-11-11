@@ -68,7 +68,7 @@ try {
           { actor, seen },
         );
         await context.route("**/auth/account", (route) =>
-          route.fulfill({ json: { authenticated: true } }),
+          route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
         );
         await context.route(
           "**/card-game/shared/worlds/ship-fixture{,/command}",

@@ -58,9 +58,12 @@ export function crossfadeImage(img, source, { duration = CROSSFADE_MS } = {}) {
 // drawing up at Black Pond) fades instead of jumping. It never takes clicks.
 const showing = new WeakMap();
 export function fadeLayer(el, show, { duration = CHANGE_FADE_MS } = {}) {
-  const shown = showing.get(el) ?? !el.hidden;
+  const shown = showing.get(el)?.show ?? !el.hidden;
   if (shown === show) return;
-  showing.set(el, show);
+  // The same visibility can recur while an older decode is still pending.
+  // Only this transition may animate or settle the layer.
+  const transition = { show };
+  showing.set(el, transition);
   for (const motion of el.getAnimations()) motion.cancel();
   el.style.opacity = "";
   if (!duration) {
@@ -71,7 +74,7 @@ export function fadeLayer(el, show, { duration = CHANGE_FADE_MS } = {}) {
   const ready = show ? el.decode().catch(() => {}) : Promise.resolve();
   if (show) el.style.opacity = "0";
   ready.then(() => {
-    if (showing.get(el) !== show) return;
+    if (showing.get(el) !== transition) return;
     el.style.opacity = "";
     const fade = el.animate(
       { opacity: show ? [0, 1] : [1, 0] },
@@ -79,7 +82,7 @@ export function fadeLayer(el, show, { duration = CHANGE_FADE_MS } = {}) {
     );
     fade.finished
       .then(() => {
-        if (!show) el.hidden = true;
+        if (!show && showing.get(el) === transition) el.hidden = true;
         fade.cancel();
       })
       .catch(() => {});

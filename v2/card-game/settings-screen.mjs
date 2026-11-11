@@ -4,6 +4,7 @@
 // another folds it, and the chosen card's beat borrows the context button.
 // The controls behind the cards are the buttons in #menu-dialog, which no
 // longer opens.
+import { transparentLogo } from "./title-logo.mjs";
 import { imageUrl } from "./images.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { localRuntime } from "./local-service.mjs";
@@ -45,7 +46,7 @@ function showVeil() {
   if (!logo) return veil.replaceChildren(scene);
   const image = veil.querySelector(".settings-logo") || new Image();
   Object.assign(image, { alt: "", className: "settings-logo" });
-  image.src = imageUrl(logo);
+  image.src = imageUrl(transparentLogo(logo));
   veil.replaceChildren(image, scene);
 }
 // Shared play's passkey buttons sit in #menu-dialog by their names.
@@ -157,35 +158,46 @@ export function installCardWorkspace({
     reduced = matchMedia("(prefers-reduced-motion: reduce)");
   const expanded = new Set(),
     frames = new Map();
-  let lead = 0;
+  let lead = 0,
+    generation = 0;
   let chosen = null,
     fanned = null,
     cards = [],
     armed = null,
+    armedAt = 0,
+    dealt = "",
     problem = "",
     beat = null;
   const changed = () =>
     document.dispatchEvent(new Event("shared-dialog-change"));
   function close() {
     if (activeWorkspace !== workspace) return;
+    generation++;
+    problem = "";
     activeWorkspace = null;
     screen.close();
     entries.draw([]);
     playHand?.back();
     chosen = fanned = armed = null;
+    dealt = "";
     expanded.clear();
     frames.clear();
     if (layout) hand.replaceChildren();
     delete screen.dataset.layout;
+    delete screen.dataset.held;
     actionBeat.clear(beat);
     changed();
     onClose();
   }
   async function press(action, index) {
+    const mine = generation;
     if (action.confirm && armed !== `${chosen}:${index}`) {
       armed = `${chosen}:${index}`;
+      armedAt = performance.now();
       return render();
     }
+    // A second tap in the same gesture has not seen the "Tap again" label.
+    if (action.confirm && layout && performance.now() - armedAt < 400) return;
     armed = null;
     problem = "";
     const cardId = chosen;
@@ -196,9 +208,11 @@ export function installCardWorkspace({
     try {
       await run(action, { cardId });
     } catch (error) {
-      problem = error.message;
+      if (mine === generation) problem = error.message;
     }
-    workspace.refresh();
+    // Closing ends this opening's presentation ownership, not its operation.
+    // A late result must not redraw or report an error in a reopened view.
+    if (mine === generation) workspace.refresh();
   }
   // A group opens as a place does, and folds on a second tap; opening
   // another folds the first. A setting is chosen, and unchosen on a second.
@@ -332,6 +346,34 @@ export function installCardWorkspace({
       el.removeAttribute("aria-expanded");
     }
   }
+  // A new deal starts from the table's left edge with the top stack in view,
+  // then lowers the hand clear of the bar only as far as the top stack allows;
+  // the chosen card stays in view sideways. A plain refresh leaves scroll alone.
+  function settle(nodes) {
+    const key = nodes.map((node) => `${node.id}:${node.zone}`).join();
+    if (key === dealt) return;
+    dealt = key;
+    hand.scrollTo(0, 0);
+    const shown = [...hand.children].filter((f) => !f.hidden);
+    const area = hand.getBoundingClientRect();
+    const room = area.bottom - 12;
+    const lowest = Math.max(
+      ...shown
+        .filter((f) => f.dataset.zone === "hand")
+        .map((f) => f.getBoundingClientRect().bottom),
+    );
+    const top = Math.min(...shown.map((f) => f.getBoundingClientRect().top));
+    if (lowest > room)
+      hand.scrollTop = Math.max(0, Math.min(lowest - room, top));
+    const mine = hand
+      .querySelector(`[data-setting="${chosen}"]`)
+      ?.closest(".card-frame")
+      ?.getBoundingClientRect();
+    if (mine && mine.right > area.right)
+      hand.scrollLeft = mine.right - area.right + 12;
+    else if (mine && mine.left < area.left)
+      hand.scrollLeft = mine.left - area.left - 12;
+  }
   function render() {
     cards = readCards();
     if (!cards.some((c) => c.id === chosen)) chosen = null;
@@ -373,7 +415,11 @@ export function installCardWorkspace({
       { reduced: reduced.matches, after: lead },
     );
     lead = 0;
-    if (focused) hand.querySelector(`[data-setting="${focused}"]`)?.focus();
+    if (tree && screen.dataset.makerHand) settle(tree.nodes);
+    if (focused)
+      hand
+        .querySelector(`[data-setting="${focused}"]`)
+        ?.focus({ preventScroll: Boolean(screen.dataset.makerHand) });
     const view = describe(cards, chosen, armed),
       face = cards.find((c) => c.id === chosen);
     beat = {
@@ -447,8 +493,24 @@ export function installCardWorkspace({
     },
     close,
     choose,
+    get chosen() {
+      return chosen;
+    },
     focus(id = chosen) {
-      hand.querySelector(id ? `[data-setting="${id}"]` : ".card")?.focus();
+      const card = hand.querySelector(id ? `[data-setting="${id}"]` : ".card");
+      if (!screen.dataset.makerHand) return card?.focus();
+      // The deal already placed the view; only a card out of sight scrolls.
+      card?.focus({ preventScroll: true });
+      const at = card?.getBoundingClientRect();
+      const area = hand.getBoundingClientRect();
+      if (
+        at &&
+        (at.bottom < area.top ||
+          at.top > area.bottom ||
+          at.right < area.left ||
+          at.left > area.right)
+      )
+        card.scrollIntoView({ block: "nearest", inline: "nearest" });
     },
     refresh() {
       if (activeWorkspace === workspace) render();

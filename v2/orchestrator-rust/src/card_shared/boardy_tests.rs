@@ -42,19 +42,49 @@ fn boardy_follows_authenticated_presence_in_the_c_host() {
 }
 
 #[test]
-fn boardy_calling_card_opens_the_parlour_from_empty_station() {
+fn boardy_station_card_opens_the_authored_parlour_door() {
     let mut world = World::create(None).unwrap();
     world.game.as_object_mut().unwrap().remove("opening");
     world.game["actors"]["vale"]["place"] = json!("station");
+    world.game["items"]["lamp"]["holder"] = json!("vale");
+    world.game["items"]["lamp"]["lit"] = json!(false);
     for actor in ["vale", "mara"] {
         world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
         world.apply(&json!({"op":"enter", "actor":actor})).unwrap();
     }
-    for (kind, field, value, destination) in [
-        ("take", "item", "boardyai-calling-card", "station"),
+    let content: Value = serde_json::from_str(super::content::current_text()).unwrap();
+    let crossings = content["files"]["v2/card-game/boardyai.json"]["crossings"]
+        .as_array()
+        .unwrap();
+    let entrance = crossings
+        .iter()
+        .find(|c| c["id"] == "station-boardyai-parlour")
+        .unwrap();
+    let doorway = entrance["from"].as_str().unwrap();
+    assert!(["station", "attic"].contains(&doorway));
+    assert_eq!(entrance["to"], "boardyai-parlour");
+    let return_door = crossings
+        .iter()
+        .find(|c| c["id"] == "boardyai-parlour-station")
+        .unwrap();
+    assert_eq!(return_door["to"], doorway);
+    let mut journey = vec![("take", "item", "boardyai-calling-card", "station")];
+    if doorway == "attic" {
+        journey.extend([
+            ("move", "target", "pond", "pond"),
+            ("move", "target", "attic", "attic"),
+        ]);
+    }
+    journey.extend([
         ("move", "target", "boardyai-parlour", "boardyai-parlour"),
-        ("move", "target", "station", "station"),
-    ] {
+        ("move", "target", doorway, doorway),
+    ]);
+    for (kind, field, value, destination) in journey {
+        if doorway == "attic" && kind == "move" && value == "pond" {
+            let command = json!({"op":"hold","actor":"vale","choice":{
+                "item":"lamp","revision":world.game["revision"]}});
+            world.apply(&command).unwrap();
+        }
         let view = world.project(0).unwrap();
         let action = view["actions"]
             .as_array()
@@ -72,73 +102,6 @@ fn boardy_calling_card_opens_the_parlour_from_empty_station() {
             "vale"
         );
     }
-}
-
-#[test]
-fn boardy_upgrade_from_twelve_survives_checkpoints_and_journal_replay() {
-    assert_boardy_upgrade(engine::TWELFTH_VERSION);
-}
-
-#[test]
-fn boardy_upgrade_from_thirteen_survives_checkpoints_and_journal_replay() {
-    assert_boardy_upgrade(engine::THIRTEENTH_VERSION);
-}
-
-fn assert_boardy_upgrade(version: &str) {
-    let path = std::env::temp_dir().join(format!("boardy-{}.sqlite", crate::random_hex(12)));
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    let id = "e".repeat(48);
-    store::create(&c, &id, "owner", now()).unwrap();
-    let seed = engine::reduce_version(version, json!({"op":"create"})).unwrap();
-    let old = World {
-        version: version.into(),
-        game: seed["world"].clone(),
-        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
-        present: [1, 1, 0, 0, 0, 0, 0, 0],
-        pack: None,
-    };
-    assert!(old.game["actors"].get("boardyai").is_none());
-    full_store::seed(&c, &id, &old, "before-boardy", now()).unwrap();
-    let mut world = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(world.version, engine::VERSION);
-    assert_eq!(world.game["turn"], old.game["turn"]);
-    for (key, value) in super::saved_items::upgraded(&old.game["items"])
-        .as_object()
-        .unwrap()
-    {
-        assert_eq!(&world.game["items"][key], value);
-    }
-    assert_eq!(
-        world.game["items"]["boardyai-calling-card"]["holder"],
-        "station"
-    );
-    assert_eq!(
-        world.game["log"],
-        super::full_tests::quest_free_log(&old.game["log"])
-    );
-    assert!(world.game["actors"]["boardyai"].is_object());
-    let action = world.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "wait")
-        .unwrap()
-        .clone();
-    full_store::commit(
-        &c,
-        &id,
-        &mut world,
-        json!({"op":"play", "actor":"vale", "action":action}),
-        now(),
-    )
-    .unwrap();
-    drop(c);
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
 }
 
 // Boardy no longer runs an introduction quest. A want to meet a person sends
@@ -163,8 +126,9 @@ fn boardy_follows_a_want_to_meet_a_human_in_the_c_host() {
             .filter(|e| e["verb"] == "want_met" && e["actorId"] == "boardyai")
             .count()
     };
-    for _ in 0..8 {
-        if met(&world) > 0 {
+    // He walks at the dwell pace (rules 133), so wait for him, not for a count.
+    for _ in 0..120 {
+        if met(&world) > 0 || world.game["actors"]["boardyai"]["place"] == "pond" {
             break;
         }
         let view = world.project(0).unwrap();
@@ -278,69 +242,6 @@ fn assert_boardy_search_visits(mut world: World, expected: [&str; 6]) {
 }
 
 #[test]
-fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
-    let path =
-        std::env::temp_dir().join(format!("boardy-sixteen-{}.sqlite", crate::random_hex(12)));
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    let id = "b".repeat(48);
-    store::create(&c, &id, "owner", now()).unwrap();
-    let seed = engine::reduce_version(engine::SIXTEENTH_VERSION, json!({"op":"create"})).unwrap();
-    let old = World {
-        version: engine::SIXTEENTH_VERSION.into(),
-        game: seed["world"].clone(),
-        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
-        present: [1, 1, 0, 0, 0, 0, 0, 0],
-        pack: None,
-    };
-    full_store::seed(&c, &id, &old, "before-introductions", now()).unwrap();
-    let mut world = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(world.version, engine::VERSION);
-    assert_eq!(world.game["turn"], old.game["turn"]);
-    assert_eq!(
-        world.game["actors"]["boardyai"]["place"],
-        old.game["actors"]["boardyai"]["place"]
-    );
-    for (key, item) in super::saved_items::upgraded(&old.game["items"])
-        .as_object()
-        .unwrap()
-    {
-        assert_eq!(&world.game["items"][key], item, "saved item {key}");
-    }
-    assert_eq!(
-        world.game["log"],
-        super::full_tests::quest_free_log(&old.game["log"])
-    );
-    for _ in 0..4 {
-        let view = world.project(0).unwrap();
-        let wait = view["actions"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|a| a["kind"] == "wait")
-            .unwrap()
-            .clone();
-        full_store::commit(
-            &c,
-            &id,
-            &mut world,
-            json!({"op":"play", "actor":"vale", "action":wait}),
-            now(),
-        )
-        .unwrap();
-    }
-    // Introduction visits were quest machinery; the upgrade drops them.
-    assert!(world.game.get("introductionVisits").is_none());
-    assert!(world.game["actors"]["boardyai"].get("want").is_some());
-    drop(c);
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-}
-
-#[test]
 fn one_connected_human_keeps_the_normal_turn_loop() {
     let mut world = World::create(None).unwrap();
     world.apply(&json!({"op":"claim", "actor":"vale"})).unwrap();
@@ -359,4 +260,93 @@ fn one_connected_human_keeps_the_normal_turn_loop() {
             .unwrap();
     }
     assert_eq!(world.game["turn"], 3);
+}
+
+#[test]
+fn historical_presence_commands_leave_game_bytes_unchanged() {
+    let text = include_str!("../../../../test/fixtures/card-content-rules-125.json");
+    let hash = super::content::hash(text);
+    let c = rusqlite::Connection::open_in_memory().unwrap();
+    full_store::schema(&c).unwrap();
+    c.execute(
+        "INSERT INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
+        rusqlite::params![hash, "rules125", text],
+    )
+    .unwrap();
+    super::content::preload(&c, &hash).unwrap();
+    let version = "full-card-world/125";
+    let game =
+        engine::reduce_pack(version, Some(&hash), json!({"op":"create"})).unwrap()["world"].clone();
+    let mut world = World {
+        version: version.into(),
+        game: game.clone(),
+        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
+        present: [0; 8],
+        pack: Some(hash),
+    };
+    for (op, actor) in [
+        ("enter", "vale"),
+        ("enter", "mara"),
+        ("leave", "mara"),
+        ("enter", "mara"),
+        ("release", "mara"),
+    ] {
+        world.apply(&json!({"op":op,"actor":actor})).unwrap();
+        assert_eq!(world.game, game, "historical {actor} {op}");
+    }
+}
+
+#[test]
+fn station_presence_admission_survives_checkpoint_free_replay() {
+    let path = std::env::temp_dir().join(format!("station-slots-{}.sqlite", crate::random_hex(12)));
+    let c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "d".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    let mut world = World::create(None).unwrap();
+    world.game.as_object_mut().unwrap().remove("opening");
+    world.game["actors"]["vale"]["place"] = json!("station");
+    world.game["actors"]["mara"]["place"] = json!("pond");
+    world.game["doors"]["pavilion"] = json!("station");
+    world.game["items"]["routes"]["holder"] = json!("station");
+    world.game["items"]["board"]["holder"] = json!("mara");
+    world.game["items"]["boardyai-calling-card"]["holder"] = json!("station");
+    world.game["stationExitOrder"] = json!([]);
+    full_store::seed(&c, &id, &world, "station-presence", now()).unwrap();
+    let commit = |world: &mut World, command: Value| {
+        full_store::commit(&c, &id, world, command, now()).unwrap();
+    };
+    for actor in ["vale", "mara"] {
+        for op in ["claim", "enter"] {
+            commit(&mut world, json!({"op":op,"actor":actor}));
+        }
+    }
+    let order = |world: &World| world.game["stationExitOrder"].clone();
+    assert_eq!(order(&world), json!(["train", "boardyai-parlour"]));
+    let before = world.clone();
+    world.project(0).unwrap();
+    world.project(1).unwrap();
+    assert_eq!(world, before, "views do not admit exits");
+    let action = world.project(1).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "move" && a["target"] == "station")
+        .unwrap()
+        .clone();
+    let play = json!({"op":"play","actor":"mara","action":action});
+    commit(&mut world, play);
+    assert_eq!(
+        order(&world),
+        json!(["train", "boardyai-parlour", "pavilion"])
+    );
+    for (op, expected) in [
+        ("leave", json!(["train", "pavilion"])),
+        ("enter", json!(["train", "pavilion", "boardyai-parlour"])),
+    ] {
+        commit(&mut world, json!({"op":op,"actor":"mara"}));
+        assert_eq!(world.game["stationExitOrder"], expected);
+    }
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
 }

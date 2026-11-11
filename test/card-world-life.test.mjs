@@ -29,7 +29,8 @@ describe("home and range", () => {
     const s = lifeWorld();
     expect(rangeOf(s, GUARD)).toBe(0);
     expect(rangeOf(s, "oak")).toBe(0);
-    expect(rangeOf(s, "greek-aethra")).toBe(0);
+    expect(rangeOf(s, "greek-aethra")).toBe(1);
+    expect(rangeOf(s, "greek-ajax-tecmessa")).toBe(1);
     expect(rangeOf(s, "greek-creon")).toBe(2);
     expect(rangeOf(s, "greek-shipmaster")).toBe(2);
     expect(mayBoard(s, "greek-shipmaster")).toBe(true);
@@ -104,6 +105,9 @@ describe("home and range", () => {
     // The forecourt lies beyond the well (Greek revision 19).
     expect(s.actors["greek-creon"].place).toBe("greek-well");
     expect(s.actors["greek-creon"].homeward).toBe(true);
+    // Each step is a move of its own, so it waits out its stay (rules 133).
+    s = waitUntil(s, s.actors["greek-creon"].dwellUntil - 1);
+    expect(s.actors["greek-creon"].place).toBe("greek-well");
     s = wait(s);
     expect(s.actors["greek-creon"].place).toBe("greek-palace");
     expect(s.actors["greek-creon"].homeward).toBeUndefined();

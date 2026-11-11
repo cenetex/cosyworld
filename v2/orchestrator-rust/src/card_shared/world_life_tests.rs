@@ -1,3 +1,4 @@
+use super::js_bridge_tests::played_save;
 use super::{content, engine, full_store, full_world::World, now, store};
 use serde_json::{json, Value};
 
@@ -99,7 +100,9 @@ fn resident_passage_checks_each_traveller_in_the_c_host() {
     let blocked = world.project(1).unwrap();
     assert!(permitted["exits"].as_array().unwrap().contains(&beyond));
     assert!(!blocked["exits"].as_array().unwrap().contains(&beyond));
-    assert!(!permitted["actions"]
+    // A way is the party's (rules 133): open for the traveller, open for the
+    // resident asked along.
+    assert!(permitted["actions"]
         .as_array()
         .unwrap()
         .iter()
@@ -220,77 +223,14 @@ fn rules_100_world_life_commits_and_replays_in_the_c_host() {
     let _ = std::fs::remove_file(path);
 }
 
-// A rules 99 world mid-opening, its player holding a halfway quest and a
-// glimpse, upgrades to 100 through the one recorded upgrade: its opening,
-// packs, glimpse and halfway records are kept, every new field is absent
-// but the guard's post, its journal replays on rules 99 and then 100, and
-// the opening plays on.
+// The world's round stays cheap in bounded QuickJS: on a busy played world,
+// with the cast going to sleep through dusk, the slowest play stays far
+// inside the 2 s deadline. The world is the burial played from createWorld,
+// waited on until just before dusk (test/helpers/long-play.mjs).
 #[test]
-fn rules_99_world_upgrades_to_100_keeping_its_opening_and_packs() {
-    let mut world = created(engine::NINETY_NINTH_VERSION);
-    let vale = &mut world.game["actors"]["vale"];
-    vale["level"] = json!(1);
-    vale["xp"] = json!(2);
-    vale["carried"] = json!(2);
-    vale["halfwayIssued"] = json!(2);
-    vale["glimpse"] = json!({"level":2,"kind":"place","id":"attic","at":"attic"});
-    let (path, c, id) = fixture("rules-99-upgrade", &world);
-    let commit = |w: &mut World, command: Value| {
-        full_store::commit(&c, &id, w, command.clone(), now())
-            .unwrap_or_else(|e| panic!("{command}: {e}"))
-    };
-    commit(&mut world, json!({"op":"claim","actor":"vale"}));
-    commit(&mut world, json!({"op":"enter","actor":"vale"}));
-    let waited = play(pick(&world, plain_wait).unwrap());
-    commit(&mut world, waited);
-    let old = world.game.clone();
-    assert_eq!(old["opening"]["crossed"], false);
-    assert!(old["actors"][GUARD].get("guarding").is_none());
-
-    let upgraded = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(upgraded.version, engine::VERSION);
-    // Greek revision 20 and Hoppy revision 4 update their rooms and things.
-    let old = super::saved_items::current_pack_changes(&old, &upgraded.game);
-    for field in ["opening", "packs", "items", "turn", "log"] {
-        assert_eq!(upgraded.game[field], old[field], "Keep {field}");
-    }
-    assert_eq!(upgraded.game.get("disabledPacks"), old.get("disabledPacks"));
-    for (actor, before) in old["actors"].as_object().unwrap() {
-        for (key, value) in before.as_object().unwrap() {
-            assert_eq!(&upgraded.game["actors"][actor][key], value, "{actor}.{key}");
-        }
-        let after = &upgraded.game["actors"][actor];
-        for key in ["homeward", "slept", "sleeping"] {
-            assert!(after.get(key).is_none(), "{actor}.{key}");
-        }
-    }
-    // The only new record: the guard takes his post.
-    assert_eq!(
-        upgraded.game["actors"][GUARD]["guarding"],
-        "greek-battlefield"
-    );
-    assert_eq!(upgraded.game["actors"]["vale"]["halfwayIssued"], 2);
-    assert_eq!(upgraded.game["actors"]["vale"]["glimpse"]["id"], "attic");
-    // The opening goes on under rules 100: dousing the lamp opens the mirror.
-    let mut world = upgraded;
-    let snuff = play(pick(&world, |a| a["kind"] == "snuff").unwrap());
-    commit(&mut world, snuff);
-    assert_eq!(world.game["items"]["lamp"]["lit"], false);
-    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
-        .unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-    let _ = std::fs::remove_file(path);
-}
-
-// Rules 100's round stays cheap in bounded QuickJS: on a busy world, every
-// ranged resident walking home and the cast going to sleep through dusk, the
-// slowest play stays far inside the 2 s deadline.
-#[test]
-fn rules_100_busy_world_plays_well_inside_the_deadline() {
-    let mut world: Value = serde_json::from_str(include_str!(
-        "../../../../test/fixtures/card-world-life-busy.json"
-    ))
-    .unwrap();
+fn a_busy_played_world_plays_well_inside_the_deadline() {
+    let mut world: Value =
+        serde_json::from_str(&played_save("test/helpers/long-play.mjs", "busyDusk()")).unwrap();
     let seats = |op: &str, world: &Value| json!({"op":op,"world":world,"actor":"vale","claimed":["vale"],"present":["vale"]});
     let mut slowest = std::time::Duration::ZERO;
     for _ in 0..12 {
@@ -310,7 +250,7 @@ fn rules_100_busy_world_plays_well_inside_the_deadline() {
         assert_eq!(done["ok"], true, "{}", done["error"]);
         world = done["world"].clone();
     }
-    eprintln!("rules 100 busy world: slowest play {slowest:?}");
+    eprintln!("busy played world: slowest play {slowest:?}");
     assert!(slowest < std::time::Duration::from_millis(1500));
 }
 

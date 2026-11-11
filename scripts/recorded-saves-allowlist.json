@@ -1,0 +1,10 @@
+{
+  "about": "Recorded saves on main (scripts/check-recorded-saves.mjs): path to size in bytes. Entries may only be removed; build new start states by play (createWorld, journeys, synthetic worlds). Keep these only as replay proofs.",
+  "files": {
+    "test/fixtures/forest-charm-rules-131.json": 5537717,
+    "test/fixtures/forest-scarf-rules-132.json": 269912,
+    "test/fixtures/greek-before-funeral/exposure.json.gz": 73482,
+    "test/fixtures/radio-entry-rules-130.json": 2755466,
+    "test/fixtures/raven-return-rules-131.json": 199830
+  }
+}

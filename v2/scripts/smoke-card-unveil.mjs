@@ -16,7 +16,10 @@ import {
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+});
 const output = new URL("../../output/discovery/", import.meta.url);
 await mkdir(output, { recursive: true });
 const reports = [];
@@ -39,6 +42,16 @@ try {
       key = `cosyworld.reflected-shore.v1.${table}`;
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(() => {
+      // Keep initial and reset hands reproducible as other-world items scatter.
+      // Seed 17 leaves the attic clear; all reveal/hit-testing assertions stay exact.
+      const random = crypto.getRandomValues.bind(crypto);
+      crypto.getRandomValues = (array) => {
+        if (array instanceof Uint32Array && array.length === 1) {
+          array[0] = 17;
+          return array;
+        }
+        return random(array);
+      };
       localStorage.setItem("cosyworld.dialogue.sound", "off");
       localStorage.setItem(
         "cosyworld.room-music",
@@ -73,6 +86,26 @@ try {
       page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
+    // The locked pond turns over once when the lamp goes out (rules 133): it
+    // shows as itself, not as a closed box. The reveal ceremony below is for a
+    // card that is covered, so forget the pond, reload, and wait for it to lie
+    // face down again.
+    const turnOverPond = async () => {
+      await page.waitForFunction(() => {
+        const pond = document.querySelector('#hand [data-card="pond"]');
+        return pond?.dataset.locked === "false" && !pond.dataset.revealing;
+      });
+      await page.evaluate((key) => {
+        const name = `${key}.seen.covered`;
+        const covered = JSON.parse(localStorage.getItem(name) || "[]");
+        localStorage.setItem(
+          name,
+          JSON.stringify([...new Set([...covered, "pond"])]),
+        );
+      }, key);
+      await page.reload();
+      await ready();
+    };
     const unveil = (id) =>
       page.waitForFunction(
         (id) =>
@@ -129,6 +162,7 @@ try {
         `http://127.0.0.1:${server.address().port}/?table=${table}`,
       );
       await ready();
+      assert.equal((await state()).run.seed, 17);
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
       // The lamplit attic shows only the room in the mirror (#1653).
@@ -136,7 +170,7 @@ try {
         await backdrop(),
         await stage("./assets/attic/attic-lit.webp"),
       );
-      // The opening hand starts covered; a first tap uncovers without selecting.
+      // The opening hand stays covered when selected; its descriptor opens it.
       const covered = () =>
         page.evaluate(() =>
           [...document.querySelectorAll('#hand [data-unrevealed="true"]')]
@@ -145,21 +179,52 @@ try {
         );
       const opening = ["attic", "lamp", "vale"];
       assert.deepEqual(await covered(), opening);
+      // The Black pond lies in the hand from the start as a locked box (not
+      // a covered one); putting the lamp out opens it (rules 133).
+      assert.equal(
+        await page
+          .locator('#hand [data-card="pond"]')
+          .getAttribute("data-locked"),
+        "true",
+      );
       await page.screenshot({
         path: new URL(`attic-start-${width}.png`, output).pathname,
       });
       const vale = page.locator('#hand [data-card="vale"]');
+      const initial = await state();
+      await vale.focus();
+      await page.keyboard.press("Enter");
+      assert.equal(await vale.getAttribute("data-unrevealed"), "true");
+      assert.equal(await vale.getAttribute("aria-pressed"), "true");
+      assert.match(await page.locator("#action-beat").innerText(), /A closed box\./);
+      assert.match(await page.locator("#card-actions [data-open-box]").getAttribute("aria-label"), /open/i);
+      assert.deepEqual(await state(), initial);
+      // Lowering and selecting again never reveals the contents.
       await vale.click();
-      assert.equal(await vale.getAttribute("data-unrevealed"), "false");
       assert.equal(await vale.getAttribute("aria-pressed"), "false");
+      assert.equal(await vale.getAttribute("data-unrevealed"), "true");
+      await vale.click();
+      await page.locator("#card-actions [data-open-box]").focus();
+      await page.keyboard.press("Enter");
+      assert.equal(await vale.getAttribute("data-unrevealed"), "false");
+      assert.equal(await vale.getAttribute("aria-pressed"), "true");
+      const opened = await state();
+      assert.equal(opened.turn, initial.turn);
+      assert.deepEqual(opened.actors, initial.actors);
+      assert.deepEqual(opened.items, initial.items);
       assert.deepEqual(await covered(), ["attic", "lamp"]);
       // A reload keeps the table known: nothing is covered again.
       await page.reload();
       await ready();
       assert.deepEqual(await covered(), ["attic", "lamp"]);
+      // Putting the lamp out opens the pond box and pays one XP.
+      assert.equal((await state()).actors.vale.xp, 0);
       await putOutOpening(page);
+      await turnOverPond();
       await unveil("pond");
       await finish();
+      assert.equal((await state()).actors.vale.xp, 1);
+      assert.deepEqual((await state()).opened, { pond: ["vale"] });
       assert.equal((await state()).actors.vale.place, "attic");
       // Dousing the lamp shows the Black Pond in the glass.
       assert.equal(
@@ -183,21 +248,29 @@ try {
         "the pond waits at the row's right end",
       );
       assert.equal(await pond.getAttribute("data-unrevealed"), "true");
-      // The doused lamp stays in hand and offers Light until it is lowered;
-      // the play rests its beat, so the reply comes to the front, and a tap
-      // on the raised hand brings Light back.
-      const light = page.locator('#card-actions [data-action="light"]');
-      assert.equal(await light.count(), 0, "the beat rests after the play");
-      await page.locator(".play-dock").dispatchEvent("click");
-      assert.equal(await light.count(), 1, "the lamp still offers Light");
+      // Stowing is quiet: no turn, reply, or retired lamp action is offered.
+      assert.equal((await state()).turn, 0);
+      assert.equal((await state()).actors.vale.heldItem, null);
+      assert.equal((await state()).items.lamp.fuelRooms, 3);
+      assert.equal(
+        await page
+          .locator(
+            '#card-actions [data-action="light"], #card-actions [data-action="snuff"]',
+          )
+          .count(),
+        0,
+      );
       const pressed = () =>
         page.evaluate(() =>
           [
             ...document.querySelectorAll('#hand .card[aria-pressed="true"]'),
           ].map((card) => card.dataset.card),
         );
+      assert(!(await pressed()).includes("lamp"), "the stowed lamp stays lowered");
+      // Raise a real known partner before testing closed-pair drag suppression.
+      await selectCard(page, "vale");
       const held = await pressed();
-      assert(held.includes("lamp"), "the lamp stays raised");
+      assert(held.includes("vale"));
       const before = await state();
       assert.equal(await pond.locator(".card-back").isVisible(), true);
       assert(
@@ -218,11 +291,27 @@ try {
             animation.pause();
         });
         watch.observe(document.getElementById("hand"), {
-          subtree: true, childList: true, attributeFilter: ["data-revealing"],
+          subtree: true,
+          childList: true,
+          attributeFilter: ["data-revealing"],
         });
       });
       await pond.click();
-      assert.equal(await pond.getAttribute("aria-pressed"), "false");
+      assert.equal(await pond.getAttribute("data-unrevealed"), "true");
+      assert.equal(await pond.getAttribute("aria-pressed"), "true");
+      assert.deepEqual(await state(), before);
+      assert.equal(await page.locator('#hand [data-card="vale"]').evaluate((el) =>
+        el.dispatchEvent(new DragEvent("dragstart", {
+          bubbles: true, cancelable: true, dataTransfer: new DataTransfer(),
+        }))), false, "A known partner cannot drag a closed card into a play");
+      await page.evaluate(() => {
+        document.querySelector("#card-actions [data-open-box]").click();
+        // A rapid second tap must not execute the action replacing Open,
+        // including reduced motion where its sentence is already complete.
+        document.querySelector("#card-actions [data-action]")?.click();
+      });
+      assert.deepEqual(await state(), before);
+      assert.equal(await pond.getAttribute("aria-pressed"), "true");
       assert.equal(await pond.getAttribute("data-unrevealed"), "false");
       assert.equal(await pond.getAttribute("data-revealing"), "common");
       // A new card only glows; it carries no text badge.
@@ -266,7 +355,7 @@ try {
       });
       await pond.click();
       assert.equal(await pond.getAttribute("data-revealing"), null);
-      assert.equal(await pond.getAttribute("aria-pressed"), "false");
+      assert.equal(await pond.getAttribute("aria-pressed"), "true");
       const hits = await pond.evaluate((el) => {
         const box = el.getBoundingClientRect();
         return {
@@ -325,7 +414,7 @@ try {
           document.dispatchEvent(new Event("visibilitychange"));
         });
       }
-      // The first tap uncovers without playing or changing the held selection.
+      // Opening takes no turn and keeps both the held item and selected card.
       await ready();
       assert.equal(
         await page
@@ -333,7 +422,9 @@ try {
           .getAttribute("data-unrevealed"),
         "false",
       );
-      assert.deepEqual(await pressed(), held);
+      assert.deepEqual(await pressed(), [...held, "pond"]);
+      await selectCard(page, "vale");
+      assert.equal((await state()).actors.vale.heldItem, null);
       await page.keyboard.press("Escape");
       await page.locator(".action-panel").waitFor({ state: "hidden" });
       await selectCard(page, "pond");
@@ -373,20 +464,28 @@ try {
         await page.locator('#hand [data-card="oil"]').isVisible(),
         false,
       );
-      assert(requests.every((input) =>
-        !input.speakers.includes("keeper") &&
-        !input.entities.some(({ id }) => id === "keeper")),
-      "A face-down Keeper stays out of narration");
+      assert(
+        requests.every(
+          (input) =>
+            !input.speakers.includes("keeper") &&
+            !input.entities.some(({ id }) => id === "keeper"),
+        ),
+        "A face-down Keeper stays out of narration",
+      );
       await finish();
       const beforeKeeper = (await state()).turn;
       await revealCard(page, "keeper");
-      assert.equal((await state()).turn, beforeKeeper, "Revealing a person takes no turn");
+      assert.equal(
+        (await state()).turn,
+        beforeKeeper,
+        "Revealing a person takes no turn",
+      );
       await page.waitForSelector(
         '#hand [data-card="keeper"][data-unrevealed="false"]:not([data-revealing])',
         { state: "attached" },
       );
       await selectCard(page, "keeper");
-      await page.locator('#hand [data-card="oil"]').click();
+      await revealCard(page, "oil");
       // Lowering the keeper takes his Talk beat away, so the dialogue is the
       // stack's front card again.
       await page.keyboard.press("Escape");
@@ -429,6 +528,7 @@ try {
       // Signed out, Settings holds New game (#1892).
       await startNewGame(page);
       await ready();
+      assert.equal((await state()).run.seed, 17);
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
       assert.deepEqual(await covered(), opening);
@@ -437,6 +537,7 @@ try {
       await finish();
       assert.equal((await state()).turn, 0);
       await putOutOpening(page);
+      await turnOverPond();
       await unveil("pond");
       await page.evaluate(
         ({ key, save }) => {
@@ -452,7 +553,7 @@ try {
       assert.deepEqual(errors, []);
       reports.push({ width, height, motion, passed: true });
       console.log(
-        `Location stack, first-click reveal, skip, hit-testing, second-click selection, reload and reset passed at ${width}px (${motion}).`,
+        `Location stack, select/open, skip, hit-testing, keyboard, reload and reset passed at ${width}px (${motion}).`,
       );
     } finally {
       await page.close();

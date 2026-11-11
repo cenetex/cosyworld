@@ -121,7 +121,6 @@ describe("knowing a lane is personal", () => {
     expect(knowsLane(s, "mara", "greek-piraeus", "greek-harbor")).toBe(true);
     expect(knowsLane(s, "mara", "greek-harbor", "greek-piraeus")).toBe(true);
   });
-
   it("the Travel Provisions aboard open the Wine-Dark Harbor to Piraeus lane for everyone on deck", () => {
     const fresh = (dock, local = createWorld()) => {
       const s = dispatchShared({

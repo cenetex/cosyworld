@@ -19,7 +19,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { sectionAllows } from "../v2/card-game/pack-sections.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 
 const pack = packDefinition("greek-drama");
 const section = () => ({
@@ -82,7 +82,7 @@ describe("permanent pack sections", () => {
   });
 
   it("checks static roads and conditional routes for every traveler", () => {
-    const before = openingFixture("exposure").waterOffer;
+    const before = greekErrands().waterOffer;
     pack.routes.push({ from: "greek-harbor", to: "greek-piraeus" });
     for (const actor of ["vale", "mara", "greek-shipmaster"]) {
       expect(exits(before, "greek-road-athens-piraeus", actor)).not.toContain(
@@ -113,11 +113,12 @@ describe("permanent pack sections", () => {
   });
 
   it("checks section access before applying a choice and while replaying receipts", () => {
-    const before = openingFixture("exposure").waterOffer;
+    const before = greekErrands().waterOffer;
     const question = {
       id: "test-colonus-question",
       subject: "greek-colonus",
       at: "greek-colonus",
+      on: "wait",
       label: "Ask about the grove",
       text: "Vale asks about the grove.",
       requires: [],
@@ -139,22 +140,24 @@ describe("permanent pack sections", () => {
     ].sort();
     world = act(world, "move", { target: "greek-athens" });
     world = act(world, "move", { target: "greek-colonus" });
-    const action = legalActions(world).find(
-      (a) => a.kind === "choose" && a.choiceId === question.id,
-    );
+    const waits = (w) =>
+      legalActions(w).find((a) => a.kind === "wait" && !a.sleep);
+    const action = waits(world);
     expect(action).toBeTruthy();
     const closed = structuredClone(before);
     closed.actors.vale.place = "greek-colonus";
-    expect(play(closed, action, closed.revision).ok).toBe(false);
+    // Where the section is shut the Wait does not fire the choice.
+    expect(() => play(closed, waits(closed), closed.revision)).toThrow();
     expect(() => decodeSave(JSON.stringify(closed))).toThrow();
     const result = play(world, action, world.revision);
     expect(result.ok, result.error).toBe(true);
     expect(validatePackStates(result.state)).toBe(true);
     const forged = structuredClone(result.state);
     const receipts = forged.packs[pack.id].receipts;
-    [receipts[action.choiceId], receipts["greek-return-water-jar"]] = [
+    expect(receipts[question.id]).toBe(result.state.turn);
+    [receipts[question.id], receipts["greek-return-water-jar"]] = [
       receipts["greek-return-water-jar"],
-      receipts[action.choiceId],
+      receipts[question.id],
     ];
     expect(validatePackStates(forged)).toBe(false);
   });

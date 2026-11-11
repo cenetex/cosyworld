@@ -31,10 +31,6 @@ images/*
 !v2/card-game/assets/title/*.webp
 !v2/card-game/assets/title/toolbar/*.webp
 !v2/card-game/assets/optimized/**/*.webp
-!v2/content/core/assets/generated/cards/*.webp
-!v2/content/the-holy-land/assets/cards/*.webp
-!v2/content/hoppycat-archive/assets/cards/*.webp
-!v2/content/ruby-high-first-bell/assets/world/**/*.webp
 attached_assets/*
 
 # Generated files
@@ -43,6 +39,7 @@ src/config/user.config.json
 .runtime/
 v2/orchestrator-rust/.runtime/
 v2/content/imports/
+v2/worldpacks/.index-recovery-*/
 
 # Terraform
 infra/aws-lonely-forest/.terraform/

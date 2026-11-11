@@ -26,11 +26,11 @@ each other's locations through encounters in the world.
 Boardy's calling card rests at Empty station. Like Boardy, it appears only
 while two or more humans are connected; local and single-human games show no
 card and no parlour door. Its blue smile opens a door to **BoardyAI's Parlour**
-while the card is in the station: left there, or carried there by a present
-human. Take the card along for the trip. Two armchairs and a
-tea table wait inside. The parlour door leads back to Empty station. Saves from
-pack revision 1 move a card still resting at the pond to the station and keep
-each traveller's known parlour route.
+when a present human holds or leaves it at Empty station. Station keeps Pond and
+its first two other open ways; later doors wait until an earlier one closes.
+The parlour returns to Station even when only one human remains connected.
+Revision 4 translates the former Attic doorway knowledge without moving people,
+belongings or progress. Earlier journals retain their original rules and content.
 
 The seven new humans start in their homes with their signature items on the floor.
 Picking up the item opens the path to Black pond. Putting it down closes that
@@ -107,6 +107,12 @@ train ships main to `.dev` every 30 minutes; a version tag ships a production
 release. Read each site's `/meta.commit` and
 `/meta.card_game.shared_rules_version` for its running code and rules. See
 [release operations](../../../docs/release.md#delivery-schedule).
+
+The hosted server boots card-only ([#1652](https://github.com/cenetex/cosyworld/issues/1652)).
+Startup opens the event store and the account tables and does not replay the
+classic journal. Shared worlds keep their own journal tables, unchanged.
+`/meta` reports the version, commit, `card_game.shared_rules_version` and
+event store health.
 
 A branch that changes rule modules runs `npm run v2:card:shared:next` after
 it rebases on or merges `main`. The script restores main's recorded bundles
@@ -306,6 +312,23 @@ keeps one record per accepted play, in order. A play's speech and, from rules
 v88, its private reflections are later records of their own (see
 [Learning and private reflection](#learning-and-private-reflection)).
 
+### The rules floor (rules 133)
+
+"We can reset": a world saved under rules older than 133 (`FLOOR` in
+`full_floor.rs`) is retired and never opened or replayed. `full_store::world`
+refuses it with "This world has closed." after reading only the checkpoint's
+(or seed's) version. The passkey's world list retires its old worlds first, and
+a claim that finds an old seat elsewhere retires that world instead of opening
+it. Retiring only sets `card_tables.retired_at` and cancels unfinished plays;
+the journal, checkpoint, members and bindings rows stay, and seat queries skip
+retired worlds. Before marking, it saves each seated passkey's avatar level
+and experience into `card_avatar_progress` (the higher where one already waits)
+and its upgrades into `card_avatar_upgrades`. Both are outside the journal, as
+are unlocks (`card_unlocks`), so the next world's `claim` journals them as
+`progress`. The traveler then starts a world through the ordinary create. The
+upgrade path in `full_store::world` stays for the next rules mint; the frozen
+bundles up to 132 are kept but no world reaches them.
+
 Rule version 3 introduced the home-item floor start. Version 4 added Greek
 story cards and saved bard visits. Versions 5–8 added collected and shared quests,
 shared journeys, quieter offers, and the first-signal ship gate. Published rule
@@ -381,12 +404,10 @@ contains the fact, so replay and every client agree.
 
 ## Quests in shared worlds
 
-Each avatar holds a stack of up to three quests, as described in the
-[card guide](../../card-game/README.md#a-quest-stack-per-avatar). New quests go
-on top and nothing wipes one already held. Meeting one is a `want_met` event in
-the shared history, so every client and the journal agree on who met what.
-Dropping a quest (`drop` naming it) and pursuing one from beneath (`focus`) are
-ordinary plays in the journal. A met quest's sealed card is each browser's own. A quest ends where it is met; only a level quest leads back,
+Each avatar holds one want, as described in the
+[card guide](../../card-game/README.md#one-want-per-avatar). Meeting it is a
+`want_met` event in the shared history, so every client and the journal agree
+on who met what. Dropping a quest (`drop`) is an ordinary play in the journal. A met quest's sealed card is each browser's own. A quest ends where it is met; only a level quest leads back,
 to the sanctuary the avatar last stood in, where a long rest raises the level
 ([rest and sanctuary](rest-and-sanctuary.md#level-quest)). Human rest counts that person's own turns;
 resident rest counts world rounds.
@@ -472,8 +493,11 @@ scene the browser built, so the service checks every field
   out of the prompt and counted in a warning. Matching is bounded: a scene
   that quotes more than 24 KiB of such text, or needs more matching work
   than an honest one, is refused with 400. The client's rate limit runs
-  first, and the matching runs off the async workers. If the catalog is
-  older than the served modules, startup logs it and `/meta` reports
+  first, and the matching runs off the async workers. The catalog lists one
+  source per line and carries no hash of them (a hash changed whenever any
+  branch edited any source, so every two such branches conflicted); the fast
+  check's `npm run regen:check` proves it equals a rebuild. If it lists a
+  source this build does not serve, startup logs it and `/meta` reports
   `card_game.card_text.catalog_stale: true`.
 - **Words the service wrote** (heard lines, earlier words, remembered lines,
   personas, thoughts and dreams) come back with the Ed25519 envelope the

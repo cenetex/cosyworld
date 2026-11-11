@@ -76,7 +76,7 @@ export function createAuthoringVisualDraft({
     controller = new AbortController();
     const signal = AbortSignal.any([
       controller.signal,
-      AbortSignal.timeout(190_000),
+      AbortSignal.timeout(215_000),
     ]);
     const revision =
       role === "portrait" ? design.revision + 1 : design.revision;
@@ -124,7 +124,7 @@ export function createAuthoringVisualDraft({
       if (token === epoch) {
         error =
           failure.name === "TimeoutError"
-            ? "The image request timed out. Roll again when ready."
+            ? "The image is taking longer than expected. Check this card again shortly."
             : failure.message;
         status = failure.status || 0;
       }
@@ -207,6 +207,8 @@ export function createAuthoringVisualDraft({
       notify();
     },
     roll: (role = "portrait", instruction = "") => roll(role, instruction),
+    // A finished job image, read back from the server, becomes the preview.
+    adopt: (role, image) => roll(role, "", image),
     reviewSheet(image) {
       need(image, "Open the saved pose sheet.");
       return roll("pose-sheet", "", image);

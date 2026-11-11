@@ -53,7 +53,7 @@ try {
     });
     const dealt = () => page.evaluate(() => window.dealt.splice(0));
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: signedIn } }),
+      route.fulfill({ json: { authenticated: signedIn, user_id: signedIn ? "smoke-user" : null, account_revision: signedIn ? 0 : null } }),
     );
     await page.goto(`${origin}/?table=settings-${width}`);
     await page.locator("#hand .card").first().waitFor();
@@ -139,6 +139,17 @@ try {
     await tapCard(setting(page, "controls"));
     await tapCard(setting(page, "play"));
     assert.equal(await button(page).textContent(), "Close settings");
+    // Radio is offered in World and uses the same pack action in every viewport.
+    await pressSetting(page, "pack-radio");
+    await page
+      .locator('[data-setting="pack-radio"][data-lit="false"]')
+      .waitFor({
+        state: "attached",
+      });
+    await pressSetting(page, "pack-radio");
+    await page.locator('[data-setting="pack-radio"][data-lit="true"]').waitFor({
+      state: "attached",
+    });
     // A pack switches off and dims, and on again.
     await pressSetting(page, "pack-sea");
     await page.locator('[data-setting="pack-sea"][data-lit="false"]').waitFor({
@@ -248,6 +259,10 @@ try {
         },
         run: async (action, context) => {
           window.workspaceEvents.push([action.run, context.cardId]);
+          if (window.deferWorkspace)
+            await new Promise((resolve, reject) => {
+              window.settleWorkspace = { resolve, reject };
+            });
           if (context.cardId === "character")
             throw new Error("Try this character again.");
           window.workspaceName = "Private world";
@@ -296,6 +311,43 @@ try {
     ]);
     await page.evaluate(() => window.authorWorkspace.refresh());
     assert.equal(await page.locator("#settings-screen").isVisible(), false);
+    // A real card starts an operation; closing and reopening ends only its
+    // presentation ownership. Late success and failure leave the new beat,
+    // selected card and keyboard focus alone at every viewport.
+    for (const outcome of ["success", "failure"]) {
+      await page.evaluate(() => {
+        window.deferWorkspace = true;
+        window.authorWorkspace.open();
+      });
+      await tapCard(setting(page, "idea"));
+      await page.evaluate(() => {
+        window.pendingWorkspace = window.workspaceBeat.buttons[0].run();
+        window.authorWorkspace.close();
+        window.authorWorkspace.close();
+        window.authorWorkspace.open();
+      });
+      await tapCard(setting(page, "avatars"));
+      await tapCard(setting(page, "character"));
+      assert.equal(await label(page, "character"), "Character");
+      await page.evaluate(async (result) => {
+        const beat = window.workspaceBeat;
+        const focus = document.activeElement;
+        if (focus?.dataset.setting !== "character")
+          throw new Error("The selected card must own keyboard focus.");
+        if (result === "success") window.settleWorkspace.resolve();
+        else window.settleWorkspace.reject(new Error("Old opening failed"));
+        await window.pendingWorkspace;
+        if (window.workspaceBeat !== beat)
+          throw new Error("An old operation redrew the current beat.");
+        if (document.activeElement !== focus)
+          throw new Error("An old operation moved keyboard focus.");
+      }, outcome);
+      assert.equal(
+        await setting(page, "character").getAttribute("aria-pressed"),
+        "true",
+      );
+      await page.evaluate(() => window.authorWorkspace.close());
+    }
     assert.deepEqual(errors, []);
     await page.close();
   }

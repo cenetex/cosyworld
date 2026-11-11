@@ -13,8 +13,8 @@
 ## Context
 
 The card table in `v2/card-game/` is the first CosyWorld surface that plays
-well. Since #1056 it is the root page on both Fly apps. The shared-world client
-remains at `/classic`.
+well. Since #1056 it is the root page on both Fly apps. (Status 2026-11-10: the
+`/classic` client is retired, #1652.)
 
 The table is a prototype. Its first site, three places, three avatars, and four
 items, was generated as scaffolding. So were its item powers (lamp fuel, oil,
@@ -46,8 +46,8 @@ through an avatar, alongside residents who follow the same rules.
 
 A card is a view of one persistent avatar, item, or place. The table shows every
 card the player's avatar can reach now. One card or a pair resolves to one
-offer. The table is the interface to the core, not a separate game, and
-`/classic` remains a second interface until the table can replace it.
+offer. The table is the interface to the core, not a separate game. (Status
+2026-11-10: it is now the only interface; `/classic` is retired, #1652.)
 
 ### Story is an optional layer
 
@@ -88,10 +88,16 @@ named entity, and no rule special-cases one.
 | knowledge   | What one avatar has seen: places visited, and recent sightings of items and avatars. |
 | clue        | For a goal's unseen target, the known place nearest to it.                           |
 
-"Action hand" names the `/classic` surface only. New documents say "table" for
-the row and "target hand" for a goal.
+"Action hand" named the retired `/classic` surface. New documents say "table"
+for the row and "target hand" for a goal.
 
 ### Core verbs
+
+> Status (2026-11-10): the card table has no search play, so "search" is not
+> a shipping verb. The plays `legalActions` offers (`v2/card-game/world.mjs`)
+> are wait, sleep, guard, travel, board, set course, invite, talk, threaten,
+> attack, take, ask, give, trade, eat, put down, use, light, put out, ring,
+> cover, pack choices, claim, focus and discard.
 
 The rules offer travel, take, put down, give, ask, trade, talk, search, and
 wait. Talk also trades news, and search finds hidden items. Any
@@ -102,6 +108,13 @@ Trades are atomic two-holder swaps. New verbs need a general rule over tags,
 never a rule for one entity.
 
 ### Every avatar finds the world out
+
+> Status (2026-11-10): the card table builds little of this section. It has no
+> hidden items, no search, no clues or rumors, and no first-visit or finder XP
+> (no such mechanic in `v2/card-game/`). What exists: each actor records
+> `visited` places and curiosity prefers unvisited ones (`want.mjs`), and Talk
+> passes on published facts (`knowledge.mjs`). The text below is the original
+> decision.
 
 The world is not an open book to anyone, players or residents:
 
@@ -211,7 +224,7 @@ parity tests in the same change.
 
 ### Path to the shared world
 
-[Generated world core](../archive/backlog/generated-world-core.md) holds the plan. In
+The plan, in
 summary:
 
 1. Make the prototype general:

@@ -71,28 +71,6 @@ impl RateLimiter {
     }
 }
 
-pub(super) const AVATAR_CREATE_LIMIT: RateLimit = RateLimit {
-    max_hits: 12,
-    window: Duration::from_secs(10 * 60),
-};
-pub(super) const CHAT_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 45,
-    window: Duration::from_secs(60),
-};
-pub(super) const REPORT_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 12,
-    window: Duration::from_secs(10 * 60),
-};
-pub(super) const GENERAL_ACTION_LIMIT: RateLimit = RateLimit {
-    max_hits: 180,
-    window: Duration::from_secs(60),
-};
-pub(super) const PUBLIC_MUTATION_LIMIT: RateLimit = RateLimit {
-    max_hits: 240,
-    window: Duration::from_secs(60),
-};
-pub(super) const RATE_LIMITED_STATUS: u32 = 429;
-
 pub(super) fn client_ip_key(client_addr: SocketAddr) -> String {
     client_addr.ip().to_string()
 }
@@ -156,11 +134,6 @@ pub(super) fn client_addr(
 pub(super) fn rate_limit_key(scope: &str, subject: impl fmt::Display) -> String {
     format!("{scope}:{subject}")
 }
-
-pub(super) const WALLET_AUTH_LIMIT: RateLimit = RateLimit {
-    max_hits: 30,
-    window: Duration::from_secs(60),
-};
 
 #[cfg(test)]
 mod tests {

@@ -1,5 +1,6 @@
 //! Multiplayer extends the existing authored card world and save format.
 use super::bindings;
+use super::full_floor as floor;
 use super::unlocks;
 use super::{
     admit, capacity, db, full_store as store,
@@ -27,6 +28,8 @@ use std::{
 };
 #[path = "full_browser.rs"]
 mod browser;
+#[path = "full_continue.rs"]
+mod continuation;
 #[path = "full_dedupe.rs"]
 mod dedupe;
 #[path = "full_opening.rs"]
@@ -35,6 +38,9 @@ mod opening;
 pub(super) mod reflect;
 #[path = "full_retire.rs"]
 mod retire;
+#[cfg(test)]
+#[path = "revision_tests.rs"]
+mod revision_tests;
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -113,6 +119,14 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
         blocking(move || {
             let u = user(&state, &h, false)?;
             let mut c = db(&state)?;
+            // Worlds on rules older than the floor retire first, keeping the
+            // passkey's avatar levels (full_floor.rs).
+            store::schema(&c)?;
+            if floor::pending(&c, &u)? {
+                if let Err(error) = tidy(&state, &mut c, |tx| floor::sweep(tx, &u, now())) {
+                    tracing::warn!(%error, "old worlds kept for now");
+                }
+            }
             if dedupe::pending(&c, &u)? {
                 if let Err(error) = tidy(&state, &mut c, |tx| dedupe::run(tx, &u, now())) {
                     tracing::warn!(%error, "duplicate avatar seats kept for now");
@@ -164,7 +178,8 @@ fn tidy(
 }
 async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Create>) -> Response {
     let result = blocking(move || {
-        let u = user(&state, &h, true)?;
+        let revision = super::revision(&state, &h)?;
+        let u = revision.user.clone();
         admit(&u)?;
         let mut c = db(&state)?;
         store::schema(&c)?;
@@ -184,6 +199,7 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error)?;
+        revision.check(&tx).map_err(|error| error.to_string())?;
         let a = actor_index(body.avatar.as_deref().unwrap_or("vale"))?;
         let id = found(&tx, &u, a, save.as_deref(), now())?;
         tx.commit().map_err(sql_error)?;
@@ -301,13 +317,14 @@ async fn command(
         let state = worker;
         let id = wid;
         valid_id(&id)?;
-        let u = user(&state, &h, true)?;
+        let revision = super::revision(&state, &h)?;
+        let u = revision.user.clone();
         admit(&u)?;
         logged(&id, || {
-            command_as(
+            command_with_revision(
                 &state,
                 &id,
-                &u,
+                &revision,
                 &body,
                 h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
             )
@@ -348,6 +365,7 @@ pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>)
     tx.commit().map_err(sql_error)?;
     Ok(value)
 }
+#[cfg(test)]
 pub(super) fn command_as(
     state: &AppState,
     id: &str,
@@ -355,6 +373,21 @@ pub(super) fn command_as(
     body: &Command,
     cursor: Option<&str>,
 ) -> Result<Value> {
+    let c = db(state)?;
+    let revision = crate::account_revision::Revision {
+        user: u.into(),
+        epoch: crate::account_revision::current(&c, u).map_err(sql_error)?,
+    };
+    command_with_revision(state, id, &revision, body, cursor)
+}
+fn command_with_revision(
+    state: &AppState,
+    id: &str,
+    revision: &crate::account_revision::Revision,
+    body: &Command,
+    cursor: Option<&str>,
+) -> Result<Value> {
+    let u = &revision.user;
     let mut c = db(state)?;
     store::schema(&c)?;
     let gate = writer(state);
@@ -362,6 +395,7 @@ pub(super) fn command_as(
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(sql_error)?;
+    revision.check(&tx).map_err(|error| error.to_string())?;
     let value = run(&tx, id, u, body, now())?;
     let value = super::sync::response(&tx, id, u, value, cursor)?;
     tx.commit().map_err(sql_error)?;
@@ -479,6 +513,10 @@ fn hand_over(
 // progress until the move can reset it in this same transaction.
 fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: i64) -> Result<()> {
     for other in bindings::seats_elsewhere(c, id, u, a)? {
+        // A world on rules older than the floor retires instead of opening.
+        if floor::retire(c, &other, time)? {
+            continue;
+        }
         let mut w = store::world(c, &other, time)?;
         store::expire(c, &other, &mut w, time)?;
         vacate(c, &other, &mut w, a, time)?;
@@ -571,12 +609,14 @@ pub(super) fn run(
                 leave(c, id, &mut w, a, &b.op, time)?;
                 retire::if_empty(c, id, u, time)?;
             }
-            "seek" => {
+            "hold" => {
+                // A card choice is journaled immediately, without a speech
+                // job or an NPC turn. The reducer checks its saved revision.
                 store::commit(
                     c,
                     id,
                     &mut w,
-                    json!({"op":"seek","actor":actor_id(a)}),
+                    json!({"op":"hold","actor":actor_id(a),"choice":b.action}),
                     time,
                 )?;
             }
@@ -651,6 +691,7 @@ pub(super) struct Work {
     pub actor: usize,
     pub context: Value,
     attempt: i32,
+    revision: crate::account_revision::Revision,
 }
 pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
     let mut c = db(state)?;
@@ -728,16 +769,21 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         };
         let destination = w.room(a)?.to_string();
         let mut context = if retry {
-            prior
+            continuation::context(&tx, &w, &key, a, &prior)?
         } else {
             json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null,"browser_chat":false})
         };
         context["browser_chat"] = json!(false);
+        context["hold_seq"] = json!(continuation::hold_seq(&tx, id)?);
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
             params![destination, time + 60_000, context.to_string(), context.to_string(), key],
         )
         .map_err(sql_error)?;
+        let revision = crate::account_revision::Revision {
+            user: u.clone(),
+            epoch: crate::account_revision::current(&tx, &u).map_err(sql_error)?,
+        };
         tx.commit().map_err(sql_error)?;
         return Ok(Some(Work {
             id: key,
@@ -745,6 +791,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             actor: a,
             context,
             attempt,
+            revision,
         }));
     }
     tx.commit().map_err(sql_error)?;
@@ -772,7 +819,10 @@ fn kick(state: AppState, id: String) {
                 .map(|lines| (work.clone(), lines));
             match tokio::task::spawn_blocking(move || publish(&s, &wid, work, lines)).await {
                 // The line is journaled and shown; its reflections follow.
-                Ok(Ok(())) => {
+                Ok(Ok(published)) => {
+                    if !published {
+                        continue;
+                    }
                     if let Some((work, lines)) = after {
                         reflect::spawn(state.clone(), id.clone(), work, &lines);
                     }
@@ -787,7 +837,12 @@ fn kick(state: AppState, id: String) {
 }
 /// Journals the words. Words the rules refuse end like words that never
 /// came: the play's voices show "…" and its seat frees at once.
-pub(super) fn publish(state: &AppState, id: &str, work: Work, lines: Result<Value>) -> Result<()> {
+pub(super) fn publish(
+    state: &AppState,
+    id: &str,
+    work: Work,
+    lines: Result<Value>,
+) -> Result<bool> {
     let refused = lines.is_ok().then(|| work.clone());
     match (finish_work(state, id, work, lines), refused) {
         (Err(error), Some(work)) => {
@@ -803,7 +858,7 @@ pub(super) fn finish_work(
     id: &str,
     work: Work,
     lines: Result<Value>,
-) -> Result<()> {
+) -> Result<bool> {
     finish_work_with_lock_budget(state, id, work, lines, Duration::from_secs(8))
 }
 
@@ -815,7 +870,7 @@ pub(super) fn finish_work_with_lock_budget(
     work: Work,
     lines: Result<Value>,
     budget: Duration,
-) -> Result<()> {
+) -> Result<bool> {
     let started = Instant::now();
     let gate = writer(state);
     let _turn = turn(&gate);
@@ -848,7 +903,7 @@ fn finish_work_attempt(
     work: &Work,
     lines: &Result<Value>,
     busy_timeout: Duration,
-) -> rusqlite::Result<Result<()>> {
+) -> rusqlite::Result<Result<bool>> {
     let Some(path) = state.event_store_path.as_deref() else {
         return Ok(Err("Shared worlds need the saved-world service.".into()));
     };
@@ -856,7 +911,7 @@ fn finish_work_attempt(
     store::schema_sqlite(&c)?;
     let tx = c.transaction_with_behavior(TransactionBehavior::Immediate)?;
     tx.busy_timeout(Duration::from_secs(5))?;
-    Ok((|| -> Result<()> {
+    Ok((|| -> Result<bool> {
         let (status, attempt): (String, i32) = tx
             .query_row(
                 "SELECT status,retries FROM card_full_plays WHERE id=?",
@@ -865,9 +920,16 @@ fn finish_work_attempt(
             )
             .map_err(sql_error)?;
         if status != "working" || attempt != work.attempt {
-            return Ok(());
+            return Ok(false);
         }
+        work.revision
+            .check(&tx)
+            .map_err(|error| error.to_string())?;
         let time = now();
+        if continuation::refresh(&tx, id, work, time)? {
+            tx.commit().map_err(sql_error)?;
+            return Ok(false);
+        }
         let mut scene = work.context.clone();
         // A scene without lines follows its play's last event, so its "…"
         // takes that place in the room's speech.
@@ -970,6 +1032,6 @@ fn finish_work_attempt(
             // A play that voiced no one is not a scene of words.
             (false, false, 0) => {}
         }
-        Ok(())
+        Ok(!failed)
     })())
 }

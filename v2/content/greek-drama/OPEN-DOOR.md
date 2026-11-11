@@ -7,7 +7,7 @@ its tale and the full account below play only in old full-scope worlds.
 Piraeus Quays is Thebes's sea exit. It lies outside the section, so the
 Charybdis calls there before the invitation whenever the Travel Provisions
 or a Hoppy Cat thing are aboard, and sails home to the harbor free. The
-voyage there uses up the provisions, which Myrto packs again. Called
+voyage there uses nothing up (rules 102): the provisions stay on deck. Called
 away empty, the ship answers a wait at Piraeus without cargo. The Long
 Walls open from either end only once the mothers' plea is registered with
 the herald's truce in the Agora, so until then a sea arrival stays at the
@@ -25,7 +25,9 @@ districts. The Sacred Way leads from Eleusis into the city once the mothers'
 petition is at Eleusis or in the Agora; the way back is always open. The
 Long Walls open from both ends once the herald's truce is in the Agora. A
 gate stays open once opened, for everyone in that world, even after its
-thing moves away. These routes share
+thing moves away. A shut gate lies face down as a locked box with its
+condition as the reason. Thaleia, the Argive mother, Iphis and Myrine lie
+locked in their places the same way until their old conditions hold. These routes share
 Dione’s lasting invitation. Waiting at a port lets the empty ship complete
 its circuit.
 

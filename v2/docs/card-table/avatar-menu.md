@@ -97,15 +97,13 @@ only the tools. ☰ opens a list of **world slots**:
   that keeps its level for its next seat. A world where anyone else is
   bound is never retired, and only its owner's passkey retires it. A link to
   a retired world says "This world has closed."
-- **+ Find *Mara*** (#1936) names the avatar hidden in the world being
-  played while this avatar has not met them and the passkey has not found
-  them. A tap journals `seek`, which gives the player the quest card "Talk to
-  Mara"; ☰ closes and says "Find Mara here and talk to them." The world
-  shows Mara unnamed until that Talk, which unlocks Mara, shows the beat
-  "*Mara* remembers you" and opens Mara's own world. With nobody hidden here,
-  **+ New world** starts a fresh world, which hides the next, for the card's
-  avatar when it is in no world, else the first found avatar in no world.
-  Once all eight are found it stays, and the new world hides nobody.
+- **The hidden avatar** (#1936) stays unnamed in the world until the first
+  Talk with them, which unlocks them, shows the beat "*Mara* remembers you"
+  and opens their own world. There is no "+ Find" button or `seek` command
+  (removed in rules 133): a player finds them by looking. **+ New world**
+  starts a fresh world, which hides the next, for the card's avatar when it
+  is in no world, else the first found avatar in no world. Once all eight are
+  found it stays, and the new world hides nobody.
 - **Your avatars** are one row under it (owner, 2026-11-02): each avatar
   this passkey has found, face up in R·A·T·V·M·I·C·S order, in colour while
   it is free and grey while it is in a world ("Tavi, free", "Vale, in
@@ -190,7 +188,7 @@ The menu shows now, not a log: where each avatar is now. There is no list of
 past or visited worlds. `v2/scripts/smoke-card-world-slots.mjs` checks
 the portraits and +, colour, choosing and arming, a move from +, Leave,
 and + New world, at 390 and 1440 pixels; `smoke-card-find-hidden.mjs` checks
-"+ Find Mara", its `seek` and the card backs; `smoke-card-world-menu.mjs`
+the card backs of the hidden avatar; `smoke-card-world-menu.mjs`
 checks ☰ signed out, with two found (one in a world, one free) and with
 all found after a Leave, including the + card's size and centring.
 
@@ -228,7 +226,7 @@ Desktop (1440 × 900):
 ### Words
 
 Start, Leave, Free, Bring to
-*Hollowmere*, +, + New world, + Find *Mara*, *Mara* remembers you, You, Memory, Invite, Settings. Gone: Worlds, Inner life (now the top of Memory),
+*Hollowmere*, +, + New world, *Mara* remembers you, You, Memory, Invite, Settings. Gone: Worlds, Inner life (now the top of Memory),
 Share, Play, Step away, Step away?, Release · start over, Free *Mara*,
 Your worlds (`/?shared=1` opens the table), on this
 device, Delete world (local), `?avatar=`, Continue as, Continue
@@ -327,3 +325,8 @@ The owner settled these on 2026-11-01 ([#1737](https://github.com/cenetex/cosywo
    #1892: only Vale plays locally).
 4. Extra shared claims stay until the player next moves that avatar.
 5. A player has at most one avatar in a world.
+
+Each opening owns its account, world-list and invitation responses. Closing
+or reopening the menu retires those requests before they can change the next
+opening's slots, status or invitation. The existing menu remains usable when
+its current refresh fails.

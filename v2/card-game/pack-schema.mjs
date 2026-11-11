@@ -76,6 +76,7 @@ export const CONDITION_KINDS = [
   "tag_held",
   "shared_world",
   "connected_humans",
+  "humans_at",
   "met",
   "knows",
   "talked",
@@ -88,6 +89,10 @@ export const CONDITION_KINDS = [
   "chance",
   "upgraded",
   "gate_open",
+  "grounded",
+  "held",
+  "in_hand",
+  "actor_at",
   "home_door",
 ];
 // The `ship_at` dock for a ship sailing between ports.
@@ -138,13 +143,9 @@ export function laneProblems(t) {
         "oneWay",
         "opensWith",
         "spends",
-        "reason",
+        "sealed",
       ]) ||
-      (lane.reason !== undefined &&
-        (!lane.opensWith ||
-          typeof lane.reason !== "string" ||
-          !lane.reason.trim() ||
-          lane.reason.length > 240)) ||
+      (lane.sealed !== undefined && (!lane.opensWith || lane.sealed !== true)) ||
       !docks.includes(lane.from) ||
       !docks.includes(lane.to) ||
       lane.from === lane.to ||
@@ -662,6 +663,39 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     );
   }
 
+  // A want in pack data: an item, a place or a person, with an optional step
+  // and the trust it takes to be told (`minTrust`).
+  const wantOk = (w, id) =>
+    keysOk(w, ["kind", "target", "step", "minTrust"]) &&
+    (w.minTrust === undefined || intOk(w.minTrust, 1, 3)) &&
+    // An eat quest (rules 102): eat or drink one, somewhere, with someone.
+    (w.step === undefined ||
+      (w.kind === "place" &&
+        w.step.verb === "lay" &&
+        keysOk(w.step, ["verb", "items", "finish"]) &&
+        Array.isArray(w.step.items) &&
+        intOk(w.step.items.length, 1, 3) &&
+        new Set(w.step.items).size === w.step.items.length &&
+        w.step.items.every((item) => owns(items, item)) &&
+        (w.step.finish === undefined || idOk(w.step.finish))) ||
+      (w.kind === "item" &&
+        keysOk(w.step, ["verb", "at", "with"]) &&
+        w.step.verb === "eat" &&
+        ["food", "drink"].some((tag) => items[w.target]?.tags?.includes(tag)) &&
+        (w.step.with === undefined ||
+          (w.step.with !== id &&
+            (owns(avatars, w.step.with) ||
+              hub.avatars.includes(w.step.with)))) &&
+        (w.step.at === undefined || owns(places, w.step.at)))) &&
+    (w.kind === "item"
+      ? owns(items, w.target) || hub.items.includes(w.target)
+      : w.kind === "place"
+        ? owns(places, w.target) || hub.places.includes(w.target)
+        : w.kind === "connect"
+          ? w.target === "humans"
+          : w.kind === "person" &&
+            w.target !== id &&
+            (owns(avatars, w.target) || hub.avatars.includes(w.target)));
   for (const [id, a] of Object.entries(avatars)) {
     check(
       keysOk(a, [
@@ -685,14 +719,17 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "temperament",
         "variants",
         "home",
+        "levelAtHome",
         "homeWhen",
         "passWhen",
         "appearsWhen",
         "values",
         "desire",
         "want",
+        "wants",
         "requires",
         "canonicalPerson",
+        "sealed",
       ]),
       `avatar ${id} has an unknown field`,
     );
@@ -750,45 +787,36 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       `avatar ${id} tastes need likes, sore and reason`,
     );
     // One want per resident: an item, a place or a person it seeks first, or
-    // (BoardyAI) connecting humans.
+    // (BoardyAI) connecting humans. Or staged wants (rules 133): a short list
+    // of `{want, when}` entries, at most three, any of which may surface.
     check(
-      a.want === undefined ||
-        (keysOk(a.want, ["kind", "target", "step"]) &&
-          // An eat quest (rules 102): eat or drink one, somewhere, with someone.
-          (a.want.step === undefined ||
-            (a.want.kind === "place" &&
-              a.want.step.verb === "lay" &&
-              keysOk(a.want.step, ["verb", "items", "finish"]) &&
-              Array.isArray(a.want.step.items) &&
-              intOk(a.want.step.items.length, 1, 3) &&
-              new Set(a.want.step.items).size === a.want.step.items.length &&
-              a.want.step.items.every((item) => owns(items, item)) &&
-              (a.want.step.finish === undefined || idOk(a.want.step.finish))) ||
-            (a.want.kind === "item" &&
-              keysOk(a.want.step, ["verb", "at", "with"]) &&
-              a.want.step.verb === "eat" &&
-              ["food", "drink"].some((tag) =>
-                items[a.want.target]?.tags?.includes(tag),
-              ) &&
-              (a.want.step.with === undefined ||
-                (a.want.step.with !== id &&
-                  (owns(avatars, a.want.step.with) ||
-                    hub.avatars.includes(a.want.step.with)))) &&
-              (a.want.step.at === undefined ||
-                owns(places, a.want.step.at)))) &&
-          (a.want.kind === "item"
-            ? owns(items, a.want.target) || hub.items.includes(a.want.target)
-            : a.want.kind === "place"
-              ? owns(places, a.want.target) ||
-                hub.places.includes(a.want.target)
-              : a.want.kind === "connect"
-                ? a.want.target === "humans"
-                : a.want.kind === "person" &&
-                  a.want.target !== id &&
-                  (owns(avatars, a.want.target) ||
-                    hub.avatars.includes(a.want.target)))),
+      a.want === undefined || a.wants === undefined,
+      `avatar ${id} sets want or wants, not both`,
+    );
+    check(
+      a.want === undefined || wantOk(a.want, id),
       `avatar ${id} want needs an item, place or person target, or connects humans`,
     );
+    if (a.wants !== undefined) {
+      check(
+        Array.isArray(a.wants) && a.wants.length >= 1 && a.wants.length <= 3,
+        `avatar ${id} wants needs one to three staged wants`,
+      );
+      for (const [n, entry] of (Array.isArray(a.wants)
+        ? a.wants
+        : []
+      ).entries())
+        check(
+          keysOk(entry, ["want", "when"]) &&
+            record(entry?.want) &&
+            wantOk(entry.want, id) &&
+            (entry.when === undefined ||
+              (Array.isArray(entry.when) &&
+                entry.when.length >= 1 &&
+                entry.when.length <= 4)),
+          `avatar ${id} wants[${n}] needs a want and one to four saved-state conditions in when`,
+        );
+    }
     const t = a.temperament;
     if (t === undefined) {
       check(
@@ -908,6 +936,15 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     let ok = record(c) && CONDITION_KINDS.includes(c.kind) && depth <= 2;
     if (ok)
       switch (c.kind) {
+        case "in_hand":
+        case "grounded":
+          ok =
+            keysOk(c, ["kind", "item"]) &&
+            (hub.items.includes(c.item) || owns(items, c.item));
+          break;
+        case "actor_at":
+          ok = keysOk(c, ["kind", "place"]) && anyPlace(c.place);
+          break;
         case "sound":
           ok =
             keysOk(c, ["kind", "at"]) &&
@@ -1010,6 +1047,13 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         case "connected_humans":
           ok = keysOk(c, ["kind", "minimum"]) && intOk(c.minimum, 1, 8);
           break;
+        // Travellers standing together at one place (a lock for two).
+        case "humans_at":
+          ok =
+            keysOk(c, ["kind", "place", "minimum"]) &&
+            anyPlace(c.place) &&
+            intOk(c.minimum, 1, 8);
+          break;
         case "item_near":
           ok =
             keysOk(c, ["kind", "item", "place"]) &&
@@ -1105,29 +1149,58 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
   // Saved state, or `any`/`not` over saved state, such as a thing that
   // shows only while no other thing is in the same place.
   const savedCondition = (c) =>
-    ["any", "not"].includes(c?.kind)
-      ? (c.conditions || [c.condition]).every(savedCondition)
-      : [
-          "choice",
-          "choice_unset",
-          "flag",
-          "holding",
-          "item_at",
-          "item_near",
-          "item_present",
-          "shared_world",
-          "connected_humans",
-          "met",
-          "knows",
+    c?.kind === "any"
+      ? Array.isArray(c.conditions) && c.conditions.every(savedCondition)
+      : c?.kind === "not"
+        ? savedCondition(c.condition)
+        : [
+            "choice",
+            "choice_unset",
+            "flag",
+            "holding",
+            "item_at",
+            "item_near",
+            "item_present",
+            "shared_world",
+            "connected_humans",
+            "humans_at",
+            "met",
+            "knows",
+            "talked",
+            "daylight",
+            "drawn",
+            "chance",
+            "upgraded",
+            "gate_open",
+            "home_door",
+          ].includes(c?.kind);
+  // The first condition kind in a list that reads one traveler's own facts
+  // (trust, talks, what they know or carry), or null.
+  const travelerKind = (cs) => {
+    for (const c of Array.isArray(cs) ? cs : []) {
+      if (
+        [
+          "trusted",
           "talked",
-          "daylight",
-          "drawn",
-          "chance",
+          "knows",
           "upgraded",
-          "gate_open",
-          "home_door",
-        ].includes(c?.kind);
-  const requirements = (cs, what, persistent = true) => {
+          "in_hand",
+          "held",
+          "actor_at",
+        ].includes(c?.kind) ||
+        (c?.kind === "holding" && c.role === "actor")
+      )
+        return c.kind;
+      const inner = travelerKind(
+        c?.kind === "not" ? [c.condition] : c?.conditions,
+      );
+      if (inner) return inner;
+    }
+    return null;
+  };
+  // `perTraveler` conditions are read with the traveler, so a door may ask
+  // for the trust of its keeper (route.travelerRequires only).
+  const requirements = (cs, what, persistent = true, perTraveler = false) => {
     if (cs === undefined) return;
     check(
       Array.isArray(cs) && cs.length <= 12,
@@ -1137,7 +1210,9 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       cs.forEach((c) => {
         condition(c, what);
         check(
-          !persistent || savedCondition(c),
+          !persistent ||
+            savedCondition(c) ||
+            (perTraveler && c?.kind === "trusted"),
           `${what} must use saved state or human presence conditions`,
         );
       });
@@ -1149,6 +1224,27 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
   }
   for (const [id, a] of Object.entries(avatars)) {
     requirements(a.requires, `avatar ${id} requires`);
+    // A staged want's `when` is read for the resident, with no traveler: it
+    // takes world facts only, never one traveler's trust, talks or hands.
+    for (const [n, entry] of (Array.isArray(a.wants)
+      ? a.wants
+      : []
+    ).entries()) {
+      const asks = travelerKind(entry?.when);
+      check(
+        !asks,
+        `avatar ${id} wants[${n}] when has no traveler, so ${asks} cannot be read there`,
+      );
+      if (!asks) requirements(entry?.when, `avatar ${id} wants[${n}] when`);
+    }
+    check(
+      a.sealed === undefined ||
+        (keysOk(a.sealed, ["at"]) &&
+          owns(places, a.sealed.at) &&
+          Array.isArray(a.requires) &&
+          a.requires.length > 0),
+      `avatar ${id} sealed card needs a place and activation requirements`,
+    );
     for (const [n, p] of (Array.isArray(a.poses) ? a.poses : []).entries())
       requirements(p?.requires, `avatar ${id} pose ${n + 1} requires`);
     if (a.canonicalPerson !== undefined)
@@ -1158,6 +1254,15 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       );
     if (a.home !== undefined)
       check(owns(places, a.home), `avatar ${id} home is invalid`);
+    check(
+      a.levelAtHome === undefined ||
+        (a.levelAtHome === true &&
+          !humanAvatarIds.includes(id) &&
+          owns(places, a.home) &&
+          places[a.home].sanctuary === true &&
+          a.homeWhen === undefined),
+      `avatar ${id} levelAtHome needs a fixed sanctuary home for a resident`,
+    );
     requirements(a.appearsWhen, `avatar ${id} appearance`, false);
     if (a.homeWhen !== undefined) {
       check(
@@ -1212,6 +1317,10 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "startsUsed",
         "absentReturn",
         "locked",
+        "sealed",
+        "reservedUntil",
+        "recoverTo",
+        "scatterOutside",
       ]) &&
         (i.tags === undefined ||
           (Array.isArray(i.tags) &&
@@ -1232,6 +1341,34 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     );
     media(i.art, `item ${id} art`);
     requirements(i.requires, `item ${id} requires`);
+    // A sealed item (rules 133) lies at a place of its pack shut until its
+    // `requires` hold. It latches open unless `live`, as a route does.
+    check(
+      i.sealed === undefined ||
+        (keysOk(i.sealed, ["live"]) &&
+          (i.sealed.live === undefined || i.sealed.live === true) &&
+          Array.isArray(i.requires) &&
+          i.requires.length > 0 &&
+          owns(places, i.holder) &&
+          (i.home === undefined || i.home === i.holder) &&
+          i.locked === undefined &&
+          !i.startsUsed),
+      `item ${id} sealed needs requires and a place of the pack where it lies (home, if any, the same place)`,
+    );
+    requirements(i.reservedUntil, `item ${id} reservedUntil`);
+    check(
+      i.reservedUntil === undefined ||
+        (Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0),
+      `item ${id} reservedUntil needs a condition`,
+    );
+    check(
+      i.scatterOutside === undefined || i.scatterOutside === true,
+      `item ${id} scatterOutside must be true`,
+    );
+    check(
+      i.recoverTo === undefined || anyPlace(i.recoverTo),
+      `item ${id} recoverTo needs a known place`,
+    );
   }
   const routes = pack.routes || [];
   for (const r of routes) {
@@ -1254,9 +1391,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     const q = r.sealed?.quest;
     check(
       r.sealed === undefined ||
-        (keysOk(r.sealed, ["quest", "reason"]) &&
+        (keysOk(r.sealed, ["quest"]) &&
           Boolean(r.requires?.length || r.travelerRequires?.length) &&
-          textOk(r.sealed.reason, 240) &&
           keysOk(q, ["kind", "target", "to"]) &&
           (q.kind === "item"
             ? owns(items, q.target) &&
@@ -1265,10 +1401,10 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
               (q.kind === "place"
                 ? owns(places, q.target)
                 : q.kind === "person" && owns(avatars, q.target)))),
-      `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`,
+      `route ${r.from}>${r.to} sealed card needs a gate and a quest`,
     );
     requirements(r.requires, "route requires");
-    requirements(r.travelerRequires, "route traveller requires");
+    requirements(r.travelerRequires, "route traveller requires", true, true);
     check(
       routes.some((q) => q.from === r.to && q.to === r.from) ||
         places[r.to]?.exits?.includes(r.from),
@@ -1362,6 +1498,14 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       if (e.kind === "hide_item")
         valid =
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on === "meet";
+      // A meeting sets the subject's trust in the traveler: the first
+      // bond is made when two people meet, not only by gifts.
+      if (e.kind === "trust")
+        valid =
+          keysOk(e, ["kind", "level"]) &&
+          intOk(e.level, 1, 3) &&
+          (c.on === "meet" || c.on === "talk") &&
+          Boolean(avatars[c.subject]);
       if (e.kind === "give_item")
         valid =
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on !== "meet";
@@ -1782,6 +1926,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "travelers",
         "travel",
         "signal",
+        "unlockWhen",
         "requires",
         "scenery",
         "opened",
@@ -1789,6 +1934,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "travelLabel",
         "transport",
         "retired",
+        "sealed",
       ]) &&
         idOk(c.id) &&
         (c.retired === undefined ||
@@ -1821,6 +1967,14 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       Array.isArray(c?.requires) && c.requires.length <= 6,
       `${name} requires must be a list`,
     );
+    // A gated crossing may lie as a shut card with its reason (rules 133).
+    check(
+      c.sealed === undefined ||
+        (keysOk(c.sealed, []) &&
+          Boolean(c.requires?.length) &&
+          !c.transport),
+      `${name} sealed card needs a gate`,
+    );
     for (const r of c?.requires || []) condition(r, `${name} condition`);
     for (const field of ["opened", "closed"])
       if (c?.[field] !== undefined)
@@ -1845,6 +1999,18 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           ),
         `${name} scenery needs open and/or closed text`,
       );
+    if (c.unlockWhen !== undefined) {
+      check(
+        c.signal === undefined &&
+          c.transport !== undefined &&
+          Array.isArray(c.unlockWhen) &&
+          c.unlockWhen.length > 0 &&
+          c.unlockWhen.length <= 6,
+        `${name} unlockWhen needs transport conditions, not a signal`,
+      );
+      for (const r of c.unlockWhen || [])
+        condition(r, `${name} unlock condition`);
+    }
     const s = c?.signal;
     if (s === undefined) continue;
     check(
@@ -1930,4 +2096,27 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     requirements(kit?.requires, `kit ${kit?.id} requires`);
   problems.push(...itemCycleProblems(pack, mountedPlaces, hub?.places || []));
   return problems;
+}
+
+// Notes for authors that do not fail a pack. A staged want met by a gift
+// raises the giver's trust by a plain Give; a pack `on: "give"` choice for the
+// same resident and item takes the Give first, so no trust is raised. Author
+// a `trust` effect on that choice, or drop the choice.
+export function packWarnings(pack) {
+  const warnings = [];
+  for (const [id, a] of Object.entries(pack?.avatars || {})) {
+    const wanted = new Set(
+      (Array.isArray(a?.wants) ? a.wants : [])
+        .filter((entry) => entry?.want?.kind === "item")
+        .map((entry) => entry.want.target),
+    );
+    for (const c of Array.isArray(pack.choices) ? pack.choices : [])
+      if (c?.on === "give" && c.subject === id)
+        for (const r of c.requires || [])
+          if (r.kind === "holding" && r.role === "actor" && wanted.has(r.item))
+            warnings.push(
+              `${pack.id}: choice ${c.id} intercepts the Give of ${r.item} to ${id}, a staged want, so that gift raises no trust`,
+            );
+  }
+  return warnings;
 }

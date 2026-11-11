@@ -10,9 +10,10 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave } from "../card-game/world.mjs";
-import { openingFixture } from "../../test/helpers/greek-opening.mjs";
+import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
+  clearSelection,
   readyActionButton,
   revealCard,
   selectCard,
@@ -27,15 +28,20 @@ const output = new URL(
   import.meta.url,
 );
 await mkdir(output, { recursive: true });
-const world = structuredClone(openingFixture("burial").decree);
+const world = structuredClone(greekErrands().decree);
 world.actors.vale.place = "greek-gate";
 world.crossings["pond-greek-harbor"].discovered = true;
 for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
 world.items["greek-creon-writ"].holder = "vale";
 const save = encodeSave(world);
 // Holds the lifting lid mid-turn for its picture.
-const holdLid = ({ id, at, reduced }) =>
-  new Promise((resolve, reject) => {
+// It arms an observer and returns at once; `lidState` says "held" once the
+// lid is paused, or "missed". The caller polls it (waitForFunction) rather
+// than hold one long-pending evaluate, which Chromium sometimes rejects with
+// "Execution context was destroyed" with no navigation (seen under load).
+const holdLid = ({ id, at, reduced }) => {
+  globalThis.lidState = null;
+  {
     const watch = new MutationObserver(() => {
       const card = document.querySelector(`#hand [data-card="${id}"]`);
       if (!card?.dataset.revealing) return;
@@ -49,30 +55,37 @@ const holdLid = ({ id, at, reduced }) =>
         motion.pause();
         motion.currentTime = at;
       }
-      resolve();
+      globalThis.lidState = "held";
     });
     const deadline = setTimeout(() => {
       watch.disconnect();
-      reject(new Error("The locked lid did not turn"));
+      globalThis.lidState ??= "missed";
     }, 15000);
     watch.observe(document.getElementById("hand"), {
       subtree: true,
       childList: true,
       attributeFilter: ["data-revealing"],
     });
-  });
+  }
+};
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH });
   for (const width of smokeWidths([1440, 390]))
     for (const reduced of [false, true]) {
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: reduced ? "reduce" : "no-preference",
       });
+      // COSYWORLD_CPU_THROTTLE=4 slows the page, as a loaded runner does.
+      if (process.env.COSYWORLD_CPU_THROTTLE)
+        await (await page.context().newCDPSession(page)).send(
+          "Emulation.setCPUThrottlingRate",
+          { rate: Number(process.env.COSYWORLD_CPU_THROTTLE) },
+        );
       const key = `cosyworld.reflected-shore.v1.locked-box-${width}-${reduced}`;
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
@@ -121,7 +134,10 @@ try {
         });
       };
       const boxed = async () => {
+        await selectCard(page, "greek-gate");
         await revealCard(page, FIELD);
+        assert.equal(await field.locator("..").getAttribute("data-holder"), "greek-gate");
+        assert.ok(await field.evaluate((el) => el.classList.contains("item")));
         assert.equal(await attr("data-locked"), "true");
         // A real lock keeps its nameless lid and red edge.
         assert.equal(await field.locator(".name").textContent(), "");
@@ -141,6 +157,8 @@ try {
           FIELD,
         );
         assert.equal(await attr("data-locked"), "false");
+        assert.equal(await field.locator("..").getAttribute("data-holder"), null);
+        assert.ok(await field.evaluate((el) => el.classList.contains("location")));
         assert.match(await field.locator(".name").textContent(), /Battle/u);
         assert.ok(!(await field.locator(".card-back").isVisible()));
       };
@@ -151,7 +169,6 @@ try {
       await boxed();
       await selectCard(page, FIELD);
       assert.doesNotMatch(await page.locator(".action-beat-text").textContent(), /Creon|Writ/u);
-      await page.keyboard.press("Escape");
       await shot("01-locked-box");
       const lidState = (card) => card.evaluate((el) => ({
         src: el.querySelector(".card-back").src,
@@ -162,6 +179,7 @@ try {
         width: getComputedStyle(el).width,
         height: getComputedStyle(el).height,
       }));
+      assert.ok(await field.isVisible(), "measure the locked box before folding its stack");
       const closedLid = await lidState(field);
       await page.keyboard.press("Escape");
       await selectCard(page, "vale");
@@ -176,7 +194,7 @@ try {
       assert.notEqual(plainLid.src, closedLid.src);
       assert.notEqual(plainLid.border, closedLid.border);
       assert.equal(plainLid.name, "");
-      assert.equal(plainLid.label, "Face-down card. Tap to reveal.");
+      assert.equal(plainLid.label, "Closed box. Select to inspect.");
       assert.doesNotMatch(await page.locator('[data-card="vale"] .sr-only').textContent(), /Creon|Writ/u);
       assert.equal(plainLid.width, closedLid.width);
       assert.equal(plainLid.height, closedLid.height);
@@ -218,6 +236,8 @@ try {
           ),
         };
       };
+      // Escape preserves the held writ; inspect the box alone first.
+      await clearSelection(page);
       const beforeBox = await questState();
       // Selecting the box keeps its contents concealed. Talk gives the guard's quest.
       await selectCard(page, FIELD);
@@ -228,12 +248,22 @@ try {
         "Give Creon's Writ to The Gate Guard",
       );
       assert.equal(await lock.isDisabled(), true);
-      assert.equal(await lock.getAttribute("title"), "A closed box.");
+      assert.equal(await lock.getAttribute("title"), await page.locator(".action-beat-text").textContent());
       assert.equal(await page.locator("#selection-name").textContent(), "Closed box");
       assert.match(await page.locator("#play-readout").textContent(), /Give Creon's Writ to The Gate Guard/u);
       assert.doesNotMatch(await page.locator("#play-readout").textContent(), /Battlefield/u);
       assert.deepEqual(await questState(), beforeBox, "box preview adds no quest or outcome");
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
+      await selectCard(page, "greek-creon-writ");
+      const beforePair = await questState();
+      await selectCard(page, FIELD);
+      assert.equal((await state()).actors.vale.heldItem, "greek-creon-writ");
+      assert.equal(await writ.getAttribute("aria-pressed"), "true");
+      assert.equal(await field.getAttribute("aria-pressed"), "true");
+      assert.equal(await lock.isDisabled(), true);
+      assert.equal(await page.locator("#card-actions [data-open-box]").count(), 0);
+      assert.deepEqual(await questState(), beforePair, "a held partner cannot open a locked box");
+      await clearSelection(page);
       await selectCard(page, "greek-guard");
       if (await page.locator('#card-actions [data-action="meet"]').count()) {
         await readyActionButton(page, "meet").click();
@@ -255,17 +285,34 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
-      const vale = (await state()).actors.vale;
-      assert(
-        [vale.want, ...(vale.under || [])].some(
-          (quest) =>
-            quest?.kind === "item" &&
-            quest.target === "greek-bread" &&
-            quest.step?.verb === "give" &&
-            quest.step.to === "greek-guard",
-        ),
-        "Talk with the guard still adds his bread request to Vale's quest stack",
+      // Talk takes nothing: the shut box's quest is now an offer card (it
+      // may also bring the guard's own Accept quest card, by trust or by
+      // chance), and Vale still holds no quest.
+      assert.equal((await state()).actors.vale.want, null);
+      const offer = page.locator('#hand [data-card="quest:box:greek-battlefield"]');
+      await offer.waitFor({ state: "attached" });
+      // It lies face down, a closed box, until opened.
+      assert.equal(await offer.getAttribute("data-unrevealed"), "true");
+      assert.equal(await offer.getAttribute("aria-label"), "Closed box. Select to inspect.");
+      await page.keyboard.press("Escape");
+      await selectCard(page, "quest:box:greek-battlefield");
+      assert.equal(await page.locator("#card-actions button").count(), 1);
+      assert.equal(
+        await page.locator("#card-actions button").first().getAttribute("data-tap-verb"),
+        "Accept quest",
       );
+      await ready();
+      const take = page.locator("#card-actions button").first();
+      // A tap on the bar finishes words still typing; the next one plays.
+      for (let i = 0; i < 3 && !(await state()).actors.vale.want; i++) {
+        await take.dispatchEvent("click");
+        await page.waitForTimeout(200);
+      }
+      await page.waitForFunction(
+        (key) => Boolean(JSON.parse(localStorage.getItem(key)).actors.vale.want),
+        key,
+      );
+      assert.equal(await offer.count(), 0);
       const questLid = await page.evaluate(() => window.closedQuestEvidence);
       assert(questLid, "the new quest is first dealt face down");
       assert.equal(questLid.src, plainLid.src);
@@ -290,7 +337,11 @@ try {
       await selectCard(page, "greek-guard");
       const give = readyActionButton(page, "give");
       await give.waitFor();
-      const turning = page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
+      await page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
+      const turning = page.waitForFunction(() => globalThis.lidState, null, {
+        polling: 20,
+        timeout: 20000,
+      });
       await give.click();
       assert.equal(
         (await state()).items["greek-creon-writ"].holder,
@@ -298,7 +349,7 @@ try {
       );
       await page.keyboard.press("Escape");
       const revealing = revealCard(page, FIELD);
-      await turning;
+      assert.equal(await (await turning).jsonValue(), "held", "the locked lid turned");
       await shot("02-box-turning", 1200);
       await page.evaluate(() => globalThis.lid.forEach((m) => m.play()));
       await revealing;

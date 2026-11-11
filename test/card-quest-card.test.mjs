@@ -2,9 +2,8 @@ import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld as baseCreateWorld,
-  decodeSave,
-  encodeSave,
   legalActions,
+  nameOf,
   play,
   validateWorld,
 } from "../v2/card-game/world.mjs";
@@ -12,26 +11,24 @@ import {
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
-  avatarGroupOrdered,
   isQuestId,
-  metQuests,
   questCaption,
   questCard,
   questBox,
   questCards,
-  questRewardCards,
   questDistance,
   questGround,
-  questHand,
+  handWithQuest,
   questId,
   questNear,
   questTier,
   questVerb,
 } from "../v2/card-game/quest-card.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
-import { questEntryKey } from "../v2/card-game/card-entry.mjs";
-import { funeralJourney } from "./helpers/greek-funeral.mjs";
-import { QUEST_LIMIT } from "../v2/card-game/want.mjs";
+import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
+
+// An undiscovered card is worded by its kind, never by name.
+const { item: ITEM, person: PERSON, place: PLACE } = UNKNOWN;
 
 describe("the quest card", () => {
   it("shows a Give's place only when the gift is bound to one", () => {
@@ -98,7 +95,7 @@ describe("the quest card", () => {
     // The label is the verb; the caption is the card's accessible name.
     expect(questVerb(s, quest)).toBe("Give");
     expect(questCaption(quest)).toBe(
-      "Give The Burial Decree to The Gate Guard",
+      `Give ${nameOf("greek-decree")} to The Gate Guard`,
     );
     const top = Math.max(
       cardLevel(s, "greek-decree"),
@@ -119,13 +116,13 @@ describe("the quest card", () => {
       target: "lamp",
     });
     expect(questCaption(quest)).toBe("Hold Lamp");
-    expect(questCaption(quest, true)).toBe("Find something");
+    expect(questCaption(quest, true)).toBe(`Find ${ITEM}`);
   });
 
   it("explains an undiscovered destination without naming it", () => {
     const s = createWorld();
     const quest = { ...questCard(s), kind: "place", target: "clearing" };
-    expect(questCaption(quest, true)).toBe("Find a place");
+    expect(questCaption(quest, true)).toBe(`Reach ${PLACE}`);
     expect(questCaption(quest)).toBe("Go to Forest Clearing");
     expect(questVerb(s, quest, true)).toBe("Discover");
   });
@@ -136,10 +133,10 @@ describe("the quest card", () => {
       level: 3,
       step: { verb: "find" },
     };
-    expect(questCaption(quest, true)).toBe("Level III: Find something");
+    expect(questCaption(quest, true)).toBe(`Level III: Find ${ITEM}`);
     quest.step.at = "pond";
     expect(questCaption(quest, true)).toBe(
-      "Level III: Find something at Black pond",
+      `Level III: Find ${ITEM} at Black pond`,
     );
   });
 
@@ -148,7 +145,7 @@ describe("the quest card", () => {
     const quest = { ...questCard(s), kind: "place", target: "clearing" };
     const caption = (covered) =>
       questCaption(quest, covered, questVerb(s, quest, covered));
-    expect(caption(true)).toBe("Find a place");
+    expect(caption(true)).toBe(`Reach ${PLACE}`);
     expect(caption(false)).toBe("Discover Forest Clearing");
     s.actors.vale.visited.push("clearing");
     expect(caption(false)).toBe("Go to Forest Clearing");
@@ -164,7 +161,7 @@ describe("the quest card", () => {
       step: { verb: "rest" },
     };
     expect(questCaption(quest, true, questVerb(s, quest, true))).toBe(
-      "Level III: Find a place and rest there",
+      `Level III: Rest at ${PLACE}`,
     );
     expect(questCaption(quest, false, questVerb(s, quest))).toBe(
       "Level III: Go to Black pond and rest there",
@@ -177,7 +174,7 @@ describe("the quest card", () => {
       kind: "person",
       target: "moth",
     };
-    expect(questCaption(quest, true)).toBe("Find someone to talk to");
+    expect(questCaption(quest, true)).toBe(`Find ${PERSON}`);
     expect(questCaption(quest)).toBe("Talk with Pip");
   });
 
@@ -186,10 +183,11 @@ describe("the quest card", () => {
       ...questCard(createWorld()),
       actor: "mara",
       target: "mask",
+      story: true,
       step: { verb: "bring", at: "theatre" },
     };
     expect(questCaption(quest, true)).toBe(
-      "Find something and bring it home to Paper theatre",
+      `Bring ${ITEM} home to Paper theatre`,
     );
     expect(questCaption(quest)).toBe(
       "Bring Theatre mask home to Paper theatre",
@@ -201,19 +199,20 @@ describe("the quest card", () => {
       ...questCard(createWorld()),
       actor: "rue",
       target: "routes",
+      story: true,
       step: { verb: "bring", at: "train" },
     };
     const revealed = new Set();
     const caption = () =>
       questCaption(quest, false, null, (id) => revealed.has(id));
-    expect(caption()).toBe("Find something and bring it somewhere");
+    expect(caption()).toBe(`Bring ${ITEM} home to ${PLACE}`);
     revealed.add("routes");
-    expect(caption()).toBe("Bring Route board somewhere");
+    expect(caption()).toBe(`Bring Route board home to ${PLACE}`);
     revealed.add("train");
     expect(caption()).toBe("Bring Route board home to Between-hours carriage");
     revealed.delete("routes");
     expect(caption()).toBe(
-      "Find something and bring it home to Between-hours carriage",
+      `Bring ${ITEM} home to Between-hours carriage`,
     );
   });
 
@@ -223,10 +222,10 @@ describe("the quest card", () => {
       step: { verb: "bring", to: "moth", at: "pond" },
     };
     expect(questCaption(quest, false, null, (id) => id !== "moth")).toBe(
-      "Bring Lamp to someone at Black pond",
+      `Bring Lamp to ${PERSON} at Black pond`,
     );
     expect(questCaption(quest, false, null, (id) => id !== "pond")).toBe(
-      "Bring Lamp to Pip",
+      `Bring Lamp to Pip at ${PLACE}`,
     );
   });
 
@@ -237,7 +236,7 @@ describe("the quest card", () => {
       step: { verb: "bring", to: "moth", at: "pond" },
     };
     expect(questCaption(quest, true)).toBe(
-      "Level III: Find something and bring it to Pip at Black pond",
+      `Level III: Bring ${ITEM} to Pip at Black pond`,
     );
     expect(questCaption(quest)).toBe(
       "Level III: Bring Lamp to Pip at Black pond",
@@ -247,7 +246,7 @@ describe("the quest card", () => {
         { ...quest, kind: "place", target: "pond", step: { verb: "rest" } },
         true,
       ),
-    ).toBe("Level III: Find a place and rest there");
+    ).toBe(`Level III: Rest at ${PLACE}`);
   });
 
   it("keeps a connection quest without inventing an undiscovered target", () => {
@@ -309,89 +308,69 @@ describe("the quest card", () => {
     );
   });
 
-  it("places the quest cards after the player's avatar and belongings", () => {
-    const s = createWorld();
-    const ids = [questId(0, true), questId(0), questId(1)];
-    const hand = questHand(availableCards(s), s, ids);
-    expect(hand.filter(isQuestId)).toEqual(ids);
-    expect(hand.indexOf(ids[0])).toBeGreaterThan(hand.indexOf("vale"));
-    expect(questHand(hand, s, ids).filter(isQuestId)).toEqual(ids);
-    expect(questHand(hand, s).some(isQuestId)).toBe(false);
-  });
-
-  it("keeps a picked quest after the avatar's belongings (#2295)", () => {
+  it("places the quest card after the player's avatar and belongings (#2295)", () => {
     const s = createWorld();
     s.items.lamp.holder = "vale";
     s.items["greek-funeral-cloth"].holder = "vale";
-    // The picked quest is passed first and leads its own stack only.
-    const ids = [questId(1), questId(0), questId(2)];
-    const hand = questHand(availableCards(s), s, ids);
-    expect(avatarGroupOrdered(hand, s)).toBe(true);
+    const ids = [questId()];
+    expect(ids).toEqual(["quest:0"]);
+    const hand = handWithQuest(availableCards(s), s, ids);
+    expect(hand.filter(isQuestId)).toEqual(ids);
     const at = hand.indexOf("vale");
     expect(hand.slice(at + 1, at + 3).sort()).toEqual([
       "greek-funeral-cloth",
       "lamp",
     ]);
-    expect(hand.slice(at + 3, at + 6)).toEqual(ids);
-    // The old chosenFirst placed the picked quest beside the avatar.
-    const ahead = hand.filter((id) => id !== ids[0]);
-    ahead.splice(at + 1, 0, ids[0]);
-    expect(avatarGroupOrdered(ahead, s)).toBe(false);
+    expect(hand[at + 3]).toBe(ids[0]);
+    // Drawn again it stays put, and with no quest the hand holds none.
+    expect(handWithQuest(hand, s, ids).filter(isQuestId)).toEqual(ids);
+    expect(handWithQuest(hand, s).some(isQuestId)).toBe(false);
   });
 
-  it("shows the whole stack, top first", () => {
+  it("shows the one held quest", () => {
     const s = createWorld();
-    s.actors.vale.under = [
-      { kind: "place", target: "pond", since: 0, refusals: 0 },
-    ];
-    expect(questCards(s).map((q) => [q.index, q.target])).toEqual([
-      [0, "lamp"],
-      [1, "pond"],
-    ]);
+    expect(questCards(s).map((q) => [q.index, q.target])).toEqual([[0, "lamp"]]);
     expect(questCard(s).target).toBe("lamp");
+    s.actors.vale.want = null;
+    expect(questCards(s)).toEqual([]);
   });
 
-  it("seals a quest only when the rules met it", () => {
+  it("drops the card when the rules meet the quest, paying on that play", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.lamp.holder = "attic";
-    s.actors.vale.under = [
-      { kind: "place", target: "pond", since: 0, refusals: 0 },
-    ];
-    const before = questCards(s),
-      seq = s.eventSeq;
-    const move = legalActions(s).find(
-      (a) => a.kind === "move" && a.target === "pond",
+    s.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    expect(questCards(s).map((q) => q.target)).toEqual(["pond"]);
+    const xp = s.actors.vale.xp;
+    s = play(
+      s,
+      legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
+    ).state;
+    // Nothing is sealed or left to claim: the card is gone, the XP is paid.
+    expect(questCards(s)).toEqual([]);
+    expect(s.actors.vale.xp).toBe(xp + 1);
+    expect(legalActions(s).some((a) => ["claim", "focus"].includes(a.kind))).toBe(
+      false,
     );
-    s = play(s, move).state;
-    expect(metQuests(before, s, seq).map((q) => q.target)).toEqual(["pond"]);
-    // Earlier completion logs carry the target and the original 1 XP reward.
-    const earlier = structuredClone(s);
-    for (const e of earlier.log) {
-      delete e.wantKey;
-      delete e.questXp;
-    }
-    expect(validateWorld(earlier)).toBe(earlier);
-    expect(metQuests(before, earlier, seq)).toMatchObject([
-      { target: "pond", earnedXp: 1 },
-    ]);
-    // A dropped quest is gone without a seal.
-    const shown = questCards(s),
-      at = s.eventSeq;
+  });
+
+  it("drops a discarded quest without paying", () => {
+    let s = createWorld();
+    s.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
     s = play(
       s,
       legalActions(s).find((a) => a.kind === "drop" && !a.item),
     ).state;
-    expect(metQuests(shown, s, at)).toEqual([]);
+    expect(questCards(s)).toEqual([]);
   });
 
-  it("never shows more quest cards than the stack holds through a long run", () => {
+  it("never shows more than the one quest card through a long run", () => {
     let s = createWorld();
     for (let turn = 0; turn < 400; turn++) {
       const actions = legalActions(s);
       s = play(s, actions[(turn * 7919) % actions.length]).state;
       const cards = questCards(s);
-      expect(cards.length).toBeLessThanOrEqual(QUEST_LIMIT);
+      expect(cards.length).toBeLessThanOrEqual(1);
       for (const quest of cards) {
         expect(questCaption(quest)).toMatch(/^[A-Z]/);
         expect(typeof questNear(s, quest)).toBe("boolean");
@@ -399,35 +378,4 @@ describe("the quest card", () => {
     }
     expect(validateWorld(s)).toBe(s);
   });
-});
-
-it("keeps repeated saved deeds separate across reload and collection", () => {
-  let world = createWorld();
-  for (let i = 0; i < 2; i++) {
-    world.actors.vale.want = { kind: "place", target: "station", since: 0, refusals: 0 };
-    world = play(world, legalActions(world).find((a) => a.kind === "wait")).state;
-  }
-  world = decodeSave(encodeSave(world));
-  const cards = questRewardCards(world);
-  expect(cards).toHaveLength(2);
-  expect(new Set(cards.map(questEntryKey)).size).toBe(2);
-  expect(cards[0].receiptId).toBeGreaterThan(cards[1].receiptId);
-  const claim = legalActions(world).find((a) => a.kind === "claim" && a.receipt === cards[1].receiptId);
-  const claimed = play(world, claim).state;
-  expect(questRewardCards(decodeSave(encodeSave(claimed)))).toEqual([{ ...cards[0], xp: claimed.actors.vale.xp }]);
-  expect(claimed.actors.vale.xp).toBe(world.actors.vale.xp + 1);
-  expect(claimed.turn).toBe(world.turn);
-});
-
-it("keeps the saved funeral card after leaving and closing its pack", () => {
-  let world = funeralJourney().buried;
-  const card = questRewardCards(world).find((q) => q.target === "greek-polynices-hollow");
-  expect(card).toMatchObject({ riteVerb: "Buried", earnedXp: 1, earnedLevel: null });
-  world.actors.vale.place = "pond";
-  const closed = play(world, { kind: "pack", pack: "sea", enable: false });
-  expect(closed.ok, closed.error).toBe(true);
-  world = closed.state;
-  expect(questRewardCards(decodeSave(encodeSave(world)))).toContainEqual(card);
-  const claim = legalActions(world).find((a) => a.kind === "claim" && a.receipt === card.receiptId);
-  expect(questRewardCards(play(world, claim).state)).not.toContainEqual(card);
 });

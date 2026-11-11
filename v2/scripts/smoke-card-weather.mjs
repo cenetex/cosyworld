@@ -12,7 +12,7 @@ import {
 import { locationWeather } from "../card-game/weather.mjs";
 import { locationDaylight } from "../card-game/daylight.mjs";
 import { hourOf } from "../card-game/stage-light.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { selectCard, readyActionButton } from "./card-browser-helpers.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 
 const output = new URL("../../output/card-weather/", import.meta.url);
@@ -20,7 +20,7 @@ await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, args: ["--enable-unsafe-swiftshader"] });
 const report = [];
 try {
   for (const width of [1440, 390]) {
@@ -59,9 +59,18 @@ try {
       );
     });
     await page.goto(`${origin}/?table=${table}`);
-    async function load(place, turn, shipAtHarbor = false) {
+    async function load(place, turn, shipAtHarbor = false, lamp = "off") {
       const world = createWorld({ packScopes: { "greek-drama": "full" } });
       world.actors.vale.place = place;
+      Object.assign(world.items.lamp, {
+        holder:
+          lamp === "held" ? "vale" : lamp === "placed" ? place : "station",
+        fuel: lamp === "off" ? 0 : 12,
+        fuelRooms: lamp === "off" ? 0 : 3,
+        fuelPlace: place,
+        lit: lamp !== "off",
+      });
+      world.actors.vale.heldItem = lamp === "held" ? "lamp" : null;
       world.turn = world.revision = turn;
       if (shipAtHarbor) {
         world.crossings["pond-greek-harbor"].discovered = true;
@@ -216,10 +225,11 @@ try {
       });
       report.push({ width, place, turn, weather, daylight, passed: true });
     }
+    if (!process.env.LAMP_ONLY) {
     await load("greek-courtyard", 11);
     await check("greek-courtyard", 11, "clear-courtyard");
     await selectCard(page, "vale", { touch: width === 390 });
-    await page.locator('#card-actions [data-action="wait"]').click();
+    await readyActionButton(page, "wait").click();
     await page.waitForFunction(
       ({ key }) => JSON.parse(localStorage.getItem(key)).turn === 12,
       { key },
@@ -228,7 +238,7 @@ try {
     await load("greek-courtyard", 23);
     await check("greek-courtyard", 23, "before-night");
     await selectCard(page, "vale", { touch: width === 390 });
-    await page.locator('#card-actions [data-action="wait"]').click();
+    await readyActionButton(page, "wait").click();
     await page.waitForFunction(
       ({ key }) => JSON.parse(localStorage.getItem(key)).turn === 24,
       { key },
@@ -348,7 +358,83 @@ try {
         css: "none",
       });
     }
-    if (!phone) {
+    }
+    async function checkLamp(kind, suffix) {
+      await load("pond", 36, false, kind);
+      await page.waitForFunction(async () => {
+        const { stageLight } = await import("/card-game/stage-light-view.mjs");
+        return stageLight(document.querySelector("#stage"))?.pools.some(
+          (p) => p.portable,
+        );
+      });
+      await page.waitForTimeout(100);
+      const aligned = () => page.evaluate(async (kind) => {
+        const { stageLight } = await import("/card-game/stage-light-view.mjs");
+        const stage = document.querySelector("#stage");
+        const pool = stageLight(stage).pools.find((p) => p.portable);
+        const art = stage
+          .querySelector(".stage-figures")
+          .getBoundingClientRect();
+        const selector =
+          kind === "held" ? ".portrait-held-item" : ".floor-item";
+        const prop = stage
+          .querySelector(`${selector}[data-item="lamp"]`)
+          .getBoundingClientRect();
+        return (
+          Math.abs(
+            art.left + (art.width * pool.x) / 100 - prop.left - prop.width / 2,
+          ) < 1 &&
+          Math.abs(
+            art.top + (art.height * pool.y) / 100 - prop.top - prop.height / 2,
+          ) < 1 &&
+          Number(stage.style.getPropertyValue("--light-on")) > 0
+        );
+      }, kind);
+      assert(
+        await aligned(),
+        `${width} ${kind} ${suffix}: lamp pool must match rendered prop`,
+      );
+      report.push({ width, lamp: kind, renderer: suffix, passed: true });
+      await page.waitForTimeout(1200); // Let the entrance fade settle for visual evidence.
+      await page.screenshot({
+        path: new URL(`lamp-${width}-${kind}-${suffix}.png`, output).pathname,
+      });
+      await page.setViewportSize({ width: width - 20, height: width === 390 ? 844 : 900 });
+      await page.waitForTimeout(150);
+      assert(await aligned(), "lamp follows viewport resize");
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await page.waitForTimeout(150);
+      if (kind === "held") await page.evaluate(async () => {
+        const { stageLight, renderStageLight, portableLampPool } = await import("/card-game/stage-light-view.mjs");
+        const stage = document.querySelector("#stage"), figure = stage.querySelector('[data-avatar="vale"]');
+        const body = figure.querySelector(".portrait-body");
+        const check = () => {
+          const expected = portableLampPool(stage), pool = stageLight(stage).pools.find(p => p.portable);
+          if (Boolean(expected) !== Boolean(pool) || (pool && (Math.abs(pool.x - expected.x) > 0.4 || Math.abs(pool.y - expected.y) > 0.4))) throw Error(`Moving lamp detached from prop: ${JSON.stringify({expected,pool})}`);
+        };
+        for (const interrupt of [false, true]) {
+          const motion = body.animate([{ translate: "-24px 0" }, { translate: "0 0" }], { duration: 850 });
+          figure.classList.toggle("entering", false);
+          renderStageLight(stage, { turn: 36, lamp: true, ease: false });
+          for (let i = 0; i < 35; i++) {
+            await new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+            check();
+            if (interrupt && i === 10) motion.cancel();
+          }
+          motion.cancel();
+        }
+        figure.dataset.combatArt = "attack";
+        await new Promise(r => setTimeout(r, 50));
+        check();
+        delete figure.dataset.combatArt;
+        await new Promise(r => setTimeout(r, 50));
+        check();
+      });
+
+    }
+    await checkLamp("held", "shader");
+    await checkLamp("placed", "shader");
+    {
       // Without WebGL the CSS multiply carries the same grade.
       await page.addInitScript(() => {
         const get = HTMLCanvasElement.prototype.getContext;
@@ -367,7 +453,10 @@ try {
           .evaluate((el) => getComputedStyle(el, "::after").display),
         "block",
       );
-      assert((await figureLight()) < 0.7);
+
+      assert(await page.locator("#stage").evaluate(stage => Number(/brightness\(([\d.]+)\)/.exec(stage.style.getPropertyValue("--tod-figure"))[1]) < 0.7));
+      await checkLamp("held", "fallback");
+      await checkLamp("placed", "fallback");
     }
     assert.deepEqual(errors, []);
     await page.close();
@@ -377,7 +466,7 @@ try {
     JSON.stringify(report, null, 2),
   );
   console.log(
-    `Weather browser checks passed: ${report.length} scenes at desktop and phone widths (the phone runs fewer).`,
+    `${process.env.LAMP_ONLY ? "Lamp" : "Weather"} browser checks passed: ${report.length} cases at desktop and phone widths.`,
   );
 } finally {
   await browser.close();

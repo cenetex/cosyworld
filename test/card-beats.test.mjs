@@ -1,4 +1,4 @@
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, it, expect } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
@@ -50,7 +50,7 @@ const worldOf = (log, place = "pond") => ({
 });
 
 describe("beat grouping", () => {
-  it("keeps the focused goal and Discard in local and shared worlds", () => {
+  it("keeps the held goal and Discard in local and shared worlds", () => {
     for (const shared of [false, true]) {
       let world = createWorld();
       world.actors.vale.visited.push("pond");
@@ -61,49 +61,16 @@ describe("beat grouping", () => {
         since: 0,
         refusals: 0,
       };
-      world.actors.vale.under = [
-        { kind: "person", target: "keeper", since: 0, refusals: 0 },
-      ];
       if (shared)
         world = dispatchShared({ op: "create", save: encodeSave(world) }).world;
-      const action = legalActions(world).find(
-        (a) => a.kind === "focus" && a.quest === 1,
-      );
-      const result = shared
-        ? dispatchShared({
-            op: "play",
-            world,
-            action,
-            actor: "vale",
-            claimed: ["vale"],
-            present: ["vale"],
-          })
-        : play(world, action);
-      expect(result.ok).toBe(true);
-      const next = result.world || result.state;
-      const quest = questCards(next)[0],
-        legal = legalActions(next);
-      expect(quest.target).toBe("keeper");
-      expect(questStep(next, quest, false, legal)?.action).toBeUndefined();
+      const quest = questCards(world)[0],
+        legal = legalActions(world);
+      expect(quest.target).toBe("oil");
+      expect(questStep(world, quest, false, legal)?.action).toBeUndefined();
       expect(
         legal.some((a) => a.kind === "drop" && !a.item && a.quest === 0),
       ).toBe(true);
-      expect(next.log.at(-1).verb).toBe("focus");
-      expect(
-        sceneBeats(next, { shared })
-          .flatMap((b) => b.actions)
-          .some((a) => a.kind === "focus"),
-      ).toBe(false);
     }
-  });
-  it("keeps speech in front when a quest is focused or its reward collected", () => {
-    const line = said("vale", "The lamp shines beside the saved deed.");
-    const log = [
-      line,
-      did("vale", "claim", { receipt: 1 }),
-      did("vale", "focus"),
-    ];
-    expect(sceneBeats(worldOf(log))).toEqual(sceneBeats(worldOf([line])));
   });
   it("keeps a played card in front of the lines it prompts", () => {
     seq = 0;
@@ -476,7 +443,7 @@ describe("combat beats from the rules", () => {
   };
   it("gives each fighter a beat and the loser the defeat", () => {
     let s = enableMotives(atticOpening());
-    s = act(s, "snuff");
+    s = selectLamp(s);
     s.actors.moth.place = "pond";
     s = act(s, "move", "pond");
     s.standoffs = [

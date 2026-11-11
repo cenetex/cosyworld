@@ -10,6 +10,9 @@ The [2026-11-06 interaction study](world-authoring-play.md) updates the entry
 flow and generation storage policy. New generation keeps seed text and expanded
 prompts in the session; accepted card output and artwork form the saved world.
 
+A 2026-11-11 draft, [the maker is the game table](maker-as-the-game.md),
+proposes replacing the tree with the game's own place view. It is not decided.
+
 ## Writing and cards
 
 The author works at the existing card table. A World Idea card opens a plain
@@ -319,6 +322,150 @@ join the same private storage and immutable release manifest as imports.
 The production model is `openai/gpt-image-2.6-flare` through the configured
 provider. The direct OpenAI model ID is `gpt-image-2.6-flare`. Both generation
 and reference-image editing are documented in the [image generation guide](https://developers.openai.com/api/docs/guides/image-generation).
+
+## Generation jobs
+
+A paid generation (an image up to 150 s, a seed or character draw up to 60 s)
+must not live only in a browser tab. Before jobs, a tab that navigated away or
+reloaded lost the result, and a paid image could land with nowhere to be saved.
+A job is a server-owned record of one paid request and its result
+([#2623](https://github.com/cenetex/cosyworld/issues/2623)). The server runs it
+once, keeps the result, and the client reads it back by id, so a closed tab, a
+reload, a dropped connection or a deploy cannot lose a finished result.
+
+### Contract
+
+All routes need the passkey session; mutations are same-origin. Every response is
+`Cache-Control: no-store`. Failures and body rejections are JSON
+`{error, ok:false, code, retryAfterMs?}`.
+
+| Route | Does |
+| --- | --- |
+| `POST /card-game/authoring/jobs` | Body `{kind: "image" \| "seed" \| "avatars", request}`. `request` is exactly the body the matching `generate/*` route accepts. Optional `Idempotency-Key` header (one UUID, as `POST /packs`). |
+| `GET /card-game/authoring/jobs/by-request` | Required `Idempotency-Key` UUID header. Returns only the signed-in owner's existing job, or 404 `job_not_found`. Never starts provider work. |
+| `GET /card-game/authoring/jobs/{id}` | One job of the signed-in owner; another account gets 404 `job_not_found`. |
+| `GET /card-game/authoring/jobs` | The owner's 50 newest jobs, newest first, in the same shape. |
+
+Create validates with the same code as the synchronous routes before it accepts
+anything, so shape errors return at once with the same message, and nothing is
+charged. It answers `202 {id, kind, status: "queued", createdAt}`. A repeated
+`Idempotency-Key` with the same request answers `200` with the existing job
+(never a second paid call); the same key with a different request is
+`409 idempotency_conflict`.
+
+A job reads `{id, kind, status, createdAt, updatedAt, result?, error?}`. Times
+are Unix milliseconds. `status` is `queued`, `running`, `done` or `failed`.
+
+- `image` result: `{image: {sha256, size, mime: "image/png"}, basis, model, usage}`.
+  The bytes are in the owner's private asset store; fetch them with
+  `GET /card-game/authoring/assets/{sha256}`.
+- `seed` result: `{cards}`. `avatars` result: `{candidate, model, usage}`. These are
+  the bodies the synchronous routes return, stored in the job row (at most 64 KiB).
+- `error`: `{message, code, retryAfterMs}`. One short honest message by cause:
+
+| `code` | Meaning |
+| --- | --- |
+| `inference_timeout` | The model took too long. |
+| `inference_provider_error` | A 4xx other than 401, 402, 404, 408, 425 and 429 says the model refused the request; any other provider error says the service is unavailable. |
+| `inference_daily_spend_exhausted` | The daily server budget is spent; the message says it resets at 00:00 UTC and `retryAfterMs` counts to then. |
+| `inference_*` (others) | The service is unavailable; `retryAfterMs` follows the provider's hint, else 0. |
+| `generation_timeout` | The pool's deadline (90 s text, 180 s image) passed. |
+| `generation_invalid_output`, `generation_incomplete` | The text model's reply was unusable or cut off. |
+| `image_layout_invalid` | The image could not be used; for a pose sheet, it does not split into six equal cells. |
+| `image_model_unexpected` | The image came from a model other than the pinned one and was discarded. |
+| `authoring_storage_full`, `authoring_storage_unavailable` | The image was made but could not be kept. |
+| `generation_interrupted` | The server restarted, or the run stopped unexpectedly. Not retried. |
+
+### Admission
+
+Text jobs (seed, avatars) and image jobs have separate pools, so a card draw never
+waits for an image. In each pool an owner may have 1 job running, the server 2, and
+an owner may start 18 text or 6 image jobs per minute. A refusal is `429` and says
+which limit it hit: `generation_busy_owner`, `generation_busy_global` or
+`generation_rate`, with `retryAfterMs` taken from the running jobs' deadlines or
+the oldest start in the window. Admission is process-local, shared by the jobs
+and the synchronous routes. Refused requests create no row.
+
+### Lifecycle
+
+`queued` lasts only until the server task starts; the task marks the row `running`,
+makes exactly one provider attempt through the existing gateway functions (a paid
+call is never retried automatically), stores the result, frees the slot, then writes
+`done` or `failed`. An image is saved to the owner's store before the job reads
+`done`; a full store fails the job with `authoring_storage_full` and writes no
+file. The row is a plain SQLite table, `authoring_jobs`, created idempotently like
+the other authoring tables. It holds no request body, only a digest for idempotency.
+
+At boot, every job left `queued` or `running` is marked `failed` with
+`generation_interrupted` and is **not** run again. The provider call that was in
+flight during a restart may still have been charged; the message tells the maker it
+was stopped and can be started again.
+
+### Retention
+
+The request-key lookup works for queued, running and finished jobs, including jobs
+older than the recent list. Missing, malformed or repeated UUID headers return 400.
+A missing or pruned job returns 404, not permission to automatically resend a paid
+request. Lookup requires no prompt or request body and uses the same account
+scope and no-store response policy as other job reads.
+
+Finished job rows are deleted after 7 days (at boot and hourly), and each owner
+keeps at most their newest 200 rows, trimmed when a job is accepted. Job images
+follow the existing asset-store rules: there is no delete route, so every unused
+result counts against the owner's 256 MiB and 1,024 files and the server's 512 MiB
+generated-asset budget. Proposed, not built: a route that deletes an owner's file
+that no job result, pack or draft references, and an automatic sweep of images
+whose job rows have been pruned.
+
+### Durable intent foundation (not activated)
+
+The intent-store helpers can atomically prepare and claim a request UUID, bound
+by account revision, draft generation and request digest. They store only bounded
+adoption metadata, never full provider bodies or reference image bytes. The new
+read-only request lookup can recover a server job by UUID. No maker tool or sweep
+uses these helpers yet; the existing client behavior below is unchanged.
+
+### The maker client
+
+Every paid generation in the maker (portrait, poses, seed draw, uncover and
+regenerate, the older Find avatars tool) is a job: `authoring-jobs.mjs` creates it
+with a fresh `Idempotency-Key`, then polls `GET /jobs/{id}` at 1 s rising to 5 s.
+It pauses while the tab is hidden, keeps the job id through a network blip, and
+gives up waiting only at the server's own deadline (90 s text, 180 s image) plus 30 s,
+leaving the job running. A create whose reply is lost is retried with the same key
+(three tries, then the key is kept for the next press), so it cannot become a
+second paid job. The three synchronous `generate/*` routes are no longer called.
+
+**Where the id lives.** As soon as the server accepts a job the client writes
+`{id, kind, tool, avatar/variant/role, basis, binding or world context}` to the
+`jobs` store of the browser database (`authoring-job-store.mjs`, keyed by draft).
+It holds no request text, except the story sample a Story-text draw needs to check
+its own quote. The record is deleted once the result is applied, kept in the
+artwork library, or shown as a failure.
+
+**Reattach** (`authoring-job-sweep.mjs`). On opening a draft, on returning to the
+tab, and when a generation card is selected, the client lists `GET /jobs`, finds
+the records of the open draft, and for each:
+
+- running or queued: shows the in-flight label on that card and keeps polling;
+- failed: shows the server's message in the tool's note (a busy, rate or budget
+  refusal also disables the button with "Try again in N s" until `retryAfterMs`);
+- done: hands the result to the tool that asked, exactly once. An image is fetched
+  from `GET /assets/{sha256}`, checked against its digest, and its original is
+  archived in the draft. It is then applied as an in-tab result would have been
+  (the first portrait is saved; a replacement portrait or poses become the preview
+  awaiting Confirm artwork) only when the avatar is unchanged since the request
+  (same draft key, avatar entity, visual revision and, for poses, portrait digest),
+  no other artwork is waiting, and the tab did not abandon the request. Otherwise
+  the original stays in the artwork library (Browse artwork) and the card's note
+  says so; it is never applied over newer work. A seed draw is applied only to a
+  world whose context cards still equal those sent; otherwise the note says it was
+  not applied. A character reply joins the Find avatars cards.
+
+A job found in the store while another tab's request still holds it is skipped.
+Create uploads: an original made by a job is already in the owner's store, so the
+transfer asks `HEAD /assets/{sha256}` for files under `assets/generated-art/` and
+skips the upload when the stored size matches, and uploads when anything is doubtful.
 
 ## Publish and the Store
 

@@ -53,6 +53,15 @@ describe("stage portrait art directions", () => {
     expect(nativePortraitFacing(portrait("greek-baker"))).toBe("left");
   });
 
+  it("keeps RatiRadio's frontal portraits unmirrored in either stage slot", () => {
+    for (const name of ["rati", "raven"]) {
+      const source = `assets/ratiradio/${name}.webp`;
+      expect(nativePortraitFacing(source)).toBe("front");
+      for (const facing of ["left", "right"])
+        expect(flipStagePortrait(source, facing)).toBe(false);
+    }
+  });
+
   it.each(humanAvatarIds)(
     "faces Dione from both sides for shared %s",
     (actor) => {

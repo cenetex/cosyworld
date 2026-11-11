@@ -206,7 +206,7 @@ tests:
               "region": "sjc",
               "process": "lonelyforest-7",
               "tenant": "7",
-              "worldpack": "bethlehem",
+              "worldpack": "official",
               "provider": "openrouter",
               "span": {"request_id": "incident-smoke-7"},
               "http_status": 503
@@ -222,7 +222,7 @@ tests:
               assert_eq!(.region, "sjc")
               assert_eq!(.process, "lonelyforest-7")
               assert_eq!(.tenant, "7")
-              assert_eq!(.worldpack, "bethlehem")
+              assert_eq!(.worldpack, "official")
               assert_eq!(.provider, "openrouter")
               assert_eq!(.request_id, "incident-smoke-7")
               assert_eq!(.alert_kind, "provider_unavailable")

@@ -79,6 +79,11 @@ const groups = {
     ].map((name) => `assets/greek-drama/open-door-${name}.webp`),
   ],
   front: [
+    "assets/ratiradio/rati.webp",
+    "assets/ratiradio/raven.webp",
+    "assets/greek-drama/patroclus.png",
+    "assets/greek-drama/patroclus-bread.png",
+    "assets/sleep/residents/greek-patroclus-sleeping.png",
     ...Object.values(rarityForms)
       .filter((form) => form.facing === "front")
       .map((form) => form.portrait),

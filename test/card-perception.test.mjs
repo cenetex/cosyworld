@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { expect, it } from "vitest";
 import { createWorld } from "../v2/card-game/world.mjs";
 import { perception, listenerOf } from "../v2/card-game/perception.mjs";
@@ -12,9 +13,9 @@ const seen = (context, id) =>
 
 it("ranks this moment's changes by how much they involve the speaker", () => {
   const harbor = scene(assistantRoleScenes(), "harbor wait with Myrto");
-  // Pip's threat names Vale and Pip; Vale's own Wait is not a change.
+  // Pip's request names Vale and Pip; Vale's own Wait is not a change.
   expect(harbor.events[seen(harbor, "vale").changes[0]]).toBe(
-    "Pip threatens Vale over the Lamp.",
+    "Pip asks Vale for the Lamp. Vale keeps it for now.",
   );
   expect(seen(harbor, "vale").changes).toHaveLength(1);
   const crowd = scene(perceptionScenes(), "P1 crowded station");

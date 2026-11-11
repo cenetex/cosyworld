@@ -3,6 +3,7 @@ import {
   sharedLiveLine,
   sharedNextLine,
   sharedReadingLine,
+  sharedReadingState,
   createSharedPlaybackClock,
   sharedSpeechState,
   sharedVoiceReference,
@@ -107,6 +108,25 @@ describe("shared room dialogue clock", () => {
     expect(sharedLiveLine(state, 1100, "pond")).toEqual(first);
     expect(sharedLiveLine(state, 4600, "pond")).toEqual(second);
     expect(sharedLiveLine(state, 90000, "pond")).toEqual(second);
+  });
+  it("does not promise a Continue into room speech while the place is covered", () => {
+    const waking = { seq: 20, speaker: "Rue", text: "I am awake." };
+    const pip = { seq: 21, speaker: "Pip", text: "Welcome." };
+    const room = { seq: 22, speaker: "Pip", text: "The shore waits." };
+    const state = { actor: "rue", history: [
+      { room: "pond", starts_at: 1, opening: true, actor: "rue", lines: [waking, pip] },
+      { room: "pond", starts_at: 2, opening: true, actor: "mara", lines: [room] },
+    ] };
+    const covered = sharedReadingState(state, false);
+    expect(sharedReadingLine(covered, "pond")).toEqual(waking);
+    expect(sharedNextLine(covered, "pond", waking.seq)).toEqual(pip);
+    // This is the last reachable line: Continue must release the chosen card,
+    // rather than waiting forever for the other avatar's hidden opening.
+    expect(sharedNextLine(covered, "pond", pip.seq)).toBeUndefined();
+    expect(sharedNextLine(state, "pond", pip.seq)).toEqual(room);
+    expect(sharedReadingState(state, true)).toBe(state);
+    expect(sharedNextLine(sharedReadingState(state, true), "pond", pip.seq)).toEqual(room);
+    expect(state.history).toHaveLength(2);
   });
   it("reads each shared reply in order from the viewer’s last line", () => {
     expect(sharedNextLine(state, "pond", 0)).toEqual(first);

@@ -1,0 +1,263 @@
+{
+  "greek-before-funeral": {
+    "arrival": {
+      "turn": 2,
+      "place": "greek-courtyard",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "5bcd65f2a1c784ba"
+    },
+    "waterOffer": {
+      "turn": 5,
+      "place": "greek-courtyard",
+      "carried": [
+        "greek-water-jar",
+        "lamp"
+      ],
+      "sha256": "6cd4f1bdf17e391a"
+    },
+    "water": {
+      "turn": 6,
+      "place": "greek-courtyard",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "9b782c80fb6b0a34"
+    },
+    "decree": {
+      "turn": 7,
+      "place": "greek-gate",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "10babbfa9dbb0d0d"
+    },
+    "traded": {
+      "turn": 11,
+      "place": "greek-gate",
+      "carried": [
+        "greek-decree",
+        "lamp"
+      ],
+      "sha256": "bf73a722575cd65a"
+    },
+    "writ": {
+      "turn": 15,
+      "place": "greek-palace",
+      "carried": [
+        "greek-creon-writ",
+        "lamp"
+      ],
+      "sha256": "7bf4603af5f84943"
+    },
+    "opened": {
+      "turn": 19,
+      "place": "greek-gate",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "d07ee2bc4fd7b661"
+    }
+  },
+  "greek-before-funeral-dry": {
+    "arrival": {
+      "turn": 2,
+      "place": "greek-courtyard",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "5bcd65f2a1c784ba"
+    },
+    "decree": {
+      "turn": 3,
+      "place": "greek-gate",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "6b1fe1f1da06eefe"
+    }
+  },
+  "greek-gate-open": {
+    "arrival": {
+      "turn": 2,
+      "place": "greek-courtyard",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "5bcd65f2a1c784ba"
+    },
+    "waterOffer": {
+      "turn": 5,
+      "place": "greek-courtyard",
+      "carried": [
+        "greek-water-jar",
+        "lamp"
+      ],
+      "sha256": "6cd4f1bdf17e391a"
+    },
+    "water": {
+      "turn": 6,
+      "place": "greek-courtyard",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "9b782c80fb6b0a34"
+    },
+    "decree": {
+      "turn": 7,
+      "place": "greek-gate",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "10babbfa9dbb0d0d"
+    },
+    "traded": {
+      "turn": 11,
+      "place": "greek-gate",
+      "carried": [
+        "greek-decree",
+        "lamp"
+      ],
+      "sha256": "bf73a722575cd65a"
+    },
+    "writ": {
+      "turn": 15,
+      "place": "greek-palace",
+      "carried": [
+        "greek-creon-writ",
+        "lamp"
+      ],
+      "sha256": "7bf4603af5f84943"
+    },
+    "opened": {
+      "turn": 19,
+      "place": "greek-gate",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "d07ee2bc4fd7b661"
+    },
+    "battlefield": {
+      "turn": 20,
+      "place": "greek-battlefield",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "473887cff01a4b4f"
+    }
+  },
+  "greek-gate-open-full": {
+    "arrival": {
+      "turn": 2,
+      "place": "greek-courtyard",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "b96d3247d1fa9e8f"
+    },
+    "waterOffer": {
+      "turn": 5,
+      "place": "greek-courtyard",
+      "carried": [
+        "greek-water-jar",
+        "lamp"
+      ],
+      "sha256": "14491bcd51835bfb"
+    },
+    "water": {
+      "turn": 6,
+      "place": "greek-courtyard",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "eaf1fd6e33c6b1d7"
+    },
+    "decree": {
+      "turn": 7,
+      "place": "greek-gate",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "3e52678cd2689b22"
+    },
+    "traded": {
+      "turn": 11,
+      "place": "greek-gate",
+      "carried": [
+        "greek-decree",
+        "lamp"
+      ],
+      "sha256": "cae1ca02342729a7"
+    },
+    "writ": {
+      "turn": 15,
+      "place": "greek-palace",
+      "carried": [
+        "greek-creon-writ",
+        "lamp"
+      ],
+      "sha256": "63452d9dc1f3f7a3"
+    },
+    "opened": {
+      "turn": 19,
+      "place": "greek-gate",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "db5900ecb798a29f"
+    },
+    "battlefield": {
+      "turn": 20,
+      "place": "greek-battlefield",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "0b776a4cd0c22ea5"
+    }
+  },
+  "quest-cards": {
+    "opened": {
+      "turn": 0,
+      "place": "attic",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "dcff3cb60693c093"
+    },
+    "told": {
+      "turn": 2,
+      "place": "pond",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "2e351e63e01f7e0a"
+    },
+    "accepted": {
+      "turn": 2,
+      "place": "pond",
+      "carried": [
+        "lamp"
+      ],
+      "sha256": "48e82c9116c16f48"
+    },
+    "met": {
+      "turn": 3,
+      "place": "pond",
+      "carried": [],
+      "sha256": "1c25c4501e311a13"
+    },
+    "sleepQuest": {
+      "turn": 3,
+      "place": "pond",
+      "carried": [],
+      "sha256": "4b5e8f25ba0d9880"
+    },
+    "levelled": {
+      "turn": 24,
+      "place": "attic",
+      "carried": [],
+      "sha256": "d3d354d8cce6c96c"
+    }
+  }
+}

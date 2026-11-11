@@ -541,8 +541,8 @@ struct Context {
     /// "long" when the resting avatar wakes from a long rest at a sanctuary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rest: Option<String>,
-    /// What that long rest dreamed by the rules (rules 99): "glimpse" or
-    /// "quest". Only then is a dream due.
+    /// What that long rest dreamed by the rules (rules 133): "glimpse".
+    /// Only then is a dream due.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     dream: Option<String>,
     #[serde(default)]
@@ -835,8 +835,8 @@ pub(crate) fn same_origin(headers: &HeaderMap) -> bool {
                 .any(|prefix| origin.strip_prefix(prefix) == Some(host))
     })
 }
-/// Whether the authored-text catalog is older than the scene modules and
-/// packs this build serves. A stale catalog leaves new rules text out of
+/// Whether the authored-text catalog lists a scene module or pack this build
+/// does not serve (see `authored::catalog_current`). A stale catalog leaves new rules text out of
 /// every prompt, so startup logs it loudly and /meta reports it
 /// (`card_game.card_text.catalog_stale`).
 pub(crate) fn catalog_stale() -> bool {
@@ -976,6 +976,14 @@ async fn generate(
             let _client_slot = _client_slot;
             let deltas = sender.clone();
             let emit = |text: &str| {
+                // Continuations must be able to quote a published line even
+                // when this stream closes before its final response.
+                let Ok(entry) = serde_json::from_str::<Value>(text) else {
+                    return false;
+                };
+                let mut value = json!({"entries": [entry]});
+                untrusted::sign_lines(&mut value, &context);
+                let text = format!("{}\n", value["entries"][0]);
                 deltas
                     .send(Event::default().data(json!({"type":"delta","text":text}).to_string()))
                     .is_ok()
@@ -1379,7 +1387,8 @@ impl Part {
     /// Character and sentence limits applied after the model answers.
     fn limits(self) -> (usize, usize) {
         match self {
-            Part::Line | Part::Thought => (400, 2),
+            Part::Line => (400, 3),
+            Part::Thought => (400, 2),
             Part::Dream => (400, 3),
             Part::Persona => (600, 4),
         }
@@ -1519,9 +1528,9 @@ pub(super) fn client_budget_ms() -> u128 {
 }
 
 const THOUGHT_GAP: u64 = 6;
-/// The dreams a long rest may bring by the rules: the halfway glimpse and the
-/// level quest, one or two a level (rules 99).
-const DREAMS: [&str; 2] = ["glimpse", "quest"];
+/// The dream a long rest may bring by the rules: the halfway glimpse, once a
+/// level (rules 133; the level quest no longer dreams).
+const DREAMS: [&str; 1] = ["glimpse"];
 
 /// Mirrors `reflectionDue` in the card rules: only the avatar who waited
 /// thinks, after something new happened to them. A dream is due only when a
@@ -2116,7 +2125,10 @@ fn listener(context: &Context, id: &str) -> Option<String> {
     if id != actor && others.iter().any(|s| *s == actor) {
         Some(actor.to_string())
     } else {
-        others.first().map(|s| s.to_string())
+        others
+            .first()
+            .map(|s| s.to_string())
+            .or_else(|| answered(context, entity(context, id)).map(|line| line.actor_id.clone()))
     }
 }
 
@@ -2967,9 +2979,11 @@ fn stage_action(text: &str) -> bool {
     text.split_inclusive(['.', '!', '?', ';'])
         .map(|s| s.trim().to_lowercase())
         .any(|s| {
-            ["give", "hand", "pass", "take", "offer", "drop", "put"]
-                .iter()
-                .any(|verb| s.starts_with(&format!("i {verb} the ")))
+            [
+                "give", "hand", "pass", "place", "take", "offer", "drop", "put",
+            ]
+            .iter()
+            .any(|verb| s.starts_with(&format!("i {verb} the ")))
         })
 }
 
@@ -3088,11 +3102,11 @@ pub(crate) mod tests {
     /// Vale waited with two thoughts settled since any dream, so a thought
     /// and a dream are both due. Earlier events count as new since then.
     /// A dream is due only on waking from a long rest that dreamed by the
-    /// rules (rules 99): here the level quest's.
+    /// rules (rules 133): the halfway glimpse.
     pub(super) fn dream_due(c: &mut Context) {
         resting(c);
         c.rest = Some("long".into());
-        c.dream = Some("quest".into());
+        c.dream = Some("glimpse".into());
         c.turn = c.turn.max(20);
         c.revision = c.revision.max(c.turn);
         let vale = &mut c.entities[0];
@@ -3409,7 +3423,6 @@ pub(crate) mod tests {
             line.to_string(),
             format!("Pip: {line}"),
             format!("\"{line}\""),
-            format!("{line} And another thing. And on."),
             format!("**Pip:** {line}\n\nI hope that helps!"),
             format!("{line}\nVale: Sure."),
             format!("{line} Vale: Sure."),
@@ -3417,6 +3430,21 @@ pub(crate) mod tests {
         ] {
             assert_eq!(clean(&raw).as_deref(), Ok(line), "{raw}");
         }
+        // A spoken line keeps up to three sentences and drops the rest; a
+        // thought still keeps two.
+        let three = format!("{line} And another thing.");
+        assert_eq!(clean(&three).as_deref(), Ok(three.as_str()));
+        assert_eq!(
+            clean(&format!("{three} And on. And on.")).as_deref(),
+            Ok(three.as_str())
+        );
+        let thought_raw = "My sleeves are dry. I hold it higher. And on.";
+        assert_eq!(
+            Check::new(&c, pip, Part::Thought)
+                .clean(thought_raw, true)
+                .as_deref(),
+            Ok("My sleeves are dry. I hold it higher.")
+        );
         // A stage direction goes and is counted.
         let staged = check.verdict(&format!("*shifts a little* {line}"), true, true);
         assert_eq!(staged, Ok((line.into(), vec!["stage action"])));
@@ -3674,14 +3702,15 @@ pub(crate) mod tests {
         assert!(valid(&c));
         // An ordinary long rest brings a thought and no dream (rules 99).
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
-        for dream in ["glimpse", "quest"] {
-            c.dream = Some(dream.into());
-            assert!(valid(&c));
-            assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
-        }
+        c.dream = Some("glimpse".into());
+        assert!(valid(&c));
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        // The level quest no longer dreams (rules 133).
+        c.dream = Some("quest".into());
+        assert!(!valid(&c));
         c.dream = Some("nightmare".into());
         assert!(!valid(&c));
-        c.dream = Some("quest".into());
+        c.dream = Some("glimpse".into());
         c.rest = Some("short".into());
         assert!(!valid(&c));
         // A dream belongs to a long rest.
@@ -3818,7 +3847,7 @@ pub(crate) mod tests {
         value["entities"][3]["facts"] = json!([]);
         value["entities"][3]["poem"] = json!({
             "title":"Before the Burial",
-            "stanzas":[{"id":"greek-report-plan","turn":1,"authorId":"vale","authorName":"Vale"}]
+            "stanzas":[{"id":"greek-return-water-jar","turn":1,"authorId":"vale","authorName":"Vale"}]
         });
         value["entities"][3]["memories"] = json!([]);
         serde_json::from_value(value).unwrap()
@@ -3870,11 +3899,9 @@ pub(crate) mod tests {
             .iter()
             .find(|pack| pack["id"] == "greek-drama")
             .unwrap()["recital"];
-        for (choice, buried, permitted) in [
-            ("greek-perform-burial", true, false),
-            ("greek-petition-burial", false, true),
-            ("greek-perform-permitted-burial", true, true),
-            ("greek-report-plan", false, false),
+        for (choice, buried) in [
+            ("greek-bury-polynices", true),
+            ("greek-return-water-jar", false),
         ] {
             let mut c = bard_context();
             c.entities[3].poem = Some(
@@ -3891,13 +3918,10 @@ pub(crate) mod tests {
                 buried,
                 "{choice}"
             );
-            assert_eq!(
-                check
-                    .clean("The king gave permission for this one grave.", true)
-                    .is_ok(),
-                permitted,
-                "{choice}"
-            );
+            // No verse claims Creon's leave any more: nothing can make it true.
+            assert!(check
+                .clean("The king gave permission for this one grave.", true)
+                .is_ok());
             assert!(check
                 .clean("I wonder what that choice will mean tomorrow.", true)
                 .is_ok());
@@ -5134,6 +5158,39 @@ pub(crate) mod tests {
         assert!(!valid(&c));
     }
     #[test]
+    fn continuation_keeps_listener_context_and_trusts_current_turn_words() {
+        let mut c = context();
+        c.scenery = false;
+        c.focus = None;
+        c.speakers = vec!["moth".into()];
+        let mut outcome = serde_json::to_value(solo_departure()).unwrap();
+        outcome["card"]["kind"] = json!("talk");
+        outcome["card"]["target"] = json!("moth");
+        c.outcome = Some(serde_json::from_value(outcome).unwrap());
+        c.disclosures = serde_json::from_value(json!([{
+            "factId":"event:2", "speaker":"moth", "listener":"vale",
+            "eventSeq":3, "text":"Pip found a shell beside the pond."
+        }]))
+        .unwrap();
+        c.conversation = vec![SpokenLine {
+            signed: None,
+            witnesses: Some(vec!["vale".into(), "moth".into()]),
+            actor_id: "vale".into(),
+            text: "Would you stay here with me, Pip?".into(),
+        }];
+        assert!(valid(&c));
+        assert_eq!(voiced(&c), ["moth"]);
+        let mut c = untrusted::trusted(untrusted::signed(&c)).unwrap();
+        assert_eq!(c.conversation.len(), 1);
+        assert_eq!(listener(&c, "moth").as_deref(), Some("vale"));
+        assert!(conversation::user(&c, entity(&c, "moth"))
+            .contains("Would you stay here with me, Pip?"));
+        // The published actor is still the remaining speaker's listener.
+        c.entities.retain(|e| e.id != "vale");
+        assert!(!valid(&c));
+    }
+
+    #[test]
     fn validates_ordered_scene_events_and_recent_conversation() {
         let mut c = context();
         c.events = vec!["Pip leaves for Black pond.".into()];
@@ -5270,6 +5327,10 @@ pub(crate) mod tests {
         let first = std::str::from_utf8(&first).unwrap();
         assert!(first.contains("delta") && first.contains("What would you trade"));
         assert!(!first.contains("complete"));
+        let frame: Value =
+            serde_json::from_str(first.trim().strip_prefix("data: ").unwrap()).unwrap();
+        let line: Value = serde_json::from_str(frame["text"].as_str().unwrap()).unwrap();
+        assert!(line["signed"]["claims"].is_object());
         let mut rest = Vec::new();
         while let Some(chunk) = chunks.next().await {
             rest.extend_from_slice(&chunk.unwrap());

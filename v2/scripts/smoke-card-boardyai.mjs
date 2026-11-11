@@ -7,6 +7,17 @@ import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 import { UNKNOWN_PERSON } from "../card-game/speech-knowledge.mjs";
+import { boardyPack } from "../card-game/boardyai.mjs";
+const entrance = boardyPack.crossings.find(
+  (c) => c.id === "station-boardyai-parlour",
+);
+const doorway = entrance.from;
+assert.equal(doorway, "station", "Boardy revision4 restores the Station entrance");
+assert.equal(entrance.to, "boardyai-parlour");
+assert.equal(
+  boardyPack.crossings.find((c) => c.id === "boardyai-parlour-station").to,
+  doorway,
+);
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -27,11 +38,15 @@ try {
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
     };
-    for (const fields of [
-      // The opening starts lit; dousing opens the mirror (#1653).
-      { kind: "snuff" },
-      { kind: "move", target: "pond" },
-    ]) {
+    // The opening starts lit; holding nothing puts the lamp out and opens the
+    // mirror (#1653, #2580).
+    seed = dispatchShared({
+      op: "hold",
+      world: seed,
+      ...membership,
+      choice: { item: null, revision: seed.revision },
+    }).world;
+    for (const fields of [{ kind: "move", target: "pond" }]) {
       const view = dispatchShared({ op: "view", world: seed, ...membership });
       const action = view.actions.find((a) =>
         Object.entries(fields).every(([key, value]) => a[key] === value),
@@ -60,7 +75,7 @@ try {
         "one human sees no calling card",
       );
     }
-    // Boardy steps out of his station door and meets Vale at the pond.
+    // Boardy has left his parlour doorway and meets Vale at the pond.
     const world = {
       ...seed,
       playerActorId: membership.actor,
@@ -76,7 +91,7 @@ try {
       since: world.turn,
       refusals: 0,
     };
-    // He steps out of his station door to meet Vale at the pond.
+    // His visit is separate from the calling card's Station starting place.
     world.actors.boardyai.place = "pond";
     const table = `boardyai-${width}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
@@ -155,7 +170,11 @@ try {
     // Talk carries one quest line, not quest titles. BoardyAI has not met
     // Mara, so his line keeps her unnamed (#1850).
     assert(
-      told.facts.some((fact) => fact === `I want to see ${UNKNOWN_PERSON}.`),
+      // Talk now adds "I would be glad of your help." to the want line
+      // (the offer rides in the Talk context, wants-and-arcs.md).
+      told.facts.some((fact) =>
+        fact.startsWith(`I want to see ${UNKNOWN_PERSON}.`),
+      ),
       "BoardyAI's Talk context carries his quest",
     );
     assert(!told.facts.some((fact) => fact.includes("Mara")));
@@ -176,13 +195,26 @@ try {
       throw Error("BoardyAI's visit stayed busy.");
     };
     await settle();
-    for (const [id, kind, turn, place] of [
-      ["station", "move", startTurn + 2, "station"],
-      ["boardyai-calling-card", "take", startTurn + 3, "station"],
-      ["boardyai-parlour", "move", startTurn + 4, "boardyai-parlour"],
-      ["station", "move", startTurn + 5, "station"],
-    ]) {
+    const journey = [
+      ["station", "move", "station"],
+      ["boardyai-calling-card", "take", "station"],
+      ...(doorway === "attic"
+        ? [
+            ["lamp", "light", "station"],
+            ["pond", "move", "pond"],
+            ["attic", "move", "attic"],
+          ]
+        : []),
+      ["boardyai-parlour", "move", "boardyai-parlour"],
+      [doorway, "move", doorway],
+    ];
+    let turn = startTurn + 1;
+    for (const [id, kind, place] of journey) {
+      turn += 1;
       await page.keyboard.press("Escape");
+      await page.waitForFunction(
+        () => !document.querySelector("#hand [data-revealing]"),
+      );
       await selectCard(page, id);
       await page.locator(`#card-actions [data-action="${kind}"]`).click();
       await page.waitForFunction(
@@ -202,6 +234,9 @@ try {
           path: new URL(`parlour-${width}.png`, output).pathname,
         });
     }
+    const admittedBeforeReload = await page.evaluate(
+      (key) => JSON.parse(localStorage.getItem(key)).stationExitOrder, key,
+    );
     await page.reload();
     await page.locator('#hand [data-card="vale"]').waitFor();
     await selectCard(page, "boardyai-calling-card");
@@ -210,13 +245,15 @@ try {
         (key) => JSON.parse(localStorage.getItem(key)).turn,
         key,
       ),
-      startTurn + 5,
+      turn,
     );
     const saved = await page.evaluate(
       (key) => JSON.parse(localStorage.getItem(key)),
       key,
     );
-    assert.equal(saved.actors.vale.place, "station");
+    assert.equal(saved.actors.vale.place, doorway);
+    assert.deepEqual(saved.stationExitOrder, admittedBeforeReload);
+    await page.locator('#hand [data-card="boardyai-parlour"]').waitFor();
     assert.equal(saved.items["boardyai-calling-card"].holder, "vale");
     assert.equal(
       await page.locator('#hand [data-card="boardyai-calling-card"]').count(),

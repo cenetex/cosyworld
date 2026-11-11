@@ -1,0 +1,330 @@
+{
+  "version": 1,
+  "tool": "built-in image_gen.imagegen",
+  "sourceReferences": {
+    "concept": {
+      "file": "exec-6e28c67f-94aa-40a1-bedd-f4f67d659ae9.png",
+      "sha256": "dfdfee9597920b116de9ee1fe066472e628540e72f2d7e5de53fb5a758a68f5a"
+    },
+    "storyboard": {
+      "file": "glass-source.pdf",
+      "sha256": "988a8f0de7dfebb00ee9ba0a72a1b41030f79fcf8c52e94562fbdd8679d45621",
+      "pages": [
+        {
+          "page": 10,
+          "file": "glass-page-10.png",
+          "sha256": "89b495b846359dcbcee2d3690b1ccfd6b64bf96bc27492eb79eb94a47175b317"
+        },
+        {
+          "page": 30,
+          "file": "glass-page-30.png",
+          "sha256": "1d9f3173b82712830e501305485c9b86bb0d78a0f70ce11cfdadeb55ed87b903"
+        }
+      ]
+    }
+  },
+  "sources": {
+    "staff-kitchen": {
+      "file": "exec-b84e7513-88ce-40cd-b88a-40664ee0ef21.png",
+      "sha256": "4b76c35da0ef6228cead545c1b4c82a2bf783c82c863a7b9d876a1be5e8ee976",
+      "bytes": 2607201,
+      "width": 1672,
+      "height": 941,
+      "alpha": false
+    },
+    "dispatch-window": {
+      "file": "exec-10cdad76-2095-46bf-b417-c746f226ab48.png",
+      "sha256": "fa0c30a22395f2752013716cbc4397f9c1f4a3f1d5669f265bac072852b9f4f3",
+      "bytes": 2623542,
+      "width": 1672,
+      "height": 941,
+      "alpha": false
+    },
+    "listening-room": {
+      "file": "exec-47f2c54d-cf58-4049-9f30-117fbe80ff3f.png",
+      "sha256": "19e58085c16278a9e346784758c07bd4757428b7bd1570cb44c4af99ce383f51",
+      "bytes": 2496644,
+      "width": 1672,
+      "height": 941,
+      "alpha": false
+    },
+    "broadcast-booth": {
+      "file": "exec-95240b80-0681-415a-962a-0bf8bc9dac11.png",
+      "sha256": "b1e9a0bab69fa026d4e6fa211c05b4308a6e64f0d039a261d4dcb6719aebe314",
+      "bytes": 2540490,
+      "width": 1672,
+      "height": 941,
+      "alpha": false
+    },
+    "rati": {
+      "file": "exec-623d45fd-ff81-4e5b-8385-31b589d6932d.png",
+      "sha256": "c4a5d81e1ab4c7b295f8570169c47228ca674a9c4779a1e77d463b368e9068e6",
+      "bytes": 1619458,
+      "width": 1024,
+      "height": 1536,
+      "alpha": true
+    },
+    "raven": {
+      "file": "exec-e90e90ed-aff9-40be-8f4f-2618c430dfca.png",
+      "sha256": "351b8c798d96c4d3a40e03999862b45004c19a5618a5be93a005c9f63e108f02",
+      "bytes": 1357591,
+      "width": 1153,
+      "height": 1364,
+      "alpha": true
+    },
+    "items-atlas": {
+      "file": "exec-45b77563-4187-4f42-b6fe-b82271a7e854.png",
+      "sha256": "79ba392c8aa8a3cc3a5f001c67b8a7dee47b19dc841b9feb7e1fb887238d8d31",
+      "bytes": 2392100,
+      "width": 1536,
+      "height": 1024,
+      "alpha": true
+    }
+  },
+  "outputs": [
+    {
+      "path": "v2/card-game/assets/ratiradio/staff-kitchen.webp",
+      "sourceKey": "staff-kitchen",
+      "width": 1672,
+      "height": 941,
+      "bytes": 271146,
+      "sha256": "5882b8f84f127fdbe665dbf51131ec4d720ad7f400f7b3c68090d6d831e4e22a",
+      "alpha": false,
+      "alphaIdentical": null,
+      "webp": {
+        "quality": 86,
+        "alphaQuality": 100,
+        "effort": 6
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/dispatch-window.webp",
+      "sourceKey": "dispatch-window",
+      "width": 1672,
+      "height": 941,
+      "bytes": 266350,
+      "sha256": "0dad17084694c7928b2352a37217a9ef9b5982282764a52f94a6cd9be7cd0218",
+      "alpha": false,
+      "alphaIdentical": null,
+      "webp": {
+        "quality": 86,
+        "alphaQuality": 100,
+        "effort": 6
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/listening-room.webp",
+      "sourceKey": "listening-room",
+      "width": 1672,
+      "height": 941,
+      "bytes": 296122,
+      "sha256": "f501e0b39b78fdcf51cc9e50766edcf15441e5450456550c488add201ccb7f0a",
+      "alpha": false,
+      "alphaIdentical": null,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/broadcast-booth.webp",
+      "sourceKey": "broadcast-booth",
+      "width": 1672,
+      "height": 941,
+      "bytes": 296342,
+      "sha256": "ad93d9a4ad1250b1f23215dbe0b51f32df5d8c27c0cb1bcc9910c1c9e631ff4e",
+      "alpha": false,
+      "alphaIdentical": null,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/rati.webp",
+      "sourceKey": "rati",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 133896,
+      "sha256": "9f82c1c6e3c0e213cf0d355f745fe2152b29d981353864cf6f065c8e42c3142e",
+      "alpha": true,
+      "alphaIdentical": true,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/raven.webp",
+      "sourceKey": "raven",
+      "width": 1153,
+      "height": 1364,
+      "bytes": 210416,
+      "sha256": "7c9656eac04c81e77a8f3a0fe6ba1370a75830c9a9459ea1edb12d86337cbe09",
+      "alpha": true,
+      "alphaIdentical": true,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/station-key.webp",
+      "sourceKey": "items-atlas",
+      "width": 512,
+      "height": 512,
+      "bytes": 53568,
+      "sha256": "783b5032883ec995478038e8ef73cac6f1ebaf48fa5a8f6b356f79ee99f4d5aa",
+      "alpha": true,
+      "alphaIdentical": true,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      },
+      "crop": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/red-beanie.webp",
+      "sourceKey": "items-atlas",
+      "width": 512,
+      "height": 512,
+      "bytes": 65954,
+      "sha256": "9607802e448994e22b270a0786c6b7bc8cdfcf9b65577303516f6363d72abff8",
+      "alpha": true,
+      "alphaIdentical": true,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      },
+      "crop": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/thermos.webp",
+      "sourceKey": "items-atlas",
+      "width": 512,
+      "height": 512,
+      "bytes": 43078,
+      "sha256": "9643b7e5af2cb0a65fc84f89b1b55d540f3c3795431ec32e64c0982aa79ae836",
+      "alpha": true,
+      "alphaIdentical": true,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      },
+      "crop": {
+        "left": 1024,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/raven-figurine.webp",
+      "sourceKey": "items-atlas",
+      "width": 512,
+      "height": 512,
+      "bytes": 43974,
+      "sha256": "d66e30a14509aedf6380b4fd604046681e49fe9bd0ac9aa1af7bcb634da0abfd",
+      "alpha": true,
+      "alphaIdentical": true,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      },
+      "crop": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/glass.webp",
+      "sourceKey": "items-atlas",
+      "width": 512,
+      "height": 512,
+      "bytes": 49020,
+      "sha256": "444a02890adfffb19f1e7d92a6fe31c562b786138ab82126760df42137901667",
+      "alpha": true,
+      "alphaIdentical": true,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      },
+      "crop": {
+        "left": 496,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      }
+    },
+    {
+      "path": "v2/card-game/assets/ratiradio/request-slip.webp",
+      "sourceKey": "items-atlas",
+      "width": 512,
+      "height": 512,
+      "bytes": 55702,
+      "sha256": "905125492b77d5ebf4faca8748c2d00fb6c72d0a405f8e5e836af75971216ac5",
+      "alpha": true,
+      "alphaIdentical": true,
+      "webp": {
+        "quality": 88,
+        "alphaQuality": 100,
+        "effort": 6
+      },
+      "crop": {
+        "left": 1008,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      }
+    }
+  ],
+  "processing": "Room and avatar originals encoded without resizing or cropping. Six item cells extracted mechanically from the generated atlas; original alpha preserved exactly. No painting, background reconstruction, color correction or matting.",
+  "audio": {
+    "artist": "ratimics",
+    "title": "Night Shift on RatiRadio (Lo-Fi Mix) (Remastered)",
+    "source": {
+      "filename": "Night Shift on RatiRadio (Lo-Fi Mix) (Remastered).m4a",
+      "sha256": "7f7088d78ff10be5c9cecaefdd1b5e781ea83755160ce5161c5bf2994ae2624e",
+      "bytes": 6044346,
+      "codec": "opus",
+      "sampleRate": 48000,
+      "channels": 2,
+      "containerDurationSeconds": 359.56,
+      "sunoGenerationId": "2c3c0edd-a45c-450f-9e67-bf6aa9ddbf18",
+      "createdAt": "2026-11-08T01:35:02Z"
+    },
+    "output": {
+      "path": "v2/card-game/assets/music/night-shift-on-ratiradio-remastered.mp3",
+      "sha256": "a0ef7697ffc2eedc50a04c35ddd52ed700b567015d3a2feaae03ce01ac2af3d9",
+      "bytes": 7193045,
+      "codec": "mp3",
+      "sampleRate": 48000,
+      "channels": 2,
+      "bitRate": 160000,
+      "containerDurationSeconds": 359.616
+    },
+    "decodedStereoSampleFrames": 17259528,
+    "decodedLengthsMatch": true
+  }
+}

@@ -28,6 +28,8 @@ use crate::{ai_gateway::AiConfig, AppState};
 pub(super) mod authority;
 #[path = "card_voices/clips.rs"]
 mod clips;
+#[path = "card_voices/flights.rs"]
+mod flights;
 
 const VOICES: &str = include_str!("../../card-game/voices.json");
 const MAX_TEXT: usize = 1200;
@@ -93,10 +95,14 @@ fn payload(cast: &Value, speaker: &str, text: &str) -> Option<Value> {
     }))
 }
 
-async fn synthesize(config: &AiConfig, body: &Value) -> Result<Vec<u8>, String> {
-    let _budget = crate::ai_gateway::enforce_server_paid_daily_limit(config, "card_voice")
-        .await
-        .map_err(|_| "The server voice budget is spent for today.".to_string())?;
+pub(crate) async fn synthesize(config: &AiConfig, body: &Value) -> Result<Vec<u8>, String> {
+    let _budget = crate::ai_gateway::enforce_server_paid_daily_limit_estimating(
+        config,
+        "card_voice",
+        crate::ai_gateway::SERVER_PAID_VOICE_ESTIMATE_USD,
+    )
+    .await
+    .map_err(|_| "The server voice budget is spent for today.".to_string())?;
     let response = reqwest::Client::builder()
         .timeout(Duration::from_secs(25))
         .build()
@@ -148,6 +154,24 @@ async fn speak(
     user: &str,
     line: &Line,
 ) -> Result<Vec<u8>, Failure> {
+    static FLIGHTS: OnceLock<flights::Flights> = OnceLock::new();
+    speak_with_flights(
+        path,
+        config,
+        user,
+        line,
+        FLIGHTS.get_or_init(Default::default),
+    )
+    .await
+}
+
+async fn speak_with_flights(
+    path: &Path,
+    config: &AiConfig,
+    user: &str,
+    line: &Line,
+    flights: &flights::Flights,
+) -> Result<Vec<u8>, Failure> {
     let cast: Value = serde_json::from_str(VOICES).map_err(|e| Failure::Store(e.to_string()))?;
     let world = line.world.clone().unwrap_or_default();
     let (speaker, words) = if world.is_empty() {
@@ -177,10 +201,18 @@ async fn speak(
     if let Some(audio) = store(path, move |c| clips::clip(c, &w, &i)).await? {
         return Ok(audio);
     }
+    let flight = flights.gate(path, &world, &id)?.lock_owned().await;
+    let (w, i) = (world.clone(), id.clone());
+    if let Some(audio) = store(path, move |c| clips::clip(c, &w, &i)).await? {
+        return Ok(audio);
+    }
     let audio = synthesize(config, &body).await.map_err(Failure::Provider)?;
-    let kept = audio.clone();
-    store(path, move |c| clips::keep(c, &world, &id, &kept)).await?;
-    Ok(audio)
+    store(path, move |c| {
+        // A cancelled HTTP request must not release ownership mid-commit.
+        let _flight = flight;
+        clips::keep(c, &world, &id, &audio)
+    })
+    .await
 }
 
 fn admit(user: &str) -> bool {
@@ -445,3 +477,7 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 }
+
+#[cfg(test)]
+#[path = "card_voices/concurrency_tests.rs"]
+mod concurrency_tests;

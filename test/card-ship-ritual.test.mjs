@@ -1,10 +1,11 @@
-import { beforeFuneral } from "./fixtures/card-upgraded-items.mjs";
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import { fillLampFuel, settleLamp } from "../v2/card-game/lamp-state.mjs";
+import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
+import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import {
   summonTransport,
   moveTransport,
 } from "../v2/card-game/pack-transport.mjs";
-import { crossings, packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { crossings } from "../v2/card-game/pack-registry.mjs";
 import { crossingOpen } from "../v2/card-game/pack-rules.mjs";
 import { senses } from "../v2/card-game/world.mjs";
 const gate = (id) => crossings.find((c) => c.id === id);
@@ -13,8 +14,6 @@ const greekShipPresent = (s) =>
 const shipSignalPhase = (s) => s.crossings["pond-greek-harbor"].phase;
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import {
   legalActions,
   exits,
@@ -24,6 +23,7 @@ import {
   validateWorld,
   addLog,
   plan,
+  holdChoice,
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay, playLabel } from "../v2/card-game/cards.mjs";
 import { currentScene } from "../v2/card-game/scene.mjs";
@@ -42,7 +42,9 @@ function pond({ lit = true, fuel = 12, place = "pond" } = {}) {
   s.actors.moth.place = "station";
   s.items.lamp.holder = "vale";
   s.items.lamp.lit = lit;
-  s.items.lamp.fuel = fuel;
+  Object.assign(s.items.lamp, roomFuelFromTurns(fuel, place));
+  s.actors.vale.heldItem = lit ? "lamp" : null;
+  settleLamp(s);
   s.items.cloth.holder = "vale";
   s.items.bell.holder = "vale";
   // Pip rests content here instead of pursuing Vale's lamp.
@@ -66,9 +68,14 @@ function act(s, kind, item, target) {
 }
 const cover = (s) => act(s, "cover", "cloth", "lamp");
 const uncover = (s) => act(s, "take", "cloth");
-// One cover and one uncover of the burning lamp are the whole signal.
-const cycle = (s) => uncover(cover(s));
-const summon = cycle;
+// The grounded lamp and actively held cloth are the current arrangement.
+const summon = (s) => {
+  if (s.items.cloth.holder !== "vale") s = act(s, "take", "cloth");
+  s = selectLamp(s, "cloth");
+  if (s.items.lamp.holder === "vale")
+    s = act(s, "drop", "lamp", s.actors.vale.place);
+  return s;
+};
 const reload = (s) => decodeSave(encodeSave(s));
 function visible(s, yes) {
   assert.equal(greekShipPresent(s), yes);
@@ -104,97 +111,75 @@ test("a resident at the original dock waits for the first signal", () => {
   visible(s, false);
 });
 
-test("lighting the lamp alone never summons a ship", () => {
-  let s = pond({ lit: false });
-  visible(s, false);
-  s = act(s, "light", "lamp");
-  assert.equal(shipSignalPhase(s), 0);
-  visible(s, false);
-});
-test("a burning lamp summons the ship after one cover and uncover", () => {
-  let s = pond();
-  visible(s, false);
-  for (const [fn, phase] of [
-    [cover, 1],
-    [uncover, 2],
-  ]) {
-    s = fn(s);
-    assert.equal(shipSignalPhase(s), phase);
-    visible(s, phase === 2);
-  }
-  assert.equal(s.items.cloth.holder, "vale");
-  // Covering hides the flame; it never douses the lamp.
+test("a held burning lamp alone never summons a ship", () => {
+  const s = selectLamp(pond({ lit: false }), "lamp");
   assert.equal(s.items.lamp.lit, true);
-  assert.equal(s.items.lamp.fuel, 10);
-  assert.equal(
-    s.log.filter((e) => /first flash|once more|signal complete/i.test(e.text))
-      .length,
-    0,
+  assert(!legalActions(s).some((a) => ["light", "snuff"].includes(a.kind)));
+  visible(s, false);
+});
+test("placing a fueled lamp while holding cloth summons without spending a room", () => {
+  const s = summon(pond());
+  visible(s, true);
+  assert.equal(s.items.lamp.holder, "pond");
+  assert.equal(s.actors.vale.heldItem, "cloth");
+  assert.equal(s.items.lamp.lit, true);
+  assert.equal(s.items.lamp.fuelRooms, 3);
+  assert.equal(shipSignalPhase(s), undefined);
+});
+test("the actual lamp drop card completes the selected cloth arrangement", () => {
+  let s = selectLamp(pond(), "cloth");
+  const action = legalActions(s).find(
+    (a) => a.kind === "drop" && a.item === "lamp" && a.target === "pond",
   );
+  assert(action);
+  const result = play(s, action);
+  assert(result.ok, result.error);
+  visible(result.state, true);
 });
-test("actual card pairs cover, then the Black cloth card uncovers", () => {
-  let s = pond();
-  const c = cardPlay(s, ["cloth", "lamp"]).action;
-  assert.equal(c.kind, "cover");
-  s = play(s, c).state;
+test("a repeated drop cannot replay the discovery", () => {
+  const s = selectLamp(pond(), "cloth");
+  const action = legalActions(s).find(
+    (a) => a.kind === "drop" && a.item === "lamp",
+  );
+  const arrived = play(s, action).state;
+  const before = encodeSave(arrived);
+  assert.equal(play(arrived, action).ok, false);
+  assert.equal(encodeSave(arrived), before);
+  visible(arrived, true);
+});
+test("the retired cover and uncover sequence cannot summon a carried lamp", () => {
+  const s = uncover(cover(pond()));
   visible(s, false);
-  const u = cardPlay(s, ["cloth"]).action;
-  assert.equal(u.kind, "take");
-  assert.equal(u.item, "cloth");
-  assert.equal(playLabel(u), "Uncover");
-  s = play(s, u).state;
+  assert.equal(shipSignalPhase(s), undefined);
+});
+test("an empty grounded lamp cannot complete the arrangement", () => {
+  const s = summon(pond({ fuel: 0 }));
+  assert.equal(s.items.lamp.lit, false);
+  visible(reload(s), false);
+});
+test("the same arrangement at the station cannot summon the ship", () => {
+  visible(summon(pond({ place: "station" })), false);
+});
+test("mere cloth possession beside the placed lamp is insufficient", () => {
+  let s = selectLamp(pond());
+  s = act(s, "drop", "lamp", "pond");
+  assert.equal(s.items.cloth.holder, "vale");
+  visible(s, false);
+  const turn = s.turn;
+  s = selectLamp(s, "cloth");
+  assert.equal(s.turn, turn);
   visible(s, true);
 });
-test("two covers without the corresponding uncovers cannot count", () => {
-  const initial = pond();
-  const a = cardPlay(initial, ["cloth", "lamp"]).action;
-  const s = play(initial, a).state;
-  assert.equal(play(s, a).ok, false);
-  assert.equal(shipSignalPhase(s), 1);
-  visible(s, false);
-});
-test("uncovering a lamp already covered in a legacy save is not a complete cycle", () => {
-  let s = pond();
-  s.items.cloth.holder = "lamp";
-  s = uncover(s);
-  assert.equal(shipSignalPhase(s), 0);
-  visible(s, false);
-  // A fresh cover and uncover after it is the whole signal.
-  s = cycle(s);
-  visible(s, true);
-});
-test("covering and uncovering an unlit lamp does not count", () => {
-  const s = summon(pond({ lit: false }));
-  assert.equal(shipSignalPhase(s), 0);
-  visible(s, false);
-});
-test("signals at the station cannot summon a ship at the pond", () => {
-  const s = summon(pond({ place: "station" }));
-  assert.equal(shipSignalPhase(s), 0);
-  visible(s, false);
-});
-test("lighting a covered lamp does not fabricate its first cover", () => {
-  let s = cover(pond({ lit: false }));
-  s = act(s, "light", "lamp");
-  s = uncover(s);
-  assert.equal(shipSignalPhase(s), 0);
-  visible(s, false);
-});
-test("each partial phase survives reload without granting an extra flash", () => {
-  let s = pond();
-  for (const [fn, phase] of [
-    [cover, 1],
-    [uncover, 2],
-  ]) {
-    s = fn(s);
-    const before = encodeSave(s);
-    s = reload(s);
-    assert.equal(encodeSave(s), before);
-    assert.equal(shipSignalPhase(s), phase);
-    visible(s, phase === 2);
+test("unfulfilled arrangement and permanent discovery both survive reload", () => {
+  for (const s of [pond(), summon(pond())]) {
+    assert.equal(encodeSave(reload(s)), encodeSave(s));
+    assert.equal(
+      reload(s).crossings["pond-greek-harbor"].discovered,
+      s.crossings["pond-greek-harbor"].discovered,
+    );
   }
 });
-test("inspection never advances the signal or spends fuel", () => {
+test("inspection never changes discovery or spends room fuel", () => {
   const s = cover(pond()),
     before = encodeSave(s);
   for (let i = 0; i < 20; i++) {
@@ -206,19 +191,17 @@ test("inspection never advances the signal or spends fuel", () => {
   assert.equal(encodeSave(s), before);
   visible(s, false);
 });
-test("a rejected stale-revision uncover cannot advance a saved signal", () => {
-  let s = cover(pond());
-  const a = cardPlay(s, ["cloth"]).action,
-    revision = s.revision;
-  // Waiting keeps the cover in place but moves the world past the card's revision.
+test("a stale quiet cloth choice cannot unlock a saved arrangement", () => {
+  let s = selectLamp(pond());
+  s = act(s, "drop", "lamp", "pond");
+  const revision = s.revision;
   s = act(s, "wait");
   const before = encodeSave(s);
-  assert.equal(play(s, a, revision).ok, false);
+  assert.throws(() => holdChoice(s, "vale", { item: "cloth", revision }));
   assert.equal(encodeSave(s), before);
-  assert.equal(shipSignalPhase(s), 1);
   visible(s, false);
 });
-test("generated dialogue cannot summon the ship or increment the ritual", () => {
+test("generated dialogue cannot invent discovery", () => {
   const s = cover(pond()),
     ctx = narrativeContext(s);
   const written = applyGeneratedText(s, ctx, {
@@ -226,60 +209,37 @@ test("generated dialogue cannot summon the ship or increment the ritual", () => 
     model: "fixture",
     entries: ctx.entities.map(({ id }) => ({
       id,
-      text: "A ship has arrived after a second flash.",
+      text: "A ship has arrived.",
     })),
   });
-  assert.equal(shipSignalPhase(written), 1);
   visible(written, false);
 });
-test("waiting between flashes preserves progress but continues fuel consumption", () => {
-  let s = cover(pond());
-  s = act(s, "wait");
-  assert.equal(shipSignalPhase(s), 1);
-  s = uncover(s);
-  visible(s, true);
-  assert.equal(s.items.lamp.fuel, 9);
-});
-test("putting out the lamp resets a partial signal", () => {
-  let s = cover(pond());
-  s = act(s, "snuff", "lamp");
-  assert.equal(shipSignalPhase(s), 0);
-  s = uncover(s);
-  visible(s, false);
-});
-test("running dry before the last uncover resets the signal", () => {
-  for (const fuel of [1]) {
-    const s = summon(pond({ fuel }));
-    assert.equal(s.items.lamp.fuel, 0);
-    assert.equal(shipSignalPhase(s), 0);
-    visible(reload(s), false);
-  }
-});
-test("a ship stays after the final uncover uses the last fuel", () => {
-  let s = summon(pond({ fuel: 2 }));
-  assert.equal(s.items.lamp.fuel, 0);
-  assert.equal(s.items.lamp.lit, false);
-  visible(s, true);
+test("waiting does not drain the lamp's current room or revoke discovery", () => {
+  let s = summon(pond());
   for (let i = 0; i < 6; i++) s = act(s, "wait");
+  assert.equal(s.items.lamp.fuelRooms, 3);
+  visible(reload(s), true);
+});
+test("a discovered ship remains after the lamp runs dry", () => {
+  let s = summon(pond({ fuel: 4 }));
+  s.items.lamp.fuelRooms = 0;
+  settleLamp(s);
   visible(reload(s), true);
   s = act(s, "move", null, "greek-ship");
   assert.equal(s.actors.vale.place, "greek-ship");
 });
-test("leaving the pond interrupts a half-completed ritual", () => {
-  let s = cover(pond());
+test("leaving the pond before placing the lamp cannot complete the arrangement", () => {
+  let s = selectLamp(pond(), "cloth");
   s = act(s, "move", null, "station");
-  assert.equal(shipSignalPhase(s), 0);
+  s = act(s, "drop", "lamp", "station");
   s = act(s, "move", null, "pond");
-  // The cloth is still on the lamp; lifting it is not a whole signal.
-  s = uncover(s);
-  assert.equal(shipSignalPhase(s), 0);
   visible(s, false);
 });
 test("a summoned ship waits through bells and changes to the lamp", () => {
   let s = summon(pond());
   s = act(s, "ring", "bell");
   visible(s, true);
-  s = act(s, "snuff", "lamp");
+  s = selectLamp(s);
   visible(s, true);
   for (let i = 0; i < 3; i++) s = act(s, "wait");
   visible(reload(s), true);
@@ -287,7 +247,7 @@ test("a summoned ship waits through bells and changes to the lamp", () => {
 test("boarding and disembarking move the ship between shores", () => {
   let s = summon(pond());
   s = act(s, "move", null, "greek-ship");
-  assert.equal(shipSignalPhase(s), 0);
+  assert.equal(shipSignalPhase(s), undefined);
   assert.equal(s.transports["greek-ship"].dock, "pond");
   assert.deepEqual(
     availableCards(s).filter((id) =>
@@ -327,10 +287,10 @@ test("boarding and disembarking move the ship between shores", () => {
   assert.equal(s.transports["greek-ship"].dock, "pond");
   visible(reload(s), true);
 });
-test("a further signal leaves the waiting ship available", () => {
+test("reselecting the cloth leaves the discovered ship available", () => {
   let s = summon(pond());
-  s = cycle(s);
-  assert.equal(shipSignalPhase(s), 2);
+  s = selectLamp(selectLamp(s), "cloth");
+  assert.equal(shipSignalPhase(s), undefined);
   visible(s, true);
 });
 test("covering and uncovering the bell is not a lamp signal", () => {
@@ -339,45 +299,23 @@ test("covering and uncovering the bell is not a lamp signal", () => {
     s = act(s, "cover", "cloth", "bell");
     s = act(s, "take", "cloth");
   }
-  assert.equal(shipSignalPhase(s), 0);
+  assert.equal(shipSignalPhase(s), undefined);
   visible(s, false);
 });
 test("earlier saves get an unsummoned pond and keep their history and belongings", () => {
   const old = pond();
   delete old.locations.pond.shipSignal;
   const s = decodeSave(JSON.stringify(old));
-  assert.equal(shipSignalPhase(s), 0);
+  assert.equal(shipSignalPhase(s), undefined);
   assert.deepEqual(s.items, old.items);
   assert.deepEqual(s.packs, old.packs);
   assert.deepEqual(s.memories, old.memories);
   visible(s, false);
 });
-test("a revision 9 save keeps one cover and restarts longer marks", () => {
-  // Revision 9 counted four steps. Only a single cover still means the same.
-  for (const [phase, discovered, kept] of [
-    [1, false, 1],
-    [2, false, 0],
-    [2, true, 2],
-    [3, true, 0],
-    [4, true, 0],
-  ]) {
-    const old = pond();
-    old.packs["greek-drama"].revision = 9;
-    beforeFuneral(old);
-    Object.assign(old.crossings["pond-greek-harbor"], { phase, discovered });
-    const s = decodeSave(JSON.stringify(old));
-    assert.equal(
-      s.packs["greek-drama"].revision,
-      packDefinition("greek-drama").revision,
-    );
-    assert.equal(shipSignalPhase(s), kept);
-    assert.equal(s.crossings["pond-greek-harbor"].discovered, discovered);
-  }
-});
-test("invalid saved signal phases fail validation", () => {
+test("invalid saved discovery values fail validation", () => {
   for (const value of [-1, 5, 2.5, "3", null, {}, []]) {
     const s = pond();
-    s.crossings["pond-greek-harbor"].phase = value;
+    s.crossings["pond-greek-harbor"].discovered = value;
     assert.throws(() => validateWorld(s));
     assert.throws(() => decodeSave(JSON.stringify(s)));
   }
@@ -399,22 +337,22 @@ test("the narration does not expose a partial ritual or claim a ship is present"
 import { newWant } from "../v2/card-game/want.mjs";
 test("the ship crossing preserves a want met beside a resident Vale has not met", () => {
   let s = atticOpening();
-  s = act(s, "snuff", "lamp");
+  s = selectLamp(s);
   s = act(s, "move", null, "pond");
-  s = act(s, "light", "lamp");
+  s = selectLamp(s, "lamp");
   s.items.cloth.holder = "pond";
   // Pip takes the oil beside the keeper, out of sight of Vale's signal.
   s.actors.moth.place = "station";
   s.items.oil.holder = "station";
   s.actors.moth.want = newWant("item", "oil", s.turn);
-  s.items.lamp.fuel = 12;
+  fillLampFuel(s);
   assert.equal(s.opening.met.keeper, undefined);
   s = summon(s);
   s = act(s, "drop", "cloth", "pond");
   s = act(s, "move", null, "greek-ship");
   s = act(act(s, "course", null, "greek-harbor"), "wait");
   s = act(s, "move", null, "greek-harbor");
-  s = act(s, "snuff", "lamp");
+  s = selectLamp(s);
   const met = s.log.find((e) => e.verb === "want_met" && e.actorId === "moth");
   assert(met);
   assert.deepEqual(met.wantMet, { kind: "item", target: "oil" });
@@ -422,7 +360,7 @@ test("the ship crossing preserves a want met beside a resident Vale has not met"
   assert.deepEqual(reload(s), s);
 });
 
-test("filling the lamp supplies enough oil for lighting and the whole ritual", () => {
+test("filling the lamp supplies three rooms and the grounded arrangement", () => {
   let s = pond({ lit: false, fuel: 0 });
   s.items.oil.holder = "vale";
   s.items.bell.holder = "pond";
@@ -430,16 +368,16 @@ test("filling the lamp supplies enough oil for lighting and the whole ritual", (
   s = act(s, "wait");
   assert.equal(s.items.lamp.fuel, 12);
   assert.equal(s.items.oil.holder, "station");
-  s = act(s, "light", "lamp");
   s = summon(s);
-  assert.equal(s.items.lamp.fuel, 9);
+  assert.equal(s.items.lamp.fuel, 12);
   visible(s, true);
 });
 
 test("Pip brings the signaled ship from Greece to a waiting player", () => {
   let s = summon(pond());
   summonTransport(s, "greek-ship", "greek-harbor");
-  s.items.lamp.lit = false;
+  s.items.lamp.fuelRooms = 0;
+  settleLamp(s);
   s.actors.moth.place = "greek-harbor";
   // Pip, rested, wants to go to the pond.
   delete s.actors.moth.metTurn;
@@ -448,7 +386,7 @@ test("Pip brings the signaled ship from Greece to a waiting player", () => {
   assert.equal(plan(s, "moth").action.target, "greek-ship");
   s = act(s, "wait");
   assert.equal(s.actors.moth.place, "greek-ship");
-  assert.equal(shipSignalPhase(s), 0);
+  assert.equal(shipSignalPhase(s), undefined);
   visible(s, false);
   s = reload(s);
   // Alone aboard, Pip sets the course, rides a round at sea and lands.
@@ -514,7 +452,8 @@ test("a trusted companion can board and disembark with Vale", () => {
   assert.equal(s.actors.moth.place, "greek-ship");
   s = reload(s);
   s = act(act(s, "course", null, "greek-harbor"), "wait");
-  s = pair(s, "greek-harbor");
+  // Aboard together, Moth is Vale's companion: the landing is a plain move.
+  s = act(s, "move", null, "greek-harbor");
   assert.equal(s.actors.vale.place, "greek-harbor");
   assert.equal(s.actors.moth.place, "greek-harbor");
   assert.equal(s.transports["greek-ship"].dock, "greek-harbor");
@@ -567,33 +506,6 @@ test("saved ship state names a dock and a valid occupied leg", () => {
   }
 });
 
-test("older occupied ship saves regain the departure dock and wait there for a course", () => {
-  for (const destination of ["pond", "greek-harbor"]) {
-    const old = pond();
-    old.actors.vale.place = "greek-ship";
-    old.transports["greek-ship"] = { dock: null, destination, recall: "pond" };
-    const upgraded = decodeSave(JSON.stringify(old));
-    assert.deepEqual(upgraded.transports["greek-ship"], {
-      version: 3,
-      phase: "docked",
-      dock: destination === "pond" ? "greek-harbor" : "pond",
-      destination: null,
-      riders: [],
-      since: old.turn,
-      recall: "pond",
-    });
-    assert.deepEqual(
-      legalActions(upgraded)
-        .filter((a) => a.kind === "course")
-        .map((a) => a.target),
-      [destination],
-    );
-    assert.deepEqual(upgraded.actors, old.actors);
-    assert.deepEqual(upgraded.items, old.items);
-    assert.deepEqual(upgraded.log, old.log);
-    assert.deepEqual(reload(upgraded), upgraded);
-  }
-});
 
 test("a validated human already aboard keeps the saved voyage", () => {
   const old = pond();
@@ -606,7 +518,7 @@ test("a validated human already aboard keeps the saved voyage", () => {
   assert(exits(upgraded, "greek-ship", "vale").includes("pond"));
   const invalid = pond();
   invalid.transports["greek-ship"].dock = "pond";
-  invalid.crossings["pond-greek-harbor"].phase = 4;
+  invalid.crossings["pond-greek-harbor"].discovered = 4;
   assert.throws(() => decodeSave(JSON.stringify(invalid)));
 });
 
@@ -620,6 +532,8 @@ test("an old NPC voyage preserves the first-signal lock after landing and reload
       destination,
     });
     s.items.lamp.holder = destination;
+    // An obsolete lamp hand must not fall back to cloth on shore.
+    s.actors.vale.heldItem = null;
     s = reload(s);
     assert.equal(s.crossings["pond-greek-harbor"].discovered, false);
     s = act(act(s, "wait"), "wait");
@@ -655,47 +569,5 @@ test("legacy ship validation runs before the boarding migration", () => {
     };
     change(old);
     assert.throws(() => decodeSave(JSON.stringify(old)));
-  }
-});
-
-test("older completed signals become a waiting ship and retain their history", () => {
-  const context = vm.createContext({});
-  vm.runInContext(
-    readFileSync(
-      new URL(
-        "../v2/orchestrator-rust/src/card_shared/engine-v9.js",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-    context,
-  );
-  for (const phase of [0, 1, 2, 3, 4]) {
-    // The frozen engine supplies the pre-expansion cast and objects. Remove
-    // its ship fields to exercise the earlier transport migration.
-    const old = JSON.parse(
-      context.cardShared(JSON.stringify({ op: "create" })),
-    ).world;
-    delete old.opening;
-    old.actors.vale.place = "pond";
-    old.packs["greek-drama"].revision = 1;
-    beforeFuneral(old);
-    old.crossings["pond-greek-harbor"] = {
-      phase,
-      until: 0,
-      discovered: phase === 4,
-    };
-    delete old.transports;
-    delete old.memories["greek-ship"];
-    const s = decodeSave(JSON.stringify(old));
-    // Revision 10 has two steps: one cover survives, later marks start again.
-    assert.equal(shipSignalPhase(s), phase === 1 ? 1 : 0);
-    visible(s, phase === 4);
-    assert.deepEqual(s.log, old.log);
-    // The save upgrade drops the old flask's dose count; one flask fills one lamp.
-    delete old.items.oil.doses;
-    for (const [id, item] of Object.entries(old.items))
-      assert.deepEqual(s.items[id], item);
-    assert.deepEqual(reload(s), s);
   }
 });

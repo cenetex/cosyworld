@@ -17,13 +17,17 @@
 //                   them to listed places, seeded by the run, the kit's count
 //                   and the turn.
 import { humanAvatar, humanPresent } from "./human-cast.mjs";
-import { bringBack, usedUp, useUp } from "./item-use.mjs";
+import { bringBack, sendHome, usedUp, useUp } from "./item-use.mjs";
 import { DAYLIGHT_TURNS, conditionMet, runHash } from "./pack-rules.mjs";
 import {
   conditionsMet,
   entityActive,
   entityEnabled,
+  entityShown,
   packDefinitions,
+  packPlaces,
+  packIdOf,
+  hub,
   packThings,
   transports,
 } from "./pack-registry.mjs";
@@ -37,6 +41,14 @@ export const packKits = packDefinitions.flatMap((pack) =>
   (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id })),
 );
 const kitThings = new Set(packKits.flatMap((kit) => kit.items));
+
+// Reserved possessions remain available to people, but do not invite an
+// unsolicited resident pickup before their authored return is complete.
+export const reservedItem = (s, id) => {
+  const thing = packThings[id];
+  return Boolean(thing?.reservedUntil?.length &&
+    !conditionsMet(s, thing.packId, thing.reservedUntil));
+};
 
 function rootOf(s, id) {
   let holder = s.items[id].holder;
@@ -57,7 +69,9 @@ const note = (s, id, text) => {
 // otherwise it stays used up.
 function tryBack(s, id, holder) {
   bringBack(s, id, holder);
-  if (entityEnabled(s, id)) return true;
+  // A sealed item comes home shut, which is still in play (rules 133).
+  if (entityEnabled(s, id) || (packThings[id].sealed && entityShown(s, id)))
+    return true;
   s.items[id].holder = packThings[id].holder;
   s.usedUp = [...s.usedUp, id].sort();
   return false;
@@ -115,6 +129,31 @@ export function settleCrafting(s, a, nameOf, log) {
         consumedIds: [...locked.consumes],
         holderId: s.items[id].holder,
       },
+    );
+  }
+}
+
+// A sealed item with a `live` seal (rules 133) follows its facts: while its
+// `requires` hold it is an ordinary thing, and when they stop holding it is
+// shut again. One that is not at its rest then goes there, whoever holds it,
+// as a used-up thing does, and lies there sealed. Nothing is stranded in a
+// hand that cannot use it. A latching seal (the default) never comes back.
+const liveSeals = () =>
+  Object.keys(packThings)
+    .filter((id) => packThings[id].sealed?.live)
+    .sort();
+export function settleSealedItems(s, nameOf, log) {
+  for (const id of liveSeals()) {
+    if (usedUp(s, id) || entityEnabled(s, id) || !entityShown(s, id)) continue;
+    const rest = restOf(id);
+    if (s.items[id].holder === rest) continue;
+    const root = rootOf(s, id);
+    const where = s.actors[root]?.place ?? root;
+    sendHome(s, id, rest);
+    // A shut item keeps no history: a save checks it lies as authored.
+    log(
+      `${capital(the(nameOf(id)))} goes back to ${the(nameOf(rest))} and is sealed again.`,
+      where,
     );
   }
 }
@@ -245,6 +284,20 @@ export function settleItemCycle(s, nameOf, log) {
       log(`${capital(the(nameOf(home)))} has ${the(nameOf(id))} again.`, home);
   }
   if (events.includes("dawn")) {
+    for (const [id, thing] of Object.entries(packThings)) {
+      const to = thing.recoverTo;
+      if (!to || usedUp(s, id) || !entityEnabled(s, id) || !entityActive(s, to)) continue;
+      const holder = rootOf(s, id);
+      const absent = humanAvatar(holder) && !humanPresent(s, holder);
+      const present = s.actors[holder] || packPlaces[holder] || hub.places.includes(holder);
+      if (holder === to || (!absent && present && entityActive(s, holder))) continue;
+      // Only genuinely absent custody recovers. Loose deposits stay put;
+      // an intentionally locked destination is still an active place.
+      s.items[id].holder = to;
+      const text = `${capital(the(nameOf(to)))} has ${the(nameOf(id))} back.`;
+      note(s, id, text);
+      log(text, to);
+    }
     const seen = {};
     for (const id of homed) {
       const home = packThings[id].home,
@@ -297,6 +350,42 @@ function scatterKit(s, kit, events, nameOf, log) {
   s.scatters = { ...(s.scatters || {}), [kit.id]: count + 1 };
 }
 
+// Cross-world keepsakes start at external pack entries, one world per item
+// before a world is repeated. Never choose interiors, conditional places or
+// private homes. The hub is one world, not one ticket per hub place.
+function scatterOutside(s) {
+  // Shared creation and seedless imports receive their host seed afterward.
+  if (!s.run) return;
+  const groups = [
+    { id: "hub", places: hub.places },
+    ...packDefinitions.filter((p) => hub.packEntries[p.id]).map((p) =>
+      ({ id: p.id, places: [p.entry] })),
+  ];
+  const used = new Map();
+  for (const id of Object.keys(packThings).sort()) {
+    const thing = packThings[id], item = s.items[id];
+    if (!thing.scatterOutside || !item) continue;
+    const taken = used.get(thing.packId) || new Set();
+    used.set(thing.packId, taken);
+    // History records the initial placement once. Existing custody, deliberate
+    // deposits and already moved items survive content upgrades and reloads.
+    if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
+      taken.add(packIdOf(rootOf(s, id)));
+      continue;
+    }
+    const candidates = groups.filter((g) => g.id !== thing.packId).map((g) => ({
+      ...g, places: g.places.filter((p) => entityActive(s, p) && !packPlaces[p]?.requires?.length),
+    })).filter((g) => g.places.length);
+    if (!candidates.length) continue;
+    let choices = candidates.filter((g) => !taken.has(g.id));
+    if (!choices.length) { taken.clear(); choices = candidates; }
+    const group = choices[runHash(s, `scatter-world:${thing.packId}:${id}`) % choices.length];
+    item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
+    taken.add(group.id);
+    note(s, id, "Waiting beyond its home world.");
+  }
+}
+
 // A world from before rules 95 takes the used-up list once: a thing that now
 // starts used up and still lies untouched where it starts leaves play. A
 // thing added to a later world starts as its content says.
@@ -309,6 +398,7 @@ export function installItemCycle(s, added = []) {
   s.usedUp = [
     ...new Set([...(s.usedUp || []), ...fresh.filter(starts)]),
   ].sort();
+  scatterOutside(s);
 }
 
 const whole = (n) => Number.isSafeInteger(n) && n > 0;

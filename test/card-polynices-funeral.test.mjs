@@ -1,6 +1,12 @@
+import "./helpers/no-dwell.mjs";
 import { expect, it } from "vitest";
+import { worldLife } from "../v2/card-game/resident-home.mjs";
+import { journeyWorlds } from "./helpers/journey.mjs";
+import { greekGateOpen, greekGateOpenFull } from "./journeys/greek-before-funeral.mjs";
 import { questCard, questCards, questVisible, questVerb } from "../v2/card-game/quest-card.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
+import { questFor } from "../v2/card-game/talk-quest.mjs";
+import { setWant } from "../v2/card-game/want.mjs";
 import {
   createWorld,
   decodeSave,
@@ -10,12 +16,29 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 
+// The journeys play with the cast standing still (still-cast, imported by the
+// journey module); this file's residents walk, so build first, then let them.
+const gateOpen = { opening: journeyWorlds(greekGateOpen), full: journeyWorlds(greekGateOpenFull) };
+worldLife.on = true;
+
 const pack = "greek-drama";
 const hollow = "greek-polynices-hollow";
 const antigone = "greek-antigone";
 const oil = "greek-oil-flask";
 const cloth = "greek-funeral-cloth";
 const shovel = "greek-shovel";
+// The burial is the quest that has a rite (an art stage) to show.
+const burialCard = (world) => questCards(world).find((quest) => quest.art) ?? null;
+// Talk tells the burial and the player takes it by a tap. Until Accept quest
+// is a play (a later package), take it here as the tap would.
+const accept = (world) => {
+  const teller = [antigone, "greek-polynices-shade"].find(
+    (id) => world.actors[id]?.want?.step?.verb === "lay",
+  );
+  if (teller && !world.actors.vale.want)
+    setWant(world.actors.vale, questFor(world, teller, world.actors[teller].want));
+  return world;
+};
 const rites = [
   "greek-anoint-polynices",
   "greek-shroud-polynices",
@@ -67,7 +90,8 @@ it.each([false, true])("shows each rite with its remaining kit in the Hollow (sh
 it.each(["opening", "full"])(
   "plays one burial quest through the three ordered rites in %s",
   (scope) => {
-    let world = createWorld({ packScopes: { [pack]: scope } });
+    // The gate opened by the errands (the writ with the guard), at the gate.
+    let world = structuredClone(gateOpen[scope].opened);
     const actions = () => legalActions(world);
     const act = (match) => {
       const action = actions().find((a) =>
@@ -78,13 +102,9 @@ it.each(["opening", "full"])(
       expect(result.ok, result.error).toBe(true);
       world = result.state;
     };
-    world.turn = world.revision = 20;
-    world.crossings["pond-greek-harbor"].discovered = true;
-    world.actors.vale.place = "greek-gate";
-    world.actors.vale.visited.push("pond", "greek-gate");
-    world.items["greek-creon-writ"].holder = "greek-guard";
     act({ kind: "talk", target: antigone });
-    expect(questCard(world)?.art).toContain("polynices-fallen");
+    accept(world);
+    expect(burialCard(world)?.art).toContain("polynices-fallen");
     act({ kind: "move", target: "greek-battlefield" });
     world.turn = world.revision = 36;
     act({ kind: "talk", target: "greek-polynices-shade" });
@@ -105,9 +125,9 @@ it.each(["opening", "full"])(
       if (world.items[item].holder === hollow) act({ kind: "take", item });
       act({ kind: "give", item, target: antigone });
       expect(world.packs[pack].receipts[rites[i]]).toBe(world.turn);
-      if (art) expect(questCard(world)?.art).toContain(`polynices-${art}`);
+      if (art) expect(burialCard(world)?.art).toContain(`polynices-${art}`);
     }
-    expect(questCard(world)?.target).not.toBe(hollow);
+    expect(burialCard(world)?.target).not.toBe(hollow);
     expect(world.items[oil].holder).toBe("greek-colonus");
     expect(world.items[cloth].holder).toBe("greek-eleusis");
     expect(world.items[shovel].holder).toBe(hollow);
@@ -119,13 +139,11 @@ it.each(["opening", "full"])(
 );
 
 it("keeps a meeting with the shade after dawn", () => {
-  const world = createWorld();
   const shade = "greek-polynices-shade";
   const battlefield = "greek-battlefield";
-  world.crossings["pond-greek-harbor"].discovered = true;
-  world.actors.vale.place = battlefield;
-  world.actors.vale.visited.push("pond", battlefield);
-  world.items["greek-creon-writ"].holder = "greek-guard";
+  // Gate open, Vale on the battlefield. The shade keeps its hours by the
+  // clock, so the test sets the turn; the journey's turn is incidental.
+  const world = structuredClone(gateOpen.opening.battlefield);
   const talk = (state) =>
     legalActions(state).find((a) => a.kind === "talk" && a.target === shade);
   world.turn = world.revision = 35;
@@ -133,8 +151,9 @@ it("keeps a meeting with the shade after dawn", () => {
   world.turn = world.revision = 36;
   const result = play(world, talk(world));
   expect(result.ok, result.error).toBe(true);
+  accept(result.state);
   result.state.turn = result.state.revision = 48;
   const dawn = decodeSave(encodeSave(result.state));
   expect(talk(dawn)).toBeUndefined();
-  expect(questCard(dawn)?.target).toBe(hollow);
+  expect(burialCard(dawn)?.target).toBe(hollow);
 });

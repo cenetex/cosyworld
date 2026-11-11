@@ -8,19 +8,19 @@ import {
   packDefinitions,
   packPlaces,
 } from "../v2/card-game/pack-registry.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 
 // The Theban City Gate shows its closed painting while the Gate Guard guards
-// it, and its open painting while he holds Creon's writ: a live route, read as
-// it stands (rules 102, Greek revision 20). Night keeps the matching closed or
+// it, and its open painting when both paper fixtures allow the road.
+// The route is live, not latched. Night keeps the matching closed or
 // open night painting.
 const art = (file) => `./assets/greek-drama/${file}.webp`;
 const gate = (s) => backdrop("greek-gate", s);
 const night = (s) => ({ ...s, turn: DAYLIGHT_TURNS });
 
 describe("the Theban City Gate backdrop", () => {
-  it("is open only while the guard holds Creon's writ", () => {
-    const s = openingFixture("burial").decree;
+  it("follows the live road as the guard's papers change hands", () => {
+    const s = greekErrands().decree;
     expect(s.items["greek-decree"].holder).toBe("greek-guard");
     s.turn = 0;
     expect(gate(s)).toBe(art("city-gate-closed-day"));
@@ -29,19 +29,20 @@ describe("the Theban City Gate backdrop", () => {
     s.items["greek-creon-writ"].holder = "vale";
     s.actors.vale.place = "greek-gate";
     expect(gate(s)).toBe(art("city-gate-closed-day"));
-    // The guard holds it at his post: the gate opens, day and night, with
-    // no latch.
+    // The guard has the Writ and no duty order: the road is open, with no latch.
     s.items["greek-creon-writ"].holder = "greek-guard";
+    s.items["greek-decree"].holder = "greek-elder";
     expect(s.actors["greek-guard"].place).toBe("greek-gate");
     expect(gate(s)).toBe(art("city-gate-day"));
     expect(gate(night(s))).toBe(art("city-gate-night"));
     latchRoutes(s);
     expect(s.openedRoutes ?? []).not.toContain("greek-gate>greek-battlefield");
-    // The decree going elsewhere changes nothing.
-    s.items["greek-decree"].holder = "greek-elder";
+    // Moving the order between other holders leaves the road open.
+    s.items["greek-decree"].holder = "greek-creon";
     expect(gate(s)).toBe(art("city-gate-day"));
-    // Once the writ leaves him, the gate shows closed again.
+    // The guard has his duty order but no Writ: the road closes again.
     s.items["greek-creon-writ"].holder = "greek-gate";
+    s.items["greek-decree"].holder = "greek-guard";
     expect(gate(s)).toBe(art("city-gate-closed-day"));
     expect(gate(night(s))).toBe(art("city-gate-closed-night"));
   });
@@ -78,7 +79,7 @@ describe("the Theban City Gate backdrop", () => {
           requires: [{ kind: "daylight", phase: "night" }],
         },
       ];
-      const s = openingFixture("burial").decree;
+      const s = greekErrands().decree;
       expect(backdrop("willows-camp", night(s))).toBe(
         "./assets/willows/camp-lit-night-uncanny.webp",
       );
@@ -104,7 +105,7 @@ describe("the Theban City Gate backdrop", () => {
           ],
         },
       ];
-      const s = night(openingFixture("burial").decree);
+      const s = night(greekErrands().decree);
       expect(locationDaylight(s, "willows-thicket")).toMatchObject({
         phase: "night",
         description: "It is night at Willow Thicket.",

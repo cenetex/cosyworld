@@ -5,7 +5,6 @@ primary_region = "sjc"
   dockerfile = "Dockerfile"
 
 [env]
-  COSYWORLD_PRIMARY_GAME = "cards"
   COSYWORLD_DEPLOY_PROFILE = "production"
   COSYWORLD_LOG_FORMAT = "json"
   COSYWORLD_LOG_TENANT = "primary"
@@ -21,31 +20,6 @@ primary_region = "sjc"
   COSYWORLD_WEBAUTHN_ORIGIN = "https://cosyworld.fly.dev"
   # .dev is for existing passkey holders: no sign-ups, no signed-out play.
   COSYWORLD_PASSKEYS = "members"
-  COSYWORLD_RENDEZVOUS_PARTY_MAX_GUESTS = "4"
-  COSYWORLD_RENDEZVOUS_PARTY_MAX_ACTIVE_PER_GUEST = "4"
-  COSYWORLD_RENDEZVOUS_PARTY_TTL_SECS = "7200"
-  COSYWORLD_STORY_METRICS_RETENTION_DAYS = "400"
-  COSYWORLD_REPLICATE_AVATAR_MODEL = "black-forest-labs/flux-dev-lora"
-  COSYWORLD_REPLICATE_AVATAR_LORA = "immanencer/mirquo"
-  COSYWORLD_REPLICATE_AVATAR_LORA_INPUT = "lora_weights"
-  COSYWORLD_REPLICATE_AVATAR_LORA_SCALE_INPUT = "lora_scale"
-  COSYWORLD_REPLICATE_AVATAR_PROMPT_PREFIX = "MRQ, cozy storybook trading-card portrait"
-  # Durable community image jobs reserve $0.05 each inside a $1 UTC daily cap.
-  COSYWORLD_MEDIA_DAILY_LIMIT_MICROUSD = "1000000"
-  COSYWORLD_COMMUNITY_IMAGE_ESTIMATED_COST_MICROUSD = "50000"
-  COSYWORLD_AI_VISION_MODEL = "openai/gpt-5-image-mini"
-  COSYWORLD_AI_VISION_REASONING_EFFORT = "low"
-  COSYWORLD_CARD_POLICY_MODE = "shadow"
-  COSYWORLD_CARD_POLICY_MODEL_PATH = "/app/models/card-policy/incumbent.cwrank"
-  COSYWORLD_CARD_POLICY_TOP_K = "3"
-  # Unbound and directly controlled avatars use the GPT-6 Luna voice route.
-  # The 12-second generation ceiling remains a stuck-provider guard;
-  # four bounded samples give the publication gate room inside that one ceiling.
-  COSYWORLD_AI_VOICE_MAX_ATTEMPTS = "4"
-  # The decision model answers typed yes/no questions with probabilities (the
-  # OpenRouter Decisions API). Every world uses it unless a pack turns it off,
-  # and every call fails open to the previous behaviour.
-  COSYWORLD_AI_DECISION_MODEL = "typesafe/jev-1.13"
   COSYWORLD_CARD_TEXT_MODEL = "openai/gpt-6-luna"
   COSYWORLD_CARD_TEXT_REASONING_EFFORT = "none"
   # Each authored card-world character keeps one exact OpenRouter model.

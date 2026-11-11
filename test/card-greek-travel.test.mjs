@@ -1,7 +1,7 @@
+import "./helpers/no-dwell.mjs"; // ships and roads, not residents walking: the played Agora start is long
 import { atticOpening } from "./fixtures/card-attic-opening.mjs";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, it, expect } from "vitest";
+import { openGreekGate } from "./helpers/greek-gate.mjs";
 import {
   createWorld,
   decodeSave,
@@ -17,18 +17,9 @@ import {
   transports,
 } from "../v2/card-game/pack-registry.mjs";
 import { travelCard } from "../v2/card-game/scene.mjs";
-import {
-  lanePath,
-  lanesFrom,
-  laneGated,
-  learnLane,
-} from "../v2/card-game/pack-transport.mjs";
+import { lanePath, lanesFrom, learnLane } from "../v2/card-game/pack-transport.mjs";
 import { openDoorStart, openSeas } from "./helpers/open-door.mjs";
 import { ajaxCamp } from "./helpers/greek-ajax.mjs";
-import {
-  upgradedActor,
-  upgradedItems,
-} from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 
 const docks = ["pond", "greek-harbor", "greek-piraeus"];
@@ -54,8 +45,9 @@ function shared(dock, seas = false, ajax = false) {
     since: world.turn,
     recall: null,
   });
-  for (const actor of Object.values(world.actors))
-    if (actor.place === "greek-ship")
+  // Patroclus is a sealed card aboard until the quay invites him; he stays.
+  for (const [id, actor] of Object.entries(world.actors))
+    if (actor.place === "greek-ship" && id !== "greek-patroclus")
       actor.place = world.transports["greek-ship"].dock;
   for (const id of players) world.actors[id].place = dock;
   // Residents' errands (BoardyAI's introductions, a rhapsode bound for
@@ -73,9 +65,8 @@ function shared(dock, seas = false, ajax = false) {
   // The Travel Provisions ride on deck, which opens the Wine-Dark Harbor's
   // lane to Piraeus.
   stowProvisions(world, "greek-ship");
-  // The guard holds Creon's writ, so the City Gate stands open and the land
-  // route enters Thebes (rules 102: a live gate, never latched).
-  if (ajax) world.items["greek-creon-writ"].holder = "greek-guard";
+  // The gate stands open for this journey; it never gains a lasting latch.
+  if (ajax) openGreekGate(world);
   return world;
 }
 const ask = (world, actor, extra = {}) =>
@@ -160,7 +151,6 @@ describe("Greek ports and fixed roads", () => {
       expect(w.actors.mara.place).toBe(to);
     },
   );
-
   it("opens both new port stops with Dione's invitation", () => {
     const before = atticOpening();
     before.actors.vale.place = "greek-ship";
@@ -180,7 +170,6 @@ describe("Greek ports and fixed roads", () => {
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-athens");
     expect(exits(after, "greek-harbor", "vale")).not.toContain("greek-piraeus");
   });
-
   it.each(
     Object.entries(pack.places).filter(
       ([id, p]) => p.road && !localRoadEnds(id),
@@ -229,7 +218,6 @@ describe("Greek ports and fixed roads", () => {
     expect(w.actors.boardyai.place).toBe("boardyai-parlour");
     expect(w.actors.vale.place).toBe("greek-ship");
   });
-
   it("gives a human aboard the first choice of port ahead of resident passengers", () => {
     let w = shared("greek-harbor");
     w.actors.moth.place = "greek-ship";
@@ -248,78 +236,4 @@ describe("Greek ports and fixed roads", () => {
     expect(w.transports["greek-ship"].destination).toBe(null);
   });
 
-  it.each([13, 14, 15])(
-    "upgrades a version %s voyage while preserving deeds, belongings and old memories",
-    (version) => {
-      const ctx = vm.createContext({});
-      vm.runInContext(
-        readFileSync(
-          new URL(
-            `../v2/orchestrator-rust/src/card_shared/engine-v${version}.js`,
-            import.meta.url,
-          ),
-          "utf8",
-        ),
-        ctx,
-      );
-      const old = JSON.parse(
-        ctx.cardShared(JSON.stringify({ op: "create" })),
-      ).world;
-      delete old.opening;
-      old.actors.vale.place = "greek-ship";
-      old.transports["greek-ship"] = {
-        version: 2,
-        dock: "pond",
-        destination: "greek-harbor",
-        recall: null,
-      };
-      const current = decodeSave(JSON.stringify(old));
-      // Quest progress is dropped; each avatar gains its want record, and
-      // the Gate Guard takes his post (rules 100).
-      expect(current.actors["greek-guard"].guarding).toBe("greek-battlefield");
-      const lived = ({
-        want,
-        xp,
-        visited,
-        talked,
-        metTurn,
-        gaveUp,
-        guarding,
-        heldItem,
-        ...a
-      }) => a;
-      for (const [id, { progress, ...actor }] of Object.entries(old.actors))
-        expect(lived(current.actors[id])).toEqual({
-          ...upgradedActor(actor),
-          trust: {
-            ...actor.trust,
-            ...Object.fromEntries(
-              Object.keys(current.actors)
-                .filter((added) => !old.actors[added])
-                .map((added) => [added, 0]),
-            ),
-          },
-        });
-      expect(current.items).toMatchObject(upgradedItems(old.items));
-      // The version 2 leg becomes a docked ship waiting for its course.
-      expect(current.transports["greek-ship"]).toEqual({
-        version: 3,
-        phase: "docked",
-        dock: "pond",
-        destination: null,
-        riders: [],
-        since: current.turn,
-        recall: null,
-      });
-      expect(current.packs["greek-drama"].revision).toBe(
-        packDefinition("greek-drama").revision,
-      );
-      for (const [id, memory] of Object.entries(old.memories)) {
-        const { seen, ...retained } = current.memories[id];
-        expect(retained).toEqual(memory);
-        if (seen) expect(typeof seen).toBe("object");
-      }
-      expect(decodeSave(encodeSave(current))).toEqual(current);
-    },
-  );
-});
+  });

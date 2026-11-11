@@ -1,8 +1,6 @@
 use super::*;
 
 mod dev_test_passkey;
-mod rati_link;
-use rati_link::rati_link_message;
 
 use axum::http::{header::CACHE_CONTROL, HeaderValue};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
@@ -16,13 +14,6 @@ use webauthn_rs::prelude::{
 const ACCOUNT_SESSION_TTL: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 const ACCOUNT_STEP_UP_TTL: Duration = Duration::from_secs(10 * 60);
 const CEREMONY_TTL: Duration = Duration::from_secs(5 * 60);
-const WALLET_LINK_TTL: Duration = Duration::from_secs(5 * 60);
-const WALLET_CLAIM_TTL: Duration = Duration::from_secs(5 * 60);
-const WALLET_CLAIM_COMPLETE_GRACE: Duration = Duration::from_secs(2 * 60);
-const ACCOUNT_WALLET_CAPABILITY_TTL: Duration = Duration::from_secs(30 * 60);
-const OPENROUTER_OAUTH_BASE_URL: &str = "https://openrouter.ai/api/v1";
-const OPENROUTER_OAUTH_TIMEOUT: Duration = Duration::from_secs(10);
-const OPENROUTER_OAUTH_RESPONSE_LIMIT: usize = 64 * 1024;
 
 type AccountResult<T> = Result<T, AccountError>;
 
@@ -65,9 +56,6 @@ pub(super) struct AccountAuth {
     webauthn: Webauthn,
     db_path: Option<Arc<PathBuf>>,
     ceremonies: StdMutex<BTreeMap<String, AccountCeremony>>,
-    wallet_link_challenges: StdMutex<BTreeMap<String, WalletLinkChallenge>>,
-    wallet_claims: StdMutex<BTreeMap<String, WalletClaimIntent>>,
-    wallet_claim_challenges: StdMutex<BTreeMap<String, WalletClaimChallenge>>,
     cookie_name: String,
     secure_cookie: bool,
     /// `COSYWORLD_PASSKEYS=members`: no sign-ups, no signed-out play.
@@ -81,7 +69,6 @@ enum AccountCeremony {
         username: String,
         display_name: String,
         label: String,
-        bootstrap_wallet: Option<String>,
         new_user: bool,
         state: PasskeyRegistration,
     },
@@ -107,35 +94,6 @@ impl AccountCeremony {
 }
 
 #[derive(Clone, Debug)]
-struct WalletLinkChallenge {
-    user_id: String,
-    wallet_address: String,
-    message: String,
-    expires_at: Instant,
-}
-
-#[derive(Clone, Debug)]
-struct WalletClaimIntent {
-    user_id: String,
-    poll_token: String,
-    expires_at: Instant,
-    expires_at_unix: u64,
-    wallet_address: Option<String>,
-    moved: bool,
-    completed_at: Option<Instant>,
-}
-
-#[derive(Clone, Debug)]
-struct WalletClaimChallenge {
-    claim_id: String,
-    user_id: String,
-    wallet_address: String,
-    message: String,
-    claimed_elsewhere: bool,
-    expires_at: Instant,
-}
-
-#[derive(Clone, Debug)]
 struct AccountSessionRecord {
     user_id: String,
     username: String,
@@ -156,7 +114,6 @@ struct RegisteredPasskey<'a> {
     credential_id: &'a str,
     label: &'a str,
     passkey: &'a Passkey,
-    bootstrap_wallet: Option<&'a str>,
     new_user: bool,
 }
 
@@ -168,7 +125,6 @@ pub(super) struct PasskeyRegistrationStartRequest {
     display_name: String,
     #[serde(default)]
     label: String,
-    wallet_session: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -189,95 +145,11 @@ pub(super) struct PasskeyLoginFinishRequest {
     credential: serde_json::Value,
 }
 
-#[derive(Debug, Deserialize)]
-pub(super) struct WalletLinkStartRequest {
-    wallet_address: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct WalletLinkFinishRequest {
-    wallet_address: String,
-    nonce: String,
-    signature: Vec<u8>,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct WalletSelectionRequest {
-    wallet_address: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct WalletClaimStatusQuery {
-    claim_id: String,
-    poll_token: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct WalletClaimChallengeRequest {
-    wallet_address: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct WalletClaimFinishRequest {
-    wallet_address: String,
-    nonce: String,
-    signature: Vec<u8>,
-}
-
 #[derive(Debug, Serialize)]
 struct CeremonyResponse {
     ok: bool,
     ceremony_id: String,
     public_key: serde_json::Value,
-}
-
-#[derive(Debug, Serialize)]
-struct WalletChallengeResponse {
-    ok: bool,
-    wallet_address: String,
-    nonce: String,
-    message: String,
-    expires_at_unix: u64,
-}
-
-#[derive(Debug, Serialize)]
-struct WalletClaimStartResponse {
-    ok: bool,
-    claim_id: String,
-    poll_token: String,
-    mobile_path: String,
-    qr_svg_path: String,
-    expires_at_unix: u64,
-}
-
-#[derive(Debug, Serialize)]
-struct WalletClaimStatusResponse {
-    ok: bool,
-    state: String,
-    wallet_address: Option<String>,
-    moved: bool,
-    expires_at_unix: Option<u64>,
-    error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct WalletClaimChallengeResponse {
-    ok: bool,
-    wallet_address: String,
-    nonce: String,
-    message: String,
-    claimed_elsewhere: bool,
-    expires_at_unix: u64,
-    error: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-struct WalletClaimFinishResponse {
-    ok: bool,
-    state: String,
-    wallet_address: Option<String>,
-    moved: bool,
-    error: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -300,28 +172,15 @@ struct IdentityResponse {
     ok: bool,
     authenticated: bool,
     user_id: Option<String>,
+    account_revision: Option<u64>,
     username: Option<String>,
     display_name: Option<String>,
     passkeys: Vec<PasskeyView>,
     wallets: Vec<WalletView>,
     active_wallet: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    wallet_session: Option<String>,
     step_up_required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub(super) struct OpenRouterConnectionView {
-    ok: bool,
-    connected: bool,
-    provider: &'static str,
-    label: Option<String>,
-    user_id: Option<String>,
-    limit_usd: Option<f64>,
-    limit_remaining_usd: Option<f64>,
-    usage_daily_usd: Option<f64>,
 }
 
 impl IdentityResponse {
@@ -330,12 +189,12 @@ impl IdentityResponse {
             ok: true,
             authenticated: false,
             user_id: None,
+            account_revision: None,
             username: None,
             display_name: None,
             passkeys: Vec::new(),
             wallets: Vec::new(),
             active_wallet: None,
-            wallet_session: None,
             step_up_required: false,
             error: None,
         }
@@ -386,9 +245,6 @@ impl AccountAuth {
             webauthn,
             db_path,
             ceremonies: StdMutex::new(BTreeMap::new()),
-            wallet_link_challenges: StdMutex::new(BTreeMap::new()),
-            wallet_claims: StdMutex::new(BTreeMap::new()),
-            wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
             cookie_name: if secure_cookie {
                 "__Host-cosyworld_session".to_string()
             } else {
@@ -422,9 +278,6 @@ impl AccountAuth {
             webauthn,
             db_path,
             ceremonies: StdMutex::new(BTreeMap::new()),
-            wallet_link_challenges: StdMutex::new(BTreeMap::new()),
-            wallet_claims: StdMutex::new(BTreeMap::new()),
-            wallet_claim_challenges: StdMutex::new(BTreeMap::new()),
             cookie_name: "cosyworld_session".to_string(),
             secure_cookie: false,
             members_only,
@@ -591,10 +444,6 @@ pub(super) async fn passkey_registration_start(
         return auth_message(StatusCode::FORBIDDEN, passkey_access::SIGNUPS_CLOSED);
     }
 
-    let bootstrap_wallet = payload
-        .wallet_session
-        .as_deref()
-        .and_then(|token| wallet_for_session(&state.wallet_sessions, token));
     let resolved = if let Some(current) = current.as_ref() {
         if now_unix_secs().saturating_sub(current.verified_at_unix) > ACCOUNT_STEP_UP_TTL.as_secs()
         {
@@ -614,7 +463,7 @@ pub(super) async fn passkey_registration_start(
             false,
         ))
     } else {
-        resolve_registration_identity(auth, &payload, bootstrap_wallet.as_deref())
+        resolve_registration_identity(auth, &payload)
     };
     let (user_id, username, display_name, new_user) = match resolved {
         Ok(value) => value,
@@ -658,7 +507,6 @@ pub(super) async fn passkey_registration_start(
         username,
         display_name,
         label,
-        bootstrap_wallet,
         new_user,
         state: registration,
     }) {
@@ -690,7 +538,6 @@ pub(super) async fn passkey_registration_finish(
         username,
         display_name,
         label,
-        bootstrap_wallet,
         new_user,
         state: registration,
         ..
@@ -722,7 +569,6 @@ pub(super) async fn passkey_registration_finish(
             credential_id: &credential_id,
             label: &label,
             passkey: &passkey,
-            bootstrap_wallet: bootstrap_wallet.as_deref(),
             new_user,
         },
     ) {
@@ -732,7 +578,7 @@ pub(super) async fn passkey_registration_finish(
         Ok(session) => session,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
-    identity_response(&state, &user_id.to_string(), Some(cookie), None)
+    identity_response(&state, &user_id.to_string(), Some(cookie))
 }
 
 pub(super) async fn passkey_login_start(
@@ -917,7 +763,7 @@ pub(super) async fn passkey_login_finish(
         Ok(session) => session,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
-    identity_response(&state, &user_id.to_string(), Some(cookie), None)
+    identity_response(&state, &user_id.to_string(), Some(cookie))
 }
 
 pub(super) async fn account_identity(
@@ -929,7 +775,7 @@ pub(super) async fn account_identity(
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
     match current {
-        Some(current) => identity_response(&state, &current.user_id, None, None),
+        Some(current) => identity_response(&state, &current.user_id, None),
         None if state.account_auth.members_only => {
             let mut body = serde_json::to_value(IdentityResponse::signed_out())
                 .unwrap_or(serde_json::Value::Null);
@@ -951,890 +797,10 @@ pub(super) async fn account_logout(State(state): State<AppState>, headers: Heade
     )
 }
 
-pub(super) async fn verify_openrouter_key(
-    api_key: &str,
-) -> Result<OpenRouterConnectionView, String> {
-    if !valid_openrouter_api_key(api_key) {
-        return Err("OpenRouter key is invalid".to_string());
-    }
-    let body = bounded_openrouter_json(
-        reqwest::Method::GET,
-        &format!("{OPENROUTER_OAUTH_BASE_URL}/key"),
-        Some(api_key),
-        None,
-    )
-    .await?;
-    let data = body
-        .get("data")
-        .and_then(serde_json::Value::as_object)
-        .ok_or_else(|| "OpenRouter connection could not be verified".to_string())?;
-    Ok(OpenRouterConnectionView {
-        ok: true,
-        connected: true,
-        provider: "openrouter",
-        label: data
-            .get("label")
-            .and_then(serde_json::Value::as_str)
-            .map(|label| label.chars().take(100).collect()),
-        user_id: None,
-        limit_usd: data.get("limit").and_then(serde_json::Value::as_f64),
-        limit_remaining_usd: data
-            .get("limit_remaining")
-            .and_then(serde_json::Value::as_f64),
-        usage_daily_usd: data.get("usage_daily").and_then(serde_json::Value::as_f64),
-    })
-}
-
-fn valid_openrouter_api_key(value: &str) -> bool {
-    value.starts_with("sk-or-")
-        && (20..=512).contains(&value.len())
-        && value.bytes().all(|byte| byte.is_ascii_graphic())
-}
-
-async fn bounded_openrouter_json(
-    method: reqwest::Method,
-    url: &str,
-    bearer: Option<&str>,
-    body: Option<&serde_json::Value>,
-) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::builder()
-        .timeout(OPENROUTER_OAUTH_TIMEOUT)
-        .build()
-        .map_err(|_| "OpenRouter connection could not start".to_string())?;
-    let mut request = client
-        .request(method, url)
-        .header("HTTP-Referer", crate::ai_gateway::OPENROUTER_APP_REFERER)
-        .header(
-            "X-OpenRouter-Title",
-            crate::ai_gateway::OPENROUTER_APP_TITLE,
-        );
-    if let Some(api_key) = bearer {
-        request = request.bearer_auth(api_key);
-    }
-    if let Some(body) = body {
-        request = request.json(body);
-    }
-    let mut response = request
-        .send()
-        .await
-        .map_err(|_| "OpenRouter could not be reached; try again".to_string())?;
-    if !response.status().is_success() {
-        return Err(match response.status().as_u16() {
-            400 | 403 => "OpenRouter authorization expired or was declined".to_string(),
-            401 => "OpenRouter rejected this connection".to_string(),
-            429 => "OpenRouter is busy; try again shortly".to_string(),
-            _ => "OpenRouter could not complete the connection".to_string(),
-        });
-    }
-    if response
-        .content_length()
-        .is_some_and(|length| length > OPENROUTER_OAUTH_RESPONSE_LIMIT as u64)
-    {
-        return Err("OpenRouter returned an oversized response".to_string());
-    }
-    let mut bytes = Vec::new();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_| "OpenRouter response could not be read".to_string())?
-    {
-        if bytes.len().saturating_add(chunk.len()) > OPENROUTER_OAUTH_RESPONSE_LIMIT {
-            return Err("OpenRouter returned an oversized response".to_string());
-        }
-        bytes.extend_from_slice(&chunk);
-    }
-    serde_json::from_slice(&bytes)
-        .map_err(|_| "OpenRouter returned an invalid response".to_string())
-}
-
-pub(super) async fn wallet_link_start(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(payload): Json<WalletLinkStartRequest>,
-) -> Response {
-    let current = match require_recent_account(&state.account_auth, &headers) {
-        Ok(current) => current,
-        Err(error) => return auth_error(StatusCode::UNAUTHORIZED, error),
-    };
-    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
-        return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
-    };
-    let nonce = random_hex(24);
-    // The shared RATi link (atimics/forge docs/rati-link.md). The nonce keys
-    // the pending challenge; the sequence is the issue time.
-    let Some(message) = rati_link_message(&current.user_id, &wallet_address, now_unix_secs())
-    else {
-        return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
-    };
-    let expires_at_unix = now_unix_secs() + WALLET_LINK_TTL.as_secs();
-    let challenge = WalletLinkChallenge {
-        user_id: current.user_id,
-        wallet_address: wallet_address.clone(),
-        message: message.clone(),
-        expires_at: Instant::now() + WALLET_LINK_TTL,
-    };
-    let Ok(mut challenges) = state.account_auth.wallet_link_challenges.lock() else {
-        return auth_message(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "wallet linking is unavailable",
-        );
-    };
-    let now = Instant::now();
-    challenges.retain(|_, challenge| challenge.expires_at > now);
-    challenges.insert(nonce.clone(), challenge);
-    no_store_json(
-        StatusCode::OK,
-        &WalletChallengeResponse {
-            ok: true,
-            wallet_address,
-            nonce,
-            message,
-            expires_at_unix,
-        },
-        None,
-    )
-}
-
-pub(super) async fn wallet_link_finish(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(payload): Json<WalletLinkFinishRequest>,
-) -> Response {
-    let current = match require_recent_account(&state.account_auth, &headers) {
-        Ok(current) => current,
-        Err(error) => return auth_error(StatusCode::UNAUTHORIZED, error),
-    };
-    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
-        return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
-    };
-    let challenge = {
-        let Ok(mut challenges) = state.account_auth.wallet_link_challenges.lock() else {
-            return auth_message(
-                StatusCode::SERVICE_UNAVAILABLE,
-                "wallet linking is unavailable",
-            );
-        };
-        challenges.retain(|_, challenge| challenge.expires_at > Instant::now());
-        challenges.remove(payload.nonce.trim())
-    };
-    let Some(challenge) = challenge else {
-        return auth_message(StatusCode::GONE, "wallet link challenge expired");
-    };
-    if challenge.user_id != current.user_id
-        || challenge.wallet_address != wallet_address
-        || !verify_solana_wallet_signature(&wallet_address, &challenge.message, &payload.signature)
-    {
-        return auth_message(StatusCode::UNAUTHORIZED, "wallet signature rejected");
-    }
-    if let Err(error) = link_account_wallet(
-        state.account_auth.path().unwrap_or_else(|_| Path::new("")),
-        &current.user_id,
-        &wallet_address,
-    ) {
-        return auth_error(StatusCode::CONFLICT, error);
-    }
-    discover_linked_avatars(&state, &wallet_address);
-    identity_response(&state, &current.user_id, None, Some(&wallet_address))
-}
-
-/// Bring the worldpack's linked avatars that `wallet` holds into the world,
-/// in the background so linking never waits on the ownership lookup.
-fn discover_linked_avatars(state: &AppState, wallet: &str) {
-    let (state, wallet) = (state.clone(), wallet.to_string());
-    tokio::spawn(async move {
-        crate::proxim8::linked_avatars::materialize_wallet_linked_avatars(&state, &wallet).await;
-    });
-}
-
-fn cleanup_wallet_claims(auth: &AccountAuth) {
-    let now = Instant::now();
-    if let Ok(mut claims) = auth.wallet_claims.lock() {
-        claims.retain(|_, claim| {
-            claim.expires_at > now
-                || claim.completed_at.is_some_and(|completed_at| {
-                    now.duration_since(completed_at) <= WALLET_CLAIM_COMPLETE_GRACE
-                })
-        });
-    }
-    if let Ok(mut challenges) = auth.wallet_claim_challenges.lock() {
-        challenges.retain(|_, challenge| challenge.expires_at > now);
-    }
-}
-
-fn wallet_claim_is_pending(auth: &AccountAuth, claim_id: &str) -> bool {
-    let Some(claim_id) = clean_auth_token(claim_id, 32) else {
-        return false;
-    };
-    cleanup_wallet_claims(auth);
-    auth.wallet_claims
-        .lock()
-        .ok()
-        .and_then(|claims| claims.get(&claim_id).cloned())
-        .is_some_and(|claim| claim.expires_at > Instant::now() && claim.completed_at.is_none())
-}
-
-pub(super) async fn wallet_claim_start(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Response {
-    let current = match require_recent_account(&state.account_auth, &headers) {
-        Ok(current) => current,
-        Err(error) => return auth_error(StatusCode::UNAUTHORIZED, error),
-    };
-    cleanup_wallet_claims(&state.account_auth);
-    let claim_id = random_hex(16);
-    let poll_token = random_hex(32);
-    let expires_at_unix = now_unix_secs() + WALLET_CLAIM_TTL.as_secs();
-    let claim = WalletClaimIntent {
-        user_id: current.user_id,
-        poll_token: poll_token.clone(),
-        expires_at: Instant::now() + WALLET_CLAIM_TTL,
-        expires_at_unix,
-        wallet_address: None,
-        moved: false,
-        completed_at: None,
-    };
-    let Ok(mut claims) = state.account_auth.wallet_claims.lock() else {
-        return auth_message(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "wallet claims are unavailable",
-        );
-    };
-    claims.insert(claim_id.clone(), claim);
-    no_store_json(
-        StatusCode::OK,
-        &WalletClaimStartResponse {
-            ok: true,
-            claim_id: claim_id.clone(),
-            poll_token,
-            mobile_path: format!("/wallet/claim/{claim_id}"),
-            qr_svg_path: format!("/wallet/claim/{claim_id}/code.svg"),
-            expires_at_unix,
-        },
-        None,
-    )
-}
-
-pub(super) async fn wallet_claim_status(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Query(query): Query<WalletClaimStatusQuery>,
-) -> Response {
-    let current = match state.account_auth.session_from_headers(&headers) {
-        Ok(Some(current)) => current,
-        Ok(None) => return auth_message(StatusCode::UNAUTHORIZED, "passkey sign-in required"),
-        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
-    };
-    let Some(claim_id) = clean_auth_token(&query.claim_id, 32) else {
-        return no_store_json(
-            StatusCode::BAD_REQUEST,
-            &WalletClaimStatusResponse {
-                ok: false,
-                state: "invalid".to_string(),
-                wallet_address: None,
-                moved: false,
-                expires_at_unix: None,
-                error: Some("wallet claim id is invalid".to_string()),
-            },
-            None,
-        );
-    };
-    let Some(poll_token) = clean_auth_token(&query.poll_token, 64) else {
-        return no_store_json(
-            StatusCode::BAD_REQUEST,
-            &WalletClaimStatusResponse {
-                ok: false,
-                state: "invalid".to_string(),
-                wallet_address: None,
-                moved: false,
-                expires_at_unix: None,
-                error: Some("wallet claim poll token is invalid".to_string()),
-            },
-            None,
-        );
-    };
-    cleanup_wallet_claims(&state.account_auth);
-    let Ok(claims) = state.account_auth.wallet_claims.lock() else {
-        return auth_message(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "wallet claims are unavailable",
-        );
-    };
-    let Some(claim) = claims.get(&claim_id) else {
-        return no_store_json(
-            StatusCode::GONE,
-            &WalletClaimStatusResponse {
-                ok: false,
-                state: "expired".to_string(),
-                wallet_address: None,
-                moved: false,
-                expires_at_unix: None,
-                error: Some("wallet claim expired".to_string()),
-            },
-            None,
-        );
-    };
-    if claim.user_id != current.user_id
-        || !crate::config::token_matches(&poll_token, &claim.poll_token)
-    {
-        return no_store_json(
-            StatusCode::FORBIDDEN,
-            &WalletClaimStatusResponse {
-                ok: false,
-                state: "forbidden".to_string(),
-                wallet_address: None,
-                moved: false,
-                expires_at_unix: Some(claim.expires_at_unix),
-                error: Some("wallet claim poll token rejected".to_string()),
-            },
-            None,
-        );
-    }
-    let complete = claim.completed_at.is_some();
-    no_store_json(
-        StatusCode::OK,
-        &WalletClaimStatusResponse {
-            ok: true,
-            state: if complete { "complete" } else { "pending" }.to_string(),
-            wallet_address: claim.wallet_address.clone(),
-            moved: claim.moved,
-            expires_at_unix: Some(claim.expires_at_unix),
-            error: None,
-        },
-        None,
-    )
-}
-
-pub(super) async fn wallet_claim_challenge(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    AxumPath(claim_id): AxumPath<String>,
-    Json(payload): Json<WalletClaimChallengeRequest>,
-) -> Response {
-    if !state.allow_rate_limit(
-        rate_limit_key("wallet-claim-ip", client_ip_key(client_addr)),
-        WALLET_AUTH_LIMIT,
-    ) {
-        return no_store_json(
-            StatusCode::TOO_MANY_REQUESTS,
-            &WalletClaimChallengeResponse {
-                ok: false,
-                wallet_address: String::new(),
-                nonce: String::new(),
-                message: String::new(),
-                claimed_elsewhere: false,
-                expires_at_unix: 0,
-                error: Some("wallet claim rate limited".to_string()),
-            },
-            None,
-        );
-    }
-    let Some(claim_id) = clean_auth_token(&claim_id, 32) else {
-        return no_store_json(
-            StatusCode::BAD_REQUEST,
-            &WalletClaimChallengeResponse {
-                ok: false,
-                wallet_address: String::new(),
-                nonce: String::new(),
-                message: String::new(),
-                claimed_elsewhere: false,
-                expires_at_unix: 0,
-                error: Some("wallet claim is invalid".to_string()),
-            },
-            None,
-        );
-    };
-    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
-        return no_store_json(
-            StatusCode::BAD_REQUEST,
-            &WalletClaimChallengeResponse {
-                ok: false,
-                wallet_address: String::new(),
-                nonce: String::new(),
-                message: String::new(),
-                claimed_elsewhere: false,
-                expires_at_unix: 0,
-                error: Some("wallet address is invalid".to_string()),
-            },
-            None,
-        );
-    };
-    cleanup_wallet_claims(&state.account_auth);
-    let claim = state
-        .account_auth
-        .wallet_claims
-        .lock()
-        .ok()
-        .and_then(|claims| claims.get(&claim_id).cloned());
-    let Some(claim) =
-        claim.filter(|claim| claim.expires_at > Instant::now() && claim.completed_at.is_none())
-    else {
-        return no_store_json(
-            StatusCode::GONE,
-            &WalletClaimChallengeResponse {
-                ok: false,
-                wallet_address: String::new(),
-                nonce: String::new(),
-                message: String::new(),
-                claimed_elsewhere: false,
-                expires_at_unix: 0,
-                error: Some("wallet claim expired".to_string()),
-            },
-            None,
-        );
-    };
-    let claimed_elsewhere = match wallet_owner_user_id(
-        state.account_auth.path().unwrap_or_else(|_| Path::new("")),
-        &wallet_address,
-    ) {
-        Ok(Some(owner)) => owner != claim.user_id,
-        Ok(None) => false,
-        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
-    };
-    let nonce = random_hex(24);
-    let expires_at_unix = now_unix_secs() + WALLET_LINK_TTL.as_secs();
-    // The same RATi link as in-browser linking, naming the waiting account.
-    // The claim page asks for a separate confirmation before a move.
-    let Some(message) = rati_link_message(&claim.user_id, &wallet_address, now_unix_secs()) else {
-        return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
-    };
-    let challenge = WalletClaimChallenge {
-        claim_id,
-        user_id: claim.user_id,
-        wallet_address: wallet_address.clone(),
-        message: message.clone(),
-        claimed_elsewhere,
-        expires_at: Instant::now() + WALLET_LINK_TTL,
-    };
-    let Ok(mut challenges) = state.account_auth.wallet_claim_challenges.lock() else {
-        return auth_message(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "wallet claim signing is unavailable",
-        );
-    };
-    challenges.insert(nonce.clone(), challenge);
-    no_store_json(
-        StatusCode::OK,
-        &WalletClaimChallengeResponse {
-            ok: true,
-            wallet_address,
-            nonce,
-            message,
-            claimed_elsewhere,
-            expires_at_unix,
-            error: None,
-        },
-        None,
-    )
-}
-
-pub(super) async fn wallet_claim_finish(
-    ConnectInfo(client_addr): ConnectInfo<SocketAddr>,
-    State(state): State<AppState>,
-    AxumPath(claim_id): AxumPath<String>,
-    Json(payload): Json<WalletClaimFinishRequest>,
-) -> Response {
-    if !state.allow_rate_limit(
-        rate_limit_key("wallet-claim-ip", client_ip_key(client_addr)),
-        WALLET_AUTH_LIMIT,
-    ) {
-        return no_store_json(
-            StatusCode::TOO_MANY_REQUESTS,
-            &WalletClaimFinishResponse {
-                ok: false,
-                state: "rate_limited".to_string(),
-                wallet_address: None,
-                moved: false,
-                error: Some("wallet claim rate limited".to_string()),
-            },
-            None,
-        );
-    }
-    let Some(claim_id) = clean_auth_token(&claim_id, 32) else {
-        return no_store_json(
-            StatusCode::BAD_REQUEST,
-            &WalletClaimFinishResponse {
-                ok: false,
-                state: "invalid".to_string(),
-                wallet_address: None,
-                moved: false,
-                error: Some("wallet claim is invalid".to_string()),
-            },
-            None,
-        );
-    };
-    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
-        return no_store_json(
-            StatusCode::BAD_REQUEST,
-            &WalletClaimFinishResponse {
-                ok: false,
-                state: "invalid".to_string(),
-                wallet_address: None,
-                moved: false,
-                error: Some("wallet address is invalid".to_string()),
-            },
-            None,
-        );
-    };
-    cleanup_wallet_claims(&state.account_auth);
-    let challenge = state
-        .account_auth
-        .wallet_claim_challenges
-        .lock()
-        .ok()
-        .and_then(|mut challenges| challenges.remove(payload.nonce.trim()));
-    let Some(challenge) = challenge else {
-        return no_store_json(
-            StatusCode::GONE,
-            &WalletClaimFinishResponse {
-                ok: false,
-                state: "expired".to_string(),
-                wallet_address: None,
-                moved: false,
-                error: Some("wallet claim signature expired".to_string()),
-            },
-            None,
-        );
-    };
-    if challenge.claim_id != claim_id
-        || challenge.wallet_address != wallet_address
-        || !verify_solana_wallet_signature(&wallet_address, &challenge.message, &payload.signature)
-    {
-        return no_store_json(
-            StatusCode::UNAUTHORIZED,
-            &WalletClaimFinishResponse {
-                ok: false,
-                state: "rejected".to_string(),
-                wallet_address: None,
-                moved: false,
-                error: Some("wallet signature rejected".to_string()),
-            },
-            None,
-        );
-    }
-    let valid_intent = state
-        .account_auth
-        .wallet_claims
-        .lock()
-        .ok()
-        .and_then(|claims| claims.get(&claim_id).cloned())
-        .is_some_and(|claim| {
-            claim.user_id == challenge.user_id
-                && claim.expires_at > Instant::now()
-                && claim.completed_at.is_none()
-        });
-    if !valid_intent {
-        return no_store_json(
-            StatusCode::GONE,
-            &WalletClaimFinishResponse {
-                ok: false,
-                state: "expired".to_string(),
-                wallet_address: None,
-                moved: false,
-                error: Some("wallet claim expired".to_string()),
-            },
-            None,
-        );
-    }
-    let moved = match claim_account_wallet(
-        state.account_auth.path().unwrap_or_else(|_| Path::new("")),
-        &challenge.user_id,
-        &wallet_address,
-        challenge.claimed_elsewhere,
-    ) {
-        Ok(moved) => moved,
-        Err(AccountError::Message(error)) => {
-            return no_store_json(
-                StatusCode::CONFLICT,
-                &WalletClaimFinishResponse {
-                    ok: false,
-                    state: "confirmation_required".to_string(),
-                    wallet_address: None,
-                    moved: false,
-                    error: Some(error),
-                },
-                None,
-            )
-        }
-        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
-    };
-    let Ok(mut claims) = state.account_auth.wallet_claims.lock() else {
-        return auth_message(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "wallet claims are unavailable",
-        );
-    };
-    let Some(claim) = claims.get_mut(&claim_id) else {
-        return auth_message(StatusCode::GONE, "wallet claim expired");
-    };
-    claim.wallet_address = Some(wallet_address.clone());
-    claim.moved = moved || challenge.claimed_elsewhere;
-    claim.completed_at = Some(Instant::now());
-    let moved = claim.moved;
-    drop(claims);
-    discover_linked_avatars(&state, &wallet_address);
-    no_store_json(
-        StatusCode::OK,
-        &WalletClaimFinishResponse {
-            ok: true,
-            state: "complete".to_string(),
-            wallet_address: Some(wallet_address),
-            moved,
-            error: None,
-        },
-        None,
-    )
-}
-
-pub(super) async fn wallet_claim_code(
-    headers: HeaderMap,
-    State(state): State<AppState>,
-    AxumPath(claim_id): AxumPath<String>,
-) -> impl IntoResponse {
-    let Some(claim_id) = clean_auth_token(&claim_id, 32) else {
-        return (StatusCode::BAD_REQUEST, "invalid wallet claim").into_response();
-    };
-    if !wallet_claim_is_pending(&state.account_auth, &claim_id) {
-        return (StatusCode::NOT_FOUND, "wallet claim expired").into_response();
-    }
-    let mobile_url = format!("{}/wallet/claim/{claim_id}", request_origin(&headers));
-    let Ok(code) = QrCode::new(mobile_url.as_bytes()) else {
-        return (StatusCode::INTERNAL_SERVER_ERROR, "QR generation failed").into_response();
-    };
-    let image = code
-        .render::<svg::Color<'_>>()
-        .min_dimensions(320, 320)
-        .dark_color(svg::Color("#0d140f"))
-        .light_color(svg::Color("#f5f8ef"))
-        .build();
-    (
-        StatusCode::OK,
-        [(header::CONTENT_TYPE, "image/svg+xml; charset=utf-8")],
-        image,
-    )
-        .into_response()
-}
-
-pub(super) async fn wallet_claim_page(
-    State(state): State<AppState>,
-    AxumPath(claim_id): AxumPath<String>,
-) -> impl IntoResponse {
-    let Some(claim_id) = clean_auth_token(&claim_id, 32) else {
-        return (
-            StatusCode::BAD_REQUEST,
-            no_store_headers(),
-            Html("invalid wallet claim".to_string()),
-        )
-            .into_response();
-    };
-    if !wallet_claim_is_pending(&state.account_auth, &claim_id) {
-        return (
-            StatusCode::NOT_FOUND,
-            no_store_headers(),
-            Html("wallet claim expired".to_string()),
-        )
-            .into_response();
-    }
-    let claim_json = serde_json::to_string(&claim_id).unwrap_or_else(|_| "\"\"".to_string());
-    let page = format!(
-        r##"<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#080b09" />
-  <title>Claim NFT wallet · CosyWorld</title>
-  <style>
-    * {{ box-sizing: border-box; }}
-    html, body {{ margin: 0; min-height: 100%; background: #080b09; color: #d8f7dc; font: 16px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }}
-    body {{ display: grid; place-items: center; padding: 18px; }}
-    main {{ width: min(440px, 100%); border: 1px solid rgba(239,201,107,.36); background: #0d140f; padding: 20px; box-shadow: 0 20px 70px rgba(0,0,0,.55); }}
-    h1 {{ margin: 0 0 8px; color: #efc96b; font-size: 20px; }}
-    p {{ margin: 0 0 14px; color: #85a58a; }}
-    button {{ width: 100%; min-height: 54px; border: 1px solid rgba(239,201,107,.55); background: rgba(101,230,138,.12); color: #65e68a; font: inherit; font-weight: 900; border-radius: 5px; }}
-    button[disabled] {{ opacity: .55; }}
-    .wallet-links {{ display: grid; gap: 8px; margin-top: 12px; }}
-    .wallet-links a {{ display: grid; place-items: center; min-height: 46px; border: 1px solid rgba(139,183,255,.38); color: #8bb7ff; text-decoration: none; border-radius: 5px; font-weight: 850; }}
-    .status {{ min-height: 24px; margin-top: 14px; color: #8bb7ff; overflow-wrap: anywhere; }}
-    .error {{ color: #ff8d8d; }}
-  </style>
-</head>
-<body>
-  <main>
-    <h1>claim NFT wallet</h1>
-    <p id="copy">Sign one message to let your passkey account use this wallet's NFTs. No transaction, no fee.</p>
-    <button id="claim">claim this wallet</button>
-    <div class="wallet-links" id="wallet-links" hidden>
-      <a id="phantom-link" href="#" rel="noreferrer">open in Phantom</a>
-      <a id="solflare-link" href="#" rel="noreferrer">open in Solflare</a>
-    </div>
-    <div class="status" id="status"></div>
-  </main>
-  <script>
-    const claimId = {claim_json};
-    const button = document.getElementById("claim");
-    const copy = document.getElementById("copy");
-    const statusNode = document.getElementById("status");
-    const walletLinks = document.getElementById("wallet-links");
-    let prepared = null;
-    let wallet = null;
-    function provider() {{ return window.solana || window.phantom?.solana || window.solflare?.solana || window.solflare || null; }}
-    function status(text, error = false) {{
-      statusNode.textContent = text;
-      statusNode.classList.toggle("error", error);
-    }}
-    function configureWalletLinks() {{
-      const pageUrl = window.location.href;
-      const ref = window.location.origin;
-      document.getElementById("phantom-link").href = `https://phantom.app/ul/browse/${{encodeURIComponent(pageUrl)}}?ref=${{encodeURIComponent(ref)}}`;
-      document.getElementById("solflare-link").href = `https://solflare.com/ul/v1/browse/${{encodeURIComponent(pageUrl)}}?ref=${{encodeURIComponent(ref)}}`;
-      walletLinks.hidden = false;
-    }}
-    function walletErrorMessage(error) {{
-      const message = String(error?.message || error || "").trim();
-      if (/reject|denied|cancel/i.test(message)) return "Wallet request cancelled.";
-      return message || "Wallet claim failed.";
-    }}
-    async function api(path, options = {{}}) {{
-      const response = await fetch(path, options);
-      return response.json();
-    }}
-    configureWalletLinks();
-    button.addEventListener("click", async () => {{
-      wallet = wallet || provider();
-      if (!wallet?.connect || !wallet?.signMessage) {{
-        status("Open this page in Phantom or Solflare, then tap claim this wallet.", true);
-        return;
-      }}
-      button.disabled = true;
-      try {{
-        if (!prepared) {{
-          status("Connect the wallet.");
-          const connected = await wallet.connect();
-          const publicKey = connected?.publicKey || wallet.publicKey;
-          const walletAddress = publicKey?.toString?.() || "";
-          if (!walletAddress) throw new Error("Wallet did not return an address.");
-          prepared = await api(`/wallet/claim/${{claimId}}/challenge`, {{
-            method: "POST",
-            headers: {{ "content-type": "application/json" }},
-            body: JSON.stringify({{ wallet_address: walletAddress }}),
-          }});
-          if (!prepared.ok) throw new Error(prepared.error || "Wallet claim could not start.");
-          if (prepared.claimed_elsewhere) {{
-            copy.textContent = "This wallet is claimed by another CosyWorld account. A fresh signature will move its NFT access here; it cannot belong to both accounts.";
-            button.textContent = "move wallet claim here";
-            status("Review the move, then confirm once more.");
-            button.disabled = false;
-            return;
-          }}
-        }}
-        status("Sign the NFT wallet claim message.");
-        const signed = await wallet.signMessage(new TextEncoder().encode(prepared.message), "utf8");
-        const finished = await api(`/wallet/claim/${{claimId}}/finish`, {{
-          method: "POST",
-          headers: {{ "content-type": "application/json" }},
-          body: JSON.stringify({{
-            wallet_address: prepared.wallet_address,
-            nonce: prepared.nonce,
-            signature: Array.from(signed?.signature || signed || []),
-          }}),
-        }});
-        if (!finished.ok) throw new Error(finished.error || "Wallet signature rejected.");
-        copy.textContent = finished.moved
-          ? "This wallet's NFT claim now belongs to your waiting passkey account."
-          : "This wallet's NFTs are now available to your waiting passkey account.";
-        button.textContent = "wallet claimed";
-        status("Done. Return to the original CosyWorld browser.");
-      }} catch (error) {{
-        status(walletErrorMessage(error), true);
-        prepared = null;
-        button.textContent = "claim this wallet";
-        button.disabled = false;
-      }}
-    }});
-  </script>
-</body>
-</html>"##
-    );
-    (StatusCode::OK, no_store_headers(), Html(page)).into_response()
-}
-
-pub(super) async fn wallet_select(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(payload): Json<WalletSelectionRequest>,
-) -> Response {
-    let current = match state.account_auth.session_from_headers(&headers) {
-        Ok(Some(current)) => current,
-        Ok(None) => return auth_message(StatusCode::UNAUTHORIZED, "passkey sign-in required"),
-        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
-    };
-    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
-        return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
-    };
-    match wallet_belongs_to_user(
-        state.account_auth.path().unwrap_or_else(|_| Path::new("")),
-        &current.user_id,
-        &wallet_address,
-    ) {
-        Ok(true) => identity_response(&state, &current.user_id, None, Some(&wallet_address)),
-        Ok(false) => auth_message(
-            StatusCode::FORBIDDEN,
-            "wallet is not linked to this account",
-        ),
-        Err(error) => auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
-    }
-}
-
-pub(super) async fn wallet_unlink(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(payload): Json<WalletSelectionRequest>,
-) -> Response {
-    let current = match require_recent_account(&state.account_auth, &headers) {
-        Ok(current) => current,
-        Err(error) => return auth_error(StatusCode::UNAUTHORIZED, error),
-    };
-    let Some(wallet_address) = normalize_wallet_address(&payload.wallet_address) else {
-        return auth_message(StatusCode::BAD_REQUEST, "wallet address is invalid");
-    };
-    let conn = match open_event_store(state.account_auth.path().unwrap_or_else(|_| Path::new(""))) {
-        Ok(conn) => conn,
-        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
-    };
-    match conn.execute(
-        "DELETE FROM user_wallets WHERE user_id = ?1 AND wallet_address = ?2",
-        params![current.user_id, wallet_address],
-    ) {
-        Ok(0) => auth_message(StatusCode::NOT_FOUND, "wallet link was not found"),
-        Ok(_) => identity_response(&state, &current.user_id, None, None),
-        Err(error) => auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
-    }
-}
-
 fn resolve_registration_identity(
     auth: &AccountAuth,
     payload: &PasskeyRegistrationStartRequest,
-    bootstrap_wallet: Option<&str>,
 ) -> AccountResult<(Uuid, String, String, bool)> {
-    if let Some(wallet) = bootstrap_wallet {
-        if let Some((user_id, username, display_name, passkey_count)) =
-            find_user_by_wallet(auth.path()?, wallet)?
-        {
-            if passkey_count > 0 {
-                return Err(account_error(
-                    "this account already has a passkey; sign in before adding another",
-                ));
-            }
-            return Ok((
-                Uuid::parse_str(&user_id)
-                    .map_err(|_| account_error("account identity is invalid"))?,
-                username,
-                display_name,
-                false,
-            ));
-        }
-    }
     let user_id = Uuid::new_v4();
     let generated = payload.username.trim().is_empty();
     let username = if generated {
@@ -1855,12 +821,7 @@ fn resolve_registration_identity(
     Ok((user_id, username, display_name, true))
 }
 
-fn identity_response(
-    state: &AppState,
-    user_id: &str,
-    cookie: Option<String>,
-    preferred_wallet: Option<&str>,
-) -> Response {
+fn identity_response(state: &AppState, user_id: &str, cookie: Option<String>) -> Response {
     let auth = &state.account_auth;
     let (username, display_name) =
         match find_user_by_id(auth.path().unwrap_or_else(|_| Path::new("")), user_id) {
@@ -1877,25 +838,26 @@ fn identity_response(
         Ok(wallets) => wallets,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
-    let active_wallet = preferred_wallet
-        .filter(|wallet| wallets.iter().any(|entry| entry.wallet_address == *wallet))
-        .map(ToString::to_string)
-        .or_else(|| wallets.first().map(|wallet| wallet.wallet_address.clone()));
-    let wallet_session = active_wallet
-        .as_deref()
-        .map(|wallet| mint_account_wallet_capability(state, wallet, &wallets));
+    let revision = match auth.path().and_then(|path| {
+        let c = open_event_store(path)?;
+        Ok(crate::account_revision::current(&c, user_id)?)
+    }) {
+        Ok(revision) => revision,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let active_wallet = wallets.first().map(|wallet| wallet.wallet_address.clone());
     no_store_json(
         StatusCode::OK,
         &IdentityResponse {
             ok: true,
             authenticated: true,
             user_id: Some(user_id.to_string()),
+            account_revision: Some(revision),
             username: Some(username),
             display_name: Some(display_name),
             passkeys,
             wallets,
             active_wallet,
-            wallet_session,
             step_up_required: false,
             error: None,
         },
@@ -1903,47 +865,9 @@ fn identity_response(
     )
 }
 
-fn mint_account_wallet_capability(
-    state: &AppState,
-    wallet_address: &str,
-    wallets: &[WalletView],
-) -> String {
-    let token = random_hex(32);
-    let now = Instant::now();
-    if let Ok(mut sessions) = state.wallet_sessions.lock() {
-        sessions
-            .sessions
-            .retain(|_, session| session.expires_at > now);
-        sessions.sessions.insert(
-            token.clone(),
-            WalletSession {
-                wallet_address: wallet_address.to_string(),
-                linked_wallet_addresses: wallets
-                    .iter()
-                    .map(|wallet| wallet.wallet_address.clone())
-                    .collect(),
-                expires_at: now + ACCOUNT_WALLET_CAPABILITY_TTL,
-            },
-        );
-    }
-    token
-}
-
-fn require_recent_account(
-    auth: &AccountAuth,
-    headers: &HeaderMap,
-) -> AccountResult<AccountSessionRecord> {
-    let session = auth
-        .session_from_headers(headers)?
-        .ok_or_else(|| account_error("passkey sign-in required"))?;
-    if now_unix_secs().saturating_sub(session.verified_at_unix) > ACCOUNT_STEP_UP_TTL.as_secs() {
-        return Err(account_error("sign in again before changing wallet links"));
-    }
-    Ok(session)
-}
-
 fn init_account_schema(path: &Path) -> AccountResult<()> {
     let conn = open_event_store(path)?;
+    crate::account_revision::schema(&conn)?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS auth_users (
             id TEXT PRIMARY KEY,
@@ -2013,27 +937,6 @@ fn persist_registered_passkey(
         .is_none()
     {
         return Err(account_error("account is unavailable"));
-    }
-    if let Some(wallet) = registration.bootstrap_wallet {
-        let existing_user = transaction
-            .query_row(
-                "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
-                params![wallet],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()?;
-        if existing_user
-            .as_deref()
-            .is_some_and(|existing| existing != registration.user_id)
-        {
-            return Err(account_error("wallet is already linked to another account"));
-        }
-        transaction.execute(
-            "INSERT OR IGNORE INTO user_wallets
-             (user_id, wallet_address, role, verified_at_unix, created_at_unix)
-             VALUES (?1, ?2, 'ownership', ?3, ?3)",
-            params![registration.user_id, wallet, now],
-        )?;
     }
     let passkey_json = serde_json::to_string(registration.passkey)
         .map_err(|error| account_error(format!("failed to serialize passkey: {error}")))?;
@@ -2149,123 +1052,6 @@ fn find_user_by_id(path: &Path, user_id: &str) -> AccountResult<Option<(String, 
     .map_err(Into::into)
 }
 
-fn find_user_by_wallet(
-    path: &Path,
-    wallet_address: &str,
-) -> AccountResult<Option<(String, String, String, usize)>> {
-    let conn = open_event_store(path)?;
-    conn.query_row(
-        "SELECT users.id, users.username, users.display_name,
-                (SELECT COUNT(*) FROM auth_passkeys WHERE user_id = users.id)
-         FROM user_wallets
-         JOIN auth_users AS users ON users.id = user_wallets.user_id
-         WHERE user_wallets.wallet_address = ?1 AND users.status = 'active'",
-        params![wallet_address],
-        |row| {
-            Ok((
-                row.get(0)?,
-                row.get(1)?,
-                row.get(2)?,
-                row.get::<_, i64>(3)?.max(0) as usize,
-            ))
-        },
-    )
-    .optional()
-    .map_err(Into::into)
-}
-
-fn link_account_wallet(path: &Path, user_id: &str, wallet_address: &str) -> AccountResult<()> {
-    let conn = open_event_store(path)?;
-    let existing = conn
-        .query_row(
-            "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
-            params![wallet_address],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()?;
-    if existing
-        .as_deref()
-        .is_some_and(|existing| existing != user_id)
-    {
-        return Err(account_error("wallet is already linked to another account"));
-    }
-    let now = now_unix_secs() as i64;
-    conn.execute(
-        "INSERT OR IGNORE INTO user_wallets
-         (user_id, wallet_address, role, verified_at_unix, created_at_unix)
-         VALUES (?1, ?2, 'ownership', ?3, ?3)",
-        params![user_id, wallet_address, now],
-    )?;
-    Ok(())
-}
-
-fn wallet_owner_user_id(path: &Path, wallet_address: &str) -> AccountResult<Option<String>> {
-    let conn = open_event_store(path)?;
-    conn.query_row(
-        "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
-        params![wallet_address],
-        |row| row.get::<_, String>(0),
-    )
-    .optional()
-    .map_err(Into::into)
-}
-
-fn claim_account_wallet(
-    path: &Path,
-    user_id: &str,
-    wallet_address: &str,
-    allow_move: bool,
-) -> AccountResult<bool> {
-    let mut conn = open_event_store(path)?;
-    let transaction = conn.transaction()?;
-    let existing = transaction
-        .query_row(
-            "SELECT user_id FROM user_wallets WHERE wallet_address = ?1",
-            params![wallet_address],
-            |row| row.get::<_, String>(0),
-        )
-        .optional()?;
-    let moved = existing
-        .as_deref()
-        .is_some_and(|existing_user_id| existing_user_id != user_id);
-    if moved && !allow_move {
-        return Err(account_error(
-            "This wallet was claimed by another account. Review and sign a fresh move request.",
-        ));
-    }
-    if moved {
-        transaction.execute(
-            "DELETE FROM user_wallets WHERE wallet_address = ?1",
-            params![wallet_address],
-        )?;
-    }
-    let now = now_unix_secs() as i64;
-    transaction.execute(
-        "INSERT INTO user_wallets
-         (user_id, wallet_address, role, verified_at_unix, created_at_unix)
-         VALUES (?1, ?2, 'ownership', ?3, ?3)
-         ON CONFLICT(wallet_address) DO UPDATE SET
-           user_id = excluded.user_id,
-           role = 'ownership',
-           verified_at_unix = excluded.verified_at_unix",
-        params![user_id, wallet_address, now],
-    )?;
-    transaction.commit()?;
-    Ok(moved)
-}
-
-fn wallet_belongs_to_user(path: &Path, user_id: &str, wallet_address: &str) -> AccountResult<bool> {
-    let conn = open_event_store(path)?;
-    Ok(conn
-        .query_row(
-            "SELECT 1 FROM user_wallets WHERE user_id = ?1 AND wallet_address = ?2",
-            params![user_id, wallet_address],
-            |_| Ok(()),
-        )
-        .optional()?
-        .is_some())
-}
-
 fn normalize_account_username(value: &str) -> Option<String> {
     let username = value.trim().to_ascii_lowercase();
     (username.len() >= 3
@@ -2332,12 +1118,12 @@ fn auth_message(status: StatusCode, message: impl Into<String>) -> Response {
             ok: false,
             authenticated: false,
             user_id: None,
+            account_revision: None,
             username: None,
             display_name: None,
             passkeys: Vec::new(),
             wallets: Vec::new(),
             active_wallet: None,
-            wallet_session: None,
             step_up_required: status == StatusCode::UNAUTHORIZED,
             error: Some(message),
         },
@@ -2366,10 +1152,6 @@ fn no_store_json<T: Serialize>(
 
 #[path = "passkey_access.rs"]
 pub(crate) mod passkey_access;
-
-#[cfg(test)]
-#[path = "account_avatar_tests.rs"]
-mod avatar_tests;
 
 #[cfg(test)]
 #[path = "card_authoring_tests.rs"]
@@ -2414,11 +1196,9 @@ mod tests {
             username: String::new(),
             display_name: String::new(),
             label: String::new(),
-            wallet_session: None,
         };
         let (_, username, display_name, new_user) =
-            resolve_registration_identity(&auth, &payload, None)
-                .expect("generated account identity");
+            resolve_registration_identity(&auth, &payload).expect("generated account identity");
         assert!(new_user);
         assert!(username.starts_with("player-"));
         assert_eq!(display_name, "CosyWorld player");
@@ -2432,65 +1212,5 @@ mod tests {
         let hashed = hash_session_token(&token);
         assert_ne!(hashed, token);
         assert_eq!(hashed, hash_session_token(&token));
-    }
-
-    #[test]
-    fn openrouter_key_shape_is_conservative() {
-        assert!(valid_openrouter_api_key(&format!(
-            "sk-or-{}",
-            "a".repeat(32)
-        )));
-        assert!(!valid_openrouter_api_key("sk-not-openrouter"));
-    }
-
-    #[test]
-    fn account_schema_allows_many_wallets_but_one_owner_per_wallet() {
-        let path = std::env::temp_dir().join(format!("cosyworld-account-{}.sqlite", random_hex(8)));
-        init_account_schema(&path).expect("account schema");
-        let conn = open_event_store(&path).expect("account database");
-        let now = now_unix_secs() as i64;
-        for (id, username) in [("u1", "one"), ("u2", "two")] {
-            conn.execute(
-                "INSERT INTO auth_users (id, username, display_name, status, created_at_unix, updated_at_unix)
-                 VALUES (?1, ?2, ?2, 'active', ?3, ?3)",
-                params![id, username, now],
-            )
-            .expect("insert user");
-        }
-        link_account_wallet(&path, "u1", "wallet-a").expect("first wallet");
-        link_account_wallet(&path, "u1", "wallet-b").expect("second wallet");
-        assert!(link_account_wallet(&path, "u2", "wallet-a").is_err());
-        assert!(wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
-        assert!(wallet_belongs_to_user(&path, "u1", "wallet-b").unwrap());
-        let _ = fs::remove_file(path);
-    }
-
-    #[test]
-    fn wallet_claim_moves_exclusive_nft_access_between_accounts() {
-        let path = std::env::temp_dir().join(format!("cosyworld-account-{}.sqlite", random_hex(8)));
-        init_account_schema(&path).expect("account schema");
-        let conn = open_event_store(&path).expect("account database");
-        let now = now_unix_secs() as i64;
-        for (id, username) in [("u1", "one"), ("u2", "two")] {
-            conn.execute(
-                "INSERT INTO auth_users (id, username, display_name, status, created_at_unix, updated_at_unix)
-                 VALUES (?1, ?2, ?2, 'active', ?3, ?3)",
-                params![id, username, now],
-            )
-            .expect("insert user");
-        }
-        link_account_wallet(&path, "u1", "wallet-a").expect("initial wallet claim");
-
-        assert!(claim_account_wallet(&path, "u2", "wallet-a", false).is_err());
-        assert!(wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
-        assert!(claim_account_wallet(&path, "u2", "wallet-a", true).expect("move wallet claim"));
-        assert!(!wallet_belongs_to_user(&path, "u1", "wallet-a").unwrap());
-        assert!(wallet_belongs_to_user(&path, "u2", "wallet-a").unwrap());
-        assert_eq!(
-            wallet_owner_user_id(&path, "wallet-a").unwrap().as_deref(),
-            Some("u2")
-        );
-        assert!(!claim_account_wallet(&path, "u2", "wallet-a", false).expect("reclaim same wallet"));
-        let _ = fs::remove_file(path);
     }
 }

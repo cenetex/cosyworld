@@ -28,6 +28,13 @@
           "hoppycat-archive"
         ],
         "reachedBy": "sea"
+      },
+      "radio": {
+        "name": "Night Shift at RatiRadio",
+        "packs": [
+          "ratiradio"
+        ],
+        "reachedBy": "shore"
       }
     },
     "places": [
@@ -178,6 +185,14 @@
           "at": "attic",
           "arrive": "forest-cottage",
           "via": "attic-forest-cottage"
+        }
+      ],
+      "ratiradio": [
+        {
+          "joins": "hub",
+          "at": "station",
+          "arrive": "ratiradio-staff-kitchen",
+          "via": "station-ratiradio"
         }
       ]
     }
@@ -410,7 +425,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 23,
+      "revision": 24,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -559,7 +574,7 @@
             "greek-eleusis"
           ],
           "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
-          "persona": "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. From the battlefield it opens only while a Theban account of the burial is there or on Dione’s table: the Burial Account, Creon’s Writ or the Guard’s Tablet. Travelers can meet, talk, rest and carry their belongings here.",
+          "persona": "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. It stays open both ways. Travelers can meet, talk, rest and carry their belongings here.",
           "road": [
             "greek-battlefield",
             "greek-eleusis"
@@ -1549,71 +1564,30 @@
           "startLevel": 20,
           "text": "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
           "place": "greek-gate",
-          "home": "greek-gate",
+          "home": "greek-polynices-hollow",
           "seed": "Antigone, daughter of Oedipus.",
           "portrait": "assets/greek-drama/chthonic-antigone.png",
-          "want": {
-            "kind": "place",
-            "target": "greek-polynices-hollow",
-            "step": {
-              "verb": "lay",
-              "items": [
-                "greek-oil-flask",
-                "greek-funeral-cloth",
-                "greek-shovel"
-              ],
-              "finish": "greek-burial-performed"
+          "wants": [
+            {
+              "want": {
+                "kind": "place",
+                "target": "greek-polynices-hollow",
+                "step": {
+                  "verb": "lay",
+                  "items": [
+                    "greek-oil-flask",
+                    "greek-funeral-cloth",
+                    "greek-shovel"
+                  ],
+                  "finish": "greek-burial-performed"
+                }
+              }
             }
-          },
+          ],
           "tastes": {
             "likes": "practical help, care for the dead",
             "sore": "being told that family grief is an inconvenience",
             "reason": "Dust marks the hem of her dress. She keeps looking toward the battlefield."
-          },
-          "homeWhen": {
-            "place": "greek-polynices-hollow",
-            "requires": [
-              {
-                "kind": "any",
-                "conditions": [
-                  {
-                    "kind": "holding",
-                    "item": "greek-creon-writ",
-                    "actor": "greek-guard"
-                  },
-                  {
-                    "kind": "flag",
-                    "key": "greek-burial-performed",
-                    "value": true
-                  }
-                ]
-              },
-              {
-                "kind": "any",
-                "conditions": [
-                  {
-                    "kind": "flag",
-                    "key": "greek-polynices-heard",
-                    "value": true
-                  },
-                  {
-                    "kind": "flag",
-                    "key": "greek-polynices-anointed",
-                    "value": true
-                  },
-                  {
-                    "kind": "flag",
-                    "key": "greek-polynices-veiled",
-                    "value": true
-                  },
-                  {
-                    "kind": "flag",
-                    "key": "greek-burial-performed",
-                    "value": true
-                  }
-                ]
-              }
-            ]
           }
         },
         "greek-ismene": {
@@ -1856,6 +1830,9 @@
             "likes": "being heard in her own words",
             "sore": "others deciding her identity from a rumor",
             "reason": "She checks the traveler's account against a witness tablet."
+          },
+          "sealed": {
+            "at": "greek-egypt-tomb"
           }
         },
         "greek-menelaus-egypt": {
@@ -1878,6 +1855,9 @@
             "likes": "a reliable witness, provisions for the crew",
             "sore": "confident claims without a source",
             "reason": "Salt stains his cloak. He has kept the ship's passenger tally."
+          },
+          "sealed": {
+            "at": "greek-egypt-tomb"
           }
         },
         "greek-helen-troy": {
@@ -1901,6 +1881,9 @@
             "likes": "being heard in her own words",
             "sore": "others deciding her identity from a rumor",
             "reason": "She checks the traveler's account against a witness tablet."
+          },
+          "sealed": {
+            "at": "greek-troy-beach"
           }
         },
         "greek-menelaus-troy": {
@@ -1923,6 +1906,9 @@
             "likes": "a reliable witness, provisions for the crew",
             "sore": "confident claims without a source",
             "reason": "Salt stains his cloak. He has kept the ship's passenger tally."
+          },
+          "sealed": {
+            "at": "greek-troy-beach"
           }
         },
         "greek-electra-aeschylus": {
@@ -1945,6 +1931,9 @@
             "likes": "testimony about her father, a relative who listens",
             "sore": "silence demanded for the household's convenience",
             "reason": "She has preserved an account of the household's losses."
+          },
+          "sealed": {
+            "at": "greek-argos-tomb"
           }
         },
         "greek-orestes-aeschylus": {
@@ -1967,6 +1956,9 @@
             "likes": "evidence before an irreversible promise",
             "sore": "being treated as an instrument of someone else's revenge",
             "reason": "He has come to hear his sister before committing himself."
+          },
+          "sealed": {
+            "at": "greek-argos-tomb"
           }
         },
         "greek-electra-sophocles": {
@@ -1990,6 +1982,9 @@
             "likes": "testimony about her father, a relative who listens",
             "sore": "silence demanded for the household's convenience",
             "reason": "She has preserved an account of the household's losses."
+          },
+          "sealed": {
+            "at": "greek-mycenae-palace"
           }
         },
         "greek-orestes-sophocles": {
@@ -2013,6 +2008,9 @@
             "likes": "evidence before an irreversible promise",
             "sore": "being treated as an instrument of someone else's revenge",
             "reason": "He has come to hear his sister before committing himself."
+          },
+          "sealed": {
+            "at": "greek-mycenae-palace"
           }
         },
         "greek-electra-euripides": {
@@ -2035,6 +2033,9 @@
             "likes": "testimony about her father, a relative who listens",
             "sore": "silence demanded for the household's convenience",
             "reason": "She has preserved an account of the household's losses."
+          },
+          "sealed": {
+            "at": "greek-argive-farm"
           }
         },
         "greek-orestes-euripides": {
@@ -2057,6 +2058,9 @@
             "likes": "evidence before an irreversible promise",
             "sore": "being treated as an instrument of someone else's revenge",
             "reason": "He has come to hear his sister before committing himself."
+          },
+          "sealed": {
+            "at": "greek-argive-farm"
           }
         },
         "greek-aethra": {
@@ -2064,8 +2068,6 @@
           "text": "Olive branches rest across her knees. She makes room for the mothers beside Demeter’s altar.",
           "place": "greek-eleusis",
           "home": "greek-eleusis",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Aethra, mother of Theseus.",
           "portrait": "assets/greek-drama/open-door-aethra.webp",
@@ -2080,6 +2082,9 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "Olive branches rest across her knees. She makes room for the mothers beside Demeter’s altar."
+          },
+          "sealed": {
+            "at": "greek-eleusis"
           }
         },
         "greek-adrastus": {
@@ -2087,8 +2092,6 @@
           "text": "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen.",
           "place": "greek-eleusis",
           "home": "greek-eleusis",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Adrastus, King of Argos.",
           "portrait": "assets/greek-drama/open-door-adrastus.webp",
@@ -2103,6 +2106,9 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen."
+          },
+          "sealed": {
+            "at": "greek-eleusis"
           }
         },
         "greek-argive-mother": {
@@ -2110,8 +2116,6 @@
           "text": "She holds a strip of cloth between both hands. Her son’s name is written beside the urn.",
           "place": "greek-eleusis",
           "home": "greek-eleusis",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "An Argive Mother.",
           "portrait": "assets/greek-drama/open-door-mother.webp",
@@ -2131,6 +2135,9 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "She holds a strip of cloth between both hands. Her son’s name is written beside the urn."
+          },
+          "sealed": {
+            "at": "greek-eleusis"
           }
         },
         "greek-iphis": {
@@ -2138,8 +2145,6 @@
           "text": "He sits beside the shrine steps. A place remains empty at his side.",
           "place": "greek-eleusis",
           "home": "greek-eleusis",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Iphis, father of Evadne.",
           "portrait": "assets/greek-drama/open-door-iphis.webp",
@@ -2159,6 +2164,9 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "He sits beside the shrine steps. A place remains empty at his side."
+          },
+          "sealed": {
+            "at": "greek-eleusis"
           }
         },
         "greek-theseus": {
@@ -2167,8 +2175,6 @@
           "text": "A petition table stands beside him. He waits for the mothers’ own account.",
           "place": "greek-athens",
           "home": "greek-athens",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Theseus, King of Athens.",
           "portrait": "assets/greek-drama/open-door-theseus.webp",
@@ -2183,6 +2189,9 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "A petition table stands beside him. He waits for the mothers’ own account."
+          },
+          "sealed": {
+            "at": "greek-athens"
           }
         },
         "greek-quay-host": {
@@ -2190,8 +2199,6 @@
           "text": "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list.",
           "place": "greek-piraeus",
           "home": "greek-piraeus",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "Thaleia the Quay Host.",
           "portrait": "assets/greek-drama/open-door-quay-host.webp",
@@ -2206,6 +2213,9 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
+          },
+          "sealed": {
+            "at": "greek-piraeus"
           }
         },
         "greek-colonus-keeper": {
@@ -2213,8 +2223,6 @@
           "text": "The keeper sets a cup beside the boundary stone. A pot of honey catches the light.",
           "place": "greek-colonus",
           "home": "greek-colonus",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "The Grove Keeper at Colonus.",
           "portrait": "assets/greek-drama/open-door-grove-keeper.webp",
@@ -2229,6 +2237,9 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "The keeper sets a cup beside the boundary stone. A pot of honey catches the light."
+          },
+          "sealed": {
+            "at": "greek-colonus"
           }
         },
         "greek-marathon-keeper": {
@@ -2236,8 +2247,6 @@
           "text": "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter.",
           "place": "greek-marathon",
           "home": "greek-marathon",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "seed": "The Altar Keeper at Marathon.",
           "portrait": "assets/greek-drama/open-door-altar-keeper.webp",
@@ -2252,6 +2261,9 @@
             "likes": "careful listening and help that reaches its owner",
             "sore": "promises treated as finished deeds",
             "reason": "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
+          },
+          "sealed": {
+            "at": "greek-marathon"
           }
         },
         "greek-household-witness": {
@@ -2292,6 +2304,9 @@
             "likes": "a place kept ready and a promise carried through",
             "sore": "her household spoken for before she has answered",
             "reason": "She has walked beside the mourners and knows the work that follows a funeral."
+          },
+          "sealed": {
+            "at": "greek-eleusis"
           }
         },
         "greek-ajax-tecmessa": {
@@ -2299,8 +2314,6 @@
           "text": "Tecmessa keeps the household beside Eurysaces. She asks for Ajax’s shield to be set where the child can keep it.",
           "place": "greek-ajax-household",
           "home": "greek-ajax-household",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "canonicalPerson": "tecmessa",
           "seed": "Tecmessa, companion of Ajax.",
@@ -2316,6 +2329,9 @@
             "likes": "a deed carried through with its witnesses",
             "sore": "a promise called a finished burial",
             "reason": "Ajax’s household and burial are at issue in this named Trojan account."
+          },
+          "sealed": {
+            "at": "greek-ajax-household"
           }
         },
         "greek-ajax-teucer": {
@@ -2323,8 +2339,6 @@
           "text": "Ajax’s brother carries a written plea for burial. He asks for the household and the dead to be heard.",
           "place": "greek-greek-camp",
           "home": "greek-greek-camp",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "canonicalPerson": "teucer",
           "seed": "Teucer, brother of Ajax.",
@@ -2340,6 +2354,9 @@
             "likes": "a deed carried through with its witnesses",
             "sore": "a promise called a finished burial",
             "reason": "Ajax’s household and burial are at issue in this named Trojan account."
+          },
+          "sealed": {
+            "at": "greek-greek-camp"
           }
         },
         "greek-ajax-odysseus": {
@@ -2348,8 +2365,6 @@
           "text": "Odysseus waits by the commanders’ tents. He can hear Teucer’s plea and speak for a former rival.",
           "place": "greek-greek-camp",
           "home": "greek-greek-camp",
-          "travels": false,
-          "standoffs": false,
           "values": {},
           "canonicalPerson": "odysseus",
           "seed": "Odysseus, King of Ithaca.",
@@ -2365,6 +2380,9 @@
             "likes": "a deed carried through with its witnesses",
             "sore": "a promise called a finished burial",
             "reason": "Ajax’s household and burial are at issue in this named Trojan account."
+          },
+          "sealed": {
+            "at": "greek-greek-camp"
           }
         },
         "greek-polynices-shade": {
@@ -2404,6 +2422,81 @@
             "likes": "care for his kin",
             "sore": "the neglect of the dead",
             "reason": "He asks that his sister be allowed to lay him to rest."
+          }
+        },
+        "greek-patroclus": {
+          "name": "Patroclus",
+          "text": "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus.",
+          "place": "greek-ship",
+          "home": "greek-piraeus",
+          "values": {
+            "greek-bread": 2
+          },
+          "seed": "Patroclus, a sailor from Piraeus.",
+          "portrait": "assets/greek-drama/patroclus.png",
+          "poses": [
+            {
+              "portrait": "assets/greek-drama/patroclus-bread.png",
+              "requires": [
+                {
+                  "kind": "holding",
+                  "item": "greek-bread",
+                  "actor": "greek-patroclus"
+                }
+              ]
+            }
+          ],
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-burial-performed",
+              "value": true
+            }
+          ],
+          "want": {
+            "kind": "item",
+            "target": "greek-bread",
+            "minTrust": 1
+          },
+          "tastes": {
+            "likes": "bread shared on deck, a steady voyage home",
+            "sore": "being treated as cargo",
+            "reason": "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus."
+          },
+          "appearsWhen": [
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "flag",
+                  "key": "greek-patroclus-met",
+                  "value": true
+                },
+                {
+                  "kind": "ship_at",
+                  "transport": "greek-ship",
+                  "dock": "greek-piraeus"
+                }
+              ]
+            },
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "flag",
+                  "key": "greek-patroclus-met",
+                  "value": true
+                },
+                {
+                  "kind": "item_at",
+                  "item": "greek-provisions",
+                  "place": "greek-ship"
+                }
+              ]
+            }
+          ],
+          "sealed": {
+            "at": "greek-ship"
           }
         }
       },
@@ -2856,20 +2949,6 @@
           "holder": "greek-creon",
           "art": "assets/greek-drama/creon-writ.webp"
         },
-        "greek-guard-tablet": {
-          "name": "The Guard's Tablet",
-          "text": "A wax tablet from the gate. It records a warning that the household meant to bury the brother.",
-          "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-          "holder": "greek-gate",
-          "art": "assets/greek-drama/guard-tablet.webp",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-guard-warned",
-              "value": true
-            }
-          ]
-        },
         "greek-pyre-account": {
           "name": "The Pyre Account",
           "text": "Aethra’s written account of the rite at Eleusis: the cloths, the urn in the mothers’ care, and the losses beside the pyre.",
@@ -2967,7 +3046,6 @@
             }
           ],
           "sealed": {
-            "reason": "Speak to Polynices’ Shade to learn the way into the Hollow.",
             "quest": {
               "kind": "person",
               "target": "greek-polynices-shade"
@@ -2983,7 +3061,14 @@
               "key": "greek-helen-account",
               "value": "egypt"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "item",
+              "target": "greek-helen-accounts",
+              "to": "greek-shipmaster"
+            }
+          }
         },
         {
           "from": "greek-egypt-tomb",
@@ -2998,7 +3083,14 @@
               "key": "greek-helen-account",
               "value": "troy"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "item",
+              "target": "greek-helen-accounts",
+              "to": "greek-elder"
+            }
+          }
         },
         {
           "from": "greek-troy-beach",
@@ -3013,7 +3105,14 @@
               "key": "greek-atreid-account",
               "value": "aeschylus"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "item",
+              "target": "greek-atreid-record",
+              "to": "greek-ismene"
+            }
+          }
         },
         {
           "from": "greek-argos-tomb",
@@ -3028,7 +3127,14 @@
               "key": "greek-atreid-account",
               "value": "sophocles"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "item",
+              "target": "greek-atreid-record",
+              "to": "greek-creon"
+            }
+          }
         },
         {
           "from": "greek-mycenae-palace",
@@ -3043,7 +3149,14 @@
               "key": "greek-atreid-account",
               "value": "euripides"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "item",
+              "target": "greek-atreid-record",
+              "to": "greek-baker"
+            }
+          }
         },
         {
           "from": "greek-argive-farm",
@@ -3058,7 +3171,13 @@
               "key": "greek-atreid-account",
               "value": "aeschylus"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-argos-palace"
+            }
+          }
         },
         {
           "from": "greek-argos-palace",
@@ -3092,7 +3211,13 @@
                 }
               ]
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-eleusis"
+            }
+          }
         },
         {
           "from": "greek-athens",
@@ -3108,7 +3233,13 @@
               "item": "greek-olive-branch",
               "place": "greek-athens"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-piraeus"
+            }
+          }
         },
         {
           "from": "greek-piraeus",
@@ -3124,7 +3255,13 @@
               "item": "greek-olive-branch",
               "place": "greek-athens"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "greek-road-athens-piraeus"
+            }
+          }
         }
       ],
       "choices": [
@@ -3194,394 +3331,6 @@
             }
           ],
           "on": "meet"
-        },
-        {
-          "id": "greek-prepare-burial-ground",
-          "subject": "greek-battlefield",
-          "at": "greek-battlefield",
-          "label": "Prepare the burial ground",
-          "text": "Vale digs a grave beside the fallen brother.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-decree-known",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "greek-grave-prepared",
-              "value": false
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-shovel",
-              "place": "greek-battlefield"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "set_flag",
-              "key": "greek-grave-prepared",
-              "value": true
-            }
-          ],
-          "textTemplate": "{actor} digs a grave beside the fallen brother.",
-          "on": "wait",
-          "archived": true
-        },
-        {
-          "id": "greek-perform-burial",
-          "subject": "greek-battlefield",
-          "at": "greek-battlefield",
-          "label": "Perform the burial",
-          "text": "Vale lays cloth and oil at the grave. The brother is buried against the decree.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-decree-known",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "greek-grave-prepared",
-              "value": true
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-funeral-cloth",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-oil-flask",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "choice_unset",
-              "key": "greek-theban-response"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "choose",
-              "key": "greek-theban-response",
-              "value": "burial"
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-burial-performed",
-              "value": true
-            },
-            {
-              "kind": "retire_item",
-              "item": "greek-funeral-cloth"
-            },
-            {
-              "kind": "retire_item",
-              "item": "greek-oil-flask"
-            }
-          ],
-          "summary": "The brother was buried. The decree remains in force, and the household must answer for the defiance.",
-          "textTemplate": "{actor} lays cloth and oil at the grave. The brother is buried against the decree.",
-          "on": "wait",
-          "archived": true
-        },
-        {
-          "id": "greek-petition-burial",
-          "subject": "greek-creon",
-          "at": "greek-palace",
-          "label": "Receive Creon’s writ",
-          "text": "Creon holds his decree again. With his writ, Vale may see the brother buried under witness.",
-          "requires": [
-            {
-              "kind": "holding",
-              "item": "greek-creon-writ",
-              "role": "actor"
-            },
-            {
-              "kind": "holding",
-              "item": "greek-decree",
-              "actor": "greek-creon"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "choose",
-              "key": "greek-theban-response",
-              "value": "concession"
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-burial-permitted",
-              "value": true
-            }
-          ],
-          "summary": "Creon granted a witnessed exception for the family to arrange a lawful burial. The petition itself did not perform the rite.",
-          "textTemplate": "Creon holds his decree again. With his writ, {actor} may see the brother buried under witness.",
-          "on": "meet",
-          "archived": true
-        },
-        {
-          "id": "greek-perform-permitted-burial",
-          "subject": "greek-battlefield",
-          "at": "greek-battlefield",
-          "label": "Complete the permitted burial",
-          "text": "Vale lays cloth and oil at the grave. The brother is buried under Creon's writ.",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "concession"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-grave-prepared",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "greek-burial-performed",
-              "value": false
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-funeral-cloth",
-              "place": "greek-battlefield"
-            },
-            {
-              "kind": "item_near",
-              "item": "greek-oil-flask",
-              "place": "greek-battlefield"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "set_flag",
-              "key": "greek-burial-performed",
-              "value": true
-            },
-            {
-              "kind": "retire_item",
-              "item": "greek-funeral-cloth"
-            },
-            {
-              "kind": "retire_item",
-              "item": "greek-oil-flask"
-            }
-          ],
-          "textTemplate": "{actor} lays cloth and oil at the grave. The brother is buried under Creon's writ.",
-          "on": "wait",
-          "archived": true
-        },
-        {
-          "id": "greek-report-plan",
-          "subject": "greek-guard",
-          "at": "greek-gate",
-          "label": "Report the intended burial",
-          "text": "Vale hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
-          "requires": [
-            {
-              "kind": "flag",
-              "key": "greek-decree-known",
-              "value": true
-            },
-            {
-              "kind": "holding",
-              "item": "greek-shovel",
-              "role": "actor"
-            },
-            {
-              "kind": "holding",
-              "item": "greek-funeral-cloth",
-              "role": "actor"
-            },
-            {
-              "kind": "choice_unset",
-              "key": "greek-theban-response"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-shovel",
-              "place": "greek-gate"
-            },
-            {
-              "kind": "place_item",
-              "item": "greek-funeral-cloth",
-              "place": "greek-gate"
-            },
-            {
-              "kind": "choose",
-              "key": "greek-theban-response",
-              "value": "exposure"
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-guard-warned",
-              "value": true
-            }
-          ],
-          "textTemplate": "{actor} hands the guard the shovel and the funeral cloth, the tools of the burial. He records a warning on a tablet.",
-          "on": "give",
-          "archived": true
-        },
-        {
-          "id": "greek-courtyard-burial",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Tell the courtyard what happened",
-          "text": "Vale sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "burial"
-            },
-            {
-              "kind": "holding",
-              "item": "greek-burial-account",
-              "role": "actor"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-burial-account",
-              "place": "greek-courtyard"
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-burial-public",
-              "value": true
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-open-door-open",
-              "value": true
-            }
-          ],
-          "textTemplate": "{actor} sets the Burial Account on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "on": "give"
-        },
-        {
-          "id": "greek-courtyard-concession",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Share the public exception",
-          "text": "Vale sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "concession"
-            },
-            {
-              "kind": "holding",
-              "item": "greek-creon-writ",
-              "role": "actor"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-creon-writ",
-              "place": "greek-courtyard"
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-concession-public",
-              "value": true
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-open-door-open",
-              "value": true
-            }
-          ],
-          "textTemplate": "{actor} sets Creon's Writ on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "on": "give"
-        },
-        {
-          "id": "greek-courtyard-permitted-burial",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Tell Dione about the grave",
-          "text": "Vale sets the Burial Account on Dione's table.",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "concession"
-            },
-            {
-              "kind": "flag",
-              "key": "greek-burial-performed",
-              "value": true
-            },
-            {
-              "kind": "holding",
-              "item": "greek-burial-account",
-              "role": "actor"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-burial-account",
-              "place": "greek-courtyard"
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-permitted-burial-public",
-              "value": true
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-open-door-open",
-              "value": true
-            }
-          ],
-          "textTemplate": "{actor} sets the Burial Account on Dione's table.",
-          "on": "give"
-        },
-        {
-          "id": "greek-courtyard-exposure",
-          "subject": "greek-baker",
-          "at": "greek-courtyard",
-          "label": "Explain the warning",
-          "text": "Vale sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "requires": [
-            {
-              "kind": "choice",
-              "key": "greek-theban-response",
-              "value": "exposure"
-            },
-            {
-              "kind": "holding",
-              "item": "greek-guard-tablet",
-              "role": "actor"
-            }
-          ],
-          "effects": [
-            {
-              "kind": "place_item",
-              "item": "greek-guard-tablet",
-              "place": "greek-courtyard"
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-exposure-public",
-              "value": true
-            },
-            {
-              "kind": "set_flag",
-              "key": "greek-open-door-open",
-              "value": true
-            }
-          ],
-          "textTemplate": "{actor} sets the Guard's Tablet on Dione's table. She speaks of the Argive mothers at Eleusis.",
-          "on": "give"
         },
         {
           "id": "greek-helen-egypt",
@@ -5468,7 +5217,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-learn-shield-odysseus",
@@ -5501,7 +5251,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-learn-shield-tecmessa",
@@ -5534,7 +5285,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-deliver-shield",
@@ -5605,7 +5357,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-deliver-plea",
@@ -5981,7 +5734,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-public",
@@ -6131,7 +5885,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-household",
@@ -6286,7 +6041,8 @@
               "value": true
             }
           ],
-          "workId": "sophocles-ajax"
+          "workId": "sophocles-ajax",
+          "on": "talk"
         },
         {
           "id": "greek-ajax-return-appeal",
@@ -6487,6 +6243,33 @@
             }
           ],
           "on": "talk"
+        },
+        {
+          "id": "greek-meet-patroclus",
+          "subject": "greek-patroclus",
+          "at": "greek-piraeus",
+          "label": "Meet Patroclus",
+          "text": "Patroclus steps down onto the quay and makes room beside Vale.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "greek-patroclus-met",
+              "value": false
+            }
+          ],
+          "effects": [
+            {
+              "kind": "trust",
+              "level": 3
+            },
+            {
+              "kind": "set_flag",
+              "key": "greek-patroclus-met",
+              "value": true
+            }
+          ],
+          "textTemplate": "Patroclus steps down onto the quay and makes room beside {actor}.",
+          "on": "meet"
         }
       ],
       "works": [
@@ -7436,7 +7219,8 @@
           "greek-colonus-keeper",
           "greek-market-neighbor",
           "greek-household-witness",
-          "greek-polynices-shade"
+          "greek-polynices-shade",
+          "greek-patroclus"
         ],
         "items": [
           "greek-water-jar",
@@ -7459,7 +7243,6 @@
           "greek-olive-branch",
           "greek-burial-account",
           "greek-creon-writ",
-          "greek-guard-tablet",
           "greek-pyre-account",
           "greek-figs",
           "greek-wine-skin",
@@ -7470,15 +7253,6 @@
           "greek-return-water-jar",
           "greek-hear-decree",
           "greek-gather-witness",
-          "greek-prepare-burial-ground",
-          "greek-perform-burial",
-          "greek-petition-burial",
-          "greek-perform-permitted-burial",
-          "greek-report-plan",
-          "greek-courtyard-burial",
-          "greek-courtyard-concession",
-          "greek-courtyard-permitted-burial",
-          "greek-courtyard-exposure",
           "greek-open-door-hear-mothers",
           "greek-open-door-hear-adrastus",
           "greek-open-door-register-plea",
@@ -7504,7 +7278,8 @@
           "greek-anoint-polynices",
           "greek-shroud-polynices",
           "greek-bury-polynices",
-          "greek-hear-polynices"
+          "greek-hear-polynices",
+          "greek-meet-patroclus"
         ]
       },
       "recital": {
@@ -7519,21 +7294,7 @@
               "his body lies in the grave"
             ],
             "anyChoices": [
-              "greek-perform-burial",
-              "greek-perform-permitted-burial",
               "greek-bury-polynices"
-            ]
-          },
-          {
-            "phrases": [
-              "creon gave leave",
-              "creon has granted",
-              "creon granted permission",
-              "the king gave permission"
-            ],
-            "anyChoices": [
-              "greek-petition-burial",
-              "greek-perform-permitted-burial"
             ]
           },
           {
@@ -7579,46 +7340,6 @@
           {
             "choice": "greek-return-water-jar",
             "quest": "story-quest-greek-table",
-            "summons": true
-          },
-          {
-            "choice": "greek-petition-burial",
-            "quest": "story-quest-greek-burial",
-            "summons": false
-          },
-          {
-            "choice": "greek-perform-burial",
-            "quest": "story-quest-greek-burial",
-            "summons": true
-          },
-          {
-            "choice": "greek-perform-permitted-burial",
-            "quest": "story-quest-greek-burial",
-            "summons": true
-          },
-          {
-            "choice": "greek-report-plan",
-            "quest": "story-quest-greek-burial",
-            "summons": true
-          },
-          {
-            "choice": "greek-courtyard-burial",
-            "quest": "story-quest-greek-courtyard",
-            "summons": true
-          },
-          {
-            "choice": "greek-courtyard-concession",
-            "quest": "story-quest-greek-courtyard",
-            "summons": true
-          },
-          {
-            "choice": "greek-courtyard-exposure",
-            "quest": "story-quest-greek-courtyard",
-            "summons": true
-          },
-          {
-            "choice": "greek-courtyard-permitted-burial",
-            "quest": "story-quest-greek-courtyard",
             "summons": true
           },
           {
@@ -8177,7 +7898,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. The lamp signal calls it to the pond."
+        "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
       },
       "crossings": [
         {
@@ -8187,41 +7908,6 @@
           "travelers": "any",
           "travel": "aboard the ship",
           "travelLabel": "Board",
-          "signal": {
-            "steps": [
-              {
-                "verb": "cover",
-                "item": "cloth",
-                "target": "lamp"
-              },
-              {
-                "verb": "take",
-                "item": "cloth",
-                "from": "lamp"
-              }
-            ],
-            "consecutive": false,
-            "opens": null,
-            "while": [
-              {
-                "kind": "light",
-                "item": "lamp",
-                "at": [
-                  "pond"
-                ]
-              },
-              {
-                "kind": "not",
-                "condition": {
-                  "kind": "sound",
-                  "at": [
-                    "pond",
-                    "clearing"
-                  ]
-                }
-              }
-            ]
-          },
           "requires": [],
           "scenery": {
             "open": "The Charybdis waits on the black water.",
@@ -8229,7 +7915,28 @@
             "cardName": "The Charybdis",
             "cardArt": "assets/greek-drama/ship-card.webp"
           },
-          "transport": "greek-ship"
+          "transport": "greek-ship",
+          "unlockWhen": [
+            {
+              "kind": "grounded",
+              "item": "lamp"
+            },
+            {
+              "kind": "light",
+              "item": "lamp",
+              "at": [
+                "pond"
+              ]
+            },
+            {
+              "kind": "in_hand",
+              "item": "cloth"
+            },
+            {
+              "kind": "actor_at",
+              "place": "pond"
+            }
+          ]
         },
         {
           "id": "greek-harbor-pond",
@@ -8443,7 +8150,6 @@
               "from": "greek-harbor",
               "to": "greek-piraeus",
               "oneWay": true,
-              "reason": "Put the Travel Provisions down on deck",
               "opensWith": [
                 {
                   "kind": "any",
@@ -8460,7 +8166,8 @@
                     }
                   ]
                 }
-              ]
+              ],
+              "sealed": true
             },
             {
               "from": "greek-piraeus",
@@ -11629,8 +11336,6 @@
           "startLevel": 50,
           "text": "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
           "place": "forest-cottage",
-          "travels": false,
-          "standoffs": false,
           "seed": "RATi, host of the cottage.",
           "expression": "speech",
           "portrait": "assets/lonely-forest/rati.png",
@@ -11646,7 +11351,6 @@
           "text": "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
           "place": "forest-trail",
           "travels": false,
-          "standoffs": false,
           "seed": "Skull, a wolf.",
           "expression": "movement",
           "portrait": "assets/lonely-forest/skull.png",
@@ -11661,8 +11365,6 @@
           "startLevel": 20,
           "text": "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
           "place": "forest-garden",
-          "travels": false,
-          "standoffs": false,
           "seed": "Whiskerwind, a spirit of the living oak.",
           "expression": "emoji",
           "portrait": "assets/lonely-forest/whiskerwind.png",
@@ -11678,7 +11380,6 @@
           "text": "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
           "place": "forest-oak",
           "travels": false,
-          "standoffs": false,
           "seed": "Oak, the Tree of Dreams.",
           "expression": "speech",
           "portrait": "assets/lonely-forest/oakheart.webp",
@@ -12048,7 +11749,13 @@
               "item": "forest-wolfprint-charm",
               "place": "forest-oak"
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "forest-trail"
+            }
+          }
         },
         {
           "from": "forest-garden",
@@ -12059,7 +11766,13 @@
               "key": "forest-path-cleared",
               "value": true
             }
-          ]
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "forest-trail"
+            }
+          }
         }
       ],
       "choices": [
@@ -12233,7 +11946,8 @@
               "key": "forest-walkers-heard",
               "value": true
             }
-          ]
+          ],
+          "on": "talk"
         },
         {
           "id": "forest-hear-walkers-oak",
@@ -12260,7 +11974,8 @@
               "key": "forest-walkers-heard",
               "value": true
             }
-          ]
+          ],
+          "on": "talk"
         },
         {
           "id": "forest-sit-watch",
@@ -13335,6 +13050,543 @@
           "scenery": {
             "open": "A narrow stair leads up to the attic."
           }
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "ratiradio",
+      "packId": "cosyworld.ratiradio",
+      "revision": 3,
+      "name": "Night Shift at RatiRadio",
+      "description": "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
+      "entry": "ratiradio-staff-kitchen",
+      "places": {
+        "ratiradio-staff-kitchen": {
+          "name": "Staff Kitchen",
+          "text": "The fridges keep the hours here. One door stands barely ajar, casting cold light across the worn tiles.",
+          "persona": "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
+          "exits": [],
+          "backdrop": "assets/ratiradio/staff-kitchen.webp"
+        },
+        "ratiradio-dispatch-window": {
+          "name": "Dispatch Window",
+          "text": "A clock without numbers hangs over wired glass. Through the open hatch, an empty desk keeps its own night shift.",
+          "persona": "A late-night dispatch hatch with a wooden counter, old shift notes, an empty shelf. Warm light leaks from the Listening Room door. The staff kitchen is behind you.",
+          "exits": [
+            "ratiradio-staff-kitchen"
+          ],
+          "backdrop": "assets/ratiradio/dispatch-window.webp"
+        },
+        "ratiradio-listening-room": {
+          "name": "Listening Room",
+          "text": "RATi's armchair faces a small radio. Across the rug, the Booth door waits in warm lamplight.",
+          "persona": "RATi's home and sanctuary: worn armchair, amber lamp, small radio, a pale glass ring on the table, a bare chair back, a ledge beside the booth door. RATi roams but returns here to gain levels. The ceramic figurine remains an object when the living Raven arrives.",
+          "exits": [
+            "ratiradio-dispatch-window"
+          ],
+          "backdrop": "assets/ratiradio/listening-room.webp",
+          "sanctuary": true
+        },
+        "ratiradio-broadcast-booth": {
+          "name": "Broadcast Booth",
+          "text": "A red lamp glows over an empty chair. Amber meters stir on the mixing desk; beyond the window, another room is dark.",
+          "persona": "An empty radio booth with a mixing desk, suspended microphone, empty host chair, rain-dark window. A late-night broadcast continues. The glass belongs back in the Listening Room.",
+          "exits": [
+            "ratiradio-listening-room"
+          ],
+          "backdrop": "assets/ratiradio/broadcast-booth.webp"
+        }
+      },
+      "avatars": {
+        "ratiradio-rati": {
+          "name": "RATi",
+          "text": "An attentive late-night listener. The Listening Room is his home. He roams, earns experience, returns here to gain his next level.",
+          "seed": "RATi, a late-night listener at RatiRadio.",
+          "place": "ratiradio-listening-room",
+          "home": "ratiradio-listening-room",
+          "levelAtHome": true,
+          "roamingQuest": "latest-completion",
+          "portrait": "assets/ratiradio/rati.webp",
+          "tastes": {
+            "likes": "A warm drink, a voice through the static, things finding their way home",
+            "sore": "A possession mistaken for its owner",
+            "reason": "RATi listens for the small things people leave unsaid."
+          },
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "rati-awake",
+              "value": true
+            }
+          ],
+          "wants": [
+            {
+              "want": {
+                "kind": "place",
+                "target": "ratiradio-listening-room",
+                "step": {
+                  "verb": "lay",
+                  "items": [
+                    "ratiradio-red-beanie"
+                  ]
+                }
+              }
+            },
+            {
+              "want": {
+                "kind": "place",
+                "target": "ratiradio-listening-room",
+                "step": {
+                  "verb": "lay",
+                  "items": [
+                    "ratiradio-raven-figurine"
+                  ]
+                }
+              }
+            },
+            {
+              "want": {
+                "kind": "place",
+                "target": "ratiradio-listening-room",
+                "step": {
+                  "verb": "lay",
+                  "items": [
+                    "ratiradio-glass"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "ratiradio-raven": {
+          "name": "Raven",
+          "text": "A living raven with an alert, knowing eye. The little ceramic bird remains on its own card. Raven roams through the open world.",
+          "seed": "Raven, the living bird of RatiRadio.",
+          "place": "ratiradio-listening-room",
+          "home": "ratiradio-listening-room",
+          "roamingQuest": "latest-completion",
+          "portrait": "assets/ratiradio/raven.webp",
+          "tastes": {
+            "likes": "Quiet corners, reflections, familiar voices",
+            "sore": "Being mistaken for the ceramic figurine",
+            "reason": "Raven notices what has found its way back."
+          },
+          "want": {
+            "kind": "place",
+            "target": "pond"
+          },
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "raven-awake",
+              "value": true
+            }
+          ],
+          "sealed": {
+            "at": "ratiradio-listening-room"
+          }
+        }
+      },
+      "items": {
+        "ratiradio-station-key": {
+          "name": "Station Key",
+          "text": "A brass key with a worn STAFF tag. Carry it from Black Pond to the staff entrance at Empty Station.",
+          "persona": "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station. It stays with its carrier after the first opening.",
+          "holder": "pond",
+          "art": "assets/ratiradio/station-key.webp",
+          "reservedUntil": [
+            {
+              "kind": "flag",
+              "key": "raven-awake",
+              "value": true
+            }
+          ],
+          "recoverTo": "pond"
+        },
+        "ratiradio-red-beanie": {
+          "name": "Red Beanie",
+          "text": "Red wool, lost beyond the station. Carry it to open Dispatch Window, then put it down in the Listening Room.",
+          "persona": "A soft red knitted beanie, left for someone who works late. It opens dispatch, then belongs back in the Listening Room.",
+          "holder": "ratiradio-staff-kitchen",
+          "art": "assets/ratiradio/red-beanie.webp",
+          "reservedUntil": [
+            {
+              "kind": "flag",
+              "key": "raven-awake",
+              "value": true
+            }
+          ],
+          "recoverTo": "pond",
+          "scatterOutside": true
+        },
+        "ratiradio-thermos": {
+          "name": "Thermos",
+          "text": "Still warm at the neck. Lost beyond the station; set it down at the Dispatch Window to open the Listening Room.",
+          "persona": "A dented steel thermos with a dark lid. Set down at the Dispatch Window, its warmth opens the Listening Room. It can be picked up again.",
+          "holder": "ratiradio-dispatch-window",
+          "art": "assets/ratiradio/thermos.webp",
+          "reservedUntil": [
+            {
+              "kind": "flag",
+              "key": "raven-awake",
+              "value": true
+            }
+          ],
+          "recoverTo": "pond",
+          "scatterOutside": true
+        },
+        "ratiradio-raven-figurine": {
+          "name": "Raven Figurine",
+          "text": "A small ceramic raven, lost beyond the station. Hold it and talk with RATi to open the Broadcast Booth, then leave it in the Listening Room.",
+          "persona": "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. It must rest directly in the Listening Room with the glass and beanie.",
+          "holder": "ratiradio-listening-room",
+          "art": "assets/ratiradio/raven-figurine.webp",
+          "reservedUntil": [
+            {
+              "kind": "flag",
+              "key": "raven-awake",
+              "value": true
+            }
+          ],
+          "recoverTo": "pond",
+          "scatterOutside": true
+        },
+        "ratiradio-glass": {
+          "name": "Half-full Glass",
+          "text": "A water glass, lost beyond the station. Put it down in the Listening Room beside the Red Beanie and Raven Figurine.",
+          "persona": "An ordinary drinking glass, half full of water. Returning the glass, ceramic raven, red beanie together reveals the living Raven.",
+          "holder": "ratiradio-broadcast-booth",
+          "art": "assets/ratiradio/glass.webp",
+          "reservedUntil": [
+            {
+              "kind": "flag",
+              "key": "raven-awake",
+              "value": true
+            }
+          ],
+          "recoverTo": "pond",
+          "scatterOutside": true
+        },
+        "ratiradio-request-slip": {
+          "name": "Request Slip",
+          "text": "Lost beyond the station: a red beanie, thermos, ceramic raven and glass. Search the other worlds. Bring the beanie, raven and glass home to the Listening Room.",
+          "persona": "A creased radio request slip with a lost-property note. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
+          "holder": "station",
+          "art": "assets/ratiradio/request-slip.webp"
+        },
+        "ratiradio-portable-radio": {
+          "name": "Portable Radio",
+          "text": "A small portable radio with an on/off dial. Carry it to hear the same RatiRadio broadcast wherever you go.",
+          "persona": "A portable receiver for RatiRadio. It starts switched off. Its owner can turn it on or off; anyone in the same place can hear it while it is on.",
+          "holder": "ratiradio-broadcast-booth",
+          "art": "assets/ratiradio/portable-radio.webp"
+        }
+      },
+      "routes": [
+        {
+          "from": "ratiradio-staff-kitchen",
+          "to": "ratiradio-dispatch-window",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "dispatch-open",
+              "value": true
+            }
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "item",
+              "target": "ratiradio-red-beanie"
+            }
+          }
+        },
+        {
+          "from": "ratiradio-dispatch-window",
+          "to": "ratiradio-listening-room",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "listening-open",
+              "value": true
+            }
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "ratiradio-listening-room"
+            }
+          }
+        },
+        {
+          "from": "ratiradio-listening-room",
+          "to": "ratiradio-broadcast-booth",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "booth-open",
+              "value": true
+            }
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "ratiradio-broadcast-booth"
+            }
+          }
+        }
+      ],
+      "choices": [
+        {
+          "id": "ratiradio-enter-station",
+          "subject": "ratiradio-staff-kitchen",
+          "at": "ratiradio-staff-kitchen",
+          "label": "The staff entrance settles open behind you.",
+          "text": "The staff entrance clicks open behind you, then settles on its catch.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "station-open",
+              "value": true
+            }
+          ],
+          "on": "meet"
+        },
+        {
+          "id": "ratiradio-wake-rati",
+          "subject": "ratiradio-listening-room",
+          "at": "ratiradio-listening-room",
+          "label": "RATi looks up from the radio. His chair has a visitor's place beside it.",
+          "text": "RATi looks up from the radio. His chair has a visitor's place beside it.",
+          "requires": [],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "rati-awake",
+              "value": true
+            }
+          ],
+          "on": "meet"
+        },
+        {
+          "id": "ratiradio-open-dispatch-window",
+          "subject": "ratiradio-staff-kitchen",
+          "at": "ratiradio-staff-kitchen",
+          "label": "The shutter gives way. Dispatch Window opens.",
+          "text": "The beanie's red wool passes the shutter. The latch gives way; Dispatch Window opens.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "ratiradio-red-beanie",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "dispatch-open",
+              "value": true
+            }
+          ],
+          "on": "meet"
+        },
+        {
+          "id": "ratiradio-open-listening-room",
+          "subject": "ratiradio-dispatch-window",
+          "at": "ratiradio-dispatch-window",
+          "label": "The radio comes through clear. Listening Room opens.",
+          "text": "The Thermos warms the metal plate beside the door. Inside, the radio comes through clear; Listening Room opens.",
+          "requires": [
+            {
+              "kind": "item_at",
+              "item": "ratiradio-thermos",
+              "place": "ratiradio-dispatch-window"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "listening-open",
+              "value": true
+            }
+          ],
+          "on": "meet"
+        },
+        {
+          "id": "ratiradio-open-broadcast-booth",
+          "subject": "ratiradio-rati",
+          "at": "ratiradio-listening-room",
+          "label": "The Broadcast Booth door clicks open.",
+          "text": "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "ratiradio-raven-figurine",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "booth-open",
+              "value": true
+            }
+          ],
+          "on": "talk"
+        },
+        {
+          "id": "ratiradio-open-broadcast-booth-kitchen",
+          "subject": "ratiradio-rati",
+          "at": "ratiradio-staff-kitchen",
+          "label": "The Broadcast Booth door clicks open.",
+          "text": "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "ratiradio-raven-figurine",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "booth-open",
+              "value": true
+            }
+          ],
+          "on": "talk"
+        },
+        {
+          "id": "ratiradio-open-broadcast-booth-dispatch",
+          "subject": "ratiradio-rati",
+          "at": "ratiradio-dispatch-window",
+          "label": "The Broadcast Booth door clicks open.",
+          "text": "RATi watches the figurine's glazed eye catch a sliver of light. The Broadcast Booth door clicks open.",
+          "requires": [
+            {
+              "kind": "holding",
+              "item": "ratiradio-raven-figurine",
+              "role": "actor"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "booth-open",
+              "value": true
+            }
+          ],
+          "on": "talk"
+        },
+        {
+          "id": "ratiradio-return-things",
+          "subject": "ratiradio-listening-room",
+          "at": "ratiradio-listening-room",
+          "label": "A claw catches the chair back. Raven blinks once. On the ledge, the ceramic bird stays perfectly still.",
+          "text": "A claw catches the chair back. Raven blinks once. On the ledge, the ceramic bird stays perfectly still.",
+          "requires": [
+            {
+              "kind": "item_at",
+              "item": "ratiradio-glass",
+              "place": "ratiradio-listening-room"
+            },
+            {
+              "kind": "item_at",
+              "item": "ratiradio-raven-figurine",
+              "place": "ratiradio-listening-room"
+            },
+            {
+              "kind": "item_at",
+              "item": "ratiradio-red-beanie",
+              "place": "ratiradio-listening-room"
+            }
+          ],
+          "effects": [
+            {
+              "kind": "set_flag",
+              "key": "raven-awake",
+              "value": true
+            }
+          ],
+          "on": "meet"
+        }
+      ],
+      "topics": [
+        {
+          "id": "ratiradio-bring-them-home",
+          "speaker": "ratiradio-rati",
+          "at": "ratiradio-listening-room",
+          "text": "RATi touches the ring on the table; the glass, the beanie, the little ceramic bird: he has kept their places.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "raven-awake",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "ratiradio-rati-home",
+          "speaker": "ratiradio-rati",
+          "at": "ratiradio-listening-room",
+          "text": "RATi calls the Listening Room home; he can wander far, but comes back here before each new level.",
+          "requires": []
+        },
+        {
+          "id": "ratiradio-little-one",
+          "speaker": "ratiradio-raven",
+          "at": "ratiradio-listening-room",
+          "text": "Raven calls the ceramic figurine its quiet double, a little bird that needs no voice.",
+          "requires": [
+            {
+              "kind": "flag",
+              "key": "raven-awake",
+              "value": true
+            }
+          ]
+        }
+      ],
+      "bridge": {
+        "id": "shore-ratiradio",
+        "description": "The Station Key at Black Pond opens the staff entrance at Empty Station. The entrance stays open after the first arrival."
+      },
+      "crossings": [
+        {
+          "id": "station-ratiradio",
+          "from": "station",
+          "to": "ratiradio-staff-kitchen",
+          "travelers": "any",
+          "travel": "through the staff entrance",
+          "requires": [
+            {
+              "kind": "any",
+              "conditions": [
+                {
+                  "kind": "flag",
+                  "key": "station-open",
+                  "value": true
+                },
+                {
+                  "kind": "holding",
+                  "item": "ratiradio-station-key",
+                  "role": "actor"
+                }
+              ]
+            }
+          ],
+          "scenery": {
+            "open": "The staff entrance opens onto a kitchen of humming refrigerators.",
+            "closed": "A brass lock waits beneath STAFF KITCHEN. Carry the Station Key to open the staff entrance."
+          }
+        },
+        {
+          "id": "ratiradio-station",
+          "from": "ratiradio-staff-kitchen",
+          "to": "station",
+          "travelers": "any",
+          "travel": "through the staff entrance",
+          "requires": []
         }
       ]
     }

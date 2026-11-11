@@ -26,3 +26,5 @@ fi
 # when you want the full local gate before pushing.
 echo "[pre-push] npm run check:version" >&2
 npm run check:version
+echo "[pre-push] npm run check:test-guards" >&2
+npm run check:test-guards

@@ -20,9 +20,9 @@ AI supplies dialogue from committed events and current character facts. The
 rules own movement, possession, consent, quests, and outcomes.
 
 The `/classic` client is retired ([#1652](https://github.com/cenetex/cosyworld/issues/1652)).
-Native C world rules and classic packs remain until later phases remove them.
-Their older product guides are in the [archive](docs/archive/classic/index.md).
-The source map distinguishes the card pack compiler from the classic compiler.
+The classic packs, worldpack compiler and registries are deleted; the Rust
+crate and the native C world kernel no longer carry the classic world. Their
+older product guides and sources remain in git history.
 
 ## Make a change
 
@@ -31,8 +31,10 @@ The source map distinguishes the card pack compiler from the classic compiler.
    migrations and the exact released rule bundles used for journal replay.
 3. Run the relevant tests from `.github/AGENT.md`. Shared changes need replay
    and client/server agreement at the real authority boundary.
-4. Rebuild the public asset list after adding a public file. Rebuild the shared
-   engine after changing an imported rule module. Commit generated outputs.
+4. Run `npm run regen` after changing rules, pack data, authored text or a
+   public file, and after merging or rebasing main. It rebuilds every generated
+   output in order and settles conflicts that are only in generated files; never
+   hand-merge them. Commit generated outputs.
 5. Update the closest current guide. Do not bump the version: a release bumps
    the package and Rust crate versions once with `npm run version:bump`
    ([release operations](docs/release.md)).

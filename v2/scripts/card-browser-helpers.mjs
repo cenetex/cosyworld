@@ -1,4 +1,23 @@
 import { packDefinitions } from "../card-game/pack-registry.mjs";
+import { holdChoice } from "../card-game/world.mjs";
+import { roomFuelFromTurns } from "../card-game/lamp-room-fuel.mjs";
+
+// The lamp's fuel counts rooms (#2580), so a fixture that sets turns of oil
+// sets both, in place.
+export function setLampFuel(world, turns, place) {
+  Object.assign(world.items.lamp, roomFuelFromTurns(turns, place), {
+    fuel: Math.ceil(turns / 4) * 4,
+  });
+}
+
+// Light and Snuff are not rules plays since #2580: the lamp burns while the
+// avatar holds it, and holding nothing puts it out (the opening's first play,
+// which opens the Black pond). Returns the world after that quiet choice.
+export function holdItem(world, item = null, actor = "vale") {
+  const next = structuredClone(world);
+  holdChoice(next, actor, { item, revision: next.revision });
+  return next;
+}
 
 // The full suite runs each width of a long journey on its own runner
 // (scripts/browser-shards.json). Without COSYWORLD_SMOKE_WIDTHS, run them all.
@@ -19,10 +38,19 @@ export const topicForChoice = (choiceId) =>
 
 // On phones and tablets the dialogue lies over the hand's foot (#1897), so
 // a player taps a card's top, which always shows above it.
-export async function tapCard(card) {
+export async function tapCard(card, { touch = false } = {}) {
   await card.scrollIntoViewIfNeeded();
   const { width } = await card.boundingBox();
-  await card.click({ position: { x: width / 2, y: 16 } });
+  const top = { x: width / 2, y: 16 };
+  // A neighbour may lie over the top: tap the card's visible part instead.
+  const covered = await card.evaluate((el, at) => {
+    const box = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + at.x, box.top + at.y);
+    return !(hit === el || el.contains(hit));
+  }, top);
+  const options = { position: covered ? await visibleSpot(card) : top };
+  if (touch) await card.tap(options);
+  else await card.click(options);
 }
 
 // ☰ > Settings is a hand of cards (settings-cards.mjs). A setting lies in
@@ -56,15 +84,62 @@ export async function startNewGame(page) {
   await pressSetting(page, "new-game", 2);
 }
 
-// Use the same holder reveal and selection gestures as a player.
-export async function revealCard(page, id) {
+// Three or more unturned cards lie in the hand as one face-down stack (the
+// pack, pack-opening.mjs), and the cards in it are tucked away. A step that
+// wants one of them opens the pack as a player would: tap the stack, tap the
+// card (inside a pack the first tap turns it), then tap away. Only that card
+// is turned; the rest go back face down, and form a pack again if three or
+// more remain. Returns whether the card was in a pack.
+export async function openPack(page, id) {
   const card = page.locator(`#hand [data-card="${id}"]`);
+  if ((await card.count()) === 0) return false;
+  const inPack = async () =>
+    (await card.locator("..").getAttribute("data-pack")) !== null;
+  if (!(await inPack())) return false;
+  const stack = page.locator(
+    '#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card',
+  );
+  if (await stack.count()) {
+    await stack.first().click({ position: await visibleSpot(stack.first()) });
+    await page.locator('#hand [data-pack="open"]').first().waitFor();
+    // The hand rises and the cards rise into the row (460 ms, 350 ms apart).
+    await page.waitForTimeout(900);
+  }
+  // The row is raised and the card is in it: a tap turns it at once.
+  if ((await card.getAttribute("data-unrevealed")) === "true") {
+    await card.scrollIntoViewIfNeeded();
+    await card.click({ position: await visibleSpot(card) });
+    await page.waitForFunction(
+      (id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.unrevealed === "false" && !card.dataset.revealing;
+      },
+      id,
+    );
+  }
+  // Tapping away puts the pack back into the hand, the pointer left over
+  // empty ground where it would not lift a card.
+  await page.keyboard.press("Escape");
+  await page.mouse.move(2, 2);
+  await page.waitForFunction(() => !document.querySelector('#hand [data-pack="open"]'));
+  await page.waitForTimeout(700);
+  return true;
+}
+
+// Use the same holder reveal and selection gestures as a player.
+export async function revealCard(page, id, { keepSelected = false } = {}) {
+  await openPack(page, id);
+  const card = page.locator(`#hand [data-card="${id}"]`);
+  const wasSelected = (await card.getAttribute("aria-pressed")) === "true";
   const frame = card.locator("..");
   const holder = await frame.getAttribute("data-holder");
   if ((await frame.getAttribute("hidden")) !== null) {
     if (!holder) await fanWays(page, frame);
     else if (!(await fanAvatarStack(page, holder))) {
-      await tapCard(await revealCard(page, holder));
+      // A pack settled back leaves more cards face up in the fan, so aim at
+      // a spot where the holder is topmost.
+      const owner = await revealCard(page, holder);
+      await owner.click({ position: await visibleSpot(owner) });
       await fanAvatarStack(page, holder);
     }
   } else if (
@@ -74,14 +149,20 @@ export async function revealCard(page, id) {
   )
     await tapCard(card);
   await card.scrollIntoViewIfNeeded();
-  // The first tap uncovers; a tap during the reveal only skips it.
+  // Select the closed box, then open it through its descriptor.
   if ((await card.getAttribute("data-unrevealed")) === "true") {
-    await tapCard(card);
+    const open = page.locator(`#card-actions [data-open-box="${id}"]`);
+    // Escape can keep a held box selected in the folded hand. Open its
+    // details first; a selected card alone does not mean its action is shown.
+    if (!(await open.count())) await tapCard(card);
+    if ((await card.getAttribute("aria-pressed")) !== "true") await tapCard(card);
+    await open.click();
     await page.waitForFunction(
       (id) =>
         !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
       id,
     );
+    if (!keepSelected && !wasSelected && (await card.getAttribute("aria-pressed")) === "true") await tapCard(card);
   }
   // The folded top of the ways on fans them before it can be chosen.
   if (!holder && (await wayTop(page).count()) && (await isWayTop(card)))
@@ -101,25 +182,33 @@ const isWayTop = (card) =>
       el.classList.contains("location") &&
       !el.parentElement.hasAttribute("data-inventory"),
   );
-// A covered top card is uncovered by its first tap, so tap until they fan.
+// Open a covered top through its descriptor, then fan the ways.
 async function fanWays(page, frame) {
   for (let i = 0; i < 3 && (await wayTop(page).count()); i++) {
     await tapCard(wayTop(page).last());
+    if (await page.locator("#card-actions [data-open-box]").count())
+      await page.locator("#card-actions [data-open-box]").click();
     await page.waitForFunction(
       () => !document.querySelector("#hand [data-revealing]"),
     );
   }
   return (await frame.getAttribute("hidden")) === null;
 }
-// The avatar's things lie in a stack beside it, its quests in another; a
-// folded stack's top card fans it out (#2256).
+// The avatar's things lie in a stack beside it, and its one quest card is a
+// card of its own; a folded stack's top card fans it out (#2256).
 async function fanAvatarStack(page, holder) {
   const folded = page.locator(
     `#hand .card-frame[data-holder="${holder}"]:not([hidden], [data-want]) > .card[aria-expanded="false"]:not(.location)`,
   );
   if (!(await folded.count())) return false;
-  const top = folded.first();
-  const id = await top.getAttribute("data-card");
+  const id = await folded.first().getAttribute("data-card");
+  const top = page.locator(`#hand [data-card="${id}"]`);
+  if ((await top.getAttribute("data-unrevealed")) === "true") {
+    await tapCard(top);
+    await page.locator("#card-actions [data-open-box]").click();
+    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+    if ((await top.getAttribute("aria-pressed")) === "true") await tapCard(top);
+  }
   await tapCard(top);
   const chosen = page.locator(`#hand [data-card="${id}"]`);
   // Fanning also selects the top card. Lower it before choosing another.
@@ -127,11 +216,66 @@ async function fanAvatarStack(page, holder) {
     await tapCard(chosen);
   return true;
 }
-// A held item stays raised through plays and new targets (#1417, #1435), so
-// a scripted step that names its own cards first lowers it, as Escape does.
+// Escape folds the hand but keeps its held item. A scripted step naming its
+// own cards must also tap that item to stow it before making a fresh choice.
+// Every card in the hand is reachable to a person's tap: shown with a spot
+// that is its own, or tucked in a stack whose top is shown (a pack's stack, a
+// holder's stack, the ways on) and itself reachable. Returns the cards that
+// are not, so a stack with no visible top, or a card wholly under its
+// neighbours, cannot slip by. A card a person must scroll to counts as
+// shown. Pass to assert.deepEqual(await unreachableCards(page), []).
+export function unreachableCards(page) {
+  return page.evaluate(() => {
+    const frames = [...document.querySelectorAll("#hand > .card-frame")];
+    const buttonOf = (frame) => frame.querySelector(":scope > .card");
+    const tappable = (frame) => {
+      const el = buttonOf(frame);
+      if (frame.hidden || !el.checkVisibility()) return false;
+      el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+      const box = el.getBoundingClientRect();
+      for (const fy of [0.3, 0.5, 0.7, 0.15])
+        for (let x = box.left + 4; x < box.right - 2; x += 6) {
+          const hit = document.elementFromPoint(x, box.top + box.height * fy);
+          if (hit === el || el.contains(hit)) return true;
+        }
+      return false;
+    };
+    const byId = (id) =>
+      frames.find((frame) => buttonOf(frame).dataset.card === id);
+    const reach = (frame, depth = 0) => {
+      if (depth > 4) return false;
+      if (tappable(frame)) return true;
+      if (!frame.hidden) return false;
+      if (frame.dataset.pack === "closed")
+        return frames.some((other) => other.dataset.pack === "closed" && tappable(other));
+      const holder = frame.dataset.holder && byId(frame.dataset.holder);
+      if (holder) return reach(holder, depth + 1);
+      // The ways on: tucked behind a shown card that folds them.
+      return frames.some(
+        (other) =>
+          !other.hidden &&
+          buttonOf(other).getAttribute("aria-expanded") === "false" &&
+          tappable(other),
+      );
+    };
+    return frames
+      .filter((frame) => buttonOf(frame).dataset.card && !reach(frame))
+      .map((frame) => buttonOf(frame).dataset.card);
+  });
+}
 export async function clearSelection(page) {
-  if (await page.locator('#hand .card[aria-pressed="true"]').count())
-    await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  const held = page.locator('#hand .card[aria-pressed="true"]');
+  if (await held.count()) {
+    const card = await revealCard(
+      page,
+      await held.first().getAttribute("data-card"),
+    );
+    if ((await card.getAttribute("aria-pressed")) === "true")
+      await tapCard(card);
+    if ((await card.getAttribute("aria-pressed")) === "true")
+      await tapCard(card);
+  }
 }
 // A battle locks its room until a round passes without a Strike, so a
 // scripted walk waits it out by playing the place card (Wait). Residents
@@ -144,7 +288,43 @@ export async function endStandoff(page, world, actor = "vale") {
   await page.locator('#card-actions [data-action="wait"]').click();
   return true;
 }
-export async function selectCard(page, id, { touch = false } = {}) {
+// A fanned card lies partly under the next ones (the row grows with every
+// offer card), so its centre may be covered. Aim at a point where the card
+// itself is topmost, as a player taps its visible part.
+async function visibleSpot(card) {
+  await card.scrollIntoViewIfNeeded();
+  return card.evaluate((el) => {
+    const box = el.getBoundingClientRect(),
+      mine = (x, y) => {
+        const hit = document.elementFromPoint(x, y);
+        return hit === el || el.contains(hit);
+      };
+    // A card in the fan shows its left part; later cards lie over its right.
+    // Take the leftmost spot that stays the card's own a little to its right
+    // too, so the pointer's hover shifting the row does not move it away.
+    for (const fy of [0.3, 0.5, 0.7, 0.15]) {
+      const y = box.top + box.height * fy;
+      for (let x = box.left + 10; x < box.right - 2; x += 6)
+        if (mine(x, y) && mine(x + 10, y)) return { x: x - box.left, y: y - box.top };
+    }
+    for (const fy of [0.3, 0.5, 0.7, 0.15]) {
+      const y = box.top + box.height * fy;
+      for (let x = box.left + 2; x < box.right - 2; x += 6)
+        if (mine(x, y)) return { x: x - box.left, y: y - box.top };
+    }
+    return { x: box.width / 2, y: box.height / 2 };
+  });
+}
+export async function selectCard(
+  page, id, { touch = false, exposedTop = false } = {},
+) {
+  // A touch tap at the card's exposed top (#2668) or at its visible part.
+  const press = async (card) => {
+    if (touch && exposedTop) return tapCard(card, { touch: true });
+    const position = await visibleSpot(card);
+    if (touch) await card.tap({ position });
+    else await card.click({ position });
+  };
   const frame = page.locator(`#hand [data-card="${id}"]`).locator("..");
   const wasSelected =
     (await frame.locator(".card").getAttribute("aria-pressed")) === "true";
@@ -152,15 +332,13 @@ export async function selectCard(page, id, { touch = false } = {}) {
     (await frame.getAttribute("hidden")) !== null
       ? await frame.getAttribute("data-holder")
       : null;
-  const card = await revealCard(page, id);
+  const card = await revealCard(page, id, { keepSelected: true });
   if (wasSelected || (await card.getAttribute("aria-pressed")) !== "true") {
-    if (touch) await card.tap();
-    else await card.click();
+    await press(card);
   }
   // A rested held card first opens its details; this helper's toggle lowers it.
   if (wasSelected && (await card.getAttribute("aria-pressed")) === "true") {
-    if (touch) await card.tap();
-    else await card.click();
+    await press(card);
   }
   // Keep the chosen child raised while returning its browsing avatar to the stack.
   if (holder) {
@@ -169,9 +347,7 @@ export async function selectCard(page, id, { touch = false } = {}) {
       (await owner.getAttribute("aria-pressed")) === "true" &&
       !(await owner.evaluate((el) => el.classList.contains("location")))
     ) {
-      await owner.scrollIntoViewIfNeeded();
-      if (touch) await owner.tap();
-      else await owner.click();
+      await press(owner);
     }
   }
 }
@@ -181,22 +357,41 @@ export function readyActionButton(page, kind) {
   const action = kind ? `[data-action="${kind}"]` : ".card-primary";
   return page.locator(`#card-actions ${action}:not([data-revealing="true"])`);
 }
-// A new local world opens on Vale alone, the lit lamp and the attic face down
-// (opening.mjs). Its context button offers no play while either is down: the
-// lamp's tap turns it, the quiet Reveal turns the attic and chooses the lamp,
-// and only then does the rules' first play, Put out, douse it. Any play on
-// the revealed cards (a Wait) is a first play too.
+// The opening reveals Vale, the held lamp and the attic without a turn.
+// Stowing the lamp then darkens the mirror quietly, with no Light/Snuff play.
 export async function revealOpening(page) {
   await revealCard(page, "vale");
-  await selectCard(page, "lamp");
-  await page
-    .locator('#card-actions [data-quiet="true"]:not([data-revealing="true"])')
-    .click();
-  await readyActionButton(page, "snuff").waitFor();
+  // Vale's own waking line starts with his reveal and holds the bar.
+  await settleHand(page);
+  await revealCard(page, "lamp", { keepSelected: true });
+  const reveal = page.locator(
+    '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
+  );
+  if (
+    (await page
+      .locator('#hand [data-card="attic"]')
+      .getAttribute("data-unrevealed")) === "true"
+  )
+    await reveal.click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#hand [data-card="attic"]')?.dataset
+        .unrevealed === "false",
+  );
+  await page.waitForFunction(
+    () => !document.querySelector("#hand [data-revealing]"),
+  );
 }
 export async function putOutOpening(page) {
   await revealOpening(page);
-  await readyActionButton(page, "snuff").click();
+  const lamp = await revealCard(page, "lamp");
+  await tapCard(lamp);
+  if ((await lamp.getAttribute("aria-pressed")) === "true") await tapCard(lamp);
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
+      "false",
+  );
 }
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).
@@ -321,4 +516,21 @@ export async function splitNameWords(page) {
     }
     return split;
   });
+}
+
+// Words that fail show a silent "…" beat, and the hand stays busy until a tap
+// reads each beat. Read them until the hand is ready.
+export async function settleHand(page) {
+  const hand = page.locator("#hand");
+  const advance = page.locator("#dialogue-advance");
+  for (let beats = 0; beats < 20; beats++) {
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#hand").dataset.cooling === "false" ||
+        document.querySelector("#dialogue-advance")?.offsetParent,
+    );
+    if ((await hand.getAttribute("data-cooling")) === "false") return;
+    await advance.click();
+  }
+  throw new Error("The hand stayed busy after twenty beats.");
 }

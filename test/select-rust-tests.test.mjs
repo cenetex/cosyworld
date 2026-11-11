@@ -20,7 +20,7 @@ describe("fast check Rust test selection", () => {
     expect(missing).toEqual([]);
     const path = (f) => modules.get(`${SRC}/${f}`).join("::");
     expect(path("card_narrative/voice_eval.rs")).toBe(`${N}voice_eval`);
-    expect(path("tests/action_hand_tests.rs")).toBe("tests::action_hand_tests");
+    expect(path("startup.rs")).toBe("startup");
     expect(path("card_policy/ranker.rs")).toBe("card_policy::ranker");
   });
 
@@ -45,7 +45,24 @@ describe("fast check Rust test selection", () => {
   it("runs funeral parity when the source world changes", () => {
     expect(pick("v2/card-game/world.mjs")).toEqual([
       "card_shared::polynices_tests::",
+      "card_shared::world_life_tests::",
     ]);
+  });
+
+  it("runs receiver journal replay when authored radio rules change", () => {
+    expect(pick("v2/card-game/radio-item.mjs")).toEqual([
+      "card_shared::quest_loop_tests::",
+    ]);
+  });
+
+  it("runs consequence replay for rule modules and pinned evidence", () => {
+    // The old pinned traces (rules 130-132) retired with the rules 133 bump, so
+    // the rule modules the crate names, and the played-world helper it reads.
+    for (const path of [
+      "v2/card-game/world.mjs",
+      "test/helpers/long-play.mjs",
+    ])
+      expect(pick(path)).toContain("card_shared::world_life_tests::");
   });
 
   it("runs the narrative and voice tests when their inputs change", () => {
@@ -65,16 +82,10 @@ describe("fast check Rust test selection", () => {
     expect(pick(`${SRC}/card_shared/engine-v98.js`)).toEqual(["card_shared::"]);
     const packs = pick("v2/card-game/packs.json");
     expect(packs).toContain("routes::card_game::");
-    expect(packs).toContain("card_shared::full_tests::");
+    expect(packs).toContain("card_shared::content::");
+    expect(packs).toContain("card_shared::world_life_tests::");
     expect(packs).not.toContain(N); // routes::card_game:: covers it
-    expect(pick("v2/content/official/rules.json")).toEqual([
-      "content_load::",
-      "content_registry::",
-    ]);
-    expect(pick("v2/core-c/src/card_table.c")).toEqual([
-      "card_shared::",
-      "kernel::",
-    ]);
+    expect(pick("v2/core-c/src/card_table.c")).toEqual(["card_shared::"]);
   });
 
   it("runs the default for crate-wide files", () => {
@@ -91,8 +102,16 @@ describe("fast check Rust test selection", () => {
     expect(
       pick(`${SRC}/card_narrative/voice_eval.rs`, `${SRC}/card_narrative.rs`),
     ).toEqual([N]);
-    const many = ["combat", "movement", "spatial", "notice", "shutdown"];
-    const files = [...many, "room_history", "story_metrics"];
+    const files = [
+      "shutdown",
+      "rate_limit",
+      "startup",
+      "play_metrics",
+      "passkey_access",
+      "signed_envelope",
+      "ai_registry",
+      "account_auth",
+    ];
     expect(pick(...files.map((m) => `${SRC}/${m}.rs`))).toHaveLength(
       config.rust.max,
     );

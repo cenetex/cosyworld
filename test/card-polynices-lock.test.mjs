@@ -13,7 +13,6 @@ import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { lifeHome } from "../v2/card-game/resident-home.mjs";
 import { packTalkChoice } from "../v2/card-game/pack-registry.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
-import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
 const pack = "greek-drama",
   field = "greek-battlefield",
@@ -35,6 +34,25 @@ function start(shared = false) {
   world.packs[pack].met[shade] = 35;
   return world;
 }
+
+it("offers the box's quest only to a player holding no want (rules 133)", () => {
+  const free = start();
+  const gate = (w) =>
+    legalActions(w).find(
+      (a) => a.kind === "take" && a.offer === `quest:box:${hollow}`,
+    );
+  expect(gate(free)).toBeTruthy();
+  const held = structuredClone(free);
+  held.actors.vale.want = {
+    kind: "place",
+    target: "pond",
+    since: 0,
+    refusals: 0,
+  };
+  expect(gate(held)).toBeUndefined();
+  const next = play(free, gate(free)).state;
+  expect(next.actors.vale.want).toMatchObject({ target: shade });
+});
 
 it.each([
   [false, 36],
@@ -61,7 +79,7 @@ it.each([
         ? both({ op: "view", world, ...seats }).actions
         : legalActions(world);
       const action = actions.find(
-        (a) => a.kind === kind && a.target === target,
+        (a) => a.kind === kind && (a.target === target || a.offer === target),
       );
       expect(action, kind).toBeTruthy();
       const result = shared
@@ -73,11 +91,11 @@ it.each([
     for (const actor of ["vale", antigone])
       expect(exits(world, field, actor)).not.toContain(hollow);
     expect(plan(world, antigone).action?.target).not.toBe(hollow);
-    expect(lifeHome(antigone, world)).toBe("greek-gate");
+    expect(lifeHome(antigone, world)).toBe(hollow);
     expect(isLockedBox(world, hollow)).toBe(true);
     expect(lockedQuest(world, hollow).cards).toEqual([]);
     const turn = world.turn;
-    act("gate", hollow);
+    act("take", `quest:box:${hollow}`);
     expect(world.turn).toBe(turn);
     expect(world.actors.vale.want).toMatchObject({
       kind: "person",
@@ -111,33 +129,4 @@ it("keeps NPC Talk outside the player's unlock choice", () => {
   expect(packTalkChoice(world, action)).toBe(null);
   expect(world.packs[pack].flags[heard]).toBeUndefined();
   expect(exits(world, field, antigone)).not.toContain(hollow);
-});
-
-it("closes the former static exit when an untouched revision 21 save loads", () => {
-  const world = start();
-  world.packs[pack].revision = 21;
-  const restored = decodeSave(JSON.stringify(world));
-  expect(restored.packs[pack].revision).toBe(23);
-  expect(isLockedBox(restored, hollow)).toBe(true);
-  for (const actor of ["vale", antigone])
-    expect(exits(restored, field, actor)).not.toContain(hollow);
-  expect(exits(restored, hollow, "vale")).toContain(field);
-});
-
-it("keeps accepted funeral progress and the return path in revision 21 saves", () => {
-  const states = funeralJourney();
-  for (const phase of ["anointed", "veiled", "buried"]) {
-    const world = structuredClone(states[phase]);
-    const saved = world.packs[pack];
-    delete saved.flags[heard];
-    delete saved.receipts["greek-hear-polynices"];
-    saved.revision = 21;
-    delete world.openedRoutes;
-    const restored = decodeSave(JSON.stringify(world));
-    expect(restored.packs[pack].flags).toEqual(saved.flags);
-    expect(restored.packs[pack].receipts).toEqual(saved.receipts);
-    expect(restored.packs[pack].revision).toBe(23);
-    expect(exits(restored, field, "vale")).toContain(hollow);
-    expect(exits(restored, hollow, "vale")).toContain(field);
-  }
 });

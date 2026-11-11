@@ -10,7 +10,6 @@
 // `--check` fails when the output is stale.
 import { build } from "esbuild";
 import * as acorn from "acorn";
-import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -461,19 +460,22 @@ const sorted = (map) =>
   [...map.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 const body = {
   generated: "node v2/scripts/build-card-authored-text.mjs",
-  sources,
   kinds: KINDS,
+  sources,
   names: [...names].sort(),
   literals: sorted(catalog.literals).map(([text, mask]) => [text, mask]),
   templates: sorted(catalog.templates).map(([, entry]) => entry),
 };
-// The hash of every source this catalog was built from, so the service can
-// tell a stale catalog from the packs and modules it serves.
-const hash = createHash("sha256");
-for (const input of sources)
-  hash.update(`${input}\n`).update(await readFile(root + input));
-body.sourceHash = hash.digest("hex");
-const text = `${JSON.stringify(body)}\n`;
+// One entry per line and sorted, so two branches that change different
+// sources or sentences merge in git instead of conflicting on one long line.
+const lines = (items) =>
+  `[\n${items.map((item) => JSON.stringify(item)).join(",\n")}\n]`;
+const text = `{\n${Object.entries(body)
+  .map(
+    ([key, value]) =>
+      `${JSON.stringify(key)}: ${key === "generated" || key === "kinds" ? JSON.stringify(value) : lines(value)}`,
+  )
+  .join(",\n")}\n}\n`;
 if (process.argv.includes("--check")) {
   if ((await readFile(output, "utf8").catch(() => "")) !== text)
     throw new Error(

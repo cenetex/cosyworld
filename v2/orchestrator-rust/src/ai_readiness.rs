@@ -186,6 +186,7 @@ impl AiReadinessGate {
         self.reason_code.is_some() && self.terminal
     }
 
+    #[cfg(test)]
     pub(crate) const fn is_retryable_block(self) -> bool {
         self.reason_code.is_some() && !self.terminal
     }
@@ -476,6 +477,7 @@ impl AiReadiness {
         self.bench.snapshot(Instant::now())
     }
 
+    #[cfg(test)]
     pub(crate) fn unbench(&self, requested_model_id: &str) -> bool {
         self.bench.clear(requested_model_id)
     }

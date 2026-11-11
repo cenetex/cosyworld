@@ -4,9 +4,9 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
-// One hidden avatar per world (#1936): ☰ names the avatar hidden in the
-// world being played as "+ Find Mara", which asks for the quest to talk to
-// them, and shows the avatars this passkey has not found as card backs.
+// One hidden avatar per world (#1936): ☰ shows the avatars this passkey has
+// not found as card backs, and a Talk with the hidden one unlocks it. There
+// is no "+ Find" button or `seek` command (rules 133).
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -59,7 +59,7 @@ try {
     page.on("pageerror", (error) => errors.push(error.message));
     const commands = [];
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true } }),
+      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
     );
     await page.route(/\/card-game\/shared\/worlds$/, (route) =>
       route.fulfill({
@@ -94,10 +94,8 @@ try {
     await page.waitForFunction(() => document.body.inert === false);
     const menu = page.locator("#world-menu");
     await page.locator("#toolbar-menu-button").click();
-    const find = menu.locator("#avatar-find");
-    await find.waitFor();
-    assert.equal(await find.innerText(), "+ Find Mara");
-    assert.equal(await menu.locator("#avatar-new-world").count(), 0);
+    await menu.locator(".slot-cast").waitFor();
+    assert.equal(await menu.locator("#avatar-find").count(), 0);
     // Not yet found: six card backs, Mara among them, and no names.
     const backs = menu.locator(".slot-back img");
     assert.equal(await backs.count(), 6);
@@ -111,8 +109,8 @@ try {
       ),
     );
     await page.screenshot({ path: `output/card-find-hidden-${width}.png` });
-    await find.click();
-    assert.deepEqual(commands.splice(0), [{ op: "seek" }]);
+    assert.deepEqual(commands.splice(0), []);
+    await page.keyboard.press("Escape");
     // A later shared snapshot carries the Talk's unlock into the action
     // beat. Its portrait, name and dismiss button must all render.
     await selectCard(page, "mara", { touch: width === 390 });
@@ -130,7 +128,7 @@ try {
     await page.close();
   }
   console.log(
-    "Find hidden: + Find Mara asks for the quest, and unfound avatars are card backs, at 390 and 1440.",
+    "Find hidden: no Find button, unfound avatars are card backs, and Talk unlocks, at 390 and 1440.",
   );
 } finally {
   await browser.close();

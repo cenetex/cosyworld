@@ -4,8 +4,10 @@ import {
   BATTLE_BEAT_SECONDS,
   CUE_TRACKS,
   HUSH,
+  RATIRADIO_PERFORMANCE,
   battleMusicDue,
   createMusicCues,
+  locationMusicCue,
 } from "../v2/card-game/music-cues.mjs";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 
@@ -14,7 +16,7 @@ afterEach(() => vi.useRealTimers());
 const advance = (ms) => vi.advanceTimersByTimeAsync(ms);
 const now = () => Date.now() / 1000;
 
-async function table() {
+async function table(options = {}) {
   const levels = new Map();
   const element = () => {
     const audio = Object.assign(new EventTarget(), { paused: true, load() {} });
@@ -40,13 +42,16 @@ async function table() {
       levels.set(audio, value) && node;
     return Object.defineProperty(context, "currentTime", { get: now });
   };
+  const tracks = { ...CUE_TRACKS, ratiradio: RATIRADIO_PERFORMANCE };
   const players = Object.fromEntries(
-    Object.keys(CUE_TRACKS).map((id) => [id, element()]),
+    Object.keys(tracks).map((id) => [id, element()]),
   );
   const { battle, funeral, "battle-loss": loss } = players;
   const room = element();
   const queue = Object.values(players);
   const cues = createMusicCues({
+    ...options,
+    tracks,
     makeAudio: () => queue.shift(),
     makeContext,
     now,
@@ -58,8 +63,114 @@ async function table() {
   await advance(1000);
   room.currentTime = 42;
   const level = (audio) => levels.get(audio)?.() ?? 0;
-  return { music, room, battle, funeral, loss, cues, level };
+  return {
+    music,
+    room,
+    battle,
+    funeral,
+    loss,
+    radio: players.ratiradio,
+    cues,
+    level,
+  };
 }
+
+it("remembers a started broadcast per world and avatar across reloads", async () => {
+  const receipts = new Map();
+  const storage = {
+    getItem: (key) => receipts.get(key),
+    setItem: (key, value) => receipts.set(key, value),
+  };
+  const { music, radio, room, cues } = await table({ storage });
+  music.setEnabled(false);
+  music.cue("ratiradio", "world-a:vale");
+  await advance(3000);
+  expect(receipts.size).toBe(0);
+  music.setEnabled(true);
+  await advance(3000);
+  expect(receipts.size).toBe(1);
+  expect(radio.loop).toBe(false);
+  radio.currentTime = 25;
+  music.setRoom("station");
+  music.cue(null, "world-a:vale");
+  expect([radio.paused, radio.currentTime, cues.current]).toEqual([
+    false,
+    25,
+    "ratiradio",
+  ]);
+  radio.pause();
+  radio.dispatchEvent(new Event("ended"));
+  await advance(2000);
+  expect(room.paused).toBe(false);
+  music.cue("ratiradio", "world-a:vale");
+  expect(cues.current).toBe(null);
+  const reloaded = await table({ storage });
+  reloaded.music.cue("ratiradio", "world-a:vale");
+  expect(reloaded.cues.current).toBe(null);
+  reloaded.music.cue("ratiradio", "world-a:mara");
+  await advance(3000);
+  expect(reloaded.radio.paused).toBe(false);
+  reloaded.music.cue("ratiradio", "world-b:vale");
+  await advance(3000);
+  expect(receipts.size).toBe(3);
+});
+
+it("rechecks another tab's receipt before a muted broadcast starts", async () => {
+  const receipts = new Map();
+  const storage = {
+    getItem: (key) => receipts.get(key),
+    setItem: (key, value) => receipts.set(key, value),
+  };
+  const first = await table({ storage });
+  first.music.setEnabled(false);
+  first.music.cue("ratiradio", "shared-world:vale");
+  const second = await table({ storage });
+  second.music.cue("ratiradio", "shared-world:vale");
+  await advance(3000);
+  first.music.setEnabled(true);
+  await advance(3000);
+  expect([first.radio.paused, first.cues.current]).toEqual([true, null]);
+});
+
+it("selects a location cue from data for the requested avatar", () => {
+  const world = {
+    actors: {
+      visitor: { place: "small-studio" },
+      host: { place: "green-room" },
+    },
+  };
+  const tracks = { ambient: {}, "evening-set": { at: "small-studio" } };
+  expect(locationMusicCue(world, "visitor", tracks)).toBe("evening-set");
+  expect(locationMusicCue(world, "host", tracks)).toBe(null);
+  expect(locationMusicCue(world, "missing", tracks)).toBe(null);
+  expect(locationMusicCue(null, "visitor", tracks)).toBe(null);
+  expect(
+    locationMusicCue(
+      { actors: { visitor: { place: RATIRADIO_PERFORMANCE.at } } },
+      "visitor",
+      { broadcast: RATIRADIO_PERFORMANCE },
+    ),
+  ).toBe("broadcast");
+});
+
+it("records no broadcast receipt after refused playback, then retries on a gesture", async () => {
+  const receipts = new Map();
+  const storage = {
+    getItem: (key) => receipts.get(key),
+    setItem: (key, value) => receipts.set(key, value),
+  };
+  const { music, radio } = await table({ storage });
+  radio.play = async () => {
+    throw new Error("autoplay blocked");
+  };
+  music.cue("ratiradio", "world-a:vale");
+  await advance(3000);
+  expect(receipts.size).toBe(0);
+  radio.play = async () => void (radio.paused = false);
+  music.unlock();
+  await advance(3000);
+  expect(receipts.size).toBe(1);
+});
 
 it("finishes a funeral performance across travel, then releases the room song", async () => {
   const { music, room, funeral, cues } = await table();

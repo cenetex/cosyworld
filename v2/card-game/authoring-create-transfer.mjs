@@ -1,3 +1,4 @@
+import { accountRevision } from "./account-revision.mjs";
 import { assetMetadata, DRAFT_LIMITS, exportManifest, parseDraft } from "./authoring-draft.mjs";
 
 const fail = (message, status = 0) => Object.assign(new Error(message), { status });
@@ -59,7 +60,7 @@ export async function transferAuthoringCreate(
       cache: "no-store",
       redirect: "error",
       referrerPolicy: "no-referrer",
-      headers: { ...headers, ...(mime ? { "Content-Type": mime } : {}) },
+      headers: { ...headers, ...accountRevision.headers(), ...(mime ? { "Content-Type": mime } : {}) },
     });
     const reader = response.body?.getReader(),
       chunks = [];
@@ -140,7 +141,9 @@ export async function transferAuthoringCreate(
     saved.assets instanceof Map && saved.assets.size === draft.assets.length,
     "Open all saved Create files.",
   );
-  const files = new Map();
+  const files = new Map(),
+    // Originals made by a generation job are already in the owner's store.
+    originals = new Set();
   for (const meta of draft.assets) {
     signal?.throwIfAborted();
     const bytes = saved.assets.get(meta.path);
@@ -151,10 +154,38 @@ export async function transferAuthoringCreate(
     const actual = await assetMetadata(meta.path, meta.mime, bytes);
     need(actual.sha256 === meta.sha256, "Check the saved Create file digest.");
     files.set(meta.sha256, bytes);
+    if (meta.path.startsWith("assets/generated-art/"))
+      originals.add(meta.sha256);
+  }
+  // A header-only probe costs no bytes; any doubt falls back to the upload.
+  async function stored(sha256, size) {
+    try {
+      const response = await fetcher(`/card-game/authoring/assets/${sha256}`, {
+        method: "HEAD",
+        signal: AbortSignal.any(
+          [signal, AbortSignal.timeout(timeoutMs)].filter(Boolean),
+        ),
+        credentials: "same-origin",
+        cache: "no-store",
+        redirect: "error",
+        referrerPolicy: "no-referrer",
+        headers,
+      });
+      return (
+        response.ok && Number(response.headers.get("content-length")) === size
+      );
+    } catch {
+      signal?.throwIfAborted();
+      return false;
+    }
   }
   let completed = 0;
   for (const [sha256, bytes] of files) {
     progress({ phase: "upload", completed, total: files.size });
+    if (originals.has(sha256) && (await stored(sha256, bytes.byteLength))) {
+      completed++;
+      continue;
+    }
     const reply = await request(
       `/card-game/authoring/assets/${sha256}`,
       "PUT",

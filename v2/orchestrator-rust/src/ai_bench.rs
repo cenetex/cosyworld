@@ -161,13 +161,10 @@ impl AiBench {
     }
 
     /// End a bench now. Returns whether the model was benched.
+    #[cfg(test)]
     pub(crate) fn clear(&self, model: &str) -> bool {
         let model = model.trim();
-        let cleared = self.lock().remove(model).is_some_and(|s| s.bench.is_some());
-        if cleared {
-            info!(event = "ai_model_unbenched", model, cause = "operator");
-        }
-        cleared
+        self.lock().remove(model).is_some_and(|s| s.bench.is_some())
     }
 
     pub(crate) fn snapshot(&self, now: Instant) -> Vec<BenchedModel> {
@@ -187,111 +184,5 @@ impl AiBench {
         self.models
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-    }
-}
-
-#[derive(serde::Deserialize)]
-pub(crate) struct UnbenchRequest {
-    model: String,
-}
-
-/// `POST /moderation/ai/unbench {"model": "..."}`, behind the moderation
-/// bearer token.
-pub(crate) async fn moderation_unbench(
-    headers: axum::http::HeaderMap,
-    axum::extract::State(state): axum::extract::State<crate::AppState>,
-    axum::Json(payload): axum::Json<UnbenchRequest>,
-) -> (axum::http::StatusCode, axum::Json<serde_json::Value>) {
-    use axum::http::StatusCode;
-    use serde_json::json;
-    if !crate::moderation::moderation_authorized(&state, &headers) {
-        let error = json!({"ok": false, "error": "moderation bearer token required"});
-        return (StatusCode::FORBIDDEN, axum::Json(error));
-    }
-    let Some(config) = state.ai_config.as_ref().as_ref() else {
-        let error = json!({"ok": false, "error": "AI is not configured"});
-        return (StatusCode::NOT_FOUND, axum::Json(error));
-    };
-    let cleared = config.readiness.unbench(&payload.model);
-    let benched = config.readiness.benched();
-    (
-        StatusCode::OK,
-        axum::Json(json!({"ok": true, "cleared": cleared, "benched": benched})),
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn strikes_in_the_window_bench_until_expiry_or_an_operator_clears() {
-        let bench = AiBench::new(BenchConfig::from_lookup(|_| None));
-        let t0 = Instant::now();
-        let at = |minutes: u64| t0 + Duration::from_secs(minutes * 60);
-        // Opens 20 minutes apart never hold three inside 30 minutes.
-        for minutes in [0, 20, 40, 60, 71] {
-            bench.strike("provider/slow", 0, at(minutes), minutes * 60);
-        }
-        assert_eq!(bench.benched_until("provider/slow", at(71)), None);
-        bench.strike("provider/slow", 0, at(72), 72 * 60);
-        let until = 72 * 60 + 6 * 3_600;
-        assert_eq!(bench.benched_until("provider/slow", at(72)), Some(until));
-        assert_eq!(bench.benched_until("provider/other", at(72)), None);
-        let shown = &bench.snapshot(at(72))[0];
-        let fields = (
-            shown.model.as_str(),
-            shown.since,
-            shown.until,
-            shown.reason,
-            shown.trips,
-        );
-        assert_eq!(fields, ("provider/slow", 72 * 60, until, "route_opens", 3));
-        // Strikes while benched are ignored; the bench expires on its own and
-        // the model starts with no strikes.
-        bench.strike("provider/slow", 0, at(73), 0);
-        assert!(bench.benched_until("provider/slow", at(72 + 359)).is_some());
-        assert_eq!(bench.benched_until("provider/slow", at(72 + 360)), None);
-        assert!(bench.snapshot(at(72 + 360)).is_empty());
-        bench.strike("provider/slow", 0, at(72 + 361), 0);
-        assert_eq!(bench.benched_until("provider/slow", at(72 + 361)), None);
-        // Silent voices count apart, and a usable line clears them.
-        for minutes in 0..5 {
-            bench.strike("provider/odd", 1, at(minutes), 0);
-        }
-        bench.spoke("provider/odd");
-        for minutes in 5..10 {
-            bench.strike("provider/odd", 1, at(minutes), 0);
-        }
-        assert_eq!(bench.benched_until("provider/odd", at(10)), None);
-        bench.strike("provider/odd", 1, at(10), 0);
-        assert_eq!(bench.snapshot(at(10))[0].reason, "silent_voices");
-        assert!(!bench.clear("provider/fine"));
-        assert!(bench.clear(" provider/odd "));
-        assert_eq!(bench.benched_until("provider/odd", at(10)), None);
-    }
-
-    #[test]
-    fn zero_settings_turn_triggers_off_and_bad_values_keep_defaults() {
-        let config = |pairs: &'static [(&str, &str)]| {
-            BenchConfig::from_lookup(move |name| {
-                let found = pairs.iter().find(|(key, _)| name.ends_with(key));
-                found.map(|(_, value)| value.to_string())
-            })
-        };
-        let defaults = config(&[]);
-        assert_eq!(defaults.thresholds, [3, 6]);
-        assert_eq!(defaults.window, Duration::from_secs(1_800));
-        assert_eq!(defaults.duration, Duration::from_secs(21_600));
-        assert_eq!(config(&[("_OPENS", "many"), ("HOURS", "999")]), defaults);
-        let t0 = Instant::now();
-        let bench = AiBench::new(config(&[("_OPENS", "0"), ("VOICES", "1")]));
-        bench.strike("provider/model", 0, t0, 0);
-        assert_eq!(bench.benched_until("provider/model", t0), None);
-        bench.strike("provider/model", 1, t0, 0);
-        assert!(bench.benched_until("provider/model", t0).is_some());
-        let off = AiBench::new(config(&[("VOICES", "1"), ("HOURS", "0")]));
-        off.strike("provider/model", 1, t0, 0);
-        assert_eq!(off.benched_until("provider/model", t0), None);
     }
 }

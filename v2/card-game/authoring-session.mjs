@@ -211,11 +211,13 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
       if (accepting) return;
       epoch++;
     },
+    // Selection, cancel and focus leave the draft as it was, so they do not
+    // end a request in flight; only a changed source (an edit, Undo) does.
     dispatch(event) {
       if (accepting) return;
-      epoch++;
       const undo = event.type === "undo" ? state.undo.at(-1) : null;
       const next = controller.reduceAuthoring(state, event);
+      if (next.source !== state.source) epoch++;
       for (const entry of pending.values())
         for (const { path } of undo?.changes || []) {
           const field = entry.field;
@@ -280,7 +282,11 @@ export function createAuthoringSession({ store, onChange = () => {} }) {
             at = epoch;
           }),
           save: guard(save),
-          accept: guard(accept),
+          accept: guard(async (prepared) => {
+            const result = await accept(prepared);
+            at = epoch;
+            return result;
+          }),
           open: guard(open),
         });
       } finally {

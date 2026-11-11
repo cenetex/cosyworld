@@ -10,18 +10,40 @@ import {
 } from "../v2/card-game/world.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
 
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+
 const played = () => {
   const world = createWorld();
   return play(world, legalActions(world)[0]).state;
 };
 
 describe("save validation on the play path", () => {
-  it("skips only the first save of a world the rules just validated", () => {
+  it("validates even the first save of a world the rules just validated", () => {
     const world = played();
     world.turn = -1;
-    expect(() => encodeSave(world)).not.toThrow();
+    expect(() => encodeSave(world)).toThrow(/fresh start/);
     expect(() => encodeSave(world)).toThrow(/fresh start/);
   });
+  it("rejects nested mutation after explicit validation", () => {
+    const world = played();
+    validateWorld(world);
+    world.items.lamp.holder = "missing-holder";
+    expect(() => encodeSave(world)).toThrow();
+    expect(() => encodeSave(world)).toThrow();
+  });
+  it.each(["local", "shared"])(
+    "round-trips valid %s state repeatedly",
+    (mode) => {
+      const world =
+        mode === "shared"
+          ? dispatchShared({ op: "create", seed: 17 }).world
+          : played();
+      for (let i = 0; i < 3; i++) {
+        const text = encodeSave(world);
+        expect(encodeSave(decodeSave(text))).toBe(text);
+      }
+    },
+  );
   it("validates a world the rules did not return", () => {
     const world = structuredClone(played());
     world.turn = -1;

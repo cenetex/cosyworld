@@ -237,6 +237,17 @@ impl World {
                 engine::HUNDRED_NINETEENTH_VERSION,
                 engine::HUNDRED_TWENTIETH_VERSION,
                 engine::HUNDRED_TWENTY_FIRST_VERSION,
+                engine::HUNDRED_TWENTY_SECOND_VERSION,
+                engine::HUNDRED_TWENTY_THIRD_VERSION,
+                engine::HUNDRED_TWENTY_FOURTH_VERSION,
+                engine::HUNDRED_TWENTY_FIFTH_VERSION,
+                engine::HUNDRED_TWENTY_SIXTH_VERSION,
+                engine::HUNDRED_TWENTY_SEVENTH_VERSION,
+                engine::HUNDRED_TWENTY_EIGHTH_VERSION,
+                engine::HUNDRED_TWENTY_NINTH_VERSION,
+                engine::HUNDRED_THIRTIETH_VERSION,
+                engine::HUNDRED_THIRTY_FIRST_VERSION,
+                engine::HUNDRED_THIRTY_SECOND_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -394,6 +405,17 @@ impl World {
             engine::HUNDRED_NINETEENTH_VERSION,
             engine::HUNDRED_TWENTIETH_VERSION,
             engine::HUNDRED_TWENTY_FIRST_VERSION,
+            engine::HUNDRED_TWENTY_SECOND_VERSION,
+            engine::HUNDRED_TWENTY_THIRD_VERSION,
+            engine::HUNDRED_TWENTY_FOURTH_VERSION,
+            engine::HUNDRED_TWENTY_FIFTH_VERSION,
+            engine::HUNDRED_TWENTY_SIXTH_VERSION,
+            engine::HUNDRED_TWENTY_SEVENTH_VERSION,
+            engine::HUNDRED_TWENTY_EIGHTH_VERSION,
+            engine::HUNDRED_TWENTY_NINTH_VERSION,
+            engine::HUNDRED_THIRTIETH_VERSION,
+            engine::HUNDRED_THIRTY_FIRST_VERSION,
+            engine::HUNDRED_THIRTY_SECOND_VERSION,
         ]
         .contains(&self.version.as_str())
         {
@@ -440,6 +462,13 @@ impl World {
                 next.present[a] = 0;
                 (4, json!({}))
             }
+            "hold" => {
+                let mut request = self.request("hold", a);
+                request["choice"] = command["choice"].clone();
+                let result = engine::reduce_pack(&self.version, self.pack.as_deref(), request)?;
+                next.game = result["world"].clone();
+                (11, result)
+            }
             "play" => {
                 let mut request = self.request("play", a);
                 request["action"] = command["action"].clone();
@@ -485,6 +514,21 @@ impl World {
             }
             _ => return Err("Choose an available play.".into()),
         };
+        // Rules126 journals Station admission with presence, not with a later GET.
+        // Earlier engines do not implement the authored presence operation.
+        let station_slots = self
+            .version
+            .strip_prefix("full-card-world/")
+            .and_then(|v| v.parse::<u32>().ok())
+            .is_some_and(|v| v >= 126);
+        if station_slots && matches!(op, "enter" | "leave" | "release" | "reset") {
+            let settled = engine::reduce_pack(
+                &next.version,
+                next.pack.as_deref(),
+                next.request("presence", a),
+            )?;
+            next.game = settled["world"].clone();
+        }
         self.guard(&next, kind, a)?;
         *self = next;
         Ok(result)

@@ -26,15 +26,11 @@ export async function currentDocuments(root = defaultRoot) {
   if (
     !Array.isArray(manifest.current) ||
     !manifest.current.length ||
-    new Set(manifest.current).size !== manifest.current.length ||
-    typeof manifest.history !== "string" ||
-    !manifest.history.startsWith("docs/archive/")
+    new Set(manifest.current).size !== manifest.current.length
   ) {
-    throw new Error(
-      "The current reading list needs distinct pages and a history index.",
-    );
+    throw new Error("The current reading list needs distinct pages.");
   }
-  for (const file of [...manifest.current, manifest.history]) {
+  for (const file of manifest.current) {
     if (
       !file.endsWith(".md") ||
       path.isAbsolute(file) ||
@@ -43,9 +39,6 @@ export async function currentDocuments(root = defaultRoot) {
       throw new Error(`Invalid documentation path: ${file}`);
     }
     await fs.access(path.join(root, file));
-  }
-  if (manifest.current.some((file) => file.startsWith("docs/archive/"))) {
-    throw new Error("History pages belong in the separate History section.");
   }
   return manifest;
 }
@@ -103,7 +96,6 @@ export async function buildDocs(
   const manifest = await checkCurrentLinks(root);
   const pages = new Set([
     ...manifest.current,
-    manifest.history,
     ...(await markdownFiles(root, "docs")),
     ...(await markdownFiles(root, "v2/docs")),
   ]);
@@ -125,7 +117,7 @@ export async function buildDocs(
       )
       .join(
         "",
-      )}</ul><h2>History</h2><a href="${escape(relative(htmlPath(file), htmlPath(manifest.history)))}">Classic archive</a></nav>`;
+      )}</ul></nav>`;
   const page = (name, nav, body) =>
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escape(name)} · CosyWorld</title><style>body{font:17px/1.6 system-ui;margin:2rem auto;max-width:1200px;display:flex;gap:3rem;padding:0 1rem}nav{min-width:220px;max-width:260px}main{min-width:0;flex:1}img{max-width:100%}pre{overflow:auto;padding:1rem;background:#f4f4f4}table{border-collapse:collapse}td,th{padding:.4rem;border:1px solid #ccc}@media(max-width:750px){body{display:block}nav{max-width:100%}}</style></head><body>${nav}<main>${body}</main></body></html>`;
   await fs.mkdir(output, { recursive: true });
@@ -185,7 +177,7 @@ export async function buildDocs(
     );
   }
   const combined =
-    "# CosyWorld current game documentation\n\nSelected by docs/current-docs.json. Historical guides are in the separate classic archive.\n\n" +
+    "# CosyWorld current game documentation\n\nSelected by docs/current-docs.json.\n\n" +
     manifest.current
       .map((file) => `## Source: ${file}\n\n${texts.get(file)}`)
       .join("\n\n---\n\n");
@@ -195,7 +187,7 @@ export async function buildDocs(
     page(
       "Documentation",
       navigation("index.md"),
-      "<h1>CosyWorld documentation</h1><p>Choose a current guide from the reading list. Earlier guides are in History.</p>",
+      "<h1>CosyWorld documentation</h1><p>Choose a current guide from the reading list.</p>",
     ),
   );
   return { current: manifest.current.length, pages: pages.size, output };

@@ -1,6 +1,6 @@
 //! Moving a seat keeps its progress and its transaction together.
 use super::{
-    bindings, engine, full, full_store,
+    bindings, full, full_store,
     full_world::{actor_index, World},
     now, store,
 };
@@ -50,7 +50,7 @@ fn a_reading_scene_keeps_the_seat_and_progress_until_the_move_can_finish() {
         grown.game["actors"]["mara"]["xp"] = json!(6);
         grown.game["actors"]["mara"]["level"] = json!(3);
         full_store::seed(&c, &first, &grown, "test", now()).unwrap();
-        let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
+        let app = crate::test_app_state(Some(path.clone()));
         full::command_as(&app, &first, "player", &command("claim"), None).unwrap();
         let a = actor_index("mara").unwrap();
         // A published scene stays at the table while its words are read.
@@ -99,49 +99,4 @@ fn a_reading_scene_keeps_the_seat_and_progress_until_the_move_can_finish() {
         drop(c);
         std::fs::remove_file(path).unwrap();
     }
-}
-
-#[test]
-fn a_move_upgrades_rules_that_predate_reset_before_freeing_the_old_seat() {
-    let (path, c, first, second) = fixture();
-    let version = engine::LEGACY_VERSION;
-    let mut old = World {
-        version: version.into(),
-        game: engine::reduce_version(version, json!({"op":"create"})).unwrap()["world"].clone(),
-        claimed: [0; 8],
-        present: [0; 8],
-        pack: None,
-    };
-    full_store::seed(&c, &first, &old, "old-world", now()).unwrap();
-    let a = actor_index("mara").unwrap();
-    for op in ["claim", "enter"] {
-        full_store::commit(&c, &first, &mut old, json!({"op":op,"actor":"mara"}), now()).unwrap();
-    }
-    c.execute(
-        "INSERT INTO card_members(world,actor,user,seen) VALUES(?,?,'player',?)",
-        params![first, a, now()],
-    )
-    .unwrap();
-    bindings::claim(&c, &first, "player", a).unwrap();
-    let app = crate::test_app_state(crate::RuntimeWorld::seeded(), Some(path.clone()));
-    full::command_as(&app, &second, "player", &command("claim"), None).unwrap();
-    let old = full_store::world(&c, &first, now()).unwrap();
-    assert_eq!(old.version, engine::VERSION);
-    assert_eq!(old.claimed[a], 0);
-    assert_eq!(bindings::mine(&c, &first, "player").unwrap(), None);
-    let entries: Vec<Value> = journal(&c)
-        .iter()
-        .map(|s| serde_json::from_str(s).unwrap())
-        .collect();
-    let upgrade = entries.iter().position(|c| c["op"] == "upgrade").unwrap();
-    let reset = entries.iter().position(|c| c["op"] == "reset").unwrap();
-    assert!(upgrade < reset);
-    for id in [&first, &second] {
-        let saved = full_store::world(&c, id, now()).unwrap();
-        c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [id])
-            .unwrap();
-        assert_eq!(full_store::world(&c, id, now()).unwrap(), saved);
-    }
-    drop(c);
-    std::fs::remove_file(path).unwrap();
 }

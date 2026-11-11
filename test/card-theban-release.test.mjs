@@ -1,5 +1,6 @@
 import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 import { describe, expect, it } from "vitest";
+import { openGreekGate } from "./helpers/greek-gate.mjs";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import {
@@ -28,10 +29,15 @@ import {
   travelCard,
 } from "../v2/card-game/scene.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
+import { worldLife } from "../v2/card-game/resident-home.mjs";
+// The errands are played with the cast standing still (still-cast, imported by
+// the journey); this file's walks run with the world alive, so build, then restore.
+const errandsDone = greekErrands().opened;
+worldLife.on = true;
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
   "greek-harbor",
@@ -75,16 +81,6 @@ const openDoorItems = [
   "greek-pyre-account",
   "greek-marathon-record",
 ];
-const legacy = (name) =>
-  JSON.parse(
-    readFileSync(
-      new URL(
-        `./fixtures/wine-dark-legacy/schema6-${name}.json`,
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
 const act = (s, kind, fields = {}) => {
   if (kind === "move" && needsVoyage(s, "vale", fields.target))
     return sailTo(s, fields.target);
@@ -97,10 +93,10 @@ const act = (s, kind, fields = {}) => {
   expect(r.ok, r.error).toBe(true);
   return r.state;
 };
-// The battlefield road is open once the guard holds the decree.
+// These walks begin with explicit custody that opens the City Gate.
 const reachable = (world) => {
   const s = structuredClone(world);
-  s.items["greek-creon-writ"].holder = "greek-guard";
+  openGreekGate(s);
   settleGate(s);
   const seen = new Set([pack.entry]);
   for (const id of seen)
@@ -152,6 +148,9 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toContain("greek-eleusis");
     expect(reachable(s)).not.toContain("greek-athens");
     expect(reachable(s)).not.toContain("greek-road-coast");
+    // Patroclus rides the ship once Polynices is buried and steps ashore when it
+    // docks; an occupied ship cannot be called, so he is already on the quay.
+    s.actors["greek-patroclus"].place = "greek-harbor";
     stowProvisions(s, "greek-ship");
     summonTransport(s, "greek-ship", "greek-harbor");
     const city = [
@@ -210,11 +209,8 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toEqual(openingPlaces.filter((id) => id !== "greek-polynices-hollow").sort());
   });
   it("keeps a route from every opening place back to the pond after the signal", () => {
-    const s = createWorld();
-    s.crossings["pond-greek-harbor"].discovered = true;
-    // The battlefield is reached only through the City Gate, whose guard
-    // stands aside while he holds Creon's writ (rules 102).
-    s.items["greek-creon-writ"].holder = "greek-guard";
+    // The City Gate is open for the return journey: the errands opened it.
+    const s = structuredClone(errandsDone);
     settleGate(s);
     for (const start of openingPlaces.filter((id) => id !== "greek-ship")) {
       const seen = new Set([start]);
@@ -228,99 +224,7 @@ describe("the Theban release and its ship", () => {
     const aboard = act(s, "move", { target: "greek-ship" });
     expect(exits(aboard, "greek-ship", "vale")).toEqual(["pond"]);
   });
-  it("retains genuine schema-6 branches, evidence, memories and wider geography", () => {
-    const before = legacy("egypt"),
-      after = decodeSave(JSON.stringify(before));
-    expect(after.schema).toBe(7);
-    expect(after.packs[pack.id].scope).toBe("full");
-    for (const key of ["choices", "flags", "receipts", "met"])
-      expect(after.packs[pack.id][key]).toEqual(before.packs[pack.id][key]);
-    expect(
-      Object.fromEntries(
-        Object.keys(before.items).map((id) => [id, after.items[id]]),
-      ),
-    ).toEqual(upgradedItems(before.items));
-    expect(
-      Object.keys(after.items)
-        .filter((id) => !Object.hasOwn(before.items, id))
-        .sort(),
-    ).toEqual(
-      [
-        "board",
-        "boardyai-calling-card",
-        "can",
-        "greek-olive-branch",
-        "greek-burial-account",
-        "greek-creon-writ",
-        "greek-guard-tablet",
-        "greek-helen-accounts",
-        "greek-atreid-record",
-        "float",
-        "kite",
-        "mask",
-        "routes",
-        "shears",
-        ...openDoorItems,
-        ...Object.keys(pack.items).filter((id) => id.startsWith("greek-ajax-")),
-        "greek-figs",
-        "greek-wine-skin",
-        "greek-libation",
-        // Revision 20: Dione's wheat, for the bread she makes.
-        "greek-wheat",
-        ...Object.keys(packDefinition("hoppycat-archive").items),
-        ...Object.keys(packDefinition("willows").items),
-        ...Object.keys(packDefinition("lonely-forest").items),
-      ].sort(),
-    );
-    expect(after.memories).toMatchObject(before.memories);
-    // Quest records leave the history; every other event stays as it was.
-    expect(after.log).toEqual(
-      before.log
-        .filter(
-          (e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""),
-        )
-        .map(({ questPlan, consequence, questKey, ...e }) => e),
-    );
-    expect(after.quests).toBeUndefined();
-    expect(Object.values(after.actors).every((a) => !("progress" in a))).toBe(
-      true,
-    );
-    expect(after.actors.vale.place).toBe("greek-egypt-tomb");
-    expect(after.items["greek-egypt-testimony"].holder).toBe("vale");
-    expect(after.items["greek-helen-accounts"].holder).toBe("greek-harbor");
-    expect(after.items["greek-atreid-record"].holder).toBe("greek-argolid-road");
-    expect(entityActive(after, "greek-athens")).toBe(true);
-    expect(entityActive(after, "greek-helen-troy")).toBe(false);
-    expect(decodeSave(encodeSave(after))).toEqual(after);
-  });
-  it("restarts a halfway signal without counting migration as a flash", () => {
-    // Revision 10 needs one cover and uncover, so the old halfway mark of two
-    // steps would read as complete. It starts again; one cycle calls the ship.
-    let s = decodeSave(JSON.stringify(legacy("halfway")));
-    expect(s.crossings["pond-greek-harbor"].phase).toBe(0);
-    expect(locationOverlay(s, "pond")).toBeNull();
-    s = act(s, "cover", { item: "cloth", target: "lamp" });
-    expect(locationOverlay(s, "pond")).toBeNull();
-    s = act(s, "take", { item: "cloth" });
-    expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
-    expect(travelCard(s, "greek-ship")).toMatchObject({
-      name: "The Charybdis",
-      art: expect.stringMatching(/\/ship-deck[^/]*\.webp$/),
-    });
-    s = act(s, "move", { target: "greek-ship" });
-    s = act(s, "move", { target: "greek-harbor" });
-    expect(s.actors.vale.place).toBe("greek-harbor");
-  });
-  it("rejects false histories and conflicting migration state", () => {
-    const s = legacy("egypt");
-    s.packs[pack.id].choices["greek-helen-account"] = "troy";
-    expect(() => decodeSave(JSON.stringify(s))).toThrow();
-    const mixed = decodeSave(JSON.stringify(legacy("halfway")));
-    mixed.schema = 6;
-    mixed.locations.pond.shipSignal = 4;
-    expect(() => decodeSave(JSON.stringify(mixed))).toThrow();
-  });
-  it("rejects unknown release modes and changes to withheld residents", () => {
+    it("rejects unknown release modes and changes to withheld residents", () => {
     const s = createWorld();
     s.packs[pack.id].scope = "everything";
     expect(() => encodeSave(s)).toThrow();

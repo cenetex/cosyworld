@@ -92,8 +92,9 @@ export function createAuthoringAccountTools({
               : "Sign in with your passkey, then return to your world."),
         actions: [
           {
-            label:
-              !account.known || recheck
+            label: account.busy
+              ? "Waiting for passkey"
+              : !account.known || recheck
                 ? "Check account"
                 : account.authenticated
                   ? "Refresh account"

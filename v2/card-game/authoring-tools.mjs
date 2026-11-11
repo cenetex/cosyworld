@@ -2,6 +2,11 @@ import { WORLD, TOOLS } from "./authoring-collections.mjs";
 const need = (ok, message) => {
   if (!ok) throw new Error(message);
 };
+// Pack ids are free text in a draft; a tool id may not be.
+export const toolKey = (id) =>
+  /^[A-Za-z0-9_-]+$/u.test(id)
+    ? id
+    : `x-${Array.from(new TextEncoder().encode(String(id)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 // Tools decorate an existing card or join one of its local stacks.
 export function authoringTools(base, tools) {
   const cards = new Map(),

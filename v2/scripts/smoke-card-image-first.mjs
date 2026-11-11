@@ -1,5 +1,6 @@
 import {
   selectCard,
+  clearSelection,
   revealCard,
   openSettings,
   closeSettings,
@@ -10,16 +11,22 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
   createWorld,
+  decodeSave,
   encodeSave,
+  holdChoice,
   legalActions,
   play,
 } from "../card-game/world.mjs";
+import { fillLampFuel } from "../card-game/lamp-state.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 const output = new URL("../../output/image-first/", import.meta.url);
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
+});
 const report = [];
 function action(world, kind, item, target) {
   const found = legalActions(world).find(
@@ -34,21 +41,20 @@ function action(world, kind, item, target) {
   return result.state;
 }
 function pond() {
-  let s = enableMotives(createWorld({ opening: true }));
+  let s = enableMotives(createWorld({ opening: true, seed: 17 }));
   // Keep the bard at this fixture's first deed so the ship starts at harbor.
   // The separate bard smoke covers his fresh-harbor voyage.
   s.actors["greek-rhapsode"].place = "attic";
-  // The opening starts lit; dousing the lamp opens the mirror (#1653).
-  s = action(s, "snuff", "lamp");
+  // Stow the lamp to open the mirror without playing a turn.
+  holdChoice(s, "vale", { item: null, revision: s.revision });
   s = action(s, "move", null, "pond");
   // Only stage initial possessions; exercise the real transition and save rules.
   s.items.cloth.holder = "vale";
-  s.items.lamp.fuel = 12;
-  s.items.lamp.lit = true;
+  fillLampFuel(s);
   s.items.bell.holder = "station";
-  s.actors.moth.place = "station";
+  s.actors.moth.place = "greek-palace";
   s.actors.keeper.place = "station";
-  return s;
+  return decodeSave(encodeSave(s));
 }
 try {
   for (const [width, height] of [
@@ -121,6 +127,7 @@ try {
     }
     async function cards(...ids) {
       await ready();
+      await clearSelection(page);
       for (const id of ids) {
         await selectCard(page, id);
       }
@@ -196,6 +203,29 @@ try {
         );
         await hand.evaluate((h) => (h.scrollLeft = 0));
       } else assert.equal(await fade(), "", "a hand that fits has no fade");
+      async function assertQuietSelection() {
+        const selected = await state();
+        assert.equal(selected.turn, old.turn, "item selection costs no turn");
+        assert.deepEqual(
+          selected.log,
+          old.log,
+          "item selection creates no beat",
+        );
+        assert.equal(selected.items.lamp.fuelRooms, old.items.lamp.fuelRooms);
+        const normalized = structuredClone(selected);
+        normalized.revision = old.revision;
+        normalized.actors.vale.heldItem = old.actors.vale.heldItem;
+        normalized.items.lamp.lit = old.items.lamp.lit;
+        // Lighting the lamp on the shore opens the mirror back to the attic, a
+        // box that pays its one XP once (rules 133).
+        for (const field of ["xp", "level"])
+          if (old.actors.vale[field] === undefined)
+            delete normalized.actors.vale[field];
+          else normalized.actors.vale[field] = old.actors.vale[field];
+        if (old.opened === undefined) delete normalized.opened;
+        else normalized.opened = old.opened;
+        assert.deepEqual(normalized, old, "only the quiet hand choice changes");
+      }
       const tapCard = async (id) => {
         await selectCard(page, id, { touch: width === 390 });
       };
@@ -203,8 +233,14 @@ try {
         '[data-avatar="vale"] .portrait-held-item',
       );
       async function assertHeldItem(id) {
-        // With no card raised, Vale holds up the lit lamp he carries.
-        id ??= "lamp";
+        if (id === null) {
+          assert.equal(
+            await heldPreview.count(),
+            0,
+            "a stowed item has no portrait prop",
+          );
+          return;
+        }
         assert.equal(await heldPreview.getAttribute("data-item"), id);
         assert.equal(await page.locator(".portrait-held-item").count(), 1);
         await heldPreview
@@ -234,21 +270,21 @@ try {
           for (const id of ids) await tapCard(id);
           await assertHeldItem(ids.at(-1));
           assert.equal(await page.locator(".card-primary").count(), 1);
-          // A click on the scene folds the hand and clears the choice, held
-          // item included (#2055): Vale holds up his lamp again.
+          // Folding the hand clears targets but preserves the actual held lamp.
           const scene = page.locator("#stage");
           const outside = { position: { x: 20, y: 80 } };
           if (width === 390) await scene.tap(outside);
           else await scene.click(outside);
-          await assertHeldItem(null);
+          await assertHeldItem("lamp");
           for (const id of ids)
             assert.equal(
               await card(id).getAttribute("aria-pressed"),
-              "false",
-              "clicking the scene clears the choice",
+              String(id === "lamp"),
+              "clicking the scene clears targets but keeps the held item",
             );
           assert.equal(await page.locator(".card-primary").count(), 0);
-          // Choosing the pair again raises the hand; a tap on one lowers it.
+          // Stow the held lamp, then choose the pair again.
+          await clearSelection(page);
           for (const id of ids) await tapCard(id);
           await assertHeldItem(ids.at(-1));
           await tapCard(lowered);
@@ -257,7 +293,7 @@ try {
             "false",
           );
           const remaining = ids.find((id) => id !== lowered);
-          await assertHeldItem(remaining);
+          await assertHeldItem(lowered === "lamp" ? null : "lamp");
           assert.equal(
             await card(remaining).getAttribute("aria-pressed"),
             "true",
@@ -269,11 +305,7 @@ try {
             "false",
           );
           assert.equal(await page.locator("#card-actions button").count(), 0);
-          assert.deepEqual(
-            await state(),
-            old,
-            "card taps preserve the saved world",
-          );
+          await assertQuietSelection();
           assert.equal(requests.length, 0);
         }
       }
@@ -297,12 +329,13 @@ try {
         fullPage: true,
       });
       await page.keyboard.press("Escape");
-      await assertHeldItem(null);
+      await assertHeldItem("lamp");
       assert.equal(
         await page.locator("#card-actions button").count(),
         0,
         "cancel clears actions",
       );
+      await clearSelection(page);
       await hand.evaluate((h) => (h.scrollLeft = 0));
       await revealCard(page, "lamp");
       await card("vale").focus();
@@ -321,7 +354,7 @@ try {
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "true");
       await page.keyboard.press("Space");
       assert.equal(await card("lamp").getAttribute("aria-pressed"), "false");
-      assert.deepEqual(await state(), old);
+      await assertQuietSelection();
       await page.keyboard.press("Escape");
       await revealCard(page, "lamp");
       const geometry = await card("lamp").evaluate((c) => ({
@@ -332,7 +365,10 @@ try {
       await page.keyboard.press("Escape");
       await cards("cloth", "lamp");
       // Covering keeps both items in hand, so the covered lamp stays raised.
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
+      assert.equal(
+        (await state()).crossings["pond-greek-harbor"].discovered,
+        false,
+      );
       assert.equal(await card("lamp").getAttribute("data-covered"), "true");
       await assertHeldItem("lamp");
       assert.equal(await heldPreview.getAttribute("data-covered"), "true");
@@ -343,9 +379,22 @@ try {
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
       await cards("cloth");
-      // One cover and one uncover of the lit lamp call the ship.
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
+      // A covered or carried lamp does not summon the ship. Set it on the
+      // shore while holding the cloth, then pick it up for the journey.
+      assert.equal(
+        (await state()).crossings["pond-greek-harbor"].discovered,
+        false,
+      );
+      await cards("lamp", "pond");
+      assert.equal((await state()).items.lamp.holder, "pond");
+      assert.equal((await state()).items.lamp.lit, true);
+      assert.equal((await state()).actors.vale.heldItem, "cloth");
+      assert.equal(
+        (await state()).crossings["pond-greek-harbor"].discovered,
+        true,
+      );
       assert.equal(await card("greek-ship").count(), 1);
+      await cards("lamp");
       assert.doesNotMatch(
         await page.locator("body").innerText(),
         /inspiration|[12] of two|first flash|once more|ritual|fuel|turns left|ring again/i,
@@ -356,16 +405,26 @@ try {
       );
       // Item reactions, when the rules call for them, belong to Vale. The
       // cast's face-down cards remain private throughout both cloth plays.
-      assert(requests.length <= 2, "Each cloth play requests words at most once");
-      assert.equal(new Set(requests.map(({ turn }) => turn)).size, requests.length);
+      assert(
+        requests.length <= 4,
+        "Each item play requests words at most once",
+      );
+      assert.equal(
+        new Set(requests.map(({ turn }) => turn)).size,
+        requests.length,
+      );
       for (const request of requests)
-        assert.deepEqual(request.speakers, ["vale"], "Only Vale reacts to the cloth");
+        assert.deepEqual(
+          request.speakers,
+          ["vale"],
+          "Only Vale reacts to the cloth",
+        );
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
-      await assertHeldItem(null);
+      await assertHeldItem("lamp");
       assert.equal(
-        (await state()).crossings["pond-greek-harbor"].phase,
-        2,
+        (await state()).crossings["pond-greek-harbor"].discovered,
+        true,
         "summoned save restored",
       );
       await card("greek-ship").waitFor({ state: "attached" });
@@ -441,6 +500,8 @@ try {
       await card("greek-baker").waitFor({ state: "attached" });
       await ready();
       assert.equal((await state()).actors.vale.place, "greek-courtyard");
+      await clearSelection(page);
+      await selectCard(page, "lamp");
       const beforeDrag = await state();
 
       await revealCard(page, "cloth");
@@ -475,7 +536,7 @@ try {
         artFraction: geometry.art / geometry.card,
         errors,
         failed,
-        ritual: "four spoken actions; reload; ship and boarding agree",
+        signal: "placed lamp and held cloth; reload; ship and boarding agree",
         navigation:
           "overflow, wheel, keyboard, cancel, selection, boarding, travel, reload",
       });

@@ -9,7 +9,8 @@ import {
   agreeJourney,
   advanceJourney,
 } from "./pack-journeys.mjs";
-import { pushQuest } from "./want.mjs";
+import { newWant, setWant } from "./want.mjs";
+import { partyOf } from "./world/company.mjs";
 import { usedUp, useUp, bringBack } from "./item-use.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
@@ -226,8 +227,10 @@ export const isPackActor = (id) =>
 export const isPackPlace = (id) => Object.hasOwn(packPlaces, id);
 export const packOf = (id) => packDefinition(entities[id]?.packId);
 export const resident = (id) => packPeople[id] || null;
-export const roamingQuestActor = (id) =>
-  packPeople[id]?.roamingQuest === "latest-completion";
+export const roamingQuestActor = (id, world = null) =>
+  packPeople[id]?.roamingQuest === "latest-completion" &&
+  (!world ||
+    conditionsMet(world, packPeople[id].packId, packPeople[id].requires));
 // A resident who keeps to its scene leaves it once its pack's `stayUntil`
 // conditions hold (the Swede, once the Willows kit is back at camp).
 export const freed = (world, id) =>
@@ -374,7 +377,11 @@ function rootOf(world, id) {
   }
   return holder;
 }
-export function entityActive(world, id) {
+// A lock view (boxes, rules 133) asks whether the card is in the world at
+// all, leaving out only its own conditions: `requires`, `appearsWhen` and its
+// section. What it lets through is never enterable; `entityActive` still
+// rules over every exit, play and resident.
+function entityLive(world, id, lockView) {
   if (world.items?.[id]) {
     let holder = rootOf(world, id);
     if (
@@ -387,9 +394,13 @@ export function entityActive(world, id) {
   }
   if (humanAvatar(id) && !humanPresent(world, id) && !residentAvatar(world, id))
     return false;
-  return entityEnabled(world, id);
+  return entityEnabled(world, id, false, lockView);
 }
-export function entityEnabled(world, id, saved = false) {
+export const entityActive = (world, id) => entityLive(world, id, false);
+// The card may lie shut on the table: it exists and is not retired, used up,
+// off or unmounted, but its own conditions may not hold yet.
+export const entityShown = (world, id) => entityLive(world, id, true);
+export function entityEnabled(world, id, saved = false, lockView = false) {
   if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
     return false;
   // A pack switched off sleeps where it stands (rules 98, pack-toggle.mjs).
@@ -397,21 +408,29 @@ export function entityEnabled(world, id, saved = false) {
     return false;
   const e = packEntity(id);
   if (!e) return true;
-  if (waitingAtHome(world, id) && !entityEnabled(world, e.home, saved))
+  if (
+    waitingAtHome(world, id) &&
+    !entityEnabled(world, e.home, saved, lockView)
+  )
     return false;
   const pack = packDefinition(e.packId),
     state = packState(world, e.packId);
+  // A sealed item that latched open (rules 133) no longer asks its `requires`.
+  const requires = sealedLatched(world, id, e) ? [] : e.requires;
   if (
     !state ||
-    !conditionsMet(
-      world,
-      e.packId,
-      saved
-        ? (e.requires || []).filter((c) => c.kind !== "connected_humans")
-        : e.requires,
-    ) ||
-    (!saved && !conditionsMet(world, e.packId, e.appearsWhen)) ||
-    !sectionAllows(world, pack, id, conditionsMet) ||
+    (!lockView &&
+      (!conditionsMet(
+        world,
+        e.packId,
+        saved
+          ? (requires || []).filter(
+              (c) => !["connected_humans", "humans_at"].includes(c.kind),
+            )
+          : requires,
+      ) ||
+        (!saved && !conditionsMet(world, e.packId, e.appearsWhen)) ||
+        !sectionAllows(world, pack, id, conditionsMet))) ||
     // Saved custody of an undrawn special stays as it was.
     (!saved && !specialsAllow(state, pack, id))
   )
@@ -420,7 +439,7 @@ export function entityEnabled(world, id, saved = false) {
   if (pack.recital?.actor === id)
     return (
       (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
-      entityEnabled(world, world.actors[id].place, saved)
+      entityEnabled(world, world.actors[id].place, saved, lockView)
     );
   return (
     pack.release.places.includes(id) ||
@@ -438,6 +457,18 @@ const latching = packDefinitions.flatMap((pack) =>
     .filter((r) => r.requires?.length && !r.live)
     .map((route) => ({ pack: pack.id, route })),
 );
+// A sealed item (rules 133) latches open as a route does, unless its seal is
+// `live`: the first time its `requires` hold, `openedRoutes` records
+// `item:<id>` and it stays open. A live seal follows its facts.
+const itemKey = (id) => `item:${id}`;
+const latchingItems = () =>
+  Object.entries(packThings)
+    .filter(([, thing]) => thing.sealed && !thing.sealed.live)
+    .map(([id, thing]) => ({ pack: thing.packId, id, thing }));
+const sealedLatched = (world, id, e) =>
+  Boolean(
+    e.sealed && !e.sealed.live && world.openedRoutes?.includes(itemKey(id)),
+  );
 const latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
 const routeOpen = (world, packId, r) =>
   (!r.live && Boolean(world.openedRoutes?.includes(routeKey(r)))) ||
@@ -452,6 +483,13 @@ export const packRouteOpen = (world, from, to) =>
   );
 // Personal entry requirements remain true for each traveller, even when
 // the world has latched the physical gate open.
+// A traveler's own condition on a way is met by its party: the traveler or
+// its companion holding the key, or trusted by the keeper, opens the door for
+// both (sticky companions, rules 133).
+export const partyMet = (world, pack, conditions, actor) =>
+  partyOf(world, actor).some((who) =>
+    conditionsMet(world, pack, conditions, who),
+  );
 export function personalRouteOpen(world, from, to, actor) {
   const routes = packDefinitions.flatMap((pack) =>
     (pack.routes || [])
@@ -463,7 +501,7 @@ export function personalRouteOpen(world, from, to, actor) {
     routes.some(
       ({ pack, route }) =>
         routeOpen(world, pack, route) &&
-        conditionsMet(world, pack, route.travelerRequires, actor),
+        partyMet(world, pack, route.travelerRequires, actor),
     )
   );
 }
@@ -474,15 +512,23 @@ export function latchRoutes(world) {
     if (!conditionsMet(world, pack, route.requires)) continue;
     world.openedRoutes = [...(world.openedRoutes || []), key].sort();
   }
+  for (const { pack, id, thing } of latchingItems()) {
+    const key = itemKey(id);
+    if (!world.items?.[id] || world.openedRoutes?.includes(key)) continue;
+    if (!conditionsMet(world, pack, thing.requires)) continue;
+    world.openedRoutes = [...(world.openedRoutes || []), key].sort();
+  }
   return world;
 }
 // A saved gate the content still authors as a latching route.
-export const latchingRoute = (key) => latchKeys.has(key);
+const latchesItem = (key) =>
+  latchingItems().some(({ id }) => itemKey(id) === key);
+export const latchingRoute = (key) => latchKeys.has(key) || latchesItem(key);
 export const validOpenedRoutes = (list) =>
   list === undefined ||
   (Array.isArray(list) &&
     list.length > 0 &&
-    list.every((key, i) => latchKeys.has(key) && (!i || list[i - 1] < key)));
+    list.every((key, i) => latchingRoute(key) && (!i || list[i - 1] < key)));
 export function packExits(world, place, actor = null) {
   const routes = packDefinitions.flatMap((pack) =>
     (pack.routes || [])
@@ -490,7 +536,7 @@ export function packExits(world, place, actor = null) {
         (r) =>
           r.from === place &&
           routeOpen(world, pack.id, r) &&
-          conditionsMet(
+          partyMet(
             world,
             pack.id,
             r.travelerRequires,
@@ -824,15 +870,13 @@ export function applyPackChoice(
         placeIds,
       );
       note(e.item);
-      // Whoever lost it wants it back: finding it is a story quest on top of
-      // their stack. Nothing they already hold is wiped (#1831).
-      pushQuest(world, action.actor, {
-        kind: "item",
-        target: e.item,
-        since: world.turn,
-        refusals: 0,
-        story: true,
-      });
+      // The one who hid it wants it back, and says so in Talk; the traveler
+      // is handed nothing (#2605).
+      if (world.actors[choice.subject])
+        setWant(
+          world.actors[choice.subject],
+          newWant("item", e.item, world.turn),
+        );
     }
     // A cosmetic upgrade is one-way: it joins the traveler's set and stays.
     if (e.kind === "upgrade") {
@@ -840,6 +884,15 @@ export function applyPackChoice(
       traveler.upgrades = [
         ...new Set([...(traveler.upgrades || []), e.upgrade]),
       ].sort();
+    }
+    // A meeting raises the subject's trust in the traveler, never lowers it.
+    if (e.kind === "trust") {
+      const trust = world.actors[choice.subject]?.trust;
+      if (trust)
+        trust[action.actor] = Math.max(
+          trust[action.actor] || 0,
+          Math.min(3, e.level),
+        );
     }
     if (e.kind === "choose") state.choices[e.key] = e.value;
     if (e.kind === "set_flag") state.flags[e.key] = e.value;
@@ -982,7 +1035,7 @@ export function validatePackStates(world) {
               world,
               pack.id,
               (pack.avatars[id]?.requires || []).filter(
-                (c) => c.kind !== "connected_humans",
+                (c) => !["connected_humans", "humans_at"].includes(c.kind),
               ),
             )) ||
           (world.opening &&

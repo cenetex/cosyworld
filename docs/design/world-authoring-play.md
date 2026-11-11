@@ -68,7 +68,12 @@ and reduced-motion settings. A paid roll always has an explicit action.
 Tap a category to open its hand. Tap an entity to inspect it and reveal its
 local stack. Tap an operation card to choose a verb. The existing context
 action applies that verb. The descriptor names the exact result beforehand.
-Parent cards stay in reach, and tapping one returns to that collection.
+Played/open boxes stay on the table. The selected box deals only its direct
+children into the lower hand; playing a child box promotes it to the table and
+deals that box's contents. A card appears in only one zone. Parent cards stay in
+reach, and tapping one returns to that collection. Browsing changes no authored
+holders, launch state, or saved data. Escape and arrow-key navigation retain
+the same card identities and field-edit behavior.
 
 Contents and Inventory use open wooden boxes; Quests uses locked wooden boxes.
 Tapping a box arms it. Browsing categories keeps it armed. Selecting a target

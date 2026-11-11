@@ -1,9 +1,11 @@
+import { heldItem } from "./held-item.mjs";
 import { talkedDirectly } from "./conversation.mjs";
 import {
   currentActor,
   controlledByHuman,
   humanPresent,
   humanAvatarIds,
+  roomHumanCount,
   sharedEnabled,
 } from "./human-cast.mjs";
 import { knowsFact, grievanceActive } from "./knowledge.mjs";
@@ -135,6 +137,9 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
     }
     case "trusted":
+      // A resident passes his own trust-locked door: there is no trust in
+      // oneself, so the keeper is always trusted by himself.
+      if (actor === c.actor) return true;
       return (
         (s.actors[c.actor]?.trust?.[actor] || 0) >= c.min &&
         !(s.motives?.grievances?.[c.actor] || []).some(
@@ -155,11 +160,36 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return packRouteOpen(s, c.from, c.to);
     case "home_door":
       return s.doors?.[c.home] === c.place;
+    // The current player carries the thing, unless another carrier is named.
+    case "in_hand":
+      return (
+        heldItem(s, actor ?? currentActor(s)) === c.item && !usedUp(s, c.item)
+      );
+    case "actor_at":
+      return s.actors[actor ?? currentActor(s)]?.place === c.place;
+    case "held":
+      return (
+        s.items[c.item]?.holder === (c.actor ?? currentActor(s)) &&
+        !usedUp(s, c.item)
+      );
+    // The thing rests on a place, not in a hand or inside another thing.
+    case "grounded": {
+      const holder = s.items[c.item]?.holder;
+      return (
+        holder != null &&
+        !s.items[holder] &&
+        !s.actors[holder] &&
+        !usedUp(s, c.item)
+      );
+    }
     case "connected_humans":
       return (
         sharedEnabled(s) &&
         humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum
       );
+    // Enough travellers stand together in one place: a lock for two.
+    case "humans_at":
+      return sharedEnabled(s) && roomHumanCount(s, c.place) >= c.minimum;
     case "item_near": {
       if (usedUp(s, c.item)) return false;
       let holder = s.items[c.item]?.holder;
@@ -255,14 +285,14 @@ const windowOpen = (s, c) =>
     ? crossingState(s, c.id)?.phase === c.signal.steps.length
     : s.turn < (crossingState(s, c.id)?.until ?? 0));
 // A retired crossing stays open only in saves that had already found it.
-export const crossingOpen = (s, c, senses) =>
+export const crossingOpen = (s, c, senses, actor = senses?.player ?? null) =>
   (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) &&
   entityActive(s, c.from) &&
   entityActive(s, c.to) &&
   (c.transport
     ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from
     : windowOpen(s, c) && signalReady(s, c, senses)) &&
-  c.requires.every((r) => conditionMet(s, r, senses, c.packId));
+  c.requires.every((r) => conditionMet(s, r, senses, c.packId, actor));
 export const crossingBetween = (from, to, s = null) =>
   (s && transportCrossing(s, from, to)) ||
   crossings.find((c) => !c.transport && c.from === from && c.to === to) ||
@@ -281,10 +311,14 @@ export const crossingExits = (s, place, actor, senses) =>
       (c) =>
         c.from === place &&
         (mayCross(c, actor, senses) ||
+          // A resident taken along walks home by the same way: from a
+          // ticketed place into its own part of the world, or on to
+          // another ticketed place on that way (rules 133).
           (s.invitedPlaces?.[actor]?.includes(c.from) &&
-            (packPeople[actor]?.packId ?? null) ===
-              (packPlaces[c.to]?.packId ?? null))) &&
-        crossingOpen(s, c, senses),
+            ((packPeople[actor]?.packId ?? null) ===
+              (packPlaces[c.to]?.packId ?? null) ||
+              s.invitedPlaces[actor].includes(c.to)))) &&
+        crossingOpen(s, c, senses, actor),
     )
     .map((c) => (c.transport ? transports[c.transport].place : c.to));
 
@@ -298,13 +332,22 @@ export const packDiscovered = (s, packId) =>
   );
 export function markCrossed(s, from, to) {
   const c = crossingBetween(from, to, s);
-  if (c && !(c.transport && c.signal) && crossingState(s, c.id))
+  if (
+    c &&
+    !(c.transport && (c.signal || c.unlockWhen)) &&
+    crossingState(s, c.id)
+  )
     s.crossings[c.id].discovered = true;
 }
 /** Extra place text from crossings that start here (open or closed). */
-export const crossingScenery = (s, place, senses) =>
+export const crossingScenery = (s, place, senses, waiting = []) =>
   crossings
-    .filter((c) => c.from === place && c.scenery)
+    .filter(
+      (c) =>
+        c.from === place &&
+        c.scenery &&
+        !waiting.includes(c.transport ? transports[c.transport].place : c.to),
+    )
     .map((c) =>
       crossingOpen(s, c, senses) ? c.scenery.open : c.scenery.closed,
     )
@@ -386,6 +429,26 @@ export function noteAct(s, a, place, holder, round, senses, log) {
     // No progress lines: a physical manipulation confirms only that manipulation.
   }
 }
+// A physical arrangement can reveal a vessel without a synthetic action.
+// Any resident or player may make it; completed access survives later moves.
+export function settleCrossingUnlocks(s, senses) {
+  for (const c of crossings) {
+    if (!c.unlockWhen || s.crossings[c.id].discovered) continue;
+    if (
+      !Object.keys(s.actors).some(
+        (actor) =>
+          entityActive(s, actor) &&
+          c.unlockWhen.every((r) =>
+            conditionMet(s, r, senses, c.packId, actor),
+          ),
+      )
+    )
+      continue;
+    s.crossings[c.id].discovered = true;
+    summonTransport(s, c.transport, c.from);
+  }
+}
+
 /** Close the round: break signals and narrate crossings that changed. */
 export function endRound(s, round, senses, log) {
   const here = s.actors[senses.player].place;

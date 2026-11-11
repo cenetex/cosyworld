@@ -23,7 +23,8 @@ The Mac package embeds the same card files and uses the same release version.
 | Hoppy Cat card refresh | `v2/content/hoppycat-archive/card-world.json` and `CARD-REFRESH.md` |
 | Compiled card packs | `v2/card-game/packs.json`, built by `build-card-worldpacks.mjs` |
 | Runtime pack and avatar lookup | `v2/card-game/pack-registry.mjs` |
-| A quest stack per avatar: met, next, drop, level | `v2/card-game/want.mjs`, driven by `world.mjs` |
+| One want per avatar: met, next (residents, from staged `wants` or drawn), drop, level | `v2/card-game/want.mjs`, driven by `world.mjs` |
+| Locked boxes: one list of shut ways, residents, made things and sealed items, lanes, doors and hub ways, and XP for opening them | `v2/card-game/world/boxes.mjs`, read by `cards.mjs` and `locked-box.mjs` |
 | Starter quests | `want` on each person in `forest.json` and each pack resident |
 | A person's quest in Talk context | `v2/card-game/want-talk.mjs`, used by `narrative.mjs` |
 | Learned facts and Talk topics | `v2/card-game/knowledge.mjs` and each card pack's `topics` |
@@ -41,27 +42,38 @@ in a particular saved world.
 
 The physical Pip card points to `/pip` (also `/pip/`). It opens a separate
 local save. The existing wooden box and whispers reveal Pip's card on black.
-The card's Talk action gives his Lamp quest, then fades into the regular Vale
-intro carrying that quest. `pip-landing.mjs` sets up new visits; returning
+The card's Talk action shows his line and offers his Lamp quest as a closed
+box; accepting it fades into the regular Vale intro (no second wooden box)
+carrying that same quest. The page title is "Lonely Forest" and the table is
+inert until the box is opened. `pip-landing.mjs` sets up new visits; returning
 visits restore that save.
 Explicit world, table and pack query links keep their usual behavior.
 
 Start each task with the branch, commit, and package version. Fetch `origin/main`
 for new work. For a live task, check `/meta.primary_game` and follow the catalog
 URLs in `/meta.card_game`. Compare the served files with the intended release.
-The shared engine version and classic content-engine version are separate
-contracts; each has a named scope in metadata.
 
-## Classic compatibility
+## Card-only server
 
 The `/classic` client is retired; `/` serves only the card table. The classic
-source packs include `v2/content/core/`, `hoppycat-archive/`, and their
-compiled bundles. `v2/worlds/official/` and `v2/content/official/` select and build
-that runtime. Its `actors.json` and `registry.json` files describe the classic
-cast. The classic compiler and release bundle guards keep saved history valid.
+source packs, the worldpack compiler and checker, the SRD importers, and the
+classic world sources (`v2/content/core`, `official`, `v2/worlds/official` and
+the rest) are deleted; git history keeps them. `v2/content/<pack>/` now holds
+only card pack sources (plus `hoppycat-archive/pack.json`, which
+`hoppycat-source-index.mjs` reads to rebuild `v2/worlds/hoppycat/github-index.json`).
 
-Use [the archive](archive/classic/index.md) for earlier player, RPG, and worldpack
-guides. Historical decisions keep their original dates and context. Current
+The hosted server boots card-only ([#1652](https://github.com/cenetex/cosyworld/issues/1652)).
+`startup::run` calls `AppState::bootstrap_card` in `card_boot.rs`. It loads no
+classic content registry, journal, snapshot or scheduler, and mounts only the
+card table, `/auth` sign-in, shared worlds, dialogue, authoring, play metrics,
+`/meta` and `/health` (`routes::card_app_router`). The classic rows stay on
+disk, unread. The classic router, handlers, world modules, journal replay,
+snapshots, wallets, card-policy shadow planner and the native C world kernel
+are deleted from the Rust crate. `AppState` holds only what the
+card path reads: the deployment, the event store, accounts, AI config, the
+generated-asset directory, the rate limiter and the moderation token.
+
+Historical decisions keep their original dates and context. Current
 behavior follows the shipping code, catalogs, tests, and live release.
 
 ## Reading list

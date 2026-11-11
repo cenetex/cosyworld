@@ -14,9 +14,11 @@ Released engine bundles retain their recorded behavior for replay. The current
 rules version comes from the shared engine constant and appears in `/meta`.
 Save migrations and explicit world upgrades preserve earlier accepted history.
 
-The classic client is retired. The native C world kernel remains for
-compatibility history until #1652's later phases remove it.
-Their pack catalog and metadata have an explicit classic scope.
+The classic client is retired, and the classic world and native C world kernel
+are removed from the Rust crate (#1652).
+
+The [state-machine inventory](docs/design/state-machine-contracts.md) maps current
+owners, events, invariants, interruption risks and test boundaries before refactoring.
 
 ## Engineering priorities
 
@@ -64,6 +66,3 @@ The [card guide](v2/card-game/README.md) owns the game map. The
 [shared-world guide](v2/docs/card-table/shared-worlds.md) owns its server boundary.
 The [contribution policy](.github/AGENT.md) owns required checks. The
 [release guide](docs/release.md) owns deployment.
-
-Earlier architecture and priorities remain in the
-[classic engineering archive](docs/archive/classic/ENG.md).

@@ -1,6 +1,6 @@
 # Small worlds, alternates and specials
 
-Status: design, 2026-10-31. No implementation yet. Issue #1622. Related: #1548 (content
+Status: partly built (2026-11-10), designed 2026-10-31. The per-run specials draw is built (`v2/card-game/pack-specials.mjs`: a seeded, weighted draw from a pack `specials` pool, recorded in pack state and validated by `pack-schema.mjs`). No code implements the fixed core, state-picked alternates or roads as paintings. Issue #1622. Related: #1548 (content
 outside the engine), #1618 (Hoppy Cat deadlock), #1605 (dead pack data),
 [ship voyages and scattered things](ship-voyages-and-scattered-things.md).
 

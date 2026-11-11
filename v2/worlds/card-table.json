@@ -29,6 +29,13 @@
           "hoppycat-archive"
         ],
         "reachedBy": "sea"
+      },
+      "radio": {
+        "name": "Night Shift at RatiRadio",
+        "packs": [
+          "ratiradio"
+        ],
+        "reachedBy": "shore"
       }
     },
     "places": [
@@ -128,6 +135,7 @@
     "greek-drama",
     "hoppycat-archive",
     "willows",
-    "lonely-forest"
+    "lonely-forest",
+    "ratiradio"
   ]
 }

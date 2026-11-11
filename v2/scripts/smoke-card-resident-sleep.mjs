@@ -19,6 +19,11 @@ import { selectCard, smokeWidths } from "./card-browser-helpers.mjs";
 const widths = smokeWidths([1440, 390]);
 const residents = [
   {
+    id: "vale",
+    place: "greek-courtyard",
+    art: "./assets/shared/characters/vale-sleeping.webp",
+  },
+  {
     id: "greek-baker",
     place: "greek-courtyard",
     art: "./assets/sleep/greek-baker-sleeping.png",
@@ -49,7 +54,7 @@ try {
     world.turn = world.revision = 91;
     world.actors.vale.place = place;
     world.actors[id].place = place;
-    world.packs["greek-drama"].met[id] = 0;
+    if (id !== "vale") world.packs["greek-drama"].met[id] = 0;
     world.actors[id].sleeping = {
       since: 90,
       place,
@@ -114,10 +119,37 @@ try {
         await figure.locator("img").getAttribute("data-source"),
         art,
       );
+      await selectCard(page, id);
+      await page.waitForTimeout(250);
+      const centered = await card.evaluate((image) => {
+        const box = image.getBoundingClientRect();
+        const card = image.closest(".art").getBoundingClientRect();
+        const value = (key) => Number(image.style.getPropertyValue(key));
+        const centerX = box.left + box.width * value("--figure-center-x");
+        const centerY = box.top + box.height * value("--figure-center-y");
+        return {
+          dx: Math.abs(centerX - card.left - card.width / 2),
+          dy: Math.abs(centerY - card.top - card.height / 2),
+          fits:
+            box.width * value("--silhouette-width") <= card.width * 0.91 &&
+            box.height * value("--figure-height") <= card.height * 0.77,
+        };
+      });
+      assert(
+        centered.dx < 2 && centered.dy < 2 && centered.fits,
+        JSON.stringify({ id, width, centered }),
+      );
       await page.screenshot({
         path: resolve(output, `asleep-${id}-${width}.png`),
       });
 
+      // The reported player card: sleep is a special wake screen, so the
+      // resident cases below retain the ordinary turn-driven wake coverage.
+      if (id === "vale") {
+        assert.deepEqual(errors, []);
+        continue;
+      }
+      await selectCard(page, id); // Clear the inspection selection before Wait.
       const at95 = structuredClone(world);
       at95.turn = at95.revision = 95;
       const waitAt95 = legalActions(at95).find(
@@ -135,6 +167,8 @@ try {
       ) {
         await ready();
         await selectCard(page, place);
+        if (id === "greek-baker" && savedWorld.turn === 95)
+          await page.emulateMedia({ reducedMotion: "no-preference" });
         await page.locator('#card-actions [data-action="wait"]').click();
         await ready();
         const saved = await page.evaluate(
@@ -160,6 +194,46 @@ try {
         "sleep",
       );
       assert.doesNotMatch(await card.getAttribute("src"), sleepingFile);
+      // Compare the retained live card with framing freshly computed from
+      // the same awake pixels. Loading a new pose must not retain sleep fit.
+      const fit = await card.evaluate(async (image) => {
+        const { createFigureFramer } = await import("/figure-frame.mjs");
+        const { frameFigure } = createFigureFramer(() =>
+          document.createElement("canvas"),
+        );
+        await image.decode();
+        const reference = new Image();
+        reference.src = image.src;
+        await reference.decode();
+        frameFigure(reference);
+        const keys = ["--figure-top", "--figure-height", "--head-x"];
+        return {
+          actual: keys.map((key) => image.style.getPropertyValue(key)),
+          expected: keys.map((key) => reference.style.getPropertyValue(key)),
+        };
+      });
+      assert.deepEqual(
+        fit.actual,
+        fit.expected,
+        "awake card uses its own alpha framing",
+      );
+      await page.waitForTimeout(1900);
+      const geometry = await figure.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const stage = document.querySelector("#stage").getBoundingClientRect();
+        return {
+          top: box.top,
+          height: box.height,
+          stageTop: stage.top,
+          stageHeight: stage.height,
+        };
+      });
+      assert(
+        geometry.top >= geometry.stageTop - 2,
+        JSON.stringify({ id, width, geometry }),
+      );
+      console.log(JSON.stringify({ id, width, geometry }));
+
       await page.screenshot({
         path: resolve(output, `awake-${id}-${width}.png`),
       });

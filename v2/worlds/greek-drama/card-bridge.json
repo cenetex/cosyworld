@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. The lamp signal calls it to the pond.",
+  "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond.",
   "entries": [
     {
       "joins": "hub",
@@ -25,36 +25,6 @@
       "travelers": "any",
       "travel": "aboard the ship",
       "travelLabel": "Board",
-      "signal": {
-        "steps": [
-          {
-            "verb": "cover",
-            "item": "cloth",
-            "target": "lamp"
-          },
-          {
-            "verb": "take",
-            "item": "cloth",
-            "from": "lamp"
-          }
-        ],
-        "consecutive": false,
-        "opens": null,
-        "while": [
-          {
-            "kind": "light",
-            "item": "lamp",
-            "at": ["pond"]
-          },
-          {
-            "kind": "not",
-            "condition": {
-              "kind": "sound",
-              "at": ["pond", "clearing"]
-            }
-          }
-        ]
-      },
       "requires": [],
       "scenery": {
         "open": "The Charybdis waits on the black water.",
@@ -62,7 +32,28 @@
         "cardName": "The Charybdis",
         "cardArt": "assets/greek-drama/ship-card.webp"
       },
-      "transport": "greek-ship"
+      "transport": "greek-ship",
+      "unlockWhen": [
+        {
+          "kind": "grounded",
+          "item": "lamp"
+        },
+        {
+          "kind": "light",
+          "item": "lamp",
+          "at": [
+            "pond"
+          ]
+        },
+        {
+          "kind": "in_hand",
+          "item": "cloth"
+        },
+        {
+          "kind": "actor_at",
+          "place": "pond"
+        }
+      ]
     },
     {
       "id": "greek-harbor-pond",
@@ -276,7 +267,6 @@
           "from": "greek-harbor",
           "to": "greek-piraeus",
           "oneWay": true,
-          "reason": "Put the Travel Provisions down on deck",
           "opensWith": [
             {
               "kind": "any",
@@ -293,7 +283,8 @@
                 }
               ]
             }
-          ]
+          ],
+          "sealed": true
         },
         {
           "from": "greek-piraeus",

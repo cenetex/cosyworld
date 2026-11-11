@@ -74,6 +74,7 @@ describe("world packs on the card table", () => {
       "hoppycat-archive",
       "willows",
       "lonely-forest",
+      "ratiradio",
       "shared-homes",
       "boardyai",
     ]);
@@ -166,10 +167,10 @@ describe("world packs on the card table", () => {
         p.crossings[0].transport = "unknown";
       },
       (p) => {
-        p.crossings[0].signal.while = [{ kind: "magic" }];
+        p.crossings[0].unlockWhen = [{ kind: "magic" }];
       },
       (p) => {
-        p.crossings[0].signal.opens = 3;
+        p.crossings[0].unlockWhen = [{ kind: "in_hand", item: "unknown" }];
       },
       (p) => {
         p.places["greek-ship"].exits = ["greek-harbor"];

@@ -1,5 +1,12 @@
 use super::*;
 
+#[test]
+fn catalog_sources_are_files_of_the_checked_out_game() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    assert!(catalog_current(|path| std::fs::read(root.join(path)).ok()));
+    assert!(!catalog_current(|_| None));
+}
+
 fn ok(text: &str, limit: usize, field: Field) -> bool {
     matched(
         text,

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "boardyai",
   "packId": "cosyworld.boardyai",
-  "revision": 2,
+  "revision": 4,
   "name": "BoardyAI",
   "description": "A friendly AI brings human players together.",
   "entry": "boardyai-parlour",

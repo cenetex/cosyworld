@@ -114,6 +114,7 @@ export async function readAvatarDesign(
     packId: record.draft.pack.id,
     accepted: {
       name: entity.name,
+      description: entity.text || "",
       specialAbility:
         output?.accepted.specialAbility ||
         (id === example.avatar && record.draft.pack.id === "lantern-shore"
@@ -132,7 +133,7 @@ export async function readAvatarDesign(
     value: {
       id: `${id}${variant ? `_${variant}` : ""}`,
       kind: "avatar",
-      description: entity.text || "",
+      description: output?.accepted.physicalDescription || "",
       revision: visual?.revision || 0,
       base: base || undefined,
       poses,

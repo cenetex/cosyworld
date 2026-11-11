@@ -46,7 +46,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
       { actor, seen },
     );
     await context.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true } }),
+      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
     );
     await context.route(
       "**/card-game/shared/worlds/music-opening{,/command}",
@@ -55,6 +55,16 @@ export async function checkSharedMusicOpenings(browser, origin) {
           route.request().method() === "POST"
             ? route.request().postDataJSON()
             : null;
+        if (command?.op === "hold") {
+          world = dispatchShared({
+            op: "hold",
+            world,
+            actor,
+            choice: command.action,
+            claimed: humanAvatarIds,
+            present: humanAvatarIds,
+          }).world;
+        }
         if (command?.op === "play") {
           const result = dispatchShared({
             op: "play",
@@ -108,16 +118,26 @@ export async function checkSharedMusicOpenings(browser, origin) {
       );
       await closeSettings(page);
       await selectCard(page, avatar.item.id);
-      assert(
-        await page.locator("#room-music").evaluate((a) => a.paused),
-        "Selecting an item keeps the opening silent",
-      );
-      await page.locator("#card-actions .card-primary").click();
-      await page.waitForFunction(() => {
-        const a = document.querySelector("#room-music");
-        return !a.paused && a.currentTime > 0;
-      });
-      assert(started.has(actor));
+      if (actor === "vale") {
+        // Vale's quiet lamp stow reveals the pond before any accepted play.
+        await page.waitForFunction(() => {
+          const a = document.querySelector("#room-music");
+          return !a.paused && a.currentTime > 0;
+        });
+        assert(!started.has(actor), "The opening reveal is not a turn");
+        assert.equal(world.turn, 0);
+      } else {
+        assert(
+          await page.locator("#room-music").evaluate((a) => a.paused),
+          "Selecting an item keeps the opening silent",
+        );
+        await page.locator("#card-actions .card-primary").click();
+        await page.waitForFunction(() => {
+          const a = document.querySelector("#room-music");
+          return !a.paused && a.currentTime > 0;
+        });
+        assert(started.has(actor));
+      }
       // Settings holds the song; it plays once Settings closes.
       await page.reload();
       await openSettings(page);
@@ -128,7 +148,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
       });
       assert.deepEqual(errors, []);
       console.log(
-        `${avatar.name}: silent arrival, first item play starts music, reload resumes`,
+        `${avatar.name}: silent arrival, ${actor === "vale" ? "quiet pond reveal" : "first item play"} starts music, reload resumes`,
       );
     } catch (error) {
       console.error(

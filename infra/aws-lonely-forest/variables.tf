@@ -178,50 +178,6 @@ variable "process_id" {
   }
 }
 
-variable "rendezvous_party_max_guests" {
-  type        = number
-  default     = 4
-  description = "Maximum guests in one bounded rendezvous party."
-
-  validation {
-    condition     = var.rendezvous_party_max_guests >= 1 && var.rendezvous_party_max_guests <= 16 && floor(var.rendezvous_party_max_guests) == var.rendezvous_party_max_guests
-    error_message = "rendezvous_party_max_guests must be an integer from 1 through 16."
-  }
-}
-
-variable "rendezvous_party_max_active_per_guest" {
-  type        = number
-  default     = 4
-  description = "Maximum simultaneous rendezvous parties a guest may join."
-
-  validation {
-    condition     = var.rendezvous_party_max_active_per_guest >= 1 && var.rendezvous_party_max_active_per_guest <= 16 && floor(var.rendezvous_party_max_active_per_guest) == var.rendezvous_party_max_active_per_guest
-    error_message = "rendezvous_party_max_active_per_guest must be an integer from 1 through 16."
-  }
-}
-
-variable "rendezvous_party_ttl_seconds" {
-  type        = number
-  default     = 7200
-  description = "Maximum lifetime of a rendezvous party, bounded to five minutes through one day."
-
-  validation {
-    condition     = var.rendezvous_party_ttl_seconds >= 300 && var.rendezvous_party_ttl_seconds <= 86400 && floor(var.rendezvous_party_ttl_seconds) == var.rendezvous_party_ttl_seconds
-    error_message = "rendezvous_party_ttl_seconds must be an integer from 300 through 86400."
-  }
-}
-
-variable "story_metrics_retention_days" {
-  type        = number
-  default     = 400
-  description = "Days to retain pseudonymous seventh-visit and story-response metrics."
-
-  validation {
-    condition     = var.story_metrics_retention_days >= 1 && var.story_metrics_retention_days <= 3650 && floor(var.story_metrics_retention_days) == var.story_metrics_retention_days
-    error_message = "story_metrics_retention_days must be an integer from 1 through 3650."
-  }
-}
-
 variable "moderation_token_secret_arn" {
   type        = string
   default     = ""
@@ -254,32 +210,6 @@ variable "openrouter_reasoning_effort" {
   validation {
     condition     = contains(["none", "minimal", "low", "medium", "high", "xhigh", "max"], var.openrouter_reasoning_effort)
     error_message = "openrouter_reasoning_effort must be none, minimal, low, medium, high, xhigh, or max."
-  }
-}
-
-variable "generation_default_mode" {
-  type        = string
-  default     = "off"
-  description = "Default policy for server-side generative content features: off, shadow, or auto_bounded. Keep off so newly added features fail closed until explicitly enabled."
-
-  validation {
-    condition     = contains(["off", "shadow", "auto_bounded"], var.generation_default_mode)
-    error_message = "generation_default_mode must be off, shadow, or auto_bounded."
-  }
-}
-
-variable "generation_feature_modes" {
-  type = map(string)
-  default = {
-    pathway_content = "auto_bounded"
-  }
-  description = "Per-feature generative content policy overrides. Values must be off, shadow, or auto_bounded."
-
-  validation {
-    condition = alltrue([
-      for mode in values(var.generation_feature_modes) : contains(["off", "shadow", "auto_bounded"], mode)
-    ])
-    error_message = "generation_feature_modes values must be off, shadow, or auto_bounded."
   }
 }
 

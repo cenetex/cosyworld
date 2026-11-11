@@ -36,19 +36,20 @@ export const cardShown = async (page) => {
     traveller,
   );
 };
-// The card turns to the avatar's face, named for screen readers too.
+// The avatar is uncovered only after its covered card reaches the real hand.
 export const revealed = (page, name) =>
   page.waitForFunction(
-    ([selector, name]) => {
-      const card = document.querySelector(selector);
-      return (
-        card?.dataset.unrevealed === "false" &&
-        card.ariaLabel === name &&
-        card.querySelector(".name")?.textContent === name &&
-        card.querySelector(".art img")?.complete
-      );
-    },
-    [traveller, name],
+    (name) =>
+      [
+        ...document.querySelectorAll(
+          '#hand .card.avatar[data-unrevealed="false"]',
+        ),
+      ].some(
+        (card) =>
+          card.querySelector(".name")?.textContent === name &&
+          card.querySelector(".art img")?.complete,
+      ),
+    name,
   );
 
 // Room music never plays under the new-world title song. Rue joins a world
@@ -83,7 +84,7 @@ export async function checkTitleMusicAlone(browser, origin, shot) {
       };
     });
     await context.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true } }),
+      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
     );
     await context.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();

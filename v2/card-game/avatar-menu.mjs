@@ -9,7 +9,6 @@ import { levelOf } from "./want.mjs";
 import { nameOf } from "./world.mjs";
 import { avatarImage } from "./scarves.mjs";
 import { levelTier, romanLevel } from "./rarity.mjs";
-import { hiddenFor } from "./unlock-view.mjs";
 import { cachedWorldTier, tintByTier, worldLevel } from "./world-level.mjs";
 
 // ☰ lists the passkey's worlds, each with the avatars that have entered it
@@ -295,12 +294,6 @@ export function installAvatarMenu({
     });
     queueTitleIntro(made.id);
     await leavePage(() => (location.href = sharedLink(made.id)));
-  }
-  // "+ Find Mara": the quest to talk to the avatar hidden here (#1936).
-  async function seek(avatar) {
-    await command(session.id, { op: "seek" });
-    menu.hidePopover();
-    result = `Find ${avatar.name} here and talk to them.`;
   }
   // The chosen seat's action: Leave for yours, the owner's Free for
   // another's once armed, or Nudge for a player in the same room.
@@ -589,16 +582,12 @@ export function installAvatarMenu({
       row.append(title, seats);
       box.append(row);
     }
-    // The avatar hidden in the world being played is the one to find next;
-    // with none hidden here, a new world hides the next, for the card's
-    // avatar when it is in no world, else the first in no world.
-    const world = session?.state.world;
-    const hidden = session && hiddenFor(world, here().actor, unlocked);
+    // A new world hides the next avatar, for the card's avatar when it is in
+    // no world, else the first in no world.
     const avatar =
       view.deck.find((a) => a.id === shown?.id) || view.deck[0] || null;
-    const fresh = hidden
-      ? act(`+ Find ${hidden.name}`, () => seek(hidden), "avatar-find")
-      : avatar && view.canCreate
+    const fresh =
+      avatar && view.canCreate
         ? act("+ New world", () => create(avatar), "avatar-new-world")
         : null;
     if (fresh) {
@@ -615,10 +604,16 @@ export function installAvatarMenu({
     armed = false;
     render();
   });
+  // beforetoggle is synchronous, unlike coalesced toggle notifications.
+  // A close/reopen must retire the old load even before its next microtask.
+  let loadGeneration = 0;
+  menu.addEventListener("beforetoggle", () => loadGeneration++);
   menu.addEventListener("toggle", () => {
     if (!menu.matches(":popover-open")) {
       // The seat's beat leaves with ☰, after a tap on its button has run.
-      setTimeout(() => beat && actionBeat.clear(beat), 0);
+      const closedBeat = beat;
+      beat = null;
+      setTimeout(() => closedBeat && actionBeat.clear(closedBeat), 0);
       // A friend's world shows once, until ☰ closes or an avatar goes there.
       if (invite) stored(INVITE_KEY, null);
       invite = null;
@@ -639,26 +634,32 @@ export function installAvatarMenu({
   // Signed in, the slots are the account's shared worlds. Without the
   // server the menu keeps what it has.
   async function load(inviteId) {
+    const generation = ++loadGeneration;
+    const current = () =>
+      generation === loadGeneration && menu.matches(":popover-open");
     try {
       if (!allowShared()) return;
       const account = await request("/auth/account");
+      if (!current()) return;
       shared = Boolean(session || account.authenticated);
       if (!shared) return;
       const list = await request("/card-game/shared/worlds");
+      if (!current()) return;
       rows = list.worlds;
       unlocked = Array.isArray(list.unlocked) ? list.unlocked : null;
       if (!inviteId) return;
       const view = await request(`/card-game/shared/worlds/${inviteId}`);
+      if (!current()) return;
       invite = { ...view, id: inviteId };
       status.textContent = "Tap + there to bring an avatar in.";
     } catch (error) {
       // A link to a world nobody is in any more says it has closed.
-      if (inviteId && /closed/.test(error?.message)) {
+      if (current() && inviteId && /closed/.test(error?.message)) {
         stored(INVITE_KEY, null);
         status.textContent = error.message;
       }
     } finally {
-      redraw();
+      if (current()) redraw();
     }
   }
   if (stored(INVITE_KEY) || arrived) {

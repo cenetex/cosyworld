@@ -44,8 +44,6 @@
       "startLevel": 50,
       "text": "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
       "place": "forest-cottage",
-      "travels": false,
-      "standoffs": false,
       "seed": "RATi, host of the cottage.",
       "expression": "speech",
       "portrait": "assets/lonely-forest/rati.png",
@@ -61,7 +59,6 @@
       "text": "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
       "place": "forest-trail",
       "travels": false,
-      "standoffs": false,
       "seed": "Skull, a wolf.",
       "expression": "movement",
       "portrait": "assets/lonely-forest/skull.png",
@@ -76,8 +73,6 @@
       "startLevel": 20,
       "text": "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
       "place": "forest-garden",
-      "travels": false,
-      "standoffs": false,
       "seed": "Whiskerwind, a spirit of the living oak.",
       "expression": "emoji",
       "portrait": "assets/lonely-forest/whiskerwind.png",
@@ -93,7 +88,6 @@
       "text": "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
       "place": "forest-oak",
       "travels": false,
-      "standoffs": false,
       "seed": "Oak, the Tree of Dreams.",
       "expression": "speech",
       "portrait": "assets/lonely-forest/oakheart.webp",
@@ -447,7 +441,13 @@
           "item": "forest-wolfprint-charm",
           "place": "forest-oak"
         }
-      ]
+      ],
+      "sealed": {
+        "quest": {
+          "kind": "place",
+          "target": "forest-trail"
+        }
+      }
     },
     {
       "from": "forest-garden",
@@ -458,7 +458,13 @@
           "key": "forest-path-cleared",
           "value": true
         }
-      ]
+      ],
+      "sealed": {
+        "quest": {
+          "kind": "place",
+          "target": "forest-trail"
+        }
+      }
     }
   ],
   "choices": [
@@ -632,7 +638,8 @@
           "key": "forest-walkers-heard",
           "value": true
         }
-      ]
+      ],
+      "on": "talk"
     },
     {
       "id": "forest-hear-walkers-oak",
@@ -659,7 +666,8 @@
           "key": "forest-walkers-heard",
           "value": true
         }
-      ]
+      ],
+      "on": "talk"
     },
     {
       "id": "forest-sit-watch",

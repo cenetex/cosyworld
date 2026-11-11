@@ -33,10 +33,6 @@ Object.assign(env, {
   COSYWORLD_DEPLOY_PROFILE: "local",
   COSYWORLD_PRIMARY_GAME: "cards",
   COSYWORLD_V2_ADDR: `127.0.0.1:${port}`,
-  COSYWORLD_CONTENT_REGISTRY_PATH: resolve(
-    root,
-    "v2/content/core-only/registry.json",
-  ),
   COSYWORLD_CONTENT_ROOT: resolve(root, "v2/content"),
   COSYWORLD_V2_SNAPSHOT_PATH: resolve(directory, "snapshot.json"),
   COSYWORLD_V2_EVENT_DB_PATH: resolve(directory, "events.sqlite"),

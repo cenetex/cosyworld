@@ -1,9 +1,9 @@
 // The stage shows only what its player has revealed (stage-reveal.mjs). A
 // new world opens on Vale alone, on black: the lamp, the attic and anything
 // else new lie face down in the hand and nowhere in the scene, and no
-// unrevealed name shows. Tapping a card reveals it: the lamp fades into
+// unrevealed name shows. Opening a selected box reveals it: the lamp fades into
 // Vale's hand and the attic comes up out of the black, in either order.
-// Then the opening's first play, Put out, darkens the room and the pond
+// Then quietly stowing the lamp darkens the room and the pond
 // arrives face down (opening.mjs).
 //
 //   node v2/scripts/smoke-card-stage-reveal.mjs [screenshot-dir]
@@ -41,7 +41,7 @@ try {
       });
       page.setDefaultTimeout(20000);
       const errors = [];
-      let openingRoute = null;
+      const openingRoutes = [];
       const openings = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.route("**/card-game/text", (route) => {
@@ -49,7 +49,7 @@ try {
         if (input.waking) {
           openings.push(input);
           if (reduced) {
-            openingRoute = route;
+            openingRoutes.push(route);
             return;
           }
         }
@@ -134,9 +134,9 @@ try {
       }
       await shot("01-opening-vale-alone");
 
-      // Either order: each tap reveals one thing into the scene.
+      // Either order: each opened box reveals one thing into the scene.
       for (const [step, id] of order.entries()) {
-        // The quiet Reveal button turns the last card down as a tap does.
+        // The quiet Reveal button opens the last covered card too.
         if (step === 1 && reduced) {
           if ((await page.locator("#hand [aria-pressed=true]").count()) === 0)
             await selectCard(page, "vale");
@@ -145,7 +145,7 @@ try {
               '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
             )
             .click();
-        } else await revealCard(page, id);
+        } else await revealCard(page, id, { keepSelected: id === "lamp" });
         await page.waitForSelector(
           `#hand .card[data-card="${id}"][data-unrevealed="false"]`,
         );
@@ -158,16 +158,24 @@ try {
         noLeaks(seen);
         await shot(`0${step + 2}-revealed-${id}`);
       }
-      // Then its first real play: Put out darkens the room, and the card
-      // the rules bring arrives face down, nowhere on stage.
-      const putOut = page.locator(
-        '#card-actions [data-action="snuff"]:not([data-revealing="true"])',
+      // Stowing the revealed held lamp darkens the room without a turn.
+      const lamp = page.locator('#hand [data-card="lamp"]');
+      assert.equal(await lamp.getAttribute("aria-pressed"), "true");
+      assert.equal(
+        await page.locator('#card-actions [data-action="snuff"]').count(),
+        0,
       );
-      await putOut.waitFor();
-      await shot("04-put-out-offered");
-      await putOut.click();
+      await shot("04-lamp-held");
+      await selectCard(page, "lamp");
+      const stowed = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1")),
+      );
+      assert.equal(stowed.actors.vale.heldItem, null);
+      assert.equal(stowed.items.lamp.lit, false);
+      assert.equal(stowed.items.lamp.fuelRooms, 3);
+      assert.equal(stowed.turn, 0);
       if (reduced) {
-        // Keep generation beyond the hand's grace, then queue Put out.
+        // Keep generation beyond the hand's grace after the quiet stow.
         // The waking line belongs to turn zero even when the player moves on.
         await page.waitForTimeout(3200);
         assert.equal(
@@ -178,39 +186,96 @@ try {
           ),
           0,
         );
-        await openingRoute.fulfill({
-          json: {
-            revision: openings[0].revision,
-            model: "stage-reveal-fixture",
-            entries: openings[0].entities.map(({ id }) => ({
-              id,
-              text: "Awake.",
-            })),
-          },
+        assert.deepEqual(
+          openings.map((input) => input.revision),
+          [0, stowed.revision],
+        );
+        assert.equal(
+          openingRoutes[0].request().failure()?.errorText,
+          "net::ERR_ABORTED",
+        );
+        const reply = (input) => ({
+          revision: input.revision,
+          model: "stage-reveal-fixture",
+          entries: input.entities.map(({ id }) => ({ id, text: "Awake." })),
         });
+        await openingRoutes[0].fulfill({ json: reply(openings[0]) });
+        assert.equal(
+          await page.evaluate(
+            () =>
+              JSON.parse(
+                localStorage.getItem("cosyworld.reflected-shore.v1"),
+              ).log.filter(
+                (entry) => entry.generated && entry.kind === "dialogue",
+              ).length,
+          ),
+          0,
+        );
+        const fresh = openings[1];
+        assert.equal(fresh.turn, 0);
+        assert.equal(
+          fresh.outcome.avatars.find((avatar) => avatar.id === "vale").heldItem,
+          null,
+        );
+        assert.equal(
+          fresh.outcome.observations.find(
+            (observation) => observation.id === "lamp-flame",
+          ).value,
+          false,
+        );
+        await openingRoutes[1].fulfill({ json: reply(fresh) });
       }
       await page.waitForFunction(
         () => document.body.dataset.lamplit === "false",
       );
-      // The pond, the attic's one way on, lies face down at the row's right
-      // end (#2272).
+      // The pond, the attic's one way on, lay in the row's right end as a
+      // locked box; putting the lamp out turns it over (rules 133).
       await page.waitForSelector(
-        '#hand > .card-frame:last-child > .card[data-card="pond"][data-unrevealed="true"]',
+        '#hand > .card-frame:last-child > .card[data-card="pond"][data-locked="false"]',
       );
       seen = await view();
       assert.deepEqual(seen.cast, ["vale"]);
       assert.equal(seen.floor, 0);
       noLeaks(seen);
+      // Quiet stowing does not wait for the opening's pending narration.
+      await page.waitForFunction(() =>
+        JSON.parse(
+          localStorage.getItem("cosyworld.reflected-shore.v1"),
+        )?.log.some(
+          (entry) =>
+            entry.generated && entry.turn === 0 && entry.text === "Awake.",
+        ),
+      );
       const words = await page.evaluate(() =>
         JSON.parse(
           localStorage.getItem("cosyworld.reflected-shore.v1"),
         ).log.filter((entry) => entry.generated && entry.kind === "dialogue"),
       );
-      assert.ok(
-        words.some((entry) => entry.turn === 0 && entry.text === "Awake."),
+      assert.equal(
+        words.filter((entry) => entry.turn === 0 && entry.text === "Awake.")
+          .length,
+        1,
       );
-      assert.equal(openings.length, 1);
+      assert.equal(openings.length, reduced ? 2 : 1);
       await shot("05-room-dark-new-card");
+      await page.reload();
+      await page.waitForSelector("#hand .card");
+      assert.equal(
+        await page.evaluate(
+          () =>
+            JSON.parse(
+              localStorage.getItem("cosyworld.reflected-shore.v1"),
+            ).log.filter(
+              (entry) =>
+                entry.generated &&
+                entry.kind === "dialogue" &&
+                entry.turn === 0 &&
+                entry.text === "Awake.",
+            ).length,
+        ),
+        1,
+      );
+      assert.equal(openings.length, reduced ? 2 : 1);
       assert.deepEqual(errors, []);
       await page.close();
       console.log(`Stage reveal: ${width}px, ${order.join(" then ")} passed.`);

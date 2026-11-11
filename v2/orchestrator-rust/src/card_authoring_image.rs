@@ -6,17 +6,12 @@ use sha2::{Digest, Sha256};
 use std::{io::Cursor, sync::Arc};
 
 pub(super) const ROUTE: &str = "/card-game/authoring/generate/image";
-const MODEL: &str = "openai/gpt-image-2.6-flare";
-const UNAVAILABLE: &str = "Image generation needs another try.";
+pub(super) const MODEL: &str = "openai/gpt-image-2.6-flare";
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route(ROUTE, post(generate))
         .layer(DefaultBodyLimit::max(12 * 1024 * 1024))
-}
-
-fn unavailable() -> Response {
-    failure(StatusCode::SERVICE_UNAVAILABLE, UNAVAILABLE)
 }
 
 fn config(state: &AppState) -> Option<ai_gateway::AiConfig> {
@@ -41,69 +36,68 @@ fn config(state: &AppState) -> Option<ai_gateway::AiConfig> {
     Some(config)
 }
 
-fn admit_image(owner: String) -> Option<Permit> {
-    static LIMIT: OnceLock<Mutex<crate::rate_limit::RateLimiter>> = OnceLock::new();
-    let permit = admit(owner.clone())?;
-    let mut gate = LIMIT.get_or_init(Default::default).lock().ok()?;
-    let limit = crate::rate_limit::RateLimit {
-        max_hits: 6,
-        window: Duration::from_secs(60),
-    };
-    gate.allow(owner, limit, Instant::now()).then_some(permit)
-}
-
 async fn generate(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(input): Json<Input>,
 ) -> Response {
-    let auth_state = state.clone();
-    let owner =
-        tokio::task::spawn_blocking(move || crate::card_shared::user(&auth_state, &headers, true))
-            .await;
-    let owner = match owner {
-        Ok(Ok(owner)) => owner,
-        Ok(Err(error)) if error == "Sign in with your passkey." => {
-            return failure(StatusCode::UNAUTHORIZED, &error)
-        }
-        Ok(Err(error)) if error == "Open this world on its own site." => {
-            return failure(StatusCode::FORBIDDEN, &error)
-        }
-        _ => return failure(StatusCode::SERVICE_UNAVAILABLE, "Try signing in again."),
+    let owner = match owner(&state, headers, true).await {
+        Ok(owner) => owner,
+        Err(failed) => return failed.response(),
     };
-    let Some(config) = config(&state) else {
-        return failure(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Image generation needs its configured model.",
-        );
-    };
-    let Some(permit) = admit_image(owner) else {
-        return (StatusCode::TOO_MANY_REQUESTS, Json(json!({"error":"Wait a moment before rolling another image.","code":"generation_busy","retryAfterMs":60000}))).into_response();
-    };
-    // The worker owns admission until completion even when the browser leaves.
-    tokio::spawn(async move {
-        let _permit = permit;
-        match tokio::time::timeout(Duration::from_secs(180), draw(config, input)).await {
-            Ok(response) => response,
-            Err(_) => failure(
-                StatusCode::GATEWAY_TIMEOUT,
-                "The image took too long. Try again when ready.",
-            ),
-        }
-    })
-    .await
-    .unwrap_or_else(|_| unavailable())
+    match ready(&state, input).await {
+        Ok(run) => respond(&state, owner, run).await,
+        Err(failed) => failed.response(),
+    }
 }
 
-async fn draw(config: ai_gateway::AiConfig, input: Input) -> Response {
+/// The finished picture. Only pixels survive: the PNG is re-encoded from the decode.
+pub(super) struct Drawn {
+    pub bytes: Vec<u8>,
+    pub basis: String,
+    pub usage: Value,
+}
+impl Drawn {
+    pub(super) fn sha256(&self) -> String {
+        digest(&self.bytes)
+    }
+    /// The synchronous route's reply.
+    pub(super) fn body(&self) -> Value {
+        json!({"image":{"base64":BASE64.encode(&self.bytes),"mime":"image/png","sha256":self.sha256(),"size":self.bytes.len()},"basis":self.basis,"model":MODEL,"usage":self.usage})
+    }
+}
+
+/// Check the request and the configured model. Decoding a reference is slow, so it runs off the reactor.
+pub(super) async fn ready(state: &AppState, input: Input) -> Result<Run, Failed> {
+    let Some(config) = config(state) else {
+        return Err(Failed::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Image generation needs its configured model.",
+            "generation_unconfigured",
+        ));
+    };
     let prepared =
         tokio::task::spawn_blocking(move || prepare(&input).map(|reference| (input, reference)))
             .await;
-    let (input, reference) = match prepared {
-        Ok(Ok(prepared)) => prepared,
-        Ok(Err(error)) => return failure(StatusCode::BAD_REQUEST, error),
-        Err(_) => return unavailable(),
-    };
+    match prepared {
+        Ok(Ok((input, reference))) => Ok(Run {
+            pool: admission::Pool::Image,
+            work: Work::Image(config, input, reference),
+        }),
+        Ok(Err(error)) => Err(Failed::new(StatusCode::BAD_REQUEST, error, INVALID_REQUEST)),
+        Err(_) => Err(Failed::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Image generation needs another try.",
+            "generation_interrupted",
+        )),
+    }
+}
+
+pub(super) async fn run(
+    config: ai_gateway::AiConfig,
+    input: Input,
+    reference: Option<Vec<u8>>,
+) -> Result<Drawn, Failed> {
     let sheet = input.role == "pose-sheet";
     let framing = if sheet {
         "Create one 3-column by 2-row sheet with equal cells. Reading order: happy, sad, strike, brace, hit, sleep. Keep a complete figure inside each cell with transparent margins and consistent framing."
@@ -112,12 +106,12 @@ async fn draw(config: ai_gateway::AiConfig, input: Input) -> Response {
     } else {
         "Paint one complete subject surrounded by transparent margins."
     };
-    let prompt = format!("Paint game art. Preserve the subject's identity from the reference when present. {framing}\nDescription: {}\nChanges: {}", input.description, input.instruction.as_deref().unwrap_or(""));
+    let prompt = image_prompt(&input, framing);
     let result = ai_gateway::request_image_generation_for_key(
         &config,
         ImageGenerationRequest {
             feature: "authoring_image",
-            prompt_version: "authoring-image/1",
+            prompt_version: "authoring-image/2",
             prompt: &prompt,
             reference: reference.as_ref().map(|bytes| ImageGenerationReference {
                 bytes,
@@ -146,19 +140,43 @@ async fn draw(config: ai_gateway::AiConfig, input: Input) -> Response {
         &input.basis,
     )
     .await;
-    let output = match result {
-        Ok(output) if output.model_attribution.resolved_model_id == MODEL => output,
-        Ok(_) => return failure(StatusCode::BAD_GATEWAY, "Review the image model and try again."),
-        Err(error) => return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({"error":UNAVAILABLE,"code":error.code(),"retryAfterMs":error.retry_after().map_or(0, |v| v.as_millis())}))).into_response(),
-    };
-    let usage = output.usage;
+    let output =
+        match result {
+            Ok(output) if output.model_attribution.resolved_model_id == MODEL => output,
+            Ok(_) => return Err(Failed::new(
+                StatusCode::BAD_GATEWAY,
+                "The image came from a different model than expected and was discarded. Try again.",
+                "image_model_unexpected",
+            )),
+            Err(error) => return Err(provider_failure(admission::Pool::Image, &error)),
+        };
+    let usage = serde_json::to_value(&output.usage).unwrap_or(Value::Null);
     let image =
         tokio::task::spawn_blocking(move || png_output(&output.bytes, &output.content_type, sheet))
             .await;
     match image {
-        Ok(Ok(bytes)) => Json(json!({"image":{"base64":BASE64.encode(&bytes),"mime":"image/png","sha256":digest(&bytes),"size":bytes.len()},"basis":input.basis,"model":MODEL,"usage":usage})).into_response(),
-        _ => failure(StatusCode::BAD_GATEWAY, "Review the image layout and try again."),
+        Ok(Ok(bytes)) => Ok(Drawn {
+            bytes,
+            basis: input.basis,
+            usage,
+        }),
+        _ => Err(Failed::new(
+            StatusCode::BAD_GATEWAY,
+            if sheet {
+                "The pose sheet came back in a layout that does not split into six equal cells. Try again."
+            } else {
+                "The image came back in a form we could not use. Try again."
+            },
+            "image_layout_invalid",
+        )),
     }
+}
+
+fn image_prompt(input: &Input, framing: &str) -> String {
+    format!(
+        "Paint game art. Preserve the subject's identity, clothing and art style from the reference when present. {framing}\nUse only the visible physical appearance described below. Do not invent character attributes, illustrate dialogue, goals, personality, abilities or story events. No speech bubbles, thought bubbles, text, letters, captions, labels, question marks, symbols, borders or watermarks, even if the reference contains them. Express poses through the body and face only.\nPhysical description: {}\nVisual changes only: {}",
+        input.description, input.instruction.as_deref().unwrap_or("")
+    )
 }
 
 const MAX_IMAGE: usize = 8 * 1024 * 1024;

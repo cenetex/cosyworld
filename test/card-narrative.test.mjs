@@ -1,4 +1,6 @@
-import { atticOpening } from "./fixtures/card-attic-opening.mjs";
+import "./helpers/no-dwell.mjs";
+import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
+import { endStandoff } from "./helpers/standoff.mjs";
 import { rest } from "./fixtures/card-rest.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -100,13 +102,13 @@ describe("entity memories and model text", () => {
     );
   });
 
-  it("sends the final lamp state after refueling, lighting, covering and running dry", () => {
+  it("sends the final lamp state after refueling, holding, covering and running dry", () => {
     let world = createWorld();
     world.actors.vale.place = "pond";
     world.items.lamp.holder = "vale";
     world.items.oil.holder = "pond";
     world.items.cloth.holder = "vale";
-    world.items.lamp.fuel = 0;
+    Object.assign(world.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
     const lamp = (state) =>
       Object.fromEntries(
         narrativeContext(state).outcome.observations.map(({ id, value }) => [
@@ -120,7 +122,7 @@ describe("entity memories and model text", () => {
       "lamp-flame": false,
       "lamp-cover": false,
     });
-    world = act(world, "light", "lamp");
+    world = selectLamp(world, "lamp");
     expect(lamp(world)).toMatchObject({
       "lamp-flame": true,
       "lamp-cover": false,
@@ -130,28 +132,31 @@ describe("entity memories and model text", () => {
       "lamp-flame": true,
       "lamp-cover": true,
     });
-    world.items.lamp.fuel = 1;
-    world = act(world, "wait");
+    world = endStandoff(world);
+    Object.assign(world.items.lamp, { fuel: 4, fuelRooms: 1 });
+    world = act(world, "move", null, "station");
     expect(lamp(world)).toMatchObject({
       "lamp-flame": false,
       "lamp-cover": true,
     });
-    expect(narrativeContext(world).events.join(" ")).toContain("runs dry");
+    expect(narrativeContext(world).outcome.card.kind).toBe("move");
+    expect(world.items.lamp.fuelRooms).toBe(0);
     expect(lamp(decodeSave(encodeSave(world)))).toEqual(lamp(world));
   });
 
-  it("reports an extinguished lamp when its last oil burns on the lighting turn", () => {
+  it("reports an extinguished lamp when its last room of oil is spent on arrival", () => {
     const world = createWorld();
     world.items.lamp.holder = "vale";
-    world.items.lamp.fuel = 1;
-    const next = act(world, "light", "lamp");
+    world.actors.vale.heldItem = "lamp";
+    Object.assign(world.items.lamp, { fuel: 4, fuelRooms: 1, lit: true });
+    const next = act(world, "move", null, "pond");
     const context = narrativeContext(next);
-    expect(context.outcome.card.kind).toBe("light");
+    expect(context.outcome.card.kind).toBe("move");
     expect(context.outcome.observations).toContainEqual({
       id: "lamp-flame",
       value: false,
     });
-    expect(context.events.join(" ")).toContain("runs dry");
+    expect(next.items.lamp).toMatchObject({ fuelRooms: 0, fuelPlace: "pond" });
   });
 
   it("records an event in its witnesses, item and place, including departures", () => {
@@ -198,9 +203,9 @@ describe("entity memories and model text", () => {
         .find((e) => e.id === "lamp")
         .memories.some((e) => e.text.includes("Vale takes")),
     ).toBe(true);
-    // Met with nothing beneath, Vale is content until she sleeps.
+    // Met, the want is paid and a player holds none until it takes another.
     const vale = context.entities.find((e) => e.id === "vale");
-    expect(world.actors.vale).toMatchObject({ want: null, content: true });
+    expect(world.actors.vale.want).toBeNull();
     expect(vale.desire).toEqual({ items: [], location: null, avatars: [] });
     expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
     context.scenery = true;
@@ -826,9 +831,8 @@ describe("witnessed departures and conversation continuity", () => {
     const held = createWorld();
     held.actors.moth.place = held.actors.keeper.place = "station";
     for (const item of ["lamp", "cloth"]) held.items[item].holder = "vale";
-    held.items.lamp.fuel = 2;
-    const lit = structuredClone(held);
-    lit.items.lamp.lit = true;
+    Object.assign(held.items.lamp, { fuel: 4, fuelRooms: 1 });
+    const lit = selectLamp(held, "lamp");
     const ground = structuredClone(held);
     ground.items.lamp.holder = "station";
     const oil = structuredClone(held);
@@ -856,8 +860,6 @@ describe("witnessed departures and conversation continuity", () => {
     }
     for (const kind of [
       "wait",
-      "light",
-      "snuff",
       "take",
       "drop",
       "cover",
@@ -866,11 +868,12 @@ describe("witnessed departures and conversation continuity", () => {
       "move",
     ])
       expect(seen.has(kind), kind).toBe(true);
+    expect(seen.has("light")).toBe(false);
+    expect(seen.has("snuff")).toBe(false);
   });
   it("lets Vale speak on waking from a long rest in the attic", () => {
     // A lit lamp would wake her within a short rest; this one is out.
-    const start = atticOpening();
-    start.items.lamp.lit = false;
+    const start = selectLamp(atticOpening());
     const waited = act(start, "wait");
     // Sleep is the Wait offered after a Wait.
     const world = play(
@@ -1257,8 +1260,9 @@ describe("speech grounding in resolved card plays", () => {
     const outcome = turnOutcome(createWorld());
     expect(outcome.card.kind).toBe("arrive");
     expect(outcome.avatars).toHaveLength(3);
-    // The forest's four things and the Hoppy Cat spool at the station (#1641).
-    expect(outcome.items).toHaveLength(5);
+    // The hub things plus each mounted clue lying at the station.
+    const clue = createWorld().items["ratiradio-request-slip"] ? ["ratiradio-request-slip"] : [];
+    expect(outcome.items.map((item) => item.id).sort()).toEqual(["bell", "cloth", "lamp", "oil", "hoppycat-red-thread-spool", ...clue].sort());
     expect(avatar(outcome, "moth")).toMatchObject({
       location: "pond",
       travel: null,

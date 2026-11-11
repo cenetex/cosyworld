@@ -61,7 +61,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV COSYWORLD_V2_ADDR=0.0.0.0:3000
 ENV COSYWORLD_V2_SNAPSHOT_PATH=/data/cosyworld-v2-snapshot.json
 ENV COSYWORLD_V2_EVENT_DB_PATH=/data/cosyworld-v2-events.sqlite
-ENV COSYWORLD_CONTENT_ROOT=/app/v2/content
 ENV RUST_LOG=cosyworld_orchestrator=info,tower_http=warn
 
 WORKDIR /app

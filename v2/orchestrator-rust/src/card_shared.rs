@@ -6,26 +6,27 @@ mod bindings_tests;
 #[cfg(test)]
 mod boardy_tests;
 #[cfg(test)]
-mod combat_tests;
+mod classic_drop_tests;
 #[cfg(test)]
 mod concurrency_tests;
 mod content;
 mod engine;
 #[cfg(test)]
-mod forest_tests;
+mod js_bridge_tests;
+#[cfg(test)]
+mod live_rules_tests;
 #[cfg(test)]
 mod move_tests;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;
 mod full;
+mod full_floor;
+#[cfg(test)]
+mod full_floor_tests;
 mod full_speech;
 mod full_store;
 #[cfg(test)]
 mod full_tests;
 mod full_world;
-#[cfg(test)]
-mod homecoming_tests;
-#[cfg(test)]
-mod hoppycat_tests;
 #[cfg(test)]
 mod import_tests;
 mod kernel;
@@ -47,32 +48,18 @@ mod quest_core_tests;
 #[cfg(test)]
 mod quest_loop_tests;
 #[cfg(test)]
-mod road_upgrade_tests;
-#[cfg(test)]
-mod saved_items;
+mod rules_agree_tests;
 #[cfg(test)]
 mod sea_steps;
 #[cfg(test)]
-mod section_tests;
-#[cfg(test)]
-mod sleep_tests;
-#[cfg(test)]
 mod speech;
-#[cfg(test)]
-mod speech_tests;
 mod store;
 mod sync;
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod travel_tests;
 mod unlocks;
 #[cfg(test)]
 mod unlocks_tests;
-#[cfg(test)]
-mod weather_tests;
-#[cfg(test)]
-mod willows_tests;
 #[cfg(test)]
 mod world_life_tests;
 mod world_list;
@@ -116,6 +103,11 @@ pub(super) fn router() -> Router<AppState> {
 }
 
 fn reply(r: Result<Value>) -> Response {
+    if let Err(message) = &r {
+        if let Some(error) = crate::account_revision::Error::from_message(message) {
+            return error.response();
+        }
+    }
     let (status, body) = match r {
         Ok(v) => (StatusCode::OK, v),
         // The client waits and retries on its own (shared.mjs).
@@ -165,6 +157,14 @@ pub(super) fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<St
         .authenticated_user_id(h)
         .map_err(sql_error)?
         .ok_or_else(|| "Sign in with your passkey.".into())
+}
+pub(crate) fn revision(
+    state: &AppState,
+    h: &HeaderMap,
+) -> Result<crate::account_revision::Revision> {
+    let user = user(state, h, true)?;
+    let c = db(state)?;
+    crate::account_revision::Revision::capture(&c, &user, h).map_err(|error| error.to_string())
 }
 fn admit(user: &str) -> Result<()> {
     use crate::rate_limit::{RateLimit, RateLimiter};

@@ -1,3 +1,4 @@
+import { settleLamp } from "./lamp-state.mjs";
 import { privateView } from "./learning.mjs";
 import { settleHeldItems } from "./held-item.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
@@ -5,8 +6,10 @@ import { expressionKind, validExpression } from "./expression.mjs";
 // The host supplies authenticated claims and presence on every operation.
 import {
   createWorld,
+  holdChoice,
   decodeSave,
   validateWorld,
+  settleStationExits,
   legalActions,
   matchingActions,
   play,
@@ -35,11 +38,17 @@ import {
   applySharedReflections,
 } from "./reflections.mjs";
 import { resetAvatar } from "./avatar-reset.mjs";
-import { arrive, hideAvatar, seekHidden } from "./hidden-avatar.mjs";
+import { arrive, hideAvatar } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
 
+function validateTransition(world) {
+  settleHeldItems(world);
+  settleLamp(world);
+  settleStationExits(world);
+  validateWorld(world);
+}
 function ids(value, fallback = []) {
   const result = value === undefined ? fallback : value;
   if (
@@ -189,7 +198,11 @@ export function dispatchShared(request) {
     // A fresh world's resident avatars take a want at once; an imported or
     // upgraded one gives them wants at its next play.
     if (request.save == null) fillSeatWants(world);
-    validateWorld(world);
+    // The homecoming avatar holds no drawn want: its quest is Accept quest at its
+    // home's door (world/offers.mjs), taken by a tap.
+    if (request.save == null && request.homecoming != null)
+      world.actors[request.homecoming].want = null;
+    validateTransition(world);
     return response(world, view(world, request.actor || "vale"));
   }
   if (request.op === "migrate") return migrate(request);
@@ -202,10 +215,15 @@ export function dispatchShared(request) {
       settleHomeItems(world, world.heldActors);
     seedRun(world, request.seed);
     world.revision += 1;
-    validateWorld(world);
+    validateTransition(world);
     return response(world);
   }
   if (request.op === "validate") return response(world);
+  // Only journaled host presence transitions call this operation, never a view.
+  if (request.op === "presence") {
+    validateTransition(world);
+    return response(world);
+  }
   if (request.op === "join") {
     if (!world.controlledActors.includes(actor))
       world.controlledActors.push(actor);
@@ -213,20 +231,24 @@ export function dispatchShared(request) {
     arrive(world, actor);
     carryProgress(world.actors[actor], request.progress);
     enableShared(world);
-    validateWorld(world);
+    validateTransition(world);
     return response(world, view(world, actor));
   }
   // The host checks that the world's owner asked; the avatar starts over.
   if (request.op === "reset") {
     resetAvatar(world, actor);
-    validateWorld(world);
+    validateTransition(world);
     return response(world);
   }
-  if (request.op === "seek") {
-    seekHidden(world, actor);
-    world.revision += 1;
-    validateWorld(world);
-    return response(world, view(world, actor));
+  if (request.op === "hold") {
+    if (
+      !world.controlledActors.includes(actor) ||
+      !world.presentActors.includes(actor)
+    )
+      throw new Error("Enter this world with your avatar first.");
+    holdChoice(world, actor, request.choice);
+    validateTransition(world);
+    return response(world);
   }
   if (request.op === "view")
     return {
@@ -341,7 +363,7 @@ export function dispatchShared(request) {
       publishKnowledgeSpeech(world, lines.at(-1), request.disclosures || []);
     }
     world.revision += 1;
-    validateWorld(world);
+    validateTransition(world);
     return response(world, { lines });
   }
   // Reflections journaled after their speech (#2016). They touch only the
@@ -349,7 +371,7 @@ export function dispatchShared(request) {
   if (request.op === "reflect") {
     applyLaterReflections(world, request);
     world.revision += 1;
-    validateWorld(world);
+    validateTransition(world);
     return response(world);
   }
   throw new Error("Choose a supported world operation.");
@@ -406,7 +428,7 @@ function migrate(request) {
   );
   contextual(world, { ...request, claimed, present });
   const legacyScenes = migrateScenes(world, request.legacyScenes || [], rooms);
-  validateWorld(world);
+  validateTransition(world);
   return response(world, { legacyScenes });
 }
 
