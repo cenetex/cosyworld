@@ -75,7 +75,7 @@ export function talkQuest(s, actor, them, api) {
   const a = s.actors[actor],
     want = s.actors[them]?.want;
   if (!api.player(actor) || them === actor || !want) return null;
-  const quest = revealed(s, them, want) && questFor(s, them, want);
+  const quest = revealed(s, them, want, actor) && questFor(s, them, want);
   if (!quest || a.heard?.[them] === key(want)) return null;
   const held = allQuestsOf(s, actor);
   // A level quest's step that is this very quest already asks it.

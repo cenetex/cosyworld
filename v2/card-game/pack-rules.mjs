@@ -136,6 +136,9 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
     }
     case "trusted":
+      // A resident passes his own trust-locked door: there is no trust in
+      // oneself, so the keeper is always trusted by himself.
+      if (actor === c.actor) return true;
       return (
         (s.actors[c.actor]?.trust?.[actor] || 0) >= c.min &&
         !(s.motives?.grievances?.[c.actor] || []).some(
@@ -321,7 +324,11 @@ export const packDiscovered = (s, packId) =>
   );
 export function markCrossed(s, from, to) {
   const c = crossingBetween(from, to, s);
-  if (c && !(c.transport && (c.signal || c.unlockWhen)) && crossingState(s, c.id))
+  if (
+    c &&
+    !(c.transport && (c.signal || c.unlockWhen)) &&
+    crossingState(s, c.id)
+  )
     s.crossings[c.id].discovered = true;
 }
 /** Extra place text from crossings that start here (open or closed). */

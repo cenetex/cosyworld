@@ -1189,7 +1189,8 @@ export function accompanyDecision(
     (goal === destination || distance(destination, goal) < distance(here, goal))
   )
     return { accepted: true };
-  if (s.actors[companion].trust[actor] > 0) return { accepted: true };
+  // Trust two: they will travel with you (the ladder, wants-and-arcs.md).
+  if (s.actors[companion].trust[actor] >= 2) return { accepted: true };
   return socialTravel(s, actor, companion, destination);
 }
 
@@ -1733,7 +1734,9 @@ function travelParty(s, actors, destination) {
 }
 const travel = (s, actor, destination) => travelParty(s, [actor], destination);
 
-// Trust has one source: someone gave me the item I wanted.
+// Trust has two sources: someone gave me the item I wanted (here), and an
+// authored meeting (a pack choice with a trust effect). A pack on:"give"
+// choice on the item intercepts the Give before this runs.
 function trustGiver(s, recipient, item, giver) {
   if (!needed(s, recipient, item) || !s.actors[recipient].trust) return;
   s.actors[recipient].trust[giver] = Math.min(
@@ -2763,7 +2766,7 @@ function wantPlan(s, actor) {
       return striker ? answer(find("guard")) : idle();
     if (foe) return answer(find("attack", (a) => a.target === foe));
     const friend = others.find(
-      (id) => conflict.hitBy?.[id] && s.actors[actor].trust?.[id] > 0,
+      (id) => conflict.hitBy?.[id] && s.actors[actor].trust?.[id] >= 3,
     );
     return answer(friend && find("intercept", (a) => a.target === friend));
   }

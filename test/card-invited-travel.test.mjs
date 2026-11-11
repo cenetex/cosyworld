@@ -16,7 +16,7 @@ function carriage(friendly = true) {
   s.playerActorId = "rue";
   s.actors.rue.place = s.actors.moth.place = "station";
   s.items.routes.holder = "rue";
-  s.actors.moth.trust.rue = friendly ? 1 : 0;
+  s.actors.moth.trust.rue = friendly ? 2 : 1;
   return s;
 }
 const invite = (s) =>
