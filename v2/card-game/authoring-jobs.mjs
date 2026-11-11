@@ -2,6 +2,7 @@
 // accepted once, runs on the server and is read back by id, so a reload or a
 // dropped connection cannot lose it. Request bodies are the ones the server
 // validates; this module only creates, polls, lists and fetches.
+import { accountRevision } from "./account-revision.mjs";
 const MAX_IMAGE = 8 * 1024 * 1024;
 export const JOB_LIMIT = Object.freeze({
   image: 180_000,
@@ -129,6 +130,7 @@ async function send(fetcher, path, init, signal) {
     cache: "no-store",
     signal,
     ...init,
+    headers: { ...init.headers, ...accountRevision.headers() },
   });
   const body = await response.json().catch(() => null);
   return { response, body };
