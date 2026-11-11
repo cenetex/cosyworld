@@ -1417,8 +1417,10 @@ function showFailedSilence() {
       quiet.length || !openingWordsDue() ? quiet : [currentActor(world)],
     ),
   };
-  if (!exchange.active) exchange.begin();
-  loadTurnLines();
+  // The "…" is a caption on the table, not an exchange: it never holds the
+  // hand or the next play, so no tap is owed to read it.
+  exchange.cancel();
+  renderScene();
 }
 // The row keeps a held item after a play, so its slots can change under a
 // finger. A second tap on a slot redrawn by that play must not become a new

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import { holdItem } from "./card-browser-helpers.mjs";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
@@ -11,15 +12,14 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 
 let fixture = enableMotives(createWorld({ opening: true }));
-// The opening starts lit: douse it to open the mirror, then relight it at
-// the pond (#1653).
-for (const kind of ["snuff", "move", "light"])
-  fixture = play(
-    fixture,
-    legalActions(fixture).find(
-      (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
-    ),
-  ).state;
+// The opening starts lit: put the lamp out to open the mirror, then hold it
+// again at the pond (#1653, #2580).
+fixture = holdItem(fixture, null);
+fixture = play(
+  fixture,
+  legalActions(fixture).find((a) => a.kind === "move" && a.target === "pond"),
+).state;
+fixture = holdItem(fixture, "lamp");
 const save = encodeSave(fixture),
   key = "cosyworld.reflected-shore.v1.dialogue-recovery";
 const server = createServer();
@@ -272,6 +272,7 @@ try {
     assert.deepEqual((await state()).actors, committed.actors);
     assert.deepEqual((await state()).items, committed.items);
     await noFailureUi();
+    await ready();
     // Slow words keep the Thinking card but not the hand: after a short
     // grace the next choice is offered, and the late line still types in.
     mode = "slow";
@@ -299,15 +300,23 @@ try {
     await page.locator('#hand [data-card="pond"]').click();
     await page.locator("#card-actions .card-primary").click();
     assert.equal((await state()).turn, slow.turn, "the next play waits");
-    const lineFor = (turn) =>
-      page.waitForFunction(
-        (turn) =>
-          document
-            .querySelector("#dialogue-text")
-            .textContent.includes(`speaks on turn ${turn}`),
-        turn,
-        { timeout: 12_000 },
-      );
+    // A line waits for a tap before the next one, so read on while waiting.
+    const lineFor = async (turn) => {
+      const shown = () =>
+        page.evaluate(
+          (turn) =>
+            document
+              .querySelector("#dialogue-text")
+              .textContent.includes(`speaks on turn ${turn}`),
+          turn,
+        );
+      for (let i = 0; i < 300 && !(await shown()); i++) {
+        if (turn > slow.turn && (await page.locator("#dialogue-advance").isVisible()))
+          await page.locator("#dialogue-advance").click();
+        await page.waitForTimeout(40);
+      }
+      assert(await shown(), `the line for turn ${turn} came`);
+    };
     await lineFor(slow.turn);
     assert(!abandoned.includes(slow.revision), "the late line is not dropped");
     await noFailureUi();

@@ -1,4 +1,14 @@
 import { packDefinitions } from "../card-game/pack-registry.mjs";
+import { holdChoice } from "../card-game/world.mjs";
+
+// Light and Snuff are not rules plays since #2580: the lamp burns while the
+// avatar holds it, and holding nothing puts it out (the opening's first play,
+// which opens the Black pond). Returns the world after that quiet choice.
+export function holdItem(world, item = null, actor = "vale") {
+  const next = structuredClone(world);
+  holdChoice(next, actor, { item, revision: next.revision });
+  return next;
+}
 
 // The full suite runs each width of a long journey on its own runner
 // (scripts/browser-shards.json). Without COSYWORLD_SMOKE_WIDTHS, run them all.
