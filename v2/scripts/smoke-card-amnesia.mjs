@@ -80,7 +80,9 @@ try {
       const spoken = JSON.stringify(
         requests.map(({ events, entities }) => [events, entities.map((e) => e.facts)]),
       );
-      assert(!/attic|mirror|reflected/i.test(spoken), `Vale named the covered place: ${spoken}`);
+      // The opening line says "the tall mirror shows only a place" (#2656);
+      // only the covered place's own name is forbidden.
+      assert(!/attic/i.test(spoken), `Vale named the covered place: ${spoken}`);
       await uncover("attic");
       if (voiceFails)
         await page.waitForFunction(
@@ -92,9 +94,13 @@ try {
       assert(await mentions(names.world));
       // The raw waking frame (#1600); the covered lamp never reaches it.
       assert(requests.length >= 1);
-      assert.equal(requests[0].waking, true);
-      assert.equal(requests[0].covered, undefined);
-      const sent = JSON.stringify(requests[0]);
+      const opening = requests.at(-1);
+      assert.equal(opening.waking, true);
+      // The first line, spoken before the attic is uncovered, lists it only by id
+      // (#2656); its name is checked above.
+      // `covered` and `concealed` list ids so the server can hide them; the
+      // request must not carry the words (#2656).
+      const sent = JSON.stringify({ ...opening, covered: undefined, concealed: undefined });
       assert(!/lamp/i.test(sent), `The opening request named the lamp: ${sent}`);
       assert(!(await mentions(names.lamp)));
       await revealCard(page, "lamp");

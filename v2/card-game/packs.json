@@ -1582,24 +1582,6 @@
                   "finish": "greek-burial-performed"
                 }
               }
-            },
-            {
-              "want": {
-                "kind": "place",
-                "target": "greek-polynices-hollow"
-              },
-              "when": [
-                {
-                  "kind": "holding",
-                  "item": "greek-creon-writ",
-                  "actor": "greek-guard"
-                },
-                {
-                  "kind": "flag",
-                  "key": "greek-burial-performed",
-                  "value": false
-                }
-              ]
             }
           ],
           "tastes": {

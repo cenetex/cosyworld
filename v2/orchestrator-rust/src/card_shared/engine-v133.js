@@ -4547,7 +4547,8 @@
   var TABLE = {
     name: nameOf,
     kind: kindOf2,
-    drink: (id) => consumable(id) === "drink"
+    drink: (id) => consumable(id) === "drink",
+    home: (id) => things[id]?.home
   };
   function wantWords(want, known = () => true, { approach = null, cards = TABLE } = {}) {
     if (!want) return "nothing in particular";
@@ -4562,7 +4563,12 @@
     if (step?.verb === "bring" && want.kind === "person")
       return `bring ${what} to ${name(step.at ?? step.to)}`;
     if (step?.verb === "bring")
-      return step.to ? `bring ${what} to ${name(step.to)} at ${name(step.at)}` : `bring ${what} home to ${name(step.at)}`;
+      return step.to ? `bring ${what} to ${name(step.to)} at ${name(step.at)}` : (
+        // "Home" only where the place really is the item's own home; the
+        // fixed vocabulary never calls another place home. A home quest (a
+        // story bring, want.mjs) is the traveler's own home door.
+        want.story || cards.home?.(want.target) === step.at ? `bring ${what} home to ${name(step.at)}` : `bring ${what} to ${name(step.at)}`
+      );
     if (step?.at) return `${verb} ${what} at ${name(step.at)}`;
     if (step?.verb === "rest")
       return approach && !cold ? `${approach} ${what} and rest there` : `rest at ${what}`;
