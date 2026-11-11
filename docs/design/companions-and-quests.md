@@ -118,7 +118,10 @@ Quoted as given. These bind this document.
     like 'bring the chalice to the fountain' because the chalice wants it or
     wahtever".
 
-Decisions 10 to 13 were made after the sections below were first written.
+14. On how an item's or place's want is made: "render them from data and let
+    them be drawn over time".
+
+Decisions 10 to 14 were made after the sections below were first written.
 Where a PROPOSED item contradicts them it is marked SUPERSEDED or rejected in place and
 kept for the record.
 
@@ -157,7 +160,12 @@ sometimes a step. What changes is who may hold one.
 Places and items hold a want and earn XP and levels exactly as avatars do
 (owner decision 13): one want at a time, XP when the want is met, level by the
 same thresholds. A box was already a quest holder (`boxWant` states what opens
-it); this makes that the general case. The derived-level proposal (a level
+it); this makes that the general case. Per decision 14, an item's or place's want is not authored prose. It is a
+structured want, rendered by the same single wording path as every other want
+(names screened by what the traveler has discovered, plus the fixed rule
+verbs), and items and places draw new wants over time as residents do rather
+than keeping one authored want. Descriptions stay for what the thing is. The
+derived-level proposal (a level
 counted from boxes opened) was rejected on 2026-11-11 and is dropped.
 
 The consequence the owner names: a quest an avatar holds can be an item's or a
@@ -165,7 +173,7 @@ place's want. "Bring the chalice to the fountain" is a quest because the
 chalice wants it. It is offered through the same closed box, Accept quest and
 Discard flow, and learned the same way: the item or place describes what it
 wants, or an avatar tells you. The mechanics this leaves open are open
-questions 16 to 20.
+questions 16 to 19.
 
 **One card flow, for every holder.**
 
@@ -524,9 +532,7 @@ Each has a recommendation. None is decided.
     it is, on the same rest beat. Or a simpler rule without a rest?
 18. **Does an item's level-up change anything visible** beyond its tier
     colour? Recommend not yet; colour only, as now.
-19. **Do items and places draw new wants over time as residents do, or keep
-    authored ones?** Recommend authored first, drawn later.
-20. **Rarity is levels.** An item's tier would now rise through play. Does
+19. **Rarity is levels.** An item's tier would now rise through play. Does
     rarity follow that rise (recommended, since rarity is levels), or stay at
     its authored level?
 
