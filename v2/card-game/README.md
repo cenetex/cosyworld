@@ -469,6 +469,9 @@ It shares its store with [hidden holdings](../../docs/design/hidden-holdings.md)
 Owner direction, 2026-11-10. The agreed design, with today's inventory and the
 migration slices, is [wants and arcs](../../docs/design/wants-and-arcs.md).
 Nothing in it is built; the section above describes the game as it ships.
+Companions who stay with you, one definition of a quest for avatars, places and
+items, and reusable items and live gates are drafted in
+[companions and quests](../../docs/design/companions-and-quests.md).
 
 ## Image-first presentation
 
