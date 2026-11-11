@@ -39,16 +39,19 @@ describe("locked boxes", () => {
       text: "Bring Courtyard Bread home to The Wine-Dark Harbor",
       cards: [],
     });
+    // A box lies where it is kept: the bread, in the courtyard.
+    s.actors.vale.place = "greek-courtyard";
     expect(lockedQuest(s, "greek-bread", () => true)).toEqual({
       text: "Bring Water Jar home to Theban Courtyard",
       cards: [],
     });
     expect(lockedQuest(s, "greek-creon-writ")).toBeNull();
+    s.actors.vale.place = "greek-harbor";
     expect(JSON.stringify(s)).toBe(before);
     s.usedUp = s.usedUp.filter((id) => id !== "greek-provisions");
     expect(lockedQuest(s, "greek-provisions")).toBeNull();
   });
-  it("uses a locked-box description when its requirement cannot be previewed", () => {
+  it("tells the plain reason when its requirement cannot be previewed", () => {
     const route = packDefinitions
       .find((pack) => pack.id === "greek-drama")
       .routes.find((entry) => entry.to === "greek-polynices-hollow");
@@ -59,7 +62,7 @@ describe("locked boxes", () => {
       world.packs["greek-drama"].scope = "full";
       world.actors.vale.place = "greek-battlefield";
       expect(lockedQuest(world, "greek-polynices-hollow")).toEqual({
-        text: "A locked box.",
+        text: "Speak to Polynices’ Shade to learn the way into the Hollow.",
         cards: [],
       });
     } finally {

@@ -395,6 +395,9 @@ import {
   pondRescueExit,
 } from "./world/geography.mjs";
 export { placeText, exits, sealedWays };
+// Boxes live in world/boxes.mjs (rules 133).
+import { creditOpened, validOpened } from "./world/boxes.mjs";
+export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
   baseExits,
@@ -933,6 +936,8 @@ export function holdChoice(s, actor, choice) {
   refuelCarried(s);
   settleHeldItems(s);
   settleLamp(s);
+  // Putting the lamp down or out opens the Black pond: a hold can open a box.
+  creditOpened(before, s, actor);
   if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
     s.locations.attic.anchored = true;
   settleCrossingUnlocks(s, sensesFor(s));
@@ -2982,6 +2987,8 @@ export function play(
     ]),
   ];
   const respondent = perform(next, exact, round, residents);
+  // A box this play opened pays one XP, once per avatar per box (rules 133).
+  creditOpened(s, next, actor);
   if (
     next.opening &&
     !next.locations.attic.anchored &&
@@ -3259,6 +3266,7 @@ export function validateWorld(s) {
     !validConversations(s) ||
     !validHeldItems(s) ||
     !validOpenedRoutes(s.openedRoutes) ||
+    !validOpened(s) ||
     !validHidden(s) ||
     !validDoors(s) ||
     (s.hidden && !Object.hasOwn(places, s.hidden.place))

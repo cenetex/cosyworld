@@ -2,6 +2,7 @@
 // Split out of world.mjs (#1390).
 import {
   entityActive,
+  entityShown,
   packExits,
   actorCanVisit,
   personalRouteOpen,
@@ -222,7 +223,10 @@ export function sealedWays(s, actor = currentActor(s)) {
       ...sealedRoutes.filter((r) => r.from === here),
       // A guard bars his way from both sides (rules 100).
       ...guardedFrom(here).map((to) => ({ from: here, to })),
-    ].filter((r) => entityActive(s, r.to) && entityActive(s, here));
+    ]
+      // The card beyond lies shut even while its own conditions fail (rules
+      // 133); `exits` still uses `entityActive`, so it cannot be entered.
+      .filter((r) => entityShown(s, r.to) && entityActive(s, here));
   if (!ways.length) return [];
   const open = exits(s, here, actor),
     seen = new Set();

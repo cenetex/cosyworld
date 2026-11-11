@@ -376,7 +376,11 @@ function rootOf(world, id) {
   }
   return holder;
 }
-export function entityActive(world, id) {
+// A lock view (boxes, rules 133) asks whether the card is in the world at
+// all, leaving out only its own conditions: `requires`, `appearsWhen` and its
+// section. What it lets through is never enterable; `entityActive` still
+// rules over every exit, play and resident.
+function entityLive(world, id, lockView) {
   if (world.items?.[id]) {
     let holder = rootOf(world, id);
     if (
@@ -389,9 +393,13 @@ export function entityActive(world, id) {
   }
   if (humanAvatar(id) && !humanPresent(world, id) && !residentAvatar(world, id))
     return false;
-  return entityEnabled(world, id);
+  return entityEnabled(world, id, false, lockView);
 }
-export function entityEnabled(world, id, saved = false) {
+export const entityActive = (world, id) => entityLive(world, id, false);
+// The card may lie shut on the table: it exists and is not retired, used up,
+// off or unmounted, but its own conditions may not hold yet.
+export const entityShown = (world, id) => entityLive(world, id, true);
+export function entityEnabled(world, id, saved = false, lockView = false) {
   if (localRoads.has(id) || retiredPlaces.has(id) || usedUp(world, id))
     return false;
   // A pack switched off sleeps where it stands (rules 98, pack-toggle.mjs).
@@ -399,21 +407,27 @@ export function entityEnabled(world, id, saved = false) {
     return false;
   const e = packEntity(id);
   if (!e) return true;
-  if (waitingAtHome(world, id) && !entityEnabled(world, e.home, saved))
+  if (
+    waitingAtHome(world, id) &&
+    !entityEnabled(world, e.home, saved, lockView)
+  )
     return false;
   const pack = packDefinition(e.packId),
     state = packState(world, e.packId);
   if (
     !state ||
-    !conditionsMet(
-      world,
-      e.packId,
-      saved
-        ? (e.requires || []).filter((c) => c.kind !== "connected_humans")
-        : e.requires,
-    ) ||
-    (!saved && !conditionsMet(world, e.packId, e.appearsWhen)) ||
-    !sectionAllows(world, pack, id, conditionsMet) ||
+    (!lockView &&
+      (!conditionsMet(
+        world,
+        e.packId,
+        saved
+          ? (e.requires || []).filter(
+              (c) => !["connected_humans", "humans_at"].includes(c.kind),
+            )
+          : e.requires,
+      ) ||
+        (!saved && !conditionsMet(world, e.packId, e.appearsWhen)) ||
+        !sectionAllows(world, pack, id, conditionsMet))) ||
     // Saved custody of an undrawn special stays as it was.
     (!saved && !specialsAllow(state, pack, id))
   )
@@ -422,7 +436,7 @@ export function entityEnabled(world, id, saved = false) {
   if (pack.recital?.actor === id)
     return (
       (roamingQuestActor(id) || !!recitalVisit(world, pack)) &&
-      entityEnabled(world, world.actors[id].place, saved)
+      entityEnabled(world, world.actors[id].place, saved, lockView)
     );
   return (
     pack.release.places.includes(id) ||
@@ -991,7 +1005,7 @@ export function validatePackStates(world) {
               world,
               pack.id,
               (pack.avatars[id]?.requires || []).filter(
-                (c) => c.kind !== "connected_humans",
+                (c) => !["connected_humans", "humans_at"].includes(c.kind),
               ),
             )) ||
           (world.opening &&

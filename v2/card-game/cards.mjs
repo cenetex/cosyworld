@@ -10,8 +10,6 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { dropCost } from "./want.mjs";
-import { lockedAt } from "./pack-items.mjs";
-import { shutLanes } from "./pack-transport.mjs";
 import {
   currentActor,
   places,
@@ -23,19 +21,22 @@ import {
   rootHolder,
   exits,
   covered,
-  sealedWays,
+  shutBoxesAt,
 } from "./world.mjs";
 
+// The boxes shut at the player's place: the one list the rules keep (rules
+// 133, world/boxes.mjs). The hand draws each face down and the context
+// button gives its reason.
+export const shutBoxes = (world) => {
+  const player = currentActor(world);
+  return shutBoxesAt(world, world.actors[player]?.place, player);
+};
+const shutBox = (world, id) => shutBoxes(world).find((box) => box.id === id);
 // An undiscovered resident can wait as an existing locked card, without
 // becoming an active actor or receiving plays before its requirements hold.
 export const sealedAvatar = (world, id) => {
-  const preview = packPeople[id]?.sealed;
-  return preview &&
-    world.actors[currentActor(world)]?.place === preview.at &&
-    entityActive(world, preview.at) &&
-    !entityActive(world, id)
-    ? preview
-    : null;
+  const box = shutBox(world, id);
+  return box?.kind === "resident" ? { at: box.at, reason: box.reason } : null;
 };
 
 export function availableCards(world) {
@@ -72,21 +73,11 @@ export function availableCards(world) {
     return [...cast, ...demanded.filter((id) => items.includes(id)), here];
   }
   const road = packPlaces[here]?.road;
-  // A shut way that names its sealed card shows that card (rules 95).
-  const sealed = sealedWays(world, player)
-    .map((r) => r.to)
+  // Every shut box lies in the hand face down (rules 133): a way, a made
+  // thing waiting for its maker, a resident, a port, a door.
+  const sealed = shutBoxes(world)
+    .map((box) => box.id)
     .filter((id) => !destinations.includes(id));
-  // A made thing waits locked at its home until its maker makes it again.
-  sealed.push(...lockedAt(world, here));
-  sealed.push(
-    ...Object.keys(packPeople).filter((id) => sealedAvatar(world, id)),
-  );
-  // A port its ship cannot sail to yet, and why (rules 102).
-  sealed.push(
-    ...shutLanes(world, here)
-      .map((lane) => lane.to)
-      .filter((id) => !destinations.includes(id)),
-  );
   return [
     ...cast.flatMap((id) => [id, ...after(id)]),
     ...(road && destinations.includes(road[0]) ? [road[0]] : []),
@@ -173,28 +164,7 @@ export function asleepReason(world, selected) {
 }
 // Why a sealed card's way is shut, from its pack data, or null. A locked
 // made thing names who makes it from what (rules 102).
-export const sealedReason = (world, id) => {
-  const preview = sealedAvatar(world, id);
-  if (preview) return preview.reason;
-  const lock = things[id] && packThings[id]?.locked;
-  if (lock)
-    return lockedAt(world, packThings[id].home).includes(id)
-      ? `${nameOf(lock.by)} consumes ${listOf(lock.consumes.map((c) => theThing(c)))}`
-      : null;
-  const player = currentActor(world);
-  return (
-    sealedWays(world, player).find((r) => r.to === id)?.sealed.reason ??
-    shutLanes(world, world.actors[player]?.place).find((l) => l.to === id)
-      ?.reason ??
-    null
-  );
-};
-const theThing = (id) =>
-  /^(the|a|an) /iu.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
-const listOf = (names) =>
-  names.length > 1
-    ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
-    : names[0];
+export const sealedReason = (world, id) => shutBox(world, id)?.reason ?? null;
 
 // Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {

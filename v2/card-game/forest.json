@@ -12,6 +12,7 @@
     {
       "from": "attic",
       "to": "pond",
+      "sealed": { "reason": "Put the lamp out" },
       "requires": [
         { "kind": "item_present", "item": "lamp", "place": "attic" },
         { "kind": "not", "condition": { "kind": "light", "item": "lamp", "at": ["attic"], "uncovered": true } }
@@ -20,6 +21,7 @@
     {
       "from": "pond",
       "to": "attic",
+      "sealed": { "reason": "Light the lamp on the shore" },
       "requires": [{ "kind": "light", "item": "lamp", "at": ["pond"], "uncovered": true }]
     }
   ],
