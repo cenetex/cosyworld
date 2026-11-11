@@ -54,6 +54,7 @@ const load = (world, from, rules = current) =>
   });
 
 describe("a shared world saved on main loads on this branch", () => {
+  // Needs origin/main to compare against: a local run without it skips; CI fails.
   it.skipIf(!base && !process.env.CI)("repacks onto this content", () => {
     expect(base, "fetch origin/main").toBeTruthy();
     const from = versionOf(at("engine.rs"));

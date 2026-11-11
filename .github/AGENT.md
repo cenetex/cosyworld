@@ -88,6 +88,25 @@ each journey and checkpoint that moved; read the diff of
 legal, then rebuild. Keep recorded saves only as replay proofs: a released rule
 bundle or an old save that must still load.
 
+### Skips and recorded saves
+
+`npm run check:test-guards` (in `check:local`, the pre-push hook and the fast
+check's lint job) holds two ceilings that only go down:
+
+- **Skips.** `scripts/check-test-skips.mjs` counts skipped tests (JS `.skip`,
+  `.skipIf`, `.todo`, `xit`; Rust `#[ignore]`) against `scripts/test-skip-ceiling.txt`.
+  A skip needs a reason in a comment on its line or the line above. Above the
+  ceiling fails; below it, lower the number in the same PR. Raising it is an
+  owner decision made visibly in the PR diff.
+- **Recorded saves.** `scripts/check-recorded-saves.mjs` fails on a new saved
+  world file (world state with `actors`/`items`/`locations`, any `.json.gz`, or a
+  `*save*.json`) or a listed one that grows; list: `scripts/recorded-saves-allowlist.json`.
+  Remove an entry when its file goes. Build start states by play from `createWorld`,
+  a journey or a synthetic world.
+
+The unit job also prints, without failing, any test that passed only on a retry
+(`retry: 1` in `vitest.config.js`).
+
 ### Fast check
 
 The UI style guard follows CSS variables used by core surfaces across CSS
