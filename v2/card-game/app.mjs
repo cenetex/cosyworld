@@ -233,6 +233,7 @@ import {
   sealedReason,
   asleepReason,
   offerOf,
+  settledChoice,
 } from "./cards.mjs";
 import { isOfferId } from "./world/offers.mjs";
 // A person's want reaches the player through Talk context (want-talk.mjs).
@@ -1769,18 +1770,18 @@ function choose(id) {
     if (places[id] && !selected.includes(id))
       selected = selected.filter((cardId) => !places[cardId]);
     const lowering = selected.includes(id);
-    selectCards(
-      lowering
-        ? selected.filter((cardId) => cardId !== id)
-        : selected.length >= 2
-          ? selected.includes(holder)
-            ? selected.map((cardId) => (cardId === holder ? id : cardId))
-            : selectedHandItem(world, selected)
-              ? [selectedHandItem(world, selected), id]
-              : [id]
-          : [...selected, id],
-      { keepOpen: lowering },
-    );
+    const next = lowering
+      ? selected.filter((cardId) => cardId !== id)
+      : selected.length >= 2
+        ? selected.includes(holder)
+          ? selected.map((cardId) => (cardId === holder ? id : cardId))
+          : selectedHandItem(world, selected)
+            ? [selectedHandItem(world, selected), id]
+            : [id]
+        : [...selected, id];
+    selectCards(lowering ? next : settledChoice(world, next, id), {
+      keepOpen: lowering,
+    });
   }
   if (world.items[id]?.holder === actor) {
     const current = heldItem(world, actor);
