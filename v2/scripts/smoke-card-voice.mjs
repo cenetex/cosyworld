@@ -4,14 +4,14 @@ import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
   clearSelection,
-  revealCard,
+  revealOpening,
   selectCard,
   startNewGame,
 } from "./card-browser-helpers.mjs";
 // Vale wakes knowing only the cards his player has uncovered (#1575).
 const wake = async (page) => {
-  for (const id of ["vale", "lamp", "attic"]) await revealCard(page, id);
-  await clearSelection(page);
+  // The lamp stays chosen and lit: lowering it would put it out.
+  await revealOpening(page);
 };
 
 const type = process.env.CARD_BROWSER || "chromium";

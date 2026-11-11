@@ -60,7 +60,7 @@ try {
         return text.join("\n");
       });
     const mentions = async (word) => new RegExp(`\\b${word}\\b`, "i").test(await named());
-    const uncover = (id) => page.locator(`#hand [data-card="${id}"]`).click();
+    const uncover = (id) => revealCard(page, id);
     try {
       await page.goto(`http://127.0.0.1:${server.address().port}/?table=amnesia-${width}`);
       await page.waitForFunction(
@@ -75,7 +75,12 @@ try {
       await uncover("vale");
       assert(await mentions(names.vale));
       assert(!(await mentions(names.attic)));
-      assert.equal(requests.length, 0);
+      // Vale may speak once he knows himself (speech-knowledge.mjs words a
+      // covered place as "a place I haven't found yet"), but never name it.
+      const spoken = JSON.stringify(
+        requests.map(({ events, entities }) => [events, entities.map((e) => e.facts)]),
+      );
+      assert(!/attic|mirror|reflected/i.test(spoken), `Vale named the covered place: ${spoken}`);
       await uncover("attic");
       if (voiceFails)
         await page.waitForFunction(

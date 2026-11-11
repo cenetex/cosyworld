@@ -1,4 +1,23 @@
 import { packDefinitions } from "../card-game/pack-registry.mjs";
+import { holdChoice } from "../card-game/world.mjs";
+import { roomFuelFromTurns } from "../card-game/lamp-room-fuel.mjs";
+
+// The lamp's fuel counts rooms (#2580), so a fixture that sets turns of oil
+// sets both, in place.
+export function setLampFuel(world, turns, place) {
+  Object.assign(world.items.lamp, roomFuelFromTurns(turns, place), {
+    fuel: Math.ceil(turns / 4) * 4,
+  });
+}
+
+// Light and Snuff are not rules plays since #2580: the lamp burns while the
+// avatar holds it, and holding nothing puts it out (the opening's first play,
+// which opens the Black pond). Returns the world after that quiet choice.
+export function holdItem(world, item = null, actor = "vale") {
+  const next = structuredClone(world);
+  holdChoice(next, actor, { item, revision: next.revision });
+  return next;
+}
 
 // The full suite runs each width of a long journey on its own runner
 // (scripts/browser-shards.json). Without COSYWORLD_SMOKE_WIDTHS, run them all.
@@ -231,6 +250,8 @@ export function readyActionButton(page, kind) {
 // Stowing the lamp then darkens the mirror quietly, with no Light/Snuff play.
 export async function revealOpening(page) {
   await revealCard(page, "vale");
+  // Vale's own waking line starts with his reveal and holds the bar.
+  await settleHand(page);
   await revealCard(page, "lamp", { keepSelected: true });
   const reveal = page.locator(
     '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
@@ -384,4 +405,21 @@ export async function splitNameWords(page) {
     }
     return split;
   });
+}
+
+// Words that fail show a silent "…" beat, and the hand stays busy until a tap
+// reads each beat. Read them until the hand is ready.
+export async function settleHand(page) {
+  const hand = page.locator("#hand");
+  const advance = page.locator("#dialogue-advance");
+  for (let beats = 0; beats < 20; beats++) {
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#hand").dataset.cooling === "false" ||
+        document.querySelector("#dialogue-advance")?.offsetParent,
+    );
+    if ((await hand.getAttribute("data-cooling")) === "false") return;
+    await advance.click();
+  }
+  throw new Error("The hand stayed busy after twenty beats.");
 }

@@ -38,11 +38,15 @@ try {
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
     };
-    for (const fields of [
-      // The opening starts lit; dousing opens the mirror (#1653).
-      { kind: "snuff" },
-      { kind: "move", target: "pond" },
-    ]) {
+    // The opening starts lit; holding nothing puts the lamp out and opens the
+    // mirror (#1653, #2580).
+    seed = dispatchShared({
+      op: "hold",
+      world: seed,
+      ...membership,
+      choice: { item: null, revision: seed.revision },
+    }).world;
+    for (const fields of [{ kind: "move", target: "pond" }]) {
       const view = dispatchShared({ op: "view", world: seed, ...membership });
       const action = view.actions.find((a) =>
         Object.entries(fields).every(([key, value]) => a[key] === value),
