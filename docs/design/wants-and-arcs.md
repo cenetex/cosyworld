@@ -532,13 +532,22 @@ choose, where trust picks which want a resident has.
 
 | Rung | What the rules do today | Smallest rules change |
 | --- | --- | --- |
-| Gifts earn trust | One source: `trustGiver` in `world.mjs` adds 1 for a plain Give or accepted Ask of the wanted item; a pack `on: "give"` choice on it skips trust | Keep one source; staged unordered wants (slice 10) let it reach three |
-| Tell the desire | Talk reveals the want at the first Talk, any trust (`want-talk.mjs`, `talk-quest.mjs`) | `want.minTrust` |
-| Travel | Every read is "any trust above 0"; an invited resident accepts (`accompanyDecision`, `world.mjs`), and also accepts with no trust when the trip serves its want or the player carries the wanted item | Read `>= 2` |
-| Step in | A resident covers a trusted friend after the first blow (`wantPlan`, `world.mjs`) | Read `>= 3` |
-| Home opens | `trusted` is accepted only in `passWhen`, `appearsWhen`, crossings and lanes, not in routes, residents' `requires`, topics or choices | `trusted` in `route.travelerRequires`, so a home is a per-traveler locked box |
+| Gifts earn trust | Built (bump 133): two sources. `trustGiver` in `world.mjs` adds 1 for a plain Give or accepted Ask of the wanted item (a pack `on: "give"` choice on it skips trust); an authored meeting sets trust with the choice effect `{kind: "trust", level}` | Staged unordered wants (slice 10) let gifts reach three |
+| Tell the desire | Talk reveals the want at the first Talk, any trust (`want-talk.mjs`, `talk-quest.mjs`) | Built: pack `want.minTrust` (1 to 3); default tells at the first Talk |
+| Travel | Every read is "any trust above 0"; an invited resident accepts (`accompanyDecision`, `world.mjs`), and also accepts with no trust when the trip serves its want or the player carries the wanted item | Built: reads `>= 2`; the two earlier accepts (the trip serves its want, you hold the item) stay |
+| Step in | A resident covers a trusted friend after the first blow (`wantPlan`, `world.mjs`) | Built: reads `>= 3` |
+| Home opens | `trusted` is accepted only in `passWhen`, `appearsWhen`, crossings and lanes, not in routes, residents' `requires`, topics or choices | Built: `trusted` in `route.travelerRequires` (only there); a resident passes his own door |
 | Companion who stays | An invited resident walks home after the trip (`resident-home.mjs`) | A companion state that holds |
 | Hours | Sleep only (`world-life.json`) | `schedule` |
+
+Built in bump 133 (package 3): the "smallest change" cells marked Built above.
+Authors use `want.minTrust`, `trusted` in `route.travelerRequires`, and the
+choice effect `{"kind": "trust", "level": 1}` (on `meet` or `talk` choices
+only). Shared meals, gift favour and trade price still read trust `> 0`.
+Ships count only active riders, so a resident authored aboard before his
+`requires` hold does not hold the ship. Trust now has two sources, gifts and
+authored meetings, so a resident may start trusting you at the meeting
+(Patroclus aboard the Charybdis, #2620).
 
 ### The three ethos questions
 

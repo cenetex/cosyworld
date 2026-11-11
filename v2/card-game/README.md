@@ -374,7 +374,11 @@ first, and is absent while the stack holds one. Player-facing text says quest.
   walks in where the player is meets them on that turn, so Talk is offered
   at once, even after only Waits, and a first meeting speaks (rules 101,
   [design note](../../docs/design/rules-101-meet-on-arrival.md)).
-- **Trust** has one source: someone gave me the item my quest wanted.
+- **Trust** has two sources: someone gave me the item my quest wanted, and an
+  authored meeting (a pack `trust` effect). It is 0 to 3 and unlocks something
+  at each step: at one a resident may tell you its desire (`want.minTrust`), at
+  two it will travel with you, at three it steps in when you are threatened and
+  a home door behind `trusted` opens to you.
 - **Connect.** BoardyAI's starter quest is `{ "kind": "connect", "target":
 "humans" }` in `boardyai.json`. It is met by any Talk in his room while two
   connected humans are there with him. In Talk he says "I want to introduce

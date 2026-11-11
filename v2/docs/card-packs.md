@@ -253,7 +253,9 @@ Giving the item passes the passage to the new holder.
 
 Each resident can name its starter quest as `want`: `{"kind": "item" |
 "place" | "person", "target": id}`, with a target in the pack or the hub. The
-pack schema checks it. After the starter quest is met, the world rules draw the
+pack schema checks it. An optional `"minTrust": 1` to `3` on the want holds Talk
+back until the resident trusts the listener that much (default: told at the
+first Talk). After the starter quest is met, the world rules draw the
 resident's next quest from what it can reach, so a pack authors no quest
 chains. The mounted packs no longer carry `storyQuests` or `situations`; the
 schema still accepts them so older pack files load.
@@ -476,7 +478,10 @@ moves. `give_item` hands a pack item to the acting avatar. `retire_item`
 uses an item up (below); the actor must hold it, or the choice must require
 it `item_near` or `item_at` its own place. From rules 98 it uses only the
 actor's own item or one lying at the place, never one another person holds.
-`drop_item` brings a used-up item
+`{"kind":"trust","level":1}` (1 to 3), on an `on: "meet"` or `on: "talk"`
+choice whose subject is a resident, raises that resident's trust in the
+acting traveler to at least `level`; it never lowers it. A plain `on: "give"`
+choice on the wanted item skips the gift trust. `drop_item` brings a used-up item
 back at the choice's place. `hide_item` belongs only to a
 meeting choice. `{"kind":"upgrade","upgrade":"scarf"}`, on a choice with
 `for`, adds a one-way cosmetic upgrade to the acting traveler's `upgrades`
@@ -852,7 +857,12 @@ assets as a fresh local draft. Portable files keep their source document.
 A resident’s optional `passWhen` conditions grant passage through that resident’s
 guarded way for the current traveller. `{ "kind": "trusted", "actor": "resident-id",
 "min": 1 }` reads that resident’s trust in the traveller; active grievances take
-priority. This condition belongs to live, traveller-specific checks.
+priority. This condition belongs to live, traveller-specific checks: it is
+also accepted in a route's `travelerRequires` (never in `requires`, choices,
+topics or avatar `requires`), so a resident's home can open at trust 3. A
+resident passes a `trusted` door of his own. Trust tiers: 2 to travel with
+you, 3 to step in when you are threatened. Residents authored aboard a ship
+ride only while their own `requires` hold.
 
 
 ### Maker artwork descriptions

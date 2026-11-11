@@ -2851,7 +2851,7 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
         // The carriage door opens at the station (rules 87).
         w.game["actors"]["rue"]["place"] = json!("station");
         w.game["actors"]["moth"]["place"] = json!("station");
-        w.game["actors"]["moth"]["trust"]["rue"] = json!(if agrees { 1 } else { 0 });
+        w.game["actors"]["moth"]["trust"]["rue"] = json!(if agrees { 2 } else { 1 });
         w.game["items"]["routes"]["holder"] = json!("rue");
         full_store::seed(&c, &id, &w, "invited-carriage", now()).unwrap();
         for op in ["claim", "enter"] {

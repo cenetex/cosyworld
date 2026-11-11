@@ -228,7 +228,8 @@ export const packOf = (id) => packDefinition(entities[id]?.packId);
 export const resident = (id) => packPeople[id] || null;
 export const roamingQuestActor = (id, world = null) =>
   packPeople[id]?.roamingQuest === "latest-completion" &&
-  (!world || conditionsMet(world, packPeople[id].packId, packPeople[id].requires));
+  (!world ||
+    conditionsMet(world, packPeople[id].packId, packPeople[id].requires));
 // A resident who keeps to its scene leaves it once its pack's `stayUntil`
 // conditions hold (the Swede, once the Willows kit is back at camp).
 export const freed = (world, id) =>
@@ -841,6 +842,15 @@ export function applyPackChoice(
       traveler.upgrades = [
         ...new Set([...(traveler.upgrades || []), e.upgrade]),
       ].sort();
+    }
+    // A meeting raises the subject's trust in the traveler, never lowers it.
+    if (e.kind === "trust") {
+      const trust = world.actors[choice.subject]?.trust;
+      if (trust)
+        trust[action.actor] = Math.max(
+          trust[action.actor] || 0,
+          Math.min(3, e.level),
+        );
     }
     if (e.kind === "choose") state.choices[e.key] = e.value;
     if (e.kind === "set_flag") state.flags[e.key] = e.value;

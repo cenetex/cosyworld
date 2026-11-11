@@ -25,14 +25,23 @@ const shipAt = (place) =>
   Object.entries(transports).find(([, t]) => t.place === place) || null;
 export const transportPlace = (place) => Boolean(shipAt(place));
 
-// Every rider shares the ship’s voyage.
+// Every active rider shares the ship’s voyage. An actor aboard whose
+// conditions do not yet hold (a resident authored aboard before his story
+// reaches him) or a human who left the table is not a rider: he does not
+// hold the ship, call it, or sail it.
 export const passengers = (s, id) =>
   Object.entries(s.actors)
-    .filter(([, a]) => a.place === transports[id].place)
+    .filter(
+      ([actor, a]) =>
+        a.place === transports[id].place && entityActive(s, actor),
+    )
     .map(([, a]) => a);
 const passengerIds = (s, id) =>
   Object.entries(s.actors)
-    .filter(([, a]) => a.place === transports[id].place)
+    .filter(
+      ([actor, a]) =>
+        a.place === transports[id].place && entityActive(s, actor),
+    )
     .map(([actor]) => actor)
     .sort();
 
@@ -646,7 +655,10 @@ export function validTransports(s) {
     if (state.phase === "docked")
       return state.destination === null && !state.riders.length;
     if (state.phase === "arrived")
-      return state.destination === null && aboard > 0;
+      // A switched-off pack's ship keeps its sleeping crew (pack-toggle.mjs).
+      return (
+        state.destination === null && (aboard > 0 || state.riders.length > 0)
+      );
     return (
       !state.riders.length &&
       lanesFrom(t, state.dock).includes(state.destination) &&

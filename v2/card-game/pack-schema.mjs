@@ -759,7 +759,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     // (BoardyAI) connecting humans.
     check(
       a.want === undefined ||
-        (keysOk(a.want, ["kind", "target", "step"]) &&
+        (keysOk(a.want, ["kind", "target", "step", "minTrust"]) &&
+          (a.want.minTrust === undefined || intOk(a.want.minTrust, 1, 3)) &&
           // An eat quest (rules 102): eat or drink one, somewhere, with someone.
           (a.want.step === undefined ||
             (a.want.kind === "place" &&
@@ -1144,7 +1145,9 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
             "gate_open",
             "home_door",
           ].includes(c?.kind);
-  const requirements = (cs, what, persistent = true) => {
+  // `perTraveler` conditions are read with the traveler, so a door may ask
+  // for the trust of its keeper (route.travelerRequires only).
+  const requirements = (cs, what, persistent = true, perTraveler = false) => {
     if (cs === undefined) return;
     check(
       Array.isArray(cs) && cs.length <= 12,
@@ -1154,7 +1157,9 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       cs.forEach((c) => {
         condition(c, what);
         check(
-          !persistent || savedCondition(c),
+          !persistent ||
+            savedCondition(c) ||
+            (perTraveler && c?.kind === "trusted"),
           `${what} must use saved state or human presence conditions`,
         );
       });
@@ -1320,7 +1325,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       `route ${r.from}>${r.to} sealed card needs a gate, a reason and a quest`,
     );
     requirements(r.requires, "route requires");
-    requirements(r.travelerRequires, "route traveller requires");
+    requirements(r.travelerRequires, "route traveller requires", true, true);
     check(
       routes.some((q) => q.from === r.to && q.to === r.from) ||
         places[r.to]?.exits?.includes(r.from),
@@ -1414,6 +1419,14 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       if (e.kind === "hide_item")
         valid =
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on === "meet";
+      // A meeting sets the subject's trust in the traveler: the first
+      // bond is made when two people meet, not only by gifts.
+      if (e.kind === "trust")
+        valid =
+          keysOk(e, ["kind", "level"]) &&
+          intOk(e.level, 1, 3) &&
+          (c.on === "meet" || c.on === "talk") &&
+          Boolean(avatars[c.subject]);
       if (e.kind === "give_item")
         valid =
           keysOk(e, ["kind", "item"]) && owns(items, e.item) && c.on !== "meet";

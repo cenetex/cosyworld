@@ -45,7 +45,19 @@ function met(world, id, want) {
 // Whether Talk says this want of theirs: one still to meet, of a thing,
 // place or person in the world. The rules give a quest for the same want
 // (talk-quest.mjs), so the caption and the quest always agree.
-export function revealed(world, id, want) {
+//
+// A pack resident whose authored want declares `minTrust` (1 to 3) tells it
+// only to a listener it trusts that much. Without a listener, or without
+// `minTrust`, nothing is withheld. The field lives in pack data: the saved
+// want is matched to the authored one by kind and target.
+function trustedEnough(world, id, want, listener) {
+  const authored = packPeople[id]?.want;
+  if (!listener || !authored?.minTrust) return true;
+  if (authored.kind !== want.kind || authored.target !== want.target)
+    return true;
+  return (world.actors[id].trust?.[listener] || 0) >= authored.minTrust;
+}
+export function revealed(world, id, want, listener) {
   return Boolean(
     want &&
       world.actors?.[id] &&
@@ -54,11 +66,12 @@ export function revealed(world, id, want) {
         Boolean(packThings[want.target]?.locked)) &&
       !(want.kind === "item" && !world.items[want.target]) &&
       !(want.kind === "person" && !world.actors[want.target]) &&
-      !met(world, id, want),
+      !met(world, id, want) &&
+      trustedEnough(world, id, want, listener),
   );
 }
 
-export function wantFact(world, id, nameOf) {
+export function wantFact(world, id, nameOf, listener) {
   const want = wantOf(world, id);
   if (want?.kind === "connect" && world.actors?.[id])
     return "I want to introduce you to someone.";
@@ -71,7 +84,7 @@ export function wantFact(world, id, nameOf) {
     );
     return `I want ${article(nameOf(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
   }
-  if (!revealed(world, id, want)) return null;
+  if (!revealed(world, id, want, listener)) return null;
   const name = nameOf(want.target);
   if (want.step?.verb === "lay")
     return `I want ${want.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.`;

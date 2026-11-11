@@ -399,7 +399,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       // the player and for whoever is in this Talk. Narration only.
       const want =
         kind === "avatar" && wantHeard(world, played, id, currentActor(world))
-          ? wantFact(world, id, nameOf)
+          ? wantFact(world, id, nameOf, currentActor(world))
           : null;
       // Waking from a long rest, a new level quest arrives in the dream.
       const quest = questsOf(world, id).find((w) => w.quest && w.since === world.turn);
