@@ -80,6 +80,9 @@ describe("resident levels earned at a fixed home", () => {
     expect(wantAPI(s).home(resident)).toBe(home);
     s = decodeSave(encodeSave(s));
     expect(levelOf(s, resident)).toBe(1);
+    // Home is a move like any other (rules 133): it waits out its dwell.
+    expect(plan(s, resident).action.kind).toBe("wait");
+    while (s.turn < s.actors[resident].dwellUntil - 1) act();
     expect(plan(s, resident).action).toMatchObject({
       kind: "move",
       target: home,
@@ -122,7 +125,7 @@ describe("resident levels earned at a fixed home", () => {
       level: 1,
     });
     delete packPlaces[home].requires;
-    s = advance(s);
+    while (s.turn < (s.actors[resident].dwellUntil ?? 0)) s = advance(s);
     expect(s.actors[resident]).toMatchObject({ place: home, xp: 1, level: 2 });
   });
 

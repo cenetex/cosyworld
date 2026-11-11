@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { expect, it } from "vitest";
 import { worldLife } from "../v2/card-game/resident-home.mjs";
 import { journeyWorlds } from "./helpers/journey.mjs";

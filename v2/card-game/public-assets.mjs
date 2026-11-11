@@ -313,6 +313,7 @@ const files = [
   "world/lock-goals.mjs",
   "world/want-words.mjs",
   "world/company.mjs",
+  "world/dwell.mjs",
   "world/geography.mjs",
   "world/home.mjs",
   "world/offers.mjs",

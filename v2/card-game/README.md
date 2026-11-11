@@ -266,7 +266,7 @@ the world rules in `want.mjs`, not from authored quest chains.
   has not visited, known people it has not talked with), after a day
   (`CONTENT_TURNS`) or on waking. Nothing stays beneath a set-aside want: a
   resident that sets its want aside (three refusals, or a long spell with no
-  way forward, `STALL_TURNS`) draws a new one and remembers the old target in
+  way forward, `STALL_TURNS`, restarted by each arrival) draws a new one and remembers the old target in
   `gaveUp`. A met want with nothing to follow leaves the resident content
   (`actor.content`, `want: null`); it waits and still answers plays.
 - **Met.** An item quest is met when the avatar is the item's root holder, a
@@ -333,7 +333,11 @@ the world rules in `want.mjs`, not from authored quest chains.
   takes one step toward a want in range. It sleeps on its schedule, scattered
   by the seed (Pip and Nix are nocturnal), and wakes for a Talk, a threat or
   a ring; Ask, Trade and Invite wait until then. See the
-  [design note](../../docs/design/rules-100-world-life.md). A resident who
+  [design note](../../docs/design/rules-100-world-life.md). **Dwell**
+  (rules 133, `world/dwell.mjs`): after a resident arrives it stays at least
+  `DWELL_TURNS` (24, half a day) before its next move of its own, so it moves
+  about twice a day; this holds wants, roaming, drifting home, dawn and dusk
+  steps and the walk to bed. A resident sleeps only at home. A resident who
   walks in where the player is meets them on that turn, so Talk is offered
   at once, even after only Waits, and a first meeting speaks (rules 101,
   [design note](../../docs/design/rules-101-meet-on-arrival.md)).

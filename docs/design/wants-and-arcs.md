@@ -922,3 +922,9 @@ for.
    set on arrival and for a guard who leaves on his own schedule.
 8. Client behaviour of the quest fan, Focus and Claim was read from the
    README, not from `quest-card.mjs` or `app.mjs`.
+
+Owner (2026-11-11): "residents stay in the same location for longer before
+moving autonomously ... even just they can travel 2 x a day", and a long way
+home "just takes a while like odysseus". Rules 133 adds a dwell of half a
+day after each arrival, with no exemption for going home or to bed; see
+[world life](rules-100-world-life.md#dwell-rules-133).

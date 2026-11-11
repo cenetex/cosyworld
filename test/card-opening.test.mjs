@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
 import { settleLamp } from "../v2/card-game/lamp-state.mjs";

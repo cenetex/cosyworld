@@ -155,6 +155,7 @@ describe("one want per avatar", () => {
     // The pond is no sanctuary, so that rest leaves its defeats.
     s.actors.keeper.want = newWant("place", "pond", s.turn);
     delete s.actors.keeper.metTurn;
+    delete s.actors.keeper.dwellUntil; // its stay at the station is over
     s.defeats = { keeper: 2 };
     s = play(s, act(s, "wait")).state;
     expect(s.actors.keeper.place).toBe("pond");
@@ -280,6 +281,13 @@ describe("one want per avatar", () => {
     s.actors.moth.want = newWant("item", "bell", 0);
     s.turn = STALL_TURNS + 1;
     s.revision = s.turn;
+    // Asleep it makes no progress: a resident arriving somewhere would
+    // restart the clock (rules 133).
+    s.actors.moth.sleeping = {
+      since: s.turn - 1,
+      place: s.actors.moth.place,
+      until: s.turn + 10,
+    };
     const next = play(s, act(s, "wait")).state;
     expect(next.actors.moth.want?.target).not.toBe("bell");
   });
