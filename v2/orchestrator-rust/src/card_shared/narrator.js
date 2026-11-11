@@ -8720,9 +8720,9 @@
           {
             id: "greek-meet-patroclus",
             subject: "greek-patroclus",
-            at: "greek-ship",
+            at: "greek-piraeus",
             label: "Meet Patroclus",
-            text: "Patroclus looks up from the mast and makes room beside Vale at the rail.",
+            text: "Patroclus steps down onto the quay and makes room beside Vale.",
             requires: [
               {
                 kind: "flag",
@@ -8741,7 +8741,7 @@
                 value: true
               }
             ],
-            textTemplate: "Patroclus looks up from the mast and makes room beside {actor} at the rail.",
+            textTemplate: "Patroclus steps down onto the quay and makes room beside {actor}.",
             on: "meet"
           }
         ],

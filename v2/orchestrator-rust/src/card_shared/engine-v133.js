@@ -1241,17 +1241,21 @@
         Object.assign(state, {
           dock: state.destination,
           destination: null,
-          riders: aboard,
-          phase: aboard.length ? "arrived" : "docked",
+          phase: "arrived",
           since: s.turn
         });
-        if (!aboard.length && state.recall) settleEmpty(state, s.turn);
+        const arrived = passengerIds(s, id);
+        Object.assign(state, {
+          riders: arrived,
+          phase: arrived.length ? "arrived" : "docked"
+        });
+        if (!arrived.length && state.recall) settleEmpty(state, s.turn);
         events.push({
           id,
           kind: "arrive",
           from,
           dock: state.dock,
-          riders: aboard
+          riders: arrived
         });
       } else if (state.phase === "course") {
         if (!aboard.length) settleEmpty(state, s.turn);
@@ -2226,6 +2230,9 @@
     if (s.actors[actor]?.want) giveUp(s, actor, api);
   }
   function reviseStalledWants(s, actors2, api) {
+    for (const [id, a] of Object.entries(s.actors))
+      if (a.want && !api.player(id) && !entityActive(s, id))
+        a.want.since = s.turn;
     for (const id of actors2) {
       const want = wantOf(s, id);
       if (want && !api.player(id) && (travels(id, s) || api.wanders?.(id) || want.refusals > 0) && s.turn - want.since >= STALL_TURNS)

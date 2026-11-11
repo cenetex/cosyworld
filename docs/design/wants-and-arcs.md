@@ -774,11 +774,15 @@ burial". He is a sealed card of the Charybdis. His `appearsWhen` reads the ship
 at Piraeus (`ship_at`) and the provisions on deck (`item_at`), each or the flag
 `greek-patroclus-met`; the meeting choice sets that flag, so the unlock latches
 and he stays when the provisions go or the ship sails. Built in pack data only.
-Findings: the meeting fires two plays after he appears, so a traveler who steps
-ashore at once misses it (re-boarding meets him); he is not a rider of the
-voyage that brought him, so he is not put ashore at Piraeus and rides on with
-the ship; and his authored want is already old when he appears, so the want
-clock sets it aside (a resident that appears late draws a new want).
+Two small generic rules changes in 133 make this work. A resident whose card
+opens on a ship's arrival counts as a rider of that arrival, so he steps ashore
+like the others (`pack-transport.mjs` `sailTransports`). And a resident's want
+clock starts when he first becomes active: an absent or shut resident's want is
+kept fresh, so it is not set aside the moment he appears (`want.mjs`
+`reviseStalledWants`). The meeting is `greek-meet-patroclus` at Piraeus Quays: a
+meeting is applied inside a play that is not a Wait, before the world round,
+and the ship docks and he steps ashore in the round, so it fires on the
+traveler's next play that is not a Wait (a Talk, a Take, a Give).
 
 Not tested: at trust 0 an invitation is accepted while the player carries the
 bread (the want is served), so the decline case needs a player without bread;
