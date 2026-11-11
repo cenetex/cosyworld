@@ -1,27 +1,83 @@
 name: Chromium system dependencies
 description: >-
-  Install the fonts and libraries Playwright's Chromium needs, retrying when
-  the Ubuntu archive is briefly unreachable. Run after checkout and npm ci.
+  Install the fonts Playwright's Chromium needs (the runner image already has
+  its libraries). The downloaded .deb files are cached, so a warm run installs
+  them with dpkg and never reaches the Ubuntu archive; a cold or bad cache uses
+  the retried apt install and saves the files. Run after checkout and npm ci.
 runs:
   using: composite
   steps:
-    - shell: bash
+    # `playwright install-deps chromium` installs nine font packages (about
+    # 22 MB: fonts-freefont-ttf, fonts-ipafont-gothic, fonts-tlwg-loma-otf,
+    # fonts-unifont, fonts-wqy-zenhei, xfonts-*). The layout smokes depend on
+    # their text metrics, so they stay installed. They are cached because the
+    # Ubuntu archive is sometimes slow (60 kB/s, 10 minutes) or unreachable.
+    # The package set follows the Playwright version; bump the trailing v1 to
+    # discard a bad cache.
+    - name: Name the Ubuntu release
+      id: os
+      shell: bash
+      run: echo "release=$(. /etc/os-release && echo "$ID-$VERSION_ID")" >> "$GITHUB_OUTPUT"
+    - name: Restore Chromium font packages
+      id: debs
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/chromium-deps-debs
+        key: chromium-deps-${{ runner.os }}-${{ runner.arch }}-${{ steps.os.outputs.release }}-${{ hashFiles('node_modules/playwright-core/package.json') }}-v1
+    - name: Install Chromium system dependencies
+      shell: bash
+      env:
+        CACHE_HIT: ${{ steps.debs.outputs.cache-hit }}
       run: |
+        DEBS="$HOME/.cache/chromium-deps-debs"
+
+        if [ "$CACHE_HIT" = "true" ] && ls "$DEBS"/*.deb >/dev/null 2>&1; then
+          # Warm: no apt-get update, no download. Any failure falls through.
+          if sudo dpkg -i "$DEBS"/*.deb; then
+            ok=1
+            for deb in "$DEBS"/*.deb; do
+              dpkg -s "$(dpkg-deb -f "$deb" Package)" >/dev/null 2>&1 || ok=0
+            done
+            if [ "$ok" = 1 ]; then
+              echo "Installed Chromium fonts from the cache; no mirror fetch."
+              exit 0
+            fi
+          fi
+          echo "::warning::Cached Chromium font packages did not install; using the network"
+        fi
+
+        # Cold, stale or unusable cache: the retried network install.
         # The Azure mirror delivered browser fonts at 18-63 kB/s in CI.
         if [ -f /etc/apt/apt-mirrors.txt ]; then
           sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
         fi
-        # Bound each download wait and let apt retry a failed fetch itself.
+        # Bound each download wait, let apt retry a failed fetch itself, and
+        # keep the downloaded .deb files so they can be cached.
         sudo tee /etc/apt/apt.conf.d/99cosyworld-ci >/dev/null <<'CONF'
         Acquire::Retries "3";
         Acquire::http::Timeout "20";
         Acquire::https::Timeout "20";
+        APT::Keep-Downloaded-Packages "true";
+        Binary::apt::APT::Keep-Downloaded-Packages "true";
         CONF
         # install-deps runs apt-get update itself, so each attempt refreshes
         # the package lists. A DNS or mirror outage fails the whole attempt;
         # back off and try again before failing the job.
         for attempt in 1 2 3 4; do
           if npx playwright install-deps chromium; then
+            # Keep a user-owned copy of what this run downloaded (the apt
+            # archive is root-owned). Never fail the job over the copy.
+            rm -rf "$DEBS"
+            mkdir -p "$DEBS"
+            # A fresh runner's archive holds only what install-deps fetched
+            # (apt gives the files the server's timestamps, so no -newer).
+            sudo find /var/cache/apt/archives -maxdepth 1 -name '*.deb' \
+              -exec cp {} "$DEBS"/ \; || true
+            sudo chown -R "$(id -u):$(id -g)" "$DEBS" || true
+            echo "Cached $(ls "$DEBS" | wc -l) packages, $(du -sh "$DEBS" | cut -f1)"
+            ls "$DEBS"
+            # Nothing to cache: leave no path, so no empty cache is saved.
+            ls "$DEBS"/*.deb >/dev/null 2>&1 || rm -rf "$DEBS"
             exit 0
           fi
           echo "::warning::Chromium dependency install failed (attempt $attempt of 4)"
