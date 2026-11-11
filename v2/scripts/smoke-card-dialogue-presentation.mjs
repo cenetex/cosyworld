@@ -260,7 +260,7 @@ async function shared(width) {
   const t = await open(width, "?world=present", (page) =>
     Promise.all([
       page.route("**/auth/account", (r) =>
-        r.fulfill({ json: { authenticated: true } }),
+        r.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
       ),
       page.route(/shared\/worlds\/present(?:\/command)?$/, (route) => {
         const body = route.request().postDataJSON();

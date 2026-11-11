@@ -20,7 +20,7 @@ try {
     page.on("pageerror", (e) => errors.push(e.message));
     let calls = 0;
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true, display_name: "Maker" } }),
+      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0, display_name: "Maker" } }),
     );
     let png, bytes;
     let imageCalls = 0;

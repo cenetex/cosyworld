@@ -84,7 +84,7 @@ try {
     const view = () => ({ ...dispatchShared({ op: "view", world, actor: "vale", claimed: ["vale"], present: ["vale"] }),
       id: "speech-queue", version, claimed: [1, 0, 0, 0, 0, 0, 0, 0],
       present: [1, 0, 0, 0, 0, 0, 0, 0], now: Date.now(), queue: [], history });
-    await page.route("**/auth/account", (route) => route.fulfill({ json: { authenticated: true } }));
+    await page.route("**/auth/account", (route) => route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }));
     await page.route(/\/card-game\/shared\/worlds\/speech-queue(?:\/command)?$/, (route) => route.fulfill({ json: view() }));
     await seed(page, "cosyworld.reflected-shore.v1.shared.speech-queue.vale", world);
     const url = `${origin}/?world=speech-queue`;
@@ -129,7 +129,7 @@ try {
     world.actors.moth.place = "station";
     history[1].opening = true;
     history[1].actor = "vale";
-    await intro.route("**/auth/account", (route) => route.fulfill({ json: { authenticated: true } }));
+    await intro.route("**/auth/account", (route) => route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }));
     await intro.route(/\/card-game\/shared\/worlds\/speech-queue(?:\/command)?$/, (route) => route.fulfill({ json: view() }));
     await seed(intro, "cosyworld.reflected-shore.v1.shared.speech-queue.vale", world);
     await intro.addInitScript(() => {

@@ -58,7 +58,7 @@ try {
     // An occupied seat lets the menu borrow the beat without changing the
     // chosen hand or leaving this local table.
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true } }),
+      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
     );
     await page.route(/\/card-game\/shared\/worlds$/, (route) =>
       route.fulfill({
