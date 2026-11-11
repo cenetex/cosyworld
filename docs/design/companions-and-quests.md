@@ -119,8 +119,9 @@ Two points where the owner's words are read, and the owner may correct them:
   all. See the open question on the Shade and the Gate guard.
 - Decision 8 says "Accept quest" is one label everywhere. Wants and arcs
   names the box and home button "Take quest" and the level-up button "Take
-  level up quest". This page uses "Accept quest" for all three and the
-  level-up wording is left for the owner (open question 10).
+  level up quest". The owner settled on 2026-11-11 that the level-up offer
+  is "Accept quest" too, told apart by its caption in the bar ("Accept quest:
+  Sleep at home"; PR #2651). This page uses "Accept quest" for all offers.
 
 ## One definition of a quest
 
@@ -243,7 +244,10 @@ Nothing else ends it: not roaming, a drawn want, docking, dawn or a pack
 crossing. Whether a free "part ways" play also exists is open question 1.
 
 **No companion class.** Anyone at trust 2 can be asked; the first companion,
-Patroclus, simply arrives at trust 3.
+Patroclus, simply arrives at trust 3. He unlocks as a locked card on the
+Charybdis when it is docked at Piraeus with the provisions aboard and
+Polynices buried, and the authored meeting at that unlock sets trust 3
+(PR #2647).
 
 ### Who can accompany
 
@@ -394,7 +398,7 @@ examples:
   become live: the beanie held, the thermos standing on the plate, the
   figurine held with RATi trusting you. The Booth shutting again is a trade
   with the ethos line that RatiRadio's return restores a relationship. See
-  open question 14.
+  open question 13.
 
 Opening a box still pays one XP once per avatar per box, so a gate that
 shuts again cannot be farmed.
@@ -406,8 +410,8 @@ says "this item is switched on". PROPOSED: `actor_present {actor, place}` and
 `engine` label, batched with the next mint.
 
 **How companions and live gates meet.** A gate can be held open by who stands
-there. Patroclus lives at the camp, so he opens its gate while he stands at
-it; the Booth opens only while RATi sits at his desk awake. A companion
+there. A resident whose place a gate guards can open it by standing there (for
+example, a guard post held open by the person who keeps it); the Booth opens only while RATi sits at his desk awake. A companion
 standing in the room keeps a gate live while the traveler goes through
 another. Without `actor_present` this works only for a resident who holds an
 item the gate reads.
@@ -416,7 +420,7 @@ item the gate reads.
 at Polynices' Hollow, then goes home (cloth to Eleusis, oil to Colonus, shovel
 to the gate), so reaching Ajax's grave means collecting it again. The Travel
 Provisions are made from bread, figs and a wine skin, keep the ship's lane to
-Piraeus open while aboard, and Myrto wants them; whether sailing spends them is open question 12.
+Piraeus open while aboard, and Myrto wants them; whether sailing spends them is open question 11.
 
 ## Build order
 
@@ -468,21 +472,19 @@ Each has a recommendation. None is decided.
    for a day (recommended), or holds it?
 9. **Tradeable quests.** Drop (recommended; the shared vow covers the need and
    a traded card risks paying XP twice), or build?
-10. **The level-up label.** "Accept quest" everywhere (recommended), or keep
-    "Take level up quest" as the one exception?
-11. **Documents.** Facts a character told you, with no card (recommended), or
+10. **Documents.** Facts a character told you, with no card (recommended), or
     carried items?
-12. **Kit and provisions.** A third burial-kit use at the Eleusis pyre? Does
+11. **Kit and provisions.** A third burial-kit use at the Eleusis pyre? Does
     sailing spend the provisions (Myrto's want becomes "eat bread at
     Piraeus"), or do they stay aboard until eaten?
-13. **Scarf kit and the Willows.** Keep all 16 buttons and scarves, or 8? Cut
+12. **Scarf kit and the Willows.** Keep all 16 buttons and scarves, or 8? Cut
     the River Map, Stew Pot and Spoon, or give each a reader? May the canoe
     outlive the Swede's departure?
-14. **RatiRadio's doors.** Re-lock when the key is carried off (what decision
+13. **RatiRadio's doors.** Re-lock when the key is carried off (what decision
     9 asks; recommended), or stay latched as the ethos page's "restores a
     relationship" suggests?
-15. **The Hollow's night door.** Open only at night, or stay open once earned?
-16. **The two conditions.** Approve `actor_present` and `item_on` now, batched
+14. **The Hollow's night door.** Open only at night, or stay open once earned?
+15. **The two conditions.** Approve `actor_present` and `item_on` now, batched
     into the next rules bump (recommended), or hold gate work to pack data?
 
 ## Check before building
@@ -490,9 +492,9 @@ Each has a recommendation. None is decided.
 1. The facts were read at `rules/133-boxes` commit `cf9b895fb`, not main.
    Re-read the answer rule, resident planner and ship arrival before writing
    guards; line numbers have moved.
-2. Patroclus and staged wants land in PR #2647. Check how he is placed. The
-   wants and arcs prototype gave him trust 1 from a gift; decision 7 says
-   trust 3, so that line is superseded.
+2. Patroclus and staged wants land in PR #2647. Check how his locked card is
+   placed on the Charybdis. The wants and arcs prototype put him on the quay
+   at trust 1 from a gift; decision 7 says trust 3 at the unlock meeting, so that line is superseded.
 3. Fights, two-traveler shared worlds and pack-to-pack companions were read
    in code, not run. Test them before trusting the stranding rule.
 4. Why Whiskerwind cannot leave the Mirror attic, and which of three causes
