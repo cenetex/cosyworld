@@ -6,7 +6,7 @@ import {
   packPeople,
   entityActive,
   packRouteOpen,
-  conditionsMet,
+  partyMet,
 } from "./pack-registry.mjs";
 import {
   humanAvatar,
@@ -93,7 +93,7 @@ export function guardOf(s, from, to, traveller = null) {
       if (
         traveller &&
         person?.passWhen &&
-        conditionsMet(s, person.packId, person.passWhen, traveller)
+        partyMet(s, person.packId, person.passWhen, traveller)
       )
         continue;
       return id;

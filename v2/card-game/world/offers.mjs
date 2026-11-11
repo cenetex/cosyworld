@@ -19,7 +19,8 @@ import { questFor, toldWant } from "../talk-quest.mjs";
 import { revealed } from "../want-talk.mjs";
 import { offerUnlocked } from "../offer-chance.mjs";
 import { boxWant, shutBoxesAt } from "./boxes.mjs";
-import { people } from "./catalog.mjs";
+import { nameOf, people } from "./catalog.mjs";
+import { travelerOf } from "./company.mjs";
 import { homeOf } from "./home.mjs";
 
 export const OFFER_KINDS = ["box", "resident", "home", "level"];
@@ -45,6 +46,19 @@ const boxQuest = (s, { kind, target, step }) => ({
   ...(step ? { step: { ...step } } : {}),
 });
 
+// An escort or meeting offered by a resident who is already another
+// traveler's companion cannot be taken: the reason is the card's button.
+function withAnother(s, actor, kind, source, want) {
+  const traveler = travelerOf(s, source);
+  return kind === "resident" &&
+    traveler &&
+    traveler !== actor &&
+    want.kind === "person" &&
+    want.target === source
+    ? `${nameOf(source)} is with ${nameOf(traveler)}`
+    : null;
+}
+
 const isPlayer = (s, actor) =>
   actor === currentActor(s) || controlledByHuman(s, actor);
 
@@ -69,7 +83,7 @@ export function questOffers(s, actor = currentActor(s)) {
       source,
       want,
       label: OFFER_LABELS[kind],
-      blocked: held ? BLOCKED : null,
+      blocked: held ? BLOCKED : withAnother(s, actor, kind, source, want),
     });
   };
   const home = humanAvatar(actor)?.home;

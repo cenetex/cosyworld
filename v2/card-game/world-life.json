@@ -8,7 +8,7 @@
     "greek-drama": { "sleep": { "from": 30, "to": 47 } }
   },
   "residents": {
-    "greek-antigone": { "range": 0 },
+    "greek-antigone": { "range": 1 },
     "greek-polynices-shade": { "range": 0, "sleep": null },
     "moth": { "sleep": { "from": 0, "to": 20 } },
     "keeper": { "sleep": { "from": 35, "to": 2 } },

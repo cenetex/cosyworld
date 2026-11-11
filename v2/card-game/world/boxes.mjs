@@ -22,6 +22,7 @@
 // nothing; only the traveller's own play does (`creditOpened`).
 import {
   conditionsMet,
+  partyMet,
   crossings,
   entityActive,
   entityShown,
@@ -183,7 +184,7 @@ const holds = (s, def, conditions, actor) =>
 const routeHolds = (s, def, actor) =>
   !def.route ||
   (holds(s, def, def.route.requires, actor) &&
-    holds(s, def, def.route.travelerRequires, actor));
+    partyMet(s, def.pack, def.route.travelerRequires, actor));
 // The guard is met when he still stands at his post and the order lifts his
 // bar (the Writ in his hands, or a pass he gives this traveller). A guard who
 // has walked off, or been knocked through, is not met by anyone.

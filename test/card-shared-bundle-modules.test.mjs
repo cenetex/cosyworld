@@ -62,6 +62,7 @@ const RULES = [
   "weather.mjs",
   "world.mjs",
   "world/boxes.mjs",
+  "world/company.mjs",
   "world/catalog.mjs",
   "world/create.mjs",
   "world/geography.mjs",

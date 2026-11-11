@@ -2374,6 +2374,34 @@
     );
   }
 
+  // v2/card-game/world/company.mjs
+  var companionOf = (s, who) => s.actors?.[who]?.companion ?? null;
+  function travelerOf(s, resident) {
+    for (const id of Object.keys(s.actors || {}).sort())
+      if (s.actors[id].companion === resident) return id;
+    return null;
+  }
+  function partyOf(s, who) {
+    const here2 = s.actors?.[who]?.place;
+    if (here2 === void 0) return [who];
+    const party = [who];
+    const mine = companionOf(s, who);
+    if (mine && s.actors[mine]?.place === here2) party.push(mine);
+    const traveler = travelerOf(s, who);
+    if (traveler && s.actors[traveler]?.place === here2) party.push(traveler);
+    return party;
+  }
+  function validCompanions(s, actorIds2) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const [id, a] of Object.entries(s.actors || {})) {
+      if (a.companion === void 0) continue;
+      if (typeof a.companion !== "string" || a.companion === id || !actorIds2.includes(a.companion) || seen.has(a.companion))
+        return false;
+      seen.add(a.companion);
+    }
+    return true;
+  }
+
   // v2/card-game/packs.json
   var packs_default = {
     schemaVersion: 1,
@@ -14043,7 +14071,6 @@
             startLevel: 20,
             text: "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
             place: "forest-trail",
-            travels: false,
             seed: "Skull, a wolf.",
             expression: "movement",
             portrait: "assets/lonely-forest/skull.png",
@@ -18107,12 +18134,15 @@
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
     )
   );
+  var partyMet = (world, pack, conditions, actor) => partyOf(world, actor).some(
+    (who) => conditionsMet(world, pack, conditions, who)
+  );
   function personalRouteOpen(world, from, to, actor) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter((r) => r.from === from && r.to === to).map((route) => ({ pack: pack.id, route }))
     );
     return !routes.some(({ route }) => route.travelerRequires?.length) || routes.some(
-      ({ pack, route }) => routeOpen(world, pack, route) && conditionsMet(world, pack, route.travelerRequires, actor)
+      ({ pack, route }) => routeOpen(world, pack, route) && partyMet(world, pack, route.travelerRequires, actor)
     );
   }
   function latchRoutes(world) {
@@ -18136,7 +18166,7 @@
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && routeOpen(world, pack.id, r) && conditionsMet(
+        (r) => r.from === place && routeOpen(world, pack.id, r) && partyMet(
           world,
           pack.id,
           r.travelerRequires,
@@ -19151,6 +19181,115 @@
       )
     );
   }
+
+  // v2/card-game/world-life.json
+  var world_life_default = {
+    defaults: {
+      range: 2,
+      sails: false,
+      sleep: { from: 32, to: 0 }
+    },
+    packs: {
+      "greek-drama": { sleep: { from: 30, to: 47 } }
+    },
+    residents: {
+      "greek-antigone": { range: 1 },
+      "greek-polynices-shade": { range: 0, sleep: null },
+      moth: { sleep: { from: 0, to: 20 } },
+      keeper: { sleep: { from: 35, to: 2 } },
+      badger: { sleep: { from: 28, to: 46 } },
+      oak: { range: 0 },
+      rati: { range: 1 },
+      "greek-aethra": { range: 1 },
+      "greek-adrastus": { range: 1 },
+      "greek-argive-mother": { range: 1 },
+      "greek-iphis": { range: 1 },
+      "greek-theseus": { range: 1 },
+      "greek-quay-host": { range: 1 },
+      "greek-colonus-keeper": { range: 1 },
+      "greek-marathon-keeper": { range: 1 },
+      "greek-ajax-tecmessa": { range: 1 },
+      "greek-ajax-teucer": { range: 1 },
+      "greek-ajax-odysseus": { range: 1 },
+      "hoppycat-nix-fermata": { sleep: { from: 46, to: 22 } },
+      "greek-guard": { range: 0, sleep: null, guards: "greek-battlefield" },
+      "greek-shipmaster": { sails: true, sleep: { from: 30, to: 45 } },
+      "greek-rhapsode": { sleep: null },
+      boardyai: { sleep: null }
+    },
+    guardable: [{ from: "greek-gate", to: "greek-battlefield" }]
+  };
+
+  // v2/card-game/resident-home.mjs
+  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
+  var own2 = (o, k) => Boolean(o) && Object.hasOwn(o, k);
+  var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
+  var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
+  function lifeDataProblems(places2, people2) {
+    const problems2 = [];
+    if (!recordOk(world_life_default.defaults, ["range", "sails", "sleep"]))
+      problems2.push("defaults need a range, sails and a sleep schedule");
+    for (const [id, p] of Object.entries(world_life_default.packs || {}))
+      if (!packDefinitions.some((d) => d.id === id) || !recordOk(p, ["sleep"]))
+        problems2.push(`pack ${id} needs a known pack and a sleep schedule`);
+    for (const r of world_life_default.guardable || [])
+      if (Object.keys(r).sort().join() !== "from,to" || !own2(places2, r.from) || !own2(places2, r.to) || !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to))
+        problems2.push(`guardable way ${r.from}>${r.to} needs an authored route`);
+    for (const [id, r] of Object.entries(world_life_default.residents || {}))
+      if (!own2(people2, id) || !recordOk(r, ["range", "sails", "sleep", "guards"]) || r.guards !== void 0 && !(world_life_default.guardable || []).some(
+        (w) => w.from === lifeHome(id) && w.to === r.guards
+      ))
+        problems2.push(`resident ${id} has an unknown or invalid field`);
+    return problems2;
+  }
+  var lifeField = (id, key2) => own2(world_life_default.residents?.[id], key2) ? world_life_default.residents[id][key2] : void 0;
+  function lifeHome(id, world) {
+    const resident = packPeople[id];
+    const next = resident?.homeWhen;
+    if (world && next && conditionsMet(world, resident.packId, next.requires, id))
+      return next.place;
+    return resident?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? resident?.place ?? null;
+  }
+  function rangeOf(s, id) {
+    if (own2(forest_default.people, id)) return id === "vale" ? null : Infinity;
+    const a = packPeople[id];
+    if (!a || humanAvatar(id) || id === BOARDY || roamingQuestActor(id) || a.journey || a.personalQuests || freed(s, id))
+      return null;
+    return staysPut(id, s) ? 0 : lifeField(id, "range") ?? world_life_default.defaults.range;
+  }
+  var wanders = (s, id) => Boolean(packPeople[id]) && !humanAvatar(id) && (rangeOf(s, id) ?? 0) > 0;
+  var adjacency = null;
+  var hopTables = /* @__PURE__ */ new Map();
+  function hopsFrom(from) {
+    if (!adjacency) {
+      adjacency = /* @__PURE__ */ new Map();
+      for (const [a, b] of authoredRouteEdges()) {
+        if (!adjacency.has(a)) adjacency.set(a, /* @__PURE__ */ new Set());
+        adjacency.get(a).add(b);
+      }
+    }
+    let found2 = hopTables.get(from);
+    if (found2) return found2;
+    found2 = /* @__PURE__ */ new Map([[from, 0]]);
+    const queue = [from];
+    for (let i = 0; i < queue.length; i++)
+      for (const next of adjacency.get(queue[i]) || [])
+        if (!found2.has(next)) {
+          found2.set(next, found2.get(queue[i]) + 1);
+          queue.push(next);
+        }
+    hopTables.set(from, found2);
+    return found2;
+  }
+  function rangeTest(s, id) {
+    const range = rangeOf(s, id), home = lifeHome(id, s);
+    if (range === null || range === Infinity || !home) return null;
+    const table = hopsFrom(home);
+    return (place) => (table.get(place) ?? Infinity) <= range;
+  }
+  var validHome = (s) => Object.values(s.actors).every(
+    (a) => a.homeward === void 0 || a.homeward === true
+  );
 
   // v2/card-game/pack-items.mjs
   var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
@@ -20615,115 +20754,6 @@
     return null;
   }
 
-  // v2/card-game/world-life.json
-  var world_life_default = {
-    defaults: {
-      range: 2,
-      sails: false,
-      sleep: { from: 32, to: 0 }
-    },
-    packs: {
-      "greek-drama": { sleep: { from: 30, to: 47 } }
-    },
-    residents: {
-      "greek-antigone": { range: 0 },
-      "greek-polynices-shade": { range: 0, sleep: null },
-      moth: { sleep: { from: 0, to: 20 } },
-      keeper: { sleep: { from: 35, to: 2 } },
-      badger: { sleep: { from: 28, to: 46 } },
-      oak: { range: 0 },
-      rati: { range: 1 },
-      "greek-aethra": { range: 1 },
-      "greek-adrastus": { range: 1 },
-      "greek-argive-mother": { range: 1 },
-      "greek-iphis": { range: 1 },
-      "greek-theseus": { range: 1 },
-      "greek-quay-host": { range: 1 },
-      "greek-colonus-keeper": { range: 1 },
-      "greek-marathon-keeper": { range: 1 },
-      "greek-ajax-tecmessa": { range: 1 },
-      "greek-ajax-teucer": { range: 1 },
-      "greek-ajax-odysseus": { range: 1 },
-      "hoppycat-nix-fermata": { sleep: { from: 46, to: 22 } },
-      "greek-guard": { range: 0, sleep: null, guards: "greek-battlefield" },
-      "greek-shipmaster": { sails: true, sleep: { from: 30, to: 45 } },
-      "greek-rhapsode": { sleep: null },
-      boardyai: { sleep: null }
-    },
-    guardable: [{ from: "greek-gate", to: "greek-battlefield" }]
-  };
-
-  // v2/card-game/resident-home.mjs
-  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
-  var own2 = (o, k) => Boolean(o) && Object.hasOwn(o, k);
-  var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
-  var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
-  function lifeDataProblems(places2, people2) {
-    const problems2 = [];
-    if (!recordOk(world_life_default.defaults, ["range", "sails", "sleep"]))
-      problems2.push("defaults need a range, sails and a sleep schedule");
-    for (const [id, p] of Object.entries(world_life_default.packs || {}))
-      if (!packDefinitions.some((d) => d.id === id) || !recordOk(p, ["sleep"]))
-        problems2.push(`pack ${id} needs a known pack and a sleep schedule`);
-    for (const r of world_life_default.guardable || [])
-      if (Object.keys(r).sort().join() !== "from,to" || !own2(places2, r.from) || !own2(places2, r.to) || !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to))
-        problems2.push(`guardable way ${r.from}>${r.to} needs an authored route`);
-    for (const [id, r] of Object.entries(world_life_default.residents || {}))
-      if (!own2(people2, id) || !recordOk(r, ["range", "sails", "sleep", "guards"]) || r.guards !== void 0 && !(world_life_default.guardable || []).some(
-        (w) => w.from === lifeHome(id) && w.to === r.guards
-      ))
-        problems2.push(`resident ${id} has an unknown or invalid field`);
-    return problems2;
-  }
-  var lifeField = (id, key2) => own2(world_life_default.residents?.[id], key2) ? world_life_default.residents[id][key2] : void 0;
-  function lifeHome(id, world) {
-    const resident = packPeople[id];
-    const next = resident?.homeWhen;
-    if (world && next && conditionsMet(world, resident.packId, next.requires, id))
-      return next.place;
-    return resident?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? resident?.place ?? null;
-  }
-  function rangeOf(s, id) {
-    if (own2(forest_default.people, id)) return id === "vale" ? null : Infinity;
-    const a = packPeople[id];
-    if (!a || humanAvatar(id) || id === BOARDY || roamingQuestActor(id) || a.journey || a.personalQuests || freed(s, id))
-      return null;
-    return staysPut(id, s) ? 0 : lifeField(id, "range") ?? world_life_default.defaults.range;
-  }
-  var wanders = (s, id) => Boolean(packPeople[id]) && !humanAvatar(id) && (rangeOf(s, id) ?? 0) > 0;
-  var adjacency = null;
-  var hopTables = /* @__PURE__ */ new Map();
-  function hopsFrom(from) {
-    if (!adjacency) {
-      adjacency = /* @__PURE__ */ new Map();
-      for (const [a, b] of authoredRouteEdges()) {
-        if (!adjacency.has(a)) adjacency.set(a, /* @__PURE__ */ new Set());
-        adjacency.get(a).add(b);
-      }
-    }
-    let found2 = hopTables.get(from);
-    if (found2) return found2;
-    found2 = /* @__PURE__ */ new Map([[from, 0]]);
-    const queue = [from];
-    for (let i = 0; i < queue.length; i++)
-      for (const next of adjacency.get(queue[i]) || [])
-        if (!found2.has(next)) {
-          found2.set(next, found2.get(queue[i]) + 1);
-          queue.push(next);
-        }
-    hopTables.set(from, found2);
-    return found2;
-  }
-  function rangeTest(s, id) {
-    const range = rangeOf(s, id), home = lifeHome(id, s);
-    if (range === null || range === Infinity || !home) return null;
-    const table = hopsFrom(home);
-    return (place) => (table.get(place) ?? Infinity) <= range;
-  }
-  var validHome = (s) => Object.values(s.actors).every(
-    (a) => a.homeward === void 0 || a.homeward === true
-  );
-
   // v2/card-game/resident-sleep.mjs
   var whole5 = (n) => Number.isSafeInteger(n);
   function validSleep(s, places2) {
@@ -20780,7 +20810,7 @@
         continue;
       if (!humanAvatar(id)) {
         const person = packPeople[id];
-        if (traveller && person?.passWhen && conditionsMet(s, person.packId, person.passWhen, traveller))
+        if (traveller && person?.passWhen && partyMet(s, person.packId, person.passWhen, traveller))
           continue;
         return id;
       }
@@ -21514,7 +21544,7 @@
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
     if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
-    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validSleep(s, places) || !validGuard(s, places))
+    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validSleep(s, places) || !validGuard(s, places))
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
       fail();

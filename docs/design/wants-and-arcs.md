@@ -769,6 +769,40 @@ Not tested: at trust 0 an invitation is accepted while the player carries the
 bread (the want is served), so the decline case needs a player without bread;
 and the standoff cover (`plan` after a threat).
 
+### Owner decisions, 2026-11-11: the sticky companion
+
+"'accompany' should be sticky; eg the avatar follows you until trust breaks
+down or a sleep." Anyone can become a companion; the Oak and Badger are the
+two fixed-place residents. On 2026-11-11 the owner accepted these
+recommendations ("go with your recommendations on the companions for now")
+and refined one ("Gates should be shared in some way; I don't want
+'individually' locked doors necessarily"). They are built in rules 133
+(`world/company.mjs`):
+
+1. One companion per traveler. Asking a second resident replaces the first,
+   who is released where they stand. A resident is companion to at most one
+   traveler; for another the button reads "Dione is with Rue".
+2. "A sleep" is the traveler waking from a long rest.
+3. A gate is the party's. Where a way is open for the traveler, the companion
+   passes with them, and a traveler's own condition on a way (an item held,
+   trust of a keeper) is met by either of them. A companion is left behind
+   only where it could not walk home along the authored map (a crossing only a
+   player may use, a dead end); it then walks to catch up when it can.
+4. The companion keeps its own one want and may meet it on the way; neither a
+   drawn nor a met want ends the bond.
+5. Trust can fall, for visible acts by the traveler only: a threat on the
+   resident takes 2 trust (3 when it demands an item) and a strike on them
+   takes 1, never below 0. Trust under 2, or a grievance, ends the bond.
+6. The Shade and the Gate Guard stay fixed by role, with the Oak and Badger.
+   The button reads "Oak stays here", one fixed wording from the rules, since
+   authored text lives only in place, item and avatar descriptions.
+7. Shared worlds: one companion per traveler, one traveler per resident. A
+   traveler away from a shared world pauses the bond, and it ends after a day.
+
+A quest to bring a resident somewhere or to someone is a shared vow: taking it
+brings the resident along at once, and the bond survives a long rest while the
+quest is held. Meeting or discarding it unpins the bond.
+
 ### Earlier work to reuse
 
 A triage of the open pull requests on 2026-11-10 found these head starts.

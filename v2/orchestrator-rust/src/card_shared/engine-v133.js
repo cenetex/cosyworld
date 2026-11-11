@@ -2289,6 +2289,61 @@
     );
   }
 
+  // v2/card-game/world/company.mjs
+  var ACCOMPANY_TRUST = 2;
+  var TRUST_LOSS = { threaten: 2, threatenForItem: 3, attack: 1 };
+  var ABSENT_TURNS = 48;
+  var companionOf = (s, who) => s.actors?.[who]?.companion ?? null;
+  function travelerOf(s, resident) {
+    for (const id of Object.keys(s.actors || {}).sort())
+      if (s.actors[id].companion === resident) return id;
+    return null;
+  }
+  function partyOf(s, who) {
+    const here = s.actors?.[who]?.place;
+    if (here === void 0) return [who];
+    const party = [who];
+    const mine = companionOf(s, who);
+    if (mine && s.actors[mine]?.place === here) party.push(mine);
+    const traveler = travelerOf(s, who);
+    if (traveler && s.actors[traveler]?.place === here) party.push(traveler);
+    return party;
+  }
+  function bind(s, traveler, resident) {
+    const before = companionOf(s, traveler);
+    s.actors[traveler].companion = resident;
+    delete s.actors[resident]?.homeward;
+    return before && before !== resident ? before : null;
+  }
+  function release(s, traveler) {
+    const before = companionOf(s, traveler);
+    delete s.actors[traveler]?.companion;
+    return before;
+  }
+  function loseTrust(s, resident, actor, amount) {
+    const trust = s.actors?.[resident]?.trust;
+    if (!trust || !(trust[actor] > 0)) return 0;
+    const before = trust[actor];
+    trust[actor] = Math.max(0, before - amount);
+    return before - trust[actor];
+  }
+  function partingReason(s, traveler, resident, grievance) {
+    if ((s.actors[resident]?.trust?.[traveler] || 0) < ACCOMPANY_TRUST)
+      return "trust";
+    return grievance ? "grievance" : null;
+  }
+  function validCompanions(s, actorIds2) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const [id, a] of Object.entries(s.actors || {})) {
+      if (a.companion === void 0) continue;
+      if (typeof a.companion !== "string" || a.companion === id || !actorIds2.includes(a.companion) || seen.has(a.companion))
+        return false;
+      seen.add(a.companion);
+    }
+    return true;
+  }
+  var lastActed = (s, who) => s.log?.findLast((e) => e.actorId === who)?.turn ?? null;
+
   // card-content:v2/card-game/packs.json
   var packs_default = globalThis.cardContent.files["v2/card-game/packs.json"];
 
@@ -2302,14 +2357,14 @@
   function emojiParts(text2) {
     if (typeof text2 !== "string" || text2.length > 160) return null;
     let rest2 = text2.trim();
-    const parts = [];
+    const parts2 = [];
     while (rest2) {
       const symbol = orderedSymbols.find((value) => rest2.startsWith(value));
-      if (!symbol || parts.length === 5) return null;
-      parts.push(symbol);
+      if (!symbol || parts2.length === 5) return null;
+      parts2.push(symbol);
       rest2 = rest2.slice(symbol.length).trimStart();
     }
-    return parts.length >= 2 ? parts : null;
+    return parts2.length >= 2 ? parts2 : null;
   }
   var expressionKind = (profile) => expressionOf(profile) === "movement" ? "narration" : "dialogue";
   function validExpression(profile, text2) {
@@ -4100,12 +4155,15 @@
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
     )
   );
+  var partyMet = (world, pack, conditions, actor) => partyOf(world, actor).some(
+    (who) => conditionsMet(world, pack, conditions, who)
+  );
   function personalRouteOpen(world, from, to, actor) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter((r) => r.from === from && r.to === to).map((route) => ({ pack: pack.id, route }))
     );
     return !routes.some(({ route }) => route.travelerRequires?.length) || routes.some(
-      ({ pack, route }) => routeOpen(world, pack, route) && conditionsMet(world, pack, route.travelerRequires, actor)
+      ({ pack, route }) => routeOpen(world, pack, route) && partyMet(world, pack, route.travelerRequires, actor)
     );
   }
   function latchRoutes(world) {
@@ -4129,7 +4187,7 @@
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && routeOpen(world, pack.id, r) && conditionsMet(
+        (r) => r.from === place && routeOpen(world, pack.id, r) && partyMet(
           world,
           pack.id,
           r.travelerRequires,
@@ -4815,15 +4873,15 @@
   }
   function matchesObservation(text2, observed, actor, goal) {
     try {
-      const parts = JSON.parse(text2);
-      if (!Array.isArray(parts) || parts.length !== 8 || parts[1] !== observed.trust || !Array.isArray(parts[2]) || !Array.isArray(parts[5]))
+      const parts2 = JSON.parse(text2);
+      if (!Array.isArray(parts2) || parts2.length !== 8 || parts2[1] !== observed.trust || !Array.isArray(parts2[2]) || !Array.isArray(parts2[5]))
         return false;
       const strain = Math.min(
         3,
-        parts[2].filter((g) => g[0] === actor).reduce((n, g) => n + g[2], 0)
+        parts2[2].filter((g) => g[0] === actor).reduce((n, g) => n + g[2], 0)
       );
       if (strain !== observed.strain) return false;
-      const items2 = new Map(parts[5].map(([id, owner2]) => [id, owner2]));
+      const items2 = new Map(parts2[5].map(([id, owner2]) => [id, owner2]));
       if ([...items2.values()].filter((id) => id === actor).length !== observed.held)
         return false;
       let root = goal.item;
@@ -4832,7 +4890,7 @@
         visited.add(root);
         root = items2.get(root);
       }
-      const met2 = goal.kind === "ask" ? root === actor : parts[0] === goal.destination && parts[6] === goal.destination;
+      const met2 = goal.kind === "ask" ? root === actor : parts2[0] === goal.destination && parts2[6] === goal.destination;
       return met2 === observed.met;
     } catch {
       return false;
@@ -5535,7 +5593,101 @@
     );
   }
 
+  // card-content:v2/card-game/world-life.json
+  var world_life_default = globalThis.cardContent.files["v2/card-game/world-life.json"];
+
+  // v2/card-game/resident-home.mjs
+  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
+  var OFFSTAGE_STEPS = 24;
+  var worldLife = { on: true };
+  var own2 = (o, k) => Boolean(o) && Object.hasOwn(o, k);
+  var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
+  var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
+  function lifeDataProblems(places2, people2) {
+    const problems2 = [];
+    if (!recordOk(world_life_default.defaults, ["range", "sails", "sleep"]))
+      problems2.push("defaults need a range, sails and a sleep schedule");
+    for (const [id, p] of Object.entries(world_life_default.packs || {}))
+      if (!packDefinitions.some((d) => d.id === id) || !recordOk(p, ["sleep"]))
+        problems2.push(`pack ${id} needs a known pack and a sleep schedule`);
+    for (const r of world_life_default.guardable || [])
+      if (Object.keys(r).sort().join() !== "from,to" || !own2(places2, r.from) || !own2(places2, r.to) || !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to))
+        problems2.push(`guardable way ${r.from}>${r.to} needs an authored route`);
+    for (const [id, r] of Object.entries(world_life_default.residents || {}))
+      if (!own2(people2, id) || !recordOk(r, ["range", "sails", "sleep", "guards"]) || r.guards !== void 0 && !(world_life_default.guardable || []).some(
+        (w) => w.from === lifeHome(id) && w.to === r.guards
+      ))
+        problems2.push(`resident ${id} has an unknown or invalid field`);
+    return problems2;
+  }
+  var lifeField = (id, key3) => own2(world_life_default.residents?.[id], key3) ? world_life_default.residents[id][key3] : void 0;
+  function lifeHome(id, world) {
+    const resident = packPeople[id];
+    const next = resident?.homeWhen;
+    if (world && next && conditionsMet(world, resident.packId, next.requires, id))
+      return next.place;
+    return resident?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? resident?.place ?? null;
+  }
+  function rangeOf(s, id) {
+    if (own2(forest_default.people, id)) return id === "vale" ? null : Infinity;
+    const a = packPeople[id];
+    if (!a || humanAvatar(id) || id === BOARDY || roamingQuestActor(id) || a.journey || a.personalQuests || freed(s, id))
+      return null;
+    return staysPut(id, s) ? 0 : lifeField(id, "range") ?? world_life_default.defaults.range;
+  }
+  var wanders = (s, id) => Boolean(packPeople[id]) && !humanAvatar(id) && (rangeOf(s, id) ?? 0) > 0;
+  var keepsHome = (s, id) => rangeOf(s, id) === 0;
+  var mayBoard = (s, id) => {
+    const range = rangeOf(s, id);
+    return range === null || range === Infinity || (lifeField(id, "sails") ?? world_life_default.defaults.sails);
+  };
+  var adjacency = null;
+  var hopTables = /* @__PURE__ */ new Map();
+  function hopsFrom(from) {
+    if (!adjacency) {
+      adjacency = /* @__PURE__ */ new Map();
+      for (const [a, b] of authoredRouteEdges()) {
+        if (!adjacency.has(a)) adjacency.set(a, /* @__PURE__ */ new Set());
+        adjacency.get(a).add(b);
+      }
+    }
+    let found = hopTables.get(from);
+    if (found) return found;
+    found = /* @__PURE__ */ new Map([[from, 0]]);
+    const queue = [from];
+    for (let i = 0; i < queue.length; i++)
+      for (const next of adjacency.get(queue[i]) || [])
+        if (!found.has(next)) {
+          found.set(next, found.get(queue[i]) + 1);
+          queue.push(next);
+        }
+    hopTables.set(from, found);
+    return found;
+  }
+  var hops = (from, to) => hopsFrom(from).get(to) ?? Infinity;
+  function rangeTest(s, id) {
+    const range = rangeOf(s, id), home = lifeHome(id, s);
+    if (range === null || range === Infinity || !home) return null;
+    const table = hopsFrom(home);
+    return (place) => (table.get(place) ?? Infinity) <= range;
+  }
+  function inRange(s, id, place) {
+    const range = rangeOf(s, id);
+    if (range === null || range === Infinity) return true;
+    const home = lifeHome(id, s);
+    return !home || hops(home, place) <= range;
+  }
+  function displaced(s, id) {
+    const range = rangeOf(s, id), home = lifeHome(id, s), here = s.actors[id]?.place;
+    return range !== null && Boolean(home) && here !== home && entityActive(s, home) && !inRange(s, id, here);
+  }
+  var walksHome = (s, id) => worldLife.on && rangeOf(s, id) !== null && s.actors[id].place !== lifeHome(id, s) && (Boolean(s.actors[id].homeward) || displaced(s, id));
+  var validHome = (s) => Object.values(s.actors).every(
+    (a) => a.homeward === void 0 || a.homeward === true
+  );
+
   // v2/card-game/talk-quest.mjs
+  var fixedResident = (s, id) => staysPut(id, s) || keepsHome(s, id);
   var key = (want) => `${want.kind}:${want.target}`;
   function talkQuestFrom(w) {
     if (!w?.step || w.quest || w.story) return null;
@@ -5565,21 +5717,44 @@
       };
     if (want.step?.verb === "lay")
       return { ...base, kind: "place", target: want.target, step: want.step };
+    const fixed = fixedResident(s, them);
     if (want.kind === "place")
-      return {
+      return fixed ? null : {
         kind: "person",
         target: them,
         ...base,
         step: { verb: "bring", at: want.target }
       };
     if (want.kind === "person")
-      return {
+      return fixed ? {
+        kind: "person",
+        target: want.target,
+        ...base,
+        step: { verb: "bring", to: them }
+      } : {
         kind: "person",
         target: them,
         ...base,
         step: { verb: "bring", to: want.target }
       };
     return null;
+  }
+  function askerOf(s, w) {
+    if (!w?.step || w.quest || w.story) return null;
+    const them = talkQuestFrom(w);
+    if (them && s.actors[them] && askerWants(s.actors[them].want, served(w)))
+      return them;
+    if (w.kind === "person" && w.step.verb === "bring" && w.step.to) {
+      const asker = s.actors[w.step.to];
+      if (asker && askerWants(asker.want, { kind: "person", target: w.target }))
+        return w.step.to;
+    }
+    return null;
+  }
+  var askerWants = (want, wanted) => want?.kind === wanted.kind && want.target === wanted.target;
+  function pinnedCompanion(s, traveler) {
+    const w = wantOf(s, traveler);
+    return w?.kind === "person" && w.step?.verb === "bring" ? askerOf(s, w) : null;
   }
   function talkQuest(s, actor, them, api) {
     const a = s.actors[actor], want = s.actors[them]?.want;
@@ -5598,11 +5773,10 @@
     pruneOffers(s);
     for (const id of Object.keys(s.actors)) {
       if (!api.player(id)) continue;
-      const w = wantOf(s, id), them = talkQuestFrom(w);
-      if (!them) continue;
-      const want = s.actors[them]?.want, wanted = served(w);
-      if (!(want?.kind === wanted.kind && want.target === wanted.target))
-        setWant(s.actors[id], null);
+      const w = wantOf(s, id);
+      if (!talkQuestFrom(w) && !(w?.step && !w.quest && !w.story && w.kind === "person" && w.step.to))
+        continue;
+      if (!askerOf(s, w)) setWant(s.actors[id], null);
     }
   }
 
@@ -7346,99 +7520,6 @@
     }
   }
 
-  // card-content:v2/card-game/world-life.json
-  var world_life_default = globalThis.cardContent.files["v2/card-game/world-life.json"];
-
-  // v2/card-game/resident-home.mjs
-  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
-  var OFFSTAGE_STEPS = 24;
-  var worldLife = { on: true };
-  var own2 = (o, k) => Boolean(o) && Object.hasOwn(o, k);
-  var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
-  var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
-  function lifeDataProblems(places2, people2) {
-    const problems2 = [];
-    if (!recordOk(world_life_default.defaults, ["range", "sails", "sleep"]))
-      problems2.push("defaults need a range, sails and a sleep schedule");
-    for (const [id, p] of Object.entries(world_life_default.packs || {}))
-      if (!packDefinitions.some((d) => d.id === id) || !recordOk(p, ["sleep"]))
-        problems2.push(`pack ${id} needs a known pack and a sleep schedule`);
-    for (const r of world_life_default.guardable || [])
-      if (Object.keys(r).sort().join() !== "from,to" || !own2(places2, r.from) || !own2(places2, r.to) || !authoredRouteEdges().some(([a, b]) => a === r.from && b === r.to))
-        problems2.push(`guardable way ${r.from}>${r.to} needs an authored route`);
-    for (const [id, r] of Object.entries(world_life_default.residents || {}))
-      if (!own2(people2, id) || !recordOk(r, ["range", "sails", "sleep", "guards"]) || r.guards !== void 0 && !(world_life_default.guardable || []).some(
-        (w) => w.from === lifeHome(id) && w.to === r.guards
-      ))
-        problems2.push(`resident ${id} has an unknown or invalid field`);
-    return problems2;
-  }
-  var lifeField = (id, key3) => own2(world_life_default.residents?.[id], key3) ? world_life_default.residents[id][key3] : void 0;
-  function lifeHome(id, world) {
-    const resident = packPeople[id];
-    const next = resident?.homeWhen;
-    if (world && next && conditionsMet(world, resident.packId, next.requires, id))
-      return next.place;
-    return resident?.home ?? forest_default.people[id]?.home ?? humanAvatar(id)?.home?.id ?? resident?.place ?? null;
-  }
-  function rangeOf(s, id) {
-    if (own2(forest_default.people, id)) return id === "vale" ? null : Infinity;
-    const a = packPeople[id];
-    if (!a || humanAvatar(id) || id === BOARDY || roamingQuestActor(id) || a.journey || a.personalQuests || freed(s, id))
-      return null;
-    return staysPut(id, s) ? 0 : lifeField(id, "range") ?? world_life_default.defaults.range;
-  }
-  var wanders = (s, id) => Boolean(packPeople[id]) && !humanAvatar(id) && (rangeOf(s, id) ?? 0) > 0;
-  var keepsHome = (s, id) => rangeOf(s, id) === 0;
-  var mayBoard = (s, id) => {
-    const range = rangeOf(s, id);
-    return range === null || range === Infinity || (lifeField(id, "sails") ?? world_life_default.defaults.sails);
-  };
-  var adjacency = null;
-  var hopTables = /* @__PURE__ */ new Map();
-  function hopsFrom(from) {
-    if (!adjacency) {
-      adjacency = /* @__PURE__ */ new Map();
-      for (const [a, b] of authoredRouteEdges()) {
-        if (!adjacency.has(a)) adjacency.set(a, /* @__PURE__ */ new Set());
-        adjacency.get(a).add(b);
-      }
-    }
-    let found = hopTables.get(from);
-    if (found) return found;
-    found = /* @__PURE__ */ new Map([[from, 0]]);
-    const queue = [from];
-    for (let i = 0; i < queue.length; i++)
-      for (const next of adjacency.get(queue[i]) || [])
-        if (!found.has(next)) {
-          found.set(next, found.get(queue[i]) + 1);
-          queue.push(next);
-        }
-    hopTables.set(from, found);
-    return found;
-  }
-  var hops = (from, to) => hopsFrom(from).get(to) ?? Infinity;
-  function rangeTest(s, id) {
-    const range = rangeOf(s, id), home = lifeHome(id, s);
-    if (range === null || range === Infinity || !home) return null;
-    const table = hopsFrom(home);
-    return (place) => (table.get(place) ?? Infinity) <= range;
-  }
-  function inRange(s, id, place) {
-    const range = rangeOf(s, id);
-    if (range === null || range === Infinity) return true;
-    const home = lifeHome(id, s);
-    return !home || hops(home, place) <= range;
-  }
-  function displaced(s, id) {
-    const range = rangeOf(s, id), home = lifeHome(id, s), here = s.actors[id]?.place;
-    return range !== null && Boolean(home) && here !== home && entityActive(s, home) && !inRange(s, id, here);
-  }
-  var walksHome = (s, id) => worldLife.on && rangeOf(s, id) !== null && s.actors[id].place !== lifeHome(id, s) && (Boolean(s.actors[id].homeward) || displaced(s, id));
-  var validHome = (s) => Object.values(s.actors).every(
-    (a) => a.homeward === void 0 || a.homeward === true
-  );
-
   // v2/card-game/resident-sleep.mjs
   var SLEEP_SCATTER = 3;
   function sleepSchedule(id) {
@@ -7523,7 +7604,7 @@
         continue;
       if (!humanAvatar(id)) {
         const person = packPeople[id];
-        if (traveller && person?.passWhen && conditionsMet(s, person.packId, person.passWhen, traveller))
+        if (traveller && person?.passWhen && partyMet(s, person.packId, person.passWhen, traveller))
           continue;
         return id;
       }
@@ -7844,7 +7925,7 @@
     return e ? [...e.requires || [], ...e.appearsWhen || []] : [];
   };
   var holds = (s, def, conditions, actor) => conditionsMet(s, def.pack, conditions, actor);
-  var routeHolds = (s, def, actor) => !def.route || holds(s, def, def.route.requires, actor) && holds(s, def, def.route.travelerRequires, actor);
+  var routeHolds = (s, def, actor) => !def.route || holds(s, def, def.route.requires, actor) && partyMet(s, def.pack, def.route.travelerRequires, actor);
   var guardMet = (s, def, actor) => Object.values(s.actors).some(
     (a) => a.guarding === def.guard.beyond && a.place === def.guard.post
   ) && (packRouteOpen(s, def.guard.post, def.guard.beyond) || !guardOf(s, def.at, def.id, actor));
@@ -8132,6 +8213,10 @@
     story: true,
     ...step ? { step: { ...step } } : {}
   });
+  function withAnother(s, actor, kind, source, want) {
+    const traveler = travelerOf(s, source);
+    return kind === "resident" && traveler && traveler !== actor && want.kind === "person" && want.target === source ? `${nameOf(source)} is with ${nameOf(traveler)}` : null;
+  }
   var isPlayer = (s, actor) => actor === currentActor(s) || controlledByHuman(s, actor);
   function questOffers(s, actor = currentActor(s)) {
     const a = s.actors[actor];
@@ -8146,7 +8231,7 @@
         source,
         want,
         label: OFFER_LABELS[kind],
-        blocked: held ? BLOCKED : null
+        blocked: held ? BLOCKED : withAnother(s, actor, kind, source, want)
       });
     };
     const home = humanAvatar(actor)?.home;
@@ -8824,7 +8909,8 @@
     };
     if (goal && (goal === destination || distance(destination, goal) < distance(here, goal)))
       return { accepted: true };
-    if (s.actors[companion].trust[actor] >= 2) return { accepted: true };
+    if (s.actors[companion].trust[actor] >= ACCOMPANY_TRUST)
+      return { accepted: true };
     return socialTravel(s, actor, companion, destination);
   }
   function legalActions(s, actor = currentActor(s)) {
@@ -8885,8 +8971,9 @@
       const through = !baseExits(s, here).includes(to);
       const crossing = crossingBetween(here, to, s);
       const way = through ? ` ${homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}` : "";
+      const human = controlledByHuman(s, actor);
       for (const other of knownActors2(s).filter(
-        (id) => (crossing?.travelers !== "player" || controlledByHuman(s, actor)) && (!transportPlace(here) || !crossing?.transport || canDisembark(s, crossing.transport, id)) && id !== actor && !controlledByHuman(s, id) && !guardOf(s, here, to, id) && (!staysPut(id, s) && !keepsHome(s, id) || packJourneyDestination(s, id) === to) && !departureWaits(s, id, to) && s.actors[id].place === here
+        (id) => (crossing?.travelers !== "player" || human) && (!transportPlace(here) || !crossing?.transport || canDisembark(s, crossing.transport, id)) && id !== actor && !controlledByHuman(s, id) && id !== companionOf(s, actor) && (travelerOf(s, id) ?? actor) === actor && (!staysPut(id, s) && !keepsHome(s, id) || packJourneyDestination(s, id) === to) && !departureWaits(s, id, to) && s.actors[id].place === here
       )) {
         const request = offer(
           "accompany",
@@ -9225,6 +9312,94 @@
     return through;
   }
   var travel = (s, actor, destination) => travelParty(s, [actor], destination);
+  var companionPaused = (s, traveler) => sharedEnabled(s) && !humanPresent(s, traveler);
+  var homeWalk = null;
+  function wayHome(s, traveler, here, dest, companion) {
+    if (transportPlace(here) || transportPlace(dest)) return [];
+    const home = lifeHome(companion, s) || here;
+    if (dest === home) return [];
+    if (!homeWalk) {
+      const playerOnly = new Set(
+        crossings.filter((c) => c.travelers === "player" && !c.transport).map((c) => `${c.from}>${c.to}`)
+      );
+      homeWalk = /* @__PURE__ */ new Map();
+      for (const [from, to] of authoredRouteEdges())
+        if (!playerOnly.has(`${from}>${to}`))
+          (homeWalk.get(from) ?? homeWalk.set(from, []).get(from)).push(to);
+    }
+    const queue = [[dest]], seen = /* @__PURE__ */ new Set([dest]);
+    for (let i = 0; i < queue.length; i++) {
+      const path = queue[i];
+      if (path.at(-1) === home) return path;
+      for (const next of homeWalk.get(path.at(-1)) || [])
+        if (!seen.has(next) && Object.hasOwn(places, next)) {
+          seen.add(next);
+          queue.push([...path, next]);
+        }
+    }
+    return null;
+  }
+  function partyFor(s, traveler, dest, companion = companionOf(s, traveler)) {
+    const here = s.actors[traveler].place, mate = companion && s.actors[companion];
+    if (!mate || mate.place !== here || companionPaused(s, traveler) || !entityActive(s, companion) || standoffFor(s, companion))
+      return [traveler];
+    const route = wayHome(s, traveler, here, dest, companion);
+    if (!route) return [traveler];
+    const tickets = s.invitedPlaces ??= {};
+    tickets[companion] = [
+      .../* @__PURE__ */ new Set([...tickets[companion] || [], dest, ...route])
+    ].sort();
+    recordJourneyTravel(s, companion, here, dest);
+    return [traveler, companion];
+  }
+  function parts(s, traveler, id, text2) {
+    release(s, traveler);
+    const place = s.actors[id].place;
+    addLog(s, "World", text2, {
+      kind: "narration",
+      actorId: id,
+      targetId: traveler,
+      locationId: place
+    });
+  }
+  function settleCompanions(s) {
+    for (const traveler of Object.keys(s.actors).sort()) {
+      const id = companionOf(s, traveler);
+      if (!id) continue;
+      const away = companionPaused(s, traveler), since = lastActed(s, traveler);
+      if (!entityActive(s, id)) release(s, traveler);
+      else if (partingReason(s, traveler, id, resentment(s, id, traveler) > 0))
+        parts(
+          s,
+          traveler,
+          id,
+          `${nameOf(id)} no longer trusts ${nameOf(traveler)} enough to travel on.`
+        );
+      else if (away && since !== null && s.turn - since >= ABSENT_TURNS)
+        parts(s, traveler, id, `${nameOf(id)} waits no longer and goes on alone.`);
+    }
+  }
+  function wakeCompanion(s, traveler) {
+    const id = companionOf(s, traveler);
+    if (id && pinnedCompanion(s, traveler) !== id)
+      parts(s, traveler, id, `${nameOf(id)} goes on alone after the long rest.`);
+  }
+  function wrongedBy(s, a, entry) {
+    if (!controlledByHuman(s, a.actor)) return;
+    const wrong = a.kind === "threaten" ? [a.target, a.item ? TRUST_LOSS.threatenForItem : TRUST_LOSS.threaten] : a.kind === "attack" ? [entry.targetId ?? a.target, TRUST_LOSS.attack] : null;
+    if (wrong && s.actors[wrong[0]] && !controlledByHuman(s, wrong[0]))
+      loseTrust(s, wrong[0], a.actor, wrong[1]);
+  }
+  function companionRound(s, acted, round2) {
+    for (const traveler of Object.keys(s.actors).sort()) {
+      const id = companionOf(s, traveler);
+      if (!id || acted.includes(id) || companionPaused(s, traveler) || s.actors[id].place === s.actors[traveler].place || standoffFor(s, id) || !entityActive(s, id))
+        continue;
+      const chosen = plan(s, id);
+      if (chosen.action && chosen.action.kind === "move")
+        perform(s, chosen.action, round2, [id]);
+    }
+  }
   function trustGiver(s, recipient, item, giver) {
     if (!needed(s, recipient, item) || !s.actors[recipient].trust) return;
     s.actors[recipient].trust[giver] = Math.min(
@@ -9281,6 +9456,7 @@
       ...long ? { rest: "long" } : {},
       ...dream ? { dream } : {}
     });
+    if (long) wakeCompanion(s, id);
   }
   function wakeSleepers(s, before, voyages) {
     for (const id of actorIds) {
@@ -9341,7 +9517,9 @@
     );
     const seen = (place) => occupied.has(place);
     const life = actorIds.filter(
-      (id) => !controlledByHuman(s, id) && !roamingActors.includes(id) && (!humanAvatar(id) || residentAvatar(s, id)) && entityActive(s, id)
+      (id) => !controlledByHuman(s, id) && !roamingActors.includes(id) && // A companion keeps no schedule of its own: it does not sleep,
+      // walk home or take the dawn and dusk step (rules 133).
+      !travelerOf(s, id) && (!humanAvatar(id) || residentAvatar(s, id)) && entityActive(s, id)
     ).sort();
     for (const id of life) {
       const a = s.actors[id], z = a.sleeping;
@@ -9438,6 +9616,7 @@
     settleStandoffs(s);
     const conflict = standoffFor(s, a.actor);
     const result = performPlay(s, a, round2, settle, hands);
+    settleCompanions(s);
     settleHeldItems(s, hands);
     settleLamp(s);
     refuelCarried(s);
@@ -9534,15 +9713,21 @@
             respondentConflict.answered = true;
         }
         invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
+        if (invitation.accepted && controlledByHuman(s, a.actor) && !wayHome(s, a.actor, here, a.destination, a.target))
+          invitation = { accepted: false, reason: "wants-something-else" };
         s.actors[a.actor].lastTalk = s.turn;
         if (invitation.accepted) {
           const visits = s.invitedPlaces ??= {};
           visits[a.target] = [
             .../* @__PURE__ */ new Set([...visits[a.target] || [], a.destination])
           ].sort();
-          const through = travelParty(s, [a.actor, a.target], a.destination);
+          const earlier = controlledByHuman(s, a.actor) ? bind(s, a.actor, a.target) : null;
+          const party = controlledByHuman(s, a.actor) ? partyFor(s, a.actor, a.destination, a.target) : [a.actor];
+          if (!party.includes(a.target)) party.push(a.target);
+          const through = travelParty(s, party, a.destination);
           recordJourneyTravel(s, a.target, here, a.destination);
           text2 += ` ${nameOf(a.target)} agrees. They travel together.`;
+          if (earlier) text2 += ` ${nameOf(earlier)} stays behind.`;
           if (through && firstCrossing)
             text2 += " Something on the far shore turns its head.";
         } else {
@@ -9630,7 +9815,7 @@
           text2 += ` ${nameOf(guard)} lets ${who} through.`;
           affected = guard;
         }
-        if (travel(s, a.actor, a.target) && firstCrossing)
+        if (travelParty(s, partyFor(s, a.actor, a.target), a.target) && firstCrossing)
           text2 += " Something on the far shore turns its head.";
         break;
       }
@@ -9768,6 +9953,7 @@
       handover
     );
     recordReaction(s, a, witnesses, requestAccepted, s.log.at(-1));
+    wrongedBy(s, a, s.log.at(-1));
     const repair = answer && witnessRepair(
       s,
       s.log.at(-1),
@@ -9971,6 +10157,22 @@
     }
   }
   function readPlan(s, actor) {
+    const traveler = travelerOf(s, actor);
+    if (!traveler || standoffFor(s, actor)) return readFreePlan(s, actor);
+    const there = s.actors[traveler].place;
+    if (s.actors[actor].place !== there && !companionPaused(s, traveler)) {
+      const step = stepToward(s, actor, there).action;
+      if (step?.kind === "move") return { action: step };
+    }
+    const free = readFreePlan(s, actor);
+    if (!["move", "course"].includes(free.action?.kind)) return free;
+    return {
+      action: legalActions(s, actor).find(
+        (a) => a.kind === "wait" && !a.sleep && !a.guards
+      )
+    };
+  }
+  function readFreePlan(s, actor) {
     const arrival = transportArrival(s, actor);
     const landing = arrival && legalActions(s, actor).find(
       (a) => a.kind === "move" && a.target === arrival
@@ -10189,6 +10391,22 @@
         targetId: chosen.source,
         witnesses: [actor]
       });
+      const asker = pinnedCompanion(next, actor);
+      if (asker && controlledByHuman(next, actor) && asker !== companionOf(next, actor) && next.actors[asker].place === next.actors[actor].place && entityActive(next, asker) && !staysPut(asker, next) && !keepsHome(next, asker) && (travelerOf(next, asker) ?? actor) === actor) {
+        wakeResident(next, asker);
+        const earlier = bind(next, actor, asker);
+        addLog(
+          next,
+          "World",
+          earlier ? `${nameOf(asker)} comes with ${nameOf(actor)}. ${nameOf(earlier)} stays behind.` : `${nameOf(asker)} comes with ${nameOf(actor)}.`,
+          {
+            kind: "narration",
+            actorId: asker,
+            targetId: actor,
+            locationId: next.actors[actor].place
+          }
+        );
+      }
       settleStationExits(next);
       validateWorld(next);
       return { ok: true, state: next };
@@ -10242,7 +10460,7 @@
     if (!rings.length)
       next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
     for (const id of roamingActors) {
-      if (controlledByHuman(next, id) || id === respondent || !roamingQuestActor(id, s) || !roamingQuestActor(id, next)) continue;
+      if (controlledByHuman(next, id) || id === respondent || travelerOf(next, id) || !roamingQuestActor(id, s) || !roamingQuestActor(id, next)) continue;
       const from = next.actors[id].place;
       rememberRoutes(next, id, visibleRouteEdges(from));
       prepareResidentLamp(next, id);
@@ -10256,6 +10474,11 @@
         arriveRoamingRecitals(next, packDefinitions, id);
     }
     residentRound(next, [actor, respondent, ...residents].filter(Boolean));
+    companionRound(
+      next,
+      [actor, respondent, ...residents].filter(Boolean),
+      round2
+    );
     if (exact.kind === "wait" && !exact.sleep)
       waitForTransport(next, next.actors[actor].place, actor);
     const voyages = sailTransports(next);
@@ -10391,7 +10614,7 @@
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
     if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
-    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validSleep(s, places) || !validGuard(s, places))
+    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validSleep(s, places) || !validGuard(s, places))
       fail();
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
       fail();
@@ -10977,6 +11200,8 @@
     }
     if (world.motives?.grievances?.[id]) world.motives.grievances[id] = [];
     if (world.invitedPlaces) delete world.invitedPlaces[id];
+    for (const other of Object.values(world.actors))
+      if (other.companion === id) delete other.companion;
     if (world.conversations)
       world.conversations = world.conversations.filter(
         (c) => !c.actors.includes(id)
