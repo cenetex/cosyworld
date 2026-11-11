@@ -143,6 +143,7 @@ use guard::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::{HeaderMap, StatusCode};
     use rusqlite::TransactionBehavior;
 
     fn db() -> Connection {
