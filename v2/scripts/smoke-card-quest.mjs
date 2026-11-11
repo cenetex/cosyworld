@@ -5,7 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { questXp } from "../card-game/want.mjs";
-import { revealOpening, tapCard } from "./card-browser-helpers.mjs";
+import { clearSelection, readyActionButton, revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
 
 // The player holds one quest. It folds behind the player's avatar as a face
 // down card; opening the avatar's stack shows it as the one quest card. A
@@ -305,7 +305,7 @@ try {
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
 
     // A step quest: at the Theban City Gate, the chosen quest card offers one
-    // button, Give, and giving the Decree meets it and pays one XP.
+    // button, Discard; giving the Decree meets it and pays one XP.
     const gateKey = `cosyworld.reflected-shore.v1.quest-give-${width}`;
     await page.evaluate(
       ({ gateKey, save, seen }) => {
@@ -330,9 +330,9 @@ try {
       await page.locator("#hand .want-frame > .want-card").getAttribute("aria-label"),
       "Quest: Give The Burial Decree to The Gate Guard, near",
     );
-    // The fold's tap names the quest and offers its Give action: one button.
+    // The fold's tap names the quest; its one button is Discard.
     await page
-      .locator('#card-actions [data-quest-step]:not([data-revealing="true"])')
+      .locator('#card-actions [data-drop-quest]:not([data-revealing="true"])')
       .waitFor();
     assert.equal(
       (
@@ -346,7 +346,7 @@ try {
         .evaluateAll((buttons) =>
           buttons.map((b) => [b.textContent, b.disabled]),
         ),
-      [["Tap to give", false]],
+      [["Tap to discard", false]],
     );
     assert.equal(
       await page
@@ -363,9 +363,11 @@ try {
       path: new URL(`give-${width}.png`, output).pathname,
     });
     const xp = (await saved(gateKey)).xp;
-    await page
-      .locator('#card-actions [data-quest-step]:not([data-revealing="true"])')
-      .click();
+    // The Give is done as any give is, by choosing the Decree and the guard.
+    await clearSelection(page);
+    await selectCard(page, "greek-decree");
+    await selectCard(page, "greek-guard");
+    await readyActionButton(page, "give").click();
     await page.waitForFunction(
       (k) => JSON.parse(localStorage.getItem(k)).actors.vale.want === null,
       gateKey,
@@ -380,7 +382,7 @@ try {
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.deepEqual(errors, []);
     console.log(
-      `One quest card: fold, deal, one button (step or Discard), met with no claim passed at ${width}px (${motion}).`,
+      `One quest card: fold, deal, one button (Discard), met with no claim passed at ${width}px (${motion}).`,
     );
     await page.close();
   }

@@ -139,7 +139,7 @@ describe("an unlocked avatar's homecoming", () => {
     expect(lamplessPlaces).toContain(spot);
     expect([...hidingPlaces(world), ...hub.places]).toContain(spot);
     expect(world.doors.theatre).toBe("clearing");
-    // Nothing is pushed: the quest is Take quest on the home's shut door.
+    // Nothing is pushed: the quest is Accept quest on the home's shut door.
     expect(questsOf(world, "mara")).toEqual([]);
     expect(world.actors.mara.want).toBeNull();
     const seated = {
@@ -156,7 +156,7 @@ describe("an unlocked avatar's homecoming", () => {
     expect(offers[0]).toMatchObject({
       id: "quest:home:theatre",
       kind: "home",
-      label: "Take quest",
+      label: "Accept quest",
       blocked: null,
       want: {
         kind: "item",

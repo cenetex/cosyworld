@@ -8118,10 +8118,10 @@
   // v2/card-game/world/offers.mjs
   var BLOCKED = "Finish or discard your quest first";
   var OFFER_LABELS = {
-    box: "Take quest",
+    box: "Accept quest",
     resident: "Accept quest",
-    home: "Take quest",
-    level: "Take level up quest"
+    home: "Accept quest",
+    level: "Accept quest"
   };
   var offerId = (kind, source) => kind === "level" ? "quest:level" : `quest:${kind === "resident" ? "from" : kind}:${source}`;
   var boxQuest = (s, { kind, target, step }) => ({

@@ -170,7 +170,7 @@ try {
       if (kind === "quest") {
         // One quest card, one button; nothing was committed.
         await page
-          .locator("#card-actions [data-quest-step], #card-actions [data-drop-quest]")
+          .locator("#card-actions [data-drop-quest]")
           .first()
           .waitFor();
         assert.equal(await page.locator("#card-actions button").count(), 1);

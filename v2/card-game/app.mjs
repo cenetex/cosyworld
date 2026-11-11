@@ -88,7 +88,6 @@ import {
   questTier,
   questVerb,
 } from "./quest-card.mjs";
-import { NOT_FOUND, questStep } from "./quest-step.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import { beginPipJourney, createPipWorld, talkToPip } from "./pip-landing.mjs";
@@ -2549,48 +2548,21 @@ function renderActions() {
     reveal.onclick = () => uncover(opening()?.next);
     row.append(reveal);
   }
-  // The chosen quest card offers one button: its next step (a play the rules
-  // already offer, or why there is none) or, when it has none, Discard (a
-  // level quest costs experience, named on its button).
+  // The chosen quest card offers one button, Discard (a level quest costs
+  // experience, named on its button). Its step is done as any play is, by
+  // choosing the cards (the item and the person, the place).
   const picked = questOpen && !rested ? shownQuests[0] : null;
   const legal = picked ? legalActions(world) : [];
-  const progress =
-    picked && questStep(world, picked, questCovered(picked), legal);
-  const next =
-    progress?.action &&
-    ["item", "target", "receive", "destination"].some(
-      (key) => progress.action[key] && cardIsCovered(progress.action[key]),
-    )
-      ? { reason: NOT_FOUND }
-      : progress;
-  const steps = next?.rest
-    ? restPlays(
-        world,
-        legal.filter((a) => a.kind === "wait" && !a.sleep && !a.guards),
-        lastWait?.key === selected.join("+") &&
-          lastWait.revision === world.revision,
-      )
-    : next?.action
-      ? [next.action]
-      : [];
-  const step = steps[0];
   const drop =
-    !step && legal.find((a) => a.kind === "drop" && !a.item && a.quest === 0);
+    picked && legal.find((a) => a.kind === "drop" && !a.item && a.quest === 0);
   const confirmKey = drop ? `${revision}:${picked.key}` : null;
   if (abandonQuest !== confirmKey) abandonQuest = null;
   const dropLabel = drop && playLabel(drop, world);
   const questButtons = abandonQuest
     ? [{ action: drop, label: "Confirm?" }]
-    : step
-      ? [
-          {
-            action: step,
-            label: shownQuestCaption(picked, false),
-          },
-        ]
-      : drop
-        ? [{ action: drop, label: dropLabel }]
-        : [];
+    : drop
+      ? [{ action: drop, label: dropLabel }]
+      : [];
   for (const { action, label } of questButtons) {
     const discard = action?.kind === "drop" && !action.item,
       button = node(
@@ -2599,12 +2571,9 @@ function renderActions() {
         action && !discard ? "card-primary" : "card-action",
       );
     button.type = "button";
-    if (discard) {
-      button.dataset.dropQuest = String(picked.index);
-      button.dataset.destructive = "";
-    } else button.dataset.questStep = "";
-    if (!discard) button.dataset.action = action.kind;
-    button.title = discard ? "Discard this quest" : shownQuestCaption(picked, false);
+    button.dataset.dropQuest = String(picked.index);
+    button.dataset.destructive = "";
+    button.title = "Discard this quest";
     button.disabled = selectionBlocked();
     button.onclick = () => {
       if (discard && !abandonQuest) {
@@ -2707,15 +2676,13 @@ function renderActions() {
     message = button;
     heading.hidden = true;
   } else if (questShown && !offerPicked && row.childElementCount === 1) {
-    const label = step && playLabel(step, world);
     cardTapHint(
       row.firstElementChild,
-      abandonQuest ? "Confirm" : drop ? "Discard" : actionTapVerb(step, label || "Continue"),
-      label || undefined,
+      abandonQuest ? "Confirm" : "Discard",
     );
   }
   const note = document.querySelector(".action-beat-note");
-  let noteText = visibleText(next?.reason === NOT_FOUND ? "" : next?.reason || "");
+  let noteText = "";
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
@@ -3182,8 +3149,7 @@ const cardBackImage = () =>
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near. The card itself plays nothing:
-// chosen, the context button offers its next step or Discard
-// (quest-step.mjs).
+// chosen, the context button offers Discard.
 const questCovered = (quest) => !quest.target || cardIsClosed(quest.target);
 const known = (id) => !cardIsClosed(id);
 function shownQuestCaption(quest, includeLevel = true) {

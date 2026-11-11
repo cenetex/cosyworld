@@ -243,11 +243,11 @@ the world rules in `want.mjs`, not from authored quest chains.
   `quest:box:<box>`, `quest:from:<resident>`, `quest:home:<home>`,
   `quest:level`), and the `take` play (`{kind: "take", offer}`, no turn)
   calls `takeQuest`, which sets the want when the player holds none;
-  `dropQuest` sets it down. Take quest is on a shut box and on your own
-  home's door (homecoming: bring the belonging home); Accept quest is on a
+  `dropQuest` sets it down. Every offer reads Accept quest: a shut box, your own
+  home's door (homecoming: bring the belonging home), a
   resident who told you their want (after Talk, by a chance rolled once per
   visit, certain if they trust you or hold a hub starter want such as Pip's
-  lamp); Take level up quest appears when experience reaches the next level
+  lamp), and the level quest, which appears when experience reaches the next level
   and gives Sleep at home. While a quest is held every card stays, its
   button disabled and labelled "Finish or discard your quest first".
   **The client draws each offer as a card** (`offerFrame`, `app.mjs`) with the
@@ -390,9 +390,9 @@ up. Its identity is whose quest it is, its kind and its target, so only a
 quest that leaves the hand and later comes back is dealt face down again. The
 hand a page or a new game opens on is already dealt: a quest in view then is
 face up at once. It takes taps while face down. The chosen quest card gives
-exactly one button, as any chosen card does: its next step (`quest-step.mjs`),
-or **Discard** when it has none (its label names the XP it costs when the rules
-charge any, and a second tap confirms). Tapping the chosen card lowers it. A
+exactly one button, as any chosen card does: **Discard** (its label names the XP
+it costs when the rules charge any, and a second tap confirms). The step is done
+by choosing the cards, as any play is (Lamp and Pip, Give). Tapping the chosen card lowers it. A
 met quest simply goes: the rules pay its one XP on the play that met it, and
 there is nothing to choose or claim (the old quest stack, Focus, Claim, the
 sealed met card and the "+1 XP" float are gone, rules 133). A first quest
@@ -402,7 +402,7 @@ through Talk:
 `want-talk.mjs` adds one first-person fact about the top quest ("I want the
 Lamp.") for the player and the person on the other side of a Talk play. Bystanders' quests stay
 unsaid, and a met quest is not said. How a player comes to hold a quest (Take
-quest on a locked box, Accept quest after Talk, Take level up quest) is the
+quest on a locked box, after Talk, the level quest, each Accept quest) is the
 rules' offers (a no-turn `take` play); drawing them as cards with that one
 button is the next client step (`takesQuest` in `app.mjs` already treats it as
 a no-turn play). See [the design](../../docs/design/wants-and-arcs.md).
@@ -476,8 +476,8 @@ down behind it, up to three; tapping the top card fans that stack. Tapping a
 card in a fan chooses it, and it moves left, to the front of its stack: the row
 stays avatar, things, then the quest, so the quest never lies ahead of a thing
 (#2295). A thing takes the avatar's place in the choice, so it pairs with the
-next card, and the quest is the choice alone, offering its one button: its next
-step or **Discard**. A quest dealt while the stacks show rises in its own slot.
+next card, and the quest is the choice alone, offering its one button,
+**Discard**. A quest dealt while the stacks show rises in its own slot.
 A stack of one card hides nothing,
 so its card is chosen at the first tap. Tapping the avatar again folds both
 stacks back to the avatar, and tapping it once more lowers it. If two or more
