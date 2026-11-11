@@ -23,6 +23,7 @@ const PRIVACY = [
   "**What CosyWorld can do here**",
   "• Answer you as the residents of a bound pack, in bound channels only.",
   "• Talk is a committed act: what you say to a resident is journaled to your world, like a card play. The bot stores no chat outside that.",
+  "• Anonymous Discord play is planned, not available yet. When added, committed game acts will be recorded even without linking an account.",
   "**What it never does**",
   "• Holds no one's Discord keys, reads no other channel, sends no DMs or pings.",
   "• The world never asks for attention; it posts only where you look.",

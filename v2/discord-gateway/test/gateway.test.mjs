@@ -53,3 +53,10 @@ test("setup, who, unbind, privacy, unknown", () => {
   assert.match(dispatch("privacy", ctx, deps).content, /never asks for attention/);
   assert.equal(dispatch("nope", ctx, deps).content, "Unknown command.");
 });
+
+test("privacy discloses journaled acts for planned anonymous play", () => {
+  const { deps } = makeDeps();
+  const content = dispatch("privacy", { options: {} }, deps).content;
+  assert.match(content, /Anonymous Discord play is planned, not available yet/);
+  assert.match(content, /committed game acts will be recorded even without linking an account/);
+});
