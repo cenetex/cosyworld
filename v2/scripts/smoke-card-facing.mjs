@@ -79,7 +79,7 @@ try {
           },
         );
         await page.route("**/auth/account", (route) =>
-          route.fulfill({ json: { authenticated: true } }),
+          route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
         );
         await page.route("**/card-game/shared/worlds/facing-view**", (route) =>
           route.fulfill({ json: snapshot }),

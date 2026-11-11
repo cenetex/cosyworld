@@ -145,6 +145,7 @@ const files = [
   "card-descriptor.mjs",
   "card-reveal.mjs",
   "card-entry.mjs",
+  "account-revision.mjs",
   "card-exit.mjs",
   "card-ghost.mjs",
   "page-fade.mjs",

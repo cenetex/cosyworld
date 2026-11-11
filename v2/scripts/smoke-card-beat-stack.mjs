@@ -641,6 +641,15 @@ try {
             .getAttribute("data-revealing"),
           "true",
         );
+        // Current action inscriptions use letters, never a clipped wipe.
+        const pen = await npcCaption.evaluate((item) => ({
+          clip: getComputedStyle(item).clipPath,
+          steps: getComputedStyle(item).animationTimingFunction,
+          letters: item.querySelectorAll(".speech-letter").length,
+        }));
+        assert.equal(pen.clip, "none", JSON.stringify(pen));
+        assert.doesNotMatch(pen.steps, /steps/, JSON.stringify(pen));
+        assert.ok(pen.letters > 3, JSON.stringify(pen));
         await page.locator("#speech-row").evaluate((card) => card.click());
       }
       assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
