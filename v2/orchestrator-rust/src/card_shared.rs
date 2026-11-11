@@ -103,6 +103,11 @@ pub(super) fn router() -> Router<AppState> {
 }
 
 fn reply(r: Result<Value>) -> Response {
+    if let Err(message) = &r {
+        if let Some(error) = crate::account_revision::Error::from_message(message) {
+            return error.response();
+        }
+    }
     let (status, body) = match r {
         Ok(v) => (StatusCode::OK, v),
         // The client waits and retries on its own (shared.mjs).
@@ -152,6 +157,14 @@ pub(super) fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<St
         .authenticated_user_id(h)
         .map_err(sql_error)?
         .ok_or_else(|| "Sign in with your passkey.".into())
+}
+pub(crate) fn revision(
+    state: &AppState,
+    h: &HeaderMap,
+) -> Result<crate::account_revision::Revision> {
+    let user = user(state, h, true)?;
+    let c = db(state)?;
+    crate::account_revision::Revision::capture(&c, &user, h).map_err(|error| error.to_string())
 }
 fn admit(user: &str) -> Result<()> {
     use crate::rate_limit::{RateLimit, RateLimiter};

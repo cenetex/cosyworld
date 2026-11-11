@@ -115,6 +115,14 @@ export function releaseJob(id) {
   else held.delete(id);
 }
 
+const identityHeaders = (identity) =>
+  identity
+    ? {
+        "X-Account-User": identity.owner,
+        "X-Account-Revision": String(identity.revision),
+      }
+    : {};
+
 async function send(fetcher, path, init, signal) {
   const response = await fetcher(path, {
     credentials: "same-origin",
@@ -175,6 +183,25 @@ export async function createJob(kind, request, options = {}) {
   }
   throw last;
 }
+export async function readRequest(requestKey, options = {}) {
+  const { fetch: fetcher = globalThis.fetch, signal } = options;
+  const sent = await send(
+    fetcher,
+    `${base}/jobs/by-request`,
+    {
+      method: "GET",
+      headers: {
+        "Idempotency-Key": requestKey,
+        ...identityHeaders(options.identity),
+      },
+    },
+    signal,
+  );
+  if (!sent.response.ok) throw jobFailure(sent.body, sent.response.status);
+  if (typeof sent.body?.id !== "string" || !sent.body.id) throw unreachable();
+  return sent.body;
+}
+
 export async function readJob(id, options = {}) {
   const { fetch: fetcher = globalThis.fetch, signal } = options;
   let sent;

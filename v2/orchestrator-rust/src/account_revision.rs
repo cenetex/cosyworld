@@ -20,8 +20,6 @@ pub(crate) fn current(c: &Connection, user: &str) -> rusqlite::Result<u64> {
     .map(|revision| revision.unwrap_or(0))
 }
 
-// Enable this module with the mutation-route integration, before adding reset.
-#[cfg(test)]
 mod guard {
     use super::*;
     use axum::{
@@ -45,7 +43,21 @@ mod guard {
             Self::Unavailable
         }
     }
+    impl std::fmt::Display for Error {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(match self {
+                Self::Changed => "Your account changed. Reload before continuing.",
+                Self::Invalid => "Send one account revision and account user.",
+                Self::Unavailable => "Your account needs another try.",
+            })
+        }
+    }
     impl Error {
+        pub(crate) fn from_message(message: &str) -> Option<Self> {
+            [Self::Changed, Self::Invalid, Self::Unavailable]
+                .into_iter()
+                .find(|error| error.to_string() == message)
+        }
         pub(crate) fn response(self) -> Response {
             let (status, code, error) = match self {
                 Self::Changed => (
@@ -137,8 +149,7 @@ mod guard {
     }
 }
 
-#[cfg(test)]
-use guard::*;
+pub(crate) use guard::*;
 
 #[cfg(test)]
 mod tests {

@@ -11,7 +11,7 @@ use std::{net::SocketAddr, path::Path, time::Duration};
 
 use axum::{
     body::Bytes,
-    extract::{ConnectInfo, DefaultBodyLimit, State},
+    extract::{ConnectInfo, DefaultBodyLimit, Query, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -31,6 +31,13 @@ use crate::{
 
 /// Every counter the server accepts. The client mirrors this list in
 /// `v2/card-game/metrics.mjs`; a name outside it refuses the whole batch.
+///
+/// Four names can no longer be produced by the table on rules 132 and stay
+/// here only because an older client may still send them: `play.light` and
+/// `play.snuff` (Light and Snuff stopped being plays), `play.refuel` (a lamp
+/// refuels by itself after a play) and `play.retreat` (a retreat is a battle's
+/// outcome, not a play). `play.attack`, `play.intercept` and `play.guard`
+/// remain, and `eat`, `gate`, `pack` and `craft` plays count as `play.other`.
 pub(crate) const COUNTERS: &str = "\
     session.start session.end play.accompany play.ask play.attack \
     play.course play.cover play.drop play.give play.guard \
@@ -52,6 +59,7 @@ pub(crate) const RETENTION_DAYS: i64 = 400;
 /// One tab flushes once a minute and on pagehide; a batch never needs more.
 pub(crate) const MAX_COUNT: u32 = 1_000;
 const MAX_BODY_BYTES: usize = 4 * 1024;
+/// The summary's default window; `?days=N` asks for 1 to `RETENTION_DAYS`.
 const SUMMARY_DAYS: i64 = 7;
 pub(crate) const METRICS_LIMIT: RateLimit = RateLimit {
     max_hits: 12,
@@ -125,31 +133,40 @@ pub(crate) fn store(conn: &mut Connection, batch: &Batch, today: i64) -> rusqlit
     tx.commit()
 }
 
-/// Totals for the last `SUMMARY_DAYS` days, newest first.
+/// The days a summary covers: the `days` query value, else `SUMMARY_DAYS`,
+/// kept within one day and the retention window. Today counts as one day.
+pub(crate) fn summary_days(days: Option<&str>) -> i64 {
+    days.and_then(|days| days.trim().parse::<i64>().ok())
+        .unwrap_or(SUMMARY_DAYS)
+        .clamp(1, RETENTION_DAYS)
+}
+
+/// Totals for the last `days` days, newest first.
 pub(crate) fn read_summary(
     conn: &Connection,
     today: i64,
+    days: i64,
 ) -> rusqlite::Result<Vec<serde_json::Value>> {
     ensure_table(conn)?;
     let mut stmt = conn.prepare(
         "SELECT day, name, count FROM play_metrics_daily WHERE day > ?1 ORDER BY day DESC, name",
     )?;
-    let rows = stmt.query_map(params![today - SUMMARY_DAYS], |row| {
+    let rows = stmt.query_map(params![today - days], |row| {
         Ok((
             row.get::<_, i64>(0)?,
             row.get::<_, String>(1)?,
             row.get::<_, i64>(2)?,
         ))
     })?;
-    let mut days: Vec<(i64, serde_json::Map<String, serde_json::Value>)> = Vec::new();
+    let mut found: Vec<(i64, serde_json::Map<String, serde_json::Value>)> = Vec::new();
     for row in rows {
         let (day, name, count) = row?;
-        if days.last().is_none_or(|(last, _)| *last != day) {
-            days.push((day, serde_json::Map::new()));
+        if found.last().is_none_or(|(last, _)| *last != day) {
+            found.push((day, serde_json::Map::new()));
         }
-        days.last_mut().unwrap().1.insert(name, count.into());
+        found.last_mut().unwrap().1.insert(name, count.into());
     }
-    Ok(days
+    Ok(found
         .into_iter()
         .map(|(day, counters)| json!({ "day": day, "counters": counters }))
         .collect())
@@ -198,19 +215,29 @@ async fn record(
     }
 }
 
-async fn summary(State(state): State<AppState>, headers: HeaderMap) -> Response {
+#[derive(Deserialize)]
+struct SummaryQuery {
+    days: Option<String>,
+}
+
+async fn summary(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<SummaryQuery>,
+) -> Response {
     if !moderation_authorized(&state, &headers) {
         return StatusCode::FORBIDDEN.into_response();
     }
     let today = utc_day(now_millis());
-    let Some(job) = with_store(&state, move |conn| read_summary(conn, today)) else {
+    let window = summary_days(query.days.as_deref());
+    let Some(job) = with_store(&state, move |conn| read_summary(conn, today, window)) else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
     match job.await {
-        Ok(Some(days)) => {
-            Json(json!({ "ok": true, "retentionDays": RETENTION_DAYS, "days": days }))
-                .into_response()
-        }
+        Ok(Some(days)) => Json(
+            json!({ "ok": true, "retentionDays": RETENTION_DAYS, "window": window, "days": days }),
+        )
+        .into_response(),
         _ => StatusCode::SERVICE_UNAVAILABLE.into_response(),
     }
 }

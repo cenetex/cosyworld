@@ -38,6 +38,9 @@ mod opening;
 pub(super) mod reflect;
 #[path = "full_retire.rs"]
 mod retire;
+#[cfg(test)]
+#[path = "revision_tests.rs"]
+mod revision_tests;
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -175,7 +178,8 @@ fn tidy(
 }
 async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Create>) -> Response {
     let result = blocking(move || {
-        let u = user(&state, &h, true)?;
+        let revision = super::revision(&state, &h)?;
+        let u = revision.user.clone();
         admit(&u)?;
         let mut c = db(&state)?;
         store::schema(&c)?;
@@ -195,6 +199,7 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(sql_error)?;
+        revision.check(&tx).map_err(|error| error.to_string())?;
         let a = actor_index(body.avatar.as_deref().unwrap_or("vale"))?;
         let id = found(&tx, &u, a, save.as_deref(), now())?;
         tx.commit().map_err(sql_error)?;
@@ -312,13 +317,14 @@ async fn command(
         let state = worker;
         let id = wid;
         valid_id(&id)?;
-        let u = user(&state, &h, true)?;
+        let revision = super::revision(&state, &h)?;
+        let u = revision.user.clone();
         admit(&u)?;
         logged(&id, || {
-            command_as(
+            command_with_revision(
                 &state,
                 &id,
-                &u,
+                &revision,
                 &body,
                 h.get(super::sync::HEADER).and_then(|v| v.to_str().ok()),
             )
@@ -359,6 +365,7 @@ pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>)
     tx.commit().map_err(sql_error)?;
     Ok(value)
 }
+#[cfg(test)]
 pub(super) fn command_as(
     state: &AppState,
     id: &str,
@@ -366,6 +373,21 @@ pub(super) fn command_as(
     body: &Command,
     cursor: Option<&str>,
 ) -> Result<Value> {
+    let c = db(state)?;
+    let revision = crate::account_revision::Revision {
+        user: u.into(),
+        epoch: crate::account_revision::current(&c, u).map_err(sql_error)?,
+    };
+    command_with_revision(state, id, &revision, body, cursor)
+}
+fn command_with_revision(
+    state: &AppState,
+    id: &str,
+    revision: &crate::account_revision::Revision,
+    body: &Command,
+    cursor: Option<&str>,
+) -> Result<Value> {
+    let u = &revision.user;
     let mut c = db(state)?;
     store::schema(&c)?;
     let gate = writer(state);
@@ -373,6 +395,7 @@ pub(super) fn command_as(
     let tx = c
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(sql_error)?;
+    revision.check(&tx).map_err(|error| error.to_string())?;
     let value = run(&tx, id, u, body, now())?;
     let value = super::sync::response(&tx, id, u, value, cursor)?;
     tx.commit().map_err(sql_error)?;
@@ -668,6 +691,7 @@ pub(super) struct Work {
     pub actor: usize,
     pub context: Value,
     attempt: i32,
+    revision: crate::account_revision::Revision,
 }
 pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
     let mut c = db(state)?;
@@ -756,6 +780,10 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             params![destination, time + 60_000, context.to_string(), context.to_string(), key],
         )
         .map_err(sql_error)?;
+        let revision = crate::account_revision::Revision {
+            user: u.clone(),
+            epoch: crate::account_revision::current(&tx, &u).map_err(sql_error)?,
+        };
         tx.commit().map_err(sql_error)?;
         return Ok(Some(Work {
             id: key,
@@ -763,6 +791,7 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             actor: a,
             context,
             attempt,
+            revision,
         }));
     }
     tx.commit().map_err(sql_error)?;
@@ -893,6 +922,9 @@ fn finish_work_attempt(
         if status != "working" || attempt != work.attempt {
             return Ok(false);
         }
+        work.revision
+            .check(&tx)
+            .map_err(|error| error.to_string())?;
         let time = now();
         if continuation::refresh(&tx, id, work, time)? {
             tx.commit().map_err(sql_error)?;
