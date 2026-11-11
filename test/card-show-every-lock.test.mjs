@@ -1,11 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions } from "../v2/card-game/world.mjs";
 import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
 import { lockText } from "./helpers/lock-text.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
 
 // Slice 4 of the wants design (#2605): every gated way and conditional
 // resident that pack data can draw is drawn as a locked box with a truthful
@@ -201,36 +200,6 @@ describe("Greek conditional residents are locked boxes that cannot be played", (
     // Aethra, whose only condition is the section's flag, is simply there.
     expect(entityActive(s, "greek-aethra")).toBe(true);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip.each(["burial", "concession"])(
-    "names Dione's report for an earlier %s save",
-    (branch) => {
-      const s = openingFixture(branch, {
-        reportFirst: branch === "burial",
-      }).returning;
-      expect(greek(s)["greek-burial-performed"]).toBe(true);
-      expect(greek(s)["greek-open-door-open"]).toBeUndefined();
-      const away = at(structuredClone(s), "greek-piraeus");
-      expect(lockedQuest(away, "greek-quay-host").text).toMatch(
-        /give Dione an earlier Theban account/u,
-      );
-      untouchable(away, "greek-quay-host");
-      const action = legalActions(s).find(
-        (a) =>
-          a.kind === "give" &&
-          a.item === "greek-burial-account" &&
-          a.target === "greek-baker",
-      );
-      expect(action).toBeTruthy();
-      const result = play(s, action);
-      expect(result.ok).toBe(true);
-      expect(
-        lockedQuest(at(result.state, "greek-piraeus"), "greek-quay-host"),
-      ).toBeNull();
-    },
-  );
 });
 
 describe("Lonely Forest ways are drawn locked", () => {

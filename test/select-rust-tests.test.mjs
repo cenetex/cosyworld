@@ -57,10 +57,10 @@ describe("fast check Rust test selection", () => {
 
   it("runs consequence replay for rule modules and pinned evidence", () => {
     // The old pinned traces (rules 130-132) retired with the rules 133 bump, so
-    // the rule modules the crate names, and the busy-world evidence it reads.
+    // the rule modules the crate names, and the played-world helper it reads.
     for (const path of [
       "v2/card-game/world.mjs",
-      "test/fixtures/card-world-life-busy.json",
+      "test/helpers/long-play.mjs",
     ])
       expect(pick(path)).toContain("card_shared::world_life_tests::");
   });

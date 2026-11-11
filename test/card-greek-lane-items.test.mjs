@@ -27,9 +27,7 @@ function pleaWorld() {
 }
 
 describe("lanes that open with a thing aboard", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("the plea brings the herald's truce; the provisions open Piraeus", () => {
+  it("the plea brings the herald's truce; the provisions open Piraeus", () => {
     const s = pleaWorld();
     expect(s.items[BRANCH].holder).toBe("vale");
     expect(entityActive(s, BRANCH)).toBe(true);

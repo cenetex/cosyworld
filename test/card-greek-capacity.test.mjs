@@ -31,8 +31,7 @@ import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
-import { openDoorWalk } from "./helpers/open-door.mjs";
+import { openDoorStart, openDoorWalk } from "./helpers/open-door.mjs";
 import {
   agoraVisitors,
   agoraView,
@@ -45,9 +44,7 @@ import { stowProvisions } from "./helpers/provisions.mjs";
 const paths = [["piraeus", "harbor"]];
 
 describe("roads around a full Agora", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip.each(paths.map((path) => [path[0], path]))(
+  it.each(paths.map((path) => [path[0], path]))(
     "reaches the harbor from %s with four people in Agora",
     (_place, path) => {
       let world = crowdedAgoraWorld();
@@ -132,10 +129,7 @@ describe("roads around a full Agora", () => {
         expect(world.actors[actor].place).toBe("greek-athens");
     },
   );
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("rejects a stale Agora move and restores the road when someone leaves", () => {
+  it("rejects a stale Agora move and restores the road when someone leaves", () => {
     const world = crowdedAgoraWorld();
     world.actors.vale.place = "greek-road-athens-piraeus";
     const alone = agoraView(world, ["vale"]);
@@ -167,11 +161,8 @@ describe("roads around a full Agora", () => {
     expect(moved.ok).toBe(true);
     expect(moved.world.actors.vale.place).toBe("greek-athens");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps the new harbor road behind Dione's accepted invitation", () => {
-    let closed = openingFixture("exposure").closed;
+  it("keeps the new harbor road behind Dione's accepted invitation", () => {
+    let closed = openDoorStart();
     closed = openDoorWalk(closed, "harbor");
     const hosted = dispatchShared({
       op: "create",

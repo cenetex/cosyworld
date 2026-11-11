@@ -1,3 +1,4 @@
+use super::js_bridge_tests::played_save;
 use super::{content, engine, full_store, full_world::World, now, store};
 use serde_json::{json, Value};
 
@@ -222,16 +223,14 @@ fn rules_100_world_life_commits_and_replays_in_the_c_host() {
     let _ = std::fs::remove_file(path);
 }
 
-// Rules 100's round stays cheap in bounded QuickJS: on a busy world, every
-// ranged resident walking home and the cast going to sleep through dusk, the
-// slowest play stays far inside the 2 s deadline.
+// The world's round stays cheap in bounded QuickJS: on a busy played world,
+// with the cast going to sleep through dusk, the slowest play stays far
+// inside the 2 s deadline. The world is the burial played from createWorld,
+// waited on until just before dusk (test/helpers/long-play.mjs).
 #[test]
-#[ignore = "package 6 fixtures"]
-fn rules_100_busy_world_plays_well_inside_the_deadline() {
-    let mut world: Value = serde_json::from_str(include_str!(
-        "../../../../test/fixtures/card-world-life-busy.json"
-    ))
-    .unwrap();
+fn a_busy_played_world_plays_well_inside_the_deadline() {
+    let mut world: Value =
+        serde_json::from_str(&played_save("test/helpers/long-play.mjs", "busyDusk()")).unwrap();
     let seats = |op: &str, world: &Value| json!({"op":op,"world":world,"actor":"vale","claimed":["vale"],"present":["vale"]});
     let mut slowest = std::time::Duration::ZERO;
     for _ in 0..12 {
@@ -251,7 +250,7 @@ fn rules_100_busy_world_plays_well_inside_the_deadline() {
         assert_eq!(done["ok"], true, "{}", done["error"]);
         world = done["world"].clone();
     }
-    eprintln!("rules 100 busy world: slowest play {slowest:?}");
+    eprintln!("busy played world: slowest play {slowest:?}");
     assert!(slowest < std::time::Duration::from_millis(1500));
 }
 

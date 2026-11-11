@@ -61,9 +61,7 @@ function shieldDelivered() {
 }
 
 describe("Earth Beside the Ships", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("offers the lasting ship invitation after the four local endings and return", () => {
+  it("offers the lasting ship invitation after the four local endings and return", () => {
     const early = openDoorWalk(openDoorStart(), "harbor");
     const talked = playOpenDoor(early, "talk", { target: "greek-shipmaster" });
     expect(ajaxState(talked).receipts["greek-ajax-invitation"]).toBeUndefined();
@@ -85,10 +83,7 @@ describe("Earth Beside the Ships", () => {
     );
     expect(world.transports["greek-ship"].dock).toBeTruthy();
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip.each(["public", "household", "appeal"])(
+  it.each(["public", "household", "appeal"])(
     "brings the %s burial home through the ship and source conversations",
     (route) => {
       const world = ajaxJourney(route);
@@ -134,10 +129,7 @@ describe("Earth Beside the Ships", () => {
       expect(verses(playOpenDoor(world, "wait"))).toEqual(verses(world));
     },
   );
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps the appeal open through a saved vigil, witness, and prepared grave", () => {
+  it("keeps the appeal open through a saved vigil, witness, and prepared grave", () => {
     let world = ajaxGrave("appeal", false);
     expect(buried(world)).toBeUndefined();
     expect(graveRite(world)).toBeUndefined();
@@ -157,9 +149,7 @@ describe("Earth Beside the Ships", () => {
 
   // The seven Ajax story choices were pressed buttons; each now fires from
   // the Talk with its speaker and is never offered as a `choose` play (#2605).
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("commits the seven testimony and record choices at Talk, not as buttons", () => {
+  it("commits the seven testimony and record choices at Talk, not as buttons", () => {
     const talkIds = [
       "learn-shield-teucer",
       "learn-shield-odysseus",
@@ -208,10 +198,7 @@ describe("Earth Beside the Ships", () => {
       expect(ajaxState(signed).flags["greek-ajax-account-ready"]).toBe(true);
     }
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("requires the actual cloth and tools when the burial is performed", () => {
+  it("requires the actual cloth and tools when the burial is performed", () => {
     let world = ajaxGrave();
     world = playOpenDoor(world, "take", { item: "greek-ajax-cloth" });
     expect(graveRite(world)).toBeUndefined();
@@ -229,10 +216,7 @@ describe("Earth Beside the Ships", () => {
     });
     expect(graveRite(world)).toBe("greek-ajax-bury-public");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("records the plea at Teucer's Talk even when his words never arrive", () => {
+  it("records the plea at Teucer's Talk even when his words never arrive", () => {
     let world = shieldDelivered();
     const talk = legalActions(world).find(
       (a) => a.kind === "talk" && a.target === "greek-ajax-teucer",
@@ -288,10 +272,7 @@ describe("Earth Beside the Ships", () => {
     expect(knowsFact(world, "vale", "greek-ajax-plea")).toBe(true);
     expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(turn);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("uses local paths inside the camp and a ship stop between its shores", () => {
+  it("uses local paths inside the camp and a ship stop between its shores", () => {
     const world = ajaxPlea();
     for (const id of [
       "greek-ajax-landing",
@@ -306,8 +287,7 @@ describe("Earth Beside the Ships", () => {
 
 
 describe("shared Ajax testimony", () => {
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("lets a second carrier learn the signed account and bring its paper to Dione", () => {
+it("lets a second carrier learn the signed account and bring its paper to Dione", () => {
     const original = ajaxAccount("public");
     let world = dispatchShared({
       op: "create",

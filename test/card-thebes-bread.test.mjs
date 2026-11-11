@@ -22,7 +22,7 @@ import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { CONTENT_TURNS, questsOf, setWant } from "../v2/card-game/want.mjs";
 import { acceptQuest } from "./helpers/accept-quest.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
-import { greekErrands, openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { courseOptions } from "../v2/card-game/pack-transport.mjs";
 
@@ -200,20 +200,6 @@ describe("the guard and the decree", () => {
     expect(want.step?.verb).not.toBe("eat");
   });
 
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("buys Creon's writ, and Creon's grant commits", () => {
-    const s = openingFixture("concession").permission;
-    expect(s.items["greek-decree"].holder).toBe("greek-creon");
-    expect(s.items["greek-creon-writ"].holder).toBe("vale");
-    expect(s.packs["greek-drama"].choices["greek-theban-response"]).toBe(
-      "concession",
-    );
-    expect(s.packs["greek-drama"].receipts).toHaveProperty(
-      "greek-petition-burial",
-    );
-  });
-
   it("bakes a second bread from wheat brought home", () => {
     let s = greekErrands().traded;
     s = act(walk(s, "courtyard"), "drop", {
@@ -366,13 +352,10 @@ describe("the Charybdis's provisions", () => {
     s = sailTo(s, "greek-harbor");
     expect(s.actors.vale.place).toBe("greek-harbor");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("share the one bread with the guard: land first, then sea", () => {
+  it("share the one bread with the guard: land first, then sea", () => {
     // Land: the first bread buys the decree, the decree the writ, and the
     // writ opens the gate.
-    let s = openingFixture("concession", { reportFirst: false }).opened;
+    let s = greekErrands().opened;
     expect(out(s)).toBe(true);
     // The wheat from Piraeus and the jar from the well bake the second.
     s = walk(s, "courtyard");

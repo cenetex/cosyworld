@@ -1,3 +1,4 @@
+import "./helpers/still-cast.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
@@ -32,7 +33,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 
 import { endStandoff } from "./helpers/standoff.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { SAVE_SCHEMA } from "../v2/card-game/legacy-saves.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 const PACK = "greek-drama";
@@ -239,9 +240,7 @@ describe("the Wine-Dark Sea crossing", () => {
       riders: [],
     });
   });
-
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("adds the pack once to an earlier shore save without overwriting its progress", () => {
+it("adds the pack once to an earlier shore save without overwriting its progress", () => {
     const old = pond();
     delete old.packs[PACK];
     delete old.crossings["pond-greek-harbor"];
@@ -270,7 +269,7 @@ it.skip("adds the pack once to an earlier shore save without overwriting its pro
 
     for (const actor of Object.values(old.actors)) delete actor.heldItem;
     const migrated = decodeSave(JSON.stringify(old));
-    expect(migrated.schema).toBe(7);
+    expect(migrated.schema).toBe(SAVE_SCHEMA);
     expect(migrated.log).toEqual(old.log);
     expect(migrated.turn).toBe(old.turn);
     expect(migrated.revision).toBe(old.revision);
@@ -339,35 +338,8 @@ describe("Greek choices and their receipts", () => {
     expect(stateOf(world).scope).toBe("opening");
     expect(exits(world, HARBOR, "vale")).not.toContain("greek-argolid-road");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip.each([
-    ["burial", true, "courtyard-burial"],
-    ["concession", false, "courtyard-permitted-burial"],
-  ])(
-    "finishes a saved %s report at Dione's table",
-    (branch, reportFirst, report) => {
-      const returning = openingFixture(branch, { reportFirst }).returning;
-      expect(stateOf(returning).flags["greek-burial-performed"]).toBe(true);
-      expect(stateOf(returning).flags["greek-open-door-open"]).toBeUndefined();
-      expect(returning.items["greek-burial-account"].holder).toBe("vale");
-      const reported = give(returning, "greek-burial-account", "greek-baker");
-      expect(done(reported, report)).toBe(reported.turn);
-      expect(stateOf(reported).flags["greek-open-door-open"]).toBe(true);
-      expect(stateOf(reported).choices["greek-theban-response"]).toBe(branch);
-      expect(stateOf(reported).receipts).toMatchObject(
-        stateOf(returning).receipts,
-      );
-      expect(reported.items["greek-burial-account"].holder).toBe(COURTYARD);
-      expect(reload(reported)).toEqual(reported);
-    },
-  );
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps a saved completed burial complete when supplies reach the Hollow", () => {
-    const world = openingFixture("burial").buried;
+  it("keeps a saved completed burial complete when supplies reach the Hollow", () => {
+    const world = funeralJourney().buried;
     const hollow = "greek-polynices-hollow";
     world.actors.vale.place = hollow;
     world.actors["greek-antigone"].place = hollow;
@@ -407,20 +379,6 @@ describe("Greek choices and their receipts", () => {
     expect(stateOf(world).choices["greek-theban-response"]).toBeUndefined();
     expect(done(world, "bury-polynices")).toBe(buried.turn);
     expect(stateOf(reload(world)).flags["greek-open-door-open"]).toBe(true);
-  });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps the earlier exposure report and its poem through reload", () => {
-    const world = openingFixture("exposure").closed;
-    const saved = reload(world);
-    expect(stateOf(saved).choices["greek-theban-response"]).toBe("exposure");
-    expect(done(saved, "report-plan")).toBe(done(world, "report-plan"));
-    expect(done(saved, "courtyard-exposure")).toBe(
-      done(world, "courtyard-exposure"),
-    );
-    expect(stateOf(saved).recitals).toEqual(stateOf(world).recitals);
-    expect(stateOf(saved).flags["greek-open-door-open"]).toBe(true);
   });
 });
 

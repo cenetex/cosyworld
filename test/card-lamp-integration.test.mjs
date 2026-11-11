@@ -1,6 +1,4 @@
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -210,71 +208,6 @@ describe("three-room lamp authority", () => {
     expect(world.items.lamp).toMatchObject({ fuelRooms: 3, lit: true });
   });
 });
-
-// Skipped: replays a recorded save through the removed Theban-response
-// branch; retired with the fixtures in package 6 fixtures.
-it.skip("migrates authentic rules128 light/snuff history without reinterpreting its events", () => {
-  const runtime = vm.createContext({
-    structuredClone,
-    cardContent: JSON.parse(
-      readFileSync(
-        new URL("./fixtures/released-rules/content-v128.json", import.meta.url),
-      ),
-    ),
-  });
-  vm.runInContext(
-    readFileSync(
-      new URL(
-        "../v2/orchestrator-rust/src/card_shared/engine-v128.js",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-    runtime,
-  );
-  const released = (request) => {
-    const result = JSON.parse(
-      runtime.cardShared(JSON.stringify({ ...context, ...request })),
-    );
-    expect(result.ok, result.error).toBe(true);
-    return result;
-  };
-  let old = released({ op: "create", seed: 7 }).world;
-  for (const kind of ["snuff", "light"]) {
-    const action = released({ op: "view", world: old }).actions.find(
-      (a) => a.kind === kind && a.item === "lamp",
-    );
-    expect(action).toBeDefined();
-    old = released({ op: "play", world: old, action }).world;
-    expect(old.log.some((entry) => entry.verb === kind)).toBe(true);
-    const before = structuredClone(old),
-      loaded = decodeSave(JSON.stringify(old));
-    expect(loaded.items.lamp.fuelRooms).toBe(
-      Math.ceil(old.items.lamp.fuel / 4),
-    );
-    expect(loaded.log).toEqual(old.log);
-    expect(loaded.turn).toBe(old.turn);
-    expect(loaded.eventSeq).toBe(old.eventSeq);
-    for (const [id, item] of Object.entries(old.items)) {
-      expect(loaded.items[id].history).toEqual(item.history);
-      expect(loaded.items[id].holder).toBe(item.holder);
-    }
-    expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
-    expect(
-      legalActions(loaded).some((a) => ["light", "snuff"].includes(a.kind)),
-    ).toBe(false);
-    const upgraded = dispatchShared({
-      ...context,
-      op: "upgrade",
-      world: old,
-      from: "full-card-world/128",
-      to: "full-card-world/130",
-    });
-    expect(upgraded.world.items.lamp).toEqual(loaded.items.lamp);
-    expect(upgraded.world.log).toEqual(old.log);
-    expect(old).toEqual(before);
-  }
-}, 30000);
 
 describe("saved room fuel is validated before settlement", () => {
   it.each([

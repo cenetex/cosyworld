@@ -1,4 +1,3 @@
-import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { needsVoyage, sailTo } from "./helpers/voyage.mjs";
 import { describe, expect, it } from "vitest";
 import { openGreekGate } from "./helpers/greek-gate.mjs";
@@ -82,16 +81,6 @@ const openDoorItems = [
   "greek-pyre-account",
   "greek-marathon-record",
 ];
-const legacy = (name) =>
-  JSON.parse(
-    readFileSync(
-      new URL(
-        `./fixtures/wine-dark-legacy/schema6-${name}.json`,
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
 const act = (s, kind, fields = {}) => {
   if (kind === "move" && needsVoyage(s, "vale", fields.target))
     return sailTo(s, fields.target);
@@ -234,26 +223,6 @@ describe("the Theban release and its ship", () => {
     s.actors.vale.place = pack.entry;
     const aboard = act(s, "move", { target: "greek-ship" });
     expect(exits(aboard, "greek-ship", "vale")).toEqual(["pond"]);
-  });
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("keeps a halfway signal locked until the new physical arrangement", () => {
-    // A partial old signal must not accidentally count as a completed unlock.
-    let s = decodeSave(JSON.stringify(legacy("halfway")));
-    expect(s.crossings["pond-greek-harbor"]).toEqual({ discovered: false });
-    expect(locationOverlay(s, "pond")).toBeNull();
-    // Retired signal progress is not completion. Only a placed fueled lamp
-    // and selected cloth unlock this previously undiscovered crossing.
-    if (s.items.cloth.holder === "lamp") s = act(s, "take", { item: "cloth" });
-    s = act(s, "drop", { item: "lamp" });
-    s = selectLamp(s, "cloth");
-    expect(locationOverlay(s, "pond")).toMatch(/pond-ship-overlay\.png$/);
-    expect(travelCard(s, "greek-ship")).toMatchObject({
-      name: "The Charybdis",
-      art: expect.stringMatching(/\/ship-deck[^/]*\.webp$/),
-    });
-    s = act(s, "move", { target: "greek-ship" });
-    s = act(s, "move", { target: "greek-harbor" });
-    expect(s.actors.vale.place).toBe("greek-harbor");
   });
     it("rejects unknown release modes and changes to withheld residents", () => {
     const s = createWorld();

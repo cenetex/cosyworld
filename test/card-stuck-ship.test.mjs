@@ -86,10 +86,7 @@ describe("a stuck ship goes home", () => {
   it("is the harbor for the Charybdis, from the transport's `at`", () => {
     expect(HOME).toBe("greek-harbor");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("puts the Bard ashore at home, and Mara at Piraeus can call the ship", () => {
+  it("puts the Bard ashore at home, and Mara at Piraeus can call the ship", () => {
     let s = stuck(BARD);
     // Not yet: someone aboard may still set a course.
     expect(stuckShip(s, SHIP)).toBe(false);
@@ -114,20 +111,14 @@ describe("a stuck ship goes home", () => {
     expect(s.actors.mara.place).toBe(SHIP);
     expect(s.transports[SHIP].dock).toBe("greek-piraeus");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("puts a player ashore the same way", () => {
+  it("puts a player ashore the same way", () => {
     let s = stuck("vale");
     for (let i = 0; i < 16 && !boards(s); i++) s = act(s, "mara", "wait");
     expect(s.actors.vale.place).toBe(HOME);
     s = act(s, "mara", "move", SHIP);
     expect(s.actors.mara.place).toBe(SHIP);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("leaves aboard a player the full harbor has no room for", () => {
+  it("leaves aboard a player the full harbor has no room for", () => {
     const five = ["vale", "mara", "ash", "nell", "tavi"];
     const s = dispatchShared({
       op: "create",
@@ -143,11 +134,7 @@ describe("a stuck ship goes home", () => {
     const ashore = five.filter((id) => s.actors[id].place === HOME);
     expect(ashore).toHaveLength(4);
   });
-
-
-
-  // package 6 fixtures: starts from a recorded old save, re-recorded after the bump.
-it.skip("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {
+it("keeps a ship with a standoff aboard, in play and in a save from before rules 95", () => {
     // Vale threatens Myrto aboard at the harbor; the fight holds the ship.
     let s = stuck("vale");
     s.actors["greek-shipmaster"].place = SHIP;
@@ -164,10 +151,7 @@ it.skip("keeps a ship with a standoff aboard, in play and in a save from before 
     expect(w.actors.vale.place).toBe(SHIP);
     expect(w.standoffs.some((c) => c.location === SHIP)).toBe(true);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("answers a lamp summon made while the ship was occupied", () => {
+  it("answers a lamp summon made while the ship was occupied", () => {
     const s = structuredClone(stuck(BARD));
     summonTransport(s, SHIP, "pond");
     expect(s.transports[SHIP].recall).toBe("pond");
@@ -176,10 +160,7 @@ it.skip("keeps a ship with a standoff aboard, in play and in a save from before 
     expect(s.actors[BARD].place).toBe(HOME);
     expect(s.transports[SHIP]).toMatchObject({ dock: "pond", recall: null });
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("sails the idle voyage home itself where its first lane leads there", () => {
+  it("sails the idle voyage home itself where its first lane leads there", () => {
     // From Piraeus the only open lane is home: the voyage is sailed, and
     // learned, rather than skipped.
     const s = structuredClone(stuck(BARD));
@@ -190,9 +171,7 @@ it.skip("keeps a ship with a standoff aboard, in play and in a save from before 
 });
 
 describe("item conditions ignore used-up things", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("does not count a used-up thing as held", () => {
+  it("does not count a used-up thing as held", () => {
     const s = structuredClone(openSeas());
     const c = { kind: "holding", item: "greek-provisions", role: "actor" };
     s.items["greek-provisions"].holder = "vale";

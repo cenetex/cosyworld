@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -13,7 +12,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { recitalPoem, recitalContext } from "../v2/card-game/pack-recital.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
+import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import {
   OPEN_DOOR_PLACES,
   openDoorJourney,
@@ -22,7 +21,6 @@ import {
   openDoorWalk,
   playOpenDoor,
 } from "./helpers/open-door.mjs";
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 
 const state = (world) => world.packs["greek-drama"];
 const accessible = (world) =>
@@ -44,9 +42,7 @@ const OUTCOMES = [
 ];
 
 describe("the Open Door", () => {
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("carries the four stories home in a new world", () => {
+  it("carries the four stories home in a new world", () => {
     const { world } = openDoorJourney();
     for (const id of ["eleusis", "piraeus", "colonus"])
       expect(state(world).flags[`greek-open-door-${id}-done`]).toBe(true);
@@ -55,10 +51,7 @@ describe("the Open Door", () => {
     for (const item of OUTCOMES.slice(0, 4))
       expect(world.items[item].holder).toBe("greek-courtyard");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("carries the five stories home with ordinary plays in a full-scope world", () => {
+  it("carries the five stories home with ordinary plays in a full-scope world", () => {
     const { world, before } = fullJourney();
     expect(world.actors.vale.place).toBe("greek-courtyard");
     for (const id of ["eleusis", "piraeus", "colonus", "marathon"])
@@ -101,10 +94,7 @@ describe("the Open Door", () => {
     expect(restored.packs).toEqual(world.packs);
     expect(recitalPoem(restored, pack)).toEqual(poem);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("requires the actual things at each deed", () => {
+  it("requires the actual things at each deed", () => {
     const { before } = fullJourney();
     // Waiting does a deed only beside its things.
     for (const [id, item] of [
@@ -133,10 +123,7 @@ describe("the Open Door", () => {
       ).toBe(false);
     }
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps remembered generations in their named tales", () => {
+  it("keeps remembered generations in their named tales", () => {
     const { world } = fullJourney();
     // Meetings commit their tale; its words are the choice's own caption.
     const line = (id) =>
@@ -153,13 +140,14 @@ describe("the Open Door", () => {
     expect(pack.avatars["greek-colonus-keeper"].seed).toBe(
       "The Grove Keeper at Colonus.",
     );
-    expect(world.actors["greek-antigone"].place).toBe("greek-gate");
+    // Antigone goes home once the way is open: the authored home, not a
+    // fixed turn count, says where she is.
+    expect(world.actors["greek-antigone"].place).toBe(
+      pack.avatars["greek-antigone"].home,
+    );
     expect(world.actors["greek-creon"].place).toBe("greek-palace");
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("credits a second player's final deed through save and poem context", () => {
+  it("credits a second player's final deed through save and poem context", () => {
     const id = "greek-open-door-lay-ashes";
     const prior = openDoorJourney().before[id];
     const created = dispatchShared({ op: "create", save: encodeSave(prior) });
@@ -196,49 +184,37 @@ describe("the Open Door", () => {
       ).authorId,
     ).toBe("mara");
   });
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip.each(["burial", "concession", "exposure"])(
-    "opens four places when Dione receives the %s outcome",
-    (branch) => {
-      const fixture = openingFixture(branch);
-      const before =
-        branch === "concession"
-          ? fixture.permission
-          : fixture.choice || fixture.buried;
-      // Piraeus Quays is Thebes's sea exit: the Charybdis calls there with
-      // cargo before Dione's invitation. Marathon is a rumour (rules 94).
-      expect(accessible(before)).toEqual(["greek-piraeus"]);
-      let world = fixture.closed;
-      expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
-      expect(state(world).choices["greek-theban-response"]).toBe(branch);
-      expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
-      world = openDoorWalk(reload(world), "harbor", "piraeus");
-      // The Long Walls stay shut from both ends until the herald's truce is
-      // in the Agora: a sea arrival stays at the quays. From the Agora the
-      // Sacred Way leads out to the countryside.
-      expect(world.actors.vale.place).toBe("greek-piraeus");
-      expect(
-        exits(world, "greek-piraeus", "vale").filter(
-          (to) => to !== "greek-ship",
-        ),
-      ).toEqual([]);
-      expect(exits(world, "greek-athens", "vale")).toEqual([
-        "greek-road-athens-eleusis",
-      ]);
-      expect(entityActive(world, "greek-thinkery")).toBe(false);
-      expect(entityActive(world, "greek-argolid-road")).toBe(false);
-      for (let count = 0; count < 3; count++) world = reload(world);
-      expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
-      expect(world.items["greek-water-jar"].holder).toBe(
-        fixture.closed.items["greek-water-jar"].holder,
-      );
-    },
-  );
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps the four roads open through a return to the Theban table", () => {
+  it("opens four places when Dione receives the burial outcome", () => {
+    // The Open Door opens only by burying Polynices: the burial is played
+    // from createWorld by funeralJourney, and Dione's table follows.
+    const { veiled, buried } = funeralJourney();
+    // Piraeus Quays is Thebes's sea exit: the Charybdis calls there with
+    // cargo before Dione's invitation. Marathon is a rumour (rules 94).
+    expect(accessible(veiled)).toEqual(["greek-piraeus"]);
+    let world = buried;
+    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
+    expect(state(world).flags["greek-open-door-open"]).toBe(true);
+    expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
+    world = openDoorWalk(reload(world), "harbor", "piraeus");
+    // The Long Walls stay shut from both ends until the herald's truce is
+    // in the Agora: a sea arrival stays at the quays. From the Agora the
+    // Sacred Way leads out to the countryside.
+    expect(world.actors.vale.place).toBe("greek-piraeus");
+    expect(
+      exits(world, "greek-piraeus", "vale").filter((to) => to !== "greek-ship"),
+    ).toEqual([]);
+    expect(exits(world, "greek-athens", "vale")).toEqual([
+      "greek-road-athens-eleusis",
+    ]);
+    expect(entityActive(world, "greek-thinkery")).toBe(false);
+    expect(entityActive(world, "greek-argolid-road")).toBe(false);
+    for (let count = 0; count < 3; count++) world = reload(world);
+    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
+    expect(world.items["greek-water-jar"].holder).toBe(
+      buried.items["greek-water-jar"].holder,
+    );
+  });
+  it("keeps the four roads open through a return to the Theban table", () => {
     // Through the plea: the petition rests in the Agora, which keeps the
     // Sacred Way open, and so does the herald's truce for the Long Walls.
     let world = openDoorStart();
@@ -260,41 +236,7 @@ describe("the Open Door", () => {
     expect(world.actors.vale.place).toBe("greek-courtyard");
     expect(accessible(reload(world))).toEqual(OPEN_DOOR_PLACES);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps an earlier public concession open with the new Hollow still reachable", () => {
-    let world = openingFixture("concession").permissionShared;
-    expect(state(world).flags["greek-burial-performed"]).toBeUndefined();
-    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
-    world = openDoorWalk(world, "harbor", "piraeus", "harbor", "courtyard");
-    // The writ lies on Dione's table; the guard stands aside once he holds
-    // it (rules 102).
-    expect(world.items["greek-creon-writ"].holder).toBe("greek-courtyard");
-    world = playOpenDoor(world, "take", { item: "greek-creon-writ" });
-    world = openDoorWalk(world, "gate");
-    expect(exits(world, "greek-gate", "vale")).not.toContain(
-      "greek-battlefield",
-    );
-    world = playOpenDoor(world, "give", {
-      item: "greek-creon-writ",
-      target: "greek-guard",
-    });
-    world = playOpenDoor(world, "take", { item: "greek-shovel" });
-    world = playOpenDoor(openDoorWalk(world, "battlefield"), "wait");
-    for (let turns = 0; turns < 48 && !legalActions(world).some(
-      (a) => a.kind === "talk" && a.target === "greek-polynices-shade",
-    ); turns++) world = playOpenDoor(world, "wait");
-    world = playOpenDoor(world, "talk", { target: "greek-polynices-shade" });
-    world = openDoorWalk(world, "polynices-hollow");
-    expect(world.actors.vale.place).toBe("greek-polynices-hollow");
-    expect(state(world).receipts["greek-petition-burial"]).toBeTruthy();
-    expect(accessible(reload(world))).toEqual(OPEN_DOOR_PLACES);
-  });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("keeps Dione's closing report open while the other welcomes are pending", () => {
+  it("keeps Dione's closing report open while the other welcomes are pending", () => {
     let world = openDoorJourney().after["greek-open-door-lay-ashes"];
     world = playOpenDoor(world, "take", { item: "greek-pyre-account" });
     world = openDoorWalk(world, "athens", "harbor", "courtyard");
@@ -310,43 +252,7 @@ describe("the Open Door", () => {
       state(reload(world)).flags["greek-homecoming-eleusis-reported"],
     ).toBe(true);
   });
-
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("preserves an earlier full world and its Egyptian account", () => {
-    const earlier = JSON.parse(
-      readFileSync(
-        new URL(
-          "./fixtures/wine-dark-legacy/schema6-egypt.json",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-    );
-    const world = decodeSave(JSON.stringify(earlier));
-    expect(state(world).scope).toBe("full");
-    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
-    expect(entityActive(world, "greek-thinkery")).toBe(true);
-    expect(entityActive(world, "greek-helen-troy")).toBe(false);
-    expect(world.actors.vale.place).toBe(earlier.actors.vale.place);
-    expect(world.log).toEqual(
-      earlier.log
-        .filter(
-          (e) => e.kind !== "quest" && !/-quest$|^pursue$/u.test(e.verb || ""),
-        )
-        .map(({ questPlan, consequence, questKey, ...e }) => e),
-    );
-    for (const key of ["choices", "flags", "receipts", "met"])
-      expect(state(world)[key]).toEqual(earlier.packs["greek-drama"][key]);
-    for (const [id, item] of Object.entries(upgradedItems(earlier.items, world)))
-      expect(world.items[id]).toEqual(item);
-    expect(world.quests).toBeUndefined();
-    expect(reload(world)).toEqual(world);
-  });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("shares the open roads with a second player", () => {
+  it("shares the open roads with a second player", () => {
     const hosted = dispatchShared({
       op: "create",
       save: encodeSave(openDoorStart()),

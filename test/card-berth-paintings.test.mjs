@@ -30,8 +30,11 @@ function setup(berth, night) {
   const local = createWorld({ packScopes: { "greek-drama": "full" } });
   const world = dispatchShared({ op: "create", save: encodeSave(local) }).world;
   world.turn = world.revision = Math.ceil(world.turn / (2 * DAYLIGHT_TURNS)) * 2 * DAYLIGHT_TURNS + (night ? DAYLIGHT_TURNS : 0);
-  for (const actor of Object.values(world.actors))
-    if (actor.place === ship) actor.place = berth.origin;
+  // Patroclus is a sealed card aboard the Charybdis until the quay invites
+  // him (card-greek-patroclus); he stays where the story puts him.
+  for (const [id, actor] of Object.entries(world.actors))
+    if (actor.place === ship && id !== "greek-patroclus")
+      actor.place = berth.origin;
   world.transports[ship].riders = [];
   world.actors.vale.place = world.actors.mara.place = berth.origin;
   world.actors.ash.place = berth.place;
@@ -56,9 +59,7 @@ function checkShore(world, berth, night, docked) {
 }
 
 describe("painted ship berths", () => {
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  for (const berth of berths) it.skip.each([false, true])(
+  for (const berth of berths) it.each([false, true])(
     `${berth.place} follows a saved shared voyage (night=%s)`, (night) => {
       let world = setup(berth, night);
       const check = (docked) => checkShore(world, berth, night, docked);
@@ -83,9 +84,7 @@ describe("painted ship berths", () => {
       check(false);
     },
   );
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("keeps the painted berth behind the signal", () => {
+  it("keeps the painted berth behind the signal", () => {
     for (const berth of berths) {
       const world = setup(berth, false);
       summonTransport(world, ship, berth.place);

@@ -621,9 +621,7 @@ describe("authored topics keep their saved deed identity", () => {
     if (originalTopics === undefined) delete pack.topics;
     else pack.topics = originalTopics;
   });
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("records the plea's receipt once at the Talk and teaches it from the words", () => {
+  it("records the plea's receipt once at the Talk and teaches it from the words", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",
     );
@@ -657,10 +655,7 @@ describe("authored topics keep their saved deed identity", () => {
       "greek-aethra",
     );
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("lets a resident who seeks Vale out tell the plea without making her choice", () => {
+  it("lets a resident who seeks Vale out tell the plea without making her choice", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",
     );
@@ -691,16 +686,28 @@ describe("authored topics keep their saved deed identity", () => {
       since: world.turn,
       refusals: 0,
     };
-    const wait = legalActions(world).find((a) => a.kind === "wait");
-    world = play(world, wait).state;
-    expect(
+    // Adrastus stays where he is, so the plea reaches Vale and no one else.
+    world.actors["greek-adrastus"].want = {
+      kind: "place",
+      target: world.actors["greek-adrastus"].place,
+      since: world.turn,
+      refusals: 0,
+    };
+    // Wait until she has sought Vale out (a resident dwells where she
+    // arrived before walking on), never for a fixed number of turns.
+    const sought = () =>
       world.log.some(
         (e) =>
           e.turn === world.turn &&
           e.verb === "talk" &&
           e.actorId === choice.subject,
-      ),
-    ).toBe(true);
+      );
+    let wait;
+    for (let turns = 0; turns < 80 && !sought(); turns++) {
+      wait = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
+      world = play(world, wait).state;
+    }
+    expect(sought()).toBe(true);
     let context = narrativeContext(world, wait);
     expect(context.disclosures[0].factId).toBe(choice.id);
     world = applyGeneratedText(world, context, response(context, text));
@@ -717,10 +724,7 @@ describe("authored topics keep their saved deed identity", () => {
     expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
     expect(decodeSave(encodeSave(world))).toEqual(world);
   });
-
-  // Skipped: replays a recorded save through the removed Theban-response
-  // branch; retired with the fixtures in package 6 fixtures.
-  it.skip("records the source scene after its public fact was learned earlier", () => {
+  it("records the source scene after its public fact was learned earlier", () => {
     const choice = pack.choices.find(
       (c) => c.id === "greek-open-door-hear-mothers",
     );

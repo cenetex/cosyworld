@@ -1,102 +1,17 @@
-// Shared worlds stored at rules 67 (release 1.2.111) asked for a fresh start
-// under rules 75-77, so the shared server answered 409 (2026-11-01). The
-// fixture is a generated rules-67 world, with no player data, that met each
-// gap: the Theban refusal had opened the Open Door, Oak's night watch was
-// reworded (#1747) and a sea lane was told.
-import { gunzipSync } from "node:zlib";
-import { readFileSync } from "node:fs";
+// Save reconcile checks that still hold on the current rules. The rules-67
+// shared-world upgrade (the Theban refusal's Open Door steps, a reworded
+// topic, a told sea lane) was retired with every earlier save by the rules
+// 133 bump (docs/current-game.md), so its recorded world is gone.
 import { describe, expect, it } from "vitest";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { reconcilePackProgress } from "../v2/card-game/legacy-saves.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 
-const fixture = JSON.parse(
-  gunzipSync(
-    readFileSync(
-      new URL(
-        "./fixtures/shared-world-rules-67-refusal.json.gz",
-        import.meta.url,
-      ),
-    ),
-  ),
-);
-const greek = packDefinitions.find((p) => p.id === "greek-drama");
 const context = (actor = "vale") => ({
   actor,
-  claimed: fixture.avatars,
-  present: fixture.avatars,
-});
-const upgrade = () =>
-  dispatchShared({
-    op: "upgrade",
-    from: fixture.version,
-    to: "full-card-world/78",
-    seed: 12345,
-    world: structuredClone(fixture.world),
-    ...context(),
-  });
-
-describe("a rules-67 shared world", () => {
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("opens under the current rules and plays on", () => {
-    const upgraded = upgrade();
-    expect(upgraded.error).toBeUndefined();
-    const view = dispatchShared({
-      op: "view",
-      world: upgraded.world,
-      ...context(),
-    });
-    expect(view.ok).toBe(true);
-    const again = dispatchShared({
-      op: "validate",
-      world: upgraded.world,
-      ...context(),
-    });
-    expect(again.world).toEqual(upgraded.world);
-  });
-
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("drops the Open Door steps the retired refusal opened", () => {
-    const before = fixture.world.packs["greek-drama"];
-    expect(before.choices["greek-theban-response"]).toBe("refusal");
-    expect(before.met["greek-theseus"]).toBeDefined();
-    const { world } = upgrade();
-    const after = world.packs["greek-drama"];
-    expect(after.flags["greek-open-door-open"]).toBeUndefined();
-    expect(
-      Object.keys(after.receipts).some((id) => /open-door|homecoming/.test(id)),
-    ).toBe(false);
-    expect(after.met["greek-theseus"]).toBeUndefined();
-    expect(world.actors["greek-theseus"]).toMatchObject({
-      place: greek.avatars["greek-theseus"].place,
-      crossed: 0,
-      lastTalk: -9,
-    });
-    // Steps the refusal did not need stay.
-    expect(after.receipts["greek-hear-decree"]).toBe(
-      before.receipts["greek-hear-decree"],
-    );
-    expect(world.log.some((e) => /open-door/.test(e.choiceId || ""))).toBe(
-      false,
-    );
-  });
-
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("tells a reworded topic in its current words", () => {
-    const topic = packDefinitions
-      .flatMap((p) => p.topics || [])
-      .find((t) => t.id === "forest-night-watch");
-    expect(fixture.world.knowledge.facts["forest-night-watch"].text).not.toBe(
-      topic.text,
-    );
-    expect(upgrade().world.knowledge.facts["forest-night-watch"].text).toBe(
-      topic.text,
-    );
-  });
+  claimed: ["vale"],
+  present: ["vale"],
 });
 
 describe("a save that named the retired storybook map", () => {
@@ -131,9 +46,7 @@ describe("a save that named the retired storybook map", () => {
 });
 
 describe("pack progress reconcile", () => {
-  // Skipped: an old save has no Patroclus, so it no longer loads; old
-  // worlds retire with the package 6 fixtures.
-  it.skip("leaves a current save unchanged", () => {
+  it("leaves a current save unchanged", () => {
     for (const s of [
       createWorld(),
       createWorld({ opening: true }),
