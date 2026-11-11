@@ -20,7 +20,9 @@ and is not a roadmap item.
 A user asking "can I paste my bot key into your site?" gets a page that says
 no, explains why, and links both legitimate paths.
 
-## Owner decisions (awaiting sign-off)
+## Owner decisions (signed off 2026-11-11)
+
+All seven approved with their recommendations.
 
 1. **Scope:** ship Phases 0–3 first (SSO, companion Talk, plays, pulse); home
    mode is Phase 4 and can land later without blocking the rest. (Recommend:
@@ -91,10 +93,12 @@ single endpoint that owns it server-side:
    path so the human's own words are checked as a hosted line.
 4. Trigger and await the voice worker, then return the residents' lines.
 
-The await-the-worker half is the non-trivial piece (voice runs in the
-background `take_work` loop and publishes a `speech` op). Phase 1c lands it in
-two slices: first the endpoint that commits the talk and returns the play key,
-then the synchronous await that returns the lines.
+The await-the-worker half landed in Phase 1c as a synchronous endpoint:
+`kick`'s loop was extracted into a reusable `voice_once`, and `/talk` now
+commits the play, awaits one voice pass inline, and returns the view with the
+resident lines — the owner chose synchronous-over-poll (2026-11-11), with the
+model call's internal timeout as the bound. The human's `text` line (step 3)
+still follows in a later slice.
 - New orchestrator endpoints (thin, read/write of links and bindings):
   - `POST /auth/discord/start` — returns the authorize URL + state.
   - `POST /auth/discord/callback` — exchanges the code, links or creates the
