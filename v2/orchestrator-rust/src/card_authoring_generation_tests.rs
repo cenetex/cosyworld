@@ -271,6 +271,11 @@ async fn authoring_auth_grounding_and_gateway_use_transient_source() {
     assert_eq!(result["image"]["mime"], "image/png");
     let sent = seen.lock().unwrap().last().unwrap().clone();
     assert_eq!(sent["model"], model);
+    let prompt = sent["prompt"].as_str().unwrap();
+    assert!(prompt.contains("No speech bubbles, thought bubbles, text"));
+    assert!(prompt.contains("Physical description: private blue lantern"));
+    assert!(prompt.contains("body and face only"));
+    assert!(prompt.contains("happy, sad, strike, brace, hit, sleep"));
     assert_eq!(sent["background"], "transparent");
     assert_eq!(sent["aspect_ratio"], "3:2");
     let reference = format!("data:image/png;base64,{}", BASE64.encode(&bytes));
