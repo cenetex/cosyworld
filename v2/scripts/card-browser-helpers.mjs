@@ -75,12 +75,8 @@ export async function revealCard(page, id, { keepSelected = false } = {}) {
   )
     await tapCard(card);
   await card.scrollIntoViewIfNeeded();
-  // Select the closed box, then open it through its descriptor. A face-down
-  // quest offer has no open step: its one button takes it.
-  if (
-    (await card.getAttribute("data-unrevealed")) === "true" &&
-    (await card.getAttribute("data-offer")) === null
-  ) {
+  // Select the closed box, then open it through its descriptor.
+  if ((await card.getAttribute("data-unrevealed")) === "true") {
     const open = page.locator(`#card-actions [data-open-box="${id}"]`);
     // Escape can keep a held box selected in the folded hand. Open its
     // details first; a selected card alone does not mean its action is shown.
