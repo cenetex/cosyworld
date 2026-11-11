@@ -6,6 +6,8 @@ import {
   emptySeedWorld,
   seedEdit,
 } from "../v2/card-game/authoring-seed-world.mjs";
+import { authoringTools } from "../v2/card-game/authoring-tools.mjs";
+import { TOOLS } from "../v2/card-game/authoring-collections.mjs";
 import { assetMetadata } from "../v2/card-game/authoring-draft.mjs";
 import { POSE_ROLES } from "../v2/card-game/authoring-images.mjs";
 
@@ -213,6 +215,13 @@ it("retries archiving the original after storage failure without generating agai
   expect(f.tools.tools().some((t) => t.id === "retry-unsaved-artwork")).toBe(
     true,
   );
+  // The designer projects tools into the Tools stack, never the world root.
+  expect(() =>
+    authoringTools(
+      { world: [], tools: [{ id: TOOLS, name: "Tools" }] },
+      f.tools.tools().filter((t) => t.id === "retry-unsaved-artwork"),
+    ),
+  ).not.toThrow();
   f.fail(false);
   await f.session.run((context) =>
     f.tools

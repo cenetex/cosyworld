@@ -192,7 +192,6 @@ export function createAuthoringVisualTools({
         tools.push({
           id: "retry-unsaved-artwork",
           name: "Retry saving artwork",
-          holder: authoringCardId(["pack"], "root"),
           describe: () => ({
             note: "Your generated image is still in memory. Keep this tab open. Retry saves the original to this device without generating or charging again.",
             actions: [{ label: "Retry saving artwork" }],

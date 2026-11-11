@@ -249,6 +249,8 @@ try {
       const physical = page.getByRole("textbox", {
         name: "Physical description only",
       });
+      // The first generation asks for the physical description before it paints.
+      if (first) await physical.waitFor();
       if (await physical.isVisible()) {
         await physical.fill("A keeper in a green coat.");
         await action();
