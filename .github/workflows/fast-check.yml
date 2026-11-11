@@ -137,13 +137,25 @@ jobs:
       - run: npm run lint
       - run: npm run docs:check
       - run: npm run check:test-guards
+      # Every generated output rebuilds from its sources; a stale one fails
+      # here with the command that fixes it (`npm run regen`). It runs once
+      # here, not in each unit shard.
+      - run: npm run regen:check
 
-  unit:
-    name: JavaScript unit tests
+  # The suite runs as four vitest shards (`--shard=i/4`, about 330 files
+  # split by path hash), because one runner took 6-9 minutes. Each shard
+  # prints its tests that passed only on a retry. The `unit` job below keeps
+  # the old name and gates `fast`.
+  unit-shard:
+    name: JavaScript unit tests (${{ matrix.shard }}/4)
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     # A cache miss fetches the whole tree from Git, which took up to 11
     # minutes on 2026-11-03; with the cache the job takes about 5.
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
       CI: true
     steps:
@@ -155,7 +167,7 @@ jobs:
       # A run that found no cache at all saves one too, even on a pull request.
       - name: Pack Git objects for later checkouts
         id: pack-git-objects
-        if: github.event_name == 'push' || steps.git-objects.outputs.cache-matched-key == ''
+        if: matrix.shard == 1 && (github.event_name == 'push' || steps.git-objects.outputs.cache-matched-key == '')
         env:
           MATCHED: ${{ steps.git-objects.outputs.cache-matched-key }}
         run: |
@@ -181,10 +193,21 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
       # Not a gate: lists tests that passed only on a retry (`retry: 1`).
-      - run: npx vitest run --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
-      # Every generated output rebuilds from its sources; a stale one fails
-      # here with the command that fixes it (`npm run regen`).
-      - run: npm run regen:check
+      - run: npx vitest run --shard=${{ matrix.shard }}/4 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
+
+  # One stable name for the four shards. A failed, cancelled or skipped
+  # shard makes the needs result something other than success.
+  unit:
+    name: JavaScript unit tests
+    if: ${{ always() }}
+    needs: unit-shard
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 5
+    steps:
+      - name: Verify every unit test shard passed
+        env:
+          RESULT: ${{ needs.unit-shard.result }}
+        run: test "$RESULT" = success
 
   # cargo fmt reads source only, so this job builds nothing and needs no
   # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
