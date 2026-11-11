@@ -105,7 +105,7 @@ describe("sticky companions in the shipping content", () => {
     expect(companionOf(s, "vale")).toBe("greek-baker");
   });
 
-  it("Antigone (range 0, no post) follows, and walks home to the gate when released", () => {
+  it("Antigone (range 0, no post) follows, and is left where the Hollow is shut when released", () => {
     let s = lifeWorld({ place: "greek-gate", turn: 60 });
     openGreekGate(s);
     s.actors["greek-antigone"].trust.vale = 2;
@@ -114,10 +114,11 @@ describe("sticky companions in the shipping content", () => {
     s.actors["greek-antigone"].trust.vale = 0;
     for (let i = 0; i < 12; i++) s = wait(s);
     expect(companionOf(s, "vale")).toBeNull();
-    // Range 0 and released away from home: the ordinary leash walks her home.
-    expect(s.actors["greek-antigone"].place).toBe(
-      lifeHome("greek-antigone", s),
-    );
+    // Her home is the Hollow (rules 133). Its way is shut until Polynices is
+    // buried, so the ordinary leash keeps her where she was released; she
+    // walks home on her own when the way opens.
+    expect(lifeHome("greek-antigone", s)).toBe("greek-polynices-hollow");
+    expect(s.actors["greek-antigone"].place).toBe("greek-battlefield");
   });
 
   it("the Gate Guard is refused by his post, not his range", () => {

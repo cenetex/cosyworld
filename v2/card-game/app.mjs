@@ -2653,7 +2653,11 @@ function renderActions() {
     cardTapHint(why, openingBox ? "Open" : "Locked");
   }
   // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
-  const asleep = !sealed && !rested && !actions.length && asleepReason(world, selected);
+  // Its names go through the same discovery screen as every other word: a
+  // card the traveler has not found is not named (rules 133).
+  const asleepWords =
+    !sealed && !rested && !actions.length && asleepReason(world, selected);
+  const asleep = asleepWords && visibleText(asleepWords);
   if (asleep) {
     const blocked = node("button", asleep, "card-primary");
     blocked.type = "button";
