@@ -22146,6 +22146,14 @@
     };
   }
   var lowerName = (id) => nameOf(id).toLowerCase();
+  function nameKeys(ids3, shown) {
+    const taken = new Set([...shown].map((name) => name.split(" ").at(-1)));
+    return ids3.flatMap((id) => {
+      const full = lowerName(id);
+      const last = full.split(" ").at(-1);
+      return last !== full && last.length > 3 && !taken.has(last) ? [[id, full], [id, last]] : [[id, full]];
+    });
+  }
   function privateWords(entity, blur) {
     const kept = ({ text: text2 }) => blur(text2) === text2;
     const { inner_life: life, previous } = entity;
@@ -22166,8 +22174,8 @@
     const kept = (id) => !hidden.has(id);
     const keepEntity = (id) => id === actor || id === context.location || kept(id);
     const unknown = new Map(
-      unnamedIds.map((id) => [
-        lowerName(id),
+      nameKeys(unnamedIds, shown).map(([id, key]) => [
+        key,
         world.items[id]?.lit && !covered(world, id) ? UNKNOWN_LIGHT : unnamed(world, id)
       ])
     );
