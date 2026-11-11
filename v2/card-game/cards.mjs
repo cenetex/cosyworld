@@ -374,6 +374,19 @@ export function cardPlay(world, selected) {
   }
   return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
 }
+// A card tapped while a held thing is raised pairs with it only when the
+// pair plays (a give, a trade, a cover). Otherwise, if the tapped card alone
+// is taken or travelled to, the held thing is put aside so the tap leaves
+// its one button instead of a pair with no play.
+export function settledChoice(world, cards, id) {
+  if (cards.length !== 2 || !cards.includes(id)) return cards;
+  if (!things[id] && !places[id]) return cards;
+  if (cardPlay(world, cards).action) return cards;
+  const alone = cardPlay(world, [id]).action?.kind;
+  return alone === "take" || alone === "move" || alone === "course"
+    ? [id]
+    : cards;
+}
 // The row shows one play for this selection. The world owns legality.
 export function cardActions(world, selected) {
   const cards = [...new Set(selected)];
