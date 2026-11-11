@@ -113,8 +113,13 @@ Quoted as given. These bind this document.
     has not discovered. In the owner's words: "'find something you haven't
     discovered yet' is perfectly valid as an objective".
 
-Decisions 10 to 12 were made after the sections below were first written.
-Where a PROPOSED item contradicts them it is marked SUPERSEDED in place and
+13. On whether places and items hold quests and level up: "Yes. places and
+    items should get quests and level up why not? Then avatars can get quests
+    like 'bring the chalice to the fountain' because the chalice wants it or
+    wahtever".
+
+Decisions 10 to 13 were made after the sections below were first written.
+Where a PROPOSED item contradicts them it is marked SUPERSEDED or rejected in place and
 kept for the record.
 
 Standing rules that bind everything here: one want per avatar; the world is
@@ -145,22 +150,22 @@ sometimes a step. What changes is who may hold one.
 
 | Holder | What it wants | How it levels | How the player learns and takes it |
 | --- | --- | --- | --- |
-| Avatar | an item, a place, a person, a laying-out, or home | XP is wants met; leveling up is the quest Sleep at home | Talk tells it; the quest card is a closed box, then Accept quest |
-| Place | what is carried or done to open it | derived from boxes opened in or at it | the shut card on the table, then Accept quest |
-| Item | what opens it, or what its maker needs | derived the same way | the same |
+| Avatar | an item, a place, a person, a laying-out, or home | XP when its want is met; level up by Sleep at home | Talk tells it; the quest card is a closed box, then Accept quest |
+| Place | one want at a time, like an avatar's | XP when its want is met; the same level thresholds | the place describes it, or an avatar tells you; closed box, then Accept quest |
+| Item | one want at a time, like an avatar's | the same | the same |
 
-Places and items already offer a quest, because a box is a quest holder:
-`boxWant` states what opens it, and opening pays one XP once per avatar per
-box. What is missing is the level. PROPOSED: a place's or item's level is
-computed from saved facts, not stored as a new XP field. It counts the boxes
-opened in or at the place, or opened using the item, by anyone (`s.opened`
-already records this). Today an item's level is a fixed authored
-`startLevel` and nothing reads a place's level. Level changes colour and tier
-only, as it does now (rarity is levels). Unless the owner chooses otherwise,
-places and items get no XP counter of their own. *SUPERSEDED in part by
-decision 10:* places and items are persons like avatars and can remember and
-level up; the "no XP counter" and "computed from boxes opened" mechanism is
-no longer settled and is for the owner to choose again.
+Places and items hold a want and earn XP and levels exactly as avatars do
+(owner decision 13): one want at a time, XP when the want is met, level by the
+same thresholds. A box was already a quest holder (`boxWant` states what opens
+it); this makes that the general case. The derived-level proposal (a level
+counted from boxes opened) was rejected on 2026-11-11 and is dropped.
+
+The consequence the owner names: a quest an avatar holds can be an item's or a
+place's want. "Bring the chalice to the fountain" is a quest because the
+chalice wants it. It is offered through the same closed box, Accept quest and
+Discard flow, and learned the same way: the item or place describes what it
+wants, or an avatar tells you. The mechanics this leaves open are open
+questions 16 to 20.
 
 **One card flow, for every holder.**
 
@@ -461,9 +466,12 @@ bump if that batch is still open; "later" means a later batch.
 | 7 | Burial kit second use at Ajax's grave | pack data, about 120 lines | any time |
 | 8 | Dead-item cull: the 9 unread items and the duplicates | pack data, about 300 lines in two pull requests | any time |
 | 9 | Patroclus and the Charybdis unlock | pack data and a ship fix | the 133 bump (see wants and arcs) |
-| 10 | Derived place and item levels | rules, about 80 lines | later |
+| 10 | Items and places hold a want and earn XP and levels as avatars do (decision 13) | rules | later batch, not the frozen rules 133 bump |
 | 11 | `actor_present` and `item_on` | rules, engine label and note | later |
 | 12 | Later: loves, ties, vouching, the once-per-journey act, schedule data, sanctuaries and inns, the `guard` verb, real trust loss | rules and data | later batches |
+
+The rules 133 bump is frozen at what is already in flight as of 2026-11-11;
+row 10 and any other new rules work go in a later batch.
 
 Rows 1 to 4 and 9 together are the sticky companion; row 2 is the highest
 value item in the batch. Engine changes are expensive and data is cheap, so
@@ -509,6 +517,18 @@ Each has a recommendation. None is decided.
 14. **The Hollow's night door.** Open only at night, or stay open once earned?
 15. **The two conditions.** Approve `actor_present` and `item_on` now, batched
     into the next rules bump (recommended), or hold gate work to pack data?
+16. **Who is paid when an item's want is met.** The item, the traveler who
+    carried it, or both? Recommend both, as with helping a resident.
+17. **How an item or place levels up**, given avatars level by sleeping at
+    home. PROPOSED: an item levels at its home place and a place levels where
+    it is, on the same rest beat. Or a simpler rule without a rest?
+18. **Does an item's level-up change anything visible** beyond its tier
+    colour? Recommend not yet; colour only, as now.
+19. **Do items and places draw new wants over time as residents do, or keep
+    authored ones?** Recommend authored first, drawn later.
+20. **Rarity is levels.** An item's tier would now rise through play. Does
+    rarity follow that rise (recommended, since rarity is levels), or stay at
+    its authored level?
 
 ## Check before building
 
