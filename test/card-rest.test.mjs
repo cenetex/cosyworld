@@ -406,11 +406,15 @@ describe("rest and sanctuary", () => {
       thought: true,
       dream: false,
     });
-    for (const dream of ["glimpse", "quest"])
-      expect(reflectionDue({ ...context, dream }, "vale", null)).toEqual({
-        thought: true,
-        dream: true,
-      });
+    expect(reflectionDue({ ...context, dream: "glimpse" }, "vale", null)).toEqual({
+      thought: true,
+      dream: true,
+    });
+    // The level quest no longer dreams (rules 133).
+    expect(reflectionDue({ ...context, dream: "quest" }, "vale", null)).toEqual({
+      thought: true,
+      dream: false,
+    });
     expect(reflectionDue({ ...context, resting: null }, "vale", null)).toEqual({
       thought: false,
       dream: false,
