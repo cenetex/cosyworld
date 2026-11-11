@@ -471,7 +471,9 @@ migration slices, is [wants and arcs](../../docs/design/wants-and-arcs.md).
 Nothing in it is built; the section above describes the game as it ships.
 Companions who stay with you, one definition of a quest for avatars, places and
 items, and reusable items and live gates are drafted in
-[companions and quests](../../docs/design/companions-and-quests.md).
+[companions and quests](../../docs/design/companions-and-quests.md). The owner's
+vision of factions at the scale of a hearth is
+[hearth factions](../../docs/design/hearth-factions.md).
 
 ## Image-first presentation
 

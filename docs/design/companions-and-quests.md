@@ -102,6 +102,20 @@ Quoted as given. These bind this document.
    avatar presence not stay permanently open. the road to piraeus and the
    gate are good examples". "once the game 'opens' eg RATiRadio it feels
    boring."
+10. Later the same day, on what an avatar, item or location is: "Avatars
+    items and locations ARE ALL PERSONS. There is no distinction besides the
+    category. Items and Locations can speak, dream, remember and level up".
+11. Later the same day, on where text lives: "authored text should only be in
+    location, item, and avatar descriptions. eg if i want to learn something
+    either an avatar tells me or an item describes it etc".
+12. Later the same day, on lock and quest text: it shows only the want, built
+    from names and rule verbs, and never names or pictures what the traveler
+    has not discovered. In the owner's words: "'find something you haven't
+    discovered yet' is perfectly valid as an objective".
+
+Decisions 10 to 12 were made after the sections below were first written.
+Where a PROPOSED item contradicts them it is marked SUPERSEDED in place and
+kept for the record.
 
 Standing rules that bind everything here: one want per avatar; the world is
 deterministic except player choices; AI characters act only by talking; no
@@ -143,7 +157,10 @@ opened in or at the place, or opened using the item, by anyone (`s.opened`
 already records this). Today an item's level is a fixed authored
 `startLevel` and nothing reads a place's level. Level changes colour and tier
 only, as it does now (rarity is levels). Unless the owner chooses otherwise,
-places and items get no XP counter of their own.
+places and items get no XP counter of their own. *SUPERSEDED in part by
+decision 10:* places and items are persons like avatars and can remember and
+level up; the "no XP counter" and "computed from boxes opened" mechanism is
+no longer settled and is for the owner to choose again.
 
 **One card flow, for every holder.**
 
@@ -164,7 +181,9 @@ Tradeable quests stay a musing; see open question 9.
 Owner decision 3 gives the shape. A resident roams on its drawn wants, meets
 one, earns XP, and only when a level is due does the pull home appear. It
 sleeps there, wakes a level higher, and roams again. That is the player's
-loop too, which is the point of the heroes-journey wording.
+loop too, which is the point of the heroes-journey wording. The owner's
+[hearth factions](hearth-factions.md) vision, which has residents pursue
+their wants through the same plays players use, is the direction beyond it.
 
 **What is removed.** Four pulls that bring a resident home when no level is
 due: the idle drift when it has nothing to pursue; the walk home when away
@@ -201,7 +220,9 @@ sanctuary on the road. The five sanctuaries exist; inns do not.
 **The Oak and Badger** stay in one place. They have range 0 and are already
 home, so they level the moment XP allows. They offer give, lay and "someone
 comes to me" quests, and never escort. Their card answers Invite with the
-reason as the button label, for example "The Oak cannot leave its tree". The
+reason as the button label, for example "The Oak cannot leave its tree"
+(*SUPERSEDED in part by decision 12:* that wording is an example only; the
+label is built from names and rule verbs, not hand-written). The
 quest wording for a person-want asked by an immovable resident is fixed: the
 card says to bring the other person to the Oak, not the Oak to them.
 
@@ -392,7 +413,9 @@ examples:
 
 - **The road to Piraeus** (and the Eleusis road): mark the routes `live`. The
   Truce starts in the Agora; carrying it to Dione shuts the road, and the
-  locked box reappears with its reason. The road place keeps both ends as
+  locked box reappears with its reason (*SUPERSEDED in part by decision 12:*
+shown as the want only, built from names and verbs, not a hand-written reason
+line). The road place keeps both ends as
   plain exits, so nobody on it is stranded.
 - **RatiRadio's three doors** keep their three different lock kinds but
   become live: the beanie held, the thermos standing on the plate, the
