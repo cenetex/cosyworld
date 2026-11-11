@@ -5,7 +5,9 @@
 //
 //   way       a route with `sealed`, or a guarded way: the card beyond it
 //   resident  an avatar with `sealed` and `requires`, drawn where it lies
-//   item      a made thing, locked at its home until its maker makes it
+//   item      a made thing, locked at its home until its maker makes it, or
+//             a sealed item (`sealed`), shut where it lies until its `requires`
+//             hold
 //   lane      a port a ship cannot yet sail to
 //   crossing  a pack crossing with `sealed` (a home's door in a shared world)
 //   hub       a `reflectionRoutes` entry with `sealed` (the Black pond)
@@ -78,14 +80,24 @@ function wayDefs() {
 }
 function itemDefs() {
   thingBoxes ??= Object.keys(packThings)
-    .filter((id) => packThings[id].locked)
+    .filter((id) => packThings[id].locked || packThings[id].sealed)
     .sort()
-    .map((id) => ({
-      kind: "item",
-      at: packThings[id].home,
-      id,
-      by: packThings[id].locked.by,
-    }));
+    .map((id) =>
+      packThings[id].sealed
+        ? {
+            kind: "item",
+            at: packThings[id].holder,
+            id,
+            pack: packThings[id].packId,
+            sealed: packThings[id].sealed.reason,
+          }
+        : {
+            kind: "item",
+            at: packThings[id].home,
+            id,
+            by: packThings[id].locked.by,
+          },
+    );
   return thingBoxes;
 }
 // Residents are read live: a pack's `sealed` and `requires` are data.
@@ -199,7 +211,7 @@ export function boxMet(s, def, actor = currentActor(s)) {
     case "resident":
       return entityActive(s, def.id);
     case "item":
-      return !usedUp(s, def.id);
+      return def.sealed ? entityActive(s, def.id) : !usedUp(s, def.id);
     case "lane":
       return (
         shipDock(s, def.transport) === def.lane.from &&
@@ -248,7 +260,7 @@ export function boxOpen(s, box, actor = currentActor(s)) {
     case "resident":
       return entityActive(s, def.id);
     case "item":
-      return !usedUp(s, def.id);
+      return def.sealed ? entityActive(s, def.id) : !usedUp(s, def.id);
     case "lane":
       return boxMet(s, def, actor);
     default:
@@ -277,6 +289,7 @@ function reasonOf(s, def, actor) {
     case "resident":
       return def.reason;
     case "item": {
+      if (def.sealed) return def.sealed;
       const { by, consumes } = packThings[def.id].locked;
       return `${nameOf(by)} consumes ${listOf(consumes.map(theThing))}`;
     }
@@ -367,7 +380,9 @@ function wantOf(s, def, actor) {
       return null;
     }
     case "item":
-      return craftedGoal(s, def.id, actor);
+      return def.sealed
+        ? conditionGoal(s, def.pack, packThings[def.id].requires, actor)
+        : craftedGoal(s, def.id, actor);
     case "lane":
       return conditionGoal(s, def.pack, def.lane.opensWith, actor);
     case "crossing":
@@ -429,7 +444,14 @@ export function boxesAt(s, place, actor = currentActor(s)) {
         add(def, boxOpen(s, def, actor));
         break;
       case "item":
-        if (usedUp(s, def.id) && entityActive(s, def.by)) add(def, false);
+        // A made thing waits used up for its maker; a sealed item lies shut
+        // while it is in the world but its own conditions do not hold.
+        if (
+          def.sealed
+            ? !entityActive(s, def.id) && entityShown(s, def.id)
+            : usedUp(s, def.id) && entityActive(s, def.by)
+        )
+          add(def, false);
         break;
       case "resident":
         if (!entityActive(s, def.id)) add(def, false);

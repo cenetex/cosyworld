@@ -2038,6 +2038,18 @@
 
   // v2/card-game/want-talk.mjs
   var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
+  function stagedWants(world, id) {
+    const person = packPeople[id];
+    const list = person?.wants ?? [
+      ...authoredWant(id) ? [{ want: authoredWant(id) }] : []
+    ];
+    return list.map((entry, index) => ({
+      index,
+      want: entry.want,
+      when: entry.when ?? [],
+      open: !entry.when?.length || Boolean(person && conditionsMet(world, person.packId, entry.when))
+    }));
+  }
   var wantOf = (world, id) => world.actors?.[id]?.want || authoredWant(id);
   var rootOf = (world, item) => {
     let holder = world.items[item]?.holder;
@@ -2059,16 +2071,19 @@
     return world.actors[want.target]?.place === here;
   }
   function trustedEnough(world, id, want, listener) {
-    const authored = packPeople[id]?.want;
-    if (!listener || !authored?.minTrust) return true;
-    if (authored.kind !== want.kind || authored.target !== want.target)
-      return true;
+    if (!listener) return true;
+    const same2 = stagedWants(world, id).filter(
+      (entry) => entry.want.kind === want.kind && entry.want.target === want.target
+    );
+    const authored = same2.find((entry) => questTerms(entry.want) === questTerms(want))?.want ?? same2[0]?.want;
+    if (!authored?.minTrust) return true;
     return (world.actors[id].trust?.[listener] || 0) >= authored.minTrust;
   }
   function revealed(world, id, want, listener) {
     return Boolean(
-      want && world.actors?.[id] && // A made thing still locked is wanted all the same (rules 102).
-      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !met(world, id, want) && trustedEnough(world, id, want, listener)
+      want && world.actors?.[id] && // A made thing still locked is wanted all the same (rules 102), and a
+      // sealed one (rules 133).
+      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked) || Boolean(packThings[want.target]?.sealed)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !met(world, id, want) && trustedEnough(world, id, want, listener)
     );
   }
   function wantFact(world, id, nameOf2, listener) {
@@ -2138,15 +2153,33 @@
     refusals: 0
   });
   var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
+  var heldWant = (s, w) => ({
+    ...newWant(w.kind, w.target, s.turn),
+    ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {},
+    ...w.step ? { step: { ...w.step } } : {}
+  });
+  var mixed = (h) => {
+    h = Math.imul(h ^ h >>> 16, 2246822507);
+    h = Math.imul(h ^ h >>> 13, 3266489909);
+    return (h ^ h >>> 16) >>> 0;
+  };
+  var stagedOrder = (a, b) => a.rank - b.rank || a.index - b.index;
+  function stagedNext(s, id, previous = null) {
+    if (!packPeople[id]?.wants) return null;
+    const day = Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
+    const entries = stagedWants(s, id).filter(
+      ({ open, want }) => open && validTarget(s, want.kind, want.target) && !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) && !questMet(s, id, heldWant(s, want), null, null)
+    ).map((entry) => ({
+      ...entry,
+      rank: mixed(runHash(s, `staged:${id}:${entry.index}:${day}`))
+    })).sort(stagedOrder);
+    return entries.length ? heldWant(s, entries[0].want) : null;
+  }
   function installWants(s) {
     for (const [id, a] of Object.entries(s.actors)) {
       if (!("want" in a)) {
         const w = humanAvatarIds.includes(id) ? null : authoredWant(id);
-        a.want = w && validTarget(s, w.kind, w.target) ? {
-          ...newWant(w.kind, w.target, s.turn),
-          ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {},
-          ...w.step ? { step: { ...w.step } } : {}
-        } : null;
+        a.want = humanAvatarIds.includes(id) ? null : stagedNext(s, id) ?? (w && validTarget(s, w.kind, w.target) ? heldWant(s, w) : null);
       }
       a.xp ??= startXp(id);
       if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
@@ -2188,6 +2221,8 @@
     ).map(([kind, target]) => `${kind}:${target}`).sort();
   }
   function nextWant(s, actor, api, previous = null) {
+    const staged = stagedNext(s, actor, previous);
+    if (staged) return staged;
     const roll = hash(`${actor}:${s.turn}`);
     let pool = wantCandidates(s, actor, api, previous);
     if (!pool.length) {
@@ -2202,10 +2237,63 @@
     const [kind, target] = pool[roll % pool.length].split(":");
     return newWant(kind, target, s.turn);
   }
+  var introduced = (s, actor, talk) => {
+    const here = s.actors[actor]?.place;
+    return Boolean(
+      talk && here && s.actors[talk.actor]?.place === here && connectedHumans(s).filter((id) => s.actors[id].place === here).length >= 2
+    );
+  };
+  var placeOfItem = (s, item) => {
+    const root = rootOf2(s, item);
+    return s.actors[root]?.place ?? root;
+  };
+  var together = (s, a, b) => Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
   function layMet(world, { target, step }) {
     if (step.finish)
       return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
     return step.items.every((item) => world.items[item]?.holder === target);
+  }
+  function stepMet(s, actor, want, action) {
+    const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (kind === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
+    if (verb === "lay") return layMet(s, want);
+    if (verb === "find") return placeOfItem(s, want.target) === me.place;
+    if (verb === "eat")
+      return Boolean(
+        action?.kind === "eat" && action.item === want.target && action.accepted !== false && (!at || me.place === at) && (action.actor === actor && (!want.step.with || action.target === want.step.with) || want.step.with && action.actor === want.step.with && action.target === actor)
+      );
+    if (verb === "give") return by("give");
+    if (verb === "bring" && want.kind === "person")
+      return at ? together(s, actor, want.target) && me.place === at : together(s, want.target, to);
+    if (verb === "bring")
+      return rootOf2(s, want.target) === actor && me.place === at && (!to || together(s, actor, to));
+    if (verb === "meet")
+      return together(s, actor, want.target) && (!at || me.place === at);
+    if (verb === "rest") return false;
+    return by(verb);
+  }
+  function questMet(s, actor, want, talk, action) {
+    if (!want) return false;
+    if (want.step) return stepMet(s, actor, want, action);
+    if (want.kind === "connect") return introduced(s, actor, talk);
+    if (want.kind === "item") return holdsAsWanted(s, actor, want);
+    if (want.kind === "place") return s.actors[actor].place === want.target;
+    return Boolean(
+      talk && s.actors[want.target]?.place === s.actors[actor].place && (talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor)
+    );
+  }
+  function holdsAsWanted(s, actor, want) {
+    if (want.lit === void 0) return rootOf2(s, want.target) === actor;
+    const item = s.items[want.target];
+    return item.holder === actor && Boolean(item.lit) === want.lit && !Object.values(s.items).some((i) => i.holder === want.target);
+  }
+  function rootOf2(s, id) {
+    let holder = s.items[id].holder;
+    const seen = /* @__PURE__ */ new Set([id]);
+    while (s.items[holder] && !seen.has(holder)) {
+      seen.add(holder);
+      holder = s.items[holder].holder;
+    }
+    return holder;
   }
   function giveUp(s, actor, api) {
     const a = s.actors[actor], want = a.want;
@@ -16754,6 +16842,8 @@
         `fixture ${id} sound needs a label, text with only {actor}, and 1\u20139 turns`
       );
     }
+    const wantOk = (w, id) => keysOk(w, ["kind", "target", "step", "minTrust"]) && (w.minTrust === void 0 || intOk(w.minTrust, 1, 3)) && // An eat quest (rules 102): eat or drink one, somewhere, with someone.
+    (w.step === void 0 || w.kind === "place" && w.step.verb === "lay" && keysOk(w.step, ["verb", "items", "finish"]) && Array.isArray(w.step.items) && intOk(w.step.items.length, 1, 3) && new Set(w.step.items).size === w.step.items.length && w.step.items.every((item) => owns3(items2, item)) && (w.step.finish === void 0 || idOk2(w.step.finish)) || w.kind === "item" && keysOk(w.step, ["verb", "at", "with"]) && w.step.verb === "eat" && ["food", "drink"].some((tag) => items2[w.target]?.tags?.includes(tag)) && (w.step.with === void 0 || w.step.with !== id && (owns3(avatars, w.step.with) || hub2.avatars.includes(w.step.with))) && (w.step.at === void 0 || owns3(places2, w.step.at))) && (w.kind === "item" ? owns3(items2, w.target) || hub2.items.includes(w.target) : w.kind === "place" ? owns3(places2, w.target) || hub2.places.includes(w.target) : w.kind === "connect" ? w.target === "humans" : w.kind === "person" && w.target !== id && (owns3(avatars, w.target) || hub2.avatars.includes(w.target)));
     for (const [id, a] of Object.entries(avatars)) {
       check(
         keysOk(a, [
@@ -16784,6 +16874,7 @@
           "values",
           "desire",
           "want",
+          "wants",
           "requires",
           "canonicalPerson",
           "sealed"
@@ -16827,12 +16918,24 @@
         `avatar ${id} tastes need likes, sore and reason`
       );
       check(
-        a.want === void 0 || keysOk(a.want, ["kind", "target", "step", "minTrust"]) && (a.want.minTrust === void 0 || intOk(a.want.minTrust, 1, 3)) && // An eat quest (rules 102): eat or drink one, somewhere, with someone.
-        (a.want.step === void 0 || a.want.kind === "place" && a.want.step.verb === "lay" && keysOk(a.want.step, ["verb", "items", "finish"]) && Array.isArray(a.want.step.items) && intOk(a.want.step.items.length, 1, 3) && new Set(a.want.step.items).size === a.want.step.items.length && a.want.step.items.every((item) => owns3(items2, item)) && (a.want.step.finish === void 0 || idOk2(a.want.step.finish)) || a.want.kind === "item" && keysOk(a.want.step, ["verb", "at", "with"]) && a.want.step.verb === "eat" && ["food", "drink"].some(
-          (tag) => items2[a.want.target]?.tags?.includes(tag)
-        ) && (a.want.step.with === void 0 || a.want.step.with !== id && (owns3(avatars, a.want.step.with) || hub2.avatars.includes(a.want.step.with))) && (a.want.step.at === void 0 || owns3(places2, a.want.step.at))) && (a.want.kind === "item" ? owns3(items2, a.want.target) || hub2.items.includes(a.want.target) : a.want.kind === "place" ? owns3(places2, a.want.target) || hub2.places.includes(a.want.target) : a.want.kind === "connect" ? a.want.target === "humans" : a.want.kind === "person" && a.want.target !== id && (owns3(avatars, a.want.target) || hub2.avatars.includes(a.want.target))),
+        a.want === void 0 || a.wants === void 0,
+        `avatar ${id} sets want or wants, not both`
+      );
+      check(
+        a.want === void 0 || wantOk(a.want, id),
         `avatar ${id} want needs an item, place or person target, or connects humans`
       );
+      if (a.wants !== void 0) {
+        check(
+          Array.isArray(a.wants) && a.wants.length >= 1 && a.wants.length <= 3,
+          `avatar ${id} wants needs one to three staged wants`
+        );
+        for (const [n, entry] of (Array.isArray(a.wants) ? a.wants : []).entries())
+          check(
+            keysOk(entry, ["want", "when"]) && record3(entry?.want) && wantOk(entry.want, id) && (entry.when === void 0 || Array.isArray(entry.when) && entry.when.length >= 1 && entry.when.length <= 4),
+            `avatar ${id} wants[${n}] needs a want and one to four saved-state conditions in when`
+          );
+      }
       const t = a.temperament;
       if (t === void 0) {
         check(
@@ -17036,6 +17139,25 @@
       "gate_open",
       "home_door"
     ].includes(c?.kind);
+    const travelerKind = (cs) => {
+      for (const c of Array.isArray(cs) ? cs : []) {
+        if ([
+          "trusted",
+          "talked",
+          "knows",
+          "upgraded",
+          "in_hand",
+          "held",
+          "actor_at"
+        ].includes(c?.kind) || c?.kind === "holding" && c.role === "actor")
+          return c.kind;
+        const inner = travelerKind(
+          c?.kind === "not" ? [c.condition] : c?.conditions
+        );
+        if (inner) return inner;
+      }
+      return null;
+    };
     const requirements = (cs, what, persistent = true, perTraveler = false) => {
       if (cs === void 0) return;
       check(
@@ -17058,6 +17180,14 @@
     }
     for (const [id, a] of Object.entries(avatars)) {
       requirements(a.requires, `avatar ${id} requires`);
+      for (const [n, entry] of (Array.isArray(a.wants) ? a.wants : []).entries()) {
+        const asks = travelerKind(entry?.when);
+        check(
+          !asks,
+          `avatar ${id} wants[${n}] when has no traveler, so ${asks} cannot be read there`
+        );
+        if (!asks) requirements(entry?.when, `avatar ${id} wants[${n}] when`);
+      }
       check(
         a.sealed === void 0 || keysOk(a.sealed, ["at", "reason"]) && owns3(places2, a.sealed.at) && textOk(a.sealed.reason, 240) && Array.isArray(a.requires) && a.requires.length > 0,
         `avatar ${id} sealed card needs a place, a reason and activation requirements`
@@ -17117,6 +17247,7 @@
           "startsUsed",
           "absentReturn",
           "locked",
+          "sealed",
           "reservedUntil",
           "recoverTo",
           "scatterOutside"
@@ -17129,6 +17260,10 @@
       );
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);
+      check(
+        i.sealed === void 0 || keysOk(i.sealed, ["reason", "live"]) && textOk(i.sealed.reason, 240) && (i.sealed.live === void 0 || i.sealed.live === true) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
+        `item ${id} sealed needs a reason, requires, and a place of the pack where it lies (home, if any, the same place)`
+      );
       requirements(i.reservedUntil, `item ${id} reservedUntil`);
       check(
         i.reservedUntil === void 0 || Array.isArray(i.reservedUntil) && i.reservedUntil.length > 0,
@@ -17853,7 +17988,7 @@
       humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
     );
   }
-  function rootOf2(world, id) {
+  function rootOf3(world, id) {
     let holder = world.items[id].holder;
     for (let step = 0; step < 32 && holder !== id; step++) {
       if (!world.items[holder]) return holder;
@@ -17869,7 +18004,7 @@
   }
   function entityLive(world, id, lockView) {
     if (world.items?.[id]) {
-      let holder = rootOf2(world, id);
+      let holder = rootOf3(world, id);
       if (humanAvatar(holder) && !humanPresent(world, holder) && !residentAvatar(world, holder))
         return false;
       if (holder === BOARDY && !boardyActive(world)) return false;
@@ -17890,12 +18025,13 @@
     if (waitingAtHome(world, id) && !entityEnabled(world, e.home, saved, lockView))
       return false;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
+    const requires = sealedLatched(world, id, e) ? [] : e.requires;
     if (!state || !lockView && (!conditionsMet(
       world,
       e.packId,
-      saved ? (e.requires || []).filter(
+      saved ? (requires || []).filter(
         (c) => !["connected_humans", "humans_at"].includes(c.kind)
-      ) : e.requires
+      ) : requires
     ) || !saved && !conditionsMet(world, e.packId, e.appearsWhen) || !sectionAllows(world, pack, id, conditionsMet)) || // Saved custody of an undrawn special stays as it was.
     !saved && !specialsAllow(state, pack, id))
       return false;
@@ -17907,6 +18043,11 @@
   var routeKey = (r) => `${r.from}>${r.to}`;
   var latching = packDefinitions.flatMap(
     (pack) => (pack.routes || []).filter((r) => r.requires?.length && !r.live).map((route) => ({ pack: pack.id, route }))
+  );
+  var itemKey = (id) => `item:${id}`;
+  var latchingItems = () => Object.entries(packThings).filter(([, thing]) => thing.sealed && !thing.sealed.live).map(([id, thing]) => ({ pack: thing.packId, id, thing }));
+  var sealedLatched = (world, id, e) => Boolean(
+    e.sealed && !e.sealed.live && world.openedRoutes?.includes(itemKey(id))
   );
   var latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
   var routeOpen = (world, packId, r) => !r.live && Boolean(world.openedRoutes?.includes(routeKey(r))) || conditionsMet(world, packId, r.requires);
@@ -17930,10 +18071,17 @@
       if (!conditionsMet(world, pack, route.requires)) continue;
       world.openedRoutes = [...world.openedRoutes || [], key2].sort();
     }
+    for (const { pack, id, thing } of latchingItems()) {
+      const key2 = itemKey(id);
+      if (!world.items?.[id] || world.openedRoutes?.includes(key2)) continue;
+      if (!conditionsMet(world, pack, thing.requires)) continue;
+      world.openedRoutes = [...world.openedRoutes || [], key2].sort();
+    }
     return world;
   }
-  var latchingRoute = (key2) => latchKeys.has(key2);
-  var validOpenedRoutes = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((key2, i) => latchKeys.has(key2) && (!i || list[i - 1] < key2));
+  var latchesItem = (key2) => latchingItems().some(({ id }) => itemKey(id) === key2);
+  var latchingRoute = (key2) => latchKeys.has(key2) || latchesItem(key2);
+  var validOpenedRoutes = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((key2, i) => latchingRoute(key2) && (!i || list[i - 1] < key2));
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
@@ -18963,7 +19111,7 @@
     const thing = packThings[id];
     return Boolean(thing?.reservedUntil?.length && !conditionsMet(s, thing.packId, thing.reservedUntil));
   };
-  function rootOf3(s, id) {
+  function rootOf4(s, id) {
     let holder = s.items[id].holder;
     for (let i = 0; i < 32 && s.items[holder]; i++)
       holder = s.items[holder].holder;
@@ -18998,7 +19146,7 @@
       const taken = used.get(thing.packId) || /* @__PURE__ */ new Set();
       used.set(thing.packId, taken);
       if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
-        taken.add(packIdOf(rootOf3(s, id)));
+        taken.add(packIdOf(rootOf4(s, id)));
         continue;
       }
       const candidates = groups2.filter((g) => g.id !== thing.packId).map((g) => ({
@@ -20810,12 +20958,20 @@
     return ways;
   }
   function itemDefs() {
-    thingBoxes ??= Object.keys(packThings).filter((id) => packThings[id].locked).sort().map((id) => ({
-      kind: "item",
-      at: packThings[id].home,
-      id,
-      by: packThings[id].locked.by
-    }));
+    thingBoxes ??= Object.keys(packThings).filter((id) => packThings[id].locked || packThings[id].sealed).sort().map(
+      (id) => packThings[id].sealed ? {
+        kind: "item",
+        at: packThings[id].holder,
+        id,
+        pack: packThings[id].packId,
+        sealed: packThings[id].sealed.reason
+      } : {
+        kind: "item",
+        at: packThings[id].home,
+        id,
+        by: packThings[id].locked.by
+      }
+    );
     return thingBoxes;
   }
   var residentDefs = () => Object.entries(packPeople).filter(([, person]) => person.sealed).map(([id, person]) => ({

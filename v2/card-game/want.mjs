@@ -15,9 +15,9 @@ import {
   packOf,
   packPeople,
 } from "./pack-registry.mjs";
-import { packDiscovered } from "./pack-rules.mjs";
+import { DAYLIGHT_TURNS, packDiscovered, runHash } from "./pack-rules.mjs";
 import { drawGlimpse, validGlimpse } from "./glimpse.mjs";
-import { authoredWant } from "./want-talk.mjs";
+import { authoredWant, stagedWants } from "./want-talk.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A want may name a verb beyond the kind's own (hold, be at, talk). State
@@ -246,22 +246,60 @@ const validTarget = (s, kind, target) =>
         ? target === CONNECT_TARGET
         : true;
 
+// An authored want as the actor holds it: its kind, target, light and step.
+// `minTrust` stays in pack data and is read there (want-talk.mjs).
+const heldWant = (s, w) => ({
+  ...newWant(w.kind, w.target, s.turn),
+  ...(w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}),
+  ...(w.step ? { step: { ...w.step } } : {}),
+});
+
+// A resident's staged wants (rules 133): of the entries of its `wants` list
+// that can be taken now, the one with the lowest seeded hash of (resident,
+// entry, day); the authored order only breaks a tie. Eligible means `when`
+// holds in the world, the target is in this world, the want is not already
+// met where the resident stands, and it is not the want just met or given up
+// (`previous`). Nothing is saved: the pick is a function of the world and the
+// run seed, and stays the same through the day. Null when none is eligible,
+// and for a resident with no `wants` list.
+// FNV keeps the order of two near strings from one day to the next, so the
+// hash is mixed once more (murmur3's finalizer) before entries are compared.
+const mixed = (h) => {
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+};
+export const stagedOrder = (a, b) => a.rank - b.rank || a.index - b.index;
+export function stagedNext(s, id, previous = null) {
+  if (!packPeople[id]?.wants) return null;
+  const day = Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
+  const entries = stagedWants(s, id)
+    .filter(
+      ({ open, want }) =>
+        open &&
+        validTarget(s, want.kind, want.target) &&
+        !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) &&
+        !questMet(s, id, heldWant(s, want), null, null),
+    )
+    .map((entry) => ({
+      ...entry,
+      rank: mixed(runHash(s, `staged:${id}:${entry.index}:${day}`)),
+    }))
+    .sort(stagedOrder);
+  return entries.length ? heldWant(s, entries[0].want) : null;
+}
+
 // Every actor carries a want record, experience and what it has seen.
 export function installWants(s) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (!("want" in a)) {
-      // A player has no authored want: it takes its quests by a tap.
+      // A player has no authored want: it takes its quests by a tap. A
+      // resident with staged wants takes one of them, else its authored want.
       const w = humanAvatarIds.includes(id) ? null : authoredWant(id);
-      a.want =
-        w && validTarget(s, w.kind, w.target)
-          ? {
-              ...newWant(w.kind, w.target, s.turn),
-              ...(w.kind === "item" && typeof w.lit === "boolean"
-                ? { lit: w.lit }
-                : {}),
-              ...(w.step ? { step: { ...w.step } } : {}),
-            }
-          : null;
+      a.want = humanAvatarIds.includes(id)
+        ? null
+        : (stagedNext(s, id) ??
+          (w && validTarget(s, w.kind, w.target) ? heldWant(s, w) : null));
     }
     a.xp ??= startXp(id);
     // Old saves without an explicit level retain their already earned level.
@@ -355,6 +393,8 @@ export function wantCandidates(
 // all of it seen, curiosity starts over from here; then anything known, and
 // at last even the want just met, again. A player is never drawn a want.
 export function nextWant(s, actor, api, previous = null) {
+  const staged = stagedNext(s, actor, previous);
+  if (staged) return staged;
   const roll = hash(`${actor}:${s.turn}`);
   let pool = wantCandidates(s, actor, api, previous);
   if (!pool.length) {
@@ -565,9 +605,14 @@ function commitMet(s, id, api, met) {
   } else if (!api.player(id) && !packPeople[id]?.levelAtHome)
     a.level = Math.max(a.level, levelFor(a.xp));
   a.want = null;
-  // A resident met with nothing to follow is content for a while; a player
-  // simply holds no quest until it takes another.
-  if (!api.player(id)) a.content = true;
+  // A resident met takes its next staged want at once, if one can be taken
+  // (rules 133). Otherwise it is content for a while; a player simply holds
+  // no quest until it takes another.
+  if (!api.player(id)) {
+    const staged = stagedNext(s, id, want);
+    if (staged) setWant(a, staged);
+    else a.content = true;
+  }
   return met;
 }
 

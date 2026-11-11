@@ -190,6 +190,7 @@ import {
   settleCrafting,
   installItemCycle,
   settleItemCycle,
+  settleSealedItems,
   settleVoyageCargo,
   validItemCycle,
   validCraftEvent,
@@ -943,6 +944,9 @@ export function holdChoice(s, actor, choice) {
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
+  settleSealedItems(s, nameOf, (text, locationId) =>
+    addLog(s, "World", text, { kind: "narration", locationId }),
+  );
   settleGuards(s);
   settleStationExits(s);
   validateWorld(s);
@@ -3102,6 +3106,8 @@ export function play(
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
+  // A sealed thing whose seal follows its facts goes home when they lapse.
+  settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);
   settleCompany(next, entityActive);
   settleVisitSpeech(s, next, exact);
