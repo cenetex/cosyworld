@@ -102,6 +102,7 @@ mod tests {
             target: None,
             key: String::new(),
             moving: false,
+            surface: "browser".to_string(),
             revealed: None,
         }
     }

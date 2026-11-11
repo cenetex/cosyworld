@@ -299,6 +299,14 @@ pub(super) struct Command {
     #[serde(default, rename = "move")]
     #[allow(dead_code)]
     pub moving: bool,
+    /// Which surface played this (`browser` | `discord`), for the journal and
+    /// the corpus. The browser never sends it, so it defaults to `browser`.
+    #[serde(default = "default_surface")]
+    pub surface: String,
+}
+
+fn default_surface() -> String {
+    "browser".to_string()
 }
 
 /// A client-agnostic Talk: the gateway (or any non-browser client) names a
@@ -475,6 +483,7 @@ pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Resul
         key: format!("talk-{}", crate::random_hex(24)),
         revealed: None,
         moving: false,
+        surface: "discord".to_string(),
     };
     command_as(state, id, u, &command, None)
 }
@@ -731,6 +740,7 @@ pub(super) fn run(
                         action: b.action.clone(),
                         key: &b.key,
                         revealed: b.revealed.as_deref(),
+                        surface: &b.surface,
                     },
                     time,
                 )?;
