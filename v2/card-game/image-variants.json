@@ -3104,6 +3104,24 @@
       "phone": "assets/optimized/phone/png/greek-drama/palace-testimony.webp",
       "phoneHash": "83988cd84dfa094f9a957434514bb9c162b7c230e0685704b8123dfcf67e8060"
     },
+    "assets/greek-drama/patroclus-bread.png": {
+      "sourceHash": "6ad99b47ab2b50794fc8da5e5464f3e7493add91e9cd575bedd8ad7e9f319e76",
+      "stage": "assets/optimized/stage/png/greek-drama/patroclus-bread.webp",
+      "stageHash": "4b887cde34378007c9e3f70061741da0f283cd4e2027d1608ce47a49c94a080c",
+      "card": "assets/optimized/card/png/greek-drama/patroclus-bread.webp",
+      "cardHash": "b68ef9b5ed4b847d474961ab016f99102986476fb5c6bef35b2f1e47b8ea62df",
+      "phone": "assets/optimized/phone/png/greek-drama/patroclus-bread.webp",
+      "phoneHash": "a304caae318cbe987760b9fe5ebb6f855b2ef025b477863ac93286ff01b9a588"
+    },
+    "assets/greek-drama/patroclus.png": {
+      "sourceHash": "5fec40e7190818d1d80bac6ea82fa63efb7fc36e10531488013b319eff6f225f",
+      "stage": "assets/optimized/stage/png/greek-drama/patroclus.webp",
+      "stageHash": "4176277e093b539ae963e0bb05a7a333fd85067b323728b369d447c89be095dc",
+      "card": "assets/optimized/card/png/greek-drama/patroclus.webp",
+      "cardHash": "dd714adfd5a7732c59c153d7aef6ba2a490dfe276141d94b4dd6e71089968081",
+      "phone": "assets/optimized/phone/png/greek-drama/patroclus.webp",
+      "phoneHash": "4242fdf26751aa3f41673ecb2facadb847d5708f49a4943097fba7fcaaeb26f6"
+    },
     "assets/greek-drama/piraeus-open-berth-night.webp": {
       "sourceHash": "83b716069bc66d5bbdf3af6b733bae21461e83cc9851c42c90da5f81dbdeda3b",
       "stage": "assets/greek-drama/piraeus-open-berth-night.webp",
@@ -5281,6 +5299,15 @@
       "cardHash": "aaa7e94805b32385e99eb204a3323ef50b56ba45b71261299070f624e1eaafb8",
       "phone": "assets/optimized/phone/png/sleep/residents/greek-antigone-sleeping.webp",
       "phoneHash": "72285b4a1ee9159c3da883578f49b372fcc53412e998daceec11150e73374a37"
+    },
+    "assets/sleep/residents/greek-patroclus-sleeping.png": {
+      "sourceHash": "f43fca6438e5b9abc85d79d612d51c4c442f0902cdd2d63468abe114eea6a0bd",
+      "stage": "assets/optimized/stage/png/sleep/residents/greek-patroclus-sleeping.webp",
+      "stageHash": "789ea6be3228fee923d28e30611250d069d30b127144c2a971a8657075ca20c2",
+      "card": "assets/optimized/card/png/sleep/residents/greek-patroclus-sleeping.webp",
+      "cardHash": "3a132f296cd4ab5518d4cc7d95cb2b9f85504f6f423998a6c07c884a2e02204f",
+      "phone": "assets/optimized/phone/png/sleep/residents/greek-patroclus-sleeping.webp",
+      "phoneHash": "8624079afecfed2d0db6c4d72ac6d0820cc91700857de56233d6dcae2c9812e1"
     },
     "assets/station.png": {
       "sourceHash": "7dacf532b00c33735860d19273366188d6f759df6ad2f5429f15d287c08d1a33",

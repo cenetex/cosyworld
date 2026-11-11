@@ -199,7 +199,7 @@ try {
     assert.equal(await actions.count(), 0);
     await seats.nth(1).locator("button").click();
     // Choosing your own avatar offers Leave, with no note.
-    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
+    assert.deepEqual(await actions.allInnerTexts(), ["Tap to leave"]);
     assert(await note.isHidden());
     await page.screenshot({
       path: new URL(`menu-${width}.png`, output).pathname,
@@ -210,7 +210,7 @@ try {
     // open with Leave, and nothing arms.
     await seats.nth(1).locator("button").click();
     assert(await menu.isVisible());
-    assert.deepEqual(await actions.allInnerTexts(), ["Leave"]);
+    assert.deepEqual(await actions.allInnerTexts(), ["Tap to leave"]);
     assert.equal(
       await seats.nth(1).locator("button").getAttribute("data-armed"),
       null,
@@ -235,7 +235,7 @@ try {
     assert.equal(await actions.count(), 0);
     await seats.nth(0).locator("button").click();
     const free = page.locator("#avatar-free");
-    assert.deepEqual(await actions.allInnerTexts(), ["Free"]);
+    assert.deepEqual(await actions.allInnerTexts(), ["Tap to free"]);
     assert.match(
       await note.innerText(),
       /Removes Amber Heron's hold and resets Ash/,
@@ -266,7 +266,7 @@ try {
       );
       assert.match(await toggle.getAttribute("aria-label"), /1 friend online/);
       // A presence redraw keeps the card armed; a tap elsewhere disarms.
-      assert.equal(await free.innerText(), "Free");
+      assert.equal(await free.innerText(), "Tap to free");
       await current.locator(".slot-name").click();
       assert.equal(await actions.count(), 0);
       assert.equal(await card.getAttribute("data-avatar"), "ash");

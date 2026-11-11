@@ -142,13 +142,11 @@ describe("residents embark to their own destination", () => {
     expect(run.bardAt).toContain(SHIP);
     expect(run.bardAt).not.toContain(PIRAEUS);
   });
-
   it("plays out the same way every time", () => {
     expect(JSON.stringify(wait(current).world)).toBe(
       JSON.stringify(wait(current).world),
     );
   });
-
   it("leaves the course to a human aboard, under the cargo rule", () => {
     const s = decodeSave(JSON.stringify(startSave()));
     expect(courseOptions(s, SHIP, BARD)).toContain(PIRAEUS);
@@ -156,7 +154,6 @@ describe("residents embark to their own destination", () => {
     expect(courseOptions(s, SHIP, BARD)).toEqual([]);
     expect(courseOptions(s, SHIP, "vale")).not.toContain(PIRAEUS);
   });
-
   it("never carries a player's avatar past a cargo gate, even while away", () => {
     // Vale boards beside the Bard and goes away (#2139 review). Her avatar
     // still rides by the cargo rule, so the Bard cannot sail them both to
@@ -190,7 +187,6 @@ describe("residents embark to their own destination", () => {
     expect(home).toBe(true);
     expect(world.actors[BARD].gaveUp?.target).toBe(PIRAEUS);
   });
-
   it("sets a resident bound for its own dock ashore instead of sailing", () => {
     const s = decodeSave(JSON.stringify(startSave()));
     s.actors[BARD].want = { ...s.actors[BARD].want, target: HARBOR };

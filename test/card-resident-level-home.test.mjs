@@ -36,7 +36,6 @@ const fixture = () => {
     place: "greek-well",
     sanctuary: "attic",
     want: newWant("place", "greek-well", 0),
-    under: [newWant("place", "greek-harbor", 0)],
   });
   return s;
 };
@@ -60,7 +59,7 @@ describe("resident levels earned at a fixed home", () => {
   );
   afterEach(restore);
 
-  it("banks XP away, walks home, then resumes roaming with identical replay", () => {
+  it("banks XP away, walks home, then rests content with identical replay", () => {
     let s = fixture();
     const start = encodeSave(s),
       journal = [];
@@ -81,16 +80,18 @@ describe("resident levels earned at a fixed home", () => {
     expect(wantAPI(s).home(resident)).toBe(home);
     s = decodeSave(encodeSave(s));
     expect(levelOf(s, resident)).toBe(1);
-    expect(plan(s, resident).action).toMatchObject({
-      kind: "move",
-      target: home,
-    });
-    act();
-    expect(s.actors[resident]).toMatchObject({ place: home, xp: 1, level: 2 });
+    // Home is a move like any other (rules 133): it waits out its dwell.
+    expect(plan(s, resident).action.kind).toBe("wait");
+    // Two moves, each after a stay: wait for her, not for a count of turns.
+    for (let i = 0; i < 200 && s.actors[resident].place !== home; i++) act();
+    // Walking two stops meets a want on the way, so xp is 1 or more.
+    expect(s.actors[resident]).toMatchObject({ place: home, level: 2 });
+    expect(s.actors[resident].xp).toBeGreaterThanOrEqual(1);
     expect(levelReturnHome(s, resident)).toBeNull();
-    expect(s.actors[resident].want.target).toBe("greek-harbor");
+    // One want per card: the met want leaves it content until it draws again.
+    expect(s.actors[resident].want).toBeNull();
     act();
-    expect(s.actors[resident].place).toBe("greek-palace");
+    expect(s.actors[resident].place).toBe(home);
     expect(levelOf(s, resident)).toBe(2);
     const replay = journal.reduce(apply, decodeSave(start));
     expect(encodeSave(replay)).toBe(encodeSave(s));
@@ -122,8 +123,11 @@ describe("resident levels earned at a fixed home", () => {
       level: 1,
     });
     delete packPlaces[home].requires;
-    s = advance(s);
-    expect(s.actors[resident]).toMatchObject({ place: home, xp: 1, level: 2 });
+    for (let i = 0; i < 200 && s.actors[resident].place !== home; i++)
+      s = advance(s);
+    // Walking two stops meets a want on the way, so xp is 1 or more.
+    expect(s.actors[resident]).toMatchObject({ place: home, level: 2 });
+    expect(s.actors[resident].xp).toBeGreaterThanOrEqual(1);
   });
 
   it("preserves earned levels in older saves without an explicit level", () => {

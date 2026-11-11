@@ -78,7 +78,9 @@ try {
     const off = await open("counts-off", width);
     const button = await toggle(off.page);
     await button.click();
-    assert.equal(await button.textContent(), "Share play counts");
+    // Pressing a setting lowers its card; choose it again to read its label.
+    await pressSetting(off.page, "counts", 0);
+    assert.equal(await off.page.locator("#setting-counts").textContent(), "Share play counts");
     batches.length = 0;
     await leave(off);
     assert.equal(batches.length, 0, `opt-out sends nothing at ${width}px`);

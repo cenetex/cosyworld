@@ -81,8 +81,8 @@ The owner settled this on 2026-11-01.
 - **Unlock.** A human's first committed Talk with the hidden avatar adds a
   narration line with `unlock: <avatar>` ("Mara remembers Vale.") and
   records the talker in `hidden.met`. Later Talks add nothing.
-- **Seek.** The `seek` command gives its avatar the plain person quest to
-  talk to the hidden avatar: the menu's "+ Find _Mara_".
+- **Seek.** Removed in rules 133 ([wants and arcs](wants-and-arcs.md)): the
+  menu has no "+ Find _Mara_" and the `seek` command is refused.
 
 The same mint latches gates (owner, 2026-11-01): a pack route opens for good
 the first time its condition holds, recorded in `world.openedRoutes`, unless

@@ -99,45 +99,46 @@ export function createCardEntries() {
   };
 }
 
-// A quest card's identity in the hand: whose quest it is, what kind and
-// what for. Its steps still to go, the turn it was given and its place in
-// the stack are progress on the same card, never a new one.
+// The quest card's identity in the hand: whose quest it is, what kind and
+// what for. Its steps still to go and the turn it was given are progress on
+// the same card, never a new one.
 export const questEntryKey = (quest) =>
-  quest.receiptId === undefined
-    ? `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}:${questTerms(quest)}`
-    : `reward:${quest.actor}:${quest.receiptId}`;
+  `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}:${questTerms(quest)}`;
 
-// Quests in the hand. `show(keys, seen)` takes the quest keys in the hand
-// now, folded or not, and the ones in view, and returns the ones due to
-// turn: dealt face down and now seen. `down(key)` says whether a quest is
-// still face down, `turned(key)` marks it face up for as long as it stays in
-// the hand, and `unseen(key)` puts back a turn that found it folded again.
-// The hand a page or a new game opens on (`opening`) is already dealt: what
-// shows then is face up at once, and a quest folded away turns when first
-// seen. A quest that leaves the hand and comes back is dealt again.
+// The one quest in the hand. `show(key, seen)` takes the held quest's key
+// (or null) and whether it is in view, and returns whether it is due to turn:
+// dealt face down and now seen. `down(key)` says whether it is still face
+// down, `turned(key)` marks it face up for as long as it stays in the hand,
+// and `unseen(key)` puts back a turn that found it folded again. The hand a
+// page or a new game opens on (`opening`) is already dealt: what shows then
+// is face up at once, and a quest folded away turns when first seen. A quest
+// that leaves the hand and comes back is dealt again.
 export function createQuestEntries() {
-  let held = new Set();
-  const lying = new Set(),
-    due = new Set();
+  let held = null,
+    lying = false,
+    due = false;
   return {
-    show(keys, seen = keys, { opening = false } = {}) {
-      const fresh = enteringKeys(held, keys),
-        shown = new Set(seen);
-      held = new Set(keys);
-      for (const key of lying) if (!held.has(key)) lying.delete(key);
-      for (const key of due) if (!held.has(key)) due.delete(key);
-      for (const key of fresh) if (!opening || !shown.has(key)) lying.add(key);
-      const turning = [...shown].filter(
-        (key) => lying.has(key) && !due.has(key),
-      );
-      for (const key of turning) due.add(key);
-      return turning;
+    show(key, seen = false, { opening = false } = {}) {
+      if (key !== held) {
+        const fresh = key !== null;
+        held = key;
+        due = false;
+        lying = fresh && (!opening || !seen);
+      }
+      if (held === null || !lying || !seen || due) return false;
+      due = true;
+      return true;
     },
-    down: (key) => lying.has(key),
+    down: (key) => key === held && lying,
     turned(key) {
-      due.delete(key);
-      return lying.delete(key);
+      if (key !== held) return false;
+      due = false;
+      const was = lying;
+      lying = false;
+      return was;
     },
-    unseen: (key) => due.delete(key),
+    unseen(key) {
+      if (key === held) due = false;
+    },
   };
 }

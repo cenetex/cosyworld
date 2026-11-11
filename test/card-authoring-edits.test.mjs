@@ -90,10 +90,10 @@ describe("atomic authoring edits", () => {
     assert.throws(() => linkPlaces(small(), "a", "a"));
   });
   it("keeps an existing funeral goal and its complete lay step", () => {
-    const want = source.pack.avatars["greek-antigone"].want;
+    const want = source.pack.avatars["greek-polynices-shade"].want;
     const edit = setStarterQuest(
       source,
-      "greek-antigone",
+      "greek-polynices-shade",
       want.kind,
       want.target,
     );

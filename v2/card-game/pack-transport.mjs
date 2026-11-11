@@ -7,6 +7,7 @@ import {
   transports,
   crossings,
   entityActive,
+  entityShown,
   packPlaces,
   packPeople,
   conditionsMet,
@@ -25,14 +26,23 @@ const shipAt = (place) =>
   Object.entries(transports).find(([, t]) => t.place === place) || null;
 export const transportPlace = (place) => Boolean(shipAt(place));
 
-// Every rider shares the ship’s voyage.
+// Every active rider shares the ship’s voyage. An actor aboard whose
+// conditions do not yet hold (a resident authored aboard before his story
+// reaches him) or a human who left the table is not a rider: he does not
+// hold the ship, call it, or sail it.
 export const passengers = (s, id) =>
   Object.entries(s.actors)
-    .filter(([, a]) => a.place === transports[id].place)
+    .filter(
+      ([actor, a]) =>
+        a.place === transports[id].place && entityActive(s, actor),
+    )
     .map(([, a]) => a);
 const passengerIds = (s, id) =>
   Object.entries(s.actors)
-    .filter(([, a]) => a.place === transports[id].place)
+    .filter(
+      ([actor, a]) =>
+        a.place === transports[id].place && entityActive(s, actor),
+    )
     .map(([actor]) => actor)
     .sort();
 
@@ -144,9 +154,9 @@ const openLanes = (s, t, dock, actor = null, empty = false) =>
       ? empty || conditionsMet(s, t.packId, gate)
       : knowsLane(s, actor, dock, to);
   });
-// A gated lane with a reason, shut from the dock where the ship lies, shows
-// its port as a locked card to a traveller aboard; the reason labels the
-// context button (rules 102): "Put the Travel Provisions down on deck".
+// A gated lane marked `sealed`, shut from the dock where the ship lies, shows
+// its port as a locked card to a traveller aboard; what opens it is read from
+// its gate (rules 102, 133).
 export function shutLanes(s, place) {
   const found = shipAt(place);
   if (!found) return [];
@@ -156,12 +166,12 @@ export function shutLanes(s, place) {
   return (t.lanes || [])
     .filter(
       (lane) =>
-        lane.reason &&
+        lane.sealed &&
         lane.from === state.dock &&
-        entityActive(s, lane.to) &&
+        entityShown(s, lane.to) &&
         !conditionsMet(s, t.packId, lane.opensWith),
     )
-    .map((lane) => ({ to: lane.to, reason: lane.reason }));
+    .map((lane) => ({ to: lane.to }));
 }
 // A ship's berth is reachable while some active port shares an open lane
 // with it. Any place that is not a berth answers true.
@@ -505,17 +515,24 @@ export function sailTransports(s) {
       Object.assign(state, {
         dock: state.destination,
         destination: null,
-        riders: aboard,
-        phase: aboard.length ? "arrived" : "docked",
+        phase: "arrived",
         since: s.turn,
       });
-      if (!aboard.length && state.recall) settleEmpty(state, s.turn);
+      // Who is aboard is read again at the dock: a resident whose card opens
+      // on this arrival (a `ship_at` appearance) is aboard too, and steps
+      // ashore like the others. Those who sailed are in this list as before.
+      const arrived = passengerIds(s, id);
+      Object.assign(state, {
+        riders: arrived,
+        phase: arrived.length ? "arrived" : "docked",
+      });
+      if (!arrived.length && state.recall) settleEmpty(state, s.turn);
       events.push({
         id,
         kind: "arrive",
         from,
         dock: state.dock,
-        riders: aboard,
+        riders: arrived,
       });
     } else if (state.phase === "course") {
       if (!aboard.length) settleEmpty(state, s.turn);
@@ -646,7 +663,10 @@ export function validTransports(s) {
     if (state.phase === "docked")
       return state.destination === null && !state.riders.length;
     if (state.phase === "arrived")
-      return state.destination === null && aboard > 0;
+      // A switched-off pack's ship keeps its sleeping crew (pack-toggle.mjs).
+      return (
+        state.destination === null && (aboard > 0 || state.riders.length > 0)
+      );
     return (
       !state.riders.length &&
       lanesFrom(t, state.dock).includes(state.destination) &&

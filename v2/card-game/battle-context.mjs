@@ -9,7 +9,7 @@ const verbs = [
   "sent-home",
 ];
 export function battleEvents(world, played) {
-  if (!played || ["claim", "focus"].includes(played.verb)) return [];
+  if (!played) return [];
   return world.log
     .filter(
       (e) =>

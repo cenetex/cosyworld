@@ -148,17 +148,17 @@ describe("authored opening and voyage quests", () => {
       }),
     ).toThrow(/existing/);
   });
-  it("clears a voyage gate and restores its original hint with Undo", () => {
+  it("clears a voyage gate and restores its locked card with Undo", () => {
     const source = greek(),
       ship = source.bridge.transports["greek-ship"];
-    const index = ship.lanes.findIndex((lane) => lane.reason);
+    const index = ship.lanes.findIndex((lane) => lane.sealed);
     const next = apply(
       source,
       changeLaneRequirements(source, "greek-ship", index, []),
     );
     const rest = { ...ship.lanes[index] };
     delete rest.opensWith;
-    delete rest.reason;
+    delete rest.sealed;
     expect(next.bridge.transports["greek-ship"].lanes[index]).toEqual(rest);
   });
   it("clears an opening quest and restores the sealed card with Undo", () => {

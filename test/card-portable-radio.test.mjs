@@ -26,16 +26,6 @@ const fixture = () => {
 };
 const switchAction = (world, actor = "vale") =>
   legalActions(world, actor).find((a) => a.kind === "radio");
-it("starts off in the booth and installs off in older saves", () => {
-  const world = createWorld({ seed: 17 });
-  expect(world.items[radio].holder).toBe(booth);
-  expect(radioAudible(world, "vale")).toBe(false);
-  delete world.items[radio];
-  world.packs.ratiradio.revision = 2;
-  const restored = decodeSave(JSON.stringify(world));
-  expect(restored.items[radio].holder).toBe(booth);
-  expect(restored.items[radio].radioOn).not.toBe(true);
-});
 it("uses the single item context action and persists accepted on/off state", () => {
   const world = fixture(),
     action = switchAction(world);

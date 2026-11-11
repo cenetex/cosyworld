@@ -8,23 +8,20 @@ import { recitalPoem } from "../card-game/pack-recital.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { narrativeContext } from "../card-game/narrative.mjs";
-import { openingFixture } from "../../test/helpers/greek-opening.mjs";
+import { openDoorStart } from "../../test/helpers/open-door.mjs";
 import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 
 export async function checkOpeningPoem(browser, origin) {
   const output = new URL("../../output/opening-poem/", import.meta.url);
   await mkdir(output, { recursive: true });
-  // Every branch runs at desktop width. Each smaller width runs one branch;
-  // test/card-opening-poem.test.mjs checks the poem of every branch.
-  const branches = ["burial", "concession", "exposure"];
+  // The one story is the burial, played from createWorld by openDoorStart
+  // (the Theban-response branches were removed in rules 133).
+  const branches = ["burial"];
   for (const [index, width] of [1200, 390, 320, 667].entries()) {
     for (const branch of width === 1200
       ? branches
       : [branches[index % branches.length]]) {
-      const fixtures = openingFixture(branch);
-      const world = structuredClone(
-        fixtures.beforeGraveReport || fixtures.returning,
-      );
+      const world = openDoorStart();
       // The Bard's quest is to hear Vale's account. The world rules carry
       // it to the courtyard by its known roads; the Talk there meets it.
       world.actors["greek-rhapsode"].want = {
@@ -123,15 +120,8 @@ export async function checkOpeningPoem(browser, origin) {
         await page.screenshot({
           path: new URL(`${branch}-card-${width}.png`, output).pathname,
         });
-        // The outcome item given to Dione is the report.
-        const outcome =
-          branch === "exposure" ? "greek-guard-tablet" : "greek-burial-account";
-        await selectCard(page, outcome, { touch: width < 700 });
-        await selectCard(page, "greek-baker", { touch: width < 700 });
-        await page.locator('#card-actions [data-action="give"]').click();
-        await settle();
         const expected = recitalPoem(
-          fixtures.closed,
+          world,
           packDefinition("greek-drama"),
         ).stanzas.map((s) => s.id);
         // The Bard sails and walks from wherever the fixture left it.

@@ -5,6 +5,7 @@ import {
   controlledByHuman,
   humanPresent,
   humanAvatarIds,
+  roomHumanCount,
   sharedEnabled,
 } from "./human-cast.mjs";
 import { knowsFact, grievanceActive } from "./knowledge.mjs";
@@ -136,6 +137,9 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return (c.topics || [c.topic]).some((topic) => knowsFact(s, who, topic));
     }
     case "trusted":
+      // A resident passes his own trust-locked door: there is no trust in
+      // oneself, so the keeper is always trusted by himself.
+      if (actor === c.actor) return true;
       return (
         (s.actors[c.actor]?.trust?.[actor] || 0) >= c.min &&
         !(s.motives?.grievances?.[c.actor] || []).some(
@@ -183,6 +187,9 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
         sharedEnabled(s) &&
         humanAvatarIds.filter((id) => humanPresent(s, id)).length >= c.minimum
       );
+    // Enough travellers stand together in one place: a lock for two.
+    case "humans_at":
+      return sharedEnabled(s) && roomHumanCount(s, c.place) >= c.minimum;
     case "item_near": {
       if (usedUp(s, c.item)) return false;
       let holder = s.items[c.item]?.holder;
@@ -304,9 +311,13 @@ export const crossingExits = (s, place, actor, senses) =>
       (c) =>
         c.from === place &&
         (mayCross(c, actor, senses) ||
+          // A resident taken along walks home by the same way: from a
+          // ticketed place into its own part of the world, or on to
+          // another ticketed place on that way (rules 133).
           (s.invitedPlaces?.[actor]?.includes(c.from) &&
-            (packPeople[actor]?.packId ?? null) ===
-              (packPlaces[c.to]?.packId ?? null))) &&
+            ((packPeople[actor]?.packId ?? null) ===
+              (packPlaces[c.to]?.packId ?? null) ||
+              s.invitedPlaces[actor].includes(c.to)))) &&
         crossingOpen(s, c, senses, actor),
     )
     .map((c) => (c.transport ? transports[c.transport].place : c.to));
@@ -321,7 +332,11 @@ export const packDiscovered = (s, packId) =>
   );
 export function markCrossed(s, from, to) {
   const c = crossingBetween(from, to, s);
-  if (c && !(c.transport && (c.signal || c.unlockWhen)) && crossingState(s, c.id))
+  if (
+    c &&
+    !(c.transport && (c.signal || c.unlockWhen)) &&
+    crossingState(s, c.id)
+  )
     s.crossings[c.id].discovered = true;
 }
 /** Extra place text from crossings that start here (open or closed). */

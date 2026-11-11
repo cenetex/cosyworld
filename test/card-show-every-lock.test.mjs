@@ -1,15 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions } from "../v2/card-game/world.mjs";
 import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
+import { lockText } from "./helpers/lock-text.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
-import { openingFixture } from "./helpers/greek-opening.mjs";
 
 // Slice 4 of the wants design (#2605): every gated way and conditional
 // resident that pack data can draw is drawn as a locked box with a truthful
-// reason, and opens exactly when its old condition holds. The rest are named
-// here with the reason pack data cannot draw them.
+// want read from its conditions, and opens exactly when its old condition
+// holds. The rest are named here with the reason pack data cannot draw them.
 const table = JSON.parse(
   readFileSync(
     new URL("../v2/worlds/card-table.json", import.meta.url),
@@ -25,35 +25,10 @@ const source = (pack) =>
   );
 
 // A gated route or conditional resident that is not drawn as a locked box.
-const IN_PLACE = (what) => `its place carries ${what}, so it is off the table`;
 const LEFT_HIDDEN = {
   // The guard already draws his way (rules 100); not a seal.
   "greek-drama": {
     "greek-gate>greek-battlefield": "guarded way, drawn by its guard",
-    "greek-harbor>greek-egypt-tomb": IN_PLACE("the same choice"),
-    "greek-harbor>greek-troy-beach": IN_PLACE("the same choice"),
-    "greek-argolid-road>greek-argos-tomb": IN_PLACE("the same choice"),
-    "greek-argolid-road>greek-mycenae-palace": IN_PLACE("the same choice"),
-    "greek-argolid-road>greek-argive-farm": IN_PLACE("the same choice"),
-    "greek-argos-tomb>greek-argos-palace": IN_PLACE("the same choice"),
-    "greek-helen-egypt": IN_PLACE("the same choice"),
-    "greek-menelaus-egypt": IN_PLACE("the same choice"),
-    "greek-helen-troy": IN_PLACE("the same choice"),
-    "greek-menelaus-troy": IN_PLACE("the same choice"),
-    "greek-electra-aeschylus": IN_PLACE("the same choice"),
-    "greek-orestes-aeschylus": IN_PLACE("the same choice"),
-    "greek-electra-sophocles": IN_PLACE("the same choice"),
-    "greek-orestes-sophocles": IN_PLACE("the same choice"),
-    "greek-electra-euripides": IN_PLACE("the same choice"),
-    "greek-orestes-euripides": IN_PLACE("the same choice"),
-    "greek-aethra": IN_PLACE("the same flag, through its section"),
-    "greek-adrastus": IN_PLACE("the same flag, through its section"),
-    "greek-theseus": IN_PLACE("the same flag, through its section"),
-    "greek-colonus-keeper": IN_PLACE("the same flag, through its section"),
-    "greek-marathon-keeper": IN_PLACE("the same flag, through its section"),
-    "greek-ajax-tecmessa": IN_PLACE("the same flag"),
-    "greek-ajax-teucer": IN_PLACE("the same flag, through its section"),
-    "greek-ajax-odysseus": IN_PLACE("the same flag, through its section"),
   },
   // The owner paused this pack (hoppycat-paused): its boxes stay as they are.
   "hoppycat-archive": {
@@ -71,7 +46,7 @@ const LEFT_HIDDEN = {
 
 describe("every gated way and conditional resident in a mounted pack", () => {
   for (const pack of table.packs) {
-    it(`${pack}: is drawn locked with a reason, or named as left hidden`, () => {
+    it(`${pack}: is drawn locked with no sentence of its own, or named as left hidden`, () => {
       const world = source(pack);
       const hidden = LEFT_HIDDEN[pack] || {};
       const seen = new Set();
@@ -82,7 +57,7 @@ describe("every gated way and conditional resident in a mounted pack", () => {
             hidden[key],
             `${key} is sealed and listed hidden`,
           ).toBeUndefined();
-          expect(sealed.reason, key).toMatch(/\S/u);
+          expect(sealed.reason, `${key} carries no authored text`).toBeUndefined();
         } else expect(hidden[key], `${key} needs a seal`).toBeTruthy();
       };
       for (const r of world.routes || [])
@@ -110,7 +85,7 @@ const canMove = (s, to) =>
 const drawn = (s, card) => ({
   shown: availableCards(s).includes(card),
   locked: isLockedBox(s, card),
-  reason: sealedReason(s, card),
+  reason: lockText(s, card),
 });
 const lockedBox = (s, card, reason) => {
   expect(drawn(s, card), card).toMatchObject({ shown: true, locked: true });
@@ -119,7 +94,7 @@ const lockedBox = (s, card, reason) => {
   const before = JSON.stringify(s);
   for (const known of [false, true])
     expect(lockedQuest(s, card, () => known)).toEqual({
-      text: sealedReason(s, card),
+      text: sealedReason(s, card, () => known),
       cards: [],
     });
   expect(JSON.stringify(s)).toBe(before);
@@ -145,14 +120,14 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
   it("shows the Sacred Way from Eleusis until the request is heard and the petition is near", () => {
     const s = at(world(), "greek-eleusis");
     greek(s)["greek-open-door-open"] = true;
-    lockedBox(s, road, /request is heard.*petition/u);
+    lockedBox(s, road, /^Talk with Aethra$/u);
     // Either condition alone opens nothing.
     greek(s)["greek-open-door-mothers-heard"] = true;
     s.items["greek-burial-petition"].holder = "greek-piraeus";
-    lockedBox(s, road, /request is heard/u);
+    lockedBox(s, road, /Petition/u);
     s.items["greek-burial-petition"].holder = "greek-eleusis";
     greek(s)["greek-open-door-mothers-heard"] = false;
-    lockedBox(s, road, /request is heard/u);
+    lockedBox(s, road, /^Talk with Aethra$/u);
     greek(s)["greek-open-door-mothers-heard"] = true;
     openBox(s, road);
   });
@@ -161,13 +136,13 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
     for (const end of ["greek-athens", "greek-piraeus"]) {
       const s = at(world(), end);
       greek(s)["greek-open-door-open"] = true;
-      lockedBox(s, walls, /petition is laid before Theseus.*Herald’s Truce/u);
+      lockedBox(s, walls, /^Talk with /u);
       greek(s)["greek-open-door-plea-registered"] = true;
       s.items["greek-olive-branch"].holder = "greek-piraeus";
       lockedBox(s, walls, /Herald’s Truce/u);
       s.items["greek-olive-branch"].holder = "greek-athens";
       greek(s)["greek-open-door-plea-registered"] = false;
-      lockedBox(s, walls, /Herald’s Truce/u);
+      lockedBox(s, walls, /^Talk with /u);
       greek(s)["greek-open-door-plea-registered"] = true;
       openBox(s, walls);
     }
@@ -176,24 +151,24 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
 
 describe("Greek conditional residents are locked boxes that cannot be played", () => {
   const rows = [
-    ["greek-quay-host", "greek-piraeus", [], /funeral.*give Dione.*account/u],
+    ["greek-quay-host", "greek-piraeus", [], /^Bring .+ to /u],
     [
       "greek-argive-mother",
       "greek-eleusis",
       ["greek-open-door-open", "greek-open-door-bodies-returned"],
-      /Argive dead are returned/u,
+      /^Talk with Aethra$/u,
     ],
     [
       "greek-iphis",
       "greek-eleusis",
       ["greek-open-door-open", "greek-open-door-pyre-heard"],
-      /account of the pyre/u,
+      /^Talk with Theseus$/u,
     ],
     [
       "greek-household-witness",
       "greek-eleusis",
       ["greek-open-door-open", "greek-open-door-eleusis-done"],
-      /urn is placed/u,
+      /^Give .+ to Theseus$/u,
     ],
   ];
   for (const [who, place, flags, reason] of rows)
@@ -225,57 +200,29 @@ describe("Greek conditional residents are locked boxes that cannot be played", (
     // Aethra, whose only condition is the section's flag, is simply there.
     expect(entityActive(s, "greek-aethra")).toBe(true);
   });
-
-  it.each(["burial", "concession"])(
-    "names Dione's report for an earlier %s save",
-    (branch) => {
-      const s = openingFixture(branch, {
-        reportFirst: branch === "burial",
-      }).returning;
-      expect(greek(s)["greek-burial-performed"]).toBe(true);
-      expect(greek(s)["greek-open-door-open"]).toBeUndefined();
-      const away = at(structuredClone(s), "greek-piraeus");
-      expect(lockedQuest(away, "greek-quay-host").text).toMatch(
-        /give Dione an earlier Theban account/u,
-      );
-      untouchable(away, "greek-quay-host");
-      const action = legalActions(s).find(
-        (a) =>
-          a.kind === "give" &&
-          a.item === "greek-burial-account" &&
-          a.target === "greek-baker",
-      );
-      expect(action).toBeTruthy();
-      const result = play(s, action);
-      expect(result.ok).toBe(true);
-      expect(
-        lockedQuest(at(result.state, "greek-piraeus"), "greek-quay-host"),
-      ).toBeNull();
-    },
-  );
 });
 
 describe("Lonely Forest ways are drawn locked", () => {
   const trail = "forest-trail";
 
-  it("keeps the garden path latched and the oak path live, each with its reason", () => {
+  it("keeps the garden path latched and the oak path live, each with its want", () => {
     const route = (from) =>
       source("lonely-forest").routes.find((r) => r.from === from);
     expect(route("forest-oak").live).toBe(true);
     expect(route("forest-garden").live).toBeUndefined();
 
     let s = at(world(), "forest-garden");
-    lockedBox(s, trail, /garden drain is cleared/u);
+    lockedBox(s, trail, /^Talk with RATi$/u);
     forest(s)["forest-path-cleared"] = true;
     openBox(s, trail);
 
     // The oak path follows the charm: open while it lies at the Oak, shut
     // again when it is carried away.
     s = at(world(), "forest-oak");
-    lockedBox(s, trail, /Wolfprint Charm is at the Old Oak/u);
+    lockedBox(s, trail, /^Bring Wolfprint Charm to Old Oak/u);
     s.items["forest-wolfprint-charm"].holder = "forest-oak";
     openBox(s, trail);
     s.items["forest-wolfprint-charm"].holder = "forest-trail";
-    lockedBox(s, trail, /Wolfprint Charm is at the Old Oak/u);
+    lockedBox(s, trail, /^Bring Wolfprint Charm to Old Oak/u);
   });
 });

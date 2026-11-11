@@ -44,6 +44,9 @@ export function resetAvatar(world, id) {
   }
   if (world.motives?.grievances?.[id]) world.motives.grievances[id] = [];
   if (world.invitedPlaces) delete world.invitedPlaces[id];
+  // A reset avatar is nobody's companion; its own record already starts bare.
+  for (const other of Object.values(world.actors))
+    if (other.companion === id) delete other.companion;
   if (world.conversations)
     world.conversations = world.conversations.filter(
       (c) => !c.actors.includes(id),

@@ -24,11 +24,11 @@ export function reflectionContext(world, action = null) {
 
 // Thoughts come only to the avatar who waited, after something new happened
 // to them. A dream comes only with a long rest that dreamed by the rules:
-// the halfway glimpse or the level quest, one or two a level and never more
-// (rules 99, sleep spec §5). The server's reflection_due applies the same
+// the halfway glimpse, once a level (rules 133; the level quest no longer dreams)
+// (sleep spec §5). The server's reflection_due applies the same
 // gate.
 export const THOUGHT_GAP = 6;
-export const DREAMS = ["glimpse", "quest"];
+export const DREAMS = ["glimpse"];
 export function reflectionDue(context, id, life) {
   // Waking from a long rest always brings a thought; a dream only when the
   // rest dreamed.

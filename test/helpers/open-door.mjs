@@ -3,7 +3,7 @@ import { currentActor, legalActions, play } from "../../v2/card-game/world.mjs";
 import { needsVoyage, sailTo } from "./voyage.mjs";
 import { summonTransport } from "../../v2/card-game/pack-transport.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
-import { openingFixture } from "./greek-opening.mjs";
+import { funeralJourney } from "./greek-funeral.mjs";
 import { greekTravelTargets, greekMoveSteps } from "./greek-travel.mjs";
 
 // Marathon is a rumour in new worlds (rules 94): Dione's invitation opens
@@ -72,42 +72,25 @@ export const openDoorWalk = (world, ...places) =>
     world,
   );
 
-// After the exposure the City Gate is guarded. Until the herald's truce
-// opens the Long Walls, Eleusis and Athens are walked through it, so the
-// traveler buys the decree with Dione's bread, Creon's writ with the
-// decree, and gives the guard the writ (rules 102).
-export function cityGateSteps() {
-  const from = (start) => greekMoveSteps(start);
-  return [
-    { kind: "take", item: "greek-bread" },
-    ...from("greek-courtyard")("gate"),
-    { kind: "trade", item: "greek-bread", receive: "greek-decree" },
-    ...from("greek-gate")("palace"),
-    { kind: "trade", item: "greek-decree", receive: "greek-creon-writ" },
-    ...from("greek-palace")("gate"),
-    { kind: "give", item: "greek-creon-writ", target: "greek-guard" },
-    ...from("greek-gate")("courtyard"),
-  ];
-}
-
-// Giving Dione a Theban outcome opens the road to Eleusis. With `rumours`,
-// the world is an old full-scope one, where Marathon and Troy still stand.
-// After the exposure the City Gate is opened too, unless `gate` is false.
-export function openDoorStart(
-  branch = "exposure",
-  { rumours = false, gate = true } = {},
-) {
-  let world = openingFixture(branch).closed;
+// Dione's Open Door opens when Polynices is buried (the play
+// `greek-bury-polynices` sets `greek-open-door-open`). The start is that
+// burial, played from `createWorld` by `funeralJourney` once per test file
+// and walked home to the courtyard; each caller gets its own copy. With
+// `rumours` the world is an old full-scope one, where Marathon and Troy stand.
+let buriedOnce;
+export function openDoorStart({ rumours = false } = {}) {
+  buriedOnce ||= funeralJourney().buried;
+  let world = structuredClone(buriedOnce);
   if (!world.packs["greek-drama"].flags["greek-open-door-open"])
-    throw new Error(`The road stayed closed after ${branch}`);
+    throw new Error("The road stayed closed after the burial");
   if (rumours) world.packs["greek-drama"].scope = "full";
-  if (gate && branch === "exposure")
-    for (const { kind, ...fields } of cityGateSteps())
-      world = playOpenDoor(world, kind, fields);
-  return playOpenDoor(world, "drop", {
-    item: "lamp",
-    target: "greek-courtyard",
-  });
+  world = openDoorWalk(world, "courtyard");
+  if (world.items.lamp.holder === "vale")
+    world = playOpenDoor(world, "drop", {
+      item: "lamp",
+      target: "greek-courtyard",
+    });
+  return world;
 }
 
 // The Open Door is played with ordinary cards. Meeting someone tells their
@@ -202,7 +185,7 @@ export function openDoorJourney(
   steps = openDoorSteps(),
   { rumours = false } = {},
 ) {
-  let world = openDoorStart("exposure", { rumours });
+  let world = openDoorStart({ rumours });
   const before = {},
     after = {};
   for (const { kind, ...fields } of steps) {

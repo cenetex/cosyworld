@@ -110,6 +110,21 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=pond-access-check`,
     );
+    // A way that is shut lies in the hand as a locked box, never as a card to
+    // enter (rules 133).
+    const opened = async (id) => {
+      await page.waitForFunction(
+        (id) =>
+          document.querySelector(`#hand [data-card="${id}"]`)?.dataset
+            .locked === "false" && !document.querySelector("#hand [data-revealing]"),
+        id,
+      );
+      await ready();
+    };
+    const assertShut = async (id) => {
+      assert.equal(await card(id).count(), 1);
+      assert.equal(await card(id).getAttribute("data-locked"), "true");
+    };
     await card("attic").waitFor({ state: "attached" });
     await ready();
     assert.equal(
@@ -180,10 +195,10 @@ try {
     assert.equal(spent.items.lamp.lit, false);
     assert.equal(spent.items.lamp.holder, "moth");
     assert.equal(spent.actors.moth.place, "pond");
-    assert.equal(await card("attic").count(), 0);
+    await assertShut("attic");
     await page.reload();
     await ready();
-    assert.equal(await card("attic").count(), 0);
+    await assertShut("attic");
     // A lit lamp carried away from both shores leaves the mirror closed.
     const away = structuredClone(spent);
     // A synthetic filled tank at the new room leaves fuel for the return.
@@ -205,7 +220,7 @@ try {
       key,
     );
     await ready();
-    assert.equal(await card("attic").count(), 0);
+    await assertShut("attic");
     const departed = away;
     // A save arriving from another tab also rebuilds availability and selection.
     departed.items.lamp.holder = "vale";
@@ -220,7 +235,15 @@ try {
       },
       { key, value: encodeSave(departed) },
     );
-    await card("attic").waitFor({ state: "attached" });
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#hand [data-card="attic"]')?.dataset
+          .locked === "false",
+    );
+    // The box turns over once; let its lid settle before choosing it.
+    await page.waitForFunction(
+      () => !document.querySelector("#hand [data-revealing]"),
+    );
     await ready();
     await selectCard(page, "attic");
     await page.locator("#card-actions .card-primary").click();
@@ -231,7 +254,7 @@ try {
       await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
-    assert.equal(await card("pond").count(), 0);
+    await assertShut("pond");
     await painted("attic-lit");
     // Daylight remains undimmed, independently of a portable lamp glow.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
@@ -239,7 +262,7 @@ try {
     await selectCard(page, "lamp");
     await ready();
     assert.equal((await state()).items.lamp.lit, false);
-    await card("pond").waitFor({ state: "attached" });
+    await opened("pond");
     await painted("attic-doused");
     // With the lamp stowed, daylight has no ambient light pool.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
@@ -257,7 +280,7 @@ try {
     // Holding shuts the mirror again; stowing reopens it.
     await selectCard(page, "lamp");
     await ready();
-    assert.equal(await card("pond").count(), 0);
+    await assertShut("pond");
     await painted("attic-lit");
     // Lit with the cloth here, the stack holds only the cottage stairs and
     // the mirror still shows only the room.
@@ -274,7 +297,7 @@ try {
     );
     await card("forest-cottage").waitFor({ state: "attached" });
     await ready();
-    assert.equal(await card("pond").count(), 0);
+    await assertShut("pond");
     // The one way on waits at the row's right end (#2272).
     assert.equal(
       await page
@@ -287,11 +310,12 @@ try {
     await page.reload();
     await ready();
     await painted("attic-lit-cottage");
-    assert.equal(await card("pond").count(), 0);
+    await assertShut("pond");
     await page.reload();
     await ready();
     await selectCard(page, "lamp");
     await ready();
+    await opened("pond");
     await selectCard(page, "pond");
     await page.locator("#card-actions .card-primary").click();
     await ready();

@@ -8,7 +8,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { worldLife } from "../v2/card-game/resident-home.mjs";
-import { greekErrands, openingFixture } from "./helpers/greek-opening.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
 const bread = "greek-bread",
@@ -81,16 +81,6 @@ it("gives a repeated craft its own identity while retaining the first outcome", 
   expect(crafts(world)[1].holderId).toBe(home);
   expect(world.items[bread].holder).toBe("vale");
   world.log = world.log.filter((entry) => entry.verb === "craft");
-  expect(decodeSave(encodeSave(world)).log).toEqual(world.log);
-});
-
-it("keeps old plain craft narration as its original record", () => {
-  // Only a recorded save has the old plain narration: current rules log a craft event.
-  const world = openingFixture("burial").water;
-  expect(crafts(world)).toEqual([]);
-  expect(
-    world.log.some((entry) => entry.text.includes("Courtyard Bread is ready")),
-  ).toBe(true);
   expect(decodeSave(encodeSave(world)).log).toEqual(world.log);
 });
 

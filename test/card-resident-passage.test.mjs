@@ -22,7 +22,7 @@ afterEach(() => {
   else packPeople[guard].passWhen = previous;
 });
 
-it("checks the traveller and each invited companion while keeping the guard posted", () => {
+it("lets a party through when the traveller passes, and keeps the guard posted", () => {
   const authored = structuredClone(packDefinition("greek-drama"));
   authored.avatars[guard].passWhen = passage;
   expect(() => validatePackDefinition(authored)).not.toThrow();
@@ -34,7 +34,9 @@ it("checks the traveller and each invited companion while keeping the guard post
   expect(s.actors[guard].guarding).toBe(beyond);
   expect(exits(s, gate, "vale")).toContain(beyond);
   expect(exits(s, gate, "rue")).not.toContain(beyond);
-  expect(legalActions(s)).not.toContainEqual(
+  // A way is the party's (rules 133): open for the traveller, open for the
+  // resident asked along, whatever the guard thinks of her alone.
+  expect(legalActions(s)).toContainEqual(
     expect.objectContaining({
       kind: "accompany",
       target: "greek-ismene",
@@ -62,9 +64,12 @@ it("checks the traveller and each invited companion while keeping the guard post
 
 it("gives a real grievance priority over positive trust", () => {
   let s = lifeWorld({ place: gate });
-  s.actors[guard].trust.vale = 2;
+  s.actors[guard].trust.vale = 3;
   s = endStandoff(act(s, "threaten", { target: guard }));
-  expect(s.actors[guard].trust.vale).toBeGreaterThan(0);
+  // A threat takes the guard's trust (rules 133); even trust given back
+  // later loses to the standing grievance.
+  expect(s.actors[guard].trust.vale).toBe(0);
+  s.actors[guard].trust.vale = 2;
   expect(s.motives.grievances[guard]).toContainEqual(
     expect.objectContaining({ other: "vale", kind: "threat" }),
   );

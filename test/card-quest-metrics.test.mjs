@@ -1,16 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
-import { questRewardCards } from "../v2/card-game/quest-card.mjs";
-import { metReceipts, playCounter } from "../v2/card-game/metrics.mjs";
+import { metWants, playCounter } from "../v2/card-game/metrics.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 
-// The client looks at the saved receipts after each render (app.mjs).
-const look = (world, seen) =>
-  metReceipts(
-    questRewardCards(world).map((q) => q.key),
-    seen,
-  );
+// The client looks at the saved log after each render (app.mjs): a want the
+// rules met writes one `want_met` event, which is the one count.
+const look = (world, since) => ({
+  met: metWants(world.log, since, "vale"),
+  seen: world.eventSeq,
+});
 const step = (world, kind) => {
   const result = play(world, legalActions(world).find((a) => a.kind === kind));
   expect(result.ok, result.error).toBe(true);
@@ -18,7 +17,7 @@ const step = (world, kind) => {
 };
 
 describe("quest counters (#2662)", () => {
-  it("counts one quest.met when the rules meet a quest, claimed or not", () => {
+  it("counts one quest.met when the rules meet a quest", () => {
     let world = questing(createWorld());
     const { seen } = look(world, null);
     world.actors.vale.want = newWant("place", "station", 0);
@@ -28,12 +27,9 @@ describe("quest counters (#2662)", () => {
     // Another look, or a reload of the same save, counts nothing more.
     expect(look(world, met.seen).met).toBe(0);
     expect(look(world, null).met).toBe(0);
-    // Collecting the reward is not a second count.
-    world = step(world, "claim");
-    expect(look(world, met.seen).met).toBe(0);
   });
 
-  it("counts two quests met in one play, and a second later one", () => {
+  it("counts a second quest met later, once", () => {
     let world = questing(createWorld());
     let { seen } = look(world, null);
     world.actors.vale.want = newWant("place", "station", 0);
@@ -46,9 +42,10 @@ describe("quest counters (#2662)", () => {
     expect(met.met).toBe(1);
   });
 
-  it("names plays honestly: focus turns a held quest, Drop abandons one", () => {
-    expect(playCounter({ kind: "focus", quest: 1 })).toBe("quest.accept");
+  it("names plays honestly: Take of an offer accepts, Drop abandons", () => {
+    expect(playCounter({ kind: "take", offer: "quest:box:x" })).toBe("quest.accept");
     expect(playCounter({ kind: "drop", quest: 0 })).toBe("quest.abandon");
     expect(playCounter({ kind: "drop", item: "oil" })).toBe("play.drop");
+    expect(playCounter({ kind: "take", item: "oil" })).toBe("play.take");
   });
 });

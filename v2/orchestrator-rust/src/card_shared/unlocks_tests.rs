@@ -181,11 +181,9 @@ fn talking_to_the_hidden_avatar_unlocks_it_once_and_opens_its_world() {
     let item = avatar["item"]["id"].as_str().unwrap();
     let home = avatar["home"]["id"].as_str().unwrap();
     assert_eq!(opened.game["actors"][&hidden]["place"], "pond");
-    assert_eq!(opened.game["actors"][&hidden]["want"]["target"], item);
-    assert_eq!(
-        opened.game["actors"][&hidden]["want"]["step"],
-        json!({"verb":"bring", "at":home})
-    );
+    // Nothing is pushed: bringing the belonging home is Accept quest at the
+    // home's door (rules 133), taken by a tap.
+    assert!(opened.game["actors"][&hidden]["want"].is_null());
     let spot = opened.game["items"][item]["holder"].as_str().unwrap();
     assert_ne!(spot, hidden);
     assert_ne!(spot, home);
@@ -253,7 +251,6 @@ fn a_reassigned_seat_unlocks_for_its_new_passkey() {
     c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
         .unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), live);
-    run(&mut c, &id, "bob", &body("seek", None)).unwrap();
     stand_beside(&c, &id);
     let result = talk(&mut c, &id);
     assert!(result["events"]
@@ -288,16 +285,6 @@ fn a_reassigned_seat_unlocks_for_its_new_passkey() {
             .len(),
         worlds.len()
     );
-}
-
-#[test]
-fn seek_gives_the_quest_to_talk_to_the_hidden_avatar() {
-    let (_path, mut c) = open();
-    let id = found(&mut c, "ann", "vale").unwrap();
-    let view = run(&mut c, &id, "ann", &body("seek", None)).unwrap();
-    let hidden = view["world"]["hidden"]["actor"].clone();
-    assert_eq!(view["world"]["actors"]["vale"]["want"]["target"], hidden);
-    assert_eq!(view["world"]["actors"]["vale"]["want"]["kind"], "person");
 }
 
 #[test]

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import vm from "node:vm";
 import { beforeAll, describe, expect, it } from "vitest";
-import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { decodeSave } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
@@ -89,45 +89,36 @@ describe("legacy journey migration boundary", () => {
     expect(packDefinition(packId).avatars[resident].journey.path).toEqual(path);
   });
 
-  it.each(["unagreed", 0, 1, 2, 3, 4, "completed"])(
-    "loads real rules-110 history at %s without moving anyone or inventing progress",
-    (stage) => {
-      const old = histories[stage];
-      const original = JSON.stringify(old);
-      released({ op: "validate", world: old });
-      const loaded = decodeSave(original);
-      expect(loaded.journeyProgress[resident]).toEqual(
-        stage === "unagreed"
-          ? undefined
-          : { agreement, step: stage === "completed" ? 4 : stage },
-      );
-      preserved(old, loaded);
-      expect(loaded.revision).toBe(old.revision);
-      expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
-      expect(JSON.stringify(old)).toBe(original);
-    },
-  );
-
-  it("keeps all stages through the source and compiled shared upgrade boundary", () => {
+  // The source and the compiled bundle still agree at the shared boundary:
+  // the same requests, including an upgrade onto the current rules, answer
+  // alike on a world of the current rules. (Worlds of earlier rules retired
+  // with the rules 133 bump, so the released rules-110 stages no longer cross.)
+  it("keeps the source and compiled shared engines in agreement at the upgrade boundary", () => {
     const current = currentSharedEngine();
-    for (const old of Object.values(histories)) {
-      const original = JSON.stringify(old);
-      const request = {
-        ...membership,
-        op: "upgrade",
-        world: old,
-        from: "full-card-world/110",
-        to: currentVersion,
-      };
-      const upgraded = dispatchShared(request);
-      expect(JSON.parse(current.cardShared(JSON.stringify(request)))).toEqual(
-        upgraded,
-      );
-      expect(upgraded.ok).toBe(true);
-      expect(upgraded.world.revision).toBe(old.revision + 1);
-      preserved(old, upgraded.world);
-      expect(JSON.stringify(old)).toBe(original);
+    const ask = (request) => JSON.parse(current.cardShared(JSON.stringify(request)));
+    const created = dispatchShared({ op: "create", seed: 11 });
+    expect(created.ok, created.error).toBe(true);
+    expect(ask({ op: "create", seed: 11 })).toEqual(created);
+    for (const op of ["view", "validate"]) {
+      const request = { ...membership, op, world: structuredClone(created.world) };
+      expect(ask(request)).toEqual(dispatchShared(request));
     }
+    const view = dispatchShared({ ...membership, op: "view", world: created.world });
+    const play = {
+      ...membership,
+      op: "play",
+      world: structuredClone(created.world),
+      action: view.actions.find((a) => a.kind === "wait"),
+    };
+    expect(ask(play)).toEqual(dispatchShared(play));
+    const upgrade = {
+      ...membership,
+      op: "upgrade",
+      world: structuredClone(created.world),
+      from: currentVersion,
+      to: currentVersion,
+    };
+    expect(ask(upgrade)).toEqual(dispatchShared(upgrade));
   });
 
   it("rejects an off-path save in both old and current decoders", () => {
@@ -141,20 +132,4 @@ describe("legacy journey migration boundary", () => {
     expect(JSON.stringify(corrupt)).toBe(original);
   });
 
-  it.each([2, "completed"])(
-    "keeps recorded progress after a post-upgrade detour from %s",
-    (stage) => {
-      const loaded = decodeSave(JSON.stringify(histories[stage]));
-      const progress = structuredClone(loaded.journeyProgress);
-      // This location edit models the later visit boundary, not an old save
-      // emitted by the pre-progress rules. Missing old progress is not valid.
-      loaded.actors[resident].place = "greek-well";
-      const again = decodeSave(encodeSave(loaded));
-      preserved(loaded, again);
-      expect(again.journeyProgress).toEqual(progress);
-      expect(decodeSave(encodeSave(again))).toEqual(again);
-      delete loaded.journeyProgress;
-      expect(() => decodeSave(JSON.stringify(loaded))).toThrow(/fresh start/);
-    },
-  );
 });
