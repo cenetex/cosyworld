@@ -1,4 +1,4 @@
-import { accountStorage as localStorage } from "./account-reset-storage.mjs";
+import { accountStorage as localStorage, accountSessionStorage as sessionStorage } from "./account-reset-storage.mjs";
 import { imageUrl } from "./images.mjs";
 import { humanAvatars, currentActor } from "./human-cast.mjs";
 import { leavePage } from "./page-fade.mjs";

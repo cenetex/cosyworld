@@ -2,7 +2,7 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import {
   createAccountStorage, beginBrowserReset, pendingBrowserReset,
-  clearBrowserAccountData, finishBrowserReset, cancelBrowserReset,
+  clearBrowserAccountData, finishBrowserReset, cancelBrowserReset, clearBrowserSessionData,
 } from "../v2/card-game/account-reset-storage.mjs";
 const request = { id: "reset-1", userId: "alice", revision: 0 };
 function storage() {
@@ -73,4 +73,17 @@ test("definitive server refusal preserves games but requires a reload", () => {
   cancelBrowserReset(request.id, raw);
   assert.throws(() => old.getItem("cosyworld.cards.one"));
   assert.equal(createAccountStorage(raw).getItem("cosyworld.cards.one"), "save");
+});
+
+test("session hints use the browser epoch and stale tabs cannot restore them", async () => {
+  const raw = storage(), session = storage(), old = createAccountStorage(session, raw);
+  old.setItem("cosyworld.invite", "old world");
+  beginBrowserReset(request, raw);
+  assert.throws(() => old.setItem("cosyworld.menu", "old avatar"));
+  clearBrowserSessionData(session);
+  assert.equal(session.length, 0);
+  await clearBrowserAccountData(request.id, raw, databases());
+  finishBrowserReset(request.id, raw);
+  session.setItem("cosyworld.invite", "legacy callback");
+  assert.equal(createAccountStorage(session, raw).getItem("cosyworld.invite"), null);
 });

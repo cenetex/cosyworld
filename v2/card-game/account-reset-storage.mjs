@@ -3,7 +3,7 @@ const META = "cosyworld.account-reset";
 const PREFIX = "cosyworld.reset-data:";
 const DB = "cosyworld.authoring";
 const gameKeys = new Set([
-  "cosyworld.playing", "cosyworld.invite", "cosyworld.local.upgrades",
+  "cosyworld.playing", "cosyworld.invite", "cosyworld.menu", "cosyworld.local.upgrades",
   "cosyworld.world-tier", "cosyworld-card-signed-words", "cosyworld.title-intro",
   "cosyworld.title-logo", "cosyworld.music-revealed",
 ]);
@@ -15,10 +15,10 @@ const physicalKey = (epoch, key) => epoch && isAccountGameKey(key)
   ? `${PREFIX}${epoch}:${key}` : key;
 const stale = () => new Error("Account reset changed this browser. Reload to continue.");
 
-export function createAccountStorage(storage) {
-  const initial = metadata(storage);
+export function createAccountStorage(storage, control = storage) {
+  const initial = metadata(control);
   function assertCurrent() {
-    const now = metadata(storage);
+    const now = metadata(control);
     if (initial.pending || now.pending || now.fence !== initial.fence) throw stale();
   }
   return {
@@ -55,6 +55,7 @@ export const accountStorage = {
 export const accountStorageKey = (key) => browserAccountStorage().keyFor(key);
 export const pendingBrowserReset = (storage = globalThis.localStorage) =>
   metadata(storage).pending ?? null;
+// Call reset mutations under the exclusive cosyworld.account-reset Web Lock.
 export function beginBrowserReset(request, storage = globalThis.localStorage) {
   const meta = metadata(storage);
   if (meta.pending) {
@@ -97,4 +98,22 @@ export function cancelBrowserReset(id, storage = globalThis.localStorage) {
   const meta = pendingMeta(id, storage);
   if (meta.clearing || meta.cleared) throw stale();
   storage.setItem(META, JSON.stringify({ epoch: meta.epoch, fence: id }));
+}
+
+let sessionStore;
+try {
+  if (globalThis.sessionStorage && globalThis.localStorage)
+    sessionStore = createAccountStorage(globalThis.sessionStorage, globalThis.localStorage);
+} catch { /* Session storage is optional. */ }
+export const accountSessionStorage = {
+  getItem: (key) => sessionStore?.getItem(key) ?? null,
+  setItem: (key, value) => sessionStore?.setItem(key, value),
+  removeItem: (key) => sessionStore?.removeItem(key),
+};
+export function clearBrowserSessionData(storage = globalThis.sessionStorage) {
+  if (!storage) return;
+  const keys = Array.from({ length: storage.length }, (_, i) => storage.key(i));
+  for (const key of keys)
+    if (isAccountGameKey(key) || key === "cosyworld.page-fade" || key?.startsWith(PREFIX))
+      storage.removeItem(key);
 }

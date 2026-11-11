@@ -49,7 +49,11 @@ async function checkedAssets(draft, assets) {
 }
 
 export async function openAuthoringStore() {
-  const guard = globalThis.localStorage ? browserAccountStorage() : null;
+  let storage = null;
+  try {
+    storage = globalThis.localStorage;
+  } catch { /* IndexedDB can remain available when DOM storage is denied. */ }
+  const guard = storage ? browserAccountStorage() : null;
   const check = () => guard?.assertCurrent();
   check();
   const db = await new Promise((resolve, reject) => {
