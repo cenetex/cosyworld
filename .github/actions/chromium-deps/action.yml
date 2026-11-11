@@ -14,12 +14,16 @@ runs:
     # Ubuntu archive is sometimes slow (60 kB/s, 10 minutes) or unreachable.
     # The package set follows the Playwright version; bump the trailing v1 to
     # discard a bad cache.
+    - name: Name the Ubuntu release
+      id: os
+      shell: bash
+      run: echo "release=$(. /etc/os-release && echo "$ID-$VERSION_ID")" >> "$GITHUB_OUTPUT"
     - name: Restore Chromium font packages
       id: debs
       uses: actions/cache@v6
       with:
         path: ~/.cache/chromium-deps-debs
-        key: chromium-deps-${{ runner.os }}-${{ runner.arch }}-${{ env.ImageOS }}-${{ hashFiles('node_modules/playwright-core/package.json') }}-v1
+        key: chromium-deps-${{ runner.os }}-${{ runner.arch }}-${{ steps.os.outputs.release }}-${{ hashFiles('node_modules/playwright-core/package.json') }}-v1
     - name: Install Chromium system dependencies
       shell: bash
       env:
@@ -56,7 +60,6 @@ runs:
         APT::Keep-Downloaded-Packages "true";
         Binary::apt::APT::Keep-Downloaded-Packages "true";
         CONF
-        marker="$(mktemp)"
         # install-deps runs apt-get update itself, so each attempt refreshes
         # the package lists. A DNS or mirror outage fails the whole attempt;
         # back off and try again before failing the job.
@@ -66,10 +69,15 @@ runs:
             # archive is root-owned). Never fail the job over the copy.
             rm -rf "$DEBS"
             mkdir -p "$DEBS"
-            sudo find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -newer "$marker" \
+            # A fresh runner's archive holds only what install-deps fetched
+            # (apt gives the files the server's timestamps, so no -newer).
+            sudo find /var/cache/apt/archives -maxdepth 1 -name '*.deb' \
               -exec cp {} "$DEBS"/ \; || true
             sudo chown -R "$(id -u):$(id -g)" "$DEBS" || true
             echo "Cached $(ls "$DEBS" | wc -l) packages, $(du -sh "$DEBS" | cut -f1)"
+            ls "$DEBS"
+            # Nothing to cache: leave no path, so no empty cache is saved.
+            ls "$DEBS"/*.deb >/dev/null 2>&1 || rm -rf "$DEBS"
             exit 0
           fi
           echo "::warning::Chromium dependency install failed (attempt $attempt of 4)"
