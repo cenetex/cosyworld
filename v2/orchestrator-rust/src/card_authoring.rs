@@ -6,6 +6,7 @@ mod assets;
 #[path = "authoring_create_receipt.rs"]
 mod receipts;
 use crate::AppState;
+pub(crate) use asset_routes::{store_generated, StoreError};
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
     http::{header, HeaderMap, StatusCode},
@@ -45,17 +46,43 @@ pub(super) fn router() -> Router<AppState> {
         .layer(DefaultBodyLimit::max(
             crate::authoring_draft::MAX_METADATA_BYTES,
         ))
-        .layer(middleware::map_response(
-            |mut response: Response| async move {
-                response
-                    .extensions_mut()
-                    .insert(crate::routes::ExplicitResponseStatus);
-                response
-                    .headers_mut()
-                    .insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
-                response
-            },
-        ))
+        .layer(middleware::map_response(authoring_response))
+}
+
+pub(crate) const REQUEST_FIELDS: &str = "Check the request fields.";
+
+/// Every authoring answer is private and carries its own status. A body the
+/// server could not read (axum answers 400, 413, 415 and 422 in plain text) is
+/// restated in the `{error, ok:false}` form the rest of the routes use.
+pub(crate) async fn authoring_response(mut response: Response) -> Response {
+    let plain = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("text/plain"));
+    let message = match response.status().as_u16() {
+        400 if plain => "Send valid JSON.",
+        413 if plain => "That request is too large.",
+        415 if plain => "Send the request as JSON.",
+        422 if plain => REQUEST_FIELDS,
+        _ => "",
+    };
+    if !message.is_empty() {
+        let body = json!({"error":message,"ok":false,"code":"request_invalid"});
+        response = (response.status(), Json(body)).into_response();
+    }
+    response
+        .extensions_mut()
+        .insert(crate::routes::ExplicitResponseStatus);
+    response
+        .headers_mut()
+        .insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
+    response
+}
+
+/// The `Idempotency-Key` header: absent, or one hyphenated UUID.
+pub(crate) fn idempotency_key(headers: &HeaderMap) -> Result<Option<String>, ()> {
+    receipts::key(headers).map_err(|_| ())
 }
 
 async fn run(
