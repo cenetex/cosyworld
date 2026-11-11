@@ -1,4 +1,7 @@
-import { listGeneratedArt } from "../v2/card-game/authoring-art-library.mjs";
+import {
+  browseGeneratedArt,
+  listGeneratedArt,
+} from "../v2/card-game/authoring-art-library.mjs";
 import { expect, it, vi } from "vitest";
 import { createAuthoringVisualTools } from "../v2/card-game/authoring-visual-tools.mjs";
 import { createAuthoringSession } from "../v2/card-game/authoring-session.mjs";
@@ -392,12 +395,62 @@ it("does not lock other tools after a provider error or empty appearance entry",
   const f = await fixture(false);
   await f.run("portrait");
   expect(f.tools.pendingArtwork()).toBe(false);
-  expect(f.tool("pose-sheet").describe().actions[0].disabled).toBe(false);
+  // Poses wait for a portrait, not for the pending description.
+  expect(f.tool("pose-sheet").describe().actions[0]).toMatchObject({
+    label: "Generate a portrait first",
+    disabled: true,
+  });
+  expect(f.tool("portrait").describe().actions[0]).toMatchObject({
+    label: "Describe them first",
+    disabled: true,
+  });
   f.tool("portrait").describe().edit.onInput("A keeper in a green coat.");
+  expect(f.tool("portrait").describe().actions[0]).toMatchObject({
+    label: "Generate avatar",
+    disabled: false,
+  });
   f.request.mockRejectedValueOnce(new Error("Provider unavailable"));
   await f.run("portrait");
   expect(f.tool("portrait").describe().note).toBe("Provider unavailable");
   expect(f.tools.pendingArtwork()).toBe(false);
-  expect(f.tool("pose-sheet").describe().actions[0].disabled).toBe(false);
+  expect(f.tool("portrait").describe().actions[0].disabled).toBe(false);
   expect(f.tools.tools().some((t) => t.name === "Discard artwork")).toBe(false);
+});
+
+it("browses past a damaged saved record but stays strict for everything else", async () => {
+  const f = await fixture();
+  await f.run("portrait");
+  await f.run("portrait");
+  const record = f.session.snapshot({ assets: true });
+  const clean = await browseGeneratedArt(record, f.id);
+  expect(clean.skipped).toBe(0);
+  expect(clean.sets.length).toBeGreaterThanOrEqual(2);
+  const output = record.draft.assets.find(
+    (a) =>
+      a.path.startsWith("assets/generated-art/") &&
+      a.path.endsWith("/output.json"),
+  );
+  record.assets.set(output.path, Uint8Array.of(123));
+  await expect(listGeneratedArt(record, f.id)).rejects.toThrow(/digest/);
+  const found = await browseGeneratedArt(record, f.id);
+  expect(found.skipped).toBe(1);
+  expect(found.sets).toHaveLength(clean.sets.length - 1);
+  const accepted = record.draft.assets.find(
+    (a) => a.path.endsWith("/output.json") && !a.path.includes("generated-art"),
+  );
+  record.assets.delete(accepted.path);
+  const lost = await browseGeneratedArt(record, f.id);
+  expect(lost.skipped).toBe(2);
+});
+it("lets Generate poses name what it needs", async () => {
+  const f = await fixture();
+  expect(f.tool("pose-sheet").describe().actions[0]).toMatchObject({
+    label: "Generate a portrait first",
+    disabled: true,
+  });
+  await f.run("portrait");
+  expect(f.tool("pose-sheet").describe().actions[0]).toMatchObject({
+    label: "Generate poses",
+    disabled: false,
+  });
 });

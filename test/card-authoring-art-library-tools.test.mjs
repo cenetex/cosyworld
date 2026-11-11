@@ -1,4 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
+import { authoringTools } from "../v2/card-game/authoring-tools.mjs";
+import { TOOLS, WORLD } from "../v2/card-game/authoring-collections.mjs";
 import { createArtLibraryTools } from "../v2/card-game/authoring-art-library-tools.mjs";
 const image = {
   role: "base",
@@ -130,6 +132,65 @@ describe("saved artwork selection", () => {
         label: "Save the artwork first",
         disabled: true,
       });
+  });
+  it("shows an empty state without re-laying out the table", async () => {
+    const t = setup([]);
+    const choose = vi.fn();
+    const own = createArtLibraryTools({ list: t.list, choose });
+    own.sync({ pack: t.record.draft.pack }, 1);
+    await own.tools()[0].run({}, t.context);
+    expect(choose).not.toHaveBeenCalled();
+    expect(own.tools()[0].describe()).toMatchObject({
+      note: expect.stringContaining("Nothing is saved"),
+      actions: [{ label: "No saved artwork yet", disabled: true }],
+    });
+    expect(own.tools()).toHaveLength(1);
+  });
+  it("skips and counts a record that cannot be read", async () => {
+    const t = setup({ sets: [], skipped: 1 });
+    await t.browse();
+    expect(t.tools.tools()[0].describe()).toMatchObject({
+      note: "1 saved artwork set could not be read.",
+      actions: [{ label: "Browse saved artwork", disabled: false }],
+    });
+    const some = setup({
+      sets: [{ id: "a", label: "Saved 1", images: [image] }],
+      skipped: 2,
+    });
+    await some.browse();
+    expect(some.tools.tools()[0].describe().note).toBe(
+      "1 saved artwork set; 2 could not be read. Choose one to preview or use again.",
+    );
+  });
+  it("drops results when the draft is saved after Browse", async () => {
+    const t = setup();
+    t.tools.sync({ pack: t.record.draft.pack }, 1);
+    await t.browse();
+    expect(t.tools.tools()).toHaveLength(3);
+    t.tools.sync({ pack: t.record.draft.pack }, 1);
+    expect(t.tools.tools()).toHaveLength(3);
+    t.tools.sync({ pack: t.record.draft.pack }, 2);
+    expect(t.tools.tools()).toHaveLength(1);
+    expect(t.tools.tools()[0].describe().note).toMatch(/^Browse this/);
+  });
+  it("builds safe tool ids for avatar ids outside letters, digits, _ and -", async () => {
+    const t = setup();
+    const pack = {
+      id: "test",
+      avatars: { "Dr. Who": { name: "Dr", text: "x" } },
+    };
+    t.tools.sync({ pack });
+    const [library] = t.tools.tools();
+    expect(library.id).toMatch(/^art-library-[A-Za-z0-9_-]+$/);
+    expect(() =>
+      authoringTools(
+        {
+          world: [{ id: WORLD, name: "World" }],
+          tools: [{ id: TOOLS, name: "Tools" }],
+        },
+        [{ ...library, holder: TOOLS }],
+      ),
+    ).not.toThrow();
   });
   it("deduplicates previews without deleting assets and clears removed owners", async () => {
     const set = { id: "a", label: "Saved", images: [image] };

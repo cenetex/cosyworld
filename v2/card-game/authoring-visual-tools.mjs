@@ -7,6 +7,7 @@ import {
   nextAcceptedAvatarRevision,
 } from "./authoring-accepted.mjs";
 import { authoringCardId } from "./authoring-tree.mjs";
+import { toolKey } from "./authoring-tools.mjs";
 
 // Every provider original is archived before review; only selection changes active art.
 export function createAuthoringVisualTools({
@@ -68,7 +69,7 @@ export function createAuthoringVisualTools({
     urls = [];
     design = binding = prepared = owner = returning = null;
   }
-  const toolId = (id, role) => `art-${id}-${role}`;
+  const toolId = (id, role) => `art-${toolKey(id)}-${role}`;
   const retryId = "retry-unsaved-artwork";
   function previews() {
     for (const url of urls) URL.revokeObjectURL(url);
@@ -250,7 +251,11 @@ export function createAuthoringVisualTools({
                     ? "Wait for the image"
                     : owner && !active && state.role
                       ? "Confirm or discard the preview first"
-                      : "";
+                      : role === "pose-sheet" && !avatar.portrait
+                        ? "Generate a portrait first"
+                        : active && !state.described
+                          ? "Describe them first"
+                          : "";
               return {
                 ...(working ? { info: reason } : {}),
                 edit:

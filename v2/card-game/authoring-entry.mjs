@@ -266,7 +266,7 @@ async function start() {
     onScene(place, source, status) {
       maker.sync(source, status);
       visuals.sync(source);
-      artLibrary.sync(source);
+      artLibrary.sync(source, status.generation);
       activeAssets = cache.get(assetKey(status));
       pruneAssets();
       const next = new URL(location.href);
