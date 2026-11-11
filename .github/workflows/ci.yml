@@ -350,20 +350,8 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
 
-      - name: Use Ubuntu archive and bound package download waits
-        run: |
-          # The Azure mirror delivered browser fonts at 63 kB/s in CI.
-          if [ -f /etc/apt/apt-mirrors.txt ]; then
-            sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
-          fi
-          sudo tee /etc/apt/apt.conf.d/99cosyworld-ci >/dev/null <<'EOF'
-          Acquire::Retries "2";
-          Acquire::http::Timeout "20";
-          Acquire::https::Timeout "20";
-          EOF
-
       - name: Install browser system dependencies
-        run: npx playwright install-deps chromium
+        uses: ./.github/actions/chromium-deps
 
       - name: Install Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
