@@ -15,6 +15,10 @@ import { installItemCycle } from "./pack-items.mjs";
 // world ("we can reset"): a save of another schema is not lifted, it starts
 // fresh and keeps only what a traveler carries (`carryLocalProgress`).
 export const SAVE_SCHEMA = 8;
+// The schemas that ever shipped before it. Anything else that fails to load
+// (unreadable text, an unknown schema, a broken current save) is corrupt, not
+// retired, and keeps the "needs a fresh start" recovery notice.
+const RETIRED_SCHEMAS = [6, 7];
 
 // A parsed save from before the current schema, or null. Unreadable text,
 // and a save of the current schema, are not retired saves.
@@ -23,8 +27,7 @@ export function retiredSave(text) {
     const s = typeof text === "string" ? JSON.parse(text) : text;
     return s &&
       typeof s === "object" &&
-      Number.isInteger(s.schema) &&
-      s.schema < SAVE_SCHEMA
+      RETIRED_SCHEMAS.includes(s.schema)
       ? s
       : null;
   } catch {

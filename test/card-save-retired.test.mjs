@@ -56,6 +56,29 @@ describe("saves from before the rules 133 bump", () => {
     expect(vale.upgrades).toEqual(["scarf"]);
   });
 
+  it("tells a corrupt save from a retired one and a current one", () => {
+    const current = encodeSave(createWorld({ seed: 7 }));
+    const corrupt = [
+      "{",
+      "null",
+      JSON.stringify({ schema: 8, turn: "x" }),
+      JSON.stringify({ schema: 99 }),
+      JSON.stringify({ schema: 0 }),
+      JSON.stringify({ turn: 3 }),
+    ];
+    for (const text of corrupt) {
+      // Corrupt: not retired, and the loader keeps its recovery error.
+      expect(retiredSave(text), text).toBeNull();
+      expect(() => decodeSave(text), text).toThrow();
+    }
+    // Retired: read as a fresh start, never a loader error path.
+    for (const schema of [6, 7])
+      expect(retiredSave(JSON.stringify({ schema, turn: 4 }))).not.toBeNull();
+    // Current: neither retired nor refused.
+    expect(retiredSave(current)).toBeNull();
+    expect(() => decodeSave(current)).not.toThrow();
+  });
+
   it("round-trips a current save unchanged", () => {
     const world = createWorld({ seed: 7 });
     expect(decodeSave(encodeSave(world))).toEqual(world);
