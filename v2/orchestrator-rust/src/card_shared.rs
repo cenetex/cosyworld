@@ -149,6 +149,9 @@ fn reply(r: Result<Value>) -> Response {
         .into_response()
 }
 pub(super) fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<String> {
+    if let Some(account) = state.account_auth.account_for_bot_request(h) {
+        return Ok(account);
+    }
     if mutation {
         // JSON and same-origin requests keep the account cookie out of cross-site commands.
         if h.get("sec-fetch-site")

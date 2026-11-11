@@ -533,6 +533,33 @@ impl AccountAuth {
         )?;
         Ok(())
     }
+
+    /// A bot service token may act on a linked Discord user's behalf. The
+    /// token is held by the gateway only; nothing here issues one. Resolves
+    /// `Authorization: Bearer <token>` + `X-CosyWorld-Discord-User` to the
+    /// linked account, so a server-side client can play without a browser
+    /// session cookie.
+    pub(super) fn account_for_bot_request(&self, headers: &HeaderMap) -> Option<String> {
+        let expected = std::env::var("COSYWORLD_BOT_TOKEN").ok()?;
+        self.account_for_bot_request_with(headers, expected.as_str())
+    }
+
+    fn account_for_bot_request_with(&self, headers: &HeaderMap, expected: &str) -> Option<String> {
+        if expected.is_empty() {
+            return None;
+        }
+        let token = headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok())?
+            .strip_prefix("Bearer ")?;
+        if token != expected {
+            return None;
+        }
+        let discord_user = headers
+            .get("x-cosyworld-discord-user")
+            .and_then(|value| value.to_str().ok())?;
+        self.account_id_for_discord(discord_user).ok().flatten()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -1575,5 +1602,26 @@ mod discord_auth_tests {
         let state = auth.store_discord_state("/cards".to_string());
         assert_eq!(auth.take_discord_state(&state).unwrap(), "/cards");
         assert!(auth.take_discord_state(&state).is_err());
+    }
+
+    #[test]
+    fn bot_token_resolves_a_linked_account() {
+        let auth = test_auth();
+        let account_id = auth
+            .create_discord_account("du-bot", "botuser", Some("Bot"), None)
+            .unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert("authorization", HeaderValue::from_static("Bearer secret"));
+        headers.insert(
+            "x-cosyworld-discord-user",
+            HeaderValue::from_static("du-bot"),
+        );
+        assert_eq!(
+            auth.account_for_bot_request_with(&headers, "secret").as_deref(),
+            Some(account_id.as_str())
+        );
+        assert_eq!(auth.account_for_bot_request_with(&headers, "wrong"), None);
+        headers.remove("x-cosyworld-discord-user");
+        assert_eq!(auth.account_for_bot_request_with(&headers, "secret"), None);
     }
 }
