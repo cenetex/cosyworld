@@ -20,7 +20,8 @@ await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true, args: ["--enable-unsafe-swiftshader"] });
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true, args: ["--enable-unsafe-swiftshader"] });
 const report = [];
 try {
   for (const width of [1440, 390]) {

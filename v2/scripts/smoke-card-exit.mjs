@@ -16,7 +16,8 @@ const output = new URL(
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true });
 const meeting = () => {
   const s = createWorld();
   s.actors.moth.place = s.actors.keeper.place = "station";

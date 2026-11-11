@@ -20,7 +20,8 @@ import {
 const server = createServer();
 await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true });
 const output = resolve(
   process.env.COSYWORLD_SLEEP_FRAMES || "output/card-sleep-dream",
 );

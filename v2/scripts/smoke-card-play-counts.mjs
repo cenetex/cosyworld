@@ -17,7 +17,8 @@ server.on("request", (req) => {
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const save = encodeSave(createWorld());
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true });
 const settle = () => new Promise((resolve) => setTimeout(resolve, 2500));
 
 async function open(name, width, { gpc = false } = {}) {

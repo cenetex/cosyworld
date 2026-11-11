@@ -37,6 +37,7 @@ const browserName = process.env.CARD_BROWSER || "chromium";
 const browserType = { chromium, webkit }[browserName];
 assert(browserType, `Unknown CARD_BROWSER: ${browserName}`);
 const browser = await browserType.launch({
+  executablePath: process.env.CARD_BROWSER === "webkit" ? undefined : process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
   headless: true,
   args:
     browserName === "chromium"

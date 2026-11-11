@@ -23,7 +23,8 @@ await new Promise((done) => server.listen(0, "127.0.0.1", done));
 const origin = `http://127.0.0.1:${server.address().port}`;
 let browser;
 try {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true });
   for (const [place, away, topWay] of [
     ["pond", "greek-harbor", "station"],
     ["greek-harbor", "pond", "greek-road-thebes"],

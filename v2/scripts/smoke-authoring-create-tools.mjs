@@ -5,7 +5,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 const server = createServer();
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
 const output = process.env.CARD_CREATE_TOOLS_SHOTS;
 if (output) await mkdir(output, { recursive: true });
 try {

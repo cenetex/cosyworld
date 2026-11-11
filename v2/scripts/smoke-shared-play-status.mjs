@@ -15,7 +15,8 @@ import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true });
 const output = resolve("output/shared-play-status");
 await mkdir(output, { recursive: true });
 const refusal = "That play has changed. Check the cards and choose again.";

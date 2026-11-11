@@ -4,7 +4,8 @@ import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 const server = createServer();
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
-const browser = await (process.env.CARD_BROWSER === "webkit" ? webkit : chromium).launch({ headless: true });
+const browser = await (process.env.CARD_BROWSER === "webkit" ? webkit : chromium).launch({
+  executablePath: process.env.CARD_BROWSER === "webkit" ? undefined : process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, headless: true });
 try {
   const page = await browser.newPage();
   let key, committed, uploads = 0, posts = 0, accounts = 0;

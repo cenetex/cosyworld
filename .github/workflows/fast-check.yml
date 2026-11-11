@@ -231,13 +231,20 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
+      - name: Check preinstalled Chrome
+        id: system-chrome
+        env:
+          SMOKE: ${{ matrix.smoke }}
+        run: node scripts/select-ci-browser.mjs
       - name: Restore Playwright browsers
+        if: steps.system-chrome.outputs.executable == ''
         id: playwright-cache
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
       - name: Use Ubuntu archive for browser dependencies
+        if: steps.system-chrome.outputs.executable == ''
         run: |
           # Prefer the faster archive, but keep Azure as a DNS/outage fallback.
           # apt-transport-mirror tries the lowest priority number first.
@@ -246,9 +253,10 @@ jobs:
             cat /etc/apt/apt-mirrors.txt
           fi
       - name: Install Chromium system dependencies
+        if: steps.system-chrome.outputs.executable == ''
         run: npx playwright install-deps chromium
       - name: Install Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: steps.system-chrome.outputs.executable == '' && steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
       - name: Run ${{ matrix.smoke }}
         env:

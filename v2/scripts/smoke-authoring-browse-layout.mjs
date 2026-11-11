@@ -9,7 +9,7 @@ import { authoringCardId } from "../card-game/authoring-tree.mjs";
 // tools and stopped the editor). No Rust server: the authoring API is mocked.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
 try {
   for (const width of [1440, 390, 320]) {
     const page = await browser.newPage({

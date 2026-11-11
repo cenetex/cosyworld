@@ -6,7 +6,7 @@ import { mockJobs } from "./authoring-jobs-mock.mjs";
 import { authoringCardId } from "../card-game/authoring-tree.mjs";
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-const browser = await chromium.launch();
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE });
 const output = new URL("../../output/make-seed/", import.meta.url).pathname;
 await mkdir(output, { recursive: true });
 try {
