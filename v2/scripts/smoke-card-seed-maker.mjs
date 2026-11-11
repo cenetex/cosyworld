@@ -295,8 +295,17 @@ try {
       assert.deepEqual(image, [true, 300, 200]);
     };
     await generate("portrait", true);
-    const firstPortrait = (await read()).draft.pack.avatars[avatar].portrait;
-    assert(firstPortrait);
+    const firstRead = await read();
+    const firstPortrait = firstRead.draft.pack.avatars[avatar].portrait;
+    assert(
+      firstPortrait,
+      JSON.stringify({
+        generation: firstRead.generation,
+        avatar: firstRead.draft.pack.avatars[avatar],
+        assets: firstRead.draft.assets.map((a) => a.path),
+        errors,
+      }),
+    );
     await generate("portrait");
     await tool(`art-${avatar}-portrait-discard`);
     await action();
