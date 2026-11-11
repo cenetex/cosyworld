@@ -60,6 +60,13 @@ pub(super) struct AccountAuth {
     secure_cookie: bool,
     /// `COSYWORLD_PASSKEYS=members`: no sign-ups, no signed-out play.
     members_only: bool,
+    /// Pending Discord OAuth attempts, keyed by the state nonce.
+    discord_states: StdMutex<BTreeMap<String, DiscordOauthAttempt>>,
+}
+
+struct DiscordOauthAttempt {
+    expires_at: Instant,
+    redirect: String,
 }
 
 enum AccountCeremony {
@@ -245,6 +252,7 @@ impl AccountAuth {
             webauthn,
             db_path,
             ceremonies: StdMutex::new(BTreeMap::new()),
+            discord_states: StdMutex::new(BTreeMap::new()),
             cookie_name: if secure_cookie {
                 "__Host-cosyworld_session".to_string()
             } else {
@@ -278,6 +286,7 @@ impl AccountAuth {
             webauthn,
             db_path,
             ceremonies: StdMutex::new(BTreeMap::new()),
+            discord_states: StdMutex::new(BTreeMap::new()),
             cookie_name: "cosyworld_session".to_string(),
             secure_cookie: false,
             members_only,
@@ -425,6 +434,296 @@ impl AccountAuth {
             params![hash_session_token(&token), now_unix_secs() as i64],
         )?;
         Ok(())
+    }
+
+    fn store_discord_state(&self, redirect: String) -> String {
+        let state = random_hex(32);
+        self.cleanup_discord_states();
+        if let Ok(mut states) = self.discord_states.lock() {
+            states.insert(
+                state.clone(),
+                DiscordOauthAttempt {
+                    expires_at: Instant::now() + CEREMONY_TTL,
+                    redirect,
+                },
+            );
+        }
+        state
+    }
+
+    fn cleanup_discord_states(&self) {
+        let now = Instant::now();
+        if let Ok(mut states) = self.discord_states.lock() {
+            states.retain(|_, attempt| attempt.expires_at > now);
+        }
+    }
+
+    fn take_discord_state(&self, state: &str) -> AccountResult<String> {
+        self.cleanup_discord_states();
+        let removed = self
+            .discord_states
+            .lock()
+            .map_err(|_| account_error("discord state lock poisoned"))?
+            .remove(state);
+        removed
+            .filter(|attempt| attempt.expires_at > Instant::now())
+            .map(|attempt| attempt.redirect)
+            .ok_or_else(|| account_error("discord authorization attempt is missing or expired"))
+    }
+
+    fn account_id_for_discord(&self, discord_user_id: &str) -> AccountResult<Option<String>> {
+        let conn = open_event_store(self.path()?)?;
+        let account_id = conn
+            .query_row(
+                "SELECT account_id FROM discord_links WHERE discord_user_id = ?1",
+                params![discord_user_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        Ok(account_id)
+    }
+
+    fn create_discord_account(
+        &self,
+        discord_user_id: &str,
+        discord_username: &str,
+        global_name: Option<&str>,
+        avatar: Option<&str>,
+    ) -> AccountResult<String> {
+        let path = self.path()?.to_path_buf();
+        let user_id = Uuid::new_v4();
+        let account_username = normalize_account_username(discord_username)
+            .filter(|name| find_user_by_username(path.as_path(), name).ok().flatten().is_none())
+            .unwrap_or_else(|| generated_account_username(user_id));
+        let display_name = global_name
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| account_username.clone());
+        let avatar_url = avatar
+            .map(|hash| format!("https://cdn.discordapp.com/avatars/{discord_user_id}/{hash}.png"));
+        let mut conn = open_event_store(path.as_path())?;
+        let transaction = conn.transaction()?;
+        let now = now_unix_secs() as i64;
+        transaction.execute(
+            "INSERT INTO auth_users (id, username, display_name, status, created_at_unix, updated_at_unix)
+             VALUES (?1, ?2, ?3, 'active', ?4, ?4)",
+            params![user_id.to_string(), account_username, display_name, now],
+        )?;
+        transaction.execute(
+            "INSERT INTO discord_links (discord_user_id, account_id, username, avatar_url, created_at_unix)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                discord_user_id,
+                user_id.to_string(),
+                discord_username,
+                avatar_url,
+                now
+            ],
+        )?;
+        transaction.commit()?;
+        Ok(user_id.to_string())
+    }
+
+    fn unlink_discord(&self, account_id: &str) -> AccountResult<()> {
+        let conn = open_event_store(self.path()?)?;
+        conn.execute(
+            "DELETE FROM discord_links WHERE account_id = ?1",
+            params![account_id],
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct DiscordStartRequest {
+    #[serde(default)]
+    redirect: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct DiscordCallbackParams {
+    code: String,
+    state: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct DiscordUser {
+    id: String,
+    username: String,
+    #[serde(default)]
+    global_name: Option<String>,
+    #[serde(default)]
+    avatar: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct DiscordStartResponse {
+    ok: bool,
+    authorize_url: String,
+}
+
+fn discord_credentials() -> AccountResult<(String, String)> {
+    let client_id = std::env::var("DISCORD_CLIENT_ID")
+        .map_err(|_| account_error("DISCORD_CLIENT_ID is not configured"))?;
+    let client_secret = std::env::var("DISCORD_CLIENT_SECRET")
+        .map_err(|_| account_error("DISCORD_CLIENT_SECRET is not configured"))?;
+    Ok((client_id, client_secret))
+}
+
+fn discord_redirect_uri() -> AccountResult<String> {
+    std::env::var("DISCORD_REDIRECT_URI")
+        .map_err(|_| account_error("DISCORD_REDIRECT_URI is not configured"))
+}
+
+fn redirect_with_cookie(location: &str, cookie: String) -> Response {
+    let mut response = Response::new(axum::body::Body::empty());
+    *response.status_mut() = StatusCode::SEE_OTHER;
+    response
+        .headers_mut()
+        .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    if let Ok(value) = HeaderValue::from_str(location) {
+        response
+            .headers_mut()
+            .insert(axum::http::header::LOCATION, value);
+    }
+    if let Ok(value) = HeaderValue::from_str(&cookie) {
+        response
+            .headers_mut()
+            .insert(axum::http::header::SET_COOKIE, value);
+    }
+    response
+}
+
+pub(super) async fn discord_login_start(
+    State(state): State<AppState>,
+    Json(payload): Json<DiscordStartRequest>,
+) -> Response {
+    let auth = &state.account_auth;
+    let client_id = match discord_credentials() {
+        Ok((id, _)) => id,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let redirect_uri = match discord_redirect_uri() {
+        Ok(uri) => uri,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let state = auth.store_discord_state(payload.redirect);
+    let authorize_url = match reqwest::Url::parse("https://discord.com/oauth2/authorize") {
+        Ok(mut url) => {
+            url.query_pairs_mut()
+                .append_pair("client_id", &client_id)
+                .append_pair("response_type", "code")
+                .append_pair("redirect_uri", &redirect_uri)
+                .append_pair("scope", "identify")
+                .append_pair("state", &state);
+            url.to_string()
+        }
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    no_store_json(
+        StatusCode::OK,
+        &DiscordStartResponse {
+            ok: true,
+            authorize_url,
+        },
+        None,
+    )
+}
+
+pub(super) async fn discord_login_callback(
+    State(state): State<AppState>,
+    axum::extract::Query(params): axum::extract::Query<DiscordCallbackParams>,
+) -> Response {
+    let auth = &state.account_auth;
+    let redirect = match auth.take_discord_state(&params.state) {
+        Ok(redirect) => redirect,
+        Err(error) => return auth_message(StatusCode::BAD_REQUEST, error.to_string()),
+    };
+    let (client_id, client_secret) = match discord_credentials() {
+        Ok(value) => value,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let redirect_uri = match discord_redirect_uri() {
+        Ok(uri) => uri,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let client = reqwest::Client::new();
+    let token_body: serde_json::Value = match client
+        .post("https://discord.com/api/oauth2/token")
+        .form(&[
+            ("client_id", client_id.as_str()),
+            ("client_secret", client_secret.as_str()),
+            ("grant_type", "authorization_code"),
+            ("code", params.code.as_str()),
+            ("redirect_uri", redirect_uri.as_str()),
+        ])
+        .send()
+        .await
+    {
+        Ok(response) => match response.json().await {
+            Ok(body) => body,
+            Err(error) => {
+                return auth_error(StatusCode::BAD_GATEWAY, format!("discord token response: {error}"))
+            }
+        },
+        Err(error) => {
+            return auth_error(StatusCode::BAD_GATEWAY, format!("discord token exchange: {error}"))
+        }
+    };
+    let Some(access_token) = token_body
+        .get("access_token")
+        .and_then(|value| value.as_str())
+    else {
+        return auth_message(StatusCode::BAD_REQUEST, "discord authorization failed");
+    };
+    let user: DiscordUser = match client
+        .get("https://discord.com/api/v10/users/@me")
+        .bearer_auth(access_token)
+        .send()
+        .await
+    {
+        Ok(response) => match response.json().await {
+            Ok(user) => user,
+            Err(error) => {
+                return auth_error(StatusCode::BAD_GATEWAY, format!("discord identity: {error}"))
+            }
+        },
+        Err(error) => {
+            return auth_error(StatusCode::BAD_GATEWAY, format!("discord identity request: {error}"))
+        }
+    };
+    let account_id = match auth.account_id_for_discord(&user.id) {
+        Ok(Some(id)) => id,
+        Ok(None) => match auth.create_discord_account(
+            &user.id,
+            &user.username,
+            user.global_name.as_deref(),
+            user.avatar.as_deref(),
+        ) {
+            Ok(id) => id,
+            Err(error) => return auth_error(StatusCode::CONFLICT, error),
+        },
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    let (_, cookie) = match auth.issue_session(&account_id) {
+        Ok(value) => value,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
+    redirect_with_cookie(&redirect, cookie)
+}
+
+pub(super) async fn discord_unlink(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Response {
+    let auth = &state.account_auth;
+    let Some(user_id) = auth.authenticated_user_id(&headers).ok().flatten() else {
+        return auth_message(StatusCode::UNAUTHORIZED, "sign in to unlink Discord");
+    };
+    match auth.unlink_discord(&user_id) {
+        Ok(()) => no_store_json(StatusCode::OK, &serde_json::json!({ "ok": true }), None),
+        Err(error) => auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     }
 }
 
@@ -904,7 +1203,14 @@ fn init_account_schema(path: &Path) -> AccountResult<()> {
             created_at_unix INTEGER NOT NULL,
             PRIMARY KEY (user_id, wallet_address)
         );
-        CREATE INDEX IF NOT EXISTS idx_user_wallets_user ON user_wallets(user_id, created_at_unix);",
+        CREATE INDEX IF NOT EXISTS idx_user_wallets_user ON user_wallets(user_id, created_at_unix);
+        CREATE TABLE IF NOT EXISTS discord_links (
+            discord_user_id TEXT PRIMARY KEY,
+            account_id TEXT NOT NULL UNIQUE REFERENCES auth_users(id) ON DELETE CASCADE,
+            username TEXT NOT NULL,
+            avatar_url TEXT,
+            created_at_unix INTEGER NOT NULL
+        );",
     )?;
     Ok(())
 }
@@ -1212,5 +1518,62 @@ mod tests {
         let hashed = hash_session_token(&token);
         assert_ne!(hashed, token);
         assert_eq!(hashed, hash_session_token(&token));
+    }
+}
+
+#[cfg(test)]
+mod discord_auth_tests {
+    use super::*;
+
+    fn test_auth() -> Arc<AccountAuth> {
+        let path = std::env::temp_dir().join(format!(
+            "cosyworld-discord-{}.sqlite",
+            random_hex(8)
+        ));
+        AccountAuth::for_test(Some(Arc::new(path)))
+    }
+
+    #[test]
+    fn discord_link_round_trip() {
+        let auth = test_auth();
+        let discord_id = format!("du-{}", random_hex(8));
+        assert_eq!(auth.account_id_for_discord(&discord_id).unwrap(), None);
+        let account_id = auth
+            .create_discord_account(&discord_id, "atimics", Some("Atimics"), None)
+            .unwrap();
+        assert_eq!(
+            auth.account_id_for_discord(&discord_id).unwrap().as_deref(),
+            Some(account_id.as_str())
+        );
+        auth.unlink_discord(&account_id).unwrap();
+        assert_eq!(auth.account_id_for_discord(&discord_id).unwrap(), None);
+    }
+
+    #[test]
+    fn discord_username_conflict_falls_back_to_generated() {
+        let auth = test_auth();
+        let first = auth
+            .create_discord_account("du-1", "atimics", Some("Atimics"), None)
+            .unwrap();
+        let second = auth
+            .create_discord_account("du-2", "atimics", Some("Second"), None)
+            .unwrap();
+        assert_ne!(first, second);
+        assert_eq!(
+            auth.account_id_for_discord("du-1").unwrap().as_deref(),
+            Some(first.as_str())
+        );
+        assert_eq!(
+            auth.account_id_for_discord("du-2").unwrap().as_deref(),
+            Some(second.as_str())
+        );
+    }
+
+    #[test]
+    fn discord_state_round_trip_and_expiry() {
+        let auth = test_auth();
+        let state = auth.store_discord_state("/cards".to_string());
+        assert_eq!(auth.take_discord_state(&state).unwrap(), "/cards");
+        assert!(auth.take_discord_state(&state).is_err());
     }
 }

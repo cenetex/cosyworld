@@ -95,7 +95,19 @@ pub(super) fn card_app_router(state: AppState, shutdown: ShutdownSubscription) -
             post(passkey_registration_finish),
         )
         .route("/auth/passkey/login/start", post(passkey_login_start))
-        .route("/auth/passkey/login/finish", post(passkey_login_finish));
+        .route("/auth/passkey/login/finish", post(passkey_login_finish))
+        .route(
+            "/auth/discord/start",
+            post(crate::account_auth::discord_login_start),
+        )
+        .route(
+            "/auth/discord/callback",
+            get(crate::account_auth::discord_login_callback),
+        )
+        .route(
+            "/auth/discord/unlink",
+            post(crate::account_auth::discord_unlink),
+        );
     with_ingress_layers(routes, state, shutdown)
 }
 
