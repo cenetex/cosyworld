@@ -34,6 +34,12 @@ import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
+import { greekErrands } from "./helpers/greek-opening.mjs";
+import { worldLife } from "../v2/card-game/resident-home.mjs";
+// The errands are played with the cast standing still (still-cast, imported by
+// the journey); this file's walks run with the world alive, so build, then restore.
+const errandsDone = greekErrands().opened;
+worldLife.on = true;
 const pack = packDefinition("greek-drama");
 const openingPlaces = [
   "greek-harbor",
@@ -212,10 +218,8 @@ describe("the Theban release and its ship", () => {
     expect(reachable(s)).toEqual(openingPlaces.filter((id) => id !== "greek-polynices-hollow").sort());
   });
   it("keeps a route from every opening place back to the pond after the signal", () => {
-    const s = createWorld();
-    s.crossings["pond-greek-harbor"].discovered = true;
-    // The City Gate is open for the return journey.
-    openGreekGate(s);
+    // The City Gate is open for the return journey: the errands opened it.
+    const s = structuredClone(errandsDone);
     settleGate(s);
     for (const start of openingPlaces.filter((id) => id !== "greek-ship")) {
       const seen = new Set([start]);
