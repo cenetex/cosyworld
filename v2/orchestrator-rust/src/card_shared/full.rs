@@ -415,9 +415,10 @@ async fn talk(
     h: HeaderMap,
     Json(body): Json<Talk>,
 ) -> Response {
+    let h2 = h.clone();
     let worker = state.clone();
     let wid = id.clone();
-    let result = blocking(move || {
+    let committed = blocking(move || {
         let state = worker;
         let id = wid;
         valid_id(&id)?;
@@ -426,10 +427,21 @@ async fn talk(
         logged(&id, || talk_as(&state, &id, &u, &body))
     })
     .await;
-    if result.is_ok() {
-        kick(state, id);
+    if committed.is_err() {
+        return reply(committed);
     }
-    reply(result)
+    // Voice the talk inline, then return the view with the fresh lines.
+    let _ = voice_once(&state, &id).await;
+    let worker = state.clone();
+    let wid = id.clone();
+    let view = blocking(move || {
+        let state = worker;
+        let id = wid;
+        let u = user(&state, &h2, false)?;
+        view_as(&state, &id, &u, None)
+    })
+    .await;
+    reply(view)
 }
 
 pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Result<Value> {
