@@ -4791,6 +4791,34 @@
               sore: "the neglect of the dead",
               reason: "He asks that his sister be allowed to lay him to rest."
             }
+          },
+          "greek-patroclus": {
+            name: "Patroclus",
+            text: "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus.",
+            place: "greek-ship",
+            home: "greek-piraeus",
+            values: {
+              "greek-bread": 2
+            },
+            seed: "Patroclus, a sailor from Piraeus.",
+            portrait: "assets/greek-drama/patroclus.svg",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-burial-performed",
+                value: true
+              }
+            ],
+            want: {
+              kind: "item",
+              target: "greek-bread",
+              minTrust: 1
+            },
+            tastes: {
+              likes: "bread shared on deck, a steady voyage home",
+              sore: "being treated as cargo",
+              reason: "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus."
+            }
           }
         },
         items: {
@@ -8499,6 +8527,60 @@
               }
             ],
             on: "talk"
+          },
+          {
+            id: "greek-meet-patroclus",
+            subject: "greek-patroclus",
+            at: "greek-ship",
+            label: "Meet Patroclus",
+            text: "Patroclus looks up from the mast and makes room beside Vale at the rail.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-patroclus-met",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "trust",
+                level: 1
+              },
+              {
+                kind: "set_flag",
+                key: "greek-patroclus-met",
+                value: true
+              }
+            ],
+            textTemplate: "Patroclus looks up from the mast and makes room beside {actor} at the rail.",
+            on: "meet"
+          },
+          {
+            id: "greek-meet-patroclus-quay",
+            subject: "greek-patroclus",
+            at: "greek-harbor",
+            label: "Meet Patroclus",
+            text: "Patroclus looks up from the bollard and makes room beside Vale on the quay.",
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-patroclus-met",
+                value: false
+              }
+            ],
+            effects: [
+              {
+                kind: "trust",
+                level: 1
+              },
+              {
+                kind: "set_flag",
+                key: "greek-patroclus-met",
+                value: true
+              }
+            ],
+            textTemplate: "Patroclus looks up from the bollard and makes room beside {actor} on the quay.",
+            on: "meet"
           }
         ],
         works: [
@@ -9448,7 +9530,8 @@
             "greek-colonus-keeper",
             "greek-market-neighbor",
             "greek-household-witness",
-            "greek-polynices-shade"
+            "greek-polynices-shade",
+            "greek-patroclus"
           ],
           items: [
             "greek-water-jar",
@@ -9506,7 +9589,9 @@
             "greek-anoint-polynices",
             "greek-shroud-polynices",
             "greek-bury-polynices",
-            "greek-hear-polynices"
+            "greek-hear-polynices",
+            "greek-meet-patroclus",
+            "greek-meet-patroclus-quay"
           ]
         },
         recital: {
@@ -20181,6 +20266,7 @@
       "hoppycat-nix-fermata": { sleep: { from: 46, to: 22 } },
       "greek-guard": { range: 0, sleep: null, guards: "greek-battlefield" },
       "greek-shipmaster": { sails: true, sleep: { from: 30, to: 45 } },
+      "greek-patroclus": { sails: true },
       "greek-rhapsode": { sleep: null },
       boardyai: { sleep: null }
     },
@@ -23461,6 +23547,7 @@
     front: [
       "assets/ratiradio/rati.webp",
       "assets/ratiradio/raven.webp",
+      "assets/greek-drama/patroclus.svg",
       ...Object.values(rarityForms).filter((form) => form.facing === "front").map((form) => form.portrait),
       "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png",
       "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png",

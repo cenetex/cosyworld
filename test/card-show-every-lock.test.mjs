@@ -30,6 +30,8 @@ const LEFT_HIDDEN = {
   // The guard already draws his way (rules 100); not a seal.
   "greek-drama": {
     "greek-gate>greek-battlefield": "guarded way, drawn by its guard",
+    // Not a box: he is not on the table until the burial is done (#2620).
+    "greek-patroclus": "aboard only after Polynices is buried",
     "greek-harbor>greek-egypt-tomb": IN_PLACE("the same choice"),
     "greek-harbor>greek-troy-beach": IN_PLACE("the same choice"),
     "greek-argolid-road>greek-argos-tomb": IN_PLACE("the same choice"),

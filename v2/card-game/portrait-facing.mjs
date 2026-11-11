@@ -81,6 +81,7 @@ const groups = {
   front: [
     "assets/ratiradio/rati.webp",
     "assets/ratiradio/raven.webp",
+    "assets/greek-drama/patroclus.svg",
     ...Object.values(rarityForms)
       .filter((form) => form.facing === "front")
       .map((form) => form.portrait),

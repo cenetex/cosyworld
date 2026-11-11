@@ -86,6 +86,8 @@ describe("want data", () => {
         target: "greek-provisions",
         step: { verb: "eat", at: "greek-piraeus" },
       },
+      // Patroclus wants bread, and tells it once he trusts the traveler.
+      "greek-patroclus": { kind: "item", target: "greek-bread", minTrust: 1 },
       "willows-swede": { kind: "place", target: "willows-landing" },
       "hoppycat-glim-twice": { kind: "item", target: "hoppycat-loop-token" },
       boardyai: { kind: "connect", target: "humans" },

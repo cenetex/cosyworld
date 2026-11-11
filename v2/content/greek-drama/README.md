@@ -37,6 +37,15 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
 - **Trade** Creon the decree for his writ, with the household token in hand
   and the elder's witness, to petition (revision 20: Creon holds the writ and
   wants the decree back). Given the writ, the guard stands aside.
+- **Patroclus** (rules 133) is the first companion. Once Polynices is buried
+  he stands aboard the Charybdis; when the ship docks without the traveler he
+  steps ashore on the Wine-Dark Harbor quay. Meeting him there, aboard or on the
+  quay, sets his trust in the traveler to 1 (the `trust` effect on
+  `greek-meet-patroclus` and `greek-meet-patroclus-quay`), so Talk tells that he
+  wants bread (`want.minTrust: 1`). A gift of bread makes it 2, and then he
+  travels with the traveler; his home is Piraeus Quays. His portrait is a
+  plain placeholder (`patroclus.svg`); the finished set is in
+  `docs/design/assets/patroclus/` and waits for the image build.
 - The Theban-response branch is gone (the report-plan, permitted-burial and
   courtyard choices, the Guard's Tablet and the `greek-theban-response`
   outcomes): the burial is the three rites in the Hollow, and burying

@@ -46,6 +46,8 @@ const NO_INVITE = {
   "greek-guard": "The Gate Guard is a lock: if he leaves his post the way opens for everyone.",
   "greek-polynices-shade": "The Shade is a night apparition at the Hollow.",
   "greek-household-witness": "Myrine has an authored journey and travels only on it.",
+  "greek-patroclus":
+    "Patroclus starts aboard the Charybdis, where the only plays are the ship's course; the quay invites him once the ship has docked (card-greek-patroclus).",
   "willows-swede": "The Swede stays at camp until the kit is back (stayUntil).",
   boardyai: "Boardy's parlour has no way out; he visits by his own calls.",
 };
