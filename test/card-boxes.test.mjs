@@ -36,14 +36,10 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 
-// Lock view fixture: the Argos tomb is a place with its own `requires`, so
-// today its route is left out of the hand. A seal on the route draws it. The
-// memos in the rules read this on first use, so patch before any play.
-const greek = packDefinitions.find((pack) => pack.id === "greek-drama");
-const tombRoute = greek.routes.find(
-  (r) => r.from === "greek-argolid-road" && r.to === "greek-argos-tomb",
-);
-tombRoute.sealed = { reason: "The account of Aeschylus opens this way." };
+// Lock view: the Argos tomb is a place with its own `requires`; its route
+// carries a seal in the Greek pack (rules 133), so it is drawn shut.
+const TOMB_REASON =
+  "Give Ismene the Record of the House of Atreus to follow the tomb account.";
 
 const walk = (s, place) =>
   greekTravelTargets(s.actors.vale.place, `greek-${place}`).reduce(
@@ -151,14 +147,15 @@ describe("the lock view", () => {
     const world = atRoad();
     expect(entityActive(world, "greek-argos-tomb")).toBe(false);
     expect(entityShown(world, "greek-argos-tomb")).toBe(true);
-    expect(boxesAt(world, "greek-argolid-road")).toEqual([
-      expect.objectContaining({
-        id: "greek-argos-tomb",
-        kind: "way",
-        open: false,
-        reason: "The account of Aeschylus opens this way.",
-      }),
-    ]);
+    expect(
+      boxesAt(world, "greek-argolid-road").find(
+        (box) => box.id === "greek-argos-tomb",
+      ),
+    ).toMatchObject({
+      kind: "way",
+      open: false,
+      reason: TOMB_REASON,
+    });
     expect(availableCards(world)).toContain("greek-argos-tomb");
     expect(isLockedBox(world, "greek-argos-tomb")).toBe(true);
     // It cannot be entered, talked to or acted on.
@@ -183,10 +180,11 @@ describe("the lock view", () => {
     expect(exits(world, "greek-argolid-road", "vale")).toContain(
       "greek-argos-tomb",
     );
-    expect(boxesAt(world, "greek-argolid-road")[0]).toMatchObject({
-      id: "greek-argos-tomb",
-      open: true,
-    });
+    expect(
+      boxesAt(world, "greek-argolid-road").find(
+        (box) => box.id === "greek-argos-tomb",
+      ),
+    ).toMatchObject({ open: true });
     expect(isLockedBox(world, "greek-argos-tomb")).toBe(false);
   });
   it("keeps the old sealed-ways list and the box list in step", () => {

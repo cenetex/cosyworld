@@ -51,6 +51,17 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
   outcomes): the burial is the three rites in the Hollow, and burying
   Polynices opens the Open Door.
 
+### Locked boxes (rules 133)
+
+Every gated way and conditional resident in the pack is a locked box that
+tells its want: `sealed.reason` is the short phrase the context button shows
+when the play is blocked ("Give Myrto Helen’s Account Tablet to follow the
+Egyptian account.", "Not here until Polynices is buried."). Two are left
+unsealed on purpose: the Gate Guard draws his own way, and Patroclus is not on
+the table until the burial. The made things (the bread and the provisions)
+and the Wine-Dark Harbor lane to Piraeus tell their wants from their own
+data. No text goes on a card.
+
 ### The provisions loop (rules 95, 102)
 
 Myrto will not sail her crew out of Thebes without bread, figs and wine. She

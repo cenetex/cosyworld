@@ -4248,6 +4248,10 @@
               likes: "being heard in her own words",
               sore: "others deciding her identity from a rumor",
               reason: "She checks the traveler's account against a witness tablet."
+            },
+            sealed: {
+              at: "greek-egypt-tomb",
+              reason: "Not here until Helen\u2019s Egyptian account is followed."
             }
           },
           "greek-menelaus-egypt": {
@@ -4270,6 +4274,10 @@
               likes: "a reliable witness, provisions for the crew",
               sore: "confident claims without a source",
               reason: "Salt stains his cloak. He has kept the ship's passenger tally."
+            },
+            sealed: {
+              at: "greek-egypt-tomb",
+              reason: "Not here until Helen\u2019s Egyptian account is followed."
             }
           },
           "greek-helen-troy": {
@@ -4293,6 +4301,10 @@
               likes: "being heard in her own words",
               sore: "others deciding her identity from a rumor",
               reason: "She checks the traveler's account against a witness tablet."
+            },
+            sealed: {
+              at: "greek-troy-beach",
+              reason: "Not here until Helen\u2019s Trojan account is followed."
             }
           },
           "greek-menelaus-troy": {
@@ -4315,6 +4327,10 @@
               likes: "a reliable witness, provisions for the crew",
               sore: "confident claims without a source",
               reason: "Salt stains his cloak. He has kept the ship's passenger tally."
+            },
+            sealed: {
+              at: "greek-troy-beach",
+              reason: "Not here until Helen\u2019s Trojan account is followed."
             }
           },
           "greek-electra-aeschylus": {
@@ -4337,6 +4353,10 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
+            },
+            sealed: {
+              at: "greek-argos-tomb",
+              reason: "Not here until the tomb account is followed."
             }
           },
           "greek-orestes-aeschylus": {
@@ -4359,6 +4379,10 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
+            },
+            sealed: {
+              at: "greek-argos-tomb",
+              reason: "Not here until the tomb account is followed."
             }
           },
           "greek-electra-sophocles": {
@@ -4382,6 +4406,10 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
+            },
+            sealed: {
+              at: "greek-mycenae-palace",
+              reason: "Not here until the palace account is followed."
             }
           },
           "greek-orestes-sophocles": {
@@ -4405,6 +4433,10 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
+            },
+            sealed: {
+              at: "greek-mycenae-palace",
+              reason: "Not here until the palace account is followed."
             }
           },
           "greek-electra-euripides": {
@@ -4427,6 +4459,10 @@
               likes: "testimony about her father, a relative who listens",
               sore: "silence demanded for the household's convenience",
               reason: "She has preserved an account of the household's losses."
+            },
+            sealed: {
+              at: "greek-argive-farm",
+              reason: "Not here until the farmhouse account is followed."
             }
           },
           "greek-orestes-euripides": {
@@ -4449,6 +4485,10 @@
               likes: "evidence before an irreversible promise",
               sore: "being treated as an instrument of someone else's revenge",
               reason: "He has come to hear his sister before committing himself."
+            },
+            sealed: {
+              at: "greek-argive-farm",
+              reason: "Not here until the farmhouse account is followed."
             }
           },
           "greek-aethra": {
@@ -4470,6 +4510,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "Olive branches rest across her knees. She makes room for the mothers beside Demeter\u2019s altar."
+            },
+            sealed: {
+              at: "greek-eleusis",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-adrastus": {
@@ -4491,6 +4535,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen."
+            },
+            sealed: {
+              at: "greek-eleusis",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-argive-mother": {
@@ -4573,6 +4621,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "A petition table stands beside him. He waits for the mothers\u2019 own account."
+            },
+            sealed: {
+              at: "greek-athens",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-quay-host": {
@@ -4597,7 +4649,7 @@
             },
             sealed: {
               at: "greek-piraeus",
-              reason: "Finish the funeral at the Hollow, or give Dione an earlier Theban account."
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-colonus-keeper": {
@@ -4619,6 +4671,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "The keeper sets a cup beside the boundary stone. A pot of honey catches the light."
+            },
+            sealed: {
+              at: "greek-colonus",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-marathon-keeper": {
@@ -4640,6 +4696,10 @@
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
+            },
+            sealed: {
+              at: "greek-marathon",
+              reason: "Not here until Polynices is buried."
             }
           },
           "greek-household-witness": {
@@ -4706,6 +4766,10 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+            },
+            sealed: {
+              at: "greek-ajax-household",
+              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
             }
           },
           "greek-ajax-teucer": {
@@ -4728,6 +4792,10 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+            },
+            sealed: {
+              at: "greek-greek-camp",
+              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
             }
           },
           "greek-ajax-odysseus": {
@@ -4751,6 +4819,10 @@
               likes: "a deed carried through with its witnesses",
               sore: "a promise called a finished burial",
               reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+            },
+            sealed: {
+              at: "greek-greek-camp",
+              reason: "Not here until the Trojan camp\u2019s invitation is accepted."
             }
           },
           "greek-polynices-shade": {
@@ -5383,7 +5455,15 @@
                 key: "greek-helen-account",
                 value: "egypt"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-helen-accounts",
+                to: "greek-shipmaster"
+              },
+              reason: "Give Myrto Helen\u2019s Account Tablet to follow the Egyptian account."
+            }
           },
           {
             from: "greek-egypt-tomb",
@@ -5398,7 +5478,15 @@
                 key: "greek-helen-account",
                 value: "troy"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-helen-accounts",
+                to: "greek-elder"
+              },
+              reason: "Give the Chorus Elder Helen\u2019s Account Tablet to follow the Trojan account."
+            }
           },
           {
             from: "greek-troy-beach",
@@ -5413,7 +5501,15 @@
                 key: "greek-atreid-account",
                 value: "aeschylus"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-atreid-record",
+                to: "greek-ismene"
+              },
+              reason: "Give Ismene the Record of the House of Atreus to follow the tomb account."
+            }
           },
           {
             from: "greek-argos-tomb",
@@ -5428,7 +5524,15 @@
                 key: "greek-atreid-account",
                 value: "sophocles"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-atreid-record",
+                to: "greek-creon"
+              },
+              reason: "Give Creon the Record of the House of Atreus to follow the palace account."
+            }
           },
           {
             from: "greek-mycenae-palace",
@@ -5443,7 +5547,15 @@
                 key: "greek-atreid-account",
                 value: "euripides"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "item",
+                target: "greek-atreid-record",
+                to: "greek-baker"
+              },
+              reason: "Give Dione the Record of the House of Atreus to follow the farmhouse account."
+            }
           },
           {
             from: "greek-argive-farm",
@@ -5458,7 +5570,14 @@
                 key: "greek-atreid-account",
                 value: "aeschylus"
               }
-            ]
+            ],
+            sealed: {
+              quest: {
+                kind: "place",
+                target: "greek-argos-palace"
+              },
+              reason: "Opens once the tomb account is followed."
+            }
           },
           {
             from: "greek-argos-palace",
