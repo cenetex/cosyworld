@@ -126,8 +126,9 @@ fn boardy_follows_a_want_to_meet_a_human_in_the_c_host() {
             .filter(|e| e["verb"] == "want_met" && e["actorId"] == "boardyai")
             .count()
     };
-    for _ in 0..8 {
-        if met(&world) > 0 {
+    // He walks at the dwell pace (rules 133), so wait for him, not for a count.
+    for _ in 0..120 {
+        if met(&world) > 0 || world.game["actors"]["boardyai"]["place"] == "pond" {
             break;
         }
         let view = world.project(0).unwrap();
