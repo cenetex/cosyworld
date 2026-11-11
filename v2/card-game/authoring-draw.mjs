@@ -110,7 +110,8 @@ export function createCharacterDraw({
     } catch (failure) {
       if (job) {
         releaseJob(job.id);
-        if (!WAITING.has(failure.code)) await track.settled(job.id);
+        if (!signal?.aborted && !WAITING.has(failure.code))
+          await track.settled(job.id);
       }
       throw failure;
     } finally {

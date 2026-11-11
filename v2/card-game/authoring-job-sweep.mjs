@@ -63,7 +63,14 @@ export function createJobSweep({
     const adopter = adopters[rec.kind],
       controller = new AbortController(),
       opened = life;
-    watching.set(rec.id, controller);
+    watching.set(rec.id, {
+      controller,
+      clear: () => adopter.progressJob?.(rec, null),
+    });
+    const forget = () => {
+      if (watching.get(rec.id)?.controller === controller)
+        watching.delete(rec.id);
+    };
     adopter.progressJob?.(rec, job);
     awaitJob(
       { ...job, kind: rec.kind },
@@ -75,11 +82,11 @@ export function createJobSweep({
       },
     ).then(
       () => {
-        watching.delete(rec.id);
+        forget();
         if (opened === life) poke({ force: true });
       },
       () => {
-        watching.delete(rec.id);
+        forget();
         if (opened === life) adopter.progressJob?.(rec, null);
       },
     );
@@ -157,7 +164,10 @@ export function createJobSweep({
       key = status.key;
       retries = 0;
       clearTimeout(timer);
-      for (const controller of watching.values()) controller.abort();
+      for (const { controller, clear } of watching.values()) {
+        clear();
+        controller.abort();
+      }
       watching.clear();
       poke({ force: true });
     },
