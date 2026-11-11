@@ -36,6 +36,17 @@ export function playCounter(action) {
   return COUNTERS.has(name) ? name : "play.other";
 }
 
+// Wants the rules met since the last look (#2662, rules 133). Each met want
+// writes one `want_met` event for its avatar; `since` is the last event
+// number seen (null on a first look: a loaded save counts nothing).
+export function metWants(log, since, actor) {
+  if (since === null || since === undefined) return 0;
+  let met = 0;
+  for (let i = log.length - 1; i >= 0 && log[i].seq > since; i--)
+    if (log[i].verb === "want_met" && log[i].actorId === actor) met++;
+  return met;
+}
+
 // Thinking-to-line latency, in coarse buckets.
 export function lineCounter(ms) {
   if (ms < 2000) return "voice.line.lt2s";

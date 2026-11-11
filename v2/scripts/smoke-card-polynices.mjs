@@ -186,6 +186,14 @@ try {
       await settle();
       await selectCard(page, hollow, { touch: width === 390 });
       assert.equal(await locked.getAttribute("data-locked"), "false");
+      // Antigone dwells where she is for a day (rules 133) and then walks home;
+      // the rite is played with her already there, as the walk would leave her.
+      {
+        const walked = await state();
+        walked.actors[antigone].place = hollow;
+        await showState(walked);
+        await selectCard(page, hollow, { touch: width === 390 });
+      }
       await readyActionButton(page, "move").waitFor();
       await photograph("opened");
       await readyActionButton(page, "move").click();

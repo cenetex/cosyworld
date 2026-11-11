@@ -12,7 +12,7 @@ import {
   titleMusicHold,
   voiceTitle,
 } from "./title-intro.mjs";
-import { count, lineCounter, playCounter, startMetrics } from "./metrics.mjs";
+import { count, lineCounter, metWants, playCounter, startMetrics } from "./metrics.mjs";
 import { imageUrl } from "./images.mjs";
 import coreLocations from "./assets/staging/core.json" with { type: "json" };
 import greekLocations from "./assets/staging/greek.json" with { type: "json" };
@@ -5016,13 +5016,8 @@ function render() {
     questOpen = false;
   }
   // The wants the rules met since the last look are counted.
-  if (questSeq !== null)
-    for (let i = world.log.length - 1; i >= 0 && world.log[i].seq > questSeq; i--)
-      if (
-        world.log[i].verb === "want_met" &&
-        world.log[i].actorId === currentActor(world)
-      )
-        count("quest.met");
+  for (let i = metWants(world.log, questSeq, currentActor(world)); i > 0; i--)
+    count("quest.met");
   questSeq = world.eventSeq;
   const liveQuests = questCards(world);
   const dealtQuest = liveQuests.find(

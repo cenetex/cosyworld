@@ -53,6 +53,7 @@ const files = [
   "authoring-local-store.mjs",
   "authoring-create-store.mjs",
   "authoring-job-store.mjs",
+  "authoring-job-intent.mjs",
   "authoring-job-sweep.mjs",
   "authoring-jobs.mjs",
   "authoring-accepted.mjs",

@@ -4,6 +4,6 @@
 # The rules-133 integration branch raised this to a temporary 116 while the
 # recorded-save tests were skipped. Played start states brought it to 4: main's
 # 3 plus one Rust ignore (a long played Greek save the import filter mangles,
-# a real defect for the owner). The repack skipIf also skips while main still
+# a real defect for the owner: `a_long_honest_save_keeps_its_text`). The repack skipIf also skips while main still
 # holds the retired save schema.
 4

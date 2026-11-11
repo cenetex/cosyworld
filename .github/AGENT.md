@@ -104,7 +104,7 @@ check's lint job) holds two ceilings that only go down:
   Remove an entry when its file goes. Build start states by play from `createWorld`,
   a journey or a synthetic world.
 
-The unit job also prints, without failing, any test that passed only on a retry
+Each of the four unit test shards (`--shard=i/4`) also prints, without failing, any test that passed only on a retry
 (`retry: 1` in `vitest.config.js`).
 
 ### Fast check

@@ -783,3 +783,114 @@ async fn a_full_file_store_fails_the_job_and_leaves_no_orphan_file() {
     );
     assert_eq!(h.raw(&cookie, "GET", &asset, None, &[]).await.0, 200);
 }
+
+#[tokio::test]
+async fn request_lookup_recovers_a_lost_reply_without_restarting_work() {
+    let h = Harness::new().await;
+    let cookie = h.cookie("maker");
+    let other = h.cookie("other");
+    let key = "0b0e3e3a-6d0c-4c0e-9d6f-4c5f2b0a9b11";
+    let headers = [("idempotency-key", key)];
+    let route = format!("{ROUTE}/by-request");
+    // A read before acceptance is only a miss, not an instruction to generate.
+    assert_eq!(h.call(&cookie, "GET", &route, None, &headers).await.0, 404);
+    assert_eq!(h.provider_calls(), 0);
+    h.hold_images.store(true, Ordering::SeqCst);
+    let (status, _) = h
+        .call(
+            &cookie,
+            "POST",
+            ROUTE,
+            Some(json!({"kind":"image","request":portrait()})),
+            &headers,
+        )
+        .await;
+    assert_eq!(status, 202);
+    // Forget the POST response, as if the tab closed before receiving it.
+    let (status, running) = h.call(&cookie, "GET", &route, None, &headers).await;
+    assert_eq!(status, 200);
+    assert!(["queued", "running"].contains(&running["status"].as_str().unwrap()));
+    let id = running["id"].as_str().unwrap();
+    assert_eq!(h.call(&other, "GET", &route, None, &headers).await.0, 404);
+    assert_eq!(h.call("", "GET", &route, None, &headers).await.0, 401);
+    h.hold_images.store(false, Ordering::SeqCst);
+    let finished = h.finished(&cookie, id).await;
+    assert_eq!(
+        h.call(&cookie, "GET", &route, None, &headers).await,
+        (200, finished.clone())
+    );
+    // A rebuilt router and unavailable provider configuration do not prevent reads.
+    let mut state = h.state.clone();
+    state.ai_config = Arc::new(None);
+    let response = read_request(State(state), {
+        let mut headers = HeaderMap::new();
+        headers.insert("cookie", cookie.parse().unwrap());
+        headers.insert("idempotency-key", key.parse().unwrap());
+        headers
+    })
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(h.provider_calls(), 1);
+    assert_eq!(
+        h.call(&cookie, "GET", ROUTE, None, &[]).await.1["jobs"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    // Retention removes the lookup too; a later read never recreates the job.
+    let c = open(&h.state).unwrap();
+    c.execute("UPDATE authoring_jobs SET created_at=0 WHERE id=?", [id])
+        .unwrap();
+    assert_eq!(prune(&c, now_ms()).unwrap(), 1);
+    assert_eq!(h.call(&cookie, "GET", &route, None, &headers).await.0, 404);
+    assert_eq!(h.provider_calls(), 1);
+}
+
+#[tokio::test]
+async fn request_lookup_validates_keys_and_only_reads_the_signed_in_owner() {
+    let h = Harness::new().await;
+    let a = h.cookie("a");
+    let b = h.cookie("b");
+    let key = "0b0e3e3a-6d0c-4c0e-9d6f-4c5f2b0a9b11";
+    let route = format!("{ROUTE}/by-request");
+    let headers = [("idempotency-key", key)];
+    for bad in [
+        vec![],
+        vec![("idempotency-key", "bad")],
+        vec![("idempotency-key", key), ("idempotency-key", key)],
+    ] {
+        let (status, body) = h.call(&a, "GET", &route, None, &bad).await;
+        assert_eq!(
+            (status, body["code"].as_str()),
+            (400, Some(INVALID_REQUEST))
+        );
+    }
+    let c = open(&h.state).unwrap();
+    // More than LISTED entries: lookup is indexed by owner/key, not a recent-list scan.
+    for n in 0..=LISTED {
+        c.execute("INSERT INTO authoring_jobs(id,owner,kind,request_key,digest,status,created_at,updated_at)
+            VALUES(?,'a','seed',?,'fixture','failed',?,?)",
+            params![format!("a-{n}"), if n == 0 { Some(key) } else { None }, n, n]).unwrap();
+    }
+    let (status, found) = h.call(&a, "GET", &route, None, &headers).await;
+    assert_eq!((status, found["id"].as_str()), (200, Some("a-0")));
+    assert_eq!(h.call(&b, "GET", &route, None, &headers).await.0, 404);
+    // Two accounts may use the same UUID; neither can discover the other's row.
+    c.execute(
+        "INSERT INTO authoring_jobs(id,owner,kind,request_key,digest,status,created_at,updated_at)
+        VALUES('b-0','b','seed',?,'fixture','queued',0,0)",
+        [key],
+    )
+    .unwrap();
+    let (status, found) = h.call(&b, "GET", &route, None, &headers).await;
+    assert_eq!((status, found["id"].as_str()), (200, Some("b-0")));
+    assert!(found.get("request_key").is_none());
+    assert!(found.get("digest").is_none());
+    assert!(found.get("owner").is_none());
+    assert_eq!(h.provider_calls(), 0);
+    let count: usize = c
+        .query_row("SELECT count(*) FROM authoring_jobs", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(count, LISTED + 2);
+}
