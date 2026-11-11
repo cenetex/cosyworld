@@ -3,12 +3,14 @@
 // card that can be tapped" (owner, 2026-11-11): every offer is a card on the
 // table with one id, and selecting it gives one button.
 //
-//   box       a shut box lying here                      "Take quest"
+//   box       a shut box lying here
 //   resident  someone here who told you their want, and
-//             offers it this visit (offer-chance.mjs)    "Accept quest"
-//   home      your own home's door, shut                 "Take quest"
-//   level     your experience reached the next level     "Take level up quest"
+//             offers it this visit (offer-chance.mjs)
+//   home      your own home's door, shut
+//   level     your experience reached the next level
 //
+// Every offer's button reads "Accept quest" (owner, 2026-11-11); the bar's
+// caption tells the quests apart.
 // A player's quest is never drawn or pushed. While one is held every offer
 // still stands, carrying `blocked`, the reason for the card's disabled button;
 // the `take` play itself is offered only when it can succeed (world.mjs).
@@ -25,10 +27,10 @@ import { homeOf } from "./home.mjs";
 export const OFFER_KINDS = ["box", "resident", "home", "level"];
 export const BLOCKED = "Finish or discard your quest first";
 export const OFFER_LABELS = {
-  box: "Take quest",
+  box: "Accept quest",
   resident: "Accept quest",
-  home: "Take quest",
-  level: "Take level up quest",
+  home: "Accept quest",
+  level: "Accept quest",
 };
 export const offerId = (kind, source) =>
   kind === "level" ? "quest:level" : `quest:${kind === "resident" ? "from" : kind}:${source}`;

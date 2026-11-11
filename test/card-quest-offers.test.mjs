@@ -78,7 +78,7 @@ it("a chosen offer gives exactly one play, labelled by the offer", () => {
   expect(asleepReason(world, [OFFER])).toBeNull();
   const level = clone(worlds.met);
   expect(playLabel(cardActions(level, ["quest:level"]).actions[0], level)).toBe(
-    "Take level up quest",
+    "Accept quest",
   );
 });
 

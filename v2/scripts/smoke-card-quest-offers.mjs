@@ -257,6 +257,8 @@ try {
       else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
       await page.locator("#hand .want-frame:not([hidden]) > .want-card").waitFor();
       assert.equal(await t.oneButton(), 1);
+      // A held quest's one button is always Discard.
+      assert.equal(await label(page), "Discard");
       await t.shot("held-step");
       assert.deepEqual(t.errors, []);
       await page.close();
@@ -294,7 +296,7 @@ try {
       await level.waitFor({ state: "attached" });
       await selectCard(page, "quest:level");
       assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Take level up quest");
+      assert.equal(await label(page), "Accept quest");
       await t.layout();
       await t.shot("level-up");
       await page.locator("#card-actions button").first().click();
@@ -364,7 +366,7 @@ try {
       await clearSelection(page);
       await selectCard(page, "quest:box:greek-battlefield");
       assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Take quest");
+      assert.equal(await label(page), "Accept quest");
       await t.layout();
       await t.shot("box-offer");
       await page.locator("#card-actions button").first().click();

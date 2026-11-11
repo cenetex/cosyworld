@@ -54,7 +54,7 @@ describe("quest offers", () => {
     expect(box).toMatchObject({
       id: "quest:box:greek-battlefield",
       source: "greek-battlefield",
-      label: "Take quest",
+      label: "Accept quest",
       blocked: null,
       want: {
         kind: "item",
@@ -143,7 +143,7 @@ describe("quest offers", () => {
     const { actions } = cardActions(s, [id]);
     expect(actions).toHaveLength(1);
     expect(actions[0]).toMatchObject({ kind: "take", offer: id });
-    expect(playLabel(actions[0], s)).toBe("Take quest");
+    expect(playLabel(actions[0], s)).toBe("Accept quest");
   });
 });
 
@@ -271,7 +271,7 @@ describe("level up", () => {
     const offer = questOffers(atThreshold(3)).find((o) => o.kind === "level");
     expect(offer).toMatchObject({
       id: "quest:level",
-      label: "Take level up quest",
+      label: "Accept quest",
       blocked: null,
       want: {
         kind: "place",

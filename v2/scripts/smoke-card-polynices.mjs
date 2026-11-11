@@ -240,9 +240,17 @@ try {
         );
         await photograph(stage);
         const before = await state();
-        const button = page.locator(
-          '#card-actions [data-quest-step][data-action="give"]:not([data-revealing="true"])',
+        // The held quest's one button is Discard; the rite is done by
+        // choosing the supply and Antigone, as any give is.
+        assert.equal(await page.locator("#card-actions button").count(), 1);
+        assert.equal(
+          await page.locator("#card-actions [data-drop-quest]").getAttribute("data-tap-verb"),
+          "Discard",
         );
+        await clearSelection(page);
+        await selectCard(page, kit[index]);
+        await selectCard(page, antigone);
+        const button = readyActionButton(page, "give");
         await button.waitFor({ state: "visible" });
         const bounds = await button.boundingBox();
         assert.ok(

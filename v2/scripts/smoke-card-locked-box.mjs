@@ -299,7 +299,7 @@ try {
       assert.equal(await page.locator("#card-actions button").count(), 1);
       assert.equal(
         await page.locator("#card-actions button").first().getAttribute("data-tap-verb"),
-        "Take quest",
+        "Accept quest",
       );
       await ready();
       const take = page.locator("#card-actions button").first();

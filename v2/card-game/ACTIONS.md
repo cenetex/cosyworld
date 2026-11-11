@@ -23,7 +23,7 @@ holder's group. Transfers move the cards into the new holder's group.
 | Your item with its verb                   | Use (the verb on its card)                   |
 | Destination, or Vale + destination        | Travel or Board                              |
 | Destination with a ship's course card     | Set course                                   |
-| Quest card (see below)                    | Take, Accept or Take level up quest          |
+| Quest card (see below)                    | Open box, then Accept quest                  |
 | Your quest card                           | Discard, with the XP cost in its label       |
 | Current place                             | Wait and local actions                       |
 | Person + destination                      | Invite that person along                     |
@@ -57,10 +57,10 @@ See [one want per avatar](README.md#one-want-per-avatar).
 Quest cards (rules 133). When a shut box, someone you have talked with, your
 own home's door, or your own experience offers a quest, it lies in the hand
 as a card of its own. Select it and the one button takes the quest, with no
-turn spent: Take quest on a locked box and on your home's door, Accept quest
-on a resident who told you their want and offers it (after Talk, by a chance
-rolled once per visit; certain if they trust you), Take level up quest when
-your experience reaches the next level. You are never given a quest by draw
+turn spent: Accept quest, always the same words, on a locked box and on your
+home's door, on a resident who told you their want and offers it (after Talk,
+by a chance rolled once per visit; certain if they trust you), and when your
+experience reaches the next level; the bar's caption tells them apart. You are never given a quest by draw
 or push. While you hold one, the card's button is disabled and its label is
 the reason ("Finish or discard your quest first"). The level-up quest is
 Sleep at home: a long rest at your own home (Vale's is the Mirror attic)
@@ -74,7 +74,8 @@ button. An offer lies face down like a closed box ("A closed box", one button,
 Open box; nothing of the quest shows before it is opened). Opened, the bar names
 the quest and the one button takes it (or says why not). Taking it deals the
 held quest, which turns face up; the next offer lies face down again. The card
-you hold lies behind your avatar's stack and offers its next step or Discard.
+you hold lies behind your avatar's stack and its one button is always Discard.
+You do its step as any play: choose the item and the person (Lamp and Pip, Give), or the place.
 
 Pairs work in either order. Arrow keys move between visible cards. Enter
 and Space toggle selection. Tab from a selected card reaches its action

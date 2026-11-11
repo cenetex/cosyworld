@@ -215,9 +215,9 @@ try {
           key,
         );
       } else {
-        // One quest card, one button: its step, or Discard when it has none.
+        // One quest card, one button: Discard.
         await page
-          .locator("#card-actions [data-quest-step], #card-actions [data-drop-quest]")
+          .locator("#card-actions [data-drop-quest]")
           .first()
           .waitFor();
         assert.equal(await page.locator("#card-actions button").count(), 1);

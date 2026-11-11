@@ -85,7 +85,7 @@ These bind the quest cards and level up (rules 133, package 4).
    Sleep at home costs XP and drops the player to just under the threshold, so
    the card does not come straight back. Discarding an ordinary quest is free.
 6. Long-rest dreams (the glimpse) stay.
-7. Homecoming is "Take quest" on the avatar's home box; Pip's lamp on `/pip`
+7. Homecoming is "Accept quest" on the avatar's home box; Pip's lamp on `/pip`
    is an accept-quest card after his Talk; both starter wants stay.
 
 Assumed, owner may change (proposed by the orchestrator, seen and not
@@ -101,6 +101,16 @@ objected to):
   is always offered.)
 - A box whose place the avatar has already stood in pays no opening XP, so the
   mirror back to the attic does not pay Vale for returning home.
+
+## Owner decisions, 2026-11-11 (quest card labels)
+
+1. A held quest's one button is always **Discard** (with its XP cost on a level
+   quest). The step is done as any play is, by choosing the cards (the item and
+   the person; the place).
+2. One accept label everywhere: **Accept quest** for a box, a home door, a
+   resident and the level quest. The bar's caption tells them apart.
+3. Offered quests are closed boxes first: "A closed box", then Open box, then
+   Accept quest. Nothing of the quest shows before it is opened.
 
 ## Already decided earlier
 
@@ -452,10 +462,10 @@ tapped"). Selecting the card gives the one context button. No new UI.
 
 | Where the player is | The card | Button | What taking it does |
 | --- | --- | --- | --- |
-| Where a locked box lies | `quest:box:<box>` | **Take quest** | The box's want becomes the player's. No turn passes |
+| Where a locked box lies | `quest:box:<box>` | **Accept quest** | The box's want becomes the player's. No turn passes |
 | With a resident, after Talk with them there, if they offer | `quest:from:<resident>` | **Accept quest** | The want they said becomes the player's: give it to them, bring them there, or bring them to that person (`questFor`, `talk-quest.mjs`). No turn passes |
-| Anywhere, with XP enough for the next level | `quest:level` | **Take level up quest** | The player's want becomes Sleep at home |
-| At a non-Vale avatar's home door, a locked box | `quest:home:<home>` | **Take quest** | Homecoming: bring the belonging home |
+| Anywhere, with XP enough for the next level | `quest:level` | **Accept quest** | The player's want becomes Sleep at home |
+| At a non-Vale avatar's home door, a locked box | `quest:home:<home>` | **Accept quest** | Homecoming: bring the belonging home |
 | `/pip` | `quest:from:moth` | **Accept quest** | Pip's lamp (a hub starter want, always offered) |
 
 - *Talk reveals, the tap takes.* Talk says a resident's desire as dialogue.
@@ -484,11 +494,11 @@ What reaches a player without a tap today, and what becomes of it:
 | Today | Becomes |
 | --- | --- |
 | Source 2, drawn when the stack is empty (`want.mjs:628`), and after Discard (`want.mjs:492`) | Removed for players |
-| Source 3, level quest on waking | Take level up quest |
+| Source 3, level quest on waking | Accept quest |
 | Source 4, Talk pushes a quest | Accept quest |
-| Source 5, `gate`, on 4 boxes | Take quest, on every box |
+| Source 5, `gate`, on 4 boxes | Accept quest, on every box |
 | Source 6, `hide_item` pushes "find your button" | Removed. RATi wants the button; Talk says so; Accept quest |
-| Source 7, homecoming set at world creation | Take quest on the home's box |
+| Source 7, homecoming set at world creation | Accept quest on the home's box |
 | Source 8, Seek in the menu | Removed with the `seek` play |
 | Source 9, Pip's landing | Accept quest on Pip |
 | Vale's authored `want` for the Lamp (`forest.json:75`) | Removed: a player has no authored want |
@@ -506,7 +516,7 @@ archived Greek choices, the stack and `focus`.
 - Home rests its own avatar as a sanctuary does. A home's door is a visible
   locked box whose want is its avatar's belonging.
 - With XP at the next level's threshold (today's `questXp` numbers), the
-  player's own avatar card offers **Take level up quest**. Taking it gives
+  player's own avatar card offers **Accept quest** (its bar caption names Sleep at home). Taking it gives
   **Sleep at home**: the place want with the rest step that exists today,
   aimed at `homeOf`. This replaces the level quest arriving on waking
   (`want.mjs:312`, `:427`), its drawn steps and its dream.
