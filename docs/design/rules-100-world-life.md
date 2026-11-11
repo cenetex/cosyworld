@@ -35,7 +35,9 @@ still keeps a resident home, as range 0 does.
 | The Greek cast                     | asleep 21:00–05:30 (30–47)            |
 | Myrto                              | asleep 21:00–04:30 (30–45), sails     |
 | The Bard, BoardyAI, the Gate Guard | never sleep                           |
-| Oak, the Gate Guard                | range 0                               |
+| Oak, Skull, Antigone, the Gate Guard | range 0                             |
+| RATi, the Open Door and Ajax cast  | range 1 (home and its neighbours)     |
+| Whiskerwind and the other residents | range 2 (the default)                 |
 
 ## Home and range
 
@@ -60,6 +62,25 @@ still keeps a resident home, as range 0 does.
   speech (`want_met`).
 - Players, their away avatars, roamers, journeys and freed residents keep no
   home life (`rangeOf` is null).
+
+## Who stays put
+
+Every resident roams, can be invited along (Invite) and can be threatened,
+except those below, each for a reason in data or in the rules. Freeing a
+resident is a data edit: drop `travels: false` and `standoffs: false` in the
+pack and give a range here. `test/card-residents-roam.test.mjs` holds the
+allow-list and the reason for each.
+
+- Oak (a backdrop tree) and the Badger (asleep until greeted; a sleeper cannot
+  be threatened) stay in one place by design. Oak still stands his ground.
+- Skull stays: his home, the Moonlit Trail, is shut until the garden drain is
+  cleared, so a Skull who stepped out could not walk home and would sleep
+  away. Freeing him needs a rule that a resident only leaves by ways it can
+  return through.
+- Antigone (the Hollow rites), the Gate Guard (a lock), the Shade (night),
+  Myrine and the Hoppy Cat journey residents (authored journeys), the Swede
+  (`stayUntil`), the recital actor (`standoffs: false` is a schema rule) and
+  Boardy keep their switches. Hoppy Cat is paused as a pack.
 
 ## Sleep
 
