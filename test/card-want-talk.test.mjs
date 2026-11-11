@@ -67,7 +67,10 @@ describe("a want in Talk context", () => {
     world.actors.vale.heard = { moth: "item:lamp" };
     const context = talkTo(world, "moth");
     const pip = factsOf(context, "moth");
-    expect(pip.filter((f) => f === "I want the Lamp.")).toHaveLength(1);
+    // Pip's lamp is a starter want: he says he would take the help too.
+    expect(pip.filter((f) => f.startsWith("I want the Lamp."))).toEqual([
+      "I want the Lamp. I would be glad of your help.",
+    ]);
     for (const entity of context.entities)
       expect(entity.facts.some((f) => QUEST_LINES.test(f))).toBe(false);
     expect(factsOf(context, "vale")).toContain(`I want to be at ${nameOf("pond")}.`);

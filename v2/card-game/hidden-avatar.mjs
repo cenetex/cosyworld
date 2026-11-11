@@ -7,7 +7,6 @@
 import { humanAvatar } from "./human-cast.mjs";
 import { packDefinitions } from "./pack-registry.mjs";
 import { seedHash } from "./pack-specials.mjs";
-import { newWant, pushQuest, allQuestsOf } from "./want.mjs";
 
 const avatarList = (value) =>
   Array.isArray(value) &&
@@ -64,20 +63,6 @@ export function meetHidden(world, action, human) {
     return null;
   h.met.push(action.actor);
   return { unlock: h.actor, by: action.actor };
-}
-
-// "+ Find Mara": the player takes the quest to talk to the hidden avatar.
-export function seekHidden(world, actor) {
-  const target = world.hidden?.actor;
-  if (!target || target === actor || world.hidden.met.includes(actor))
-    throw new Error("Nobody is hidden here for you to find.");
-  if (
-    !allQuestsOf(world, actor).some(
-      (w) => w.kind === "person" && w.target === target && !w.step,
-    )
-  )
-    pushQuest(world, actor, newWant("person", target, world.turn));
-  return world;
 }
 
 export function validHidden(world) {

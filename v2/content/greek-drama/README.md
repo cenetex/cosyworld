@@ -34,15 +34,96 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
   be carried or laid in the Hollow; the card first offers Take or Ask when
   needed. Used oil and cloth return home, while the next rite stays available
   with its remaining materials. The shovel stays in the Hollow after burial.
+- Antigone's **home is the Hollow** (owner, 2026-11-11), not the gate. She
+  starts at the gate and cannot get home while the gate is locked or the Hollow's
+  way waits on the Shade's word; once both are open she walks home by the
+  ordinary resident rules (no scripted move, no `homeWhen`). She does not fetch
+  or carry the burial items: residents do not yet take, carry or lay toward a
+  want.
+- Antigone holds two **staged wants** (rules 133, unordered, at most three): the
+  rites laid in the Hollow, and, once the guard holds Creon's writ and until
+  the burial, being at the Hollow herself. The seeded pick chooses between the
+  open ones; after the burial her wants are drawn.
 - **Trade** Creon the decree for his writ, with the household token in hand
   and the elder's witness, to petition (revision 20: Creon holds the writ and
   wants the decree back). Given the writ, the guard stands aside.
-- **Give** the guard the shovel with the funeral cloth in hand, the tools of
-  the burial, to report the plan. **The Guard's Tablet** then lies at the
-  gate. The shovel alone is no report: the guard declines it, so handing it
-  over by mistake decides nothing.
-- **Give** Dione the account, the writ or the tablet. It stays on her table,
-  and her road to Eleusis opens.
+- **Patroclus** (rules 133, #2620) is the first companion, a sealed card of the
+  Charybdis. It opens when Polynices is buried, the Charybdis lies at Piraeus
+  and the Travel Provisions are aboard (`appearsWhen` with `ship_at` and
+  `item_at`, latched by the flag `greek-patroclus-met` that the meeting sets),
+  so he does not vanish again when the provisions go or the ship sails. He is a
+  rider of that arrival and steps ashore on the Piraeus quay, his home. The
+  meeting (`greek-meet-patroclus`, at Piraeus Quays) sets his trust in the
+  traveler to 3 (owner decisions, 2026-11-11) on the traveler's next play that
+  is not a Wait, so Talk tells his bread want (`want.minTrust: 1`) and he will
+  accompany at once. Art: the idle portrait, a holding-bread pose and a
+  sleeping portrait are wired; the other poses and the cropped portrait stay in
+  `docs/design/assets/patroclus/`.
+- Antigone holds two **staged wants** (rules 133, unordered, at most three): the
+  rites laid in the Hollow, and, once the guard holds Creon's writ and until
+  the burial, being at the Hollow herself. The seeded pick chooses between the
+  open ones; after the burial her wants are drawn.
+- **Trade** Creon the decree for his writ, with the household token in hand
+  and the elder's witness, to petition (revision 20: Creon holds the writ and
+  wants the decree back). Given the writ, the guard stands aside.
+- **Patroclus** (rules 133, #2620) is the first companion, a sealed card of the
+  Charybdis. It opens when Polynices is buried, the Charybdis lies at Piraeus
+  and the Travel Provisions are aboard (`appearsWhen` with `ship_at` and
+  `item_at`, latched by the flag `greek-patroclus-met` that the meeting sets),
+  so he does not vanish again when the provisions go or the ship sails. The
+  meeting aboard sets his trust in the traveler to 3 (the `trust` effect on
+  `greek-meet-patroclus`; owner decisions, 2026-11-11), so Talk tells his want
+  (`want.minTrust: 1`) and he will accompany. His home is Piraeus Quays. Art:
+  the idle portrait, a holding-bread pose and a sleeping portrait are wired; the
+  talking, listening, walking, guard, attack and hit poses and the cropped
+  portrait stay in `docs/design/assets/patroclus/` (no pose slot, or the combat
+  art pipeline).
+- Antigone holds two **staged wants** (rules 133, unordered, at most three): the
+  rites laid in the Hollow, and, once the guard holds Creon's writ and until
+  the burial, being at the Hollow herself. The seeded pick chooses between the
+  open ones; after the burial her wants are drawn.
+- **Trade** Creon the decree for his writ, with the household token in hand
+  and the elder's witness, to petition (revision 20: Creon holds the writ and
+  wants the decree back). Given the writ, the guard stands aside.
+- **Patroclus** (rules 133, #2620) is the first companion. Once Polynices is
+  buried he stands aboard the Charybdis. Meeting him there sets his trust in the
+  traveler to 3 (the `trust` effect on `greek-meet-patroclus`; owner decision,
+  2026-11-11), so Talk tells that he wants bread (`want.minTrust: 1`) and he will
+  accompany from the meeting. His home is Piraeus Quays. Art: the idle portrait,
+  a holding-bread pose and a sleeping portrait are wired; the talking, listening,
+  walking, guard, attack and hit poses and the cropped portrait stay in
+  `docs/design/assets/patroclus/` (no pose slot, or the combat art pipeline).
+- Antigone holds two **staged wants** (rules 133, unordered, at most three): the
+  rites laid in the Hollow, and, once the guard holds Creon's writ and until
+  the burial, being at the Hollow herself. The seeded pick chooses between the
+  open ones; after the burial her wants are drawn.
+- **Trade** Creon the decree for his writ, with the household token in hand
+  and the elder's witness, to petition (revision 20: Creon holds the writ and
+  wants the decree back). Given the writ, the guard stands aside.
+- **Patroclus** (rules 133) is the first companion. Once Polynices is buried
+  he stands aboard the Charybdis; when the ship docks without the traveler he
+  steps ashore on the Wine-Dark Harbor quay. Meeting him there, aboard or on the
+  quay, sets his trust in the traveler to 1 (the `trust` effect on
+  `greek-meet-patroclus` and `greek-meet-patroclus-quay`), so Talk tells that he
+  wants bread (`want.minTrust: 1`). A gift of bread makes it 2, and then he
+  travels with the traveler; his home is Piraeus Quays. His portrait is a
+  plain placeholder (`patroclus.svg`); the finished set is in
+  `docs/design/assets/patroclus/` and waits for the image build.
+- The Theban-response branch is gone (the report-plan, permitted-burial and
+  courtyard choices, the Guard's Tablet and the `greek-theban-response`
+  outcomes): the burial is the three rites in the Hollow, and burying
+  Polynices opens the Open Door.
+
+### Locked boxes (rules 133)
+
+Every gated way and conditional resident in the pack is a locked box that
+tells its want: `sealed.reason` is the short phrase the context button shows
+when the play is blocked ("Give Myrto Helen’s Account Tablet to follow the
+Egyptian account.", "Not here until Polynices is buried."). Two are left
+unsealed on purpose: the Gate Guard draws his own way, and Patroclus is not on
+the table until the burial. The made things (the bread and the provisions)
+and the Wine-Dark Harbor lane to Piraeus tell their wants from their own
+data. No text goes on a card.
 
 ### The provisions loop (rules 95, 102)
 
@@ -98,11 +179,8 @@ away or leaves his post, the gate stays open. A petition needs the decree in han
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by
 the map rule it links directly to the gate. Beyond it the Cithaeron road
-leads over the mountain to Eleusis. From the battlefield it opens while a
-Theban account (the Burial Account, Creon's Writ or the Guard's Tablet) is
-at the battlefield or on Dione's table in the courtyard, and stays open after
-that account moves away. The way back from Eleusis is always open. The road is in
-the Open Door, so it opens with Dione's report.
+leads over the mountain to Eleusis. It is open both ways. The road is in
+the Open Door section, so it appears once the burial opens the Open Door.
 
 Three short story cards follow the opening. The Bard carries its growing
 poem. Finishing a quest brings him to the next room the player enters.

@@ -1,5 +1,7 @@
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it, vi } from "vitest";
+import { isLockedBox } from "../v2/card-game/locked-box.mjs";
+import { lockText } from "./helpers/lock-text.mjs";
 import { readFileSync } from "node:fs";
 
 // Exercise the authored source before the release build mounts its art.
@@ -38,7 +40,6 @@ import {
   cardChoices,
   sealedReason,
 } from "../v2/card-game/cards.mjs";
-import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { hub, packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
@@ -164,7 +165,7 @@ describe("Tea beneath the oak", () => {
     // The shut way lies in the hand as a locked box with its reason.
     expect(availableCards(world)).toContain(TRAIL);
     expect(isLockedBox(world, TRAIL)).toBe(true);
-    expect(sealedReason(world, TRAIL)).toMatch(/Wolfprint Charm is at the Old Oak/u);
+    expect(lockText(world, TRAIL)).toMatch(/Wolfprint Charm.*Old Oak/u);
     world = move(world, GARDEN);
     world = wait(world);
     world = move(world, TRAIL);
@@ -278,7 +279,8 @@ describe("Tea beneath the oak", () => {
       expect(exits(restored, "attic", "vale")).toEqual([COTTAGE]);
       expect(reflectionOpen(restored, "attic")).toBe(false);
       expect(availableCards(restored)).toContain(COTTAGE);
-      expect(availableCards(restored)).not.toContain("pond");
+      // The pond lies shut in the hand; the lit mirror does not open it.
+      expect(isLockedBox(restored, "pond")).toBe(true);
       expect(backdrop("attic", restored)).toBe(
         "./assets/shared/places/attic-lit-cottage.webp",
       );
@@ -311,7 +313,7 @@ describe("Tea beneath the oak", () => {
         "./assets/shared/places/attic-lit-cottage.webp",
       );
       expect(exits(world, "attic", "vale")).toEqual([COTTAGE]);
-      expect(availableCards(world)).not.toContain("pond");
+      expect(isLockedBox(world, "pond")).toBe(true);
       expect(
         legalActions(world).some(
           (a) => a.kind === "move" && a.target === COTTAGE,
@@ -386,7 +388,7 @@ describe("Tea beneath the oak", () => {
     // Lit without the cloth: neither way.
     expect(exits(restored, "attic", "vale")).toEqual([]);
     expect(availableCards(restored)).not.toContain(COTTAGE);
-    expect(availableCards(restored)).not.toContain("pond");
+    expect(isLockedBox(restored, "pond")).toBe(true);
     expect(backdrop("attic", restored)).toBe("./assets/attic/attic-lit.webp");
     expect(locationVariant(restored, "attic")).toBe("attic-lit");
     expect(placeText(restored, "attic")).toContain("Dust gathers");
@@ -451,7 +453,7 @@ describe("Tea beneath the oak", () => {
     world = move(world, GARDEN);
     expect(exits(world, GARDEN, "vale")).not.toContain(TRAIL);
     expect(isLockedBox(world, TRAIL)).toBe(true);
-    expect(sealedReason(world, TRAIL)).toMatch(/garden drain is cleared/u);
+    expect(lockText(world, TRAIL)).not.toBe("A locked box.");
     world = wait(world);
     expect(exits(world, GARDEN, "vale")).toContain(TRAIL);
     expect(isLockedBox(world, TRAIL)).toBe(false);

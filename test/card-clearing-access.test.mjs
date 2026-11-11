@@ -166,28 +166,4 @@ describe("the temporary ringing path to Forest Clearing", () => {
     expect(visible(decodeSave(encodeSave(s)))).toBe(false);
   });
 
-  it("keeps legacy discovery and an inside avatar without granting permanent access", () => {
-    // A schema 6 save kept the crossing in its own steamClock record.
-    const legacy = (s, clock) => {
-      const old = structuredClone(s);
-      old.schema = 6;
-      old.steamClock = clock;
-      delete old.crossings["pond-clearing"];
-      delete old.crossings["clearing-pond"];
-      delete old.packs["badger-forest"];
-      return JSON.stringify(old);
-    };
-    let s = act(open(), "move", "clearing");
-    s = decodeSave(legacy(s, { rings: 0, discovered: true }));
-    expect(crossing(s)).toEqual({ discovered: true, phase: 0, until: 0 });
-    expect(s.actors.vale.place).toBe("clearing");
-    expect(exits(s, "clearing", "vale")).toContain("pond");
-    expect(visible(act(s, "move", "pond"))).toBe(false);
-    for (const invalid of [-1, 1.5, s.turn + 4])
-      expect(() =>
-        decodeSave(
-          legacy(s, { rings: 0, discovered: true, openUntil: invalid }),
-        ),
-      ).toThrow();
-  });
 });

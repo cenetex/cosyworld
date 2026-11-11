@@ -58,15 +58,49 @@
         "sore": "A possession mistaken for its owner",
         "reason": "RATi listens for the small things people leave unsaid."
       },
-      "want": {
-        "kind": "place",
-        "target": "ratiradio-staff-kitchen"
-      },
       "requires": [
         {
           "kind": "flag",
           "key": "rati-awake",
           "value": true
+        }
+      ],
+      "wants": [
+        {
+          "want": {
+            "kind": "place",
+            "target": "ratiradio-listening-room",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "ratiradio-red-beanie"
+              ]
+            }
+          }
+        },
+        {
+          "want": {
+            "kind": "place",
+            "target": "ratiradio-listening-room",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "ratiradio-raven-figurine"
+              ]
+            }
+          }
+        },
+        {
+          "want": {
+            "kind": "place",
+            "target": "ratiradio-listening-room",
+            "step": {
+              "verb": "lay",
+              "items": [
+                "ratiradio-glass"
+              ]
+            }
+          }
         }
       ]
     },
@@ -95,8 +129,7 @@
         }
       ],
       "sealed": {
-        "at": "ratiradio-listening-room",
-        "reason": "Put the glass, raven figurine, red beanie down in the Listening Room together."
+        "at": "ratiradio-listening-room"
       }
     }
   },
@@ -210,8 +243,7 @@
         "quest": {
           "kind": "item",
           "target": "ratiradio-red-beanie"
-        },
-        "reason": "Carry the Red Beanie to open this passage."
+        }
       }
     },
     {
@@ -228,8 +260,7 @@
         "quest": {
           "kind": "place",
           "target": "ratiradio-listening-room"
-        },
-        "reason": "Put the Thermos down at the Dispatch Window to open this passage."
+        }
       }
     },
     {
@@ -246,8 +277,7 @@
         "quest": {
           "kind": "place",
           "target": "ratiradio-broadcast-booth"
-        },
-        "reason": "Talk with RATi while holding the Raven Figurine to open this passage."
+        }
       }
     }
   ],

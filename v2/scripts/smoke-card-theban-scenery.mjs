@@ -1,9 +1,5 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import {
-  endStandoff,
-  revealCard,
-  selectCard,
-} from "./card-browser-helpers.mjs";
+import { clearSelection, endStandoff, holdItem, revealCard, setLampFuel, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -34,11 +30,11 @@ function initial() {
   s.actors["greek-rhapsode"].place = "attic";
   // The opening starts lit; douse it to open the mirror, then relight it at
   // the pond for the ship signal (#1653).
-  s = act(s, "snuff");
+  s = holdItem(s, null);
   s = act(s, "move", { target: "pond" });
-  s = act(s, "light");
+  s = holdItem(s, "lamp");
   s.items.cloth.holder = "vale";
-  s.items.lamp.fuel = 12;
+  setLampFuel(s, 12, "pond");
   s.items.bell.holder = "station";
   s.actors.moth.place = "station";
   s.actors.keeper.place = "station";
@@ -127,7 +123,7 @@ try {
         }
       }
       // A held item stays raised after its play; start each play fresh.
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
       for (const id of ids) {
         await selectCard(page, id);
       }
@@ -140,7 +136,7 @@ try {
           ...document.querySelectorAll("#hand img,#backdrop,.location-overlay"),
         ].every((i) => i.complete && i.naturalWidth > 0),
       );
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
       await page.locator("#hand").evaluate((h) => (h.scrollLeft = 0));
       assert(
         await page.evaluate(

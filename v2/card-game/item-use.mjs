@@ -9,6 +9,13 @@ export const usedUp = (world, id) =>
 // that named it as a keepsake, a stake or a taken thing lets it go, so a
 // regrown loaf can never answer an old theft.
 export function useUp(world, id, rest) {
+  sendHome(world, id, rest);
+  world.usedUp = [...new Set([...(world.usedUp || []), id])].sort();
+}
+
+// Put a thing at its rest, as using it up does, but leave it in play: what it
+// held is left where it was, and every record that named it lets it go.
+export function sendHome(world, id, rest) {
   const item = world.items[id];
   let place = item.holder;
   for (let i = 0; i < 32 && world.items[place]; i++)
@@ -18,7 +25,6 @@ export function useUp(world, id, rest) {
     if (other.holder === id) other.holder = place;
   item.holder = rest;
   item.history = [];
-  world.usedUp = [...new Set([...(world.usedUp || []), id])].sort();
   for (const list of Object.values(world.motives?.grievances || {}))
     for (const g of list) if (g.item === id) delete g.item;
   for (const c of world.standoffs || []) if (c.item === id) c.item = null;

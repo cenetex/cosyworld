@@ -1,5 +1,6 @@
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
 import {
+  holdItem,
   readyActionButton,
   revealCard,
   selectCard,
@@ -24,16 +25,9 @@ function fixture(kind) {
   const start =
     kind === "resident" ? atticOpening() : createWorld({ opening: true });
   let s = enableMotives(start);
-  s = play(
-    s,
-    legalActions(s).find((a) => a.kind === "snuff"),
-  ).state;
+  s = holdItem(s, null);
   for (const target of kind === "resident" ? [] : ["pond", "attic"]) {
-    if (target === "attic")
-      s = play(
-        s,
-        legalActions(s).find((a) => a.kind === "light"),
-      ).state;
+    if (target === "attic") s = holdItem(s, "lamp");
     const move = legalActions(s).find(
       (action) => action.kind === "move" && action.target === target,
     );
@@ -45,9 +39,8 @@ function fixture(kind) {
   s.actors.moth.place = kind === "resident" ? "pond" : "attic";
   s.items.lamp.holder = "vale";
   s.items.lamp.fuel = 8;
-  // A doused lamp in the attic keeps the mirror open.
-  s.items.lamp.lit = false;
-  return s;
+  // A doused lamp in the attic keeps the mirror open: hold nothing.
+  return holdItem(s, null);
 }
 
 const server = createServer();
@@ -173,8 +166,25 @@ try {
         requestAnimationFrame(sample);
       });
       if (kind === "shared") await selectCard(page, "moth");
+      // The pond arrives as a closed box when the lamp is first put out.
+      if (kind === "resident") {
+        await revealCard(page, "pond");
+        // Vale's own first line (turn 0) holds the bar until it is read.
+        await page.locator("#dialogue-advance").click();
+      }
       await selectCard(page, "pond");
+      const arrival =
+        kind === "resident"
+          ? page.waitForRequest(
+              (r) => r.url().endsWith("/card-game/text") && r.postDataJSON().turn > 0,
+            )
+          : null;
       await readyActionButton(page).click();
+      // Vale's turn-0 opening line is already on the bar: wait for the trip.
+      if (kind === "resident")
+        await page.waitForFunction(() =>
+          /\/pond\./.test(document.querySelector("#backdrop").getAttribute("src")),
+        );
       if (kind === "reset") {
         await startNewGame(page);
         // A new game opens on the attic without a quest reveal.
@@ -256,9 +266,19 @@ try {
       );
       const firstPond = captured.frames.find((f) => f.backdrop === pondImage);
       const firstSpeech = speaks
-        ? captured.frames.find((f) => f.speech)
+        ? // Speech on the bar before the trip (Vale's turn-0 line) is not the
+          // arrival's.
+          captured.frames.find((f) => f.speech && f.at >= firstPond.at)
         : captured.frames.at(-1);
-      if (!speaks) assert.equal(request, undefined, "Travel sends no request.");
+      if (arrival) request = (await arrival).postDataJSON();
+      // Travel may draw Vale's own action reaction (a6fe6cd61), but never
+      // an arrival or meeting line.
+      if (!speaks)
+        assert.equal(
+          request?.occasion ?? "action",
+          "action",
+          "Travel asks only for the avatar's action reaction.",
+        );
       report.firstPond = firstPond;
       report.firstSpeech = firstSpeech;
       assert.equal(firstPond.placeCard, "pond");
@@ -318,7 +338,7 @@ try {
       // holds the hand while the arrival speaks.
       if (speaks)
         assert.deepEqual(
-          request.outcome.avatars.find((a) => a.id === "moth").travel
+          request.outcome.avatars.find((a) => a.id === "moth")?.travel
             ?.companions ?? [],
           kind === "shared" ? ["vale"] : [],
         );

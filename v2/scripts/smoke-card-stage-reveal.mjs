@@ -228,10 +228,10 @@ try {
       await page.waitForFunction(
         () => document.body.dataset.lamplit === "false",
       );
-      // The pond, the attic's one way on, lies face down at the row's right
-      // end (#2272).
+      // The pond, the attic's one way on, lay in the row's right end as a
+      // locked box; putting the lamp out turns it over (rules 133).
       await page.waitForSelector(
-        '#hand > .card-frame:last-child > .card[data-card="pond"][data-unrevealed="true"]',
+        '#hand > .card-frame:last-child > .card[data-card="pond"][data-locked="false"]',
       );
       seen = await view();
       assert.deepEqual(seen.cast, ["vale"]);

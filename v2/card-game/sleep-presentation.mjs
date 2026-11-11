@@ -1,19 +1,16 @@
 // Waking, as the stage shows it (sleep spec §2 and §3). A sleep that ends
 // across dusk or dawn fades the stage to black, holds it, and opens on the
-// new light. A long rest that brings a level quest first shows the dream:
-// the dark keeps only the dreamer, a DREAM card enters, "Dreaming…" stands
-// while its words come, they reveal, the quest is dealt face down, and then
-// the light returns. An ordinary rest shows no dream card, and a sleep that
-// crosses no light only dims and lifts.
+// new light. A long rest halfway to a level shows the dream: the dark keeps
+// only the dreamer, a DREAM card enters, "Dreaming…" stands while its words
+// come, they reveal, and then the light returns. An ordinary rest shows no
+// dream card, and a sleep that crosses no light only dims and lifts.
 //
 // Presentation only: this reads the committed world and never touches the
 // rules, saves, the journal or sync. The timing is the theatre vocabulary's
 // three tiers (turn gap 200–350 ms, pause 700–1000 ms, silence 1500–2200 ms)
 // with its fades, held black and entrance.
 import { isNight } from "./daylight.mjs";
-import { ENTRY_MS, QUEST_DOWN_MS, questEntryKey } from "./card-entry.mjs";
-import { questCards } from "./quest-card.mjs";
-import { questsOf } from "./want.mjs";
+import { ENTRY_MS } from "./card-entry.mjs";
 
 // The stage fades to black, a pause.
 export const FADE_MS = 900;
@@ -21,8 +18,6 @@ export const FADE_MS = 900;
 export const HELD_MS = 700;
 // The DREAM card's entrance, as a card rises into the hand.
 export const ENTER_MS = ENTRY_MS;
-// The quest rises, lies face down and turns over (card-entry.mjs).
-export const QUEST_MS = ENTRY_MS + QUEST_DOWN_MS + 700;
 // The stage opens onto the new light, the longest fade.
 export const OPEN_MS = 2500;
 // A sleep that crosses no light dims and lifts, a pause each way.
@@ -49,21 +44,13 @@ export function sleepWake(world, viewer, fromTurn = null) {
     fromTurn !== null && fromTurn !== undefined && fromTurn < entry.turn
       ? isNight({ turn: fromTurn }) !== isNight(world)
       : entry.woke === "dawn" || entry.woke === "dusk";
-  // Only a level quest dealt by this long rest brings a dream (owner,
-  // 2026-11-04); an ordinary rest's reflection is not shown as one. The
-  // halfway glimpse is the level's other dream (rules 99): the DREAM card
-  // with the one aspect it locked beside it, partly shown.
+  // Only the halfway glimpse brings a dream (rules 99): the DREAM card with
+  // the one aspect it locked beside it, partly shown. An ordinary rest's
+  // reflection is not shown as one.
   const glimpse =
     long && entry.dream === "glimpse"
       ? (world.actors[viewer]?.glimpse ?? null)
       : null;
-  const cards = questCards(world, viewer);
-  const quests = long
-    ? questsOf(world, viewer)
-        .map((want, i) => (want.quest && want.since === entry.turn ? i : -1))
-        .filter((i) => i >= 0 && cards[i])
-        .map((i) => questEntryKey(cards[i]))
-    : [];
   return {
     key: `wake:${entry.seq}`,
     seq: entry.seq,
@@ -74,9 +61,8 @@ export function sleepWake(world, viewer, fromTurn = null) {
     long,
     crossed,
     night: isNight(world),
-    quests,
     glimpse,
-    dream: quests.length > 0 || Boolean(glimpse),
+    dream: Boolean(glimpse),
   };
 }
 
@@ -93,7 +79,6 @@ export function sleepPlan(wake) {
     "fade",
     "held",
     ...(wake.dream ? ["enter", "dreaming", "dream"] : []),
-    ...(wake.quests?.length ? ["quest"] : []),
     "light",
     "done",
   ];
@@ -106,13 +91,12 @@ export function beatMs(beat, reduced = false) {
     fade: FADE_MS,
     held: HELD_MS,
     enter: ENTER_MS,
-    quest: QUEST_MS,
     light: OPEN_MS,
     dim: DIM_MS,
     lift: DIM_MS,
   };
   if (!(beat in motion)) return null;
-  if (!reduced || beat === "held" || beat === "quest") return motion[beat];
+  if (!reduced || beat === "held") return motion[beat];
   return CROSSFADE_MS;
 }
 
@@ -123,15 +107,13 @@ export const DARK_BEATS = new Set([
   "enter",
   "dreaming",
   "dream",
-  "quest",
 ]);
 
 // One wake's sequence. Timers come from `schedule`/`cancel`, so tests can
 // drive it by hand. `changed(state)` runs at every beat and change;
 // `finishReveal()` asks the dialogue to finish writing the dream.
 //
-// A tap finishes the current beat. It never skips the quest's arrival:
-// a tap while the quest is dealt does nothing. On "Dreaming…" the first tap
+// A tap finishes the current beat. On "Dreaming…" the first tap
 // asks and the second cancels; the dream then reads "…", as failed words do.
 export function createSleepSequence({
   plan,
@@ -207,7 +189,6 @@ export function createSleepSequence({
     state,
     tap() {
       switch (beat()) {
-        case "quest":
         case "done":
           return "held";
         case "dreaming":

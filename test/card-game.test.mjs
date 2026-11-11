@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { readFileSync } from "node:fs";
 import { setImmediate as yieldToRunner } from "node:timers/promises";
@@ -285,7 +286,7 @@ describe("the reflected shore card game", () => {
       play(s, plan(s).action),
     );
     expect(() => decodeSave("{")).toThrow();
-    expect(() => decodeSave(JSON.stringify({ ...s, schema: 8 }))).toThrow();
+    expect(() => decodeSave(JSON.stringify({ ...s, schema: 9 }))).toThrow();
     const broken = structuredClone(s);
     broken.items.cloth.holder = "cloth";
     expect(() => validateWorld(broken)).toThrow();

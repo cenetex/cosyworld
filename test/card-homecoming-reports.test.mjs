@@ -75,7 +75,6 @@ describe("early Open Door reports", () => {
       expect(giveDione(world, item)).toBeUndefined();
     },
   );
-
   it("opens a local report only after a completed story", () => {
     const world = openDoorStart();
     world.items["greek-pyre-account"].holder = "vale";
@@ -88,7 +87,6 @@ describe("early Open Door reports", () => {
         ],
     ).toBeFalsy();
   });
-
   it("lets the full account cover every local report", () => {
     const { world } = journey;
     expect(flags(world)["greek-open-door-returned"]).toBe(true);
@@ -105,7 +103,6 @@ describe("early Open Door reports", () => {
     ).toBe(true);
   });
 });
-
 describe("Open Door roads home", () => {
   // The countryside reaches the harbour through the city, so a full Agora
   // holds it until someone leaves. Piraeus goes home by the quays.
@@ -135,7 +132,6 @@ describe("Open Door roads home", () => {
         expect(world.actors[actor].place).toBe("greek-athens");
     },
   );
-
   it("connects the countryside places after Dione’s invitation", () => {
     let world = openDoorStart();
     world = openDoorWalk(

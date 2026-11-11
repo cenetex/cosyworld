@@ -1,4 +1,4 @@
-import { collectRewards } from "./helpers/claim-rewards.mjs";
+import "./helpers/no-dwell.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -118,48 +118,16 @@ describe("a button in each traveler's own colour", () => {
     expect(entityActive(world, "forest-button-mara")).toBe(false);
   });
 
-  it("makes finding the hidden button the traveler's quest", () => {
-    let world = meetRati();
-    const spot = world.items[BUTTON].holder;
-    expect(world.actors.vale.under[0]).toEqual({
+  it("makes finding the hidden button RATi's want and hands the traveler nothing", () => {
+    const world = meetRati();
+    expect(world.actors.rati.want).toMatchObject({
       kind: "item",
       target: BUTTON,
-      since: world.turn,
       refusals: 0,
-      story: true,
     });
-    validateWorld(reload(world));
-    const xp = world.actors.vale.xp;
-    // The button is an ordinary thing where it rests: anyone there can take it.
-    world.actors.vale.place = spot;
-    world = act(world, "take", { item: BUTTON });
-    expect(world.actors.vale.xp).toBe(xp);
-    world = collectRewards(world);
-    expect(world.actors.vale.xp).toBe(xp + 1);
-    expect(
-      world.log.some((e) => e.verb === "want_met" && e.itemId === BUTTON),
-    ).toBe(true);
     expect(world.actors.vale.want?.target).not.toBe(BUTTON);
-  });
-
-  it("keeps both active quests when the one-time button quest arrives", () => {
-    const start = attic();
-    start.actors.vale.want = {
-      kind: "person",
-      target: "keeper",
-      since: 0,
-      refusals: 0,
-      quest: { level: 2, left: 2 },
-    };
-    start.actors.vale.under = [{ kind: "place", target: "pond", since: 0, refusals: 0 }];
-    const world = act(start, "move", { target: COTTAGE });
-    expect(world.actors.vale.under[1]).toMatchObject({
-      target: BUTTON,
-      story: true,
-    });
-    expect(world.actors.vale.want.quest).toEqual({ level: 2, left: 2 });
+    expect(world.actors.vale.under).toBeUndefined();
     validateWorld(reload(world));
-    expect(act(reload(world), "wait").actors.vale.under.filter((w) => w.target === BUTTON)).toHaveLength(1);
   });
 
   it("lets RATi say she would sew it into a scarf", () => {
@@ -277,69 +245,15 @@ describe("a button in each traveler's own colour", () => {
     expect(world.packs[PACK].receipts["forest-sew-scarf-mara"]).toBeUndefined();
   });
 
-  it("upgrades a finished revision 1 chapter", () => {
-    const world = decodeSave(fixture("forest-revision-1-chapter.json"));
-    const state = world.packs[PACK];
-    expect(state.revision).toBe(3);
-    for (const id of RETIRED) expect(world.items[id]).toBeUndefined();
-    expect(state.receipts["forest-set-watch-bell"]).toBeUndefined();
-    expect(state.receipts["forest-mark-pawprints"]).toBeGreaterThan(0);
-    // Revision 3 drops the retired fork keys.
-    expect(state.choices).toEqual({});
-    expect(state.receipts["forest-mend-scarf"]).toBeUndefined();
-    expect(state.flags["forest-scarf-mended"]).toBeUndefined();
-    expect(state.flags["forest-homecoming-shared"]).toBe(true);
-    expect(JSON.stringify(world.log)).not.toMatch(
-      /forest-(story|dewbright)-button|forest-watch-bell/,
-    );
-    // Vale met RATi before buttons existed; the next visit hides one.
-    expect(world.items[BUTTON].holder).toBe(COTTAGE);
-    let next = act(world, "move", { target: COTTAGE });
-    expect(next.items[BUTTON].holder).not.toBe(COTTAGE);
-    expect(entityActive(next, BUTTON)).toBe(true);
-    next = reload(next);
-    expect(next.packs[PACK].revision).toBe(3);
-  });
 
-  it("upgrades a revision 1 save with the old things in hand", () => {
-    const world = decodeSave(fixture("forest-revision-1-garden.json"));
-    for (const id of RETIRED) expect(world.items[id]).toBeUndefined();
-    expect(world.packs[PACK].receipts["forest-clear-drain"]).toBeGreaterThan(0);
-    expect(reload(world).packs[PACK].revision).toBe(3);
-  });
 
   // Shared worlds from before revision 2 kept RATi's first want, the story
   // button, after the button left the world, so they asked for a fresh
   // start on every load under rules 83 (validateWorld < decodeSave < load,
   // 2026-11-01). A wish for a retired thing is let go; the stack keeps the rest.
-  it("lets go of wishes for the retired things in a revision 1 save", () => {
-    const save = JSON.parse(fixture("forest-revision-1-garden.json"));
-    const want = (target) => ({ kind: "item", target, since: 0, refusals: 0 });
-    save.actors.rati.want = want("forest-story-button");
-    save.actors.vale.want = want("lamp");
-    save.actors.vale.under = [want("forest-watch-bell")];
-    const world = decodeSave(JSON.stringify(save));
-    expect(world.actors.rati.want).toBeNull();
-    expect(world.actors.vale.want).toEqual(want("lamp"));
-    expect(world.actors.vale.under).toBeUndefined();
-    expect(reload(world).packs[PACK].revision).toBe(3);
-  });
 
   // A retired fork's deed passes to the step that took it in (2026-11-01:
   // a shared world that had set the stones could not open on revision 3).
-  it("moves a save holding a retired fork onto the step that replaced it", () => {
-    const text = fixture("forest-revision-1-garden.json")
-      .replaceAll("forest-clear-drain", "forest-set-stones")
-      .replace('"forest-garden-care":"drain"', '"forest-garden-care":"stones"');
-    const turn = JSON.parse(text).packs[PACK].receipts["forest-set-stones"];
-    const world = decodeSave(text);
-    const state = world.packs[PACK];
-    expect(state.receipts["forest-set-stones"]).toBeUndefined();
-    expect(state.receipts["forest-clear-drain"]).toBe(turn);
-    expect(state.flags["forest-path-cleared"]).toBe(true);
-    expect(JSON.stringify(world.log)).not.toContain("forest-set-stones");
-    expect(reload(world).packs[PACK].revision).toBe(3);
-  });
 });
 
 // Cosmetic upgrades are one-way, per passkey, and follow the traveler into

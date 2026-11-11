@@ -1,5 +1,6 @@
 //! Multiplayer extends the existing authored card world and save format.
 use super::bindings;
+use super::full_floor as floor;
 use super::unlocks;
 use super::{
     admit, capacity, db, full_store as store,
@@ -118,6 +119,14 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
         blocking(move || {
             let u = user(&state, &h, false)?;
             let mut c = db(&state)?;
+            // Worlds on rules older than the floor retire first, keeping the
+            // passkey's avatar levels (full_floor.rs).
+            store::schema(&c)?;
+            if floor::pending(&c, &u)? {
+                if let Err(error) = tidy(&state, &mut c, |tx| floor::sweep(tx, &u, now())) {
+                    tracing::warn!(%error, "old worlds kept for now");
+                }
+            }
             if dedupe::pending(&c, &u)? {
                 if let Err(error) = tidy(&state, &mut c, |tx| dedupe::run(tx, &u, now())) {
                     tracing::warn!(%error, "duplicate avatar seats kept for now");
@@ -504,6 +513,10 @@ fn hand_over(
 // progress until the move can reset it in this same transaction.
 fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: i64) -> Result<()> {
     for other in bindings::seats_elsewhere(c, id, u, a)? {
+        // A world on rules older than the floor retires instead of opening.
+        if floor::retire(c, &other, time)? {
+            continue;
+        }
         let mut w = store::world(c, &other, time)?;
         store::expire(c, &other, &mut w, time)?;
         vacate(c, &other, &mut w, a, time)?;
@@ -604,15 +617,6 @@ pub(super) fn run(
                     id,
                     &mut w,
                     json!({"op":"hold","actor":actor_id(a),"choice":b.action}),
-                    time,
-                )?;
-            }
-            "seek" => {
-                store::commit(
-                    c,
-                    id,
-                    &mut w,
-                    json!({"op":"seek","actor":actor_id(a)}),
                     time,
                 )?;
             }

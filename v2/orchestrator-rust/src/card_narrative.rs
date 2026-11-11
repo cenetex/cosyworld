@@ -541,8 +541,8 @@ struct Context {
     /// "long" when the resting avatar wakes from a long rest at a sanctuary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rest: Option<String>,
-    /// What that long rest dreamed by the rules (rules 99): "glimpse" or
-    /// "quest". Only then is a dream due.
+    /// What that long rest dreamed by the rules (rules 133): "glimpse".
+    /// Only then is a dream due.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     dream: Option<String>,
     #[serde(default)]
@@ -1528,9 +1528,9 @@ pub(super) fn client_budget_ms() -> u128 {
 }
 
 const THOUGHT_GAP: u64 = 6;
-/// The dreams a long rest may bring by the rules: the halfway glimpse and the
-/// level quest, one or two a level (rules 99).
-const DREAMS: [&str; 2] = ["glimpse", "quest"];
+/// The dream a long rest may bring by the rules: the halfway glimpse, once a
+/// level (rules 133; the level quest no longer dreams).
+const DREAMS: [&str; 1] = ["glimpse"];
 
 /// Mirrors `reflectionDue` in the card rules: only the avatar who waited
 /// thinks, after something new happened to them. A dream is due only when a
@@ -3102,11 +3102,11 @@ pub(crate) mod tests {
     /// Vale waited with two thoughts settled since any dream, so a thought
     /// and a dream are both due. Earlier events count as new since then.
     /// A dream is due only on waking from a long rest that dreamed by the
-    /// rules (rules 99): here the level quest's.
+    /// rules (rules 133): the halfway glimpse.
     pub(super) fn dream_due(c: &mut Context) {
         resting(c);
         c.rest = Some("long".into());
-        c.dream = Some("quest".into());
+        c.dream = Some("glimpse".into());
         c.turn = c.turn.max(20);
         c.revision = c.revision.max(c.turn);
         let vale = &mut c.entities[0];
@@ -3702,14 +3702,15 @@ pub(crate) mod tests {
         assert!(valid(&c));
         // An ordinary long rest brings a thought and no dream (rules 99).
         assert_eq!(reflection_due(&c, &c.entities[0]), (true, false));
-        for dream in ["glimpse", "quest"] {
-            c.dream = Some(dream.into());
-            assert!(valid(&c));
-            assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
-        }
+        c.dream = Some("glimpse".into());
+        assert!(valid(&c));
+        assert_eq!(reflection_due(&c, &c.entities[0]), (true, true));
+        // The level quest no longer dreams (rules 133).
+        c.dream = Some("quest".into());
+        assert!(!valid(&c));
         c.dream = Some("nightmare".into());
         assert!(!valid(&c));
-        c.dream = Some("quest".into());
+        c.dream = Some("glimpse".into());
         c.rest = Some("short".into());
         assert!(!valid(&c));
         // A dream belongs to a long rest.
@@ -3846,7 +3847,7 @@ pub(crate) mod tests {
         value["entities"][3]["facts"] = json!([]);
         value["entities"][3]["poem"] = json!({
             "title":"Before the Burial",
-            "stanzas":[{"id":"greek-report-plan","turn":1,"authorId":"vale","authorName":"Vale"}]
+            "stanzas":[{"id":"greek-return-water-jar","turn":1,"authorId":"vale","authorName":"Vale"}]
         });
         value["entities"][3]["memories"] = json!([]);
         serde_json::from_value(value).unwrap()
@@ -3898,11 +3899,9 @@ pub(crate) mod tests {
             .iter()
             .find(|pack| pack["id"] == "greek-drama")
             .unwrap()["recital"];
-        for (choice, buried, permitted) in [
-            ("greek-perform-burial", true, false),
-            ("greek-petition-burial", false, true),
-            ("greek-perform-permitted-burial", true, true),
-            ("greek-report-plan", false, false),
+        for (choice, buried) in [
+            ("greek-bury-polynices", true),
+            ("greek-return-water-jar", false),
         ] {
             let mut c = bard_context();
             c.entities[3].poem = Some(
@@ -3919,13 +3918,10 @@ pub(crate) mod tests {
                 buried,
                 "{choice}"
             );
-            assert_eq!(
-                check
-                    .clean("The king gave permission for this one grave.", true)
-                    .is_ok(),
-                permitted,
-                "{choice}"
-            );
+            // No verse claims Creon's leave any more: nothing can make it true.
+            assert!(check
+                .clean("The king gave permission for this one grave.", true)
+                .is_ok());
             assert!(check
                 .clean("I wonder what that choice will mean tomorrow.", true)
                 .is_ok());

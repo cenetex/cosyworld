@@ -267,7 +267,6 @@
           "from": "greek-harbor",
           "to": "greek-piraeus",
           "oneWay": true,
-          "reason": "Put the Travel Provisions down on deck",
           "opensWith": [
             {
               "kind": "any",
@@ -284,7 +283,8 @@
                 }
               ]
             }
-          ]
+          ],
+          "sealed": true
         },
         {
           "from": "greek-piraeus",

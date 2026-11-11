@@ -1,4 +1,4 @@
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
 // Actual card UI, deterministic speech fixture, and saved crossing conditions.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -103,14 +103,14 @@ try {
     const use = async (id) => {
       await ready();
       // A held item stays raised after its play; start each play fresh.
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
       await selectCard(page, id);
       await page.locator("#card-actions .card-primary").click();
       await ready();
     };
     const pair = async (one, two) => {
       await ready();
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
       await selectCard(page, one);
 
       await selectCard(page, two);

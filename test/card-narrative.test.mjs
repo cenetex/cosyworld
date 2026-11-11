@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { atticOpening, selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
 import { rest } from "./fixtures/card-rest.mjs";
@@ -202,9 +203,9 @@ describe("entity memories and model text", () => {
         .find((e) => e.id === "lamp")
         .memories.some((e) => e.text.includes("Vale takes")),
     ).toBe(true);
-    // Met with nothing beneath, Vale is content until she sleeps.
+    // Met, the want is paid and a player holds none until it takes another.
     const vale = context.entities.find((e) => e.id === "vale");
-    expect(world.actors.vale).toMatchObject({ want: null, content: true });
+    expect(world.actors.vale.want).toBeNull();
     expect(vale.desire).toEqual({ items: [], location: null, avatars: [] });
     expect(context.entities.every((e) => e.facts.length <= 16)).toBe(true);
     context.scenery = true;

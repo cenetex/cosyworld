@@ -38,11 +38,15 @@ try {
       claimed: ["vale", "mara"],
       present: ["vale", "mara"],
     };
-    for (const fields of [
-      // The opening starts lit; dousing opens the mirror (#1653).
-      { kind: "snuff" },
-      { kind: "move", target: "pond" },
-    ]) {
+    // The opening starts lit; holding nothing puts the lamp out and opens the
+    // mirror (#1653, #2580).
+    seed = dispatchShared({
+      op: "hold",
+      world: seed,
+      ...membership,
+      choice: { item: null, revision: seed.revision },
+    }).world;
+    for (const fields of [{ kind: "move", target: "pond" }]) {
       const view = dispatchShared({ op: "view", world: seed, ...membership });
       const action = view.actions.find((a) =>
         Object.entries(fields).every(([key, value]) => a[key] === value),
@@ -166,7 +170,11 @@ try {
     // Talk carries one quest line, not quest titles. BoardyAI has not met
     // Mara, so his line keeps her unnamed (#1850).
     assert(
-      told.facts.some((fact) => fact === `I want to see ${UNKNOWN_PERSON}.`),
+      // Talk now adds "I would be glad of your help." to the want line
+      // (the offer rides in the Talk context, wants-and-arcs.md).
+      told.facts.some((fact) =>
+        fact.startsWith(`I want to see ${UNKNOWN_PERSON}.`),
+      ),
       "BoardyAI's Talk context carries his quest",
     );
     assert(!told.facts.some((fact) => fact.includes("Mara")));

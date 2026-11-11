@@ -6,17 +6,17 @@ import { createServer } from "../card-game/serve.mjs";
 import { currentActor, encodeSave, legalActions } from "../card-game/world.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { openingFixture } from "../../test/helpers/greek-opening.mjs";
 import {
   OPEN_DOOR_PLACES,
-  cityGateSteps,
   openDoorAction,
   openDoorSteps,
+  openDoorStart,
 } from "../../test/helpers/open-door.mjs";
 import {
   clearSelection,
   selectCard,
   smokeWidths,
+  unreachableCards,
   wordsFellSilent,
 } from "./card-browser-helpers.mjs";
 
@@ -26,8 +26,7 @@ export async function checkOpenDoor(browser, origin) {
   for (const width of smokeWidths([1440, 390])) {
     // Marathon and the full return are rumours in new worlds (rules 94); an
     // old full-scope world keeps all five stories, so the walk plays there.
-    const fixture = openingFixture("exposure").closed;
-    fixture.packs["greek-drama"].scope = "full";
+    const fixture = openDoorStart({ rumours: true });
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
       reducedMotion: "reduce",
@@ -105,6 +104,13 @@ export async function checkOpenDoor(browser, origin) {
           ),
           "The page fits the viewport",
         );
+        // Everything lying at the traveler's place can be tapped: shown, or
+        // in a stack whose top is shown (a place's things, the ways on).
+        assert.deepEqual(
+          await unreachableCards(page),
+          [],
+          `Every card at ${place} is reachable at ${width}px`,
+        );
         await page.waitForFunction(() =>
           [...document.querySelectorAll("#backdrop, #cast img")].every(
             (image) => image.complete && image.naturalWidth > 0,
@@ -168,18 +174,12 @@ export async function checkOpenDoor(browser, origin) {
 
       await page.goto(`${origin}/?table=${table}`);
       await settle();
-      // The guard's tablet on Dione's table has opened the road to Eleusis.
+      // Burying Polynices has opened the road to Eleusis.
       assert.ok(
         (await state()).packs["greek-drama"].flags["greek-open-door-open"],
       );
-      await step({ kind: "drop", item: "lamp", target: "greek-courtyard" });
       // Every story step is an ordinary play: a meeting, a Wait or a gift.
-      // The City Gate opens first, the land route to Eleusis: the bread buys
-      // the decree, the decree Creon's writ, and the writ moves the guard.
-      for (const action of [
-        ...cityGateSteps(),
-        ...openDoorSteps({ rumours: true }),
-      ]) {
+      for (const action of openDoorSteps({ rumours: true })) {
         const prior = (await state()).packs["greek-drama"].receipts;
         await step(action);
         const now = await state();

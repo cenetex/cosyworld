@@ -216,6 +216,14 @@ try {
         normalized.revision = old.revision;
         normalized.actors.vale.heldItem = old.actors.vale.heldItem;
         normalized.items.lamp.lit = old.items.lamp.lit;
+        // Lighting the lamp on the shore opens the mirror back to the attic, a
+        // box that pays its one XP once (rules 133).
+        for (const field of ["xp", "level"])
+          if (old.actors.vale[field] === undefined)
+            delete normalized.actors.vale[field];
+          else normalized.actors.vale[field] = old.actors.vale[field];
+        if (old.opened === undefined) delete normalized.opened;
+        else normalized.opened = old.opened;
         assert.deepEqual(normalized, old, "only the quiet hand choice changes");
       }
       const tapCard = async (id) => {

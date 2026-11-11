@@ -1,0 +1,14 @@
+days=4 stand=start cast=61 movers=9
+completed stays=83 median=9 p10=1 p90=47 min=1 max=80
+stay histogram (turns): {"1":36,"2-3":1,"4-5":1,"6-11":4,"12-23":6,"24+":35}
+moves/day all movers: total 23.0, per mover mean 2.56
+per-resident moves/day (top 15):
+  greek-rhapsode               6.3/day  median stay 1
+  keeper                       2.3/day  median stay 26
+  greek-market-neighbor        2.3/day  median stay 24
+  greek-temple-attendant       2.3/day  median stay 16
+  greek-ferryman               2.3/day  median stay 24
+  greek-elder                  2.0/day  median stay 15
+  rati                         2.0/day  median stay 1
+  whiskerwind                  2.0/day  median stay 1
+  moth                         1.8/day  median stay 25
