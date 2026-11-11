@@ -17,6 +17,14 @@
   ],
   "rules": [
     {
+      "paths": "^v2/card-game/(world/(boxes|offers|home)|want|want-talk|talk-quest|quest-(card|screen|step)|locked-box|offer-chance|card-level-up|homecoming|resident-home|world-level)\\.mjs$|^v2/scripts/smoke-card-(quest-offers|locked-box|lock-quests)\\.mjs$",
+      "smokes": [
+        "smoke-card-locked-box",
+        "smoke-card-lock-quests",
+        "smoke-card-quest-offers"
+      ]
+    },
+    {
       "paths": "^v2/card-game/(entry|title-intro)\\.mjs$",
       "smokes": ["smoke-card-startup-recovery"]
     },

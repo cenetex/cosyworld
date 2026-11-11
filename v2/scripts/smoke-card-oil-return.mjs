@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { roomFuelFromTurns } from "../card-game/lamp-room-fuel.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/oil-return/", import.meta.url);
@@ -12,7 +13,9 @@ await mkdir(output, { recursive: true });
 const start = createWorld();
 start.actors.vale.place = "pond";
 start.items.lamp.holder = "vale";
-start.items.lamp.fuel = 0;
+// Fuel is counted in rooms now; an empty tank is zero rooms.
+Object.assign(start.items.lamp, roomFuelFromTurns(0, "pond"), { fuel: 0 });
+start.actors.vale.heldItem = null;
 start.items.lamp.lit = false;
 start.items.oil.holder = "pond";
 
