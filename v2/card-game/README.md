@@ -566,7 +566,9 @@ A pack draws a gated way or a conditional resident as a locked box when its
 route or card carries `sealed` (a reason, and for a way a place goal): the
 Lonely Forest trail, the Sacred Way, the Long Walls, and Thaleia, an Argive
 mother, Iphis and Myrine in the Greek pack. The box cannot be entered, talked
-to or acted on until its old condition holds. A way or resident whose own place
+to or acted on until its old condition holds. A way whose preview goal names
+its own locked destination shows the authored reason, not a discovery caption.
+A way or resident whose own place
 carries the same condition has no place to lie in yet, so pack data cannot draw
 it (the Egypt, Troy and Argive accounts, the Open Door residents who share
 their section's flag, and the Ajax residents).

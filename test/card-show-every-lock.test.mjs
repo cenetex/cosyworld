@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { createWorld, legalActions } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { entityActive } from "../v2/card-game/pack-registry.mjs";
+import { openingFixture } from "./helpers/greek-opening.mjs";
 
 // Slice 4 of the wants design (#2605): every gated way and conditional
 // resident that pack data can draw is drawn as a locked box with a truthful
@@ -115,10 +116,18 @@ const lockedBox = (s, card, reason) => {
   expect(drawn(s, card), card).toMatchObject({ shown: true, locked: true });
   expect(drawn(s, card).reason, card).toMatch(reason);
   expect(canMove(s, card), `${card} cannot be entered`).toBe(false);
+  const before = JSON.stringify(s);
+  for (const known of [false, true])
+    expect(lockedQuest(s, card, () => known)).toEqual({
+      text: sealedReason(s, card),
+      cards: [],
+    });
+  expect(JSON.stringify(s)).toBe(before);
 };
 const openBox = (s, card) => {
   expect(drawn(s, card), card).toMatchObject({ shown: true, locked: false });
   expect(canMove(s, card), `${card} can be entered`).toBe(true);
+  expect(lockedQuest(s, card)).toBeNull();
 };
 // Nothing in the hand can act on a sealed resident.
 const untouchable = (s, who) => {
@@ -137,7 +146,6 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
     const s = at(world(), "greek-eleusis");
     greek(s)["greek-open-door-open"] = true;
     lockedBox(s, road, /request is heard.*petition/u);
-    expect(lockedQuest(s, road, () => true).text).toMatch(/^Discover /u);
     // Either condition alone opens nothing.
     greek(s)["greek-open-door-mothers-heard"] = true;
     s.items["greek-burial-petition"].holder = "greek-piraeus";
@@ -154,7 +162,6 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
       const s = at(world(), end);
       greek(s)["greek-open-door-open"] = true;
       lockedBox(s, walls, /petition is laid before Theseus.*Herald’s Truce/u);
-      expect(lockedQuest(s, walls, () => true).text).toMatch(/^Discover /u);
       greek(s)["greek-open-door-plea-registered"] = true;
       s.items["greek-olive-branch"].holder = "greek-piraeus";
       lockedBox(s, walls, /Herald’s Truce/u);
@@ -169,7 +176,7 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
 
 describe("Greek conditional residents are locked boxes that cannot be played", () => {
   const rows = [
-    ["greek-quay-host", "greek-piraeus", [], /Polynices is buried/u],
+    ["greek-quay-host", "greek-piraeus", [], /funeral.*give Dione.*account/u],
     [
       "greek-argive-mother",
       "greek-eleusis",
@@ -218,6 +225,34 @@ describe("Greek conditional residents are locked boxes that cannot be played", (
     // Aethra, whose only condition is the section's flag, is simply there.
     expect(entityActive(s, "greek-aethra")).toBe(true);
   });
+
+  it.each(["burial", "concession"])(
+    "names Dione's report for an earlier %s save",
+    (branch) => {
+      const s = openingFixture(branch, {
+        reportFirst: branch === "burial",
+      }).returning;
+      expect(greek(s)["greek-burial-performed"]).toBe(true);
+      expect(greek(s)["greek-open-door-open"]).toBeUndefined();
+      const away = at(structuredClone(s), "greek-piraeus");
+      expect(lockedQuest(away, "greek-quay-host").text).toMatch(
+        /give Dione an earlier Theban account/u,
+      );
+      untouchable(away, "greek-quay-host");
+      const action = legalActions(s).find(
+        (a) =>
+          a.kind === "give" &&
+          a.item === "greek-burial-account" &&
+          a.target === "greek-baker",
+      );
+      expect(action).toBeTruthy();
+      const result = play(s, action);
+      expect(result.ok).toBe(true);
+      expect(
+        lockedQuest(at(result.state, "greek-piraeus"), "greek-quay-host"),
+      ).toBeNull();
+    },
+  );
 });
 
 describe("Lonely Forest ways are drawn locked", () => {
@@ -231,7 +266,6 @@ describe("Lonely Forest ways are drawn locked", () => {
 
     let s = at(world(), "forest-garden");
     lockedBox(s, trail, /garden drain is cleared/u);
-    expect(lockedQuest(s, trail, () => true).text).toMatch(/^Discover /u);
     forest(s)["forest-path-cleared"] = true;
     openBox(s, trail);
 
