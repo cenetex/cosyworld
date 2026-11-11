@@ -27,7 +27,7 @@ import {
   places,
   things,
 } from "../card-game/world.mjs";
-import { smokeWidths, tapCard } from "./card-browser-helpers.mjs";
+import { smokeWidths, tapCard, unreachableCards } from "./card-browser-helpers.mjs";
 
 const shots = process.argv[2]
   ? new URL(`file://${process.argv[2].replace(/\/?$/u, "/")}`)
@@ -193,6 +193,7 @@ for (const [width, motion] of [
         `${label}: "${name}" is named before its card is turned`,
       );
   assert.equal(closedFacts.tells, 0, `${label}: a closed stack shows no tell`);
+  assert.deepEqual(await unreachableCards(page), [], `${label}: a closed pack's cards are reachable`);
   await shot("1-closed");
 
   // 2. Tap the pack: the hand rises, the cards rise face down, one button.
@@ -234,6 +235,7 @@ for (const [width, motion] of [
     assert.equal(card.breathes, motion !== "reduce", `${label}: the glow pulses only with motion`);
   }
   await page.waitForTimeout(700);
+  assert.deepEqual(await unreachableCards(page), [], `${label}: an open pack's cards are reachable`);
   await shot("2-open-face-down");
 
   // 3. A tap inside a pack turns the card at once and chooses nothing.
@@ -324,6 +326,7 @@ for (const [width, motion] of [
   assert.deepEqual([...(await handIds(page))].sort(), [...before].sort(), `${label}: every card is in the hand`);
   assert.equal(await page.locator("#hand [data-unrevealed='true']").count(), 0);
   assert.equal(await page.locator("#hand [data-pack]").count(), 0);
+  assert.deepEqual(await unreachableCards(page), [], `${label}: settled cards are reachable`);
   await shot("6-settled");
   assert.deepEqual(errors, [], `${label}: no page errors`);
   await page.close();

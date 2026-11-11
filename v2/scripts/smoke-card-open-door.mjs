@@ -16,6 +16,7 @@ import {
   clearSelection,
   selectCard,
   smokeWidths,
+  unreachableCards,
   wordsFellSilent,
 } from "./card-browser-helpers.mjs";
 
@@ -102,6 +103,13 @@ export async function checkOpenDoor(browser, origin) {
             () => document.documentElement.scrollWidth <= innerWidth + 1,
           ),
           "The page fits the viewport",
+        );
+        // Everything lying at the traveler's place can be tapped: shown, or
+        // in a stack whose top is shown (a place's things, the ways on).
+        assert.deepEqual(
+          await unreachableCards(page),
+          [],
+          `Every card at ${place} is reachable at ${width}px`,
         );
         await page.waitForFunction(() =>
           [...document.querySelectorAll("#backdrop, #cast img")].every(

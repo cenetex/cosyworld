@@ -218,6 +218,51 @@ async function fanAvatarStack(page, holder) {
 }
 // Escape folds the hand but keeps its held item. A scripted step naming its
 // own cards must also tap that item to stow it before making a fresh choice.
+// Every card in the hand is reachable to a person's tap: shown with a spot
+// that is its own, or tucked in a stack whose top is shown (a pack's stack, a
+// holder's stack, the ways on) and itself reachable. Returns the cards that
+// are not, so a stack with no visible top, or a card wholly under its
+// neighbours, cannot slip by. A card a person must scroll to counts as
+// shown. Pass to assert.deepEqual(await unreachableCards(page), []).
+export function unreachableCards(page) {
+  return page.evaluate(() => {
+    const frames = [...document.querySelectorAll("#hand > .card-frame")];
+    const buttonOf = (frame) => frame.querySelector(":scope > .card");
+    const tappable = (frame) => {
+      const el = buttonOf(frame);
+      if (frame.hidden || !el.checkVisibility()) return false;
+      el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
+      const box = el.getBoundingClientRect();
+      for (const fy of [0.3, 0.5, 0.7, 0.15])
+        for (let x = box.left + 4; x < box.right - 2; x += 6) {
+          const hit = document.elementFromPoint(x, box.top + box.height * fy);
+          if (hit === el || el.contains(hit)) return true;
+        }
+      return false;
+    };
+    const byId = (id) =>
+      frames.find((frame) => buttonOf(frame).dataset.card === id);
+    const reach = (frame, depth = 0) => {
+      if (depth > 4) return false;
+      if (tappable(frame)) return true;
+      if (!frame.hidden) return false;
+      if (frame.dataset.pack === "closed")
+        return frames.some((other) => other.dataset.pack === "closed" && tappable(other));
+      const holder = frame.dataset.holder && byId(frame.dataset.holder);
+      if (holder) return reach(holder, depth + 1);
+      // The ways on: tucked behind a shown card that folds them.
+      return frames.some(
+        (other) =>
+          !other.hidden &&
+          buttonOf(other).getAttribute("aria-expanded") === "false" &&
+          tappable(other),
+      );
+    };
+    return frames
+      .filter((frame) => buttonOf(frame).dataset.card && !reach(frame))
+      .map((frame) => buttonOf(frame).dataset.card);
+  });
+}
 export async function clearSelection(page) {
   await page.keyboard.press("Escape");
   const held = page.locator('#hand .card[aria-pressed="true"]');
@@ -249,15 +294,23 @@ export async function endStandoff(page, world, actor = "vale") {
 async function visibleSpot(card) {
   await card.scrollIntoViewIfNeeded();
   return card.evaluate((el) => {
-    const box = el.getBoundingClientRect();
-    for (const fy of [0.15, 0.3, 0.5]) {
+    const box = el.getBoundingClientRect(),
+      mine = (x, y) => {
+        const hit = document.elementFromPoint(x, y);
+        return hit === el || el.contains(hit);
+      };
+    // A card in the fan shows its left part; later cards lie over its right.
+    // Take the leftmost spot that stays the card's own a little to its right
+    // too, so the pointer's hover shifting the row does not move it away.
+    for (const fy of [0.3, 0.5, 0.7, 0.15]) {
       const y = box.top + box.height * fy;
-      for (let x = box.left + box.width / 2; x < box.right - 2; x += 6)
-        if (document.elementFromPoint(x, y) === el || el.contains(document.elementFromPoint(x, y)))
-          return { x: x - box.left, y: y - box.top };
-      for (let x = box.left + 2; x < box.left + box.width / 2; x += 6)
-        if (document.elementFromPoint(x, y) === el || el.contains(document.elementFromPoint(x, y)))
-          return { x: x - box.left, y: y - box.top };
+      for (let x = box.left + 10; x < box.right - 2; x += 6)
+        if (mine(x, y) && mine(x + 10, y)) return { x: x - box.left, y: y - box.top };
+    }
+    for (const fy of [0.3, 0.5, 0.7, 0.15]) {
+      const y = box.top + box.height * fy;
+      for (let x = box.left + 2; x < box.right - 2; x += 6)
+        if (mine(x, y)) return { x: x - box.left, y: y - box.top };
     }
     return { x: box.width / 2, y: box.height / 2 };
   });
