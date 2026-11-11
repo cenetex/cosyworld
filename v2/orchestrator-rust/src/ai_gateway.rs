@@ -51,7 +51,47 @@ const OPENROUTER_KEY_PROBE_TIMEOUT: Duration = Duration::from_secs(3);
 const OPENROUTER_KEY_RESPONSE_MAX_BYTES: usize = 64 * 1024;
 const OPENROUTER_ROOM_SESSION_PREFIX: &str = "cosyworld-room-";
 const SERVER_PAID_DAILY_LIMIT_USD: f64 = 20.0;
-static SERVER_PAID_INFERENCE_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+// Reservations are held in memory per server key. Estimates are deliberately
+// generous; OpenRouter's `usage_daily` stays authoritative once a call lands.
+const SERVER_PAID_CHAT_ESTIMATE_USD: f64 = 0.02;
+pub(crate) const SERVER_PAID_VOICE_ESTIMATE_USD: f64 = 0.05;
+const SERVER_PAID_IMAGE_ESTIMATE_USD: f64 = 0.25;
+static SERVER_PAID_LEDGERS: OnceLock<
+    std::sync::Mutex<std::collections::HashMap<String, Arc<ServerSpendLedger>>>,
+> = OnceLock::new();
+
+/// Per-key admission state. `admission` serializes only the usage probe and
+/// the reservation; `reserved_micro_usd` is what admitted, still-running
+/// calls are expected to cost but `usage_daily` does not show yet.
+#[derive(Default)]
+struct ServerSpendLedger {
+    admission: tokio::sync::Mutex<()>,
+    reserved_micro_usd: std::sync::atomic::AtomicU64,
+}
+
+/// An admitted call's reservation. Dropping it (success, failure or
+/// cancellation) releases the estimate; the next probe sees the real spend.
+pub(crate) struct ServerSpendReservation {
+    ledger: Arc<ServerSpendLedger>,
+    micro_usd: u64,
+}
+
+impl Drop for ServerSpendReservation {
+    fn drop(&mut self) {
+        self.ledger
+            .reserved_micro_usd
+            .fetch_sub(self.micro_usd, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+fn server_spend_ledger(config: &AiConfig) -> Arc<ServerSpendLedger> {
+    let key = format!("{}\0{}", config.base_url, config.api_key);
+    let mut ledgers = SERVER_PAID_LEDGERS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    Arc::clone(ledgers.entry(key).or_default())
+}
 // Bound model residents are the models they represent, including when that
 // model reasons before it speaks. Keep the published speech bounded in the
 // deterministic voice gate, but let the provider manage the private reasoning
@@ -854,7 +894,12 @@ async fn request_image_generation_with_selection(
     if !gate.is_ready() {
         return Err(AiGatewayError::readiness(request.feature, gate));
     }
-    let _server_spend_guard = enforce_server_paid_daily_limit(config, request.feature).await?;
+    let _server_spend_guard = enforce_server_paid_daily_limit_estimating(
+        config,
+        request.feature,
+        SERVER_PAID_IMAGE_ESTIMATE_USD,
+    )
+    .await?;
     let context_hash = {
         let mut hasher = Sha256::new();
         hasher.update(request.feature.as_bytes());
@@ -1792,17 +1837,26 @@ fn uses_server_paid_openrouter(config: &AiConfig) -> bool {
 pub(crate) async fn enforce_server_paid_daily_limit(
     config: &AiConfig,
     feature: &str,
-) -> Result<Option<tokio::sync::MutexGuard<'static, ()>>, AiGatewayError> {
+) -> Result<Option<ServerSpendReservation>, AiGatewayError> {
+    enforce_server_paid_daily_limit_estimating(config, feature, SERVER_PAID_CHAT_ESTIMATE_USD).await
+}
+
+/// Admit one server-paid call under the UTC daily budget. Only the usage
+/// probe and the reservation are serialized; the returned reservation is held
+/// by the caller through the provider request without blocking other calls.
+/// OpenRouter's `usage_daily` is authoritative for the key; reservations of
+/// calls still in flight are added so concurrent calls cannot all observe the
+/// same just-below-limit balance.
+pub(crate) async fn enforce_server_paid_daily_limit_estimating(
+    config: &AiConfig,
+    feature: &str,
+    estimate_usd: f64,
+) -> Result<Option<ServerSpendReservation>, AiGatewayError> {
     if !uses_server_paid_openrouter(config) {
         return Ok(None);
     }
-    // Hold this guard through the inference request. OpenRouter's usage_daily
-    // is authoritative for the key, and serial admission prevents concurrent
-    // calls from all observing the same just-below-limit balance.
-    let guard = SERVER_PAID_INFERENCE_LOCK
-        .get_or_init(|| tokio::sync::Mutex::new(()))
-        .lock()
-        .await;
+    let ledger = server_spend_ledger(config);
+    let admission = ledger.admission.lock().await;
     let client = reqwest::Client::builder()
         .timeout(OPENROUTER_KEY_PROBE_TIMEOUT)
         .build()
@@ -1843,19 +1897,28 @@ pub(crate) async fn enforce_server_paid_daily_limit(
         .and_then(Value::as_f64)
         .filter(|usage| usage.is_finite() && *usage >= 0.0)
         .ok_or_else(|| AiGatewayError::daily_spend_check_unavailable(feature))?;
-    if server_daily_spend_exhausted(usage_daily) {
+    let reserved_micro = ledger
+        .reserved_micro_usd
+        .load(std::sync::atomic::Ordering::SeqCst);
+    if server_daily_spend_exhausted(usage_daily + reserved_micro as f64 / 1_000_000.0) {
         return Err(AiGatewayError::daily_spend_exhausted(
             feature,
             next_utc_day_unix(current_unix_secs()),
         ));
     }
+    let micro_usd = (estimate_usd.max(0.0) * 1_000_000.0).round() as u64;
+    ledger
+        .reserved_micro_usd
+        .fetch_add(micro_usd, std::sync::atomic::Ordering::SeqCst);
     tracing::debug!(
         feature,
         usage_daily_usd = usage_daily,
+        reserved_usd = reserved_micro as f64 / 1_000_000.0,
         daily_limit_usd = SERVER_PAID_DAILY_LIMIT_USD,
         "admitted server-paid inference under the UTC daily budget"
     );
-    Ok(Some(guard))
+    drop(admission);
+    Ok(Some(ServerSpendReservation { ledger, micro_usd }))
 }
 
 async fn provider_error_detail(mut response: reqwest::Response) -> Option<String> {
@@ -3451,3 +3514,7 @@ mod tests {
 #[cfg(test)]
 #[path = "ai_gateway_image_tests.rs"]
 mod image_tests;
+
+#[cfg(test)]
+#[path = "ai_gateway_spend_tests.rs"]
+mod spend_tests;

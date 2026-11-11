@@ -22,7 +22,7 @@ mod card_authoring_generation;
 #[path = "card_game.rs"]
 pub(crate) mod card_game;
 #[path = "card_voices.rs"]
-mod card_voices;
+pub(crate) mod card_voices;
 #[cfg(test)]
 pub(crate) use card_voices::authority::line as shared_voice_line;
 #[path = "play_metrics.rs"]
