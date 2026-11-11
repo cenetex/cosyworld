@@ -1,3 +1,4 @@
+import "./helpers/no-dwell.mjs";
 import { describe, it, expect } from "vitest";
 import { setImmediate as yieldToRunner } from "node:timers/promises";
 import {

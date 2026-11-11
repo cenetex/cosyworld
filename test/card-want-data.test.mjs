@@ -37,11 +37,11 @@ function decisions() {
 }
 
 describe("want data", () => {
-  it("authors one want for the hub cast and the desiring residents", () => {
+  it("authors a want for Pip, the keeper and the desiring residents, none for the player", () => {
     expect(
       Object.fromEntries(hub.map((id) => [id, forest.people[id].want])),
     ).toEqual({
-      vale: { kind: "item", target: "lamp" },
+      vale: undefined,
       moth: { kind: "item", target: "lamp", lit: true },
       keeper: { kind: "item", target: "bell" },
     });
@@ -52,15 +52,7 @@ describe("want data", () => {
           .map(([id, a]) => [id, a.want]),
       ),
     ).toEqual({
-      "greek-antigone": {
-        kind: "place",
-        target: "greek-polynices-hollow",
-        step: {
-          verb: "lay",
-          items: ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"],
-          finish: "greek-burial-performed",
-        },
-      },
+      // Antigone and RATi carry staged `wants` (rules 133), not a single want.
       "greek-polynices-shade": {
         kind: "place",
         target: "greek-polynices-hollow",
@@ -86,11 +78,12 @@ describe("want data", () => {
         target: "greek-provisions",
         step: { verb: "eat", at: "greek-piraeus" },
       },
+      // Patroclus wants bread, and tells it once he trusts the traveler.
+      "greek-patroclus": { kind: "item", target: "greek-bread", minTrust: 1 },
       "willows-swede": { kind: "place", target: "willows-landing" },
       "hoppycat-glim-twice": { kind: "item", target: "hoppycat-loop-token" },
       boardyai: { kind: "connect", target: "humans" },
       ...(packPeople["ratiradio-rati"] ? {
-        "ratiradio-rati": { kind: "place", target: "ratiradio-staff-kitchen" },
         "ratiradio-raven": { kind: "place", target: "pond" },
       } : {}),
     });

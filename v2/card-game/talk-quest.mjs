@@ -1,16 +1,23 @@
-// Talk gives a quest (#2196, rules 99). A player's Talk that reveals the
-// other avatar's top want, new to the player, gives the player an ordinary
-// quest to meet it with them:
+// Talk tells a quest (#2196, rules 99; #2605). A player's Talk that reveals the
+// other avatar's want says it; the player takes it by a tap (Accept quest),
+// and nothing is pushed at the player. The quest that meets a want is read
+// from its shape (`questFor`):
 //   their item X   -> give(X, them):     the item, step give to them;
 //   their place P  -> bring(them, P):    the person, step bring at P;
 //   their person Q -> introduce(them, Q): the person, step bring to Q.
-// The quest is read from its own shape, so the stack holds no extra record;
-// `heard` keeps, per avatar, the last want the player was told. A quest whose
-// want has since changed leaves at the next settle, not as a refusal. Met,
-// it is a want met like any other, so it counts toward the gap of ordinary
-// wants between level quests.
-import { allQuestsOf, nextWant, pushQuest, questTerms, setQuests } from "./want.mjs";
+// `heard` keeps, per avatar, the want the player was last told, so a tap
+// offered after a Talk lasts only while that want is still the one told. A
+// quest whose want has since changed leaves at the next settle, not as a
+// refusal. Met, it is a want met like any other.
+import { setWant, wantOf } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
+import { pruneOffers, rollOffer } from "./offer-chance.mjs";
+import { staysByRole } from "./resident-guard.mjs";
+
+// A resident who cannot leave its place (the Oak, Badger, a guard at his
+// post) is never asked to be escorted: its quest is to bring the other
+// person to it (sticky companions, rules 133).
+const fixedResident = (s, id) => staysByRole(s, id);
 
 const key = (want) => `${want.kind}:${want.target}`;
 
@@ -51,57 +58,92 @@ export function questFor(s, them, want) {
     };
   if (want.step?.verb === "lay")
     return { ...base, kind: "place", target: want.target, step: want.step };
+  // One who cannot travel is not escorted: a place it wants is no quest, and
+  // the person it wants is brought to it ("bring Pip to the Oak").
+  const fixed = fixedResident(s, them);
   if (want.kind === "place")
-    return {
-      kind: "person",
-      target: them,
-      ...base,
-      step: { verb: "bring", at: want.target },
-    };
+    return fixed
+      ? null
+      : {
+          kind: "person",
+          target: them,
+          ...base,
+          step: { verb: "bring", at: want.target },
+        };
   if (want.kind === "person")
-    return {
-      kind: "person",
-      target: them,
-      ...base,
-      step: { verb: "bring", to: want.target },
-    };
+    return fixed
+      ? {
+          kind: "person",
+          target: want.target,
+          ...base,
+          step: { verb: "bring", to: them },
+        }
+      : {
+          kind: "person",
+          target: them,
+          ...base,
+          step: { verb: "bring", to: want.target },
+        };
   return null;
 }
 
-// A player's Talk with `them`: their top want, if Talk reveals it and the
-// player has not been told it by them before, becomes a quest. One already
-// held keeps its place. New quests join the saved queue and preserve focus.
+// The avatar whose want a held Talk quest serves, or null: the escort or
+// meeting a traveler took on from them. A quest reads two ways round: "bring
+// them to Q" (they want Q) or, for one who cannot travel, "bring Q to them".
+export function askerOf(s, w) {
+  if (!w?.step || w.quest || w.story) return null;
+  const them = talkQuestFrom(w);
+  if (them && s.actors[them] && askerWants(s.actors[them].want, served(w)))
+    return them;
+  if (w.kind === "person" && w.step.verb === "bring" && w.step.to) {
+    const asker = s.actors[w.step.to];
+    if (asker && askerWants(asker.want, { kind: "person", target: w.target }))
+      return w.step.to;
+  }
+  return null;
+}
+const askerWants = (want, wanted) =>
+  want?.kind === wanted.kind && want.target === wanted.target;
+// The resident a held quest asks the traveler to bring or meet, whose bond it
+// pins: an escort or meeting, never an errand for an item.
+export function pinnedCompanion(s, traveler) {
+  const w = wantOf(s, traveler);
+  return w?.kind === "person" && w.step?.verb === "bring"
+    ? askerOf(s, w)
+    : null;
+}
+
+// A player's Talk with `them`: the want of theirs that Talk reveals is
+// recorded as heard (`heard[them]` is its key), and nothing else changes. The
+// quest it would be is `questFor(s, them, want)`. Null when nothing is told.
 export function talkQuest(s, actor, them, api) {
   const a = s.actors[actor],
     want = s.actors[them]?.want;
   if (!api.player(actor) || them === actor || !want) return null;
-  const quest = revealed(s, them, want) && questFor(s, them, want);
-  if (!quest || a.heard?.[them] === key(want)) return null;
-  const held = allQuestsOf(s, actor);
-  // A level quest's step that is this very quest already asks it.
-  if (held.some((w) => w.quest && questTerms(w) === questTerms(quest))) return null;
-  const top = pushQuest(s, actor, quest);
+  const quest = revealed(s, them, want, actor) && questFor(s, them, want);
+  if (!quest) return null;
   a.heard = { ...a.heard, [them]: key(want) };
-  return top;
+  // Whether they offer the quest this visit is rolled once, here (offer-chance).
+  rollOffer(s, actor, them);
+  return quest;
+}
+// Whether the player was told this avatar's want and it is still theirs: the
+// first condition under which Accept quest may be offered (the second is the
+// visit's roll, offer-chance.mjs).
+export function toldWant(s, actor, them) {
+  const want = s.actors[them]?.want;
+  return Boolean(want && s.actors[actor]?.heard?.[them] === key(want));
 }
 
-// A Talk quest whose want they no longer hold on top, met by someone else
-// or set aside, leaves the player's stack. Nothing is refused: a quest left
-// with none beneath draws the next.
+// A Talk quest whose want they no longer hold, met by someone else or set
+// aside, leaves the player. Nothing is refused and nothing is drawn.
 export function pruneTalkQuests(s, api) {
+  pruneOffers(s);
   for (const id of Object.keys(s.actors)) {
     if (!api.player(id)) continue;
-    const list = allQuestsOf(s, id);
-    const kept = list.filter((w) => {
-      const them = talkQuestFrom(w);
-      if (!them) return true;
-      const want = s.actors[them]?.want,
-        wanted = served(w);
-      return want?.kind === wanted.kind && want.target === wanted.target;
-    });
-    if (kept.length === list.length) continue;
-    setQuests(s.actors[id], kept);
-    if (!s.actors[id].want)
-      setQuests(s.actors[id], [nextWant(s, id, api)].filter(Boolean));
+    const w = wantOf(s, id);
+    if (!talkQuestFrom(w) && !(w?.step && !w.quest && !w.story && w.kind === "person" && w.step.to))
+      continue;
+    if (!askerOf(s, w)) setWant(s.actors[id], null);
   }
 }

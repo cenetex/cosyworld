@@ -2,7 +2,8 @@ import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 import { worldLife } from "../../v2/card-game/resident-home.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { endStandoff } from "./standoff.mjs";
-import { questsOf } from "../../v2/card-game/want.mjs";
+import { setWant } from "../../v2/card-game/want.mjs";
+import { questFor } from "../../v2/card-game/talk-quest.mjs";
 
 // Start at Dione's courtyard, then earn the writ and carry every supply by
 // ordinary card plays. The crossing has its own journey tests.
@@ -77,8 +78,16 @@ export function funeralJourney(world = null) {
           a.item === "greek-oil-flask",
       );
     for (let turns = 0; turns < 48 && !canOfferOil(); turns++) act("wait");
-    const quest = questsOf(world, "vale").findIndex((w) => w.target === "greek-polynices-hollow");
-    if (quest > 0) act("focus", { quest });
+    // Talk tells the burial; the player takes it by a tap. Until Accept quest
+    // is a play (a later package), take it here as the tap would.
+    const teller = ["greek-antigone", "greek-polynices-shade"].find(
+      (id) => world.actors[id]?.want?.step?.verb === "lay",
+    );
+    if (teller && !world.actors.vale.want)
+      setWant(
+        world.actors.vale,
+        questFor(world, teller, world.actors[teller].want),
+      );
     states.beforeAnoint = world;
     for (const [state, item] of [
       ["anointed", "greek-oil-flask"],

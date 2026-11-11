@@ -15,7 +15,9 @@ const page = {
   href: location.href,
   local: !!document.querySelector('meta[name="cosy-local-app"]'),
 };
-const authoring = /^\/make\/?$/u.test(location.pathname);
+// The Pip card's page is the game's own: its tab is named so from the first paint.
+if (pipEntry(page.href)) document.title = "Lonely Forest";
+const authoring =/^\/make\/?$/u.test(location.pathname);
 const introWanted =
   !authoring &&
   titleIntroWanted({
@@ -87,6 +89,7 @@ try {
     );
   }
 } finally {
-  document.body.inert = false;
+  // The Pip box keeps the table inert until it is opened (title-intro.mjs).
+  document.body.inert = Boolean(document.querySelector('.title-intro[data-held="true"]'));
 }
 showBuildInfo();

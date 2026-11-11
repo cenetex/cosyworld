@@ -107,7 +107,6 @@ export function itemCycleFixture(compiled) {
   for (const r of greek.routes)
     if (r.from === "greek-gate" && r.to === "greek-battlefield")
       r.sealed = {
-        reason: "The guard keeps the road shut until he holds an order.",
         quest: { kind: "item", target: "greek-decree", to: "greek-guard" },
       };
   return original;
@@ -122,7 +121,6 @@ export function sealedGardenFixture(compiled) {
   for (const r of forest.routes)
     if (r.from === "forest-garden" && r.to === "forest-trail")
       r.sealed = {
-        reason: "The path stays shut until Oak holds the charm.",
         quest: { kind: "item", target: "forest-wolfprint-charm", to: "oak" },
       };
   return out;

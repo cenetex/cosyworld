@@ -30,8 +30,11 @@ function setup(berth, night) {
   const local = createWorld({ packScopes: { "greek-drama": "full" } });
   const world = dispatchShared({ op: "create", save: encodeSave(local) }).world;
   world.turn = world.revision = Math.ceil(world.turn / (2 * DAYLIGHT_TURNS)) * 2 * DAYLIGHT_TURNS + (night ? DAYLIGHT_TURNS : 0);
-  for (const actor of Object.values(world.actors))
-    if (actor.place === ship) actor.place = berth.origin;
+  // Patroclus is a sealed card aboard the Charybdis until the quay invites
+  // him (card-greek-patroclus); he stays where the story puts him.
+  for (const [id, actor] of Object.entries(world.actors))
+    if (actor.place === ship && id !== "greek-patroclus")
+      actor.place = berth.origin;
   world.transports[ship].riders = [];
   world.actors.vale.place = world.actors.mara.place = berth.origin;
   world.actors.ash.place = berth.place;

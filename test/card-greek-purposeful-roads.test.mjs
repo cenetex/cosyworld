@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, exits } from "../v2/card-game/world.mjs";
+import { createWorld, exits } from "../v2/card-game/world.mjs";
 import {
   entityActive,
   localRoadEnds,
@@ -164,50 +164,3 @@ function releasedWorld() {
   expect(world.packs["greek-drama"].revision).toBe(7);
   return world;
 }
-
-describe("purposeful road save upgrade", () => {
-  it("turns known direct links into road paths and drops the cut ones", () => {
-    const before = releasedWorld();
-    before.actors.vale.place = "greek-sicily";
-    before.routeKnowledge.vale = [
-      ["greek-athens", "greek-delphi"],
-      ["greek-delphi", "greek-trachis"],
-      ["greek-susa", "greek-troy"],
-      ["greek-piraeus", "greek-tauris"],
-      ["greek-sicily", "greek-piraeus"],
-      ["greek-aulis", "greek-greek-camp"],
-      ["greek-susa", "greek-scythian-crag"],
-      ["greek-trachis", "greek-oeta"],
-      ["greek-gate", "greek-aulis"],
-    ];
-    const after = decodeSave(JSON.stringify(before));
-    expect(after.packs["greek-drama"].revision).toBe(
-      packDefinition("greek-drama").revision,
-    );
-    expect(after.routeKnowledge.vale).toEqual([
-      ["greek-athens", "greek-road-sacred-way"],
-      ["greek-road-sacred-way", "greek-delphi"],
-      ["greek-delphi", "greek-oeta"],
-      ["greek-oeta", "greek-trachis"],
-      ["greek-trachis", "greek-oeta"],
-      ["greek-gate", "greek-aulis"],
-    ]);
-    expect(after.memories["greek-road-sacred-way"]).toBeTruthy();
-    expect(after.log).toEqual(before.log);
-  });
-
-  it("brings travelers home from Sicily and Tauris to Piraeus", () => {
-    const before = releasedWorld();
-    before.actors.vale.place = "greek-sicily";
-    before.actors.mara.place = "greek-tauris";
-    before.actors.ash.place = "greek-scythian-crag";
-    const after = decodeSave(JSON.stringify(before));
-    // The Far Shores are rumours now (rules 94): no ship calls there, so
-    // they retire into Piraeus, the Charybdis's last port before them.
-    expect(after.actors.vale.place).toBe("greek-piraeus");
-    expect(after.actors.mara.place).toBe("greek-piraeus");
-    expect(pack.transports["greek-ship"].docks).not.toContain("greek-sicily");
-    // The crag folds into the temple it stood above.
-    expect(after.actors.ash.place).not.toBe("greek-scythian-crag");
-  });
-});

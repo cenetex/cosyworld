@@ -131,6 +131,8 @@ export const humanHomePack = {
           ],
           travel: `through ${a.home.entrance.name.toLowerCase()}`,
           scenery: { open: a.home.entrance.text, cardArt: a.home.image },
+          // Shown as a shut card at its door in a shared world (rules 133).
+          sealed: {},
         },
         {
           id: `${a.home.id}-${door}`,

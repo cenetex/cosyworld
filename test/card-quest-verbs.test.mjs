@@ -1,18 +1,13 @@
-import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
-  legalActions,
-  play,
   wantText,
 } from "../v2/card-game/world.mjs";
 import {
   STEP_VERBS,
-  drawStep,
   validWant,
   wantMet,
 } from "../v2/card-game/want.mjs";
-import { actorCanVisit } from "../v2/card-game/pack-registry.mjs";
 
 // A level quest step with a verb beyond its kind's own.
 const step = (s, kind, target, verb, cards = {}) => {
@@ -21,7 +16,7 @@ const step = (s, kind, target, verb, cards = {}) => {
     target,
     since: 0,
     refusals: 0,
-    quest: { level: 3, left: 2 },
+    quest: { level: 3, left: 1 },
     step: { verb, ...cards },
   };
   return s;
@@ -98,117 +93,5 @@ describe("quest step verbs", () => {
     expect(validWant(s, "vale")).toBe(true);
     step(s, "item", "lamp", "find");
     expect(validWant(s, "vale")).toBe(true);
-  });
-
-  it("draws steps from other avatars' quests so they interlock", () => {
-    const s = createWorld();
-    const api = { home: () => "pond" };
-    s.actors.moth.want = {
-      kind: "item",
-      target: "lamp",
-      since: 0,
-      refusals: 0,
-    };
-    expect(drawStep(s, "vale", api, "item", "lamp", 3, 0)).toEqual({
-      verb: "give",
-      to: "moth",
-    });
-    expect(drawStep(s, "vale", api, "item", "lamp", 3, 7)).toEqual({
-      verb: "bring",
-      to: "moth",
-      at: "pond",
-    });
-    s.actors.moth.want = {
-      kind: "place",
-      target: "pond",
-      since: 0,
-      refusals: 0,
-    };
-    s.actors.moth.place = "attic";
-    expect(drawStep(s, "vale", api, "person", "moth", 3, 7)).toEqual({
-      verb: "meet",
-      at: "pond",
-    });
-    s.items.lamp.holder = "moth";
-    expect(drawStep(s, "vale", api, "item", "lamp", 3, 7)).toEqual({
-      verb: "find",
-    });
-    // A step already true where Vale stands is no step.
-    s.actors.moth.place = s.actors.vale.place;
-    expect(drawStep(s, "vale", api, "item", "lamp", 3, 7)).toBeNull();
-    expect(drawStep(s, "vale", api, "person", "moth", 3, 14)).toBeNull();
-    expect(drawStep(s, "vale", api, "person", "moth", 20, 21)).toBeNull();
-  });
-
-  it("resolves both sides when giving meets another avatar's quest, through a long run", () => {
-    let s = createWorld(),
-      both = 0;
-    for (let turn = 0; turn < 300; turn++) {
-      const vale = s.actors.vale;
-      // This fixture owns one active level quest, including after a redraw.
-      delete vale.under;
-      // Keep Pip wanting the lamp and Vale's step giving it to Pip.
-      if (s.actors.moth.want?.target !== "lamp" || s.actors.moth.want.step)
-        s.actors.moth.want = {
-          kind: "item",
-          target: "lamp",
-          since: s.turn,
-          refusals: 0,
-        };
-      if (vale.want?.step?.verb !== "give")
-        vale.want = {
-          kind: "item",
-          target: "lamp",
-          since: s.turn,
-          refusals: 0,
-          quest: { level: 3, left: 2 },
-          step: drawStep(
-            s,
-            "vale",
-            { home: () => "pond" },
-            "item",
-            "lamp",
-            3,
-            0,
-          ),
-        };
-      // Every few turns Pip comes to Vale and the lamp is back in Vale's
-      // hands: this tests resolution, not routes or Pip's own taking.
-      // Pip can't follow Vale into a place closed to him.
-      if (turn % 5 === 0 && actorCanVisit("moth", vale.place, s)) {
-        s.actors.moth.place = vale.place;
-        // Leave a free hand slot before the fixture returns the Lamp.
-        const otherCarried = Object.keys(s.items).filter(
-          (id) => id !== "lamp" && s.items[id].holder === "vale",
-        );
-        for (const id of otherCarried.slice(2)) {
-          s.items[id].holder = vale.place;
-          if (vale.heldItem === id) delete vale.heldItem;
-        }
-        s.items.lamp.holder = "vale";
-      }
-      const actions = legalActions(s);
-      const give = actions.find(
-        (a) => a.kind === "give" && a.item === "lamp" && a.target === "moth",
-      );
-      const before = { vale: vale.xp, moth: s.actors.moth.xp };
-      const next = play(
-        s,
-        give || actions[(turn * 7919) % actions.length],
-      ).state;
-      const last = s.log.at(-1)?.seq ?? 0;
-      const accepted =
-        give &&
-        next.log.some((e) => e.seq > last && e.verb === "give" && e.accepted);
-      if (accepted) {
-        expect(next.actors.vale.xp).toBe(before.vale);
-        expect(collectRewards(next).actors.vale.xp).toBeGreaterThan(before.vale);
-        expect(next.actors.moth.xp).toBeGreaterThan(before.moth);
-        both++;
-      }
-      s = next;
-      expect(validWant(s, "vale")).toBe(true);
-    }
-    expect(both).toBeGreaterThan(0);
   });
 });

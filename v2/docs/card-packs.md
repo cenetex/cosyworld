@@ -259,10 +259,57 @@ Giving the item passes the passage to the new holder.
 
 Each resident can name its starter quest as `want`: `{"kind": "item" |
 "place" | "person", "target": id}`, with a target in the pack or the hub. The
-pack schema checks it. After the starter quest is met, the world rules draw the
+pack schema checks it. An optional `"minTrust": 1` to `3` on the want holds Talk
+back until the resident trusts the listener that much (default: told at the
+first Talk). After the starter quest is met, the world rules draw the
 resident's next quest from what it can reach, so a pack authors no quest
 chains. The mounted packs no longer carry `storyQuests` or `situations`; the
 schema still accepts them so older pack files load.
+
+#### Staged wants (rules 133)
+
+A resident may carry a short list instead of one `want`: `wants`, one to three
+entries, each `{"want": {...}, "when": [conditions]}`. A `want` is checked like
+the single form (`minTrust` included); `when` is one to four saved-state
+conditions and may be left out. Set `want` or `wants`, not both: a lone `want`
+is a list of one. The list is **unordered**. Among the entries whose `when`
+holds, whose target is in the world, that are not already met where the
+resident stands, and that are not the want just met or given up, the rules
+take the one with the lowest seeded hash of (resident, entry number, day), and
+the authored order only breaks a tie. The pick is a function of the world and
+the run seed, so a reload agrees and it holds all day. Nothing is saved but the
+resident's one `want`. The list is read at world install, when a want is met
+(the resident takes the next entry at once, instead of going content), when a
+want is set aside, and when a resident with no want is drawn one. When no entry
+is eligible, the resident is content and then draws a want as before. A want a
+resident already holds is never replaced by an entry that later becomes
+eligible.
+
+`when` is read for the resident and no traveler: it takes world facts (`flag`,
+`choice`, `holding` with a named `actor`, `item_at`, `item_present`,
+`item_near`, `gate_open`, `daylight`, `drawn`, `chance`) and not `trusted`,
+`talked`, `knows`, `upgraded` or a `holding` with `role: "actor"`, which the
+schema refuses.
+
+```json
+"greek-antigone": {
+  "wants": [
+    { "when": [{ "kind": "holding", "item": "greek-creon-writ", "actor": "greek-guard" }],
+      "want": { "kind": "place", "target": "greek-polynices-hollow" } },
+    { "when": [{ "kind": "holding", "item": "greek-creon-writ", "actor": "greek-guard" }],
+      "want": { "kind": "place", "target": "greek-polynices-hollow",
+        "step": { "verb": "lay", "items": ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"],
+          "finish": "greek-burial-performed" } } }
+  ]
+}
+```
+
+Staged wants carry a bond. Each entry may declare `minTrust`, so the first
+want is told at trust 1 and a later one needs more; a plain Give of the wanted
+item raises the giver's trust by one for each stage. A pack `on: "give"`
+choice on the same resident and item takes the Give first and raises no trust,
+so `build-card-worldpacks` prints a warning for each staged item want an
+`on: "give"` choice intercepts. Give such a choice a `trust` effect, or drop it.
 
 ### Conditions
 
@@ -482,7 +529,10 @@ moves. `give_item` hands a pack item to the acting avatar. `retire_item`
 uses an item up (below); the actor must hold it, or the choice must require
 it `item_near` or `item_at` its own place. From rules 98 it uses only the
 actor's own item or one lying at the place, never one another person holds.
-`drop_item` brings a used-up item
+`{"kind":"trust","level":1}` (1 to 3), on an `on: "meet"` or `on: "talk"`
+choice whose subject is a resident, raises that resident's trust in the
+acting traveler to at least `level`; it never lowers it. A plain `on: "give"`
+choice on the wanted item skips the gift trust. `drop_item` brings a used-up item
 back at the choice's place. `hide_item` belongs only to a
 meeting choice. `{"kind":"upgrade","upgrade":"scarf"}`, on a choice with
 `for`, adds a one-way cosmetic upgrade to the acting traveler's `upgrades`
@@ -631,6 +681,25 @@ Item fields:
   hands for home (a human avatar whose holder is not present, from the
   journaled presence). It is off unless a pack marks it, pending the owner's
   decision on absence penalties.
+- `sealed`: `{"live": true?}` with `requires` (rules 133). The
+  item lies where it starts, a place of its pack (its `home`, if any, the same
+  place), as a locked box: drawn face down in the hand with what opens it on the
+  context button (read from `requires`, see below), and it cannot be taken, held, given or used while its
+  `requires` do not hold. It keeps its record in the world. It opens on the
+  play that makes `requires` true, pays one XP to the traveler once, and then
+  latches open as a gate does (`openedRoutes` records `item:<id>`). With
+  `"live": true` it follows its facts instead: when they stop holding, an item
+  that is carried or lying elsewhere goes back to its rest (`home`, else
+  `holder`) and lies there sealed again, with a line in the log; it pays no
+  XP when it next opens. A sealed item that is eaten, spent or made into something
+  also returns home sealed. A made thing (`locked: {by, consumes}`) is a
+  different lock and unchanged.
+
+```json
+"greek-shovel": { "holder": "greek-gate",
+  "requires": [{ "kind": "item_at", "item": "greek-figs", "place": "greek-gate" }],
+  "sealed": {} }
+```
 
 At dawn a homed item lying unheld away from both its home and its starting
 `holder` is noted in the save's `astray`; if it still lies there at the next
@@ -702,17 +771,26 @@ The save counts each kit's scatters in `scatters`.
 A gated route may show a sealed card. While the route is shut from `from`,
 `to` appears as a nameless wooden box. Every closed card uses the same lid
 (`assets/card-back-locked.webp`) and red edge. The descriptor and accessible
-label keep its contents and requirements concealed. Authored `reason` and
-`quest` remain route data; the closed box shows only its closed state.
+label keep its contents and requirements concealed. The route's `quest`
+remains route data; the closed box shows only its closed state.
 Once the route opens, the box turns over once when it is in view. Its name,
 art and ordinary card actions then appear (`locked-box.mjs`).
 
 ```json
 { "from": "greek-gate", "to": "greek-battlefield", "requires": [ ... ],
   "sealed": {
-    "reason": "The guard lifts the bar for an order from the palace: the Burial Decree or Creon's writ.",
     "quest": { "kind": "item", "target": "greek-decree", "to": "greek-guard" } } }
 ```
+
+A gated crossing may carry the same `sealed` key, empty; the hub's
+`reflectionRoutes` in `forest.json` do too. A crossing box is drawn only
+where its `home_door` and `shared_world` conditions hold, so a home's door
+appears at the one place a shared world chose for it. A seal is drawn even
+when the card it opens has its own `requires`, `appearsWhen` or section: the
+card lies shut in the hand and cannot be entered until it opens. The condition
+`{ "kind": "humans_at", "place", "minimum" }` holds in a shared world while
+that many travellers stand at the place; it makes a lock for two, and opening
+it pays each of them.
 
 The pack check proves the loops cannot strand a world. An item used up by
 one choice and still needed by another choice, a route, a lane or a
@@ -858,7 +936,12 @@ assets as a fresh local draft. Portable files keep their source document.
 A resident’s optional `passWhen` conditions grant passage through that resident’s
 guarded way for the current traveller. `{ "kind": "trusted", "actor": "resident-id",
 "min": 1 }` reads that resident’s trust in the traveller; active grievances take
-priority. This condition belongs to live, traveller-specific checks.
+priority. This condition belongs to live, traveller-specific checks: it is
+also accepted in a route's `travelerRequires` (never in `requires`, choices,
+topics or avatar `requires`), so a resident's home can open at trust 3. A
+resident passes a `trusted` door of his own. Trust tiers: 2 to travel with
+you, 3 to step in when you are threatened. Residents authored aboard a ship
+ride only while their own `requires` hold.
 
 
 ### Maker artwork descriptions

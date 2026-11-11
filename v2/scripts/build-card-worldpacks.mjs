@@ -12,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   packProblems,
+  packWarnings,
   observationProblems,
   packCompositionProblems,
 } from "../card-game/pack-schema.mjs";
@@ -64,6 +65,7 @@ const seen = new Map();
 problems.push(...packCompositionProblems(packs));
 const observationIds = new Set((table.hub.observations || []).map((d) => d.id));
 for (const pack of packs) {
+  for (const note of packWarnings(pack)) console.warn(`warning: ${note}`);
   for (const d of pack.observations || []) {
     if (observationIds.has(d.id))
       problems.push(`duplicate observation ${d.id}`);
