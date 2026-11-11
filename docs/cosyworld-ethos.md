@@ -16,10 +16,8 @@
 > We do not measure a world by how much it contains, but by how much can
 > matter.
 
-This is the ethos beside [the Pact](cosyworld-pact.md). The Pact is product
-law: what the game promises every traveler. This page is editorial: how we
-decide what belongs in the game. It is a principle for choosing, not a
-framework every feature must satisfy.
+This page is editorial: how we decide what belongs in the game. It is a
+principle for choosing, not a framework every feature must satisfy.
 
 ## Four things the game needs
 
@@ -32,10 +30,6 @@ the result is worth experiencing. More generation is not more game.
   rest.
 - **The player's freedom** to help, refuse, retreat or return gives what
   remains a history.
-
-The Pact sections this leans on most are One World, One Truth; Discovery
-Begins With Evidence; Return Makes The Difference Public; and AI Has A Voice,
-Not Authority.
 
 ## Three questions for a gameplay issue
 

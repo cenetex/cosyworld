@@ -14,9 +14,8 @@ loss of enjoyment. Human taste and a simpler goal had to intervene.
 
 **CosyWorld's response: generate possibilities, verify consequences, let
 the player determine what matters.** Do not promote a model's eloquence
-to state authority. See [the Pact](../cosyworld-pact.md) for the product
-law and [A world that remembers](../cosyworld-ethos.md) for the governing
-ethos and backlog questions. This note is the working detail beneath both.
+to state authority. See [A world that remembers](../cosyworld-ethos.md) for
+the editorial ethos and backlog questions. This note gives the working detail.
 
 This isn't a mandate to add more rules. The three useful boundaries already
 exist:
@@ -41,9 +40,8 @@ ask what changed besides the set of reachable rooms.
 | Venture | The relation can be changed elsewhere | Real movement, custody, or risk | Agency |
 | Return | A changed relation is made public | Placement, witness, flag, or journal | Consequence |
 
-Use the Pact's six tale functions as *possibilities*, not a mandatory
-sequence. Not every scene needs to be a gate. A failed action should
-change what is known or possible; otherwise omit it.
+Not every scene needs to be a gate. A failed action should change what is
+known or possible; otherwise omit it.
 
 The smallest publishable encounter has: one concrete detail, one entity
 the player can act on, one legible consequence, and a usable way back.
