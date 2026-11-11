@@ -30,6 +30,19 @@ export function residentLines(body) {
     .filter((line) => line.id && line.text);
 }
 
+export async function resolveWorld(fetch, origin, { token, discordUserId }) {
+  const headers = {};
+  if (token) headers.authorization = `Bearer ${token}`;
+  if (discordUserId) headers["x-cosyworld-discord-user"] = discordUserId;
+  const response = await fetch(`${origin}/card-game/shared/worlds`, { headers });
+  if (!response.ok) throw new Error(`worlds failed: ${response.status}`);
+  const body = await response.json();
+  const worlds = Array.isArray(body?.worlds) ? body.worlds : [];
+  const first = worlds[0];
+  if (!first?.id) return null;
+  return { worldId: first.id, avatarId: first.actor ?? first.bound ?? null };
+}
+
 export async function talkTo(fetch, origin, { worldId, avatarId, target, text, token, discordUserId }) {
   const { url, body } = buildTalkRequest({ worldId, avatarId, target, text });
   const headers = { "content-type": "application/json" };

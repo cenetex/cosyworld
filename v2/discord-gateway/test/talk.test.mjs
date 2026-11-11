@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveTarget, buildTalkRequest, residentLines, talkTo } from "../src/talk.mjs";
+import { resolveTarget, buildTalkRequest, residentLines, talkTo, resolveWorld } from "../src/talk.mjs";
 
 const residents = [
   { id: "moth", name: "Pip" },
@@ -37,6 +37,23 @@ test("residentLines tolerates several response shapes", () => {
     [{ id: "moth", text: "a" }],
   );
   assert.deepEqual(residentLines({}), []);
+});
+
+test("resolveWorld picks the first world and its avatar", async () => {
+  const fetch = async (url, opts) => {
+    assert.equal(url, "https://x/card-game/shared/worlds");
+    assert.equal(opts.headers.authorization, "Bearer t");
+    return {
+      ok: true,
+      json: async () => ({ worlds: [{ id: "w1", actor: "vale", seed: 42 }] }),
+    };
+  };
+  assert.deepEqual(await resolveWorld(fetch, "https://x", { token: "t", discordUserId: "du" }), {
+    worldId: "w1",
+    avatarId: "vale",
+  });
+  const empty = async () => ({ ok: true, json: async () => ({ worlds: [] }) });
+  assert.equal(await resolveWorld(empty, "https://x", { token: "t" }), null);
 });
 
 test("talkTo posts with bot headers and parses the reply", async () => {
