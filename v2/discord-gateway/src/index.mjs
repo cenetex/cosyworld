@@ -27,7 +27,9 @@ function residentsForPack(pack) {
   ];
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent],
+});
 const bindings = loadBindings(bindingsFile);
 
 async function webhookForChannel(channel) {
@@ -65,7 +67,8 @@ client.on("interactionCreate", async (interaction) => {
     deps,
   );
   try {
-    await interaction.reply({ content: result.content, ephemeral: result.ephemeral });
+    await interaction.deferReply({ ephemeral: result.ephemeral });
+    await interaction.editReply({ content: result.content });
   } catch (error) {
     console.error("reply failed", error);
   }
@@ -101,6 +104,7 @@ client.on("messageCreate", async (message) => {
         content: line.text,
         username: identity.username,
         avatarURL: identity.avatarUrl ?? undefined,
+        allowedMentions: { parse: [] },
       });
     }
   } catch (error) {

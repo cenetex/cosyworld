@@ -22,7 +22,7 @@ export function commandDefinitions() {
 const PRIVACY = [
   "**What CosyWorld can do here**",
   "• Answer you as the residents of a bound pack, in bound channels only.",
-  "• Remember the world's committed acts — never your chat itself.",
+  "• Talk is a committed act: what you say to a resident is journaled to your world, like a card play. The bot stores no chat outside that.",
   "**What it never does**",
   "• Holds no one's Discord keys, reads no other channel, sends no DMs or pings.",
   "• The world never asks for attention; it posts only where you look.",
