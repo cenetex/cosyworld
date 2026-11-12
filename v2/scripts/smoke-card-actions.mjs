@@ -600,8 +600,6 @@ try {
     assert.equal((await state()).standoffs.length, 1);
     await selectCard(page, "vale");
     await selectCard(page, "moth");
-    // In battle the selection names the verb: yourself and Pip is Guard,
-    // Pip alone is Strike, yourself alone is Brace.
     assert.deepEqual(await labels(), ["Cover"]);
     await page.keyboard.press("Escape");
     await selectCard(page, "moth");
@@ -730,11 +728,13 @@ try {
       await selectCard(page, "pond");
       await page.locator('#card-actions [data-revealing="false"]').click();
       assert.equal(await focusedHandCard(page), "pond", "a queued play leaves focus on its card");
-      await ready();
-      assert.equal((await state()).actors.vale.place, "pond");
       await page.waitForFunction(
-        () => document.querySelector(".play-dock").dataset.covered === "false" &&
-          document.activeElement !== document.body,
+        (key) =>
+          JSON.parse(localStorage.getItem(key)).actors.vale.place === "pond" &&
+          document.querySelector(".play-dock").dataset.covered === "false" &&
+          document.querySelector("#hand").dataset.cooling === "false" &&
+          document.activeElement.matches("#hand .card-frame:not([hidden]) .card"),
+        key,
       );
       assert.equal(await focusedHandCard(page), "pond", "travel returns focus to the hand");
     }
