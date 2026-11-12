@@ -171,7 +171,7 @@ try {
     assert.equal(await guarded.isDisabled(), true);
     assert.equal(
       await page
-        .locator("#card-actions button:not([disabled])", {
+        .locator("#card-actions button:not([disabled], [aria-disabled])", {
           hasText: "Seek the way",
         })
         .count(),
@@ -217,7 +217,7 @@ try {
     );
     assert.equal(await shut.isDisabled(), true);
     assert.equal(
-      await page.locator("#card-actions .card-primary:not([disabled])").count(),
+      await page.locator("#card-actions .card-primary:not([disabled], [aria-disabled])").count(),
       0,
     );
     await shot("06-piraeus-locked-aboard");

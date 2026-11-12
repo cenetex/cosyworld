@@ -5,6 +5,8 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { knowsFact } from "../card-game/knowledge.mjs";
 import {
+  actionLabel,
+  focusedHandCard,
   selectCard as selectDesktopCard,
   revealCard,
   tapCard,
@@ -27,6 +29,9 @@ const browser = await browserType.launch({
       ? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
       : undefined,
 });
+const LAMP_ALONE =
+  "A steady flame. Pair with this place to put it down, or tap again to put it away.";
+const NO_PAIR = "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.";
 const meeting = () => {
   const s = createWorld({ seed: 2531 });
   s.actors.moth.place = s.actors.keeper.place = "station";
@@ -376,10 +381,10 @@ try {
     });
     await page.waitForTimeout(250);
     assert.equal(await card("vale").getAttribute("aria-pressed"), "false");
-    assert.equal(
-      await page.locator(".action-panel").isVisible(),
-      false,
-      "quick reversals finish with the action row closed",
+    assert.deepEqual(
+      await labels(),
+      [LAMP_ALONE],
+      "quick reversals finish with the held Lamp alone, and its reason",
     );
     // Wait for the existing media-query listeners as well as the new CSS.
     // WebKit can deliver the change after emulateMedia has returned.
@@ -677,6 +682,59 @@ try {
             e.accepted,
         ),
       );
+    }
+    if ([1440, 390].includes(width)) {
+      await load(meeting());
+      const reason = page.locator("#card-actions button");
+      for (const [cards, words] of [
+        [["moth", "keeper"], NO_PAIR],
+        [["vale", "lamp"], LAMP_ALONE],
+      ]) {
+        await page.keyboard.press("Escape");
+        for (const id of cards) await selectCard(page, id);
+        await page.locator('#action-beat[data-card-tap=""]').waitFor();
+        assert.equal(await reason.count(), 1);
+        assert.equal(await actionLabel(reason), words);
+        assert.equal(await reason.getAttribute("aria-disabled"), "true");
+        assert.equal(await reason.evaluate((b) => b.disabled), false);
+        assert.equal(await page.locator(".action-beat-heading").isVisible(), false);
+      }
+      await shot("no-play");
+      await page.keyboard.press("Tab");
+      assert.equal(
+        await page.evaluate(() => document.activeElement.dataset.blocked),
+        "hint",
+        "Tab from a card reaches the reason",
+      );
+      assert.equal(
+        await page.getByRole("button", { name: LAMP_ALONE, disabled: true }).count(),
+        1,
+        "the reason is announced as a dimmed button",
+      );
+      const turn = (await state()).turn;
+      await page.keyboard.press("Enter");
+      await page.keyboard.press("Shift+Tab");
+      assert.equal(await focusedHandCard(page), "lamp");
+      await reason.click({ force: true });
+      await page.locator(".action-panel").click({ position: { x: 20, y: 20 } });
+      assert.equal((await state()).turn, turn, "a reason plays nothing");
+      assert.equal(await actionLabel(reason), LAMP_ALONE);
+      await page.keyboard.press("Escape");
+      await selectCard(page, "moth");
+      await page.locator('#card-actions [data-revealing="false"]').click();
+      assert.equal(await focusedHandCard(page), "moth", "a play leaves focus on its card");
+      await ready();
+      assert.equal((await state()).turn, turn + 1);
+      await selectCard(page, "pond");
+      await page.locator('#card-actions [data-revealing="false"]').click();
+      assert.equal(await focusedHandCard(page), "pond", "a queued play leaves focus on its card");
+      await ready();
+      assert.equal((await state()).actors.vale.place, "pond");
+      await page.waitForFunction(
+        () => document.querySelector(".play-dock").dataset.covered === "false" &&
+          document.activeElement !== document.body,
+      );
+      assert.equal(await focusedHandCard(page), "pond", "travel returns focus to the hand");
     }
     assert.deepEqual(errors, []);
     console.log(

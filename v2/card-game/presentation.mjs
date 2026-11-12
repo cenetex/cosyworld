@@ -1,6 +1,5 @@
-// What the dialogue box presents now: one phase decides what is in front
-// (v2/docs/card-table/dialogue-beats.md#what-is-in-front). The action panel
-// shows after the current speech has reached its next-choice tap.
+// What the dialogue box presents now: one phase decides what is in front.
+// The action panel shows after the speech has reached its next-choice tap.
 //
 // A committed play's words that keep the Thinking card past this grace
 // stop holding the hand: the rules already ran, and dialogue never gates
@@ -53,6 +52,21 @@ export function tapPrompt(verb, complete, label = verb) {
   // A confirm already says how to tap ("Tap again to sign out").
   if (/^Tap /u.test(verb ?? "")) return { hint: verb, label };
   return { hint: word ? `Tap to ${word}` : "", label };
+}
+export function handFocusId(frames, ids) {
+  for (const id of [...ids].reverse()) {
+    let at = frames.findIndex((frame) => frame.id === id);
+    for (let step = 0; at >= 0 && frames[at].hidden && step < frames.length; step++) {
+      const holder = frames[at].holder;
+      const next = holder ? frames.findIndex((frame) => frame.id === holder) : -1;
+      if (next < 0) break;
+      at = next;
+    }
+    for (let away = 0; at >= 0 && away < frames.length; away++)
+      for (const index of [at - away, at + away])
+        if (frames[index] && !frames[index].hidden) return frames[index].id;
+  }
+  return frames.find((frame) => !frame.hidden)?.id;
 }
 export function phase({
   reviewing = false,

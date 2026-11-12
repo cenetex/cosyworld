@@ -88,6 +88,7 @@ import {
   refusalSentence,
   revealedBeat,
   tapPrompt,
+  handFocusId,
   THINKING_GRACE_MS,
 } from "./presentation.mjs";
 import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
@@ -867,11 +868,15 @@ const playQueue = createPlayQueue({
 function syncHandDrop() {
   const dock = document.querySelector(".play-dock"),
     dialogue = document.querySelector(".dialogue");
+  handFocusOwed ||=
+    covering && [dock, dialogue].some((part) => part.contains(document.activeElement));
   dock.dataset.covered = String(covering);
   dock.inert = covering;
   dialogue.dataset.dropped = String(covering);
   dialogue.inert = covering;
 }
+let lastHandFocus,
+  handFocusOwed = false;
 function updateCardCooldown() {
   syncHandDrop();
   $("hand").dataset.cooling = String(cardsCooling);
@@ -881,13 +886,13 @@ function updateCardCooldown() {
     "#hand button, #card-actions button",
   )) {
     if (freshStart && button.dataset.keepMenu) continue;
-    // A blocked reason (a Take refused for space) never plays.
-    button.disabled = selectionBlocked() || Boolean(button.dataset.blocked);
+    button.disabled = selectionBlocked() && !button.dataset.blocked;
     if (button.dataset.card)
       button.draggable =
         !button.disabled && !cardIsCovered(button.dataset.card);
   }
   if (playQueue.pending) queueMicrotask(() => playQueue.flush());
+  if (handFocusOwed && !covering) restoreHandFocus();
 }
 const exchange = createExchange({
   holdLast: () => queuedChoice,
@@ -2196,6 +2201,7 @@ function performAction(action, revision) {
 // A play leaves keyboard focus with the hand, never in the dialogue stack.
 function restoreHandFocus() {
   const active = document.activeElement;
+  handFocusOwed = false;
   if (
     active &&
     active !== document.body &&
@@ -2204,14 +2210,25 @@ function restoreHandFocus() {
     !$("card-actions").contains(active)
   )
     return;
-  const card =
-    $("hand").querySelector(
-      `.card-frame:not([hidden]) [data-card="${selected.at(-1)}"]`,
-    ) ||
-    $("hand").querySelector(`.card-frame:not([hidden]) [data-card="${currentActor(world)}"]`) ||
-    $("hand").querySelector(".card-frame:not([hidden]) .card");
-  card?.focus({ preventScroll: true });
+  const frames = [...$("hand").querySelectorAll(".card-frame")].map((frame) => ({
+    id: frame.querySelector(".card")?.dataset.card,
+    holder: frame.dataset.holder,
+    hidden: frame.hidden || !frame.querySelector(".card")?.dataset.card,
+  }));
+  const id = handFocusId(frames, [currentActor(world), lastHandFocus, ...selected]);
+  $("hand")
+    .querySelector(`.card-frame:not([hidden]) .card[data-card="${id}"]`)
+    ?.focus({ preventScroll: true });
+  handFocusOwed = document.activeElement === document.body;
 }
+$("hand").addEventListener("focusin", (event) => {
+  lastHandFocus = event.target.dataset.card ?? lastHandFocus;
+});
+$("card-actions").addEventListener("click", () =>
+  queueMicrotask(() => {
+    if (!borrowedBeat && document.activeElement === document.body) restoreHandFocus();
+  }),
+);
 
 // Standoff beats play over the scene the player saw before the play. The new
 // world is drawn only after the last beat (and any loss screen) is done.
@@ -2589,7 +2606,7 @@ function paintActionTap(button, complete) {
     button.textContent = cue.hint;
 }
 function nameActionTap(button, verb, label = button.textContent) {
-  if (button.disabled) return;
+  if (button.disabled || button.dataset.blocked) return;
   button.dataset.tapVerb = verb;
   button.dataset.tapName = label;
   paintActionTap(button, actionReveal.complete);
@@ -2669,6 +2686,10 @@ function cancelAbandon() {
   renderActions();
   $("card-actions").querySelector("[data-drop-quest]")?.focus();
 }
+function blockPlay(button, kind) {
+  button.dataset.blocked = kind;
+  button.setAttribute("aria-disabled", "true");
+}
 function renderActions() {
   if (questOpen && !questVisible(world, shownQuests[0])) questOpen = false;
   const row = $("card-actions"),
@@ -2728,6 +2749,10 @@ function renderActions() {
     !rested && !closed && hint === TOO_MANY_ITEMS && selected.find((id) => things[id]);
   const crowdedWords =
     crowded && `You have too many items to take ${theName(crowded).toLowerCase()}`;
+  const noPlay =
+    !rested && !quiet && !closed && !questOpen && !rowCollapsed && !actions.length &&
+    !asleep && !crowded && !clientText && selected.length > 0 &&
+    visibleText(hint ?? "");
   const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : isOfferId(id) ? "Quest" : nameOf(id)).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -2769,6 +2794,7 @@ function renderActions() {
             // A blocked play's reason is the card's own words.
             asleep ||
             crowdedWords ||
+            noPlay ||
             ""
           ).replace(
             /\b(the|an?) (?:the|an?) /giu,
@@ -2848,8 +2874,8 @@ function renderActions() {
       if (action.kind === "drop" && !action.item)
         button.dataset.destructive = "";
       button.title = refused || playText(action);
-      button.disabled = Boolean(refused) || selectionBlocked();
-      if (refused) button.dataset.blocked = "refused";
+      button.disabled = !refused && selectionBlocked();
+      if (refused) blockPlay(button, "refused");
       if (action.choiceId) {
         button.dataset.choice = action.choiceId;
         button.dataset.pack = action.packId;
@@ -2946,7 +2972,7 @@ function renderActions() {
   if (sealed) {
     const why = node("button", openingBox ? "Tap to open" : "Locked", "card-action");
     why.type = "button";
-    why.disabled = !openingBox || selectionBlocked();
+    why.disabled = Boolean(openingBox) && selectionBlocked();
     why.title = lockShown.text;
     if (openingBox) {
       why.dataset.openBox = openingBox;
@@ -2958,27 +2984,21 @@ function renderActions() {
         }
       };
     } else {
-      why.dataset.blocked = "gate";
+      blockPlay(why, "gate");
       why.setAttribute("aria-label", `Locked. ${lockShown.text}`);
     }
     row.append(why);
-    // The same descriptor and small corner cue as Continue.
     cardTapHint(why, openingBox ? "Open" : "Locked");
   }
-  if (asleep) {
-    const blocked = node("button", asleep, "card-primary");
-    blocked.type = "button";
-    blocked.disabled = true;
-    blocked.dataset.blocked = offerPicked ? "quest" : "asleep";
-    blocked.title = asleep;
-    row.append(blocked);
-  }
-  if (crowded) {
-    const reason = crowdedWords;
+  for (const [reason, kind] of [
+    [asleep, offerPicked ? "quest" : "asleep"],
+    [crowdedWords, "carry"],
+    [!row.childElementCount && noPlay, "hint"],
+  ]) {
+    if (!reason) continue;
     const blocked = node("button", reason, "card-primary");
     blocked.type = "button";
-    blocked.disabled = true;
-    blocked.dataset.blocked = "carry";
+    blockPlay(blocked, kind);
     blocked.title = reason;
     row.append(blocked);
   }
@@ -2989,6 +3009,7 @@ function renderActions() {
     sentence &&
     row.childElementCount === 1 &&
     !row.firstElementChild.disabled &&
+    !row.firstElementChild.dataset.blocked &&
     (only || quiet || packAsk || openingBox || row.firstElementChild.dataset.look)
   ) {
     const button = row.firstElementChild;
@@ -3043,7 +3064,7 @@ function renderActions() {
     JSON.stringify([choiceKey(), picked?.key, text]),
     name,
   );
-  // A disabled status cannot receive the tap that finishes typed words.
+  // A blocked reason ignores the tap that finishes typed words.
   if (sealed || blockedCard) actionReveal.finish();
   delete $("action-beat").dataset.avatar;
   // A refused play whose cards are no longer chosen says so on the status
@@ -3072,6 +3093,7 @@ $("action-beat").addEventListener(
   "click",
   (event) => {
     const button = event.target.closest("button");
+    if (button?.dataset.blocked) return event.stopPropagation();
     if (
       !actionMessage ||
       (button && !event.currentTarget.hasAttribute("data-card-tap"))
@@ -3083,7 +3105,7 @@ $("action-beat").addEventListener(
       return;
     }
     if (!button && event.currentTarget.hasAttribute("data-card-tap"))
-      $("card-actions").querySelector("button:enabled")?.click();
+      $("card-actions").querySelector("button:enabled:not([data-blocked])")?.click();
   },
   true,
 );
@@ -5608,11 +5630,8 @@ $("card-actions").addEventListener("keydown", (e) => {
     e.shiftKey &&
     e.target === $("card-actions").firstElementChild
   ) {
-    const card = $("hand").querySelector(`[data-card="${selected.at(-1)}"]`);
-    if (card) {
-      e.preventDefault();
-      card.focus();
-    }
+    e.preventDefault();
+    restoreHandFocus();
   }
 });
 // The dialogue lies over the stage's foot, outside it, so it takes drops too.
