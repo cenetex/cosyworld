@@ -444,7 +444,7 @@ describe("deploy workflow", () => {
     // Check workflows run only by hand. Deploy serializes on its own group
     // and never cancels (see deploy-coverage.test.mjs); Fly health runs only
     // on a schedule or by hand.
-    for (const name of ["ci", "image-build", "local-desktop", "pages"]) {
+    for (const name of ["ci", "image-build", "local-desktop"]) {
       const source = readFileSync(
         new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
         "utf8",

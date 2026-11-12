@@ -277,7 +277,7 @@ export const inventoryOf = (tree) => ({
 });
 
 const RULE =
-  "All UI must go through existing systems (see AGENTS.md). If the owner approved it, add it to v2/card-game/ui-inventory.json in a PR the owner reviews.";
+  "All UI must go through existing systems. If the owner approved it, add it to v2/card-game/ui-inventory.json in a PR the owner reviews.";
 
 export function compare(tree, inventory) {
   const errors = [];

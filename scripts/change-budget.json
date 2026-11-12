@@ -23,7 +23,6 @@
         "v2/orchestrator-rust/src/card_shared/narrator.js",
         "v2/orchestrator-rust/src/card_shared/content.json",
         "v2/orchestrator-rust/src/card_narrative/authored-text.json",
-        "docs/maps/*.md",
         "docs/maps/*.graph.json",
         "**/__snapshots__/**"
       ]
