@@ -92,7 +92,8 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         .map_err(sql_error)?;
     for row in rows {
         let (s, text) = row.map_err(sql_error)?;
-        let command: Value = serde_json::from_str(&text).map_err(sql_error)?;
+        let mut command: Value = serde_json::from_str(&text).map_err(sql_error)?;
+        take_surface(&mut command);
         if command["op"] == "seed" {
             if state.is_some() {
                 return Err("This world's history needs attention.".into());
@@ -212,17 +213,10 @@ pub(super) fn commit_with_reveal(
     revealed: Option<Value>,
     now: i64,
 ) -> Result<Value> {
-    // surface is journal metadata, never a rule input: strip it before the
-    // engine applies the play, then restore it so the log records the surface.
-    let surface = command
-        .as_object_mut()
-        .and_then(|object| object.remove("surface"));
+    let surface = take_surface(&mut command);
     let mut result = w.apply(&command)?;
     if let Some(surface) = surface {
-        command
-            .as_object_mut()
-            .expect("play command is an object")
-            .insert("surface".to_string(), surface);
+        command["surface"] = surface;
     }
     c.execute(
         "INSERT INTO card_full_log(world,command,at) VALUES(?,?,?)",
@@ -433,6 +427,10 @@ pub(super) struct PlayRequest<'a> {
     pub surface: &'a str,
 }
 
+fn take_surface(command: &mut Value) -> Option<Value> {
+    command.as_object_mut()?.remove("surface")
+}
+
 pub(super) fn take_revealed(command: &mut Value) -> Option<Value> {
     command.as_object_mut()?.remove("revealed")
 }
@@ -489,9 +487,6 @@ pub(super) fn enqueue(
         return Err("Choose valid revealed cards.".into());
     }
     let mut command = json!({"op":"play","actor":actor_id(a),"action":action});
-    // Journal metadata only: the surface is recorded with the play but is
-    // never a rule input, so it joins the command before the duplicate check
-    // and the INSERT, but the probe below strips it.
     command["surface"] = json!(surface);
     let old: Option<(String, String, String)> = c
         .query_row(
@@ -532,17 +527,10 @@ pub(super) fn enqueue(
         return Err("The table is resting for a moment. Try your play shortly.".into());
     }
     let mut probe = w.clone();
-    // surface is journal metadata, never a rule input: strip it before the
-    // probe applies the play, then restore it for the queue record.
-    let surface_field = command
-        .as_object_mut()
-        .and_then(|object| object.remove("surface"));
+    let surface_field = take_surface(&mut command);
     let probe_result = probe.apply(&command);
     if let Some(surface) = surface_field {
-        command
-            .as_object_mut()
-            .expect("play command is an object")
-            .insert("surface".to_string(), surface);
+        command["surface"] = surface;
     }
     if let Err(error) = probe_result {
         rejections(user, true);

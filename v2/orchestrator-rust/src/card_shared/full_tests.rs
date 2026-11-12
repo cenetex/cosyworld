@@ -195,17 +195,53 @@ fn talk_as_requires_a_claimed_avatar_and_a_present_resident() {
         avatar: None,
         target: "moth".to_string(),
     };
-    // No claim yet: the actor resolution asks for a claim.
     assert_eq!(
         full::talk_as(&state, &id, "user0", &talk).unwrap_err(),
         "Claim an avatar first."
     );
-    // With a claim, a resident who is not here is refused with a clear name.
     claim(&mut c, &id, 0);
     assert_eq!(
         full::talk_as(&state, &id, "user0", &talk).unwrap_err(),
         "Choose someone here to talk to."
     );
+    claim(&mut c, &id, 1);
+    let other = full::Talk {
+        avatar: Some(actor_id(1).to_string()),
+        target: "moth".to_string(),
+    };
+    assert_eq!(
+        full::talk_as(&state, &id, "user0", &other).unwrap_err(),
+        "Choose your own avatar."
+    );
+}
+
+#[test]
+fn a_journaled_surface_never_reaches_the_rules_on_replay() {
+    let (_path, mut c, id) = fixture();
+    claim(&mut c, &id, 0);
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    let action = w.project(0).unwrap()["actions"][0].clone();
+    let play = json!({"op":"play","actor":actor_id(0),"action":action,"surface":"discord"});
+    full_store::commit(&c, &id, &mut w, play, now()).unwrap();
+    let logged: String = c
+        .query_row(
+            "SELECT command FROM card_full_log WHERE json_extract(command,'$.op')='play'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let logged: Value = serde_json::from_str(&logged).unwrap();
+    assert_eq!(logged["surface"], "discord");
+    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+}
+
+#[test]
+fn a_client_cannot_name_its_own_surface() {
+    let named = json!({"op":"play","surface":"discord"});
+    assert!(serde_json::from_value::<full::Command>(named).is_err());
+    let plain: full::Command = serde_json::from_value(json!({"op":"play"})).unwrap();
+    assert_eq!(plain.surface, "browser");
 }
 
 fn hold(c: &rusqlite::Connection, id: &str, w: &mut World, actor: usize, item: Value) {

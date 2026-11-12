@@ -308,9 +308,7 @@ pub(super) struct Command {
     #[serde(default, rename = "move")]
     #[allow(dead_code)]
     pub moving: bool,
-    /// Which surface played this (`browser` | `discord`), for the journal and
-    /// the corpus. The browser never sends it, so it defaults to `browser`.
-    #[serde(default = "default_surface")]
+    #[serde(skip, default = "default_surface")]
     pub surface: String,
 }
 
@@ -318,10 +316,6 @@ fn default_surface() -> String {
     "browser".to_string()
 }
 
-/// A client-agnostic Talk: the gateway (or any non-browser client) names a
-/// target resident and this endpoint owns the play encoding, the key, and the
-/// claimed-avatar resolution. The human's own line (`text`) arrives in the
-/// next slice; this slice commits the talk play and returns the snapshot.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Talk {
@@ -389,7 +383,6 @@ pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>)
     tx.commit().map_err(sql_error)?;
     Ok(value)
 }
-#[cfg(test)]
 pub(super) fn command_as(
     state: &AppState,
     id: &str,
@@ -447,8 +440,15 @@ async fn talk(
     if committed.is_err() {
         return reply(committed);
     }
-    // Voice the talk inline, then return the view with the fresh lines.
-    let _ = voice_once(&state, &id).await;
+    let wait = std::time::Duration::from_secs(20);
+    if let Ok(Ok(_permit)) = tokio::time::timeout(wait, capacity().clone().acquire_owned()).await {
+        for _ in 0..4 {
+            if !voice_once(&state, &id).await.unwrap_or(false) {
+                break;
+            }
+        }
+    }
+    kick(state.clone(), id.clone());
     let worker = state.clone();
     let wid = id.clone();
     let view = blocking(move || {
@@ -464,15 +464,15 @@ async fn talk(
 pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Result<Value> {
     let c = db(state)?;
     store::schema(&c)?;
-    let actor = match body.avatar.as_deref() {
-        Some(avatar) => actor_index(avatar)?,
-        None => bindings::mine(&c, id, u)?.ok_or("Claim an avatar first.")?,
-    };
+    let actor = bindings::mine(&c, id, u)?.ok_or("Claim an avatar first.")?;
+    if let Some(avatar) = body.avatar.as_deref() {
+        if actor_index(avatar)? != actor {
+            return Err("Choose your own avatar.".into());
+        }
+    }
     if body.target.trim().is_empty() {
         return Err("Choose someone to talk to.".into());
     }
-    // The engine accepts only the exact legal action object for this actor's
-    // current state, so look it up rather than authoring one by hand.
     let world = store::world(&c, id, now())?;
     let view = world.project(actor)?;
     let action = view["actions"]
@@ -892,10 +892,6 @@ fn kick(state: AppState, id: String) {
     });
 }
 
-/// One voice pass: commits the next waiting play, voices its residents, and
-/// journals the lines. Returns Ok(true) when it voiced a play, Ok(false) when
-/// there was no waiting play, and Err when publication failed. `kick` loops
-/// it; the synchronous `/talk` endpoint awaits it once.
 async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
     let s = state.clone();
     let wid = id.to_string();
