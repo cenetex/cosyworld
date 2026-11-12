@@ -131,7 +131,7 @@ try {
       await card(home).waitFor({ state: "attached" });
       await ready();
       assert.equal(await card(home).getAttribute("data-locked"), "true");
-      assert.equal((await state()).packs.ratiradio.flags["listening-open"], undefined);
+      assert.equal((await state()).items[id("thermos")].holder, "vale");
       report.checks.push("Listening Room is a locked box while the Thermos is only carried");
       await clearSelection(page);
       await choose(id("thermos"));
@@ -140,7 +140,7 @@ try {
       await readyActionButton(page, "drop").click();
       await page.waitForFunction(({ key, put }) => JSON.parse(localStorage.getItem(key)).revision > put, { key, put });
       await ready();
-      assert.equal((await state()).packs.ratiradio.flags["listening-open"], true);
+      assert.equal((await state()).items[id("thermos")].holder, id("dispatch-window"));
       assert.equal(await card(home).getAttribute("data-locked"), "false");
       report.checks.push("Setting the Thermos down at the Dispatch Window opens the Listening Room");
       await clearSelection(page);

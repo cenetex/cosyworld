@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-ratiradio",
   "pack": "ratiradio",
-  "description": "The Station Key at Black Pond opens the staff entrance at Empty Station. The entrance stays open after the first arrival.",
+  "description": "The Station Key at Black Pond opens the staff entrance at Empty Station, for whoever carries it. The way back out is always open.",
   "entries": [
     {
       "joins": "hub",
@@ -19,13 +19,7 @@
       "travelers": "any",
       "travel": "through the staff entrance",
       "requires": [
-        {
-          "kind": "any",
-          "conditions": [
-            { "kind": "flag", "key": "station-open", "value": true },
-            { "kind": "holding", "item": "ratiradio-station-key", "role": "actor" }
-          ]
-        }
+        { "kind": "holding", "item": "ratiradio-station-key", "role": "actor" }
       ],
       "scenery": {
         "open": "The staff entrance opens onto a kitchen of humming refrigerators.",

@@ -78,7 +78,6 @@ const route = [
   ["take", id("thermos")],
   ["move", id("dispatch-window")],
   ["drop", id("thermos")],
-  ["take", id("thermos")],
   ["move", home],
   ["drop", id("red-beanie")],
   ["take", id("raven-figurine")],
@@ -111,13 +110,10 @@ it("walks the full return, introduces both residents at home, then keeps the unl
     expect(s.actors[raven].place).toBe(home);
     s = decodeSave(encodeSave(s));
   }
-  expect(flags(s)).toMatchObject({
-    "station-open": true,
-    "dispatch-open": true,
-    "listening-open": true,
-    "booth-open": true,
-    "raven-awake": true,
-  });
+  expect(flags(s)).toMatchObject({ "booth-open": true, "raven-awake": true });
+  // The first three doors keep no flag: they follow their items.
+  for (const gone of ["station-open", "dispatch-open", "listening-open"])
+    expect(flags(s)[gone]).toBeUndefined();
   s = act(s, "take", id("glass"));
   expect(entityActive(s, raven)).toBe(true);
   expect(reservedItem(s, id("glass"))).toBe(false);
@@ -159,7 +155,7 @@ it("requires all three direct deposits together, with no RATi presence requireme
   expect(flags(s)["booth-open"]).not.toBe(true);
 });
 
-it("checks the actual shared traveler, then latches the entrance for everyone", () => {
+it("checks the actual shared traveler: the entrance follows the key, not the world", () => {
   let s = dispatchShared({ op: "create", save: encodeSave(fixture()) }).world;
   s.actors.vale.place = s.actors.mara.place = "station";
   s.actors.vale.visited.push("station");
@@ -185,6 +181,10 @@ it("checks the actual shared traveler, then latches the entrance for everyone", 
   const result = ask("mara", "play", { action: entrance("mara") });
   expect(result.ok).toBe(true);
   s = result.world;
+  expect(s.packs.ratiradio.flags["station-open"]).toBeUndefined();
+  // Nothing latched: Mara carries the key, so Vale still has no way in.
+  expect(entrance("vale")).toBeUndefined();
+  s.items[id("station-key")].holder = "vale";
   expect(entrance("vale")).toBeDefined();
 });
 
@@ -317,16 +317,25 @@ it("uses three different lock kinds, one per door, in the pack data", () => {
   const pack = packDefinition("ratiradio");
   const door = (flag) =>
     pack.choices.filter((c) => c.effects.some((e) => e.key === flag));
-  const kind = (c) =>
-    c.on === "talk"
-      ? "heard"
-      : c.requires.some((r) => r.kind === "item_at")
-        ? "placed"
-        : "held";
-  const kinds = ["dispatch-open", "listening-open", "booth-open"].map((flag) => [
-    ...new Set(door(flag).map(kind)),
-  ]);
-  expect(kinds).toEqual([["held"], ["placed"], ["heard"]]);
+  const route = (to) => pack.routes.find((r) => r.to === id(to));
+  // Held and placed are live: the way follows the item. Heard is a latch.
+  expect(route("dispatch-window")).toMatchObject({
+    live: true,
+    requires: [
+      { kind: "item_present", item: id("red-beanie") },
+      { kind: "not", condition: { kind: "item_at", item: id("red-beanie") } },
+    ],
+  });
+  expect(route("listening-room")).toMatchObject({
+    live: true,
+    requires: [
+      { kind: "item_at", item: id("thermos"), place: id("dispatch-window") },
+    ],
+  });
+  expect(route("broadcast-booth").live).toBeUndefined();
+  expect(door("booth-open").every((c) => c.on === "talk")).toBe(true);
+  for (const flag of ["station-open", "dispatch-open", "listening-open"])
+    expect(door(flag)).toEqual([]);
   for (const choice of door("booth-open"))
     expect(choice.requires).toContainEqual({
       kind: "holding",
@@ -348,15 +357,59 @@ it("opens the Listening Room by setting the Thermos down, not by carrying it", (
   expect(canMove(s, home)).toBe(false);
   s = act(s, "drop", id("thermos"));
   expect(s.items[id("thermos")].holder).toBe(id("dispatch-window"));
-  expect(flags(s)["listening-open"]).toBe(true);
   expect(box(s, home).locked).toBe(false);
-  // The way stays open after the Thermos is carried off, and after reload.
+  expect(flags(s)["listening-open"]).toBeUndefined();
+  // The way follows the Thermos: carry it off and the door shuts again, also
+  // after reload; set it back down and it opens.
   s = reload(act(s, "take", id("thermos")));
   expect(s.items[id("thermos")].holder).toBe("vale");
+  expect(canMove(s, home)).toBe(false);
+  expect(box(s, home).locked).toBe(true);
+  s = act(s, "drop", id("thermos"));
   expect(canMove(s, home)).toBe(true);
-  s = act(s, "move", id("staff-kitchen"));
+});
+
+it("shuts the Dispatch Window again when the Red Beanie is put down or carried off", () => {
+  let s = steps(fixture(), upTo("take", id("red-beanie")));
+  expect(s.actors.vale.place).toBe(id("staff-kitchen"));
+  expect(canMove(s, id("dispatch-window"))).toBe(true);
+  expect(flags(s)["dispatch-open"]).toBeUndefined();
+  // Set down in the kitchen, the beanie opens nothing: it must be held.
+  s = act(s, "drop", id("red-beanie"));
+  expect(canMove(s, id("dispatch-window"))).toBe(false);
+  expect(box(s, id("dispatch-window")).locked).toBe(true);
+  s = act(s, "take", id("red-beanie"));
+  expect(canMove(s, id("dispatch-window"))).toBe(true);
+  // A traveler already inside keeps the way out whatever happens to the beanie.
   s = act(s, "move", id("dispatch-window"));
-  expect(canMove(s, home)).toBe(true);
+  s = act(s, "drop", id("red-beanie"));
+  expect(canMove(s, id("staff-kitchen"))).toBe(true);
+  s = act(s, "take", id("red-beanie"));
+  s = act(s, "move", id("staff-kitchen"));
+  s = reload(act(s, "drop", id("red-beanie")));
+  expect(canMove(s, id("dispatch-window"))).toBe(false);
+});
+
+it("never traps a traveler: every way out of the opened rooms stays plain", () => {
+  let s = steps(fixture(), upTo("move", home));
+  s = act(gather(s, rati), "take", id("raven-figurine"));
+  s = act(s, "talk", rati);
+  s = act(s, "move", id("broadcast-booth"));
+  // Behind every live door, with its item gone, the way back is still open.
+  for (const item of ["red-beanie", "thermos"]) s.items[id(item)].holder = "pond";
+  s.items[id("station-key")].holder = "pond";
+  for (const [here, back] of [
+    [id("broadcast-booth"), home],
+    [home, id("dispatch-window")],
+    [id("dispatch-window"), id("staff-kitchen")],
+    [id("staff-kitchen"), "station"],
+  ]) {
+    s.actors.vale.place = here;
+    expect(canMove(s, back), `${here} to ${back}`).toBe(true);
+  }
+  // Without the key, the entrance is shut from outside only.
+  s.actors.vale.place = "station";
+  expect(canMove(s, id("staff-kitchen"))).toBe(false);
 });
 
 it("opens the Broadcast Booth by talking with RATi while holding the figurine", () => {

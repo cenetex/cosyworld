@@ -72,7 +72,7 @@ it("shared views do not consume slots or reorder first-open history", () => {
   expect(JSON.stringify(s)).toBe(before);
 });
 
-it("queues Radio only for its present key carrier and preserves the earned entrance", () => {
+it("queues Radio only for its present key carrier and follows the key", () => {
   let s = fixture();
   const door = "ratiradio-staff-kitchen", key = "ratiradio-station-key";
   s.items[key].holder = "mara";
@@ -100,11 +100,16 @@ it("queues Radio only for its present key carrier and preserves the earned entra
   const crossed = play(s, move, s.revision, "mara");
   expect(crossed.ok, crossed.error).toBe(true);
   s = crossed.state;
-  expect(s.packs.ratiradio.flags["station-open"]).toBe(true);
+  // The entrance keeps no flag: it follows the key, so Vale, who carries none,
+  // still has no way in once Mara has crossed and the key is put away.
+  expect(s.packs.ratiradio.flags["station-open"]).toBeUndefined();
   s.items[key].holder = "pond";
   settleStationExits(s);
+  expect(ways(s, "vale")).not.toContain(door);
+  s.items[key].holder = "vale";
+  settleStationExits(s);
   expect(ways(s, "vale")).toContain(door);
-  expect(decodeSave(encodeSave(s)).packs.ratiradio.flags["station-open"]).toBe(true);
+  expect(decodeSave(encodeSave(s)).packs.ratiradio.flags["station-open"]).toBeUndefined();
 });
 
 it("matches compiled shared rules across presence, marker travel and reopening", async () => {

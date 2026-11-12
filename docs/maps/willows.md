@@ -19,19 +19,19 @@ flowchart LR
   n_greek_ship(["The Charybdis"])
   n_pond(("Black pond"))
   n_greek_ship -. "cross: it is night and The Charybdis has mist weather a…" .-> n_willows_landing
-  n_pond -. "cross: willows-swede-gone is not set and Worn Paddle is…" .-> n_willows_landing
+  n_pond -. "cross: Worn Paddle is in River Camp and Waterproof Shee…" .-> n_willows_landing
   n_willows_bank --- n_willows_thicket
   n_willows_camp --- n_willows_landing
   n_willows_camp --- n_willows_thicket
   n_willows_landing -. "cross: it is night and The Charybdis has mist weather a…" .-> n_greek_ship
-  n_willows_landing -. "cross: willows-swede-gone is not set and Worn Paddle is…" .-> n_pond
+  n_willows_landing -. "cross: Worn Paddle is in River Camp and Waterproof Shee…" .-> n_pond
   classDef stub stroke-dasharray: 4 3
   class n_greek_ship,n_pond stub
 ```
 
 ## Dependency chart
 
-4 gated ways here; 9 nodes in the chain.
+4 gated ways here; 8 nodes in the chain.
 
 ```mermaid
 flowchart TD
@@ -39,12 +39,10 @@ flowchart TD
   n_crossing_pond_willows_landing{{"Black pond to River Landing"}}
   n_crossing_willows_landing_greek_ship{{"River Landing to The Charybdis"}}
   n_crossing_willows_landing_pond{{"River Landing to Black pond"}}
-  n_item_greek_provisions(["greek-provisions"])
   n_item_willows_paddle(["Worn Paddle"])
   n_item_willows_provisions(["Food Sack"])
   n_item_willows_rope(["Tent Rope"])
   n_item_willows_sheet(["Waterproof Sheet"])
-  n_item_greek_provisions --> n_crossing_greek_ship_willows_landing
   n_item_willows_paddle --> n_crossing_pond_willows_landing
   n_item_willows_paddle --> n_crossing_willows_landing_pond
   n_item_willows_provisions --> n_crossing_pond_willows_landing
@@ -63,10 +61,10 @@ Every condition that shuts a way, a place, a resident or a thing. The prerequisi
 
 | Gate | Direct condition | Transitive prerequisites | Latch (kept once made) and live (read now) |
 | --- | --- | --- | --- |
-| `crossing:greek-ship-willows-landing`<br>The Charybdis to River Landing | it is night and greek-ship has mist weather and (greek-ship is docked at pond or greek-ship is at sea) and (greek-provisions is in greek-ship or a hoppycat-archive thing is in greek-ship) | items: `greek-provisions` | live: it is night; greek-provisions is in greek-ship; a hoppycat-archive thing is in greek-ship; greek-ship is at sea; greek-ship is docked at pond; greek-ship has mist weather |
+| `crossing:greek-ship-willows-landing`<br>The Charybdis to River Landing | it is night and greek-ship has mist weather and (greek-ship is docked at pond or greek-ship is at sea) | none | live: it is night; greek-ship is at sea; greek-ship is docked at pond; greek-ship has mist weather |
 | `crossing:willows-landing-greek-ship`<br>River Landing to The Charybdis | it is night and greek-ship has mist weather and (greek-ship is docked at pond or greek-ship is at sea) | none | live: it is night; greek-ship is at sea; greek-ship is docked at pond; greek-ship has mist weather |
-| `crossing:willows-landing-pond`<br>River Landing to Black pond | willows-swede-gone is not set and willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp | items: `willows-paddle`, `willows-provisions`, `willows-rope`, `willows-sheet` | latch: willows-swede-gone is not set<br>live: willows-paddle is in willows-camp; willows-provisions is in willows-camp; willows-rope is in willows-camp; willows-sheet is in willows-camp |
-| `crossing:pond-willows-landing`<br>Black pond to River Landing | willows-swede-gone is not set and willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp | items: `willows-paddle`, `willows-provisions`, `willows-rope`, `willows-sheet` | latch: willows-swede-gone is not set<br>live: willows-paddle is in willows-camp; willows-provisions is in willows-camp; willows-rope is in willows-camp; willows-sheet is in willows-camp |
+| `crossing:willows-landing-pond`<br>River Landing to Black pond | willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp | items: `willows-paddle`, `willows-provisions`, `willows-rope`, `willows-sheet` | live: willows-paddle is in willows-camp; willows-provisions is in willows-camp; willows-rope is in willows-camp; willows-sheet is in willows-camp |
+| `crossing:pond-willows-landing`<br>Black pond to River Landing | willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp | items: `willows-paddle`, `willows-provisions`, `willows-rope`, `willows-sheet` | live: willows-paddle is in willows-camp; willows-provisions is in willows-camp; willows-rope is in willows-camp; willows-sheet is in willows-camp |
 | `resident:willows-swede`<br>The Swede appears | willows-swede-gone is not set | none | latch: willows-swede-gone is not set |
 
 ## Flags

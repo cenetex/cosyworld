@@ -21,7 +21,6 @@ describe("location mystery projection", () => {
   it("moves a revealed resident out of the item stack and reboxes if locked again", () => {
     const world = createWorld();
     world.actors.vale.place = room;
-    world.packs.ratiradio.flags["listening-open"] = true;
     // The fixture opens the room's authored requirements directly.
     world.packs.ratiradio.scope = "full";
     world.packs.ratiradio.flags["raven-awake"] = false;
