@@ -19,8 +19,8 @@ import {
   nextWant,
   refuseWant,
   setWant,
-  takeQuest,
   wantCandidates,
+  holdQuest,
   wantOf,
 } from "../v2/card-game/want.mjs";
 
@@ -36,25 +36,28 @@ describe("one want per avatar", () => {
     expect(nextWant(s, "moth", wantAPI(s))).not.toBeNull();
   });
 
-  it("draws a resident's want from actor and turn alone, the same in worlds of different seeds (#2717)", () => {
-    const drawn = (seed, turn) => {
+  it("draws a resident's want from the world's seed, the actor and the turn (#2717)", () => {
+    const drawn = (seed, turn, actor = "moth") => {
       const s = createWorld({ seed });
       s.turn = s.revision = turn;
-      const pool = wantCandidates(s, "moth", wantAPI(s));
-      expect(pool.length).toBeGreaterThan(1);
       expect(s.run.seed).toBe(seed);
-      return JSON.stringify([pool, nextWant(s, "moth", wantAPI(s)).target]);
+      expect(wantCandidates(s, actor, wantAPI(s)).length).toBeGreaterThan(1);
+      return nextWant(s, actor, wantAPI(s)).target;
     };
     const each = Array.from({ length: 16 }, (_, i) => i + 1);
-    expect(new Set(each.map((seed) => drawn(seed, 0))).size).toBe(1);
+    expect(new Set(each.map((seed) => drawn(seed, 0))).size).toBeGreaterThan(1);
+    expect(each.map((seed) => drawn(seed, 0))).toEqual(
+      each.map((seed) => drawn(seed, 0)),
+    );
     expect(new Set(each.map((turn) => drawn(1, turn))).size).toBeGreaterThan(1);
   });
 
-  it("takes a quest only when none is held, and replaces nothing", () => {
+  it("holds a new quest on top of the one held, and replaces nothing", () => {
     const s = createWorld();
-    expect(takeQuest(s, "vale", pond(0))).toMatchObject({ target: "pond" });
-    expect(takeQuest(s, "vale", newWant("place", "attic", 0))).toBeNull();
-    expect(wantOf(s, "vale").target).toBe("pond");
+    expect(holdQuest(s, "vale", pond(0), "quest:box:a")).toMatchObject({ target: "pond" });
+    expect(holdQuest(s, "vale", newWant("place", "attic", 0), "quest:box:b")).toMatchObject({ target: "attic" });
+    expect(wantOf(s, "vale").target).toBe("attic");
+    expect(s.actors.vale.under.map((w) => w.target)).toEqual(["pond"]);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
@@ -109,7 +112,7 @@ describe("one want per avatar", () => {
     expect(s.actors.vale.want).toBeNull();
   });
 
-  it("holds no stack or receipts through a long run", () => {
+  it("holds no receipts, and no stack but a player's, through a long run", () => {
     let s = createWorld();
     for (let turn = 0; turn < 300; turn++) {
       const actions = legalActions(s);
@@ -117,7 +120,7 @@ describe("one want per avatar", () => {
       if (turn % 50 === 0) setWant(s.actors.vale, s.actors.vale.want ?? pond(s.turn));
     }
     for (const a of Object.values(s.actors)) {
-      expect(a.under).toBeUndefined();
+      if (a !== s.actors.vale) expect(a.under).toBeUndefined();
       expect(a.questRewards).toBeUndefined();
     }
     expect(legalActions(s).some((a) => ["claim", "focus"].includes(a.kind))).toBe(

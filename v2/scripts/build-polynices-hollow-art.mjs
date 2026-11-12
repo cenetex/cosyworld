@@ -1,7 +1,5 @@
-// Export the veiled paintings, flatten the other burial cutouts, and bake
-// the shade's translucency (#2301). Studies in docs/design/assets/polynices
-// are the masters; this script writes the shipping WebPs and their
-// provenance. `--check` rebuilds in memory and fails on any difference.
+// Export the approved paintings plus composited burial states from the studies.
+// `--check` verifies the shipping WebPs plus provenance without writing files.
 import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
@@ -102,10 +100,7 @@ for (const { period, suffix } of lights) {
     const image = painting
       ? sharp(painting.bytes)
       : sharp(base).composite([await layerAt(cutout.bytes, placement)]);
-    const body = await image
-      .removeAlpha()
-      .webp(webp)
-      .toBuffer();
+    const body = await image.removeAlpha().webp(webp).toBuffer();
     const file = `polynices-hollow-${state}-${period}.webp`;
     outputs.set(file, body);
     assets.push({

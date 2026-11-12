@@ -123,14 +123,14 @@ describe("XP the Greek and RatiRadio content pays", () => {
     // more when a keepsake meets its want. Items start at their pack homes
     // here, as in card-boxes, so the figurine also meets its want on the move.
     expect(without.total).toBe(4);
-    expect(withKeepsakes.total).toBe(7);
+    expect(withKeepsakes.total).toBe(9);
     expect(withKeepsakes.gains).toEqual({
       "take ratiradio-red-beanie": 1,
       "talk ratiradio-rati": 1,
       "drop ratiradio-thermos": 1,
       "move ratiradio-listening-room": 1,
-      "drop ratiradio-glass": 1,
-      "drop ratiradio-raven-figurine": 2,
+      "drop ratiradio-glass": 2,
+      "drop ratiradio-raven-figurine": 3,
     });
   });
 });

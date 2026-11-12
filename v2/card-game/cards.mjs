@@ -25,9 +25,7 @@ import {
   exits,
   covered,
   shutBoxesAt,
-  questOffers,
 } from "./world.mjs";
-import { isOfferId } from "./world/offers.mjs";
 import {
   companionOf,
   cannotFollowLabel,
@@ -44,11 +42,6 @@ export const shutBoxes = (world) => {
   const player = currentActor(world);
   return shutBoxesAt(world, world.actors[player]?.place, player);
 };
-// The quest cards on the table (rules 133): each offer is a card, tapped to
-// take its quest. A blocked offer carries the reason for its disabled button.
-export const offerCards = (world) => questOffers(world).map((o) => o.id);
-export const offerOf = (world, id) =>
-  isOfferId(id) ? questOffers(world).find((o) => o.id === id) : undefined;
 const shutBox = (world, id) => shutBoxes(world).find((box) => box.id === id);
 // An undiscovered resident can wait as an existing locked card, without
 // becoming an active actor or receiving plays before its requirements hold.
@@ -90,7 +83,6 @@ export function availableCards(world) {
       fight.defender === player && fight.item ? [fight.item] : [];
     return [...cast, ...demanded.filter((id) => items.includes(id)), here];
   }
-  const quests = offerCards(world);
   const road = packPlaces[here]?.road;
   // Every shut box lies in the hand face down (rules 133): a way, a made
   // thing waiting for its maker, a resident, a port, a door.
@@ -104,11 +96,9 @@ export function availableCards(world) {
     ...after(here),
     ...destinations.filter((id) => !road || id !== road[0]),
     ...new Set(sealed),
-    ...quests,
   ];
 }
 export function cardType(id) {
-  if (isOfferId(id)) return "quest";
   return things[id] ? "item" : people[id] ? "avatar" : "location";
 }
 
@@ -173,9 +163,6 @@ function carryFull(world, id) {
 // Why an Ask, Trade or Invite is missing: the resident it needs is asleep
 // (rules 100), for the context button. Talk wakes it; a Give it keeps.
 export function asleepReason(world, selected) {
-  // A quest card held back by the quest in hand says so, in the same button.
-  const held = selected.length === 1 && offerOf(world, selected[0])?.blocked;
-  if (held) return held;
   const sleeper = selected
     .map((id) => (people[id] ? id : things[id] ? rootHolder(world, id) : null))
     .find(
@@ -283,13 +270,6 @@ export function cardPlay(world, selected) {
         : undefined;
   if (cards.length === 1) {
     const id = cards[0];
-    // A quest card gives its one play, or says why it cannot.
-    const quest = offerOf(world, id);
-    if (quest)
-      return result(
-        actions.find((a) => a.kind === "take" && a.offer === id),
-        quest.blocked,
-      );
     const authored = () => choicesOn(id, actions)[0];
     const single = (found, hint) => result(found || authored(), hint);
     // A local fixture takes the place of a plain Wait.
@@ -346,11 +326,7 @@ export function cardPlay(world, selected) {
       );
     return single(
       null,
-      id !== "oil" && id !== "cloth"
-        ? "Pair with a person to give it, or this place to put it down."
-        : id === "oil"
-          ? "Hold it with an empty Lamp to fill the Lamp."
-          : "Pair with the Lamp or Bell to cover it.",
+      "Pair with a person to give it, or this place to put it down.",
     );
   }
   const item = cards.find((id) => things[id]);
@@ -439,12 +415,11 @@ export function cardPlay(world, selected) {
     if (give) return result(null, "Make room for both sides of the exchange.");
     return result(null, `Talk with ${nameOf(other)} to learn their quest.`);
   }
-  return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
+  return result(action, "");
 }
 // A card tapped while a held thing is raised pairs with it only when the
-// pair plays (a give, a trade, a cover). Otherwise, if the tapped card alone
-// is taken or travelled to, the held thing is put aside so the tap leaves
-// its one button instead of a pair with no play.
+// pair plays. Otherwise a card that is taken or travelled to alone puts the
+// held thing aside, so the tap leaves its one button.
 export function settledChoice(world, cards, id) {
   if (cards.length !== 2 || !cards.includes(id)) return cards;
   if (!things[id] && !places[id]) return cards;

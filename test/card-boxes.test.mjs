@@ -84,7 +84,7 @@ describe("the hub's boxes", () => {
     expect(isLockedBox(world, "pond")).toBe(true);
     // The Lamp is not yet discovered, so the lock does not name it.
     expect(lockedQuest(world, "pond")).toEqual({
-      text: "Find something undiscovered",
+      text: "Find something",
       cards: [],
     });
     expect(lockedQuest(world, "pond", () => true).text).toBe(
