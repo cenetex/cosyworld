@@ -116,40 +116,32 @@ after every play, since their quests are state tests.
 
 What replaces each use in the table above:
 
-1. Curve, thresholds, gap: removed. Level n takes n minus 1 met quests.
-   `levelFor`, `questXp`, `levelGap`, `levelXp`, `QUEST_STEP_LEVELS` and
-   `questSteps` are deleted.
-2. Level-up offer: removed. The level quest is not offered at a threshold; it
-   always stands (sections 3 and 4). `levelUpQuest` and the `level` offer kind
-   are deleted.
-3. Halfway dream: removed. Package B draws a dream on every long rest, so no
+1. Curve, thresholds, gap: removed with `levelFor`, `questXp`, `levelGap`,
+   `levelXp`, `QUEST_STEP_LEVELS` and `questSteps`. Level n takes n minus 1
+   met quests.
+2. Level-up offer: removed. The level quest always stands (sections 3, 4);
+   `levelUpQuest` and the `level` offer kind go.
+3. Halfway dream: removed. Package B dreams on every long rest, so no
    threshold is needed. `drawGlimpse` takes the current level; `halfwayXp`,
-   `milestones`, `a.halfwayIssued` and the glimpse level cap go.
-4. Discard cost: removed. See section 5.
-5. Residents' instant level: replaced by the same rule as everyone. A resident
-   levels the play its want is met. `commitMet` adds 1 to `level`.
-6. Residents' level at home: removed. `levelAtHome`, `levelReturnHome`,
-   `settleHomeLevels` and the walk-home branches go (section 6).
-7. `startXp`: removed. `level = startLevel || 1` is set when the entity is
-   installed (`installWants`, `want.mjs:315`).
-8. `world-level`: `worldPoints` keeps its formula with
-   `levelOf(id) - (startLevel || 1)` in place of `levelOf - levelFor(startXp)`.
-   Opened routes, sections and crossings still count. It stays presentation
-   and stores nothing. Items and places do not count in version one.
-9. The cap: see below.
-10. `creditOpened`: removed. Opening a box pays nothing. The opening is its
-    own result. The `opened` record stays, because `stood` and the lock UI use
-    it (`world/boxes.mjs:~560`).
-11. `helped`: the XP half is removed. Its trust half stays: a player whose
-    play meets another avatar's want still raises that avatar's trust by 1.
-    An item's or place's quest met by a traveler gives that traveler no
-    trust (nothing to trust) and no level, except as section 4 says.
-12. Per-want pay: removed. The `want_met` log keeps its entry; `questXp` on it
-    is dropped (`world.mjs:670-690, 3958-3962`).
-13. Carry: see section 7.
-14. Server store: see section 7.
-15. `xp` in the quest card and scene payloads: dropped. Both already carry
-    `level`.
+   `milestones`, `a.halfwayIssued` and the glimpse cap go.
+4. Discard cost: removed (section 5).
+5. Residents' instant level: `commitMet` adds 1 to `level` when the want is
+   met.
+6. Residents' level at home: removed (section 6).
+7. `startXp`: removed. `level = startLevel || 1` is set in `installWants`
+   (`want.mjs:315`).
+8. `world-level`: `worldPoints` keeps its formula with `levelOf(id) -
+   (startLevel || 1)`. Opened ways still count. Still presentation, nothing
+   stored. Items and places do not count in version one.
+9. The cap: below.
+10. `creditOpened`: removed. Opening a box pays nothing; the `opened` record
+    stays for `stood` and the lock UI.
+11. `helped`: the XP half is removed. The trust half stays: the owner's trust
+    in a helping player still rises by 1.
+12. Per-want pay: removed; `questXp` leaves the `want_met` log
+    (`world.mjs:670-690, 3958-3962`).
+13. 14. Carry and server store: section 7.
+15. `xp` in the quest card and scene payloads: dropped; both carry `level`.
 
 ### The validation cap
 
