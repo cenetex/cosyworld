@@ -11,6 +11,7 @@ import {
   restPlays,
 } from "../v2/card-game/cards.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
+import { isArcanum } from "../v2/card-game/world/arcana.mjs";
 import {
   createWorld,
   encodeSave,
@@ -242,7 +243,7 @@ describe("named card actions", () => {
     const world = meeting();
     world.items.oil.holder = "vale";
     world.items.cloth.holder = "lamp";
-    const cards = availableCards(world);
+    const cards = availableCards(world).filter((id) => !isArcanum(id));
     expect(cards.slice(0, 5)).toEqual(["vale", "lamp", "cloth", "oil", "moth"]);
     expect(
       cards.slice(cards.indexOf("station"), cards.indexOf("pond")),

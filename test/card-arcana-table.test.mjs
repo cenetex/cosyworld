@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import data from "../v2/card-game/arcana.json" with { type: "json" };
-import { availableCards } from "../v2/card-game/cards.mjs";
+import { availableCards, shutBoxes } from "../v2/card-game/cards.mjs";
 import {
   entityActive,
   packEntity,
@@ -129,11 +129,11 @@ describe("the cards in a world", () => {
 });
 
 describe("a shut card", () => {
-  it("is not on the table and cannot be taken", () => {
+  it("lies as a locked box and cannot be taken", () => {
     const s = createWorld({ seed: 5 });
     s.items[CARD].holder = s.actors.vale.place;
     expect(entityActive(s, CARD)).toBe(false);
-    expect(availableCards(s)).not.toContain(CARD);
+    expect(shutBoxes(s).map((box) => box.id)).toContain(CARD);
     expect(takes(s, "vale", CARD)).toEqual([]);
   });
 });

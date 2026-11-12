@@ -13,6 +13,7 @@ import { places, sanctuaries } from "./catalog.mjs";
 import { arcanumOpen, isArcanum, recordOf } from "./arcana-record.mjs";
 import { companionOf } from "./company.mjs";
 import { homeOf } from "./home.mjs";
+import { MOST_GOALS } from "./lock-goals.mjs";
 import { rootHolder } from "./items.mjs";
 
 export const deck = { cards: data.cards };
@@ -231,6 +232,30 @@ export function installArcana(s, memories = null) {
   if (memories && s.memories)
     for (const { id } of data.cards) s.memories[id] ??= memories[id];
   return s;
+}
+
+export function arcanaBoxesAt(s, place, actor) {
+  if (!humanAvatar(actor) || (s.opening && !s.opening.crossed)) return [];
+  const record = recordOf(s, actor);
+  return deck.cards.flatMap((card) => {
+    const binding =
+      s.items?.[card.id]?.holder === place &&
+      !record.proved.includes(card.id) &&
+      !record.held.includes(card.id) &&
+      bindingOf(s, card, actor);
+    if (!binding) return [];
+    const goals = resolve(card.desire || [], binding).slice(0, MOST_GOALS);
+    return [
+      {
+        id: card.id,
+        kind: "item",
+        at: place,
+        open: false,
+        want: goals[0] ?? null,
+        goals,
+      },
+    ];
+  });
 }
 
 const validList = (list) =>
