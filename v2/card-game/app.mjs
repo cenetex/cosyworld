@@ -1,3 +1,4 @@
+import { accountStorage as localStorage, accountStorageKey } from "./account-reset-storage.mjs";
 import { tableHolder, tableType } from "./mystery-view.mjs";
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
@@ -5615,7 +5616,7 @@ function resetTable(next = freshWorld()) {
   resumeScene();
 }
 window.addEventListener("storage", (event) => {
-  if (sharedSession || event.key !== SAVE_KEY || !event.newValue) return;
+  if (sharedSession || event.key !== accountStorageKey(SAVE_KEY) || !event.newValue) return;
   cancelPipTransition();
   playQueue.clear();
   releaseGhosts();

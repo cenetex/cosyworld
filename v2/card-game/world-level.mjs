@@ -1,3 +1,4 @@
+import { accountStorage as localStorage } from "./account-reset-storage.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { levelTier, tiers } from "./level-tiers.mjs";
 import { conditionsMet, packDefinitions } from "./pack-registry.mjs";
@@ -42,7 +43,7 @@ const REMEMBERED = 40;
 // Blocked storage throws even on reading `localStorage`.
 function browserStorage() {
   try {
-    return globalThis.localStorage;
+    return localStorage;
   } catch {
     return null;
   }

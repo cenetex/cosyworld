@@ -1,3 +1,4 @@
+import { accountStorage as localStorage } from "./account-reset-storage.mjs";
 // Cosmetic upgrades on a traveler's portrait (#1873). The rules record each
 // one-way upgrade in the traveler's `upgrades` set; this module only paints
 // it, and keeps the local passkey's set between local worlds. RATi's scarf is
@@ -35,7 +36,7 @@ export function avatarImage(world, actor) {
 // A WebView with DOM storage off throws on reading `localStorage` itself, so
 // the default is looked up inside each guard, never as a parameter default.
 export const LOCAL_UPGRADES_KEY = "cosyworld.local.upgrades";
-const browserStorage = () => globalThis.localStorage;
+const browserStorage = () => localStorage;
 function readLocal(storage = browserStorage) {
   try {
     const saved = JSON.parse(storage()?.getItem(LOCAL_UPGRADES_KEY) || "{}");
