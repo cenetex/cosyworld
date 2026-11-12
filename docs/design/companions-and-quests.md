@@ -6,6 +6,9 @@ suggestion, not a decision. Companion to [wants and arcs](wants-and-arcs.md),
 under [#2605](https://github.com/cenetex/cosyworld/issues/2605). Patroclus is
 [#2620](https://github.com/cenetex/cosyworld/issues/2620).
 
+The [quest and gate audit of 2026-11-11](quest-audit-2026-11-11.md) checks
+every authored gate in the mounted packs against these decisions.
+
 This page does not reopen anything in wants and arcs. It adds three things
 that page leaves open: a companion who stays with you, a quest as one idea
 that avatars, places and items all hold, and items and gates that matter more
