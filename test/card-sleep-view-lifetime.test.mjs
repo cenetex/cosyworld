@@ -228,6 +228,8 @@ function appBoundary(sleepView, world) {
     "nameOf",
     "selectCards",
     "render",
+    "blockSave",
+    "unblockSave",
   ])
     context[key] = noop;
   context.availableCards = () => [];

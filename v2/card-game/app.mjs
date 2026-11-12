@@ -120,6 +120,7 @@ import {
   installScaresToggle,
 } from "./transitions.mjs";
 import { installSettingsCards } from "./settings-screen.mjs";
+import { newGameCard, settingsBeat } from "./settings-cards.mjs";
 import { leavePage } from "./page-fade.mjs";
 import { settle } from "./figure-settle.mjs";
 import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
@@ -318,9 +319,44 @@ function node(tag, text, className) {
   if (className) el.className = className;
   return el;
 }
-// The action beat's state is declared before notice(), which can run at boot
-// (a refused save, blocked storage) before the rest of the table exists.
+// The action beat's state is declared before boot, which can block the save.
 let borrowedBeat = null;
+let freshStart = null;
+function blockSave(words) {
+  unblockSave();
+  saveBlocked = true;
+  freshStart = { words, armed: false, at: 0, beat: null };
+}
+function unblockSave() {
+  saveBlocked = false;
+  if (freshStart && borrowedBeat === freshStart.beat) borrowedBeat = null;
+  freshStart = null;
+}
+function freshStartBeat() {
+  const card = newGameCard(freshStart.words),
+    [action] = settingsBeat([card], card.id, freshStart.armed && `${card.id}:0`)
+      .actions;
+  return {
+    cards: [{ src: imageUrl(card.art, "card"), lit: true }],
+    name: card.name,
+    info: card.info,
+    buttons: [
+      {
+        label: action.label,
+        id: `setting-${card.id}`,
+        destructive: Boolean(action.armed),
+        run() {
+          const now = performance.now();
+          if (freshStart.armed && now - freshStart.at < 400) return;
+          if (freshStart.armed) return resetTable();
+          Object.assign(freshStart, { armed: true, at: now, beat: null });
+          borrowedBeat = null;
+          renderActions();
+        },
+      },
+    ],
+  };
+}
 // A play that commits rests the action beat, so the reply comes to the
 // front, until the player chooses or raises the hand again.
 let restedChoice = null;
@@ -383,8 +419,9 @@ try {
   }
 } catch (error) {
   openingTable = false;
-  saveBlocked = true;
-  notice(error.message + " Use New game to start again.");
+  blockSave(
+    "This save needs a fresh start. Your previous save is kept until you start a new game.",
+  );
 }
 selected = [heldItem(world, currentActor(world))].filter(Boolean);
 const UNSAVED_NOTICE =
@@ -812,6 +849,7 @@ function updateCardCooldown() {
   for (const button of document.querySelectorAll(
     "#hand button, #card-actions button",
   )) {
+    if (freshStart && button.dataset.keepMenu) continue;
     // A blocked reason (a Take refused for space) never plays.
     button.disabled = selectionBlocked() || Boolean(button.dataset.blocked);
     if (button.dataset.card)
@@ -2433,8 +2471,7 @@ function showBeatCards(
 // message, note, edit?: { key, label, value, onInput }, buttons: [{ label, id, run }] }.
 // The name and its info line read in
 // the middle, then the note; the buttons sit on the right, and a beat may
-// have none. It replaces the play's beat until cleared. `borrowedBeat` is
-// declared before notice(), which a refused save calls during boot.
+// have none. It replaces the play's beat until cleared.
 export function showActionBeat(beat) {
   borrowedBeat = beat;
   if (keptBorrowedBeat) keptBorrowedBeat = beat;
@@ -2603,6 +2640,10 @@ function renderActions() {
   const row = $("card-actions"),
     panel = $("action-beat");
   panel.removeAttribute("data-card-tap");
+  if (freshStart && !borrowedBeat)
+    borrowedBeat = freshStart.beat = freshStartBeat();
+  else if (freshStart && borrowedBeat !== freshStart.beat)
+    freshStart.armed = false;
   if (
     sharedRefusal &&
     (sharedRefusal.choice !== selected.join("+") ||
@@ -5656,7 +5697,7 @@ function resetTable(next = freshWorld()) {
   selected = [heldItem(world, currentActor(world))].filter(Boolean);
   expandedHolders.clear();
   rowCollapsed = true;
-  saveBlocked = false;
+  unblockSave();
   if (startingPip) loadSeen(true);
   notice("");
   save();
@@ -5687,14 +5728,12 @@ window.addEventListener("storage", (event) => {
     // Another tab's play is not this player's: the hand stays as it was,
     // less any card that has left the table.
     selectCards(selected.filter((id) => availableCards(world).includes(id)));
-    saveBlocked = false;
+    unblockSave();
     notice("The world was updated in another tab.");
     resumeScene({ otherTab: true });
   } catch {
-    saveBlocked = true;
-    notice(
-      "The save changed in another tab. Use New game to start a fresh world.",
-    );
+    blockSave("The save changed in another tab.");
+    notice("");
     render();
   }
 });

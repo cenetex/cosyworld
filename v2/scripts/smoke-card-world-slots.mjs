@@ -280,7 +280,7 @@ try {
       0,
     );
     assert.doesNotMatch(await menu.innerText(), /on this device/);
-    assert.equal(await page.locator("#new-game").getAttribute("hidden"), "");
+    assert.equal(await page.locator("#new-game").getAttribute("hidden"), null);
     // + New world starts a fresh world for the card's avatar in no world.
     const fresh = menu.locator("#avatar-new-world");
     assert.equal(await fresh.innerText(), "+ New world");

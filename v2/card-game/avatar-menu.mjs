@@ -532,9 +532,8 @@ export function installAvatarMenu({
   function render() {
     // Signed out, ☰ has no world UI at all (#1892).
     box.hidden = !shared;
-    // Signed out, Settings keeps New game for Vale's local table.
     const restart = $("new-game");
-    if (restart) restart.hidden = shared;
+    if (restart) restart.hidden = Boolean(session);
     if (!shared) return;
     const view = worldSlots({
       shared,
