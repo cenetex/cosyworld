@@ -30,7 +30,6 @@ export async function checkOpenDoor(browser, origin) {
   const output = new URL("../../output/open-door/", import.meta.url);
   await mkdir(output, { recursive: true });
   for (const width of smokeWidths([1440, 390])) {
-    // A new world after the burial, played by real rules plays.
     const fixture = openDoorStart();
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
@@ -109,8 +108,6 @@ export async function checkOpenDoor(browser, origin) {
           ),
           "The page fits the viewport",
         );
-        // Everything lying at the traveler's place can be tapped: shown, or
-        // in a stack whose top is shown (a place's things, the ways on).
         assert.deepEqual(
           await unreachableCards(page),
           [],
@@ -131,7 +128,6 @@ export async function checkOpenDoor(browser, origin) {
       };
       const step = async ({ kind, ...fields }) => {
         await settle();
-        // Aboard, a port is a voyage: the course card, a round at sea, Disembark.
         for (let n = 0; n < 12 && kind === "move"; n++) {
           const world = await state();
           if (!needsVoyage(world, currentActor(world), fields.target)) break;
@@ -152,8 +148,6 @@ export async function checkOpenDoor(browser, origin) {
             wait++
           )
             await step({ kind: "wait" });
-          // Myrto's packed load is made from bread, figs and wine elsewhere
-          // (tested on its own); this story only needs it lying on deck.
           const packed = await state();
           if (
             packed.actors.vale.place === "greek-harbor" &&
@@ -171,9 +165,6 @@ export async function checkOpenDoor(browser, origin) {
             await settle();
           }
         }
-        // Residents move about twice a game day (the dwell rule): a play with
-        // one waits until it stands here, then goes on. It must come within
-        // two stays; if it never does, the story cannot be played.
         const legalNow = async () =>
           legalActions(await state()).some(
             (a) =>
@@ -202,8 +193,6 @@ export async function checkOpenDoor(browser, origin) {
           .click();
         await settle();
         const after = await state();
-        // A play commits one turn. Past bedtime the traveler sleeps on, and
-        // the world runs on until Vale wakes, so those plays add turns.
         const sleptThrough = after.log
           .slice(-12)
           .some((line) => /\bVale wakes\b/u.test(line.text || ""));
@@ -222,10 +211,6 @@ export async function checkOpenDoor(browser, origin) {
 
       await page.goto(`${origin}/?table=${table}`);
       await settle();
-      // One honest solution, after the burial (puzzle 2, order a): the rites
-      // sent the cloth home to Eleusis and the oil to Colonus. Carry the
-      // petition to Theseus for the truce, gather the kit at Aethra's altar,
-      // and give the urn she makes to the Argive Mother.
       assert.equal(
         (await state()).packs["greek-drama"].flags["greek-open-door-open"],
         undefined,
@@ -259,7 +244,6 @@ export async function checkOpenDoor(browser, origin) {
           "No story button is offered",
         );
         if (action.kind === "give" && action.item === "greek-olive-branch") {
-          // Aethra made the urn: the kit went home and the mourners opened.
           assert.equal(now.usedUp.includes("greek-ash-urn"), false);
           assert.equal(now.items["greek-olive-branch"].holder, "greek-courtyard");
           assert.equal(now.items["greek-oil-flask"].holder, "greek-colonus");

@@ -1,7 +1,4 @@
-// The Open Door checklist (open-door-rework.md, section G), computed from a
-// compiled pack, so the same reading can be run on any revision.
 
-// Every condition in a list, `any` and `not` opened up.
 export function conditionsIn(list = [], out = []) {
   for (const c of list || []) {
     out.push(c);
@@ -46,11 +43,6 @@ const STORY = ["flag", "choice", "choice_unset"];
 export const storyConditions = (list) =>
   conditionsIn(list).filter((c) => STORY.includes(c.kind));
 
-// How many steps must come one after another before a lock opens. Each
-// thing got is a step, each play a flag waits on is a step, and the lock
-// itself is the last. A person is not a step: meeting someone, or their
-// making a thing, waits only on what opens them. `any` takes its quickest
-// branch; meeting oneself is the latch that keeps an opened box open.
 export function forcedChain(pack) {
   const memo = new Map();
   const people = pack.avatars,
@@ -74,7 +66,6 @@ export function forcedChain(pack) {
   };
   all = (list, self) =>
     Math.max(0, ...(list || []).map((c) => condition(c, self) ?? 0));
-  // What opens a person, without counting the person.
   opener = (id) =>
     memoized(`person|${id}`, () =>
       all([...(people[id]?.requires || []), ...(people[id]?.appearsWhen || [])], id),
