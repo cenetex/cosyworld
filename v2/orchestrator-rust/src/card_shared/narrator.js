@@ -5036,6 +5036,26 @@
             holder: "greek-argolid-road",
             art: "assets/greek-drama/tomb-testimony.png",
             persona: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter."
+          },
+          "greek-arcanum-empress": {
+            name: "The Empress",
+            text: "A woodcut card. A woman lays a red scarf on her table beside a bowl of fruit and a warm oven.",
+            persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
+            holder: "greek-courtyard",
+            art: "assets/greek-drama/arcanum-3.png",
+            sealed: {},
+            requires: [
+              {
+                kind: "flag",
+                key: "greek-water-returned",
+                value: true
+              },
+              {
+                kind: "item_at",
+                item: "greek-bread",
+                place: "greek-courtyard"
+              }
+            ]
           }
         },
         routes: [
@@ -9082,7 +9102,8 @@
             "greek-pyre-account",
             "greek-figs",
             "greek-wine-skin",
-            "greek-wheat"
+            "greek-wheat",
+            "greek-arcanum-empress"
           ],
           choices: [
             "greek-return-water-jar",
@@ -13541,21 +13562,6 @@
               {
                 kind: "flag",
                 key: "forest-walkers-heard",
-                value: true
-              }
-            ]
-          },
-          "forest-arcanum-empress": {
-            name: "The Empress",
-            text: "A woodcut card. A woman lays a red scarf on her table beside a bowl of fruit and a warm oven.",
-            persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
-            holder: "forest-cottage",
-            art: "assets/lonely-forest/arcanum-3.png",
-            sealed: {},
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-welcomed",
                 value: true
               }
             ]
