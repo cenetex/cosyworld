@@ -58,9 +58,7 @@ pub(super) struct AccountAuth {
     ceremonies: StdMutex<BTreeMap<String, AccountCeremony>>,
     cookie_name: String,
     secure_cookie: bool,
-    /// `COSYWORLD_PASSKEYS=members`: no sign-ups, no signed-out play.
     members_only: bool,
-    /// Pending Discord OAuth attempts, keyed by the state nonce.
     discord_states: StdMutex<BTreeMap<String, DiscordOauthAttempt>>,
 }
 
@@ -68,6 +66,7 @@ struct DiscordOauthAttempt {
     expires_at: Instant,
     redirect: String,
     code_verifier: String,
+    browser: String,
 }
 
 enum AccountCeremony {
@@ -437,7 +436,12 @@ impl AccountAuth {
         Ok(())
     }
 
-    fn store_discord_state(&self, redirect: String, code_verifier: String) -> String {
+    fn store_discord_state(
+        &self,
+        redirect: String,
+        code_verifier: String,
+        browser: String,
+    ) -> String {
         let state = random_hex(32);
         self.cleanup_discord_states();
         if let Ok(mut states) = self.discord_states.lock() {
@@ -447,6 +451,7 @@ impl AccountAuth {
                     expires_at: Instant::now() + CEREMONY_TTL,
                     redirect,
                     code_verifier,
+                    browser,
                 },
             );
         }
@@ -460,7 +465,7 @@ impl AccountAuth {
         }
     }
 
-    fn take_discord_state(&self, state: &str) -> AccountResult<(String, String)> {
+    fn take_discord_state(&self, state: &str, browser: &str) -> AccountResult<(String, String)> {
         self.cleanup_discord_states();
         let removed = self
             .discord_states
@@ -469,6 +474,7 @@ impl AccountAuth {
             .remove(state);
         removed
             .filter(|attempt| attempt.expires_at > Instant::now())
+            .filter(|attempt| crate::config::token_matches(browser, &attempt.browser))
             .map(|attempt| (attempt.redirect, attempt.code_verifier))
             .ok_or_else(|| account_error("discord authorization attempt is missing or expired"))
     }
@@ -477,7 +483,9 @@ impl AccountAuth {
         let conn = open_event_store(self.path()?)?;
         let account_id = conn
             .query_row(
-                "SELECT account_id FROM discord_links WHERE discord_user_id = ?1",
+                "SELECT account_id FROM discord_links
+                 JOIN auth_users ON auth_users.id = discord_links.account_id
+                 WHERE discord_user_id = ?1 AND auth_users.status = 'active'",
                 params![discord_user_id],
                 |row| row.get::<_, String>(0),
             )
@@ -495,12 +503,15 @@ impl AccountAuth {
         let path = self.path()?.to_path_buf();
         let user_id = Uuid::new_v4();
         let account_username = normalize_account_username(discord_username)
-            .filter(|name| find_user_by_username(path.as_path(), name).ok().flatten().is_none())
+            .filter(|name| {
+                find_user_by_username(path.as_path(), name)
+                    .ok()
+                    .flatten()
+                    .is_none()
+            })
             .unwrap_or_else(|| generated_account_username(user_id));
         let display_name = global_name
-            .map(str::trim)
-            .filter(|name| !name.is_empty())
-            .map(str::to_string)
+            .and_then(normalize_display_name)
             .unwrap_or_else(|| account_username.clone());
         let avatar_url = avatar
             .map(|hash| format!("https://cdn.discordapp.com/avatars/{discord_user_id}/{hash}.png"));
@@ -527,31 +538,26 @@ impl AccountAuth {
         Ok(user_id.to_string())
     }
 
-    fn unlink_discord(&self, account_id: &str) -> AccountResult<()> {
+    fn unlink_discord(&self, account_id: &str) -> AccountResult<bool> {
         let conn = open_event_store(self.path()?)?;
-        conn.execute(
-            "DELETE FROM discord_links WHERE account_id = ?1",
+        let removed = conn.execute(
+            "DELETE FROM discord_links WHERE account_id = ?1
+             AND EXISTS (SELECT 1 FROM auth_passkeys WHERE user_id = ?1)",
             params![account_id],
         )?;
-        Ok(())
+        Ok(removed > 0)
     }
 
-    /// A bot service token may act on a linked Discord user's behalf. The
-    /// token is held by the gateway only; nothing here issues one. Resolves
-    /// `Authorization: Bearer <token>` + `X-CosyWorld-Discord-User` to the
-    /// linked account, so a server-side client can play without a browser
-    /// session cookie.
     pub(super) fn account_for_bot_request(&self, headers: &HeaderMap) -> Option<String> {
         let expected = std::env::var("COSYWORLD_BOT_TOKEN").ok()?;
-        let discord_user = headers
-            .get("x-cosyworld-discord-user")
-            .and_then(|value| value.to_str().ok())?;
-        if !bot_rate_limit_allow(discord_user) {
-            tracing::warn!(discord_user, "discord bot token rate limited");
+        if expected.len() < 32 {
             return None;
         }
         let account = self.account_for_bot_request_with(headers, expected.as_str())?;
-        tracing::info!(discord_user, "discord bot token authorized shared play");
+        if !bot_rate_limit_allow(&account) {
+            tracing::warn!("discord bot token rate limited");
+            return None;
+        }
         Some(account)
     }
 
@@ -601,6 +607,8 @@ struct DiscordStartResponse {
     authorize_url: String,
 }
 
+const DISCORD_LOGIN_COOKIE: &str = "cosyworld_discord_login";
+
 fn pkce_challenge(code_verifier: &str) -> String {
     URL_SAFE_NO_PAD.encode(Sha256::digest(code_verifier.as_bytes()))
 }
@@ -640,9 +648,6 @@ fn discord_redirect_uri() -> AccountResult<String> {
 }
 
 fn valid_redirect(redirect: &str) -> bool {
-    // A same-origin relative path only: a single leading slash, no backslash
-    // (browsers normalize "/\" to "//"), no control characters, and no
-    // percent-encoded backslash that would change the path shape after decode.
     if !redirect.starts_with('/') || redirect.starts_with("//") {
         return false;
     }
@@ -653,8 +658,11 @@ fn valid_redirect(redirect: &str) -> bool {
 }
 
 fn redirect_with_cookie(location: &str, cookie: String) -> Response {
-    // Never redirect off-site: the OAuth state carries a client-chosen target.
-    let location = if valid_redirect(location) { location } else { "/" };
+    let location = if valid_redirect(location) {
+        location
+    } else {
+        "/"
+    };
     let mut response = Response::new(axum::body::Body::empty());
     *response.status_mut() = StatusCode::SEE_OTHER;
     response
@@ -691,7 +699,8 @@ pub(super) async fn discord_login_start(
     };
     let code_verifier = random_hex(64);
     let code_challenge = pkce_challenge(&code_verifier);
-    let state = auth.store_discord_state(payload.redirect, code_verifier);
+    let browser = random_hex(32);
+    let state = auth.store_discord_state(payload.redirect, code_verifier, browser.clone());
     let authorize_url = match reqwest::Url::parse("https://discord.com/oauth2/authorize") {
         Ok(mut url) => {
             url.query_pairs_mut()
@@ -712,16 +721,22 @@ pub(super) async fn discord_login_start(
             ok: true,
             authorize_url,
         },
-        None,
+        Some(format!(
+            "{DISCORD_LOGIN_COOKIE}={browser}; Path=/auth/discord; Max-Age={}; HttpOnly; SameSite=Lax{}",
+            CEREMONY_TTL.as_secs(),
+            if auth.secure_cookie { "; Secure" } else { "" }
+        )),
     )
 }
 
 pub(super) async fn discord_login_callback(
     State(state): State<AppState>,
+    headers: HeaderMap,
     axum::extract::Query(params): axum::extract::Query<DiscordCallbackParams>,
 ) -> Response {
     let auth = &state.account_auth;
-    let (redirect, code_verifier) = match auth.take_discord_state(&params.state) {
+    let browser = cookie_value(&headers, DISCORD_LOGIN_COOKIE).unwrap_or_default();
+    let (redirect, code_verifier) = match auth.take_discord_state(&params.state, &browser) {
         Ok(value) => value,
         Err(error) => return auth_message(StatusCode::BAD_REQUEST, error.to_string()),
     };
@@ -733,7 +748,13 @@ pub(super) async fn discord_login_callback(
         Ok(uri) => uri,
         Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     };
-    let client = reqwest::Client::new();
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+    {
+        Ok(client) => client,
+        Err(error) => return auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
+    };
     let token_body: serde_json::Value = match client
         .post("https://discord.com/api/oauth2/token")
         .form(&[
@@ -750,11 +771,17 @@ pub(super) async fn discord_login_callback(
         Ok(response) => match response.json().await {
             Ok(body) => body,
             Err(error) => {
-                return auth_error(StatusCode::BAD_GATEWAY, format!("discord token response: {error}"))
+                return auth_error(
+                    StatusCode::BAD_GATEWAY,
+                    format!("discord token response: {error}"),
+                )
             }
         },
         Err(error) => {
-            return auth_error(StatusCode::BAD_GATEWAY, format!("discord token exchange: {error}"))
+            return auth_error(
+                StatusCode::BAD_GATEWAY,
+                format!("discord token exchange: {error}"),
+            )
         }
     };
     let Some(access_token) = token_body
@@ -772,15 +799,24 @@ pub(super) async fn discord_login_callback(
         Ok(response) => match response.json().await {
             Ok(user) => user,
             Err(error) => {
-                return auth_error(StatusCode::BAD_GATEWAY, format!("discord identity: {error}"))
+                return auth_error(
+                    StatusCode::BAD_GATEWAY,
+                    format!("discord identity: {error}"),
+                )
             }
         },
         Err(error) => {
-            return auth_error(StatusCode::BAD_GATEWAY, format!("discord identity request: {error}"))
+            return auth_error(
+                StatusCode::BAD_GATEWAY,
+                format!("discord identity request: {error}"),
+            )
         }
     };
     let account_id = match auth.account_id_for_discord(&user.id) {
         Ok(Some(id)) => id,
+        Ok(None) if auth.members_only => {
+            return auth_message(StatusCode::FORBIDDEN, passkey_access::SIGNUPS_CLOSED)
+        }
         Ok(None) => match auth.create_discord_account(
             &user.id,
             &user.username,
@@ -799,16 +835,17 @@ pub(super) async fn discord_login_callback(
     redirect_with_cookie(&redirect, cookie)
 }
 
-pub(super) async fn discord_unlink(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Response {
+pub(super) async fn discord_unlink(State(state): State<AppState>, headers: HeaderMap) -> Response {
     let auth = &state.account_auth;
     let Some(user_id) = auth.authenticated_user_id(&headers).ok().flatten() else {
         return auth_message(StatusCode::UNAUTHORIZED, "sign in to unlink Discord");
     };
     match auth.unlink_discord(&user_id) {
-        Ok(()) => no_store_json(StatusCode::OK, &serde_json::json!({ "ok": true }), None),
+        Ok(true) => no_store_json(StatusCode::OK, &serde_json::json!({ "ok": true }), None),
+        Ok(false) => auth_message(
+            StatusCode::CONFLICT,
+            "add a passkey before unlinking Discord",
+        ),
         Err(error) => auth_error(StatusCode::SERVICE_UNAVAILABLE, error),
     }
 }
@@ -1612,10 +1649,7 @@ mod discord_auth_tests {
     use super::*;
 
     fn test_auth() -> Arc<AccountAuth> {
-        let path = std::env::temp_dir().join(format!(
-            "cosyworld-discord-{}.sqlite",
-            random_hex(8)
-        ));
+        let path = std::env::temp_dir().join(format!("cosyworld-discord-{}.sqlite", random_hex(8)));
         AccountAuth::for_test(Some(Arc::new(path)))
     }
 
@@ -1631,7 +1665,20 @@ mod discord_auth_tests {
             auth.account_id_for_discord(&discord_id).unwrap().as_deref(),
             Some(account_id.as_str())
         );
-        auth.unlink_discord(&account_id).unwrap();
+        assert!(!auth.unlink_discord(&account_id).unwrap());
+        assert_eq!(
+            auth.account_id_for_discord(&discord_id).unwrap().as_deref(),
+            Some(account_id.as_str())
+        );
+        open_event_store(auth.path().unwrap())
+            .unwrap()
+            .execute(
+                "INSERT INTO auth_passkeys (credential_id, user_id, label, passkey_json, created_at_unix)
+                 VALUES ('credential', ?1, 'key', '{}', 0)",
+                params![account_id],
+            )
+            .unwrap();
+        assert!(auth.unlink_discord(&account_id).unwrap());
         assert_eq!(auth.account_id_for_discord(&discord_id).unwrap(), None);
     }
 
@@ -1658,17 +1705,27 @@ mod discord_auth_tests {
     #[test]
     fn discord_state_round_trip_and_expiry() {
         let auth = test_auth();
-        let state = auth.store_discord_state("/cards".to_string(), "verifier".to_string());
+        let store = || {
+            auth.store_discord_state(
+                "/cards".to_string(),
+                "verifier".to_string(),
+                "browser".to_string(),
+            )
+        };
+        let state = store();
         assert_eq!(
-            auth.take_discord_state(&state).unwrap(),
+            auth.take_discord_state(&state, "browser").unwrap(),
             ("/cards".to_string(), "verifier".to_string())
         );
-        assert!(auth.take_discord_state(&state).is_err());
+        assert!(auth.take_discord_state(&state, "browser").is_err());
+        let other = store();
+        assert!(auth.take_discord_state(&other, "another browser").is_err());
+        assert!(auth.take_discord_state(&other, "browser").is_err());
+        assert!(auth.take_discord_state(&store(), "").is_err());
     }
 
     #[test]
     fn pkce_challenge_is_base64url_sha256() {
-        // RFC 7636 appendix B test vector.
         assert_eq!(
             pkce_challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
             "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
@@ -1688,7 +1745,8 @@ mod discord_auth_tests {
             HeaderValue::from_static("du-bot"),
         );
         assert_eq!(
-            auth.account_for_bot_request_with(&headers, "secret").as_deref(),
+            auth.account_for_bot_request_with(&headers, "secret")
+                .as_deref(),
             Some(account_id.as_str())
         );
         assert_eq!(auth.account_for_bot_request_with(&headers, "wrong"), None);
