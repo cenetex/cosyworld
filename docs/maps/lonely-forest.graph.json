@@ -795,225 +795,6 @@
             "forest-button-ada"
           ]
         }
-      },
-      {
-        "id": "item:forest-arcanum-fool",
-        "kind": "item",
-        "title": "The Fool appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "met(actor=skull)"
-            }
-          ]
-        },
-        "words": "Skull has been met",
-        "ids": "skull has been met",
-        "latch": [
-          "met(actor=skull)"
-        ],
-        "live": [],
-        "prerequisites": {}
-      },
-      {
-        "id": "item:forest-arcanum-magician",
-        "kind": "item",
-        "title": "The Magician appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "or",
-              "of": [
-                {
-                  "op": "or",
-                  "of": [
-                    {
-                      "op": "atom",
-                      "atom": "flag(key=forest-scarf-vale-sewn,value=true)"
-                    },
-                    {
-                      "op": "atom",
-                      "atom": "flag(key=forest-scarf-mara-sewn,value=true)"
-                    },
-                    {
-                      "op": "atom",
-                      "atom": "flag(key=forest-scarf-ash-sewn,value=true)"
-                    },
-                    {
-                      "op": "atom",
-                      "atom": "flag(key=forest-scarf-nell-sewn,value=true)"
-                    }
-                  ]
-                },
-                {
-                  "op": "or",
-                  "of": [
-                    {
-                      "op": "atom",
-                      "atom": "flag(key=forest-scarf-tavi-sewn,value=true)"
-                    },
-                    {
-                      "op": "atom",
-                      "atom": "flag(key=forest-scarf-rue-sewn,value=true)"
-                    },
-                    {
-                      "op": "atom",
-                      "atom": "flag(key=forest-scarf-orin-sewn,value=true)"
-                    },
-                    {
-                      "op": "atom",
-                      "atom": "flag(key=forest-scarf-ada-sewn,value=true)"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        "words": "((forest-scarf-vale-sewn is set or forest-scarf-mara-sewn is set or forest-scarf-ash-sewn is set or forest-scarf-nell-sewn is set) or (forest-scarf-tavi-sewn is set or forest-scarf-rue-sewn is set or forest-scarf-orin-sewn is set or forest-scarf-ada-sewn is set))",
-        "ids": "((forest-scarf-vale-sewn is set or forest-scarf-mara-sewn is set or forest-scarf-ash-sewn is set or forest-scarf-nell-sewn is set) or (forest-scarf-tavi-sewn is set or forest-scarf-rue-sewn is set or forest-scarf-orin-sewn is set or forest-scarf-ada-sewn is set))",
-        "latch": [
-          "flag(key=forest-scarf-ada-sewn,value=true)",
-          "flag(key=forest-scarf-ash-sewn,value=true)",
-          "flag(key=forest-scarf-mara-sewn,value=true)",
-          "flag(key=forest-scarf-nell-sewn,value=true)",
-          "flag(key=forest-scarf-orin-sewn,value=true)",
-          "flag(key=forest-scarf-rue-sewn,value=true)",
-          "flag(key=forest-scarf-tavi-sewn,value=true)",
-          "flag(key=forest-scarf-vale-sewn,value=true)"
-        ],
-        "live": [],
-        "prerequisites": {
-          "act": [
-            "forest-hide-button-ada",
-            "forest-hide-button-ash",
-            "forest-hide-button-mara",
-            "forest-hide-button-nell",
-            "forest-hide-button-orin",
-            "forest-hide-button-rue",
-            "forest-hide-button-tavi",
-            "forest-hide-button-vale",
-            "forest-sew-scarf-ada",
-            "forest-sew-scarf-ash",
-            "forest-sew-scarf-mara",
-            "forest-sew-scarf-nell",
-            "forest-sew-scarf-orin",
-            "forest-sew-scarf-rue",
-            "forest-sew-scarf-tavi",
-            "forest-sew-scarf-vale"
-          ],
-          "flag": [
-            "forest-button-ada-hidden",
-            "forest-button-ash-hidden",
-            "forest-button-mara-hidden",
-            "forest-button-nell-hidden",
-            "forest-button-orin-hidden",
-            "forest-button-rue-hidden",
-            "forest-button-tavi-hidden",
-            "forest-button-vale-hidden",
-            "forest-scarf-ada-sewn",
-            "forest-scarf-ash-sewn",
-            "forest-scarf-mara-sewn",
-            "forest-scarf-nell-sewn",
-            "forest-scarf-orin-sewn",
-            "forest-scarf-rue-sewn",
-            "forest-scarf-tavi-sewn",
-            "forest-scarf-vale-sewn"
-          ],
-          "item": [
-            "forest-button-ada",
-            "forest-button-ash",
-            "forest-button-mara",
-            "forest-button-nell",
-            "forest-button-orin",
-            "forest-button-rue",
-            "forest-button-tavi",
-            "forest-button-vale"
-          ]
-        }
-      },
-      {
-        "id": "item:forest-arcanum-emperor",
-        "kind": "item",
-        "title": "The Emperor appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "flag(key=forest-oak-heard,value=true)"
-            }
-          ]
-        },
-        "words": "forest-oak-heard is set",
-        "ids": "forest-oak-heard is set",
-        "latch": [
-          "flag(key=forest-oak-heard,value=true)"
-        ],
-        "live": [],
-        "prerequisites": {
-          "act": [
-            "forest-clear-drain",
-            "forest-mark-pawprints",
-            "forest-stay-for-tea",
-            "forest-tell-hearth"
-          ],
-          "flag": [
-            "forest-oak-heard",
-            "forest-path-cleared",
-            "forest-watch-shared",
-            "forest-welcomed"
-          ],
-          "item": [
-            "forest-wolfprint-charm"
-          ]
-        }
-      },
-      {
-        "id": "item:forest-arcanum-hierophant",
-        "kind": "item",
-        "title": "The Hierophant appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "flag(key=forest-walkers-heard,value=true)"
-            }
-          ]
-        },
-        "words": "forest-walkers-heard is set",
-        "ids": "forest-walkers-heard is set",
-        "latch": [
-          "flag(key=forest-walkers-heard,value=true)"
-        ],
-        "live": [],
-        "prerequisites": {
-          "act": [
-            "forest-clear-drain",
-            "forest-hear-walkers-oak",
-            "forest-hear-walkers-rati",
-            "forest-keep-charm",
-            "forest-leave-charm",
-            "forest-mark-pawprints",
-            "forest-stay-for-tea",
-            "forest-tell-hearth"
-          ],
-          "flag": [
-            "forest-homecoming-shared",
-            "forest-oak-heard",
-            "forest-path-cleared",
-            "forest-walkers-heard",
-            "forest-watch-shared",
-            "forest-welcomed"
-          ],
-          "item": [
-            "forest-wolfprint-charm"
-          ]
-        }
       }
     ],
     "acts": [
@@ -2528,8 +2309,7 @@
         ],
         "gates": [
           "item:forest-button-ada",
-          "item:forest-scarf-ada",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-ada"
         ],
         "acts": [
           "act:forest-sew-scarf-ada",
@@ -2549,8 +2329,7 @@
         ],
         "gates": [
           "item:forest-button-ash",
-          "item:forest-scarf-ash",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-ash"
         ],
         "acts": [
           "act:forest-sew-scarf-ash",
@@ -2570,8 +2349,7 @@
         ],
         "gates": [
           "item:forest-button-mara",
-          "item:forest-scarf-mara",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-mara"
         ],
         "acts": [
           "act:forest-sew-scarf-mara",
@@ -2591,8 +2369,7 @@
         ],
         "gates": [
           "item:forest-button-nell",
-          "item:forest-scarf-nell",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-nell"
         ],
         "acts": [
           "act:forest-sew-scarf-nell",
@@ -2612,8 +2389,7 @@
         ],
         "gates": [
           "item:forest-button-orin",
-          "item:forest-scarf-orin",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-orin"
         ],
         "acts": [
           "act:forest-sew-scarf-orin",
@@ -2633,8 +2409,7 @@
         ],
         "gates": [
           "item:forest-button-rue",
-          "item:forest-scarf-rue",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-rue"
         ],
         "acts": [
           "act:forest-sew-scarf-rue",
@@ -2654,8 +2429,7 @@
         ],
         "gates": [
           "item:forest-button-tavi",
-          "item:forest-scarf-tavi",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-tavi"
         ],
         "acts": [
           "act:forest-sew-scarf-tavi",
@@ -2675,8 +2449,7 @@
         ],
         "gates": [
           "item:forest-button-vale",
-          "item:forest-scarf-vale",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-vale"
         ],
         "acts": [
           "act:forest-sew-scarf-vale",
@@ -2699,9 +2472,7 @@
           "topic:forest-walkers-oak",
           "topic:forest-walkers-rati"
         ],
-        "gates": [
-          "item:forest-arcanum-hierophant"
-        ],
+        "gates": [],
         "acts": [
           "act:forest-hear-walkers-rati",
           "act:forest-hear-walkers-oak",
@@ -2716,13 +2487,9 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-keep-charm",
-          "act:forest-leave-charm",
-          "item:forest-arcanum-emperor"
+          "act:forest-leave-charm"
         ],
-        "gates": [
-          "item:forest-arcanum-emperor",
-          "item:forest-arcanum-hierophant"
-        ],
+        "gates": [],
         "acts": [
           "act:forest-leave-charm",
           "act:forest-keep-charm",
@@ -2742,9 +2509,7 @@
           "route:forest-garden>forest-trail"
         ],
         "gates": [
-          "route:forest-garden>forest-trail",
-          "item:forest-arcanum-emperor",
-          "item:forest-arcanum-hierophant"
+          "route:forest-garden>forest-trail"
         ],
         "acts": [
           "act:forest-mark-pawprints",
@@ -2763,14 +2528,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:forest-arcanum-magician",
           "item:forest-button-ada",
           "item:forest-scarf-ada",
           "topic:forest-button-ada"
         ],
         "gates": [
-          "item:forest-scarf-ada",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-ada"
         ],
         "acts": [
           "act:forest-wear-scarf-ada"
@@ -2795,14 +2558,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:forest-arcanum-magician",
           "item:forest-button-ash",
           "item:forest-scarf-ash",
           "topic:forest-button-ash"
         ],
         "gates": [
-          "item:forest-scarf-ash",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-ash"
         ],
         "acts": [
           "act:forest-wear-scarf-ash"
@@ -2827,14 +2588,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:forest-arcanum-magician",
           "item:forest-button-mara",
           "item:forest-scarf-mara",
           "topic:forest-button-mara"
         ],
         "gates": [
-          "item:forest-scarf-mara",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-mara"
         ],
         "acts": [
           "act:forest-wear-scarf-mara"
@@ -2859,14 +2618,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:forest-arcanum-magician",
           "item:forest-button-nell",
           "item:forest-scarf-nell",
           "topic:forest-button-nell"
         ],
         "gates": [
-          "item:forest-scarf-nell",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-nell"
         ],
         "acts": [
           "act:forest-wear-scarf-nell"
@@ -2891,14 +2648,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:forest-arcanum-magician",
           "item:forest-button-orin",
           "item:forest-scarf-orin",
           "topic:forest-button-orin"
         ],
         "gates": [
-          "item:forest-scarf-orin",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-orin"
         ],
         "acts": [
           "act:forest-wear-scarf-orin"
@@ -2923,14 +2678,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:forest-arcanum-magician",
           "item:forest-button-rue",
           "item:forest-scarf-rue",
           "topic:forest-button-rue"
         ],
         "gates": [
-          "item:forest-scarf-rue",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-rue"
         ],
         "acts": [
           "act:forest-wear-scarf-rue"
@@ -2955,14 +2708,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:forest-arcanum-magician",
           "item:forest-button-tavi",
           "item:forest-scarf-tavi",
           "topic:forest-button-tavi"
         ],
         "gates": [
-          "item:forest-scarf-tavi",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-tavi"
         ],
         "acts": [
           "act:forest-wear-scarf-tavi"
@@ -2987,14 +2738,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:forest-arcanum-magician",
           "item:forest-button-vale",
           "item:forest-scarf-vale",
           "topic:forest-button-vale"
         ],
         "gates": [
-          "item:forest-scarf-vale",
-          "item:forest-arcanum-magician"
+          "item:forest-scarf-vale"
         ],
         "acts": [
           "act:forest-wear-scarf-vale"
@@ -3021,12 +2770,9 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-hear-walkers-oak",
-          "act:forest-hear-walkers-rati",
-          "item:forest-arcanum-hierophant"
+          "act:forest-hear-walkers-rati"
         ],
-        "gates": [
-          "item:forest-arcanum-hierophant"
-        ],
+        "gates": [],
         "acts": []
       },
       "forest-watch-kept": {
@@ -3048,10 +2794,7 @@
         "readBy": [
           "act:forest-tell-hearth"
         ],
-        "gates": [
-          "item:forest-arcanum-emperor",
-          "item:forest-arcanum-hierophant"
-        ],
+        "gates": [],
         "acts": [
           "act:forest-tell-hearth",
           "act:forest-leave-charm",
@@ -3071,9 +2814,7 @@
           "act:forest-clear-drain"
         ],
         "gates": [
-          "route:forest-garden>forest-trail",
-          "item:forest-arcanum-emperor",
-          "item:forest-arcanum-hierophant"
+          "route:forest-garden>forest-trail"
         ],
         "acts": [
           "act:forest-clear-drain",
@@ -3275,34 +3016,6 @@
         "readBy": [
           "act:forest-wear-scarf-ada"
         ]
-      },
-      {
-        "id": "forest-arcanum-fool",
-        "name": "The Fool",
-        "holder": "forest-trail",
-        "consumedBy": [],
-        "readBy": []
-      },
-      {
-        "id": "forest-arcanum-magician",
-        "name": "The Magician",
-        "holder": "forest-cottage",
-        "consumedBy": [],
-        "readBy": []
-      },
-      {
-        "id": "forest-arcanum-emperor",
-        "name": "The Emperor",
-        "holder": "forest-oak",
-        "consumedBy": [],
-        "readBy": []
-      },
-      {
-        "id": "forest-arcanum-hierophant",
-        "name": "The Hierophant",
-        "holder": "forest-oak",
-        "consumedBy": [],
-        "readBy": []
       }
     ],
     "needs": {
@@ -3574,25 +3287,6 @@
       ],
       "flag:forest-welcomed": [
         "act:forest-stay-for-tea"
-      ],
-      "item:forest-arcanum-emperor": [
-        "flag:forest-oak-heard"
-      ],
-      "item:forest-arcanum-fool": [
-        "resident:skull"
-      ],
-      "item:forest-arcanum-hierophant": [
-        "flag:forest-walkers-heard"
-      ],
-      "item:forest-arcanum-magician": [
-        "flag:forest-scarf-ada-sewn",
-        "flag:forest-scarf-ash-sewn",
-        "flag:forest-scarf-mara-sewn",
-        "flag:forest-scarf-nell-sewn",
-        "flag:forest-scarf-orin-sewn",
-        "flag:forest-scarf-rue-sewn",
-        "flag:forest-scarf-tavi-sewn",
-        "flag:forest-scarf-vale-sewn"
       ],
       "item:forest-button-ada": [
         "flag:forest-button-ada-hidden"
@@ -3899,11 +3593,6 @@
       "class": "latch",
       "words": "forest-walkers-heard is not set"
     },
-    "flag(key=forest-walkers-heard,value=true)": {
-      "kind": "flag",
-      "class": "latch",
-      "words": "forest-walkers-heard is set"
-    },
     "flag(key=forest-watch-shared,value=true)": {
       "kind": "flag",
       "class": "latch",
@@ -4023,11 +3712,6 @@
       "kind": "met",
       "class": "latch",
       "words": "rati has been met"
-    },
-    "met(actor=skull)": {
-      "kind": "met",
-      "class": "latch",
-      "words": "skull has been met"
     },
     "tag_held(place=attic,tag=scarf)": {
       "kind": "tag_held",
