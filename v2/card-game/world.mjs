@@ -438,6 +438,7 @@ import {
 export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
 import { creditOpened, validOpened } from "./world/boxes.mjs";
+import { settleArcana, validArcana } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
 import { questOffers } from "./world/offers.mjs";
 export { questOffers };
@@ -947,6 +948,7 @@ export function holdChoice(s, actor, choice) {
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
+  settleArcana(s, actor);
   settleSealedItems(s, nameOf, (text, locationId) =>
     addLog(s, "World", text, { kind: "narration", locationId }),
   );
@@ -3406,6 +3408,7 @@ export function play(
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
+  settleArcana(next, actor);
   // A sealed thing whose seal follows its facts goes home when they lapse.
   settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);
@@ -3574,6 +3577,7 @@ export function validateWorld(s) {
     !validHeldItems(s) ||
     !validOpenedRoutes(s.openedRoutes) ||
     !validOpened(s) ||
+    !validArcana(s) ||
     !validHidden(s) ||
     !validDoors(s) ||
     (s.hidden && !Object.hasOwn(places, s.hidden.place))

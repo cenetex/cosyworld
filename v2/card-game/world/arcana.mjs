@@ -1,5 +1,5 @@
 import data from "../arcana.json" with { type: "json" };
-import { humanAvatar } from "../human-cast.mjs";
+import { humanAvatar, humanAvatarIds, humanPresent } from "../human-cast.mjs";
 import {
   isFood,
   localRoadEnds,
@@ -145,4 +145,73 @@ export function bindingOf(s, card, traveler, pool = candidates) {
 export function proves(s, card, traveler) {
   const binding = bindingOf(s, card, traveler);
   return Boolean(binding) && card.proof.every((c) => holds(s, c, binding));
+}
+
+const didsIn = (c) =>
+  c.kind === "did"
+    ? [c]
+    : [...(c.conditions || []), ...(c.condition ? [c.condition] : [])].flatMap(
+        didsIn,
+      );
+
+const set = (value) => value !== undefined && value !== null && value !== false;
+
+const fits = (entry, c) =>
+  !entry.generated &&
+  Object.entries(c.match || {}).every(([field, want]) =>
+    [want].flat().includes(entry[field]),
+  ) &&
+  (c.with || []).every((field) => set(entry[field])) &&
+  (c.without || []).every((field) => !set(entry[field])) &&
+  (c.present || []).every((id) => (entry.cast || []).includes(id));
+
+function latch(s, traveler, list, value) {
+  const record = (s.actors[traveler].arcana ??= recordOf(s, traveler));
+  record[list] = [...new Set([...record[list], value])].sort();
+}
+
+export function settleArcana(s, actor = null) {
+  const travelers = [
+    ...new Set([actor, ...humanAvatarIds.filter((id) => humanPresent(s, id))]),
+  ]
+    .filter((id) => humanAvatar(id) && s.actors?.[id])
+    .sort();
+  for (const traveler of travelers)
+    for (const card of deck.cards) {
+      if (recordOf(s, traveler).proved.includes(card.id)) continue;
+      const binding = bindingOf(s, card, traveler);
+      if (!binding) continue;
+      for (const c of resolve(card.proof.flatMap(didsIn), binding))
+        if (
+          !recordOf(s, traveler).did.includes(c.key) &&
+          (s.log || []).some((entry) => fits(entry, c))
+        )
+          latch(s, traveler, "did", c.key);
+      if (card.proof.every((c) => holds(s, c, binding)))
+        latch(s, traveler, "proved", card.id);
+    }
+  return s;
+}
+
+const validList = (list) =>
+  Array.isArray(list) &&
+  list.length <= 64 &&
+  list.every(
+    (id, i) => typeof id === "string" && id && (i === 0 || list[i - 1] < id),
+  );
+
+export function validArcana(s) {
+  return Object.entries(s.actors || {}).every(([id, actor]) => {
+    const record = actor?.arcana;
+    if (record === undefined) return true;
+    return (
+      Boolean(humanAvatar(id)) &&
+      Boolean(record) &&
+      typeof record === "object" &&
+      !Array.isArray(record) &&
+      Object.keys(record).sort().join() === "did,held,proved" &&
+      [record.did, record.held, record.proved].every(validList) &&
+      record.held.every((card) => record.proved.includes(card))
+    );
+  });
 }
