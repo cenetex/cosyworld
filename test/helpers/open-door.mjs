@@ -72,18 +72,31 @@ export const openDoorWalk = (world, ...places) =>
     world,
   );
 
-// Dione's Open Door opens when Polynices is buried (the play
-// `greek-bury-polynices` sets `greek-open-door-open`). The start is that
-// burial, played from `createWorld` by `funeralJourney` once per test file
-// and walked home to the courtyard; each caller gets its own copy. With
+// Dione's Open Door needs no burial: Attica is simply there. This start is
+// a world after the burial, played from `createWorld` by `funeralJourney`
+// once per test file and walked home to the courtyard; each caller gets its
+// own copy. (Tests with Polynices unburied start from `createWorld`.) With
 // `rumours` the world is an old full-scope one, where Marathon and Troy stand.
+const OPEN_DOOR_RESIDENTS = [
+  "aethra",
+  "adrastus",
+  "theseus",
+  "quay-host",
+  "colonus-keeper",
+  "argive-mother",
+  "iphis",
+  "household-witness",
+].map((id) => `greek-${id}`);
 let buriedOnce;
 export function openDoorStart({ rumours = false } = {}) {
   buriedOnce ||= funeralJourney().buried;
   let world = structuredClone(buriedOnce);
-  if (!world.packs["greek-drama"].flags["greek-open-door-open"])
-    throw new Error("The road stayed closed after the burial");
   if (rumours) world.packs["greek-drama"].scope = "full";
+  // Attica's people stand there from the first turn and roam during the long
+  // run through Thebes. The Open Door's script meets them at their posts.
+  const avatars = packDefinition("greek-drama").avatars;
+  for (const id of OPEN_DOOR_RESIDENTS)
+    if (world.actors[id]) world.actors[id].place = avatars[id].place;
   world = openDoorWalk(world, "courtyard");
   if (world.items.lamp.holder === "vale")
     world = playOpenDoor(world, "drop", {
@@ -166,10 +179,12 @@ export function openDoorSteps({ rumours = false } = {}) {
       : greekMoveSteps("greek-piraeus")("athens")),
     take("olive-branch"),
     ...greekMoveSteps("greek-athens")("courtyard"),
-    // The full return needs the Marathon Record: only where Marathon stands.
+    // The full return needs no Marathon: a Talk with Dione after the last
+    // outcome is given. Where Marathon stands its record joins the table.
     ...(rumours
-      ? [...dione("olive-branch", "marathon-record"), ...talk("baker")]
+      ? dione("olive-branch", "marathon-record")
       : dione("olive-branch")),
+    ...talk("baker"),
   ];
 }
 

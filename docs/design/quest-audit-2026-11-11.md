@@ -9,6 +9,16 @@ removed the Athens and Long Walls gate. That covers G1 for Athens and the Long
 Walls, and G2 and G3. The rest of the Open Door section is unchanged, so the
 other rows still stand as written.
 
+**Fixed after that, in the Greek pack data:** G1, G5, G15 and G16 (nothing
+opens the Open Door; Attica, its residents and its things are there from the
+start, and the burial no longer sets `greek-open-door-open`), G18 (Dione's last
+card no longer needs Marathon) and G11 (only the Travel Provisions on deck open
+harbor to Piraeus). G6 stays as written: the owner wants the Talk with the
+shade before the Hollow. The Libation Wine (G23) is removed; the Household
+Token and the Shelter Blanket stay, because residents value the token and the
+blanket is still read by Marathon's chain. Patroclus, the Ajax section and the
+Truce and Sacred Way latches are unchanged.
+
 Audited `origin/main` at `fb5d5afbe` (package 1.2.127, rules 133; pack
 revisions: greek-drama 24, lonely-forest 3, ratiradio 3, willows 2,
 hoppycat-archive 4, badger-forest 1).

@@ -131,10 +131,10 @@ it.each(["opening", "full"])(
     expect(world.items[oil].holder).toBe("greek-colonus");
     expect(world.items[cloth].holder).toBe("greek-eleusis");
     expect(world.items[shovel].holder).toBe(hollow);
-    expect(decodeSave(encodeSave(world)).packs[pack].flags).toMatchObject({
-      "greek-burial-performed": true,
-      "greek-open-door-open": true,
-    });
+    const saved = decodeSave(encodeSave(world)).packs[pack].flags;
+    expect(saved).toMatchObject({ "greek-burial-performed": true });
+    // The burial opens nothing else.
+    expect(saved["greek-open-door-open"]).toBeUndefined();
   },
 );
 

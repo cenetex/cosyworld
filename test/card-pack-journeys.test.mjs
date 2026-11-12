@@ -167,7 +167,8 @@ describe("agreed resident journeys", () => {
       id: "test-harbor",
       name: "Harbor",
       places: [path[1]],
-      requires: [{ kind: "flag", key: "greek-open-door-open", value: true }],
+      // A flag nothing sets in a new world keeps the section closed.
+      requires: [{ kind: "flag", key: "greek-ajax-open", value: true }],
     });
     let world = act(fixture("opening"), "wait");
     expect(accompany(world)).toEqual([]);

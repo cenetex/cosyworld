@@ -3269,7 +3269,7 @@
           "greek-ship": {
             name: "The Charybdis",
             text: "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
-            persona: "A named ship, the Charybdis, on the Black Pond route. It sails between Black Pond and the Wine-Dark Harbor with no cargo and always comes home that way. Beyond the harbor it sails out to Piraeus Quays and on to the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard; every way back toward Black Pond is free. Marathon Bay, the Trojan shore and the Far Shores are only rumours on the quays: no ship sails there now. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
+            persona: "A named ship, the Charybdis, on the Black Pond route. It sails between Black Pond and the Wine-Dark Harbor with no cargo and always comes home that way. Beyond the harbor it sails out to Piraeus Quays only with the Travel Provisions lying on deck, and on from Piraeus to the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard; every way back toward Black Pond is free. Marathon Bay, the Trojan shore and the Far Shores are only rumours on the quays: no ship sails there now. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
             exits: [],
             backdrop: "assets/greek-drama/ship-deck.webp",
             art: "assets/greek-drama/ship-card.webp",
@@ -4235,20 +4235,10 @@
             values: {},
             seed: "Aethra, mother of Theseus.",
             portrait: "assets/greek-drama/open-door-aethra.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
             tastes: {
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "Olive branches rest across her knees. She makes room for the mothers beside Demeter\u2019s altar."
-            },
-            sealed: {
-              at: "greek-eleusis"
             }
           },
           "greek-adrastus": {
@@ -4259,20 +4249,10 @@
             values: {},
             seed: "Adrastus, King of Argos.",
             portrait: "assets/greek-drama/open-door-adrastus.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
             tastes: {
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "Dust lies in the folds of his cloak. His hands rest beside the names of the fallen."
-            },
-            sealed: {
-              at: "greek-eleusis"
             }
           },
           "greek-argive-mother": {
@@ -4284,11 +4264,6 @@
             seed: "An Argive Mother.",
             portrait: "assets/greek-drama/open-door-mother.webp",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-bodies-returned",
@@ -4315,11 +4290,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-pyre-heard",
                 value: true
               }
@@ -4342,20 +4312,10 @@
             values: {},
             seed: "Theseus, King of Athens.",
             portrait: "assets/greek-drama/open-door-theseus.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
             tastes: {
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "A petition table stands beside him. He waits for the mothers\u2019 own account."
-            },
-            sealed: {
-              at: "greek-athens"
             }
           },
           "greek-quay-host": {
@@ -4366,20 +4326,10 @@
             values: {},
             seed: "Thaleia the Quay Host.",
             portrait: "assets/greek-drama/open-door-quay-host.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
             tastes: {
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "She counts bowls beside the grain basket. A blank space waits at the foot of her passenger list."
-            },
-            sealed: {
-              at: "greek-piraeus"
             }
           },
           "greek-colonus-keeper": {
@@ -4390,20 +4340,10 @@
             values: {},
             seed: "The Grove Keeper at Colonus.",
             portrait: "assets/greek-drama/open-door-grove-keeper.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
             tastes: {
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "The keeper sets a cup beside the boundary stone. A pot of honey catches the light."
-            },
-            sealed: {
-              at: "greek-colonus"
             }
           },
           "greek-marathon-keeper": {
@@ -4414,20 +4354,10 @@
             values: {},
             seed: "The Altar Keeper at Marathon.",
             portrait: "assets/greek-drama/open-door-altar-keeper.webp",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
             tastes: {
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
               reason: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
-            },
-            sealed: {
-              at: "greek-marathon"
             }
           },
           "greek-household-witness": {
@@ -4443,11 +4373,6 @@
             seed: "Myrine of Argos.",
             portrait: "assets/greek-drama/myrine.webp",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-eleusis-done",
@@ -4743,14 +4668,6 @@
             art: "assets/greek-drama/oil-lekythos.png",
             home: "greek-colonus"
           },
-          "greek-libation": {
-            name: "Libation Wine",
-            text: "A cup of dark wine from Cithaeron, poured for the dead.",
-            holder: "greek-cithaeron",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
-            art: "assets/greek-drama/libation-cup.png",
-            home: "greek-cithaeron"
-          },
           "greek-shovel": {
             name: "Burial Shovel",
             startLevel: 10,
@@ -4892,11 +4809,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-mothers-heard",
                 value: true
               }
@@ -4907,28 +4819,14 @@
             text: "Clean folded cloths wait at the quay. Thaleia has set them aside for the rite at Eleusis.",
             holder: "greek-piraeus",
             art: "assets/greek-drama/return-cloths.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
+            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds."
           },
           "greek-provision-basket": {
             name: "The Quay Basket",
             text: "Grain, bread and cups fill a basket. Thaleia needs it beside the resting place at this quay.",
             holder: "greek-piraeus",
             art: "assets/greek-drama/provision-basket.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
+            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds."
           },
           "greek-ash-urn": {
             name: "The Funeral Urn",
@@ -4938,11 +4836,6 @@
             art: "assets/greek-drama/ash-urn.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-bodies-returned",
@@ -4964,11 +4857,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-eleusis-done",
                 value: true
               }
@@ -4979,56 +4867,28 @@
             text: "Fresh spring water fills a small cup. The keeper has set it beside the grove boundary.",
             holder: "greek-colonus",
             art: "assets/greek-drama/grove-cup.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
+            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds."
           },
           "greek-grove-honey": {
             name: "Honey for the Grove",
             text: "A sealed pot holds honey for the grove\u2019s offering.",
             holder: "greek-colonus",
             art: "assets/greek-drama/grove-honey.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
+            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds."
           },
           "greek-shelter-blanket": {
             name: "The Shelter Blanket",
             text: "A thick clean blanket is folded beside the cargo baskets. Sailors say an altar keeper at Marathon once asked for it.",
             holder: "greek-piraeus",
             art: "assets/greek-drama/shelter-blanket.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
+            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds."
           },
           "greek-refuge-tablet": {
             name: "The Refuge Tablet",
             text: "A wax tablet from the public table. Set down at Colonus, the keeper records on it the grove\u2019s duty to guests.",
             holder: "greek-athens",
             art: "assets/greek-drama/refuge-tablet.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
+            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds."
           },
           "greek-ajax-shield": {
             name: "Ajax\u2019s Shield",
@@ -5122,11 +4982,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-ashes-laid",
                 value: true
               }
@@ -5139,11 +4994,6 @@
             holder: "greek-marathon",
             art: "assets/greek-drama/marathon-record.webp",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-marathon-captive-heard",
@@ -6235,13 +6085,7 @@
             label: "Hear the mothers\u2019 request",
             text: "Vale sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
             textTemplate: "{actor} sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             effects: [
               {
                 kind: "set_flag",
@@ -6260,11 +6104,6 @@
             text: "Vale asks Adrastus why the army went to Thebes. He owns the failed expedition and the warning he set aside. Aethra asks that the mothers\u2019 right to bury their sons receive its own hearing.",
             textTemplate: "{actor} asks Adrastus why the army went to Thebes. He owns the failed expedition and the warning he set aside. Aethra asks that the mothers\u2019 right to bury their sons receive its own hearing.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-mothers-heard",
@@ -6289,11 +6128,6 @@
             text: "Vale gives Theseus the mothers\u2019 petition. He takes up the burial claim as the city\u2019s own duty. The herald sets out for Thebes with a burial truce that names the dead, a return road and witnesses from both sides.",
             textTemplate: "{actor} gives Theseus the mothers\u2019 petition. He takes up the burial claim as the city\u2019s own duty. The herald sets out for Thebes with a burial truce that names the dead, a return road and witnesses from both sides.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-adrastus-heard",
@@ -6334,11 +6168,6 @@
             textTemplate: "Theseus reads the herald\u2019s return to {actor}. In this new telling, both sides accepted the burial truce. The remains reached Eleusis under witness. The mothers now have their dead; their funeral and care still lie before them.",
             requires: [
               {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
                 kind: "choice",
                 key: "greek-open-door-recovery",
                 value: "truce"
@@ -6362,13 +6191,7 @@
             label: "Ask what the returning households need",
             text: "Thaleia shows Vale the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
             textTemplate: "Thaleia shows {actor} the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             effects: [
               {
                 kind: "set_flag",
@@ -6386,11 +6209,6 @@
             text: "The grain basket rests beside Thaleia\u2019s bench. Vale lays out the cups for people who will rest here on their way home.",
             textTemplate: "The grain basket rests beside Thaleia\u2019s bench. {actor} lays out the cups for people who will rest here on their way home.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-quay-heard",
@@ -6421,11 +6239,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-bodies-returned",
                 value: true
               },
@@ -6453,11 +6266,6 @@
             text: "Vale gives the funeral urn to the mothers. They name their sons over the ashes. Aethra writes the funeral account and the households\u2019 return list for Thaleia.",
             textTemplate: "{actor} gives the funeral urn to the mothers. They name their sons over the ashes. Aethra writes the funeral account and the households\u2019 return list for Thaleia.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-cloths-laid",
@@ -6499,11 +6307,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-ashes-laid",
                 value: true
               }
@@ -6527,11 +6330,6 @@
             text: "Vale gives Thaleia the mothers\u2019 list. She reserves the prepared bench, basket and next open berth for those households. Their names stay beside the mooring rope until they arrive.",
             textTemplate: "{actor} gives Thaleia the mothers\u2019 list. She reserves the prepared bench, basket and next open berth for those households. Their names stay beside the mooring rope until they arrive.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-quay-provisioned",
@@ -6583,13 +6381,7 @@
             label: "Hear the earlier tale of Oedipus",
             text: "The keeper names an earlier time, before the deaths of the Theban brothers. In Sophocles\u2019s tale, blind Oedipus reaches this grove with Antigone. The townspeople fear his name. Theseus grants him shelter. Vale listens at the present boundary stone.",
             textTemplate: "The keeper names an earlier time, before the deaths of the Theban brothers. In Sophocles\u2019s tale, blind Oedipus reaches this grove with Antigone. The townspeople fear his name. Theseus grants him shelter. {actor} listens at the present boundary stone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             effects: [
               {
                 kind: "set_flag",
@@ -6608,11 +6400,6 @@
             text: "The water cup and honey rest beside the grove. The keeper recalls the gentle offering taught to Oedipus, which Ismene made in the earlier tale. Today\u2019s gift rests at the same boundary for the keeper\u2019s rite. Vale waits beside it.",
             textTemplate: "The water cup and honey rest beside the grove. The keeper recalls the gentle offering taught to Oedipus, which Ismene made in the earlier tale. Today\u2019s gift rests at the same boundary for the keeper\u2019s rite. {actor} waits beside it.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-colonus-entered",
@@ -6649,11 +6436,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-colonus-water-set",
                 value: true
               }
@@ -6678,11 +6460,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-colonus-daughters-heard",
                 value: true
               }
@@ -6705,11 +6482,6 @@
             text: "The keeper writes on the refuge tablet beside Vale. It records a present custom: hear a stranger\u2019s need, offer rest and seek protection. The old tale gives this promise its weight.",
             textTemplate: "The keeper writes on the refuge tablet beside {actor}. It records a present custom: hear a stranger\u2019s need, offer rest and seek protection. The old tale gives this promise its weight.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-colonus-farewell-heard",
@@ -6738,13 +6510,7 @@
             label: "Hear the tale of Heracles\u2019s children",
             text: "The keeper opens a separate tale after Heracles\u2019s death, under Demophon, son of Theseus. Iolaus and the children sought shelter here. Eurystheus\u2019s herald claimed them and used force. Demophon upheld the altar\u2019s protection. Vale hears the claim beside the present shrine.",
             textTemplate: "The keeper opens a separate tale after Heracles\u2019s death, under Demophon, son of Theseus. Iolaus and the children sought shelter here. Eurystheus\u2019s herald claimed them and used force. Demophon upheld the altar\u2019s protection. {actor} hears the claim beside the present shrine.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             effects: [
               {
                 kind: "set_flag",
@@ -6763,11 +6529,6 @@
             text: "The blanket from Piraeus lies beside the altar. The keeper sets it aside for present-day guests. The old tale continues beside a place made ready for someone who may need it. Vale waits with the keeper.",
             textTemplate: "The blanket from Piraeus lies beside the altar. The keeper sets it aside for present-day guests. The old tale continues beside a place made ready for someone who may need it. {actor} waits with the keeper.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-marathon-entered",
@@ -6799,11 +6560,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-marathon-blanket-set",
                 value: true
               }
@@ -6826,11 +6582,6 @@
             text: "The keeper tells the next part. The daughter\u2019s sacrifice preceded the battle. Athens won; Iolaus pursued Eurystheus, who was brought back alive. The messenger distinguished what he saw from the story of Iolaus\u2019s renewed youth. Vale hears the cost before the victory.",
             textTemplate: "The keeper tells the next part. The daughter\u2019s sacrifice preceded the battle. Athens won; Iolaus pursued Eurystheus, who was brought back alive. The messenger distinguished what he saw from the story of Iolaus\u2019s renewed youth. {actor} hears the cost before the victory.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-marathon-daughter-heard",
@@ -6857,11 +6608,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-marathon-battle-heard",
                 value: true
               }
@@ -6886,14 +6632,9 @@
             subject: "greek-baker",
             at: "greek-courtyard",
             label: "Tell Dione what welcome has cost",
-            text: "Dione\u2019s table holds the herald\u2019s truce, the funeral account, Myrine\u2019s signed list, the refuge tablet and the Marathon record. Vale sits with her. Dione sets the bread between them. The new verses join the earlier song.",
-            textTemplate: "Dione\u2019s table holds the herald\u2019s truce, the funeral account, Myrine\u2019s signed list, the refuge tablet and the Marathon record. {actor} sits with her. Dione sets the bread between them. The new verses join the earlier song.",
+            text: "Dione\u2019s table holds the herald\u2019s truce, the funeral account, Myrine\u2019s signed list and the refuge tablet. Vale sits with her. Dione sets the bread between them. The new verses join the earlier song.",
+            textTemplate: "Dione\u2019s table holds the herald\u2019s truce, the funeral account, Myrine\u2019s signed list and the refuge tablet. {actor} sits with her. Dione sets the bread between them. The new verses join the earlier song.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-eleusis-done",
@@ -6907,11 +6648,6 @@
               {
                 kind: "flag",
                 key: "greek-open-door-colonus-done",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "greek-open-door-marathon-done",
                 value: true
               },
               {
@@ -6933,11 +6669,6 @@
                 kind: "item_at",
                 item: "greek-refuge-tablet",
                 place: "greek-courtyard"
-              },
-              {
-                kind: "item_at",
-                item: "greek-marathon-record",
-                place: "greek-courtyard"
               }
             ],
             effects: [
@@ -6957,11 +6688,6 @@
             text: "Vale gives Dione the herald\u2019s truce: both sides accepted it, and the remains reached Eleusis under witness. Dione keeps it at her table.",
             textTemplate: "{actor} gives Dione the herald\u2019s truce: both sides accepted it, and the remains reached Eleusis under witness. Dione keeps it at her table.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-bodies-returned",
@@ -7002,11 +6728,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-eleusis-done",
                 value: true
               },
@@ -7043,11 +6764,6 @@
             text: "Vale gives Dione Myrine\u2019s signed return list. It names the bench, basket and berth Thaleia kept for the listed households. Dione keeps it at her table.",
             textTemplate: "{actor} gives Dione Myrine\u2019s signed return list. It names the bench, basket and berth Thaleia kept for the listed households. Dione keeps it at her table.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-homecoming-arrived",
@@ -7098,11 +6814,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-colonus-done",
                 value: true
               },
@@ -7139,11 +6850,6 @@
             text: "Vale gives Dione the Marathon record. Heracles\u2019s daughter gave her life; Alcmene later ordered the captive Eurystheus to die. Dione keeps it at her table.",
             textTemplate: "{actor} gives Dione the Marathon record. Heracles\u2019s daughter gave her life; Alcmene later ordered the captive Eurystheus to die. Dione keeps it at her table.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-marathon-done",
@@ -7184,11 +6890,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-piraeus-done",
                 value: true
               }
@@ -7211,11 +6912,6 @@
             text: "Myrine rests at the quay with the basket now in her hands. Thaleia finds her household on the list and keeps its place. Before Vale, Myrine signs the margin: \u201CI reached the quay. My household\u2019s place was kept, and its basket passed to me.\u201D Her words can travel to Dione.",
             textTemplate: "Myrine rests at the quay with the basket now in her hands. Thaleia finds her household on the list and keeps its place. Before {actor}, Myrine signs the margin: \u201CI reached the quay. My household\u2019s place was kept, and its basket passed to me.\u201D Her words can travel to Dione.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-homecoming-journey-agreed",
@@ -7264,11 +6960,6 @@
             text: "Myrto points out the Northern Road to Ajax\u2019s camp.",
             textTemplate: "{actor} accepts Myrto\u2019s lasting invitation to a named Trojan account. It begins after Ajax\u2019s death, where his household and Teucer seek burial. The Greek ship can now call at the camp landing. Dione\u2019s earlier account keeps its own time.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-eleusis-done",
@@ -8347,11 +8038,6 @@
                 kind: "set_flag",
                 key: "greek-burial-performed",
                 value: true
-              },
-              {
-                kind: "set_flag",
-                key: "greek-open-door-open",
-                value: true
               }
             ],
             on: "give"
@@ -9374,7 +9060,6 @@
             "greek-pyre-account",
             "greek-figs",
             "greek-wine-skin",
-            "greek-libation",
             "greek-wheat"
           ],
           choices: [
@@ -9619,26 +9304,6 @@
         },
         sections: [
           {
-            id: "greek-open-door",
-            name: "The Open Door",
-            places: [
-              "greek-colonus",
-              "greek-eleusis",
-              "greek-marathon",
-              "greek-road-athens-harbor",
-              "greek-athens-harbor",
-              "greek-cithaeron",
-              "greek-road-athens-eleusis"
-            ],
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ]
-          },
-          {
             id: "greek-ajax",
             name: "Earth Beside the Ships",
             places: [
@@ -9670,13 +9335,7 @@
             speaker: "greek-aethra",
             at: "greek-eleusis",
             text: "The Argive mothers ask Athens to recover their sons' remains for burial.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             choiceId: "greek-open-door-hear-mothers"
           },
           {
@@ -9685,11 +9344,6 @@
             at: "greek-eleusis",
             text: "Adrastus led the failed attack on Thebes and set aside a warning.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-mothers-heard",
@@ -9703,13 +9357,7 @@
             speaker: "greek-quay-host",
             at: "greek-piraeus",
             text: "The returning households need cloths, food and a berth assigned from the mothers' list.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             choiceId: "greek-open-door-hear-quay"
           },
           {
@@ -9718,11 +9366,6 @@
             at: "greek-eleusis",
             text: "Evadne died at Capaneus's pyre despite Iphis's plea.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-ashes-laid",
@@ -9736,13 +9379,7 @@
             speaker: "greek-colonus-keeper",
             at: "greek-colonus",
             text: "In the earlier tale, Theseus gave Oedipus shelter at Colonus before the Theban brothers died.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             choiceId: "greek-open-door-colonus-enter"
           },
           {
@@ -9751,11 +9388,6 @@
             at: "greek-colonus",
             text: "In the earlier tale, Theseus recovered Oedipus's daughters and Oedipus refused his son's appeal for war.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-colonus-water-set",
@@ -9772,11 +9404,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-colonus-daughters-heard",
                 value: true
               }
@@ -9788,13 +9415,7 @@
             speaker: "greek-marathon-keeper",
             at: "greek-marathon",
             text: "In the separate tale under Demophon, Heracles's children sought shelter and the king upheld their protection.",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              }
-            ],
+            requires: [],
             choiceId: "greek-open-door-marathon-enter"
           },
           {
@@ -9803,11 +9424,6 @@
             at: "greek-marathon",
             text: "In the separate tale, Heracles's daughter offered her life for her siblings after Demophon refused to compel a household.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "flag",
                 key: "greek-open-door-marathon-blanket-set",
@@ -9824,11 +9440,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-marathon-daughter-heard",
                 value: true
               }
@@ -9843,11 +9454,6 @@
             requires: [
               {
                 kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
-              {
-                kind: "flag",
                 key: "greek-open-door-marathon-battle-heard",
                 value: true
               }
@@ -9860,11 +9466,6 @@
             at: "greek-athens",
             text: "The herald confirmed that both sides accepted the burial truce and the Argive remains reached Eleusis under witness.",
             requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-open",
-                value: true
-              },
               {
                 kind: "choice",
                 key: "greek-open-door-recovery",
@@ -10024,7 +9625,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays and the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard, and every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
+          description: "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions lying on deck, and on to the Hoppy Cat jetty only with them or a Hoppy Cat thing aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
         },
         crossings: [
           {
@@ -10278,19 +9879,9 @@
                 oneWay: true,
                 opensWith: [
                   {
-                    kind: "any",
-                    conditions: [
-                      {
-                        kind: "item_at",
-                        item: "greek-provisions",
-                        place: "greek-ship"
-                      },
-                      {
-                        kind: "pack_item_present",
-                        pack: "hoppycat-archive",
-                        place: "greek-ship"
-                      }
-                    ]
+                    kind: "item_at",
+                    item: "greek-provisions",
+                    place: "greek-ship"
                   }
                 ],
                 sealed: true

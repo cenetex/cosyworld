@@ -595,16 +595,10 @@ An optional `sections` list groups released places behind lasting story events:
 
 ```json
 {
-  "id": "greek-open-door",
-  "name": "The Open Door",
-  "places": [
-    "greek-athens",
-    "greek-piraeus",
-    "greek-colonus",
-    "greek-eleusis",
-    "greek-marathon"
-  ],
-  "requires": [{ "kind": "flag", "key": "greek-open-door-open", "value": true }]
+  "id": "greek-ajax",
+  "name": "Earth Beside the Ships",
+  "places": ["greek-greek-camp", "greek-ajax-landing", "greek-ajax-household"],
+  "requires": [{ "kind": "flag", "key": "greek-ajax-open", "value": true }]
 }
 ```
 
@@ -818,9 +812,10 @@ Course cards show only lanes the person knows. A lane can instead list
 hold, for everyone aboard, and knowing it opens nothing. Cargo is checked
 aboard; only a `spends` lane (above) uses it up. The Greek ship is the Charybdis, on the Black Pond
 route (rules 94): Black Pond and the Wine-Dark Harbor both ways with no
-cargo; harbor to Piraeus and Piraeus to the Signal Jetty one way, each with
-one `any` of `item_present` (the Travel Provisions) and `pack_item_present`
-(a Hoppy Cat thing) aboard; and a free one-way lane back for each. The
+cargo; harbor to Piraeus one way, only with the Travel Provisions lying aboard
+(`item_at`); Piraeus to the Signal Jetty one way, with one `any` of
+`item_present` (the Travel Provisions) and `pack_item_present` (a Hoppy Cat
+thing) aboard; and a free one-way lane back for each. The
 conditions bind only a voyage a human rides: with no human aboard, a
 resident aboard sets the course to its own destination along any lane
 (rules 96), and an empty ship called to a dock
@@ -832,7 +827,7 @@ free lane toward home, so a traveler ashore there is never stranded:
 `test/card-ship-port-roads.test.mjs` searches every walk, carry and free lane
 from every dock the empty ship can be called to. Myrto knows every lane; through
 Talk she tells a gated lane together with its condition, an `any` as its
-choices ("Travel Provisions or something from Hoppy Cat"). A retired crossing closes in every loaded save, including one that
+choices (to the jetty: "Travel Provisions or something from Hoppy Cat"). A retired crossing closes in every loaded save, including one that
 had already found it (shared rules 63), and anyone who had been in Hoppy Cat
 learns the jetty lane as knowledge. In a new game every Hoppy Cat thing starts inside Hoppy Cat, so the
 jetty waits for things scattered into other worlds.

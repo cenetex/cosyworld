@@ -111,8 +111,8 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
   `docs/design/assets/patroclus/` and waits for the image build.
 - The Theban-response branch is gone (the report-plan, permitted-burial and
   courtyard choices, the Guard's Tablet and the `greek-theban-response`
-  outcomes): the burial is the three rites in the Hollow, and burying
-  Polynices opens the Open Door.
+  outcomes): the burial is the three rites in the Hollow. It opens nothing
+  else: Attica is simply there, and the Open Door begins when you meet Aethra.
 
 ### Locked boxes (rules 133)
 
@@ -140,11 +140,9 @@ The way home is free.
 
 The funeral cloth and oil start in Thebes but come from Attica: the cloth's
 `home` is the Eleusinian Sanctuary and the oil's is Colonus Grove. A Theban
-rite sends them home at once, or back where they started while the Open
-Door is shut. The same cloth and oil are meant for Ajax's grave when Troy
-opens again. The Libation Wine (`greek-libation`) is a separate cup of wine
-on the Cithaeron road, distinct from the provisions' wine skin; no rite needs
-it yet.
+rite sends them home at once. The same cloth and oil are meant for Ajax's
+grave when Troy opens again. The Libation Wine is gone: the provisions' wine
+skin is the only wine.
 
 Thebes runs Courtyard, Market Well, Palace Forecourt, Hillside Sanctuary in
 a line, with the City Gate off the courtyard: the forecourt is reached
@@ -179,8 +177,8 @@ away or leaves his post, the gate stays open. A petition needs the decree in han
 returns it to the palace, so a petitioner carries it back to the guard
 afterwards. The battlefield is a Theban place just outside the walls, so by
 the map rule it links directly to the gate. Beyond it the Cithaeron road
-leads over the mountain to Eleusis. It is open both ways. The road is in
-the Open Door section, so it appears once the burial opens the Open Door.
+leads over the mountain to Eleusis. It is open both ways, and it is there from the start: the burial does not
+open it.
 
 Three short story cards follow the opening. The Bard carries its growing
 poem. Finishing a quest brings him to the next room the player enters.
@@ -198,11 +196,13 @@ Otherwise they read as an inventory lock accepting its key.
 
 ## The Open Door
 
-When Dione receives the account of burial, permission or warning, she opens
-the road to Athens. That records a lasting opening
-for the Athenian Agora, Colonus Grove and the Eleusinian Sanctuary, reached
-through the City Gate. The Long Walls from Piraeus Quays to the Agora are
-open from the start: the sea route needs neither the burial nor the truce. One shared traveler can open the roads for everyone. Marathon Altar is a rumour in this release.
+Nothing opens the Open Door. The Athenian Agora, Colonus Grove, the
+Eleusinian Sanctuary, the Sacred Way and the Cithaeron road are there from
+the start, and so are Aethra, Adrastus, Theseus, the Piraeus quay host and
+the grove keeper. The story begins when you meet Aethra; each later step
+keeps its own story flag. The burial of Polynices is its own story and gates
+none of it. The Long Walls from Piraeus Quays to the Agora are open from the
+start too. Marathon Altar is a rumour in this release.
 
 The main journey follows the mothers in Euripides' _Suppliant Women_.
 Carry their petition to Theseus, choose the civic response, hear its report,
@@ -215,8 +215,10 @@ Six short story cards follow these scenes. Twenty couplets distinguish
 present deeds, heard reports and chosen tellings. Homecoming adds sixteen
 couplets for early reports, Myrine’s arrival and her written answer. A
 traveler can bring each completed local story to Dione, then return for
-the rest. The full account needs all five stories, Marathon's among them, so
-it waits in old full-scope worlds.
+the rest. Dione's last card needs the Eleusis, Piraeus and Colonus accounts, the
+truce, the funeral account, the return list and the refuge tablet. Marathon's
+tale and its record are not required, so the Open Door can be finished in a
+world of this release. Marathon's tale still waits in old full-scope worlds.
 
 Myrine, an original household representative, agrees at Eleusis to walk
 to Piraeus. One Accompany play takes her along the shore path. She receives her
@@ -240,8 +242,8 @@ signs the account. A traveler who has heard his words can carry the paper
 to Dione. Three story beats and a return card follow the journey. Four
 earned couplets grow from eight possible verses. Read the [chapter and
 source guide](AJAX.md) for the choices, objects and saved account. In a
-world of this release the invitation needs Marathon's tale, so it is never
-offered.
+world of this release the invitation still needs Marathon's tale, so it is
+never offered.
 
 ## Roads, the Charybdis and the rumours
 
@@ -254,23 +256,22 @@ Black Pond route. Its lanes are in `v2/worlds/greek-drama/card-bridge.json`:
 
 - Black Pond and the Wine-Dark Harbor, both ways, with no cargo. The ship
   always comes home this way.
-- Out from the harbor to Piraeus Quays and from Piraeus to the Hoppy Cat
-  jetty only while the Travel Provisions (`greek-provisions`, made at the
-  harbor) or a Hoppy Cat thing are aboard: one `any` condition. To Piraeus
-  the provisions must lie on deck (`item_at`), and the lane's `reason`
-  labels the locked Piraeus card; the Hoppy Cat jetty lane still counts
-  them carried (`item_present`; Hoppy Cat is paused). The Willows mist
-  beside the rail needs the same cargo aboard. No voyage uses anything up.
+- Out from the harbor to Piraeus Quays only while the Travel Provisions
+  (`greek-provisions`, made at the harbor) lie on deck (`item_at`); nothing
+  from Hoppy Cat replaces them, and the lane's `reason` labels the locked
+  Piraeus card. From Piraeus to the Hoppy Cat jetty only while the
+  provisions are aboard (`item_present`, carried counts) or a Hoppy Cat thing
+  is (Hoppy Cat is paused). The Willows mist beside the rail needs the same
+  cargo aboard. No voyage uses anything up.
 - Every way back toward Black Pond, jetty to Piraeus and Piraeus to the
   harbor, is free.
 - The cargo rule binds only a voyage with riders. Called away empty, the
   ship comes back to a traveler waiting at any dock without cargo.
 
-Piraeus is Thebes's sea exit. It lies outside every section, so the
-provisions carry a traveler there before Dione's invitation, and the Long
-Walls lead on to the Agora (`greek-athens`, also outside the section) at once.
+Piraeus is Thebes's sea exit. The provisions carry a traveler there, and
+the Long Walls lead on to the Agora (`greek-athens`) at once.
 Reaching Athens by sea and by the City Gate are two independent routes: the
-burial gates neither. The Hoppy Cat jetty beyond it is reachable as early, with cargo.
+burial gates neither. The Hoppy Cat jetty beyond it needs the provisions or a Hoppy Cat thing aboard.
 
 The ship is the quick way to a port, never a trap (#2049). From every dock
 the Charybdis sails to, a traveler reaches home on foot or by a free leg,
@@ -282,7 +283,7 @@ Agora, the Sacred Way to Eleusis, the Cithaeron road to the battlefield,
 then the City Gate into Thebes, which opens only once the guard has held
 the decree there. The Coast Road, Piraeus to the Wine-Dark Harbor, retired.
 The Long Walls are open from both ends, so a sea arrival walks to the Agora;
-the rest of Attica (Eleusis, Colonus) stays in the Open Door section.
+the rest of Attica (Eleusis, Colonus) is as open.
 
 Marathon, the Trojan landing, the Greek camp and its household and grave,
 and the Northern Road leave the release. The Lemnian Cave, the Thracian

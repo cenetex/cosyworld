@@ -292,7 +292,7 @@ try {
       );
       assert.equal(
         done.packs["greek-drama"].flags["greek-open-door-open"],
-        true,
+        undefined,
       );
       assert.equal(done.items["greek-oil-flask"].holder, "greek-colonus");
       assert.equal(done.items["greek-funeral-cloth"].holder, "greek-eleusis");

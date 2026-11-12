@@ -122,7 +122,6 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
 
   it("shows the Sacred Way from Eleusis until the request is heard and the petition is near", () => {
     const s = at(world(), "greek-eleusis");
-    greek(s)["greek-open-door-open"] = true;
     lockedBox(s, road, /^Talk with Aethra$/u);
     // Either condition alone opens nothing.
     greek(s)["greek-open-door-mothers-heard"] = true;
@@ -147,53 +146,61 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
 
 describe("Greek conditional residents are locked boxes that cannot be played", () => {
   const rows = [
-    ["greek-quay-host", "greek-piraeus", [], /^Bring .+ to /u],
     [
       "greek-argive-mother",
       "greek-eleusis",
-      ["greek-open-door-open", "greek-open-door-bodies-returned"],
+      ["greek-open-door-bodies-returned"],
       /^Talk with Aethra$/u,
     ],
     [
       "greek-iphis",
       "greek-eleusis",
-      ["greek-open-door-open", "greek-open-door-pyre-heard"],
+      ["greek-open-door-pyre-heard"],
       /^Talk with Theseus$/u,
     ],
     [
       "greek-household-witness",
       "greek-eleusis",
-      ["greek-open-door-open", "greek-open-door-eleusis-done"],
+      ["greek-open-door-eleusis-done"],
       /^Give .+ to Theseus$/u,
     ],
   ];
   for (const [who, place, flags, reason] of rows)
-    it(`${who} lies sealed at ${place} until ${flags.at(-1) ?? "the Open Door opens"}`, () => {
+    it(`${who} lies sealed at ${place} until ${flags.at(-1)}`, () => {
       const s = at(world(), place);
       // The place is on the table before the box can be met in it.
-      if (place === "greek-eleusis") greek(s)["greek-open-door-open"] = true;
       expect(entityActive(s, place)).toBe(true);
       expect(drawn(s, who)).toMatchObject({ shown: true, locked: true });
       expect(drawn(s, who).reason).toMatch(reason);
       expect(lockedQuest(s, who, () => true).text).toMatch(reason);
       untouchable(s, who);
       // The old condition, and nothing else, turns the card over.
-      for (const flag of flags.length ? flags : ["greek-open-door-open"])
-        greek(s)[flag] = true;
+      for (const flag of flags) greek(s)[flag] = true;
       expect(entityActive(s, who)).toBe(true);
       expect(drawn(s, who)).toMatchObject({ shown: true, locked: false });
     });
 
-  it("holds the other flags apart: the open flag alone leaves each Eleusis resident sealed", () => {
+  it("shows the quay host, Aethra and Theseus unsealed with Polynices unburied", () => {
+    for (const [who, place] of [
+      ["greek-quay-host", "greek-piraeus"],
+      ["greek-aethra", "greek-eleusis"],
+      ["greek-theseus", "greek-athens"],
+    ]) {
+      const s = at(world(), place);
+      expect(greek(s)["greek-burial-performed"]).toBeFalsy();
+      expect(drawn(s, who), who).toMatchObject({ shown: true, locked: false });
+    }
+  });
+
+  it("holds the story flags apart: each Eleusis resident waits on its own", () => {
     const s = at(world(), "greek-eleusis");
-    greek(s)["greek-open-door-open"] = true;
     for (const who of [
       "greek-argive-mother",
       "greek-iphis",
       "greek-household-witness",
     ])
       expect(drawn(s, who), who).toMatchObject({ shown: true, locked: true });
-    // Aethra, whose only condition is the section's flag, is simply there.
+    // Aethra has no condition: she is simply there.
     expect(entityActive(s, "greek-aethra")).toBe(true);
   });
 });

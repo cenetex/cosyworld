@@ -174,9 +174,10 @@ export async function checkOpenDoor(browser, origin) {
 
       await page.goto(`${origin}/?table=${table}`);
       await settle();
-      // Burying Polynices has opened the road to Eleusis.
-      assert.ok(
+      // Burying Polynices opens nothing: Attica was there all along.
+      assert.equal(
         (await state()).packs["greek-drama"].flags["greek-open-door-open"],
+        undefined,
       );
       // Every story step is an ordinary play: a meeting, a Wait or a gift.
       for (const action of openDoorSteps({ rumours: true })) {
