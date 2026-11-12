@@ -1,293 +1,204 @@
-import { describe, expect, it } from "vitest";
+// The Open Door as five interlocking puzzles (docs/design/open-door-rework.md),
+// played from a new world with real plays. Each puzzle is solved two ways and
+// each way has its cost: a trust, a trip, a want left open, or a road.
+import { beforeAll, describe, expect, it } from "vitest";
+import { exits, validateWorld } from "../v2/card-game/world.mjs";
+import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import {
-  createWorld,
-  decodeSave,
-  encodeSave,
-  exits,
-  legalActions,
-} from "../v2/card-game/world.mjs";
-import {
-  entityActive,
-  packDefinition,
-} from "../v2/card-game/pack-registry.mjs";
-import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { recitalPoem, recitalContext } from "../v2/card-game/pack-recital.mjs";
-import { funeralJourney } from "./helpers/greek-funeral.mjs";
-import {
-  OPEN_DOOR_PLACES,
-  openDoorJourney,
-  openDoorStart,
-  openDoorSteps,
-  openDoorWalk,
-  playOpenDoor,
+  burial,
+  holds,
+  landRoad,
+  satisfied,
+  seaRoad,
+  traveler,
+  whereIs,
 } from "./helpers/open-door.mjs";
 
-const state = (world) => world.packs["greek-drama"];
-const accessible = (world) =>
-  OPEN_DOOR_PLACES.filter((id) => entityActive(world, id));
-const reload = (world) => decodeSave(encodeSave(world));
-const pack = packDefinition("greek-drama");
+const valid = (s) => expect(() => validateWorld(s)).not.toThrow();
+const urnMade = (s) => !s.usedUp.includes("greek-ash-urn");
+const gateOpen = (s) => exits(s, "greek-gate", "vale").includes("greek-battlefield");
 
-const story = (id) => /^greek-(open-door|homecoming)-/.test(id);
-// Marathon's tale is a rumour in new worlds (rules 94); old full-scope worlds
-// keep it and its record. The full return needs neither.
-const fullJourney = () =>
-  openDoorJourney(openDoorSteps({ rumours: true }), { rumours: true });
-const OUTCOMES = [
-  "greek-olive-branch",
-  "greek-pyre-account",
-  "greek-return-list",
-  "greek-refuge-tablet",
-  "greek-marathon-record",
-];
+// Out of Thebes by land with the cloth and oil, and the petition picked up at
+// Eleusis: the start of puzzles 1, 3 and 4.
+let atEleusis;
+beforeAll(() => {
+  const t = landRoad();
+  t.move("gate").drop("shovel");
+  t.move("battlefield", "cithaeron", "eleusis").take("burial-petition");
+  atEleusis = t.s;
+});
+const fromEleusis = () => traveler(structuredClone(atEleusis));
 
-describe("the Open Door", () => {
-  it("carries the four stories home in a new world", () => {
-    const { world } = openDoorJourney();
-    for (const id of ["eleusis", "piraeus", "colonus"])
-      expect(state(world).flags[`greek-open-door-${id}-done`]).toBe(true);
-    expect(entityActive(world, "greek-marathon")).toBe(false);
-    // Dione's last card plays with no Marathon tale and no Marathon record.
-    expect(state(world).flags["greek-open-door-marathon-done"]).toBeFalsy();
-    expect(state(world).flags["greek-open-door-returned"]).toBe(true);
-    for (const item of OUTCOMES.slice(0, 4))
-      expect(world.items[item].holder).toBe("greek-courtyard");
-  });
-  it("carries the five stories home with ordinary plays in a full-scope world", () => {
-    const { world, before } = fullJourney();
-    expect(world.actors.vale.place).toBe("greek-courtyard");
-    for (const id of ["eleusis", "piraeus", "colonus", "marathon"])
-      expect(state(world).flags[`greek-open-door-${id}-done`]).toBe(true);
-    expect(state(world).flags["greek-open-door-returned"]).toBe(true);
-    expect(state(world).choices).toMatchObject({
-      "greek-open-door-recovery": "truce",
-      "greek-open-door-berth": "family",
-      "greek-homecoming-care": "family",
-    });
-    // No story button is ever offered; every receipt came from a fixed verb.
-    for (const prior of Object.values(before))
-      expect(
-        legalActions(prior).filter(
-          (a) => a.kind === "choose" && story(a.choiceId),
-        ),
-      ).toEqual([]);
-    expect(pack.choices.filter((c) => story(c.id)).every((c) => c.on)).toBe(
-      true,
-    );
-    expect(world.quests).toBeUndefined();
-    // The five outcomes rest on Dione's table; the offerings stay where
-    // their deeds were done.
-    for (const item of OUTCOMES)
-      expect(world.items[item].holder).toBe("greek-courtyard");
-    for (const [item, place] of Object.entries({
-      "greek-burial-petition": "greek-athens",
-      "greek-return-cloths": "greek-eleusis",
-      "greek-ash-urn": "greek-eleusis",
-      "greek-grove-cup": "greek-colonus",
-      "greek-grove-honey": "greek-colonus",
-      "greek-shelter-blanket": "greek-marathon",
-    }))
-      expect(world.items[item].holder).toBe(place);
-    const poem = recitalPoem(world, pack);
-    expect(
-      poem.stanzas.some((verse) => verse.id === "greek-open-door-return-dione"),
-    ).toBe(true);
-    const restored = reload(reload(world));
-    expect(restored.packs).toEqual(world.packs);
-    expect(recitalPoem(restored, pack)).toEqual(poem);
-  });
-  it("requires the actual things at each deed", () => {
-    const { before } = fullJourney();
-    // Waiting does a deed only beside its things.
-    for (const [id, item] of [
-      ["set-provisions", "greek-provision-basket"],
-      ["lay-cloths", "greek-return-cloths"],
-      ["colonus-water", "greek-grove-honey"],
-      ["colonus-custom", "greek-refuge-tablet"],
-      ["marathon-blanket", "greek-shelter-blanket"],
-    ]) {
-      const choiceId = `greek-open-door-${id}`;
-      const world = structuredClone(before[choiceId]);
-      world.items[item].holder = "mara";
-      const waited = playOpenDoor(world, "wait");
-      expect(state(waited).receipts[choiceId], id).toBeUndefined();
-    }
-    // A gift needs the thing in the giver's hands.
-    for (const [id, item] of [
-      ["register-plea", "greek-burial-petition"],
-      ["lay-ashes", "greek-ash-urn"],
-      ["family-berth", "greek-return-list"],
-    ]) {
-      const world = structuredClone(before[`greek-open-door-${id}`]);
-      world.items[item].holder = "mara";
-      expect(
-        legalActions(world).some((a) => a.kind === "give" && a.item === item),
-      ).toBe(false);
-    }
-  });
-  it("keeps remembered generations in their named tales", () => {
-    const { world } = fullJourney();
-    // Meetings commit their tale; its words are the choice's own caption.
-    const line = (id) =>
-      state(world).receipts[`greek-open-door-${id}`] &&
-      pack.choices.find((c) => c.id === `greek-open-door-${id}`).text;
-    expect(line("colonus-enter")).toMatch(
-      /earlier time.*before the deaths of the Theban brothers/,
-    );
-    expect(line("colonus-daughters")).toMatch(/earlier tale/);
-    expect(line("marathon-enter")).toMatch(
-      /separate tale.*Demophon, son of Theseus/,
-    );
-    expect(line("marathon-daughter")).toMatch(/In the tale/);
-    expect(pack.avatars["greek-colonus-keeper"].seed).toBe(
-      "The Grove Keeper at Colonus.",
-    );
-    // Antigone goes home once the way is open: the authored home, not a
-    // fixed turn count, says where she is.
-    expect(world.actors["greek-antigone"].place).toBe(
-      pack.avatars["greek-antigone"].home,
-    );
-    expect(world.actors["greek-creon"].place).toBe("greek-palace");
-  });
-  it("credits a second player's final deed through save and poem context", () => {
-    const id = "greek-open-door-lay-ashes";
-    const prior = openDoorJourney().before[id];
-    const created = dispatchShared({ op: "create", save: encodeSave(prior) });
-    expect(created.ok).toBe(true);
-    let world = created.world;
-    world.actors.mara.place = "greek-eleusis";
-    world.items["greek-ash-urn"].holder = "mara";
-    const request = (op, extra = {}) =>
-      dispatchShared({
-        world,
-        op,
-        actor: "mara",
-        claimed: ["vale", "mara"],
-        present: ["vale", "mara"],
-        ...extra,
-      });
-    const view = request("view");
-    expect(view.ok).toBe(true);
-    const gift = view.actions.find(
-      (a) =>
-        a.kind === "give" &&
-        a.item === "greek-ash-urn" &&
-        a.target === "greek-argive-mother",
-    );
-    expect(gift).toBeTruthy();
-    const completed = request("play", { action: gift });
-    expect(completed.ok).toBe(true);
-    world = reload(completed.world);
-    expect(state(world).receipts[id]).toBe(world.turn);
-    expect(state(world).recitals[id].actor).toBe("mara");
-    expect(
-      recitalContext(world, [pack], "greek-rhapsode").stanzas.find(
-        (stanza) => stanza.id === id,
-      ).authorId,
-    ).toBe("mara");
-  });
-  it("has the four places from the start: the burial opens nothing", () => {
-    // Nothing opens the Open Door: Attica is there in a new world and
-    // before, during and after the burial. Marathon is a rumour (rules 94).
-    expect(accessible(createWorld())).toEqual(OPEN_DOOR_PLACES);
-    const { veiled, buried } = funeralJourney();
-    expect(accessible(veiled)).toEqual(OPEN_DOOR_PLACES);
-    let world = buried;
-    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
-    expect(state(world).flags["greek-open-door-open"]).toBeUndefined();
-    expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
-    world = openDoorWalk(reload(world), "harbor", "piraeus");
-    // The Long Walls are open from both ends with no truce: a sea arrival
-    // walks to the Agora. From the Agora the Sacred Way leads to the
-    // countryside.
-    expect(world.actors.vale.place).toBe("greek-piraeus");
-    expect(
-      exits(world, "greek-piraeus", "vale").filter((to) => to !== "greek-ship"),
-    ).toEqual(["greek-road-athens-piraeus"]);
-    expect(exits(world, "greek-athens", "vale")).toEqual([
-      "greek-road-athens-eleusis",
-      "greek-road-athens-piraeus",
+describe("5. three hands, one loaf: the first crossing", () => {
+  it("(a) by land: the loaf buys the decree, the decree the writ, and the gate opens", () => {
+    const t = landRoad();
+    expect(gateOpen(t.s)).toBe(true);
+    expect(t.hands()).toEqual([
+      "greek-funeral-cloth",
+      "greek-oil-flask",
+      "greek-shovel",
     ]);
-    expect(entityActive(world, "greek-thinkery")).toBe(false);
-    expect(entityActive(world, "greek-argolid-road")).toBe(false);
-    for (let count = 0; count < 3; count++) world = reload(world);
-    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
-    expect(world.items["greek-water-jar"].holder).toBe(
-      buried.items["greek-water-jar"].holder,
-    );
-  });
-  it("keeps the four roads open through a return to the Theban table", () => {
-    // Through the plea: the petition rests in the Agora, which keeps the
-    // Sacred Way open, and so does the herald's truce for the Long Walls.
-    let world = openDoorStart();
-    const steps = openDoorSteps();
-    for (const { kind, ...fields } of steps.slice(
-      0,
-      steps.findIndex((step) => step.target === "greek-theseus") + 1,
-    ))
-      world = playOpenDoor(world, kind, fields);
-    world = openDoorWalk(
-      world,
-      "colonus",
-      "eleusis",
-      "athens",
-      "piraeus",
-      "harbor",
-      "courtyard",
-    );
-    expect(world.actors.vale.place).toBe("greek-courtyard");
-    expect(accessible(reload(world))).toEqual(OPEN_DOOR_PLACES);
-  });
-  it("keeps Dione's closing report open while the other welcomes are pending", () => {
-    let world = openDoorJourney().after["greek-open-door-lay-ashes"];
-    world = playOpenDoor(world, "take", { item: "greek-pyre-account" });
-    world = openDoorWalk(world, "athens", "harbor", "courtyard");
-    world = playOpenDoor(world, "give", {
-      item: "greek-pyre-account",
-      target: "greek-baker",
-    });
-    world = playOpenDoor(world, "talk", { target: "greek-baker" });
-    expect(
-      state(world).receipts["greek-open-door-return-dione"],
-    ).toBeUndefined();
-    expect(
-      state(reload(world)).flags["greek-homecoming-eleusis-reported"],
-    ).toBe(true);
-  });
-  it("shares the open roads with a second player", () => {
-    const hosted = dispatchShared({
-      op: "create",
-      save: encodeSave(openDoorStart()),
-    });
-    expect(hosted.ok).toBe(true);
-    const viewed = dispatchShared({
-      op: "view",
-      world: hosted.world,
-      actor: "mara",
-      claimed: ["vale", "mara"],
-      present: ["vale", "mara"],
-    });
-    expect(viewed.ok).toBe(true);
-    expect(accessible(viewed.world)).toEqual(OPEN_DOOR_PLACES);
-    expect(viewed.world.actors.mara.place).not.toMatch(/^greek-/);
+    // Cost: the loaf went to the guard, so the provisions cannot be packed.
+    expect(t.s.usedUp).toContain("greek-bread");
+    // The wheat it was baked from went home to the Piraeus quay.
+    expect(whereIs(t.s, "greek-wheat")).toBe("greek-piraeus");
+    t.move("battlefield", "cithaeron", "eleusis");
+    expect(entityActive(t.s, "greek-aethra")).toBe(true);
+    valid(t.s);
   });
 
-  it("offers no story button in the Open Door's places", () => {
-    const world = createWorld();
-    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
-    for (const place of OPEN_DOOR_PLACES) {
-      world.actors.vale.place = place;
-      expect(
-        legalActions(world).filter(
-          (action) =>
-            action.kind === "choose" &&
-            pack.choices.find(
-              (choice) =>
-                choice.id === action.choiceId &&
-                OPEN_DOOR_PLACES.includes(choice.at),
-            ),
-        ),
-      ).toEqual([]);
-    }
+  it("(b) by sea: the loaf goes into the provisions and the gate stays shut", () => {
+    const t = seaRoad();
+    expect(t.s.actors.vale.place).toBe("greek-piraeus");
+    expect(t.hands()).toEqual(["greek-funeral-cloth", "greek-oil-flask"]);
+    // Cost: the guard cannot be fed; the land road waits for a second loaf
+    // or the truce.
+    expect(t.s.usedUp).toContain("greek-bread");
+    expect(gateOpen(t.s)).toBe(false);
+    t.move("athens", "eleusis");
+    expect(entityActive(t.s, "greek-aethra")).toBe(true);
+    valid(t.s);
+  });
+});
+
+describe("1. the king and the altar", () => {
+  it("(a) trades the petition for the truce in the Agora; Aethra still waits", () => {
+    const t = fromEleusis();
+    t.give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    const start = t.s.turn;
+    t.move("road-athens-eleusis", "athens");
+    expect(entityActive(t.s, "greek-theseus")).toBe(true);
+    t.trade("burial-petition", "theseus", "olive-branch");
+    expect(holds(t.s, "theseus", "greek-burial-petition")).toBe(true);
+    expect(holds(t.s, "vale", "greek-olive-branch")).toBe(true);
+    expect(satisfied(t.s, "theseus")).toBe(true);
+    // Cost: Aethra's son never came to the altar.
+    t.move("road-athens-eleusis", "eleusis");
+    expect(satisfied(t.s, "aethra")).toBe(false);
+    expect(t.s.turn - start).toBeLessThanOrEqual(6);
+    valid(t.s);
+  });
+
+  it("(b) keeps the petition and walks Theseus to the altar: both are met", () => {
+    const t = fromEleusis();
+    t.give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.move("road-athens-eleusis", "athens");
+    // The trip serves his want, so he comes without trust.
+    expect(t.s.actors["greek-theseus"].trust.vale).toBe(0);
+    t.walkWith("theseus", "eleusis");
+    expect(t.s.actors["greek-theseus"].place).toBe("greek-eleusis");
+    t.trade("burial-petition", "theseus", "olive-branch").act("wait");
+    expect(satisfied(t.s, "theseus")).toBe(true);
+    expect(satisfied(t.s, "aethra")).toBe(true);
+    // Cost: Theseus is away from the Agora and walks home on his own.
+    expect(t.s.actors["greek-theseus"].place).not.toBe("greek-athens");
+    valid(t.s);
+  });
+});
+
+describe("2. two dead, one kit", () => {
+  it("(a) buries first: the rites send the kit home and open Aethra and the keeper", () => {
+    const t = burial(landRoad());
+    expect(t.s.packs["greek-drama"].flags["greek-burial-performed"]).toBe(true);
+    expect(whereIs(t.s, "greek-funeral-cloth")).toBe("greek-eleusis");
+    expect(whereIs(t.s, "greek-oil-flask")).toBe("greek-colonus");
+    // Nobody carried them there: the two boxes opened by themselves.
+    expect(entityActive(t.s, "greek-aethra")).toBe(true);
+    expect(entityActive(t.s, "greek-colonus-keeper")).toBe(true);
+    // The keeper's want is the oil in his grove; it is met when he is next
+    // spoken to. Cost: the whole Theban road first, and the shade's night.
+    t.move("battlefield", "cithaeron", "eleusis", "colonus").talk("colonus-keeper");
+    expect(satisfied(t.s, "colonus-keeper")).toBe(true);
+    valid(t.s);
+  });
+
+  it("(b) makes the urn first, then borrows the cloth and oil back for the Hollow", () => {
+    const t = fromEleusis();
+    t.give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.move("road-athens-eleusis", "athens").trade("burial-petition", "theseus", "olive-branch");
+    t.move("road-athens-eleusis", "eleusis").give("olive-branch", "aethra");
+    expect(urnMade(t.s)).toBe(true);
+    // The urn spends the kit and sends it home: cloth to Eleusis, oil to the
+    // grove, truce to Dione's table.
+    expect(whereIs(t.s, "greek-funeral-cloth")).toBe("greek-eleusis");
+    expect(whereIs(t.s, "greek-oil-flask")).toBe("greek-colonus");
+    expect(whereIs(t.s, "greek-olive-branch")).toBe("greek-courtyard");
+    // Borrow them back. Cost: a walk to the grove and over Cithaeron, and the
+    // grove stands empty while the oil is away.
+    t.take("funeral-cloth").move("colonus").take("oil-flask");
+    t.move("eleusis", "cithaeron", "battlefield", "gate").take("shovel");
+    burial(t);
+    expect(t.s.packs["greek-drama"].flags["greek-burial-performed"]).toBe(true);
+    expect(whereIs(t.s, "greek-oil-flask")).toBe("greek-colonus");
+    valid(t.s);
+  });
+});
+
+describe("3. one truce, three hands", () => {
+  // By sea, so the guard was never fed and the City Gate is shut.
+  const withTruce = () => {
+    const t = seaRoad();
+    t.move("athens");
+    t.move("eleusis").give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.take("burial-petition").move("athens");
+    t.trade("burial-petition", "theseus", "olive-branch");
+    return t.move("eleusis");
+  };
+  it("(a) urn first: the truce goes home to Dione's table and opens the gate", () => {
+    const t = withTruce().give("olive-branch", "aethra");
+    expect(urnMade(t.s)).toBe(true);
+    expect(whereIs(t.s, "greek-olive-branch")).toBe("greek-courtyard");
+    // Home by the free ship, then the truce from the table to the guard.
+    t.move("piraeus", "harbor", "courtyard").take("olive-branch");
+    t.move("gate").waitFor("guard").give("olive-branch", "guard");
+    expect(gateOpen(t.s)).toBe(true);
+    // Cost: Adrastus never holds it, and the urn is spent from the guard's
+    // side of the story: taking it back shuts the gate again.
+    expect(satisfied(t.s, "adrastus")).toBe(false);
+    valid(t.s);
+  });
+
+  it("(b) Adrastus first: he is met, and the urn must ask it back from him", () => {
+    const t = withTruce().give("olive-branch", "adrastus");
+    expect(satisfied(t.s, "adrastus")).toBe(true);
+    expect(urnMade(t.s)).toBe(false);
+    // Cost: a second visit to his hands. Satisfied, he gives it back when
+    // asked; he holds it no longer.
+    t.act("ask", { target: "greek-adrastus", item: "greek-olive-branch" });
+    expect(holds(t.s, "vale", "greek-olive-branch")).toBe(true);
+    t.give("olive-branch", "aethra");
+    expect(urnMade(t.s)).toBe(true);
+    valid(t.s);
+  });
+});
+
+describe("4. one urn, two mourners", () => {
+  const withUrn = () => {
+    const t = fromEleusis();
+    t.give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.move("road-athens-eleusis", "athens").trade("burial-petition", "theseus", "olive-branch");
+    t.move("road-athens-eleusis", "eleusis").give("olive-branch", "aethra");
+    return t.take("ash-urn");
+  };
+  it("(a) gives the urn to the Argive Mother: Eleusis settles, Iphis waits", () => {
+    const t = withUrn().give("ash-urn", "argive-mother");
+    expect(satisfied(t.s, "argive-mother")).toBe(true);
+    t.talk("iphis");
+    expect(satisfied(t.s, "iphis")).toBe(false);
+    valid(t.s);
+  });
+
+  it("(b) lays the urn on the Piraeus quay for Iphis: the Mother goes without", () => {
+    const t = withUrn();
+    t.move("road-athens-eleusis", "athens", "road-athens-piraeus", "piraeus").drop("ash-urn");
+    t.move("athens", "road-athens-eleusis", "eleusis").waitFor("iphis").talk("iphis");
+    expect(satisfied(t.s, "iphis")).toBe(true);
+    expect(satisfied(t.s, "argive-mother")).toBe(false);
+    // Myrine walks down to the quay with the traveler; Thaleia, whose wheat
+    // came home when the loaf was baked, is met by her arrival.
+    t.waitFor("household-witness").walkWith("household-witness", "piraeus").act("wait");
+    expect(satisfied(t.s, "household-witness")).toBe(true);
+    expect(satisfied(t.s, "quay-host")).toBe(true);
+    valid(t.s);
   });
 });
