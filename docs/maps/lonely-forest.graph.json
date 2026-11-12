@@ -979,34 +979,6 @@
         }
       },
       {
-        "id": "item:forest-arcanum-empress",
-        "kind": "item",
-        "title": "The Empress appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "flag(key=forest-welcomed,value=true)"
-            }
-          ]
-        },
-        "words": "forest-welcomed is set",
-        "ids": "forest-welcomed is set",
-        "latch": [
-          "flag(key=forest-welcomed,value=true)"
-        ],
-        "live": [],
-        "prerequisites": {
-          "act": [
-            "forest-stay-for-tea"
-          ],
-          "flag": [
-            "forest-welcomed"
-          ]
-        }
-      },
-      {
         "id": "item:forest-arcanum-emperor",
         "kind": "item",
         "title": "The Emperor appears",
@@ -3152,13 +3124,11 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "act:forest-clear-drain",
-          "item:forest-arcanum-empress"
+          "act:forest-clear-drain"
         ],
         "gates": [
           "route:forest-garden>forest-trail",
           "item:forest-arcanum-high-priestess",
-          "item:forest-arcanum-empress",
           "item:forest-arcanum-emperor",
           "item:forest-arcanum-hierophant"
         ],
@@ -3381,13 +3351,6 @@
         "id": "forest-arcanum-high-priestess",
         "name": "The High Priestess",
         "holder": "forest-oak",
-        "consumedBy": [],
-        "readBy": []
-      },
-      {
-        "id": "forest-arcanum-empress",
-        "name": "The Empress",
-        "holder": "forest-cottage",
         "consumedBy": [],
         "readBy": []
       },
@@ -3678,9 +3641,6 @@
       ],
       "item:forest-arcanum-emperor": [
         "flag:forest-watch-kept"
-      ],
-      "item:forest-arcanum-empress": [
-        "flag:forest-welcomed"
       ],
       "item:forest-arcanum-fool": [
         "resident:skull"

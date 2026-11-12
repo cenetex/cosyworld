@@ -8,19 +8,22 @@ import {
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 
-const forest = "lonely-forest";
+const forest = "lonely-forest",
+  greek = "greek-drama";
 const CARDS = [
   ["forest-arcanum-fool", forest, (s) => (s.packs[forest].met.skull = true)],
   ["forest-arcanum-magician", forest, "forest-scarf-vale-sewn"],
   ["forest-arcanum-high-priestess", forest, "forest-walkers-heard"],
-  ["forest-arcanum-empress", forest, "forest-welcomed"],
+  ["greek-arcanum-empress", greek, "greek-water-returned"],
   ["forest-arcanum-emperor", forest, "forest-watch-kept"],
   ["forest-arcanum-hierophant", forest, "forest-oak-heard"],
 ];
-const world = () => createWorld({ seed: 7 });
+const world = () => createWorld({ seed: 7, packScopes: { [greek]: "full" } });
 const prove = (s, pack, proof) => {
   if (typeof proof === "function") proof(s);
   else s.packs[pack].flags[proof] = true;
+  if (pack === greek)
+    s.usedUp = s.usedUp.filter((item) => item !== "greek-bread");
   latchRoutes(s);
 };
 

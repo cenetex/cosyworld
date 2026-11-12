@@ -2222,6 +2222,15 @@
       "phone": "assets/optimized/phone/png/greek-drama/ajax-tools.webp",
       "phoneHash": "36e99aec06190ff9de9b56de9b36a085116022b2b7c16bb0cadc508ab0beda07"
     },
+    "assets/greek-drama/arcanum-3.png": {
+      "sourceHash": "8cb22f4a84890e875ba6ecc104703efba693bd963f70cc6d487f1db1d242905c",
+      "stage": "assets/optimized/stage/png/greek-drama/arcanum-3.webp",
+      "stageHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3",
+      "card": "assets/optimized/stage/png/greek-drama/arcanum-3.webp",
+      "cardHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3",
+      "phone": "assets/optimized/stage/png/greek-drama/arcanum-3.webp",
+      "phoneHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3"
+    },
     "assets/greek-drama/ash-urn.png": {
       "sourceHash": "01e334934141d439cf4900214bf871d457ef760549cc0c6609131a75b18d5f87",
       "stage": "assets/optimized/stage/png/greek-drama/ash-urn.webp",
@@ -4237,15 +4246,6 @@
       "cardHash": "b842f5f6e6d133f67713d761b410c2965c08020dbf1a9ca82d79d066473667bf",
       "phone": "assets/optimized/stage/png/lonely-forest/arcanum-2.webp",
       "phoneHash": "b842f5f6e6d133f67713d761b410c2965c08020dbf1a9ca82d79d066473667bf"
-    },
-    "assets/lonely-forest/arcanum-3.png": {
-      "sourceHash": "8cb22f4a84890e875ba6ecc104703efba693bd963f70cc6d487f1db1d242905c",
-      "stage": "assets/optimized/stage/png/lonely-forest/arcanum-3.webp",
-      "stageHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3",
-      "card": "assets/optimized/stage/png/lonely-forest/arcanum-3.webp",
-      "cardHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3",
-      "phone": "assets/optimized/stage/png/lonely-forest/arcanum-3.webp",
-      "phoneHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3"
     },
     "assets/lonely-forest/arcanum-4.png": {
       "sourceHash": "7a6fb50b0bd3ded97ee47146a8c7667b7358ca9ca5ebba70bf4b24b8f8f98ac1",
