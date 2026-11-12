@@ -160,8 +160,8 @@ normal turns.
 `retire_item` already accepts a thing lying at the choice's place, and since
 rules 102 it sends a homed thing straight home. The shovel stays lying in the
 Hollow. It gains `home: greek-gate`, where it starts, so a later use can
-send it back. The Burial Account still appears on `greek-burial-performed`,
-and the Cithaeron road reads the same flag.
+send it back. The Burial Account still appears on `greek-burial-performed`.
+The Cithaeron road reads no flag: it is there from the start (2026-11-11).
 
 ## Retired choices: one path only
 
@@ -189,8 +189,7 @@ With the exposure and concession paths gone, these become unreachable and
 go with them: `greek-courtyard-concession` and `greek-courtyard-exposure`
 (no one can choose `concession` or `exposure`), the Guard's Tablet and its
 Cithaeron route (the tablet appears only on `greek-guard-warned`), and the
-permitted Bury variant. The Cithaeron road still opens on the Burial Account
-or on Creon's Writ lying at the battlefield or the courtyard.
+permitted Bury variant. (Superseded 2026-11-11: the Cithaeron road is simply there.)
 
 ## Map
 
@@ -306,11 +305,10 @@ The owner settled the open questions on 2026-11-04:
 
 ## Open questions for the pack-data PR
 
-1. **What opens the Open Door?** Today only the four courtyard reports set
-   `greek-open-door-open` (burial, concession, permitted burial, exposure).
-   With all four gone or unreachable, nothing opens it. Recommended: the
-   Bury rite also sets `greek-open-door-open`, and Dione's invitation reads
-   the burial.
+1. **What opens the Open Door?** Answered 2026-11-11: nothing. The Bury rite
+   does not set `greek-open-door-open` (the flag is gone) and no other play
+   does. Attica is simply there, and the Open Door begins when you meet
+   Aethra. The burial gates none of it.
 2. **The defiant path.** Beating the guard gets the player past him without
    the writ, but then Antigone's home stays the gate and the rites need her
    in the Hollow. Recommended: the player brings her (Accompany), and the
@@ -321,13 +319,13 @@ The owner settled the open questions on 2026-11-04:
 
 The existing Talk quest uses the four hand paintings as its stage art. It
 keeps the quest active through Bury, when the grave painting appears. Bury
-opens the Open Door. The pack keeps the old choice records so existing saves
+opens nothing else (the Open Door needs no burial). The pack keeps the old choice records so existing saves
 can keep their prior outcomes and recitals.
 
 ## Build notes, 2026-11-05
 
 PR #2321 uses rules 104 and Greek revision 21. Rules 103 remains unchanged.
-The burial flag finishes the quest and opens the Open Door. Existing saves
+The burial flag finishes the quest. Existing saves
 keep their earlier choice receipts. Antigone sleeps at her usual bedtime.
 
 The two funeral `retire_item` effects set `waitAtHome: true`. This sends the

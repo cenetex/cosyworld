@@ -58,7 +58,9 @@ const openDoorPlaces = [
   "greek-colonus",
   "greek-eleusis",
 ];
-const sectionPlaces = pack.sections.flatMap((section) => section.places);
+// Attica's near side is simply there: the Cithaeron road leads from the
+// battlefield to Eleusis and Colonus whether or not Polynices is buried.
+const atticaOnFoot = ["greek-cithaeron", "greek-eleusis", "greek-colonus"];
 const ajaxPlaces = pack.sections.find(
   (section) => section.id === "greek-ajax",
 ).places;
@@ -109,15 +111,21 @@ describe("the Theban release and its ship", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
     expect(reachable(s)).toEqual(
-      openingPlaces
-        .filter((id) => !["greek-ship", "greek-polynices-hollow"].includes(id))
-        .sort(),
+      [
+        ...openingPlaces.filter(
+          (id) => !["greek-ship", "greek-polynices-hollow"].includes(id),
+        ),
+        ...atticaOnFoot,
+      ].sort(),
     );
     s.crossings["pond-greek-harbor"].discovered = true;
     expect(reachable(s)).toEqual(
-      openingPlaces.filter((id) => id !== "greek-polynices-hollow").sort(),
+      [
+        ...openingPlaces.filter((id) => id !== "greek-polynices-hollow"),
+        ...atticaOnFoot,
+      ].sort(),
     );
-    expect(reachable(s)).toHaveLength(9);
+    expect(reachable(s)).toHaveLength(12);
     expect(pack.release.places).toHaveLength(25);
     for (const id of rumours) expect(pack.release.places).not.toContain(id);
     expect(
@@ -132,16 +140,15 @@ describe("the Theban release and its ship", () => {
         "greek-piraeus",
         "greek-road-athens-piraeus",
         "greek-athens",
-        ...sectionPlaces.filter(
-          (id) =>
-            !retired(id) &&
-            id !== "greek-road-athens-harbor" &&
-            !rumours.includes(id),
-        ),
+        // Attica, there from the start: no section holds it back.
+        "greek-colonus",
+        "greek-eleusis",
+        "greek-cithaeron",
+        "greek-road-athens-eleusis",
       ].sort(),
     );
     expect(entityActive(s, "greek-athens")).toBe(true);
-    expect(entityActive(s, "greek-eleusis")).toBe(false);
+    expect(entityActive(s, "greek-eleusis")).toBe(true);
     expect(entityActive(s, "greek-rhapsode")).toBe(true);
     expect(s.actors["greek-rhapsode"].place).toBe("greek-harbor");
   });
@@ -150,8 +157,13 @@ describe("the Theban release and its ship", () => {
     let s = journey.buried;
     expect(
       reachable(journey.veiled).filter((id) => id !== "greek-ship"),
-    ).toEqual(openingPlaces.filter((id) => id !== "greek-ship").sort());
-    // Bury opens the Cithaeron road. The mothers' petition opens the Sacred
+    ).toEqual(
+      [
+        ...openingPlaces.filter((id) => id !== "greek-ship"),
+        ...atticaOnFoot,
+      ].sort(),
+    );
+    // The Cithaeron road is there from the start. The mothers' petition opens the Sacred
     // Way; the Long Walls from Piraeus were never closed.
     expect(reachable(s)).toContain("greek-eleusis");
     expect(reachable(s)).not.toContain("greek-road-coast");
@@ -209,7 +221,10 @@ describe("the Theban release and its ship", () => {
     s.crossings["pond-greek-harbor"].discovered = true;
     for (let i = 0; i < 3; i++) s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual(
-      openingPlaces.filter((id) => id !== "greek-polynices-hollow").sort(),
+      [
+        ...openingPlaces.filter((id) => id !== "greek-polynices-hollow"),
+        ...atticaOnFoot,
+      ].sort(),
     );
   });
   it("keeps a route from every opening place back to the pond after the signal", () => {

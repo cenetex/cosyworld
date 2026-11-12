@@ -6,7 +6,7 @@ Maps of every mounted card pack: the places and ways, the gates that shut them, 
 | Pack | Places | Ways | Gates | Acts | Flags | Districts |
 | --- | --- | --- | --- | --- | --- | --- |
 | [The Steam Clock](badger-forest.md) | 1 | 2 | 2 | 0 | 0 | 1 |
-| [The Wine-Dark Sea](greek-drama.md) | 49 | 109 | 69 | 78 | 60 | 8 |
+| [The Wine-Dark Sea](greek-drama.md) | 49 | 109 | 57 | 78 | 59 | 8 |
 | [Hoppy Cat: February Third](hoppycat-archive.md) | 6 | 11 | 10 | 52 | 52 | 1 |
 | [The Willows](willows.md) | 4 | 10 | 5 | 11 | 11 | 2 |
 | [Lonely Forest](lonely-forest.md) | 4 | 10 | 19 | 33 | 31 | 1 |

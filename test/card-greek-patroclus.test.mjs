@@ -45,7 +45,9 @@ const provisioned = () => {
   let world = walk(funeralJourney().buried, "harbor");
   for (
     let turn = 0;
-    turn < 4 && world.transports[SHIP].dock !== "greek-harbor";
+    turn < 8 &&
+    (world.transports[SHIP].dock !== "greek-harbor" ||
+      world.transports[SHIP].phase !== "docked");
     turn++
   )
     world = act(world, "wait");

@@ -16,8 +16,7 @@ for the Theban data.
    the water jar is back at the well the moment Dione uses it. A thing a
    pack choice uses up goes home the same way: the burial's funeral cloth
    and oil are back at Eleusis and Colonus after the rite, or where they
-   started while their home is not yet in the world. The libation wine
-   does not regrow at dawn either.
+   started while their home is not yet in the world.
 3. **Crafting is a locked thing and its unlock quest.** A made thing has
    `locked: { by, consumes }`. Consumed, it goes home **locked**: the hand
    shows it there as the carved box with the iron keyhole, and the context
@@ -96,8 +95,8 @@ loop asks for a journey rather than a wait.
 
 The sea route reaches Piraeus directly. The land route reaches it only
 through the rest of the Theban and Athenian story: the battlefield, the
-Cithaeron road (after the burial), the Sacred Way (after the mothers'
-petition) and the Long Walls (after the herald's truce). The draft keeps that
+Cithaeron road (open from the start), the Sacred Way (after the mothers'
+petition) and the Long Walls (open from the start). The draft keeps that
 map; shortening it is an owner question. If the first bread is eaten and
 the wheat is at Piraeus, the guard can be fought (the pressure valve), and
 the sea home is always free.

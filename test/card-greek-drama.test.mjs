@@ -240,7 +240,7 @@ describe("the Wine-Dark Sea crossing", () => {
       riders: [],
     });
   });
-it("adds the pack once to an earlier shore save without overwriting its progress", () => {
+  it("adds the pack once to an earlier shore save without overwriting its progress", () => {
     const old = pond();
     delete old.packs[PACK];
     delete old.crossings["pond-greek-harbor"];
@@ -378,7 +378,9 @@ describe("Greek choices and their receipts", () => {
     ).toEqual([]);
     expect(stateOf(world).choices["greek-theban-response"]).toBeUndefined();
     expect(done(world, "bury-polynices")).toBe(buried.turn);
-    expect(stateOf(reload(world)).flags["greek-open-door-open"]).toBe(true);
+    expect(
+      stateOf(reload(world)).flags["greek-open-door-open"],
+    ).toBeUndefined();
   });
 });
 
@@ -421,7 +423,6 @@ describe("Before the Burial", () => {
     expect(there.actors.vale.place).toBe(SANCTUARY);
   });
 
-
   it("carries the supplies to Antigone and opens the door through three Hollow rites", () => {
     const journey = funeralJourney(courtyard("opening"));
     const { supplied, beforeAnoint, anointed, veiled, buried } = journey;
@@ -439,8 +440,9 @@ describe("Before the Burial", () => {
         [],
       );
       expect(stateOf(world).flags["greek-open-door-open"]).toBeUndefined();
-      expect(entityActive(world, "greek-colonus")).toBe(false);
-      expect(entityActive(world, "greek-eleusis")).toBe(false);
+      // Attica is there before the burial: nothing opens it.
+      expect(entityActive(world, "greek-colonus")).toBe(true);
+      expect(entityActive(world, "greek-eleusis")).toBe(true);
     }
     expect([anointed.turn, veiled.turn, buried.turn]).toEqual([
       beforeAnoint.turn + 1,
@@ -461,8 +463,8 @@ describe("Before the Burial", () => {
     expect(buried.items["greek-shovel"].holder).toBe("greek-polynices-hollow");
     expect(stateOf(buried).flags).toMatchObject({
       "greek-burial-performed": true,
-      "greek-open-door-open": true,
     });
+    expect(stateOf(buried).flags["greek-open-door-open"]).toBeUndefined();
     expect(done(buried, "bury-polynices")).toBe(buried.turn);
     expect(reload(buried)).toEqual(buried);
   });
@@ -476,10 +478,6 @@ describe("Before the Burial", () => {
     expect(stateOf(supplied).choices["greek-theban-response"]).toBeUndefined();
     expect(stateOf(supplied).flags["greek-open-door-open"]).toBeUndefined();
   });
-
-
-
-
 
   it("does not let generated declarations perform a burial or consume another turn", () => {
     const world = move(courtyard(), GATE);

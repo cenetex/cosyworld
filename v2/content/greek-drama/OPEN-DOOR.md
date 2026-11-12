@@ -23,7 +23,7 @@ the House of Demos and the Women's Festival) and the harbour (Piraeus,
 which took in Athens Harbor). Places in a district link directly. Two gate roads join the
 districts. The Sacred Way leads from Eleusis into the city once the mothers'
 petition is at Eleusis or in the Agora; the way back is always open. The
-Long Walls open from both ends once the herald's truce is in the Agora. A
+Long Walls are open from both ends from the start. A
 gate stays open once opened, for everyone in that world, even after its
 thing moves away. A shut gate lies face down as a locked box with its
 condition as the reason. Thaleia, the Argive mother, Iphis and Myrine lie
@@ -31,10 +31,11 @@ locked in their places the same way until their old conditions hold. These route
 Dione’s lasting invitation. Waiting at a port lets the empty ship complete
 its circuit.
 
-The opening invitation follows the public account of any of the three
-Theban responses: burial, permission or warning. Accepting the
-invitation records `greek-open-door-open`. The choice and its reason remain
-part of the saved history. The region remains open for later visits.
+Nothing opens the Open Door. Attica (the Agora, Colonus, Eleusis, the Sacred
+Way and the Cithaeron road) is there from the start, with its residents, and
+the story begins when you meet Aethra. The burial of Polynices is a separate
+story and gates none of it; the flag `greek-open-door-open` is gone. Each
+later step keeps its own story flag.
 
 ## The five places
 
@@ -147,9 +148,11 @@ every exact couplet as lore; the Bard's prompt does not carry them.
 Each story ends with an outcome item: the herald's truce, the Funeral
 Account, Myrine's signed return list, the refuge tablet and the Marathon
 Record. Giving one to Dione is that story's report; it stays on her table and
-earns its couplet. With all five on her table, the next play there shares the
-full Open Door account; it needs the Marathon Record, so it waits in old
-full-scope worlds. Its couplet is:
+earns its couplet. With the truce, the Funeral Account, Myrine's list and the refuge tablet on
+her table (the Eleusis, Piraeus and Colonus stories), the next play there
+shares the full Open Door account. It does not need Marathon, so a world of
+this release can finish it; the Marathon Record still comes to her table in
+old full-scope worlds. Its couplet is:
 
 > I brought those names beside her bread.  
 > We made room for the words they carried.

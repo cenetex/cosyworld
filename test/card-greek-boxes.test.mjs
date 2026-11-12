@@ -94,9 +94,9 @@ describe("the Greek pack's locked boxes", () => {
     expect(new Set(wants).size).toBe(3);
   });
 
-  it("shows the Open Door residents the one want that opens them", () => {
+  it("shows the Open Door's first residents as plain cards, not locked boxes", () => {
     const s = at(full(), "greek-athens");
-    flags(s)["greek-open-door-open"] = false;
+    expect(flags(s)["greek-burial-performed"]).toBeFalsy();
     const ids = [
       "greek-aethra",
       "greek-adrastus",
@@ -104,18 +104,18 @@ describe("the Greek pack's locked boxes", () => {
       "greek-colonus-keeper",
       "greek-marathon-keeper",
     ];
-    const wants = new Set();
     for (const id of ids) {
+      // No seal and no condition: Attica's people are simply there.
+      expect(pack.avatars[id].sealed, id).toBeUndefined();
+      expect(pack.avatars[id].requires, id).toBeUndefined();
       const w = {
         ...s,
         actors: {
           ...s.actors,
-          vale: { ...s.actors.vale, place: pack.avatars[id].sealed.at },
+          vale: { ...s.actors.vale, place: pack.avatars[id].place },
         },
       };
-      expect(isLockedBox(w, id), id).toBe(true);
-      wants.add(lockText(w, id));
+      expect(isLockedBox(w, id), id).toBe(false);
     }
-    expect([...wants]).toHaveLength(1);
   });
 });

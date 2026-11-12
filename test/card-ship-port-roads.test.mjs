@@ -361,13 +361,9 @@ describe("ports reachable on foot or by a free leg home", () => {
     // rule for each leg out beyond the harbor. The leg home to Black Pond
     // is free.
     const cargo = laneConditions("greek-harbor", "greek-piraeus");
-    expect(cargo[0].conditions).toEqual([
+    // Only the provisions lying on deck open it: no Hoppy Cat alternative.
+    expect(cargo).toEqual([
       { kind: "item_at", item: "greek-provisions", place: "greek-ship" },
-      {
-        kind: "pack_item_present",
-        pack: "hoppycat-archive",
-        place: "greek-ship",
-      },
     ]);
     expect(
       laneConditions(
@@ -667,23 +663,35 @@ describe("the City Gate shut", () => {
     const bare = structuredClone(s);
     for (const id of KEYS)
       if (bare.items[id]) bare.items[id].holder = "greek-ship";
-    // The Long Walls and the Agora are the sea route's own and must lead
-    // home with every key gone. Past them, the Sacred Way and the countryside
-    // are the open-door story's: its petition keys open them both ways, and
-    // a worst case that carries every key off is not that story's to meet.
-    const storyInterior = new Set([
-      ...COUNTRYSIDE,
-      ...BATTLEFIELD,
-      "greek-polynices-hollow",
-    ]);
-    const stranded = [...reached]
-      .filter((place) => !storyInterior.has(place))
-      .filter(
-        (place) =>
-          !reach(bare, place, { pinned: KEYS, free: true, local: false }).has(
-            "pond",
-          ),
+    // Every place the sea route reaches, Eleusis, Colonus, the Cithaeron
+    // road, the battlefield and the Hollow included, must lead home with
+    // every key gone. The one thing the search cannot play is a meeting, and
+    // the Sacred Way home from Eleusis waits on one: arriving there meets
+    // Aethra, which hears the mothers and leaves their petition at Eleusis.
+    // Walk it for real, then give the worst case that result.
+    let walked = createWorld();
+    walked.actors.vale.place = "greek-athens";
+    for (const target of ["greek-road-athens-eleusis", "greek-eleusis"]) {
+      const step = legalActions(walked).find(
+        (a) => a.kind === "move" && a.target === target,
       );
+      walked = play(walked, step, walked.revision).state;
+    }
+    expect(
+      walked.packs["greek-drama"].flags["greek-open-door-mothers-heard"],
+    ).toBe(true);
+    expect(walked.items["greek-burial-petition"].holder).toBe("greek-eleusis");
+    expect(exits(walked, "greek-eleusis", "vale")).toContain(
+      "greek-road-athens-eleusis",
+    );
+    bare.packs["greek-drama"].flags["greek-open-door-mothers-heard"] = true;
+    bare.items["greek-burial-petition"].holder = "greek-eleusis";
+    const stranded = [...reached].filter(
+      (place) =>
+        !reach(bare, place, { pinned: KEYS, free: true, local: false }).has(
+          "pond",
+        ),
+    );
     expect(stranded).toEqual([]);
   });
 });

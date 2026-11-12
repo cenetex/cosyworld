@@ -9,6 +9,16 @@ removed the Athens and Long Walls gate. That covers G1 for Athens and the Long
 Walls, and G2 and G3. The rest of the Open Door section is unchanged, so the
 other rows still stand as written.
 
+**Fixed after that, in the Greek pack data:** G1, G5, G15 and G16 (nothing
+opens the Open Door; Attica, its residents and its things are there from the
+start, and the burial no longer sets `greek-open-door-open`), G18 (Dione's last
+card no longer needs Marathon) and G11 (only the Travel Provisions on deck open
+harbor to Piraeus). G6 stays as written: the owner wants the Talk with the
+shade before the Hollow. The Libation Wine (G23) is removed; the Household
+Token and the Shelter Blanket stay, because residents value the token and the
+blanket is still read by Marathon's chain. Patroclus, the Ajax section and the
+Truce and Sacred Way latches are unchanged.
+
 **Then:** the RATi Radio entrance, Dispatch Window and Listening Room (R1 to
 R3) now follow their items, the Willows mist crossing needs only night and mist
 (W1), and the canoe outlives the Swede (W4, question 10). The Booth and Raven
