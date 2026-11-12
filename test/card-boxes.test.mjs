@@ -295,14 +295,13 @@ describe("XP for opening a box", () => {
       target: "greek-baker",
     });
     expect(made.opened["greek-bread"]).toEqual(["vale"]);
-    expect(made.actors.vale.xp).toBe(xp + Object.keys(made.opened).length);
+    expect(made.actors.vale.xp).toBe(xp + 1);
     const relocked = structuredClone(made);
     relocked.usedUp = [...relocked.usedUp, "greek-bread"].sort();
     const again = structuredClone(relocked);
     again.usedUp = again.usedUp.filter((id) => id !== "greek-bread");
     expect(creditOpened(relocked, again, "vale")).toEqual([]);
     expect(again.actors.vale.xp).toBe(made.actors.vale.xp);
-    // Another traveller opening it is paid their own.
     again.controlledActors = ["vale", "mara"];
     expect(creditOpened(relocked, again, "mara")).toEqual([
       expect.objectContaining({ box: "greek-bread", avatars: ["mara"] }),

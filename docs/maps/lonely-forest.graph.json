@@ -979,6 +979,34 @@
         }
       },
       {
+        "id": "item:forest-arcanum-3",
+        "kind": "item",
+        "title": "The Empress appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-welcomed,value=true)"
+            }
+          ]
+        },
+        "words": "forest-welcomed is set",
+        "ids": "forest-welcomed is set",
+        "latch": [
+          "flag(key=forest-welcomed,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-stay-for-tea"
+          ],
+          "flag": [
+            "forest-welcomed"
+          ]
+        }
+      },
+      {
         "id": "item:forest-arcanum-4",
         "kind": "item",
         "title": "The Emperor appears",
@@ -3124,11 +3152,13 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "act:forest-clear-drain"
+          "act:forest-clear-drain",
+          "item:forest-arcanum-3"
         ],
         "gates": [
           "route:forest-garden>forest-trail",
           "item:forest-arcanum-2",
+          "item:forest-arcanum-3",
           "item:forest-arcanum-4",
           "item:forest-arcanum-5"
         ],
@@ -3355,9 +3385,16 @@
         "readBy": []
       },
       {
+        "id": "forest-arcanum-3",
+        "name": "The Empress",
+        "holder": "forest-cottage",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
         "id": "forest-arcanum-4",
         "name": "The Emperor",
-        "holder": "forest-trail",
+        "holder": "forest-oak",
         "consumedBy": [],
         "readBy": []
       },
@@ -3654,6 +3691,9 @@
       ],
       "item:forest-arcanum-2": [
         "flag:forest-walkers-heard"
+      ],
+      "item:forest-arcanum-3": [
+        "flag:forest-welcomed"
       ],
       "item:forest-arcanum-4": [
         "flag:forest-watch-kept"
