@@ -1,6 +1,6 @@
-// Flatten the Polynices burial cutouts onto the empty Hollow and bake the
-// shade's translucency (#2301). The design studies in docs/design/assets/
-// polynices are the masters; this script writes the shipping WebPs and their
+// Export the veiled paintings, flatten the other burial cutouts, and bake
+// the shade's translucency (#2301). Studies in docs/design/assets/polynices
+// are the masters; this script writes the shipping WebPs and their
 // provenance. `--check` rebuilds in memory and fails on any difference.
 import { readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -24,7 +24,7 @@ const encoding = {
 const { format, ...webp } = encoding;
 
 // The layer review (layers.html) stretches every cutout over the common frame.
-// Anointed and shrouded share one adjustment: 83% scale from the top left,
+// Anointed uses one adjustment: 83% scale from the top left,
 // then 40 px right and 70 px down. Fallen and grave fill the frame.
 const care = { scale: 0.83, left: 40, top: 70 };
 const states = [
@@ -37,9 +37,8 @@ const states = [
   },
   {
     state: "veiled",
-    layer: "shrouded",
     flag: "greek-polynices-veiled",
-    placement: care,
+    study: "hollow-veiled-black-cloth-{period}-study.png",
   },
   { state: "buried", layer: "grave", flag: "greek-burial-performed" },
 ];
@@ -87,10 +86,23 @@ for (const { period, suffix } of lights) {
     .resize({ ...canvas, fit: "fill" })
     .png()
     .toBuffer();
-  for (const { state, layer, flag, placement } of states) {
-    const cutout = await source(`polynices-${layer}${suffix}-cutout.png`);
-    const body = await sharp(base)
-      .composite([await layerAt(cutout.bytes, placement)])
+  for (const { state, layer, flag, placement, study } of states) {
+    const painting = study
+      ? await source(study.replace("{period}", period))
+      : null;
+    if (
+      painting &&
+      (painting.record.dimensions[0] !== canvas.width ||
+        painting.record.dimensions[1] !== canvas.height)
+    )
+      throw new Error(`Wrong Polynices painting dimensions: ${study}`);
+    const cutout = painting
+      ? null
+      : await source(`polynices-${layer}${suffix}-cutout.png`);
+    const image = painting
+      ? sharp(painting.bytes)
+      : sharp(base).composite([await layerAt(cutout.bytes, placement)]);
+    const body = await image
       .removeAlpha()
       .webp(webp)
       .toBuffer();
@@ -105,13 +117,17 @@ for (const { period, suffix } of lights) {
       period,
       dimensions: [canvas.width, canvas.height],
       transparent_background: false,
-      sources: [
-        { role: "empty Hollow backdrop", ...backdrop.record },
-        { role: `${layer} cutout layer`, ...cutout.record },
-      ],
-      compositing: placement
-        ? `Backdrop and cutout each fitted to ${canvas.width} x ${canvas.height}; cutout scaled to ${placement.scale * 100}% from the top left and placed ${placement.left} px right, ${placement.top} px down (the layers.html care adjustment), then flattened. The cutout's own contact shadow is kept; no shadow is added.`
-        : `Backdrop and cutout each fitted to ${canvas.width} x ${canvas.height} and flattened at the origin (the layers.html placement). The cutout's own contact shadow is kept; no shadow is added.`,
+      sources: painting
+        ? [{ role: "approved black-cloth painting", ...painting.record }]
+        : [
+            { role: "empty Hollow backdrop", ...backdrop.record },
+            { role: `${layer} cutout layer`, ...cutout.record },
+          ],
+      compositing: painting
+        ? "Approved black-cloth painting exported at its original size; no compositing, crop or resize."
+        : placement
+          ? `Backdrop and cutout each fitted to ${canvas.width} x ${canvas.height}; cutout scaled to ${placement.scale * 100}% from the top left and placed ${placement.left} px right, ${placement.top} px down (the layers.html care adjustment), then flattened. The cutout's own contact shadow is kept; no shadow is added.`
+          : `Backdrop and cutout each fitted to ${canvas.width} x ${canvas.height} and flattened at the origin (the layers.html placement). The cutout's own contact shadow is kept; no shadow is added.`,
       bytes: body.length,
       sha256: hash(body),
     });
@@ -166,11 +182,12 @@ const shadeTint = { rgb: [222, 230, 238], amount: 0.1 };
 
 const provenance = {
   created: "2026-11-04",
+  updated: "2026-11-11",
   issue: "https://github.com/cenetex/cosyworld/issues/2301",
   generator:
-    "Composited by v2/scripts/build-polynices-hollow-art.mjs from the built-in image tool studies in docs/design/assets/polynices (#2291, #2296). Their prompts are in prompts.json and layer-prompts.json there.",
+    "Built by v2/scripts/build-polynices-hollow-art.mjs from the built-in image tool studies in docs/design/assets/polynices (#2291, #2296). Original layer prompts are in prompts.json and layer-prompts.json there. The veiled states use the approved full-scene Black cloth paintings recorded below.",
   brief:
-    "Polynices' Hollow in four burial states (fallen, anointed, veiled, buried) by day and night, each the matching transparent cutout flattened onto the empty Hollow of the same light, so all four states match. The owner chose the grave cutout over the finished buried paintings. Plus Polynices' shade portrait with its translucency baked in, so it reads as a shade without CSS effects.",
+    "Polynices' Hollow in four burial states (fallen, anointed, veiled, buried) by day and night. The veiled paintings replace the pale shroud with Black cloth, preserving the raven feather and surrounding scene. The other states retain the matching cutouts flattened onto the empty Hollow. The owner chose the grave cutout over the finished buried paintings. Plus Polynices' shade portrait with its translucency baked in, so it reads as a shade without CSS effects.",
   rebuild: "node v2/scripts/build-polynices-hollow-art.mjs [--check]",
   encoding,
   canvas: [canvas.width, canvas.height],
