@@ -5036,26 +5036,6 @@
             holder: "greek-argolid-road",
             art: "assets/greek-drama/tomb-testimony.png",
             persona: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter."
-          },
-          "greek-arcanum-3": {
-            name: "The Empress",
-            text: "A woodcut card. A woman lays a red scarf on her table beside a bowl of fruit and a warm oven.",
-            persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
-            holder: "greek-courtyard",
-            art: "assets/greek-drama/arcanum-3.png",
-            sealed: {},
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-water-returned",
-                value: true
-              },
-              {
-                kind: "item_at",
-                item: "greek-bread",
-                place: "greek-courtyard"
-              }
-            ]
           }
         },
         routes: [
@@ -9102,8 +9082,7 @@
             "greek-pyre-account",
             "greek-figs",
             "greek-wine-skin",
-            "greek-wheat",
-            "greek-arcanum-3"
+            "greek-wheat"
           ],
           choices: [
             "greek-return-water-jar",
@@ -13472,7 +13451,7 @@
             ],
             art: "assets/lonely-forest/scarf-yellow.png"
           },
-          "forest-arcanum-0": {
+          "forest-arcanum-fool": {
             name: "The Fool",
             text: "A woodcut card. A walker steps off a root with a lamp in one hand and a red scarf flying.",
             persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
@@ -13486,7 +13465,7 @@
               }
             ]
           },
-          "forest-arcanum-1": {
+          "forest-arcanum-magician": {
             name: "The Magician",
             text: "A woodcut card. A needle draws thread through a button on a red scarf.",
             persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
@@ -13551,7 +13530,7 @@
               }
             ]
           },
-          "forest-arcanum-2": {
+          "forest-arcanum-high-priestess": {
             name: "The High Priestess",
             text: "A woodcut card. A veiled face looks out of a tall mirror under the rafters.",
             persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
@@ -13566,11 +13545,26 @@
               }
             ]
           },
-          "forest-arcanum-4": {
+          "forest-arcanum-empress": {
+            name: "The Empress",
+            text: "A woodcut card. A woman lays a red scarf on her table beside a bowl of fruit and a warm oven.",
+            persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
+            holder: "forest-cottage",
+            art: "assets/lonely-forest/arcanum-3.png",
+            sealed: {},
+            requires: [
+              {
+                kind: "flag",
+                key: "forest-welcomed",
+                value: true
+              }
+            ]
+          },
+          "forest-arcanum-emperor": {
             name: "The Emperor",
             text: "A woodcut card. An old bearded face of bark holds a small lit house in its roots.",
             persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
-            holder: "forest-trail",
+            holder: "forest-oak",
             art: "assets/lonely-forest/arcanum-4.png",
             sealed: {},
             requires: [
@@ -13581,7 +13575,7 @@
               }
             ]
           },
-          "forest-arcanum-5": {
+          "forest-arcanum-hierophant": {
             name: "The Hierophant",
             text: "A woodcut card. An elder shows an open hand to two listeners under an arch of branches.",
             persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
