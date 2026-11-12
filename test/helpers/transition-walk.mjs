@@ -12,6 +12,7 @@ import { groupOn, packToggleBlock } from "../../v2/card-game/pack-toggle.mjs";
 import { dispatchShared } from "../../v2/card-game/shared-world.mjs";
 import { currentSharedEngine } from "../fixtures/shared-engine.mjs";
 
+const breathe = () => new Promise((resume) => setImmediate(resume));
 const step = (n) => (Math.imul(n, 1664525) + 1013904223) >>> 0;
 export const nameOf = (c) => c.key ?? c.action ?? JSON.stringify(c);
 const kindOf = (c) => c.kind ?? c.op ?? "hold";
@@ -21,16 +22,19 @@ const firstMet = (s) =>
     Object.entries(state?.met || {}).map(([id, turn]) => [`${owner}:${id}`, turn]),
   );
 
-export function walk(driver, start, { seed, steps, only = () => true }) {
+export async function walk(driver, start, { seed, steps, only = () => true }) {
   let state = start,
     rng = seed >>> 0;
   const trace = [],
     reached = {},
     met = Object.fromEntries(firstMet(start));
   const count = (key) => (reached[key] = (reached[key] || 0) + 1);
+  let ahead = null;
   for (let i = 0; i < steps; i++) {
+    await breathe();
     rng = step(rng);
-    const options = driver.commands(state, i).filter(only);
+    const options = (ahead ?? driver.commands(state, i)).filter(only);
+    ahead = null;
     if (!options.length) continue;
     const command = options[rng % options.length],
       at = `seed ${seed} step ${i} ${nameOf(command)}`,
@@ -51,8 +55,9 @@ export function walk(driver, start, { seed, steps, only = () => true }) {
     const text = driver.save(done.state),
       back = driver.load(JSON.stringify(structuredClone(done.state)));
     expect(driver.save(back), `${at} reads back`).toBe(text);
+    ahead = driver.commands(done.state, i + 1);
     expect(names(driver.commands(back, i + 1)), `${at} plays after reload`).toEqual(
-      names(driver.commands(done.state, i + 1)),
+      names(ahead),
     );
     for (const [key, turn] of firstMet(done.state))
       expect((met[key] ??= turn), `${at} first met ${key}`).toBe(turn);
@@ -64,12 +69,16 @@ export function walk(driver, start, { seed, steps, only = () => true }) {
   return { state, trace, reached };
 }
 
-export const replay = (driver, start, trace) =>
-  trace.reduce((state, command) => {
+export async function replay(driver, start, trace) {
+  let state = start;
+  for (const command of trace) {
+    await breathe();
     const done = driver.apply(state, command);
     expect(done.ok, `replay ${nameOf(command)} ${done.error}`).toBe(true);
-    return done.state;
-  }, start);
+    state = done.state;
+  }
+  return state;
+}
 
 export function wayTo(driver, state, goal, depth) {
   if (goal(state)) return [];
