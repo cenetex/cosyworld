@@ -299,6 +299,17 @@ try {
         { kind: "item", target: "lamp" },
       );
       assert.equal(await offerCards(page).count(), 0);
+      // A taken offer stays seen: it never lies face down again.
+      assert.ok(
+        await page.evaluate(
+          (name) =>
+            JSON.parse(localStorage.getItem(name) || "[]").includes(
+              "quest:from:moth",
+            ),
+          `${t.key}.seen`,
+        ),
+        "the taken offer is still remembered as seen",
+      );
       assert.equal(await page.locator("#hand .want-frame").count(), 1, "the held quest card");
       await t.oneButton();
       // Held, it lies behind Vale; her stack opens it, with its one button.
