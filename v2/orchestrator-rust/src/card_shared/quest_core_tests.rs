@@ -41,7 +41,7 @@ fn command(op: &str, key: &str) -> full::Command {
         target: None,
         key: key.into(),
         moving: false,
-        surface: super::Surface::Browser,
+        surface: crate::card_shared::Surface::Browser,
         revealed: None,
     }
 }

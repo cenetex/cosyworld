@@ -82,6 +82,7 @@ fn an_old_world_is_refused_retired_and_keeps_its_travelers_progress() {
         key: String::new(),
         moving: false,
         revealed: None,
+        surface: crate::card_shared::Surface::Browser,
     };
     assert_eq!(
         full::run(&c, "old", "ann", &command, T).unwrap_err(),

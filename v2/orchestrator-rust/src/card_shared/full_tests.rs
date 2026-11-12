@@ -41,7 +41,7 @@ fn body(op: &str, avatar: Option<&str>) -> full::Command {
         key: String::new(),
         moving: false,
         revealed: None,
-        surface: super::Surface::Browser,
+        surface: crate::card_shared::Surface::Browser,
     }
 }
 // An avatar is in one world at a time (#1846): a claim elsewhere empties its
@@ -188,19 +188,22 @@ fn home_action(w: &World, actor: usize, kind: &str) -> Value {
 fn talk_as_requires_a_claimed_avatar_and_a_present_resident() {
     let (path, mut c, id) = fixture();
     let state = crate::test_app_state(Some(path));
+    let revision = |c: &rusqlite::Connection| crate::account_revision::Revision {
+        user: "user0".to_string(),
+        epoch: crate::account_revision::current(c, "user0").unwrap(),
+    };
     let talk = full::Talk {
-        avatar: None,
         target: "moth".to_string(),
     };
     // No claim yet: the actor resolution asks for a claim.
     assert_eq!(
-        full::talk_as(&state, &id, "user0", &talk).unwrap_err(),
+        full::talk_as(&state, &id, &revision(&c), &talk).unwrap_err(),
         "Claim an avatar first."
     );
     // With a claim, a resident who is not here is refused with a clear name.
     claim(&mut c, &id, 0);
     assert_eq!(
-        full::talk_as(&state, &id, "user0", &talk).unwrap_err(),
+        full::talk_as(&state, &id, &revision(&c), &talk).unwrap_err(),
         "Choose someone here to talk to."
     );
 }

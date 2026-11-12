@@ -432,7 +432,7 @@ async fn talk(
         let state = worker;
         let id = wid;
         valid_id(&id)?;
-        let revision = super::revision(&state, &h)?;
+        let revision = super::revision(&state, &h, true)?;
         let u = revision.user.clone();
         admit(&u)?;
         logged(&id, || talk_as(&state, &id, &revision, &body))

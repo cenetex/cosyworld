@@ -21,7 +21,7 @@ fn command(op: &str) -> full::Command {
         target: None,
         key: String::new(),
         moving: false,
-        surface: super::Surface::Browser,
+        surface: crate::card_shared::Surface::Browser,
         revealed: None,
     }
 }
