@@ -20,7 +20,7 @@ pub(super) async fn chat(
 ) -> Response {
     let result = blocking(move || {
         valid_id(&id)?;
-        let revision = super::super::revision(&state, &h)?;
+        let revision = super::super::revision(&state, &h, true)?;
         let u = &revision.user;
         admit(u)?;
         let c = db(&state)?;

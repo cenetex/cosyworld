@@ -136,6 +136,7 @@ async function send(fetcher, path, init, signal) {
   return { response, body };
 }
 export async function createJob(kind, request, options = {}) {
+  if (options.requestKey) return createDurableJob(kind, request, options);
   const {
     fetch: fetcher = globalThis.fetch,
     signal,
@@ -185,6 +186,33 @@ export async function createJob(kind, request, options = {}) {
   }
   throw last;
 }
+async function createDurableJob(kind, request, options) {
+  const { fetch: fetcher = globalThis.fetch, signal } = options;
+  signal?.throwIfAborted();
+  let sent;
+  try {
+    sent = await send(
+      fetcher,
+      `${base}/jobs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": options.requestKey,
+          ...identityHeaders(options.identity),
+        },
+        body: JSON.stringify({ kind, request }),
+      },
+      signal,
+    );
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw unreachable();
+  }
+  if (!sent.response.ok) throw jobFailure(sent.body, sent.response.status);
+  if (typeof sent.body?.id !== "string" || !sent.body.id) throw unreachable();
+  return sent.body;
+}
 export async function readRequest(requestKey, options = {}) {
   const { fetch: fetcher = globalThis.fetch, signal } = options;
   const sent = await send(
@@ -211,7 +239,7 @@ export async function readJob(id, options = {}) {
     sent = await send(
       fetcher,
       `${base}/jobs/${encodeURIComponent(id)}`,
-      { method: "GET" },
+      { method: "GET", headers: identityHeaders(options.identity) },
       signal,
     );
   } catch (error) {
@@ -278,14 +306,54 @@ export async function awaitJob(job, options = {}) {
 // result or throw the server's message. `onJob` runs before the first poll so a
 // reload can find the job again.
 export async function runJob(kind, request, options = {}) {
-  const job = await createJob(kind, request, options);
-  await options.onJob?.(job);
-  options.onUpdate?.(job);
-  const done = finished(job)
-    ? job
-    : await awaitJob({ ...job, kind }, { ...options, fresh: true });
-  if (done.status === "failed") throw failedJob(done);
-  return done.result;
+  const intent = await options.prepareJob?.(kind, request);
+  if (intent)
+    options = {
+      ...options,
+      requestKey: intent.requestKey,
+      identity: intent,
+      basis: request.basis,
+    };
+  if (intent) holdJob(intent.id);
+  try {
+    options.signal?.throwIfAborted();
+    options.beforePost?.();
+    const attempt = intent ? await options.beginJob(intent) : { mayPost: true };
+    let job;
+    if (attempt.mayPost) {
+      try {
+        job = await createJob(kind, request, options);
+      } catch (error) {
+        if (
+          intent &&
+          [400, 401, 403, 413, 415, 422, 429].includes(error.status)
+        )
+          await options.refusedJob?.(attempt.record);
+        throw error;
+      }
+    } else {
+      try {
+        job = await readRequest(intent.requestKey, options);
+      } catch {
+        throw Object.assign(
+          new Error(
+            "This draw may already have started. Check this card again; no new paid request was sent.",
+          ),
+          { code: "generation_waiting" },
+        );
+      }
+    }
+    if (intent) job.intent = attempt.record;
+    await options.onJob?.(job);
+    options.onUpdate?.(job);
+    const done = finished(job)
+      ? job
+      : await awaitJob({ ...job, kind }, { ...options, fresh: true });
+    if (done.status === "failed") throw failedJob(done);
+    return done.result;
+  } finally {
+    if (intent) releaseJob(intent.id);
+  }
 }
 export function failedJob(job) {
   return jobFailure(job.error ? { error: job.error } : job, undefined);

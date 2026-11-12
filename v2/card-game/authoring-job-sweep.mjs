@@ -8,7 +8,10 @@ import {
   isLive,
   listJobs,
   readJob,
+  readRequest,
 } from "./authoring-jobs.mjs";
+
+import { prepareJobIntent } from "./authoring-job-intent.mjs";
 
 const BUSY = /Wait for the current (action|save)|editor changed/u;
 const retriable = (error) =>
@@ -22,6 +25,15 @@ export function createJobSweep({
   fetch,
   retryMs = 1500,
   throttleMs = 1500,
+  identity = async () => {
+    const response = await (fetch || globalThis.fetch)("/auth/account", {
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error("Check your account before drawing.");
+    const value = await response.json();
+    return value;
+  },
 }) {
   let key = null,
     life = 0,
@@ -30,20 +42,51 @@ export function createJobSweep({
     last = -Infinity,
     retries = 0,
     timer;
-  const watching = new Map();
+  const watching = new Map(),
+    intentIds = new Map();
+  const owns = async (rec) => {
+    if (!rec.owner) return true; // Older records predate account-bound intents.
+    const account = await identity();
+    return (
+      account.authenticated &&
+      account.user_id === rec.owner &&
+      account.account_revision === rec.revision
+    );
+  };
   // Handed to the tools that start jobs, so a reload can find them again.
   const track = {
-    accepted: (record) =>
-      store.putJob({ draftKey: key, ...record }).catch(() => {}),
-    settled: (id) => store.deleteJob(id).catch(() => {}),
-    dropped: (record) =>
-      store.putJob({ draftKey: key, ...record, dropped: true }).catch(() => {}),
+    prepare: (metadata) => {
+      const binding = { draftKey: key, ...metadata };
+      return async (kind, request) =>
+        prepareJobIntent(store, await identity(), binding, kind, request);
+    },
+    begin: (record) => store.beginJob(record),
+    refused: (record) => store.putJob({ ...record, phase: "prepared" }),
+    accepted: async (record) => {
+      const intentId = record.intentId;
+      if (intentId) intentIds.set(record.id, intentId);
+      try {
+        await store.putJob({
+          draftKey: key,
+          ...record,
+          ...(intentId ? { id: intentId, jobId: record.id } : {}),
+        });
+      } catch (error) {
+        throw Object.assign(error, { code: "generation_waiting" });
+      }
+    },
+    settled: (id) => store.deleteJob(intentIds.get(id) || id).catch(() => {}),
+    dropped: (record) => track.accepted({ ...record, dropped: true }),
   };
   async function settle(rec, job, current) {
     const guardedRun = (callback) => {
       if (!current()) throw new Error("This editor changed.");
-      return run((context) => {
-        if (!current() || context.snapshot().key !== rec.draftKey)
+      return run(async (context) => {
+        if (
+          !(await owns(rec)) ||
+          !current() ||
+          context.snapshot().key !== rec.draftKey
+        )
           throw new Error("This editor changed.");
         return callback(context);
       });
@@ -55,7 +98,7 @@ export function createJobSweep({
       if (retriable(error)) return "retry";
     }
     if (!current()) return "later";
-    await store.deleteJob(rec.id).catch(() => {});
+    await store.deleteJob(rec.intentId || rec.id).catch(() => {});
     return "done";
   }
   function watch(rec, job) {
@@ -78,6 +121,7 @@ export function createJobSweep({
         signal: controller.signal,
         env,
         fetch,
+        identity: rec,
         onUpdate: (next) => opened === life && adopter.progressJob?.(rec, next),
       },
     ).then(
@@ -108,8 +152,27 @@ export function createJobSweep({
     if (!current()) return;
     const byId = new Map(jobs.map((job) => [job.id, job]));
     let later = false;
-    for (const rec of records) {
+    for (let rec of records) {
       if (!current()) return;
+      if (!(await owns(rec)) || isLive(rec.id)) continue;
+      if (rec.requestKey) {
+        const intentId = rec.id;
+        let recovered;
+        try {
+          recovered = await readRequest(rec.requestKey, {
+            fetch,
+            identity: rec,
+          });
+        } catch {
+          continue;
+        } // Even 404 may be delayed acceptance or pruning. Never POST.
+        if (!current() || !(await owns(rec)) || isLive(intentId)) continue;
+        rec = { ...rec, id: recovered.id, intentId };
+        intentIds.set(rec.id, intentId);
+        await track.accepted(rec);
+        byId.set(recovered.id, recovered);
+        if (isLive(intentId) || isLive(rec.id)) continue;
+      }
       let job = byId.get(rec.id);
       if (!job) {
         try {
@@ -117,16 +180,19 @@ export function createJobSweep({
         } catch (error) {
           if (!current()) return;
           if (error.status === 404)
-            await store.deleteJob(rec.id).catch(() => {});
+            await store.deleteJob(rec.intentId || rec.id).catch(() => {});
           continue;
         }
       }
       if (!current()) return;
+      const available = () =>
+        current() && !isLive(rec.intentId || rec.id) && !isLive(rec.id);
+      if (!available()) continue;
       if (!finished(job)) {
         watch(rec, job);
         continue;
       }
-      if ((await settle(rec, job, current)) === "retry") later = true;
+      if ((await settle(rec, job, available)) === "retry") later = true;
     }
     if (current() && later && retries++ < 40) {
       clearTimeout(timer);

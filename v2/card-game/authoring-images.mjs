@@ -136,6 +136,7 @@ export async function requestAuthoringImage(body, options = {}) {
   guard(options, body.basis);
   // The job runs on the server; this waits for it and reads the stored image.
   const result = await runJob("image", body, options);
+  options = { ...options, basis: body.basis };
   guard(options, body.basis);
   need(
     result?.basis === body.basis,

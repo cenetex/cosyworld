@@ -58,8 +58,8 @@ mod guard {
                 .into_iter()
                 .find(|error| error.to_string() == message)
         }
-        pub(crate) fn response(self) -> Response {
-            let (status, code, error) = match self {
+        pub(crate) fn parts(&self) -> (StatusCode, &'static str, &'static str) {
+            match self {
                 Self::Changed => (
                     StatusCode::CONFLICT,
                     "account_reset",
@@ -75,7 +75,10 @@ mod guard {
                     "account_unavailable",
                     "Your account needs another try.",
                 ),
-            };
+            }
+        }
+        pub(crate) fn response(self) -> Response {
+            let (status, code, error) = self.parts();
             (
                 status,
                 [(axum::http::header::CACHE_CONTROL, "no-store")],
@@ -90,6 +93,17 @@ mod guard {
     pub(crate) struct Revision {
         pub(crate) user: String,
         pub(crate) epoch: u64,
+    }
+    impl std::ops::Deref for Revision {
+        type Target = str;
+        fn deref(&self) -> &str {
+            &self.user
+        }
+    }
+    impl rusqlite::ToSql for Revision {
+        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput<'_>> {
+            rusqlite::ToSql::to_sql(&self.user)
+        }
     }
     impl Revision {
         pub(crate) fn capture(
