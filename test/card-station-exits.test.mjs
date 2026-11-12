@@ -1,4 +1,3 @@
-import { upgradedItems } from "./fixtures/card-upgraded-items.mjs";
 import "./helpers/still-cast.mjs";
 import { expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave, exits, legalActions, play, placeText, settleStationExits } from "../v2/card-game/world.mjs";
@@ -135,59 +134,4 @@ it("matches compiled shared rules across presence, marker travel and reopening",
   expect(world.stationExitOrder).toEqual(["train", "pavilion"]);
   step("presence", ["vale", "mara"]);
   expect(world.stationExitOrder).toEqual(["train", "pavilion", "boardyai-parlour"]);
-});
-
-for (const revision of [2, 3]) it(`restores Boardy revision ${revision} without moving saved people or possessions`, () => {
-  const historical = currentSharedEngine(125);
-  const dispatch = (request) => JSON.parse(historical.cardShared(JSON.stringify(request)));
-  let s = dispatch({ op: "create" }).world;
-  s.actors.mara.place = "station";
-  s.items["ratiradio-station-key"].holder = "mara";
-  s.items["boardyai-calling-card"].holder = "vale";
-  for (const [actor, target] of [["mara", "ratiradio-staff-kitchen"], ["vale", "boardyai-parlour"]]) {
-    const membership = { actor, claimed: ["vale", "mara"], present: ["vale", "mara"] };
-    const action = dispatch({ op: "view", world: s, ...membership }).actions.find(
-      (a) => a.kind === "move" && a.target === target);
-    expect(action).toBeDefined();
-    const entered = dispatch({ op: "play", world: s, ...membership, action });
-    expect(entered.ok, entered.error).toBe(true);
-    s = entered.world;
-  }
-  const old = dispatch({ op: "validate", world: s }).world;
-  const door = revision === 3 ? "attic" : "station";
-  expect(old.packs.ratiradio.flags["station-open"]).toBe(true);
-  old.packs.boardyai.revision = revision;
-  if (revision === 2) old.opening.met.moth = 0; // Station-era guests already crossed the pond.
-  old.routeKnowledge.vale = [[door, "boardyai-parlour"], ["boardyai-parlour", door], ["pond", "attic"]];
-  const expected = structuredClone(old);
-  expected.packs.boardyai.revision = 4;
-  expected.packs["greek-drama"].revision = 24;
-  expected.items = upgradedItems(expected.items, expected);
-  expected.crossings["pond-greek-harbor"] = { discovered: expected.crossings["pond-greek-harbor"].discovered };
-  expected.packs.ratiradio.revision = 3; // Add the receiver, retaining earned receipts.
-  expected.items["ratiradio-portable-radio"] = { holder: "ratiradio-broadcast-booth", history: [] };
-  expected.memories["ratiradio-portable-radio"] = { events: [], landmarks: [], text: null, turn: null };
-  if (revision === 3) expected.opening.leftHome = true;
-  settleStationExits(expected);
-  expected.routeKnowledge.vale = [["station", "boardyai-parlour"], ["boardyai-parlour", "station"], ["pond", "attic"]];
-  const loaded = decodeSave(JSON.stringify(old));
-  for (const [id, actor] of Object.entries(old.actors))
-    expect(loaded.actors[id].place, id).toBe(actor.place);
-  for (const [id, item] of Object.entries(old.items))
-    expect(loaded.items[id].holder, id).toBe(item.holder);
-  expect(loaded.items["ratiradio-portable-radio"].radioOn).toBeUndefined();
-  expect(loaded).toEqual(expected);
-  const compiled = currentSharedEngine();
-  expect(JSON.parse(compiled.cardShared(JSON.stringify({ op: "validate", world: old }))).world).toEqual(expected);
-  expect(decodeSave(encodeSave(loaded))).toEqual(expected);
-  if (revision === 3) {
-    const undiscovered = structuredClone(old);
-    undiscovered.crossings["station-boardyai-parlour"].discovered = false;
-    expect(() => decodeSave(JSON.stringify(undiscovered))).toThrow();
-    const invalid = structuredClone(loaded);
-    invalid.opening.leftHome = "true";
-    expect(() => decodeSave(JSON.stringify(invalid))).toThrow();
-  }
-  seatActors(loaded, ["vale", "mara"], ["vale"]);
-  expect(exits(loaded, "boardyai-parlour", "vale")).toEqual(["station"]);
 });

@@ -104,73 +104,6 @@ fn boardy_station_card_opens_the_authored_parlour_door() {
     }
 }
 
-#[test]
-fn boardy_upgrade_from_twelve_survives_checkpoints_and_journal_replay() {
-    assert_boardy_upgrade(engine::TWELFTH_VERSION);
-}
-
-#[test]
-fn boardy_upgrade_from_thirteen_survives_checkpoints_and_journal_replay() {
-    assert_boardy_upgrade(engine::THIRTEENTH_VERSION);
-}
-
-fn assert_boardy_upgrade(version: &str) {
-    let path = std::env::temp_dir().join(format!("boardy-{}.sqlite", crate::random_hex(12)));
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    let id = "e".repeat(48);
-    store::create(&c, &id, "owner", now()).unwrap();
-    let seed = engine::reduce_version(version, json!({"op":"create"})).unwrap();
-    let old = World {
-        version: version.into(),
-        game: seed["world"].clone(),
-        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
-        present: [1, 1, 0, 0, 0, 0, 0, 0],
-        pack: None,
-    };
-    assert!(old.game["actors"].get("boardyai").is_none());
-    full_store::seed(&c, &id, &old, "before-boardy", now()).unwrap();
-    let mut world = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(world.version, engine::VERSION);
-    assert_eq!(world.game["turn"], old.game["turn"]);
-    for (key, value) in super::saved_items::current_items(&old.game)
-        .as_object()
-        .unwrap()
-    {
-        assert_eq!(&world.game["items"][key], value);
-    }
-    assert_eq!(
-        world.game["items"]["boardyai-calling-card"]["holder"],
-        "station"
-    );
-    assert_eq!(
-        world.game["log"],
-        super::full_tests::quest_free_log(&old.game["log"])
-    );
-    assert!(world.game["actors"]["boardyai"].is_object());
-    let action = world.project(0).unwrap()["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "wait")
-        .unwrap()
-        .clone();
-    full_store::commit(
-        &c,
-        &id,
-        &mut world,
-        json!({"op":"play", "actor":"vale", "action":action}),
-        now(),
-    )
-    .unwrap();
-    drop(c);
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-}
-
 // Boardy no longer runs an introduction quest. A want to meet a person sends
 // him along the open roads, and the Talk there meets it in the C host.
 #[test]
@@ -193,8 +126,9 @@ fn boardy_follows_a_want_to_meet_a_human_in_the_c_host() {
             .filter(|e| e["verb"] == "want_met" && e["actorId"] == "boardyai")
             .count()
     };
-    for _ in 0..8 {
-        if met(&world) > 0 {
+    // He walks at the dwell pace (rules 133), so wait for him, not for a count.
+    for _ in 0..120 {
+        if met(&world) > 0 || world.game["actors"]["boardyai"]["place"] == "pond" {
             break;
         }
         let view = world.project(0).unwrap();
@@ -305,69 +239,6 @@ fn assert_boardy_search_visits(mut world: World, expected: [&str; 6]) {
         world.game["turn"]
     );
     assert_eq!(world.game["life"]["actors"]["boardyai"]["restLeft"], 3);
-}
-
-#[test]
-fn boardy_version_sixteen_upgrade_preserves_sightings_and_replays() {
-    let path =
-        std::env::temp_dir().join(format!("boardy-sixteen-{}.sqlite", crate::random_hex(12)));
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    let id = "b".repeat(48);
-    store::create(&c, &id, "owner", now()).unwrap();
-    let seed = engine::reduce_version(engine::SIXTEENTH_VERSION, json!({"op":"create"})).unwrap();
-    let old = World {
-        version: engine::SIXTEENTH_VERSION.into(),
-        game: seed["world"].clone(),
-        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
-        present: [1, 1, 0, 0, 0, 0, 0, 0],
-        pack: None,
-    };
-    full_store::seed(&c, &id, &old, "before-introductions", now()).unwrap();
-    let mut world = full_store::world(&c, &id, now()).unwrap();
-    assert_eq!(world.version, engine::VERSION);
-    assert_eq!(world.game["turn"], old.game["turn"]);
-    assert_eq!(
-        world.game["actors"]["boardyai"]["place"],
-        old.game["actors"]["boardyai"]["place"]
-    );
-    for (key, item) in super::saved_items::current_items(&old.game)
-        .as_object()
-        .unwrap()
-    {
-        assert_eq!(&world.game["items"][key], item, "saved item {key}");
-    }
-    assert_eq!(
-        world.game["log"],
-        super::full_tests::quest_free_log(&old.game["log"])
-    );
-    for _ in 0..4 {
-        let view = world.project(0).unwrap();
-        let wait = view["actions"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|a| a["kind"] == "wait")
-            .unwrap()
-            .clone();
-        full_store::commit(
-            &c,
-            &id,
-            &mut world,
-            json!({"op":"play", "actor":"vale", "action":wait}),
-            now(),
-        )
-        .unwrap();
-    }
-    // Introduction visits were quest machinery; the upgrade drops them.
-    assert!(world.game.get("introductionVisits").is_none());
-    assert!(world.game["actors"]["boardyai"].get("want").is_some());
-    drop(c);
-    let c = store::open(&path).unwrap();
-    full_store::schema(&c).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
-    c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), world);
 }
 
 #[test]

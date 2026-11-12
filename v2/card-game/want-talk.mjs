@@ -1,7 +1,8 @@
 // Talk reveals what a person wants: one first-person line from their want.
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
-import { layMet, questsOf } from "./want.mjs";
+import { layMet, questTerms } from "./want.mjs";
+import { offerUnlocked } from "./offer-chance.mjs";
 import forest from "./forest.json" with { type: "json" };
 import {
   consumable,
@@ -9,12 +10,35 @@ import {
   entityActive,
   heldSlots,
   makerChoice,
+  conditionsMet,
   packPeople,
 } from "./pack-registry.mjs";
 
-// The authored first want, until the rules keep one on the actor.
+// The authored first want, until the rules keep one on the actor. A pack
+// resident with a `wants` list has no single first want: `stagedWants` and
+// the rules' staged pick (want.mjs) choose.
 export const authoredWant = (id) =>
   forest.people[id]?.want || packPeople[id]?.want || null;
+
+// A resident's staged wants (rules 133): a pack avatar carries up to three
+// `{want, when?}` entries, read fresh and never saved. `open` says whether
+// `when` holds in this world now (a resident has no traveler, so `when` reads
+// the world alone). A resident with only a single `want` is a list of one.
+// Entry order is the authored order; the rules draw among the open ones.
+export function stagedWants(world, id) {
+  const person = packPeople[id];
+  const list = person?.wants ?? [
+    ...(authoredWant(id) ? [{ want: authoredWant(id) }] : []),
+  ];
+  return list.map((entry, index) => ({
+    index,
+    want: entry.want,
+    when: entry.when ?? [],
+    open:
+      !entry.when?.length ||
+      Boolean(person && conditionsMet(world, person.packId, entry.when)),
+  }));
+}
 export const wantOf = (world, id) =>
   world.actors?.[id]?.want || authoredWant(id);
 
@@ -45,20 +69,42 @@ function met(world, id, want) {
 // Whether Talk says this want of theirs: one still to meet, of a thing,
 // place or person in the world. The rules give a quest for the same want
 // (talk-quest.mjs), so the caption and the quest always agree.
-export function revealed(world, id, want) {
+//
+// A pack resident whose authored want declares `minTrust` (1 to 3) tells it
+// only to a listener it trusts that much. Without a listener, or without
+// `minTrust`, nothing is withheld. The field lives in pack data: the saved
+// want is matched to the authored one by kind and target.
+function trustedEnough(world, id, want, listener) {
+  if (!listener) return true;
+  // The authored entry that is this want: a staged one if the same kind and
+  // target repeat, the one with the same terms.
+  const same = stagedWants(world, id).filter(
+    (entry) =>
+      entry.want.kind === want.kind && entry.want.target === want.target,
+  );
+  const authored =
+    same.find((entry) => questTerms(entry.want) === questTerms(want))?.want ??
+    same[0]?.want;
+  if (!authored?.minTrust) return true;
+  return (world.actors[id].trust?.[listener] || 0) >= authored.minTrust;
+}
+export function revealed(world, id, want, listener) {
   return Boolean(
     want &&
       world.actors?.[id] &&
-      // A made thing still locked is wanted all the same (rules 102).
+      // A made thing still locked is wanted all the same (rules 102), and a
+      // sealed one (rules 133).
       (entityActive(world, want.target) ||
-        Boolean(packThings[want.target]?.locked)) &&
+        Boolean(packThings[want.target]?.locked) ||
+        Boolean(packThings[want.target]?.sealed)) &&
       !(want.kind === "item" && !world.items[want.target]) &&
       !(want.kind === "person" && !world.actors[want.target]) &&
-      !met(world, id, want),
+      !met(world, id, want) &&
+      trustedEnough(world, id, want, listener),
   );
 }
 
-export function wantFact(world, id, nameOf) {
+export function wantFact(world, id, nameOf, listener) {
   const want = wantOf(world, id);
   if (want?.kind === "connect" && world.actors?.[id])
     return "I want to introduce you to someone.";
@@ -71,23 +117,24 @@ export function wantFact(world, id, nameOf) {
     );
     return `I want ${article(nameOf(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
   }
-  if (!revealed(world, id, want)) return null;
+  if (!revealed(world, id, want, listener)) return null;
   const name = nameOf(want.target);
+  // When they would take the traveler's help, they say so (Accept quest).
+  const help =
+    listener && offerUnlocked(world, listener, id)
+      ? " I would be glad of your help."
+      : "";
   if (want.step?.verb === "lay")
-    return `I want ${want.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.`;
-  const line =
-    want.kind === "item"
+    return `I want ${want.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.${help}`;
+  return (
+    (want.kind === "item"
       ? want.step?.verb === "eat"
         ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf(want.step.at)}` : ""}.`
         : `I want ${article(name)}.`
       : want.kind === "place"
         ? `I want to be at ${name}.`
-        : `I want to see ${name}.`;
-  // Only the top quest is said; the rest of the stack is a count.
-  const more = Math.max(0, questsOf(world, id).length - 1);
-  return more
-    ? `${line} I have ${more === 1 ? "one other quest" : `${more} other quests`} too.`
-    : line;
+        : `I want to see ${name}.`) + help
+  );
 }
 
 // The player's own want, and the want of the person on either side of Talk.

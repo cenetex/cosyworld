@@ -2,6 +2,8 @@
 // scripted conversation that builds real table history through the rules,
 // the save's memories and the browser request builder. Rust's voice eval
 // reads these to measure prompt sections; no model is called.
+// Scripted for a cast that walks on at once (rules 132); dwell is held off.
+import "../helpers/no-dwell.mjs";
 import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 import { enableMotives } from "../../v2/card-game/motives.mjs";
 import {

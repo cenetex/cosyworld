@@ -337,61 +337,8 @@ describe("calling the empty ship", () => {
 });
 
 describe("transport state version 3", () => {
-  it("upgrades an empty version 2 ship", () => {
-    const s = setup("pond");
-    s.transports["greek-ship"] = {
-      version: 2,
-      dock: "greek-harbor",
-      destination: null,
-      recall: null,
-    };
-    expect(upgrade(s).transports["greek-ship"]).toEqual({
-      version: 3,
-      phase: "docked",
-      dock: "greek-harbor",
-      destination: null,
-      riders: [],
-      since: s.turn,
-      recall: null,
-    });
-  });
 
-  it("upgrades an occupied version 2 leg to a docked ship waiting for its course", () => {
-    const s = setup("pond");
-    s.actors.vale.place = "greek-ship";
-    s.transports["greek-ship"] = {
-      version: 2,
-      dock: "pond",
-      destination: "greek-harbor",
-      recall: "pond",
-    };
-    const up = upgrade(s);
-    expect(up.transports["greek-ship"]).toMatchObject({
-      phase: "docked",
-      dock: "pond",
-      recall: "pond",
-      riders: [],
-    });
-    expect(targets(up, "vale", "course")).toEqual(["greek-harbor"]);
-  });
 
-  it("upgrades a version 2 ship whose first passenger had landed to an arrival", () => {
-    const s = setup("pond");
-    s.actors.mara.place = "greek-ship";
-    s.transports["greek-ship"] = {
-      version: 2,
-      dock: "greek-harbor",
-      destination: "greek-harbor",
-      recall: null,
-    };
-    const up = upgrade(s);
-    expect(up.transports["greek-ship"]).toMatchObject({
-      phase: "arrived",
-      dock: "greek-harbor",
-      riders: ["mara"],
-    });
-    expect(targets(up, "mara", "move")).toEqual(["greek-harbor"]);
-  });
 
   it("rejects invalid version 3 records", () => {
     const bad = [

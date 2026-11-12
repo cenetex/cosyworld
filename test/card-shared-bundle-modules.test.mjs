@@ -31,6 +31,7 @@ const RULES = [
   "life.mjs",
   "memory.mjs",
   "motives.mjs",
+  "offer-chance.mjs",
   "pack-items-schema.mjs",
   "pack-items.mjs",
   "pack-journeys.mjs",
@@ -60,13 +61,20 @@ const RULES = [
   "want.mjs",
   "weather.mjs",
   "world.mjs",
+  "world/boxes.mjs",
+  "world/company.mjs",
+  "world/dwell.mjs",
   "world/catalog.mjs",
   "world/create.mjs",
   "world/geography.mjs",
+  "world/home.mjs",
   "world/items.mjs",
   "world/lanes.mjs",
+  "world/lock-goals.mjs",
+  "world/offers.mjs",
   "world/senses.mjs",
   "world/station.mjs",
+  "world/want-words.mjs",
 ];
 
 it("keeps the shared rules bundle to its reviewed modules and no content", async () => {

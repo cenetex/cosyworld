@@ -1,5 +1,6 @@
 import { wakeContext } from "./audio-wake.mjs";
 import { COMBAT_SOUNDS, shapeCombatSound } from "./combat-sfx.mjs";
+import { shapeCardSound, shapeTurnSound } from "./card-sfx.mjs";
 
 // World sound effects made in the browser: a struck bell and the fight's
 // sounds (combat-sfx.mjs). They wait for a user gesture, follow the volume
@@ -110,9 +111,33 @@ export function createSfx({
     return shapeCombatSound(context, out, name, seeded(seed));
   }
 
+  // The card sounds (card-sfx.mjs) follow the Voices switch and the volume,
+  // like the fight's. No new setting.
+  function cardOut() {
+    if (!unlocked || !voices || hidden || volume <= 0 || !build()) return null;
+    void wakeContext(context);
+    const out = context.createGain();
+    out.gain.value = volume * FIGHT_PEAK;
+    out.connect(context.destination);
+    return out;
+  }
+  // One card turning at a tier: a flip tick, and for a rarer card a tone
+  // rising through its held breath. `plan` is pack-opening.mjs turnPlan.
+  function cardTurn(plan, seed = 1) {
+    const out = cardOut();
+    return out ? shapeTurnSound(context, out, plan, seeded(seed)) : false;
+  }
+  // The pack's paper slide as its cards rise, and the settle as they go back.
+  function card(name, seed = 1) {
+    const out = cardOut();
+    return out ? shapeCardSound(context, out, name, seeded(seed)) : false;
+  }
+
   return {
     bell,
     fight,
+    cardTurn,
+    card,
     // Ring for a new committed ring event; the first look only sets the mark.
     watch(log, place, nearby) {
       const since = cursor;

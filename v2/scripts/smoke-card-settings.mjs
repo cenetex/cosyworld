@@ -53,7 +53,7 @@ try {
     });
     const dealt = () => page.evaluate(() => window.dealt.splice(0));
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: signedIn } }),
+      route.fulfill({ json: { authenticated: signedIn, user_id: signedIn ? "smoke-user" : null, account_revision: signedIn ? 0 : null } }),
     );
     await page.goto(`${origin}/?table=settings-${width}`);
     await page.locator("#hand .card").first().waitFor();

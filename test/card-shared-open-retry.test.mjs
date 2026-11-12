@@ -42,7 +42,7 @@ describe("the Open this world card", () => {
       status: 409,
       json: async () => ({ error: "This save needs a fresh start." }),
     };
-    const account = { ok: true, json: async () => ({ authenticated: true }) };
+    const account = { ok: true, json: async () => ({ authenticated: true, user_id: "shared-fixture", account_revision: 0 }) };
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url) =>

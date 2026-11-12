@@ -54,7 +54,7 @@ async function session() {
   const fetch = vi.fn();
   vi.stubGlobal("fetch", fetch);
   const respond = (value) => ({ ok: true, json: async () => value });
-  fetch.mockResolvedValueOnce(respond({ authenticated: true }));
+  fetch.mockResolvedValueOnce(respond({ authenticated: true, user_id: "shared-fixture", account_revision: 0 }));
   fetch.mockResolvedValueOnce(respond(snapshot(1)));
   fetch.mockResolvedValueOnce(respond(snapshot(1)));
   const connection = await connectSharedWorld("saved-world");

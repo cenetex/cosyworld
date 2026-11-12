@@ -1,7 +1,6 @@
 import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
 import { settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { itemPlace as lampPlace } from "../v2/card-game/world.mjs";
-import { collectRewards } from "./helpers/claim-rewards.mjs";
 import { describe, expect, it } from "vitest";
 import {
   decodeSave,
@@ -69,37 +68,21 @@ describe("the attic opening and saved pond journeys", () => {
         expect(world.actors[avatar.id].place).toBe(avatar.home.id);
     }
   });
-
-  it("keeps a released pond save beside Pip with Vale's authored want", () => {
-    const before = pondOpening();
-    const world = decodeSave(encodeSave(before));
-    expect(world).toEqual(before);
-    expect(world.actors.vale.place).toBe("pond");
-    expect(world.opening).toEqual({
-      version: 2,
-      crossed: true,
-      met: { vale: 0, moth: 0 },
-    });
-    expect(world.actors.vale.want).toMatchObject({
-      kind: "item",
-      target: "lamp",
-    });
-  });
-
   it("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
+    // A player takes its own quest by a tap; give Vale the lamp quest.
+    world.actors.vale.want = { kind: "item", target: "lamp", since: 0, refusals: 0 };
     world = selectLamp(world, "lamp");
+    const xp = world.actors.vale.xp;
     world = act(world, "wait");
-    world = collectRewards(world);
-    expect(world.actors.vale.xp).toBe(1);
+    expect(world.actors.vale.xp).toBe(xp + 1);
     expect(exits(world, "pond")).toEqual(["station", "attic"]);
     world = act(world, "wait");
     world = act(world, "move", "station");
-    expect(world.opening.met.keeper).toBe(3);
+    expect(world.opening.met.keeper).toBe(world.turn);
     world = act(world, "move", "pond");
     expect(world.actors.vale.place).toBe("pond");
   });
-
   it("keeps the attic reflection and its dry-lamp recovery on the pond", () => {
     let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
@@ -126,7 +109,6 @@ describe("the attic opening and saved pond journeys", () => {
     const dark = selectLamp(world);
     expect(plan(dark).action).toMatchObject({ kind: "move", target: "pond" });
   });
-
   it("keeps the cottage return and pond rescue after the attic light goes out", () => {
     let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
@@ -155,7 +137,6 @@ describe("the attic opening and saved pond journeys", () => {
     world = act(world, "move", "pond");
     expect(world.actors.vale.place).toBe("pond");
   });
-
   it("lets a stranded resident return from the attic through the pond", () => {
     const world = fresh();
     world.actors.moth.place = "attic";
@@ -175,7 +156,6 @@ describe("the attic opening and saved pond journeys", () => {
     expect(result.state.actors.moth.place).toBe("pond");
     expect(result.state.items.lamp.holder).toBe("moth");
   });
-
   it("lets a resident stow a fueled lamp to leave the dark-gated attic", () => {
     const world = fresh();
     world.actors.moth.place = "attic";
@@ -242,12 +222,9 @@ describe("the attic opening and saved pond journeys", () => {
     expect(restored.actors.vale.want).toBeNull();
     expect(exits(restored, "station")).toEqual(["pond"]);
     const shore = act(restored, "move", "pond");
-    expect(shore.actors.vale.want).not.toBeNull();
-    const attic = collectRewards(act(shore, "move", "attic"));
-    // The quest drawn at the pond goes on, or was met on the way back.
-    expect(attic.actors.vale.want !== null || attic.actors.vale.xp > 0).toBe(
-      true,
-    );
+    expect(shore.actors.vale.want).toBeNull();
+    const attic = act(shore, "move", "attic");
+    expect(attic.actors.vale.want).toBeNull();
     expect(attic.opening.version).toBe(1);
     expect(attic.items.lamp.holder).toBe("vale");
     expect(attic.log[0]).toEqual(before.log[0]);

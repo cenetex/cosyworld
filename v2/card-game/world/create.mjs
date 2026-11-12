@@ -1,4 +1,5 @@
 import { settleLamp } from "../lamp-state.mjs";
+import { SAVE_SCHEMA } from "../legacy-saves.mjs";
 // World creation and run seeding, split out of world.mjs (#1390).
 import { installJourneyProgress } from "../pack-journeys.mjs";
 import { enableMotives } from "../motives.mjs";
@@ -21,7 +22,7 @@ import {
 
 export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   const world = {
-    schema: 7,
+    schema: SAVE_SCHEMA,
     ...structuredClone(forest.initialState),
     memories: newMemories(),
     turn: 0,
@@ -55,8 +56,8 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   installLife(world, travels);
   installRouteKnowledge(world);
   installKnowledge(world);
-  // A new world starts with one want on every avatar but a player still
-  // waiting for its first quest.
+  // A new world starts with one want on every resident; a player holds none
+  // and takes its quests by a tap.
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
   settleGuards(world);

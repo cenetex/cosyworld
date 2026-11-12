@@ -95,8 +95,16 @@ try {
   assert.equal((await state()).actors.vale.place, "attic");
   // Reveal the opening and stow the lamp quietly to open the mirror.
   await ready();
+  // The pond already lies in the hand as a locked box; the lamp opens it.
+  assert.equal(await page.locator('[data-card="pond"]').count(), 1);
+  assert.equal((await state()).opened, undefined);
   await putOutOpening(page);
   await ready();
+  assert.deepEqual((await state()).opened, { pond: ["vale"] });
+  // The pond box turns over once as the lamp goes out; let the lid finish.
+  await page.waitForFunction(
+    () => !document.querySelector("#hand [data-revealing]"),
+  );
   assert.equal((await state()).items.lamp.lit, false);
   assert.equal((await state()).turn, 0);
   assert.equal((await state()).actors.vale.heldItem, null);

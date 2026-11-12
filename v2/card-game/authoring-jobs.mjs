@@ -2,6 +2,7 @@
 // accepted once, runs on the server and is read back by id, so a reload or a
 // dropped connection cannot lose it. Request bodies are the ones the server
 // validates; this module only creates, polls, lists and fetches.
+import { accountRevision } from "./account-revision.mjs";
 const MAX_IMAGE = 8 * 1024 * 1024;
 export const JOB_LIMIT = Object.freeze({
   image: 180_000,
@@ -115,12 +116,21 @@ export function releaseJob(id) {
   else held.delete(id);
 }
 
+const identityHeaders = (identity) =>
+  identity
+    ? {
+        "X-Account-User": identity.owner,
+        "X-Account-Revision": String(identity.revision),
+      }
+    : {};
+
 async function send(fetcher, path, init, signal) {
   const response = await fetcher(path, {
     credentials: "same-origin",
     cache: "no-store",
     signal,
     ...init,
+    headers: { ...init.headers, ...accountRevision.headers() },
   });
   const body = await response.json().catch(() => null);
   return { response, body };
@@ -175,6 +185,25 @@ export async function createJob(kind, request, options = {}) {
   }
   throw last;
 }
+export async function readRequest(requestKey, options = {}) {
+  const { fetch: fetcher = globalThis.fetch, signal } = options;
+  const sent = await send(
+    fetcher,
+    `${base}/jobs/by-request`,
+    {
+      method: "GET",
+      headers: {
+        "Idempotency-Key": requestKey,
+        ...identityHeaders(options.identity),
+      },
+    },
+    signal,
+  );
+  if (!sent.response.ok) throw jobFailure(sent.body, sent.response.status);
+  if (typeof sent.body?.id !== "string" || !sent.body.id) throw unreachable();
+  return sent.body;
+}
+
 export async function readJob(id, options = {}) {
   const { fetch: fetcher = globalThis.fetch, signal } = options;
   let sent;

@@ -181,7 +181,9 @@ describe("card standoffs", () => {
     expect(kind(low)).toEqual(["guard", null]);
     // It guards a friend who is being struck.
     const friend = melee({ hitBy: { moth: "vale" } });
-    friend.actors.keeper.trust.moth = 1;
+    friend.actors.keeper.trust.moth = 2;
+    expect(kind(friend)).toEqual(["wait", null]);
+    friend.actors.keeper.trust.moth = 3;
     expect(kind(friend)).toEqual(["intercept", "moth"]);
   });
   it("lets a defeated combatant retreat while the others fight on", () => {

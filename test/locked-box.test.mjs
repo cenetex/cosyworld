@@ -10,8 +10,10 @@ import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
+import { acceptQuest } from "./helpers/accept-quest.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
+import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 
 function act(s, kind, fields = {}) {
   const action = legalActions(s).find(
@@ -35,19 +37,22 @@ describe("locked boxes", () => {
     s.actors.vale.place = "greek-harbor";
     const before = JSON.stringify(s);
     expect(lockedQuest(s, "greek-provisions", () => true)).toEqual({
-      text: "Bring Courtyard Bread home to The Wine-Dark Harbor",
+      text: "Bring Courtyard Bread to The Wine-Dark Harbor",
       cards: [],
     });
+    // A box lies where it is kept: the bread, in the courtyard.
+    s.actors.vale.place = "greek-courtyard";
     expect(lockedQuest(s, "greek-bread", () => true)).toEqual({
-      text: "Bring Water Jar home to Theban Courtyard",
+      text: "Bring Water Jar to Theban Courtyard",
       cards: [],
     });
     expect(lockedQuest(s, "greek-creon-writ")).toBeNull();
+    s.actors.vale.place = "greek-harbor";
     expect(JSON.stringify(s)).toBe(before);
     s.usedUp = s.usedUp.filter((id) => id !== "greek-provisions");
     expect(lockedQuest(s, "greek-provisions")).toBeNull();
   });
-  it("uses a locked-box description when its requirement cannot be previewed", () => {
+  it("shows the lock's own conditions when its route names no quest", () => {
     const route = packDefinitions
       .find((pack) => pack.id === "greek-drama")
       .routes.find((entry) => entry.to === "greek-polynices-hollow");
@@ -57,10 +62,14 @@ describe("locked boxes", () => {
       const world = createWorld();
       world.packs["greek-drama"].scope = "full";
       world.actors.vale.place = "greek-battlefield";
-      expect(lockedQuest(world, "greek-polynices-hollow")).toEqual({
-        text: "A locked box.",
+      expect(lockedQuest(world, "greek-polynices-hollow", () => true)).toEqual({
+        text: "Talk with Polynices' Shade",
         cards: [],
       });
+      // The Shade is not yet met: the lock does not name him.
+      expect(lockedQuest(world, "greek-polynices-hollow").text).toBe(
+        `Find ${UNKNOWN.person}`,
+      );
     } finally {
       route.sealed.quest = quest;
     }
@@ -78,7 +87,7 @@ describe("locked boxes", () => {
       "greek-battlefield",
     ]);
     expect(lockedQuest(s, "greek-battlefield")).toEqual({
-      text: "Find something and give it to someone",
+      text: `Give ${UNKNOWN.item} to ${UNKNOWN.person}`,
       cards: [],
     });
     expect(lockedQuest(s, "greek-battlefield", () => true)).toEqual({
@@ -87,7 +96,7 @@ describe("locked boxes", () => {
     });
     const hidden = lockedQuest(s, "greek-battlefield", () => false);
     expect(hidden).toEqual({
-      text: "Find something and give it to someone",
+      text: `Give ${UNKNOWN.item} to ${UNKNOWN.person}`,
       cards: [],
     });
     expect(hidden.text).not.toMatch(/Creon|Writ|Gate Guard/u);
@@ -97,10 +106,13 @@ describe("locked boxes", () => {
       text: "Give Creon's Writ to The Gate Guard",
       cards: [],
     });
-    // A guarded card gives no quest of its own; Talk with the guard gives
-    // his (rules 102).
-    expect(legalActions(s).some((a) => a.kind === "gate")).toBe(false);
+    // The box offers its quest as a card (rules 133); Talk with the guard
+    // tells his own (rules 102).
+    expect(
+      legalActions(s).some((a) => a.offer === "quest:box:greek-battlefield"),
+    ).toBe(true);
     s = act(s, "talk", { target: "greek-guard" });
+    acceptQuest(s, "greek-guard");
     expect(questsOf(s, "vale")).toContainEqual(
       expect.objectContaining({ kind: "item", target: "greek-bread" }),
     );
@@ -195,7 +207,7 @@ describe("locked boxes", () => {
     world.packs["greek-drama"].scope = "full";
     world.actors.vale.place = "greek-courtyard";
     expect(lockedQuest(world, "greek-bread", () => true)).toEqual({
-      text: "Bring Water Jar home to Theban Courtyard",
+      text: "Bring Water Jar to Theban Courtyard",
       cards: [],
     });
   });
@@ -206,7 +218,7 @@ describe("locked boxes", () => {
     world.actors.vale.place = "greek-ship";
     world.transports["greek-ship"].dock = "greek-harbor";
     expect(lockedQuest(world, "greek-piraeus", () => true)).toEqual({
-      text: "Bring Travel Provisions home to The Charybdis",
+      text: "Bring Travel Provisions to The Charybdis",
       cards: [],
     });
   });

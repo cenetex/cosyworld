@@ -38,7 +38,7 @@ import {
   applySharedReflections,
 } from "./reflections.mjs";
 import { resetAvatar } from "./avatar-reset.mjs";
-import { arrive, hideAvatar, seekHidden } from "./hidden-avatar.mjs";
+import { arrive, hideAvatar } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
@@ -198,6 +198,10 @@ export function dispatchShared(request) {
     // A fresh world's resident avatars take a want at once; an imported or
     // upgraded one gives them wants at its next play.
     if (request.save == null) fillSeatWants(world);
+    // The homecoming avatar holds no drawn want: its quest is Accept quest at its
+    // home's door (world/offers.mjs), taken by a tap.
+    if (request.save == null && request.homecoming != null)
+      world.actors[request.homecoming].want = null;
     validateTransition(world);
     return response(world, view(world, request.actor || "vale"));
   }
@@ -235,12 +239,6 @@ export function dispatchShared(request) {
     resetAvatar(world, actor);
     validateTransition(world);
     return response(world);
-  }
-  if (request.op === "seek") {
-    seekHidden(world, actor);
-    world.revision += 1;
-    validateTransition(world);
-    return response(world, view(world, actor));
   }
   if (request.op === "hold") {
     if (

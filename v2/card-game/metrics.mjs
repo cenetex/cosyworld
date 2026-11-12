@@ -9,7 +9,7 @@
 // `COUNTERS` in play_metrics.rs; a test keeps the two equal.
 export const COUNTERS = new Set(
   `session.start session.end play.accompany play.ask play.attack
-  play.choose play.course play.cover play.drop play.give play.guard
+  play.course play.cover play.drop play.give play.guard
   play.intercept play.light play.move play.refuel play.retreat play.ring
   play.sleep play.snuff play.take play.talk play.threaten play.trade
   play.use play.wait play.other quest.accept quest.abandon quest.met
@@ -27,12 +27,24 @@ const MAX_COUNT = 1000;
 const DAY_MS = 86_400_000;
 
 // The counter for a play: quests have their own, Sleep is a kind of Wait.
+// A Take that names an offer is taking a quest, not picking a thing up.
 export function playCounter(action) {
-  if (action?.kind === "focus") return "quest.accept";
+  if (action?.kind === "take" && action.offer) return "quest.accept";
   if (action?.kind === "drop" && !action.item) return "quest.abandon";
   if (action?.kind === "wait" && action.sleep) return "play.sleep";
   const name = `play.${action?.kind}`;
   return COUNTERS.has(name) ? name : "play.other";
+}
+
+// Wants the rules met since the last look (#2662, rules 133). Each met want
+// writes one `want_met` event for its avatar; `since` is the last event
+// number seen (null on a first look: a loaded save counts nothing).
+export function metWants(log, since, actor) {
+  if (since === null || since === undefined) return 0;
+  let met = 0;
+  for (let i = log.length - 1; i >= 0 && log[i].seq > since; i--)
+    if (log[i].verb === "want_met" && log[i].actorId === actor) met++;
+  return met;
 }
 
 // Thinking-to-line latency, in coarse buckets.

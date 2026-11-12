@@ -435,7 +435,11 @@ async function wakeFades(page, width, name) {
   const dealt = await page.$$eval(".title-intro > .card-frame", (cards) =>
     cards.map((card) => ({
       inert: card.inert && card.getAttribute("aria-hidden") === "true" && !card.querySelector("[id]"),
-      covered: card.querySelector(".card").dataset.unrevealed,
+      // A locked box (the Black pond) lies closed like a covered card.
+      covered: String(
+        card.querySelector(".card").dataset.unrevealed === "true" ||
+          card.querySelector(".card").dataset.locked === "true",
+      ),
       ready: [...card.querySelectorAll("img")].every(
         (image) => image.complete && image.naturalWidth > 0,
       ),
