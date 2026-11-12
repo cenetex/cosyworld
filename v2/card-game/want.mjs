@@ -376,12 +376,6 @@ export function installWants(s) {
   }
 }
 
-function hash(text) {
-  let h = 2166136261;
-  for (const c of text) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-  return h;
-}
-
 // Candidates: items held by others that the actor values above the least
 // valued thing it carries and could get by gift or trade, known places it has
 // not visited, and known people it has not talked with. An item nobody would
@@ -462,7 +456,7 @@ export function wantCandidates(
 export function nextWant(s, actor, api, previous = null) {
   const staged = stagedNext(s, actor, previous);
   if (staged) return staged;
-  const roll = hash(`${actor}:${s.turn}`);
+  const roll = runHash(s, `want:${actor}:${s.turn}`);
   let pool = wantCandidates(s, actor, api, previous);
   if (!pool.length) {
     const a = s.actors[actor];
@@ -471,7 +465,6 @@ export function nextWant(s, actor, api, previous = null) {
     pool = wantCandidates(s, actor, api, previous);
   }
   if (!pool.length) pool = wantCandidates(s, actor, api, previous, true);
-  // At last even the want just met, and out of range (rules 100).
   if (!pool.length) pool = wantCandidates(s, actor, api, null, true, true);
   if (!pool.length) return null;
   const [kind, target] = pool[roll % pool.length].split(":");
