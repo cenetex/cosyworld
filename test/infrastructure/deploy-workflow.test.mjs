@@ -1193,6 +1193,22 @@ describe("deploy workflow", () => {
     );
   });
 
+  it("answers .dev residents on Gemma with Luna behind it, and leaves production on Luna", () => {
+    const gemma = "google/gemma-4-26b-a4b-it";
+    expect(primaryFlyConfig).toContain(`COSYWORLD_CARD_TEXT_MODEL = "${gemma}"`);
+    expect(primaryFlyConfig).toContain(
+      `COSYWORLD_CARD_FALLBACK_MODELS = '["openai/gpt-6-luna"]'`,
+    );
+    expect(primaryFlyConfig).toContain(
+      `"requested_model_id":"${gemma}","provider":"openrouter"`,
+    );
+    expect(lonelyForestFlyConfig).toContain(
+      'COSYWORLD_CARD_TEXT_MODEL = "openai/gpt-6-luna"',
+    );
+    expect(lonelyForestFlyConfig).not.toContain("gemma");
+    expect(lonelyForestFlyConfig).not.toContain("COSYWORLD_CARD_FALLBACK_MODELS");
+  });
+
   it("copies every out-of-crate compile-time input into the release image build", () => {
     const dependencyBuild =
       "RUN cargo chef cook --release --recipe-path /app/recipe.json";
