@@ -162,10 +162,12 @@ fn a_claim_elsewhere_retires_the_old_world_instead_of_opening_it() {
     std::fs::remove_file(path).unwrap();
 }
 
-fn offers_a_level(w: &World, a: usize) -> bool {
-    let view = w.project(a).unwrap();
-    let mut actions = view["actions"].as_array().unwrap().iter();
-    actions.any(|o| o["offer"] == "quest:level")
+fn holds_a_level(w: &World) -> bool {
+    let vale = &w.game["actors"]["vale"];
+    let under = vale["under"].as_array().into_iter().flatten();
+    std::iter::once(&vale["want"])
+        .chain(under)
+        .any(|q| q["from"] == "quest:level")
 }
 
 #[test]
@@ -182,7 +184,20 @@ fn a_new_world_starts_at_no_level_and_keeps_the_upgrade() {
     carried
         .apply(&json!({"op":"claim","actor":"vale","progress":{"xp":3,"level":1}}))
         .unwrap();
-    assert!(offers_a_level(&carried, vale));
+    carried
+        .apply(&json!({"op":"enter","actor":"vale"}))
+        .unwrap();
+    let wait = carried.project(vale).unwrap()["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["kind"] == "wait")
+        .cloned()
+        .unwrap();
+    carried
+        .apply(&json!({"op":"play","actor":"vale","action":wait}))
+        .unwrap();
+    assert!(holds_a_level(&carried));
     let fresh = found(&mut c, "ann").unwrap();
     let w = full_store::world(&c, &fresh, T).unwrap();
     let state = &w.game["actors"]["vale"];
@@ -191,7 +206,7 @@ fn a_new_world_starts_at_no_level_and_keeps_the_upgrade() {
     assert!(state["level"].is_null());
     assert!(state["carried"].is_null());
     assert_eq!(state["upgrades"], json!(["scarf"]));
-    assert!(!offers_a_level(&w, vale));
+    assert!(!holds_a_level(&w));
     assert_eq!(
         bindings::take_progress(&c, "ann", vale).unwrap(),
         Some(json!({"xp":3,"level":1}))

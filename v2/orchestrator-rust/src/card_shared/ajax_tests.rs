@@ -17,6 +17,21 @@ fn play(
     actor: usize,
     fields: &[(&str, &str)],
 ) -> Value {
+    let who = if actor == 0 { "vale" } else { "mara" };
+    for _ in 0..60 {
+        if action(world, actor, fields).is_some() || fields == [("kind", "wait")] {
+            break;
+        }
+        let wait = action(world, actor, &[("kind", "wait")]).expect("a wait");
+        full_store::commit(
+            c,
+            id,
+            world,
+            json!({"op":"play", "actor":who, "action":wait}),
+            now(),
+        )
+        .unwrap();
+    }
     let selected = action(world, actor, fields).unwrap_or_else(|| {
         panic!(
             "Missing Ajax play at {}: {fields:?}",
@@ -211,30 +226,18 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
             &[("kind", "move"), ("target", target)],
         );
     }
-    // Dione keeps the dwell rule's hours and may be out on the road: wait at
-    // her courtyard for her return.
+    let give = [
+        ("kind", "give"),
+        ("item", "greek-ajax-plea"),
+        ("target", "greek-baker"),
+    ];
     for _ in 0..60 {
-        let give = [
-            ("kind", "give"),
-            ("item", "greek-ajax-plea"),
-            ("target", "greek-baker"),
-        ];
         if action(&world, 1, &give).is_some() {
             break;
         }
         play(&c, &id, &mut world, 1, &[("kind", "wait")]);
     }
-    play(
-        &c,
-        &id,
-        &mut world,
-        1,
-        &[
-            ("kind", "give"),
-            ("item", "greek-ajax-plea"),
-            ("target", "greek-baker"),
-        ],
-    );
+    play(&c, &id, &mut world, 1, &give);
     assert_eq!(
         world.game["items"]["greek-ajax-plea"]["holder"],
         "greek-courtyard"
