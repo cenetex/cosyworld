@@ -41,10 +41,21 @@ import {
   EXIT_MAX,
   EXIT_MS,
   cardOf,
+  dissolveCards,
   dropCards,
   foldCards,
+  ghostsOver,
   leavingFrames,
 } from "./card-exit.mjs";
+import {
+  TAP_GUARD_MS,
+  TRAVEL_EASE,
+  TRAVEL_MS,
+  closeTiming,
+  heldFrom,
+  travelFrames,
+  tuckFrames,
+} from "./card-travel.mjs";
 import { keepFrames, morphFrame } from "./card-keep.mjs";
 import {
   SWAP_REDUCED_MS,
@@ -2176,7 +2187,9 @@ function restoreHandFocus() {
   const card =
     $("hand").querySelector(
       `.card-frame:not([hidden]) [data-card="${selected.at(-1)}"]`,
-    ) || $("hand").querySelector(".card-frame:not([hidden]) .card");
+    ) ||
+    $("hand").querySelector(`.card-frame:not([hidden]) [data-card="${currentActor(world)}"]`) ||
+    $("hand").querySelector(".card-frame:not([hidden]) .card");
   card?.focus({ preventScroll: true });
 }
 
@@ -2629,7 +2642,8 @@ function syncPhase() {
 // and the world has not moved on.
 const refusedPlay = (action) =>
   sharedRefusal?.key === action.key ? sharedRefusal.reason : "";
-let abandonQuest = null;
+let abandonQuest = null,
+  heldAt = -Infinity;
 function cancelAbandon() {
   abandonQuest = null;
   renderActions();
@@ -2873,6 +2887,7 @@ function renderActions() {
     button.title = "Discard this quest";
     button.disabled = selectionBlocked();
     button.onclick = () => {
+      if (performance.now() - heldAt < TAP_GUARD_MS) return;
       if (discard && !abandonQuest) {
         abandonQuest = confirmKey;
         renderActions();
@@ -3054,8 +3069,10 @@ $("action-beat").addEventListener(
 );
 function updateCardSelection(frame) {
   if (frame.dataset.want) {
-    const entry = questEntry(frame.dataset.questId);
-    if (entry) frame.replaceWith(questFrame(entry));
+    const button = frame.querySelector(".card");
+    frame.dataset.raised = button.dataset.picked = String(questOpen);
+    button.setAttribute("aria-pressed", String(questOpen));
+    syncAvatarStack(frame, frame.dataset.questId);
     return;
   }
   const fold = frame.querySelector(":scope > .quest-fold");
@@ -3236,11 +3253,11 @@ function turnQuest(key) {
   setQuestClosed(card, false);
   void turnCard(card);
 }
-function moveHandPart(key, element, frames, duration = 220, delay = 0) {
+function moveHandPart(key, element, frames, duration = 220, delay = 0, easing = "ease-out") {
   const motion = element.animate(frames, {
     duration,
     delay,
-    easing: "ease-out",
+    easing,
     fill: delay ? "backwards" : "none",
   });
   handMotions.set(key, motion);
@@ -3249,6 +3266,21 @@ function moveHandPart(key, element, frames, duration = 220, delay = 0) {
       if (handMotions.get(key) === motion) handMotions.delete(key);
     })
     .catch(() => {});
+}
+function wearFace(from, to) {
+  const parts = (card) =>
+    [...(card?.children ?? [])].filter((part) => !part.matches(".card-back"));
+  const worn = parts(from);
+  parts(to).forEach((part, i) => worn[i] && part.replaceWith(worn[i]));
+}
+function tuckQuest(frame, from) {
+  frame.hidden = false;
+  const [ghost] = ghostsOver([frame], handExits());
+  frame.hidden = true;
+  const holder = $("hand").querySelector(`[data-card="${frame.dataset.holder}"]`) ?? ghost,
+    { start, end } = tuckFrames(from, holder.getBoundingClientRect(), ghost.getBoundingClientRect());
+  ghost.style.translate = start;
+  fadeGhost(ghost, end, TRAVEL_MS, 0, TRAVEL_EASE);
 }
 function card(id) {
   if (offerOf(world, id)) return offerFrame(id);
@@ -3538,6 +3570,7 @@ function offerFrame(id) {
   el.type = "button";
   el.dataset.card = id;
   el.dataset.offer = offer.kind;
+  el.dataset.questEntry = questEntryKey(quest);
   el.dataset.tier = tier.id;
   el.dataset.near = "false";
   // An offer lies face down, as a closed box does, until it is opened.
@@ -3602,11 +3635,9 @@ function questFrame({ id, quest }) {
     }),
     ...questFace(quest, verb),
   );
-  // A tap chooses the quest and shows its details; a tap on it again lowers
-  // it.
   el.addEventListener("click", () => {
     if (selectionBlocked()) return;
-    if (picked) {
+    if (questOpen) {
       questOpen = false;
       render();
     } else openQuest();
@@ -5098,10 +5129,25 @@ function render() {
   const dealtQuest = liveQuests.find(
     (quest) => questVisible(world, quest) && !shownQuests.some((shown) => shown.key === quest.key),
   );
-  // A quest where there was none, such as the first at the pond, is new.
+  const shownCards = [...$("hand").querySelectorAll(".card[data-card]")].map(
+      (el) => ({ id: el.dataset.card, entry: el.dataset.questEntry }),
+    ),
+    heldSource = dealtQuest
+      ? heldFrom(questEntryKey(dealtQuest), shownCards, selected, currentActor(world))
+      : null;
   if (!shownQuests.length && liveQuests.length && renderedHand)
     questFresh = true;
   shownQuests = liveQuests;
+  if (heldSource?.offer)
+    $("hand").querySelector(`[data-card="${heldSource.id}"]`).parentElement.dataset.gone = "true";
+  if (heldSource?.handed) {
+    selected = [];
+    questOpen = true;
+    questFresh = false;
+    rowCollapsed = false;
+    expandedHolders.add(currentActor(world));
+    heldAt = performance.now();
+  }
   // A new quest stops glowing once its card has been seen.
   if (questShown(foldQuest())) questFresh = false;
   packSync(availableCards(world));
@@ -5162,6 +5208,7 @@ function render() {
       animate = (samePlace || swapping) && !reducedMotion.matches,
       exits = !opening && !quietExits && !reducedMotion.matches,
       before = new Map(),
+      closing = { delay: 0, enter: 0 },
       swap = swapping
         ? (swapFrom ?? { at: performance.now(), left: 0, fallen: 0 })
         : null;
@@ -5230,8 +5277,14 @@ function render() {
           swap.fallen = Math.max(swap.fallen, since + late.at(-1) + EXIT_MS);
         // A face changed with the light fades; one that moves just moves.
         if (stayed && faces.length) fadeFaces(faces, handExits(), wait(faceAt));
-      } else if (leaving.length) dropCards(leaving, handExits());
+      } else if (leaving.length) dissolveCards(leaving, handExits());
+      Object.assign(closing, closeTiming(leaving.length, Boolean(swap)));
       for (const [was, now] of changed) morphFrame(was, now, syncFigureFrame);
+      if (heldSource?.offer)
+        wearFace(
+          $("hand").querySelector(`[data-card="${heldSource.id}"]`),
+          frames.find((frame) => frame.dataset.want)?.firstElementChild,
+        );
       $("hand").replaceChildren(...frames);
       if (swap) swap.left += leaving.length;
     }
@@ -5286,9 +5339,9 @@ function render() {
             before.has(frame.querySelector(".card").dataset.card),
         })),
       // The hand a page, a resumed save or a new game opens on is dealt.
-      { reduced: reducedMotion.matches, after: swap ? entering : 0 },
+      { reduced: reducedMotion.matches, after: swap ? entering : closing.enter },
     );
-    showQuests(opening);
+    showQuests(opening || Boolean(heldSource?.handed));
     // A new quest rises where the player can see its slot in the hand.
     if (dealtQuest && !opening) revealHandCard(questId(), { instant: true });
     openLockedBoxes();
@@ -5297,12 +5350,15 @@ function render() {
     const moves = [];
     if (animate)
       for (const frame of $("hand").children) {
+        const id = motionKey(frame),
+          dealt = frame.dataset.want && !before.has(id) && !dealtBefore.has(id),
+          from = dealt && before.get(heldSource?.id);
+        if (frame.hidden && from) tuckQuest(frame, from);
         if (frame.hidden) continue;
-        const id = motionKey(frame);
-        // A quest newly dealt rises in its own slot. One shown as its
-        // stack opens comes from behind the holder.
-        if (frame.dataset.want && !before.has(id) && !dealtBefore.has(id)) {
-          riseIn(frame);
+        if (dealt) {
+          if (from)
+            moves.push({ id, frame, previous: from, next: frame.getBoundingClientRect(), flight: true });
+          else riseIn(frame, { delay: closing.enter });
           continue;
         }
         const previous =
@@ -5320,12 +5376,12 @@ function render() {
       }
     // Cards going back from a pack settle a beat apart, the rarest last.
     const settling = pack.takeSettle();
-    // A card's name label sits at its top (card-label.mjs), so it moves
-    // with its card and never slides on its own.
-    for (const { id, frame, previous, next } of moves) {
+    for (const { id, frame, previous, next, flight } of moves) {
       const dx = previous.left - next.left,
         dy = previous.top - next.top;
-      if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
+      if (flight)
+        moveHandPart(`frame:${id}`, frame, travelFrames(previous, next), TRAVEL_MS, 0, TRAVEL_EASE);
+      else if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
         moveHandPart(
           `frame:${id}`,
           frame,
@@ -5333,8 +5389,8 @@ function render() {
             translate: [`${dx}px ${dy}px`, "0 0"],
             opacity: [before.has(id) ? 1 : 0.3, 1],
           },
-          reshaped ? LAYOUT_MS : undefined,
-          settling.get(id) ?? 0,
+          reshaped ? LAYOUT_MS : closing.duration,
+          settling.get(id) ?? closing.delay,
         );
     }
     syncPackTells();
@@ -5348,7 +5404,9 @@ function render() {
   renderScene();
   renderLog();
   updateCardCooldown();
-  if (focused) {
+  if (heldSource?.handed)
+    $("hand").querySelector(".want-frame > .want-card")?.focus({ preventScroll: true });
+  else if (focused) {
     const frame = $("hand")
       .querySelector(`[data-card="${focused}"]`)
       ?.closest(".card-frame");
