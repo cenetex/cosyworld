@@ -1,7 +1,8 @@
-// Quest offers (rules 133, #2605): the one list of quests a player may take by
-// a tap. "When a location, item, or avatar offers a quest it shows a quest
-// card that can be tapped" (owner, 2026-11-11): every offer is a card on the
-// table with one id, and selecting it gives one button.
+// Quest offers (rules 133, #2605; held at once since rules 134): the one list
+// of quests that stand for a player. "Quests should be accepted automatically"
+// (owner, 2026-11-11): an offer that stands is held in the same committed
+// play that made it stand (`settleQuests`, world.mjs), so no card or button
+// takes it. The only quest play is Discard.
 //
 //   box       a shut box lying here
 //   resident  someone here who told you their want, and
@@ -9,14 +10,20 @@
 //   home      your own home's door, shut
 //   level     your experience reached the next level
 //
-// Every offer's button reads "Accept quest" (owner, 2026-11-11); the bar's
-// caption tells the quests apart.
-// A player's quest is never drawn or pushed. While one is held every offer
-// still stands, carrying `blocked`, the reason for the card's disabled button;
-// the `take` play itself is offered only when it can succeed (world.mjs).
+// An offer stands only while the player does not already hold it and has not
+// closed it: a quest met or discarded is not offered again by its source until
+// the source offers different terms (`closed`, want.mjs).
 import { entityActive } from "../pack-registry.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
-import { levelUpQuest, newWant, sameQuest, wantOf } from "../want.mjs";
+import {
+  MAX_HELD,
+  closedBy,
+  heldOf,
+  holdsLevelQuest,
+  levelUpQuest,
+  newWant,
+  sameQuest,
+} from "../want.mjs";
 import { questFor, toldWant } from "../talk-quest.mjs";
 import { revealed } from "../want-talk.mjs";
 import { offerUnlocked } from "../offer-chance.mjs";
@@ -26,13 +33,6 @@ import { travelerOf } from "./company.mjs";
 import { homeOf } from "./home.mjs";
 
 export const OFFER_KINDS = ["box", "resident", "home", "level"];
-export const BLOCKED = "Finish or discard your quest first";
-export const OFFER_LABELS = {
-  box: "Accept quest",
-  resident: "Accept quest",
-  home: "Accept quest",
-  level: "Accept quest",
-};
 export const offerId = (kind, source) =>
   kind === "level" ? "quest:level" : `quest:${kind === "resident" ? "from" : kind}:${source}`;
 export const isOfferId = (id) => typeof id === "string" && id.startsWith("quest:");
@@ -49,44 +49,42 @@ const boxQuest = (s, { kind, target, step }) => ({
 });
 
 // An escort or meeting offered by a resident who is already another
-// traveler's companion cannot be taken: the reason is the card's button.
+// traveler's companion is not held: it stands again when they part.
 function withAnother(s, actor, kind, source, want) {
   const traveler = travelerOf(s, source);
-  return kind === "resident" &&
-    traveler &&
-    traveler !== actor &&
-    want.kind === "person" &&
-    want.target === source
-    ? `${nameOf(source)} is with ${nameOf(traveler)}`
-    : null;
+  return Boolean(
+    kind === "resident" &&
+      traveler &&
+      traveler !== actor &&
+      want.kind === "person" &&
+      want.target === source,
+  );
 }
 
 const isPlayer = (s, actor) =>
   actor === currentActor(s) || controlledByHuman(s, actor);
 
 /**
- * The quest offers lying at the actor's place, as
- * `{ id, kind, source, want, label, blocked }`. `want` is the quest taking
- * the offer sets (valid as it stands); `blocked` is the reason it cannot be
- * taken now, or null.
+ * The quest offers standing for the actor at its place, as
+ * `{ id, kind, source, want }`, in the order they are held (the last is held
+ * on top). `want` is the quest holding the offer sets (valid as it stands).
+ * An offer already held, or closed at these terms, does not stand.
  */
 export function questOffers(s, actor = currentActor(s)) {
   const a = s.actors[actor];
-  if (!a || !isPlayer(s, actor)) return [];
-  const held = wantOf(s, actor),
-    here = a.place,
+  if (!a || !isPlayer(s, actor) || heldOf(a).length >= MAX_HELD) return [];
+  const here = a.place,
     out = [];
   const add = (kind, source, want) => {
-    if (!want || (held && !held.quest && !want.quest && sameQuest(held, want)))
+    const id = offerId(kind, source);
+    if (
+      !want ||
+      closedBy(a, id, want) ||
+      (!want.quest && heldOf(a).some((held) => sameQuest(held, want))) ||
+      withAnother(s, actor, kind, source, want)
+    )
       return;
-    out.push({
-      id: offerId(kind, source),
-      kind,
-      source,
-      want,
-      label: OFFER_LABELS[kind],
-      blocked: held ? BLOCKED : withAnother(s, actor, kind, source, want),
-    });
+    out.push({ id, kind, source, want });
   };
   const home = humanAvatar(actor)?.home;
   for (const box of shutBoxesAt(s, here, actor)) {
@@ -116,7 +114,7 @@ export function questOffers(s, actor = currentActor(s)) {
       continue;
     add("resident", them, questFor(s, them, want));
   }
-  if (!held?.quest) {
+  if (!holdsLevelQuest(a)) {
     const level = levelUpQuest(s, actor, { home: homeOf });
     if (level) add("level", actor, level);
   }

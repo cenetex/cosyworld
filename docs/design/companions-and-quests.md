@@ -92,7 +92,8 @@ Quoted as given. These bind this document.
 7. Patroclus starts at trust 3. "Patroclus card unlocks on the Charybdis when
    you are docked at piraeus with the supplies aboard." Polynices must also
    be buried.
-8. Quest cards: an offered quest is a closed box first ("A closed box" /
+8. Quest cards (**superseded by 24**: no closed box, no Accept quest, quests
+   stack): an offered quest is a closed box first ("A closed box" /
    open), then "Accept quest" (one label everywhere). A held quest's one
    button is always "Discard". "Quests should act a lot more like items."
    And a musing, not a decision: "perhaps quests are just tradeable".
@@ -152,6 +153,14 @@ Quoted as given. These bind this document.
 
 Rules 133 now includes the resident dwell rule (PR #2677) and the pack
 opening (PR #2665).
+
+24. After the rules 133 playtest, 2026-11-11, quoted as given: "quests should
+    be accepted automatically 'tap to accept' should be 'Tap to discard'" and
+    "quests stack and only the top one is shown". Built in rules 134, package
+    A (issue [#2694](https://github.com/cenetex/cosyworld/issues/2694)). This
+    **replaces** the closed box, the Accept quest button and the one-quest
+    limit in decision 8 and in "One card flow" below; see "Rules 134: held at
+    once" at the end of that section.
 
 Decisions 10 to 23 were made after the sections below were first written.
 Where a PROPOSED item contradicts them it is marked SUPERSEDED or rejected in place and
@@ -220,6 +229,32 @@ questions 16 to 19.
 "Quests should act a lot more like items" is read as: a quest is a card you
 pick up, hold one of, and put down, with no list and no second control.
 Tradeable quests stay a musing; see open question 9.
+
+**Rules 134: held at once.** Decision 24 removes steps 1 and 2 above. What
+is built:
+
+- **No accept step.** An offer that stands for a player (a shut box here, a
+  resident who told its want and offers it, the avatar's own home door, the
+  next level) is held in the same committed play that made it stand
+  (`settleQuests`, `world.mjs`). It is not a journaled play of its own and the
+  client issues none. The `take` play for an offer, `OFFER_LABELS` and the
+  closed-box offer cards are gone. A quest to bring or meet a resident still
+  binds that resident as the companion the moment it is held.
+- **Quests stack.** A player's `want` is the top, the newest, and it is the
+  active want everything already reads. `under` holds the older ones, nearest
+  first (at most nine held in all, only on player avatars). Residents keep one
+  want. When the top is met or discarded, the next one shows and is the active
+  want. A level quest joins the stack like any other, and a long rest at home
+  meets it wherever it lies in the stack.
+- **Discard sticks.** The only quest play is **Discard**, on the top quest.
+  A quest met or discarded is recorded in the player's `closed` map, one entry
+  per offer source, as the terms it closed at. The source's offer does not
+  stand again until its terms differ (a resident's new want, a box's changed
+  lock, the next level). Discarding a level quest still costs the XP it did.
+- **One button.** A held quest is chosen like any card and its one button is
+  Discard; the stack under it shows only as stack edges.
+- **Saves.** `under` and `closed` are optional, so a rules 133 save loads
+  as it is.
 
 ## The resident's loop
 
