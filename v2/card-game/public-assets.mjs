@@ -156,6 +156,7 @@ const files = [
   "card-keep.mjs",
   "figure-frame.mjs",
   "card-swap.mjs",
+  "card-travel.mjs",
   "dream-card.mjs",
   "glimpse-card.mjs",
   "sleep-presentation.mjs",

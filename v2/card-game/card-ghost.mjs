@@ -111,15 +111,16 @@ export function releaseGhosts(root = document) {
 // Plays the ghost out to the keyframe `to` and releases it when the motion
 // ends or is cancelled. It rests invisible, so it never shows again; one
 // that waits `delay` holds its look until it moves.
-export function fadeGhost(ghost, to, duration, delay = 0) {
+export function fadeGhost(ghost, to, duration, delay = 0, easing = "cubic-bezier(.22,.61,.36,1)") {
   if (!ghost) return null;
-  const from = getComputedStyle(ghost).opacity;
+  const from = getComputedStyle(ghost).opacity,
+    steps = [to].flat();
   ghost.style.opacity = "0";
-  const motion = ghost.animate([{ opacity: from }, { opacity: 0, ...to }], {
+  const motion = ghost.animate([{ opacity: from }, ...steps.slice(0, -1), { opacity: 0, ...steps.at(-1) }], {
     duration,
     delay,
     fill: "backwards",
-    easing: "cubic-bezier(.22,.61,.36,1)",
+    easing,
   });
   const done = () => releaseGhost(ghost);
   motion.finished.then(done, done);

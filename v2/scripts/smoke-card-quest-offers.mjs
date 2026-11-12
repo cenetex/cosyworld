@@ -17,6 +17,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { newWant } from "../card-game/want.mjs";
+import { DISSOLVE_MS } from "../card-game/card-travel.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { journeyWorlds } from "../../test/helpers/journey.mjs";
 import { questCards } from "../../test/journeys/quest-cards.mjs";
@@ -159,6 +160,27 @@ try {
         return seen.filter(Boolean).join("\n");
       });
     const offerCards = (page) => page.locator('#hand [data-card^="quest:"]');
+    const motion = async (page, reducedMotion) => {
+      await page.emulateMedia({ reducedMotion });
+      await page.evaluate(() => window.motionPreferenceReady);
+    };
+    const watchQuest = (page) =>
+      page.evaluate(() => {
+        const seen = (window.questWatch = []);
+        const look = () => {
+          const cards = [...document.querySelectorAll("#hand .card-frame:not([hidden]) > .want-card")],
+            box = cards[0]?.getBoundingClientRect(),
+            over = box && document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 4);
+          seen.push({
+            look: [cards.length, cards[0]?.getAttribute("aria-pressed"), cards[0]?.dataset.unrevealed],
+            top: Boolean(over && cards[0].contains(over)),
+            left: Math.round(box?.left),
+            copies: document.querySelectorAll(".card-exits .want-card").length,
+          });
+          if (seen.length < 45) requestAnimationFrame(look);
+        };
+        look();
+      });
     const label = async (page) =>
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
@@ -288,10 +310,27 @@ try {
       await t.layout();
       await t.shot("offer");
       // 3. Pressing it takes the quest and passes no turn.
+      await motion(page, "no-preference");
+      await watchQuest(page);
       await page.locator("#card-actions button").first().click();
       await page.waitForFunction(
         () => !document.querySelector('#hand [data-card="quest:from:moth"]'),
       );
+      await page.waitForFunction(() => window.questWatch.length >= 45);
+      const flight = await page.evaluate(() => window.questWatch);
+      for (const [i, frame] of flight.entries())
+        assert.deepEqual(
+          [frame.look, frame.top, frame.copies],
+          [[1, "true", "false"], true, 0],
+          `frame ${i}: one quest card, chosen, face up, over the stacks`,
+        );
+      if (width === 1440)
+        assert(new Set(flight.map((f) => f.left)).size > 4, "it travels to Vale's stack");
+      assert.equal(await page.locator("#hand .want-frame:not([hidden]) > .want-card").count(), 1);
+      assert.equal(await page.evaluate(() => document.activeElement.dataset.questId), "quest:0");
+      assert.equal(await t.oneButton(), 1);
+      assert.equal(await label(page), "Discard");
+      await motion(page, "reduce");
       const taken = await t.state();
       assert.equal(taken.turn, turn, "taking a quest passes no turn");
       assert.deepEqual(
@@ -439,9 +478,20 @@ try {
       assert.equal(await label(page), "Discard");
       await t.shot("held");
       await drop.click();
+      await motion(page, "no-preference");
       await page.locator("#card-actions [data-drop-quest]").click();
+      const fading = page.locator(".card-exits .want-card");
+      await fading.waitFor({ state: "attached" });
+      assert.ok(await page.evaluate(() => document.activeElement.closest("#hand")), "focus stays in the hand");
+      assert.equal(
+        await fading.evaluate((el) => el.parentElement.getAnimations()[0].effect.getTiming().duration),
+        DISSOLVE_MS,
+      );
+      await fading.waitFor({ state: "detached" });
+      await motion(page, "reduce");
       await t.ready();
       assert.equal((await t.state()).actors.vale.want, null);
+      assert.equal(await page.locator("#hand .want-frame").count(), 0, "the discarded quest is gone");
       await selectCard(page, "quest:from:moth");
       assert.equal(await t.oneButton(), 1);
       assert.equal(await label(page), "Accept quest");

@@ -1,5 +1,11 @@
 import { entryDelays } from "./card-entry.mjs";
 import { fadeGhost, lookAlike } from "./card-ghost.mjs";
+import {
+  DISSOLVE,
+  DISSOLVE_EASE,
+  DISSOLVE_MS,
+  DISSOLVE_STAGGER_MS,
+} from "./card-travel.mjs";
 
 // Cards leaving the player's view: a thing given or put down into a folded
 // stack, an avatar walking away, a place left behind, a quest cleared or set
@@ -79,8 +85,13 @@ export function foldCards(frames, layer, reduced = false) {
   return ghosts;
 }
 
-// Lets each leaving frame fall as a copy, by default staggered as entries
-// are; a scene change gives its own `delays` (card-swap.mjs).
+export function dissolveCards(frames, layer) {
+  const ghosts = ghostsOver(frames, layer);
+  ghosts.forEach((ghost, i) =>
+    fadeGhost(ghost, DISSOLVE, DISSOLVE_MS, i * DISSOLVE_STAGGER_MS, DISSOLVE_EASE),
+  );
+  return ghosts;
+}
 export function dropCards(frames, layer, delays = entryDelays(frames.length)) {
   const ghosts = ghostsOver(frames, layer);
   ghosts.forEach((ghost, i) => fadeGhost(ghost, EXIT_FALL, EXIT_MS, delays[i]));
