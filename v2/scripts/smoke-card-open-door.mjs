@@ -235,7 +235,24 @@ export async function checkOpenDoor(browser, origin) {
         { kind: "take", item: "greek-ash-urn" },
         { kind: "give", item: "greek-ash-urn", target: "greek-argive-mother" },
       ];
-      for (const action of steps) {
+      const tradeOrThanks = async (trade) => {
+        for (let n = 0; n < 2 * MAX_DWELL; n++) {
+          const world = await state();
+          if (world.items[trade.receive].holder === "vale")
+            return { kind: "give", item: trade.item, target: "greek-theseus" };
+          if (
+            legalActions(world).some(
+              (a) => a.kind === "trade" && a.receive === trade.receive,
+            )
+          )
+            break;
+          await step({ kind: "wait" });
+        }
+        return trade;
+      };
+      for (const planned of steps) {
+        const action =
+          planned.kind === "trade" ? await tradeOrThanks(planned) : planned;
         await step(action);
         const now = await state();
         assert.equal(
