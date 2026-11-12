@@ -119,8 +119,9 @@ Validation checks that:
 The rule records the difference between departure and return. A report that
 could finish without the earlier outcome is rejected. Saved receipts still
 decide completion, so marking an existing story as a return keeps its saves.
-The Greek table's Theban and grave reports, the Open Door account, the five
-early reports, Myrine's reading and the forest's charm homecoming are returns.
+The Greek table's Theban and grave reports and the forest's charm homecoming
+are returns. The Open Door has no reports since its rework into wants and
+things.
 
 ## Middles made of Talk
 
