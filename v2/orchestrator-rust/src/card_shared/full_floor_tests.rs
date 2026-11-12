@@ -134,14 +134,14 @@ fn an_old_world_is_refused_retired_and_keeps_its_travelers_progress() {
     assert!(!floor::pending(&c, "ann").unwrap());
     assert_eq!(floor::sweep(&c, "ann", T + 1).unwrap(), 0);
     assert_eq!(store::list(&c, "ann").unwrap()["worlds"], json!([]));
-    // A fresh world is offered by the usual create, carrying all of it.
+    // A fresh world is offered by the usual create, carrying the upgrade.
     let fresh = found(&mut c, "ann").unwrap();
     let w = full_store::world(&c, &fresh, T).unwrap();
     assert_eq!(w.version, "full-card-world/133");
     let vale_state = &w.game["actors"]["vale"];
     assert_eq!(
         (vale_state["xp"].clone(), vale_state["level"].clone()),
-        (json!(7), json!(2))
+        (json!(0), Value::Null)
     );
     assert_eq!(vale_state["upgrades"], json!(["scarf"]));
     drop(c);
@@ -156,8 +156,46 @@ fn a_claim_elsewhere_retires_the_old_world_instead_of_opening_it() {
     assert!(retired(&c, "old"));
     assert!(!retired(&c, &fresh));
     let w = full_store::world(&c, &fresh, T).unwrap();
-    assert_eq!(w.game["actors"]["vale"]["xp"], json!(7));
-    assert_eq!(w.game["actors"]["vale"]["level"], json!(2));
+    assert_eq!(w.game["actors"]["vale"]["xp"], json!(0));
+    assert!(w.game["actors"]["vale"]["level"].is_null());
+    drop(c);
+    std::fs::remove_file(path).unwrap();
+}
+
+fn offers_a_level(w: &World, a: usize) -> bool {
+    let view = w.project(a).unwrap();
+    let mut actions = view["actions"].as_array().unwrap().iter();
+    actions.any(|o| o["offer"] == "quest:level")
+}
+
+#[test]
+fn a_new_world_starts_at_no_level_and_keeps_the_upgrade() {
+    let (path, mut c) = open();
+    let vale = actor_index("vale").unwrap();
+    bindings::save_progress(&c, "ann", vale, &json!({"xp":3,"level":1})).unwrap();
+    c.execute(
+        "INSERT INTO card_avatar_upgrades(user,actor,upgrade) VALUES('ann',?,'scarf')",
+        [vale],
+    )
+    .unwrap();
+    let mut carried = World::create(None).unwrap();
+    carried
+        .apply(&json!({"op":"claim","actor":"vale","progress":{"xp":3,"level":1}}))
+        .unwrap();
+    assert!(offers_a_level(&carried, vale));
+    let fresh = found(&mut c, "ann").unwrap();
+    let w = full_store::world(&c, &fresh, T).unwrap();
+    let state = &w.game["actors"]["vale"];
+    assert_eq!(w.game["turn"], json!(0));
+    assert_eq!(state["xp"], json!(0));
+    assert!(state["level"].is_null());
+    assert!(state["carried"].is_null());
+    assert_eq!(state["upgrades"], json!(["scarf"]));
+    assert!(!offers_a_level(&w, vale));
+    assert_eq!(
+        bindings::take_progress(&c, "ann", vale).unwrap(),
+        Some(json!({"xp":3,"level":1}))
+    );
     drop(c);
     std::fs::remove_file(path).unwrap();
 }

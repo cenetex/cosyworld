@@ -461,8 +461,7 @@ fn reset(
     store::snapshot(c, id, u, time)
 }
 // A seat empties: it starts over for whoever takes that avatar here next,
-// what the avatar held stays where it stood, and its holder keeps its level
-// for the avatar's next seat (#1846).
+// what the avatar held stays where it stood, and its level is recorded.
 fn vacate(c: &rusqlite::Connection, id: &str, w: &mut World, a: usize, time: i64) -> Result<()> {
     let busy: i32 = c
         .query_row(
@@ -486,8 +485,7 @@ fn vacate(c: &rusqlite::Connection, id: &str, w: &mut World, a: usize, time: i64
 // Any found avatar may come to a world this passkey has played (owner,
 // 2026-11-03). The avatar it had there stays as a resident: a journaled
 // release, no reset, so it keeps its state and level there, and its binding
-// goes. Its level also goes with the passkey to that avatar's next seat
-// (#1846). Refused before anything is journaled.
+// goes. Refused before anything is journaled.
 fn hand_over(
     c: &rusqlite::Connection,
     id: &str,
@@ -508,7 +506,7 @@ fn hand_over(
     bindings::free(c, id, old)
 }
 // An avatar is in one world at a time (#1846): a claim empties its seats in
-// every other world, in the same transaction, and takes its level along.
+// every other world, in the same transaction.
 // Loading upgrades earlier rules first. A busy seat keeps its claim and
 // progress until the move can reset it in this same transaction.
 fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: i64) -> Result<()> {
@@ -524,22 +522,13 @@ fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: 
     }
     Ok(())
 }
-// The claim command, with the avatar's level from its last seat when these
-// rules can take it.
+// The claim command, with the passkey's cosmetic upgrades (#2713).
 fn claim_command(c: &rusqlite::Connection, w: &World, u: &str, a: usize) -> Result<Value> {
     let mut command = json!({"op":"claim","actor":actor_id(a)});
-    if bindings::carries_progress(&w.version) {
-        if let Some(progress) = bindings::take_progress(c, u, a)? {
-            command["progress"] = progress;
-        }
-    }
     if bindings::carries_upgrades(&w.version) {
         let upgrades = bindings::upgrades(c, u, a)?;
         if !upgrades.is_empty() {
-            if command["progress"].is_null() {
-                command["progress"] = json!({});
-            }
-            command["progress"]["upgrades"] = json!(upgrades);
+            command["progress"] = json!({ "upgrades": upgrades });
         }
     }
     Ok(command)

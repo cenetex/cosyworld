@@ -8,8 +8,7 @@
 //! What a traveler keeps lives outside the journal, per passkey: unlocked
 //! avatars (`card_unlocks`), cosmetic upgrades (`card_avatar_upgrades`) and
 //! each avatar's level and experience (`card_avatar_progress`). Retiring
-//! writes the last two from the world's last checkpoint, without replay, and
-//! the next claim journals them as `progress` (full.rs).
+//! writes the last two from the world's last checkpoint, without replay.
 use super::{
     bindings,
     full_world::{actor_id, World},
@@ -56,8 +55,8 @@ pub(super) fn below(c: &Connection, id: &str) -> Result<bool> {
         .map_err(sql_error)?;
     Ok(version.flatten().is_none_or(|v| old(&v)))
 }
-// Keep an avatar's level and experience for its holder's next seat (the higher
-// of any already waiting stays: bindings::save_progress), and its upgrades.
+// Record an avatar's level and experience for its holder (the higher of any
+// already recorded stays: bindings::save_progress), and its upgrades.
 fn keep(c: &Connection, user: &str, a: usize, game: &Value) -> Result<()> {
     bindings::save_progress(c, user, a, &bindings::progress_of(game, actor_id(a)))?;
     bindings::record_upgrades(c, user, a, game)
