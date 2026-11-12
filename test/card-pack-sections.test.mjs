@@ -132,12 +132,6 @@ describe("permanent pack sections", () => {
     });
     world = act(world, "move", { target: "greek-harbor" });
     world = act(world, "move", { target: "greek-piraeus" });
-    // The herald's truce has opened the Long Walls inland (rules 94).
-    world.openedRoutes = [
-      ...(world.openedRoutes || []),
-      "greek-athens>greek-road-athens-piraeus",
-      "greek-piraeus>greek-road-athens-piraeus",
-    ].sort();
     world = act(world, "move", { target: "greek-athens" });
     world = act(world, "move", { target: "greek-colonus" });
     const waits = (w) =>

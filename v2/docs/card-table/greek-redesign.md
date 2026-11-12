@@ -71,7 +71,7 @@ way the Theban gate does today. No step is a button.
 | Battlefield to the Cithaeron road | The battlefield's far route | The dead have burial rights: the rite that yields the Burial Account is done, or the Herald's Truce has reached the battlefield |
 | Cithaeron road to Eleusis | The road's far end | Open to anyone on the road |
 | Eleusis to the city | The Sacred Way through the Dipylon | The Suppliants' petition is delivered: the Dipylon's warden holds it |
-| City to the harbour | The Long Walls | The Open Door: the Herald's Truce is in the Agora |
+| City to the harbour | The Long Walls | None: open from the start (the sea route to Athens; the burial gates nothing here) |
 
 This follows Euripides' *Suppliant Women*: the Argive dead go from the
 Theban battlefield to their mothers at Eleusis, and the mothers' plea goes on
@@ -359,8 +359,8 @@ homecoming:
   mother, the return list to Thaleia, and each outcome to Dione.
 - New outcome items: the Pyre Account (`greek-pyre-account`) and the Marathon
   Record (`greek-marathon-record`). The Herald's Truce keeps the olive
-  branch's ID, `greek-olive-branch`. It appears in the Agora with the plea,
-  and the Long Walls stay open only while it is there.
+  branch's ID, `greek-olive-branch`. It appears in the Agora with the plea;
+  the Long Walls no longer wait on it.
 - `return-dione` commits when all five outcomes are on Dione's table.
 - The save upgrade passes a deleted fork's receipt to the step that took it
   in (for example the open berth to the family berth, and a reading to the

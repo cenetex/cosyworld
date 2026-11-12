@@ -559,7 +559,7 @@
         "from": "greek-athens",
         "to": "greek-road-athens-piraeus",
         "kind": "route",
-        "gate": "route:greek-athens>greek-road-athens-piraeus"
+        "gate": null
       },
       {
         "from": "greek-athens",
@@ -901,7 +901,7 @@
         "from": "greek-piraeus",
         "to": "greek-road-athens-piraeus",
         "kind": "route",
-        "gate": "route:greek-piraeus>greek-road-athens-piraeus"
+        "gate": null
       },
       {
         "from": "greek-piraeus",
@@ -1982,128 +1982,6 @@
           ],
           "resident": [
             "greek-aethra"
-          ]
-        }
-      },
-      {
-        "id": "route:greek-athens>greek-road-athens-piraeus",
-        "kind": "route",
-        "title": "Athenian Agora to The Long Walls",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "flag(key=greek-open-door-plea-registered,value=true)"
-            },
-            {
-              "op": "atom",
-              "atom": "item_near(item=greek-olive-branch,place=greek-athens)"
-            }
-          ]
-        },
-        "words": "greek-open-door-plea-registered is set and The Herald’s Truce is in Athenian Agora",
-        "ids": "greek-open-door-plea-registered is set and greek-olive-branch is in greek-athens",
-        "latch": [
-          "flag(key=greek-open-door-plea-registered,value=true)"
-        ],
-        "live": [
-          "item_near(item=greek-olive-branch,place=greek-athens)"
-        ],
-        "follows": "latches",
-        "seal": {
-          "kind": "place",
-          "target": "greek-road-athens-piraeus"
-        },
-        "prerequisites": {
-          "act": [
-            "greek-anoint-polynices",
-            "greek-bury-polynices",
-            "greek-open-door-hear-adrastus",
-            "greek-open-door-hear-mothers",
-            "greek-open-door-register-plea",
-            "greek-shroud-polynices"
-          ],
-          "flag": [
-            "greek-open-door-adrastus-heard",
-            "greek-open-door-mothers-heard",
-            "greek-open-door-open",
-            "greek-open-door-plea-registered",
-            "greek-polynices-anointed",
-            "greek-polynices-veiled"
-          ],
-          "item": [
-            "greek-burial-petition",
-            "greek-funeral-cloth",
-            "greek-oil-flask",
-            "greek-olive-branch",
-            "greek-shovel"
-          ],
-          "resident": [
-            "greek-adrastus",
-            "greek-aethra",
-            "greek-theseus"
-          ]
-        }
-      },
-      {
-        "id": "route:greek-piraeus>greek-road-athens-piraeus",
-        "kind": "route",
-        "title": "Piraeus Quays to The Long Walls",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "flag(key=greek-open-door-plea-registered,value=true)"
-            },
-            {
-              "op": "atom",
-              "atom": "item_near(item=greek-olive-branch,place=greek-athens)"
-            }
-          ]
-        },
-        "words": "greek-open-door-plea-registered is set and The Herald’s Truce is in Athenian Agora",
-        "ids": "greek-open-door-plea-registered is set and greek-olive-branch is in greek-athens",
-        "latch": [
-          "flag(key=greek-open-door-plea-registered,value=true)"
-        ],
-        "live": [
-          "item_near(item=greek-olive-branch,place=greek-athens)"
-        ],
-        "follows": "latches",
-        "seal": {
-          "kind": "place",
-          "target": "greek-road-athens-piraeus"
-        },
-        "prerequisites": {
-          "act": [
-            "greek-anoint-polynices",
-            "greek-bury-polynices",
-            "greek-open-door-hear-adrastus",
-            "greek-open-door-hear-mothers",
-            "greek-open-door-register-plea",
-            "greek-shroud-polynices"
-          ],
-          "flag": [
-            "greek-open-door-adrastus-heard",
-            "greek-open-door-mothers-heard",
-            "greek-open-door-open",
-            "greek-open-door-plea-registered",
-            "greek-polynices-anointed",
-            "greek-polynices-veiled"
-          ],
-          "item": [
-            "greek-burial-petition",
-            "greek-funeral-cloth",
-            "greek-oil-flask",
-            "greek-olive-branch",
-            "greek-shovel"
-          ],
-          "resident": [
-            "greek-adrastus",
-            "greek-aethra",
-            "greek-theseus"
           ]
         }
       },
@@ -12460,8 +12338,6 @@
           "place:greek-ajax-landing",
           "place:greek-ajax-household",
           "place:greek-ajax-grave",
-          "route:greek-athens>greek-road-athens-piraeus",
-          "route:greek-piraeus>greek-road-athens-piraeus",
           "resident:greek-argive-mother",
           "resident:greek-iphis",
           "resident:greek-household-witness",
@@ -13330,8 +13206,6 @@
           "place:greek-ajax-household",
           "place:greek-ajax-grave",
           "route:greek-eleusis>greek-road-athens-eleusis",
-          "route:greek-athens>greek-road-athens-piraeus",
-          "route:greek-piraeus>greek-road-athens-piraeus",
           "resident:greek-argive-mother",
           "resident:greek-iphis",
           "resident:greek-household-witness",
@@ -13460,8 +13334,6 @@
           "place:greek-ajax-household",
           "place:greek-ajax-grave",
           "route:greek-eleusis>greek-road-athens-eleusis",
-          "route:greek-athens>greek-road-athens-piraeus",
-          "route:greek-piraeus>greek-road-athens-piraeus",
           "resident:greek-aethra",
           "resident:greek-adrastus",
           "resident:greek-argive-mother",
@@ -13603,16 +13475,12 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "item:greek-olive-branch",
-          "route:greek-athens>greek-road-athens-piraeus",
-          "route:greek-piraeus>greek-road-athens-piraeus"
+          "item:greek-olive-branch"
         ],
         "gates": [
           "place:greek-ajax-landing",
           "place:greek-ajax-household",
           "place:greek-ajax-grave",
-          "route:greek-athens>greek-road-athens-piraeus",
-          "route:greek-piraeus>greek-road-athens-piraeus",
           "resident:greek-ajax-tecmessa",
           "resident:greek-ajax-teucer",
           "resident:greek-ajax-odysseus",
@@ -13846,8 +13714,6 @@
           "place:greek-ajax-grave",
           "route:greek-battlefield>greek-polynices-hollow",
           "route:greek-eleusis>greek-road-athens-eleusis",
-          "route:greek-athens>greek-road-athens-piraeus",
-          "route:greek-piraeus>greek-road-athens-piraeus",
           "resident:greek-aethra",
           "resident:greek-adrastus",
           "resident:greek-argive-mother",
@@ -13966,8 +13832,6 @@
           "place:greek-ajax-grave",
           "route:greek-battlefield>greek-polynices-hollow",
           "route:greek-eleusis>greek-road-athens-eleusis",
-          "route:greek-athens>greek-road-athens-piraeus",
-          "route:greek-piraeus>greek-road-athens-piraeus",
           "resident:greek-aethra",
           "resident:greek-adrastus",
           "resident:greek-argive-mother",
@@ -14201,9 +14065,7 @@
         "consumedBy": [],
         "readBy": [
           "act:greek-homecoming-report-agora-truce",
-          "act:greek-open-door-return-dione",
-          "route:greek-athens>greek-road-athens-piraeus",
-          "route:greek-piraeus>greek-road-athens-piraeus"
+          "act:greek-open-door-return-dione"
         ]
       },
       {
@@ -15468,12 +15330,6 @@
         "choice:greek-atreid-account=aeschylus",
         "place:greek-argos-palace"
       ],
-      "route:greek-athens>greek-road-athens-piraeus": [
-        "flag:greek-open-door-plea-registered",
-        "item:greek-olive-branch",
-        "place:greek-athens",
-        "place:greek-road-athens-piraeus"
-      ],
       "route:greek-battlefield>greek-polynices-hollow": [
         "flag:greek-burial-performed",
         "flag:greek-polynices-anointed",
@@ -15501,12 +15357,6 @@
         "choice:greek-helen-account=troy",
         "item:greek-helen-accounts",
         "resident:greek-elder"
-      ],
-      "route:greek-piraeus>greek-road-athens-piraeus": [
-        "flag:greek-open-door-plea-registered",
-        "item:greek-olive-branch",
-        "place:greek-athens",
-        "place:greek-road-athens-piraeus"
       ],
       "topic:greek-ajax-account-appeal": [
         "act:greek-ajax-record-appeal",
@@ -16297,11 +16147,6 @@
       "kind": "item_near",
       "class": "live",
       "words": "greek-grove-honey is in greek-colonus"
-    },
-    "item_near(item=greek-olive-branch,place=greek-athens)": {
-      "kind": "item_near",
-      "class": "live",
-      "words": "greek-olive-branch is in greek-athens"
     },
     "item_near(item=greek-provision-basket,place=greek-piraeus)": {
       "kind": "item_near",

@@ -18,7 +18,6 @@ describe("local town visits and road history", () => {
     "greek-road-athens-piraeus",
   ];
 
-
   it("keeps one road between towns and direct visits inside each town", () => {
     const w = createWorld({ packScopes: { "greek-drama": "full" } });
     const roads = Object.entries(packDefinition("greek-drama").places).filter(
@@ -42,14 +41,16 @@ describe("local town visits and road history", () => {
       "greek-road-athens-piraeus",
       "greek-road-sacred-way",
     ]);
-    // The Long Walls open from either end only with the herald's truce.
+    // The Long Walls are open from either end, with no truce.
     expect(exits(w, "greek-athens", "vale")).toEqual(
       expect.arrayContaining(["greek-road-athens-eleusis", "greek-assembly"]),
     );
     expect(exits(w, "greek-colonus", "vale")).toEqual(
       expect.arrayContaining(["greek-eleusis", "greek-marathon"]),
     );
-    expect(exits(w, "greek-piraeus", "vale")).toEqual([]);
+    expect(exits(w, "greek-piraeus", "vale")).toEqual([
+      "greek-road-athens-piraeus",
+    ]);
     expect(roads.map(([id]) => id).sort()).toEqual([
       "greek-cithaeron",
       "greek-oeta",
