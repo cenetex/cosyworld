@@ -224,8 +224,9 @@ mod tests {
             }
             chain.into_iter().map(|link| link.model).collect::<Vec<_>>()
         };
-        assert_eq!(models("pip"), [default.as_str(), "openai/gpt-6-luna"]);
-        assert_eq!(models("vale"), ["openai/gpt-6-luna"]);
+        for id in ["vale", "moth", "badger", "pip"] {
+            assert_eq!(models(id), [default.as_str(), "openai/gpt-6-luna"]);
+        }
         let keeper = ["anthropic/claude-haiku-5.5", "openai/gpt-6-luna"];
         assert_eq!(models("keeper"), keeper);
         let production = include_str!("../../../../fly.lonelyforest.toml");
