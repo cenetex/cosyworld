@@ -296,6 +296,7 @@ const files = [
   "audio-wake.mjs",
   "local-service.mjs",
   "local-saves.mjs",
+  "save-guard.mjs",
   "combat.css",
   "beats.mjs",
   "combat-beats.mjs",
