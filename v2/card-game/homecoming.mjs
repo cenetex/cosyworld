@@ -3,8 +3,6 @@
 // opens at (`doors`). A world opened for an unlocked avatar (`homecoming` on
 // create) also leaves that avatar outside and scatters its belonging to a
 // seeded spot it can reach without Vale's lamp. The quest to bring the
-// belonging home is the avatar's to take at its home's door, a locked box
-// (`questOffers`, world/offers.mjs); nothing is pushed. The host passes only
 // the avatar; the seeded world records the rest, so replay never reads a
 // server table.
 import forest from "./forest.json" with { type: "json" };

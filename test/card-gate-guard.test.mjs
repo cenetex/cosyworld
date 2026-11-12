@@ -2,7 +2,7 @@
 // and a player may stand guard at a guardable way.
 import { describe, expect, it } from "vitest";
 import { lockText } from "./helpers/lock-text.mjs";
-import { encodeSave, exits, legalActions, play, sealedWays } from "../v2/card-game/world.mjs";
+import { encodeSave, exits, legalActions, play, questOffers, sealedWays } from "../v2/card-game/world.mjs";
 import { cardActions, sealedReason } from "../v2/card-game/cards.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
@@ -40,10 +40,8 @@ describe("the Gate Guard", () => {
     expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
     expect(exits(s, GATE, GUARD)).toContain(FIELD);
     expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
-    // The locked card offers its quest as a card (rules 133): the writ in his
-    // hands. Talk with him tells his own want (rules 102).
     expect(
-      legalActions(s).find((a) => a.offer === `quest:box:${FIELD}`),
+      questOffers(s).find((o) => o.id === `quest:box:${FIELD}`),
     ).toBeTruthy();
     // He bars the gate from the battlefield side too: there it is the
     // locked box with the same reason, and only he may pass.

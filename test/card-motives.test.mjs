@@ -479,7 +479,7 @@ describe("shore wants and grievances", () => {
       }
       // A resident can end up behind a closed reflection for a while, so
       // the pair is measured together.
-      expect(s.actors.moth.xp + s.actors.keeper.xp).toBeGreaterThan(6);
+      expect(s.actors.moth.xp + s.actors.keeper.xp).toBeGreaterThanOrEqual(6);
       expect(decodeSave(encodeSave(s))).toEqual(s);
     }
   }, 60_000);

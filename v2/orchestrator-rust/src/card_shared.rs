@@ -171,6 +171,13 @@ pub(crate) fn revision(
     }
     crate::account_revision::Revision::capture(&c, &user, h).map_err(|error| error.to_string())
 }
+
+pub(super) fn gateway_user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<String> {
+    if let Some(account) = state.account_auth.account_for_bot_request(h) {
+        return Ok(account);
+    }
+    user(state, h, mutation)
+}
 fn admit(user: &str) -> Result<()> {
     use crate::rate_limit::{RateLimit, RateLimiter};
     use std::{

@@ -83,7 +83,9 @@ import {
   installWants,
   wake,
   dropQuest,
-  takeQuest,
+  holdQuest,
+  heldOf,
+  sameQuest,
   questsOf,
   levelOf,
   levelReturnHome,
@@ -103,7 +105,7 @@ import {
   WANT_KINDS,
   CONNECT_TARGET,
 } from "./want.mjs";
-import { pruneTalkQuests, talkQuest, pinnedCompanion } from "./talk-quest.mjs";
+import { askerOf, pruneTalkQuests, talkQuest, pinnedCompanion } from "./talk-quest.mjs";
 import {
   ABSENT_TURNS,
   ACCOMPANY_TRUST,
@@ -1601,23 +1603,8 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
-  // A quest is taken by a tap on its card (rules 133): a shut box, someone who
-  // told their want and offers it, the avatar's own home door, or the level-up
-  // card. No turn passes. A play is offered only while the player holds no
-  // quest, so a blocked card (`questOffers`) never carries one.
-  for (const o of questOffers(s, actor))
-    if (!o.blocked)
-      out.push({
-        ...offer("take", actor, null, o.id, `${nameOf(actor)} takes up a quest.`, [
-          o.id,
-        ]),
-        offer: o.id,
-        label: o.label,
-      });
-  // A player may set the held quest down (Sleep at home costs experience,
-  // `dropCost`).
   if (actor === currentActor(s) || controlledByHuman(s, actor))
-    questsOf(s, actor).forEach((w, quest) => {
+    questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
       const goal =
         w.kind === "person" && !w.step
           ? `meet ${nameOf(w.target)}`
@@ -1861,6 +1848,61 @@ function settleCompanions(s) {
 }
 // A traveler wakes from a long rest: the companion is dismissed unless a
 // quest taken on from them pins the bond.
+// through a long rest while the quest is held (rules 133).
+function settleQuests(s, acting) {
+  for (const actor of Object.keys(s.actors).sort()) {
+    if (
+      !(actor === currentActor(s) || controlledByHuman(s, actor)) ||
+      !entityActive(s, actor)
+    )
+      continue;
+    for (const offer of questOffers(s, actor)) {
+      if (
+        !offer.want.quest &&
+        heldOf(s.actors[actor]).some((held) => sameQuest(held, offer.want))
+      )
+        continue;
+      const quest = holdQuest(s, actor, offer.want, offer.id);
+      if (!quest) break;
+      if (actor === acting) bindAsker(s, actor, quest, true);
+    }
+    if (actor === acting && !companionOf(s, actor))
+      for (const held of heldOf(s.actors[actor])) bindAsker(s, actor, held, false);
+  }
+}
+function bindAsker(s, actor, quest, replace) {
+  const asker = quest.kind === "person" && quest.step?.verb === "bring"
+    ? askerOf(s, quest)
+    : null;
+  if (
+    !asker ||
+    !controlledByHuman(s, actor) ||
+    asker === companionOf(s, actor) ||
+    (!replace && companionOf(s, actor)) ||
+    s.actors[asker].place !== s.actors[actor].place ||
+    !entityActive(s, asker) ||
+    staysByRole(s, asker) ||
+    (s.actors[asker].trust?.[actor] || 0) < ACCOMPANY_TRUST ||
+    (travelerOf(s, asker) ?? actor) !== actor
+  )
+    return;
+  wakeResident(s, asker);
+  const earlier = bind(s, actor, asker);
+  if (earlier) narrowTickets(s, earlier);
+  addLog(
+    s,
+    "World",
+    earlier
+      ? `${nameOf(asker)} comes with ${nameOf(actor)}. ${nameOf(earlier)} stays behind.`
+      : `${nameOf(asker)} comes with ${nameOf(actor)}.`,
+    {
+      kind: "narration",
+      actorId: asker,
+      targetId: actor,
+      locationId: s.actors[actor].place,
+    },
+  );
+}
 function wakeCompanion(s, traveler) {
   const id = companionOf(s, traveler);
   if (id && pinnedCompanion(s, traveler) !== id)
@@ -3172,6 +3214,7 @@ export function play(
     settleLamp(next);
     settleCrossingUnlocks(next, sensesFor(next));
     settleStationExits(next);
+    settleQuests(next, actor);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3185,56 +3228,6 @@ export function play(
   const next = structuredClone(s);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-  // A tap on a quest card gives the traveller its quest: no turn passes
-  // (rules 133). It was offered only because the player holds none.
-  if (exact.kind === "take" && exact.offer !== undefined) {
-    next.revision += 1;
-    const chosen = questOffers(next, actor).find((o) => o.id === exact.offer);
-    const quest = takeQuest(next, actor, chosen.want);
-    const what = wantText(quest).replace(/(^| )The /gu, "$1the ");
-    addLog(next, "World", `${nameOf(actor)} takes up a quest: ${what}.`, {
-      kind: "action",
-      actorId: actor,
-      verb: "quest",
-      targetId: chosen.source,
-      witnesses: [actor],
-    });
-    // A quest to bring or meet a resident is a shared vow: the resident,
-    // who offered it, is with the traveler at once, and the bond holds
-    // through a long rest while the quest is held (rules 133).
-    const asker = pinnedCompanion(next, actor);
-    if (
-      asker &&
-      controlledByHuman(next, actor) &&
-      asker !== companionOf(next, actor) &&
-      next.actors[asker].place === next.actors[actor].place &&
-      entityActive(next, asker) &&
-      !staysByRole(next, asker) &&
-      (next.actors[asker].trust?.[actor] || 0) >= ACCOMPANY_TRUST &&
-      (travelerOf(next, asker) ?? actor) === actor
-    ) {
-      wakeResident(next, asker);
-      const earlier = bind(next, actor, asker);
-      if (earlier) narrowTickets(next, earlier);
-      addLog(
-        next,
-        "World",
-        earlier
-          ? `${nameOf(asker)} comes with ${nameOf(actor)}. ${nameOf(earlier)} stays behind.`
-          : `${nameOf(asker)} comes with ${nameOf(actor)}.`,
-        {
-          kind: "narration",
-          actorId: asker,
-          targetId: actor,
-          locationId: next.actors[actor].place,
-        },
-      );
-    }
-    settleStationExits(next);
-    validateWorld(next);
-    return { ok: true, state: next };
-  }
-  // Any other play ends a player's guard (rules 100), and an away avatar's
   // resident sleep becomes its returning player's own.
   if (!exact.guards) delete next.actors[actor].guarding;
   const dozing = next.actors[actor].sleeping;
@@ -3428,6 +3421,7 @@ export function play(
   settleHeldItems(next, handSnapshot(s));
   settleLamp(next);
   settleStationExits(next);
+  settleQuests(next, actor);
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
   // It stops at the first refused play, and the sleep cap bounds it.

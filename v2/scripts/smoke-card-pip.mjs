@@ -6,11 +6,6 @@ import { createLandingWorld } from "../card-game/pack-landing.mjs";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { SAVE_BASE, PLAYING_KEY } from "../card-game/avatar-world.mjs";
 
-// A stranger's whole first quest (rules 133), waiting on what is on screen and
-// never on a count of turns: the box, Pip, Talk, his offer (a closed box, open,
-// Accept quest), the fade to the opening with that same quest, the opening's
-// boxes, the pond, then the Lamp given to Pip. The text service is down, so
-// every line is "…".
 async function walkToGivenLamp(browser, base) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: "reduce" });
   page.setDefaultTimeout(20000);
@@ -27,15 +22,9 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(await page.evaluate(() => document.body.inert), false);
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.card), "moth");
   await page.locator('#card-actions [data-action="talk"]').click();
-  // Pip's offer: a closed box, then open, then one Accept quest button.
-  await page.locator('#hand [data-card="quest:from:moth"]').waitFor();
-  assert.equal(await page.locator(".title-intro").count(), 0, "Talk does not leave Pip");
-  await choose("quest:from:moth");
-  await buttonReads(/closed box/iu);
-  await press(() => buttonReads(/^Accept quest: Give Lamp to Pip$/u));
-  assert.equal(await button.count(), 1);
-  assert.equal(await page.locator(".title-intro").count(), 0, "the fade waits for Accept");
-  await press(() => page.locator('.title-intro[data-phase="ack"]').waitFor({ timeout: 4000 }));
+  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 4000 });
+  assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0, "no quest offer card lies in the hand");
+  await page.locator('.title-intro[data-phase="ack"]').waitFor({ timeout: 8000 });
   // The land acknowledgement and the logo, then the opening itself: no second box.
   let secondBox = false;
   while (await page.locator(".title-intro").count()) {
@@ -72,13 +61,14 @@ async function walkToGivenLamp(browser, base) {
   await choose("moth");
   await buttonReads(/gives the Lamp to Pip/iu);
   await button.first().click();
-  await page.locator('#hand [data-card="quest:level"]').waitFor({ state: "attached" });
+  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:level", key, { timeout: 8000 });
   const saved = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
   assert.equal(saved.items.lamp.holder, "moth");
-  assert.equal(saved.actors.vale.want, null);
+  assert.equal(saved.actors.vale.want.quest.level, 2);
+  assert.equal(saved.actors.vale.under, undefined);
   assert.equal(saved.actors.vale.place, "pond");
   assert.deepEqual(errors, []);
-  console.log("Pip first quest: box, Talk, offer, Accept quest, fade, opening, pond and Give passed.");
+  console.log("Pip first quest: box, Talk, held quest, fade, opening, pond and Give passed.");
   await page.close();
 }
 // Choosing and pressing, waiting on what the screen shows. A press soon after
@@ -160,19 +150,8 @@ try {
     assert(pip.width > 80 && pip.x >= 0 && pip.x + pip.width <= width);
     await page.screenshot({ path: new URL(`pip-${width}.png`, output).pathname });
     await talk.click();
-    // Pip's offer lies there to open; Talk does not leave him. Reopening the
-    // page before accepting resumes with Pip and the offer.
-    await page.locator('#hand [data-card="quest:from:moth"]').waitFor();
-    assert.equal(await page.locator(".title-intro").count(), 0);
-    assert.equal(JSON.parse(await page.evaluate((key) => localStorage.getItem(key), key)).actors.vale.want, null);
-    await page.reload();
-    await page.locator('#hand [data-card="quest:from:moth"]').waitFor();
-    assert.equal(await page.locator(".title-intro").count(), 0);
-    const { choose, buttonReads, press } = helpers(page);
-    await choose("quest:from:moth");
-    await buttonReads(/closed box/iu);
-    await press(() => buttonReads(/^Accept quest: Give Lamp to Pip$/u));
-    await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want, key, { timeout: 2000 }));
+    await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 4000 });
+    assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0);
     // Closed during the fade: the page returns to the fade, not to Pip.
     await page.reload();
     await page.locator('.title-intro[data-phase="ack"]').waitFor();
@@ -200,12 +179,7 @@ try {
   await other.locator('.title-intro[data-phase="card"] .card').click();
   await other.locator(".title-intro").waitFor({ state: "detached" });
   await other.locator('#card-actions [data-action="talk"]').click();
-  const otherHelpers = helpers(other);
-  await other.locator('#hand [data-card="quest:from:moth"]').waitFor();
-  await otherHelpers.choose("quest:from:moth");
-  await otherHelpers.buttonReads(/closed box/iu);
-  await otherHelpers.press(() => otherHelpers.buttonReads(/^Accept quest/u));
-  await otherHelpers.press(() => other.locator(".page-fade").waitFor({ timeout: 4000 }));
+  await other.locator(".page-fade").waitFor({ timeout: 8000 });
   await other.evaluate(({ key, save }) => {
     localStorage.setItem(key, save);
     window.dispatchEvent(new StorageEvent("storage", { key, newValue: save }));
@@ -221,7 +195,7 @@ try {
   await page.locator('.title-intro[data-phase="card"] .card').click();
   await page.locator(".title-intro").waitFor({ state: "detached" });
   await page.locator('#card-actions [data-action="talk"]').click();
-  await page.locator('#hand [data-card="quest:from:moth"]').waitFor();
+  await page.locator(".page-fade").waitFor({ timeout: 8000 });
   console.log("Pip arrival: routes, black stage, Talk, Vale intro, reload, quest, save isolation and blocked storage passed.");
 } finally {
   await browser.close();
