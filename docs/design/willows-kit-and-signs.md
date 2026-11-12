@@ -28,8 +28,9 @@ Two generic rules carry it, in steps:
   its `at` place. Its flag hides the resident through its own `requires`, so it
   is gone from the run: no cast, plays or wants, and the save, journal and
   shared views keep its record. The validator accepts a disabled resident that
-  holds such a receipt. When the Swede paddles off, his flag also closes the
-  canoe crossings: he took the canoe. No fallback brings him back.
+  holds such a receipt. When the Swede paddles off, his flag hides him and
+  nothing else: the canoe crossings read only the kit (2026-11-11, quest audit
+  W4), so the canoe outlives him. No fallback brings him back.
 - **Random landing paintings (step 4, after #1620).** The otter and the man in
   the boat are no longer signs. They are alternates of the landing painting that
   appear at random: a `chance` condition hashes the run seed and the turn, so

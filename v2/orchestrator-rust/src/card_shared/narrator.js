@@ -13229,7 +13229,7 @@
         },
         bridge: {
           id: "greek-ship-willows",
-          description: "On a misty night, while the Charybdis lies at Black Pond or sails between ports with the Travel Provisions or something from Hoppy Cat aboard, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone."
+          description: "On a misty night, while the Charybdis lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island and keeps a path back. While the Swede's kit is all at his camp, the mended canoe also runs between the landing and Black Pond, for anyone."
         },
         values: {
           "willows-swede": {
@@ -13268,21 +13268,6 @@
                     kind: "ship_at",
                     transport: "greek-ship",
                     dock: "@sea"
-                  }
-                ]
-              },
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "item_present",
-                    item: "greek-provisions",
-                    place: "greek-ship"
-                  },
-                  {
-                    kind: "pack_item_present",
-                    pack: "hoppycat-archive",
-                    place: "greek-ship"
                   }
                 ]
               }
@@ -13338,11 +13323,6 @@
             travel: "downriver in the mended canoe",
             requires: [
               {
-                kind: "flag",
-                key: "willows-swede-gone",
-                value: false
-              },
-              {
                 kind: "item_near",
                 item: "willows-paddle",
                 place: "willows-camp"
@@ -13376,11 +13356,6 @@
             travelers: "any",
             travel: "upriver in the mended canoe",
             requires: [
-              {
-                kind: "flag",
-                key: "willows-swede-gone",
-                value: false
-              },
               {
                 kind: "item_near",
                 item: "willows-paddle",
@@ -15318,7 +15293,7 @@
           "ratiradio-station-key": {
             name: "Station Key",
             text: "A brass key with a worn STAFF tag. Carry it from Black Pond to the staff entrance at Empty Station.",
-            persona: "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station. It stays with its carrier after the first opening.",
+            persona: "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station, but only while someone carries it.",
             holder: "pond",
             art: "assets/ratiradio/station-key.webp",
             reservedUntil: [
@@ -15333,7 +15308,7 @@
           "ratiradio-red-beanie": {
             name: "Red Beanie",
             text: "Red wool, lost beyond the station. Carry it to open Dispatch Window, then put it down in the Listening Room.",
-            persona: "A soft red knitted beanie, left for someone who works late. It opens dispatch, then belongs back in the Listening Room.",
+            persona: "A soft red knitted beanie, left for someone who works late. Carried through the Staff Kitchen, it opens dispatch, then belongs back in the Listening Room.",
             holder: "ratiradio-staff-kitchen",
             art: "assets/ratiradio/red-beanie.webp",
             reservedUntil: [
@@ -15349,7 +15324,7 @@
           "ratiradio-thermos": {
             name: "Thermos",
             text: "Still warm at the neck. Lost beyond the station; set it down at the Dispatch Window to open the Listening Room.",
-            persona: "A dented steel thermos with a dark lid. Set down at the Dispatch Window, its warmth opens the Listening Room. It can be picked up again.",
+            persona: "A dented steel thermos with a dark lid. Set down at the Dispatch Window, its warmth opens the Listening Room for as long as it lies there.",
             holder: "ratiradio-dispatch-window",
             art: "assets/ratiradio/thermos.webp",
             reservedUntil: [
@@ -15413,11 +15388,40 @@
           {
             from: "ratiradio-staff-kitchen",
             to: "ratiradio-dispatch-window",
+            live: true,
             requires: [
               {
-                kind: "flag",
-                key: "dispatch-open",
-                value: true
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_present",
+                    item: "ratiradio-red-beanie",
+                    place: "ratiradio-staff-kitchen"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-red-beanie",
+                    place: "ratiradio-dispatch-window"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-red-beanie",
+                    place: "ratiradio-listening-room"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-red-beanie",
+                    place: "ratiradio-broadcast-booth"
+                  }
+                ]
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "item_at",
+                  item: "ratiradio-red-beanie",
+                  place: "ratiradio-staff-kitchen"
+                }
               }
             ],
             sealed: {
@@ -15430,11 +15434,27 @@
           {
             from: "ratiradio-dispatch-window",
             to: "ratiradio-listening-room",
+            live: true,
             requires: [
               {
-                kind: "flag",
-                key: "listening-open",
-                value: true
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-thermos",
+                    place: "ratiradio-dispatch-window"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-thermos",
+                    place: "ratiradio-listening-room"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-thermos",
+                    place: "ratiradio-broadcast-booth"
+                  }
+                ]
               }
             ],
             sealed: {
@@ -15464,22 +15484,6 @@
         ],
         choices: [
           {
-            id: "ratiradio-enter-station",
-            subject: "ratiradio-staff-kitchen",
-            at: "ratiradio-staff-kitchen",
-            label: "The staff entrance settles open behind you.",
-            text: "The staff entrance clicks open behind you, then settles on its catch.",
-            requires: [],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "station-open",
-                value: true
-              }
-            ],
-            on: "meet"
-          },
-          {
             id: "ratiradio-wake-rati",
             subject: "ratiradio-listening-room",
             at: "ratiradio-listening-room",
@@ -15490,50 +15494,6 @@
               {
                 kind: "set_flag",
                 key: "rati-awake",
-                value: true
-              }
-            ],
-            on: "meet"
-          },
-          {
-            id: "ratiradio-open-dispatch-window",
-            subject: "ratiradio-staff-kitchen",
-            at: "ratiradio-staff-kitchen",
-            label: "The shutter gives way. Dispatch Window opens.",
-            text: "The beanie's red wool passes the shutter. The latch gives way; Dispatch Window opens.",
-            requires: [
-              {
-                kind: "holding",
-                item: "ratiradio-red-beanie",
-                role: "actor"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "dispatch-open",
-                value: true
-              }
-            ],
-            on: "meet"
-          },
-          {
-            id: "ratiradio-open-listening-room",
-            subject: "ratiradio-dispatch-window",
-            at: "ratiradio-dispatch-window",
-            label: "The radio comes through clear. Listening Room opens.",
-            text: "The Thermos warms the metal plate beside the door. Inside, the radio comes through clear; Listening Room opens.",
-            requires: [
-              {
-                kind: "item_at",
-                item: "ratiradio-thermos",
-                place: "ratiradio-dispatch-window"
-              }
-            ],
-            effects: [
-              {
-                kind: "set_flag",
-                key: "listening-open",
                 value: true
               }
             ],
@@ -15675,7 +15635,7 @@
         ],
         bridge: {
           id: "shore-ratiradio",
-          description: "The Station Key at Black Pond opens the staff entrance at Empty Station. The entrance stays open after the first arrival."
+          description: "The Station Key at Black Pond opens the staff entrance at Empty Station while someone carries it, or while it is inside the station. The way back out is always open."
         },
         crossings: [
           {
@@ -15689,14 +15649,34 @@
                 kind: "any",
                 conditions: [
                   {
-                    kind: "flag",
-                    key: "station-open",
-                    value: true
-                  },
-                  {
                     kind: "holding",
                     item: "ratiradio-station-key",
                     role: "actor"
+                  },
+                  {
+                    kind: "any",
+                    conditions: [
+                      {
+                        kind: "item_present",
+                        item: "ratiradio-station-key",
+                        place: "ratiradio-staff-kitchen"
+                      },
+                      {
+                        kind: "item_present",
+                        item: "ratiradio-station-key",
+                        place: "ratiradio-dispatch-window"
+                      },
+                      {
+                        kind: "item_present",
+                        item: "ratiradio-station-key",
+                        place: "ratiradio-listening-room"
+                      },
+                      {
+                        kind: "item_present",
+                        item: "ratiradio-station-key",
+                        place: "ratiradio-broadcast-booth"
+                      }
+                    ]
                   }
                 ]
               }

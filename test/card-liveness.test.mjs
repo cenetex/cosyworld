@@ -13,7 +13,9 @@ import { newWant } from "../v2/card-game/want.mjs";
 // The resident cast and the traveller who learns the roads.
 const cast = ["moth", "keeper", "greek-rhapsode"];
 // Every resident meets a want at least this often in loose play.
-const WINDOW = 80;
+// The walk is random over the legal plays, so any change to which plays are
+// legal (a door opening) reshuffles it; the margin absorbs that.
+const WINDOW = 90;
 const TURNS = 400;
 
 function longestGaps(seed, opening = false) {

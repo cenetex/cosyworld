@@ -1,18 +1,34 @@
 # Night Shift at RatiRadio
 
 The station opens through recovered possessions. The Station Key at Black Pond
-opens Empty Station into the Staff Kitchen. Each door after it wants a
-different thing, so the station is one room of three locks, not three copies of
-one:
+opens Empty Station into the Staff Kitchen, for whoever carries it. Each door
+after it wants a different thing, so the station is one room of three locks,
+not three copies of one:
 
 | Door | Lock | What opens it |
 | --- | --- | --- |
-| Dispatch Window | a thing held | Carry the Red Beanie to it. |
-| Listening Room | a thing placed | Set the Thermos down at the Dispatch Window, on the metal plate beside the door. Carrying it in opens nothing. |
+| Dispatch Window | a thing held | Carry the Red Beanie to it. Set it down in the Staff Kitchen and the way shuts. |
+| Listening Room | a thing placed | Set the Thermos down at the Dispatch Window, on the metal plate beside the door. Carrying it in opens nothing, and carrying it off shuts the way again. |
 | Broadcast Booth | something heard | Talk with RATi while holding the Raven Figurine, in the Staff Kitchen, Dispatch Window or Listening Room. Holding it alone opens nothing. |
 
-Opened routes remain open, and no object is consumed or tied to its door
-afterward: the Thermos may be picked up again and the figurine put down. Every
+The entrance, the Dispatch Window and the Listening Room open and close with
+their things (audit rows R1 to R3, 2026-11-11): each is a live way that reads
+its item as it stands now, with no flag. Only the way in is live; every way
+out is plain, so no one is ever shut inside. Nor is anyone shut out for good,
+because each way also stays open while its item rests inside the station:
+
+| Way | Open while |
+| --- | --- |
+| Entrance (Empty Station to Staff Kitchen) | a traveler carries the Station Key, or the key is in any station room |
+| Dispatch Window | the Red Beanie is held in the Staff Kitchen, or lies in the Dispatch Window, the Listening Room or the Booth (a beanie lying in the kitchen opens nothing) |
+| Listening Room | the Thermos lies in the Dispatch Window, the Listening Room or the Booth |
+
+Each shuts again when its item is carried out of those places. So a key left
+in the kitchen, a beanie returned home to the Listening Room, or a Thermos left
+beyond the plate keep the station reachable. A thing carried off to another pack and left there keeps its door shut
+until someone carries it back. That is a mystery, not a softlock. The Broadcast Booth (once heard) and the
+Raven (once earned) stay latched until the next rules batch; the figurine may
+be put down afterward. Every
 locked way and the sealed Raven is drawn as a locked box with its reason from
 the start ([wants and arcs](wants-and-arcs.md), "Boxes first"). RATi roams, so
 the Booth waits for a moment when he stands with the traveler in the station;
@@ -57,9 +73,9 @@ AI's narration. This treatment follows the short taste review in
 
 ## Authority and compatibility
 
-The rules own possession, passage, activation, levels. The first entrance must
-check the actual traveler's inventory. Internal routes latch through saved
-flags. Completion checks direct item holders, then saves one permanent flag.
+The rules own possession, passage, activation, levels. The entrance must
+check the actual traveler's inventory. The Dispatch Window and Listening Room
+read their items live; the Booth latches through a saved flag. Completion checks direct item holders, then saves one permanent flag.
 No automatic recovery may deliver a return item to the Listening Room.
 The new pack uses stable `ratiradio-*` entity IDs; the existing RATi is preserved.
 Source packs, generated catalog, current shared rules must ship together.
