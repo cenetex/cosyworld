@@ -75,6 +75,10 @@ it("plays the household's care with real travel and custody", () => {
       save: encodeSave(agreed),
     }).world;
     world.actors.mara.place = "greek-eleusis";
+    // Vale's held quests would walk her on as a resident while Mara plays;
+    // this test is about Mara, so Vale holds none.
+    world.actors.vale.want = null;
+    delete world.actors.vale.under;
     world = decodeSave(encodeSave(world));
     const later = shared(world, "mara", ["mara"]);
     let result;

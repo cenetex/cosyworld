@@ -123,15 +123,19 @@ describe("XP the Greek and RatiRadio content pays", () => {
     // is not walked here, and Raven); RATi's staged keepsake wants add three
     // more when a keepsake meets its want. Items start at their pack homes
     // here, as in card-boxes, so the figurine also meets its want on the move.
-    expect(without.total).toBe(4);
-    expect(withKeepsakes.total).toBe(7);
+    // Rules 134 holds every standing box quest at once, so a box quest met on
+    // the play that opens its box pays one more beside the box: two met here
+    // without the keepsake wants (6), and one more when the keepsake wants
+    // are held on top (10 in all, the figurine and the glass among them).
+    expect(without.total).toBe(6);
+    expect(withKeepsakes.total).toBe(10);
     expect(withKeepsakes.gains).toEqual({
-      "take ratiradio-red-beanie": 1,
+      "take ratiradio-red-beanie": 2,
       "talk ratiradio-rati": 1,
       "drop ratiradio-thermos": 1,
       "move ratiradio-listening-room": 1,
-      "drop ratiradio-glass": 1,
-      "drop ratiradio-raven-figurine": 2,
+      "drop ratiradio-glass": 2,
+      "drop ratiradio-raven-figurine": 3,
     });
   });
 });

@@ -51,7 +51,8 @@ describe("an offer is held without an accept play", () => {
     // It is held, so it no longer stands as an offer, and no play takes it.
     expect(questOffers(s)).toEqual([]);
     expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
-    expect(s.log.some((e) => e.verb === "quest" && /takes up a quest/u.test(e.text))).toBe(true);
+    // Holding a quest is a fact of the avatar: it writes no log line.
+    expect(s.log.some((e) => e.verb === "quest")).toBe(false);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 

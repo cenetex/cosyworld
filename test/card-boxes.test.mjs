@@ -64,6 +64,14 @@ const act = (s, kind, fields = {}, actor) => {
   return result.state;
 };
 
+// A held quest met on a play pays its own XP beside the box it opens (rules
+// 134 holds every standing box quest at once). This counts those.
+const metBetween = (before, after, actor = "vale") =>
+  after.log.filter(
+    (e) =>
+      e.verb === "want_met" && e.actorId === actor && e.seq > (before.log.at(-1)?.seq ?? 0),
+  ).length;
+
 describe("the hub's boxes", () => {
   const opening = () => createWorld({ opening: true, seed: 17 });
   it("draws the Black pond as the first box, opened by putting the lamp out", () => {
@@ -295,7 +303,8 @@ describe("XP for opening a box", () => {
       target: "greek-baker",
     });
     expect(made.opened["greek-bread"]).toEqual(["vale"]);
-    expect(made.actors.vale.xp).toBe(xp + 1);
+    // One for the box opened, and one for each held quest the give met.
+    expect(made.actors.vale.xp).toBe(xp + 1 + metBetween(waterOffer, made));
     // The bread is used up and locks again; opening it again pays nothing.
     const relocked = structuredClone(made);
     relocked.usedUp = [...relocked.usedUp, "greek-bread"].sort();
@@ -402,14 +411,16 @@ describe("XP for opening a box", () => {
           world.actors[target].place = world.actors.vale.place;
           continue;
         }
-        const before = world.actors.vale.xp;
+        const before = world.actors.vale.xp,
+          earlier = world;
         world = act(
           world,
           kind,
           kind === "talk" || kind === "move" ? { target } : { item: target },
         );
+        // A box opened pays 1; a held quest the play met pays 1 more.
         expect(world.actors.vale.xp - before, `${kind} ${target}`).toBe(
-          paid ? 1 : 0,
+          (paid ? 1 : 0) + metBetween(earlier, world),
         );
         if (paid) expect(world.opened[paid]).toContain("vale");
       }

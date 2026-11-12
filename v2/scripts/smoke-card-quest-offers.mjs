@@ -1,10 +1,9 @@
-// Quest offers are cards you can tap (rules 133, #2605). From a fresh world:
-// the shut pond offers no quest and says why; Pip's Talk lays his Accept
-// quest card beside him; chosen, it has exactly one button; pressing it takes
-// the quest with no turn passing, the offer is gone and the held quest card
-// is there; another offer then shows its reason as the button's label;
-// meeting the want pays XP with no Claim; at the level's threshold the
-// level-up card appears, is taken and the attic's Sleep raises the level.
+// Quests are held at once and stack (rules 134, #2694). From a fresh world:
+// the shut pond offers no quest and says why; Pip's Talk holds his quest as it
+// ends, with no offer card and nothing to accept; the held quest card's one
+// button is Discard; meeting the want pays XP with no Claim; at the level's
+// threshold the level-up quest is held; quests stack newest on top with the
+// rest as stack edges, and Discard shows the next and sticks.
 // A lock or quest that concerns a card the traveler has not discovered names
 // nothing: no word, aria label, title, alt text or image of it, in the bar,
 // the button or the quest card; it shows the face-down back, and names the
@@ -15,8 +14,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { decodeSave, encodeSave } from "../card-game/world.mjs";
-import { newWant } from "../card-game/want.mjs";
+import { decodeSave, encodeSave, legalActions, play } from "../card-game/world.mjs";
+import { holdQuest, newWant } from "../card-game/want.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { journeyWorlds } from "../../test/helpers/journey.mjs";
 import { questCards } from "../../test/journeys/quest-cards.mjs";
@@ -37,7 +36,6 @@ const output = new URL(
   import.meta.url,
 );
 await mkdir(output, { recursive: true });
-const BLOCKED = "Finish or discard your quest first";
 const journey = journeyWorlds(questCards);
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -163,71 +161,20 @@ try {
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
 
-    // A face-down offer leaks nothing: not in the bar, the button, any
-    // accessible name or the card itself. Alone, it is selected by hand and
-    // its one button opens it. Among three or more face-down cards it lies
-    // in the pack, where the first tap turns it (pack-opening.mjs); it is
-    // then chosen like any card.
-    const closedOffer = async (page, t, id, shot) => {
-      const card = page.locator(`#hand [data-card="${id}"]`);
-      assert.equal(await card.getAttribute("data-unrevealed"), "true");
-      assert.equal(await card.getAttribute("aria-label"), "Closed box. Select to inspect.");
-      const leaks = (id) =>
-        page.evaluate(
-          (id) =>
-            [
-              document.querySelector(`#hand [data-card="${id}"]`).textContent,
-              document.querySelector("#action-beat").innerText,
-              ...[...document.querySelectorAll(
-                `#card-actions *, #action-beat *, #hand [data-card="${id}"] *`,
-              )].flatMap((el) => [
-                el.getAttribute("aria-label"),
-                el.getAttribute("title"),
-                el.getAttribute("alt"),
-                el.getAttribute("src"),
-              ]),
-            ]
-              .filter(Boolean)
-              .join(" | "),
-          id,
-        );
-      const noLeak = /lamp|pip|moth|quest|give|take|accept|cloth|writ/iu;
-      if ((await card.locator("..").getAttribute("data-pack")) !== null) {
-        assert.doesNotMatch(await leaks(id), noLeak);
-        assert.equal(await openPack(page, id), true);
-        await page.waitForFunction(
-          (id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false",
-          id,
-        );
-        await card.scrollIntoViewIfNeeded();
-        await card.click();
-        await t.ready();
-        assert.equal(await t.oneButton(), 1);
-        return;
-      }
-      await card.scrollIntoViewIfNeeded();
-      await card.click();
+    // The held quest lies behind Vale; her stack opens it, with its one
+    // button. A held quest's one button is always Discard.
+    const openHeld = async (page, t) => {
+      await clearSelection(page);
+      await selectCard(page, "vale");
+      const fold = page.locator("#hand .quest-fold");
+      if (await fold.isVisible()) await fold.click();
+      else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
+      await page.locator("#hand .want-frame:not([hidden]) > .want-card").waitFor();
       await t.ready();
-      assert.equal(await t.oneButton(), 1);
-      const button = page.locator("#card-actions button").first();
-      assert.equal(await button.getAttribute("data-open-box"), id);
-      assert.equal(await button.isDisabled(), false);
-      assert.equal(await page.locator("#selection-name").textContent(), "Closed box");
-      assert.match(await page.locator("#action-beat").innerText(), /A closed box/u);
-      const seen = await leaks(id);
-      assert.doesNotMatch(seen, noLeak, seen);
-      if (shot) await t.shot(shot);
-      await button.click();
-      await page.waitForFunction(
-        (id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false" &&
-          !document.querySelector(`#hand [data-card="${id}"]`)?.dataset.revealing,
-        id,
-      );
-      await t.ready();
-      assert.equal(await t.oneButton(), 1);
     };
 
-    // 1. A fresh world: the pond is shut, offers nothing, and says why.
+    // 1. A fresh world: the pond is shut, offers nothing, and says why. Pip's
+    // Talk holds his quest as it ends, with nothing to accept.
     {
       const t = await open("quest-offers-fresh");
       const { page } = t;
@@ -268,49 +215,19 @@ try {
       await selectCard(page, "moth");
       await page.locator('#card-actions [data-action="talk"]').click();
       await t.ready();
-      // 2. Pip's offer card lies in the hand.
-      const offer = offerCards(page);
-      await offer.first().waitFor({ state: "attached" });
+      // 2. The Talk held his quest: no offer card, no Accept quest.
+      const held = await t.state();
       assert.deepEqual(
-        await offer.evaluateAll((els) => els.map((el) => el.dataset.card)),
-        ["quest:from:moth"],
+        { kind: held.actors.vale.want.kind, target: held.actors.vale.want.target, from: held.actors.vale.want.from },
+        { kind: "item", target: "lamp", from: "quest:from:moth" },
       );
-      assert.equal(await page.locator("#hand .want-frame").count(), 0, "nothing is held yet");
-      await clearSelection(page);
-      const turn = (await t.state()).turn;
-      // Face down, the offer is a closed box: it shows nothing of the quest.
-      await closedOffer(page, t, "quest:from:moth", "closed");
-      await t.ready();
-      assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Accept quest");
-      await t.shot("opened");
-      assert.equal(await page.locator("#card-actions button").first().isDisabled(), false);
-      await t.layout();
-      await t.shot("offer");
-      // 3. Pressing it takes the quest and passes no turn.
-      await page.locator("#card-actions button").first().click();
-      await page.waitForFunction(
-        () => !document.querySelector('#hand [data-card="quest:from:moth"]'),
-      );
-      const taken = await t.state();
-      assert.equal(taken.turn, turn, "taking a quest passes no turn");
-      assert.deepEqual(
-        { kind: taken.actors.vale.want.kind, target: taken.actors.vale.want.target },
-        { kind: "item", target: "lamp" },
-      );
-      assert.equal(await offerCards(page).count(), 0);
+      assert.equal(await offerCards(page).count(), 0, "nothing lies to accept");
       assert.equal(await page.locator("#hand .want-frame").count(), 1, "the held quest card");
-      await t.oneButton();
-      // Held, it lies behind Vale; her stack opens it, with its one button.
-      await clearSelection(page);
-      await selectCard(page, "vale");
-      const fold = page.locator("#hand .quest-fold");
-      if (await fold.isVisible()) await fold.click();
-      else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
-      await page.locator("#hand .want-frame:not([hidden]) > .want-card").waitFor();
+      assert.equal(await page.getByText(/accept quest/iu).count(), 0);
+      await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
-      // A held quest's one button is always Discard.
       assert.equal(await label(page), "Discard");
+      await t.layout();
       await t.shot("held-step");
       assert.deepEqual(t.errors, []);
       await page.close();
@@ -328,26 +245,23 @@ try {
       await page.goto(`${origin}/?table=quest-offers-covered-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
-      await selectCard(page, "quest:from:moth");
-      await t.ready();
+      await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
       const hidden = await surfaces(page);
       assert.match(hidden, /something undiscovered/u);
       assert.doesNotMatch(hidden, /lamp/iu);
       // Its face is the card back, not the Lamp's art.
-      const face = page.locator('#hand [data-card="quest:from:moth"] .quest-screen');
+      const face = page.locator("#hand .want-frame .quest-screen");
       assert.equal(await face.locator(".quest-back").count(), 1);
       assert.equal(await face.locator(".quest-thing").count(), 0);
-      await t.shot("offer-undiscovered");
+      await t.shot("held-undiscovered");
       // Discovered, the same quest names the Lamp and shows it.
       await clearSelection(page);
       await revealCard(page, "lamp");
-      await clearSelection(page);
-      await selectCard(page, "quest:from:moth");
-      await t.ready();
+      await openHeld(page, t);
       assert.match(await surfaces(page), /Lamp/u);
       assert.equal(
-        await page.locator('#hand [data-card="quest:from:moth"] .quest-thing').count(),
+        await page.locator("#hand .want-frame .quest-thing").count(),
         1,
       );
       assert.deepEqual(t.errors, []);
@@ -369,101 +283,94 @@ try {
       await t.ready();
       const met = await t.state();
       assert(met.actors.vale.xp > xp, "XP rose");
-      assert.equal(met.actors.vale.want, null);
+      assert.notEqual(met.actors.vale.want?.from, "quest:from:moth");
       assert.equal(await page.getByText(/claim/i).count(), 0);
       assert.deepEqual(t.errors, []);
       await page.close();
     }
 
-    // 5. The level threshold deals the level-up card; take it, sleep at home.
+    // 5. The level threshold holds the level-up quest at once; Discard is its
+    // one button, and its cost is named there.
     {
       const t = await open("quest-offers-level", decodeSave(encodeSave(journey.met)));
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-level-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
-      const level = page.locator('#hand [data-card="quest:level"]');
-      await level.waitFor({ state: "attached" });
-      await selectCard(page, "quest:level");
+      assert.equal(await offerCards(page).count(), 0);
+      assert.equal((await t.state()).actors.vale.want.quest.level, 2);
+      await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Accept quest");
+      assert.match(await label(page), /^Discard/u);
       await t.layout();
       await t.shot("level-up");
-      await page.locator("#card-actions button").first().click();
-      await page.waitForFunction(
-        () => !document.querySelector('#hand [data-card="quest:level"]'),
-      );
-      const saved = await t.state();
-      assert.equal(saved.actors.vale.want.quest.level, 2);
       assert.deepEqual(t.errors, []);
       await page.close();
     }
 
-    // 6. A held quest blocks every other offer; Discard returns them.
+    // 6. Quests stack, newest on top: the top shows with the rest as stack
+    // edges. Discard shows the next, and a discarded quest does not come back.
     {
       const world = decodeSave(encodeSave(journey.told));
-      world.actors.vale.want = newWant("item", "cloth", world.turn);
-      const t = await open("quest-offers-blocked", world);
+      holdQuest(world, "vale", newWant("item", "cloth", world.turn), "quest:box:test");
+      const t = await open("quest-offers-stack", world);
       const { page } = t;
-      await page.goto(`${origin}/?table=quest-offers-blocked-${width}`);
+      await page.goto(`${origin}/?table=quest-offers-stack-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
-      await selectCard(page, "quest:from:moth");
+      assert.equal(await offerCards(page).count(), 0);
+      assert.equal(await page.locator("#hand .want-frame").count(), 1, "only the top quest is shown");
+      await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
-      const button = page.locator("#card-actions button").first();
-      assert.equal(await button.isDisabled(), true);
-      assert.equal((await button.textContent()).trim(), BLOCKED);
-      assert.doesNotMatch(await button.textContent(), /asleep/iu);
-      await t.layout();
-      await t.shot("blocked");
-      // Discard returns the offers.
-      await clearSelection(page);
-      await selectCard(page, "vale");
-      const fold = page.locator("#hand .quest-fold");
-      if (await fold.isVisible()) await fold.click();
-      else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
-      assert.equal(await t.oneButton(), 1);
-      const drop = page.locator("#card-actions [data-drop-quest]");
-      // A held quest with no step to take reads Discard.
       assert.equal(await label(page), "Discard");
-      await t.shot("held");
+      assert.equal(
+        await page.locator("#hand .want-frame > .place-edge").count(),
+        1,
+        "the quest beneath lies as one stack edge",
+      );
+      await t.layout();
+      await t.shot("stacked");
+      const drop = page.locator("#card-actions [data-drop-quest]");
       await drop.click();
       await page.locator("#card-actions [data-drop-quest]").click();
       await t.ready();
-      assert.equal((await t.state()).actors.vale.want, null);
-      await selectCard(page, "quest:from:moth");
-      assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Accept quest");
+      const next = await t.state();
+      assert.equal(next.actors.vale.want.from, "quest:from:moth", "the next quest shows");
+      assert.equal(next.actors.vale.under, undefined);
+      assert.equal(next.actors.vale.closed["quest:box:test"].includes("cloth"), true);
+      await openHeld(page, t);
+      assert.equal(await page.locator("#hand .want-frame > .place-edge").count(), 0);
+      assert.equal(await label(page), "Discard");
       assert.deepEqual(t.errors, []);
       await page.close();
     }
 
-    // 7. A shut box's quest is an offer too, beside the box's own button.
+    // 7. A shut box's quest is held once the traveler stands by it, beside the
+    // box's own button.
     {
       const world = structuredClone(greekErrands().decree);
       world.actors.vale.place = "greek-gate";
       world.crossings["pond-greek-harbor"].discovered = true;
       for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
-      const t = await open("quest-offers-gate", world);
+      // The play that finds her there holds the quest.
+      const waited = play(
+        world,
+        legalActions(world).find((a) => a.kind === "wait" && !a.sleep && !a.guards),
+      ).state;
+      const t = await open("quest-offers-gate", waited);
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-gate-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
-      assert.equal(await offerCards(page).count(), 1);
+      assert.equal(await offerCards(page).count(), 0);
+      assert.equal((await t.state()).actors.vale.want.target, "greek-creon-writ");
       await selectCard(page, "greek-battlefield");
       assert.equal(await t.oneButton(), 1);
       assert.equal(await page.locator("#card-actions button").first().textContent(), "Locked");
-      await clearSelection(page);
-      await selectCard(page, "quest:box:greek-battlefield");
-      assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Accept quest");
+      await openHeld(page, t);
+      assert.equal(await label(page), "Discard");
       await t.layout();
-      await t.shot("box-offer");
-      await page.locator("#card-actions button").first().click();
-      await page.waitForFunction(
-        () => !document.querySelector('#hand [data-card="quest:box:greek-battlefield"]'),
-      );
-      assert.equal((await t.state()).actors.vale.want.target, "greek-creon-writ");
+      await t.shot("box-held");
       assert.deepEqual(t.errors, []);
       await page.close();
     }
@@ -472,4 +379,4 @@ try {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));
 }
-console.log("Quest offer cards passed.");
+console.log("Held quests and stacks passed.");

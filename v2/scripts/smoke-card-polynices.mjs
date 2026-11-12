@@ -10,7 +10,7 @@ import {
 } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { questFor } from "../card-game/talk-quest.mjs";
-import { setWant } from "../card-game/want.mjs";
+import { heldOf, holdQuest } from "../card-game/want.mjs";
 import {
   clearSelection,
   readyActionButton,
@@ -48,14 +48,15 @@ for (const match of [
   assert.ok(result.ok, result.error);
   fixture = result.state;
 }
-// Talk tells the burial and the player takes it with a tap (Accept quest, a
-// later package). Until that play exists, take it here as the tap would.
+// Talk tells the burial. The rules hold it at once when its teller offers it
+// (rules 134); this table's Talk may not have, so hold it as they would.
 {
   const teller = [antigone, "greek-polynices-shade"].find(
     (id) => fixture.actors[id]?.want?.step?.verb === "lay",
   );
   assert.ok(teller, "someone tells the burial");
-  setWant(fixture.actors.vale, questFor(fixture, teller, fixture.actors[teller].want));
+  if (!heldOf(fixture.actors.vale).some((w) => w.step?.verb === "lay"))
+    holdQuest(fixture, "vale", questFor(fixture, teller, fixture.actors[teller].want), `quest:from:${teller}`);
 }
 const output =
   process.env.COSYWORLD_POLYNICES_EVIDENCE ||
@@ -333,10 +334,10 @@ try {
       assert.equal(await page.evaluate(() => Boolean(window.funeralSong)), false);
       console.log(JSON.stringify({ width, funeralMusic: musicBefore, travelled: true, ended: true, reload: true }));
       // The met funeral quest pays its experience on the last rite and goes:
-      // there is nothing to claim.
-      assert.equal(done.actors.vale.want, null);
+      // there is nothing to claim. The experience may hold the level-up quest.
+      assert.notEqual(done.actors.vale.want?.step?.verb, "lay");
+      assert.ok(![done.actors.vale.want, ...(done.actors.vale.under || [])].some((w) => w?.step?.verb === "lay"));
       assert.ok(done.actors.vale.xp > ready.actors.vale.xp);
-      assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(

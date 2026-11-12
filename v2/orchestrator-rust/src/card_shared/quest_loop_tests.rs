@@ -59,10 +59,12 @@ fn play(world: &World, pick: impl Fn(&Value) -> bool) -> Value {
     json!({"op":"play","actor":"vale","action":action})
 }
 
+// The quests a player holds, top first (rules 134): `want`, then `under`.
 fn quests(world: &World) -> Vec<Value> {
     let vale = &world.game["actors"]["vale"];
     std::iter::once(vale["want"].clone())
         .filter(|w| !w.is_null())
+        .chain(vale["under"].as_array().cloned().unwrap_or_default())
         .collect()
 }
 
@@ -96,9 +98,9 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
     game["actors"]["keeper"]["want"] =
         json!({"kind":"item","target":"bell","since":2,"refusals":0});
     game["actors"]["vale"]["level"] = json!(1);
-    game["actors"]["vale"]["xp"] = json!(1);
-    // The one XP came from opening the Black pond (rules 133): putting the
-    // lamp out again below pays nothing more.
+    game["actors"]["vale"]["xp"] = json!(0);
+    // The Black pond is already open (rules 133): putting the lamp out again
+    // below pays nothing.
     game["opened"] = json!({"pond":["vale"]});
     let (path, c, id) = fixture("quest-loop", &world);
     let commit = |w: &mut World, command: Value| {
@@ -118,16 +120,20 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
         .expect("direct Talk has durable participants");
     assert_eq!(conversation["turn"], world.game["turn"]);
     assert!(conversation["seq"].as_u64().unwrap() > 0);
-    // Talk tells the want and hands the player nothing.
-    assert!(quests(&world).is_empty());
+    // Talk tells the want, and the keeper's quest is held as the Talk ends
+    // (rules 134): his bell is a hub starter want, always offered.
+    let held = quests(&world);
+    assert_eq!(held.len(), 1);
+    assert_eq!(held[0]["from"], "quest:from:keeper");
+    assert_eq!(held[0]["target"], "bell");
     assert_eq!(
         world.game["actors"]["vale"]["heard"],
         json!({"keeper":"item:bell"})
     );
-    // Hearing it again changes nothing.
+    // Hearing it again holds nothing more.
     let again = play(&world, |a| a["kind"] == "talk" && a["target"] == "keeper");
     commit(&mut world, again);
-    assert!(quests(&world).is_empty());
+    assert_eq!(quests(&world), held);
     assert!(play_missing(&world, |a| a["kind"] == "claim" || a["kind"] == "focus"));
 
     let give = play(&world, |a| {
@@ -137,8 +143,10 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
     let stow = json!({"op":"hold","actor":"vale","choice":{
         "item":null,"revision":world.game["revision"]}});
     commit(&mut world, stow);
-    // Helping the keeper meet his want pays one XP on the play and one trust.
+    // The give meets the keeper's quest the player holds (one XP) and helps
+    // him meet his own want (one XP and one trust).
     assert_eq!(world.game["actors"]["vale"]["xp"], 2);
+    assert!(quests(&world).is_empty());
     assert_eq!(world.game["actors"]["keeper"]["trust"]["vale"], 1);
     assert_eq!(world.game["actors"]["vale"]["halfwayIssued"], 2);
     assert!(world.game["actors"]["vale"].get("questRewards").is_none());

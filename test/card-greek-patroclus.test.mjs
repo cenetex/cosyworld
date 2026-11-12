@@ -165,7 +165,9 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
     const before = world.actors.vale.xp;
     world = act(world, "give", { item: "greek-bread", target: PATROCLUS });
     expect(trust(world)).toBe(3);
-    expect(world.actors.vale.xp - before).toBe(1);
+    // One for helping him, and one for the held quest he told (a give of
+    // the bread, held when the Talk ended, rules 134), met by the same gift.
+    expect(world.actors.vale.xp - before).toBe(2);
   });
 
   it("is offered Accompany at once, and one joint move works", () => {

@@ -8445,14 +8445,6 @@
           continue;
         const quest = holdQuest(s, actor, offer2.want, offer2.id);
         if (!quest) break;
-        const what = wantText(quest).replace(/(^| )The /gu, "$1the ");
-        addLog(s, "World", `${nameOf(actor)} takes up a quest: ${what}.`, {
-          kind: "action",
-          actorId: actor,
-          verb: "quest",
-          targetId: offer2.source,
-          witnesses: [actor]
-        });
         bindAsker(s, actor, quest);
       }
     }

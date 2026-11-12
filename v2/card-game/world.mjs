@@ -1870,16 +1870,10 @@ function settleQuests(s) {
         heldOf(s.actors[actor]).some((held) => sameQuest(held, offer.want))
       )
         continue;
+      // Holding a quest is a fact of the avatar, not a play: it writes no
+      // log line, so no reader of "the player's last action" meets it.
       const quest = holdQuest(s, actor, offer.want, offer.id);
       if (!quest) break;
-      const what = wantText(quest).replace(/(^| )The /gu, "$1the ");
-      addLog(s, "World", `${nameOf(actor)} takes up a quest: ${what}.`, {
-        kind: "action",
-        actorId: actor,
-        verb: "quest",
-        targetId: offer.source,
-        witnesses: [actor],
-      });
       bindAsker(s, actor, quest);
     }
   }
