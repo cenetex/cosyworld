@@ -44,9 +44,9 @@ fn body(op: &str, avatar: Option<&str>) -> full::Command {
     }
 }
 // An avatar is in one world at a time (#1846): a claim elsewhere empties its
-// old seat, which starts over, and its level goes with it.
+// old seat, which starts over, and its level stays behind (#2713).
 #[test]
-fn a_claim_elsewhere_frees_the_old_seat_and_carries_the_level() {
+fn a_claim_elsewhere_frees_the_old_seat_and_starts_at_no_level() {
     let path =
         std::env::temp_dir().join(format!("full-card-world-{}.sqlite", crate::random_hex(12)));
     let mut c = store::open(&path).unwrap();
@@ -78,9 +78,12 @@ fn a_claim_elsewhere_frees_the_old_seat_and_carries_the_level() {
     assert_eq!(old.game["actors"]["mara"]["xp"], 0);
     let new = full_store::world(&tx, &second, now()).unwrap();
     assert_eq!(new.claimed[mara], 1);
-    assert_eq!(new.game["actors"]["mara"]["xp"], 6);
-    assert_eq!(new.game["actors"]["mara"]["level"], 3);
-    // Freed by the owner, Mara keeps her level for her next seat.
+    assert_eq!(new.game["actors"]["mara"]["xp"], 0);
+    assert!(new.game["actors"]["mara"]["level"].is_null());
+    assert!(new.game["actors"]["mara"]["carried"].is_null());
+    let view = new.project(mara).unwrap();
+    let mut offers = view["actions"].as_array().unwrap().iter();
+    assert!(!offers.any(|o| o["offer"] == "quest:level"));
     full::run(&tx, &second, "owner", &body("reset", Some("mara")), now()).unwrap();
     let kept = super::bindings::take_progress(&tx, "u", mara).unwrap();
     assert_eq!(kept, Some(serde_json::json!({"xp":6,"level":3})));

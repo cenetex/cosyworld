@@ -87,8 +87,8 @@ fn a_reading_scene_keeps_the_seat_and_progress_until_the_move_can_finish() {
         )
         .unwrap();
         let moved = full::command_as(&app, &second, "player", &command("claim"), None).unwrap();
-        assert_eq!(moved["world"]["actors"]["mara"]["xp"], 6);
-        assert_eq!(moved["world"]["actors"]["mara"]["level"], 3);
+        assert_eq!(moved["world"]["actors"]["mara"]["xp"], 0);
+        assert!(moved["world"]["actors"]["mara"]["level"].is_null());
         assert_eq!(bindings::mine(&c, &first, "player").unwrap(), None);
         for id in [&first, &second] {
             let saved = full_store::world(&c, id, now()).unwrap();

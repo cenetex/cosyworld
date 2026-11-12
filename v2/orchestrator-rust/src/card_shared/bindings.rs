@@ -163,8 +163,7 @@ pub(super) fn seats_elsewhere(
         .map_err(sql_error)?;
     Ok(worlds)
 }
-// An avatar's level travels with it (#1846). Between seats it is kept here;
-// the next claim takes it. Rules before 80 cannot take it, so it waits.
+// A level belongs to its world (#2713); the highest is recorded per passkey.
 pub(super) fn carries_progress(version: &str) -> bool {
     version
         .rsplit('/')
