@@ -182,6 +182,7 @@ import { createCharacterSpeech, createVoiceHistory, voiceLineIdentity } from "./
 import { localRuntime } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
+import { sealSave, writeSave } from "./save-guard.mjs";
 import {
   createTextReveal,
   createRevealPainter,
@@ -649,11 +650,11 @@ function loadSeen(reset = false) {
   rememberCards();
 }
 loadSeen();
+const saveCodec = { encode: encodeSave, read: decodeSave };
 function save() {
   if (saveBlocked || sharedSession || storageBlocked) return false;
   try {
-    const encoded = encodeSave(world);
-    localStorage.setItem(SAVE_KEY, encoded);
+    const encoded = writeSave(localStorage, SAVE_KEY, world, saveCodec);
     rememberLocalUpgrades(world);
     void localBackups?.queue(encoded);
     return true;
@@ -667,7 +668,7 @@ if (localBackups) {
   installBackupControls({
     slot: SAVE_KEY,
     backups: localBackups,
-    getSave: () => encodeSave(world),
+    getSave: () => sealSave(world, saveCodec),
     validate: readableSave,
   });
   window.addEventListener("pagehide", () => {
@@ -2129,7 +2130,6 @@ function performAction(action, revision) {
   hum.setStarted(musicHasStarted());
   humRoom();
   hum.unlock();
-  // A new play ends any review of earlier lines.
   reviewing = false;
   dragging = [];
   $("stage").classList.remove("ready", "drag-over");
@@ -6214,7 +6214,7 @@ installSharedControls({
   saveSlot: SAVE_KEY,
   getSave: () => {
     if (saveBlocked) throw new Error("Open a valid saved game before sharing.");
-    return encodeSave(world);
+    return sealSave(world, saveCodec);
   },
   getWorld: () => world,
   notice,
