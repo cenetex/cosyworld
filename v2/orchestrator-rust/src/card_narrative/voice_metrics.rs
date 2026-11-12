@@ -209,6 +209,7 @@ struct Mix {
     cancelled: u64,
     /// Calls that reached this model after an earlier one in the chain failed.
     fallbacks: u64,
+    rejections: BTreeMap<&'static str, u64>,
 }
 
 /// The tally for a registry label. The registry is small; past 24 labels the
@@ -290,6 +291,13 @@ impl Totals {
         }
     }
 
+    fn record_rejection(&mut self, model: &str, reason: &'static str) {
+        *mix(&mut self.models, model)
+            .rejections
+            .entry(reason)
+            .or_default() += 1;
+    }
+
     pub(super) fn record(
         &mut self,
         labels: Labels,
@@ -364,6 +372,7 @@ pub(crate) fn snapshot() -> Value {
 struct State {
     attempts: u8,
     reasons: Vec<&'static str>,
+    rejected_on: Vec<String>,
     failures: Vec<&'static str>,
     flags: Vec<&'static str>,
     outcome: Option<Outcome>,
@@ -423,6 +432,7 @@ impl<'a> Call<'a> {
             state: Mutex::new(State {
                 attempts: 0,
                 reasons: Vec::new(),
+                rejected_on: Vec::new(),
                 failures: Vec::new(),
                 flags: Vec::new(),
                 outcome: None,
@@ -484,6 +494,8 @@ impl<'a> Call<'a> {
         self.with(|state| {
             if state.reasons.len() < 8 {
                 state.reasons.push(reason);
+                let model = state.model.clone();
+                state.rejected_on.push(model);
             }
         });
     }
@@ -554,6 +566,10 @@ impl Drop for Call<'_> {
                 &state.flags,
                 state.fell_back,
             );
+            for (n, reason) in reasons.iter().enumerate() {
+                let model = state.rejected_on.get(n).unwrap_or(&state.model);
+                totals.record_rejection(model, reason);
+            }
         }
         if self.part == Part::Line {
             super::voice_scenes::heard(super::voice_scenes::Voice {

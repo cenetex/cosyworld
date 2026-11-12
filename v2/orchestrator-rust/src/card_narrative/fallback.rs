@@ -31,17 +31,19 @@ pub(super) struct Link {
     pub(super) config: AiConfig,
     pub(super) model: String,
     pub(super) provider: String,
+    pub(super) fallback: bool,
     concrete: Option<ConcreteModelIdentity>,
 }
 
 impl Link {
-    fn of(config: AiConfig) -> Option<Self> {
+    fn of(config: AiConfig, fallback: bool) -> Option<Self> {
         let selected = config.pin_model(ModelCapability::WorldContent).ok()?;
         let candidate = selected.candidate();
         Some(Self {
             model: candidate.requested_model_id().to_string(),
             provider: candidate.provider().to_string(),
             concrete: candidate.concrete_model().cloned(),
+            fallback,
             config,
         })
     }
@@ -61,9 +63,9 @@ impl Link {
 /// an earlier one, leaving out benched models. With every model benched the
 /// own model stays alone and fails at once, as a benched model does.
 pub(super) fn chain(config: &AiConfig, own: AiConfig, fallbacks: &[String]) -> Option<Vec<Link>> {
-    let mut chain = vec![Link::of(own)?];
+    let mut chain = vec![Link::of(own, false)?];
     for model in fallbacks {
-        let link = Link::of(tier_config(config, Some(model)));
+        let link = Link::of(tier_config(config, Some(model)), true);
         if let Some(link) = link.filter(|link| !chain.iter().any(|seen| seen.same(link))) {
             chain.push(link);
         }
@@ -76,7 +78,6 @@ pub(super) fn chain(config: &AiConfig, own: AiConfig, fallbacks: &[String]) -> O
     Some(chain)
 }
 
-/// Why an attempt gave no line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Miss {
     /// The validator blocked the reply; the model may try again.
@@ -104,6 +105,7 @@ pub(super) async fn run<T, F, Fut>(
     deadline: tokio::time::Instant,
     links: usize,
     mut request: F,
+    timed_out: impl Fn(usize, u8),
 ) -> Result<T, ()>
 where
     F: FnMut(usize, u8, Duration) -> Fut,
@@ -128,6 +130,9 @@ where
             }
             let result =
                 tokio::time::timeout_at(now + budget, request(link, attempt, budget)).await;
+            if result.is_err() {
+                timed_out(link, attempt);
+            }
             attempt = attempt.saturating_add(1);
             match result {
                 Ok(Ok(spoken)) => return Ok(spoken),
@@ -188,12 +193,35 @@ mod tests {
         assert_eq!(models("b"), ["b"]);
     }
 
+    #[tokio::test]
+    async fn a_voice_on_an_unroutable_model_is_silent_and_counted() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = super::super::tests::plain_provider(seen.clone(), |_, _| {
+            "I remember the kindness beside the lamp.".into()
+        });
+        let (address, server) = serve(provider).await;
+        let config = tiered_config(address, &[]);
+        let models = [("vale".to_string(), "unlisted/model".to_string())].into();
+        let ids = ["vale".to_string()];
+        let mut c = context();
+        c.speakers = ids.to_vec();
+        let count = |key: &str| voice_metrics::snapshot()["rejections"][key].as_u64();
+        let before = count("unroutable").unwrap_or(0);
+        let alone = VoiceSettings::hosted();
+        let silent = complete_selected(&config, &c, &models, &alone, &ids, false, None).await;
+        assert!(silent.is_err());
+        assert!(count("unroutable") > Some(before));
+        assert!(seen.lock().unwrap().is_empty());
+        server.abort();
+    }
+
     #[tokio::test(start_paused = true)]
     async fn each_failure_moves_on_and_blocked_replies_move_on_after_the_attempts() {
         let settings = VoiceSettings::hosted();
         let deadline = tokio::time::Instant::now() + settings.scene_timeout;
         let mut seen = Vec::new();
-        let result = run(&settings, deadline, 4, |link, attempt, _| {
+        let late = Mutex::new(Vec::new());
+        let request = |link, attempt, _| {
             seen.push((link, attempt));
             async move {
                 match link {
@@ -203,10 +231,12 @@ mod tests {
                     _ => Ok(link),
                 }
             }
-        })
-        .await;
+        };
+        let timed_out = |link, attempt| late.lock().unwrap().push((link, attempt));
+        let result = run(&settings, deadline, 4, request, timed_out).await;
         assert_eq!(result, Ok(3));
         assert_eq!(seen, [(0, 0), (1, 1), (2, 2), (2, 3), (3, 4)]);
+        assert_eq!(*late.lock().unwrap(), [(1, 1)]);
     }
 
     /// Pip's line walks the chain: an empty reply, a 5xx, a reply blocked
@@ -267,6 +297,11 @@ mod tests {
         }
         let metrics = voice_metrics::snapshot();
         assert!(metrics["by_model"]["openai/d"]["fallbacks"].as_u64() >= Some(1));
+        let blocked =
+            |model: &str, reason: &str| metrics["by_model"][model]["rejections"][reason].as_u64();
+        assert!(blocked("anthropic/c", "assistant") >= Some(2));
+        assert!(blocked("mistralai/m", "provider") >= Some(1));
+        assert_eq!(blocked("openai/d", "assistant"), None);
         server.abort();
     }
 }
