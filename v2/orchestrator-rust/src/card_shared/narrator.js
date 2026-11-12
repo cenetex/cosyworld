@@ -13551,21 +13551,6 @@
               }
             ]
           },
-          "forest-arcanum-high-priestess": {
-            name: "The High Priestess",
-            text: "A woodcut card. A veiled face looks out of a tall mirror under the rafters.",
-            persona: "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do.",
-            holder: "forest-oak",
-            art: "assets/lonely-forest/arcanum-2.png",
-            sealed: {},
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-walkers-heard",
-                value: true
-              }
-            ]
-          },
           "forest-arcanum-emperor": {
             name: "The Emperor",
             text: "A woodcut card. An old bearded face of bark holds a small lit house in its roots.",
@@ -13576,7 +13561,7 @@
             requires: [
               {
                 kind: "flag",
-                key: "forest-watch-kept",
+                key: "forest-oak-heard",
                 value: true
               }
             ]
@@ -13591,7 +13576,7 @@
             requires: [
               {
                 kind: "flag",
-                key: "forest-oak-heard",
+                key: "forest-walkers-heard",
                 value: true
               }
             ]

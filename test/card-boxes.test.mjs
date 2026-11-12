@@ -90,7 +90,6 @@ describe("the hub's boxes", () => {
     expect(lockedQuest(world, "pond", () => true).text).toBe(
       "Hold the dark Lamp",
     );
-    // Visible does not mean openable: no move, and no card play opens it.
     expect(exits(world, "attic", "vale")).not.toContain("pond");
     expect(legalActions(world).filter((a) => a.target === "pond")).toEqual([]);
     expect(cardPlay(world, ["pond"]).action).toBeFalsy();
