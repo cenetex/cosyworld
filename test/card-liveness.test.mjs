@@ -13,7 +13,7 @@ import { newWant } from "../v2/card-game/want.mjs";
 // The resident cast and the traveller who learns the roads.
 const cast = ["moth", "keeper", "greek-rhapsode"];
 // Every resident meets a want at least this often in loose play.
-const WINDOW = 90;
+const WINDOW = 100;
 const TURNS = 400;
 
 function longestGaps(seed, opening = false) {

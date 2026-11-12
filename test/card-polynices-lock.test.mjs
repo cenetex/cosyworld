@@ -48,14 +48,12 @@ it("holds the box's quest at once, on top of one already held (rules 134)", () =
     since: 0,
     refusals: 0,
   };
-  // The offer still stands for a player holding another quest.
   expect(stands(held)).toBeTruthy();
   const wait = (w) =>
     play(w, legalActions(w).find((a) => a.kind === "wait" && !a.sleep)).state;
   const next = wait(free);
   expect(next.actors.vale.want).toMatchObject({ target: shade });
   expect(stands(next)).toBeUndefined();
-  // Newest on top: the earlier quest lies beneath it.
   const stacked = wait(held);
   expect(stacked.actors.vale.want).toMatchObject({ target: shade });
   expect(stacked.actors.vale.under[0]).toMatchObject({ target: "pond" });
@@ -80,8 +78,6 @@ it.each([
       return local;
     };
     let world = start(shared);
-    // One Wait holds the quest standing at the box (rules 134); the clock
-    // starts a turn early so the night hour is the one under test.
     world.turn = world.revision = turnOfNight - 1;
     const act = (kind, target) => {
       const actions = shared

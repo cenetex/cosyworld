@@ -116,12 +116,9 @@ describe("the guard and the decree", () => {
     // The card beyond is locked; its reason names him, and its quest is a card.
     expect(availableCards(s)).toContain(FIELD);
     expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
-    // (held at once, rules 134, in the play that brought the player here)
     expect(
       questsOf(s, "vale").find((w) => w.from === `quest:box:${FIELD}`),
     ).toBeTruthy();
-    // Talk with him tells his want: bring him the bread. It is held as the
-    // Talk ends, on top of the box's quest.
     const talked = act(s, "talk", { target: GUARD });
     expect(questsOf(talked, "vale")[0].from).toBe(`quest:from:${GUARD}`);
     expect(questsOf(talked, "vale")).toContainEqual(

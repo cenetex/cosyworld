@@ -21,10 +21,6 @@ import {
   validWant,
 } from "../v2/card-game/want.mjs";
 
-// Rules 134 package A, review fixes: the level quest after a discard, the
-// bound on `closed`, the same terms from two sources, a stack under an avatar
-// that stops being a player's, and companions in a shared world. Small worlds
-// from `createPipWorld`.
 const act = (s, pick, actor) => {
   const action = legalActions(s, actor).find(pick);
   expect(action, "a legal play").toBeTruthy();
@@ -58,12 +54,9 @@ describe("the level quest after a discard", () => {
     s = act(s, (a) => a.kind === "drop" && !a.item);
     expect(s.actors.vale.xp).toBe(questXp(2) - 1);
     expect(heldOf(s.actors.vale)).toEqual([]);
-    // Nothing remembers it: the cost was the XP.
     expect(s.actors.vale.closed?.["quest:level"]).toBeUndefined();
     s = wait(s);
     expect(heldOf(s.actors.vale)).toEqual([]);
-    // Regain the experience: the quest stands again, and a long rest at home
-    // raises the level.
     s.actors.vale.xp = questXp(2);
     s = wait(s);
     expect(sources(s)).toEqual(["quest:level"]);
@@ -71,7 +64,6 @@ describe("the level quest after a discard", () => {
     s = sleepAtHome(s);
     expect(s.actors.vale.level).toBe(2);
     expect(heldOf(s.actors.vale)).toEqual([]);
-    // The next level's quest stands when its experience is reached.
     s.actors.vale.xp = questXp(3);
     s = wait(s);
     expect(s.actors.vale.want.quest).toEqual({ level: 3, left: 1 });
@@ -107,7 +99,6 @@ describe("the closed record is bounded", () => {
       s.actors.vale.closed[`quest:from:n${String(MAX_CLOSED - i).padStart(3, "0")}`] = [5, "x"];
     holdQuest(s, "vale", newWant("place", "pond", 10), "quest:from:new");
     dropQuest(s, "vale");
-    // All were closed at turn 5: the least name, n001, goes.
     expect(s.actors.vale.closed["quest:from:n001"]).toBeUndefined();
     expect(s.actors.vale.closed["quest:from:n002"]).toBeTruthy();
     expect(s.actors.vale.closed["quest:from:new"]).toEqual([10, closedKey(newWant("place", "pond", 10))]);
@@ -137,8 +128,6 @@ describe("a stack under an avatar that stops being a player's", () => {
     holdQuest(s, "vale", newWant("place", "pond", s.turn), "quest:from:a");
     holdQuest(s, "vale", newWant("place", "station", s.turn), "quest:from:b");
     expect(heldOf(s.actors.vale)).toHaveLength(2);
-    // Vale stands at the pond; the station quest on top is met as a resident
-    // would meet it (not a player).
     s.actors.vale.place = "station";
     const api = { player: () => false, log() {}, sanctuaries: [], home: () => null };
     settleWants(s, ["vale"], api, null);

@@ -55,8 +55,6 @@ it.each([0, 17, 4294967295])("holds Pip's quest as his Talk ends and carries it 
   const talk = cardPlay(prelude, ["moth"]);
   expect(talk.action).toMatchObject({ kind: "talk", target: "moth" });
   expect(play(prelude, talk.action).ok).toBe(true);
-  // Pip's Talk is the rules' own: it records what he told and his quest is
-  // held by the play, with nothing to accept (rules 134).
   const talked = talkToPip(prelude);
   expect(talked.actors.vale.heard).toEqual({ moth: "item:lamp" });
   const quest = { kind: "item", target: "lamp", step: { verb: "give", to: "moth" } };
@@ -70,7 +68,6 @@ it.each([0, 17, 4294967295])("holds Pip's quest as his Talk ends and carries it 
   const move = legalActions(world).find((a) => a.kind === "move" && a.target === "pond");
   expect(move).toBeDefined();
   world = decodeSave(encodeSave(play(world, move).state));
-  // The same quest is held, so the pond offers no second one.
   expect(questOffers(world).map((o) => o.id)).not.toContain("quest:from:moth");
   expect(world.actors.vale.under?.some((w) => w.from === "quest:from:moth") ?? false).toBe(false);
   const held = (w) => [w.actors.vale.want, ...(w.actors.vale.under ?? [])];

@@ -535,8 +535,6 @@ let shownQuests = [],
   avatarFan = null,
   // The place whose ways on are fanned at the row's right end (#2272).
   waysOpen = null;
-// The folded card behind the avatar shows the top held quest; the ones
-// beneath it show only as stack edges (rules 134).
 const visibleQuests = () =>
   shownQuests.filter((quest) => questVisible(world, quest));
 const foldQuest = () => visibleQuests()[0] ?? null;
@@ -560,7 +558,6 @@ const PIP_KNOWN = ["moth", "lamp"];
 const cardIsCovered = (id) => pipPrelude()
   ? !PIP_KNOWN.includes(id) || coveredCards.has(id)
   : !encountered.has(id) || coveredCards.has(id);
-// Cards new to the view.
 const unseenCards = () =>
   availableCards(world).filter((id) => !encountered.has(id));
 const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
@@ -1666,7 +1663,6 @@ function avatarStack(id) {
       chosen: questOpen,
       open: false,
       top: true,
-      // The quests beneath the top one lie as edges behind it.
       under: Math.max(0, visibleQuests().length - 1),
       shown: expandedHolders.has(actor),
     };
@@ -5643,10 +5639,6 @@ $("new-game").onclick = () => {
   pauseSpeech();
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
-// Pip's quest is held as his Talk ends (rules 134). Once his words are heard
-// the landing fades to the opening, carrying the quest if it is still held
-// (beginPipJourney). Hearing him ends the landing whether or not the quest
-// was discarded meanwhile, so the landing cannot stall.
 const pipHeard = () => Boolean(world.actors.vale.heard?.moth);
 const pipWatch = pipPrelude() ? setInterval(leaveWhenPipHeard, 300) : null;
 function leaveWhenPipHeard() {

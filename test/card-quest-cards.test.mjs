@@ -35,7 +35,6 @@ const act = (s, pick, actor) => {
 };
 const talk = (s, target) => act(s, (a) => a.kind === "talk" && a.target === target);
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
-// What the player holds, top first, by the offer each came from.
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const GUARD = "greek-guard";
 
@@ -49,12 +48,10 @@ describe("quest offers are held at once", () => {
       story: true,
       step: { verb: "give", to: GUARD },
     });
-    // It is held, so it no longer stands as an offer, and no play accepts it.
     expect(questOffers(s).some((o) => o.kind === "box")).toBe(false);
     expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
     // The offer is deterministic for the same world.
     expect(questOffers(decodeSave(encodeSave(s)))).toEqual(questOffers(s));
-    // A world where the player has not been told it yet shows it standing.
     const fresh = structuredClone(s);
     fresh.actors.vale.want = null;
     delete fresh.actors.vale.under;
@@ -80,9 +77,7 @@ describe("quest offers are held at once", () => {
       target: "greek-bread",
       step: { verb: "give", to: GUARD },
     });
-    // Newest on top.
     expect(sources(s)[0]).toBe(`quest:from:${GUARD}`);
-    // Leaving the place leaves the quest held; it is not offered again.
     expect(questOffers(s).some((o) => o.kind === "resident")).toBe(false);
   });
 
@@ -107,7 +102,6 @@ describe("quest offers are held at once", () => {
     expect(drops).toHaveLength(1);
     expect(dropCost(s, "vale")).toBe(0);
     s = play(s, drops[0], s.revision).state;
-    // The next quest shows, and the discarded one does not come back.
     expect(sources(s)).toEqual(before.slice(1));
     expect(questOffers(s).every((o) => o.id !== before[0])).toBe(true);
     expect(s.actors.vale.closed[before[0]]).toBeTruthy();
@@ -235,7 +229,6 @@ describe("level up", () => {
     return s;
   };
 
-  // The next play holds what stands (rules 134); a wait is the quietest.
   const held = (s) => wait(s);
 
   it("stands the level-up quest at the threshold and not under it", () => {
@@ -266,7 +259,6 @@ describe("level up", () => {
     expect(wantOf(s, "vale")).toMatchObject({ target: "attic", quest: { level: 2 } });
     expect(s.actors.vale.under).toHaveLength(1);
     expect(s.actors.vale.under[0].target).toBe("pond");
-    // Held, it does not stand again.
     expect(questOffers(s).some((o) => o.kind === "level")).toBe(false);
     expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
   });
@@ -293,7 +285,7 @@ describe("level up", () => {
     expect(done.turn - card.turn).toBeGreaterThanOrEqual(LONG_SLEEP_TURNS);
   });
 
-  it("leaves an offered level quest unmet by a long rest at home while it is not held (rules 133)", () => {
+  it("meets a level quest that stands by a long rest at home, with no accept play (rules 134)", () => {
     const rested = (s) =>
       s.log.some((e) => e.actorId === "vale" && e.rest === "long");
     const longRest = (s) => {
@@ -303,11 +295,9 @@ describe("level up", () => {
       expect(s.actors.vale.place).toBe(homeOf("vale"));
       return s;
     };
-    const offered = longRest(atThreshold(questXp(2)));
-    expect(offered.actors.vale).toMatchObject({ level: 1, want: null, xp: questXp(2) });
-    expect(questOffers(offered).map((o) => o.kind)).toContain("level");
-    const held = longRest(take(atThreshold(questXp(2)), "quest:level"));
-    expect(held.actors.vale).toMatchObject({ level: 2, want: null });
+    const done = longRest(atThreshold(questXp(2)));
+    expect(done.actors.vale).toMatchObject({ level: 2, want: null, xp: questXp(2) });
+    expect(questOffers(done).some((o) => o.kind === "level")).toBe(false);
   });
 
   it("does not complete away from home, even in another sanctuary", () => {
@@ -380,7 +370,6 @@ describe("a fresh world to the first level, quests held at once", () => {
     expect(wantOf(w.met, "vale")).toMatchObject({ quest: { level: 2 } });
     // 1 for the pond, 1 for the quest and 1 for helping Pip.
     expect(w.met.actors.vale.xp).toBe(3);
-    // The met quest is closed, so Pip's offer does not stand again.
     expect(w.met.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
   });
   it("holds the level-up quest at the threshold, and levels up at home", () => {

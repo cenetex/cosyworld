@@ -6,11 +6,6 @@ import { createLandingWorld } from "../card-game/pack-landing.mjs";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { SAVE_BASE, PLAYING_KEY } from "../card-game/avatar-world.mjs";
 
-// A stranger's whole first quest (rules 134), waiting on what is on screen and
-// never on a count of turns: the box, Pip, Talk (his quest is held as it ends,
-// nothing to accept), the fade to the opening once his words are heard, with
-// that same quest, the opening's boxes, the pond, then the Lamp given to Pip.
-// The text service is down, so every line is "…".
 async function walkToGivenLamp(browser, base) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: "reduce" });
   page.setDefaultTimeout(20000);
@@ -27,8 +22,6 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(await page.evaluate(() => document.body.inert), false);
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.card), "moth");
   await page.locator('#card-actions [data-action="talk"]').click();
-  // Pip's quest is held as Talk ends: no offer card, no Accept quest. The
-  // landing fades to the opening once his words are heard.
   await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 4000 });
   assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0, "no quest offer card lies in the hand");
   await page.locator('.title-intro[data-phase="ack"]').waitFor({ timeout: 8000 });
@@ -68,7 +61,6 @@ async function walkToGivenLamp(browser, base) {
   await choose("moth");
   await buttonReads(/gives the Lamp to Pip/iu);
   await button.first().click();
-  // The level-up quest is held as the experience reaches it.
   await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:level", key, { timeout: 8000 });
   const saved = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
   assert.equal(saved.items.lamp.holder, "moth");
@@ -158,7 +150,6 @@ try {
     assert(pip.width > 80 && pip.x >= 0 && pip.x + pip.width <= width);
     await page.screenshot({ path: new URL(`pip-${width}.png`, output).pathname });
     await talk.click();
-    // Talk holds Pip's quest as it ends: no offer card, nothing to accept.
     await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 4000 });
     assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0);
     // Closed during the fade: the page returns to the fade, not to Pip.

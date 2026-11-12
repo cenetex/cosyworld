@@ -119,7 +119,6 @@ export function wantFact(world, id, nameOf, listener) {
   }
   if (!revealed(world, id, want, listener)) return null;
   const name = nameOf(want.target);
-  // When they would take the traveler's help, they say so.
   const help =
     listener && offerUnlocked(world, listener, id)
       ? " I would be glad of your help."

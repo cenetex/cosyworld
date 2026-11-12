@@ -40,7 +40,6 @@ it("keeps the held quest's card with the hand and drops only a stale one", () =>
 
 it("lays no offer on the table: a standing offer is already held", () => {
   const world = worlds.told;
-  // Pip's offer stood when Talk ended, so it is the held quest, not a card.
   expect(heldOf(world.actors.vale).map((w) => w.from)).toEqual([OFFER]);
   expect(availableCards(world).some((id) => id.startsWith("quest:"))).toBe(false);
   expect(legalActions(world).some((a) => a.kind === "take" && a.offer)).toBe(false);
@@ -66,12 +65,10 @@ it("keeps a name the player has not uncovered hidden on the face", () => {
 
 it("gives a chosen card no accept play: the held quest's one button is Discard", () => {
   const world = worlds.told;
-  // The quest card is not a table card; choosing a table card offers its own plays.
   expect(cardActions(world, [OFFER]).actions).toEqual([]);
   const drop = legalActions(world).filter((a) => a.kind === "drop" && !a.item);
   expect(drop).toHaveLength(1);
   expect(playLabel(drop[0], world)).toBe("Discard");
-  // The level quest is held the same way; discarding it names its cost.
   const level = clone(worlds.met);
   expect(heldOf(level.actors.vale)[0].quest).toBeTruthy();
   const costly = legalActions(level).find((a) => a.kind === "drop" && !a.item);

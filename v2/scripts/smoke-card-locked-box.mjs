@@ -285,14 +285,10 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
-      // The Talk is a play like any other, and the shut box's quest is held
-      // by it (rules 134): nothing lies to accept, and the new quest is
-      // dealt face down once.
       await page.waitForFunction(
         (key) => Boolean(JSON.parse(localStorage.getItem(key)).actors.vale.want),
         key,
       );
-      // The guard's own quest may come with it, by trust or by chance, on top.
       const vale = (await state()).actors.vale;
       assert(
         [vale.want, ...(vale.under || [])].some(
@@ -302,8 +298,6 @@ try {
       );
       assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0);
       const questLid = await page.evaluate(() => window.closedQuestEvidence);
-      // Where the avatar's stack is open the quest is dealt face down in view;
-      // a folded stack shows only its folded card, so there is nothing to see.
       if (questLid) {
         assert.equal(questLid.src, plainLid.src);
         assert.equal(questLid.label, "Face-down quest");

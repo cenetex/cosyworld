@@ -1603,10 +1603,6 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
-  // A quest standing for a player is held in the play that made it stand
-  // (`settleQuests`, rules 134): there is no accept play. A player may set
-  // the top quest down; the one beneath it then shows (Sleep at home costs
-  // experience, `dropCost`).
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
       const goal =
@@ -1852,15 +1848,7 @@ function settleCompanions(s) {
 }
 // A traveler wakes from a long rest: the companion is dismissed unless a
 // quest taken on from them pins the bond.
-// Every offer standing for a player is held now, in the committed play that
-// made it stand (rules 134): newest on top, nothing to accept and no play to
-// journal. A quest to bring or meet a resident is a shared vow, so the
-// resident who offered it is with the traveler at once, and the bond holds
 // through a long rest while the quest is held (rules 133).
-// Avatars are walked in sorted order, as the other cross-actor loops are.
-// Only the acting traveler binds a companion: another traveler's quests are
-// held in this play too (deterministic, from the world as it stands), but its
-// resident is bound when that traveler next acts, if it has no companion.
 function settleQuests(s, acting) {
   for (const actor of Object.keys(s.actors).sort()) {
     if (
@@ -1874,8 +1862,6 @@ function settleQuests(s, acting) {
         heldOf(s.actors[actor]).some((held) => sameQuest(held, offer.want))
       )
         continue;
-      // Holding a quest is a fact of the avatar, not a play: it writes no
-      // log line, so no reader of "the player's last action" meets it.
       const quest = holdQuest(s, actor, offer.want, offer.id);
       if (!quest) break;
       if (actor === acting) bindAsker(s, actor, quest, true);
@@ -3242,7 +3228,6 @@ export function play(
   const next = structuredClone(s);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-  // A play ends a player's guard (rules 100), and an away avatar's
   // resident sleep becomes its returning player's own.
   if (!exact.guards) delete next.actors[actor].guarding;
   const dozing = next.actors[actor].sleeping;
@@ -3436,7 +3421,6 @@ export function play(
   settleHeldItems(next, handSnapshot(s));
   settleLamp(next);
   settleStationExits(next);
-  // What this play made stand is held now (rules 134).
   settleQuests(next, actor);
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.

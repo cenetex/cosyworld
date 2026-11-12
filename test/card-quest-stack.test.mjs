@@ -18,10 +18,6 @@ import {
 } from "../v2/card-game/want.mjs";
 import { questCards } from "../v2/card-game/quest-card.mjs";
 
-// Rules 134, package A: an offer that stands is held in the play that made it
-// stand, quests stack with the newest on top, and a closed quest stays closed
-// until its source offers different terms. Small worlds built from
-// `createPipWorld`: Vale at the pond with Pip, who always offers his lamp.
 const act = (s, pick) => {
   const action = legalActions(s).find(pick);
   expect(action, "a legal play").toBeTruthy();
@@ -48,10 +44,8 @@ describe("an offer is held without an accept play", () => {
       step: { verb: "give", to: "moth" },
       from: FROM,
     });
-    // It is held, so it no longer stands as an offer, and no play takes it.
     expect(questOffers(s)).toEqual([]);
     expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
-    // Holding a quest is a fact of the avatar: it writes no log line.
     expect(s.log.some((e) => e.verb === "quest")).toBe(false);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
@@ -66,7 +60,6 @@ describe("an offer is held without an accept play", () => {
 });
 
 describe("quests stack", () => {
-  // Pip's quest is held; then experience reaches the next level.
   const piped = () => talk(createPipWorld(5));
   const levelled = () => {
     const s = piped();
@@ -78,7 +71,6 @@ describe("quests stack", () => {
 
   it("holds the level quest like any other, stacked on top of Pip's", () => {
     const s = levelled();
-    // Newest on top: the level quest is the active want; Pip's lies beneath.
     expect(sources(s)).toEqual(["quest:level", FROM]);
     expect(s.actors.vale.want).toMatchObject({ quest: { level: 2, left: 1 } });
     expect(s.actors.vale.under).toHaveLength(1);
@@ -88,7 +80,6 @@ describe("quests stack", () => {
   });
 
   it("stacks two offers made by one play, the level quest last and on top", () => {
-    // Talk makes Pip's offer stand, and the experience already stands the level.
     const start = createPipWorld(5);
     start.actors.vale.level = 1;
     start.actors.vale.xp = questXp(2);
@@ -99,13 +90,11 @@ describe("quests stack", () => {
 
   it("shows the next quest when the top one is discarded", () => {
     let s = levelled();
-    // Sleep at home costs the experience it did before.
     expect(dropCost(s, "vale")).toBeGreaterThan(0);
     s = discard(s);
     expect(sources(s)).toEqual([FROM]);
     expect(s.actors.vale.want.target).toBe("lamp");
     expect(s.actors.vale.under).toBeUndefined();
-    // Pip's quest on top is free to discard, and nothing is left beneath it.
     expect(dropCost(s, "vale")).toBe(0);
     s = discard(s);
     expect(heldOf(s.actors.vale)).toEqual([]);
@@ -117,7 +106,6 @@ describe("quests stack", () => {
     s.actors.vale.place = "attic";
     s = wait(s);
     holdQuest(s, "vale", newWant("place", "pond", s.turn), "quest:box:test");
-    // The box is not real, so only the stack's own rules are checked here.
     expect(s.actors.vale.want.target).toBe("pond");
     expect(heldOf(s.actors.vale).some((w) => w.quest?.level === 2)).toBe(true);
     for (let i = 0; i < LONG_SLEEP_TURNS + 2 && s.actors.vale.level !== 2; i++) {
@@ -126,14 +114,12 @@ describe("quests stack", () => {
       s = play(s, sleep, s.revision).state;
     }
     expect(s.actors.vale.level).toBe(2);
-    // The level quest left the stack; the quest above it is still held.
     expect(sources(s)).toContain("quest:box:test");
     expect(heldOf(s.actors.vale).some((w) => w.quest)).toBe(false);
   });
 });
 
 describe("a closed quest stays closed", () => {
-  // Residents roam; the story here is Pip standing where he was told.
   const staying = (s) => {
     s.actors.moth.place = "pond";
     s.actors.vale.place = "pond";
@@ -150,7 +136,6 @@ describe("a closed quest stays closed", () => {
       s = wait(staying(s));
       expect(sources(s)).not.toContain(FROM);
     }
-    // Nor does the Talk that told it, again.
     s = talk(staying(s));
     expect(sources(s)).not.toContain(FROM);
     expect(validateWorld(reload(s))).toBeTruthy();
@@ -160,7 +145,6 @@ describe("a closed quest stays closed", () => {
     let s = discard(talk(createPipWorld(5)));
     s = wait(staying(s));
     expect(sources(s)).toEqual([]);
-    // Pip now wants something else, and he trusts the traveler: a new offer.
     staying(s).actors.moth.want = newWant("item", "bell", s.turn);
     s.actors.moth.trust.vale = 1;
     s = talk(s);
@@ -171,7 +155,6 @@ describe("a closed quest stays closed", () => {
   it("closes a quest that was met, so it is not held again and paid twice", () => {
     let s = talk(createPipWorld(5));
     s.actors.vale.want.refusals = 0;
-    // Vale carries the lamp to Pip and gives it: the quest is met.
     s.items.lamp.holder = "vale";
     const give = legalActions(s).find((a) => a.kind === "give" && a.target === "moth");
     expect(give).toBeTruthy();
@@ -209,7 +192,6 @@ describe("every held quest is live", () => {
     let s = pip();
     holdQuest(s, "vale", newWant("place", "station", s.turn), "quest:from:test");
     expect(sources(s)).toEqual(["quest:from:test", FROM]);
-    // Pip's quest is buried; giving him the lamp meets it from beneath.
     s.items.lamp.holder = "vale";
     s.actors.moth.place = "pond";
     s.actors.vale.place = "pond";
@@ -225,12 +207,10 @@ describe("every held quest is live", () => {
   it("meets two quests with one play, each paid, top first", () => {
     let s = pip();
     s.items.lamp.holder = "vale";
-    // A second quest on top asks for the same lamp to be held.
     holdQuest(s, "vale", newWant("item", "lamp", s.turn), "quest:from:test");
     expect(sources(s)).toEqual(["quest:from:test", FROM]);
     const xp = s.actors.vale.xp;
     s = wait(s);
-    // Holding the lamp meets the top one at once; Pip's waits for its give.
     expect(sources(s)).toEqual([FROM]);
     expect(s.actors.vale.xp).toBe(xp + 1);
     s.actors.moth.place = "pond";
@@ -239,8 +219,6 @@ describe("every held quest is live", () => {
     const before = s.actors.vale.xp;
     s = play(s, give, s.revision).state;
     expect(sources(s)).not.toContain(FROM);
-    // The give pays its quest (1) and helps Pip meet his want (1); the attic
-    // box this play found open pays its opening (1).
     expect(s.opened.attic).toEqual(["vale"]);
     expect(s.actors.vale.xp).toBe(before + 3);
   });

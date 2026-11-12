@@ -526,7 +526,6 @@ it("hears the figurine from RATi in any room of the station", () => {
 
 it("does not complete the Thermos door's quest by carrying the Thermos", () => {
   let s = steps(fixture(), upTo("move", id("dispatch-window")));
-  // The door's quest was held when the traveler arrived (rules 134).
   const open = () =>
     questsOf(s, "vale").some((q) => q.target === home);
   expect(open()).toBe(true);

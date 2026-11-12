@@ -1,8 +1,6 @@
 // A pack change waits behind the reply already being read. The next card
 // play commits after Continue, while the return message stays in history.
 // Choosing the quest card is client-only: it commits nothing and passes no
-// turn. A quest is no longer taken by a play (rules 134): it is held by the
-// play that made it stand.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";

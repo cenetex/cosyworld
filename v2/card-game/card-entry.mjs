@@ -112,9 +112,6 @@ export const questEntryKey = (quest) =>
 // and `unseen(key)` puts back a turn that found it folded again. The hand a
 // page or a new game opens on (`opening`) is already dealt: what shows then
 // is face up at once, and a quest folded away turns when first seen. A quest
-// that leaves the hand and comes back is dealt again. A player holds a stack
-// (rules 134): `stack` is every held quest's key, and one already turned that
-// is still held is not covered again when it comes back to the top.
 export function createQuestEntries() {
   let held = null,
     lying = false,

@@ -1,8 +1,3 @@
-// Quest offers (rules 133, #2605; held at once since rules 134): the one list
-// of quests that stand for a player. "Quests should be accepted automatically"
-// (owner, 2026-11-11): an offer that stands is held in the same committed
-// play that made it stand (`settleQuests`, world.mjs), so no card or button
-// takes it. The only quest play is Discard.
 //
 //   box       a shut box lying here
 //   resident  someone here who told you their want, and
@@ -10,9 +5,6 @@
 //   home      your own home's door, shut
 //   level     your experience reached the next level
 //
-// An offer stands only while the player does not already hold it and has not
-// closed it: a quest met or discarded is not offered again by its source until
-// the source offers different terms (`closed`, want.mjs).
 import { entityActive } from "../pack-registry.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
@@ -50,7 +42,6 @@ const boxQuest = (s, { kind, target, step }) => ({
 });
 
 // An escort or meeting offered by a resident who is already another
-// traveler's companion is not held: it stands again when they part.
 function withAnother(s, actor, kind, source, want) {
   const traveler = travelerOf(s, source);
   return Boolean(

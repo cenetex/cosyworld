@@ -77,10 +77,6 @@ export function funeralJourney(world = null) {
           a.item === "greek-oil-flask",
       );
     for (let turns = 0; turns < 48 && !canOfferOil(); turns++) act("wait");
-    // The shade trusts the traveler, so its Talk certainly offers the burial,
-    // and the rules hold it at once (rules 134).
-    // Only the top quest is in play: set down any stale ones above the burial
-    // (the water jar and the like were done long ago), newest first.
     while (
       world.actors.vale.want &&
       world.actors.vale.want.step?.verb !== "lay" &&

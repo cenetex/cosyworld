@@ -3,8 +3,6 @@
 // meets it. `actor.want` is that want.
 // A resident's next want is drawn from the world, deterministically, so a
 // replayed journal makes the same choices. A player's is never drawn or
-// handed over: an offer that stands is held at once (`holdQuest`, rules 134)
-// and the player may set the top one down (`dropQuest`).
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
@@ -138,17 +136,11 @@ export const sameQuest = (left, right) =>
   !left.quest && !right.quest && questTerms(left) === questTerms(right);
 export const wantKey = (id, want) =>
   `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
-// A player holds its quests as a stack (rules 134): `want` is the top, the
-// newest and the one in play, and `under` the older ones beneath it, nearest
-// first. Everything that reads `want` reads the top. A resident holds one.
 export const MAX_HELD = 9;
 export const heldOf = (a) => (a?.want ? [a.want, ...(a.under || [])] : []);
 export const questsOf = (s, id) => heldOf(s.actors[id]);
 export const holdsLevelQuest = (a) => heldOf(a).some((w) => w.quest);
-// No completion receipts: XP is paid on the play that meets the want.
 export const questRewardsOf = () => [];
-// What a closed quest is remembered by: its terms, and the level a level
-// quest leads to (`questTerms` leaves `quest` out).
 export const closedKey = (w) =>
   questTerms(w) + (w.quest ? `:${w.quest.level}` : "");
 // A met want with nothing to follow leaves its resident content: no want
@@ -161,10 +153,6 @@ export function setWant(a, want) {
   if (a.want) delete a.content;
   return a.want;
 }
-// A standing offer is held at once (rules 134, no accept step): it goes on
-// top of the stack and becomes the active want, the held ones beneath it.
-// `from` is the offer it came from, so it can be remembered when it closes.
-// Null when the stack is full.
 export function holdQuest(s, actor, want, from) {
   const a = s.actors[actor];
   if (!a || heldOf(a).length >= MAX_HELD) return null;
@@ -173,20 +161,12 @@ export function holdQuest(s, actor, want, from) {
   delete a.content;
   return a.want;
 }
-// A held quest leaves the stack (met, discarded, or no longer asked): the one
-// beneath it becomes the active want.
 export function releaseQuest(a, want) {
   const held = heldOf(a).filter((w) => w !== want);
   a.want = held[0] ?? null;
   if (held.length > 1) a.under = held.slice(1);
   else delete a.under;
 }
-// A quest that closed, met or discarded, is not offered again by its source
-// until the source offers different terms: `closed[source] = [turn, terms]`,
-// one record per source. A level quest is never recorded: its cost is the
-// experience dropped, and it stands again when that is regained. The record
-// holds at most MAX_CLOSED sources; the oldest turn goes first, ties by
-// source name, so no engine depends on key order.
 export const MAX_CLOSED = 64;
 function closeQuest(a, want, turn) {
   if (!want.from || want.quest) return;
@@ -202,8 +182,6 @@ function closeQuest(a, want, turn) {
 }
 export const closedBy = (a, from, want) =>
   a.closed?.[from]?.[1] === closedKey(want);
-// Whether any source's closed record has these terms: a second source asking
-// the same is not paid twice.
 export const closedAny = (a, want) =>
   !want.quest &&
   Object.values(a.closed || {}).some(([, terms]) => terms === closedKey(want));
@@ -277,8 +255,6 @@ export function wake(s, actor, api) {
     a.glimpse = drawGlimpse(s, actor, api, a.level + 1);
     dream = "glimpse";
   }
-  // Sleep at home is met only by a long rest at the avatar's own home, even
-  // with other quests held above it.
   const w = heldOf(a).find(
     (q) => q.quest && q.step?.verb === "rest" && q.target === a.place,
   );
@@ -621,9 +597,6 @@ export function settleWants(s, actors, api, action = null) {
       if (s.actors[other] && !a.talked.includes(other))
         a.talked = [...a.talked, other].slice(-64);
     }
-    // Every quest a player holds is live, not only the top (rules 134): each
-    // one met by this play is paid and leaves the stack, top first. Only the
-    // top is shown. A resident holds one.
     for (const held of api.player(id) ? heldOf(a) : a.want ? [a.want] : [])
       if (questMet(s, id, held, talk, action)) {
         commitMet(s, id, api, met, held);
@@ -660,8 +633,6 @@ function commitMet(s, id, api, met, held = null) {
     want = held ?? a.want,
     level = want.quest && want.step?.verb === "rest" ? want.quest.level : null;
   a.level ??= levelFor(a.xp);
-  // A box's quest pays nothing beside the box's own opening (rules 133
-  // totals; package C replaces both).
   const xp = level || want.from?.startsWith("quest:box:") ? 0 : 1;
   a.xp += xp;
   a.metTurn = s.turn;
@@ -672,16 +643,11 @@ function commitMet(s, id, api, met, held = null) {
     delete a.glimpse;
   } else if (!api.player(id) && !packPeople[id]?.levelAtHome)
     a.level = Math.max(a.level, levelFor(a.xp));
-  // A player's met quest closes, and the one beneath it becomes the active
-  // want (rules 134).
-  // A resident's one want is replaced below. A stack under a non-player's
-  // top is promoted too, so a want is never null above a stack.
   if (api.player(id)) closeQuest(a, want, s.turn);
   if (api.player(id) || a.under) releaseQuest(a, want);
   else a.want = null;
   // A resident met takes its next staged want at once, if one can be taken
   // (rules 133). Otherwise it is content for a while; a player simply holds
-  // no quest until a new one stands.
   if (!api.player(id) && !a.want) {
     const staged = stagedNext(s, id, want);
     if (staged) setWant(a, staged);
@@ -894,9 +860,6 @@ export function validWant(s, id) {
     (a.want === null || validQuest(s, id, a.want))
   );
 }
-// The quests beneath a player's top one (rules 134). Only a player avatar
-// holds a stack, and only under a top quest. No two held quests ask the same,
-// and at most one is a level quest.
 function validUnder(s, id) {
   const a = s.actors[id];
   if (a.under === undefined) return true;
@@ -912,7 +875,6 @@ function validUnder(s, id) {
       held.filter((w) => w.quest).length <= 1,
   );
 }
-// The offers a player closed, by source: the terms last closed there.
 function validClosed(s, a) {
   if (a.closed === undefined) return true;
   const entries =

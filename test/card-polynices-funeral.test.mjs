@@ -136,8 +136,6 @@ it("keeps a meeting with the shade after dawn", () => {
   world.turn = world.revision = 35;
   expect(talk(world)).toBeUndefined();
   world.turn = world.revision = 36;
-  // A shade who trusts the traveler always offers its quest (rules 133), so
-  // the Talk holds the burial without a roll (rules 134).
   world.actors[shade].trust.vale = 1;
   const result = play(world, talk(world));
   expect(result.ok, result.error).toBe(true);

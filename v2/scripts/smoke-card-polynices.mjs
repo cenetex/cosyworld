@@ -48,8 +48,6 @@ for (const match of [
   assert.ok(result.ok, result.error);
   fixture = result.state;
 }
-// Talk tells the burial. The rules hold it at once when its teller offers it
-// (rules 134); this table's Talk may not have, so hold it as they would.
 {
   const teller = [antigone, "greek-polynices-shade"].find(
     (id) => fixture.actors[id]?.want?.step?.verb === "lay",
@@ -334,7 +332,6 @@ try {
       assert.equal(await page.evaluate(() => Boolean(window.funeralSong)), false);
       console.log(JSON.stringify({ width, funeralMusic: musicBefore, travelled: true, ended: true, reload: true }));
       // The met funeral quest pays its experience on the last rite and goes:
-      // there is nothing to claim. The experience may hold the level-up quest.
       assert.notEqual(done.actors.vale.want?.step?.verb, "lay");
       assert.ok(![done.actors.vale.want, ...(done.actors.vale.under || [])].some((w) => w?.step?.verb === "lay"));
       assert.ok(done.actors.vale.xp > ready.actors.vale.xp);

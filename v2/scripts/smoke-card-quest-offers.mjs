@@ -1,9 +1,3 @@
-// Quests are held at once and stack (rules 134, #2694). From a fresh world:
-// the shut pond offers no quest and says why; Pip's Talk holds his quest as it
-// ends, with no offer card and nothing to accept; the held quest card's one
-// button is Discard; meeting the want pays XP with no Claim; at the level's
-// threshold the level-up quest is held; quests stack newest on top with the
-// rest as stack edges, and Discard shows the next and sticks.
 // A lock or quest that concerns a card the traveler has not discovered names
 // nothing: no word, aria label, title, alt text or image of it, in the bar,
 // the button or the quest card; it shows the face-down back, and names the
@@ -166,8 +160,6 @@ try {
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
 
-    // The held quest lies behind Vale; her stack opens it, with its one
-    // button. A held quest's one button is always Discard.
     const openHeld = async (page, t) => {
       await clearSelection(page);
       await selectCard(page, "vale");
@@ -178,8 +170,6 @@ try {
       await t.ready();
     };
 
-    // 1. A fresh world: the pond is shut, offers nothing, and says why. Pip's
-    // Talk holds his quest as it ends, with nothing to accept.
     {
       const t = await open("quest-offers-fresh");
       const { page } = t;
@@ -218,7 +208,6 @@ try {
       await selectCard(page, "moth");
       await page.locator('#card-actions [data-action="talk"]').click();
       await t.ready();
-      // 2. The Talk held his quest: no offer card, no Accept quest.
       const held = await t.state();
       assert.deepEqual(
         { kind: held.actors.vale.want.kind, target: held.actors.vale.want.target, from: held.actors.vale.want.from },
@@ -292,8 +281,6 @@ try {
       await page.close();
     }
 
-    // 5. The level threshold holds the level-up quest at once; Discard is its
-    // one button, and its cost is named there.
     {
       const t = await open("quest-offers-level", decodeSave(encodeSave(journey.met)));
       const { page } = t;
@@ -311,8 +298,6 @@ try {
       await page.close();
     }
 
-    // 6. Quests stack, newest on top: the top shows with the rest as stack
-    // edges. Discard shows the next, and a discarded quest does not come back.
     {
       const world = decodeSave(encodeSave(journey.told));
       holdQuest(world, "vale", newWant("item", "cloth", world.turn), "quest:box:test");
@@ -356,14 +341,11 @@ try {
       await page.close();
     }
 
-    // 7. A shut box's quest is held once the traveler stands by it, beside the
-    // box's own button.
     {
       const world = structuredClone(greekErrands().decree);
       world.actors.vale.place = "greek-gate";
       world.crossings["pond-greek-harbor"].discovered = true;
       for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
-      // The play that finds her there holds the quest.
       const waited = play(
         world,
         legalActions(world).find((a) => a.kind === "wait" && !a.sleep && !a.guards),

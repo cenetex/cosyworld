@@ -506,7 +506,6 @@ describe("a shared quest pins the bond", () => {
     let s = world();
     s.actors[ANN].want = { kind: "place", target: "co-c", since: s.turn, refusals: 0 };
     s = step(s, "talk", { target: ANN });
-    // The quest is held as the Talk ends (rules 134); no play accepts it.
     expect(legalActions(s, "vale").some((a) => a.kind === "take" && a.offer)).toBe(false);
     expect(s.actors.vale.want).toMatchObject({ from: `quest:from:${ANN}` });
     expect(companionOf(s, "vale")).toBe(ANN);

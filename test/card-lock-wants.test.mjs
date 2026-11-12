@@ -525,7 +525,6 @@ describe("a lock in a real world shows only what the traveler knows", () => {
 
   it("words a quest offered to a fresh traveler without its undiscovered names", () => {
     const told = journeyWorlds(questCards).told;
-    // Quests stand held at once (rules 134), so the held ones are read.
     const offers = questsOf(told, "vale").map((want) => ({ id: want.from, want }));
     expect(offers.length).toBeGreaterThan(0);
     for (const offer of offers) {

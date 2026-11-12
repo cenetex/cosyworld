@@ -58,7 +58,6 @@ describe("Talk tells a want", () => {
       s.actors.vale.heard,
     );
     expect(validateWorld(reload(s))).toBeTruthy();
-    // The held quest gives the lamp to Pip.
     heldFrom(s, "moth");
     expect(s.actors.vale.want).toMatchObject({
       kind: "item",
@@ -108,7 +107,6 @@ describe("Talk tells a want", () => {
       s,
       (a) => a.kind === "give" && a.target === "moth" && a.item === "lamp",
     );
-    // The quest is met and closed: it leaves the stack and is not held again.
     expect(s.actors.vale.want).toBeNull();
     expect(s.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
     // One for the quest met, one for helping Pip meet his own want.
@@ -124,8 +122,6 @@ describe("Talk tells a want", () => {
     const xp = s.actors.vale.xp;
     s.actors.moth.want = newWant("place", "pond", s.turn);
     s = wait(s);
-    // The asker's want changed first: the quest leaves the stack unmet and
-    // unrefused, and nothing is closed or paid.
     expect(s.actors.vale.want).toBeNull();
     expect(s.actors.vale.closed).toBeUndefined();
     expect(s.actors.vale.xp).toBe(xp);

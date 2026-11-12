@@ -1,5 +1,4 @@
 // Talk tells a quest (#2196, rules 99; #2605). A player's Talk that reveals the
-// other avatar's want says it; an offer that stands is held at once (rules 134),
 // and nothing is pushed at the player. The quest that meets a want is read
 // from its shape (`questFor`):
 //   their item X   -> give(X, them):     the item, step give to them;
@@ -130,7 +129,6 @@ export function talkQuest(s, actor, them, api) {
   return quest;
 }
 // Whether the player was told this avatar's want and it is still theirs: the
-// first condition under which the quest stands (the second is the
 // visit's roll, offer-chance.mjs).
 export function toldWant(s, actor, them) {
   const want = s.actors[them]?.want;
@@ -143,7 +141,6 @@ export function pruneTalkQuests(s, api) {
   pruneOffers(s);
   for (const id of Object.keys(s.actors)) {
     if (!api.player(id)) continue;
-    // Any held quest, not only the top, leaves when its asker no longer asks.
     for (const w of heldOf(s.actors[id])) {
       if (!talkQuestFrom(w) && !(w.step && !w.quest && !w.story && w.kind === "person" && w.step.to))
         continue;

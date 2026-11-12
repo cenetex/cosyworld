@@ -106,8 +106,6 @@ describe("locked boxes", () => {
       text: "Give Creon's Writ to The Gate Guard",
       cards: [],
     });
-    // The box's quest is held (rules 134); Talk with the guard tells his
-    // own (rules 102), held on top of it as the Talk ends.
     expect(questsOf(s, "vale").map((w) => w.from)).toContain(
       "quest:box:greek-battlefield",
     );

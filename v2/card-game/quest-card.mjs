@@ -46,9 +46,6 @@ export function questVisible(world, quest) {
     ), quest.actor);
 }
 
-// The quests the player holds, top first (questsOf is the rules' view of the
-// stack). A card's key changes when its quest is met, set aside or moves on
-// a step.
 const questShape = (world, actor, want, key, index) => ({
   key,
   index,
@@ -222,8 +219,6 @@ export function questTier(quest, world = null, known = () => true) {
 
 // The hand id of the quest card: there is only ever the one.
 export const questId = () => `${QUEST_CARD}:0`;
-// Only the held quest's own id: a held quest is never an offer, and the
-// `quest:` offer ids are no longer cards of the table.
 export const isQuestId = (id) => id === questId();
 
 // The hand with the quest card after the player's avatar and what it

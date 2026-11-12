@@ -40,8 +40,6 @@ describe("the Gate Guard", () => {
     expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
     expect(exits(s, GATE, GUARD)).toContain(FIELD);
     expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
-    // The locked card's quest stands (rules 134, held by the next play): the
-    // writ in his hands. Talk with him tells his own want (rules 102).
     expect(
       questOffers(s).find((o) => o.id === `quest:box:${FIELD}`),
     ).toBeTruthy();
