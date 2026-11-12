@@ -155,7 +155,6 @@ describe("named card actions", () => {
     for (const cards of [
       [],
       ["missing"],
-      ["lamp", "bell"],
       ["vale", "lamp", "bell"],
     ]) {
       const result = cardActions(world, cards);
@@ -163,6 +162,26 @@ describe("named card actions", () => {
       expect(result.hint).toBeTruthy();
     }
     expect(encodeSave(world)).toBe(before);
+  });
+  it("names no item pairing for a selection with no play", () => {
+    const world = meeting();
+    world.actors.keeper.place = "station";
+    world.items.oil.holder = world.items.cloth.holder = "vale";
+    world.items.bell.holder = "station";
+    for (const cards of [
+      ["moth", "keeper"],
+      ["lamp", "bell"],
+      ["oil", "lamp"],
+    ])
+      expect(cardActions(world, cards)).toEqual({ actions: [], hint: "" });
+    for (const id of ["oil", "cloth", "lamp"]) {
+      const { actions, hint } = cardActions(world, [id]);
+      expect(actions).toEqual([]);
+      expect(hint).toMatch(/this place to put it down/u);
+      expect(hint).not.toMatch(/Lamp|Bell|Oil|cloth/u);
+      expect(kinds(world, [id, "station"])).toEqual(["drop"]);
+    }
+    expect(kinds(world, ["oil", "moth"])).toEqual(["give"]);
   });
   it("hints at Ask only when an Ask for that person is legal", () => {
     const ask = /ask for it/u;
@@ -191,7 +210,6 @@ describe("named card actions", () => {
       expect(cardPlay(world, cards).action).toBeFalsy();
       expect(cardActions(world, cards).hint).toBe(TOO_MANY_ITEMS);
     }
-    // A free hand hears the old pairing hint, not the full-hands reason.
     world.items.bell.holder = "station";
     expect(cardActions(world, ["oil"]).hint).not.toBe(TOO_MANY_ITEMS);
   });
