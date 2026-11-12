@@ -23,6 +23,9 @@ export function heldFrom(entry, cards, chosen = [], actor = null) {
   return id ? { id, offer: false, handed: false } : null;
 }
 
+export const handedOver = (holders, id, holder) =>
+  Boolean(holder) && holders.has(id) && holders.get(id) !== holder;
+
 export function travelFrames(from, to) {
   const dx = from.left - to.left,
     dy = from.top - to.top,

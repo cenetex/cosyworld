@@ -6,6 +6,7 @@ import {
   ENTER_AFTER_MS,
   TRAVEL_LAYER,
   closeTiming,
+  handedOver,
   heldFrom,
   travelFrames,
   tuckFrames,
@@ -60,6 +61,26 @@ describe("a quest becoming held", () => {
       start: "200px -10px",
       end: { translate: "-80px 0px", scale: "0.9" },
     });
+  });
+});
+
+describe("a card changing hands", () => {
+  const holders = new Map([
+    ["beanie", "cottage"],
+    ["lamp", "vale"],
+    ["vale", undefined],
+  ]);
+
+  it("flies when its holder changed since the last look", () => {
+    expect(handedOver(holders, "beanie", "vale")).toBe(true);
+    expect(handedOver(holders, "lamp", "moth")).toBe(true);
+    expect(handedOver(holders, "lamp", "cottage")).toBe(true);
+  });
+
+  it("only slides when it kept its holder, has none, or was not shown", () => {
+    expect(handedOver(holders, "lamp", "vale")).toBe(false);
+    expect(handedOver(holders, "vale", undefined)).toBe(false);
+    expect(handedOver(holders, "thermos", "vale")).toBe(false);
   });
 });
 

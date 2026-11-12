@@ -23,6 +23,7 @@ import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { clearTell, finishCardReveal, revealCard, tellCard } from "./card-reveal.mjs";
 import {
   createPackOpening,
+  packOrder,
   revealAnnouncement,
   tierRank,
   turnPlan,
@@ -52,6 +53,7 @@ import {
   TRAVEL_EASE,
   TRAVEL_MS,
   closeTiming,
+  handedOver,
   heldFrom,
   travelFrames,
   tuckFrames,
@@ -1820,19 +1822,12 @@ function packSync(cards) {
   return pack.sync(cards, {
     unturned: cardIsCovered,
     kindOf: packKind,
+    holderOf: (id) => tableHolder(world, id),
     allowed: !saveBlocked && !pipPrelude() && !opening(),
   });
 }
-// The pack's cards sit together, in the pack's order, where its first card
-// would have lain.
-function packHand(cards) {
-  const ids = pack.ids.filter((id) => cards.includes(id));
-  if (!ids.length) return cards;
-  const at = cards.findIndex((id) => ids.includes(id)),
-    rest = cards.filter((id) => !ids.includes(id));
-  rest.splice(at, 0, ...ids);
-  return rest;
-}
+const packHand = (cards) =>
+  packOrder(cards, pack.ids, (id) => tableHolder(world, id));
 // A pack card's frame: the stack's top shows over its folded edges, the rest
 // are tucked; an open pack shows them all in the row.
 function applyPackFrame(frame, id) {
@@ -5250,6 +5245,7 @@ function render() {
       animate = (samePlace || swapping) && !reducedMotion.matches,
       exits = !opening && !quietExits && !reducedMotion.matches,
       before = new Map(),
+      holders = new Map(),
       closing = { delay: 0, enter: 0 },
       swap = swapping
         ? (swapFrom ?? { at: performance.now(), left: 0, fallen: 0 })
@@ -5269,6 +5265,7 @@ function render() {
         const rect = frame.getBoundingClientRect(),
           at = { left: rect.left, top: rect.top };
         if (frame.dataset.want) questBefore = at;
+        else holders.set(key, frame.dataset.holder);
         before.set(key, at);
       }
     for (const motion of handMotions.values()) motion.cancel();
@@ -5414,6 +5411,7 @@ function render() {
           frame,
           previous,
           next: frame.getBoundingClientRect(),
+          flight: handedOver(holders, id, frame.dataset.holder),
         });
       }
     // Cards going back from a pack settle a beat apart, the rarest last.

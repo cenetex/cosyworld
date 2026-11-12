@@ -23,12 +23,14 @@ import { cardLevel } from "../card-game/rarity.mjs";
 import {
   createWorld,
   encodeSave,
+  legalActions,
   nameOf,
   people,
   places,
+  play,
   things,
 } from "../card-game/world.mjs";
-import { focusedHandCard, smokeWidths, tapCard, unreachableCards } from "./card-browser-helpers.mjs";
+import { focusedHandCard, settleHand, tapCard, unreachableCards } from "./card-browser-helpers.mjs";
 
 const shots = process.argv[2]
   ? new URL(`file://${process.argv[2].replace(/\/?$/u, "/")}`)
@@ -78,7 +80,7 @@ const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
 });
 
-async function openTable(width, motion, { covered, tag }) {
+async function openTable(width, motion, { covered, tag, place = scenario.place }) {
   const key = `cosyworld.reflected-shore.v1.${tag}`;
   const everything = [
     ...Object.keys(people),
@@ -86,7 +88,7 @@ async function openTable(width, motion, { covered, tag }) {
     ...Object.keys(places),
   ];
   const world = createWorld({ opening: false, seed: 7 });
-  world.actors.vale.place = scenario.place;
+  world.actors.vale.place = place;
   const page = await browser.newPage({
     viewport: { width, height: width < 600 ? 844 : 900 },
     reducedMotion: motion,
@@ -366,6 +368,150 @@ for (const [width, motion] of [
   assert.equal(await page.locator("#hand [data-pack]").count(), 0, "two cards form no pack");
   assert.ok((await unturned(page, key)).length >= 1);
   assert.deepEqual(errors, []);
+  await page.close();
+}
+
+function chooseHandover() {
+  for (const place of Object.keys(places)) {
+    try {
+      const world = createWorld({ opening: false, seed: 7 });
+      world.actors.vale.place = place;
+      const here = availableCards(world).filter(
+        (id) => id !== "vale" && !id.startsWith("quest:"),
+      );
+      if (here.length < 3) continue;
+      for (const take of legalActions(world).filter((a) => a.kind === "take")) {
+        if (world.items[take.item].holder !== place || isLockedBox(world, take.item)) continue;
+        const taken = play(world, take);
+        if (!taken.ok) continue;
+        const give = legalActions(taken.state)
+          .filter((a) => a.kind === "give" && a.item === take.item && here.includes(a.target))
+          .find((a) => {
+            const given = play(taken.state, a);
+            return given.ok && given.state.items[a.item].holder === a.target;
+          });
+        if (give) return { place, here, item: take.item, resident: give.target };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+const handover = chooseHandover();
+assert.ok(handover, "a place has a loose thing to take and a resident to give it to");
+console.log(`handover: ${handover.item} at ${handover.place}, then to ${handover.resident}`);
+
+const besideHolder = (page, item, holder) =>
+  page.evaluate(
+    ({ item, holder }) => {
+      const frameOf = (id) => document.querySelector(`#hand [data-card="${id}"]`)?.parentElement,
+        frame = frameOf(item),
+        owner = frameOf(holder);
+      if (!frame || !owner) return { missing: true };
+      let lead = frame.previousElementSibling;
+      while (lead && lead !== owner && lead.dataset.holder === holder)
+        lead = lead.previousElementSibling;
+      const shown = [...document.querySelectorAll("#hand > .card-frame")].filter((f) => !f.hidden),
+        box = frame.getBoundingClientRect(),
+        base = owner.getBoundingClientRect();
+      return {
+        holder: frame.dataset.holder,
+        pack: frame.dataset.pack ?? null,
+        hidden: frame.hidden,
+        pressed: frame.querySelector(".card").getAttribute("aria-pressed"),
+        grouped: lead === owner,
+        moving: frame.getAnimations().some((a) => a.playState === "running"),
+        between: shown.filter((f) => {
+          const left = f.getBoundingClientRect().left;
+          return f !== frame && f !== owner && left > base.left && left < box.left;
+        }).length,
+        right: box.left - base.left,
+        drop: Math.abs(box.top - base.top),
+        height: base.height,
+      };
+    },
+    { item, holder },
+  );
+const lies = async (page, item, holder, step, { settled = true } = {}) => {
+  const at = await besideHolder(page, item, holder);
+  assert.equal(at.holder, holder, `${step}: the card is its holder's`);
+  assert.equal(at.pack, null, `${step}: the card has left the pack`);
+  assert.equal(at.grouped, true, `${step}: the card lies in its holder's stack in the hand`);
+  if (at.hidden || !settled) return at;
+  assert.equal(at.between, 0, `${step}: no other card lies between the holder and the card`);
+  assert.ok(at.right > 0, `${step}: the card lies after its holder`);
+  assert.ok(at.drop < at.height / 2, `${step}: the card lies in its holder's row`);
+  return at;
+};
+const turnAndChoose = async (page, id) => {
+  const card = page.locator(`#hand [data-card="${id}"]`);
+  for (let tap = 0; tap < 3 && (await card.getAttribute("aria-pressed")) !== "true"; tap++) {
+    await tapCard(card);
+    await page.waitForFunction(
+      (id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.unrevealed === "false" && !card.dataset.revealing;
+      },
+      id,
+    );
+    await page.waitForTimeout(300);
+  }
+  assert.equal(await card.getAttribute("aria-pressed"), "true", `${id} is chosen`);
+};
+const redraw = async (page) => {
+  await tapCard(page.locator('#hand [data-card="vale"]'));
+  await page.waitForTimeout(600);
+};
+
+for (const [width, motion] of [
+  [390, "no-preference"],
+  [1440, "no-preference"],
+  [390, "reduce"],
+]) {
+  const label = `${width}px ${motion} handover`;
+  const { item, resident, place, here } = handover;
+  const { page, errors } = await openTable(width, motion, {
+    covered: here,
+    tag: `pack-handover-${width}-${motion}`,
+    place,
+  });
+  await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="closed"]').length > 1);
+  await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
+  await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length > 1);
+  await page.waitForTimeout(900);
+  await turnAndChoose(page, item);
+  await page.locator('#card-actions [data-action="take"]:not([data-revealing="true"])').click();
+  const taken = await lies(page, item, "vale", `${label}: at once after Take`, { settled: false });
+  assert.equal(taken.hidden, false, `${label}: the taken card shows`);
+  assert.equal(taken.pressed, "true", `${label}: the taken card stays chosen`);
+  assert.equal(taken.moving, motion !== "reduce", `${label}: the card travels only with motion`);
+  if (motion === "reduce") await lies(page, item, "vale", `${label}: at once, without motion`);
+  await page.waitForTimeout(700);
+  await lies(page, item, "vale", `${label}: settled after Take`);
+  assert.ok(
+    (await page.locator('#hand [data-pack="open"]').count()) >= 1,
+    `${label}: the rest of the pack stays open`,
+  );
+  await settleHand(page);
+  await redraw(page);
+  await lies(page, item, "vale", `${label}: after a redraw`);
+  if ((await page.locator(`#hand [data-card="${item}"]`).getAttribute("aria-pressed")) !== "true")
+    await tapCard(page.locator(`#hand [data-card="${item}"]`));
+  await turnAndChoose(page, resident);
+  await page.locator('#card-actions [data-action="give"]:not([data-revealing="true"])').click();
+  await page.waitForFunction(
+    ({ item, resident }) =>
+      document.querySelector(`#hand [data-card="${item}"]`)?.parentElement.dataset.holder === resident,
+    { item, resident },
+  );
+  await lies(page, item, resident, `${label}: at once after Give`, { settled: false });
+  await page.waitForTimeout(700);
+  await lies(page, item, resident, `${label}: settled after Give`);
+  await settleHand(page);
+  await redraw(page);
+  await lies(page, item, resident, `${label}: after a redraw of the gift`);
+  assert.deepEqual(errors, [], `${label}: no page errors`);
   await page.close();
 }
 
