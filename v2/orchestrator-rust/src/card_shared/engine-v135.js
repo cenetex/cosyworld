@@ -6114,9 +6114,8 @@
   function holds(s, condition, binding) {
     const c = resolve(condition, binding);
     const each = (r) => holds(s, r, binding);
+    if (c.kind === "all") return c.conditions.every(each);
     switch (c.kind) {
-      case "all":
-        return c.conditions.every(each);
       case "any":
         return c.conditions.some(each);
       case "not":
@@ -6254,8 +6253,8 @@
     const record5 = recordOf(s, actor);
     return deck.cards.flatMap((card) => {
       const binding = s.items?.[card.id]?.holder === place && !record5.proved.includes(card.id) && !record5.held.includes(card.id) && bindingOf(s, card, actor);
-      if (!binding) return [];
-      const goals = resolve(card.desire || [], binding).slice(0, MOST_GOALS);
+      if (!binding || !card.desire?.length) return [];
+      const goals = resolve(card.desire, binding).slice(0, MOST_GOALS);
       return [
         {
           id: card.id,

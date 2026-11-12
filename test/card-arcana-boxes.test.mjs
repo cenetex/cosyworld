@@ -12,11 +12,7 @@ import {
   recordOf,
   settleArcana,
 } from "../v2/card-game/world/arcana.mjs";
-import {
-  boxDefs,
-  boxesAt,
-  shutBoxesAt,
-} from "../v2/card-game/world/boxes.mjs";
+import { boxDefs, boxesAt, shutBoxesAt } from "../v2/card-game/world/boxes.mjs";
 import { nameOf } from "../v2/card-game/world/catalog.mjs";
 import {
   createWorld,
@@ -42,7 +38,8 @@ const MEAL = {
 const boxOf = (s, place, who = "vale") =>
   boxesAt(s, place, who).find((box) => box.id === CARD);
 
-function world(card = { id: CARD, number: 0, proof: never }, options = {}) {
+const MUTE = { id: CARD, number: 0, proof: never };
+function world(card = MEAL, options = {}) {
   deck.cards = [card];
   const s = createWorld({ seed: 5, ...options });
   s.items[CARD].holder = s.actors.vale.place;
@@ -57,13 +54,11 @@ describe("a shut card is a locked box", () => {
   it("lies shut at its place for a traveler, and nowhere else", () => {
     const s = world();
     const here = s.actors.vale.place;
-    expect(boxOf(s, here)).toEqual({
+    expect(boxOf(s, here)).toMatchObject({
       id: CARD,
       kind: "item",
       at: here,
       open: false,
-      want: null,
-      goals: [],
     });
     expect(shutBoxesAt(s, here, "vale").map((box) => box.id)).toContain(CARD);
     const other = s.items[data.cards[1].id].holder;
@@ -102,7 +97,11 @@ describe("the words on a shut card", () => {
   it("are the card's desire with its roles filled", () => {
     const s = world(MEAL);
     const { thing, someone } = bindingOf(s, MEAL, "vale");
-    const goal = { kind: "item", target: thing, step: { verb: "eat", with: someone } };
+    const goal = {
+      kind: "item",
+      target: thing,
+      step: { verb: "eat", with: someone },
+    };
     const box = boxOf(s, s.actors.vale.place);
     expect(box.goals).toEqual([goal]);
     expect(box.want).toEqual(goal);
@@ -123,8 +122,10 @@ describe("the words on a shut card", () => {
     expect(said).not.toContain(nameOf(someone));
   });
 
-  it("say only that it is shut when the card has no desire", () => {
-    expect(lockWords(world(), CARD)).toBe(LOCKED_BOX);
+  it("is no box at all when the card has no desire to say", () => {
+    const s = world(MUTE);
+    expect(boxOf(s, s.actors.vale.place)).toBeUndefined();
+    expect(lockWords(s, CARD)).toBeNull();
   });
 
   it("shows at most three wants", () => {
@@ -179,7 +180,9 @@ describe("a world that opened something the content no longer has", () => {
 
 describe("the packs", () => {
   it("author no arcanum of their own", () => {
-    const ids = packDefinitions.flatMap((pack) => Object.keys(pack.items || {}));
+    const ids = packDefinitions.flatMap((pack) =>
+      Object.keys(pack.items || {}),
+    );
     expect(ids.length).toBeGreaterThan(0);
     expect(ids.filter((id) => id.includes("arcanum"))).toEqual([]);
   });

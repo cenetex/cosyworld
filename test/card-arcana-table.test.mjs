@@ -129,11 +129,10 @@ describe("the cards in a world", () => {
 });
 
 describe("a shut card", () => {
-  it("lies as a locked box and cannot be taken", () => {
+  it("is not in play and cannot be taken", () => {
     const s = createWorld({ seed: 5 });
     s.items[CARD].holder = s.actors.vale.place;
     expect(entityActive(s, CARD)).toBe(false);
-    expect(shutBoxes(s).map((box) => box.id)).toContain(CARD);
     expect(takes(s, "vale", CARD)).toEqual([]);
   });
 });
