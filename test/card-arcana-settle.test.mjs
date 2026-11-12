@@ -98,8 +98,8 @@ describe("settling after a play", () => {
   it("does not count a generated line or another actor's line", () => {
     const s = createWorld({ seed: 3 });
     s.log.push(
-      { verb: "wait", actorId: "vale", generated: true },
-      { verb: "wait", actorId: other },
+      { seq: 1, verb: "wait", actorId: "vale", generated: true },
+      { seq: 2, verb: "wait", actorId: other },
     );
     expect(settleArcana(s, "vale").actors.vale.arcana).toBeUndefined();
   });
@@ -110,7 +110,13 @@ describe("settling after a play", () => {
     const proved = (extra, entry) => {
       deck.cards = [{ id: HERE, number: 0, proof: did(extra) }];
       const s = createWorld({ seed: 3 });
-      s.log.push({ verb: "wait", actorId: "vale", cast: ["vale"], ...entry });
+      s.log.push({
+        seq: 1,
+        verb: "wait",
+        actorId: "vale",
+        cast: ["vale"],
+        ...entry,
+      });
       return recordOf(settleArcana(s, "vale"), "vale").proved.length === 1;
     };
     expect(proved({}, {})).toBe(true);
@@ -150,6 +156,68 @@ describe("settling after a play", () => {
     expect(s.actors.vale.arcana.proved).toEqual([HERE]);
     resetAvatar(s, "vale");
     expect(s.actors.vale.arcana).toBeUndefined();
+  });
+  it("gives a reset seat none of the last holder's deeds", () => {
+    let s = shared(act(createWorld({ seed: 3 }), "wait"), other);
+    expect(recordOf(s, "vale").did).toEqual(["waited"]);
+    expect(s.log.some((e) => e.verb === "wait" && e.actorId === "vale")).toBe(
+      true,
+    );
+    resetAvatar(s, "vale");
+    s.controlledActors.push("vale");
+    s.presentActors.push("vale");
+    s.heldActors.push("vale");
+    s = act(s, "move");
+    expect(recordOf(s, "vale")).toEqual({
+      ...EMPTY,
+      proved: s.actors.vale.place === far ? [HERE] : [],
+    });
+  });
+  it("reads only the lines written since the mark it is given", () => {
+    const s = createWorld({ seed: 3 });
+    s.log.push({ seq: 4, verb: "wait", actorId: "vale" });
+    expect(settleArcana(s, "vale", 4).actors.vale.arcana).toBeUndefined();
+    expect(recordOf(settleArcana(s, "vale", 3), "vale").did).toEqual([
+      "waited",
+    ]);
+  });
+  it("latches the deed of a held avatar whose holder is away", () => {
+    deck.cards = [
+      {
+        id: WAITED,
+        number: 1,
+        proof: [
+          {
+            kind: "did",
+            key: "woke",
+            match: { verb: "wait", actorId: "$traveler" },
+            with: ["woke"],
+          },
+        ],
+      },
+    ];
+    const asleep = (held) => {
+      let s = shared(createWorld({ seed: 3 }), other);
+      s.controlledActors = ["vale"];
+      s.presentActors = ["vale"];
+      s.heldActors = held;
+      s.actors[other].sleeping = {
+        since: s.turn,
+        place: s.actors[other].place,
+        present: [other],
+      };
+      for (let i = 0; i < 60 && s.actors[other].sleeping; i++)
+        s = act(s, "wait");
+      expect(s.actors[other].sleeping).toBeUndefined();
+      return s;
+    };
+    const s = asleep(["vale", other]);
+    expect(s.actors[other].arcana).toEqual({ ...EMPTY, did: ["woke"] });
+    s.presentActors.push(other);
+    s.controlledActors.push(other);
+    s.log = [];
+    expect(recordOf(settleArcana(s, other), other).proved).toEqual([WAITED]);
+    expect(asleep(["vale"]).actors[other].arcana).toBeUndefined();
   });
 });
 

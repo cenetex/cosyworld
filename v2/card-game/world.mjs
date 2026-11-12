@@ -956,7 +956,7 @@ export function holdChoice(s, actor, choice) {
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
-  settleArcana(s, actor);
+  settleArcana(s, actor, before.eventSeq ?? before.log.length);
   settleSealedItems(s, nameOf, (text, locationId) =>
     addLog(s, "World", text, { kind: "narration", locationId }),
   );
@@ -3417,7 +3417,7 @@ export function play(
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
-  settleArcana(next, actor);
+  settleArcana(next, actor, s.eventSeq ?? s.log.length);
   // A sealed thing whose seal follows its facts goes home when they lapse.
   settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);

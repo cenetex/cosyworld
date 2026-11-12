@@ -6099,7 +6099,6 @@
     carried: (s, who) => Object.keys(s.items || {}).filter((id) => rootHolder(s, id) === who).length,
     visited: (s, who) => (s.actors[who]?.visited || []).length,
     heard: (s, who) => Object.keys(s.actors[who]?.heard || {}).length,
-    upgrades: (s, who) => (s.actors[who]?.upgrades || []).length,
     trusting: (s, who, c) => Object.keys(s.actors).filter(
       (other) => other !== who && conditionMet(
         s,
@@ -6132,11 +6131,12 @@
         return conditionMet(s, c, null, null, binding.traveler);
     }
   }
-  function plain(id) {
+  function plain(s, id) {
     const e = packEntity(id);
     if (!e) return true;
-    const release2 = packDefinition(e.packId)?.release;
-    return !e.requires?.length && !e.appearsWhen?.length && !e.sealed && (!release2 || [release2.places, release2.avatars, release2.items].some(
+    const pack = packDefinition(e.packId);
+    const release2 = pack?.release;
+    return specialsAllow(s.packs?.[e.packId], pack, id) && !e.requires?.length && !e.appearsWhen?.length && !e.sealed && (!release2 || [release2.places, release2.avatars, release2.items].some(
       (list) => list.includes(id)
     ));
   }
@@ -6151,7 +6151,7 @@
     food: isFood,
     sanctuary: (id) => sanctuaries.includes(id)
   };
-  var candidates = (s, kind, is) => KINDS[kind](s).filter((id) => plain(id) && (!is || TRAITS[is](id))).sort();
+  var candidates = (s, kind, is) => KINDS[kind](s).filter((id) => plain(s, id) && (!is || TRAITS[is](id))).sort();
   function bindingOf(s, card, traveler, pool = candidates) {
     const binding = { traveler };
     const home = homeOf2(traveler);
@@ -6160,7 +6160,10 @@
     for (const role of card.roles || []) {
       const free = [...pool(s, role.kind, role.is)].sort().filter((id) => !taken.includes(id));
       if (!free.length) return null;
-      binding[role.name] = free[runHash(s, `arcana-role:${card.id}:${role.name}`) % free.length];
+      const score = (id) => runHash(s, `arcana-role:${card.id}:${role.name}:${id}`);
+      binding[role.name] = free.reduce(
+        (best, id) => score(id) < score(best) ? id : best
+      );
       taken.push(binding[role.name]);
     }
     return unfilled(resolve([card.proof, card.desire || []], binding)) ? null : binding;
@@ -6176,21 +6179,31 @@
     const record5 = s.actors[traveler].arcana ??= recordOf(s, traveler);
     record5[list] = [.../* @__PURE__ */ new Set([...record5[list], value])].sort();
   }
-  function settleArcana(s, actor = null) {
-    const travelers = [
-      .../* @__PURE__ */ new Set([actor, ...humanAvatarIds.filter((id) => humanPresent(s, id))])
-    ].filter((id) => humanAvatar(id) && s.actors?.[id]).sort();
-    for (const traveler of travelers)
-      for (const card of deck.cards) {
-        if (recordOf(s, traveler).proved.includes(card.id)) continue;
-        const binding = bindingOf(s, card, traveler);
-        if (!binding) continue;
-        for (const c of resolve(card.proof.flatMap(didsIn), binding))
-          if (!recordOf(s, traveler).did.includes(c.key) && (s.log || []).some((entry) => fits(entry, c)))
-            latch(s, traveler, "did", c.key);
+  function settleArcana(s, actor = null, since = 0) {
+    const seated = (id) => humanAvatar(id) && s.actors?.[id];
+    const open = (traveler) => deck.cards.filter((card) => !recordOf(s, traveler).proved.includes(card.id)).map((card) => [card, bindingOf(s, card, traveler)]).filter(([, binding]) => binding);
+    const each = (ids3, run) => {
+      for (const traveler of [...new Set(ids3)].filter(seated).sort())
+        for (const [card, binding] of open(traveler))
+          run(traveler, card, binding);
+    };
+    const fresh = (s.log || []).filter((entry) => entry.seq > since);
+    if (fresh.length)
+      each(
+        [actor, ...humanAvatarIds.filter((id) => heldByHuman(s, id))],
+        (traveler, card, binding) => {
+          for (const c of resolve(card.proof.flatMap(didsIn), binding))
+            if (fresh.some((entry) => fits(entry, c)))
+              latch(s, traveler, "did", c.key);
+        }
+      );
+    each(
+      [actor, ...humanAvatarIds.filter((id) => humanPresent(s, id))],
+      (traveler, card, binding) => {
         if (card.proof.every((c) => holds(s, c, binding)))
           latch(s, traveler, "proved", card.id);
       }
+    );
     return s;
   }
   function takeArcanum(s, actor, id) {
@@ -8022,7 +8035,7 @@
     settleCrossingUnlocks(s, sensesFor(s));
     wakeSleepers(s, before, []);
     latchRoutes(s);
-    settleArcana(s, actor);
+    settleArcana(s, actor, before.eventSeq ?? before.log.length);
     settleSealedItems(
       s,
       nameOf,
@@ -9826,7 +9839,7 @@
     settleHomeLevels(next);
     settleStandoffs(next);
     latchRoutes(next);
-    settleArcana(next, actor);
+    settleArcana(next, actor, s.eventSeq ?? s.log.length);
     settleSealedItems(next, nameOf, worldLine);
     settleGuards(next);
     settleCompany(next, entityActive);

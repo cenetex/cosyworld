@@ -2205,7 +2205,7 @@
         name: "The Magician",
         text: "A woodcut card. A needle draws thread through a button on a red scarf.",
         art: "assets/lonely-forest/arcanum-1.png",
-        proof: [{ kind: "count", of: "upgrades", min: 1 }]
+        proof: [{ kind: "count", of: "carried", min: 3 }]
       },
       {
         id: "arcanum-2",
@@ -18465,11 +18465,12 @@
 
   // v2/card-game/world/arcana.mjs
   var deck = { cards: arcana_default.cards };
-  function plain(id) {
+  function plain(s, id) {
     const e = packEntity(id);
     if (!e) return true;
-    const release2 = packDefinition(e.packId)?.release;
-    return !e.requires?.length && !e.appearsWhen?.length && !e.sealed && (!release2 || [release2.places, release2.avatars, release2.items].some(
+    const pack = packDefinition(e.packId);
+    const release2 = pack?.release;
+    return specialsAllow(s.packs?.[e.packId], pack, id) && !e.requires?.length && !e.appearsWhen?.length && !e.sealed && (!release2 || [release2.places, release2.avatars, release2.items].some(
       (list) => list.includes(id)
     ));
   }
@@ -18484,7 +18485,7 @@
     food: isFood,
     sanctuary: (id) => sanctuaries.includes(id)
   };
-  var candidates = (s, kind, is) => KINDS[kind](s).filter((id) => plain(id) && (!is || TRAITS[is](id))).sort();
+  var candidates = (s, kind, is) => KINDS[kind](s).filter((id) => plain(s, id) && (!is || TRAITS[is](id))).sort();
   function spreadCards(cardIds2, spots, pick2, placed = {}) {
     const out = {};
     const lying = () => [...Object.values(placed), ...Object.values(out)];

@@ -9,6 +9,8 @@ import {
   recordOf,
   resolve,
 } from "../v2/card-game/world/arcana.mjs";
+import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { poolCover, specialsAllow } from "../v2/card-game/pack-specials.mjs";
 import { createWorld } from "../v2/card-game/world.mjs";
 
 function world(seed = 1) {
@@ -43,7 +45,7 @@ describe("count conditions", () => {
     expect(holds(s, count("carried", { max: 1 }), me)).toBe(false);
     expect(holds(s, count("carried", { min: 3 }), me)).toBe(false);
   });
-  it("counts places visited, wants heard and upgrades worn", () => {
+  it("counts places visited and wants heard", () => {
     const s = world();
     expect(holds(s, count("visited", { min: 2 }), me)).toBe(false);
     s.actors.walker.visited.push("mill");
@@ -51,9 +53,8 @@ describe("count conditions", () => {
     expect(holds(s, count("heard", { min: 1 }), me)).toBe(false);
     s.actors.walker.heard = { ash: "item:coin" };
     expect(holds(s, count("heard", { min: 1 }), me)).toBe(true);
-    expect(holds(s, count("upgrades", { min: 1 }), me)).toBe(false);
     s.actors.walker.upgrades = ["scarf"];
-    expect(holds(s, count("upgrades", { min: 1 }), me)).toBe(true);
+    expect(() => holds(s, count("upgrades", { min: 1 }), me)).toThrow();
   });
   it("counts residents who trust the traveler at a level", () => {
     const s = world();
@@ -153,6 +154,22 @@ describe("roles", () => {
     const one = (s, kind) => (kind === "item" ? ["pie"] : ["ash"]);
     expect(bindingOf(world(), card, "walker", one)).toBeNull();
   });
+  it("keeps a role when the candidates around its pick change", () => {
+    const solo = { id: "solo", roles: [card.roles[0]], proof: card.proof.slice(0, 0) };
+    const base = ["ash", "bo", "cy", "dee", "eli"];
+    const pick = (seed, ids) =>
+      bindingOf(world(seed), solo, "walker", () => ids).someone;
+    let moved = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      const was = pick(seed, base);
+      const now = pick(seed, [...base, "zed"]);
+      expect([was, "zed"]).toContain(now);
+      if (now !== was) moved += 1;
+      for (const gone of base.filter((id) => id !== was))
+        expect(pick(seed, base.filter((id) => id !== gone))).toBe(was);
+    }
+    expect(moved).toBeLessThan(30);
+  });
   it("leaves the card out when a role has no candidate", () => {
     expect(bindingOf(world(), card, "walker", () => [])).toBeNull();
   });
@@ -178,6 +195,25 @@ describe("the cards in a real world", () => {
       expect(bindingOf(s, card, "vale"), card.id).not.toBeNull();
       expect(proves(s, card, "vale"), card.id).toBe(false);
     }
+  });
+  it("never lays a card on, or fills a role with, what the world did not draw", () => {
+    let undrawn = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const w = createWorld({ opening: true, seed });
+      const out = Object.keys(w.packs).flatMap((id) =>
+        [...poolCover(packDefinition(id)).keys()].filter(
+          (entity) => !specialsAllow(w.packs[id], packDefinition(id), entity),
+        ),
+      );
+      undrawn += out.length;
+      const offered = ["resident", "item", "place"].flatMap((kind) =>
+        candidates(w, kind),
+      );
+      expect(offered.filter((id) => out.includes(id))).toEqual([]);
+      for (const { id } of data.cards)
+        expect(out, `${id} seed ${seed}`).not.toContain(w.items[id].holder);
+    }
+    expect(undrawn).toBeGreaterThan(0);
   });
   it("offers only plain candidates: no avatar, no arcanum, sorted", () => {
     for (const [kind, is] of [["resident"], ["item", "food"], ["place", "sanctuary"]]) {
@@ -235,7 +271,7 @@ describe("the data file", () => {
     }
   });
   it("gives every count a known reader and a bound", () => {
-    const readers = ["carried", "visited", "heard", "upgrades", "trusting", "company", "arcana"];
+    const readers = ["carried", "visited", "heard", "trusting", "company", "arcana"];
     for (const c of all.filter((c) => c.kind === "count")) {
       expect(readers).toContain(c.of);
       expect(c.min ?? c.max).toBeTypeOf("number");

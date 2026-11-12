@@ -1,5 +1,10 @@
 import data from "../arcana.json" with { type: "json" };
-import { humanAvatar, humanAvatarIds, humanPresent } from "../human-cast.mjs";
+import {
+  heldByHuman,
+  humanAvatar,
+  humanAvatarIds,
+  humanPresent,
+} from "../human-cast.mjs";
 import {
   isFood,
   localRoadEnds,
@@ -9,6 +14,7 @@ import {
   transports,
 } from "../pack-registry.mjs";
 import { conditionMet, runHash } from "../pack-rules.mjs";
+import { specialsAllow } from "../pack-specials.mjs";
 import { places, sanctuaries } from "./catalog.mjs";
 import { arcanumOpen, isArcanum, recordOf } from "./arcana-record.mjs";
 import { companionOf } from "./company.mjs";
@@ -41,7 +47,6 @@ const COUNTS = {
     Object.keys(s.items || {}).filter((id) => rootHolder(s, id) === who).length,
   visited: (s, who) => (s.actors[who]?.visited || []).length,
   heard: (s, who) => Object.keys(s.actors[who]?.heard || {}).length,
-  upgrades: (s, who) => (s.actors[who]?.upgrades || []).length,
   trusting: (s, who, c) =>
     Object.keys(s.actors).filter(
       (other) =>
@@ -79,11 +84,13 @@ export function holds(s, condition, binding) {
   }
 }
 
-function plain(id) {
+function plain(s, id) {
   const e = packEntity(id);
   if (!e) return true;
-  const release = packDefinition(e.packId)?.release;
+  const pack = packDefinition(e.packId);
+  const release = pack?.release;
   return (
+    specialsAllow(s.packs?.[e.packId], pack, id) &&
     !e.requires?.length &&
     !e.appearsWhen?.length &&
     !e.sealed &&
@@ -112,7 +119,7 @@ const TRAITS = {
 
 export const candidates = (s, kind, is) =>
   KINDS[kind](s)
-    .filter((id) => plain(id) && (!is || TRAITS[is](id)))
+    .filter((id) => plain(s, id) && (!is || TRAITS[is](id)))
     .sort();
 
 export function bindingOf(s, card, traveler, pool = candidates) {
@@ -125,8 +132,11 @@ export function bindingOf(s, card, traveler, pool = candidates) {
       .sort()
       .filter((id) => !taken.includes(id));
     if (!free.length) return null;
-    binding[role.name] =
-      free[runHash(s, `arcana-role:${card.id}:${role.name}`) % free.length];
+    const score = (id) =>
+      runHash(s, `arcana-role:${card.id}:${role.name}:${id}`);
+    binding[role.name] = free.reduce((best, id) =>
+      score(id) < score(best) ? id : best,
+    );
     taken.push(binding[role.name]);
   }
   return unfilled(resolve([card.proof, card.desire || []], binding))
@@ -162,26 +172,35 @@ function latch(s, traveler, list, value) {
   record[list] = [...new Set([...record[list], value])].sort();
 }
 
-export function settleArcana(s, actor = null) {
-  const travelers = [
-    ...new Set([actor, ...humanAvatarIds.filter((id) => humanPresent(s, id))]),
-  ]
-    .filter((id) => humanAvatar(id) && s.actors?.[id])
-    .sort();
-  for (const traveler of travelers)
-    for (const card of deck.cards) {
-      if (recordOf(s, traveler).proved.includes(card.id)) continue;
-      const binding = bindingOf(s, card, traveler);
-      if (!binding) continue;
-      for (const c of resolve(card.proof.flatMap(didsIn), binding))
-        if (
-          !recordOf(s, traveler).did.includes(c.key) &&
-          (s.log || []).some((entry) => fits(entry, c))
-        )
-          latch(s, traveler, "did", c.key);
+export function settleArcana(s, actor = null, since = 0) {
+  const seated = (id) => humanAvatar(id) && s.actors?.[id];
+  const open = (traveler) =>
+    deck.cards
+      .filter((card) => !recordOf(s, traveler).proved.includes(card.id))
+      .map((card) => [card, bindingOf(s, card, traveler)])
+      .filter(([, binding]) => binding);
+  const each = (ids, run) => {
+    for (const traveler of [...new Set(ids)].filter(seated).sort())
+      for (const [card, binding] of open(traveler))
+        run(traveler, card, binding);
+  };
+  const fresh = (s.log || []).filter((entry) => entry.seq > since);
+  if (fresh.length)
+    each(
+      [actor, ...humanAvatarIds.filter((id) => heldByHuman(s, id))],
+      (traveler, card, binding) => {
+        for (const c of resolve(card.proof.flatMap(didsIn), binding))
+          if (fresh.some((entry) => fits(entry, c)))
+            latch(s, traveler, "did", c.key);
+      },
+    );
+  each(
+    [actor, ...humanAvatarIds.filter((id) => humanPresent(s, id))],
+    (traveler, card, binding) => {
       if (card.proof.every((c) => holds(s, c, binding)))
         latch(s, traveler, "proved", card.id);
-    }
+    },
+  );
   return s;
 }
 

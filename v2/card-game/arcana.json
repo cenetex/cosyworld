@@ -19,7 +19,7 @@
       "name": "The Magician",
       "text": "A woodcut card. A needle draws thread through a button on a red scarf.",
       "art": "assets/lonely-forest/arcanum-1.png",
-      "proof": [{ "kind": "count", "of": "upgrades", "min": 1 }]
+      "proof": [{ "kind": "count", "of": "carried", "min": 3 }]
     },
     {
       "id": "arcanum-2",
