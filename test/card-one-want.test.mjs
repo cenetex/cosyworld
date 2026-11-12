@@ -19,6 +19,7 @@ import {
   nextWant,
   refuseWant,
   setWant,
+  wantCandidates,
   holdQuest,
   wantOf,
 } from "../v2/card-game/want.mjs";
@@ -33,6 +34,22 @@ describe("one want per avatar", () => {
     fillWants(s, wantAPI(s), true);
     expect(wantOf(s, "vale")).toBeNull();
     expect(nextWant(s, "moth", wantAPI(s))).not.toBeNull();
+  });
+
+  it("draws a resident's want from the world's seed, the actor and the turn (#2717)", () => {
+    const drawn = (seed, turn, actor = "moth") => {
+      const s = createWorld({ seed });
+      s.turn = s.revision = turn;
+      expect(s.run.seed).toBe(seed);
+      expect(wantCandidates(s, actor, wantAPI(s)).length).toBeGreaterThan(1);
+      return nextWant(s, actor, wantAPI(s)).target;
+    };
+    const each = Array.from({ length: 16 }, (_, i) => i + 1);
+    expect(new Set(each.map((seed) => drawn(seed, 0))).size).toBeGreaterThan(1);
+    expect(each.map((seed) => drawn(seed, 0))).toEqual(
+      each.map((seed) => drawn(seed, 0)),
+    );
+    expect(new Set(each.map((turn) => drawn(1, turn))).size).toBeGreaterThan(1);
   });
 
   it("holds a new quest on top of the one held, and replaces nothing", () => {

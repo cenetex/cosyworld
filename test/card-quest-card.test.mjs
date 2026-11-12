@@ -364,13 +364,15 @@ describe("the quest card", () => {
     expect(questCards(s)).toEqual([]);
   });
 
-  it("never shows more than the one quest card through a long run", () => {
+  it("shows one quest card for each quest held through a long run", () => {
     let s = createWorld();
     for (let turn = 0; turn < 400; turn++) {
       const actions = legalActions(s);
       s = play(s, actions[(turn * 7919) % actions.length]).state;
       const cards = questCards(s);
-      expect(cards.length).toBeLessThanOrEqual(1);
+      expect(cards.length).toBeLessThanOrEqual(
+        1 + (s.actors.vale.under?.length ?? 0),
+      );
       for (const quest of cards) {
         expect(questCaption(quest)).toMatch(/^[A-Z]/);
         expect(typeof questNear(s, quest)).toBe("boolean");

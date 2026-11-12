@@ -2082,11 +2082,6 @@
       a.talked ??= [];
     }
   }
-  function hash(text2) {
-    let h = 2166136261;
-    for (const c of text2) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-    return h;
-  }
   function wantCandidates(s, actor, api, previous = null, wide = false, anywhere = false) {
     const a = s.actors[actor];
     const held = api.carried(actor);
@@ -2118,7 +2113,7 @@
   function nextWant(s, actor, api, previous = null) {
     const staged = stagedNext(s, actor, previous);
     if (staged) return staged;
-    const roll = hash(`${actor}:${s.turn}`);
+    const roll = runHash(s, `want:${actor}:${s.turn}`);
     let pool = wantCandidates(s, actor, api, previous);
     if (!pool.length) {
       const a = s.actors[actor];
@@ -4320,10 +4315,10 @@
     const here = world.actors[actor].place;
     const places2 = placeIds2.filter((id) => id !== here && entityActive(world, id)).sort();
     if (!places2.length) return choice.at;
-    let hash2 = 2166136261;
+    let hash = 2166136261;
     for (const ch of `${choice.id}:${actor}:${world.turn}`)
-      hash2 = Math.imul(hash2 ^ ch.charCodeAt(0), 16777619) >>> 0;
-    return places2[hash2 % places2.length];
+      hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
+    return places2[hash % places2.length];
   }
   function applyMeetingChoices(world, actor, placeIds2) {
     const applied = [];
@@ -4376,10 +4371,10 @@
     );
     if (!signs.length) return null;
     const place = world.actors[actor].place, seen = Object.keys(packState(world, signs[0].packId).receipts).length;
-    let hash2 = 2166136261;
+    let hash = 2166136261;
     for (const ch of `${world.run?.seed ?? 0}:${place}:${seen}`)
-      hash2 = Math.imul(hash2 ^ ch.charCodeAt(0), 16777619) >>> 0;
-    return signs[hash2 % signs.length];
+      hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0;
+    return signs[hash % signs.length];
   }
   function departure(world, actor, to) {
     const pack = packOf(actor);
@@ -4917,9 +4912,9 @@
     memory.learning = [...memory.learning || [], trial].slice(-TRIAL_LIMIT);
   }
   function tieBreak(text2) {
-    let hash2 = 2166136261;
-    for (const c of text2) hash2 = Math.imul(hash2 ^ c.charCodeAt(0), 16777619);
-    return hash2 >>> 0;
+    let hash = 2166136261;
+    for (const c of text2) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
+    return hash >>> 0;
   }
   function learnedPlan(world, actor, selected, actions, conditionsFor) {
     const goal = goalFor(world, actor, selected.action);
