@@ -2177,7 +2177,6 @@ async fn speak(
         .flatten()
         .or_else(|| character_models.get(id).map(String::as_str));
     let own = tier_config(config, own_model);
-    let links = fallback::chain(config, own, settings.fallbacks()).ok_or(())?;
     let system = waking::system(context, entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
@@ -2194,6 +2193,19 @@ async fn speak(
         voice_metrics::Budget::measure(&system, context, entity, part),
     )
     .labelled(context);
+    let Some(links) = fallback::chain(config, own, settings.fallbacks()) else {
+        call.reject("unroutable");
+        call.finish(voice_metrics::Outcome::Silent);
+        tracing::warn!(
+            feature = "card_voice",
+            entity = id,
+            part = ?part,
+            model = own_model.unwrap_or("default"),
+            reason = "unroutable",
+            "card voice rejected"
+        );
+        return Err(());
+    };
     // Per model, for the bench: 1 an empty or blocked reply, 2 a usable line.
     let tiers: Vec<_> = links.iter().map(|_| AtomicU8::new(0)).collect();
     let spoken = fallback::run(
@@ -2208,7 +2220,7 @@ async fn speak(
             let check = &check;
             let call = &call;
             let tier = &tiers[n];
-            call.attempt(&link.model, &link.provider, n > 0);
+            call.attempt(&link.model, &link.provider, link.fallback);
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
@@ -2238,6 +2250,9 @@ async fn speak(
                         tracing::info!(
                             feature = "card_voice",
                             entity = id,
+                            part = ?part,
+                            model = %link.model,
+                            provider = %link.provider,
                             attempt = attempt + 1,
                             fallback = n,
                             reason = "provider",
@@ -2281,6 +2296,9 @@ async fn speak(
                     tracing::info!(
                         feature = "card_voice",
                         entity = id,
+                        part = ?part,
+                        model = %link.model,
+                        provider = %link.provider,
                         attempt = attempt + 1,
                         fallback = n,
                         reason,
@@ -2290,6 +2308,20 @@ async fn speak(
                     fallback::Miss::of(reason)
                 })
             }
+        },
+        |n: usize, attempt: u8| {
+            call.reject("timeout");
+            tracing::info!(
+                feature = "card_voice",
+                entity = id,
+                part = ?part,
+                model = %links[n].model,
+                provider = %links[n].provider,
+                attempt = attempt + 1,
+                fallback = n,
+                reason = "timeout",
+                "card voice rejected"
+            );
         },
     )
     .await;
@@ -6190,7 +6222,7 @@ pub(crate) mod tests {
         let started = tokio::time::Instant::now();
         let deadline = started + settings.scene_timeout;
         let mut seen = Vec::new();
-        let result = fallback::run(&settings, deadline, 2, |link, attempt, budget| {
+        let request = |link, attempt, budget| {
             seen.push((
                 link == 1,
                 attempt,
@@ -6206,8 +6238,8 @@ pub(crate) mod tests {
                     std::future::pending::<Result<&str, fallback::Miss>>().await
                 }
             }
-        })
-        .await;
+        };
+        let result = fallback::run(&settings, deadline, 2, request, |_, _| {}).await;
         assert_eq!(result, Ok("recovered"));
         assert_eq!(seen.len(), 2);
         // Each model's share is the remaining time over the models left.
@@ -6224,7 +6256,7 @@ pub(crate) mod tests {
         let deadline = started + settings.scene_timeout;
         tokio::time::sleep(Duration::from_secs(14)).await;
         let mut seen = Vec::new();
-        let result = fallback::run(&settings, deadline, 2, |link, _, budget| {
+        let request = |link, _, budget| {
             seen.push((link == 1, tokio::time::Instant::now() - started, budget));
             async move {
                 if link == 1 {
@@ -6234,8 +6266,8 @@ pub(crate) mod tests {
                     std::future::pending::<Result<(), fallback::Miss>>().await
                 }
             }
-        })
-        .await;
+        };
+        let result = fallback::run(&settings, deadline, 2, request, |_, _| {}).await;
         assert_eq!(result, Ok(()));
         assert_eq!(seen.len(), 2);
         assert!(seen[0].2 <= Duration::from_secs(4));
@@ -6249,20 +6281,20 @@ pub(crate) mod tests {
         let settings = VoiceSettings::hosted();
         let deadline = tokio::time::Instant::now() + settings.scene_timeout;
         let mut seen = 0;
-        let result = fallback::run(&settings, deadline, 2, |_, _, _| {
+        let request = |_, _, _| {
             seen += 1;
             std::future::pending::<Result<(), fallback::Miss>>()
-        })
-        .await;
+        };
+        let result = fallback::run(&settings, deadline, 2, request, |_, _| {}).await;
         assert_eq!(result, Err(()));
         assert_eq!(seen, 2);
         assert!(tokio::time::Instant::now() >= deadline);
-        let result = fallback::run(&settings, deadline, 2, |_, _, _| {
+        let request = |_, _, _| {
             panic!("expired scenes have no request budget");
             #[allow(unreachable_code)]
             std::future::ready(Ok::<(), fallback::Miss>(()))
-        })
-        .await;
+        };
+        let result = fallback::run(&settings, deadline, 2, request, |_, _| {}).await;
         assert_eq!(result, Err(()));
     }
 
