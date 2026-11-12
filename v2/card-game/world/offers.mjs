@@ -17,6 +17,7 @@ import { entityActive } from "../pack-registry.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
   MAX_HELD,
+  closedAny,
   closedBy,
   heldOf,
   holdsLevelQuest,
@@ -80,6 +81,7 @@ export function questOffers(s, actor = currentActor(s)) {
     if (
       !want ||
       closedBy(a, id, want) ||
+      closedAny(a, want) ||
       (!want.quest && heldOf(a).some((held) => sameQuest(held, want))) ||
       withAnother(s, actor, kind, source, want)
     )

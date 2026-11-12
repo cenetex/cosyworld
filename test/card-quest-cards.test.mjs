@@ -364,7 +364,7 @@ describe("a fresh world to the first level, quests held at once", () => {
     // 1 for the pond, 1 for the quest and 1 for helping Pip.
     expect(w.met.actors.vale.xp).toBe(3);
     // The met quest is closed, so Pip's offer does not stand again.
-    expect(w.met.actors.vale.closed["quest:from:moth"]).toContain("lamp");
+    expect(w.met.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
   });
   it("holds the level-up quest at the threshold, and levels up at home", () => {
     expect(sources(w.met)).toEqual(["quest:level"]);

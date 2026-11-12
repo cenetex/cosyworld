@@ -182,12 +182,31 @@ export function releaseQuest(a, want) {
   else delete a.under;
 }
 // A quest that closed, met or discarded, is not offered again by its source
-// until the source offers different terms. One record per source.
-function closeQuest(a, want) {
-  if (want.from) a.closed = { ...a.closed, [want.from]: closedKey(want) };
+// until the source offers different terms: `closed[source] = [turn, terms]`,
+// one record per source. A level quest is never recorded: its cost is the
+// experience dropped, and it stands again when that is regained. The record
+// holds at most MAX_CLOSED sources; the oldest turn goes first, ties by
+// source name, so no engine depends on key order.
+export const MAX_CLOSED = 64;
+function closeQuest(a, want, turn) {
+  if (!want.from || want.quest) return;
+  const closed = { ...a.closed };
+  if (!(want.from in closed) && Object.keys(closed).length >= MAX_CLOSED) {
+    const [oldest] = Object.entries(closed).sort(
+      ([ka, [ta]], [kb, [tb]]) => ta - tb || (ka < kb ? -1 : 1),
+    );
+    delete closed[oldest[0]];
+  }
+  closed[want.from] = [turn, closedKey(want)];
+  a.closed = closed;
 }
 export const closedBy = (a, from, want) =>
-  a.closed?.[from] === closedKey(want);
+  a.closed?.[from]?.[1] === closedKey(want);
+// Whether any source's closed record has these terms: a second source asking
+// the same is not paid twice.
+export const closedAny = (a, want) =>
+  !want.quest &&
+  Object.values(a.closed || {}).some(([, terms]) => terms === closedKey(want));
 // Dropping Sleep at home (the level-up quest) costs the experience that
 // leaves the player just under the threshold of the level it was for, so the
 // level-up card does not come straight back (owner, 2026-11-11). That is
@@ -207,7 +226,7 @@ export function dropQuest(s, actor) {
   if (!want) return;
   a.xp -= dropCost(s, actor);
   a.gaveUp = { target: want.target, turn: s.turn };
-  closeQuest(a, want);
+  closeQuest(a, want, s.turn);
   releaseQuest(a, want);
 }
 // Sleep at home: the place want with a rest step. With a `quest` it is the
@@ -648,7 +667,9 @@ function commitMet(s, id, api, met, held = null) {
     want = held ?? a.want,
     level = want.quest && want.step?.verb === "rest" ? want.quest.level : null;
   a.level ??= levelFor(a.xp);
-  const xp = level ? 0 : 1;
+  // A box's quest pays nothing beside the box's own opening (rules 133
+  // totals; package C replaces both).
+  const xp = level || want.from?.startsWith("quest:box:") ? 0 : 1;
   a.xp += xp;
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
@@ -660,14 +681,15 @@ function commitMet(s, id, api, met, held = null) {
     a.level = Math.max(a.level, levelFor(a.xp));
   // A player's met quest closes, and the one beneath it becomes the active
   // want (rules 134).
-  if (api.player(id)) {
-    closeQuest(a, want);
-    releaseQuest(a, want);
-  } else a.want = null;
+  // A resident's one want is replaced below. A stack under a non-player's
+  // top is promoted too, so a want is never null above a stack.
+  if (api.player(id)) closeQuest(a, want, s.turn);
+  if (api.player(id) || a.under) releaseQuest(a, want);
+  else a.want = null;
   // A resident met takes its next staged want at once, if one can be taken
   // (rules 133). Otherwise it is content for a while; a player simply holds
   // no quest until a new one stands.
-  if (!api.player(id)) {
+  if (!api.player(id) && !a.want) {
     const staged = stagedNext(s, id, want);
     if (staged) setWant(a, staged);
     else a.content = true;
@@ -858,7 +880,7 @@ export function validWant(s, id) {
     a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
     validUnder(s, id) &&
-    validClosed(a) &&
+    validClosed(s, a) &&
     a.questRewards === undefined &&
     (a.content === undefined || a.content === true) &&
     (a.glimpse === undefined || validGlimpse(a.glimpse, levelFor(most) + 1)) &&
@@ -898,7 +920,7 @@ function validUnder(s, id) {
   );
 }
 // The offers a player closed, by source: the terms last closed there.
-function validClosed(a) {
+function validClosed(s, a) {
   if (a.closed === undefined) return true;
   const entries =
     a.closed && typeof a.closed === "object" && !Array.isArray(a.closed)
@@ -907,10 +929,17 @@ function validClosed(a) {
   return Boolean(
     entries &&
       entries.length >= 1 &&
-      entries.length <= 128 &&
+      entries.length <= MAX_CLOSED &&
       entries.every(
-        ([from, terms]) =>
-          OFFER_FROM.test(from) && typeof terms === "string" && terms.length <= 400,
+        ([from, rec]) =>
+          OFFER_FROM.test(from) &&
+          Array.isArray(rec) &&
+          rec.length === 2 &&
+          Number.isSafeInteger(rec[0]) &&
+          rec[0] >= 0 &&
+          rec[0] <= s.turn &&
+          typeof rec[1] === "string" &&
+          rec[1].length <= 400,
       ),
   );
 }

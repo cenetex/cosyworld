@@ -1857,8 +1857,12 @@ function settleCompanions(s) {
 // journal. A quest to bring or meet a resident is a shared vow, so the
 // resident who offered it is with the traveler at once, and the bond holds
 // through a long rest while the quest is held (rules 133).
-function settleQuests(s) {
-  for (const actor of Object.keys(s.actors)) {
+// Avatars are walked in sorted order, as the other cross-actor loops are.
+// Only the acting traveler binds a companion: another traveler's quests are
+// held in this play too (deterministic, from the world as it stands), but its
+// resident is bound when that traveler next acts, if it has no companion.
+function settleQuests(s, acting) {
+  for (const actor of Object.keys(s.actors).sort()) {
     if (
       !(actor === currentActor(s) || controlledByHuman(s, actor)) ||
       !entityActive(s, actor)
@@ -1874,11 +1878,13 @@ function settleQuests(s) {
       // log line, so no reader of "the player's last action" meets it.
       const quest = holdQuest(s, actor, offer.want, offer.id);
       if (!quest) break;
-      bindAsker(s, actor, quest);
+      if (actor === acting) bindAsker(s, actor, quest, true);
     }
+    if (actor === acting && !companionOf(s, actor))
+      for (const held of heldOf(s.actors[actor])) bindAsker(s, actor, held, false);
   }
 }
-function bindAsker(s, actor, quest) {
+function bindAsker(s, actor, quest, replace) {
   const asker = quest.kind === "person" && quest.step?.verb === "bring"
     ? askerOf(s, quest)
     : null;
@@ -1886,6 +1892,7 @@ function bindAsker(s, actor, quest) {
     !asker ||
     !controlledByHuman(s, actor) ||
     asker === companionOf(s, actor) ||
+    (!replace && companionOf(s, actor)) ||
     s.actors[asker].place !== s.actors[actor].place ||
     !entityActive(s, asker) ||
     staysByRole(s, asker) ||
@@ -3221,7 +3228,7 @@ export function play(
     settleLamp(next);
     settleCrossingUnlocks(next, sensesFor(next));
     settleStationExits(next);
-    settleQuests(next);
+    settleQuests(next, actor);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3430,7 +3437,7 @@ export function play(
   settleLamp(next);
   settleStationExits(next);
   // What this play made stand is held now (rules 134).
-  settleQuests(next);
+  settleQuests(next, actor);
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
   // It stops at the first refused play, and the sleep cap bounds it.

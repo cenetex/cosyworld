@@ -1993,6 +1993,7 @@
   var questsOf = (s, id) => heldOf(s.actors[id]);
   var closedKey = (w) => questTerms(w) + (w.quest ? `:${w.quest.level}` : "");
   var contentOf = (s, id) => Boolean(s.actors[id]?.content && !s.actors[id].want);
+  var MAX_CLOSED = 64;
   var newWant = (kind, target, turn) => ({
     kind,
     target,
@@ -2126,7 +2127,7 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validUnder(s, id) {
     const a = s.actors[id];
@@ -2136,12 +2137,12 @@
       humanAvatarIds.includes(id) && Array.isArray(a.under) && a.want && a.under.length >= 1 && held.length <= MAX_HELD && a.under.every((w) => validQuest(s, id, w)) && new Set(held.map(closedKey)).size === held.length && held.filter((w) => w.quest).length <= 1
     );
   }
-  function validClosed(a) {
+  function validClosed(s, a) {
     if (a.closed === void 0) return true;
     const entries = a.closed && typeof a.closed === "object" && !Array.isArray(a.closed) ? Object.entries(a.closed) : null;
     return Boolean(
-      entries && entries.length >= 1 && entries.length <= 128 && entries.every(
-        ([from, terms]) => OFFER_FROM.test(from) && typeof terms === "string" && terms.length <= 400
+      entries && entries.length >= 1 && entries.length <= MAX_CLOSED && entries.every(
+        ([from, rec]) => OFFER_FROM.test(from) && Array.isArray(rec) && rec.length === 2 && Number.isSafeInteger(rec[0]) && rec[0] >= 0 && rec[0] <= s.turn && typeof rec[1] === "string" && rec[1].length <= 400
       )
     );
   }

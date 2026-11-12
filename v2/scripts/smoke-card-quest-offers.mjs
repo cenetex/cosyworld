@@ -337,7 +337,7 @@ try {
       const next = await t.state();
       assert.equal(next.actors.vale.want.from, "quest:from:moth", "the next quest shows");
       assert.equal(next.actors.vale.under, undefined);
-      assert.equal(next.actors.vale.closed["quest:box:test"].includes("cloth"), true);
+      assert.equal(next.actors.vale.closed["quest:box:test"][1].includes("cloth"), true);
       await openHeld(page, t);
       assert.equal(await page.locator("#hand .want-frame > .place-edge").count(), 0);
       assert.equal(await label(page), "Discard");

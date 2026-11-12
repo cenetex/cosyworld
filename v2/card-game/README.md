@@ -259,8 +259,16 @@ the world rules in `want.mjs`, not from authored quest chains.
   want everything reads; the older ones lie beneath it in `actor.under`, up to
   nine in all. Residents keep one. Discarding the top (`dropQuest`, the only
   quest play) shows the next. A quest met or discarded is recorded in
-  `actor.closed` by its offer source and its terms, and the source's offer
-  stands again only when its terms differ. The offers are a shut box, your own
+  `actor.closed` by its offer source (`[turn, terms]`, at most 64 sources, the oldest
+  turn evicted first, then by name) and the source's offer stands again only
+  when its terms differ; the same terms from another source are not held twice.
+  A level quest is never recorded: its discard cost is the XP, and it stands
+  again when that is regained. Every held quest is live: one met by a play is
+  paid and leaves the stack wherever it sits, top first; a box's quest pays
+  nothing beside the box's own opening. In a shared world every present
+  traveler's offers are held in the play that makes them stand (avatars are
+  walked in sorted order), but a companion is bound only for the traveler who
+  acts, and for another when that traveler next acts with none. The offers are a shut box, your own
   home's door (homecoming: bring the belonging home), a resident who told you
   their want (after Talk, by a chance rolled once per visit, certain if they
   trust you or hold a hub starter want such as Pip's lamp), and the level

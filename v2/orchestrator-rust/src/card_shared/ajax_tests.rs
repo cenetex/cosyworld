@@ -17,6 +17,24 @@ fn play(
     actor: usize,
     fields: &[(&str, &str)],
 ) -> Value {
+    // Residents walk on their own wants, and the travellers' held quests
+    // (rules 134) change which they draw, so a play whose resident has not
+    // come yet waits for it a little before failing.
+    let who = if actor == 0 { "vale" } else { "mara" };
+    for _ in 0..60 {
+        if action(world, actor, fields).is_some() || fields == [("kind", "wait")] {
+            break;
+        }
+        let wait = action(world, actor, &[("kind", "wait")]).expect("a wait");
+        full_store::commit(
+            c,
+            id,
+            world,
+            json!({"op":"play", "actor":who, "action":wait}),
+            now(),
+        )
+        .unwrap();
+    }
     let selected = action(world, actor, fields).unwrap_or_else(|| {
         panic!(
             "Missing Ajax play at {}: {fields:?}",

@@ -188,7 +188,7 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
     // The station's train box would stand as a quest and be held on top of the
     // cloth (rules 134); Vale has set it down, so the cloth stays her want.
     w.game["actors"]["vale"]["closed"] = json!({
-        "quest:box:train": r#"["item","routes",[["at","station"],["verb","bring"]],null]"#
+        "quest:box:train": [0, r#"["item","routes",[["at","station"],["verb","bring"]],null]"#]
     });
     w.game["actors"]["keeper"]["want"] =
         json!({"kind":"item","target":"bell","since":0,"refusals":0});

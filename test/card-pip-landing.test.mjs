@@ -87,7 +87,7 @@ it.each([0, 17, 4294967295])("holds Pip's quest as his Talk ends and carries it 
   // for each box the walk opened (rules 133). The mirror back to the attic
   // pays nothing: Vale has already stood there.
   expect(Object.keys(world.opened ?? {}).sort()).toEqual(["pond"]);
-  expect(world.actors.vale.closed["quest:from:moth"]).toContain("lamp");
+  expect(world.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
 });
 
 it("carries the quest held at Pip's card into the opening as the same quest", () => {

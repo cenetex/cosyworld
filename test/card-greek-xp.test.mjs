@@ -54,8 +54,7 @@ describe("XP the Greek and RatiRadio content pays", () => {
       "greek-helen-egypt",
       "greek-menelaus-egypt",
     ]);
-    // Three boxes, and a held quest met from beneath the others (rules 134).
-    expect(xp(world) - before).toBe(4);
+    expect(xp(world) - before).toBe(3);
   });
 
   const id = (name) => `ratiradio-${name}`;
@@ -124,19 +123,17 @@ describe("XP the Greek and RatiRadio content pays", () => {
     // is not walked here, and Raven); RATi's staged keepsake wants add three
     // more when a keepsake meets its want. Items start at their pack homes
     // here, as in card-boxes, so the figurine also meets its want on the move.
-    // Rules 134 holds every standing box quest at once, so a box quest met on
-    // the play that opens its box pays one more beside the box: two met here
-    // without the keepsake wants (6), and one more when the keepsake wants
-    // are held on top (10 in all, the figurine and the glass among them).
-    expect(without.total).toBe(7);
-    // Quests held beneath others are met too: the Listening Room walk pays 2 and the Booth 1 (12 in all).
-    expect(withKeepsakes.total).toBe(12);
+    expect(without.total).toBe(4);
+    // Rules 134 holds RATi's told keepsake quests at once, so the glass and
+    // the figurine each pay one more for the player's own quest beside the
+    // help given to RATi (9 in all, 7 in rules 133). A box's quest pays
+    // nothing beside its opening.
+    expect(withKeepsakes.total).toBe(9);
     expect(withKeepsakes.gains).toEqual({
-      "take ratiradio-red-beanie": 2,
+      "take ratiradio-red-beanie": 1,
       "talk ratiradio-rati": 1,
       "drop ratiradio-thermos": 1,
-      "move ratiradio-listening-room": 2,
-      "move ratiradio-broadcast-booth": 1,
+      "move ratiradio-listening-room": 1,
       "drop ratiradio-glass": 2,
       "drop ratiradio-raven-figurine": 3,
     });

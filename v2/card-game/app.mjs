@@ -5469,9 +5469,17 @@ $("new-game").onclick = () => {
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
 // Pip's quest is held as his Talk ends (rules 134). Once his words are heard
-// the landing fades to the opening, carrying it (beginPipJourney).
+// the landing fades to the opening, carrying the quest if it is still held
+// (beginPipJourney). Hearing him ends the landing whether or not the quest
+// was discarded meanwhile, so the landing cannot stall.
+const pipHeard = () => Boolean(world.actors.vale.heard?.moth);
+const pipWatch = pipPrelude() ? setInterval(leaveWhenPipHeard, 300) : null;
 function leaveWhenPipHeard() {
-  if (!pipPrelude() || pipLeaving || !world.actors.vale.want) return;
+  if (!pipPrelude()) {
+    clearInterval(pipWatch);
+    return;
+  }
+  if (pipLeaving || !pipHeard()) return;
   if (
     storyStatus === "pending" ||
     !reveal.complete ||
@@ -5482,7 +5490,6 @@ function leaveWhenPipHeard() {
     return;
   leaveToOpening();
 }
-setInterval(leaveWhenPipHeard, 300);
 function leaveToOpening() {
   const next = beginPipJourney(world.run?.seed, world);
   pipLeaving = true;
@@ -6131,7 +6138,7 @@ if (migratedRunSeed || (startingPip && openingTable)) save();
 resumeScene();
 // The title's turn (or Escape past it) is this avatar's reveal.
 onTitleWake(() => uncover(pipPrelude() ? "moth" : currentActor(world), { flip: false }));
-if (pipPrelude() && world.actors.vale.want) leaveToOpening();
+if (pipPrelude() && pipHeard()) leaveToOpening();
 else if (pipPrelude() && openingTable) {
   playTitleIntro({ cardOnly: true, storage: null });
   holdMusicForTitle();

@@ -1970,10 +1970,21 @@
     if (held.length > 1) a.under = held.slice(1);
     else delete a.under;
   }
-  function closeQuest(a, want) {
-    if (want.from) a.closed = { ...a.closed, [want.from]: closedKey(want) };
+  var MAX_CLOSED = 64;
+  function closeQuest(a, want, turn) {
+    if (!want.from || want.quest) return;
+    const closed = { ...a.closed };
+    if (!(want.from in closed) && Object.keys(closed).length >= MAX_CLOSED) {
+      const [oldest] = Object.entries(closed).sort(
+        ([ka, [ta]], [kb, [tb]]) => ta - tb || (ka < kb ? -1 : 1)
+      );
+      delete closed[oldest[0]];
+    }
+    closed[want.from] = [turn, closedKey(want)];
+    a.closed = closed;
   }
-  var closedBy = (a, from, want) => a.closed?.[from] === closedKey(want);
+  var closedBy = (a, from, want) => a.closed?.[from]?.[1] === closedKey(want);
+  var closedAny = (a, want) => !want.quest && Object.values(a.closed || {}).some(([, terms]) => terms === closedKey(want));
   function dropCost(s, actor) {
     const a = s.actors[actor], want = a?.want;
     if (!want?.quest) return 0;
@@ -1984,7 +1995,7 @@
     if (!want) return;
     a.xp -= dropCost(s, actor);
     a.gaveUp = { target: want.target, turn: s.turn };
-    closeQuest(a, want);
+    closeQuest(a, want, s.turn);
     releaseQuest(a, want);
   }
   var restStep = (s, actor, api, quest) => ({
@@ -2229,7 +2240,7 @@
   function commitMet(s, id, api, met2, held = null) {
     const a = s.actors[id], want = held ?? a.want, level = want.quest && want.step?.verb === "rest" ? want.quest.level : null;
     a.level ??= levelFor(a.xp);
-    const xp = level ? 0 : 1;
+    const xp = level || want.from?.startsWith("quest:box:") ? 0 : 1;
     a.xp += xp;
     a.metTurn = s.turn;
     met2.push({ actorId: id, want });
@@ -2239,11 +2250,10 @@
       delete a.glimpse;
     } else if (!api.player(id) && !packPeople[id]?.levelAtHome)
       a.level = Math.max(a.level, levelFor(a.xp));
-    if (api.player(id)) {
-      closeQuest(a, want);
-      releaseQuest(a, want);
-    } else a.want = null;
-    if (!api.player(id)) {
+    if (api.player(id)) closeQuest(a, want, s.turn);
+    if (api.player(id) || a.under) releaseQuest(a, want);
+    else a.want = null;
+    if (!api.player(id) && !a.want) {
       const staged = stagedNext(s, id, want);
       if (staged) setWant(a, staged);
       else a.content = true;
@@ -2325,7 +2335,7 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validUnder(s, id) {
     const a = s.actors[id];
@@ -2335,12 +2345,12 @@
       humanAvatarIds.includes(id) && Array.isArray(a.under) && a.want && a.under.length >= 1 && held.length <= MAX_HELD && a.under.every((w) => validQuest(s, id, w)) && new Set(held.map(closedKey)).size === held.length && held.filter((w) => w.quest).length <= 1
     );
   }
-  function validClosed(a) {
+  function validClosed(s, a) {
     if (a.closed === void 0) return true;
     const entries = a.closed && typeof a.closed === "object" && !Array.isArray(a.closed) ? Object.entries(a.closed) : null;
     return Boolean(
-      entries && entries.length >= 1 && entries.length <= 128 && entries.every(
-        ([from, terms]) => OFFER_FROM.test(from) && typeof terms === "string" && terms.length <= 400
+      entries && entries.length >= 1 && entries.length <= MAX_CLOSED && entries.every(
+        ([from, rec]) => OFFER_FROM.test(from) && Array.isArray(rec) && rec.length === 2 && Number.isSafeInteger(rec[0]) && rec[0] >= 0 && rec[0] <= s.turn && typeof rec[1] === "string" && rec[1].length <= 400
       )
     );
   }
@@ -7284,7 +7294,7 @@
     const here = a.place, out = [];
     const add = (kind, source, want) => {
       const id = offerId(kind, source);
-      if (!want || closedBy(a, id, want) || !want.quest && heldOf(a).some((held) => sameQuest(held, want)) || withAnother(s, actor, kind, source, want))
+      if (!want || closedBy(a, id, want) || closedAny(a, want) || !want.quest && heldOf(a).some((held) => sameQuest(held, want)) || withAnother(s, actor, kind, source, want))
         return;
       out.push({ id, kind, source, want });
     };
@@ -8437,8 +8447,8 @@
       if (!travelerOf(s, id) && s.actors[id]?.place === lifeHome(id, s))
         narrowTickets(s, id);
   }
-  function settleQuests(s) {
-    for (const actor of Object.keys(s.actors)) {
+  function settleQuests(s, acting) {
+    for (const actor of Object.keys(s.actors).sort()) {
       if (!(actor === currentActor(s) || controlledByHuman(s, actor)) || !entityActive(s, actor))
         continue;
       for (const offer2 of questOffers(s, actor)) {
@@ -8446,13 +8456,15 @@
           continue;
         const quest = holdQuest(s, actor, offer2.want, offer2.id);
         if (!quest) break;
-        bindAsker(s, actor, quest);
+        if (actor === acting) bindAsker(s, actor, quest, true);
       }
+      if (actor === acting && !companionOf(s, actor))
+        for (const held of heldOf(s.actors[actor])) bindAsker(s, actor, held, false);
     }
   }
-  function bindAsker(s, actor, quest) {
+  function bindAsker(s, actor, quest, replace) {
     const asker = quest.kind === "person" && quest.step?.verb === "bring" ? askerOf(s, quest) : null;
-    if (!asker || !controlledByHuman(s, actor) || asker === companionOf(s, actor) || s.actors[asker].place !== s.actors[actor].place || !entityActive(s, asker) || staysByRole(s, asker) || (s.actors[asker].trust?.[actor] || 0) < ACCOMPANY_TRUST || (travelerOf(s, asker) ?? actor) !== actor)
+    if (!asker || !controlledByHuman(s, actor) || asker === companionOf(s, actor) || !replace && companionOf(s, actor) || s.actors[asker].place !== s.actors[actor].place || !entityActive(s, asker) || staysByRole(s, asker) || (s.actors[asker].trust?.[actor] || 0) < ACCOMPANY_TRUST || (travelerOf(s, asker) ?? actor) !== actor)
       return;
     wakeResident(s, asker);
     const earlier = bind(s, actor, asker);
@@ -9456,7 +9468,7 @@
       settleLamp(next2);
       settleCrossingUnlocks(next2, sensesFor(next2));
       settleStationExits(next2);
-      settleQuests(next2);
+      settleQuests(next2, actor);
       validateWorld(next2);
       return { ok: true, state: next2 };
     }
@@ -9608,7 +9620,7 @@
     settleHeldItems(next, handSnapshot(s));
     settleLamp(next);
     settleStationExits(next);
-    settleQuests(next);
+    settleQuests(next, actor);
     validateWorld(next);
     let slept = next;
     if (!s.actors[actor].sleeping && !sharedEnabled(next))

@@ -110,7 +110,7 @@ describe("Talk tells a want", () => {
     );
     // The quest is met and closed: it leaves the stack and is not held again.
     expect(s.actors.vale.want).toBeNull();
-    expect(s.actors.vale.closed["quest:from:moth"]).toContain("lamp");
+    expect(s.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
     // One for the quest met, one for helping Pip meet his own want.
     expect(s.actors.vale.xp).toBe(vale + 2);
     expect(s.actors.moth.xp).toBe(pip + 1);
