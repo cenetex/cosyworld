@@ -156,3 +156,183 @@ it("does not report an IndexedDB intent durable until its transaction commits", 
   transaction.onabort();
   await expect(aborted).rejects.toThrow("transaction aborted");
 });
+
+// Integration uses only in-process HTTP mocks, with the production run/sweep path.
+import { createJobSweep } from "../v2/card-game/authoring-job-sweep.mjs";
+import { runJob } from "../v2/card-game/authoring-jobs.mjs";
+import { fakeJobs } from "./helpers/fake-jobs.mjs";
+import { vi } from "vitest";
+function recovery(server, store, adopt = () => {}) {
+  const sweep = createJobSweep({
+    store,
+    ...server,
+    adopters: { seed: { adoptJob: adopt } },
+    run: (callback) => callback({ snapshot: () => ({ key: "draft" }) }),
+  });
+  sweep.open({ key: "draft" });
+  return sweep;
+}
+const options = (server, sweep) => ({
+  ...server,
+  beginJob: sweep.track.begin,
+  refusedJob: sweep.track.refused,
+  prepareJob: sweep.track.prepare({
+    draftKey: "draft",
+    kind: "seed",
+    tool: "seed",
+  }),
+  onJob: (job) =>
+    sweep.track.accepted({
+      ...job.intent,
+      id: job.id,
+      intentId: job.intent.id,
+    }),
+});
+it("recovers an accepted lost response after reload using reads only", async () => {
+  const server = fakeJobs(),
+    store = memoryJobStore();
+  const sweep = recovery(server, store);
+  server.dropNextReply();
+  await expect(
+    runJob("seed", { seed: "private story" }, options(server, sweep)),
+  ).rejects.toMatchObject({ code: "network" });
+  expect(server.posts).toHaveLength(1);
+  expect(JSON.stringify(await store.readJobs("draft"))).not.toContain(
+    "private story",
+  );
+  sweep.open({ key: "closed" });
+  server.complete("job-1", { cards: [] });
+  const adopted = vi.fn();
+  const reloaded = recovery(server, store, adopted);
+  await vi.waitFor(() => expect(adopted).toHaveBeenCalledTimes(1));
+  await vi.waitFor(async () =>
+    expect(await store.readJobs("draft")).toEqual([]),
+  );
+  expect(server.posts).toHaveLength(1);
+  reloaded.open({ key: "closed" });
+});
+it("does not submit after an aborted press or a durable transaction failure", async () => {
+  const server = fakeJobs(),
+    store = memoryJobStore(),
+    controller = new AbortController();
+  const sweep = recovery(server, store);
+  controller.abort();
+  await expect(
+    runJob(
+      "seed",
+      {},
+      { ...options(server, sweep), signal: controller.signal },
+    ),
+  ).rejects.toThrow();
+  expect(server.posts).toHaveLength(0);
+  expect(await store.readJobs("draft")).toHaveLength(1);
+  store.claimJob = async () => {
+    throw new Error("IDB unavailable");
+  };
+  await expect(
+    runJob("seed", { changed: true }, options(server, sweep)),
+  ).rejects.toThrow("IDB unavailable");
+  expect(server.posts).toHaveLength(0);
+  sweep.open({ key: "closed" });
+});
+it("keeps absent or pruned submitted intents and refuses even an explicit retry", async () => {
+  const server = fakeJobs({ auto: () => ({ cards: [] }) }),
+    store = memoryJobStore();
+  const sweep = recovery(server, store);
+  server.offline(true);
+  await expect(
+    runJob(
+      "seed",
+      {},
+      {
+        ...options(server, sweep),
+        prepareJob: async (kind, request) =>
+          prepareJobIntent(
+            store,
+            account,
+            { draftKey: "draft", tool: "seed" },
+            kind,
+            request,
+          ),
+      },
+    ),
+  ).rejects.toMatchObject({ code: "network" });
+  const [intent] = await store.readJobs("draft");
+  server.offline(false);
+  sweep.poke({ force: true });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(server.posts).toHaveLength(0);
+  await expect(
+    runJob(
+      "seed",
+      {},
+      {
+        ...options(server, sweep),
+        prepareJob: (kind, request) =>
+          prepareJobIntent(
+            store,
+            account,
+            { draftKey: "draft", tool: "seed" },
+            kind,
+            request,
+          ),
+      },
+    ),
+  ).rejects.toMatchObject({ code: "generation_waiting" });
+  expect((await store.readJobs("draft"))[0].requestKey).toBe(intent.requestKey);
+  expect(server.jobs.size).toBe(0);
+  sweep.open({ key: "closed" });
+});
+it("rechecks the intent hold when a sweep was already awaiting its job list", async () => {
+  const server = fakeJobs(),
+    store = memoryJobStore();
+  const intent = await prepareJobIntent(
+    store,
+    account,
+    { draftKey: "draft", kind: "seed", tool: "seed" },
+    "seed",
+    {},
+  );
+  let listReached, releaseList, postReached, releasePost;
+  const listing = new Promise((resolve) => {
+    listReached = resolve;
+  });
+  const listGate = new Promise((resolve) => {
+    releaseList = resolve;
+  });
+  const posting = new Promise((resolve) => {
+    postReached = resolve;
+  });
+  const postGate = new Promise((resolve) => {
+    releasePost = resolve;
+  });
+  const fetch = async (url, init) => {
+    const response = await server.fetch(url, init);
+    if (url.endsWith("/jobs") && init.method === "GET") {
+      listReached();
+      await listGate;
+    }
+    if (init.method === "POST") {
+      postReached();
+      await postGate;
+    }
+    return response;
+  };
+  const transport = { ...server, fetch },
+    adopted = vi.fn();
+  const sweep = recovery(transport, store, adopted);
+  await listing; // The sweep selected the record before the original request held it.
+  const running = runJob("seed", {}, options(transport, sweep));
+  await posting;
+  server.complete("job-1", { cards: [] });
+  releaseList();
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  expect(adopted).not.toHaveBeenCalled();
+  expect((await store.readJobs("draft"))[0].id).toBe(intent.id);
+  releasePost();
+  await expect(running).resolves.toEqual({ cards: [] });
+  await sweep.track.settled("job-1");
+  expect(await store.readJobs("draft")).toEqual([]);
+  expect(server.posts).toHaveLength(1);
+  sweep.open({ key: "closed" });
+});
