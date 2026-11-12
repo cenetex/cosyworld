@@ -441,7 +441,7 @@ async function checkRefusalFits(width, height, zoom = 1) {
       const once = (text) => said.split(text).length - 1;
       return {
         label: button.textContent,
-        disabled: button.disabled,
+        disabled: button.ariaDisabled === "true",
         status: document.querySelector("#play-status").hidden,
         spills: spills.map((el) => el.className || el.id),
         inView: panel.left >= 0 && panel.right <= innerWidth,

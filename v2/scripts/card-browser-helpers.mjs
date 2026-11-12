@@ -64,10 +64,18 @@ export async function openSettings(page) {
 }
 // The context button's own words. When the whole descriptor is the button
 // its text is the tap cue ("Tap to turn music off") and its accessible name
-// is the action; a disabled reason keeps its words as text.
+// is the action; a blocked reason keeps its words as text.
 export async function actionLabel(button) {
   return (await button.getAttribute("aria-label")) ?? (await button.textContent());
 }
+export const focusedHandCard = (page) =>
+  page.evaluate(() => {
+    const active = document.activeElement;
+    const shown =
+      active.matches("#hand .card-frame:not([hidden]) .card") &&
+      active.getClientRects().length > 0;
+    return shown ? active.dataset.card : active.tagName;
+  });
 export async function pressSetting(page, id, times = 1) {
   const card = page.locator(`#settings-hand [data-setting="${id}"]`);
   const frame = card.locator("..");

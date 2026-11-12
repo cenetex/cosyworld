@@ -2999,7 +2999,7 @@ body .beat-live {
 .beat-action #card-actions button:is(:hover, :focus-visible) {
   background: #dfc38d1f;
 }
-.beat-action #card-actions button:active {
+.beat-action #card-actions button:not([data-blocked]):active {
   background: #dfc38d33;
   color: var(--gold);
 }
@@ -3021,7 +3021,8 @@ body .beat-live {
   max-width: none;
   box-shadow: none;
 }
-.beat-action #card-actions button[data-blocked]:disabled {
+.beat-action #card-actions button[data-blocked] {
+  background: transparent;
   opacity: 0.85;
   cursor: default;
 }

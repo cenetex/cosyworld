@@ -1,9 +1,44 @@
 import { describe, it, expect } from "vitest";
 import { cardObservation } from "../v2/card-game/cards.mjs";
 import { createWorld, encodeSave } from "../v2/card-game/world.mjs";
-import { revealedBeat } from "../v2/card-game/presentation.mjs";
+import { handFocusId, revealedBeat } from "../v2/card-game/presentation.mjs";
 import { withPending } from "../v2/card-game/beats.mjs";
 
+describe("where focus rests in the hand after a play", () => {
+  const frames = [
+    { id: "station" },
+    { id: "vale" },
+    { id: "lamp", holder: "vale", hidden: true },
+    { id: "moth" },
+    { id: "cloth", holder: "moth", hidden: true },
+    { id: "bell", hidden: true },
+    { id: "pond" },
+  ];
+  it("stays on the played card when it shows", () => {
+    expect(handFocusId(frames, ["station", "moth"])).toBe("moth");
+  });
+  it("goes to the visible holder of a hidden held item", () => {
+    expect(handFocusId(frames, ["moth", "lamp"])).toBe("vale");
+    expect(handFocusId(frames, ["cloth"])).toBe("moth");
+  });
+  it("goes to the nearest visible card when the card has no visible holder", () => {
+    expect(handFocusId(frames, ["bell"])).toBe("pond");
+    const stacked = [{ id: "a" }, { id: "b", holder: "c", hidden: true }, { id: "c", hidden: true }];
+    expect(handFocusId(stacked, ["b"])).toBe("a");
+  });
+  it("falls back through earlier choices, then the first visible card", () => {
+    expect(handFocusId(frames, ["pond", "gone"])).toBe("pond");
+    expect(handFocusId(frames, ["gone"])).toBe("station");
+    expect(handFocusId(frames, [undefined])).toBe("station");
+  });
+  it("tries the chosen card, then the last focused card, then the avatar", () => {
+    expect(handFocusId(frames, ["vale", "pond", "moth"])).toBe("moth");
+    expect(handFocusId(frames, ["vale", "pond"])).toBe("pond");
+    expect(handFocusId(frames, ["vale", "gone"])).toBe("vale");
+    expect(handFocusId(frames, ["vale", undefined])).toBe("vale");
+    expect(handFocusId([{ id: "lamp", hidden: true }], ["lamp"])).toBeUndefined();
+  });
+});
 describe("reading saved words with revealed cards", () => {
   const beat = {
     key: "line:12",

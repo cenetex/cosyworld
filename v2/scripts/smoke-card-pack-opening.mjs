@@ -28,7 +28,7 @@ import {
   places,
   things,
 } from "../card-game/world.mjs";
-import { smokeWidths, tapCard, unreachableCards } from "./card-browser-helpers.mjs";
+import { focusedHandCard, smokeWidths, tapCard, unreachableCards } from "./card-browser-helpers.mjs";
 
 const shots = process.argv[2]
   ? new URL(`file://${process.argv[2].replace(/\/?$/u, "/")}`)
@@ -278,6 +278,7 @@ for (const [width, motion] of [
   // 4. Reveal all: one button, "Tap to finish"; mid-run frames.
   await page.locator("#card-actions [data-pack='reveal']").click();
   await oneButton(page, "Tap to finish", `${label}: a run asks to be finished`);
+  assert.ok(members.includes(await focusedHandCard(page)), `${label}: Reveal all leaves focus on a card`);
   await page.waitForTimeout(motion === "reduce" ? 500 : 900);
   await shot("4-mid-run");
 
@@ -343,6 +344,7 @@ for (const [width, motion] of [
   await page.locator("#card-actions [data-pack='done']").click();
   await page.waitForFunction(() => !document.querySelector("#hand [data-pack]"));
   await page.waitForTimeout(700);
+  assert.ok(before.includes(await focusedHandCard(page)), `${label}: Done leaves focus on a card`);
   assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "false");
   assert.deepEqual([...(await handIds(page))].sort(), [...before].sort(), `${label}: every card is in the hand`);
   assert.equal(await page.locator("#hand [data-unrevealed='true']").count(), 0);

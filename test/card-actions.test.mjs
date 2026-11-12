@@ -209,9 +209,10 @@ describe("named card actions", () => {
     expect(actions).toContain(
       "`You have too many items to take ${theName(crowded).toLowerCase()}`",
     );
-    expect(actions).toContain("blocked.disabled = true;");
+    expect(actions).toContain("blockPlay(blocked, kind);");
+    expect(body("blockPlay")).toContain('"aria-disabled", "true"');
     expect(body("updateCardCooldown")).toContain(
-      "Boolean(button.dataset.blocked)",
+      "selectionBlocked() && !button.dataset.blocked",
     );
     // Cards keep their accessible name and tooltip.
     for (const name of ["card", "updateCardSelection"]) {
