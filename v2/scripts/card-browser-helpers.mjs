@@ -106,7 +106,12 @@ export async function openPack(page, id) {
     await page.waitForTimeout(900);
   }
   // The row is raised and the card is in it: a tap turns it at once.
-  if ((await card.getAttribute("data-unrevealed")) === "true") {
+  // A locked box reads data-unrevealed "false" yet is still face down to the
+  // pack (app.mjs draws it as the lock), so its first tap turns it too.
+  if (
+    (await card.getAttribute("data-unrevealed")) === "true" ||
+    (await card.getAttribute("data-locked")) === "true"
+  ) {
     await card.scrollIntoViewIfNeeded();
     await card.click({ position: await visibleSpot(card) });
     await page.waitForFunction(

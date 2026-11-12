@@ -1,0 +1,33 @@
+{
+  "generator": "image_gen",
+  "date": "2026-11-11",
+  "place": "greek-road-athens-eleusis",
+  "assets": [
+    {
+      "file": "sacred-way-dipylon.webp",
+      "period": "day",
+      "sourceName": "exec-5da8d630-7cb8-47cf-bbb6-86539e34bfab.png",
+      "sourceSha256": "6a34d789590ff96c7d7fd4ba7281cc7fb074bcc50ff318a5047f7c0984b403bc",
+      "sourceSize": [1672, 941],
+      "sha256": "329753b998b52ded32bba58ad2d37528b599b6e356cdf6257bf6cf56f0511b37",
+      "size": [1600, 900],
+      "bytes": 633796,
+      "prompt": "Create a widescreen 16:9 environment painting for the Cosyworld game, matching the reference's warm, detailed painterly Mediterranean style. The Sacred Way between Eleusis and Athens: a broad ancient paved processional road bordered by olive groves, wild grasses and modest small stone shrines, winding toward Athens' historically plausible Dipylon double gate in low mud-brick and stone fortification walls, with the Acropolis visible beyond. Warm Attic daylight, serene inviting sense of journey, readable spacious foreground for game cards. No people, text, logos, interface or border. Produce the illustration only.",
+      "reference": "attic-road.webp",
+      "processing": "Resized to 1600 x 900 with a centered cover fit; encoded as WebP at quality 92, effort 6."
+    },
+    {
+      "file": "sacred-way-dipylon-night.webp",
+      "period": "night",
+      "sourceName": "exec-7a755e89-2854-40f0-8c55-fd763b93ff70.png",
+      "sourceSha256": "0be3534b5655e6cc9f0a47a7153689494f41670d5263ae87be9f4518c5f36e0b",
+      "sourceSize": [1672, 941],
+      "sha256": "42976e661c604600f008ab1bd67ddd2781c93a0f19aa156f565f8c483284a76a",
+      "size": [1600, 900],
+      "bytes": 535028,
+      "prompt": "Create the night counterpart of this exact Cosyworld Sacred Way environment. Preserve precisely the same camera, layout, road, olive trees, shrines, Athens double gate, walls and Acropolis, with no objects moved, so it crossfades seamlessly with the day painting. Transform daylight into deep blue moonlight with a softly glowing oil lamp at the gate; the roadside shrines are dark. Painterly detailed Mediterranean atmosphere, no people, no text, no logos or interface, widescreen.",
+      "reference": "exec-5da8d630-7cb8-47cf-bbb6-86539e34bfab.png",
+      "processing": "Resized to 1600 x 900 with a centered cover fit; encoded as WebP at quality 92, effort 6."
+    }
+  ]
+}

@@ -90,6 +90,7 @@ describe("day and night in Greece", () => {
     ["greek-athens", "athens-grand-agora", "in the Athenian Agora"],
     ["greek-colonus", "open-door-colonus", "in Colonus Grove"],
     ["greek-eleusis", "open-door-eleusis", "at the Eleusinian Sanctuary"],
+    ["greek-road-athens-eleusis", "sacred-way-dipylon", "on the Sacred Way"],
     ["greek-marathon", "open-door-marathon", "at Marathon Altar"],
     ["greek-ship", "ship-deck", "aboard the Charybdis"],
   ])(
@@ -132,6 +133,25 @@ describe("day and night in Greece", () => {
       }
     },
   );
+
+  it("keeps the Sacred Way scene and both approach cards in the saved light", () => {
+    const world = createWorld({ packScopes: { "greek-drama": "full" } });
+    const road = "greek-road-athens-eleusis";
+    for (const turn of [0, DAYLIGHT_TURNS, DAYLIGHT_TURNS * 2]) {
+      world.turn = world.revision = turn;
+      const suffix = turn === DAYLIGHT_TURNS ? "-night" : "";
+      const painting = `./assets/greek-drama/sacred-way-dipylon${suffix}.webp`;
+      for (const from of greek.places[road].road) {
+        world.actors.vale.place = from;
+        expect(travelCard(world, road).art).toBe(painting);
+      }
+      world.actors.vale.place = road;
+      expect(currentScene(world).background).toBe(painting);
+      expect(currentScene(decodeSave(encodeSave(world))).background).toBe(
+        painting,
+      );
+    }
+  });
 
   it("changes the Theban places and road on the same accepted turn and restores them from a save", () => {
     let world = createWorld();

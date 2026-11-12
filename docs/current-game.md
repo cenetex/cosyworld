@@ -84,6 +84,7 @@ behavior follows the shipping code, catalogs, tests, and live release.
 - [Greek redesign](../v2/docs/card-table/greek-redesign.md)
 - [Recipes and the item economy](../v2/docs/card-table/recipes-and-item-economy.md)
 - [Card pack authoring](../v2/docs/card-packs.md)
+- [Level maps](maps/index.md): generated place maps and gate dependency charts for each pack
 - [Runtime operations](../v2/README.md)
 - [Releases](release.md)
 

@@ -3329,6 +3329,24 @@
       "phone": "assets/optimized/phone/png/greek-drama/return-list.webp",
       "phoneHash": "edadc94b68b42598fad7b02b5276d5f0509bb05019baf4fcf023b290983849cc"
     },
+    "assets/greek-drama/sacred-way-dipylon-night.webp": {
+      "sourceHash": "42976e661c604600f008ab1bd67ddd2781c93a0f19aa156f565f8c483284a76a",
+      "stage": "assets/greek-drama/sacred-way-dipylon-night.webp",
+      "stageHash": "42976e661c604600f008ab1bd67ddd2781c93a0f19aa156f565f8c483284a76a",
+      "card": "assets/optimized/card/webp/greek-drama/sacred-way-dipylon-night.webp",
+      "cardHash": "16d730f054e34c878422fd0903cb49206ae2e71dc456474ccf789db895e18a68",
+      "phone": "assets/optimized/phone/webp/greek-drama/sacred-way-dipylon-night.webp",
+      "phoneHash": "30883ad261755f8ee28ec71a0e897a7f9fd786170d1b099c4be0e80a1330ca45"
+    },
+    "assets/greek-drama/sacred-way-dipylon.webp": {
+      "sourceHash": "329753b998b52ded32bba58ad2d37528b599b6e356cdf6257bf6cf56f0511b37",
+      "stage": "assets/greek-drama/sacred-way-dipylon.webp",
+      "stageHash": "329753b998b52ded32bba58ad2d37528b599b6e356cdf6257bf6cf56f0511b37",
+      "card": "assets/optimized/card/webp/greek-drama/sacred-way-dipylon.webp",
+      "cardHash": "0ffacfb29c15120f52492e2ac7d257945e265868c9746ffbe8eb8eddff437ea5",
+      "phone": "assets/optimized/phone/webp/greek-drama/sacred-way-dipylon.webp",
+      "phoneHash": "64e0417e40119894ac10cdd05d584afa5fccd5cea7efd4cb966cae163a419d21"
+    },
     "assets/greek-drama/sanctuary-dawn.webp": {
       "sourceHash": "d287fe8287369ba786b26abe14d2adb1a9082cc7f6cffbed5f52654d863ffba2",
       "stage": "assets/greek-drama/sanctuary-dawn.webp",

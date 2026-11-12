@@ -19,6 +19,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   RULES_WIRING,
+  isLevelMap,
   isRulesBundle,
   realWiringChanges,
 } from "./land-branch.mjs";
@@ -41,7 +42,8 @@ export const GENERATED_FILES = [
 // 'generated' is rebuilt; 'wiring' is the rules version bookkeeping that
 // next-shared-rules.mjs restores from main; anything else is real work.
 export function classify(file) {
-  if (GENERATED_FILES.includes(file) || isRulesBundle(file)) return "generated";
+  if (GENERATED_FILES.includes(file) || isRulesBundle(file) || isLevelMap(file))
+    return "generated";
   if (RULES_WIRING.includes(file)) return "wiring";
   return "other";
 }
@@ -107,6 +109,12 @@ export function steps(base = "origin/main") {
       name: "journeys",
       build: node("v2/scripts/build-test-journeys.mjs", "--write"),
       check: node("v2/scripts/build-test-journeys.mjs", "--check"),
+    },
+    // Reads the compiled packs, so it follows the packs step.
+    {
+      name: "level-maps",
+      build: node("scripts/build-level-maps.mjs"),
+      check: node("scripts/build-level-maps.mjs", "--check"),
     },
   ];
 }
