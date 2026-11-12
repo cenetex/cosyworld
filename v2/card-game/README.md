@@ -961,9 +961,8 @@ the listener's own deed: only their Talk commits it. A resident who seeks Vale
 out for its own quest can tell the same account, and Vale's later Talk with
 that resident still commits the choice, one choice per turn.
 
-Run `node v2/scripts/smoke-card-open-door.mjs` and
-`node v2/scripts/smoke-card-greek-homecoming.mjs` for the Open Door and
-homecoming journeys at desktop and phone widths, and
+Run `node v2/scripts/smoke-card-open-door.mjs` for one Open Door solution
+at desktop and phone widths, and
 `node v2/scripts/smoke-card-ajax.mjs` for the three Ajax journeys, each walked once.
 `smoke-card-greek-drama.mjs` also plays the opening poem, where the Bard's
 quest to hear Vale brings it to the courtyard, and

@@ -26,6 +26,14 @@ R3) now follow their items, the Willows mist crossing needs only night and mist
 unchanged; the scatter pool is set in `pack-items.mjs`, so it needs a rules
 change.
 
+**Since then:** PR [#2706](https://github.com/cenetex/cosyworld/pull/2706)
+rebuilt the Open Door as [interlocking puzzles](open-door-rework.md). Its flag
+chain (G17), its report props and the Sacred Way gate (G4) are gone; the
+truce and the petition are things from the start (G22); each Attica resident
+(G15, G16) opens on its own present thing and has a want; the herald's truce
+also opens the City Gate (G7). G6 and G14 stay as the owner kept them. The
+Ajax invitation no longer reads the deleted chain's flags.
+
 Audited `origin/main` at `fb5d5afbe` (package 1.2.127, rules 133; pack
 revisions: greek-drama 24, lonely-forest 3, ratiradio 3, willows 2,
 hoppycat-archive 4, badger-forest 1).

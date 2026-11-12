@@ -1,6 +1,14 @@
 # The Open Door as interlocking puzzles
 
-Status: design for owner mark-up, 2026-11-11. Nothing is built. The first
+Status: built in pack data by PR
+[#2706](https://github.com/cenetex/cosyworld/pull/2706), with the owner's five
+recommended answers in section I. Two deviations, both forced by today's rules:
+a resident's lock opens on its thing and stays open once a traveler has met it
+(the rules keep a shut resident untouched until it is met, so a lock that
+re-closed afterwards would corrupt the save), and Aethra, Thaleia and the Grove
+Keeper keep to their posts. Wants the pack schema cannot state were made with
+its own verbs: Aethra and Thaleia "talk with" Theseus and Myrine, and Iphis
+wants the urn laid at Piraeus. The first
 worked example of pack content made from wants, things and live locks. It
 builds on the [quest and gate audit](quest-audit-2026-11-11.md) (G1 to G25),
 [companions and quests](companions-and-quests.md) (decisions 1 to 23) and

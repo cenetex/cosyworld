@@ -3,7 +3,7 @@
 
 Pack `greek-drama`, revision 24. Entry `greek-harbor`. Part of the [level maps](index.md); data in [greek-drama.graph.json](greek-drama.graph.json). Built from `v2/content/greek-drama/card-world.json` and `v2/worlds/greek-drama/card-bridge.json`.
 
-49 places, 109 ways, 57 gates, 78 acts, 59 flags, 8 districts.
+49 places, 109 ways, 57 gates, 50 acts, 28 flags, 8 districts.
 
 How to read the maps: a solid line is an open way and a dashed line is a gated way, labelled with its condition in plain words. A hexagon is a road, a double box is the ship, a round node is another world, a dashed outline is a place beyond this map. In the dependency charts an arrow points from what is needed to what it opens; red is a gate. A condition under `any` is a set of alternatives, and the charts and the prerequisite lists include all of them.
 
@@ -40,7 +40,7 @@ flowchart LR
   n_d_greek_battlefield --- n_greek_road_thebes
   n_d_greek_delphi --- n_greek_oeta
   n_d_greek_delphi --- n_greek_road_sacred_way
-  n_d_greek_eleusis -. "greek-open-door-mothers-heard is set and (The Mothers’ …" .-> n_greek_road_athens_eleusis
+  n_d_greek_eleusis --- n_greek_road_athens_eleusis
   n_d_greek_argolid_road -. "sail: Travel Provisions lies at The Charybdis" .-> n_d_greek_piraeus
   n_d_greek_argolid_road --- n_greek_road_north
   n_d_greek_argolid_road --- n_greek_road_thebes
@@ -50,7 +50,6 @@ flowchart LR
   n_d_greek_piraeus --> n_greek_road_athens_piraeus
   n_d_greek_piraeus -. "sail: (Travel Provisions is in The Charybdis or a hoppy…" .-> n_hoppycat_signal_jetty
   n_d_greek_piraeus -- "cross" --> n_pond
-  n_greek_road_athens_eleusis --> n_d_greek_eleusis
   n_greek_road_athens_piraeus --> n_d_greek_athens
   n_greek_road_athens_piraeus --> n_d_greek_piraeus
   n_greek_road_north -. "greek-ajax-open is set" .-> n_d_greek_greek_camp
@@ -162,7 +161,7 @@ flowchart LR
   n_greek_courtyard --- n_greek_gate
   n_greek_courtyard --- n_greek_road_thebes
   n_greek_courtyard --- n_greek_well
-  n_greek_gate -. "The Gate Guard holds Creon's Writ" .-> n_greek_battlefield
+  n_greek_gate -. "(The Gate Guard holds Creon's Writ or The Gate Guard ho…" .-> n_greek_battlefield
   n_greek_palace --- n_greek_sanctuary
   n_greek_palace --- n_greek_well
   n_greek_polynices_hollow --> n_greek_battlefield
@@ -208,8 +207,7 @@ flowchart LR
   n_greek_colonus --- n_greek_eleusis
   n_greek_colonus --- n_greek_marathon
   n_greek_eleusis --- n_greek_marathon
-  n_greek_eleusis -. "greek-open-door-mothers-heard is set and (The Mothers’ …" .-> n_greek_road_athens_eleusis
-  n_greek_road_athens_eleusis --> n_greek_eleusis
+  n_greek_eleusis --- n_greek_road_athens_eleusis
   classDef stub stroke-dasharray: 4 3
   class n_greek_cithaeron,n_greek_road_athens_eleusis stub
 ```
@@ -358,7 +356,7 @@ flowchart TD
 
 ### The Exposed Battlefield
 
-2 gated ways here; 17 nodes in the chain.
+2 gated ways here; 20 nodes in the chain.
 
 ```mermaid
 flowchart TD
@@ -370,11 +368,14 @@ flowchart TD
   n_flag_greek_polynices_anointed("polynices-anointed")
   n_flag_greek_polynices_heard("polynices-heard")
   n_flag_greek_polynices_veiled("polynices-veiled")
+  n_item_greek_burial_petition(["The Mothers’ Petition"])
   n_item_greek_creon_writ(["Creon's Writ"])
   n_item_greek_funeral_cloth(["Funeral Cloth"])
   n_item_greek_oil_flask(["Funeral Oil"])
+  n_item_greek_olive_branch(["The Herald’s Truce"])
   n_item_greek_shovel(["Burial Shovel"])
   n_resident_greek_polynices_shade>"Polynices' Shade appears"]
+  n_resident_greek_theseus>"Theseus appears"]
   n_route_greek_battlefield_greek_polynices_hollow{{"The Exposed Battlefield to Polynices' Hollow"}}
   n_route_greek_gate_greek_battlefield{{"Theban City Gate to The Exposed Battlefield"}}
   n_want_greek_antigone["antigone"]
@@ -389,6 +390,7 @@ flowchart TD
   n_flag_greek_polynices_heard --> n_route_greek_battlefield_greek_polynices_hollow
   n_flag_greek_polynices_veiled --> n_act_greek_bury_polynices
   n_flag_greek_polynices_veiled --> n_route_greek_battlefield_greek_polynices_hollow
+  n_item_greek_burial_petition --> n_resident_greek_theseus
   n_item_greek_creon_writ --> n_route_greek_gate_greek_battlefield
   n_item_greek_funeral_cloth --> n_act_greek_anoint_polynices
   n_item_greek_funeral_cloth --> n_act_greek_shroud_polynices
@@ -397,6 +399,8 @@ flowchart TD
   n_item_greek_oil_flask --> n_act_greek_anoint_polynices
   n_item_greek_oil_flask --> n_want_greek_antigone
   n_item_greek_oil_flask --> n_want_greek_polynices_shade
+  n_item_greek_olive_branch --> n_item_greek_olive_branch
+  n_item_greek_olive_branch --> n_route_greek_gate_greek_battlefield
   n_item_greek_shovel --> n_act_greek_anoint_polynices
   n_item_greek_shovel --> n_act_greek_bury_polynices
   n_item_greek_shovel --> n_act_greek_shroud_polynices
@@ -405,167 +409,29 @@ flowchart TD
   n_resident_greek_polynices_shade --> n_act_greek_hear_polynices
   n_resident_greek_polynices_shade --> n_route_greek_battlefield_greek_polynices_hollow
   n_resident_greek_polynices_shade --> n_want_greek_polynices_shade
+  n_resident_greek_theseus --> n_item_greek_olive_branch
+  n_resident_greek_theseus --> n_resident_greek_theseus
   n_want_greek_antigone --> n_flag_greek_burial_performed
   n_want_greek_polynices_shade --> n_flag_greek_burial_performed
   classDef gate fill:#fdd,stroke:#a33
   class n_route_greek_battlefield_greek_polynices_hollow,n_route_greek_gate_greek_battlefield gate
 ```
 
-### Eleusinian Sanctuary
-
-1 gated way here; 4 nodes in the chain.
-
-```mermaid
-flowchart TD
-  n_act_greek_open_door_hear_mothers["Hear the mothers’ request"]
-  n_flag_greek_open_door_mothers_heard("open-door-mothers-heard")
-  n_item_greek_burial_petition(["The Mothers’ Petition"])
-  n_route_greek_eleusis_greek_road_athens_eleusis{{"Eleusinian Sanctuary to The Sacred Way"}}
-  n_act_greek_open_door_hear_mothers --> n_flag_greek_open_door_mothers_heard
-  n_flag_greek_open_door_mothers_heard --> n_item_greek_burial_petition
-  n_flag_greek_open_door_mothers_heard --> n_route_greek_eleusis_greek_road_athens_eleusis
-  n_item_greek_burial_petition --> n_route_greek_eleusis_greek_road_athens_eleusis
-  classDef gate fill:#fdd,stroke:#a33
-  class n_route_greek_eleusis_greek_road_athens_eleusis gate
-```
-
 ### The Greek Camp at Troy
 
-3 gated ways here; 59 nodes in the chain.
+3 gated ways here; 5 nodes in the chain.
 
 ```mermaid
 flowchart TD
   n_act_greek_ajax_invitation["Accept the Trojan camp’s invitation"]
-  n_act_greek_open_door_colonus_custom["Record a welcome for the next exile"]
-  n_act_greek_open_door_colonus_daughters["Hear the daughters’ return and the son’s plea"]
-  n_act_greek_open_door_colonus_enter["Hear the earlier tale of Oedipus"]
-  n_act_greek_open_door_colonus_farewell["Hear the kept promise at the end"]
-  n_act_greek_open_door_colonus_water["Set water and honey by the grove"]
-  n_act_greek_open_door_family_berth["Reserve the berth for the listed households"]
-  n_act_greek_open_door_hear_adrastus["Ask Adrastus about the war"]
-  n_act_greek_open_door_hear_mothers["Hear the mothers’ request"]
-  n_act_greek_open_door_hear_quay["Ask what the returning households need"]
-  n_act_greek_open_door_hear_truce_report["Receive the herald’s truce report"]
-  n_act_greek_open_door_lay_ashes["Place the urn in the mothers’ care"]
-  n_act_greek_open_door_lay_cloths["Lay out the clean burial cloths"]
-  n_act_greek_open_door_marathon_battle["Hear the battle and the captive’s arrival"]
-  n_act_greek_open_door_marathon_blanket["Lay the blanket inside the shelter"]
-  n_act_greek_open_door_marathon_captive["Hear the claim against the captive"]
-  n_act_greek_open_door_marathon_daughter["Hear the daughter’s own answer"]
-  n_act_greek_open_door_marathon_enter["Hear the tale of Heracles’s children"]
-  n_act_greek_open_door_register_plea["Lay the mothers’ petition before Theseus"]
-  n_act_greek_open_door_return_dione["Tell Dione what welcome has cost"]
-  n_act_greek_open_door_set_provisions["Set the basket beside the resting place"]
-  n_choice_greek_open_door_recovery_truce("open-door-recovery=truce")
   n_flag_greek_ajax_open("ajax-open")
-  n_flag_greek_open_door_adrastus_heard("open-door-adrastus-heard")
-  n_flag_greek_open_door_ashes_laid("open-door-ashes-laid")
-  n_flag_greek_open_door_bodies_returned("open-door-bodies-returned")
-  n_flag_greek_open_door_cloths_laid("open-door-cloths-laid")
-  n_flag_greek_open_door_colonus_daughters_heard("open-door-colonus-daughters-heard")
-  n_flag_greek_open_door_colonus_done("open-door-colonus-done")
-  n_flag_greek_open_door_colonus_entered("open-door-colonus-entered")
-  n_flag_greek_open_door_colonus_farewell_heard("open-door-colonus-farewell-heard")
-  n_flag_greek_open_door_colonus_water_set("open-door-colonus-water-set")
-  n_flag_greek_open_door_eleusis_done("open-door-eleusis-done")
-  n_flag_greek_open_door_marathon_battle_heard("open-door-marathon-battle-heard")
-  n_flag_greek_open_door_marathon_blanket_set("open-door-marathon-blanket-set")
-  n_flag_greek_open_door_marathon_daughter_heard("open-door-marathon-daughter-heard")
-  n_flag_greek_open_door_marathon_done("open-door-marathon-done")
-  n_flag_greek_open_door_marathon_entered("open-door-marathon-entered")
-  n_flag_greek_open_door_mothers_heard("open-door-mothers-heard")
-  n_flag_greek_open_door_piraeus_done("open-door-piraeus-done")
-  n_flag_greek_open_door_plea_registered("open-door-plea-registered")
-  n_flag_greek_open_door_quay_heard("open-door-quay-heard")
-  n_flag_greek_open_door_quay_provisioned("open-door-quay-provisioned")
-  n_flag_greek_open_door_returned("open-door-returned")
-  n_item_greek_ash_urn(["The Funeral Urn"])
-  n_item_greek_burial_petition(["The Mothers’ Petition"])
-  n_item_greek_grove_cup(["The Grove Cup"])
-  n_item_greek_grove_honey(["Honey for the Grove"])
-  n_item_greek_olive_branch(["The Herald’s Truce"])
-  n_item_greek_provision_basket(["The Quay Basket"])
-  n_item_greek_pyre_account(["The Pyre Account"])
-  n_item_greek_refuge_tablet(["The Refuge Tablet"])
-  n_item_greek_return_cloths(["Clean Burial Cloths"])
-  n_item_greek_return_list(["The Return List"])
-  n_item_greek_shelter_blanket(["The Shelter Blanket"])
   n_place_greek_ajax_grave{{"Ajax’s Grave appears"}}
   n_place_greek_ajax_household{{"Ajax’s Household Tent appears"}}
   n_place_greek_ajax_landing{{"The Trojan Camp Landing appears"}}
-  n_resident_greek_argive_mother>"An Argive Mother appears"]
   n_act_greek_ajax_invitation --> n_flag_greek_ajax_open
-  n_act_greek_open_door_colonus_custom --> n_flag_greek_open_door_colonus_done
-  n_act_greek_open_door_colonus_daughters --> n_flag_greek_open_door_colonus_daughters_heard
-  n_act_greek_open_door_colonus_enter --> n_flag_greek_open_door_colonus_entered
-  n_act_greek_open_door_colonus_farewell --> n_flag_greek_open_door_colonus_farewell_heard
-  n_act_greek_open_door_colonus_water --> n_flag_greek_open_door_colonus_water_set
-  n_act_greek_open_door_family_berth --> n_flag_greek_open_door_piraeus_done
-  n_act_greek_open_door_hear_adrastus --> n_flag_greek_open_door_adrastus_heard
-  n_act_greek_open_door_hear_mothers --> n_flag_greek_open_door_mothers_heard
-  n_act_greek_open_door_hear_quay --> n_flag_greek_open_door_quay_heard
-  n_act_greek_open_door_hear_truce_report --> n_flag_greek_open_door_bodies_returned
-  n_act_greek_open_door_lay_ashes --> n_flag_greek_open_door_ashes_laid
-  n_act_greek_open_door_lay_ashes --> n_flag_greek_open_door_eleusis_done
-  n_act_greek_open_door_lay_cloths --> n_flag_greek_open_door_cloths_laid
-  n_act_greek_open_door_marathon_battle --> n_flag_greek_open_door_marathon_battle_heard
-  n_act_greek_open_door_marathon_blanket --> n_flag_greek_open_door_marathon_blanket_set
-  n_act_greek_open_door_marathon_captive --> n_flag_greek_open_door_marathon_done
-  n_act_greek_open_door_marathon_daughter --> n_flag_greek_open_door_marathon_daughter_heard
-  n_act_greek_open_door_marathon_enter --> n_flag_greek_open_door_marathon_entered
-  n_act_greek_open_door_register_plea --> n_choice_greek_open_door_recovery_truce
-  n_act_greek_open_door_register_plea --> n_flag_greek_open_door_plea_registered
-  n_act_greek_open_door_return_dione --> n_flag_greek_open_door_returned
-  n_act_greek_open_door_set_provisions --> n_flag_greek_open_door_quay_provisioned
-  n_choice_greek_open_door_recovery_truce --> n_act_greek_open_door_hear_truce_report
   n_flag_greek_ajax_open --> n_place_greek_ajax_grave
   n_flag_greek_ajax_open --> n_place_greek_ajax_household
   n_flag_greek_ajax_open --> n_place_greek_ajax_landing
-  n_flag_greek_open_door_adrastus_heard --> n_act_greek_open_door_register_plea
-  n_flag_greek_open_door_ashes_laid --> n_item_greek_pyre_account
-  n_flag_greek_open_door_bodies_returned --> n_act_greek_open_door_lay_cloths
-  n_flag_greek_open_door_bodies_returned --> n_item_greek_ash_urn
-  n_flag_greek_open_door_bodies_returned --> n_resident_greek_argive_mother
-  n_flag_greek_open_door_cloths_laid --> n_act_greek_open_door_lay_ashes
-  n_flag_greek_open_door_cloths_laid --> n_item_greek_ash_urn
-  n_flag_greek_open_door_colonus_daughters_heard --> n_act_greek_open_door_colonus_farewell
-  n_flag_greek_open_door_colonus_done --> n_act_greek_ajax_invitation
-  n_flag_greek_open_door_colonus_done --> n_act_greek_open_door_return_dione
-  n_flag_greek_open_door_colonus_entered --> n_act_greek_open_door_colonus_water
-  n_flag_greek_open_door_colonus_farewell_heard --> n_act_greek_open_door_colonus_custom
-  n_flag_greek_open_door_colonus_water_set --> n_act_greek_open_door_colonus_daughters
-  n_flag_greek_open_door_eleusis_done --> n_act_greek_ajax_invitation
-  n_flag_greek_open_door_eleusis_done --> n_act_greek_open_door_family_berth
-  n_flag_greek_open_door_eleusis_done --> n_act_greek_open_door_return_dione
-  n_flag_greek_open_door_eleusis_done --> n_item_greek_return_list
-  n_flag_greek_open_door_marathon_battle_heard --> n_act_greek_open_door_marathon_captive
-  n_flag_greek_open_door_marathon_blanket_set --> n_act_greek_open_door_marathon_daughter
-  n_flag_greek_open_door_marathon_daughter_heard --> n_act_greek_open_door_marathon_battle
-  n_flag_greek_open_door_marathon_done --> n_act_greek_ajax_invitation
-  n_flag_greek_open_door_marathon_entered --> n_act_greek_open_door_marathon_blanket
-  n_flag_greek_open_door_mothers_heard --> n_act_greek_open_door_hear_adrastus
-  n_flag_greek_open_door_mothers_heard --> n_item_greek_burial_petition
-  n_flag_greek_open_door_piraeus_done --> n_act_greek_ajax_invitation
-  n_flag_greek_open_door_piraeus_done --> n_act_greek_open_door_return_dione
-  n_flag_greek_open_door_plea_registered --> n_item_greek_olive_branch
-  n_flag_greek_open_door_quay_heard --> n_act_greek_open_door_set_provisions
-  n_flag_greek_open_door_quay_provisioned --> n_act_greek_open_door_family_berth
-  n_flag_greek_open_door_returned --> n_act_greek_ajax_invitation
-  n_item_greek_ash_urn --> n_act_greek_open_door_lay_ashes
-  n_item_greek_burial_petition --> n_act_greek_open_door_register_plea
-  n_item_greek_grove_cup --> n_act_greek_open_door_colonus_water
-  n_item_greek_grove_honey --> n_act_greek_open_door_colonus_water
-  n_item_greek_olive_branch --> n_act_greek_open_door_return_dione
-  n_item_greek_provision_basket --> n_act_greek_open_door_family_berth
-  n_item_greek_provision_basket --> n_act_greek_open_door_set_provisions
-  n_item_greek_pyre_account --> n_act_greek_open_door_return_dione
-  n_item_greek_refuge_tablet --> n_act_greek_open_door_colonus_custom
-  n_item_greek_refuge_tablet --> n_act_greek_open_door_return_dione
-  n_item_greek_return_cloths --> n_act_greek_open_door_lay_cloths
-  n_item_greek_return_list --> n_act_greek_open_door_family_berth
-  n_item_greek_return_list --> n_act_greek_open_door_return_dione
-  n_item_greek_shelter_blanket --> n_act_greek_open_door_marathon_blanket
-  n_resident_greek_argive_mother --> n_act_greek_open_door_lay_ashes
   classDef gate fill:#fdd,stroke:#a33
   class n_place_greek_ajax_grave,n_place_greek_ajax_household,n_place_greek_ajax_landing gate
 ```
@@ -607,10 +473,10 @@ Every condition that shuts a way, a place, a resident or a thing. The prerequisi
 | `place:greek-argive-farm`<br>The Argive Farmhouse appears | greek-atreid-account chosen as euripides | choices: `greek-atreid-account=euripides`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-euripides` | latch: greek-atreid-account chosen as euripides |
 | `place:greek-troy-beach`<br>The Homecoming Beach appears | greek-helen-account chosen as troy | choices: `greek-helen-account=troy`<br>items: `greek-helen-accounts`<br>acts: `greek-helen-troy` | latch: greek-helen-account chosen as troy |
 | `place:greek-egypt-tomb`<br>Proteus's Tomb in Egypt appears | greek-helen-account chosen as egypt | choices: `greek-helen-account=egypt`<br>items: `greek-helen-accounts`<br>acts: `greek-helen-egypt` | latch: greek-helen-account chosen as egypt |
-| `place:greek-ajax-landing`<br>The Trojan Camp Landing appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
-| `place:greek-ajax-household`<br>Ajax’s Household Tent appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
-| `place:greek-ajax-grave`<br>Ajax’s Grave appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
-| `route:greek-gate>greek-battlefield`<br>Theban City Gate to The Exposed Battlefield | greek-guard holds greek-creon-writ | items: `greek-creon-writ` | live: greek-guard holds greek-creon-writ<br>route follows its condition |
+| `place:greek-ajax-landing`<br>The Trojan Camp Landing appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
+| `place:greek-ajax-household`<br>Ajax’s Household Tent appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
+| `place:greek-ajax-grave`<br>Ajax’s Grave appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
+| `route:greek-gate>greek-battlefield`<br>Theban City Gate to The Exposed Battlefield | (greek-guard holds greek-creon-writ or greek-guard holds greek-olive-branch) | items: `greek-burial-petition`, `greek-creon-writ`, `greek-olive-branch`<br>residents: `greek-theseus` | live: greek-guard holds greek-creon-writ; greek-guard holds greek-olive-branch<br>route follows its condition |
 | `route:greek-battlefield>greek-polynices-hollow`<br>The Exposed Battlefield to Polynices' Hollow | (greek-polynices-heard is set or greek-polynices-anointed is set or greek-polynices-veiled is set or greek-burial-performed is set) | flags: `greek-burial-performed`, `greek-polynices-anointed`, `greek-polynices-heard`, `greek-polynices-veiled`<br>items: `greek-funeral-cloth`, `greek-oil-flask`, `greek-shovel`<br>acts: `greek-anoint-polynices`, `greek-bury-polynices`, `greek-hear-polynices`, `greek-shroud-polynices`<br>residents: `greek-polynices-shade`<br>wants: `greek-antigone`, `greek-polynices-shade` | latch: greek-burial-performed is set; greek-polynices-anointed is set; greek-polynices-heard is set; greek-polynices-veiled is set<br>route latches open once opened<br>sealed (person greek-polynices-shade) |
 | `route:greek-harbor>greek-egypt-tomb`<br>The Wine-Dark Harbor to Proteus's Tomb in Egypt | greek-helen-account chosen as egypt | choices: `greek-helen-account=egypt`<br>items: `greek-helen-accounts`<br>acts: `greek-helen-egypt` | latch: greek-helen-account chosen as egypt<br>route latches open once opened<br>sealed (item greek-helen-accounts) |
 | `route:greek-harbor>greek-troy-beach`<br>The Wine-Dark Harbor to The Homecoming Beach | greek-helen-account chosen as troy | choices: `greek-helen-account=troy`<br>items: `greek-helen-accounts`<br>acts: `greek-helen-troy` | latch: greek-helen-account chosen as troy<br>route latches open once opened<br>sealed (item greek-helen-accounts) |
@@ -618,7 +484,6 @@ Every condition that shuts a way, a place, a resident or a thing. The prerequisi
 | `route:greek-argolid-road>greek-mycenae-palace`<br>The Argolid Crossroads to Mycenaean Palace | greek-atreid-account chosen as sophocles | choices: `greek-atreid-account=sophocles`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-sophocles` | latch: greek-atreid-account chosen as sophocles<br>route latches open once opened<br>sealed (item greek-atreid-record) |
 | `route:greek-argolid-road>greek-argive-farm`<br>The Argolid Crossroads to The Argive Farmhouse | greek-atreid-account chosen as euripides | choices: `greek-atreid-account=euripides`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-euripides` | latch: greek-atreid-account chosen as euripides<br>route latches open once opened<br>sealed (item greek-atreid-record) |
 | `route:greek-argos-tomb>greek-argos-palace`<br>Agamemnon's Tomb to Argive Palace | greek-atreid-account chosen as aeschylus | choices: `greek-atreid-account=aeschylus`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-aeschylus`<br>places: `greek-argos-palace` | latch: greek-atreid-account chosen as aeschylus<br>route latches open once opened<br>sealed (place greek-argos-palace) |
-| `route:greek-eleusis>greek-road-athens-eleusis`<br>Eleusinian Sanctuary to The Sacred Way | greek-open-door-mothers-heard is set and (greek-burial-petition is in greek-eleusis or greek-burial-petition is in greek-athens) | flags: `greek-open-door-mothers-heard`<br>items: `greek-burial-petition`<br>acts: `greek-open-door-hear-mothers` | latch: greek-open-door-mothers-heard is set<br>live: greek-burial-petition is in greek-athens; greek-burial-petition is in greek-eleusis<br>route latches open once opened<br>sealed (place greek-road-athens-eleusis) |
 | `crossing:pond-greek-harbor`<br>Black pond to The Wine-Dark Harbor | lamp is on the ground and lamp is lit at pond and cloth is in the traveler's hand and the traveler is at pond | items: `cloth`, `lamp` | live: the traveler is at pond; lamp is on the ground; cloth is in the traveler's hand; lamp is lit at pond |
 | `lane:greek-ship:greek-harbor>greek-piraeus`<br>The Wine-Dark Harbor to Piraeus Quays by sea | greek-provisions lies at greek-ship | items: `greek-bread`, `greek-figs`, `greek-provisions`, `greek-water-jar`, `greek-wheat`, `greek-wine-skin` | live: greek-provisions lies at greek-ship<br>sealed (lane) |
 | `lane:greek-ship:greek-piraeus>hoppycat-signal-jetty`<br>Piraeus Quays to Signal Jetty by sea | (greek-provisions is in greek-ship or a hoppycat-archive thing is in greek-ship) | items: `greek-bread`, `greek-figs`, `greek-provisions`, `greek-water-jar`, `greek-wheat`, `greek-wine-skin` | live: greek-provisions is in greek-ship; a hoppycat-archive thing is in greek-ship |
@@ -632,32 +497,33 @@ Every condition that shuts a way, a place, a resident or a thing. The prerequisi
 | `resident:greek-orestes-sophocles`<br>Orestes appears | greek-atreid-account chosen as sophocles | choices: `greek-atreid-account=sophocles`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-sophocles` | latch: greek-atreid-account chosen as sophocles |
 | `resident:greek-electra-euripides`<br>Electra appears | greek-atreid-account chosen as euripides | choices: `greek-atreid-account=euripides`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-euripides` | latch: greek-atreid-account chosen as euripides |
 | `resident:greek-orestes-euripides`<br>Orestes appears | greek-atreid-account chosen as euripides | choices: `greek-atreid-account=euripides`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-euripides` | latch: greek-atreid-account chosen as euripides |
-| `resident:greek-argive-mother`<br>An Argive Mother appears | greek-open-door-bodies-returned is set | flags: `greek-open-door-adrastus-heard`, `greek-open-door-bodies-returned`, `greek-open-door-mothers-heard`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-burial-petition`<br>acts: `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-truce-report`, `greek-open-door-register-plea` | latch: greek-open-door-bodies-returned is set |
-| `resident:greek-iphis`<br>Iphis appears | greek-open-door-pyre-heard is set | flags: `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-mothers-heard`, `greek-open-door-pyre-heard`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-return-cloths`<br>acts: `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-pyre`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-register-plea`<br>residents: `greek-argive-mother` | latch: greek-open-door-pyre-heard is set |
-| `resident:greek-household-witness`<br>Myrine of Argos appears | greek-open-door-eleusis-done is set | flags: `greek-open-door-adrastus-heard`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-eleusis-done`, `greek-open-door-mothers-heard`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-return-cloths`<br>acts: `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-register-plea`<br>residents: `greek-argive-mother` | latch: greek-open-door-eleusis-done is set |
-| `resident:greek-ajax-tecmessa`<br>Tecmessa appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
-| `resident:greek-ajax-teucer`<br>Teucer appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
-| `resident:greek-ajax-odysseus`<br>Odysseus appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
+| `resident:greek-aethra`<br>Aethra appears | (greek-funeral-cloth is in greek-eleusis or greek-aethra has been met) | items: `greek-funeral-cloth` | latch: greek-aethra has been met<br>live: greek-funeral-cloth is in greek-eleusis |
+| `resident:greek-adrastus`<br>Adrastus appears | (greek-olive-branch is in greek-eleusis or greek-adrastus has been met) | items: `greek-burial-petition`, `greek-olive-branch`<br>residents: `greek-theseus` | latch: greek-adrastus has been met<br>live: greek-olive-branch is in greek-eleusis |
+| `resident:greek-argive-mother`<br>An Argive Mother appears | (greek-ash-urn is in greek-eleusis or greek-argive-mother has been met) | items: `greek-ash-urn`, `greek-burial-petition`, `greek-funeral-cloth`, `greek-oil-flask`, `greek-olive-branch`<br>residents: `greek-aethra`, `greek-theseus` | latch: greek-argive-mother has been met<br>live: greek-ash-urn is in greek-eleusis |
+| `resident:greek-iphis`<br>Iphis appears | (greek-ash-urn is in greek-eleusis or greek-iphis has been met) | items: `greek-ash-urn`, `greek-burial-petition`, `greek-funeral-cloth`, `greek-oil-flask`, `greek-olive-branch`<br>residents: `greek-aethra`, `greek-theseus` | latch: greek-iphis has been met<br>live: greek-ash-urn is in greek-eleusis |
+| `resident:greek-theseus`<br>Theseus appears | (greek-burial-petition is in greek-athens or greek-theseus has been met) | items: `greek-burial-petition` | latch: greek-theseus has been met<br>live: greek-burial-petition is in greek-athens |
+| `resident:greek-quay-host`<br>Thaleia the Quay Host appears | (greek-wheat lies at greek-piraeus or greek-quay-host has been met) | items: `greek-wheat` | latch: greek-quay-host has been met<br>live: greek-wheat lies at greek-piraeus |
+| `resident:greek-colonus-keeper`<br>The Grove Keeper appears | (greek-oil-flask is in greek-colonus or greek-colonus-keeper has been met) | items: `greek-oil-flask` | latch: greek-colonus-keeper has been met<br>live: greek-oil-flask is in greek-colonus |
+| `resident:greek-household-witness`<br>Myrine of Argos appears | (greek-ash-urn is in greek-eleusis or greek-household-witness has been met) | items: `greek-ash-urn`, `greek-burial-petition`, `greek-funeral-cloth`, `greek-oil-flask`, `greek-olive-branch`<br>residents: `greek-aethra`, `greek-theseus` | latch: greek-household-witness has been met<br>live: greek-ash-urn is in greek-eleusis |
+| `resident:greek-ajax-tecmessa`<br>Tecmessa appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
+| `resident:greek-ajax-teucer`<br>Teucer appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
+| `resident:greek-ajax-odysseus`<br>Odysseus appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
 | `resident:greek-polynices-shade`<br>Polynices' Shade appears | the clock is between 36 and 0 and greek-burial-performed is not set | none | latch: greek-burial-performed is not set<br>live: the clock is between 36 and 0 |
 | `resident:greek-patroclus`<br>Patroclus appears | greek-burial-performed is set and (greek-patroclus-met is set or greek-ship is docked at greek-piraeus) and (greek-patroclus-met is set or greek-provisions lies at greek-ship) | flags: `greek-burial-performed`, `greek-patroclus-met`, `greek-polynices-anointed`, `greek-polynices-veiled`<br>items: `greek-bread`, `greek-figs`, `greek-funeral-cloth`, `greek-oil-flask`, `greek-provisions`, `greek-shovel`, `greek-water-jar`, `greek-wheat`, `greek-wine-skin`<br>acts: `greek-anoint-polynices`, `greek-bury-polynices`, `greek-meet-patroclus`, `greek-shroud-polynices`<br>residents: `greek-polynices-shade`<br>wants: `greek-antigone`, `greek-polynices-shade` | latch: greek-burial-performed is set; greek-patroclus-met is set<br>live: greek-provisions lies at greek-ship; greek-ship is docked at greek-piraeus |
 | `item:greek-bread`<br>Courtyard Bread is made | always shut until sealed lock opens | items: `greek-water-jar`, `greek-wheat` | none |
 | `item:greek-provisions`<br>Travel Provisions is made | always shut until sealed lock opens | items: `greek-bread`, `greek-figs`, `greek-water-jar`, `greek-wheat`, `greek-wine-skin` | none |
-| `item:greek-olive-branch`<br>The Herald’s Truce appears | greek-open-door-plea-registered is set | flags: `greek-open-door-adrastus-heard`, `greek-open-door-mothers-heard`, `greek-open-door-plea-registered`<br>items: `greek-burial-petition`<br>acts: `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-register-plea` | latch: greek-open-door-plea-registered is set |
+| `item:greek-olive-branch`<br>The Herald’s Truce appears | (greek-theseus has been met or greek-olive-branch lies at greek-athens) | items: `greek-burial-petition`<br>residents: `greek-theseus` | latch: greek-theseus has been met<br>live: greek-olive-branch lies at greek-athens |
 | `item:greek-egypt-testimony`<br>The Egyptian Witness Tablet appears | greek-helen-account chosen as egypt | choices: `greek-helen-account=egypt`<br>items: `greek-helen-accounts`<br>acts: `greek-helen-egypt` | latch: greek-helen-account chosen as egypt |
 | `item:greek-troy-testimony`<br>The Trojan Witness Tablet appears | greek-helen-account chosen as troy | choices: `greek-helen-account=troy`<br>items: `greek-helen-accounts`<br>acts: `greek-helen-troy` | latch: greek-helen-account chosen as troy |
 | `item:greek-tomb-testimony`<br>The Tomb Witness Tablet appears | greek-atreid-account chosen as aeschylus | choices: `greek-atreid-account=aeschylus`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-aeschylus` | latch: greek-atreid-account chosen as aeschylus |
 | `item:greek-palace-testimony`<br>The Palace Witness Tablet appears | greek-atreid-account chosen as sophocles | choices: `greek-atreid-account=sophocles`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-sophocles` | latch: greek-atreid-account chosen as sophocles |
 | `item:greek-farm-testimony`<br>The Farmer's Witness Tablet appears | greek-atreid-account chosen as euripides | choices: `greek-atreid-account=euripides`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-euripides` | latch: greek-atreid-account chosen as euripides |
-| `item:greek-burial-petition`<br>The Mothers’ Petition appears | greek-open-door-mothers-heard is set | flags: `greek-open-door-mothers-heard`<br>acts: `greek-open-door-hear-mothers` | latch: greek-open-door-mothers-heard is set |
-| `item:greek-ash-urn`<br>The Funeral Urn appears | greek-open-door-bodies-returned is set and greek-open-door-cloths-laid is set | flags: `greek-open-door-adrastus-heard`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-mothers-heard`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-burial-petition`, `greek-return-cloths`<br>acts: `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-cloths`, `greek-open-door-register-plea` | latch: greek-open-door-bodies-returned is set; greek-open-door-cloths-laid is set |
-| `item:greek-return-list`<br>The Return List appears | greek-open-door-eleusis-done is set | flags: `greek-open-door-adrastus-heard`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-eleusis-done`, `greek-open-door-mothers-heard`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-return-cloths`<br>acts: `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-register-plea`<br>residents: `greek-argive-mother` | latch: greek-open-door-eleusis-done is set |
-| `item:greek-ajax-shield`<br>Ajax’s Shield appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
-| `item:greek-ajax-plea`<br>Teucer’s Written Plea appears | greek-ajax-open is set and greek-ajax-plea-heard is set | flags: `greek-ajax-open`, `greek-ajax-plea-heard`, `greek-ajax-shield-delivered`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ajax-shield`, `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-deliver-shield`, `greek-ajax-hear-plea`, `greek-ajax-invitation`, `greek-ajax-learn-shield-odysseus`, `greek-ajax-learn-shield-tecmessa`, `greek-ajax-learn-shield-teucer`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-ajax-odysseus`, `greek-ajax-tecmessa`, `greek-ajax-teucer`, `greek-argive-mother`<br>places: `greek-ajax-household`<br>topics: `greek-ajax-shield-odysseus`, `greek-ajax-shield-tecmessa`, `greek-ajax-shield-teucer` | latch: greek-ajax-open is set; greek-ajax-plea-heard is set |
-| `item:greek-ajax-cloth`<br>The Camp’s Burial Cloth appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
-| `item:greek-ajax-tools`<br>The Camp’s Grave Tools appears | greek-ajax-open is set | flags: `greek-ajax-open`, `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-colonus-daughters-heard`, `greek-open-door-colonus-done`, `greek-open-door-colonus-entered`, `greek-open-door-colonus-farewell-heard`, `greek-open-door-colonus-water-set`, `greek-open-door-eleusis-done`, `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-done`, `greek-open-door-marathon-entered`, `greek-open-door-mothers-heard`, `greek-open-door-piraeus-done`, `greek-open-door-plea-registered`, `greek-open-door-quay-heard`, `greek-open-door-quay-provisioned`, `greek-open-door-returned`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-grove-cup`, `greek-grove-honey`, `greek-olive-branch`, `greek-provision-basket`, `greek-pyre-account`, `greek-refuge-tablet`, `greek-return-cloths`, `greek-return-list`, `greek-shelter-blanket`<br>acts: `greek-ajax-invitation`, `greek-open-door-colonus-custom`, `greek-open-door-colonus-daughters`, `greek-open-door-colonus-enter`, `greek-open-door-colonus-farewell`, `greek-open-door-colonus-water`, `greek-open-door-family-berth`, `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-quay`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter`, `greek-open-door-register-plea`, `greek-open-door-return-dione`, `greek-open-door-set-provisions`<br>residents: `greek-argive-mother` | latch: greek-ajax-open is set |
+| `item:greek-ash-urn`<br>The Funeral Urn is made | always shut until sealed lock opens | items: `greek-burial-petition`, `greek-funeral-cloth`, `greek-oil-flask`, `greek-olive-branch`<br>residents: `greek-aethra`, `greek-theseus` | none |
+| `item:greek-ajax-shield`<br>Ajax’s Shield appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
+| `item:greek-ajax-plea`<br>Teucer’s Written Plea appears | greek-ajax-open is set and greek-ajax-plea-heard is set | flags: `greek-ajax-open`, `greek-ajax-plea-heard`, `greek-ajax-shield-delivered`<br>items: `greek-ajax-shield`<br>acts: `greek-ajax-deliver-shield`, `greek-ajax-hear-plea`, `greek-ajax-invitation`, `greek-ajax-learn-shield-odysseus`, `greek-ajax-learn-shield-tecmessa`, `greek-ajax-learn-shield-teucer`<br>residents: `greek-ajax-odysseus`, `greek-ajax-tecmessa`, `greek-ajax-teucer`<br>places: `greek-ajax-household`<br>topics: `greek-ajax-shield-odysseus`, `greek-ajax-shield-tecmessa`, `greek-ajax-shield-teucer` | latch: greek-ajax-open is set; greek-ajax-plea-heard is set |
+| `item:greek-ajax-cloth`<br>The Camp’s Burial Cloth appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
+| `item:greek-ajax-tools`<br>The Camp’s Grave Tools appears | greek-ajax-open is set | flags: `greek-ajax-open`<br>acts: `greek-ajax-invitation` | latch: greek-ajax-open is set |
 | `item:greek-burial-account`<br>Burial Account appears | greek-burial-performed is set | flags: `greek-burial-performed`, `greek-polynices-anointed`, `greek-polynices-veiled`<br>items: `greek-funeral-cloth`, `greek-oil-flask`, `greek-shovel`<br>acts: `greek-anoint-polynices`, `greek-bury-polynices`, `greek-shroud-polynices`<br>residents: `greek-polynices-shade`<br>wants: `greek-antigone`, `greek-polynices-shade` | latch: greek-burial-performed is set |
-| `item:greek-pyre-account`<br>The Pyre Account appears | greek-open-door-ashes-laid is set | flags: `greek-open-door-adrastus-heard`, `greek-open-door-ashes-laid`, `greek-open-door-bodies-returned`, `greek-open-door-cloths-laid`, `greek-open-door-mothers-heard`<br>choices: `greek-open-door-recovery=truce`<br>items: `greek-ash-urn`, `greek-burial-petition`, `greek-return-cloths`<br>acts: `greek-open-door-hear-adrastus`, `greek-open-door-hear-mothers`, `greek-open-door-hear-truce-report`, `greek-open-door-lay-ashes`, `greek-open-door-lay-cloths`, `greek-open-door-register-plea`<br>residents: `greek-argive-mother` | latch: greek-open-door-ashes-laid is set |
-| `item:greek-marathon-record`<br>The Marathon Record appears | greek-open-door-marathon-captive-heard is set | flags: `greek-open-door-marathon-battle-heard`, `greek-open-door-marathon-blanket-set`, `greek-open-door-marathon-captive-heard`, `greek-open-door-marathon-daughter-heard`, `greek-open-door-marathon-entered`<br>items: `greek-shelter-blanket`<br>acts: `greek-open-door-marathon-battle`, `greek-open-door-marathon-blanket`, `greek-open-door-marathon-captive`, `greek-open-door-marathon-daughter`, `greek-open-door-marathon-enter` | latch: greek-open-door-marathon-captive-heard is set |
 
 ## Flags
 
@@ -665,35 +531,12 @@ Flags that gate something, most-depended-on first. A latch flag is only ever set
 
 | Flag | Kind | Set by | Read directly by | Gates behind it, transitively | Acts behind it |
 | --- | --- | --- | --- | --- | --- |
-| `greek-open-door-mothers-heard` | latch | `act:greek-open-door-hear-mothers` | 4 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `route:greek-eleusis>greek-road-athens-eleusis`, `resident:greek-argive-mother`, `resident:greek-iphis`, `resident:greek-household-witness`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-olive-branch`, `item:greek-burial-petition`, `item:greek-ash-urn`, `item:greek-return-list`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-pyre-account` | 35 |
-| `greek-open-door-adrastus-heard` | latch | `act:greek-open-door-hear-adrastus` | 1 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-argive-mother`, `resident:greek-iphis`, `resident:greek-household-witness`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-olive-branch`, `item:greek-ash-urn`, `item:greek-return-list`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-pyre-account` | 34 |
-| `greek-open-door-bodies-returned` | latch | `act:greek-open-door-hear-truce-report` | 4 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-argive-mother`, `resident:greek-iphis`, `resident:greek-household-witness`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ash-urn`, `item:greek-return-list`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-pyre-account` | 32 |
-| `greek-open-door-cloths-laid` | latch | `act:greek-open-door-lay-cloths` | 2 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-iphis`, `resident:greek-household-witness`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ash-urn`, `item:greek-return-list`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-pyre-account` | 30 |
-| `greek-open-door-ashes-laid` | latch | `act:greek-open-door-lay-ashes` | 3 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-iphis`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-pyre-account` | 25 |
-| `greek-open-door-eleusis-done` | latch | `act:greek-open-door-lay-ashes` | 6 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-household-witness`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-return-list`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 28 |
-| `greek-open-door-marathon-battle-heard` | latch | `act:greek-open-door-marathon-battle` | 2 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-marathon-record` | 24 |
-| `greek-open-door-marathon-blanket-set` | latch | `act:greek-open-door-marathon-blanket` | 2 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-marathon-record` | 26 |
-| `greek-open-door-marathon-daughter-heard` | latch | `act:greek-open-door-marathon-daughter` | 2 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-marathon-record` | 25 |
-| `greek-open-door-marathon-entered` | latch | `act:greek-open-door-marathon-enter` | 1 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools`, `item:greek-marathon-record` | 27 |
-| `greek-open-door-plea-registered` | latch | `act:greek-open-door-register-plea` | 1 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-olive-branch`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 24 |
 | `greek-ajax-open` | latch | `act:greek-ajax-invitation` | 27 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 21 |
-| `greek-open-door-colonus-daughters-heard` | latch | `act:greek-open-door-colonus-daughters` | 2 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 26 |
-| `greek-open-door-colonus-done` | latch | `act:greek-open-door-colonus-custom` | 3 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 24 |
-| `greek-open-door-colonus-entered` | latch | `act:greek-open-door-colonus-enter` | 1 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 28 |
-| `greek-open-door-colonus-farewell-heard` | latch | `act:greek-open-door-colonus-farewell` | 1 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 25 |
-| `greek-open-door-colonus-water-set` | latch | `act:greek-open-door-colonus-water` | 2 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 27 |
-| `greek-open-door-marathon-done` | latch | `act:greek-open-door-marathon-captive` | 2 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 23 |
-| `greek-open-door-piraeus-done` | latch | `act:greek-open-door-family-berth` | 3 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 26 |
-| `greek-open-door-quay-heard` | latch | `act:greek-open-door-hear-quay` | 1 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 28 |
-| `greek-open-door-quay-provisioned` | latch | `act:greek-open-door-set-provisions` | 1 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 27 |
-| `greek-open-door-returned` | latch | `act:greek-open-door-return-dione` | 1 | `place:greek-ajax-landing`, `place:greek-ajax-household`, `place:greek-ajax-grave`, `resident:greek-ajax-tecmessa`, `resident:greek-ajax-teucer`, `resident:greek-ajax-odysseus`, `item:greek-ajax-shield`, `item:greek-ajax-plea`, `item:greek-ajax-cloth`, `item:greek-ajax-tools` | 22 |
 | `greek-burial-performed` | latch | `act:greek-bury-polynices`, `want:greek-antigone`, `want:greek-polynices-shade` | 6 | `route:greek-battlefield>greek-polynices-hollow`, `resident:greek-patroclus`, `item:greek-burial-account` | 1 |
 | `greek-polynices-anointed` | latch | `act:greek-anoint-polynices` | 3 | `route:greek-battlefield>greek-polynices-hollow`, `resident:greek-patroclus`, `item:greek-burial-account` | 3 |
 | `greek-polynices-veiled` | latch | `act:greek-shroud-polynices` | 3 | `route:greek-battlefield>greek-polynices-hollow`, `resident:greek-patroclus`, `item:greek-burial-account` | 2 |
 | `greek-ajax-plea-heard` | latch | `act:greek-ajax-hear-plea` | 2 | `item:greek-ajax-plea` | 16 |
 | `greek-ajax-shield-delivered` | latch | `act:greek-ajax-deliver-shield` | 8 | `item:greek-ajax-plea` | 17 |
-| `greek-open-door-marathon-captive-heard` | latch | `act:greek-open-door-marathon-captive` | 1 | `item:greek-marathon-record` | 1 |
-| `greek-open-door-pyre-heard` | latch | `act:greek-open-door-hear-pyre` | 1 | `resident:greek-iphis` | 0 |
 | `greek-patroclus-met` | latch | `act:greek-meet-patroclus` | 2 | `resident:greek-patroclus` | 1 |
 | `greek-polynices-heard` | latch | `act:greek-hear-polynices` | 1 | `route:greek-battlefield>greek-polynices-hollow` | 0 |
 | `greek-ajax-account-ready` | latch | `act:greek-ajax-record-appeal`, `act:greek-ajax-record-household`, `act:greek-ajax-record-public` | 6 | none | 3 |
@@ -708,8 +551,6 @@ Flags that gate something, most-depended-on first. A latch flag is only ever set
 | `greek-decree-known` | latch | `act:greek-hear-decree` | 1 | none | 1 |
 | `greek-helen-heard-egypt` | latch | `act:greek-hear-helen-egypt` | 2 | none | 2 |
 | `greek-helen-heard-troy` | latch | `act:greek-hear-helen-troy` | 2 | none | 2 |
-| `greek-homecoming-arrived` | latch | `act:greek-homecoming-receive-family` | 1 | none | 1 |
-| `greek-homecoming-journey-agreed` | latch | `act:greek-homecoming-agree-journey` | 1 | none | 2 |
 
 ## Retired ways
 

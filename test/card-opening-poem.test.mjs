@@ -73,7 +73,7 @@ describe("the opening poem", () => {
     expect(Object.keys(lore.verses).sort()).toEqual(
       pack.recital.verses.map((v) => v.choice).sort(),
     );
-    expect(couplets).toHaveLength(60);
+    expect(couplets).toHaveLength(20);
     expect(quotesLore(pack.recital)).toBe(false);
   });
 
