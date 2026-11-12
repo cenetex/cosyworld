@@ -163,7 +163,6 @@ mod tests {
             assert!(list(bad).unwrap_err().starts_with(LIST));
         }
         assert!(models(Some("[]".into()), true).is_err());
-        // The escalation model alone is a one-model chain.
         let alias = VoiceSettings::from_lookup(|name| {
             (name == "COSYWORLD_CARD_ESCALATION_MODEL").then(|| "a/b".into())
         });
@@ -191,6 +190,48 @@ mod tests {
         bench("a");
         bench("test-entity-model");
         assert_eq!(models("b"), ["b"]);
+    }
+
+    #[test]
+    fn dev_voices_default_to_gemma_and_fall_back_to_luna() {
+        let field = |file: &'static str, name: &str| {
+            let line = file.lines().find_map(|line| {
+                let value = line.trim().strip_prefix(name)?.strip_prefix(" = ")?;
+                Some(value.trim_matches(['\'', '"']))
+            });
+            line.map(String::from)
+        };
+        let dev = include_str!("../../../../fly.toml");
+        let default = field(dev, "COSYWORLD_CARD_TEXT_MODEL").unwrap();
+        assert_eq!(default, "google/gemma-4-26b-a4b-it");
+        let fallbacks = models(field(dev, LIST), false).unwrap();
+        assert_eq!(fallbacks, ["openai/gpt-6-luna"]);
+        let mut config = tiered_config("127.0.0.1:9".parse().unwrap(), &[]);
+        let registry = field(dev, "COSYWORLD_AI_REGISTRY_JSON").unwrap();
+        let registry = crate::ai_gateway::CapabilityRegistrySnapshot::from_json(&registry);
+        config.registry = Some(Arc::new(registry.unwrap()));
+        config
+            .capability_models
+            .insert(ModelCapability::WorldContent, default.clone());
+        let cast = field(dev, "COSYWORLD_CARD_CHARACTER_MODELS_JSON").unwrap();
+        let cast: std::collections::BTreeMap<String, String> = serde_json::from_str(&cast).unwrap();
+        let models = |id: &str| {
+            let own = tier_config(&config, cast.get(id).map(String::as_str));
+            let chain = chain(&config, own, &fallbacks).unwrap();
+            for link in &chain {
+                let pinned = link.config.pin_model(ModelCapability::WorldContent);
+                assert!(pinned.unwrap().candidate().supported_parameters().reasoning);
+            }
+            chain.into_iter().map(|link| link.model).collect::<Vec<_>>()
+        };
+        assert_eq!(models("pip"), [default.as_str(), "openai/gpt-6-luna"]);
+        assert_eq!(models("vale"), ["openai/gpt-6-luna"]);
+        let keeper = ["anthropic/claude-haiku-5.5", "openai/gpt-6-luna"];
+        assert_eq!(models("keeper"), keeper);
+        let production = include_str!("../../../../fly.lonelyforest.toml");
+        let text = field(production, "COSYWORLD_CARD_TEXT_MODEL");
+        assert_eq!(text.as_deref(), Some("openai/gpt-6-luna"));
+        assert_eq!(field(production, LIST), None);
     }
 
     #[tokio::test]
