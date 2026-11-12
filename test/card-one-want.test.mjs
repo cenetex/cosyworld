@@ -20,6 +20,7 @@ import {
   refuseWant,
   setWant,
   takeQuest,
+  wantCandidates,
   wantOf,
 } from "../v2/card-game/want.mjs";
 
@@ -33,6 +34,20 @@ describe("one want per avatar", () => {
     fillWants(s, wantAPI(s), true);
     expect(wantOf(s, "vale")).toBeNull();
     expect(nextWant(s, "moth", wantAPI(s))).not.toBeNull();
+  });
+
+  it("draws a resident's want from actor and turn alone, the same in worlds of different seeds (#2717)", () => {
+    const drawn = (seed, turn) => {
+      const s = createWorld({ seed });
+      s.turn = s.revision = turn;
+      const pool = wantCandidates(s, "moth", wantAPI(s));
+      expect(pool.length).toBeGreaterThan(1);
+      expect(s.run.seed).toBe(seed);
+      return JSON.stringify([pool, nextWant(s, "moth", wantAPI(s)).target]);
+    };
+    const each = Array.from({ length: 16 }, (_, i) => i + 1);
+    expect(new Set(each.map((seed) => drawn(seed, 0))).size).toBe(1);
+    expect(new Set(each.map((turn) => drawn(1, turn))).size).toBeGreaterThan(1);
   });
 
   it("takes a quest only when none is held, and replaces nothing", () => {

@@ -98,13 +98,36 @@ describe("seeded specials", () => {
         (p) => p.startsWith("specials"),
       );
     expect(problems(specials)).toEqual([]);
-    // The entry stays core, tiers are card tiers, and the human cast is never pooled.
     for (const [id, rarity] of [
       [garden, "common"],
       [places[0], "free"],
       ["vale", "common"],
     ])
       expect(problems({ ...specials, pool: [{ id, rarity }] })).toHaveLength(1);
+  });
+
+  it("rejects a mythic pool entry in the schema; unvalidated, it empties the draw silently (#2717)", () => {
+    const pool = (rarity) => ({
+      draw: { places: 1 },
+      pool: [
+        { id: places[0], rarity: "common" },
+        { id: places[1], rarity },
+      ],
+    });
+    const mounted = packDefinitions.flatMap((p) => Object.keys(p.places));
+    const problems = (rarity) =>
+      packProblems(
+        { ...hoppy, routes: [], specials: pool(rarity) },
+        hub,
+        mounted,
+      ).filter((p) => p.startsWith("specials"));
+    expect(Object.hasOwn(RARITY_WEIGHTS, "mythic")).toBe(false);
+    expect(problems("epic")).toEqual([]);
+    expect(problems("mythic")).toHaveLength(1);
+    for (let seed = 0; seed < 64; seed++) {
+      expect(drawSpecials({ ...pack, specials: pool("epic") }, seed)).toHaveLength(1);
+      expect(drawSpecials({ ...pack, specials: pool("mythic") }, seed)).toEqual([]);
+    }
   });
 
   it("keeps a world's run seed in its save", () => {
