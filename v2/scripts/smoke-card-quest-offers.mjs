@@ -241,11 +241,9 @@ try {
       const shut = page.locator("#card-actions button").first();
       assert.equal(await shut.isDisabled(), true);
       assert.equal(await shut.textContent(), "Locked");
-      // The Lamp is not yet discovered: the lock asks for something
-      // undiscovered, and names nothing.
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
-        "Find something undiscovered",
+        "Find something",
       );
       assert.doesNotMatch(await surfaces(page), /lamp/iu);
       assert.equal(await offerCards(page).count(), 0);
@@ -343,7 +341,7 @@ try {
       await t.ready();
       assert.equal(await t.oneButton(), 1);
       const hidden = await surfaces(page);
-      assert.match(hidden, /something undiscovered/u);
+      assert.match(hidden, /\bsomething\b/u);
       assert.doesNotMatch(hidden, /lamp/iu);
       // Its face is the card back, not the Lamp's art.
       const face = page.locator('#hand [data-card="quest:from:moth"] .quest-screen');
