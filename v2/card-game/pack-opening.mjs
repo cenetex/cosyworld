@@ -122,6 +122,23 @@ export function packMembers(cards, { unturned, kindOf, minimum = PACK_MIN }) {
     .map(({ id }) => id);
 }
 
+export function packOrder(cards, pack, holderOf = () => null) {
+  const ids = pack.filter((id) => cards.includes(id));
+  if (!ids.length) return cards;
+  const group = ids.flatMap((id) => [
+      id,
+      ...cards.filter((card) => !ids.includes(card) && holderOf(card) === id),
+    ]),
+    first = cards.findIndex((id) => ids.includes(id)),
+    rest = cards.filter((id) => !group.includes(id));
+  rest.splice(
+    cards.slice(0, first).filter((id) => !group.includes(id)).length,
+    0,
+    ...group,
+  );
+  return rest;
+}
+
 // A Reveal all turns commons first and the rarest last; ties keep the
 // pack's order.
 export function runOrder(ids, tierOf) {
@@ -163,6 +180,7 @@ export function createPackOpening({
     ids = [],
     handle = null,
     run = null,
+    homes = new Map(),
     settle = new Map();
 
   const stop = () => {
@@ -182,11 +200,7 @@ export function createPackOpening({
     // Redraw key: changes whenever what the hand shows of the pack changes.
     key: () => `${state}:${ids.join(",")}`,
     has: (id) => ids.includes(id),
-    // Re-reads the table. `cards` are the cards in the hand now, `unturned`
-    // says whether a card is still face down, `allowed` is false while
-    // something else owns the table (the opening, a fight, a save lock).
-    // Returns whether the pack's shape changed.
-    sync(cards, { unturned, kindOf, allowed = true }) {
+    sync(cards, { unturned, kindOf, holderOf = () => null, allowed = true }) {
       const before = pack.key();
       if (!allowed) {
         stop();
@@ -196,15 +210,14 @@ export function createPackOpening({
       }
       if (state === "done") state = "none";
       if (state === "none" || state === "closed") {
-        // A closed pack takes late arrivals and loses cards turned from
-        // outside (a speaker's own line); fewer than three dissolves it.
         ids = packMembers(cards, { unturned, kindOf });
         state = ids.length ? "closed" : "none";
+        homes = new Map(ids.map((id) => [id, holderOf(id)]));
       } else {
-        // An open pack is fixed: a late arrival forms the next pack. Cards
-        // that left the hand drop out; with none left the pack is over.
         const here = new Set(cards);
-        ids = ids.filter((id) => here.has(id));
+        ids = ids.filter(
+          (id) => here.has(id) && holderOf(id) === homes.get(id),
+        );
         if (!ids.length) {
           stop();
           state = "none";

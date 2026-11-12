@@ -9,6 +9,7 @@ import {
   PACK_TIERS,
   createPackOpening,
   packMembers,
+  packOrder,
   revealAnnouncement,
   runOrder,
   settleDelays,
@@ -102,6 +103,42 @@ describe("which cards form a pack", () => {
     const hand = ["b-gate", "i-a", "i-b"];
     const { unturned } = table(hand);
     expect(packMembers(hand, { unturned, kindOf })).toContain("b-gate");
+  });
+});
+
+describe("where the pack lies in the hand", () => {
+  const hand = ["a-me", "i-lamp", "a-fox", "p-room", "i-gem", "i-pin", "w-lane"];
+  const holders = { "i-lamp": "a-me", "i-gem": "p-room", "i-pin": "p-room" };
+  const holderOf = (id) => holders[id] ?? null;
+
+  it("gathers its cards, in its order, where the first of them lay", () => {
+    expect(packOrder(hand, ["w-lane", "a-fox", "i-pin"], holderOf)).toEqual([
+      "a-me", "i-lamp", "w-lane", "a-fox", "i-pin", "p-room", "i-gem",
+    ]);
+    expect(packOrder(hand, [], holderOf)).toBe(hand);
+    expect(packOrder(hand, ["i-gone"], holderOf)).toBe(hand);
+  });
+
+  it("keeps a thing given to a pack card behind that card", () => {
+    const given = { ...holders, "i-lamp": "a-fox" };
+    expect(
+      packOrder(
+        ["a-me", "a-fox", "i-lamp", "p-room", "i-gem", "i-pin", "w-lane"],
+        ["w-lane", "a-fox", "i-pin"],
+        (id) => given[id] ?? null,
+      ),
+    ).toEqual(["a-me", "w-lane", "a-fox", "i-lamp", "i-pin", "p-room", "i-gem"]);
+  });
+
+  it("leaves a thing taken from the pack with its new holder", () => {
+    const taken = { ...holders, "i-pin": "a-me" };
+    expect(
+      packOrder(
+        ["a-me", "i-pin", "i-lamp", "a-fox", "p-room", "i-gem", "w-lane"],
+        ["w-lane", "a-fox"],
+        (id) => taken[id] ?? null,
+      ),
+    ).toEqual(["a-me", "i-pin", "i-lamp", "w-lane", "a-fox", "p-room", "i-gem"]);
   });
 });
 
@@ -264,6 +301,54 @@ describe("the pack's state machine", () => {
     expect(pack.ids).toEqual(["a-fox", "i-gem"]);
     pack.sync([], { unturned: t.unturned, kindOf });
     expect(pack.state).toBe("none");
+  });
+
+  it("lets go of a card that changed hands, turned or not, and keeps the rest", () => {
+    const { pack } = make();
+    const t = table(["a-fox", "i-gem", "i-pin", "w-lane"]);
+    const held = { "i-gem": "p-room", "i-pin": "p-room" };
+    const sync = () =>
+      pack.sync(t.cards, {
+        unturned: t.unturned,
+        kindOf,
+        holderOf: (id) => held[id] ?? null,
+      });
+    sync();
+    pack.open();
+    t.turn("i-gem");
+    sync();
+    expect(pack.ids).toEqual(["a-fox", "i-gem", "i-pin", "w-lane"]);
+    held["i-gem"] = "a-me";
+    expect(sync()).toBe(true);
+    expect(pack.ids).toEqual(["a-fox", "i-pin", "w-lane"]);
+    expect(pack.frameFor("i-gem")).toBeNull();
+    expect(pack.state).toBe("open");
+    held["i-pin"] = "a-fox";
+    sync();
+    expect(pack.ids).toEqual(["a-fox", "w-lane"]);
+    held["i-gem"] = "p-room";
+    sync();
+    expect(pack.ids).toEqual(["a-fox", "w-lane"]);
+  });
+
+  it("ends an open pack whose last face-down card was taken away", () => {
+    const { pack } = make();
+    const t = table(["a-fox", "i-gem", "i-pin"]);
+    const held = { "i-pin": "p-room" };
+    const sync = () =>
+      pack.sync(t.cards, {
+        unturned: t.unturned,
+        kindOf,
+        holderOf: (id) => held[id] ?? null,
+      });
+    sync();
+    pack.open();
+    t.turn("a-fox");
+    t.turn("i-gem");
+    held["i-pin"] = "a-fox";
+    sync();
+    expect(pack.ids).toEqual(["a-fox", "i-gem"]);
+    expect(pack.state).toBe("turned");
   });
 
   it("dissolves while something else owns the table", () => {
