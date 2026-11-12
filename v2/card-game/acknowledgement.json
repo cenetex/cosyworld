@@ -1,10 +1,9 @@
 {
-  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses are silences after a word: which time it appears (from 1) and the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it). Highlights light single words in a held pause after their stanza (from 1) ends: settleMs after its last letter, then one word every wordStepMs in reading order, each glow rising over glowInMs, then tailMs before the next stanza. Each word names which time it appears in the whole poem (from 1) and takes its set's card rarity tier (level-tiers.mjs), climbing as the poem goes; it stays lit. A set's own settleMs lights it inside a longer silence already there.",
+  "about": "The land acknowledgement on the new-world title (title-intro.mjs), set like a film's opening card: each stanza a list of lines, shown as written. The title names the panel for screen readers; it is not shown. Pauses are silences after a word: which time it appears (from 1) and the ms (replacing any shorter punctuation or stanza breath after it and any punctuation touching it). Highlights light single words of a stanza (from 1) as the next stanza starts writing: settleMs after its first letter, then one word every wordStepMs in reading order, each glow rising over glowInMs. A set on the last stanza lights from its own last letter. Each word names which time it appears in the whole poem (from 1) and takes its set's card rarity tier (level-tiers.mjs), climbing as the poem goes; it stays lit. A set's own settleMs lights it inside a longer silence already there.",
   "title": "Before this forest",
   "settleMs": 200,
   "wordStepMs": 450,
   "glowInMs": 600,
-  "tailMs": 250,
   "fadeTogether": ["Nothing here began with us."],
   "linger": ["care", "still", "living"],
   "stanzas": [

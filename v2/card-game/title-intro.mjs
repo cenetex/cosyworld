@@ -305,11 +305,14 @@ const link = (text, href) => {
 // (`pauses` in acknowledgement.json: the word, which time it appears,
 // counting from 1, and the ms to hold after it and any punctuation touching
 // it, a spaced dash too; the larger breath wins; one long silence falls
-// before "Before you sits"). After a stanza with `highlights` the pen holds
-// while their words light. Each line is set as written, wrapping under a
-// hanging indent on a narrow screen. A tap quickens its stanza, then lets the
-// next stanza write while the earlier words light.
+// before "Before you sits"). Each line is set as written, wrapping under a
+// hanging indent on a narrow screen.
 export const STANZA_MS = 650;
+export const STEP_GUARD_MS = 250;
+export function acknowledgementStep({ complete, quick, sinceStepMs }) {
+  if (complete) return sinceStepMs < STEP_GUARD_MS ? "wait" : "continue";
+  return quick ? "finish" : "quicken";
+}
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Where each pause falls: its line, the span that lights (a held word's
 // phrase on its line, from `phrases`, else the word), the offset its breath
@@ -378,33 +381,37 @@ export function acknowledgementDelays(acknowledgement) {
       );
     });
   });
-  for (const { written, pauseMs } of acknowledgementHighlights(acknowledgement))
-    delays[written - 1] = Math.max(delays[written - 1], pauseMs);
   return delays;
 }
-// The single words that light, set by set (`highlights`), each in the pause
-// after its stanza (`written`, the letters then written): `atMs` into it, in
-// reading order, one every wordStepMs after settleMs. The pause holds
-// tailMs past the last. Only the named occurrence of a word lights.
+// The single words that light, set by set (`highlights`), in reading order,
+// one every wordStepMs after settleMs. A set is due once `due` letters are
+// written: the next stanza's first letter, or its own stanza's last when no
+// stanza follows or the set names its own settleMs. Only the named occurrence
+// of a word lights.
 export function acknowledgementHighlights(acknowledgement) {
-  const { stanzas, highlights = [], wordStepMs, tailMs } = acknowledgement;
+  const { stanzas, highlights = [], wordStepMs } = acknowledgement;
   let written = 0;
   const ends = stanzas.map((s) => (written += splitLetters(s.join("")).length));
   return highlights.flatMap(({ stanza, tier, words, settleMs }, set) => {
     const settle = settleMs ?? acknowledgement.settleMs;
-    const pauseMs = settle + wordStepMs * words.length + tailMs;
+    const end = ends[stanza - 1];
+    const overlap = settleMs === undefined && stanza < stanzas.length;
     return acknowledgementPauses({ stanzas, pauses: words }).map((word, i) => {
       const atMs = settle + i * wordStepMs;
-      return { ...word, tier, set, written: ends[stanza - 1], atMs, pauseMs };
+      return {
+        ...word,
+        tier,
+        set,
+        written: end,
+        due: end + (overlap ? 1 : 0),
+        atMs,
+      };
     });
   });
 }
-// Which words are due once `shown` letters are written: each from its
-// stanza's end, lighting atMs later, and it stays lit. Showing the whole poem
-// under reduced motion lights them all at once.
 export function acknowledgementGlows(acknowledgement) {
   const pauses = acknowledgementHighlights(acknowledgement);
-  return (shown, done) => pauses.map(({ written }) => done || shown >= written);
+  return (shown, done) => pauses.map(({ due }) => done || shown >= due);
 }
 // The title's letters blip in the dialogue's own voice (createSpeechSounds in
 // dialogue.mjs). The table registers its sounds when it boots, so the title
@@ -443,6 +450,7 @@ function acknowledgementPanel() {
   const fadeGroups = tiers.map(() => []);
   let shown = 0,
     total = 0,
+    stepAt = -Infinity,
     lastSound = -Infinity;
   const stanzaEnds = acknowledgement.stanzas.map(
     (stanza) => (total += splitLetters(stanza.join("")).length),
@@ -551,7 +559,6 @@ function acknowledgementPanel() {
       shown = value.shown;
       painter.paint(value);
       follow(value);
-      // A word lights atMs into the pause after its stanza.
       const lit = glowing(value.shown, value.complete);
       glows.forEach((glow, i) => {
         const pending = lighting.get(glow);
@@ -585,6 +592,18 @@ function acknowledgementPanel() {
     target = text.scrollTop;
     reveal.accelerate(stanzaEnds.find((end) => end >= shown));
   };
+  const press = () => {
+    const step = acknowledgementStep({
+      complete: reveal.complete,
+      quick: reveal.quick,
+      sinceStepMs: performance.now() - stepAt,
+    });
+    if (step === "wait" || step === "continue") return step === "continue";
+    stepAt = performance.now();
+    if (step === "finish") reveal.finish();
+    else quickenStanza();
+    return false;
+  };
   const fadeOut = (reduced) => {
     const fade = (node, delay, duration) =>
       node.animate([{ opacity: 0 }], {
@@ -608,7 +627,7 @@ function acknowledgementPanel() {
       () => {},
     );
   };
-  return { panel, next, reveal, write, unfollow, fadeOut, quickenStanza };
+  return { panel, next, reveal, write, unfollow, fadeOut, press };
 }
 
 const SCROLL_KEYS = [
@@ -655,10 +674,8 @@ export function playTitleIntro({
     write,
     unfollow,
     fadeOut,
-    quickenStanza,
+    press,
   } = acknowledgementPanel();
-  // A gesture quickens this stanza and unlocks its typing voice. Its glow can
-  // overlap the next stanza's first words. A hidden tab holds the pen.
   const hidden = () => words.pause(document.hidden);
   document.addEventListener("visibilitychange", hidden);
   const image = element("img");
@@ -932,16 +949,11 @@ export function playTitleIntro({
       animation.updatePlaybackRate(reduced ? 1 : 3);
   };
   const advance = () => {
-    if (phase === "ack" && !words.complete) {
-      voice?.unlock();
-      quickenStanza();
-      return;
+    if (phase === "ack") {
+      if (!words.complete) voice?.unlock();
+      return press() ? showTitle() : undefined;
     }
-    return phase === "ack"
-      ? showTitle()
-      : phase === "title"
-        ? quickenTitle()
-        : undefined;
+    return phase === "title" ? quickenTitle() : undefined;
   };
   next.addEventListener("click", advance);
   layer.addEventListener("click", (event) => {

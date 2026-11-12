@@ -2,6 +2,8 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import {
   STANZA_MS,
+  STEP_GUARD_MS,
+  acknowledgementStep,
   openingDealFrames,
   BOX_WHISPERS,
   acknowledgementDelays,
@@ -15,6 +17,7 @@ import {
 import { tiers } from "../v2/card-game/level-tiers.mjs";
 import {
   REVEAL_FADE_MS,
+  createTextReveal,
   letterDelay,
   splitLetters,
 } from "../v2/card-game/dialogue.mjs";
@@ -147,22 +150,25 @@ test("the acknowledgement writes at the dialogue's beat, breathing after its wei
   assert.equal(after("were peoples"), 320);
   assert.equal(after("the keepers"), 300);
   assert.equal(after("Nothing"), 300);
-  // A lit stanza holds 200 + 450 per word + 250 ms, for its own break.
-  assert.equal(after("for them still."), 2250);
-  assert.equal(after("the machines we use."), 1800);
-  assert.equal(after("our machines."), 1800);
-  assert.equal(after("either of us."), 2250);
+  for (const end of [
+    "for them still.",
+    "the machines we use.",
+    "our machines.",
+    "either of us.",
+  ])
+    assert.equal(after(end), STANZA_MS, "no stanza waits for its colour");
   // One long silence before "Before you sits", with no word shown for it.
   const silence = after("began with us.");
   assert.equal(silence, 1800, "Nothing lights inside it");
-  // Other stanzas hold the same breath; nothing else rests past a word
-  // hold, and between rests every letter keeps the dialogue's own beat.
+  // Nothing else rests past a word hold, and between rests every letter
+  // keeps the dialogue's own beat.
   const ends = new Set();
   let at = -1;
   for (const lines of acknowledgement.stanzas.slice(0, -1))
     ends.add((at += splitLetters(lines.join("")).length));
   delays.forEach((ms, i) => {
-    if (ends.has(i)) assert.ok([silence, 2250].includes(ms), `${i}: ${ms}`);
+    if (ends.has(i))
+      assert.ok([silence, STANZA_MS].includes(ms), `${i}: ${ms}`);
     else
       assert.ok(
         ms === letterDelay(letters[i]) || (ms >= 300 && ms <= 320),
@@ -171,7 +177,7 @@ test("the acknowledgement writes at the dialogue's beat, breathing after its wei
   });
   assert.ok(STANZA_MS >= 600 && STANZA_MS <= 700);
   const total = delays.slice(0, -1).reduce((sum, ms) => sum + ms, 28);
-  assert.ok(total > 24_000 && total < 26_000, `${total} ms`);
+  assert.ok(total > 18_500 && total < 20_500, `${total} ms`);
   // A letter fades in over less than three beats: at most three are soft.
   assert.ok(Math.ceil(REVEAL_FADE_MS / 28) <= 3);
   // Every pause finds its word, in the order the poem reads.
@@ -187,7 +193,7 @@ test("the acknowledgement writes at the dialogue's beat, breathing after its wei
     );
 });
 
-test("single words light set by set after their stanzas, tiers climbing", () => {
+test("single words light set by set as the next stanza starts, tiers climbing", () => {
   const pauses = acknowledgementHighlights(acknowledgement);
   const lines = acknowledgement.stanzas.flat();
   assert.deepEqual(
@@ -220,23 +226,162 @@ test("single words light set by set after their stanzas, tiers climbing", () => 
   ranks.slice(1).forEach((r, i) => assert.ok(r >= ranks[i], "tiers climb"));
   assert.equal(ranks[0], 1);
   assert.equal(ranks.at(-1), tiers.at(-1).rank);
-  // Each set is due once its stanza's last letter is written, never while
-  // text writes, and stays lit; a tap that shows the rest lights them all.
+  // Each set is due at the next stanza's first letter and stays lit; the
+  // set with its own settle lights inside the silence already after it.
   const lit = acknowledgementGlows(acknowledgement);
   const delays = acknowledgementDelays(acknowledgement);
   const total = splitLetters(lines.join("")).length;
-  pauses.forEach(({ written }, i) => {
-    assert.equal(lit(written - 1, false)[i], false);
-    assert.equal(lit(written, false)[i], true);
-    assert.equal(delays[written - 1], Math.max(1800, pauses[i].pauseMs));
+  pauses.forEach(({ word, written, due }, i) => {
+    const own = word === "Nothing";
+    assert.equal(due, written + (own ? 0 : 1), word);
+    assert.equal(lit(due - 1, false)[i], false);
+    assert.equal(lit(due, false)[i], true);
+    assert.equal(delays[written - 1], own ? 1800 : STANZA_MS);
   });
   assert.ok(lit(total - 1, false).every(Boolean));
   assert.deepEqual(lit(40, true), lit(total, true));
-  const { settleMs, wordStepMs, glowInMs, tailMs } = acknowledgement;
+  const { settleMs, wordStepMs, glowInMs } = acknowledgement;
+  assert.deepEqual([settleMs, wordStepMs, glowInMs], [200, 450, 600]);
+  assert.equal("tailMs" in acknowledgement, false);
+});
+
+test("a stanza's colour starts with the next stanza; the last starts at its own end", () => {
+  const poem = {
+    stanzas: [["One two."], ["Three four."], ["Five six."]],
+    settleMs: 100,
+    wordStepMs: 50,
+    highlights: [
+      {
+        stanza: 1,
+        tier: "uncommon",
+        words: [{ word: "One" }, { word: "two" }],
+      },
+      { stanza: 2, tier: "rare", words: [{ word: "four" }] },
+      { stanza: 3, tier: "epic", words: [{ word: "Five" }, { word: "six" }] },
+    ],
+  };
+  const sets = acknowledgementHighlights(poem);
   assert.deepEqual(
-    [settleMs, wordStepMs, glowInMs, tailMs],
-    [200, 450, 600, 250],
+    sets.map(({ word, written, due, atMs }) => [word, written, due, atMs]),
+    [
+      ["One", 8, 9, 100],
+      ["two", 8, 9, 150],
+      ["four", 19, 20, 100],
+      ["Five", 28, 28, 100],
+      ["six", 28, 28, 150],
+    ],
   );
+  const lit = acknowledgementGlows(poem);
+  assert.deepEqual(lit(8, false), [false, false, false, false, false]);
+  assert.deepEqual(lit(9, false), [true, true, false, false, false]);
+  assert.deepEqual(lit(20, false), [true, true, true, false, false]);
+  assert.deepEqual(lit(27, false), [true, true, true, false, false]);
+  assert.deepEqual(lit(28, true), [true, true, true, true, true]);
+  assert.deepEqual(lit(0, true), [true, true, true, true, true]);
+  const delays = acknowledgementDelays(poem);
+  assert.equal(delays[7], STANZA_MS);
+  assert.equal(delays[18], STANZA_MS);
+  assert.equal(delays[27], 180);
+});
+
+function pen({ reduced = false } = {}) {
+  let time = 0,
+    last = null,
+    stepAt = -Infinity;
+  const queued = [];
+  const reveal = createTextReveal({
+    frame: (value) => (last = value),
+    reduced: () => reduced,
+    delay: () => 28,
+    now: () => time,
+    requestFrame: (callback) => queued.push(callback),
+    cancelFrame: () => queued.splice(0),
+  });
+  reveal.show("poem", "One two. Three four. Five six.", null);
+  const run = (ms) => {
+    for (const end = time + ms; time < end; ) {
+      time += 4;
+      queued.splice(0).forEach((callback) => callback());
+    }
+  };
+  const press = () => {
+    const step = acknowledgementStep({
+      complete: reveal.complete,
+      quick: reveal.quick,
+      sinceStepMs: time - stepAt,
+    });
+    if (step === "quicken" || step === "finish") stepAt = time;
+    if (step === "quicken") reveal.accelerate(8);
+    if (step === "finish") reveal.finish();
+    return step;
+  };
+  return { reveal, run, press, shown: () => last.shown, last: () => last };
+}
+
+test("a first press quickens the stanza; a second in fast mode finishes it all", () => {
+  const { reveal, run, press, shown, last } = pen();
+  run(60);
+  assert.ok(shown() >= 1 && shown() < 4);
+  assert.equal(press(), "quicken");
+  assert.equal(reveal.quick, true);
+  run(8);
+  assert.ok(shown() < 8, "still writing, quickly");
+  assert.equal(press(), "finish");
+  assert.equal(reveal.quick, false);
+  assert.equal(reveal.complete, true);
+  assert.equal(shown(), 30);
+  assert.equal(last().instant, true);
+});
+
+test("fast mode ends with its stanza: the next press quickens again", () => {
+  const { reveal, run, press, shown } = pen();
+  assert.equal(press(), "quicken");
+  run(200);
+  assert.equal(reveal.quick, false);
+  assert.ok(shown() >= 8 && shown() < 30);
+  assert.equal(press(), "quicken");
+});
+
+test("a press on the finished text continues, but never in the tap that finished it", () => {
+  const { reveal, run, press } = pen();
+  run(40);
+  assert.equal(press(), "quicken");
+  run(8);
+  assert.equal(press(), "finish");
+  run(STEP_GUARD_MS - 60);
+  assert.equal(press(), "wait");
+  assert.equal(press(), "wait");
+  run(80);
+  assert.equal(press(), "continue");
+  const alone = pen();
+  alone.run(2000);
+  assert.equal(alone.reveal.complete, true);
+  assert.equal(alone.press(), "continue");
+  assert.equal(reveal.complete, true);
+});
+
+test("a double tap as the last stanza ends does not continue", () => {
+  for (const [complete, quick, sinceStepMs, step] of [
+    [false, false, Infinity, "quicken"],
+    [false, true, 0, "finish"],
+    [false, true, 5000, "finish"],
+    [true, false, 0, "wait"],
+    [true, false, STEP_GUARD_MS - 1, "wait"],
+    [true, false, STEP_GUARD_MS, "continue"],
+    [true, false, Infinity, "continue"],
+  ])
+    assert.equal(acknowledgementStep({ complete, quick, sinceStepMs }), step);
+});
+
+test("reduced motion shows the whole text lit, and one press continues", () => {
+  const { reveal, press, shown, last } = pen({ reduced: true });
+  assert.equal(shown(), 30);
+  assert.equal(last().instant, true);
+  assert.equal(reveal.complete, true);
+  assert.equal(reveal.quick, false);
+  const lit = acknowledgementGlows(acknowledgement);
+  assert.ok(lit(last().shown, last().complete).every(Boolean));
+  assert.equal(press(), "continue");
 });
 
 test("opening cards fan from the box into their own hand slots", () => {
