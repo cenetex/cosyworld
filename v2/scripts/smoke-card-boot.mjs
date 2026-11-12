@@ -88,13 +88,19 @@ try {
         assert.equal(await page.locator("#card-actions button").count(), 1);
         assert.match(
           await page.locator(".action-beat-text").textContent(),
-          /^New game · This save needs a fresh start\. Your previous save is kept until you start a new game\.$/u,
+          /^New game · This save cannot be opened by this version of the game\. It is kept until you start a new game\.$/u,
         );
         assert.equal(await status.isVisible(), false, "no dead-end notice");
         assert.equal(await actionLabel(button), "Start a new game");
         assert.equal(await button.textContent(), "Tap to start a new game");
         assert.equal(await button.getAttribute("data-destructive"), null);
-        const box = await beat.boundingBox();
+        let box,
+          settled = await beat.boundingBox();
+        do {
+          box = settled;
+          await page.waitForTimeout(150);
+          settled = await beat.boundingBox();
+        } while (settled.y !== box.y);
         await page.mouse.click(box.x + box.width / 2, box.y + 12);
         await page.waitForFunction(
           () =>

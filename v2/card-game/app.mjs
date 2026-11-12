@@ -173,7 +173,7 @@ import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import { carryUpgrades } from "./local-carry.mjs";
-import { retiredSave } from "./legacy-saves.mjs";
+import { retiredSave, SAVE_SCHEMA } from "./legacy-saves.mjs";
 import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRadioPlayer } from "./radio-player.mjs";
@@ -193,7 +193,15 @@ import { createCharacterSpeech, createVoiceHistory, voiceLineIdentity } from "./
 import { localRuntime } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
-import { sealSave, writeSave } from "./save-guard.mjs";
+import {
+  attemptPlay,
+  faultOf,
+  loadFault,
+  openSave,
+  saveDiagnostic,
+  sealSave,
+  writeSave,
+} from "./save-guard.mjs";
 import {
   createTextReveal,
   createRevealPainter,
@@ -391,7 +399,17 @@ function notice(text, playStatus = "") {
 }
 // A save from before the current schema is retired, not lifted: it reads as
 // a fresh start that keeps the traveler's level and upgrades (legacy-saves.mjs).
-const readableSave = (text) => retiredSave(text) || decodeSave(text);
+const openLocalSave = (text) =>
+  openSave(text, { read: decodeSave, schema: SAVE_SCHEMA });
+const readableSave = (text) => retiredSave(text) || openLocalSave(text);
+function reportSaveFault(fault, action) {
+  const build = document.getElementById("build-info")?.textContent;
+  console.warn("[save]", JSON.stringify(saveDiagnostic(fault, { world, action, build })));
+  count(
+    { transition: "error.rules_reject", storage: "error.storage" }[fault.kind] ||
+      "error.other",
+  );
+}
 const localBackups =
   localRuntime()?.backups && !sharedSession
     ? createLocalBackups({
@@ -407,9 +425,9 @@ let openingTable = true;
 // plays a fresh world in this tab instead of refusing every card.
 let storageBlocked = false,
   migratedRunSeed = false;
+let saved = null;
 try {
   await localBackups?.restore();
-  let saved = null;
   try {
     saved = sharedSession ? null : localStorage.getItem(SAVE_KEY);
   } catch {
@@ -423,7 +441,7 @@ try {
   } else if (saved) {
     openingTable = false;
     // A save from before run seeds takes one once, as a shared world does.
-    const restored = decodeSave(saved);
+    const restored = openLocalSave(saved);
     migratedRunSeed = !restored.run;
     world = wearLocalUpgrades(
       enableMotives(seedRun(restored, newRunSeed())),
@@ -431,9 +449,9 @@ try {
   }
 } catch (error) {
   openingTable = false;
-  blockSave(
-    "This save needs a fresh start. Your previous save is kept until you start a new game.",
-  );
+  const fault = loadFault(error, saved);
+  reportSaveFault(fault);
+  blockSave(`${fault.message} It is kept until you start a new game.`);
 }
 selected = [heldItem(world, currentActor(world))].filter(Boolean);
 const UNSAVED_NOTICE =
@@ -669,9 +687,10 @@ function save() {
     rememberLocalUpgrades(world);
     void localBackups?.queue(encoded);
     return true;
-  } catch {
-    count("error.storage");
-    notice(UNSAVED_NOTICE);
+  } catch (error) {
+    const fault = faultOf(error, "storage", "write");
+    reportSaveFault(fault);
+    notice(fault.kind === "storage" ? UNSAVED_NOTICE : fault.message);
     return false;
   }
 }
@@ -2099,9 +2118,10 @@ function commitAction(action, revision, renderedAt = -Infinity) {
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
-  const result = play(world, action, revision);
+  const result = attemptPlay(() => play(world, action, revision), saveCodec);
   if (!result.ok) {
-    count("error.rules_reject");
+    if (result.fault) reportSaveFault(result.fault, action);
+    else count("error.rules_reject");
     notice(result.error);
     render();
     return;
@@ -5749,7 +5769,6 @@ function resetTable(next = freshWorld()) {
   reviewing = false;
   reviewBeat = null;
   renderedHand = "";
-  // A new game starts its hand from the left.
   renderedHandPlace = null;
   lineSeq = null;
   selected = [heldItem(world, currentActor(world))].filter(Boolean);
