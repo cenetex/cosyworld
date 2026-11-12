@@ -59,6 +59,10 @@ pub(super) fn router() -> Router<AppState> {
             "/card-game/shared/worlds/{id}/command",
             post(command).layer(DefaultBodyLimit::max(8192)),
         )
+        .route(
+            "/card-game/shared/worlds/{id}/talk",
+            post(talk).layer(DefaultBodyLimit::max(8192)),
+        )
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -304,6 +308,20 @@ pub(super) struct Command {
     #[serde(default, rename = "move")]
     #[allow(dead_code)]
     pub moving: bool,
+    #[serde(skip, default = "default_surface")]
+    pub surface: String,
+}
+
+fn default_surface() -> String {
+    "browser".to_string()
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct Talk {
+    #[serde(default)]
+    pub(super) avatar: Option<String>,
+    pub(super) target: String,
 }
 async fn command(
     State(state): State<AppState>,
@@ -365,7 +383,6 @@ pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>)
     tx.commit().map_err(sql_error)?;
     Ok(value)
 }
-#[cfg(test)]
 pub(super) fn command_as(
     state: &AppState,
     id: &str,
@@ -400,6 +417,84 @@ fn command_with_revision(
     let value = super::sync::response(&tx, id, u, value, cursor)?;
     tx.commit().map_err(sql_error)?;
     Ok(value)
+}
+
+async fn talk(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    h: HeaderMap,
+    Json(body): Json<Talk>,
+) -> Response {
+    let h2 = h.clone();
+    let worker = state.clone();
+    let wid = id.clone();
+    let committed = blocking(move || {
+        let state = worker;
+        let id = wid;
+        valid_id(&id)?;
+        let u = user(&state, &h, true)?;
+        admit(&u)?;
+        logged(&id, || talk_as(&state, &id, &u, &body))
+    })
+    .await;
+    if committed.is_err() {
+        return reply(committed);
+    }
+    let wait = std::time::Duration::from_secs(20);
+    if let Ok(Ok(_permit)) = tokio::time::timeout(wait, capacity().clone().acquire_owned()).await {
+        for _ in 0..4 {
+            if !voice_once(&state, &id).await.unwrap_or(false) {
+                break;
+            }
+        }
+    }
+    kick(state.clone(), id.clone());
+    let worker = state.clone();
+    let wid = id.clone();
+    let view = blocking(move || {
+        let state = worker;
+        let id = wid;
+        let u = user(&state, &h2, false)?;
+        view_as(&state, &id, &u, None)
+    })
+    .await;
+    reply(view)
+}
+
+pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Result<Value> {
+    let c = db(state)?;
+    store::schema(&c)?;
+    let actor = bindings::mine(&c, id, u)?.ok_or("Claim an avatar first.")?;
+    if let Some(avatar) = body.avatar.as_deref() {
+        if actor_index(avatar)? != actor {
+            return Err("Choose your own avatar.".into());
+        }
+    }
+    if body.target.trim().is_empty() {
+        return Err("Choose someone to talk to.".into());
+    }
+    let world = store::world(&c, id, now())?;
+    let view = world.project(actor)?;
+    let action = view["actions"]
+        .as_array()
+        .and_then(|actions| {
+            actions
+                .iter()
+                .find(|action| action["kind"] == "talk" && action["target"] == body.target)
+                .cloned()
+        })
+        .ok_or("Choose someone here to talk to.")?;
+    let command = Command {
+        op: "play".to_string(),
+        avatar: Some(actor_id(actor).to_string()),
+        action,
+        target: Some(body.target.clone()),
+        key: format!("talk-{}", crate::random_hex(24)),
+        revealed: None,
+        moving: false,
+        surface: "discord".to_string(),
+    };
+    command_as(state, id, u, &command, None)
 }
 // Leaving keeps the claim; releasing frees the avatar for someone else.
 fn leave(
@@ -638,6 +733,7 @@ pub(super) fn run(
                         action: b.action.clone(),
                         key: &b.key,
                         revealed: b.revealed.as_deref(),
+                        surface: &b.surface,
                     },
                     time,
                 )?;
@@ -792,37 +888,40 @@ fn kick(state: AppState, id: String) {
     };
     tokio::spawn(async move {
         let _permit = permit;
-        loop {
-            let s = state.clone();
-            let wid = id.clone();
-            let work = tokio::task::spawn_blocking(move || take_work(&s, &wid)).await;
-            let Ok(Ok(Some(work))) = work else { break };
-            reflect::replace(&id, work.actor);
-            let lines = super::full_speech::generate(&state, work.actor, &work.context).await;
-            let s = state.clone();
-            let wid = id.clone();
-            let after = lines
-                .as_ref()
-                .ok()
-                .cloned()
-                .map(|lines| (work.clone(), lines));
-            match tokio::task::spawn_blocking(move || publish(&s, &wid, work, lines)).await {
-                // The line is journaled and shown; its reflections follow.
-                Ok(Ok(published)) => {
-                    if !published {
-                        continue;
-                    }
-                    if let Some((work, lines)) = after {
-                        reflect::spawn(state.clone(), id.clone(), work, &lines);
-                    }
-                }
-                other => {
-                    tracing::warn!(result=?other,"shared card publication failed");
-                    break;
+        while voice_once(&state, &id).await.unwrap_or(false) {}
+    });
+}
+
+async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
+    let s = state.clone();
+    let wid = id.to_string();
+    let work = tokio::task::spawn_blocking(move || take_work(&s, &wid)).await;
+    let Ok(Ok(Some(work))) = work else {
+        return Ok(false);
+    };
+    reflect::replace(id, work.actor);
+    let lines = super::full_speech::generate(state, work.actor, &work.context).await;
+    let s = state.clone();
+    let wid = id.to_string();
+    let after = lines
+        .as_ref()
+        .ok()
+        .cloned()
+        .map(|lines| (work.clone(), lines));
+    match tokio::task::spawn_blocking(move || publish(&s, &wid, work, lines)).await {
+        Ok(Ok(published)) => {
+            if published {
+                if let Some((work, lines)) = after {
+                    reflect::spawn(state.clone(), id.to_string(), work, &lines);
                 }
             }
+            Ok(true)
         }
-    });
+        other => {
+            tracing::warn!(result=?other, "shared card publication failed");
+            Err("shared card publication failed".into())
+        }
+    }
 }
 /// Journals the words. Words the rules refuse end like words that never
 /// came: the play's voices show "…" and its seat frees at once.

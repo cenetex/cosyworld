@@ -81,6 +81,7 @@ fn an_old_world_is_refused_retired_and_keeps_its_travelers_progress() {
         target: None,
         key: String::new(),
         moving: false,
+        surface: "browser".to_string(),
         revealed: None,
     };
     assert_eq!(
