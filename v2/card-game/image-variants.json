@@ -2663,24 +2663,6 @@
       "phone": "assets/optimized/phone/png/greek-drama/funeral-cloth.webp",
       "phoneHash": "63925c1ed59fc2437c4fbd8afa9db758b25ed89e82171448dcab8789d361ae57"
     },
-    "assets/greek-drama/grove-cup.png": {
-      "sourceHash": "f095122a5ed04b9a46cf66fe3e94869af80d41ab1c78c510f2eb607493f52628",
-      "stage": "assets/optimized/stage/png/greek-drama/grove-cup.webp",
-      "stageHash": "ad9aade46c8b997fc4415e596f548d009568c35da087dd714c6a9fb558f19c97",
-      "card": "assets/optimized/card/png/greek-drama/grove-cup.webp",
-      "cardHash": "750bb58d8257b91ada031cf2d83bea709be1c2376aba6749b744db801b94bb5b",
-      "phone": "assets/optimized/phone/png/greek-drama/grove-cup.webp",
-      "phoneHash": "f4ddc87f959b6f36b0ce3538b811cabbae549d7d55a25a146b9bd02b7c405d83"
-    },
-    "assets/greek-drama/grove-honey.png": {
-      "sourceHash": "be52d7c78b142ac2bb57df0901052b92d93dc8574d92d1991313be75e48e7691",
-      "stage": "assets/optimized/stage/png/greek-drama/grove-honey.webp",
-      "stageHash": "574ac916e507402b11c2892446d4aa86447fedd338a9d0c3b7fb075fe8bda03a",
-      "card": "assets/optimized/card/png/greek-drama/grove-honey.webp",
-      "cardHash": "f7b0e12085174310f5d52f468b06cd8d4bf00b0afd41919e9d49d4394744a099",
-      "phone": "assets/optimized/phone/png/greek-drama/grove-honey.webp",
-      "phoneHash": "160686446d3a281f428e995c2f3bede4e2d63fb614a528862707eb6441567100"
-    },
     "assets/greek-drama/guard-tablet.webp": {
       "sourceHash": "3d64f910dea0d6cd56be088b1c1fcd7ec9dc86331eff6eec7befcdaca9bed3d6",
       "stage": "assets/greek-drama/guard-tablet.webp",
@@ -3266,15 +3248,6 @@
       "phone": "assets/optimized/phone/png/greek-drama/pond-ship-overlay.webp",
       "phoneHash": "7f2fee43c32687b4e7d4e40fd34c1937da9efaa68229fbac71ea18b7c434fc49"
     },
-    "assets/greek-drama/provision-basket.png": {
-      "sourceHash": "6412e6bba9e8d13343ac7d3c39014c13dd3ac80b7cba7b27d971389273aad0af",
-      "stage": "assets/optimized/stage/png/greek-drama/provision-basket.webp",
-      "stageHash": "42fa8a695ab6cc3dddc605ead1025581dafc33845b929c79fab65ceb41217152",
-      "card": "assets/optimized/card/png/greek-drama/provision-basket.webp",
-      "cardHash": "962a7c5b4de0fe61b3ca79c5f6a3bc58d3303268d66620953b2c9b8391e0a655",
-      "phone": "assets/optimized/phone/png/greek-drama/provision-basket.webp",
-      "phoneHash": "1ad5140b9b77434adbccfd099e07bc89b05c74dfc08826bff6a736aa7f73ec60"
-    },
     "assets/greek-drama/provisions.png": {
       "sourceHash": "318f5f4a2fe860efb4d5b8b747d334a79eecc321368cccd51113b579222149f4",
       "stage": "assets/optimized/stage/png/greek-drama/provisions.webp",
@@ -3292,33 +3265,6 @@
       "cardHash": "3899cef27818ddb42d11d1fac75bf0707d223d6078b4c2eb6db565dbfee9a09a",
       "phone": "assets/optimized/phone/webp/greek-drama/pyre-account.webp",
       "phoneHash": "51d181ba5a78e5eb415d44973547875f7edca309bf84ca8329bd35eabcdfcdbc"
-    },
-    "assets/greek-drama/refuge-tablet.png": {
-      "sourceHash": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e",
-      "stage": "assets/optimized/stage/png/greek-drama/refuge-tablet.webp",
-      "stageHash": "c4a1678d03629ddc44460f6eddb9ae47821499cc15cfc58c7627160d9fb1823d",
-      "card": "assets/optimized/card/png/greek-drama/refuge-tablet.webp",
-      "cardHash": "3f96f534f2fc629228cb89642d9064aea6f67da5bd88f9424de3297e7df70aeb",
-      "phone": "assets/optimized/phone/png/greek-drama/refuge-tablet.webp",
-      "phoneHash": "982ed6619b7f71907f86c327c05e4c7758895bc12973743a2d8db8437bf89ebf"
-    },
-    "assets/greek-drama/return-cloths.png": {
-      "sourceHash": "89a66f6d976431331deb35b1a28db10a6cd965e97eeb9ca49c0136d0ece27f5c",
-      "stage": "assets/optimized/stage/png/greek-drama/return-cloths.webp",
-      "stageHash": "cd25525ba22b8d8161d1ae3ce4dcb49777cdeeb90ebcb7186593218de32ed9b5",
-      "card": "assets/optimized/card/png/greek-drama/return-cloths.webp",
-      "cardHash": "c163ed4778d0dc61e0d4400c565c199585ee047d17501158fc226cd22480fbbe",
-      "phone": "assets/optimized/phone/png/greek-drama/return-cloths.webp",
-      "phoneHash": "62714a61b5ab6104e09dbdfff5396ff385804a7cf383bdcdc302fe7f39a03e7d"
-    },
-    "assets/greek-drama/return-list.png": {
-      "sourceHash": "ee7b2dde648a5e5f4c22c4cbc041e60e9c0179a9575c2f77cc5be3e4401372ca",
-      "stage": "assets/optimized/stage/png/greek-drama/return-list.webp",
-      "stageHash": "86af45f38240bbf0b597e4019e16dc5f3b0d7c64372a0e6e709aca8bf5d15e7d",
-      "card": "assets/optimized/card/png/greek-drama/return-list.webp",
-      "cardHash": "cc67a989c0f06b1fdd506ec7abbccbfe0e8ecea29114d4a7b69c2dd5225dd012",
-      "phone": "assets/optimized/phone/png/greek-drama/return-list.webp",
-      "phoneHash": "edadc94b68b42598fad7b02b5276d5f0509bb05019baf4fcf023b290983849cc"
     },
     "assets/greek-drama/sacred-way-dipylon-night.webp": {
       "sourceHash": "42976e661c604600f008ab1bd67ddd2781c93a0f19aa156f565f8c483284a76a",

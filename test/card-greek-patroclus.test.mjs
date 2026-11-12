@@ -109,9 +109,9 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
     return world;
   };
   const ashore = () => act(docked(), "move", { target: "greek-piraeus" });
-  // His landing is a resident's move in the round after the traveler's play,
-  // which applies no meeting, so the meeting comes with the next play that is
-  // not a Wait: a Talk.
+  // He lands in the same round as the traveler, and a resident walking in
+  // where the traveler is is met there and then (rules 101). No other quay
+  // meeting takes the turn's one receipt since the Open Door's steps went.
   const metOnQuay = () => act(ashore(), "talk", { target: PATROCLUS });
 
   it("appears at the dock as a rider, and steps ashore at Piraeus", () => {
@@ -138,12 +138,13 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
 
   it("trusts the traveler at 3 when they step ashore at once", () => {
     const stepped = ashore();
-    expect(trust(stepped)).toBe(0);
+    expect(stepped.actors.vale.place).toBe("greek-piraeus");
+    expect(received(stepped, "greek-meet-patroclus")).toBe(stepped.turn);
+    expect(trust(stepped)).toBe(3);
+    expect(flags(stepped)["greek-patroclus-met"]).toBe(true);
+    // A Talk after it meets him no further.
     const world = act(stepped, "talk", { target: PATROCLUS });
-    expect(world.actors.vale.place).toBe("greek-piraeus");
-    expect(received(world, "greek-meet-patroclus")).toBeTruthy();
     expect(trust(world)).toBe(3);
-    expect(flags(world)["greek-patroclus-met"]).toBe(true);
   });
 
   it("meets a traveler who comes back to the quay after a while", () => {

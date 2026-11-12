@@ -44,7 +44,12 @@ const NO_INVITE = {
     "Skull's home, the Moonlit Trail, is shut until the drain is cleared: out of it he could not walk home.",
   "greek-guard": "The Gate Guard is a lock: if he leaves his post the way opens for everyone.",
   "greek-polynices-shade": "The Shade is a night apparition at the Hollow.",
-  "greek-household-witness": "Myrine has an authored journey and travels only on it.",
+  "greek-aethra":
+    "Aethra keeps to Demeter's altar, where she makes the urn; her cloth can come home with nobody there.",
+  "greek-quay-host":
+    "Thaleia keeps to her quay; her wheat can come home with nobody there.",
+  "greek-colonus-keeper":
+    "The Grove Keeper keeps to his grove; his oil can come home with nobody there.",
   "greek-patroclus":
     "Patroclus starts aboard the Charybdis, where the only plays are the ship's course; the quay invites him once the ship has docked (card-greek-patroclus).",
   "willows-swede": "The Swede stays at camp until the kit is back (stayUntil).",
@@ -55,7 +60,6 @@ const NO_STANDOFF = {
   badger:
     "The Badger is asleep until greeted and card-packs pins that a sleeper cannot be threatened (standoffs: false).",
   "greek-rhapsode": "The rhapsode is the pack's recital actor, which the pack schema pins to standoffs: false.",
-  "greek-household-witness": "Myrine (journey).",
   "greek-polynices-shade": "The Shade (night apparition).",
   "willows-swede": "The Swede (stayUntil).",
   boardyai: "Boardy, the shared-world connector.",
@@ -146,7 +150,8 @@ describe("who can be invited along and threatened", () => {
     expect(table.badger).toBe("- -");
     expect(table.rati).toBe("invite threaten");
     expect(table.whiskerwind).toBe("invite threaten");
-    expect(table["greek-aethra"]).toBe("invite threaten");
+    expect(table["greek-adrastus"]).toBe("invite threaten");
+    expect(table["greek-aethra"]).toBe("- threaten");
   });
 });
 
@@ -155,11 +160,8 @@ describe("who can be invited along and threatened", () => {
 const FREED = {
   rati: "default",
   whiskerwind: "default",
-  "greek-aethra": "opendoor",
   "greek-adrastus": "opendoor",
   "greek-theseus": "opendoor",
-  "greek-quay-host": "ajax",
-  "greek-colonus-keeper": "opendoor",
   "greek-marathon-keeper": "opendoor",
   "greek-argive-mother": "ajax",
   "greek-iphis": "ajax",
@@ -192,8 +194,15 @@ describe("freed residents walk on their wants and sleep at home", () => {
       if (s.actors.vale.place === home)
         s.actors.vale.place = exits(s, home, "vale")[0];
       if (!entityActive(s, id)) {
-        // Sealed until its story opens: shown the way the story would.
-        packPeople[id].requires = [];
+        // Sealed until its story opens: shown the way the story would. An
+        // Open Door resident, once met, stays open.
+        const latch = JSON.stringify(packPeople[id].requires).includes(
+          `"kind":"met","actor":"${id}"`,
+        );
+        if (latch) {
+          s.packs[packPeople[id].packId].met[id] = s.turn;
+          if (s.opening?.met) s.opening.met[id] = s.turn;
+        } else packPeople[id].requires = [];
       }
       expect(entityActive(s, id), id).toBe(true);
       const range = rangeOf(s, id);

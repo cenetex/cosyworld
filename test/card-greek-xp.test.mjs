@@ -27,10 +27,11 @@ describe("XP the Greek and RatiRadio content pays", () => {
       ["veil", j.anointed, j.veiled],
       ["bury", j.veiled, j.buried],
     ].map(([name, a, b]) => [name, xp(b) - xp(a)]);
-    // Bury opens nothing else (Attica is there from the start), so it pays
-    // only its own boxes: two XP.
-    expect(Object.fromEntries(gains)).toEqual({ anoint: 0, veil: 0, bury: 2 });
-    expect(xp(j.buried) - xp(j.beforeAnoint)).toBe(2);
+    // Anoint sends the oil home to Colonus and opens the Grove Keeper; Shroud
+    // sends the cloth home to Eleusis and opens Aethra (open-door-rework).
+    // Bury pays its own two boxes.
+    expect(Object.fromEntries(gains)).toEqual({ anoint: 1, veil: 1, bury: 2 });
+    expect(xp(j.buried) - xp(j.beforeAnoint)).toBe(4);
   });
 
   it("pays following one account", () => {

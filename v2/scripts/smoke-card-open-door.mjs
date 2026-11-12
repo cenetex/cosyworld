@@ -9,18 +9,15 @@ import {
   legalActions,
   play,
 } from "../card-game/world.mjs";
-import { worldLife } from "../card-game/resident-home.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
 import { MAX_DWELL } from "../card-game/world/dwell.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
   OPEN_DOOR_PLACES,
   openDoorAction,
-  openDoorJourney,
-  playOpenDoor,
-  openDoorSteps,
   openDoorStart,
 } from "../../test/helpers/open-door.mjs";
+import { greekMoveSteps } from "../../test/helpers/greek-travel.mjs";
 import {
   clearSelection,
   selectCard,
@@ -33,9 +30,7 @@ export async function checkOpenDoor(browser, origin) {
   const output = new URL("../../output/open-door/", import.meta.url);
   await mkdir(output, { recursive: true });
   for (const width of smokeWidths([1440, 390])) {
-    // Marathon and the full return are rumours in new worlds (rules 94); an
-    // old full-scope world keeps all five stories, so the walk plays there.
-    const fixture = openDoorStart({ rumours: true });
+    const fixture = openDoorStart();
     const page = await browser.newPage({
       viewport: { width, height: width === 390 ? 844 : 900 },
       reducedMotion: "reduce",
@@ -113,8 +108,6 @@ export async function checkOpenDoor(browser, origin) {
           ),
           "The page fits the viewport",
         );
-        // Everything lying at the traveler's place can be tapped: shown, or
-        // in a stack whose top is shown (a place's things, the ways on).
         assert.deepEqual(
           await unreachableCards(page),
           [],
@@ -135,7 +128,6 @@ export async function checkOpenDoor(browser, origin) {
       };
       const step = async ({ kind, ...fields }) => {
         await settle();
-        // Aboard, a port is a voyage: the course card, a round at sea, Disembark.
         for (let n = 0; n < 12 && kind === "move"; n++) {
           const world = await state();
           if (!needsVoyage(world, currentActor(world), fields.target)) break;
@@ -156,8 +148,6 @@ export async function checkOpenDoor(browser, origin) {
             wait++
           )
             await step({ kind: "wait" });
-          // Myrto's packed load is made from bread, figs and wine elsewhere
-          // (tested on its own); this story only needs it lying on deck.
           const packed = await state();
           if (
             packed.actors.vale.place === "greek-harbor" &&
@@ -175,9 +165,6 @@ export async function checkOpenDoor(browser, origin) {
             await settle();
           }
         }
-        // Residents move about twice a game day (the dwell rule): a play with
-        // one waits until it stands here, then goes on. It must come within
-        // two stays; if it never does, the story cannot be played.
         const legalNow = async () =>
           legalActions(await state()).some(
             (a) =>
@@ -206,8 +193,6 @@ export async function checkOpenDoor(browser, origin) {
           .click();
         await settle();
         const after = await state();
-        // A play commits one turn. Past bedtime the traveler sleeps on, and
-        // the world runs on until Vale wakes, so those plays add turns.
         const sleptThrough = after.log
           .slice(-12)
           .some((line) => /\bVale wakes\b/u.test(line.text || ""));
@@ -226,171 +211,90 @@ export async function checkOpenDoor(browser, origin) {
 
       await page.goto(`${origin}/?table=${table}`);
       await settle();
-      // Burying Polynices opens nothing: Attica was there all along.
       assert.equal(
         (await state()).packs["greek-drama"].flags["greek-open-door-open"],
         undefined,
       );
-      // Every story step is an ordinary play: a meeting, a Wait or a gift.
-      // A deed done by Waiting needs its resident here; the residents move
-      // about (the dwell rule), so the browser waits for the deed to be
-      // possible. Which steps do a deed is learned from the cast standing
-      // still, once, in the rules themselves.
-      const steps = openDoorSteps({ rumours: true });
-      const deeds = [];
-      {
-        let sim = openDoorStart({ rumours: true });
-        for (const { kind, ...fields } of steps) {
-          const prior = Object.keys(sim.packs["greek-drama"].receipts);
-          sim = playOpenDoor(sim, kind, fields);
-          deeds.push(
-            Object.keys(sim.packs["greek-drama"].receipts).filter(
-              (id) => !prior.includes(id),
-            ),
-          );
-        }
-      }
-      const waitDoes = async (expected) => {
-        const world = await state();
-        const wait = legalActions(world).find((a) => a.kind === "wait");
-        worldLife.on = true;
-        try {
-          const result = play(world, wait, world.revision);
-          return (
-            result.ok &&
-            expected.every(
-              (id) => id in result.state.packs["greek-drama"].receipts,
+      const move = greekMoveSteps("greek-courtyard");
+      const steps = [
+        ...move("eleusis"),
+        { kind: "take", item: "greek-burial-petition" },
+        { kind: "take", item: "greek-funeral-cloth" },
+        { kind: "give", item: "greek-funeral-cloth", target: "greek-aethra" },
+        ...greekMoveSteps("greek-eleusis")("athens"),
+        {
+          kind: "trade",
+          item: "greek-burial-petition",
+          receive: "greek-olive-branch",
+        },
+        ...greekMoveSteps("greek-athens")("eleusis", "colonus"),
+        { kind: "take", item: "greek-oil-flask" },
+        ...greekMoveSteps("greek-colonus")("eleusis"),
+        { kind: "give", item: "greek-oil-flask", target: "greek-aethra" },
+        { kind: "give", item: "greek-olive-branch", target: "greek-aethra" },
+        { kind: "take", item: "greek-ash-urn" },
+        { kind: "give", item: "greek-ash-urn", target: "greek-argive-mother" },
+      ];
+      const tradeOrThanks = async (trade) => {
+        for (let n = 0; n < 2 * MAX_DWELL; n++) {
+          const world = await state();
+          if (world.items[trade.receive].holder === "vale")
+            return { kind: "give", item: trade.item, target: "greek-theseus" };
+          if (
+            legalActions(world).some(
+              (a) => a.kind === "trade" && a.receive === trade.receive,
             )
-          );
-        } finally {
-          worldLife.on = false;
-        }
-      };
-      for (const [index, action] of steps.entries()) {
-        if (action.kind === "wait" && deeds[index].length)
-          for (
-            let n = 0;
-            n < 2 * MAX_DWELL && !(await waitDoes(deeds[index]));
-            n++
           )
-            await step({ kind: "wait" });
-        const prior = (await state()).packs["greek-drama"].receipts;
+            break;
+          await step({ kind: "wait" });
+        }
+        return trade;
+      };
+      for (const planned of steps) {
+        const action =
+          planned.kind === "trade" ? await tradeOrThanks(planned) : planned;
         await step(action);
         const now = await state();
         assert.equal(
-          legalActions(now).some(
-            (a) =>
-              a.kind === "choose" &&
-              /^greek-(open-door|homecoming)-/.test(a.choiceId),
-          ),
+          legalActions(now).some((a) => a.kind === "choose"),
           false,
           "No story button is offered",
         );
-        const done = Object.keys(now.packs["greek-drama"].receipts).filter(
-          (id) => !(id in prior),
-        );
-        // Arriving meets only whoever stands here; the rest come on a later play.
-        for (const id of action.kind === "move" ? [] : deeds[index])
-          assert.ok(done.includes(id), `${id} was done by ${action.kind}`);
-        if (done.includes("greek-open-door-hear-mothers")) {
-          // Aethra's story has no hand card; meeting her tells it.
-          assert.equal(await page.locator("#hand [data-quest]").count(), 0);
+        if (action.kind === "give" && action.item === "greek-olive-branch") {
+          assert.equal(now.usedUp.includes("greek-ash-urn"), false);
+          assert.equal(now.items["greek-olive-branch"].holder, "greek-courtyard");
+          assert.equal(now.items["greek-oil-flask"].holder, "greek-colonus");
           await page.screenshot({
-            path: new URL(`eleusis-quest-${width}.png`, output).pathname,
+            path: new URL(`eleusis-urn-${width}.png`, output).pathname,
             fullPage: true,
           });
-        }
-        if (done.includes("greek-open-door-hear-pyre"))
-          await page.screenshot({
-            path: new URL(`eleusis-rites-${width}.png`, output).pathname,
-            fullPage: true,
-          });
-        if (
-          done.some((id) =>
-            [
-              "greek-open-door-lay-ashes",
-              "greek-open-door-colonus-farewell",
-            ].includes(id),
-          )
-        ) {
           await page.reload();
           await settle();
           assert.deepEqual(
-            (await state()).packs["greek-drama"],
-            now.packs["greek-drama"],
-            "Reload keeps the scene's choices and witnesses",
+            (await state()).items,
+            now.items,
+            "Reload keeps where every thing lies",
           );
         }
       }
-      let world = await state();
-      assert.equal(
-        world.packs["greek-drama"].flags["greek-open-door-returned"],
-        true,
+      const world = await state();
+      assert.equal(world.items["greek-ash-urn"].holder, "greek-argive-mother");
+      assert.equal(world.items["greek-burial-petition"].holder, "greek-theseus");
+      assert.ok(world.actors["greek-argive-mother"].metTurn !== undefined);
+      assert.deepEqual(
+        Object.keys(world.packs["greek-drama"].flags).filter((k) =>
+          k.startsWith("greek-open-door"),
+        ),
+        [],
+        "No Open Door flag is set",
       );
       assert.equal(world.quests, undefined, "No quest records remain");
-      assert.deepEqual([...photographed].sort(), [...OPEN_DOOR_PLACES].sort());
-      // The Bard's quest is to hear how the journey ended. The world rules
-      // carry it to Vale along its known roads.
-      world.actors["greek-rhapsode"].want = {
-        kind: "person",
-        target: "vale",
-        since: world.turn,
-        refusals: 0,
-      };
-      await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
-        key,
-        save: encodeSave(world),
-      });
-      await page.reload();
-      await settle();
-      for (
-        let turn = 0;
-        turn < 16 && world.actors["greek-rhapsode"].place !== "greek-courtyard";
-        turn++
-      ) {
-        await step({ kind: "wait" });
-        world = await state();
-      }
-      assert.equal(
-        world.actors["greek-rhapsode"].place,
-        "greek-courtyard",
-        "The Bard reaches the final report",
-      );
-      const talk = legalActions(world).find(
-        (action) =>
-          action.kind === "talk" && action.target === "greek-rhapsode",
-      );
-      assert.ok(talk);
-      await step({ kind: "talk", target: "greek-rhapsode" });
-      const bard = requests
-        .at(-1)
-        .entities.find((entity) => entity.id === "greek-rhapsode");
-      assert.ok(
-        bard.poem.stanzas.some(
-          (verse) => verse.id === "greek-open-door-return-dione",
-        ),
-      );
-      await page.screenshot({
-        path: new URL(`return-bard-${width}.png`, output).pathname,
-        fullPage: true,
-      });
-      const met = (s) =>
-        s.log.filter(
-          (e) => e.verb === "want_met" && e.actorId === "greek-rhapsode",
-        );
-      const completed = met(await state());
-      assert.ok(completed.length >= 1, "Hearing Vale meets the Bard's quest");
-      await page.reload();
-      await settle();
-      assert.deepEqual(
-        met(await state()),
-        completed,
-        "The met quest survives reload once",
-      );
+      for (const place of ["greek-athens", "greek-colonus", "greek-eleusis"])
+        assert.ok(photographed.has(place), `${place} was seen`);
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(
-        `Open Door: ${width}px, five places, all stories by ordinary plays, custody, reloads, and the Bard's quest passed.`,
+        `Open Door: ${width}px, the petition, the truce, the urn and the Argive Mother by ordinary plays, with a reload, passed.`,
       );
     } finally {
       await page.close();

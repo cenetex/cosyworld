@@ -51,26 +51,9 @@ describe("one road in Attica", () => {
     );
     // The Eleusis road returned as the Sacred Way between two districts.
     expect(pack.places["greek-road-athens-eleusis"].retired).toBeUndefined();
-    expect(pack.avatars["greek-household-witness"].journey.path).toEqual([
-      "greek-eleusis",
-      "greek-road-athens-eleusis",
-      "greek-athens",
-      "greek-road-athens-piraeus",
-      "greek-piraeus",
-    ]);
+    // It is a plain road: no gate reads anything on it.
+    expect(
+      pack.routes.filter((r) => r.to === "greek-road-athens-eleusis"),
+    ).toEqual([]);
   });
-
-  // Earlier saves used Myrine's place as her agreed journey step.
-  const agreedAtRevision7 = (place) => {
-    const world = structuredClone(
-      homecomingJourney().after["greek-homecoming-agree-journey"],
-    );
-    world.packs["greek-drama"].revision = 7;
-    delete world.journeyProgress;
-    beforeFuneral(world);
-    if (place)
-      for (const id of ["vale", "greek-household-witness"])
-        world.actors[id].place = place;
-    return world;
-  };
 });
