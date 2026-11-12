@@ -3,12 +3,21 @@ import { mkdir } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { currentActor, encodeSave, legalActions } from "../card-game/world.mjs";
+import {
+  currentActor,
+  encodeSave,
+  legalActions,
+  play,
+} from "../card-game/world.mjs";
+import { worldLife } from "../card-game/resident-home.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
+import { MAX_DWELL } from "../card-game/world/dwell.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
   OPEN_DOOR_PLACES,
   openDoorAction,
+  openDoorJourney,
+  playOpenDoor,
   openDoorSteps,
   openDoorStart,
 } from "../../test/helpers/open-door.mjs";
@@ -147,7 +156,40 @@ export async function checkOpenDoor(browser, origin) {
             wait++
           )
             await step({ kind: "wait" });
+          // Myrto's packed load is made from bread, figs and wine elsewhere
+          // (tested on its own); this story only needs it lying on deck.
+          const packed = await state();
+          if (
+            packed.actors.vale.place === "greek-harbor" &&
+            packed.items["greek-provisions"].holder !== "greek-ship"
+          ) {
+            packed.usedUp = (packed.usedUp || []).filter(
+              (id) => id !== "greek-provisions",
+            );
+            packed.items["greek-provisions"].holder = "greek-ship";
+            await page.evaluate(
+              ({ key, save }) => localStorage.setItem(key, save),
+              { key, save: encodeSave(packed) },
+            );
+            await page.reload();
+            await settle();
+          }
         }
+        // Residents move about twice a game day (the dwell rule): a play with
+        // one waits until it stands here, then goes on. It must come within
+        // two stays; if it never does, the story cannot be played.
+        const legalNow = async () =>
+          legalActions(await state()).some(
+            (a) =>
+              a.kind === kind &&
+              Object.entries(fields).every(([k, v]) => a[k] === v),
+          );
+        for (
+          let n = 0;
+          n < 2 * MAX_DWELL && kind !== "wait" && !(await legalNow());
+          n++
+        )
+          await step({ kind: "wait" });
         const before = await state();
         const action = openDoorAction(before, kind, fields);
         const cards = action.cards?.length
@@ -164,7 +206,17 @@ export async function checkOpenDoor(browser, origin) {
           .click();
         await settle();
         const after = await state();
-        assert.equal(after.turn, before.turn + 1, `${kind} commits once`);
+        // A play commits one turn. Past bedtime the traveler sleeps on, and
+        // the world runs on until Vale wakes, so those plays add turns.
+        const sleptThrough = after.log
+          .slice(-12)
+          .some((line) => /\bVale wakes\b/u.test(line.text || ""));
+        if (sleptThrough)
+          assert.ok(
+            after.turn > before.turn,
+            `${kind} commits and Vale sleeps`,
+          );
+        else assert.equal(after.turn, before.turn + 1, `${kind} commits once`);
         if (kind === "move")
           assert.equal(after.actors.vale.place, fields.target);
         if (kind === "take")
@@ -180,7 +232,48 @@ export async function checkOpenDoor(browser, origin) {
         undefined,
       );
       // Every story step is an ordinary play: a meeting, a Wait or a gift.
-      for (const action of openDoorSteps({ rumours: true })) {
+      // A deed done by Waiting needs its resident here; the residents move
+      // about (the dwell rule), so the browser waits for the deed to be
+      // possible. Which steps do a deed is learned from the cast standing
+      // still, once, in the rules themselves.
+      const steps = openDoorSteps({ rumours: true });
+      const deeds = [];
+      {
+        let sim = openDoorStart({ rumours: true });
+        for (const { kind, ...fields } of steps) {
+          const prior = Object.keys(sim.packs["greek-drama"].receipts);
+          sim = playOpenDoor(sim, kind, fields);
+          deeds.push(
+            Object.keys(sim.packs["greek-drama"].receipts).filter(
+              (id) => !prior.includes(id),
+            ),
+          );
+        }
+      }
+      const waitDoes = async (expected) => {
+        const world = await state();
+        const wait = legalActions(world).find((a) => a.kind === "wait");
+        worldLife.on = true;
+        try {
+          const result = play(world, wait, world.revision);
+          return (
+            result.ok &&
+            expected.every(
+              (id) => id in result.state.packs["greek-drama"].receipts,
+            )
+          );
+        } finally {
+          worldLife.on = false;
+        }
+      };
+      for (const [index, action] of steps.entries()) {
+        if (action.kind === "wait" && deeds[index].length)
+          for (
+            let n = 0;
+            n < 2 * MAX_DWELL && !(await waitDoes(deeds[index]));
+            n++
+          )
+            await step({ kind: "wait" });
         const prior = (await state()).packs["greek-drama"].receipts;
         await step(action);
         const now = await state();
@@ -196,6 +289,9 @@ export async function checkOpenDoor(browser, origin) {
         const done = Object.keys(now.packs["greek-drama"].receipts).filter(
           (id) => !(id in prior),
         );
+        // Arriving meets only whoever stands here; the rest come on a later play.
+        for (const id of action.kind === "move" ? [] : deeds[index])
+          assert.ok(done.includes(id), `${id} was done by ${action.kind}`);
         if (done.includes("greek-open-door-hear-mothers")) {
           // Aethra's story has no hand card; meeting her tells it.
           assert.equal(await page.locator("#hand [data-quest]").count(), 0);
