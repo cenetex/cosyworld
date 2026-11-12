@@ -3365,7 +3365,7 @@
           "greek-road-athens-piraeus": {
             name: "The Long Walls",
             text: "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
-            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. The walls open from either end once the herald has registered the mothers\u2019 plea with the Suppliant\u2019s Olive Branch in the Agora. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. It is open from either end. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-piraeus",
               "greek-athens"
@@ -4799,10 +4799,10 @@
           "greek-olive-branch": {
             name: "The Herald\u2019s Truce",
             startLevel: 30,
-            text: "An olive branch bound with white wool carries the herald\u2019s burial truce: Thebes gives up the Argive dead under witness. While it is in the Agora, the Long Walls stand open to Piraeus.",
+            text: "An olive branch bound with white wool carries the herald\u2019s burial truce: Thebes gives up the Argive dead under witness.",
             holder: "greek-athens",
             art: "assets/greek-drama/olive-branch.webp",
-            persona: "Describe the truce, its actual holder and its recorded use. Travelers set out from the Agora along the Long Walls only while it is in the Agora.",
+            persona: "Describe the truce, its actual holder and its recorded use.",
             requires: [
               {
                 kind: "flag",
@@ -5385,47 +5385,11 @@
           },
           {
             from: "greek-athens",
-            to: "greek-road-athens-piraeus",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-plea-registered",
-                value: true
-              },
-              {
-                kind: "item_near",
-                item: "greek-olive-branch",
-                place: "greek-athens"
-              }
-            ],
-            sealed: {
-              quest: {
-                kind: "place",
-                target: "greek-road-athens-piraeus"
-              }
-            }
+            to: "greek-road-athens-piraeus"
           },
           {
             from: "greek-piraeus",
-            to: "greek-road-athens-piraeus",
-            requires: [
-              {
-                kind: "flag",
-                key: "greek-open-door-plea-registered",
-                value: true
-              },
-              {
-                kind: "item_near",
-                item: "greek-olive-branch",
-                place: "greek-athens"
-              }
-            ],
-            sealed: {
-              quest: {
-                kind: "place",
-                target: "greek-road-athens-piraeus"
-              }
-            }
+            to: "greek-road-athens-piraeus"
           }
         ],
         choices: [
@@ -9658,12 +9622,10 @@
             id: "greek-open-door",
             name: "The Open Door",
             places: [
-              "greek-athens",
               "greek-colonus",
               "greek-eleusis",
               "greek-marathon",
               "greek-road-athens-harbor",
-              "greek-road-athens-piraeus",
               "greek-athens-harbor",
               "greek-cithaeron",
               "greek-road-athens-eleusis"

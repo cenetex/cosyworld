@@ -57,7 +57,10 @@ describe("every gated way and conditional resident in a mounted pack", () => {
             hidden[key],
             `${key} is sealed and listed hidden`,
           ).toBeUndefined();
-          expect(sealed.reason, `${key} carries no authored text`).toBeUndefined();
+          expect(
+            sealed.reason,
+            `${key} carries no authored text`,
+          ).toBeUndefined();
         } else expect(hidden[key], `${key} needs a seal`).toBeTruthy();
       };
       for (const r of world.routes || [])
@@ -132,18 +135,11 @@ describe("Greek gated ways are drawn locked and open on their old condition", ()
     openBox(s, road);
   });
 
-  it("shows the Long Walls from both ends until Theseus has the plea and the truce is in the Agora", () => {
+  it("draws the Long Walls open from both ends with no burial, plea or truce", () => {
     for (const end of ["greek-athens", "greek-piraeus"]) {
       const s = at(world(), end);
-      greek(s)["greek-open-door-open"] = true;
-      lockedBox(s, walls, /^Talk with /u);
-      greek(s)["greek-open-door-plea-registered"] = true;
-      s.items["greek-olive-branch"].holder = "greek-piraeus";
-      lockedBox(s, walls, /Herald’s Truce/u);
-      s.items["greek-olive-branch"].holder = "greek-athens";
-      greek(s)["greek-open-door-plea-registered"] = false;
-      lockedBox(s, walls, /^Talk with /u);
-      greek(s)["greek-open-door-plea-registered"] = true;
+      expect(greek(s)["greek-open-door-open"]).toBeFalsy();
+      expect(greek(s)["greek-open-door-plea-registered"]).toBeFalsy();
       openBox(s, walls);
     }
   });

@@ -189,22 +189,24 @@ describe("the Open Door", () => {
     // from createWorld by funeralJourney, and Dione's table follows.
     const { veiled, buried } = funeralJourney();
     // Piraeus Quays is Thebes's sea exit: the Charybdis calls there with
-    // cargo before Dione's invitation. Marathon is a rumour (rules 94).
-    expect(accessible(veiled)).toEqual(["greek-piraeus"]);
+    // cargo before Dione's invitation, and the Agora is a sea-route stop
+    // that needs no burial. Marathon is a rumour (rules 94).
+    expect(accessible(veiled)).toEqual(["greek-athens", "greek-piraeus"]);
     let world = buried;
     expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
     expect(state(world).flags["greek-open-door-open"]).toBe(true);
     expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
     world = openDoorWalk(reload(world), "harbor", "piraeus");
-    // The Long Walls stay shut from both ends until the herald's truce is
-    // in the Agora: a sea arrival stays at the quays. From the Agora the
-    // Sacred Way leads out to the countryside.
+    // The Long Walls are open from both ends with no truce: a sea arrival
+    // walks to the Agora. From the Agora the Sacred Way leads to the
+    // countryside.
     expect(world.actors.vale.place).toBe("greek-piraeus");
     expect(
       exits(world, "greek-piraeus", "vale").filter((to) => to !== "greek-ship"),
-    ).toEqual([]);
+    ).toEqual(["greek-road-athens-piraeus"]);
     expect(exits(world, "greek-athens", "vale")).toEqual([
       "greek-road-athens-eleusis",
+      "greek-road-athens-piraeus",
     ]);
     expect(entityActive(world, "greek-thinkery")).toBe(false);
     expect(entityActive(world, "greek-argolid-road")).toBe(false);
@@ -272,7 +274,7 @@ describe("the Open Door", () => {
 
   it("keeps later places and choices behind the first invitation", () => {
     const world = createWorld();
-    expect(accessible(world)).toEqual(["greek-piraeus"]);
+    expect(accessible(world)).toEqual(["greek-athens", "greek-piraeus"]);
     for (const place of OPEN_DOOR_PLACES) {
       world.actors.vale.place = place;
       expect(

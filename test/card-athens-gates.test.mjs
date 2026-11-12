@@ -8,21 +8,21 @@ import {
 
 // Athens has two gates, each a live condition in pack data. The Sacred Way
 // leads from Eleusis into the city while the mothers' petition is at Eleusis
-// or in the Agora; the way back is always open. The Long Walls open from
-// both ends once the herald's truce is in the Agora, so a sea arrival waits
-// at Piraeus, beside the ship home, until then (rules 94).
+// or in the Agora; the way back is always open. The Long Walls are open from
+// both ends from the start: the sea route to Athens needs no burial and no
+// truce, and is an alternative to the land route through the City Gate.
 const reload = (s) => decodeSave(encodeSave(s));
 const SACRED = "greek-road-athens-eleusis",
   WALLS = "greek-road-athens-piraeus";
 const opens = (s, from, road) => exits(s, from, "vale").includes(road);
 
 describe("the Athenian gates", () => {
-  it("opens the Sacred Way with the petition and the Long Walls with the truce", () => {
-    // Before the truce the Long Walls are shut from both ends, and the
+  it("opens the Sacred Way with the petition; the Long Walls need nothing", () => {
+    // The Long Walls are open from both ends before any truce, and the
     // Sacred Way from Eleusis waits for the mothers.
     let s = openDoorStart();
-    expect(opens(s, "greek-piraeus", WALLS)).toBe(false);
-    expect(opens(s, "greek-athens", WALLS)).toBe(false);
+    expect(opens(s, "greek-piraeus", WALLS)).toBe(true);
+    expect(opens(s, "greek-athens", WALLS)).toBe(true);
     expect(opens(s, "greek-athens", SACRED)).toBe(true);
     expect(opens(s, "greek-eleusis", SACRED)).toBe(false);
     // Walked in through the City Gate, meeting the mothers brings their
@@ -40,7 +40,7 @@ describe("the Athenian gates", () => {
     expect(s.items["greek-olive-branch"].holder).toBe("greek-athens");
     expect(opens(reload(s), "greek-eleusis", SACRED)).toBe(true);
     expect(opens(reload(s), "greek-athens", WALLS)).toBe(true);
-    // The truce leaves the Agora: the walls stay open once opened.
+    // The truce leaves the Agora: the walls stay open.
     s = playOpenDoor(s, "take", { item: "greek-olive-branch" });
     s = openDoorWalk(s, "piraeus");
     expect(s.items["greek-olive-branch"].holder).toBe("vale");

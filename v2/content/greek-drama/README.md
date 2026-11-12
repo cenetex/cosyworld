@@ -201,8 +201,8 @@ Otherwise they read as an inventory lock accepting its key.
 When Dione receives the account of burial, permission or warning, she opens
 the road to Athens. That records a lasting opening
 for the Athenian Agora, Colonus Grove and the Eleusinian Sanctuary, reached
-through the City Gate; the Long Walls from Piraeus Quays open with the
-herald's truce. One shared traveler can open the roads for everyone. Marathon Altar is a rumour in this release.
+through the City Gate. The Long Walls from Piraeus Quays to the Agora are
+open from the start: the sea route needs neither the burial nor the truce. One shared traveler can open the roads for everyone. Marathon Altar is a rumour in this release.
 
 The main journey follows the mothers in Euripides' _Suppliant Women_.
 Carry their petition to Theseus, choose the civic response, hear its report,
@@ -267,9 +267,10 @@ Black Pond route. Its lanes are in `v2/worlds/greek-drama/card-bridge.json`:
   ship comes back to a traveler waiting at any dock without cargo.
 
 Piraeus is Thebes's sea exit. It lies outside every section, so the
-provisions carry a traveler there before Dione's invitation; the Long Walls
-inland wait for the herald's truce, so until then Piraeus is a quay with the
-ship home. The Hoppy Cat jetty beyond it is reachable as early, with cargo.
+provisions carry a traveler there before Dione's invitation, and the Long
+Walls lead on to the Agora (`greek-athens`, also outside the section) at once.
+Reaching Athens by sea and by the City Gate are two independent routes: the
+burial gates neither. The Hoppy Cat jetty beyond it is reachable as early, with cargo.
 
 The ship is the quick way to a port, never a trap (#2049). From every dock
 the Charybdis sails to, a traveler reaches home on foot or by a free leg,
@@ -280,10 +281,8 @@ the empty ship. The land route is the real geography: the Long Walls to the
 Agora, the Sacred Way to Eleusis, the Cithaeron road to the battlefield,
 then the City Gate into Thebes, which opens only once the guard has held
 the decree there. The Coast Road, Piraeus to the Wine-Dark Harbor, retired.
-The Long Walls open from both ends only with the herald's truce, so a sea
-arrival waits at Piraeus until then and Attica is entered through the City
-Gate. After the exposure the gate may never open; then nobody reaches
-Attica by land or sea, and nobody is stranded there.
+The Long Walls are open from both ends, so a sea arrival walks to the Agora;
+the rest of Attica (Eleusis, Colonus) stays in the Open Door section.
 
 Marathon, the Trojan landing, the Greek camp and its household and grave,
 and the Northern Road leave the release. The Lemnian Cave, the Thracian
@@ -371,7 +370,7 @@ sails the Black Pond route described above; the Travel Provisions
 (`greek-provisions`, made by Myrto) laid on deck open the lane to Piraeus. Boarding the ship is a dock's
 one link to the sea. Giving Theseus the mothers' petition brings the
 herald's truce (`greek-olive-branch`, the Open Door's Agora outcome) into the
-Agora. While it is in the Agora, the Long Walls open from both ends.
+Agora. It no longer opens the Long Walls, which stand open from the start.
 Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Boarding keeps the ship at its harbour. The first course
