@@ -5,7 +5,10 @@ mod asset_routes;
 mod assets;
 #[path = "authoring_create_receipt.rs"]
 mod receipts;
-use crate::AppState;
+use crate::{
+    account_revision::{Error as RevisionError, Revision},
+    AppState,
+};
 pub(crate) use asset_routes::{store_generated, StoreError};
 use axum::{
     extract::{DefaultBodyLimit, Path, State},
@@ -36,6 +39,11 @@ const INVALID: Failure = (
     "Check the title, document, launch and file details.",
     None,
 );
+
+fn revision_error(error: RevisionError) -> Failure {
+    let (status, _, message) = error.parts();
+    (status, message, None)
+}
 
 pub(super) fn router() -> Router<AppState> {
     Router::new()
@@ -89,18 +97,18 @@ async fn run(
     state: AppState,
     headers: HeaderMap,
     mutation: bool,
-    work: impl FnOnce(Connection, String) -> Result<Value, Failure> + Send + 'static,
+    work: impl FnOnce(Connection, Revision) -> Result<Value, Failure> + Send + 'static,
 ) -> Response {
     let result = tokio::task::spawn_blocking(move || {
         let owner =
-            crate::card_shared::user(&state, &headers, mutation).map_err(|e| match e.as_str() {
+            crate::card_shared::revision(&state, &headers, mutation).map_err(|e| match e.as_str() {
                 "Sign in with your passkey." => {
                     (StatusCode::UNAUTHORIZED, "Sign in with your passkey.", None)
                 }
                 "Open this world on its own site." => {
                     (StatusCode::FORBIDDEN, "Open your packs on this site.", None)
                 }
-                _ => UNAVAILABLE,
+                _ => RevisionError::from_message(&e).map(revision_error).unwrap_or(UNAVAILABLE),
             })?;
         receipts::owner(&headers, &owner)?;
         let path = state.event_store_path.as_deref().ok_or(UNAVAILABLE)?;
@@ -120,6 +128,9 @@ async fn run(
     match result.unwrap_or(Err(UNAVAILABLE)) {
         Ok(value) => Json(value).into_response(),
         Err((status, error, revision)) => {
+            if let Some(error) = RevisionError::from_message(error) {
+                return error.response();
+            }
             let mut body = json!({"error":error});
             if let Some(revision) = revision {
                 body["revision"] = json!(revision);
@@ -159,6 +170,7 @@ async fn create(
         let tx = c
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(|_| UNAVAILABLE)?;
+        owner.check(&tx).map_err(revision_error)?;
         if let Some(receipt) = receipts::previous(&tx, &owner, key.as_deref(), &digest)? {
             return Ok(receipt);
         }
@@ -296,6 +308,7 @@ async fn save(
         let tx = c
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(|_| UNAVAILABLE)?;
+        owner.check(&tx).map_err(revision_error)?;
         let (current, previous_launch) = source_and_launch(&tx, &owner, &id)?;
         let revision = current["revision"].as_u64().ok_or(UNAVAILABLE)?;
         if revision != expected {

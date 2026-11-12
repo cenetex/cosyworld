@@ -178,7 +178,7 @@ fn tidy(
 }
 async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Create>) -> Response {
     let result = blocking(move || {
-        let revision = super::revision(&state, &h)?;
+        let revision = super::revision(&state, &h, true)?;
         let u = revision.user.clone();
         admit(&u)?;
         let mut c = db(&state)?;
@@ -317,7 +317,7 @@ async fn command(
         let state = worker;
         let id = wid;
         valid_id(&id)?;
-        let revision = super::revision(&state, &h)?;
+        let revision = super::revision(&state, &h, true)?;
         let u = revision.user.clone();
         admit(&u)?;
         logged(&id, || {

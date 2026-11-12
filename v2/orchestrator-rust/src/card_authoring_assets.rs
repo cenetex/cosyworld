@@ -1,6 +1,9 @@
 //! Owner-only uploads become ready only after the immutable file is durable.
 use super::assets::{Error, PrivateAssetStore};
-use crate::AppState;
+use crate::{
+    account_revision::{Error as RevisionError, Revision},
+    AppState,
+};
 use axum::{
     body::{to_bytes, Body, Bytes},
     extract::{Path, Request, State},
@@ -25,6 +28,11 @@ type Failure = (StatusCode, &'static str);
 const UNAVAILABLE: Failure = (StatusCode::SERVICE_UNAVAILABLE, "Try this file again.");
 const MISSING: Failure = (StatusCode::NOT_FOUND, "Choose one of your private files.");
 const INVALID: Failure = (StatusCode::BAD_REQUEST, "Check the file and digest.");
+
+fn revision_error(error: RevisionError) -> Failure {
+    let (status, _, message) = error.parts();
+    (status, message)
+}
 
 pub(super) fn router() -> Router<AppState> {
     // The parent adds no-store and ExplicitResponseStatus to every response.
@@ -67,20 +75,22 @@ fn storage(error: Error) -> Failure {
         Error::Unavailable => UNAVAILABLE,
     }
 }
-async fn owner(state: AppState, headers: HeaderMap, mutation: bool) -> Result<String, Failure> {
+async fn owner(state: AppState, headers: HeaderMap, mutation: bool) -> Result<Revision, Failure> {
     tokio::task::spawn_blocking(move || {
         let owner =
-            crate::card_shared::user(&state, &headers, mutation).map_err(
-                |message| match message.as_str() {
+            crate::card_shared::revision(&state, &headers, mutation).map_err(|message| {
+                match message.as_str() {
                     "Sign in with your passkey." => {
                         (StatusCode::UNAUTHORIZED, "Sign in with your passkey.")
                     }
                     "Open this world on its own site." => {
                         (StatusCode::FORBIDDEN, "Open your files on this site.")
                     }
-                    _ => UNAVAILABLE,
-                },
-            )?;
+                    _ => RevisionError::from_message(&message)
+                        .map(revision_error)
+                        .unwrap_or(UNAVAILABLE),
+                }
+            })?;
         super::receipts::owner(&headers, &owner)
             .map_err(|(status, message, _)| (status, message))?;
         Ok(owner)
@@ -93,13 +103,14 @@ async fn owner(state: AppState, headers: HeaderMap, mutation: bool) -> Result<St
 fn commit(
     c: &mut rusqlite::Connection,
     state: &AppState,
-    owner: &str,
+    owner: &Revision,
     digest: &str,
     bytes: &[u8],
 ) -> Result<u64, Failure> {
     let tx = c
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|_| UNAVAILABLE)?;
+    owner.check(&tx).map_err(revision_error)?;
     let store = PrivateAssetStore::new(&state.generated_asset_dir, owner).map_err(storage)?;
     let receipt = store.put(digest, bytes).map_err(storage)?;
     tx.execute(
@@ -121,7 +132,7 @@ pub(crate) enum StoreError {
 /// Keep bytes the server made (a finished image) as the owner's private file.
 pub(crate) fn store_generated(
     state: &AppState,
-    owner: &str,
+    owner: &Revision,
     digest: &str,
     bytes: &[u8],
 ) -> Result<u64, StoreError> {
@@ -148,7 +159,10 @@ async fn serve(
 ) -> Response {
     match transfer(state, digest, request).await {
         Ok(response) => response,
-        Err((status, error)) => (status, Json(json!({"error":error}))).into_response(),
+        Err((status, error)) => match RevisionError::from_message(error) {
+            Some(error) => error.response(),
+            None => (status, Json(json!({"error":error}))).into_response(),
+        },
     }
 }
 async fn transfer(state: AppState, digest: String, request: Request) -> Result<Response, Failure> {

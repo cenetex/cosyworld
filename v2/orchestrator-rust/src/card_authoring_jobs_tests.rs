@@ -253,7 +253,7 @@ async fn each_kind_runs_to_a_stored_result_that_matches_the_synchronous_route() 
 
     let (status, job) = h.create(&cookie, "avatars", avatars()).await;
     assert_eq!(status, 202);
-    assert_eq!(job["status"], "queued");
+    assert_eq!(job["status"], "running");
     assert_eq!(job["kind"], "avatars");
     assert!(job["createdAt"].as_i64().unwrap() > 0);
     let done = h.finished(&cookie, job["id"].as_str().unwrap()).await;
@@ -893,4 +893,191 @@ async fn request_lookup_validates_keys_and_only_reads_the_signed_in_owner() {
         .query_row("SELECT count(*) FROM authoring_jobs", [], |r| r.get(0))
         .unwrap();
     assert_eq!(count, LISTED + 2);
+}
+
+#[tokio::test]
+async fn stale_revision_refuses_every_maker_mutation_before_work() {
+    let h = Harness::new().await;
+    let cookie = h.cookie("maker");
+    crate::open_event_store(&h.db)
+        .unwrap()
+        .execute("INSERT INTO account_revisions VALUES('maker',1)", [])
+        .unwrap();
+    let routes = [
+        (
+            "POST",
+            "/card-game/authoring/packs".to_string(),
+            Some(json!({})),
+        ),
+        (
+            "PUT",
+            "/card-game/authoring/packs/draft".to_string(),
+            Some(json!({})),
+        ),
+        (
+            "PUT",
+            format!("/card-game/authoring/assets/{}", "a".repeat(64)),
+            None,
+        ),
+        (
+            "POST",
+            ROUTE.to_string(),
+            Some(json!({"kind":"seed","request":seed()})),
+        ),
+        (
+            "POST",
+            "/card-game/authoring/generate/seed".to_string(),
+            Some(seed()),
+        ),
+        (
+            "POST",
+            "/card-game/authoring/generate/avatars".to_string(),
+            Some(avatars()),
+        ),
+        ("POST", images::ROUTE.to_string(), Some(portrait())),
+    ];
+    for (method, route, body) in routes {
+        for extra in [
+            &[][..],
+            &[("x-account-user", "maker"), ("x-account-revision", "0")][..],
+        ] {
+            let (status, response) = h.call(&cookie, method, &route, body.clone(), extra).await;
+            assert_eq!(status, 409, "{route}: {response}");
+            assert_eq!(response["code"], "account_reset", "{route}: {response}");
+        }
+    }
+    assert_eq!(h.provider_calls(), 0);
+    assert!(!h.generated.join("authoring-private").exists());
+    // The stable identity is still usable after explicitly accepting the new revision.
+    *h.chat.lock().unwrap() = (StatusCode::OK, world(), "stop");
+    let (status, job) = h
+        .call(
+            &cookie,
+            "POST",
+            ROUTE,
+            Some(json!({"kind":"seed","request":seed()})),
+            &[("x-account-user", "maker"), ("x-account-revision", "1")],
+        )
+        .await;
+    assert_eq!(status, 202, "{job}");
+    let result = h.finished(&cookie, job["id"].as_str().unwrap()).await;
+    assert_eq!(result["status"], "done", "{result}");
+}
+
+#[tokio::test]
+async fn late_job_file_and_settlement_keep_the_original_revision() {
+    let _files = crate::card_authoring::ASSET_TEST_LOCK.lock().await;
+    let h = Harness::new().await;
+    let c = open(&h.state).unwrap();
+    let old = Revision::capture(&c, "maker", &HeaderMap::new()).unwrap();
+    c.execute("INSERT INTO authoring_jobs(id,owner,kind,digest,status,created_at,updated_at) VALUES('job','maker','image','','running',0,0)", []).unwrap();
+    c.execute("INSERT INTO account_revisions VALUES('maker',1)", [])
+        .unwrap();
+    assert_eq!(
+        settle(
+            &h.state,
+            &old,
+            "job",
+            "done",
+            Some(json!({"old":true})),
+            None
+        )
+        .await
+        .unwrap_err()
+        .code,
+        "account_reset"
+    );
+    let image = || images::Drawn {
+        bytes: png(6, 4),
+        basis: "fixture".into(),
+        usage: json!({}),
+    };
+    assert!(keep(&h.state, &old, image()).await.is_err());
+    assert!(!h.generated.join("authoring-private").exists());
+    let rows: i64 = c
+        .query_row("SELECT count(*) FROM authoring_assets", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(rows, 0);
+    let status: String = c
+        .query_row(
+            "SELECT status FROM authoring_jobs WHERE id='job'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(status, "running");
+    let fresh = Revision {
+        user: "maker".into(),
+        epoch: 1,
+    };
+    assert!(keep(&h.state, &fresh, image()).await.is_ok());
+    settle(
+        &h.state,
+        &fresh,
+        "job",
+        "done",
+        Some(json!({"new":true})),
+        None,
+    )
+    .await
+    .unwrap();
+    let owner: String = c
+        .query_row("SELECT owner FROM authoring_assets", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(owner, "maker");
+}
+
+#[tokio::test]
+async fn failed_running_claim_never_accepts_or_strands_paid_work() {
+    let h = Harness::new().await;
+    let cookie = h.cookie("maker");
+    *h.chat.lock().unwrap() = (StatusCode::OK, world(), "stop");
+    let c = open(&h.state).unwrap();
+    c.execute_batch(
+        "CREATE TRIGGER reject_running_insert BEFORE INSERT ON authoring_jobs
+        WHEN NEW.status='running' BEGIN SELECT RAISE(ABORT,'fixture unavailable'); END;
+        CREATE TRIGGER reject_running_update BEFORE UPDATE OF status ON authoring_jobs
+        WHEN NEW.status='running' BEGIN SELECT RAISE(ABORT,'fixture unavailable'); END;",
+    )
+    .unwrap();
+    let headers = [("idempotency-key", "0b0e3e3a-6d0c-4c0e-9d6f-4c5f2b0a9b11")];
+    let body = json!({"kind":"seed","request":seed()});
+    // Keep storage unavailable across retries, not only the first failed write.
+    for _ in 0..2 {
+        let (status, failure) = h
+            .call(&cookie, "POST", ROUTE, Some(body.clone()), &headers)
+            .await;
+        assert_eq!(status, 503, "{failure}");
+        assert_eq!(failure["code"], "jobs_unavailable");
+        let count: usize = c
+            .query_row("SELECT count(*) FROM authoring_jobs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 0);
+        assert_eq!(h.provider_calls(), 0);
+        assert_eq!(
+            h.call(
+                &cookie,
+                "GET",
+                &format!("{ROUTE}/by-request"),
+                None,
+                &headers
+            )
+            .await
+            .0,
+            404
+        );
+    }
+    c.execute_batch("DROP TRIGGER reject_running_insert; DROP TRIGGER reject_running_update;")
+        .unwrap();
+    let (status, accepted) = h
+        .call(&cookie, "POST", ROUTE, Some(body.clone()), &headers)
+        .await;
+    assert_eq!(status, 202, "{accepted}");
+    assert_eq!(accepted["status"], "running");
+    let (status, again) = h.call(&cookie, "POST", ROUTE, Some(body), &headers).await;
+    assert_eq!(status, 200, "{again}");
+    assert_eq!(again["id"], accepted["id"]);
+    let finished = h.finished(&cookie, accepted["id"].as_str().unwrap()).await;
+    assert_eq!(finished["status"], "done", "{finished}");
+    assert_eq!(h.provider_calls(), 1);
 }

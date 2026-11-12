@@ -1,5 +1,6 @@
 //! Seed passages and evidence stay in memory; the client reviews each output.
 use crate::{
+    account_revision::{Error as RevisionError, Revision},
     ai_gateway::{self, AiGatewayError, ChatCompletionRequest, ModelCapability},
     AppState,
 };
@@ -125,13 +126,21 @@ impl From<admission::Refusal> for Failed {
             .retry(refusal.retry_after_ms)
     }
 }
+impl From<RevisionError> for Failed {
+    fn from(error: RevisionError) -> Self {
+        let (status, code, message) = error.parts();
+        Self::new(status, message, code)
+    }
+}
 const INVALID_REQUEST: &str = "request_invalid";
 
 /// The passkey account behind a mutation, or the failure to answer with.
-async fn owner(state: &AppState, headers: HeaderMap, mutation: bool) -> Result<String, Failed> {
+async fn owner(state: &AppState, headers: HeaderMap, mutation: bool) -> Result<Revision, Failed> {
     let state = state.clone();
-    match tokio::task::spawn_blocking(move || crate::card_shared::user(&state, &headers, mutation))
-        .await
+    match tokio::task::spawn_blocking(move || {
+        crate::card_shared::revision(&state, &headers, mutation)
+    })
+    .await
     {
         Ok(Ok(owner)) => Ok(owner),
         Ok(Err(error)) if error == "Sign in with your passkey." => Err(Failed::new(
@@ -141,6 +150,9 @@ async fn owner(state: &AppState, headers: HeaderMap, mutation: bool) -> Result<S
         )),
         Ok(Err(error)) if error == "Open this world on its own site." => {
             Err(Failed::new(StatusCode::FORBIDDEN, error, "wrong_site"))
+        }
+        Ok(Err(error)) if RevisionError::from_message(&error).is_some() => {
+            Err(Failed::from(RevisionError::from_message(&error).unwrap()))
         }
         _ => Err(Failed::new(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -350,7 +362,7 @@ fn prepare_avatars(state: &AppState, input: Input) -> Result<Run, Failed> {
 
 /// The route handlers' shared tail: admit, run detached so a closed browser
 /// cannot cancel a paid call, and answer with the finished result.
-async fn respond(state: &AppState, owner: String, run: Run) -> Response {
+async fn respond(state: &AppState, owner: Revision, run: Run) -> Response {
     let permit = match admission::admit(scope(state), run.pool(), &owner, Instant::now()) {
         Ok(permit) => permit,
         Err(refusal) => return Failed::from(refusal).response(),
