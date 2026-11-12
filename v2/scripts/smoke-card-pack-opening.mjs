@@ -1,9 +1,10 @@
 // The pack opening (pack-opening.mjs). Arriving at a place with three or more
 // cards not yet turned, they lie in the hand as ONE face-down stack. Tapping
 // it raises the hand and the cards rise into the row, still face down, a
-// Rare or better showing only a rim glow. The one button reads Reveal all;
-// a tap on a card turns it at once; Reveal all turns the rest commons first;
-// a tap finishes the run; Done settles every card back into the hand. A
+// Rare or better showing only a rim glow. The one button is the whole
+// descriptor (New cards unlocked, Tap to reveal all); a tap on a card turns
+// it at once; Reveal all turns the rest commons first; a tap finishes the
+// run; All cards revealed, Tap to continue settles them back into the hand. A
 // locked box in the pack is turned and stays locked. Nothing is named before
 // it is turned. At 390 and 1440 px, and with reduced motion.
 //
@@ -127,23 +128,43 @@ async function openTable(width, motion, { covered, tag }) {
   return { page, key, errors };
 }
 
+// The pack's one button is the whole descriptor: its sentence, and the tap
+// cue in its corner.
 const buttons = (page) =>
   page.evaluate(() =>
     [...document.querySelectorAll("#card-actions button")]
       .filter((b) => b.checkVisibility())
-      .map((b) => b.textContent.trim()),
+      .map((b) => `${b.textContent.trim()} / ${b.dataset.tapHint}`),
   );
-const oneButton = async (page, text, step) => {
+const ASKS = {
+  "Reveal all": "New cards unlocked / Tap to reveal all",
+  "Tap to finish": "Turning the cards / Tap to finish",
+  Done: "All cards revealed / Tap to continue",
+};
+const oneButton = async (page, ask, step) => {
+  const text = ASKS[ask];
   await page.waitForFunction(
     (text) => {
       const shown = [...document.querySelectorAll("#card-actions button")].filter((b) =>
         b.checkVisibility(),
       );
-      return shown.length === 1 && shown[0].textContent.trim() === text;
+      return (
+        shown.length === 1 &&
+        document.querySelector("#action-beat").getAttribute("data-card-tap") === "" &&
+        shown[0].dataset.revealing === "false" &&
+        `${shown[0].textContent.trim()} / ${shown[0].dataset.tapHint}` === text
+      );
     },
     text,
   );
   assert.deepEqual(await buttons(page), [text], step);
+  // The button fills its descriptor: no strip is left under it.
+  const fill = await page.evaluate(() => {
+    const panel = document.querySelector("#action-beat").getBoundingClientRect(),
+      button = document.querySelector("#card-actions button").getBoundingClientRect();
+    return panel.height - button.height;
+  });
+  assert.ok(fill <= 4, `${step}: the button fills the descriptor (${fill}px left)`);
 };
 const unturned = (page, key) =>
   page.evaluate(

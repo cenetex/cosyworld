@@ -5,6 +5,7 @@ import {
   PACK_KINDS,
   PACK_MIN,
   PACK_REVEAL_ALL,
+  PACK_TEXT,
   PACK_TIERS,
   createPackOpening,
   packMembers,
@@ -14,6 +15,7 @@ import {
   tellGlow,
   turnPlan,
 } from "../v2/card-game/pack-opening.mjs";
+import { tapPrompt } from "../v2/card-game/presentation.mjs";
 import { createSfx } from "../v2/card-game/sfx.mjs";
 
 // Made-up cards: the kind is the first letter of the id.
@@ -116,7 +118,7 @@ describe("the pack's state machine", () => {
     expect(pack.open()).toBe(true);
     expect(pack.state).toBe("open");
     expect(pack.open()).toBe(false);
-    expect(pack.prompt(t.unturned)).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL });
+    expect(pack.prompt(t.unturned)).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL, text: PACK_TEXT.reveal });
 
     const done = [];
     pack.revealAll({
@@ -129,13 +131,12 @@ describe("the pack's state machine", () => {
       done: () => done.push("done"),
     });
     expect(pack.state).toBe("running");
-    expect(pack.prompt(t.unturned)).toEqual({ kind: "finish", label: PACK_FINISH });
-    expect(PACK_FINISH).toBe("Tap to finish");
+    expect(pack.prompt(t.unturned)).toEqual({ kind: "finish", label: PACK_FINISH, text: PACK_TEXT.finish });
     timers.advance(20000);
     // Commons first, the rarest last, then the run is over.
     expect(done).toEqual(["p-here", "i-pin", "a-fox", "i-gem", "done"]);
     expect(pack.state).toBe("turned");
-    expect(pack.prompt(t.unturned)).toEqual({ kind: "done", label: PACK_DONE });
+    expect(pack.prompt(t.unturned)).toEqual({ kind: "done", label: PACK_DONE, text: PACK_TEXT.done });
 
     expect(pack.finish({ tierOf })).toBe(true);
     expect(pack.state).toBe("done");
@@ -159,7 +160,7 @@ describe("the pack's state machine", () => {
     for (const id of ["i-gem", "i-pin"]) pack.turnOne(id, { unturned: t.unturned, turn: t.turn });
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
     expect(pack.state).toBe("turned");
-    expect(pack.prompt(t.unturned).label).toBe("Done");
+    expect(pack.prompt(t.unturned).label).toBe(PACK_DONE);
   });
 
   it("skips: every card still face down turns now and the run ends, none half turned", () => {
@@ -308,8 +309,17 @@ describe("the pack's state machine", () => {
     expect(pack.frameFor("a-fox")).toEqual({ shown: true, top: false, under: 0 });
   });
 
-  it("uses only the three button labels", () => {
-    expect([PACK_REVEAL_ALL, PACK_FINISH, PACK_DONE]).toEqual(["Reveal all", "Tap to finish", "Done"]);
+  it("uses only three sentences and their tap cues", () => {
+    expect(PACK_TEXT).toEqual({
+      reveal: "New cards unlocked",
+      finish: "Turning the cards",
+      done: "All cards revealed",
+    });
+    expect(
+      [PACK_REVEAL_ALL, PACK_FINISH, PACK_DONE].map((verb) => tapPrompt(verb, true).hint),
+    ).toEqual(["Tap to reveal all", "Tap to finish", "Tap to continue"]);
+    // A confirm that already says how to tap is the cue as it stands.
+    expect(tapPrompt("Tap again to sign out", true).hint).toBe("Tap again to sign out");
   });
 });
 

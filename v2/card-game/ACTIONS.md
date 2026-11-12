@@ -82,11 +82,21 @@ You do its step as any play: choose the item and the person (Lamp and Pip, Give)
 
 The pack (client only, `pack-opening.mjs`). Three or more face-down cards (offers
 and locked boxes among them) lie in the hand as one stack. Tapping it raises
-the hand with nothing chosen, and the one button reads Reveal all; a tap on a
-face-down card inside the pack turns it at once (outside a pack the first tap
-still only selects). While Reveal all plays the button reads Tap to finish, and
-once every card is turned it reads Done; it is always one button, the same
-context button, and a chosen card shows its own one button as usual. Turning a
+the hand with nothing chosen, and the one button reads New cards unlocked,
+Tap to reveal all; a tap on a face-down card inside the pack turns it at once
+(outside a pack the first tap still only selects). While Reveal all plays the
+button reads Turning the cards, Tap to finish, and once every card is turned
+it reads All cards revealed, Tap to continue; it is always one button, the
+same context button, and a chosen card shows its own one button as usual.
+
+The one button is always the whole descriptor: the art on the left, the
+sentence, and a small Tap to cue in the corner. There is no smaller button
+form. The pack, Settings and the ☰ menu use it as plays do (in Settings the
+action is the cue: Tap to turn music off). A blocked play is the same card,
+disabled: its reason is the sentence (a sleeper, full hands), or the corner
+cue beside a named play or quest (a refused shared play, an offer while a
+quest is held), as Locked is. Only a maker card with a text field keeps its
+button beside the field. Turning a
 locked box is cosmetic: it stays locked and its button still reads Locked.
 
 Pairs work in either order. Arrow keys move between visible cards. Enter

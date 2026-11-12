@@ -50,6 +50,8 @@ export function actionTapVerb(action, label = "") {
 export function tapPrompt(verb, complete, label = verb) {
   if (!complete) return { hint: "Tap to finish", label: "Finish reading" };
   const word = verb?.replace(/^\p{L}/u, (first) => first.toLowerCase());
+  // A confirm already says how to tap ("Tap again to sign out").
+  if (/^Tap /u.test(verb ?? "")) return { hint: verb, label };
   return { hint: word ? `Tap to ${word}` : "", label };
 }
 export function phase({

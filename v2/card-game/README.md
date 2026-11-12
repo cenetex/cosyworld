@@ -82,7 +82,10 @@ group with its peek (the play hand's 180 ms shuffle; reduced motion only
 brightens it). Choosing a setting puts its action in the context button
 ("Turn voices off", "Open privacy"); pressing the button does it and folds
 the group back. With no card chosen the button is Close settings, and Escape
-unchooses, then closes. A card shows only its name and art. Its face is its
+unchooses, then closes. The button is the whole descriptor, as a play's is:
+the card's art, its name and info line, and the action as the corner cue
+("Tap to turn music off"); a held-off setting's reason is the cue in its own
+words. Only a maker card with a text field keeps its button beside the field. A card shows only its name and art. Its face is its
 state: lit while on, dim while off. State words and reasons are in the button
 and the beat's info line, and in each card's accessible name ("Music, off").
 Sign out, New game and Restore a backup ask a second press ("Tap again to
@@ -92,7 +95,7 @@ Settings opens with You fanned, and Privacy is the first thing it holds, so
 Privacy is one tap away. You then holds Account (hosted play),
 Another passkey (a shared world, signed in) and Play counts. Sound holds
 Music, Voices and Volume. Play holds Fight speed, Flashes and scares and
-Controls, whose Next tip shows the next tip in place and keeps Controls
+Controls, whose button shows the next tip in place and keeps Controls
 chosen. World holds the switchable pack cards, Cosy
 Cottage (`lonely-forest`), The Reflected Shore (the hub), Night Shift at RatiRadio
 (`ratiradio`), The Wine-Dark Sea
@@ -684,15 +687,16 @@ together in the hand as one face-down stack, its thickness hinting at the
 count (`pack-opening.mjs`; the ways stack's own folded layers). A new game's
 opening and the new-world title are not packs; one or two unturned cards turn
 in place as above. Tapping the stack raises the hand and the cards rise into
-the row face down, the place's card first. The one button then reads Reveal
-all. Inside an open pack the first tap on a face-down card turns it at once
+the row face down, the place's card first. The one button is then the whole
+descriptor, as every play's is: the carved card back, the words New cards
+unlocked, and the corner cue Tap to reveal all. Inside an open pack the first tap on a face-down card turns it at once
 (the only place a first tap opens a card: outside a pack the first tap still
 only selects, as above, and a turned card in the pack is chosen like any
 card). Reveal all turns the rest one after another, commons first and the
-rarest last; its button reads Tap to finish while it plays, and a tap on it,
-on a card, or away finishes the run with every card turned, never half turned.
-With every card turned the button reads Done, and Done (or tapping away, or
-Escape) settles the cards back into their normal places a beat apart, the
+rarest last; its button reads Turning the cards, Tap to finish while it plays,
+and a tap on it, on a card, or away finishes the run with every card turned,
+never half turned. With every card turned the button reads All cards revealed,
+Tap to continue, and that tap (or tapping away, or Escape) settles the cards back into their normal places a beat apart, the
 rarest last. Cards still face down when the pack is put away stay face down and
 form a pack again if three or more remain; a card arriving while a pack is open
 forms the next pack. A locked box in a pack is turned like the others and stays

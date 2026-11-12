@@ -5,7 +5,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { authoringCardId } from "../card-game/authoring-tree.mjs";
-import { smokeWidths } from "./card-browser-helpers.mjs";
+import { actionLabel, smokeWidths } from "./card-browser-helpers.mjs";
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
@@ -188,7 +188,7 @@ try {
     await page.screenshot({
       path: `output/authoring-collections/${width}-world.png`,
     });
-    assert.equal(await action.innerText(), "Enter world seed");
+    assert.equal(await actionLabel(action), "Enter world seed");
     await press(action);
     await page
       .getByRole("textbox", { name: "World idea" })
@@ -239,7 +239,7 @@ try {
     await choose(["pack", "places", "b"], "entity");
     await choose(["pack", "places", "b"], "contents");
     await choose(["pack"], "root");
-    assert.notEqual(await action.innerText(), "Enter world seed");
+    assert.notEqual(await actionLabel(action), "Enter world seed");
     await choose(["pack", "places", "a"], "entity");
     await choose(["pack", "places", "a"], "contents");
     await press(
@@ -247,7 +247,7 @@ try {
         `[data-setting="${authoringCardId(["pack", "items", "oil"], "entity")}-contents"]`,
       ),
     );
-    assert.equal(await action.innerText(), "Move Oil from Yard to Port");
+    assert.equal(await actionLabel(action), "Move Oil from Yard to Port");
     await press(action);
     await save();
     saved = await page.evaluate(() => window.test.read());
@@ -265,7 +265,7 @@ try {
     await choose(["pack", "avatars", "person"], "quests");
     await choose(["pack", "items", "oil"], "entity");
     assert.equal(
-      await action.innerText(),
+      await actionLabel(action),
       "Set Robin's starting quest: bring Oil",
     );
     await page.keyboard.press("Escape");

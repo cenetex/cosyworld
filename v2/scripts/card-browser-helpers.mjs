@@ -62,6 +62,12 @@ export async function openSettings(page) {
   await page.locator("#menu-button").click();
   await page.locator("#settings-hand .card").first().waitFor();
 }
+// The context button's own words. When the whole descriptor is the button
+// its text is the tap cue ("Tap to turn music off") and its accessible name
+// is the action; a disabled reason keeps its words as text.
+export async function actionLabel(button) {
+  return (await button.getAttribute("aria-label")) ?? (await button.textContent());
+}
 export async function pressSetting(page, id, times = 1) {
   const card = page.locator(`#settings-hand [data-setting="${id}"]`);
   const frame = card.locator("..");
