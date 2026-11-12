@@ -56,6 +56,8 @@ mod observations;
 mod perception;
 #[path = "card_narrative/person.rs"]
 mod person;
+#[path = "card_narrative/promise.rs"]
+mod promise;
 #[path = "card_narrative/recall.rs"]
 mod recall;
 #[path = "card_narrative/recital.rs"]
@@ -2638,7 +2640,9 @@ impl<'a> Check<'a> {
             if !observations::consistent(&text, self.context) {
                 return Err("observable_state");
             }
-            if !custody::consistent(&text, self.context, &self.entity.id) {
+            if !custody::consistent(&text, self.context, &self.entity.id)
+                || !promise::kept(&text, self.context, &self.entity.id)
+            {
                 return Err("custody");
             }
             flag(
@@ -2846,7 +2850,9 @@ impl<'a> Check<'a> {
         if !observations::consistent(&kept, self.context) {
             return Err("observable_state");
         }
-        if !custody::consistent(&kept, self.context, &self.entity.id) {
+        if !custody::consistent(&kept, self.context, &self.entity.id)
+            || !promise::kept(&kept, self.context, &self.entity.id)
+        {
             return Err("custody");
         }
         if !recital::consistent(&kept, &self.entity.id, self.entity.poem.as_ref()) {
