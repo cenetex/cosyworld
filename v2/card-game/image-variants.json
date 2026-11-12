@@ -2222,6 +2222,15 @@
       "phone": "assets/optimized/phone/png/greek-drama/ajax-tools.webp",
       "phoneHash": "36e99aec06190ff9de9b56de9b36a085116022b2b7c16bb0cadc508ab0beda07"
     },
+    "assets/greek-drama/arcanum-3.png": {
+      "sourceHash": "8cb22f4a84890e875ba6ecc104703efba693bd963f70cc6d487f1db1d242905c",
+      "stage": "assets/optimized/stage/png/greek-drama/arcanum-3.webp",
+      "stageHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3",
+      "card": "assets/optimized/stage/png/greek-drama/arcanum-3.webp",
+      "cardHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3",
+      "phone": "assets/optimized/stage/png/greek-drama/arcanum-3.webp",
+      "phoneHash": "2bd79a0152815de43babc6367195e0e7c099b9960e89ed1c5662263d445778f3"
+    },
     "assets/greek-drama/ash-urn.png": {
       "sourceHash": "01e334934141d439cf4900214bf871d457ef760549cc0c6609131a75b18d5f87",
       "stage": "assets/optimized/stage/png/greek-drama/ash-urn.webp",
@@ -4210,6 +4219,51 @@
       "cardHash": "c19054288874cbc2ec546d609e8255f71164cf7cb0eebf6c550b16f105eeb849",
       "phone": "assets/optimized/stage/png/lamp-card.webp",
       "phoneHash": "2948748c10d7fd740f566debc6d57d83058d18b952f705db969192249603d47d"
+    },
+    "assets/lonely-forest/arcanum-0.png": {
+      "sourceHash": "4d437b2f496f71b0448031eddc4f5e5a705d5f08f993438bab7e188290955853",
+      "stage": "assets/optimized/stage/png/lonely-forest/arcanum-0.webp",
+      "stageHash": "8f756c489525561269ea657cf9f43742d4e87ec017162bf32a32f8a7f5765129",
+      "card": "assets/optimized/stage/png/lonely-forest/arcanum-0.webp",
+      "cardHash": "8f756c489525561269ea657cf9f43742d4e87ec017162bf32a32f8a7f5765129",
+      "phone": "assets/optimized/stage/png/lonely-forest/arcanum-0.webp",
+      "phoneHash": "8f756c489525561269ea657cf9f43742d4e87ec017162bf32a32f8a7f5765129"
+    },
+    "assets/lonely-forest/arcanum-1.png": {
+      "sourceHash": "c155f4dc0e6ca55f4cc67ea12f3e20493dffa37212e9fa458d328d116457b96d",
+      "stage": "assets/optimized/stage/png/lonely-forest/arcanum-1.webp",
+      "stageHash": "d21732243a7644253bc8808a73d046c305c0eb9976a2d979de43e4f675692cc3",
+      "card": "assets/optimized/stage/png/lonely-forest/arcanum-1.webp",
+      "cardHash": "d21732243a7644253bc8808a73d046c305c0eb9976a2d979de43e4f675692cc3",
+      "phone": "assets/optimized/stage/png/lonely-forest/arcanum-1.webp",
+      "phoneHash": "d21732243a7644253bc8808a73d046c305c0eb9976a2d979de43e4f675692cc3"
+    },
+    "assets/lonely-forest/arcanum-2.png": {
+      "sourceHash": "1812718f5420aa7b5aa3842173295804a696e2ca931a0a60b32b3f4234d34751",
+      "stage": "assets/optimized/stage/png/lonely-forest/arcanum-2.webp",
+      "stageHash": "b842f5f6e6d133f67713d761b410c2965c08020dbf1a9ca82d79d066473667bf",
+      "card": "assets/optimized/stage/png/lonely-forest/arcanum-2.webp",
+      "cardHash": "b842f5f6e6d133f67713d761b410c2965c08020dbf1a9ca82d79d066473667bf",
+      "phone": "assets/optimized/stage/png/lonely-forest/arcanum-2.webp",
+      "phoneHash": "b842f5f6e6d133f67713d761b410c2965c08020dbf1a9ca82d79d066473667bf"
+    },
+    "assets/lonely-forest/arcanum-4.png": {
+      "sourceHash": "7a6fb50b0bd3ded97ee47146a8c7667b7358ca9ca5ebba70bf4b24b8f8f98ac1",
+      "stage": "assets/optimized/stage/png/lonely-forest/arcanum-4.webp",
+      "stageHash": "58082cbf806c711a13770662711970bf9d08ee7065698dfbaabb32889700bfe4",
+      "card": "assets/optimized/stage/png/lonely-forest/arcanum-4.webp",
+      "cardHash": "58082cbf806c711a13770662711970bf9d08ee7065698dfbaabb32889700bfe4",
+      "phone": "assets/optimized/stage/png/lonely-forest/arcanum-4.webp",
+      "phoneHash": "58082cbf806c711a13770662711970bf9d08ee7065698dfbaabb32889700bfe4"
+    },
+    "assets/lonely-forest/arcanum-5.png": {
+      "sourceHash": "7b0da4ef1bc7baa71fdec88aea92396a15cf0d90ccbdd6663ee6a10962a8e02d",
+      "stage": "assets/optimized/stage/png/lonely-forest/arcanum-5.webp",
+      "stageHash": "d78874bede93b60dc5d4687bdcb10f8510640da8f64cea1ec14194100c2218e1",
+      "card": "assets/optimized/stage/png/lonely-forest/arcanum-5.webp",
+      "cardHash": "d78874bede93b60dc5d4687bdcb10f8510640da8f64cea1ec14194100c2218e1",
+      "phone": "assets/optimized/stage/png/lonely-forest/arcanum-5.webp",
+      "phoneHash": "d78874bede93b60dc5d4687bdcb10f8510640da8f64cea1ec14194100c2218e1"
     },
     "assets/lonely-forest/button-ada.png": {
       "sourceHash": "4fdb80d97cef1fe2c20b87440ad8e8edf2a28e508f773e6e5d76813afa73b8d7",

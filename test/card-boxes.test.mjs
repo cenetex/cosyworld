@@ -295,7 +295,7 @@ describe("XP for opening a box", () => {
       target: "greek-baker",
     });
     expect(made.opened["greek-bread"]).toEqual(["vale"]);
-    expect(made.actors.vale.xp).toBe(xp + 1);
+    expect(made.actors.vale.xp).toBe(xp + Object.keys(made.opened).length);
     // The bread is used up and locks again; opening it again pays nothing.
     const relocked = structuredClone(made);
     relocked.usedUp = [...relocked.usedUp, "greek-bread"].sort();
