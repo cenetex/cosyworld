@@ -17,6 +17,7 @@ local saves and shared worlds, with the same authored rules in both modes.
 - [Shared worlds](../v2/docs/card-table/shared-worlds.md)
 - [Dialogue beats](../v2/docs/card-table/dialogue-beats.md)
 - [Card packs](../v2/docs/card-packs.md)
+- [Level maps](maps/index.md)
 - [Runtime operations](../v2/README.md)
 - [Release process](release.md)
 - [Lonely Forest operations](deployment/lonelyforest-fly.md)

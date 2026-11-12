@@ -51,6 +51,8 @@ export const GENERATED = [
   'v2/card-game/media-manifest.json',
   'v2/card-game/image-variants.json',
 ];
+// Level maps under docs/maps are rebuilt by `npm run regen` (scripts/build-level-maps.mjs).
+export const isLevelMap = (file) => /^docs\/maps\/[^/]+\.(md|graph\.json)$/u.test(file);
 export const isRulesBundle = (file) => /^v2\/orchestrator-rust\/src\/card_shared\/engine-v\d+\.js$/u.test(file);
 
 // Same test as next-shared-rules.mjs: a version line, a bundle path or a
@@ -142,6 +144,7 @@ async function land({ base, branch, name }) {
     ...GENERATED,
     ...RULES_WIRING.filter((file) => !realWiring.includes(file)),
     ...changed.filter(isRulesBundle),
+    ...changed.filter(isLevelMap),
   ]);
   const work = changed.filter((file) => !skipped.has(file));
 

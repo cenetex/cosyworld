@@ -1,0 +1,3738 @@
+{
+  "pack": "lonely-forest",
+  "name": "Lonely Forest",
+  "revision": 3,
+  "entry": "forest-cottage",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "attic",
+      "arrive": "forest-cottage",
+      "via": "attic-forest-cottage"
+    }
+  ],
+  "space": {
+    "districts": [
+      {
+        "id": "d-forest-garden",
+        "name": "Rain-Soft Garden",
+        "places": [
+          "forest-cottage",
+          "forest-garden",
+          "forest-oak",
+          "forest-trail"
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "attic",
+        "name": "Mirror attic",
+        "kind": "hub"
+      },
+      {
+        "id": "forest-cottage",
+        "name": "Cosy Cottage",
+        "kind": "place",
+        "district": "d-forest-garden"
+      },
+      {
+        "id": "forest-garden",
+        "name": "Rain-Soft Garden",
+        "kind": "place",
+        "district": "d-forest-garden"
+      },
+      {
+        "id": "forest-oak",
+        "name": "Old Oak Tree",
+        "kind": "place",
+        "district": "d-forest-garden"
+      },
+      {
+        "id": "forest-trail",
+        "name": "Moonlit Trail",
+        "kind": "place",
+        "district": "d-forest-garden"
+      }
+    ],
+    "edges": [
+      {
+        "from": "attic",
+        "to": "forest-cottage",
+        "kind": "crossing",
+        "gate": "crossing:attic-forest-cottage"
+      },
+      {
+        "from": "forest-cottage",
+        "to": "attic",
+        "kind": "crossing",
+        "gate": null
+      },
+      {
+        "from": "forest-cottage",
+        "to": "forest-garden",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "forest-garden",
+        "to": "forest-cottage",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "forest-garden",
+        "to": "forest-oak",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "forest-garden",
+        "to": "forest-trail",
+        "kind": "route",
+        "gate": "route:forest-garden>forest-trail"
+      },
+      {
+        "from": "forest-oak",
+        "to": "forest-garden",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "forest-oak",
+        "to": "forest-trail",
+        "kind": "route",
+        "gate": "route:forest-oak>forest-trail",
+        "live": true
+      },
+      {
+        "from": "forest-trail",
+        "to": "forest-garden",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "forest-trail",
+        "to": "forest-oak",
+        "kind": "exit",
+        "gate": null
+      }
+    ],
+    "retired": []
+  },
+  "mission": {
+    "gates": [
+      {
+        "id": "route:forest-oak>forest-trail",
+        "kind": "route",
+        "title": "Old Oak Tree to Moonlit Trail",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_near(item=forest-wolfprint-charm,place=forest-oak)"
+            }
+          ]
+        },
+        "words": "Wolfprint Charm is in Old Oak Tree",
+        "ids": "forest-wolfprint-charm is in forest-oak",
+        "latch": [],
+        "live": [
+          "item_near(item=forest-wolfprint-charm,place=forest-oak)"
+        ],
+        "follows": "live",
+        "seal": {
+          "kind": "place",
+          "target": "forest-trail"
+        },
+        "prerequisites": {
+          "item": [
+            "forest-wolfprint-charm"
+          ]
+        }
+      },
+      {
+        "id": "route:forest-garden>forest-trail",
+        "kind": "route",
+        "title": "Rain-Soft Garden to Moonlit Trail",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-path-cleared,value=true)"
+            }
+          ]
+        },
+        "words": "forest-path-cleared is set",
+        "ids": "forest-path-cleared is set",
+        "latch": [
+          "flag(key=forest-path-cleared,value=true)"
+        ],
+        "live": [],
+        "follows": "latches",
+        "seal": {
+          "kind": "place",
+          "target": "forest-trail"
+        },
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-stay-for-tea"
+          ],
+          "flag": [
+            "forest-path-cleared",
+            "forest-welcomed"
+          ]
+        }
+      },
+      {
+        "id": "crossing:attic-forest-cottage",
+        "kind": "crossing",
+        "title": "Mirror attic to Cosy Cottage",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "light(at=attic,item=lamp,uncovered=true)"
+            },
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "item_present(item=cloth,place=attic)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "tag_held(place=attic,tag=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "Lamp is lit at Mirror attic and (Black cloth is in Mirror attic or a scarf thing is held in Mirror attic)",
+        "ids": "lamp is lit at attic and (cloth is in attic or a scarf thing is held in attic)",
+        "latch": [],
+        "live": [
+          "item_present(item=cloth,place=attic)",
+          "light(at=attic,item=lamp,uncovered=true)",
+          "tag_held(place=attic,tag=scarf)"
+        ],
+        "prerequisites": {
+          "item": [
+            "cloth",
+            "lamp"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-button-vale",
+        "kind": "item",
+        "title": "Vale's Black Button appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-vale-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-vale-sewn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-button-vale-hidden is set and forest-scarf-vale-sewn is not set",
+        "ids": "forest-button-vale-hidden is set and forest-scarf-vale-sewn is not set",
+        "latch": [
+          "flag(key=forest-button-vale-hidden,value=true)",
+          "flag(key=forest-scarf-vale-sewn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-vale"
+          ],
+          "flag": [
+            "forest-button-vale-hidden"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-button-mara",
+        "kind": "item",
+        "title": "Mara's Red Button appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-mara-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-mara-sewn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-button-mara-hidden is set and forest-scarf-mara-sewn is not set",
+        "ids": "forest-button-mara-hidden is set and forest-scarf-mara-sewn is not set",
+        "latch": [
+          "flag(key=forest-button-mara-hidden,value=true)",
+          "flag(key=forest-scarf-mara-sewn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-mara"
+          ],
+          "flag": [
+            "forest-button-mara-hidden"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-button-ash",
+        "kind": "item",
+        "title": "Ash's Orange Button appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-ash-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-ash-sewn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-button-ash-hidden is set and forest-scarf-ash-sewn is not set",
+        "ids": "forest-button-ash-hidden is set and forest-scarf-ash-sewn is not set",
+        "latch": [
+          "flag(key=forest-button-ash-hidden,value=true)",
+          "flag(key=forest-scarf-ash-sewn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-ash"
+          ],
+          "flag": [
+            "forest-button-ash-hidden"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-button-nell",
+        "kind": "item",
+        "title": "Iris's Yellow Button appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-nell-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-nell-sewn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-button-nell-hidden is set and forest-scarf-nell-sewn is not set",
+        "ids": "forest-button-nell-hidden is set and forest-scarf-nell-sewn is not set",
+        "latch": [
+          "flag(key=forest-button-nell-hidden,value=true)",
+          "flag(key=forest-scarf-nell-sewn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-nell"
+          ],
+          "flag": [
+            "forest-button-nell-hidden"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-button-tavi",
+        "kind": "item",
+        "title": "Tavi's Green Button appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-tavi-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-tavi-sewn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-button-tavi-hidden is set and forest-scarf-tavi-sewn is not set",
+        "ids": "forest-button-tavi-hidden is set and forest-scarf-tavi-sewn is not set",
+        "latch": [
+          "flag(key=forest-button-tavi-hidden,value=true)",
+          "flag(key=forest-scarf-tavi-sewn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-tavi"
+          ],
+          "flag": [
+            "forest-button-tavi-hidden"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-button-rue",
+        "kind": "item",
+        "title": "Rue's Blue Button appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-rue-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-rue-sewn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-button-rue-hidden is set and forest-scarf-rue-sewn is not set",
+        "ids": "forest-button-rue-hidden is set and forest-scarf-rue-sewn is not set",
+        "latch": [
+          "flag(key=forest-button-rue-hidden,value=true)",
+          "flag(key=forest-scarf-rue-sewn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-rue"
+          ],
+          "flag": [
+            "forest-button-rue-hidden"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-button-orin",
+        "kind": "item",
+        "title": "Cass's Indigo Button appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-orin-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-orin-sewn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-button-orin-hidden is set and forest-scarf-orin-sewn is not set",
+        "ids": "forest-button-orin-hidden is set and forest-scarf-orin-sewn is not set",
+        "latch": [
+          "flag(key=forest-button-orin-hidden,value=true)",
+          "flag(key=forest-scarf-orin-sewn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-orin"
+          ],
+          "flag": [
+            "forest-button-orin-hidden"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-button-ada",
+        "kind": "item",
+        "title": "Sage's Violet Button appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-ada-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-ada-sewn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-button-ada-hidden is set and forest-scarf-ada-sewn is not set",
+        "ids": "forest-button-ada-hidden is set and forest-scarf-ada-sewn is not set",
+        "latch": [
+          "flag(key=forest-button-ada-hidden,value=true)",
+          "flag(key=forest-scarf-ada-sewn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-ada"
+          ],
+          "flag": [
+            "forest-button-ada-hidden"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-scarf-vale",
+        "kind": "item",
+        "title": "Vale's White Scarf appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-vale-sewn,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-vale-worn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-scarf-vale-sewn is set and forest-scarf-vale-worn is not set",
+        "ids": "forest-scarf-vale-sewn is set and forest-scarf-vale-worn is not set",
+        "latch": [
+          "flag(key=forest-scarf-vale-sewn,value=true)",
+          "flag(key=forest-scarf-vale-worn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-vale",
+            "forest-sew-scarf-vale"
+          ],
+          "flag": [
+            "forest-button-vale-hidden",
+            "forest-scarf-vale-sewn"
+          ],
+          "item": [
+            "forest-button-vale"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-scarf-mara",
+        "kind": "item",
+        "title": "Mara's Green Scarf appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-mara-sewn,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-mara-worn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-scarf-mara-sewn is set and forest-scarf-mara-worn is not set",
+        "ids": "forest-scarf-mara-sewn is set and forest-scarf-mara-worn is not set",
+        "latch": [
+          "flag(key=forest-scarf-mara-sewn,value=true)",
+          "flag(key=forest-scarf-mara-worn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-mara",
+            "forest-sew-scarf-mara"
+          ],
+          "flag": [
+            "forest-button-mara-hidden",
+            "forest-scarf-mara-sewn"
+          ],
+          "item": [
+            "forest-button-mara"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-scarf-ash",
+        "kind": "item",
+        "title": "Ash's Blue Scarf appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-ash-sewn,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-ash-worn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-scarf-ash-sewn is set and forest-scarf-ash-worn is not set",
+        "ids": "forest-scarf-ash-sewn is set and forest-scarf-ash-worn is not set",
+        "latch": [
+          "flag(key=forest-scarf-ash-sewn,value=true)",
+          "flag(key=forest-scarf-ash-worn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-ash",
+            "forest-sew-scarf-ash"
+          ],
+          "flag": [
+            "forest-button-ash-hidden",
+            "forest-scarf-ash-sewn"
+          ],
+          "item": [
+            "forest-button-ash"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-scarf-nell",
+        "kind": "item",
+        "title": "Iris's Violet Scarf appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-nell-sewn,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-nell-worn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-scarf-nell-sewn is set and forest-scarf-nell-worn is not set",
+        "ids": "forest-scarf-nell-sewn is set and forest-scarf-nell-worn is not set",
+        "latch": [
+          "flag(key=forest-scarf-nell-sewn,value=true)",
+          "flag(key=forest-scarf-nell-worn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-nell",
+            "forest-sew-scarf-nell"
+          ],
+          "flag": [
+            "forest-button-nell-hidden",
+            "forest-scarf-nell-sewn"
+          ],
+          "item": [
+            "forest-button-nell"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-scarf-tavi",
+        "kind": "item",
+        "title": "Tavi's Red Scarf appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-tavi-sewn,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-tavi-worn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-scarf-tavi-sewn is set and forest-scarf-tavi-worn is not set",
+        "ids": "forest-scarf-tavi-sewn is set and forest-scarf-tavi-worn is not set",
+        "latch": [
+          "flag(key=forest-scarf-tavi-sewn,value=true)",
+          "flag(key=forest-scarf-tavi-worn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-tavi",
+            "forest-sew-scarf-tavi"
+          ],
+          "flag": [
+            "forest-button-tavi-hidden",
+            "forest-scarf-tavi-sewn"
+          ],
+          "item": [
+            "forest-button-tavi"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-scarf-rue",
+        "kind": "item",
+        "title": "Rue's Orange Scarf appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-rue-sewn,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-rue-worn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-scarf-rue-sewn is set and forest-scarf-rue-worn is not set",
+        "ids": "forest-scarf-rue-sewn is set and forest-scarf-rue-worn is not set",
+        "latch": [
+          "flag(key=forest-scarf-rue-sewn,value=true)",
+          "flag(key=forest-scarf-rue-worn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-rue",
+            "forest-sew-scarf-rue"
+          ],
+          "flag": [
+            "forest-button-rue-hidden",
+            "forest-scarf-rue-sewn"
+          ],
+          "item": [
+            "forest-button-rue"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-scarf-orin",
+        "kind": "item",
+        "title": "Cass's Amber Scarf appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-orin-sewn,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-orin-worn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-scarf-orin-sewn is set and forest-scarf-orin-worn is not set",
+        "ids": "forest-scarf-orin-sewn is set and forest-scarf-orin-worn is not set",
+        "latch": [
+          "flag(key=forest-scarf-orin-sewn,value=true)",
+          "flag(key=forest-scarf-orin-worn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-orin",
+            "forest-sew-scarf-orin"
+          ],
+          "flag": [
+            "forest-button-orin-hidden",
+            "forest-scarf-orin-sewn"
+          ],
+          "item": [
+            "forest-button-orin"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-scarf-ada",
+        "kind": "item",
+        "title": "Sage's Yellow Scarf appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-ada-sewn,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-scarf-ada-worn,value=false)"
+            }
+          ]
+        },
+        "words": "forest-scarf-ada-sewn is set and forest-scarf-ada-worn is not set",
+        "ids": "forest-scarf-ada-sewn is set and forest-scarf-ada-worn is not set",
+        "latch": [
+          "flag(key=forest-scarf-ada-sewn,value=true)",
+          "flag(key=forest-scarf-ada-worn,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-ada",
+            "forest-sew-scarf-ada"
+          ],
+          "flag": [
+            "forest-button-ada-hidden",
+            "forest-scarf-ada-sewn"
+          ],
+          "item": [
+            "forest-button-ada"
+          ]
+        }
+      }
+    ],
+    "acts": [
+      {
+        "id": "act:forest-clear-drain",
+        "kind": "act",
+        "title": "The garden drain",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-welcomed,value=true)"
+            }
+          ]
+        },
+        "words": "forest-welcomed is set",
+        "ids": "forest-welcomed is set",
+        "latch": [
+          "flag(key=forest-welcomed,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-stay-for-tea"
+          ],
+          "flag": [
+            "forest-welcomed"
+          ]
+        },
+        "at": "forest-garden",
+        "subject": "forest-garden",
+        "on": "wait",
+        "sets": [
+          "forest-path-cleared"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-mark-pawprints",
+        "kind": "act",
+        "title": "Skull shows the pawprints",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-path-cleared,value=true)"
+            }
+          ]
+        },
+        "words": "forest-path-cleared is set",
+        "ids": "forest-path-cleared is set",
+        "latch": [
+          "flag(key=forest-path-cleared,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-stay-for-tea"
+          ],
+          "flag": [
+            "forest-path-cleared",
+            "forest-welcomed"
+          ]
+        },
+        "at": "forest-trail",
+        "subject": "skull",
+        "on": "talk",
+        "sets": [
+          "forest-watch-shared"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-tell-hearth",
+        "kind": "act",
+        "title": "Oak hears of the hearth",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-watch-shared,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-wolfprint-charm,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-watch-shared is set and the traveler holds Wolfprint Charm",
+        "ids": "forest-watch-shared is set and the traveler holds forest-wolfprint-charm",
+        "latch": [
+          "flag(key=forest-watch-shared,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-wolfprint-charm,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-mark-pawprints",
+            "forest-stay-for-tea"
+          ],
+          "flag": [
+            "forest-path-cleared",
+            "forest-watch-shared",
+            "forest-welcomed"
+          ],
+          "item": [
+            "forest-wolfprint-charm"
+          ]
+        },
+        "at": "forest-oak",
+        "subject": "oak",
+        "on": "talk",
+        "sets": [
+          "forest-oak-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-leave-charm",
+        "kind": "act",
+        "title": "RATi keeps the charm",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-oak-heard,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-homecoming-shared,value=false)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-wolfprint-charm,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-oak-heard is set and forest-homecoming-shared is not set and the traveler holds Wolfprint Charm",
+        "ids": "forest-oak-heard is set and forest-homecoming-shared is not set and the traveler holds forest-wolfprint-charm",
+        "latch": [
+          "flag(key=forest-homecoming-shared,value=false)",
+          "flag(key=forest-oak-heard,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-wolfprint-charm,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-mark-pawprints",
+            "forest-stay-for-tea",
+            "forest-tell-hearth"
+          ],
+          "flag": [
+            "forest-oak-heard",
+            "forest-path-cleared",
+            "forest-watch-shared",
+            "forest-welcomed"
+          ],
+          "item": [
+            "forest-wolfprint-charm"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-homecoming-shared"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-keep-charm",
+        "kind": "act",
+        "title": "Vale keeps the charm",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-oak-heard,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-homecoming-shared,value=false)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-wolfprint-charm,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-oak-heard is set and forest-homecoming-shared is not set and the traveler holds Wolfprint Charm",
+        "ids": "forest-oak-heard is set and forest-homecoming-shared is not set and the traveler holds forest-wolfprint-charm",
+        "latch": [
+          "flag(key=forest-homecoming-shared,value=false)",
+          "flag(key=forest-oak-heard,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-wolfprint-charm,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-mark-pawprints",
+            "forest-stay-for-tea",
+            "forest-tell-hearth"
+          ],
+          "flag": [
+            "forest-oak-heard",
+            "forest-path-cleared",
+            "forest-watch-shared",
+            "forest-welcomed"
+          ],
+          "item": [
+            "forest-wolfprint-charm"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "wait",
+        "sets": [
+          "forest-homecoming-shared"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hear-walkers-rati",
+        "kind": "act",
+        "title": "Hear RATi on the three walkers",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-homecoming-shared,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-walkers-heard,value=false)"
+            }
+          ]
+        },
+        "words": "forest-homecoming-shared is set and forest-walkers-heard is not set",
+        "ids": "forest-homecoming-shared is set and forest-walkers-heard is not set",
+        "latch": [
+          "flag(key=forest-homecoming-shared,value=true)",
+          "flag(key=forest-walkers-heard,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-keep-charm",
+            "forest-leave-charm",
+            "forest-mark-pawprints",
+            "forest-stay-for-tea",
+            "forest-tell-hearth"
+          ],
+          "flag": [
+            "forest-homecoming-shared",
+            "forest-oak-heard",
+            "forest-path-cleared",
+            "forest-watch-shared",
+            "forest-welcomed"
+          ],
+          "item": [
+            "forest-wolfprint-charm"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "talk",
+        "sets": [
+          "forest-walkers-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hear-walkers-oak",
+        "kind": "act",
+        "title": "Hear Root on the three walkers",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-homecoming-shared,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-walkers-heard,value=false)"
+            }
+          ]
+        },
+        "words": "forest-homecoming-shared is set and forest-walkers-heard is not set",
+        "ids": "forest-homecoming-shared is set and forest-walkers-heard is not set",
+        "latch": [
+          "flag(key=forest-homecoming-shared,value=true)",
+          "flag(key=forest-walkers-heard,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-keep-charm",
+            "forest-leave-charm",
+            "forest-mark-pawprints",
+            "forest-stay-for-tea",
+            "forest-tell-hearth"
+          ],
+          "flag": [
+            "forest-homecoming-shared",
+            "forest-oak-heard",
+            "forest-path-cleared",
+            "forest-watch-shared",
+            "forest-welcomed"
+          ],
+          "item": [
+            "forest-wolfprint-charm"
+          ]
+        },
+        "at": "forest-oak",
+        "subject": "oak",
+        "on": "talk",
+        "sets": [
+          "forest-walkers-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-sit-watch",
+        "kind": "act",
+        "title": "The evening watch",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-homecoming-shared,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "knows(role=actor,topics=forest-walkers-rati|forest-walkers-oak)"
+            }
+          ]
+        },
+        "words": "forest-homecoming-shared is set and the traveler knows forest-walkers-rati or forest-walkers-oak",
+        "ids": "forest-homecoming-shared is set and the traveler knows forest-walkers-rati or forest-walkers-oak",
+        "latch": [
+          "flag(key=forest-homecoming-shared,value=true)",
+          "knows(role=actor,topics=forest-walkers-rati|forest-walkers-oak)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-hear-walkers-oak",
+            "forest-hear-walkers-rati",
+            "forest-keep-charm",
+            "forest-leave-charm",
+            "forest-mark-pawprints",
+            "forest-stay-for-tea",
+            "forest-tell-hearth"
+          ],
+          "flag": [
+            "forest-homecoming-shared",
+            "forest-oak-heard",
+            "forest-path-cleared",
+            "forest-watch-shared",
+            "forest-welcomed"
+          ],
+          "item": [
+            "forest-wolfprint-charm"
+          ],
+          "topic": [
+            "forest-walkers-oak",
+            "forest-walkers-rati"
+          ]
+        },
+        "at": "forest-trail",
+        "subject": "skull",
+        "on": "wait",
+        "sets": [
+          "forest-watch-kept"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hide-button-vale",
+        "kind": "act",
+        "title": "Vale meets RATi",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "upgraded(role=actor,upgrade=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "not (the traveler has the scarf upgrade)",
+        "ids": "not (the traveler has the scarf upgrade)",
+        "latch": [
+          "upgraded(role=actor,upgrade=scarf)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "meet",
+        "sets": [
+          "forest-button-vale-hidden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hide-button-mara",
+        "kind": "act",
+        "title": "Mara meets RATi",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "upgraded(role=actor,upgrade=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "not (the traveler has the scarf upgrade)",
+        "ids": "not (the traveler has the scarf upgrade)",
+        "latch": [
+          "upgraded(role=actor,upgrade=scarf)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "meet",
+        "sets": [
+          "forest-button-mara-hidden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hide-button-ash",
+        "kind": "act",
+        "title": "Ash meets RATi",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "upgraded(role=actor,upgrade=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "not (the traveler has the scarf upgrade)",
+        "ids": "not (the traveler has the scarf upgrade)",
+        "latch": [
+          "upgraded(role=actor,upgrade=scarf)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "meet",
+        "sets": [
+          "forest-button-ash-hidden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hide-button-nell",
+        "kind": "act",
+        "title": "Iris meets RATi",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "upgraded(role=actor,upgrade=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "not (the traveler has the scarf upgrade)",
+        "ids": "not (the traveler has the scarf upgrade)",
+        "latch": [
+          "upgraded(role=actor,upgrade=scarf)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "meet",
+        "sets": [
+          "forest-button-nell-hidden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hide-button-tavi",
+        "kind": "act",
+        "title": "Tavi meets RATi",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "upgraded(role=actor,upgrade=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "not (the traveler has the scarf upgrade)",
+        "ids": "not (the traveler has the scarf upgrade)",
+        "latch": [
+          "upgraded(role=actor,upgrade=scarf)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "meet",
+        "sets": [
+          "forest-button-tavi-hidden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hide-button-rue",
+        "kind": "act",
+        "title": "Rue meets RATi",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "upgraded(role=actor,upgrade=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "not (the traveler has the scarf upgrade)",
+        "ids": "not (the traveler has the scarf upgrade)",
+        "latch": [
+          "upgraded(role=actor,upgrade=scarf)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "meet",
+        "sets": [
+          "forest-button-rue-hidden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hide-button-orin",
+        "kind": "act",
+        "title": "Cass meets RATi",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "upgraded(role=actor,upgrade=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "not (the traveler has the scarf upgrade)",
+        "ids": "not (the traveler has the scarf upgrade)",
+        "latch": [
+          "upgraded(role=actor,upgrade=scarf)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "meet",
+        "sets": [
+          "forest-button-orin-hidden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-hide-button-ada",
+        "kind": "act",
+        "title": "Sage meets RATi",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "not",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "upgraded(role=actor,upgrade=scarf)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "not (the traveler has the scarf upgrade)",
+        "ids": "not (the traveler has the scarf upgrade)",
+        "latch": [
+          "upgraded(role=actor,upgrade=scarf)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "meet",
+        "sets": [
+          "forest-button-ada-hidden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:forest-sew-scarf-vale",
+        "kind": "act",
+        "title": "RATi sews your black button",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-vale-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-button-vale,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-button-vale-hidden is set and the traveler holds Vale's Black Button",
+        "ids": "forest-button-vale-hidden is set and the traveler holds forest-button-vale",
+        "latch": [
+          "flag(key=forest-button-vale-hidden,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-button-vale,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-vale"
+          ],
+          "flag": [
+            "forest-button-vale-hidden"
+          ],
+          "item": [
+            "forest-button-vale"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-scarf-vale-sewn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-button-vale"
+        ]
+      },
+      {
+        "id": "act:forest-wear-scarf-vale",
+        "kind": "act",
+        "title": "Vale wears the white scarf",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-scarf-vale,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Vale's White Scarf",
+        "ids": "the traveler holds forest-scarf-vale",
+        "latch": [],
+        "live": [
+          "holding(item=forest-scarf-vale,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-vale",
+            "forest-sew-scarf-vale"
+          ],
+          "flag": [
+            "forest-button-vale-hidden",
+            "forest-scarf-vale-sewn"
+          ],
+          "item": [
+            "forest-button-vale",
+            "forest-scarf-vale"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "forest-scarf-vale",
+        "on": "hold",
+        "sets": [
+          "forest-scarf-vale-worn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-scarf-vale"
+        ]
+      },
+      {
+        "id": "act:forest-sew-scarf-mara",
+        "kind": "act",
+        "title": "RATi sews your red button",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-mara-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-button-mara,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-button-mara-hidden is set and the traveler holds Mara's Red Button",
+        "ids": "forest-button-mara-hidden is set and the traveler holds forest-button-mara",
+        "latch": [
+          "flag(key=forest-button-mara-hidden,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-button-mara,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-mara"
+          ],
+          "flag": [
+            "forest-button-mara-hidden"
+          ],
+          "item": [
+            "forest-button-mara"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-scarf-mara-sewn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-button-mara"
+        ]
+      },
+      {
+        "id": "act:forest-wear-scarf-mara",
+        "kind": "act",
+        "title": "Mara wears the green scarf",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-scarf-mara,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Mara's Green Scarf",
+        "ids": "the traveler holds forest-scarf-mara",
+        "latch": [],
+        "live": [
+          "holding(item=forest-scarf-mara,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-mara",
+            "forest-sew-scarf-mara"
+          ],
+          "flag": [
+            "forest-button-mara-hidden",
+            "forest-scarf-mara-sewn"
+          ],
+          "item": [
+            "forest-button-mara",
+            "forest-scarf-mara"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "forest-scarf-mara",
+        "on": "hold",
+        "sets": [
+          "forest-scarf-mara-worn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-scarf-mara"
+        ]
+      },
+      {
+        "id": "act:forest-sew-scarf-ash",
+        "kind": "act",
+        "title": "RATi sews your orange button",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-ash-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-button-ash,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-button-ash-hidden is set and the traveler holds Ash's Orange Button",
+        "ids": "forest-button-ash-hidden is set and the traveler holds forest-button-ash",
+        "latch": [
+          "flag(key=forest-button-ash-hidden,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-button-ash,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-ash"
+          ],
+          "flag": [
+            "forest-button-ash-hidden"
+          ],
+          "item": [
+            "forest-button-ash"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-scarf-ash-sewn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-button-ash"
+        ]
+      },
+      {
+        "id": "act:forest-wear-scarf-ash",
+        "kind": "act",
+        "title": "Ash wears the blue scarf",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-scarf-ash,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Ash's Blue Scarf",
+        "ids": "the traveler holds forest-scarf-ash",
+        "latch": [],
+        "live": [
+          "holding(item=forest-scarf-ash,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-ash",
+            "forest-sew-scarf-ash"
+          ],
+          "flag": [
+            "forest-button-ash-hidden",
+            "forest-scarf-ash-sewn"
+          ],
+          "item": [
+            "forest-button-ash",
+            "forest-scarf-ash"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "forest-scarf-ash",
+        "on": "hold",
+        "sets": [
+          "forest-scarf-ash-worn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-scarf-ash"
+        ]
+      },
+      {
+        "id": "act:forest-sew-scarf-nell",
+        "kind": "act",
+        "title": "RATi sews your yellow button",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-nell-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-button-nell,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-button-nell-hidden is set and the traveler holds Iris's Yellow Button",
+        "ids": "forest-button-nell-hidden is set and the traveler holds forest-button-nell",
+        "latch": [
+          "flag(key=forest-button-nell-hidden,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-button-nell,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-nell"
+          ],
+          "flag": [
+            "forest-button-nell-hidden"
+          ],
+          "item": [
+            "forest-button-nell"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-scarf-nell-sewn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-button-nell"
+        ]
+      },
+      {
+        "id": "act:forest-wear-scarf-nell",
+        "kind": "act",
+        "title": "Iris wears the violet scarf",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-scarf-nell,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Iris's Violet Scarf",
+        "ids": "the traveler holds forest-scarf-nell",
+        "latch": [],
+        "live": [
+          "holding(item=forest-scarf-nell,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-nell",
+            "forest-sew-scarf-nell"
+          ],
+          "flag": [
+            "forest-button-nell-hidden",
+            "forest-scarf-nell-sewn"
+          ],
+          "item": [
+            "forest-button-nell",
+            "forest-scarf-nell"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "forest-scarf-nell",
+        "on": "hold",
+        "sets": [
+          "forest-scarf-nell-worn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-scarf-nell"
+        ]
+      },
+      {
+        "id": "act:forest-sew-scarf-tavi",
+        "kind": "act",
+        "title": "RATi sews your green button",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-tavi-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-button-tavi,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-button-tavi-hidden is set and the traveler holds Tavi's Green Button",
+        "ids": "forest-button-tavi-hidden is set and the traveler holds forest-button-tavi",
+        "latch": [
+          "flag(key=forest-button-tavi-hidden,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-button-tavi,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-tavi"
+          ],
+          "flag": [
+            "forest-button-tavi-hidden"
+          ],
+          "item": [
+            "forest-button-tavi"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-scarf-tavi-sewn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-button-tavi"
+        ]
+      },
+      {
+        "id": "act:forest-wear-scarf-tavi",
+        "kind": "act",
+        "title": "Tavi wears the red scarf",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-scarf-tavi,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Tavi's Red Scarf",
+        "ids": "the traveler holds forest-scarf-tavi",
+        "latch": [],
+        "live": [
+          "holding(item=forest-scarf-tavi,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-tavi",
+            "forest-sew-scarf-tavi"
+          ],
+          "flag": [
+            "forest-button-tavi-hidden",
+            "forest-scarf-tavi-sewn"
+          ],
+          "item": [
+            "forest-button-tavi",
+            "forest-scarf-tavi"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "forest-scarf-tavi",
+        "on": "hold",
+        "sets": [
+          "forest-scarf-tavi-worn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-scarf-tavi"
+        ]
+      },
+      {
+        "id": "act:forest-sew-scarf-rue",
+        "kind": "act",
+        "title": "RATi sews your blue button",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-rue-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-button-rue,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-button-rue-hidden is set and the traveler holds Rue's Blue Button",
+        "ids": "forest-button-rue-hidden is set and the traveler holds forest-button-rue",
+        "latch": [
+          "flag(key=forest-button-rue-hidden,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-button-rue,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-rue"
+          ],
+          "flag": [
+            "forest-button-rue-hidden"
+          ],
+          "item": [
+            "forest-button-rue"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-scarf-rue-sewn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-button-rue"
+        ]
+      },
+      {
+        "id": "act:forest-wear-scarf-rue",
+        "kind": "act",
+        "title": "Rue wears the orange scarf",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-scarf-rue,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Rue's Orange Scarf",
+        "ids": "the traveler holds forest-scarf-rue",
+        "latch": [],
+        "live": [
+          "holding(item=forest-scarf-rue,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-rue",
+            "forest-sew-scarf-rue"
+          ],
+          "flag": [
+            "forest-button-rue-hidden",
+            "forest-scarf-rue-sewn"
+          ],
+          "item": [
+            "forest-button-rue",
+            "forest-scarf-rue"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "forest-scarf-rue",
+        "on": "hold",
+        "sets": [
+          "forest-scarf-rue-worn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-scarf-rue"
+        ]
+      },
+      {
+        "id": "act:forest-sew-scarf-orin",
+        "kind": "act",
+        "title": "RATi sews your indigo button",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-orin-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-button-orin,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-button-orin-hidden is set and the traveler holds Cass's Indigo Button",
+        "ids": "forest-button-orin-hidden is set and the traveler holds forest-button-orin",
+        "latch": [
+          "flag(key=forest-button-orin-hidden,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-button-orin,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-orin"
+          ],
+          "flag": [
+            "forest-button-orin-hidden"
+          ],
+          "item": [
+            "forest-button-orin"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-scarf-orin-sewn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-button-orin"
+        ]
+      },
+      {
+        "id": "act:forest-wear-scarf-orin",
+        "kind": "act",
+        "title": "Cass wears the amber scarf",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-scarf-orin,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Cass's Amber Scarf",
+        "ids": "the traveler holds forest-scarf-orin",
+        "latch": [],
+        "live": [
+          "holding(item=forest-scarf-orin,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-orin",
+            "forest-sew-scarf-orin"
+          ],
+          "flag": [
+            "forest-button-orin-hidden",
+            "forest-scarf-orin-sewn"
+          ],
+          "item": [
+            "forest-button-orin",
+            "forest-scarf-orin"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "forest-scarf-orin",
+        "on": "hold",
+        "sets": [
+          "forest-scarf-orin-worn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-scarf-orin"
+        ]
+      },
+      {
+        "id": "act:forest-sew-scarf-ada",
+        "kind": "act",
+        "title": "RATi sews your violet button",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-button-ada-hidden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-button-ada,role=actor)"
+            }
+          ]
+        },
+        "words": "forest-button-ada-hidden is set and the traveler holds Sage's Violet Button",
+        "ids": "forest-button-ada-hidden is set and the traveler holds forest-button-ada",
+        "latch": [
+          "flag(key=forest-button-ada-hidden,value=true)"
+        ],
+        "live": [
+          "holding(item=forest-button-ada,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-ada"
+          ],
+          "flag": [
+            "forest-button-ada-hidden"
+          ],
+          "item": [
+            "forest-button-ada"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "give",
+        "sets": [
+          "forest-scarf-ada-sewn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-button-ada"
+        ]
+      },
+      {
+        "id": "act:forest-wear-scarf-ada",
+        "kind": "act",
+        "title": "Sage wears the yellow scarf",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=forest-scarf-ada,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Sage's Yellow Scarf",
+        "ids": "the traveler holds forest-scarf-ada",
+        "latch": [],
+        "live": [
+          "holding(item=forest-scarf-ada,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "forest-hide-button-ada",
+            "forest-sew-scarf-ada"
+          ],
+          "flag": [
+            "forest-button-ada-hidden",
+            "forest-scarf-ada-sewn"
+          ],
+          "item": [
+            "forest-button-ada",
+            "forest-scarf-ada"
+          ]
+        },
+        "at": "forest-cottage",
+        "subject": "forest-scarf-ada",
+        "on": "hold",
+        "sets": [
+          "forest-scarf-ada-worn"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": [
+          "forest-scarf-ada"
+        ]
+      },
+      {
+        "id": "act:forest-stay-for-tea",
+        "kind": "act",
+        "title": "RATi welcomes a traveler",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "met(actor=rati)"
+            }
+          ]
+        },
+        "words": "RATi has been met",
+        "ids": "rati has been met",
+        "latch": [
+          "met(actor=rati)"
+        ],
+        "live": [],
+        "prerequisites": {},
+        "at": "forest-cottage",
+        "subject": "rati",
+        "on": "talk",
+        "sets": [
+          "forest-welcomed"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      }
+    ],
+    "wants": [],
+    "flags": {
+      "forest-button-ada-hidden": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hide-button-ada"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-sew-scarf-ada",
+          "item:forest-button-ada",
+          "topic:forest-button-ada"
+        ],
+        "gates": [
+          "item:forest-button-ada",
+          "item:forest-scarf-ada"
+        ],
+        "acts": [
+          "act:forest-sew-scarf-ada",
+          "act:forest-wear-scarf-ada"
+        ]
+      },
+      "forest-button-ash-hidden": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hide-button-ash"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-sew-scarf-ash",
+          "item:forest-button-ash",
+          "topic:forest-button-ash"
+        ],
+        "gates": [
+          "item:forest-button-ash",
+          "item:forest-scarf-ash"
+        ],
+        "acts": [
+          "act:forest-sew-scarf-ash",
+          "act:forest-wear-scarf-ash"
+        ]
+      },
+      "forest-button-mara-hidden": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hide-button-mara"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-sew-scarf-mara",
+          "item:forest-button-mara",
+          "topic:forest-button-mara"
+        ],
+        "gates": [
+          "item:forest-button-mara",
+          "item:forest-scarf-mara"
+        ],
+        "acts": [
+          "act:forest-sew-scarf-mara",
+          "act:forest-wear-scarf-mara"
+        ]
+      },
+      "forest-button-nell-hidden": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hide-button-nell"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-sew-scarf-nell",
+          "item:forest-button-nell",
+          "topic:forest-button-nell"
+        ],
+        "gates": [
+          "item:forest-button-nell",
+          "item:forest-scarf-nell"
+        ],
+        "acts": [
+          "act:forest-sew-scarf-nell",
+          "act:forest-wear-scarf-nell"
+        ]
+      },
+      "forest-button-orin-hidden": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hide-button-orin"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-sew-scarf-orin",
+          "item:forest-button-orin",
+          "topic:forest-button-orin"
+        ],
+        "gates": [
+          "item:forest-button-orin",
+          "item:forest-scarf-orin"
+        ],
+        "acts": [
+          "act:forest-sew-scarf-orin",
+          "act:forest-wear-scarf-orin"
+        ]
+      },
+      "forest-button-rue-hidden": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hide-button-rue"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-sew-scarf-rue",
+          "item:forest-button-rue",
+          "topic:forest-button-rue"
+        ],
+        "gates": [
+          "item:forest-button-rue",
+          "item:forest-scarf-rue"
+        ],
+        "acts": [
+          "act:forest-sew-scarf-rue",
+          "act:forest-wear-scarf-rue"
+        ]
+      },
+      "forest-button-tavi-hidden": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hide-button-tavi"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-sew-scarf-tavi",
+          "item:forest-button-tavi",
+          "topic:forest-button-tavi"
+        ],
+        "gates": [
+          "item:forest-button-tavi",
+          "item:forest-scarf-tavi"
+        ],
+        "acts": [
+          "act:forest-sew-scarf-tavi",
+          "act:forest-wear-scarf-tavi"
+        ]
+      },
+      "forest-button-vale-hidden": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hide-button-vale"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-sew-scarf-vale",
+          "item:forest-button-vale",
+          "topic:forest-button-vale"
+        ],
+        "gates": [
+          "item:forest-button-vale",
+          "item:forest-scarf-vale"
+        ],
+        "acts": [
+          "act:forest-sew-scarf-vale",
+          "act:forest-wear-scarf-vale"
+        ]
+      },
+      "forest-homecoming-shared": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-keep-charm",
+          "act:forest-leave-charm"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-hear-walkers-oak",
+          "act:forest-hear-walkers-rati",
+          "act:forest-keep-charm",
+          "act:forest-leave-charm",
+          "act:forest-sit-watch",
+          "topic:forest-walkers-oak",
+          "topic:forest-walkers-rati"
+        ],
+        "gates": [],
+        "acts": [
+          "act:forest-hear-walkers-rati",
+          "act:forest-hear-walkers-oak",
+          "act:forest-sit-watch"
+        ]
+      },
+      "forest-oak-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-tell-hearth"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-keep-charm",
+          "act:forest-leave-charm"
+        ],
+        "gates": [],
+        "acts": [
+          "act:forest-leave-charm",
+          "act:forest-keep-charm",
+          "act:forest-hear-walkers-rati",
+          "act:forest-hear-walkers-oak",
+          "act:forest-sit-watch"
+        ]
+      },
+      "forest-path-cleared": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-clear-drain"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-mark-pawprints",
+          "route:forest-garden>forest-trail"
+        ],
+        "gates": [
+          "route:forest-garden>forest-trail"
+        ],
+        "acts": [
+          "act:forest-mark-pawprints",
+          "act:forest-tell-hearth",
+          "act:forest-leave-charm",
+          "act:forest-keep-charm",
+          "act:forest-hear-walkers-rati",
+          "act:forest-hear-walkers-oak",
+          "act:forest-sit-watch"
+        ]
+      },
+      "forest-scarf-ada-sewn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sew-scarf-ada"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-button-ada",
+          "item:forest-scarf-ada",
+          "topic:forest-button-ada"
+        ],
+        "gates": [
+          "item:forest-scarf-ada"
+        ],
+        "acts": [
+          "act:forest-wear-scarf-ada"
+        ]
+      },
+      "forest-scarf-ada-worn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-wear-scarf-ada"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-scarf-ada"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-scarf-ash-sewn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sew-scarf-ash"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-button-ash",
+          "item:forest-scarf-ash",
+          "topic:forest-button-ash"
+        ],
+        "gates": [
+          "item:forest-scarf-ash"
+        ],
+        "acts": [
+          "act:forest-wear-scarf-ash"
+        ]
+      },
+      "forest-scarf-ash-worn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-wear-scarf-ash"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-scarf-ash"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-scarf-mara-sewn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sew-scarf-mara"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-button-mara",
+          "item:forest-scarf-mara",
+          "topic:forest-button-mara"
+        ],
+        "gates": [
+          "item:forest-scarf-mara"
+        ],
+        "acts": [
+          "act:forest-wear-scarf-mara"
+        ]
+      },
+      "forest-scarf-mara-worn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-wear-scarf-mara"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-scarf-mara"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-scarf-nell-sewn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sew-scarf-nell"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-button-nell",
+          "item:forest-scarf-nell",
+          "topic:forest-button-nell"
+        ],
+        "gates": [
+          "item:forest-scarf-nell"
+        ],
+        "acts": [
+          "act:forest-wear-scarf-nell"
+        ]
+      },
+      "forest-scarf-nell-worn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-wear-scarf-nell"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-scarf-nell"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-scarf-orin-sewn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sew-scarf-orin"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-button-orin",
+          "item:forest-scarf-orin",
+          "topic:forest-button-orin"
+        ],
+        "gates": [
+          "item:forest-scarf-orin"
+        ],
+        "acts": [
+          "act:forest-wear-scarf-orin"
+        ]
+      },
+      "forest-scarf-orin-worn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-wear-scarf-orin"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-scarf-orin"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-scarf-rue-sewn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sew-scarf-rue"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-button-rue",
+          "item:forest-scarf-rue",
+          "topic:forest-button-rue"
+        ],
+        "gates": [
+          "item:forest-scarf-rue"
+        ],
+        "acts": [
+          "act:forest-wear-scarf-rue"
+        ]
+      },
+      "forest-scarf-rue-worn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-wear-scarf-rue"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-scarf-rue"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-scarf-tavi-sewn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sew-scarf-tavi"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-button-tavi",
+          "item:forest-scarf-tavi",
+          "topic:forest-button-tavi"
+        ],
+        "gates": [
+          "item:forest-scarf-tavi"
+        ],
+        "acts": [
+          "act:forest-wear-scarf-tavi"
+        ]
+      },
+      "forest-scarf-tavi-worn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-wear-scarf-tavi"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-scarf-tavi"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-scarf-vale-sewn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sew-scarf-vale"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-button-vale",
+          "item:forest-scarf-vale",
+          "topic:forest-button-vale"
+        ],
+        "gates": [
+          "item:forest-scarf-vale"
+        ],
+        "acts": [
+          "act:forest-wear-scarf-vale"
+        ]
+      },
+      "forest-scarf-vale-worn": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-wear-scarf-vale"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "item:forest-scarf-vale"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-walkers-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-hear-walkers-oak",
+          "act:forest-hear-walkers-rati"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-hear-walkers-oak",
+          "act:forest-hear-walkers-rati"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "forest-watch-kept": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-sit-watch"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "forest-watch-shared": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-mark-pawprints"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-tell-hearth"
+        ],
+        "gates": [],
+        "acts": [
+          "act:forest-tell-hearth",
+          "act:forest-leave-charm",
+          "act:forest-keep-charm",
+          "act:forest-hear-walkers-rati",
+          "act:forest-hear-walkers-oak",
+          "act:forest-sit-watch"
+        ]
+      },
+      "forest-welcomed": {
+        "kind": "latch",
+        "setBy": [
+          "act:forest-stay-for-tea"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:forest-clear-drain"
+        ],
+        "gates": [
+          "route:forest-garden>forest-trail"
+        ],
+        "acts": [
+          "act:forest-clear-drain",
+          "act:forest-mark-pawprints",
+          "act:forest-tell-hearth",
+          "act:forest-leave-charm",
+          "act:forest-keep-charm",
+          "act:forest-hear-walkers-rati",
+          "act:forest-hear-walkers-oak",
+          "act:forest-sit-watch"
+        ]
+      }
+    },
+    "items": [
+      {
+        "id": "forest-wolfprint-charm",
+        "name": "Wolfprint Charm",
+        "holder": "forest-trail",
+        "consumedBy": [],
+        "readBy": [
+          "act:forest-keep-charm",
+          "act:forest-leave-charm",
+          "act:forest-tell-hearth",
+          "route:forest-oak>forest-trail"
+        ]
+      },
+      {
+        "id": "forest-button-vale",
+        "name": "Vale's Black Button",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-sew-scarf-vale"
+        ],
+        "readBy": [
+          "act:forest-sew-scarf-vale"
+        ]
+      },
+      {
+        "id": "forest-button-mara",
+        "name": "Mara's Red Button",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-sew-scarf-mara"
+        ],
+        "readBy": [
+          "act:forest-sew-scarf-mara"
+        ]
+      },
+      {
+        "id": "forest-button-ash",
+        "name": "Ash's Orange Button",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-sew-scarf-ash"
+        ],
+        "readBy": [
+          "act:forest-sew-scarf-ash"
+        ]
+      },
+      {
+        "id": "forest-button-nell",
+        "name": "Iris's Yellow Button",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-sew-scarf-nell"
+        ],
+        "readBy": [
+          "act:forest-sew-scarf-nell"
+        ]
+      },
+      {
+        "id": "forest-button-tavi",
+        "name": "Tavi's Green Button",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-sew-scarf-tavi"
+        ],
+        "readBy": [
+          "act:forest-sew-scarf-tavi"
+        ]
+      },
+      {
+        "id": "forest-button-rue",
+        "name": "Rue's Blue Button",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-sew-scarf-rue"
+        ],
+        "readBy": [
+          "act:forest-sew-scarf-rue"
+        ]
+      },
+      {
+        "id": "forest-button-orin",
+        "name": "Cass's Indigo Button",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-sew-scarf-orin"
+        ],
+        "readBy": [
+          "act:forest-sew-scarf-orin"
+        ]
+      },
+      {
+        "id": "forest-button-ada",
+        "name": "Sage's Violet Button",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-sew-scarf-ada"
+        ],
+        "readBy": [
+          "act:forest-sew-scarf-ada"
+        ]
+      },
+      {
+        "id": "forest-scarf-vale",
+        "name": "Vale's White Scarf",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-wear-scarf-vale"
+        ],
+        "readBy": [
+          "act:forest-wear-scarf-vale"
+        ]
+      },
+      {
+        "id": "forest-scarf-mara",
+        "name": "Mara's Green Scarf",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-wear-scarf-mara"
+        ],
+        "readBy": [
+          "act:forest-wear-scarf-mara"
+        ]
+      },
+      {
+        "id": "forest-scarf-ash",
+        "name": "Ash's Blue Scarf",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-wear-scarf-ash"
+        ],
+        "readBy": [
+          "act:forest-wear-scarf-ash"
+        ]
+      },
+      {
+        "id": "forest-scarf-nell",
+        "name": "Iris's Violet Scarf",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-wear-scarf-nell"
+        ],
+        "readBy": [
+          "act:forest-wear-scarf-nell"
+        ]
+      },
+      {
+        "id": "forest-scarf-tavi",
+        "name": "Tavi's Red Scarf",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-wear-scarf-tavi"
+        ],
+        "readBy": [
+          "act:forest-wear-scarf-tavi"
+        ]
+      },
+      {
+        "id": "forest-scarf-rue",
+        "name": "Rue's Orange Scarf",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-wear-scarf-rue"
+        ],
+        "readBy": [
+          "act:forest-wear-scarf-rue"
+        ]
+      },
+      {
+        "id": "forest-scarf-orin",
+        "name": "Cass's Amber Scarf",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-wear-scarf-orin"
+        ],
+        "readBy": [
+          "act:forest-wear-scarf-orin"
+        ]
+      },
+      {
+        "id": "forest-scarf-ada",
+        "name": "Sage's Yellow Scarf",
+        "holder": "forest-cottage",
+        "consumedBy": [
+          "forest-wear-scarf-ada"
+        ],
+        "readBy": [
+          "act:forest-wear-scarf-ada"
+        ]
+      }
+    ],
+    "needs": {
+      "act:forest-clear-drain": [
+        "flag:forest-welcomed",
+        "place:forest-garden",
+        "resident:forest-garden"
+      ],
+      "act:forest-hear-walkers-oak": [
+        "flag:forest-homecoming-shared",
+        "place:forest-oak",
+        "resident:oak"
+      ],
+      "act:forest-hear-walkers-rati": [
+        "flag:forest-homecoming-shared",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-hide-button-ada": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-hide-button-ash": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-hide-button-mara": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-hide-button-nell": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-hide-button-orin": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-hide-button-rue": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-hide-button-tavi": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-hide-button-vale": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-keep-charm": [
+        "flag:forest-oak-heard",
+        "item:forest-wolfprint-charm",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-leave-charm": [
+        "flag:forest-oak-heard",
+        "item:forest-wolfprint-charm",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-mark-pawprints": [
+        "flag:forest-path-cleared",
+        "place:forest-trail",
+        "resident:skull"
+      ],
+      "act:forest-sew-scarf-ada": [
+        "flag:forest-button-ada-hidden",
+        "item:forest-button-ada",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-sew-scarf-ash": [
+        "flag:forest-button-ash-hidden",
+        "item:forest-button-ash",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-sew-scarf-mara": [
+        "flag:forest-button-mara-hidden",
+        "item:forest-button-mara",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-sew-scarf-nell": [
+        "flag:forest-button-nell-hidden",
+        "item:forest-button-nell",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-sew-scarf-orin": [
+        "flag:forest-button-orin-hidden",
+        "item:forest-button-orin",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-sew-scarf-rue": [
+        "flag:forest-button-rue-hidden",
+        "item:forest-button-rue",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-sew-scarf-tavi": [
+        "flag:forest-button-tavi-hidden",
+        "item:forest-button-tavi",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-sew-scarf-vale": [
+        "flag:forest-button-vale-hidden",
+        "item:forest-button-vale",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-sit-watch": [
+        "flag:forest-homecoming-shared",
+        "place:forest-trail",
+        "resident:skull",
+        "topic:forest-walkers-oak",
+        "topic:forest-walkers-rati"
+      ],
+      "act:forest-stay-for-tea": [
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "act:forest-tell-hearth": [
+        "flag:forest-watch-shared",
+        "item:forest-wolfprint-charm",
+        "place:forest-oak",
+        "resident:oak"
+      ],
+      "act:forest-wear-scarf-ada": [
+        "item:forest-scarf-ada",
+        "place:forest-cottage",
+        "resident:forest-scarf-ada"
+      ],
+      "act:forest-wear-scarf-ash": [
+        "item:forest-scarf-ash",
+        "place:forest-cottage",
+        "resident:forest-scarf-ash"
+      ],
+      "act:forest-wear-scarf-mara": [
+        "item:forest-scarf-mara",
+        "place:forest-cottage",
+        "resident:forest-scarf-mara"
+      ],
+      "act:forest-wear-scarf-nell": [
+        "item:forest-scarf-nell",
+        "place:forest-cottage",
+        "resident:forest-scarf-nell"
+      ],
+      "act:forest-wear-scarf-orin": [
+        "item:forest-scarf-orin",
+        "place:forest-cottage",
+        "resident:forest-scarf-orin"
+      ],
+      "act:forest-wear-scarf-rue": [
+        "item:forest-scarf-rue",
+        "place:forest-cottage",
+        "resident:forest-scarf-rue"
+      ],
+      "act:forest-wear-scarf-tavi": [
+        "item:forest-scarf-tavi",
+        "place:forest-cottage",
+        "resident:forest-scarf-tavi"
+      ],
+      "act:forest-wear-scarf-vale": [
+        "item:forest-scarf-vale",
+        "place:forest-cottage",
+        "resident:forest-scarf-vale"
+      ],
+      "crossing:attic-forest-cottage": [
+        "item:cloth",
+        "item:lamp",
+        "place:attic"
+      ],
+      "flag:forest-button-ada-hidden": [
+        "act:forest-hide-button-ada"
+      ],
+      "flag:forest-button-ash-hidden": [
+        "act:forest-hide-button-ash"
+      ],
+      "flag:forest-button-mara-hidden": [
+        "act:forest-hide-button-mara"
+      ],
+      "flag:forest-button-nell-hidden": [
+        "act:forest-hide-button-nell"
+      ],
+      "flag:forest-button-orin-hidden": [
+        "act:forest-hide-button-orin"
+      ],
+      "flag:forest-button-rue-hidden": [
+        "act:forest-hide-button-rue"
+      ],
+      "flag:forest-button-tavi-hidden": [
+        "act:forest-hide-button-tavi"
+      ],
+      "flag:forest-button-vale-hidden": [
+        "act:forest-hide-button-vale"
+      ],
+      "flag:forest-homecoming-shared": [
+        "act:forest-keep-charm",
+        "act:forest-leave-charm"
+      ],
+      "flag:forest-oak-heard": [
+        "act:forest-tell-hearth"
+      ],
+      "flag:forest-path-cleared": [
+        "act:forest-clear-drain"
+      ],
+      "flag:forest-scarf-ada-sewn": [
+        "act:forest-sew-scarf-ada"
+      ],
+      "flag:forest-scarf-ada-worn": [
+        "act:forest-wear-scarf-ada"
+      ],
+      "flag:forest-scarf-ash-sewn": [
+        "act:forest-sew-scarf-ash"
+      ],
+      "flag:forest-scarf-ash-worn": [
+        "act:forest-wear-scarf-ash"
+      ],
+      "flag:forest-scarf-mara-sewn": [
+        "act:forest-sew-scarf-mara"
+      ],
+      "flag:forest-scarf-mara-worn": [
+        "act:forest-wear-scarf-mara"
+      ],
+      "flag:forest-scarf-nell-sewn": [
+        "act:forest-sew-scarf-nell"
+      ],
+      "flag:forest-scarf-nell-worn": [
+        "act:forest-wear-scarf-nell"
+      ],
+      "flag:forest-scarf-orin-sewn": [
+        "act:forest-sew-scarf-orin"
+      ],
+      "flag:forest-scarf-orin-worn": [
+        "act:forest-wear-scarf-orin"
+      ],
+      "flag:forest-scarf-rue-sewn": [
+        "act:forest-sew-scarf-rue"
+      ],
+      "flag:forest-scarf-rue-worn": [
+        "act:forest-wear-scarf-rue"
+      ],
+      "flag:forest-scarf-tavi-sewn": [
+        "act:forest-sew-scarf-tavi"
+      ],
+      "flag:forest-scarf-tavi-worn": [
+        "act:forest-wear-scarf-tavi"
+      ],
+      "flag:forest-scarf-vale-sewn": [
+        "act:forest-sew-scarf-vale"
+      ],
+      "flag:forest-scarf-vale-worn": [
+        "act:forest-wear-scarf-vale"
+      ],
+      "flag:forest-walkers-heard": [
+        "act:forest-hear-walkers-oak",
+        "act:forest-hear-walkers-rati"
+      ],
+      "flag:forest-watch-kept": [
+        "act:forest-sit-watch"
+      ],
+      "flag:forest-watch-shared": [
+        "act:forest-mark-pawprints"
+      ],
+      "flag:forest-welcomed": [
+        "act:forest-stay-for-tea"
+      ],
+      "item:forest-button-ada": [
+        "flag:forest-button-ada-hidden"
+      ],
+      "item:forest-button-ash": [
+        "flag:forest-button-ash-hidden"
+      ],
+      "item:forest-button-mara": [
+        "flag:forest-button-mara-hidden"
+      ],
+      "item:forest-button-nell": [
+        "flag:forest-button-nell-hidden"
+      ],
+      "item:forest-button-orin": [
+        "flag:forest-button-orin-hidden"
+      ],
+      "item:forest-button-rue": [
+        "flag:forest-button-rue-hidden"
+      ],
+      "item:forest-button-tavi": [
+        "flag:forest-button-tavi-hidden"
+      ],
+      "item:forest-button-vale": [
+        "flag:forest-button-vale-hidden"
+      ],
+      "item:forest-scarf-ada": [
+        "flag:forest-scarf-ada-sewn"
+      ],
+      "item:forest-scarf-ash": [
+        "flag:forest-scarf-ash-sewn"
+      ],
+      "item:forest-scarf-mara": [
+        "flag:forest-scarf-mara-sewn"
+      ],
+      "item:forest-scarf-nell": [
+        "flag:forest-scarf-nell-sewn"
+      ],
+      "item:forest-scarf-orin": [
+        "flag:forest-scarf-orin-sewn"
+      ],
+      "item:forest-scarf-rue": [
+        "flag:forest-scarf-rue-sewn"
+      ],
+      "item:forest-scarf-tavi": [
+        "flag:forest-scarf-tavi-sewn"
+      ],
+      "item:forest-scarf-vale": [
+        "flag:forest-scarf-vale-sewn"
+      ],
+      "route:forest-garden>forest-trail": [
+        "flag:forest-path-cleared",
+        "place:forest-trail"
+      ],
+      "route:forest-oak>forest-trail": [
+        "item:forest-wolfprint-charm",
+        "place:forest-oak",
+        "place:forest-trail"
+      ],
+      "topic:forest-button-ada": [
+        "flag:forest-button-ada-hidden",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-button-ash": [
+        "flag:forest-button-ash-hidden",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-button-mara": [
+        "flag:forest-button-mara-hidden",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-button-nell": [
+        "flag:forest-button-nell-hidden",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-button-orin": [
+        "flag:forest-button-orin-hidden",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-button-rue": [
+        "flag:forest-button-rue-hidden",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-button-tavi": [
+        "flag:forest-button-tavi-hidden",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-button-vale": [
+        "flag:forest-button-vale-hidden",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-night-watch": [
+        "place:forest-oak",
+        "resident:oak"
+      ],
+      "topic:forest-walkers-oak": [
+        "act:forest-hear-walkers-oak",
+        "flag:forest-homecoming-shared",
+        "place:forest-oak",
+        "resident:oak"
+      ],
+      "topic:forest-walkers-rati": [
+        "act:forest-hear-walkers-rati",
+        "flag:forest-homecoming-shared",
+        "place:forest-cottage",
+        "resident:rati"
+      ],
+      "topic:forest-warm-kettle": [
+        "place:forest-cottage",
+        "resident:rati"
+      ]
+    }
+  },
+  "atoms": {
+    "flag(key=forest-button-ada-hidden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-button-ada-hidden is set"
+    },
+    "flag(key=forest-button-ash-hidden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-button-ash-hidden is set"
+    },
+    "flag(key=forest-button-mara-hidden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-button-mara-hidden is set"
+    },
+    "flag(key=forest-button-nell-hidden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-button-nell-hidden is set"
+    },
+    "flag(key=forest-button-orin-hidden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-button-orin-hidden is set"
+    },
+    "flag(key=forest-button-rue-hidden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-button-rue-hidden is set"
+    },
+    "flag(key=forest-button-tavi-hidden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-button-tavi-hidden is set"
+    },
+    "flag(key=forest-button-vale-hidden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-button-vale-hidden is set"
+    },
+    "flag(key=forest-homecoming-shared,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-homecoming-shared is not set"
+    },
+    "flag(key=forest-homecoming-shared,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-homecoming-shared is set"
+    },
+    "flag(key=forest-oak-heard,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-oak-heard is set"
+    },
+    "flag(key=forest-path-cleared,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-path-cleared is set"
+    },
+    "flag(key=forest-scarf-ada-sewn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-ada-sewn is not set"
+    },
+    "flag(key=forest-scarf-ada-sewn,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-ada-sewn is set"
+    },
+    "flag(key=forest-scarf-ada-worn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-ada-worn is not set"
+    },
+    "flag(key=forest-scarf-ash-sewn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-ash-sewn is not set"
+    },
+    "flag(key=forest-scarf-ash-sewn,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-ash-sewn is set"
+    },
+    "flag(key=forest-scarf-ash-worn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-ash-worn is not set"
+    },
+    "flag(key=forest-scarf-mara-sewn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-mara-sewn is not set"
+    },
+    "flag(key=forest-scarf-mara-sewn,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-mara-sewn is set"
+    },
+    "flag(key=forest-scarf-mara-worn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-mara-worn is not set"
+    },
+    "flag(key=forest-scarf-nell-sewn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-nell-sewn is not set"
+    },
+    "flag(key=forest-scarf-nell-sewn,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-nell-sewn is set"
+    },
+    "flag(key=forest-scarf-nell-worn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-nell-worn is not set"
+    },
+    "flag(key=forest-scarf-orin-sewn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-orin-sewn is not set"
+    },
+    "flag(key=forest-scarf-orin-sewn,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-orin-sewn is set"
+    },
+    "flag(key=forest-scarf-orin-worn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-orin-worn is not set"
+    },
+    "flag(key=forest-scarf-rue-sewn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-rue-sewn is not set"
+    },
+    "flag(key=forest-scarf-rue-sewn,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-rue-sewn is set"
+    },
+    "flag(key=forest-scarf-rue-worn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-rue-worn is not set"
+    },
+    "flag(key=forest-scarf-tavi-sewn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-tavi-sewn is not set"
+    },
+    "flag(key=forest-scarf-tavi-sewn,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-tavi-sewn is set"
+    },
+    "flag(key=forest-scarf-tavi-worn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-tavi-worn is not set"
+    },
+    "flag(key=forest-scarf-vale-sewn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-vale-sewn is not set"
+    },
+    "flag(key=forest-scarf-vale-sewn,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-vale-sewn is set"
+    },
+    "flag(key=forest-scarf-vale-worn,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-scarf-vale-worn is not set"
+    },
+    "flag(key=forest-walkers-heard,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-walkers-heard is not set"
+    },
+    "flag(key=forest-watch-shared,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-watch-shared is set"
+    },
+    "flag(key=forest-welcomed,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "forest-welcomed is set"
+    },
+    "holding(item=forest-button-ada,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-button-ada"
+    },
+    "holding(item=forest-button-ash,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-button-ash"
+    },
+    "holding(item=forest-button-mara,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-button-mara"
+    },
+    "holding(item=forest-button-nell,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-button-nell"
+    },
+    "holding(item=forest-button-orin,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-button-orin"
+    },
+    "holding(item=forest-button-rue,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-button-rue"
+    },
+    "holding(item=forest-button-tavi,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-button-tavi"
+    },
+    "holding(item=forest-button-vale,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-button-vale"
+    },
+    "holding(item=forest-scarf-ada,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-scarf-ada"
+    },
+    "holding(item=forest-scarf-ash,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-scarf-ash"
+    },
+    "holding(item=forest-scarf-mara,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-scarf-mara"
+    },
+    "holding(item=forest-scarf-nell,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-scarf-nell"
+    },
+    "holding(item=forest-scarf-orin,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-scarf-orin"
+    },
+    "holding(item=forest-scarf-rue,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-scarf-rue"
+    },
+    "holding(item=forest-scarf-tavi,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-scarf-tavi"
+    },
+    "holding(item=forest-scarf-vale,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-scarf-vale"
+    },
+    "holding(item=forest-wolfprint-charm,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds forest-wolfprint-charm"
+    },
+    "item_near(item=forest-wolfprint-charm,place=forest-oak)": {
+      "kind": "item_near",
+      "class": "live",
+      "words": "forest-wolfprint-charm is in forest-oak"
+    },
+    "item_present(item=cloth,place=attic)": {
+      "kind": "item_present",
+      "class": "live",
+      "words": "cloth is in attic"
+    },
+    "knows(role=actor,topics=forest-walkers-rati|forest-walkers-oak)": {
+      "kind": "knows",
+      "class": "latch",
+      "words": "the traveler knows forest-walkers-rati or forest-walkers-oak"
+    },
+    "light(at=attic,item=lamp,uncovered=true)": {
+      "kind": "light",
+      "class": "live",
+      "words": "lamp is lit at attic"
+    },
+    "met(actor=rati)": {
+      "kind": "met",
+      "class": "latch",
+      "words": "rati has been met"
+    },
+    "tag_held(place=attic,tag=scarf)": {
+      "kind": "tag_held",
+      "class": "live",
+      "words": "a scarf thing is held in attic"
+    },
+    "upgraded(role=actor,upgrade=scarf)": {
+      "kind": "upgraded",
+      "class": "latch",
+      "words": "the traveler has the scarf upgrade"
+    }
+  },
+  "conditionKinds": [
+    "flag",
+    "holding",
+    "item_near",
+    "item_present",
+    "knows",
+    "light",
+    "met",
+    "tag_held",
+    "upgraded"
+  ]
+}

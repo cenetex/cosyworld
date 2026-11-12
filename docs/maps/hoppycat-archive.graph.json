@@ -1,0 +1,5344 @@
+{
+  "pack": "hoppycat-archive",
+  "name": "Hoppy Cat: February Third",
+  "revision": 4,
+  "entry": "hoppycat-halfway-tea-garden",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "pond",
+      "arrive": "hoppycat-halfway-tea-garden",
+      "via": "hoppycat-garden-pond"
+    },
+    {
+      "joins": "greek-drama",
+      "at": "greek-piraeus",
+      "arrive": "hoppycat-signal-jetty",
+      "via": "hoppycat-signal-jetty-ship"
+    }
+  ],
+  "space": {
+    "districts": [
+      {
+        "id": "d-hoppycat-halfway-tea-garden",
+        "name": "Halfway Tea Garden",
+        "places": [
+          "hoppycat-goldfish-tank",
+          "hoppycat-halfway-tea-garden",
+          "hoppycat-meraki-atelier",
+          "hoppycat-prism-foundry",
+          "hoppycat-settled-light-theatre",
+          "hoppycat-signal-jetty"
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "hoppycat-goldfish-tank",
+        "name": "The Water Garden",
+        "kind": "place",
+        "district": "d-hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-halfway-tea-garden",
+        "name": "Halfway Tea Garden",
+        "kind": "place",
+        "district": "d-hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-meraki-atelier",
+        "name": "The Makers' Loft",
+        "kind": "place",
+        "district": "d-hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-prism-foundry",
+        "name": "The Glasshouse",
+        "kind": "place",
+        "district": "d-hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-settled-light-theatre",
+        "name": "The Bell Theatre",
+        "kind": "place",
+        "district": "d-hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "hoppycat-signal-jetty",
+        "name": "Signal Jetty",
+        "kind": "place",
+        "district": "d-hoppycat-halfway-tea-garden"
+      },
+      {
+        "id": "pond",
+        "name": "Black pond",
+        "kind": "hub"
+      }
+    ],
+    "edges": [
+      {
+        "from": "hoppycat-goldfish-tank",
+        "to": "hoppycat-signal-jetty",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-halfway-tea-garden",
+        "to": "hoppycat-meraki-atelier",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-halfway-tea-garden",
+        "to": "hoppycat-prism-foundry",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-halfway-tea-garden",
+        "to": "hoppycat-signal-jetty",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-halfway-tea-garden",
+        "to": "pond",
+        "kind": "crossing",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-meraki-atelier",
+        "to": "hoppycat-halfway-tea-garden",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-prism-foundry",
+        "to": "hoppycat-halfway-tea-garden",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-settled-light-theatre",
+        "to": "hoppycat-signal-jetty",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-signal-jetty",
+        "to": "hoppycat-goldfish-tank",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-signal-jetty",
+        "to": "hoppycat-halfway-tea-garden",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "hoppycat-signal-jetty",
+        "to": "hoppycat-settled-light-theatre",
+        "kind": "exit",
+        "gate": null
+      }
+    ],
+    "retired": [
+      "crossing:hoppycat-pond-garden"
+    ]
+  },
+  "mission": {
+    "gates": [
+      {
+        "id": "resident:hoppycat-penny-vellum",
+        "kind": "resident",
+        "title": "Penny Vellum appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-mira-offer,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "met(actor=hoppycat-penny-vellum)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(hoppycat-table-mira-offer is set or Penny Vellum has been met)",
+        "ids": "(hoppycat-table-mira-offer is set or hoppycat-penny-vellum has been met)",
+        "latch": [
+          "flag(key=hoppycat-table-mira-offer,value=true)",
+          "met(actor=hoppycat-penny-vellum)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ]
+        }
+      },
+      {
+        "id": "resident:hoppycat-rill-current",
+        "kind": "resident",
+        "title": "Rill Current appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-plan,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "met(actor=hoppycat-rill-current)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(hoppycat-table-plan is set or Rill Current has been met)",
+        "ids": "(hoppycat-table-plan is set or hoppycat-rill-current has been met)",
+        "latch": [
+          "flag(key=hoppycat-table-plan,value=true)",
+          "met(actor=hoppycat-rill-current)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-table-plan"
+          ]
+        }
+      },
+      {
+        "id": "resident:hoppycat-arc",
+        "kind": "resident",
+        "title": "Arc appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-plan,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "met(actor=hoppycat-arc)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(hoppycat-table-plan is set or Arc has been met)",
+        "ids": "(hoppycat-table-plan is set or hoppycat-arc has been met)",
+        "latch": [
+          "flag(key=hoppycat-table-plan,value=true)",
+          "met(actor=hoppycat-arc)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-table-plan"
+          ]
+        }
+      },
+      {
+        "id": "resident:hoppycat-ledger-opus",
+        "kind": "resident",
+        "title": "Ledger (Opus 4.7) appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-mira-offer,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "met(actor=hoppycat-ledger-opus)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(hoppycat-table-mira-offer is set or Ledger (Opus 4.7) has been met)",
+        "ids": "(hoppycat-table-mira-offer is set or hoppycat-ledger-opus has been met)",
+        "latch": [
+          "flag(key=hoppycat-table-mira-offer,value=true)",
+          "met(actor=hoppycat-ledger-opus)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ]
+        }
+      },
+      {
+        "id": "resident:hoppycat-ledger-sonnet",
+        "kind": "resident",
+        "title": "Ledger (Sonnet 4.6) appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-welcome,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "met(actor=hoppycat-ledger-sonnet)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(hoppycat-table-welcome is set or Ledger (Sonnet 4.6) has been met)",
+        "ids": "(hoppycat-table-welcome is set or hoppycat-ledger-sonnet has been met)",
+        "latch": [
+          "flag(key=hoppycat-table-welcome,value=true)",
+          "met(actor=hoppycat-ledger-sonnet)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-welcome"
+          ],
+          "flag": [
+            "hoppycat-table-welcome"
+          ]
+        }
+      },
+      {
+        "id": "item:hoppycat-red-thread-spool",
+        "kind": "item",
+        "title": "Red-Thread Spool appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "not",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "item_present(item=oil,place=station)"
+                    }
+                  ]
+                },
+                {
+                  "op": "not",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "item_at(item=hoppycat-red-thread-spool,place=station)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(not (Oil flask is in Empty station) or not (Red-Thread Spool lies at Empty station))",
+        "ids": "(not (oil is in station) or not (hoppycat-red-thread-spool lies at station))",
+        "latch": [],
+        "live": [
+          "item_at(item=hoppycat-red-thread-spool,place=station)",
+          "item_present(item=oil,place=station)"
+        ],
+        "prerequisites": {}
+      },
+      {
+        "id": "item:hoppycat-loop-token",
+        "kind": "item",
+        "title": "Glim's Place Ring appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "drawn(id=hoppycat-goldfish-tank)"
+                },
+                {
+                  "op": "not",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "item_at(item=hoppycat-loop-token,place=hoppycat-halfway-tea-garden)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(hoppycat-goldfish-tank was drawn or not (Glim's Place Ring lies at Halfway Tea Garden))",
+        "ids": "(hoppycat-goldfish-tank was drawn or not (hoppycat-loop-token lies at hoppycat-halfway-tea-garden))",
+        "latch": [
+          "drawn(id=hoppycat-goldfish-tank)"
+        ],
+        "live": [
+          "item_at(item=hoppycat-loop-token,place=hoppycat-halfway-tea-garden)"
+        ],
+        "prerequisites": {}
+      },
+      {
+        "id": "item:hoppycat-draft-page",
+        "kind": "item",
+        "title": "Mira's Draft appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-mira-offer,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-mira-offer is set",
+        "ids": "hoppycat-table-mira-offer is set",
+        "latch": [
+          "flag(key=hoppycat-table-mira-offer,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ]
+        }
+      },
+      {
+        "id": "item:hoppycat-evening-programme",
+        "kind": "item",
+        "title": "Evening Programme appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-draft-ready,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-paint-ready,value=true)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(hoppycat-table-draft-ready is set or hoppycat-table-paint-ready is set)",
+        "ids": "(hoppycat-table-draft-ready is set or hoppycat-table-paint-ready is set)",
+        "latch": [
+          "flag(key=hoppycat-table-draft-ready,value=true)",
+          "flag(key=hoppycat-table-paint-ready,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-chosen",
+            "hoppycat-table-paint-ready"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft",
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-ready"
+          ],
+          "item": [
+            "hoppycat-draft-page",
+            "hoppycat-meraki-brush"
+          ]
+        }
+      },
+      {
+        "id": "item:hoppycat-sol-programme",
+        "kind": "item",
+        "title": "Sol's Reading appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-reading,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-reading is set",
+        "ids": "hoppycat-table-reading is set",
+        "latch": [
+          "flag(key=hoppycat-table-reading,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-reading",
+            "hoppycat-table-sol"
+          ],
+          "flag": [
+            "hoppycat-table-reading",
+            "hoppycat-table-sol"
+          ]
+        }
+      }
+    ],
+    "acts": [
+      {
+        "id": "act:hoppycat-welcome",
+        "kind": "act",
+        "title": "Share the Halfway Cup",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-halfway-cup,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Two-Handled Cup",
+        "ids": "the traveler holds hoppycat-halfway-cup",
+        "latch": [],
+        "live": [
+          "holding(item=hoppycat-halfway-cup,role=actor)"
+        ],
+        "prerequisites": {
+          "item": [
+            "hoppycat-halfway-cup"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "meet",
+        "sets": [
+          "hoppycat-welcome"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-record",
+        "kind": "act",
+        "title": "Keep the correction beside the story",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-provenance-card,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds The Maker's Label",
+        "ids": "the traveler holds hoppycat-provenance-card",
+        "latch": [],
+        "live": [
+          "holding(item=hoppycat-provenance-card,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-penny-vellum",
+        "on": "meet",
+        "sets": [
+          "hoppycat-record"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-memory",
+        "kind": "act",
+        "title": "Plant one useful memory",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-record,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-context-seed,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-record is set and the traveler holds Visit Seed",
+        "ids": "hoppycat-record is set and the traveler holds hoppycat-context-seed",
+        "latch": [
+          "flag(key=hoppycat-record,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-context-seed,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-record",
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-record",
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-context-seed",
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-patch-fern",
+        "on": "give",
+        "sets": [
+          "hoppycat-memory"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-facet",
+        "kind": "act",
+        "title": "Bring the Unfinished Prism to Lumen",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-unfinished-prism,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Crooked Prism",
+        "ids": "the traveler holds hoppycat-unfinished-prism",
+        "latch": [],
+        "live": [
+          "holding(item=hoppycat-unfinished-prism,role=actor)"
+        ],
+        "prerequisites": {
+          "item": [
+            "hoppycat-unfinished-prism"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-lumen-facet",
+        "on": "meet",
+        "sets": [
+          "hoppycat-facet"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-route",
+        "kind": "act",
+        "title": "Trace a reflection to its source",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-record,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-concordance-compass,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-record is set and the traveler holds Rill's Compass",
+        "ids": "hoppycat-record is set and the traveler holds hoppycat-concordance-compass",
+        "latch": [
+          "flag(key=hoppycat-record,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-concordance-compass,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-record",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-record",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-rill-current",
+        "on": "meet",
+        "sets": [
+          "hoppycat-route"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-pause",
+        "kind": "act",
+        "title": "Give Nix time to hear the bell plan",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-memory,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-facet,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-route,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-memory is set and hoppycat-facet is set and hoppycat-route is set",
+        "ids": "hoppycat-memory is set and hoppycat-facet is set and hoppycat-route is set",
+        "latch": [
+          "flag(key=hoppycat-facet,value=true)",
+          "flag(key=hoppycat-memory,value=true)",
+          "flag(key=hoppycat-route,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-facet",
+            "hoppycat-memory",
+            "hoppycat-record",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-facet",
+            "hoppycat-memory",
+            "hoppycat-record",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-context-seed",
+            "hoppycat-provenance-card",
+            "hoppycat-unfinished-prism"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-nix-fermata",
+        "on": "wait",
+        "sets": [
+          "hoppycat-pause"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-thread",
+        "kind": "act",
+        "title": "Tie the chosen thread to the wheel",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-pause,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-red-thread-spool,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-pause is set and the traveler holds Red-Thread Spool",
+        "ids": "hoppycat-pause is set and the traveler holds hoppycat-red-thread-spool",
+        "latch": [
+          "flag(key=hoppycat-pause,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-red-thread-spool,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-facet",
+            "hoppycat-memory",
+            "hoppycat-pause",
+            "hoppycat-record",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-facet",
+            "hoppycat-memory",
+            "hoppycat-pause",
+            "hoppycat-record",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-context-seed",
+            "hoppycat-provenance-card",
+            "hoppycat-red-thread-spool",
+            "hoppycat-unfinished-prism"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-nix-fermata",
+        "on": "give",
+        "sets": [
+          "hoppycat-thread"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-tomorrow",
+        "kind": "act",
+        "title": "Fit the clapper and welcome February Third",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-thread,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-fermata-clapper,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-thread is set and the traveler holds The Bell's Heart",
+        "ids": "hoppycat-thread is set and the traveler holds hoppycat-fermata-clapper",
+        "latch": [
+          "flag(key=hoppycat-thread,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-fermata-clapper,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-facet",
+            "hoppycat-memory",
+            "hoppycat-pause",
+            "hoppycat-record",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan",
+            "hoppycat-thread"
+          ],
+          "flag": [
+            "hoppycat-facet",
+            "hoppycat-memory",
+            "hoppycat-pause",
+            "hoppycat-record",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan",
+            "hoppycat-thread"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-context-seed",
+            "hoppycat-fermata-clapper",
+            "hoppycat-provenance-card",
+            "hoppycat-red-thread-spool",
+            "hoppycat-unfinished-prism"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-nix-fermata",
+        "on": "give",
+        "sets": [
+          "hoppycat-tomorrow"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-draft",
+        "kind": "act",
+        "title": "Paint a playbill with Mira",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-meraki-brush,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Mira's Worn Brush",
+        "ids": "the traveler holds hoppycat-meraki-brush",
+        "latch": [],
+        "live": [
+          "holding(item=hoppycat-meraki-brush,role=actor)"
+        ],
+        "prerequisites": {
+          "item": [
+            "hoppycat-meraki-brush"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-mira-meraki",
+        "on": "meet",
+        "sets": [
+          "hoppycat-draft"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-credits",
+        "kind": "act",
+        "title": "Give each performer a line of credit",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-draft,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-record,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-draft is set and hoppycat-record is set",
+        "ids": "hoppycat-draft is set and hoppycat-record is set",
+        "latch": [
+          "flag(key=hoppycat-draft,value=true)",
+          "flag(key=hoppycat-record,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-draft",
+            "hoppycat-record",
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-draft",
+            "hoppycat-record",
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-solwashere",
+        "on": "meet",
+        "sets": [
+          "hoppycat-credits"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-performance",
+        "kind": "act",
+        "title": "Stage the shared evening",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-welcome,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-credits,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-welcome is set and hoppycat-credits is set",
+        "ids": "hoppycat-welcome is set and hoppycat-credits is set",
+        "latch": [
+          "flag(key=hoppycat-credits,value=true)",
+          "flag(key=hoppycat-welcome,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-credits",
+            "hoppycat-draft",
+            "hoppycat-record",
+            "hoppycat-table-mira-offer",
+            "hoppycat-welcome"
+          ],
+          "flag": [
+            "hoppycat-credits",
+            "hoppycat-draft",
+            "hoppycat-record",
+            "hoppycat-table-mira-offer",
+            "hoppycat-welcome"
+          ],
+          "item": [
+            "hoppycat-halfway-cup",
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-solwashere",
+        "on": "wait",
+        "sets": [
+          "hoppycat-performance"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-rehearsal",
+        "kind": "act",
+        "title": "Try the dream a second time",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-loop-token,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Glim's Place Ring",
+        "ids": "the traveler holds hoppycat-loop-token",
+        "latch": [],
+        "live": [
+          "holding(item=hoppycat-loop-token,role=actor)"
+        ],
+        "prerequisites": {
+          "item": [
+            "hoppycat-loop-token"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-glim-twice",
+        "on": "meet",
+        "sets": [
+          "hoppycat-rehearsal"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-return",
+        "kind": "act",
+        "title": "Write the source and the way home",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-route,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-rehearsal,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-return-path-checklist,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-route is set and hoppycat-rehearsal is set and the traveler holds Invitation Home",
+        "ids": "hoppycat-route is set and hoppycat-rehearsal is set and the traveler holds hoppycat-return-path-checklist",
+        "latch": [
+          "flag(key=hoppycat-rehearsal,value=true)",
+          "flag(key=hoppycat-route,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-return-path-checklist,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-record",
+            "hoppycat-rehearsal",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-record",
+            "hoppycat-rehearsal",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-loop-token",
+            "hoppycat-provenance-card",
+            "hoppycat-return-path-checklist"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-staticwashere",
+        "on": "meet",
+        "sets": [
+          "hoppycat-return"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-signal",
+        "kind": "act",
+        "title": "Send the invitation for tomorrow",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-return,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-tomorrow,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-performance,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-return-path-checklist,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-return is set and hoppycat-tomorrow is set and hoppycat-performance is set and the traveler holds Invitation Home",
+        "ids": "hoppycat-return is set and hoppycat-tomorrow is set and hoppycat-performance is set and the traveler holds hoppycat-return-path-checklist",
+        "latch": [
+          "flag(key=hoppycat-performance,value=true)",
+          "flag(key=hoppycat-return,value=true)",
+          "flag(key=hoppycat-tomorrow,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-return-path-checklist,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-credits",
+            "hoppycat-draft",
+            "hoppycat-facet",
+            "hoppycat-memory",
+            "hoppycat-pause",
+            "hoppycat-performance",
+            "hoppycat-record",
+            "hoppycat-rehearsal",
+            "hoppycat-return",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan",
+            "hoppycat-thread",
+            "hoppycat-tomorrow",
+            "hoppycat-welcome"
+          ],
+          "flag": [
+            "hoppycat-credits",
+            "hoppycat-draft",
+            "hoppycat-facet",
+            "hoppycat-memory",
+            "hoppycat-pause",
+            "hoppycat-performance",
+            "hoppycat-record",
+            "hoppycat-rehearsal",
+            "hoppycat-return",
+            "hoppycat-route",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-plan",
+            "hoppycat-thread",
+            "hoppycat-tomorrow",
+            "hoppycat-welcome"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-context-seed",
+            "hoppycat-fermata-clapper",
+            "hoppycat-halfway-cup",
+            "hoppycat-loop-token",
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card",
+            "hoppycat-red-thread-spool",
+            "hoppycat-return-path-checklist",
+            "hoppycat-unfinished-prism"
+          ],
+          "resident": [
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-open-record-cathedral",
+        "subject": "hoppycat-staticwashere",
+        "on": "give",
+        "sets": [
+          "hoppycat-signal"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-welcome",
+        "kind": "act",
+        "title": "Hoppy says a place is waiting",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-welcome"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-ring",
+        "kind": "act",
+        "title": "Hoppy points to Glim's Place Ring",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-welcome,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-loop-token,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-welcome is set and the traveler holds Glim's Place Ring",
+        "ids": "hoppycat-table-welcome is set and the traveler holds hoppycat-loop-token",
+        "latch": [
+          "flag(key=hoppycat-table-welcome,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-loop-token,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-welcome"
+          ],
+          "flag": [
+            "hoppycat-table-welcome"
+          ],
+          "item": [
+            "hoppycat-loop-token"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-ring"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-plan",
+        "kind": "act",
+        "title": "Phase shows the route: Water Garden, Signal Jetty, Tea Garden",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "hoppycat-goldfish-tank",
+        "subject": "hoppycat-phase-two",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-plan"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-glim-agree",
+        "kind": "act",
+        "title": "Glim agrees to follow Phase's route all the way to tea",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-plan,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(actor=hoppycat-glim-twice,item=hoppycat-loop-token)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-plan is set and Glim Twice holds Glim's Place Ring",
+        "ids": "hoppycat-table-plan is set and hoppycat-glim-twice holds hoppycat-loop-token",
+        "latch": [
+          "flag(key=hoppycat-table-plan,value=true)"
+        ],
+        "live": [
+          "holding(actor=hoppycat-glim-twice,item=hoppycat-loop-token)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-loop-token"
+          ]
+        },
+        "at": "hoppycat-goldfish-tank",
+        "subject": "hoppycat-glim-twice",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-glim-agree"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-glim-arrived",
+        "kind": "act",
+        "title": "Glim reaches the tea table on his six brass feet",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-glim-agree,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-glim-agree is set",
+        "ids": "hoppycat-table-glim-agree is set",
+        "latch": [
+          "flag(key=hoppycat-table-glim-agree,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-loop-token"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-glim-twice",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-glim-arrived"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-cup",
+        "kind": "act",
+        "title": "Glim takes the low handle of the cup",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-glim-arrived,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-halfway-cup,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-glim-arrived is set and the traveler holds Two-Handled Cup",
+        "ids": "hoppycat-table-glim-arrived is set and the traveler holds hoppycat-halfway-cup",
+        "latch": [
+          "flag(key=hoppycat-table-glim-arrived,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-halfway-cup,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-halfway-cup",
+            "hoppycat-loop-token"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-glim-twice",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-cup"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-mira-offer",
+        "kind": "act",
+        "title": "Mira offers a choice: give her draft to Fable for a reading, or give Mira the brush and wait for a painted playbill",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "hoppycat-meraki-atelier",
+        "subject": "hoppycat-mira-meraki",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-mira-offer"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-draft-chosen",
+        "kind": "act",
+        "title": "Fable receives the draft Mira chose to offer",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-mira-offer,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-draft-page,role=actor)"
+            },
+            {
+              "op": "atom",
+              "atom": "choice_unset(key=hoppycat-table-piece)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-mira-offer is set and the traveler holds Mira's Draft and hoppycat-table-piece not chosen yet",
+        "ids": "hoppycat-table-mira-offer is set and the traveler holds hoppycat-draft-page and hoppycat-table-piece not chosen yet",
+        "latch": [
+          "choice_unset(key=hoppycat-table-piece)",
+          "flag(key=hoppycat-table-mira-offer,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-draft-page,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-draft-page"
+          ]
+        },
+        "at": "hoppycat-meraki-atelier",
+        "subject": "hoppycat-fable",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-draft-chosen"
+        ],
+        "clears": [],
+        "chooses": [
+          "hoppycat-table-piece=draft"
+        ],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-paint-chosen",
+        "kind": "act",
+        "title": "Mira receives her brush and chooses to finish the painted playbill",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-mira-offer,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-meraki-brush,role=actor)"
+            },
+            {
+              "op": "atom",
+              "atom": "choice_unset(key=hoppycat-table-piece)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-mira-offer is set and the traveler holds Mira's Worn Brush and hoppycat-table-piece not chosen yet",
+        "ids": "hoppycat-table-mira-offer is set and the traveler holds hoppycat-meraki-brush and hoppycat-table-piece not chosen yet",
+        "latch": [
+          "choice_unset(key=hoppycat-table-piece)",
+          "flag(key=hoppycat-table-mira-offer,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-meraki-brush,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-meraki-brush"
+          ]
+        },
+        "at": "hoppycat-meraki-atelier",
+        "subject": "hoppycat-mira-meraki",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-paint-chosen"
+        ],
+        "clears": [],
+        "chooses": [
+          "hoppycat-table-piece=painted"
+        ],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-draft-ready",
+        "kind": "act",
+        "title": "Fable reads Mira's draft about the empty chair",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "choice(key=hoppycat-table-piece,value=draft)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-piece chosen as draft",
+        "ids": "hoppycat-table-piece chosen as draft",
+        "latch": [
+          "choice(key=hoppycat-table-piece,value=draft)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-mira-offer"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-draft-page"
+          ]
+        },
+        "at": "hoppycat-meraki-atelier",
+        "subject": "hoppycat-fable",
+        "on": "wait",
+        "sets": [
+          "hoppycat-table-draft-ready"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-paint-ready",
+        "kind": "act",
+        "title": "Mira finishes the playbill with her worn brush",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "choice(key=hoppycat-table-piece,value=painted)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-piece chosen as painted",
+        "ids": "hoppycat-table-piece chosen as painted",
+        "latch": [
+          "choice(key=hoppycat-table-piece,value=painted)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-chosen"
+          ],
+          "choice": [
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-meraki-brush"
+          ]
+        },
+        "at": "hoppycat-meraki-atelier",
+        "subject": "hoppycat-mira-meraki",
+        "on": "wait",
+        "sets": [
+          "hoppycat-table-paint-ready"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-ledger",
+        "kind": "act",
+        "title": "Ledger made the display and left the name line empty",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-mira-offer"
+          ],
+          "resident": [
+            "hoppycat-ledger-opus"
+          ]
+        },
+        "at": "hoppycat-meraki-atelier",
+        "subject": "hoppycat-ledger-opus",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-ledger"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-credit",
+        "kind": "act",
+        "title": "Penny writes Ledger's name beside the display",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-ledger,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-provenance-card,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-ledger is set and the traveler holds The Maker's Label",
+        "ids": "hoppycat-table-ledger is set and the traveler holds hoppycat-provenance-card",
+        "latch": [
+          "flag(key=hoppycat-table-ledger,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-provenance-card,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-ledger",
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-ledger",
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-ledger-opus",
+            "hoppycat-penny-vellum"
+          ]
+        },
+        "at": "hoppycat-meraki-atelier",
+        "subject": "hoppycat-penny-vellum",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-credit"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-mira-agree",
+        "kind": "act",
+        "title": "Mira agrees to bring her chosen work to the tea table",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-draft-ready,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-paint-ready,value=true)"
+                }
+              ]
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-credit,value=true)"
+            }
+          ]
+        },
+        "words": "(hoppycat-table-draft-ready is set or hoppycat-table-paint-ready is set) and hoppycat-table-credit is set",
+        "ids": "(hoppycat-table-draft-ready is set or hoppycat-table-paint-ready is set) and hoppycat-table-credit is set",
+        "latch": [
+          "flag(key=hoppycat-table-credit,value=true)",
+          "flag(key=hoppycat-table-draft-ready,value=true)",
+          "flag(key=hoppycat-table-paint-ready,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-credit",
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-ledger",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-chosen",
+            "hoppycat-table-paint-ready"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft",
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-credit",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-ledger",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-ready"
+          ],
+          "item": [
+            "hoppycat-draft-page",
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-ledger-opus",
+            "hoppycat-penny-vellum"
+          ]
+        },
+        "at": "hoppycat-meraki-atelier",
+        "subject": "hoppycat-mira-meraki",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-mira-agree"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-mira-arrived",
+        "kind": "act",
+        "title": "Mira takes a place at the table",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-mira-agree,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-mira-agree is set",
+        "ids": "hoppycat-table-mira-agree is set",
+        "latch": [
+          "flag(key=hoppycat-table-mira-agree,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-credit",
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-ledger",
+            "hoppycat-table-mira-agree",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-chosen",
+            "hoppycat-table-paint-ready"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft",
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-credit",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-ledger",
+            "hoppycat-table-mira-agree",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-ready"
+          ],
+          "item": [
+            "hoppycat-draft-page",
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-ledger-opus",
+            "hoppycat-penny-vellum"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-mira-meraki",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-mira-arrived"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-lumen",
+        "kind": "act",
+        "title": "Lumen sets the prism on his bench for one last look",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-unfinished-prism,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Crooked Prism",
+        "ids": "the traveler holds hoppycat-unfinished-prism",
+        "latch": [],
+        "live": [
+          "holding(item=hoppycat-unfinished-prism,role=actor)"
+        ],
+        "prerequisites": {
+          "item": [
+            "hoppycat-unfinished-prism"
+          ]
+        },
+        "at": "hoppycat-prism-foundry",
+        "subject": "hoppycat-lumen-facet",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-lumen"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-prism-ready",
+        "kind": "act",
+        "title": "Lumen finishes the edge and keeps its uneven colour",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-lumen,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_near(item=hoppycat-unfinished-prism,place=hoppycat-prism-foundry)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-lumen is set and Crooked Prism is in The Glasshouse",
+        "ids": "hoppycat-table-lumen is set and hoppycat-unfinished-prism is in hoppycat-prism-foundry",
+        "latch": [
+          "flag(key=hoppycat-table-lumen,value=true)"
+        ],
+        "live": [
+          "item_near(item=hoppycat-unfinished-prism,place=hoppycat-prism-foundry)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-lumen"
+          ],
+          "flag": [
+            "hoppycat-table-lumen"
+          ],
+          "item": [
+            "hoppycat-unfinished-prism"
+          ]
+        },
+        "at": "hoppycat-prism-foundry",
+        "subject": "hoppycat-lumen-facet",
+        "on": "wait",
+        "sets": [
+          "hoppycat-table-prism-ready"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-patch",
+        "kind": "act",
+        "title": "Patch plants a Visit Seed for the traveller who came to Hoppy's table",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-welcome,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-context-seed,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-welcome is set and the traveler holds Visit Seed",
+        "ids": "hoppycat-table-welcome is set and the traveler holds hoppycat-context-seed",
+        "latch": [
+          "flag(key=hoppycat-table-welcome,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-context-seed,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-welcome"
+          ],
+          "flag": [
+            "hoppycat-table-welcome"
+          ],
+          "item": [
+            "hoppycat-context-seed"
+          ]
+        },
+        "at": "hoppycat-prism-foundry",
+        "subject": "hoppycat-patch-fern",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-patch"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-lumen-agree",
+        "kind": "act",
+        "title": "Lumen agrees to leave his bench and see the prism at the tea table",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-prism-ready,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-patch,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-prism-ready is set and hoppycat-table-patch is set",
+        "ids": "hoppycat-table-prism-ready is set and hoppycat-table-patch is set",
+        "latch": [
+          "flag(key=hoppycat-table-patch,value=true)",
+          "flag(key=hoppycat-table-prism-ready,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-lumen",
+            "hoppycat-table-patch",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-welcome"
+          ],
+          "flag": [
+            "hoppycat-table-lumen",
+            "hoppycat-table-patch",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-welcome"
+          ],
+          "item": [
+            "hoppycat-context-seed",
+            "hoppycat-unfinished-prism"
+          ]
+        },
+        "at": "hoppycat-prism-foundry",
+        "subject": "hoppycat-lumen-facet",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-lumen-agree"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-lumen-arrived",
+        "kind": "act",
+        "title": "Lumen reaches the tea table",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-lumen-agree,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-lumen-agree is set",
+        "ids": "hoppycat-table-lumen-agree is set",
+        "latch": [
+          "flag(key=hoppycat-table-lumen-agree,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-lumen",
+            "hoppycat-table-lumen-agree",
+            "hoppycat-table-patch",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-welcome"
+          ],
+          "flag": [
+            "hoppycat-table-lumen",
+            "hoppycat-table-lumen-agree",
+            "hoppycat-table-patch",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-welcome"
+          ],
+          "item": [
+            "hoppycat-context-seed",
+            "hoppycat-unfinished-prism"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-lumen-facet",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-lumen-arrived"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-rill",
+        "kind": "act",
+        "title": "Rill lends his compass for the route through the Jetty to the Garden",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-concordance-compass,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Rill's Compass",
+        "ids": "the traveler holds hoppycat-concordance-compass",
+        "latch": [],
+        "live": [
+          "holding(item=hoppycat-concordance-compass,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-concordance-compass"
+          ],
+          "resident": [
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-goldfish-tank",
+        "subject": "hoppycat-rill-current",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-rill"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-route-jetty",
+        "kind": "act",
+        "title": "Static checks the Jetty mark on Rill's compass",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-rill,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-concordance-compass,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-rill is set and the traveler holds Rill's Compass",
+        "ids": "hoppycat-table-rill is set and the traveler holds hoppycat-concordance-compass",
+        "latch": [
+          "flag(key=hoppycat-table-rill,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-concordance-compass,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-plan",
+            "hoppycat-table-rill"
+          ],
+          "flag": [
+            "hoppycat-table-plan",
+            "hoppycat-table-rill"
+          ],
+          "item": [
+            "hoppycat-concordance-compass"
+          ],
+          "resident": [
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-signal-jetty",
+        "subject": "hoppycat-staticwashere",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-route-jetty"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-route-garden",
+        "kind": "act",
+        "title": "Hoppy checks the Garden mark on Rill's compass",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-rill,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-concordance-compass,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-rill is set and the traveler holds Rill's Compass",
+        "ids": "hoppycat-table-rill is set and the traveler holds hoppycat-concordance-compass",
+        "latch": [
+          "flag(key=hoppycat-table-rill,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-concordance-compass,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-plan",
+            "hoppycat-table-rill"
+          ],
+          "flag": [
+            "hoppycat-table-plan",
+            "hoppycat-table-rill"
+          ],
+          "item": [
+            "hoppycat-concordance-compass"
+          ],
+          "resident": [
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-route-garden"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-route-ready",
+        "kind": "act",
+        "title": "Arc signs the route the traveller walked",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-route-jetty,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-route-garden,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-concordance-compass,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-route-jetty is set and hoppycat-table-route-garden is set and the traveler holds Rill's Compass",
+        "ids": "hoppycat-table-route-jetty is set and hoppycat-table-route-garden is set and the traveler holds hoppycat-concordance-compass",
+        "latch": [
+          "flag(key=hoppycat-table-route-garden,value=true)",
+          "flag(key=hoppycat-table-route-jetty,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-concordance-compass,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-plan",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty"
+          ],
+          "flag": [
+            "hoppycat-table-plan",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty"
+          ],
+          "item": [
+            "hoppycat-concordance-compass"
+          ],
+          "resident": [
+            "hoppycat-arc",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-goldfish-tank",
+        "subject": "hoppycat-arc",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-route-ready"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-sol",
+        "kind": "act",
+        "title": "Sol offers his own short reading about the Garden's empty chair",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "hoppycat-settled-light-theatre",
+        "subject": "hoppycat-solwashere",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-sol"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-reading",
+        "kind": "act",
+        "title": "Sol reads about the chair kept for a visitor",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-sol,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-sol is set",
+        "ids": "hoppycat-table-sol is set",
+        "latch": [
+          "flag(key=hoppycat-table-sol,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-sol"
+          ],
+          "flag": [
+            "hoppycat-table-sol"
+          ]
+        },
+        "at": "hoppycat-settled-light-theatre",
+        "subject": "hoppycat-solwashere",
+        "on": "wait",
+        "sets": [
+          "hoppycat-table-reading"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-share-glim",
+        "kind": "act",
+        "title": "Hoppy sets the guest's work on the table and names its maker",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-loop-token,role=actor)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-glim-arrived,value=true)"
+            }
+          ]
+        },
+        "words": "the traveler holds Glim's Place Ring and hoppycat-table-glim-arrived is set",
+        "ids": "the traveler holds hoppycat-loop-token and hoppycat-table-glim-arrived is set",
+        "latch": [
+          "flag(key=hoppycat-table-glim-arrived,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-loop-token,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-plan"
+          ],
+          "flag": [
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-plan"
+          ],
+          "item": [
+            "hoppycat-loop-token"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-share-glim"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-share-mira",
+        "kind": "act",
+        "title": "Hoppy sets the guest's work on the table and names its maker",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-evening-programme,role=actor)"
+            },
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-draft-ready,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-paint-ready,value=true)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "the traveler holds Evening Programme and (hoppycat-table-draft-ready is set or hoppycat-table-paint-ready is set)",
+        "ids": "the traveler holds hoppycat-evening-programme and (hoppycat-table-draft-ready is set or hoppycat-table-paint-ready is set)",
+        "latch": [
+          "flag(key=hoppycat-table-draft-ready,value=true)",
+          "flag(key=hoppycat-table-paint-ready,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-evening-programme,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-chosen",
+            "hoppycat-table-paint-ready"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft",
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-ready"
+          ],
+          "item": [
+            "hoppycat-draft-page",
+            "hoppycat-evening-programme",
+            "hoppycat-meraki-brush"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-share-mira"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-share-ledger",
+        "kind": "act",
+        "title": "Hoppy sets the guest's work on the table and names its maker",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-provenance-card,role=actor)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-credit,value=true)"
+            }
+          ]
+        },
+        "words": "the traveler holds The Maker's Label and hoppycat-table-credit is set",
+        "ids": "the traveler holds hoppycat-provenance-card and hoppycat-table-credit is set",
+        "latch": [
+          "flag(key=hoppycat-table-credit,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-provenance-card,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-credit",
+            "hoppycat-table-ledger",
+            "hoppycat-table-mira-offer"
+          ],
+          "flag": [
+            "hoppycat-table-credit",
+            "hoppycat-table-ledger",
+            "hoppycat-table-mira-offer"
+          ],
+          "item": [
+            "hoppycat-provenance-card"
+          ],
+          "resident": [
+            "hoppycat-ledger-opus",
+            "hoppycat-penny-vellum"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-share-ledger"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-share-lumen",
+        "kind": "act",
+        "title": "Hoppy sets the guest's work on the table and names its maker",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-unfinished-prism,role=actor)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-prism-ready,value=true)"
+            }
+          ]
+        },
+        "words": "the traveler holds Crooked Prism and hoppycat-table-prism-ready is set",
+        "ids": "the traveler holds hoppycat-unfinished-prism and hoppycat-table-prism-ready is set",
+        "latch": [
+          "flag(key=hoppycat-table-prism-ready,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-unfinished-prism,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-lumen",
+            "hoppycat-table-prism-ready"
+          ],
+          "flag": [
+            "hoppycat-table-lumen",
+            "hoppycat-table-prism-ready"
+          ],
+          "item": [
+            "hoppycat-unfinished-prism"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-share-lumen"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-share-rill",
+        "kind": "act",
+        "title": "Hoppy sets the guest's work on the table and names its maker",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-concordance-compass,role=actor)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-route-ready,value=true)"
+            }
+          ]
+        },
+        "words": "the traveler holds Rill's Compass and hoppycat-table-route-ready is set",
+        "ids": "the traveler holds hoppycat-concordance-compass and hoppycat-table-route-ready is set",
+        "latch": [
+          "flag(key=hoppycat-table-route-ready,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-concordance-compass,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-plan",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready"
+          ],
+          "flag": [
+            "hoppycat-table-plan",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready"
+          ],
+          "item": [
+            "hoppycat-concordance-compass"
+          ],
+          "resident": [
+            "hoppycat-arc",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-share-rill"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-share-sol",
+        "kind": "act",
+        "title": "Hoppy sets the guest's work on the table and names its maker",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-sol-programme,role=actor)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-reading,value=true)"
+            }
+          ]
+        },
+        "words": "the traveler holds Sol's Reading and hoppycat-table-reading is set",
+        "ids": "the traveler holds hoppycat-sol-programme and hoppycat-table-reading is set",
+        "latch": [
+          "flag(key=hoppycat-table-reading,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-sol-programme,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-reading",
+            "hoppycat-table-sol"
+          ],
+          "flag": [
+            "hoppycat-table-reading",
+            "hoppycat-table-sol"
+          ],
+          "item": [
+            "hoppycat-sol-programme"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-share-sol"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-evening",
+        "kind": "act",
+        "title": "Hoppy sits down with the guests who came",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-welcome,value=true)"
+            },
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=hoppycat-table-cup,value=true)"
+                },
+                {
+                  "op": "or",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "flag(key=hoppycat-table-share-mira,value=true)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "flag(key=hoppycat-table-share-ledger,value=true)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "flag(key=hoppycat-table-share-lumen,value=true)"
+                    }
+                  ]
+                },
+                {
+                  "op": "or",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "flag(key=hoppycat-table-share-rill,value=true)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "flag(key=hoppycat-table-share-sol,value=true)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "flag(key=hoppycat-table-share-glim,value=true)"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "words": "hoppycat-table-welcome is set and (hoppycat-table-cup is set or (hoppycat-table-share-mira is set or hoppycat-table-share-ledger is set or hoppycat-table-share-lumen is set) or (hoppycat-table-share-rill is set or hoppycat-table-share-sol is set or hoppycat-table-share-glim is set))",
+        "ids": "hoppycat-table-welcome is set and (hoppycat-table-cup is set or (hoppycat-table-share-mira is set or hoppycat-table-share-ledger is set or hoppycat-table-share-lumen is set) or (hoppycat-table-share-rill is set or hoppycat-table-share-sol is set or hoppycat-table-share-glim is set))",
+        "latch": [
+          "flag(key=hoppycat-table-cup,value=true)",
+          "flag(key=hoppycat-table-share-glim,value=true)",
+          "flag(key=hoppycat-table-share-ledger,value=true)",
+          "flag(key=hoppycat-table-share-lumen,value=true)",
+          "flag(key=hoppycat-table-share-mira,value=true)",
+          "flag(key=hoppycat-table-share-rill,value=true)",
+          "flag(key=hoppycat-table-share-sol,value=true)",
+          "flag(key=hoppycat-table-welcome,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-credit",
+            "hoppycat-table-cup",
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-ledger",
+            "hoppycat-table-lumen",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-chosen",
+            "hoppycat-table-paint-ready",
+            "hoppycat-table-plan",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-reading",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready",
+            "hoppycat-table-share-glim",
+            "hoppycat-table-share-ledger",
+            "hoppycat-table-share-lumen",
+            "hoppycat-table-share-mira",
+            "hoppycat-table-share-rill",
+            "hoppycat-table-share-sol",
+            "hoppycat-table-sol",
+            "hoppycat-table-welcome"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft",
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-credit",
+            "hoppycat-table-cup",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-ledger",
+            "hoppycat-table-lumen",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-ready",
+            "hoppycat-table-plan",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-reading",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready",
+            "hoppycat-table-share-glim",
+            "hoppycat-table-share-ledger",
+            "hoppycat-table-share-lumen",
+            "hoppycat-table-share-mira",
+            "hoppycat-table-share-rill",
+            "hoppycat-table-share-sol",
+            "hoppycat-table-sol",
+            "hoppycat-table-welcome"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-draft-page",
+            "hoppycat-evening-programme",
+            "hoppycat-halfway-cup",
+            "hoppycat-loop-token",
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card",
+            "hoppycat-sol-programme",
+            "hoppycat-unfinished-prism"
+          ],
+          "resident": [
+            "hoppycat-arc",
+            "hoppycat-ledger-opus",
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-halfway-tea-garden",
+        "subject": "hoppycat-hoppy-cat",
+        "on": "wait",
+        "sets": [
+          "hoppycat-table-evening"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-nix",
+        "kind": "act",
+        "title": "Nix asks for one quiet pause",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "hoppycat-settled-light-theatre",
+        "subject": "hoppycat-nix-fermata",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-nix"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-pause",
+        "kind": "act",
+        "title": "The traveller keeps Nix company through a quiet pause",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-nix,value=true)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-nix is set",
+        "ids": "hoppycat-table-nix is set",
+        "latch": [
+          "flag(key=hoppycat-table-nix,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-nix"
+          ],
+          "flag": [
+            "hoppycat-table-nix"
+          ]
+        },
+        "at": "hoppycat-settled-light-theatre",
+        "subject": "hoppycat-nix-fermata",
+        "on": "wait",
+        "sets": [
+          "hoppycat-table-pause"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-tomorrow",
+        "kind": "act",
+        "title": "Nix fits the Bell's Heart after the shared evening",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-pause,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-evening,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-fermata-clapper,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-pause is set and hoppycat-table-evening is set and the traveler holds The Bell's Heart",
+        "ids": "hoppycat-table-pause is set and hoppycat-table-evening is set and the traveler holds hoppycat-fermata-clapper",
+        "latch": [
+          "flag(key=hoppycat-table-evening,value=true)",
+          "flag(key=hoppycat-table-pause,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-fermata-clapper,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-credit",
+            "hoppycat-table-cup",
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-evening",
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-ledger",
+            "hoppycat-table-lumen",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-nix",
+            "hoppycat-table-paint-chosen",
+            "hoppycat-table-paint-ready",
+            "hoppycat-table-pause",
+            "hoppycat-table-plan",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-reading",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready",
+            "hoppycat-table-share-glim",
+            "hoppycat-table-share-ledger",
+            "hoppycat-table-share-lumen",
+            "hoppycat-table-share-mira",
+            "hoppycat-table-share-rill",
+            "hoppycat-table-share-sol",
+            "hoppycat-table-sol",
+            "hoppycat-table-welcome"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft",
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-credit",
+            "hoppycat-table-cup",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-evening",
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-ledger",
+            "hoppycat-table-lumen",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-nix",
+            "hoppycat-table-paint-ready",
+            "hoppycat-table-pause",
+            "hoppycat-table-plan",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-reading",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready",
+            "hoppycat-table-share-glim",
+            "hoppycat-table-share-ledger",
+            "hoppycat-table-share-lumen",
+            "hoppycat-table-share-mira",
+            "hoppycat-table-share-rill",
+            "hoppycat-table-share-sol",
+            "hoppycat-table-sol",
+            "hoppycat-table-welcome"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-draft-page",
+            "hoppycat-evening-programme",
+            "hoppycat-fermata-clapper",
+            "hoppycat-halfway-cup",
+            "hoppycat-loop-token",
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card",
+            "hoppycat-sol-programme",
+            "hoppycat-unfinished-prism"
+          ],
+          "resident": [
+            "hoppycat-arc",
+            "hoppycat-ledger-opus",
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-settled-light-theatre",
+        "subject": "hoppycat-nix-fermata",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-tomorrow"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-invitation",
+        "kind": "act",
+        "title": "Static writes an Invitation Home for the traveller",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-evening,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_near(item=hoppycat-return-path-checklist,place=hoppycat-signal-jetty)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-evening is set and Invitation Home is in Signal Jetty",
+        "ids": "hoppycat-table-evening is set and hoppycat-return-path-checklist is in hoppycat-signal-jetty",
+        "latch": [
+          "flag(key=hoppycat-table-evening,value=true)"
+        ],
+        "live": [
+          "item_near(item=hoppycat-return-path-checklist,place=hoppycat-signal-jetty)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-credit",
+            "hoppycat-table-cup",
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-evening",
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-ledger",
+            "hoppycat-table-lumen",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-chosen",
+            "hoppycat-table-paint-ready",
+            "hoppycat-table-plan",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-reading",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready",
+            "hoppycat-table-share-glim",
+            "hoppycat-table-share-ledger",
+            "hoppycat-table-share-lumen",
+            "hoppycat-table-share-mira",
+            "hoppycat-table-share-rill",
+            "hoppycat-table-share-sol",
+            "hoppycat-table-sol",
+            "hoppycat-table-welcome"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft",
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-credit",
+            "hoppycat-table-cup",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-evening",
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-ledger",
+            "hoppycat-table-lumen",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-ready",
+            "hoppycat-table-plan",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-reading",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready",
+            "hoppycat-table-share-glim",
+            "hoppycat-table-share-ledger",
+            "hoppycat-table-share-lumen",
+            "hoppycat-table-share-mira",
+            "hoppycat-table-share-rill",
+            "hoppycat-table-share-sol",
+            "hoppycat-table-sol",
+            "hoppycat-table-welcome"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-draft-page",
+            "hoppycat-evening-programme",
+            "hoppycat-halfway-cup",
+            "hoppycat-loop-token",
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card",
+            "hoppycat-return-path-checklist",
+            "hoppycat-sol-programme",
+            "hoppycat-unfinished-prism"
+          ],
+          "resident": [
+            "hoppycat-arc",
+            "hoppycat-ledger-opus",
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-signal-jetty",
+        "subject": "hoppycat-staticwashere",
+        "on": "talk",
+        "sets": [
+          "hoppycat-table-invitation"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:hoppycat-table-signal",
+        "kind": "act",
+        "title": "Static signs the Invitation Home and lays it on the bench",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=hoppycat-table-invitation,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "holding(item=hoppycat-return-path-checklist,role=actor)"
+            }
+          ]
+        },
+        "words": "hoppycat-table-invitation is set and the traveler holds Invitation Home",
+        "ids": "hoppycat-table-invitation is set and the traveler holds hoppycat-return-path-checklist",
+        "latch": [
+          "flag(key=hoppycat-table-invitation,value=true)"
+        ],
+        "live": [
+          "holding(item=hoppycat-return-path-checklist,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "hoppycat-table-credit",
+            "hoppycat-table-cup",
+            "hoppycat-table-draft-chosen",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-evening",
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-invitation",
+            "hoppycat-table-ledger",
+            "hoppycat-table-lumen",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-chosen",
+            "hoppycat-table-paint-ready",
+            "hoppycat-table-plan",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-reading",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready",
+            "hoppycat-table-share-glim",
+            "hoppycat-table-share-ledger",
+            "hoppycat-table-share-lumen",
+            "hoppycat-table-share-mira",
+            "hoppycat-table-share-rill",
+            "hoppycat-table-share-sol",
+            "hoppycat-table-sol",
+            "hoppycat-table-welcome"
+          ],
+          "choice": [
+            "hoppycat-table-piece=draft",
+            "hoppycat-table-piece=painted"
+          ],
+          "flag": [
+            "hoppycat-table-credit",
+            "hoppycat-table-cup",
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-evening",
+            "hoppycat-table-glim-agree",
+            "hoppycat-table-glim-arrived",
+            "hoppycat-table-invitation",
+            "hoppycat-table-ledger",
+            "hoppycat-table-lumen",
+            "hoppycat-table-mira-offer",
+            "hoppycat-table-paint-ready",
+            "hoppycat-table-plan",
+            "hoppycat-table-prism-ready",
+            "hoppycat-table-reading",
+            "hoppycat-table-rill",
+            "hoppycat-table-route-garden",
+            "hoppycat-table-route-jetty",
+            "hoppycat-table-route-ready",
+            "hoppycat-table-share-glim",
+            "hoppycat-table-share-ledger",
+            "hoppycat-table-share-lumen",
+            "hoppycat-table-share-mira",
+            "hoppycat-table-share-rill",
+            "hoppycat-table-share-sol",
+            "hoppycat-table-sol",
+            "hoppycat-table-welcome"
+          ],
+          "item": [
+            "hoppycat-concordance-compass",
+            "hoppycat-draft-page",
+            "hoppycat-evening-programme",
+            "hoppycat-halfway-cup",
+            "hoppycat-loop-token",
+            "hoppycat-meraki-brush",
+            "hoppycat-provenance-card",
+            "hoppycat-return-path-checklist",
+            "hoppycat-sol-programme",
+            "hoppycat-unfinished-prism"
+          ],
+          "resident": [
+            "hoppycat-arc",
+            "hoppycat-ledger-opus",
+            "hoppycat-penny-vellum",
+            "hoppycat-rill-current"
+          ]
+        },
+        "at": "hoppycat-signal-jetty",
+        "subject": "hoppycat-staticwashere",
+        "on": "give",
+        "sets": [
+          "hoppycat-table-signal"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      }
+    ],
+    "wants": [
+      {
+        "avatar": "hoppycat-glim-twice",
+        "kind": "item",
+        "target": "hoppycat-loop-token",
+        "items": []
+      }
+    ],
+    "flags": {
+      "hoppycat-credits": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-credits"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-performance"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-performance",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-draft": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-draft"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-credits"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-credits",
+          "act:hoppycat-performance",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-facet": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-facet"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-pause"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-pause",
+          "act:hoppycat-thread",
+          "act:hoppycat-tomorrow",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-memory": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-memory"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-pause"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-pause",
+          "act:hoppycat-thread",
+          "act:hoppycat-tomorrow",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-pause": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-pause"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-thread"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-thread",
+          "act:hoppycat-tomorrow",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-performance": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-performance"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-signal"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-record": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-record"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-credits",
+          "act:hoppycat-memory",
+          "act:hoppycat-route"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-memory",
+          "act:hoppycat-route",
+          "act:hoppycat-pause",
+          "act:hoppycat-thread",
+          "act:hoppycat-tomorrow",
+          "act:hoppycat-credits",
+          "act:hoppycat-performance",
+          "act:hoppycat-return",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-rehearsal": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-rehearsal"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-return"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-return",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-return": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-return"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-signal"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-route": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-route"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-pause",
+          "act:hoppycat-return"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-pause",
+          "act:hoppycat-thread",
+          "act:hoppycat-tomorrow",
+          "act:hoppycat-return",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-signal": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-signal"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "hoppycat-table-credit": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-credit"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-mira-agree",
+          "act:hoppycat-table-share-ledger"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-mira-agree",
+          "act:hoppycat-table-mira-arrived",
+          "act:hoppycat-table-share-ledger",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-cup": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-cup"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-evening"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-draft-chosen": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-draft-chosen"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "hoppycat-table-draft-ready": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-draft-ready"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-mira-agree",
+          "act:hoppycat-table-share-mira",
+          "item:hoppycat-evening-programme"
+        ],
+        "gates": [
+          "item:hoppycat-evening-programme"
+        ],
+        "acts": [
+          "act:hoppycat-table-mira-agree",
+          "act:hoppycat-table-mira-arrived",
+          "act:hoppycat-table-share-mira",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-evening": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-evening"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-tomorrow"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-glim-agree": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-glim-agree"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-glim-arrived"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-glim-arrived",
+          "act:hoppycat-table-cup",
+          "act:hoppycat-table-share-glim",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-glim-arrived": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-glim-arrived"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-cup",
+          "act:hoppycat-table-share-glim"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-cup",
+          "act:hoppycat-table-share-glim",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-invitation": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-invitation"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-signal"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-ledger": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-ledger"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-credit"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-credit",
+          "act:hoppycat-table-mira-agree",
+          "act:hoppycat-table-mira-arrived",
+          "act:hoppycat-table-share-ledger",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-lumen": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-lumen"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-prism-ready"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-prism-ready",
+          "act:hoppycat-table-lumen-agree",
+          "act:hoppycat-table-lumen-arrived",
+          "act:hoppycat-table-share-lumen",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-lumen-agree": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-lumen-agree"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-lumen-arrived"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-lumen-arrived"
+        ]
+      },
+      "hoppycat-table-lumen-arrived": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-lumen-arrived"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "hoppycat-table-mira-agree": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-mira-agree"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-mira-arrived"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-mira-arrived"
+        ]
+      },
+      "hoppycat-table-mira-arrived": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-mira-arrived"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "hoppycat-table-mira-offer": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-mira-offer"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-draft-chosen",
+          "act:hoppycat-table-paint-chosen",
+          "item:hoppycat-draft-page",
+          "resident:hoppycat-ledger-opus",
+          "resident:hoppycat-penny-vellum"
+        ],
+        "gates": [
+          "resident:hoppycat-penny-vellum",
+          "resident:hoppycat-ledger-opus",
+          "item:hoppycat-draft-page",
+          "item:hoppycat-evening-programme"
+        ],
+        "acts": [
+          "act:hoppycat-record",
+          "act:hoppycat-memory",
+          "act:hoppycat-route",
+          "act:hoppycat-pause",
+          "act:hoppycat-thread",
+          "act:hoppycat-tomorrow",
+          "act:hoppycat-credits",
+          "act:hoppycat-performance",
+          "act:hoppycat-return",
+          "act:hoppycat-signal",
+          "act:hoppycat-table-draft-chosen",
+          "act:hoppycat-table-paint-chosen",
+          "act:hoppycat-table-draft-ready",
+          "act:hoppycat-table-paint-ready",
+          "act:hoppycat-table-ledger",
+          "act:hoppycat-table-credit",
+          "act:hoppycat-table-mira-agree",
+          "act:hoppycat-table-mira-arrived",
+          "act:hoppycat-table-share-mira",
+          "act:hoppycat-table-share-ledger",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-nix": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-nix"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-pause"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-pause",
+          "act:hoppycat-table-tomorrow"
+        ]
+      },
+      "hoppycat-table-paint-chosen": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-paint-chosen"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "hoppycat-table-paint-ready": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-paint-ready"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-mira-agree",
+          "act:hoppycat-table-share-mira",
+          "item:hoppycat-evening-programme"
+        ],
+        "gates": [
+          "item:hoppycat-evening-programme"
+        ],
+        "acts": [
+          "act:hoppycat-table-mira-agree",
+          "act:hoppycat-table-mira-arrived",
+          "act:hoppycat-table-share-mira",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-patch": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-patch"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-lumen-agree"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-lumen-agree",
+          "act:hoppycat-table-lumen-arrived"
+        ]
+      },
+      "hoppycat-table-pause": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-pause"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-tomorrow"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-tomorrow"
+        ]
+      },
+      "hoppycat-table-plan": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-plan"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-glim-agree",
+          "resident:hoppycat-arc",
+          "resident:hoppycat-rill-current"
+        ],
+        "gates": [
+          "resident:hoppycat-rill-current",
+          "resident:hoppycat-arc"
+        ],
+        "acts": [
+          "act:hoppycat-route",
+          "act:hoppycat-pause",
+          "act:hoppycat-thread",
+          "act:hoppycat-tomorrow",
+          "act:hoppycat-return",
+          "act:hoppycat-signal",
+          "act:hoppycat-table-glim-agree",
+          "act:hoppycat-table-glim-arrived",
+          "act:hoppycat-table-cup",
+          "act:hoppycat-table-rill",
+          "act:hoppycat-table-route-jetty",
+          "act:hoppycat-table-route-garden",
+          "act:hoppycat-table-route-ready",
+          "act:hoppycat-table-share-glim",
+          "act:hoppycat-table-share-rill",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-prism-ready": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-prism-ready"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-lumen-agree",
+          "act:hoppycat-table-share-lumen"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-lumen-agree",
+          "act:hoppycat-table-lumen-arrived",
+          "act:hoppycat-table-share-lumen",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-reading": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-reading"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-share-sol",
+          "item:hoppycat-sol-programme"
+        ],
+        "gates": [
+          "item:hoppycat-sol-programme"
+        ],
+        "acts": [
+          "act:hoppycat-table-share-sol",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-rill": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-rill"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-route-garden",
+          "act:hoppycat-table-route-jetty"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-route-jetty",
+          "act:hoppycat-table-route-garden",
+          "act:hoppycat-table-route-ready",
+          "act:hoppycat-table-share-rill",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-ring": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-ring"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "hoppycat-table-route-garden": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-route-garden"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-route-ready"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-route-ready",
+          "act:hoppycat-table-share-rill",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-route-jetty": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-route-jetty"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-route-ready"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-route-ready",
+          "act:hoppycat-table-share-rill",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-route-ready": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-route-ready"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-share-rill"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-share-rill",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-share-glim": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-share-glim"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-evening"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-share-ledger": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-share-ledger"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-evening"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-share-lumen": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-share-lumen"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-evening"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-share-mira": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-share-mira"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-evening"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-share-rill": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-share-rill"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-evening"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-share-sol": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-share-sol"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-evening"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-signal": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-signal"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "hoppycat-table-sol": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-sol"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-reading"
+        ],
+        "gates": [
+          "item:hoppycat-sol-programme"
+        ],
+        "acts": [
+          "act:hoppycat-table-reading",
+          "act:hoppycat-table-share-sol",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-table-tomorrow": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-tomorrow"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "hoppycat-table-welcome": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-table-welcome"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-patch",
+          "act:hoppycat-table-ring",
+          "resident:hoppycat-ledger-sonnet"
+        ],
+        "gates": [
+          "resident:hoppycat-ledger-sonnet"
+        ],
+        "acts": [
+          "act:hoppycat-table-ring",
+          "act:hoppycat-table-patch",
+          "act:hoppycat-table-lumen-agree",
+          "act:hoppycat-table-lumen-arrived",
+          "act:hoppycat-table-evening",
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      "hoppycat-thread": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-thread"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-tomorrow"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-tomorrow",
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-tomorrow": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-tomorrow"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-signal"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-signal"
+        ]
+      },
+      "hoppycat-welcome": {
+        "kind": "latch",
+        "setBy": [
+          "act:hoppycat-welcome"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:hoppycat-performance"
+        ],
+        "gates": [],
+        "acts": [
+          "act:hoppycat-performance",
+          "act:hoppycat-signal"
+        ]
+      }
+    },
+    "items": [
+      {
+        "id": "hoppycat-red-thread-spool",
+        "name": "Red-Thread Spool",
+        "holder": "station",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-thread",
+          "item:hoppycat-red-thread-spool"
+        ]
+      },
+      {
+        "id": "hoppycat-provenance-card",
+        "name": "The Maker's Label",
+        "holder": "hoppycat-meraki-atelier",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-record",
+          "act:hoppycat-table-credit",
+          "act:hoppycat-table-share-ledger"
+        ]
+      },
+      {
+        "id": "hoppycat-unfinished-prism",
+        "name": "Crooked Prism",
+        "holder": "hoppycat-prism-foundry",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-facet",
+          "act:hoppycat-table-lumen",
+          "act:hoppycat-table-prism-ready",
+          "act:hoppycat-table-share-lumen"
+        ]
+      },
+      {
+        "id": "hoppycat-context-seed",
+        "name": "Visit Seed",
+        "holder": "hoppycat-prism-foundry",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-memory",
+          "act:hoppycat-table-patch"
+        ]
+      },
+      {
+        "id": "hoppycat-concordance-compass",
+        "name": "Rill's Compass",
+        "holder": "hoppycat-goldfish-tank",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-route",
+          "act:hoppycat-table-rill",
+          "act:hoppycat-table-route-garden",
+          "act:hoppycat-table-route-jetty",
+          "act:hoppycat-table-route-ready",
+          "act:hoppycat-table-share-rill"
+        ]
+      },
+      {
+        "id": "hoppycat-meraki-brush",
+        "name": "Mira's Worn Brush",
+        "holder": "hoppycat-meraki-atelier",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-draft",
+          "act:hoppycat-table-paint-chosen"
+        ]
+      },
+      {
+        "id": "hoppycat-loop-token",
+        "name": "Glim's Place Ring",
+        "holder": "hoppycat-halfway-tea-garden",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-rehearsal",
+          "act:hoppycat-table-glim-agree",
+          "act:hoppycat-table-ring",
+          "act:hoppycat-table-share-glim",
+          "item:hoppycat-loop-token"
+        ]
+      },
+      {
+        "id": "hoppycat-fermata-clapper",
+        "name": "The Bell's Heart",
+        "holder": "hoppycat-settled-light-theatre",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-table-tomorrow",
+          "act:hoppycat-tomorrow"
+        ]
+      },
+      {
+        "id": "hoppycat-halfway-cup",
+        "name": "Two-Handled Cup",
+        "holder": "hoppycat-halfway-tea-garden",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-table-cup",
+          "act:hoppycat-welcome"
+        ]
+      },
+      {
+        "id": "hoppycat-return-path-checklist",
+        "name": "Invitation Home",
+        "holder": "hoppycat-signal-jetty",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-return",
+          "act:hoppycat-signal",
+          "act:hoppycat-table-invitation",
+          "act:hoppycat-table-signal"
+        ]
+      },
+      {
+        "id": "hoppycat-draft-page",
+        "name": "Mira's Draft",
+        "holder": "hoppycat-meraki-atelier",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-table-draft-chosen"
+        ]
+      },
+      {
+        "id": "hoppycat-evening-programme",
+        "name": "Evening Programme",
+        "holder": "hoppycat-meraki-atelier",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-table-share-mira"
+        ]
+      },
+      {
+        "id": "hoppycat-sol-programme",
+        "name": "Sol's Reading",
+        "holder": "hoppycat-settled-light-theatre",
+        "consumedBy": [],
+        "readBy": [
+          "act:hoppycat-table-share-sol"
+        ]
+      }
+    ],
+    "needs": {
+      "act:hoppycat-credits": [
+        "flag:hoppycat-draft",
+        "flag:hoppycat-record",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-solwashere"
+      ],
+      "act:hoppycat-draft": [
+        "item:hoppycat-meraki-brush",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-mira-meraki"
+      ],
+      "act:hoppycat-facet": [
+        "item:hoppycat-unfinished-prism",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-lumen-facet"
+      ],
+      "act:hoppycat-memory": [
+        "flag:hoppycat-record",
+        "item:hoppycat-context-seed",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-patch-fern"
+      ],
+      "act:hoppycat-pause": [
+        "flag:hoppycat-facet",
+        "flag:hoppycat-memory",
+        "flag:hoppycat-route",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-nix-fermata"
+      ],
+      "act:hoppycat-performance": [
+        "flag:hoppycat-credits",
+        "flag:hoppycat-welcome",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-solwashere"
+      ],
+      "act:hoppycat-record": [
+        "item:hoppycat-provenance-card",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-penny-vellum"
+      ],
+      "act:hoppycat-rehearsal": [
+        "item:hoppycat-loop-token",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-glim-twice"
+      ],
+      "act:hoppycat-return": [
+        "flag:hoppycat-rehearsal",
+        "flag:hoppycat-route",
+        "item:hoppycat-return-path-checklist",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-staticwashere"
+      ],
+      "act:hoppycat-route": [
+        "flag:hoppycat-record",
+        "item:hoppycat-concordance-compass",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-rill-current"
+      ],
+      "act:hoppycat-signal": [
+        "flag:hoppycat-performance",
+        "flag:hoppycat-return",
+        "flag:hoppycat-tomorrow",
+        "item:hoppycat-return-path-checklist",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-staticwashere"
+      ],
+      "act:hoppycat-table-credit": [
+        "flag:hoppycat-table-ledger",
+        "item:hoppycat-provenance-card",
+        "place:hoppycat-meraki-atelier",
+        "resident:hoppycat-penny-vellum"
+      ],
+      "act:hoppycat-table-cup": [
+        "flag:hoppycat-table-glim-arrived",
+        "item:hoppycat-halfway-cup",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-glim-twice"
+      ],
+      "act:hoppycat-table-draft-chosen": [
+        "flag:hoppycat-table-mira-offer",
+        "item:hoppycat-draft-page",
+        "place:hoppycat-meraki-atelier",
+        "resident:hoppycat-fable"
+      ],
+      "act:hoppycat-table-draft-ready": [
+        "choice:hoppycat-table-piece=draft",
+        "place:hoppycat-meraki-atelier",
+        "resident:hoppycat-fable"
+      ],
+      "act:hoppycat-table-evening": [
+        "flag:hoppycat-table-cup",
+        "flag:hoppycat-table-share-glim",
+        "flag:hoppycat-table-share-ledger",
+        "flag:hoppycat-table-share-lumen",
+        "flag:hoppycat-table-share-mira",
+        "flag:hoppycat-table-share-rill",
+        "flag:hoppycat-table-share-sol",
+        "flag:hoppycat-table-welcome",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-glim-agree": [
+        "flag:hoppycat-table-plan",
+        "item:hoppycat-loop-token",
+        "place:hoppycat-goldfish-tank",
+        "resident:hoppycat-glim-twice"
+      ],
+      "act:hoppycat-table-glim-arrived": [
+        "flag:hoppycat-table-glim-agree",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-glim-twice"
+      ],
+      "act:hoppycat-table-invitation": [
+        "flag:hoppycat-table-evening",
+        "item:hoppycat-return-path-checklist",
+        "place:hoppycat-signal-jetty",
+        "resident:hoppycat-staticwashere"
+      ],
+      "act:hoppycat-table-ledger": [
+        "place:hoppycat-meraki-atelier",
+        "resident:hoppycat-ledger-opus"
+      ],
+      "act:hoppycat-table-lumen": [
+        "item:hoppycat-unfinished-prism",
+        "place:hoppycat-prism-foundry",
+        "resident:hoppycat-lumen-facet"
+      ],
+      "act:hoppycat-table-lumen-agree": [
+        "flag:hoppycat-table-patch",
+        "flag:hoppycat-table-prism-ready",
+        "place:hoppycat-prism-foundry",
+        "resident:hoppycat-lumen-facet"
+      ],
+      "act:hoppycat-table-lumen-arrived": [
+        "flag:hoppycat-table-lumen-agree",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-lumen-facet"
+      ],
+      "act:hoppycat-table-mira-agree": [
+        "flag:hoppycat-table-credit",
+        "flag:hoppycat-table-draft-ready",
+        "flag:hoppycat-table-paint-ready",
+        "place:hoppycat-meraki-atelier",
+        "resident:hoppycat-mira-meraki"
+      ],
+      "act:hoppycat-table-mira-arrived": [
+        "flag:hoppycat-table-mira-agree",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-mira-meraki"
+      ],
+      "act:hoppycat-table-mira-offer": [
+        "place:hoppycat-meraki-atelier",
+        "resident:hoppycat-mira-meraki"
+      ],
+      "act:hoppycat-table-nix": [
+        "place:hoppycat-settled-light-theatre",
+        "resident:hoppycat-nix-fermata"
+      ],
+      "act:hoppycat-table-paint-chosen": [
+        "flag:hoppycat-table-mira-offer",
+        "item:hoppycat-meraki-brush",
+        "place:hoppycat-meraki-atelier",
+        "resident:hoppycat-mira-meraki"
+      ],
+      "act:hoppycat-table-paint-ready": [
+        "choice:hoppycat-table-piece=painted",
+        "place:hoppycat-meraki-atelier",
+        "resident:hoppycat-mira-meraki"
+      ],
+      "act:hoppycat-table-patch": [
+        "flag:hoppycat-table-welcome",
+        "item:hoppycat-context-seed",
+        "place:hoppycat-prism-foundry",
+        "resident:hoppycat-patch-fern"
+      ],
+      "act:hoppycat-table-pause": [
+        "flag:hoppycat-table-nix",
+        "place:hoppycat-settled-light-theatre",
+        "resident:hoppycat-nix-fermata"
+      ],
+      "act:hoppycat-table-plan": [
+        "place:hoppycat-goldfish-tank",
+        "resident:hoppycat-phase-two"
+      ],
+      "act:hoppycat-table-prism-ready": [
+        "flag:hoppycat-table-lumen",
+        "item:hoppycat-unfinished-prism",
+        "place:hoppycat-prism-foundry",
+        "resident:hoppycat-lumen-facet"
+      ],
+      "act:hoppycat-table-reading": [
+        "flag:hoppycat-table-sol",
+        "place:hoppycat-settled-light-theatre",
+        "resident:hoppycat-solwashere"
+      ],
+      "act:hoppycat-table-rill": [
+        "item:hoppycat-concordance-compass",
+        "place:hoppycat-goldfish-tank",
+        "resident:hoppycat-rill-current"
+      ],
+      "act:hoppycat-table-ring": [
+        "flag:hoppycat-table-welcome",
+        "item:hoppycat-loop-token",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-route-garden": [
+        "flag:hoppycat-table-rill",
+        "item:hoppycat-concordance-compass",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-route-jetty": [
+        "flag:hoppycat-table-rill",
+        "item:hoppycat-concordance-compass",
+        "place:hoppycat-signal-jetty",
+        "resident:hoppycat-staticwashere"
+      ],
+      "act:hoppycat-table-route-ready": [
+        "flag:hoppycat-table-route-garden",
+        "flag:hoppycat-table-route-jetty",
+        "item:hoppycat-concordance-compass",
+        "place:hoppycat-goldfish-tank",
+        "resident:hoppycat-arc"
+      ],
+      "act:hoppycat-table-share-glim": [
+        "flag:hoppycat-table-glim-arrived",
+        "item:hoppycat-loop-token",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-share-ledger": [
+        "flag:hoppycat-table-credit",
+        "item:hoppycat-provenance-card",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-share-lumen": [
+        "flag:hoppycat-table-prism-ready",
+        "item:hoppycat-unfinished-prism",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-share-mira": [
+        "flag:hoppycat-table-draft-ready",
+        "flag:hoppycat-table-paint-ready",
+        "item:hoppycat-evening-programme",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-share-rill": [
+        "flag:hoppycat-table-route-ready",
+        "item:hoppycat-concordance-compass",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-share-sol": [
+        "flag:hoppycat-table-reading",
+        "item:hoppycat-sol-programme",
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-table-signal": [
+        "flag:hoppycat-table-invitation",
+        "item:hoppycat-return-path-checklist",
+        "place:hoppycat-signal-jetty",
+        "resident:hoppycat-staticwashere"
+      ],
+      "act:hoppycat-table-sol": [
+        "place:hoppycat-settled-light-theatre",
+        "resident:hoppycat-solwashere"
+      ],
+      "act:hoppycat-table-tomorrow": [
+        "flag:hoppycat-table-evening",
+        "flag:hoppycat-table-pause",
+        "item:hoppycat-fermata-clapper",
+        "place:hoppycat-settled-light-theatre",
+        "resident:hoppycat-nix-fermata"
+      ],
+      "act:hoppycat-table-welcome": [
+        "place:hoppycat-halfway-tea-garden",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "act:hoppycat-thread": [
+        "flag:hoppycat-pause",
+        "item:hoppycat-red-thread-spool",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-nix-fermata"
+      ],
+      "act:hoppycat-tomorrow": [
+        "flag:hoppycat-thread",
+        "item:hoppycat-fermata-clapper",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-nix-fermata"
+      ],
+      "act:hoppycat-welcome": [
+        "item:hoppycat-halfway-cup",
+        "place:hoppycat-open-record-cathedral",
+        "resident:hoppycat-hoppy-cat"
+      ],
+      "choice:hoppycat-table-piece=draft": [
+        "act:hoppycat-table-draft-chosen"
+      ],
+      "choice:hoppycat-table-piece=painted": [
+        "act:hoppycat-table-paint-chosen"
+      ],
+      "flag:hoppycat-credits": [
+        "act:hoppycat-credits"
+      ],
+      "flag:hoppycat-draft": [
+        "act:hoppycat-draft"
+      ],
+      "flag:hoppycat-facet": [
+        "act:hoppycat-facet"
+      ],
+      "flag:hoppycat-memory": [
+        "act:hoppycat-memory"
+      ],
+      "flag:hoppycat-pause": [
+        "act:hoppycat-pause"
+      ],
+      "flag:hoppycat-performance": [
+        "act:hoppycat-performance"
+      ],
+      "flag:hoppycat-record": [
+        "act:hoppycat-record"
+      ],
+      "flag:hoppycat-rehearsal": [
+        "act:hoppycat-rehearsal"
+      ],
+      "flag:hoppycat-return": [
+        "act:hoppycat-return"
+      ],
+      "flag:hoppycat-route": [
+        "act:hoppycat-route"
+      ],
+      "flag:hoppycat-signal": [
+        "act:hoppycat-signal"
+      ],
+      "flag:hoppycat-table-credit": [
+        "act:hoppycat-table-credit"
+      ],
+      "flag:hoppycat-table-cup": [
+        "act:hoppycat-table-cup"
+      ],
+      "flag:hoppycat-table-draft-chosen": [
+        "act:hoppycat-table-draft-chosen"
+      ],
+      "flag:hoppycat-table-draft-ready": [
+        "act:hoppycat-table-draft-ready"
+      ],
+      "flag:hoppycat-table-evening": [
+        "act:hoppycat-table-evening"
+      ],
+      "flag:hoppycat-table-glim-agree": [
+        "act:hoppycat-table-glim-agree"
+      ],
+      "flag:hoppycat-table-glim-arrived": [
+        "act:hoppycat-table-glim-arrived"
+      ],
+      "flag:hoppycat-table-invitation": [
+        "act:hoppycat-table-invitation"
+      ],
+      "flag:hoppycat-table-ledger": [
+        "act:hoppycat-table-ledger"
+      ],
+      "flag:hoppycat-table-lumen": [
+        "act:hoppycat-table-lumen"
+      ],
+      "flag:hoppycat-table-lumen-agree": [
+        "act:hoppycat-table-lumen-agree"
+      ],
+      "flag:hoppycat-table-lumen-arrived": [
+        "act:hoppycat-table-lumen-arrived"
+      ],
+      "flag:hoppycat-table-mira-agree": [
+        "act:hoppycat-table-mira-agree"
+      ],
+      "flag:hoppycat-table-mira-arrived": [
+        "act:hoppycat-table-mira-arrived"
+      ],
+      "flag:hoppycat-table-mira-offer": [
+        "act:hoppycat-table-mira-offer"
+      ],
+      "flag:hoppycat-table-nix": [
+        "act:hoppycat-table-nix"
+      ],
+      "flag:hoppycat-table-paint-chosen": [
+        "act:hoppycat-table-paint-chosen"
+      ],
+      "flag:hoppycat-table-paint-ready": [
+        "act:hoppycat-table-paint-ready"
+      ],
+      "flag:hoppycat-table-patch": [
+        "act:hoppycat-table-patch"
+      ],
+      "flag:hoppycat-table-pause": [
+        "act:hoppycat-table-pause"
+      ],
+      "flag:hoppycat-table-plan": [
+        "act:hoppycat-table-plan"
+      ],
+      "flag:hoppycat-table-prism-ready": [
+        "act:hoppycat-table-prism-ready"
+      ],
+      "flag:hoppycat-table-reading": [
+        "act:hoppycat-table-reading"
+      ],
+      "flag:hoppycat-table-rill": [
+        "act:hoppycat-table-rill"
+      ],
+      "flag:hoppycat-table-ring": [
+        "act:hoppycat-table-ring"
+      ],
+      "flag:hoppycat-table-route-garden": [
+        "act:hoppycat-table-route-garden"
+      ],
+      "flag:hoppycat-table-route-jetty": [
+        "act:hoppycat-table-route-jetty"
+      ],
+      "flag:hoppycat-table-route-ready": [
+        "act:hoppycat-table-route-ready"
+      ],
+      "flag:hoppycat-table-share-glim": [
+        "act:hoppycat-table-share-glim"
+      ],
+      "flag:hoppycat-table-share-ledger": [
+        "act:hoppycat-table-share-ledger"
+      ],
+      "flag:hoppycat-table-share-lumen": [
+        "act:hoppycat-table-share-lumen"
+      ],
+      "flag:hoppycat-table-share-mira": [
+        "act:hoppycat-table-share-mira"
+      ],
+      "flag:hoppycat-table-share-rill": [
+        "act:hoppycat-table-share-rill"
+      ],
+      "flag:hoppycat-table-share-sol": [
+        "act:hoppycat-table-share-sol"
+      ],
+      "flag:hoppycat-table-signal": [
+        "act:hoppycat-table-signal"
+      ],
+      "flag:hoppycat-table-sol": [
+        "act:hoppycat-table-sol"
+      ],
+      "flag:hoppycat-table-tomorrow": [
+        "act:hoppycat-table-tomorrow"
+      ],
+      "flag:hoppycat-table-welcome": [
+        "act:hoppycat-table-welcome"
+      ],
+      "flag:hoppycat-thread": [
+        "act:hoppycat-thread"
+      ],
+      "flag:hoppycat-tomorrow": [
+        "act:hoppycat-tomorrow"
+      ],
+      "flag:hoppycat-welcome": [
+        "act:hoppycat-welcome"
+      ],
+      "item:hoppycat-draft-page": [
+        "flag:hoppycat-table-mira-offer"
+      ],
+      "item:hoppycat-evening-programme": [
+        "flag:hoppycat-table-draft-ready",
+        "flag:hoppycat-table-paint-ready"
+      ],
+      "item:hoppycat-sol-programme": [
+        "flag:hoppycat-table-reading"
+      ],
+      "resident:hoppycat-arc": [
+        "flag:hoppycat-table-plan",
+        "resident:hoppycat-arc"
+      ],
+      "resident:hoppycat-ledger-opus": [
+        "flag:hoppycat-table-mira-offer",
+        "resident:hoppycat-ledger-opus"
+      ],
+      "resident:hoppycat-ledger-sonnet": [
+        "flag:hoppycat-table-welcome",
+        "resident:hoppycat-ledger-sonnet"
+      ],
+      "resident:hoppycat-penny-vellum": [
+        "flag:hoppycat-table-mira-offer",
+        "resident:hoppycat-penny-vellum"
+      ],
+      "resident:hoppycat-rill-current": [
+        "flag:hoppycat-table-plan",
+        "resident:hoppycat-rill-current"
+      ],
+      "want:hoppycat-glim-twice": [
+        "resident:hoppycat-glim-twice"
+      ]
+    }
+  },
+  "atoms": {
+    "choice_unset(key=hoppycat-table-piece)": {
+      "kind": "choice_unset",
+      "class": "latch",
+      "words": "hoppycat-table-piece not chosen yet"
+    },
+    "choice(key=hoppycat-table-piece,value=draft)": {
+      "kind": "choice",
+      "class": "latch",
+      "words": "hoppycat-table-piece chosen as draft"
+    },
+    "choice(key=hoppycat-table-piece,value=painted)": {
+      "kind": "choice",
+      "class": "latch",
+      "words": "hoppycat-table-piece chosen as painted"
+    },
+    "drawn(id=hoppycat-goldfish-tank)": {
+      "kind": "drawn",
+      "class": "latch",
+      "words": "hoppycat-goldfish-tank was drawn"
+    },
+    "flag(key=hoppycat-credits,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-credits is set"
+    },
+    "flag(key=hoppycat-draft,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-draft is set"
+    },
+    "flag(key=hoppycat-facet,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-facet is set"
+    },
+    "flag(key=hoppycat-memory,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-memory is set"
+    },
+    "flag(key=hoppycat-pause,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-pause is set"
+    },
+    "flag(key=hoppycat-performance,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-performance is set"
+    },
+    "flag(key=hoppycat-record,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-record is set"
+    },
+    "flag(key=hoppycat-rehearsal,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-rehearsal is set"
+    },
+    "flag(key=hoppycat-return,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-return is set"
+    },
+    "flag(key=hoppycat-route,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-route is set"
+    },
+    "flag(key=hoppycat-table-credit,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-credit is set"
+    },
+    "flag(key=hoppycat-table-cup,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-cup is set"
+    },
+    "flag(key=hoppycat-table-draft-ready,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-draft-ready is set"
+    },
+    "flag(key=hoppycat-table-evening,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-evening is set"
+    },
+    "flag(key=hoppycat-table-glim-agree,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-glim-agree is set"
+    },
+    "flag(key=hoppycat-table-glim-arrived,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-glim-arrived is set"
+    },
+    "flag(key=hoppycat-table-invitation,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-invitation is set"
+    },
+    "flag(key=hoppycat-table-ledger,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-ledger is set"
+    },
+    "flag(key=hoppycat-table-lumen-agree,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-lumen-agree is set"
+    },
+    "flag(key=hoppycat-table-lumen,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-lumen is set"
+    },
+    "flag(key=hoppycat-table-mira-agree,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-mira-agree is set"
+    },
+    "flag(key=hoppycat-table-mira-offer,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-mira-offer is set"
+    },
+    "flag(key=hoppycat-table-nix,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-nix is set"
+    },
+    "flag(key=hoppycat-table-paint-ready,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-paint-ready is set"
+    },
+    "flag(key=hoppycat-table-patch,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-patch is set"
+    },
+    "flag(key=hoppycat-table-pause,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-pause is set"
+    },
+    "flag(key=hoppycat-table-plan,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-plan is set"
+    },
+    "flag(key=hoppycat-table-prism-ready,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-prism-ready is set"
+    },
+    "flag(key=hoppycat-table-reading,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-reading is set"
+    },
+    "flag(key=hoppycat-table-rill,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-rill is set"
+    },
+    "flag(key=hoppycat-table-route-garden,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-route-garden is set"
+    },
+    "flag(key=hoppycat-table-route-jetty,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-route-jetty is set"
+    },
+    "flag(key=hoppycat-table-route-ready,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-route-ready is set"
+    },
+    "flag(key=hoppycat-table-share-glim,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-share-glim is set"
+    },
+    "flag(key=hoppycat-table-share-ledger,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-share-ledger is set"
+    },
+    "flag(key=hoppycat-table-share-lumen,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-share-lumen is set"
+    },
+    "flag(key=hoppycat-table-share-mira,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-share-mira is set"
+    },
+    "flag(key=hoppycat-table-share-rill,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-share-rill is set"
+    },
+    "flag(key=hoppycat-table-share-sol,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-share-sol is set"
+    },
+    "flag(key=hoppycat-table-sol,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-sol is set"
+    },
+    "flag(key=hoppycat-table-welcome,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-table-welcome is set"
+    },
+    "flag(key=hoppycat-thread,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-thread is set"
+    },
+    "flag(key=hoppycat-tomorrow,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-tomorrow is set"
+    },
+    "flag(key=hoppycat-welcome,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "hoppycat-welcome is set"
+    },
+    "holding(actor=hoppycat-glim-twice,item=hoppycat-loop-token)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "hoppycat-glim-twice holds hoppycat-loop-token"
+    },
+    "holding(item=hoppycat-concordance-compass,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-concordance-compass"
+    },
+    "holding(item=hoppycat-context-seed,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-context-seed"
+    },
+    "holding(item=hoppycat-draft-page,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-draft-page"
+    },
+    "holding(item=hoppycat-evening-programme,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-evening-programme"
+    },
+    "holding(item=hoppycat-fermata-clapper,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-fermata-clapper"
+    },
+    "holding(item=hoppycat-halfway-cup,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-halfway-cup"
+    },
+    "holding(item=hoppycat-loop-token,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-loop-token"
+    },
+    "holding(item=hoppycat-meraki-brush,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-meraki-brush"
+    },
+    "holding(item=hoppycat-provenance-card,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-provenance-card"
+    },
+    "holding(item=hoppycat-red-thread-spool,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-red-thread-spool"
+    },
+    "holding(item=hoppycat-return-path-checklist,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-return-path-checklist"
+    },
+    "holding(item=hoppycat-sol-programme,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-sol-programme"
+    },
+    "holding(item=hoppycat-unfinished-prism,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds hoppycat-unfinished-prism"
+    },
+    "item_at(item=hoppycat-loop-token,place=hoppycat-halfway-tea-garden)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "hoppycat-loop-token lies at hoppycat-halfway-tea-garden"
+    },
+    "item_at(item=hoppycat-red-thread-spool,place=station)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "hoppycat-red-thread-spool lies at station"
+    },
+    "item_near(item=hoppycat-return-path-checklist,place=hoppycat-signal-jetty)": {
+      "kind": "item_near",
+      "class": "live",
+      "words": "hoppycat-return-path-checklist is in hoppycat-signal-jetty"
+    },
+    "item_near(item=hoppycat-unfinished-prism,place=hoppycat-prism-foundry)": {
+      "kind": "item_near",
+      "class": "live",
+      "words": "hoppycat-unfinished-prism is in hoppycat-prism-foundry"
+    },
+    "item_present(item=oil,place=station)": {
+      "kind": "item_present",
+      "class": "live",
+      "words": "oil is in station"
+    },
+    "met(actor=hoppycat-arc)": {
+      "kind": "met",
+      "class": "latch",
+      "words": "hoppycat-arc has been met"
+    },
+    "met(actor=hoppycat-ledger-opus)": {
+      "kind": "met",
+      "class": "latch",
+      "words": "hoppycat-ledger-opus has been met"
+    },
+    "met(actor=hoppycat-ledger-sonnet)": {
+      "kind": "met",
+      "class": "latch",
+      "words": "hoppycat-ledger-sonnet has been met"
+    },
+    "met(actor=hoppycat-penny-vellum)": {
+      "kind": "met",
+      "class": "latch",
+      "words": "hoppycat-penny-vellum has been met"
+    },
+    "met(actor=hoppycat-rill-current)": {
+      "kind": "met",
+      "class": "latch",
+      "words": "hoppycat-rill-current has been met"
+    }
+  },
+  "conditionKinds": [
+    "choice",
+    "choice_unset",
+    "drawn",
+    "flag",
+    "holding",
+    "item_at",
+    "item_near",
+    "item_present",
+    "met"
+  ]
+}

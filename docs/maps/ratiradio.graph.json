@@ -1,0 +1,1009 @@
+{
+  "pack": "ratiradio",
+  "name": "Night Shift at RatiRadio",
+  "revision": 3,
+  "entry": "ratiradio-staff-kitchen",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "station",
+      "arrive": "ratiradio-staff-kitchen",
+      "via": "station-ratiradio"
+    }
+  ],
+  "space": {
+    "districts": [
+      {
+        "id": "d-ratiradio-dispatch-window",
+        "name": "Dispatch Window",
+        "places": [
+          "ratiradio-broadcast-booth",
+          "ratiradio-dispatch-window",
+          "ratiradio-listening-room",
+          "ratiradio-staff-kitchen"
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "ratiradio-broadcast-booth",
+        "name": "Broadcast Booth",
+        "kind": "place",
+        "district": "d-ratiradio-dispatch-window"
+      },
+      {
+        "id": "ratiradio-dispatch-window",
+        "name": "Dispatch Window",
+        "kind": "place",
+        "district": "d-ratiradio-dispatch-window"
+      },
+      {
+        "id": "ratiradio-listening-room",
+        "name": "Listening Room",
+        "kind": "place",
+        "district": "d-ratiradio-dispatch-window"
+      },
+      {
+        "id": "ratiradio-staff-kitchen",
+        "name": "Staff Kitchen",
+        "kind": "place",
+        "district": "d-ratiradio-dispatch-window"
+      },
+      {
+        "id": "station",
+        "name": "Empty station",
+        "kind": "hub"
+      }
+    ],
+    "edges": [
+      {
+        "from": "ratiradio-broadcast-booth",
+        "to": "ratiradio-listening-room",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "ratiradio-dispatch-window",
+        "to": "ratiradio-listening-room",
+        "kind": "route",
+        "gate": "route:ratiradio-dispatch-window>ratiradio-listening-room"
+      },
+      {
+        "from": "ratiradio-dispatch-window",
+        "to": "ratiradio-staff-kitchen",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "ratiradio-listening-room",
+        "to": "ratiradio-broadcast-booth",
+        "kind": "route",
+        "gate": "route:ratiradio-listening-room>ratiradio-broadcast-booth"
+      },
+      {
+        "from": "ratiradio-listening-room",
+        "to": "ratiradio-dispatch-window",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "ratiradio-staff-kitchen",
+        "to": "ratiradio-dispatch-window",
+        "kind": "route",
+        "gate": "route:ratiradio-staff-kitchen>ratiradio-dispatch-window"
+      },
+      {
+        "from": "ratiradio-staff-kitchen",
+        "to": "station",
+        "kind": "crossing",
+        "gate": null
+      },
+      {
+        "from": "station",
+        "to": "ratiradio-staff-kitchen",
+        "kind": "crossing",
+        "gate": "crossing:station-ratiradio"
+      }
+    ],
+    "retired": []
+  },
+  "mission": {
+    "gates": [
+      {
+        "id": "route:ratiradio-staff-kitchen>ratiradio-dispatch-window",
+        "kind": "route",
+        "title": "Staff Kitchen to Dispatch Window",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=dispatch-open,value=true)"
+            }
+          ]
+        },
+        "words": "dispatch-open is set",
+        "ids": "dispatch-open is set",
+        "latch": [
+          "flag(key=dispatch-open,value=true)"
+        ],
+        "live": [],
+        "follows": "latches",
+        "seal": {
+          "kind": "item",
+          "target": "ratiradio-red-beanie"
+        },
+        "prerequisites": {
+          "act": [
+            "ratiradio-open-dispatch-window"
+          ],
+          "flag": [
+            "dispatch-open"
+          ],
+          "item": [
+            "ratiradio-red-beanie"
+          ]
+        }
+      },
+      {
+        "id": "route:ratiradio-dispatch-window>ratiradio-listening-room",
+        "kind": "route",
+        "title": "Dispatch Window to Listening Room",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=listening-open,value=true)"
+            }
+          ]
+        },
+        "words": "listening-open is set",
+        "ids": "listening-open is set",
+        "latch": [
+          "flag(key=listening-open,value=true)"
+        ],
+        "live": [],
+        "follows": "latches",
+        "seal": {
+          "kind": "place",
+          "target": "ratiradio-listening-room"
+        },
+        "prerequisites": {
+          "act": [
+            "ratiradio-open-listening-room"
+          ],
+          "flag": [
+            "listening-open"
+          ],
+          "item": [
+            "ratiradio-thermos"
+          ]
+        }
+      },
+      {
+        "id": "route:ratiradio-listening-room>ratiradio-broadcast-booth",
+        "kind": "route",
+        "title": "Listening Room to Broadcast Booth",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=booth-open,value=true)"
+            }
+          ]
+        },
+        "words": "booth-open is set",
+        "ids": "booth-open is set",
+        "latch": [
+          "flag(key=booth-open,value=true)"
+        ],
+        "live": [],
+        "follows": "latches",
+        "seal": {
+          "kind": "place",
+          "target": "ratiradio-broadcast-booth"
+        },
+        "prerequisites": {
+          "act": [
+            "ratiradio-open-broadcast-booth",
+            "ratiradio-open-broadcast-booth-dispatch",
+            "ratiradio-open-broadcast-booth-kitchen",
+            "ratiradio-wake-rati"
+          ],
+          "flag": [
+            "booth-open",
+            "rati-awake"
+          ],
+          "item": [
+            "ratiradio-raven-figurine"
+          ],
+          "resident": [
+            "ratiradio-rati"
+          ]
+        }
+      },
+      {
+        "id": "crossing:station-ratiradio",
+        "kind": "crossing",
+        "title": "Empty station to Staff Kitchen",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "flag(key=station-open,value=true)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "holding(item=ratiradio-station-key,role=actor)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(station-open is set or the traveler holds Station Key)",
+        "ids": "(station-open is set or the traveler holds ratiradio-station-key)",
+        "latch": [
+          "flag(key=station-open,value=true)"
+        ],
+        "live": [
+          "holding(item=ratiradio-station-key,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "ratiradio-enter-station"
+          ],
+          "flag": [
+            "station-open"
+          ],
+          "item": [
+            "ratiradio-station-key"
+          ]
+        }
+      },
+      {
+        "id": "resident:ratiradio-rati",
+        "kind": "resident",
+        "title": "RATi appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=rati-awake,value=true)"
+            }
+          ]
+        },
+        "words": "rati-awake is set",
+        "ids": "rati-awake is set",
+        "latch": [
+          "flag(key=rati-awake,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "ratiradio-wake-rati"
+          ],
+          "flag": [
+            "rati-awake"
+          ]
+        }
+      },
+      {
+        "id": "resident:ratiradio-raven",
+        "kind": "resident",
+        "title": "Raven appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=raven-awake,value=true)"
+            }
+          ]
+        },
+        "words": "raven-awake is set",
+        "ids": "raven-awake is set",
+        "latch": [
+          "flag(key=raven-awake,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "ratiradio-return-things"
+          ],
+          "flag": [
+            "raven-awake"
+          ],
+          "item": [
+            "ratiradio-glass",
+            "ratiradio-raven-figurine",
+            "ratiradio-red-beanie"
+          ]
+        }
+      }
+    ],
+    "acts": [
+      {
+        "id": "act:ratiradio-enter-station",
+        "kind": "act",
+        "title": "The staff entrance settles open behind you.",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "ratiradio-staff-kitchen",
+        "subject": "ratiradio-staff-kitchen",
+        "on": "meet",
+        "sets": [
+          "station-open"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:ratiradio-wake-rati",
+        "kind": "act",
+        "title": "RATi looks up from the radio. His chair has a visitor's place beside it.",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "ratiradio-listening-room",
+        "subject": "ratiradio-listening-room",
+        "on": "meet",
+        "sets": [
+          "rati-awake"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:ratiradio-open-dispatch-window",
+        "kind": "act",
+        "title": "The shutter gives way. Dispatch Window opens.",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=ratiradio-red-beanie,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Red Beanie",
+        "ids": "the traveler holds ratiradio-red-beanie",
+        "latch": [],
+        "live": [
+          "holding(item=ratiradio-red-beanie,role=actor)"
+        ],
+        "prerequisites": {
+          "item": [
+            "ratiradio-red-beanie"
+          ]
+        },
+        "at": "ratiradio-staff-kitchen",
+        "subject": "ratiradio-staff-kitchen",
+        "on": "meet",
+        "sets": [
+          "dispatch-open"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:ratiradio-open-listening-room",
+        "kind": "act",
+        "title": "The radio comes through clear. Listening Room opens.",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_at(item=ratiradio-thermos,place=ratiradio-dispatch-window)"
+            }
+          ]
+        },
+        "words": "Thermos lies at Dispatch Window",
+        "ids": "ratiradio-thermos lies at ratiradio-dispatch-window",
+        "latch": [],
+        "live": [
+          "item_at(item=ratiradio-thermos,place=ratiradio-dispatch-window)"
+        ],
+        "prerequisites": {
+          "item": [
+            "ratiradio-thermos"
+          ]
+        },
+        "at": "ratiradio-dispatch-window",
+        "subject": "ratiradio-dispatch-window",
+        "on": "meet",
+        "sets": [
+          "listening-open"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:ratiradio-open-broadcast-booth",
+        "kind": "act",
+        "title": "The Broadcast Booth door clicks open.",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=ratiradio-raven-figurine,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Raven Figurine",
+        "ids": "the traveler holds ratiradio-raven-figurine",
+        "latch": [],
+        "live": [
+          "holding(item=ratiradio-raven-figurine,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "ratiradio-wake-rati"
+          ],
+          "flag": [
+            "rati-awake"
+          ],
+          "item": [
+            "ratiradio-raven-figurine"
+          ],
+          "resident": [
+            "ratiradio-rati"
+          ]
+        },
+        "at": "ratiradio-listening-room",
+        "subject": "ratiradio-rati",
+        "on": "talk",
+        "sets": [
+          "booth-open"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:ratiradio-open-broadcast-booth-kitchen",
+        "kind": "act",
+        "title": "The Broadcast Booth door clicks open.",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=ratiradio-raven-figurine,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Raven Figurine",
+        "ids": "the traveler holds ratiradio-raven-figurine",
+        "latch": [],
+        "live": [
+          "holding(item=ratiradio-raven-figurine,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "ratiradio-wake-rati"
+          ],
+          "flag": [
+            "rati-awake"
+          ],
+          "item": [
+            "ratiradio-raven-figurine"
+          ],
+          "resident": [
+            "ratiradio-rati"
+          ]
+        },
+        "at": "ratiradio-staff-kitchen",
+        "subject": "ratiradio-rati",
+        "on": "talk",
+        "sets": [
+          "booth-open"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:ratiradio-open-broadcast-booth-dispatch",
+        "kind": "act",
+        "title": "The Broadcast Booth door clicks open.",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=ratiradio-raven-figurine,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Raven Figurine",
+        "ids": "the traveler holds ratiradio-raven-figurine",
+        "latch": [],
+        "live": [
+          "holding(item=ratiradio-raven-figurine,role=actor)"
+        ],
+        "prerequisites": {
+          "act": [
+            "ratiradio-wake-rati"
+          ],
+          "flag": [
+            "rati-awake"
+          ],
+          "item": [
+            "ratiradio-raven-figurine"
+          ],
+          "resident": [
+            "ratiradio-rati"
+          ]
+        },
+        "at": "ratiradio-dispatch-window",
+        "subject": "ratiradio-rati",
+        "on": "talk",
+        "sets": [
+          "booth-open"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:ratiradio-return-things",
+        "kind": "act",
+        "title": "A claw catches the chair back. Raven blinks once. On the ledge, the ceramic bird stays perfectly still.",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_at(item=ratiradio-glass,place=ratiradio-listening-room)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=ratiradio-raven-figurine,place=ratiradio-listening-room)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_at(item=ratiradio-red-beanie,place=ratiradio-listening-room)"
+            }
+          ]
+        },
+        "words": "Half-full Glass lies at Listening Room and Raven Figurine lies at Listening Room and Red Beanie lies at Listening Room",
+        "ids": "ratiradio-glass lies at ratiradio-listening-room and ratiradio-raven-figurine lies at ratiradio-listening-room and ratiradio-red-beanie lies at ratiradio-listening-room",
+        "latch": [],
+        "live": [
+          "item_at(item=ratiradio-glass,place=ratiradio-listening-room)",
+          "item_at(item=ratiradio-raven-figurine,place=ratiradio-listening-room)",
+          "item_at(item=ratiradio-red-beanie,place=ratiradio-listening-room)"
+        ],
+        "prerequisites": {
+          "item": [
+            "ratiradio-glass",
+            "ratiradio-raven-figurine",
+            "ratiradio-red-beanie"
+          ]
+        },
+        "at": "ratiradio-listening-room",
+        "subject": "ratiradio-listening-room",
+        "on": "meet",
+        "sets": [
+          "raven-awake"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      }
+    ],
+    "wants": [
+      {
+        "avatar": "ratiradio-rati",
+        "kind": "place",
+        "target": "ratiradio-listening-room",
+        "items": [
+          "ratiradio-red-beanie"
+        ]
+      },
+      {
+        "avatar": "ratiradio-rati",
+        "kind": "place",
+        "target": "ratiradio-listening-room",
+        "items": [
+          "ratiradio-raven-figurine"
+        ]
+      },
+      {
+        "avatar": "ratiradio-rati",
+        "kind": "place",
+        "target": "ratiradio-listening-room",
+        "items": [
+          "ratiradio-glass"
+        ]
+      },
+      {
+        "avatar": "ratiradio-raven",
+        "kind": "place",
+        "target": "pond",
+        "items": []
+      }
+    ],
+    "flags": {
+      "booth-open": {
+        "kind": "latch",
+        "setBy": [
+          "act:ratiradio-open-broadcast-booth",
+          "act:ratiradio-open-broadcast-booth-dispatch",
+          "act:ratiradio-open-broadcast-booth-kitchen"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "route:ratiradio-listening-room>ratiradio-broadcast-booth"
+        ],
+        "gates": [
+          "route:ratiradio-listening-room>ratiradio-broadcast-booth"
+        ],
+        "acts": []
+      },
+      "dispatch-open": {
+        "kind": "latch",
+        "setBy": [
+          "act:ratiradio-open-dispatch-window"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "route:ratiradio-staff-kitchen>ratiradio-dispatch-window"
+        ],
+        "gates": [
+          "route:ratiradio-staff-kitchen>ratiradio-dispatch-window"
+        ],
+        "acts": []
+      },
+      "listening-open": {
+        "kind": "latch",
+        "setBy": [
+          "act:ratiradio-open-listening-room"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "route:ratiradio-dispatch-window>ratiradio-listening-room"
+        ],
+        "gates": [
+          "route:ratiradio-dispatch-window>ratiradio-listening-room"
+        ],
+        "acts": []
+      },
+      "rati-awake": {
+        "kind": "latch",
+        "setBy": [
+          "act:ratiradio-wake-rati"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "resident:ratiradio-rati"
+        ],
+        "gates": [
+          "route:ratiradio-listening-room>ratiradio-broadcast-booth",
+          "resident:ratiradio-rati"
+        ],
+        "acts": [
+          "act:ratiradio-open-broadcast-booth",
+          "act:ratiradio-open-broadcast-booth-kitchen",
+          "act:ratiradio-open-broadcast-booth-dispatch"
+        ]
+      },
+      "raven-awake": {
+        "kind": "latch",
+        "setBy": [
+          "act:ratiradio-return-things"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "resident:ratiradio-raven",
+          "topic:ratiradio-bring-them-home",
+          "topic:ratiradio-little-one"
+        ],
+        "gates": [
+          "resident:ratiradio-raven"
+        ],
+        "acts": []
+      },
+      "station-open": {
+        "kind": "latch",
+        "setBy": [
+          "act:ratiradio-enter-station"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "crossing:station-ratiradio"
+        ],
+        "gates": [
+          "crossing:station-ratiradio"
+        ],
+        "acts": []
+      }
+    },
+    "items": [
+      {
+        "id": "ratiradio-station-key",
+        "name": "Station Key",
+        "holder": "pond",
+        "consumedBy": [],
+        "readBy": [
+          "crossing:station-ratiradio"
+        ]
+      },
+      {
+        "id": "ratiradio-red-beanie",
+        "name": "Red Beanie",
+        "holder": "ratiradio-staff-kitchen",
+        "consumedBy": [],
+        "readBy": [
+          "act:ratiradio-open-dispatch-window",
+          "act:ratiradio-return-things"
+        ]
+      },
+      {
+        "id": "ratiradio-thermos",
+        "name": "Thermos",
+        "holder": "ratiradio-dispatch-window",
+        "consumedBy": [],
+        "readBy": [
+          "act:ratiradio-open-listening-room"
+        ]
+      },
+      {
+        "id": "ratiradio-raven-figurine",
+        "name": "Raven Figurine",
+        "holder": "ratiradio-listening-room",
+        "consumedBy": [],
+        "readBy": [
+          "act:ratiradio-open-broadcast-booth",
+          "act:ratiradio-open-broadcast-booth-dispatch",
+          "act:ratiradio-open-broadcast-booth-kitchen",
+          "act:ratiradio-return-things"
+        ]
+      },
+      {
+        "id": "ratiradio-glass",
+        "name": "Half-full Glass",
+        "holder": "ratiradio-broadcast-booth",
+        "consumedBy": [],
+        "readBy": [
+          "act:ratiradio-return-things"
+        ]
+      },
+      {
+        "id": "ratiradio-request-slip",
+        "name": "Request Slip",
+        "holder": "station",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "ratiradio-portable-radio",
+        "name": "Portable Radio",
+        "holder": "ratiradio-broadcast-booth",
+        "consumedBy": [],
+        "readBy": []
+      }
+    ],
+    "needs": {
+      "act:ratiradio-enter-station": [
+        "place:ratiradio-staff-kitchen",
+        "resident:ratiradio-staff-kitchen"
+      ],
+      "act:ratiradio-open-broadcast-booth": [
+        "item:ratiradio-raven-figurine",
+        "place:ratiradio-listening-room",
+        "resident:ratiradio-rati"
+      ],
+      "act:ratiradio-open-broadcast-booth-dispatch": [
+        "item:ratiradio-raven-figurine",
+        "place:ratiradio-dispatch-window",
+        "resident:ratiradio-rati"
+      ],
+      "act:ratiradio-open-broadcast-booth-kitchen": [
+        "item:ratiradio-raven-figurine",
+        "place:ratiradio-staff-kitchen",
+        "resident:ratiradio-rati"
+      ],
+      "act:ratiradio-open-dispatch-window": [
+        "item:ratiradio-red-beanie",
+        "place:ratiradio-staff-kitchen",
+        "resident:ratiradio-staff-kitchen"
+      ],
+      "act:ratiradio-open-listening-room": [
+        "item:ratiradio-thermos",
+        "place:ratiradio-dispatch-window",
+        "resident:ratiradio-dispatch-window"
+      ],
+      "act:ratiradio-return-things": [
+        "item:ratiradio-glass",
+        "item:ratiradio-raven-figurine",
+        "item:ratiradio-red-beanie",
+        "place:ratiradio-listening-room",
+        "resident:ratiradio-listening-room"
+      ],
+      "act:ratiradio-wake-rati": [
+        "place:ratiradio-listening-room",
+        "resident:ratiradio-listening-room"
+      ],
+      "crossing:station-ratiradio": [
+        "flag:station-open",
+        "item:ratiradio-station-key"
+      ],
+      "flag:booth-open": [
+        "act:ratiradio-open-broadcast-booth",
+        "act:ratiradio-open-broadcast-booth-dispatch",
+        "act:ratiradio-open-broadcast-booth-kitchen"
+      ],
+      "flag:dispatch-open": [
+        "act:ratiradio-open-dispatch-window"
+      ],
+      "flag:listening-open": [
+        "act:ratiradio-open-listening-room"
+      ],
+      "flag:rati-awake": [
+        "act:ratiradio-wake-rati"
+      ],
+      "flag:raven-awake": [
+        "act:ratiradio-return-things"
+      ],
+      "flag:station-open": [
+        "act:ratiradio-enter-station"
+      ],
+      "resident:ratiradio-rati": [
+        "flag:rati-awake"
+      ],
+      "resident:ratiradio-raven": [
+        "flag:raven-awake"
+      ],
+      "route:ratiradio-dispatch-window>ratiradio-listening-room": [
+        "flag:listening-open",
+        "place:ratiradio-listening-room"
+      ],
+      "route:ratiradio-listening-room>ratiradio-broadcast-booth": [
+        "flag:booth-open",
+        "place:ratiradio-broadcast-booth"
+      ],
+      "route:ratiradio-staff-kitchen>ratiradio-dispatch-window": [
+        "flag:dispatch-open",
+        "item:ratiradio-red-beanie",
+        "resident:undefined"
+      ],
+      "topic:ratiradio-bring-them-home": [
+        "place:ratiradio-listening-room",
+        "resident:ratiradio-rati"
+      ],
+      "topic:ratiradio-little-one": [
+        "flag:raven-awake",
+        "place:ratiradio-listening-room",
+        "resident:ratiradio-raven"
+      ],
+      "topic:ratiradio-rati-home": [
+        "place:ratiradio-listening-room",
+        "resident:ratiradio-rati"
+      ],
+      "want:ratiradio-rati": [
+        "item:ratiradio-glass",
+        "item:ratiradio-raven-figurine",
+        "item:ratiradio-red-beanie",
+        "place:ratiradio-listening-room",
+        "resident:ratiradio-rati"
+      ],
+      "want:ratiradio-raven": [
+        "place:pond",
+        "resident:ratiradio-raven"
+      ]
+    }
+  },
+  "atoms": {
+    "flag(key=booth-open,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "booth-open is set"
+    },
+    "flag(key=dispatch-open,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "dispatch-open is set"
+    },
+    "flag(key=listening-open,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "listening-open is set"
+    },
+    "flag(key=rati-awake,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "rati-awake is set"
+    },
+    "flag(key=raven-awake,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "raven-awake is not set"
+    },
+    "flag(key=raven-awake,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "raven-awake is set"
+    },
+    "flag(key=station-open,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "station-open is set"
+    },
+    "holding(item=ratiradio-raven-figurine,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds ratiradio-raven-figurine"
+    },
+    "holding(item=ratiradio-red-beanie,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds ratiradio-red-beanie"
+    },
+    "holding(item=ratiradio-station-key,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds ratiradio-station-key"
+    },
+    "item_at(item=ratiradio-glass,place=ratiradio-listening-room)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "ratiradio-glass lies at ratiradio-listening-room"
+    },
+    "item_at(item=ratiradio-raven-figurine,place=ratiradio-listening-room)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "ratiradio-raven-figurine lies at ratiradio-listening-room"
+    },
+    "item_at(item=ratiradio-red-beanie,place=ratiradio-listening-room)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "ratiradio-red-beanie lies at ratiradio-listening-room"
+    },
+    "item_at(item=ratiradio-thermos,place=ratiradio-dispatch-window)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "ratiradio-thermos lies at ratiradio-dispatch-window"
+    }
+  },
+  "conditionKinds": [
+    "flag",
+    "holding",
+    "item_at"
+  ]
+}
