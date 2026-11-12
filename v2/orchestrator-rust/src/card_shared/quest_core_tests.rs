@@ -41,7 +41,7 @@ fn command(op: &str, key: &str) -> full::Command {
         target: None,
         key: key.into(),
         moving: false,
-        surface: "browser".to_string(),
+        surface: super::Surface::Browser,
         revealed: None,
     }
 }

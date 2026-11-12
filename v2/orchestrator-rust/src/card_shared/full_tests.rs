@@ -41,7 +41,7 @@ fn body(op: &str, avatar: Option<&str>) -> full::Command {
         key: String::new(),
         moving: false,
         revealed: None,
-        surface: "browser".to_string(),
+        surface: super::Surface::Browser,
     }
 }
 // An avatar is in one world at a time (#1846): a claim elsewhere empties its

@@ -158,6 +158,30 @@ pub(super) fn user(state: &AppState, h: &HeaderMap, mutation: bool) -> Result<St
         .map_err(sql_error)?
         .ok_or_else(|| "Sign in with your passkey.".into())
 }
+
+/// Which surface played a committed play. The server sets this from the route;
+/// it is never client-controlled. Readers treat an absent value as `Browser`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Surface {
+    Browser,
+    Discord,
+}
+
+impl Surface {
+    pub(super) fn as_str(self) -> &'static str {
+        match self {
+            Surface::Browser => "browser",
+            Surface::Discord => "discord",
+        }
+    }
+}
+
+impl Default for Surface {
+    fn default() -> Self {
+        Surface::Browser
+    }
+}
+
 pub(crate) fn revision(
     state: &AppState,
     h: &HeaderMap,

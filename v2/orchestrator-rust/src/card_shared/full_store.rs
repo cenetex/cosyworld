@@ -430,7 +430,7 @@ pub(super) struct PlayRequest<'a> {
     pub action: Value,
     pub key: &'a str,
     pub revealed: Option<&'a [String]>,
-    pub surface: &'a str,
+    pub surface: super::Surface,
 }
 
 pub(super) fn take_revealed(command: &mut Value) -> Option<Value> {
@@ -492,7 +492,7 @@ pub(super) fn enqueue(
     // Journal metadata only: the surface is recorded with the play but is
     // never a rule input, so it joins the command before the duplicate check
     // and the INSERT, but the probe below strips it.
-    command["surface"] = json!(surface);
+    command["surface"] = json!(surface.as_str());
     let old: Option<(String, String, String)> = c
         .query_row(
             "SELECT world,user,command FROM card_full_plays WHERE id=?",

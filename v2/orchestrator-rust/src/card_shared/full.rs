@@ -308,14 +308,9 @@ pub(super) struct Command {
     #[serde(default, rename = "move")]
     #[allow(dead_code)]
     pub moving: bool,
-    /// Which surface played this (`browser` | `discord`), for the journal and
-    /// the corpus. The browser never sends it, so it defaults to `browser`.
-    #[serde(default = "default_surface")]
-    pub surface: String,
-}
-
-fn default_surface() -> String {
-    "browser".to_string()
+    /// Set by the server from the route, never by the client (`serde(skip)`).
+    #[serde(skip)]
+    pub surface: super::Surface,
 }
 
 /// A client-agnostic Talk: the gateway (or any non-browser client) names a
@@ -325,8 +320,6 @@ fn default_surface() -> String {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Talk {
-    #[serde(default)]
-    pub(super) avatar: Option<String>,
     pub(super) target: String,
 }
 async fn command(
@@ -439,9 +432,10 @@ async fn talk(
         let state = worker;
         let id = wid;
         valid_id(&id)?;
-        let u = user(&state, &h, true)?;
+        let revision = super::revision(&state, &h)?;
+        let u = revision.user.clone();
         admit(&u)?;
-        logged(&id, || talk_as(&state, &id, &u, &body))
+        logged(&id, || talk_as(&state, &id, &revision, &body))
     })
     .await;
     if committed.is_err() {
@@ -461,19 +455,28 @@ async fn talk(
     reply(view)
 }
 
-pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Result<Value> {
-    let c = db(state)?;
+pub(super) fn talk_as(
+    state: &AppState,
+    id: &str,
+    revision: &crate::account_revision::Revision,
+    body: &Talk,
+) -> Result<Value> {
+    let u = &revision.user;
+    let mut c = db(state)?;
     store::schema(&c)?;
-    let actor = match body.avatar.as_deref() {
-        Some(avatar) => actor_index(avatar)?,
-        None => bindings::mine(&c, id, u)?.ok_or("Claim an avatar first.")?,
-    };
+    let gate = writer(state);
+    let _turn = turn(&gate);
+    let tx = c
+        .transaction_with_behavior(TransactionBehavior::Immediate)
+        .map_err(sql_error)?;
+    revision.check(&tx).map_err(|error| error.to_string())?;
+    let actor = bindings::mine(&tx, id, u)?.ok_or("Claim an avatar first.")?;
     if body.target.trim().is_empty() {
         return Err("Choose someone to talk to.".into());
     }
     // The engine accepts only the exact legal action object for this actor's
-    // current state, so look it up rather than authoring one by hand.
-    let world = store::world(&c, id, now())?;
+    // current state, so look it up inside the writer turn rather than by hand.
+    let world = store::world(&tx, id, now())?;
     let view = world.project(actor)?;
     let action = view["actions"]
         .as_array()
@@ -492,9 +495,12 @@ pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Resul
         key: format!("talk-{}", crate::random_hex(24)),
         revealed: None,
         moving: false,
-        surface: "discord".to_string(),
+        surface: super::Surface::Discord,
     };
-    command_as(state, id, u, &command, None)
+    let value = run(&tx, id, u, &command, now())?;
+    let value = super::sync::response(&tx, id, u, value, None)?;
+    tx.commit().map_err(sql_error)?;
+    Ok(value)
 }
 // Leaving keeps the claim; releasing frees the avatar for someone else.
 fn leave(
@@ -744,7 +750,7 @@ pub(super) fn run(
                         action: b.action.clone(),
                         key: &b.key,
                         revealed: b.revealed.as_deref(),
-                        surface: &b.surface,
+                        surface: b.surface,
                     },
                     time,
                 )?;

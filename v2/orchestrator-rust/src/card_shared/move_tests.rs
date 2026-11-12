@@ -15,7 +15,7 @@ fn command(op: &str) -> full::Command {
         target: None,
         key: String::new(),
         moving: false,
-        surface: "browser".to_string(),
+        surface: super::Surface::Browser,
         revealed: None,
     }
 }

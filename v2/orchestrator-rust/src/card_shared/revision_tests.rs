@@ -21,7 +21,7 @@ fn shared_command_rechecks_after_waiting_for_its_write_transaction() {
         target: None,
         key: String::new(),
         moving: false,
-        surface: "browser".to_string(),
+        surface: super::Surface::Browser,
         revealed: None,
     };
     let count = || {
