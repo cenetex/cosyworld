@@ -936,9 +936,46 @@
         }
       },
       {
-        "id": "item:forest-arcanum-high-priestess",
+        "id": "item:forest-arcanum-emperor",
         "kind": "item",
-        "title": "The High Priestess appears",
+        "title": "The Emperor appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=forest-oak-heard,value=true)"
+            }
+          ]
+        },
+        "words": "forest-oak-heard is set",
+        "ids": "forest-oak-heard is set",
+        "latch": [
+          "flag(key=forest-oak-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "forest-clear-drain",
+            "forest-mark-pawprints",
+            "forest-stay-for-tea",
+            "forest-tell-hearth"
+          ],
+          "flag": [
+            "forest-oak-heard",
+            "forest-path-cleared",
+            "forest-watch-shared",
+            "forest-welcomed"
+          ],
+          "item": [
+            "forest-wolfprint-charm"
+          ]
+        }
+      },
+      {
+        "id": "item:forest-arcanum-hierophant",
+        "kind": "item",
+        "title": "The Hierophant appears",
         "cond": {
           "op": "and",
           "of": [
@@ -970,91 +1007,6 @@
             "forest-oak-heard",
             "forest-path-cleared",
             "forest-walkers-heard",
-            "forest-watch-shared",
-            "forest-welcomed"
-          ],
-          "item": [
-            "forest-wolfprint-charm"
-          ]
-        }
-      },
-      {
-        "id": "item:forest-arcanum-emperor",
-        "kind": "item",
-        "title": "The Emperor appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "flag(key=forest-watch-kept,value=true)"
-            }
-          ]
-        },
-        "words": "forest-watch-kept is set",
-        "ids": "forest-watch-kept is set",
-        "latch": [
-          "flag(key=forest-watch-kept,value=true)"
-        ],
-        "live": [],
-        "prerequisites": {
-          "act": [
-            "forest-clear-drain",
-            "forest-hear-walkers-oak",
-            "forest-hear-walkers-rati",
-            "forest-keep-charm",
-            "forest-leave-charm",
-            "forest-mark-pawprints",
-            "forest-sit-watch",
-            "forest-stay-for-tea",
-            "forest-tell-hearth"
-          ],
-          "flag": [
-            "forest-homecoming-shared",
-            "forest-oak-heard",
-            "forest-path-cleared",
-            "forest-watch-kept",
-            "forest-watch-shared",
-            "forest-welcomed"
-          ],
-          "item": [
-            "forest-wolfprint-charm"
-          ],
-          "topic": [
-            "forest-walkers-oak",
-            "forest-walkers-rati"
-          ]
-        }
-      },
-      {
-        "id": "item:forest-arcanum-hierophant",
-        "kind": "item",
-        "title": "The Hierophant appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "flag(key=forest-oak-heard,value=true)"
-            }
-          ]
-        },
-        "words": "forest-oak-heard is set",
-        "ids": "forest-oak-heard is set",
-        "latch": [
-          "flag(key=forest-oak-heard,value=true)"
-        ],
-        "live": [],
-        "prerequisites": {
-          "act": [
-            "forest-clear-drain",
-            "forest-mark-pawprints",
-            "forest-stay-for-tea",
-            "forest-tell-hearth"
-          ],
-          "flag": [
-            "forest-oak-heard",
-            "forest-path-cleared",
             "forest-watch-shared",
             "forest-welcomed"
           ],
@@ -2748,8 +2700,7 @@
           "topic:forest-walkers-rati"
         ],
         "gates": [
-          "item:forest-arcanum-high-priestess",
-          "item:forest-arcanum-emperor"
+          "item:forest-arcanum-hierophant"
         ],
         "acts": [
           "act:forest-hear-walkers-rati",
@@ -2766,10 +2717,9 @@
         "readBy": [
           "act:forest-keep-charm",
           "act:forest-leave-charm",
-          "item:forest-arcanum-hierophant"
+          "item:forest-arcanum-emperor"
         ],
         "gates": [
-          "item:forest-arcanum-high-priestess",
           "item:forest-arcanum-emperor",
           "item:forest-arcanum-hierophant"
         ],
@@ -2793,7 +2743,6 @@
         ],
         "gates": [
           "route:forest-garden>forest-trail",
-          "item:forest-arcanum-high-priestess",
           "item:forest-arcanum-emperor",
           "item:forest-arcanum-hierophant"
         ],
@@ -3073,10 +3022,10 @@
         "readBy": [
           "act:forest-hear-walkers-oak",
           "act:forest-hear-walkers-rati",
-          "item:forest-arcanum-high-priestess"
+          "item:forest-arcanum-hierophant"
         ],
         "gates": [
-          "item:forest-arcanum-high-priestess"
+          "item:forest-arcanum-hierophant"
         ],
         "acts": []
       },
@@ -3086,12 +3035,8 @@
           "act:forest-sit-watch"
         ],
         "clearedBy": [],
-        "readBy": [
-          "item:forest-arcanum-emperor"
-        ],
-        "gates": [
-          "item:forest-arcanum-emperor"
-        ],
+        "readBy": [],
+        "gates": [],
         "acts": []
       },
       "forest-watch-shared": {
@@ -3104,7 +3049,6 @@
           "act:forest-tell-hearth"
         ],
         "gates": [
-          "item:forest-arcanum-high-priestess",
           "item:forest-arcanum-emperor",
           "item:forest-arcanum-hierophant"
         ],
@@ -3128,7 +3072,6 @@
         ],
         "gates": [
           "route:forest-garden>forest-trail",
-          "item:forest-arcanum-high-priestess",
           "item:forest-arcanum-emperor",
           "item:forest-arcanum-hierophant"
         ],
@@ -3344,13 +3287,6 @@
         "id": "forest-arcanum-magician",
         "name": "The Magician",
         "holder": "forest-cottage",
-        "consumedBy": [],
-        "readBy": []
-      },
-      {
-        "id": "forest-arcanum-high-priestess",
-        "name": "The High Priestess",
-        "holder": "forest-oak",
         "consumedBy": [],
         "readBy": []
       },
@@ -3640,15 +3576,12 @@
         "act:forest-stay-for-tea"
       ],
       "item:forest-arcanum-emperor": [
-        "flag:forest-watch-kept"
+        "flag:forest-oak-heard"
       ],
       "item:forest-arcanum-fool": [
         "resident:skull"
       ],
       "item:forest-arcanum-hierophant": [
-        "flag:forest-oak-heard"
-      ],
-      "item:forest-arcanum-high-priestess": [
         "flag:forest-walkers-heard"
       ],
       "item:forest-arcanum-magician": [
@@ -3970,11 +3903,6 @@
       "kind": "flag",
       "class": "latch",
       "words": "forest-walkers-heard is set"
-    },
-    "flag(key=forest-watch-kept,value=true)": {
-      "kind": "flag",
-      "class": "latch",
-      "words": "forest-watch-kept is set"
     },
     "flag(key=forest-watch-shared,value=true)": {
       "kind": "flag",

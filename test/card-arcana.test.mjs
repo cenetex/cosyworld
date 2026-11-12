@@ -13,10 +13,9 @@ const forest = "lonely-forest",
 const CARDS = [
   ["forest-arcanum-fool", forest, (s) => (s.packs[forest].met.skull = true)],
   ["forest-arcanum-magician", forest, "forest-scarf-vale-sewn"],
-  ["forest-arcanum-high-priestess", forest, "forest-walkers-heard"],
   ["greek-arcanum-empress", greek, "greek-water-returned"],
-  ["forest-arcanum-emperor", forest, "forest-watch-kept"],
-  ["forest-arcanum-hierophant", forest, "forest-oak-heard"],
+  ["forest-arcanum-emperor", forest, "forest-oak-heard"],
+  ["forest-arcanum-hierophant", forest, "forest-walkers-heard"],
 ];
 const world = () => createWorld({ seed: 7, packScopes: { [greek]: "full" } });
 const prove = (s, pack, proof) => {
