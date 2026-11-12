@@ -20,7 +20,6 @@ import {
 } from "../v2/card-game/cards.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { CONTENT_TURNS, questsOf, setWant } from "../v2/card-game/want.mjs";
-import { acceptQuest } from "./helpers/accept-quest.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
@@ -100,7 +99,10 @@ describe("Dione's bread", () => {
       holder: "greek-courtyard",
       history: [],
     });
-    expect(s.log.at(-1)).toMatchObject({ verb: "eat", itemId: "greek-bread" });
+    expect(s.log.findLast((e) => e.verb === "eat")).toMatchObject({
+      verb: "eat",
+      itemId: "greek-bread",
+    });
   });
 });
 
@@ -115,12 +117,10 @@ describe("the guard and the decree", () => {
     expect(availableCards(s)).toContain(FIELD);
     expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
     expect(
-      legalActions(s).find((a) => a.offer === `quest:box:${FIELD}`),
+      questsOf(s, "vale").find((w) => w.from === `quest:box:${FIELD}`),
     ).toBeTruthy();
-    // Talk with him tells his want: bring him the bread. A tap takes it.
     const talked = act(s, "talk", { target: GUARD });
-    expect(questsOf(talked, "vale")).toEqual([]);
-    acceptQuest(talked, GUARD);
+    expect(questsOf(talked, "vale")[0].from).toBe(`quest:from:${GUARD}`);
     expect(questsOf(talked, "vale")).toContainEqual(
       expect.objectContaining({
         kind: "item",

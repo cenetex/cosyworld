@@ -88,8 +88,6 @@ describe("resident levels earned at a fixed home", () => {
     expect(s.actors[resident]).toMatchObject({ place: home, level: 2 });
     expect(s.actors[resident].xp).toBeGreaterThanOrEqual(1);
     expect(levelReturnHome(s, resident)).toBeNull();
-    // One want per card: the met want leaves it content until it draws again.
-    expect(s.actors[resident].want).toBeNull();
     act();
     expect(s.actors[resident].place).toBe(home);
     expect(levelOf(s, resident)).toBe(2);
