@@ -34,7 +34,9 @@ for (const night of [false, true]) {
     cases.push({
       name: `${place}-${night ? "night" : "day"}`,
       world: argosPaintingWorld(place, account, night),
-      door: true,
+      // The doorway constant below (517/1672 of the painting) is the palace
+      // doorway; the tomb and the farm have no door at that spot.
+      door: /palace/u.test(place),
     });
 }
 const results = [];
@@ -134,16 +136,20 @@ try {
           },
           { door },
         );
-        // Compare real screen pixels with the painting's texture in a clear
-        // strip above this fixture's cast. Complete images can still await
-        // compositor raster work; a flat stage must never pass this check.
-        const clip = {
-          x: Math.round(width * 0.35),
-          y: 60,
-          width: 70,
-          height: 80,
-        };
-        const reference = await page.evaluate((clip) => {
+        // Compare real screen pixels with the painting's texture in strips
+        // above the hand. The cast and cards cover different strips in each
+        // fixture, so the best-matching strip counts: a flat or missing
+        // painting matches none of them. Complete images can still await
+        // compositor raster work, so keep sampling until one strip matches.
+        const clips = [0.08, 0.2, 0.35, 0.5, 0.62, 0.75, 0.88].flatMap((at) =>
+          [60, 130].map((y) => ({
+            x: Math.min(Math.round(width * at), width - 70),
+            y,
+            width: 70,
+            height: 70,
+          })),
+        );
+        const references = await page.evaluate((clips) => {
           const image = document.querySelector("#backdrop");
           const style = getComputedStyle(image);
           const box = image.getBoundingClientRect();
@@ -152,34 +158,27 @@ try {
             box.height / image.naturalHeight,
           );
           const [x, y] = style.objectPosition.split(" ").map(parseFloat);
-          const canvas = document.createElement("canvas");
-          canvas.width = clip.width;
-          canvas.height = clip.height;
-          const context = canvas.getContext("2d");
-          context.filter = style.filter;
-          context.drawImage(
-            image,
-            box.x + x - clip.x,
-            box.y + y - clip.y,
-            image.naturalWidth * scale,
-            image.naturalHeight * scale,
-          );
-          return [...context.getImageData(0, 0, clip.width, clip.height).data];
-        }, clip);
-        let paintCorrelation = 0;
-        const deadline = Date.now() + 5000;
-        do {
-          screenshot = await page.screenshot();
-          const pixels = await sharp(screenshot)
-            .extract({
-              left: clip.x,
-              top: clip.y,
-              width: clip.width,
-              height: clip.height,
-            })
-            .ensureAlpha()
-            .raw()
-            .toBuffer();
+          return clips.map((clip) => {
+            const canvas = document.createElement("canvas");
+            canvas.width = clip.width;
+            canvas.height = clip.height;
+            const context = canvas.getContext("2d");
+            context.filter = style.filter;
+            context.drawImage(
+              image,
+              box.x + x - clip.x,
+              box.y + y - clip.y,
+              image.naturalWidth * scale,
+              image.naturalHeight * scale,
+            );
+            return [
+              ...context.getImageData(0, 0, clip.width, clip.height).data,
+            ];
+          });
+        }, clips);
+        const mean = (values) =>
+          values.reduce((a, b) => a + b, 0) / values.length;
+        const correlate = (pixels, reference, clip) => {
           let covariance = 0,
             actualVariance = 0,
             referenceVariance = 0;
@@ -191,8 +190,6 @@ try {
               });
             const actual = values(pixels),
               expected = values(reference);
-            const mean = (values) =>
-              values.reduce((a, b) => a + b, 0) / values.length;
             const aMean = mean(actual),
               eMean = mean(expected);
             for (let col = 0; col < clip.width; col++) {
@@ -203,8 +200,29 @@ try {
               referenceVariance += e * e;
             }
           }
-          paintCorrelation =
+          const value =
             covariance / Math.sqrt(actualVariance * referenceVariance);
+          return Number.isFinite(value) ? value : 0;
+        };
+        let paintCorrelation = 0;
+        const deadline = Date.now() + 5000;
+        do {
+          screenshot = await page.screenshot();
+          const scores = [];
+          for (const [index, clip] of clips.entries()) {
+            const pixels = await sharp(screenshot)
+              .extract({
+                left: clip.x,
+                top: clip.y,
+                width: clip.width,
+                height: clip.height,
+              })
+              .ensureAlpha()
+              .raw()
+              .toBuffer();
+            scores.push(correlate(pixels, references[index], clip));
+          }
+          paintCorrelation = Math.max(...scores);
           if (paintCorrelation > 0.6) break;
           await page.waitForTimeout(50);
         } while (Date.now() < deadline);
@@ -231,6 +249,7 @@ try {
         });
         throw error;
       }
+      await writeFile(new URL(`${name}-${width}.png`, output), screenshot);
       assert(
         first.fits && first.doorVisible,
         `${name} ${width}: ${JSON.stringify(first)}`,

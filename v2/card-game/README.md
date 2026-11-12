@@ -408,8 +408,8 @@ carved lid, and turns to its face 520 ms after it is first seen, with the
 hand's reveal (`card-reveal.mjs`); reduced
 motion crossfades. It turns once: folding and opening the stack, plays, redraws
 and progress on the quest (its steps) leave it face
-up. Its identity is whose quest it is, its kind and its target, so only a
-quest that leaves the hand and later comes back is dealt face down again. The
+up. Its identity is whose quest it is, its kind and its target, so a
+quest offer is revealed once and, taken or not, never lies face down again. The
 hand a page or a new game opens on is already dealt: a quest in view then is
 face up at once. It takes taps while face down. The chosen quest card gives
 exactly one button, as any chosen card does: **Discard** (its label names the XP

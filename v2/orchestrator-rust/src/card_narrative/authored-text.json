@@ -2,6 +2,7 @@
 "generated": "node v2/scripts/build-card-authored-text.mjs",
 "kinds": ["action","events","facts","memories","disclosures"],
 "sources": [
+"v2/card-game/account-reset-storage.mjs",
 "v2/card-game/adaptive-learning.mjs",
 "v2/card-game/battle-context.mjs",
 "v2/card-game/between-us.mjs",

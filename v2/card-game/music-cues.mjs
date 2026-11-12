@@ -1,3 +1,4 @@
+import { accountStorage as localStorage } from "./account-reset-storage.mjs";
 import { mediaUrl } from "./media.mjs";
 import streams from "./music-streams.json" with { type: "json" };
 import { RETURN_FADE_SECONDS, wakeContext } from "./audio-wake.mjs";
@@ -92,7 +93,7 @@ export function createMusicCues({
     const key = `cosyworld.performance:${scope}:${name}`;
     if (save) remembered.add(key);
     try {
-      const store = storage ?? globalThis.localStorage;
+      const store = storage ?? localStorage;
       if (save) store?.setItem(key, "1");
       return remembered.has(key) || store?.getItem(key) === "1";
     } catch {

@@ -76,7 +76,7 @@ place's cards; selecting one replaces any other choice and shows exactly one
 button. An offer lies face down like a closed box ("A closed box", one button,
 Open box; nothing of the quest shows before it is opened). Opened, the bar names
 the quest and the one button takes it (or says why not). Taking it deals the
-held quest, which turns face up; the next offer lies face down again. The card
+held quest, which turns face up; an offer already opened stays face up. The card
 you hold lies behind your avatar's stack and its one button is always Discard.
 You do its step as any play: choose the item and the person (Lamp and Pip, Give), or the place.
 

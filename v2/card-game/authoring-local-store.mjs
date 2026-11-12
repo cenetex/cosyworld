@@ -1,3 +1,4 @@
+import { browserAccountStorage } from "./account-reset-storage.mjs";
 // Drafts and imported bytes live together in their own browser database.
 import {
   assetMetadata,
@@ -48,8 +49,15 @@ async function checkedAssets(draft, assets) {
 }
 
 export async function openAuthoringStore() {
+  let storage = null;
+  try {
+    storage = globalThis.localStorage;
+  } catch { /* IndexedDB can remain available when DOM storage is denied. */ }
+  const guard = storage ? browserAccountStorage() : null;
+  const check = () => guard?.assertCurrent();
+  check();
   const db = await new Promise((resolve, reject) => {
-    const request = indexedDB.open("cosyworld.authoring", 3);
+    const request = indexedDB.open(guard?.databaseName ?? "cosyworld.authoring", 3);
     let blocked = false;
     request.onupgradeneeded = () => {
       for (const name of ["drafts", "creates"])
@@ -68,6 +76,7 @@ export async function openAuthoringStore() {
   });
   db.onversionchange = () => db.close();
   function transact(key, mode, change) {
+    check();
     need(keyOk(key), "Choose a local draft key.");
     return new Promise((resolve, reject) => {
       const tx = db.transaction("drafts", mode),
@@ -76,6 +85,7 @@ export async function openAuthoringStore() {
       let result, problem;
       request.onsuccess = () => {
         try {
+          check();
           result = change(request.result ?? null, store);
         } catch (error) {
           problem = error;
@@ -90,8 +100,8 @@ export async function openAuthoringStore() {
     });
   }
   return {
-    ...authoringCreateStore(db),
-    ...authoringJobStore(db),
+    ...authoringCreateStore(db, check),
+    ...authoringJobStore(db, check),
     close: () => db.close(),
     read: (key) => transact(key, "readonly", (record) => record),
     async write(key, value, expectedGeneration = 0, assets) {

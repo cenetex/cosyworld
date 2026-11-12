@@ -1,3 +1,4 @@
+import { accountStorage as localStorage } from "./account-reset-storage.mjs";
 // Words the story service wrote come back to it with the signed envelope it
 // issued (docs/design/signed-envelopes.md). The service accepts a remembered
 // line, thought, persona or dream only with its envelope, so the browser
@@ -40,7 +41,7 @@ function put(map, k, envelope) {
 }
 
 // Keep the envelopes from a scene or reflection reply.
-export function rememberSigned(response, storage = globalThis.localStorage) {
+export function rememberSigned(response, storage = localStorage) {
   const map = load(storage);
   for (const entry of response?.entries || []) {
     if (!entry?.signed || typeof entry.text !== "string") continue;
@@ -58,7 +59,7 @@ export function rememberSigned(response, storage = globalThis.localStorage) {
 
 // The request body: the scene with each remembered word's envelope, and
 // unsigned remembered words left out.
-export function withSignatures(context, storage = globalThis.localStorage) {
+export function withSignatures(context, storage = localStorage) {
   const map = load(storage);
   const find = (kind, id, text) => map.get(key(kind, id, text));
   // A memory of a line reads "Name: line" (memory.mjs).
@@ -130,7 +131,7 @@ export const signedRequest =
 
 // Every kept envelope, once each: a save shared into a new world sends them
 // so the server keeps the words they cover (#2067).
-export function signedEnvelopes(storage = globalThis.localStorage) {
+export function signedEnvelopes(storage = localStorage) {
   const all = [...load(storage).values()];
   return [...new Map(all.map((e) => [e.sig, e])).values()];
 }

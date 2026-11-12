@@ -1,8 +1,9 @@
+import { sleepingPortrait } from "../v2/card-game/sleep-portraits.mjs";
 import { heldItem } from "../v2/card-game/held-item.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createSleepView } from "../v2/card-game/sleep-view.mjs";
+import { asleepView, createSleepView } from "../v2/card-game/sleep-view.mjs";
 import {
   createWorld,
   decodeSave,
@@ -193,6 +194,7 @@ function appBoundary(sleepView, world) {
     freshWorld: createWorld,
     currentActor: () => "vale",
     SAVE_KEY: "save",
+    accountStorageKey: (key) => `epoch:${key}`,
     sharedSession: null,
     startingPip: false,
     selected: [],
@@ -242,7 +244,7 @@ for (const action of ["reset", "storage"]) {
     const app = appBoundary(v, old),
       replacement = rest(100);
     if (action === "reset") app.resetTable(replacement);
-    else app.storage({ key: "save", newValue: encodeSave(replacement) });
+    else app.storage({ key: "epoch:save", newValue: encodeSave(replacement) });
     expect(v.active).toBe(false);
     expect(v.dream()).toBeNull();
     vi.advanceTimersByTime(100_000);
@@ -254,7 +256,34 @@ it("a refused storage save keeps the current world and does not reset its dream"
   const old = start();
   dream();
   const app = appBoundary(v, old);
-  app.storage({ key: "save", newValue: "invalid" });
+  app.storage({ key: "epoch:save", newValue: "invalid" });
   expect(app.world).toBe(old);
   expect(v.active).toBe(true);
+});
+
+it("ignores a storage event from a retired account epoch", () => {
+  const { v, start, dream } = view();
+  const old = start();
+  dream();
+  const app = appBoundary(v, old);
+  app.storage({ key: "save", newValue: encodeSave(rest(100)) });
+  expect(app.world).toBe(old);
+  expect(v.active).toBe(true);
+});
+
+it("keeps the dreamer asleep to the eye until the wake ends", () => {
+  const { v, start, dream, readDream } = view();
+  const woke = start();
+  // The rules woke her at once; the wake plays after.
+  expect(woke.actors.vale.sleeping).toBeUndefined();
+  expect(v.sleeper).toBe("vale");
+  const shown = asleepView(woke, v.sleeper);
+  expect(sleepingPortrait(shown, "vale")).toMatch(/vale-sleeping/);
+  expect(sleepingPortrait(woke, "vale")).toBeNull();
+  expect(woke.actors.vale.sleeping).toBeUndefined();
+  dream();
+  readDream();
+  vi.advanceTimersByTime(10_000);
+  expect(v.active).toBe(false);
+  expect(v.sleeper).toBeNull();
 });

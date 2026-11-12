@@ -1,3 +1,4 @@
+import { accountStorage as localStorage, accountStorageKey } from "./account-reset-storage.mjs";
 import { tableHolder, tableType } from "./mystery-view.mjs";
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
@@ -107,7 +108,7 @@ import {
   gradeStrength,
   placeLight,
 } from "./stage-light.mjs";
-import { createSleepView } from "./sleep-view.mjs";
+import { asleepView, createSleepView } from "./sleep-view.mjs";
 import { DREAMING_LABEL, DREAM_TIER, withDream } from "./dream-card.mjs";
 import { paintGlimpse } from "./glimpse-card.mjs";
 import {
@@ -159,7 +160,8 @@ import { openTableSession } from "./table-session.mjs";
 import { createNarrator, requestNarrative, silentLines } from "./narrative.mjs";
 import { signedRequest } from "./signed-words.mjs";
 import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
-import { carryLocalProgress, retiredSave } from "./legacy-saves.mjs";
+import { carryUpgrades } from "./local-carry.mjs";
+import { retiredSave } from "./legacy-saves.mjs";
 import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRadioPlayer } from "./radio-player.mjs";
@@ -367,8 +369,8 @@ try {
   }
   const retired = saved && retiredSave(saved);
   if (retired) {
-    // The old world is not opened: a fresh table carries level and upgrades.
-    world = carryLocalProgress(world, retired);
+    // The old world is not opened: a fresh table carries only upgrades.
+    world = carryUpgrades(world, retired);
     rememberLocalUpgrades(world);
   } else if (saved) {
     openingTable = false;
@@ -690,6 +692,11 @@ const exits = new Map();
 let shownSceneLine = null;
 // Speakers whose words did not come this turn show "…"; never saved or voiced.
 let silence = { turn: -1, lines: [] };
+// The sleeper keeps the sleeping art while their wake plays (sleep-view.mjs).
+function asleepWorld(w) {
+  const id = sleepView.sleeper;
+  return id ? asleepView(w, id) : w;
+}
 function shownWorld() {
   const lines = sharedSession
     ? sharedSilentLines(
@@ -770,8 +777,8 @@ const playQueue = createPlayQueue({
     // Taking a quest takes no turn and brings no reply, so its beat stays
     // awake: the held quest's next step and Discard are still offered.
     if (takesQuest(action)) {
-      // A taken offer is seen no more: the next one lies face down again.
-      encountered.delete(action.offer);
+      // A taken offer stays seen: it is revealed once and never lies face
+      // down again.
       rememberCards();
     } else restedChoice = choiceKey();
     count(playCounter(action));
@@ -3202,7 +3209,7 @@ function card(id) {
       : type === "item"
       ? cardArt(id)
       : type === "avatar"
-        ? portrait(id, null, world)
+        ? portrait(id, null, asleepWorld(world))
         : placeArt(id),
     "card",
   );
@@ -3390,7 +3397,7 @@ function shownQuestCaption(quest, includeLevel = true) {
 }
 const questArt = {
   url: (src) => imageUrl(src, "card"),
-  portrait: (id) => portrait(id, null, world),
+  portrait: (id) => portrait(id, null, asleepWorld(world)),
   thing: (id) => cardArt(id),
   place: placeArt,
   back: cardBack,
@@ -3789,7 +3796,7 @@ function renderScene() {
   if (covering) return;
   const visibleText = coveredTextReader(world, cardIsCovered);
   sleepView.observe(world, currentActor(world));
-  const view = shownWorld();
+  const view = asleepWorld(shownWorld());
   const scene = currentScene(view, null, {
     seq: lineSeq,
     hold: exchange.preparing,
@@ -4459,7 +4466,7 @@ function beatPortrait(id) {
   if (!id || cardIsCovered(id) || (things[id] && covered(world, id))) return "";
   return imageUrl(
     people[id]
-      ? portrait(id, null, world)
+      ? portrait(id, null, asleepWorld(world))
       : places[id]
         ? placeArt(id)
         : cardArt(id),
@@ -5032,6 +5039,8 @@ function render() {
     [...coveredCards],
     legalActions(world).map((action) => action.key),
     pack.key(),
+    // The sleeper's card shows the sleeping art until the wake ends.
+    sleepView.sleeper,
   ]);
   const handKey = JSON.stringify([
     world.revision,
@@ -5615,7 +5624,7 @@ function resetTable(next = freshWorld()) {
   resumeScene();
 }
 window.addEventListener("storage", (event) => {
-  if (sharedSession || event.key !== SAVE_KEY || !event.newValue) return;
+  if (sharedSession || event.key !== accountStorageKey(SAVE_KEY) || !event.newValue) return;
   cancelPipTransition();
   playQueue.clear();
   releaseGhosts();

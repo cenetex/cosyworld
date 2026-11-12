@@ -1,6 +1,7 @@
+import { accountStorage as localStorage } from "./account-reset-storage.mjs";
 export function createLocalBackups({
   slot,
-  storage = globalThis.localStorage,
+  storage = localStorage,
   fetcher = globalThis.fetch,
   validate,
   onError = () => {},

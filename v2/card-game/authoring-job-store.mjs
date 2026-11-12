@@ -36,12 +36,14 @@ function intentChange(rows, record, begin, generation) {
   return { record: saved || structuredClone(record) };
 }
 
-export function authoringJobStore(db) {
+export function authoringJobStore(db, check = () => {}) {
   function transact(mode, change) {
+    check();
     return new Promise((resolve, reject) => {
       const tx = db.transaction("jobs", mode);
       let result;
       try {
+        check();
         result = change(tx.objectStore("jobs"));
       } catch (error) {
         tx.abort();

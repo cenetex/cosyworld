@@ -1,3 +1,4 @@
+import { accountStorage as localStorage, accountSessionStorage as sessionStorage } from "./account-reset-storage.mjs";
 import { imageUrl } from "./images.mjs";
 import { request, passkey, WORLD_UPDATE } from "./shared-auth.mjs";
 import { passkeyNotice } from "./privacy.mjs";
