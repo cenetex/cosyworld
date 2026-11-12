@@ -3403,7 +3403,7 @@
               "greek-athens",
               "greek-eleusis"
             ],
-            backdrop: "assets/greek-drama/dipylon-road.svg"
+            backdrop: "assets/greek-drama/sacred-way-dipylon.webp"
           },
           "greek-road-athens-marathon": {
             name: "Marathon Road",
@@ -20200,6 +20200,7 @@
     "greek-road-athens-harbor": art("attic-road-night"),
     "greek-road-athens-piraeus": art("attic-road-night"),
     "greek-road-athens-colonus": art("attic-road-night"),
+    "greek-road-athens-eleusis": art("sacred-way-dipylon-night"),
     "greek-road-athens-marathon": art("attic-road-night"),
     "greek-road-piraeus-eleusis": art("attic-road-night"),
     "greek-road-colonus-eleusis": art("attic-road-night"),
@@ -20228,6 +20229,7 @@
     "greek-athens": "in the Athenian Agora",
     "greek-colonus": "in Colonus Grove",
     "greek-eleusis": "at the Eleusinian Sanctuary",
+    "greek-road-athens-eleusis": "on the Sacred Way",
     "greek-marathon": "at Marathon Altar",
     "greek-aulis": "at Aulis Anchorage",
     "greek-troy": "by the Trojan walls",

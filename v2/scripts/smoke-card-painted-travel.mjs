@@ -8,6 +8,7 @@ import { backdrop } from "../card-game/scene.mjs";
 import {
   argosPaintings,
   argosPaintingWorld,
+  sacredWayPaintingWorld,
   shipPaintingWorld,
 } from "../../test/helpers/painted-travel.mjs";
 
@@ -18,6 +19,11 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
 const cases = [];
 for (const night of [false, true]) {
+  cases.push({
+    name: `sacred-way-${night ? "night" : "day"}`,
+    world: sacredWayPaintingWorld(night),
+    door: false,
+  });
   for (const phase of ["docked", "sea", "arrived"])
     cases.push({
       name: `ship-${phase}-${night ? "night" : "day"}`,
