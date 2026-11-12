@@ -16,6 +16,15 @@ pub(super) struct Speech {
     pub(super) tagged: bool,
 }
 
+pub(super) fn aloud(raw: &str) -> &str {
+    const CLOSE: &str = "</think>";
+    match raw.rfind(CLOSE) {
+        Some(at) => &raw[at + CLOSE.len()..],
+        None if raw.trim_start().starts_with("<think>") => "",
+        None => raw,
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 enum Who {
     Me,
@@ -227,6 +236,52 @@ mod tests {
             "Dione the Baker".into(),
         ];
         own_words(text, &others, Some(heard))
+    }
+
+    #[test]
+    fn a_thinking_block_is_never_spoken() {
+        let c = super::super::tests::context();
+        let check = super::super::Check::new(&c, &c.entities[0], super::super::Part::Line);
+        let said = |raw: &str| check.verdict(raw, true, true);
+        let line = Ok(("Hold the lamp, Pip.".to_string(), vec![]));
+        for raw in [
+            "<think>\nPip asked about the lamp. I answer warmly.\n</think>\n\nHold the lamp, Pip.",
+            "Pip asked about the lamp.</think>Hold the lamp, Pip.",
+            "Hold the lamp, Pip.",
+        ] {
+            assert_eq!(said(raw), line, "{raw}");
+        }
+        for raw in ["<think>\nPip asked about the lamp. I", "<think></think>"] {
+            assert_eq!(said(raw), Err("empty"), "{raw}");
+        }
+        assert_eq!(
+            aloud("I think, therefore I wait."),
+            "I think, therefore I wait."
+        );
+    }
+
+    #[test]
+    fn a_reply_that_breaks_off_on_a_dash_is_spoken_and_flagged() {
+        let c = super::super::tests::context();
+        let check = super::super::Check::new(&c, &c.entities[0], super::super::Part::Line);
+        for raw in [
+            "Wait\u{2014}",
+            "Hold the lamp, Pip\u{2014}",
+            "I thought you had-",
+        ] {
+            let spoken = Ok((raw.to_string(), vec!["shape"]));
+            assert_eq!(check.verdict(raw, true, true), spoken, "{raw}");
+            assert_eq!(check.verdict(raw, false, true), Err("shape"), "{raw}");
+        }
+        let kept = Ok(("Hold on.".to_string(), vec![]));
+        assert_eq!(
+            check.verdict("Hold on. I thought you\u{2014}", true, true),
+            kept
+        );
+        assert_eq!(
+            check.verdict("Hold the lamp higher,", true, true),
+            Err("shape")
+        );
     }
 
     #[test]
