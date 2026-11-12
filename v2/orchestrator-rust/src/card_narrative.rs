@@ -2564,6 +2564,7 @@ impl<'a> Check<'a> {
         finished: bool,
         tell: bool,
     ) -> Result<(String, Vec<&'static str>), &'static str> {
+        let raw = speech::aloud(raw);
         let own = name(&self.entity.id);
         let mut flags = Vec::new();
         let mut flag = |on: bool, reason: &'static str| {
@@ -2788,10 +2789,13 @@ impl<'a> Check<'a> {
         }
         // A finished, single-line imperative can stand without punctuation.
         // A continuation mark or a cut line needs a fresh complete reply.
-        let continuation = text.ends_with([',', ':', ';', '-', '–', '—', '‐', '‑']);
+        let broken = text.ends_with(['-', '–', '—', '‐', '‑']);
+        let continuation = text.ends_with([',', ':', ';']);
         if kept.is_empty() && finished && !continuation && bounded(text, self.limit) {
-            // Unpunctuated, one word, or a cut line: published, flagged.
-            flag(cut_line || text.split_whitespace().count() < 2, "shape");
+            flag(
+                broken || cut_line || text.split_whitespace().count() < 2,
+                "shape",
+            );
             kept = text.trim_matches(quotes).to_string();
         }
         flag(
