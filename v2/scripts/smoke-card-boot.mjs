@@ -1,5 +1,5 @@
 // The table boots without an error on every early path: a cold start, a
-// local save that fails validation (its "needs a fresh start" notice, #2043),
+// local save that fails validation (its New game button, #2043, #2710),
 // and storage an in-app browser refuses (its unsaved notice). A notice can
 // run before the rest of app.mjs, so a binding it reads before declaration
 // throws and leaves an empty table (#2046, #2055). The fast check runs this
@@ -7,6 +7,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
+import { actionLabel } from "./card-browser-helpers.mjs";
 
 const INVALID = JSON.stringify({ schema: 8, turn: "x" });
 // A save of the retired schema 7 is dropped: a fresh table, no recovery notice.
@@ -14,8 +15,7 @@ const RETIRED = JSON.stringify({ schema: 7, turn: 4 });
 const cases = {
   // A cold boot deals the opening hand and logs no console error.
   fresh: { notice: null },
-  // A current-schema save whose turn is not a number fails validateWorld.
-  invalid: { save: INVALID, notice: /needs a fresh start.*New game/su },
+  invalid: { save: INVALID, notice: null, freshStart: true },
   retired: { save: RETIRED, notice: null, replaced: true },
   // In-app browsers with DOM storage off refuse every access.
   blocked: { blockStorage: true, notice: /could not save the world/u },
@@ -80,7 +80,47 @@ try {
         `http://127.0.0.1:${server.address().port}/?table=${table}`,
       );
       const status = page.locator("#play-status");
-      if (spec.notice) {
+      if (spec.freshStart) {
+        const button = page.locator("#card-actions #setting-new-game");
+        const beat = page.locator("#action-beat");
+        await button.waitFor({ state: "visible" });
+        assert.equal(await beat.getAttribute("data-card-tap"), "hint");
+        assert.equal(await page.locator("#card-actions button").count(), 1);
+        assert.match(
+          await page.locator(".action-beat-text").textContent(),
+          /^New game · This save needs a fresh start\. Your previous save is kept until you start a new game\.$/u,
+        );
+        assert.equal(await status.isVisible(), false, "no dead-end notice");
+        assert.equal(await actionLabel(button), "Start a new game");
+        assert.equal(await button.textContent(), "Tap to start a new game");
+        assert.equal(await button.getAttribute("data-destructive"), null);
+        const box = await beat.boundingBox();
+        await page.mouse.click(box.x + box.width / 2, box.y + 12);
+        await page.waitForFunction(
+          () =>
+            document.querySelector("#setting-new-game")?.textContent ===
+            "Tap again to replace this world",
+        );
+        assert.equal(await button.getAttribute("data-destructive"), "");
+        assert.equal(
+          await page.evaluate((key) => localStorage.getItem(key), key),
+          spec.save,
+          "the first tap keeps the save",
+        );
+        await page.waitForTimeout(450);
+        await button.click();
+        await page.waitForFunction(
+          (key) => JSON.parse(localStorage.getItem(key)).turn === 0,
+          key,
+        );
+        assert.equal(
+          await page.evaluate((key) => localStorage.getItem(`${key}.bak`), key),
+          spec.save,
+          "the replaced save is archived",
+        );
+        assert.equal(await page.locator("#setting-new-game").count(), 0);
+        report.freshStart = true;
+      } else if (spec.notice) {
         await status.waitFor({ state: "visible" });
         report.notice = await status.textContent();
         assert.match(report.notice, spec.notice, `${name} notice`);
@@ -98,7 +138,7 @@ try {
           key,
         );
         assert.equal(JSON.parse(text).schema, 8, "retired save replaced");
-      } else if (spec.save)
+      } else if (spec.save && !spec.freshStart)
         assert.equal(
           await page.evaluate((key) => localStorage.getItem(key), key),
           spec.save,

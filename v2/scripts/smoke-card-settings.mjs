@@ -204,6 +204,10 @@ try {
       confirm,
     );
     assert.equal(
+      await page.locator(`#setting-${risky}`).getAttribute("data-destructive"),
+      signedIn ? null : "",
+    );
+    assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),

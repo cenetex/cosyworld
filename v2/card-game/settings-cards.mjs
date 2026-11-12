@@ -112,6 +112,23 @@ const card = (id, name, art, lit, state, actions, more) => ({
   art: /^(\.|\/|assets\/)/.test(art) ? art : `assets/${art}`,
 });
 
+export const newGameCard = (info) =>
+  card(
+    "new-game",
+    "New game",
+    bench("moon"),
+    true,
+    "",
+    [
+      act("Start a new game", "#confirm-reset", {
+        confirm: "Tap again to replace this world",
+        closes: true,
+        destructive: true,
+      }),
+    ],
+    { info },
+  );
+
 // The hand for what the table knows now (`readSettings`): each group card,
 // then the settings it holds (`holder`), as the play hand deals a place and
 // then its things.
@@ -174,21 +191,7 @@ function dealt(s) {
           confirm: "Tap again to replace this game",
         }),
       ]),
-    s.newGame &&
-      card(
-        "new-game",
-        "New game",
-        bench("moon"),
-        true,
-        "",
-        [
-          act("Start a new game", "#confirm-reset", {
-            confirm: "Tap again to replace this world",
-            closes: true,
-          }),
-        ],
-        { info: s.table },
-      ),
+    s.newGame && newGameCard(s.table),
     card(
       "controls",
       "Controls",
@@ -227,7 +230,7 @@ export function settingsBeat(cards, chosen, armed) {
   if (!shown)
     return { name: "Settings", actions: [act("Close settings", "close")] };
   const actions = shown.actions.map((a, i) =>
-    armed === `${shown.id}:${i}` ? { ...a, label: a.confirm } : a,
+    armed === `${shown.id}:${i}` ? { ...a, label: a.confirm, armed: true } : a,
   );
   return { name: shown.name, info: shown.info, actions };
 }

@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   PACKS,
+  newGameCard,
   settingsBeat,
   settingsCards,
 } from "../v2/card-game/settings-cards.mjs";
@@ -141,5 +142,32 @@ describe("settings as a hand of cards", () => {
     expect(settingsBeat(cards, "new-game", "new-game:0").actions[0].label).toBe(
       "Tap again to replace this world",
     );
+  });
+
+  it("deals one New game card for Settings and a blocked save", () => {
+    const words = "This save needs a fresh start.";
+    const card = newGameCard(words);
+    const dealt = settingsCards(table({ table: words }));
+    expect(dealt.find((c) => c.id === "new-game")).toEqual({
+      ...card,
+      holder: "world",
+    });
+    expect(card.art).toBe("assets/settings/workbench-moon.png");
+    const [first] = settingsBeat([card], "new-game", null).actions;
+    expect(first).toMatchObject({
+      label: "Start a new game",
+      run: "#confirm-reset",
+      destructive: true,
+    });
+    expect(first.armed).toBeUndefined();
+    const [second] = settingsBeat([card], "new-game", "new-game:0").actions;
+    expect(second).toMatchObject({
+      label: "Tap again to replace this world",
+      armed: true,
+      destructive: true,
+    });
+    const account = settingsCards(table({ hosted: true, signedIn: true }));
+    const [signOut] = settingsBeat(account, "account", "account:0").actions;
+    expect(signOut.destructive).toBeUndefined();
   });
 });

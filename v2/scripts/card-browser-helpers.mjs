@@ -83,8 +83,7 @@ export async function closeSettings(page) {
     await page.keyboard.press("Escape");
 }
 
-// Signed out, Settings holds New game, which asks again before Vale's local
-// table starts over (#1892).
+// At a local table, Settings holds New game, which asks again (#1892, #2710).
 export async function startNewGame(page) {
   await openSettings(page);
   await pressSetting(page, "new-game", 2);
