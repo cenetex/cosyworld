@@ -12,7 +12,7 @@ import { boxDefs, goalsFor } from "../v2/card-game/world/boxes.mjs";
 import { lockWords } from "../v2/card-game/cards.mjs";
 import { questCaption } from "../v2/card-game/quest-card.mjs";
 import { people, places, things } from "../v2/card-game/world/catalog.mjs";
-import { questOffers } from "../v2/card-game/world/offers.mjs";
+import { questsOf } from "../v2/card-game/want.mjs";
 import { journeyWorlds } from "./helpers/journey.mjs";
 import { questCards } from "./journeys/quest-cards.mjs";
 
@@ -446,7 +446,8 @@ describe("a lock in a real world shows only what the traveler knows", () => {
 
   it("words a quest offered to a fresh traveler without its undiscovered names", () => {
     const told = journeyWorlds(questCards).told;
-    const offers = questOffers(told);
+    // Quests stand held at once (rules 134), so the held ones are read.
+    const offers = questsOf(told, "vale").map((want) => ({ id: want.from, want }));
     expect(offers.length).toBeGreaterThan(0);
     for (const offer of offers) {
       const quest = { actor: "vale", ...offer.want };

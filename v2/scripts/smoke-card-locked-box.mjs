@@ -285,42 +285,33 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
-      // Talk takes nothing: the shut box's quest is now an offer card (it
-      // may also bring the guard's own Accept quest card, by trust or by
-      // chance), and Vale still holds no quest.
-      assert.equal((await state()).actors.vale.want, null);
-      const offer = page.locator('#hand [data-card="quest:box:greek-battlefield"]');
-      await offer.waitFor({ state: "attached" });
-      // It lies face down, a closed box, until opened.
-      assert.equal(await offer.getAttribute("data-unrevealed"), "true");
-      assert.equal(await offer.getAttribute("aria-label"), "Closed box. Select to inspect.");
-      await page.keyboard.press("Escape");
-      await selectCard(page, "quest:box:greek-battlefield");
-      assert.equal(await page.locator("#card-actions button").count(), 1);
-      assert.equal(
-        await page.locator("#card-actions button").first().getAttribute("data-tap-verb"),
-        "Accept quest",
-      );
-      await ready();
-      const take = page.locator("#card-actions button").first();
-      // A tap on the bar finishes words still typing; the next one plays.
-      for (let i = 0; i < 3 && !(await state()).actors.vale.want; i++) {
-        await take.dispatchEvent("click");
-        await page.waitForTimeout(200);
-      }
+      // The Talk is a play like any other, and the shut box's quest is held
+      // by it (rules 134): nothing lies to accept, and the new quest is
+      // dealt face down once.
       await page.waitForFunction(
         (key) => Boolean(JSON.parse(localStorage.getItem(key)).actors.vale.want),
         key,
       );
-      assert.equal(await offer.count(), 0);
+      // The guard's own quest may come with it, by trust or by chance, on top.
+      const vale = (await state()).actors.vale;
+      assert(
+        [vale.want, ...(vale.under || [])].some(
+          (w) => w.from === "quest:box:greek-battlefield",
+        ),
+        "the box's quest is held",
+      );
+      assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0);
       const questLid = await page.evaluate(() => window.closedQuestEvidence);
-      assert(questLid, "the new quest is first dealt face down");
-      assert.equal(questLid.src, plainLid.src);
-      assert.equal(questLid.label, "Face-down quest");
-      assert.equal(questLid.locked, "false");
-      assert.notEqual(questLid.border, closedLid.border);
-      assert.equal(questLid.near, "false");
-      assert.equal(questLid.art, "hidden");
+      // Where the avatar's stack is open the quest is dealt face down in view;
+      // a folded stack shows only its folded card, so there is nothing to see.
+      if (questLid) {
+        assert.equal(questLid.src, plainLid.src);
+        assert.equal(questLid.label, "Face-down quest");
+        assert.equal(questLid.locked, "false");
+        assert.notEqual(questLid.border, closedLid.border);
+        assert.equal(questLid.near, "false");
+        assert.equal(questLid.art, "hidden");
+      }
       const edges = await page.locator(".quest-edge, .quest-fold, .place-edge").all();
       assert(edges.length > 0, "the hand contains folded card layers");
       for (const edge of edges) {

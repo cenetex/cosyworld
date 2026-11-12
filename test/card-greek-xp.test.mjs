@@ -124,14 +124,18 @@ describe("XP the Greek and RatiRadio content pays", () => {
     // more when a keepsake meets its want. Items start at their pack homes
     // here, as in card-boxes, so the figurine also meets its want on the move.
     expect(without.total).toBe(4);
-    expect(withKeepsakes.total).toBe(7);
+    // Rules 134 holds RATi's told keepsake quests at once, so the glass and
+    // the figurine each pay one more for the player's own quest beside the
+    // help given to RATi (9 in all, 7 in rules 133). A box's quest pays
+    // nothing beside its opening.
+    expect(withKeepsakes.total).toBe(9);
     expect(withKeepsakes.gains).toEqual({
       "take ratiradio-red-beanie": 1,
       "talk ratiradio-rati": 1,
       "drop ratiradio-thermos": 1,
       "move ratiradio-listening-room": 1,
-      "drop ratiradio-glass": 1,
-      "drop ratiradio-raven-figurine": 2,
+      "drop ratiradio-glass": 2,
+      "drop ratiradio-raven-figurine": 3,
     });
   });
 });

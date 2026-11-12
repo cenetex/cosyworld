@@ -2,7 +2,7 @@
 //! its travelers keep level, experience and upgrades, and a current world
 //! still replays exactly (full_floor.rs).
 use super::{
-    bindings, full, full_floor as floor, full_store,
+    bindings, engine, full, full_floor as floor, full_store,
     full_world::{actor_index, World},
     store,
 };
@@ -137,7 +137,7 @@ fn an_old_world_is_refused_retired_and_keeps_its_travelers_progress() {
     // A fresh world is offered by the usual create, carrying all of it.
     let fresh = found(&mut c, "ann").unwrap();
     let w = full_store::world(&c, &fresh, T).unwrap();
-    assert_eq!(w.version, "full-card-world/133");
+    assert_eq!(w.version, engine::VERSION);
     let vale_state = &w.game["actors"]["vale"];
     assert_eq!(
         (vale_state["xp"].clone(), vale_state["level"].clone()),

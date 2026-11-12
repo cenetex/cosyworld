@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import { availableCards, cardActions } from "../v2/card-game/cards.mjs";
 import { createWorld } from "../v2/card-game/world.mjs";
 import { questStep } from "../v2/card-game/quest-step.mjs";
-import { questCard } from "../v2/card-game/quest-card.mjs";
+import { questCards } from "../v2/card-game/quest-card.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
+
+// The quest asked for, wherever it lies in the player's stack (rules 134).
+const questCard = (world, step = "lay") =>
+  questCards(world).find((q) => q.step?.verb === step) ?? questCards(world)[0];
 
 // A held quest's one button is Discard (owner, 2026-11-11), so each step the
 // quest card used to offer must be a play some ordinary card selection offers.

@@ -16,7 +16,7 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { sendShipHome } from "./pack-transport.mjs";
-import { restStep, wantOf } from "./want.mjs";
+import { restStep } from "./want.mjs";
 
 const ORDER = Object.keys(GROUPS);
 const rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
@@ -174,8 +174,14 @@ function scatter(s, pack, api) {
   for (const [id, a] of byId(s.actors)) {
     if (mine(id)) continue;
     if (mine(a.sanctuary)) delete a.sanctuary;
-    const w = wantOf(s, id);
-    if (w?.step?.verb === "rest" && mine(w.target))
-      a.want = restStep(s, id, api.want, w.quest);
+    const turned = (w) =>
+      w.step?.verb === "rest" && mine(w.target)
+        ? {
+            ...restStep(s, id, api.want, w.quest),
+            ...(w.from ? { from: w.from } : {}),
+          }
+        : w;
+    if (a.want) a.want = turned(a.want);
+    if (a.under) a.under = a.under.map(turned);
   }
 }

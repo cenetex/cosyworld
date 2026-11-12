@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { NOT_FOUND, questStep } from "../v2/card-game/quest-step.mjs";
-import { questCard } from "../v2/card-game/quest-card.mjs";
+import { questCards } from "../v2/card-game/quest-card.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
+
+// The quest asked for, wherever it lies in the player's stack (rules 134).
+const questCard = (world, step = "lay") =>
+  questCards(world).find((q) => q.step?.verb === step) ?? questCards(world)[0];
 
 const quest = (kind, target, step = null) => ({
   actor: "vale",

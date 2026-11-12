@@ -52,9 +52,8 @@ only the route and status. `GET /moderation/play-metrics` (moderation token)
 returns the last seven days; `?days=N` asks for 1 to 400. Nothing reads the
 counts back into play.
 
-How to read them. `quest.accept` is a Choose quest play (a second held quest
-turned to the top), not the start of a quest; `quest.abandon` is a Drop of a
-quest; `quest.met` is one per quest the rules meet, claimed or not.
+How to read them. `quest.accept` is no longer counted: a quest is held by the
+rules, not by a play. `quest.abandon` is a Drop of a quest; `quest.met` is one per quest the rules meet, claimed or not.
 `line.skip` is a tap that moves past a finished line, and `line.finish_early`
 a tap that cut a line's typing short: one line can give both, and neither means
 the line went unread. `voice.silent` is a local play that had nobody due to
@@ -244,40 +243,43 @@ and generated audio are checked through `test/card-character-speech.test.mjs`.
 Rules 133 ([wants and arcs](../../docs/design/wants-and-arcs.md), #2605). Every
 avatar holds at most one want: an item to hold, a place to reach or a person
 to talk with. The internal field is `actor.want`; player-facing text says
-quest. There is no stack: `actor.under`, the focus play, the claim play and
-completion receipts are gone. A world pack defines each resident's starter
+quest. A player holds a stack of them (below); a resident holds one. The focus
+play, the claim play and completion receipts are gone. A world pack defines each resident's starter
 quest as its `want` (`{kind, target}`); `forest.json` does the same for Pip and
 the keeper. A human avatar has no authored want. What happens next comes from
 the world rules in `want.mjs`, not from authored quest chains.
 
-- **A player's want is taken by a tap on a quest card, never handed over.**
-  Nothing is drawn for a player and nothing is pushed at one: not after a
-  Discard, not on waking, not by Talk, not from a story choice, and there is
-  no Seek. Every offer is a card (`questOffers`, `world/offers.mjs`; ids
-  `quest:box:<box>`, `quest:from:<resident>`, `quest:home:<home>`,
-  `quest:level`), and the `take` play (`{kind: "take", offer}`, no turn)
-  calls `takeQuest`, which sets the want when the player holds none;
-  `dropQuest` sets it down. Every offer reads Accept quest: a shut box, your own
-  home's door (homecoming: bring the belonging home), a
-  resident who told you their want (after Talk, by a chance rolled once per
-  visit, certain if they trust you or hold a hub starter want such as Pip's
-  lamp), and the level quest, which appears when experience reaches the next level
-  and gives Sleep at home. While a quest is held every card stays, its
-  button disabled and labelled "Finish or discard your quest first".
-  **The client draws each offer as a card** (`offerFrame`, `app.mjs`) with the
-  held quest's own face (`questFace`: the scene of you doing the verb, its
-  head, its tier colour; a hidden name stays hidden, as in `lockedQuest`). The
-  offers lie together in the hand's row after the place's cards, where
-  `availableCards` orders them; the held quest lies behind your avatar's
-  stack. A chosen offer is the only chosen card and has one button: its play's
-  label ("Accept quest"), or, blocked, the disabled button whose label is the
-  reason. Taking passes no turn and makes no beat (`quest` is a quiet verb).
-  On `/pip`, Talk is the ordinary Talk: Pip's line is asked for (a failed line
-  shows "…") and his offer lies beside him as a closed box. Open it and tap
-  Accept quest: only then does the page fade into the opening, carrying that
-  same quest (so the pond offers no second one). The Lamp counts as a known
-  card on the landing, so the offer names it. Until the quest is accepted the
-  visitor stays with Pip, and reopening `/pip` resumes there.
+- **A player's quests are held at once and stack (rules 134).** Nothing is
+  drawn for a player and nothing is pushed at one: not after a Discard, not on
+  waking, not by Talk, not from a story choice, and there is no Seek. An offer
+  that stands (`questOffers`, `world/offers.mjs`; ids `quest:box:<box>`,
+  `quest:from:<resident>`, `quest:home:<home>`, `quest:level`) is held in the
+  same committed play that made it stand (`settleQuests`, `world.mjs`): there
+  is no accept play or button. The newest is the top, `actor.want`, the active
+  want everything reads; the older ones lie beneath it in `actor.under`, up to
+  nine in all. Residents keep one. Discarding the top (`dropQuest`, the only
+  quest play) shows the next. A quest met or discarded is recorded in
+  `actor.closed` by its offer source (`[turn, terms]`, at most 64 sources, the oldest
+  turn evicted first, then by name) and the source's offer stands again only
+  when its terms differ; the same terms from another source are not held twice.
+  A level quest is never recorded: its discard cost is the XP, and it stands
+  again when that is regained. Every held quest is live: one met by a play is
+  paid and leaves the stack wherever it sits, top first; a box's quest pays
+  nothing beside the box's own opening. In a shared world every present
+  traveler's offers are held in the play that makes them stand (avatars are
+  walked in sorted order), but a companion is bound only for the traveler who
+  acts, and for another when that traveler next acts with none. The offers are a shut box, your own
+  home's door (homecoming: bring the belonging home), a resident who told you
+  their want (after Talk, by a chance rolled once per visit, certain if they
+  trust you or hold a hub starter want such as Pip's lamp), and the level
+  quest, which stands when experience reaches the next level and gives Sleep at
+  home. **The client** shows the top quest as the held quest card behind your
+  avatar (`questFrame`, `app.mjs`), chosen with a tap, its one button
+  Discard; the quests beneath it show as stack edges. A quest newly held lies
+  face down once, then turns. On `/pip`, Talk is the ordinary Talk: Pip's line
+  is asked for (a failed line shows "…") and his quest is held as it ends; the
+  page then fades into the opening, carrying that same quest (so the pond
+  offers no second one). The Lamp counts as a known card on the landing.
 - **A resident's want.** Residents keep drawing wants: the next is drawn
   deterministically from the world, seeded by the avatar and turn (items
   others hold nearby that it values above what it carries, reachable places it

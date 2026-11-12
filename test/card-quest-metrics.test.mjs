@@ -42,8 +42,9 @@ describe("quest counters (#2662)", () => {
     expect(met.met).toBe(1);
   });
 
-  it("names plays honestly: Take of an offer accepts, Drop abandons", () => {
-    expect(playCounter({ kind: "take", offer: "quest:box:x" })).toBe("quest.accept");
+  it("names plays honestly: a quest is held by the rules, Drop abandons", () => {
+    // No play accepts a quest any more (rules 134), so a Take is only a Take.
+    expect(playCounter({ kind: "take", offer: "quest:box:x" })).toBe("play.take");
     expect(playCounter({ kind: "drop", quest: 0 })).toBe("quest.abandon");
     expect(playCounter({ kind: "drop", item: "oil" })).toBe("play.drop");
     expect(playCounter({ kind: "take", item: "oil" })).toBe("play.take");

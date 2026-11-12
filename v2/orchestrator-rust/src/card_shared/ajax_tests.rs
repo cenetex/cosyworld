@@ -17,6 +17,24 @@ fn play(
     actor: usize,
     fields: &[(&str, &str)],
 ) -> Value {
+    // Residents walk on their own wants, and the travellers' held quests
+    // (rules 134) change which they draw, so a play whose resident has not
+    // come yet waits for it a little before failing.
+    let who = if actor == 0 { "vale" } else { "mara" };
+    for _ in 0..60 {
+        if action(world, actor, fields).is_some() || fields == [("kind", "wait")] {
+            break;
+        }
+        let wait = action(world, actor, &[("kind", "wait")]).expect("a wait");
+        full_store::commit(
+            c,
+            id,
+            world,
+            json!({"op":"play", "actor":who, "action":wait}),
+            now(),
+        )
+        .unwrap();
+    }
     let selected = action(world, actor, fields).unwrap_or_else(|| {
         panic!(
             "Missing Ajax play at {}: {fields:?}",
@@ -211,17 +229,21 @@ fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journa
             &[("kind", "move"), ("target", target)],
         );
     }
-    play(
-        &c,
-        &id,
-        &mut world,
-        1,
-        &[
-            ("kind", "give"),
-            ("item", "greek-ajax-plea"),
-            ("target", "greek-baker"),
-        ],
-    );
+    // The baker walks the town on her own wants (rules 133, dwelling), and the
+    // quests the travellers now hold (rules 134) change which wants she draws,
+    // so Mara waits in the courtyard until the baker is there.
+    let give = [
+        ("kind", "give"),
+        ("item", "greek-ajax-plea"),
+        ("target", "greek-baker"),
+    ];
+    for _ in 0..60 {
+        if action(&world, 1, &give).is_some() {
+            break;
+        }
+        play(&c, &id, &mut world, 1, &[("kind", "wait")]);
+    }
+    play(&c, &id, &mut world, 1, &give);
     assert_eq!(
         world.game["items"]["greek-ajax-plea"]["holder"],
         "greek-courtyard"

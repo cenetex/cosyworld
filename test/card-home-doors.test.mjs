@@ -139,7 +139,8 @@ describe("an unlocked avatar's homecoming", () => {
     expect(lamplessPlaces).toContain(spot);
     expect([...hidingPlaces(world), ...hub.places]).toContain(spot);
     expect(world.doors.theatre).toBe("clearing");
-    // Nothing is pushed: the quest is Accept quest on the home's shut door.
+    // Nothing is pushed: the quest stands at the home's shut door and is
+    // held when the avatar arrives and plays there (rules 134).
     expect(questsOf(world, "mara")).toEqual([]);
     expect(world.actors.mara.want).toBeNull();
     const seated = {
@@ -156,8 +157,6 @@ describe("an unlocked avatar's homecoming", () => {
     expect(offers[0]).toMatchObject({
       id: "quest:home:theatre",
       kind: "home",
-      label: "Accept quest",
-      blocked: null,
       want: {
         kind: "item",
         target: "mask",
@@ -186,9 +185,16 @@ describe("an unlocked avatar's homecoming", () => {
       world = playAs(
         world,
         "mara",
-        (a) => a.kind === "take" && a.offer === "quest:home:theatre",
+        (a) => a.kind === "wait" && !a.sleep,
       ).world;
-      expect(world.actors.mara.want).toMatchObject({ target: "mask" });
+      // The door's quest was held by that play (rules 134).
+      expect(questsOf(world, "mara").map((w) => w.from)).toContain(
+        "quest:home:theatre",
+      );
+      // Only the top quest is in play: discard any others held above the
+      // home quest (newest on top, rules 134).
+      while (world.actors.mara.want.from !== "quest:home:theatre")
+        world = playAs(world, "mara", (a) => a.kind === "drop" && !a.item).world;
       world.actors.mara.place = world.items.mask.holder;
       world = playAs(
         world,

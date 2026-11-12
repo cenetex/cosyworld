@@ -48,32 +48,33 @@ it("opens the physical card in its own slot without the title intro", async () =
   ).toBe(`${SAVE_BASE}.night`);
 });
 
-it.each([0, 17, 4294967295])("offers Pip's quest as his card after Vale's opening for seed %s", (seed) => {
+it.each([0, 17, 4294967295])("holds Pip's quest as his Talk ends and carries it into Vale's opening for seed %s", (seed) => {
   const prelude = createPipWorld(seed);
   expect(prelude.items.lamp.holder).toBe("station");
   expect(decodeSave(encodeSave(prelude))).toEqual(prelude);
   const talk = cardPlay(prelude, ["moth"]);
   expect(talk.action).toMatchObject({ kind: "talk", target: "moth" });
   expect(play(prelude, talk.action).ok).toBe(true);
-  // Pip's Talk is the rules' own and records what he told; nothing is pushed
-  // into Vale's quest. His quest waits as his card at the pond (rules 133).
-  expect(talkToPip(prelude).actors.vale.heard).toEqual({ moth: "item:lamp" });
-  let world = beginPipJourney(seed);
+  // Pip's Talk is the rules' own: it records what he told and his quest is
+  // held by the play, with nothing to accept (rules 134).
+  const talked = talkToPip(prelude);
+  expect(talked.actors.vale.heard).toEqual({ moth: "item:lamp" });
   const quest = { kind: "item", target: "lamp", step: { verb: "give", to: "moth" } };
+  expect(talked.actors.vale.want).toMatchObject({ ...quest, from: "quest:from:moth" });
+  expect(legalActions(talked).some((a) => a.kind === "take" && a.offer)).toBe(false);
+  let world = beginPipJourney(seed);
   expect(world.opening).toBeDefined();
   expect(world.actors.vale.place).toBe("attic");
-  expect(world.actors.vale.want).toBeNull();
+  expect(world.actors.vale.want).toMatchObject(quest);
   world = selectLamp(world);
   const move = legalActions(world).find((a) => a.kind === "move" && a.target === "pond");
   expect(move).toBeDefined();
   world = decodeSave(encodeSave(play(world, move).state));
-  expect(questOffers(world).map((o) => o.id)).toContain("quest:from:moth");
-  const take = legalActions(world).find((a) => a.offer === "quest:from:moth");
-  expect(take).toMatchObject({ kind: "take", label: "Accept quest" });
-  const turn = world.turn;
-  world = decodeSave(encodeSave(play(world, take).state));
-  expect(world.turn).toBe(turn);
-  expect(world.actors.vale.want).toMatchObject(quest);
+  // The same quest is held, so the pond offers no second one.
+  expect(questOffers(world).map((o) => o.id)).not.toContain("quest:from:moth");
+  expect(world.actors.vale.under?.some((w) => w.from === "quest:from:moth") ?? false).toBe(false);
+  const held = (w) => [w.actors.vale.want, ...(w.actors.vale.under ?? [])];
+  expect(held(world).filter((w) => w?.target === "lamp")).toHaveLength(1);
   world = selectLamp(world, "lamp");
   const give = legalActions(world).find((a) => a.kind === "give" && a.target === "moth");
   expect(give).toBeDefined();
@@ -81,38 +82,21 @@ it.each([0, 17, 4294967295])("offers Pip's quest as his card after Vale's openin
   expect(result.ok).toBe(true);
   world = decodeSave(encodeSave(result.state));
   expect(world.items.lamp.holder).toBe("moth");
-  expect(world.actors.vale.want).toBeNull();
+  expect(held(world).some((w) => w?.target === "lamp")).toBe(false);
   // One for meeting the quest, one for helping Pip meet his own want, and one
   // for each box the walk opened (rules 133). The mirror back to the attic
   // pays nothing: Vale has already stood there.
-  const boxes = Object.values(world.opened ?? {}).filter((who) =>
-    who.includes("vale"),
-  ).length;
   expect(Object.keys(world.opened ?? {}).sort()).toEqual(["pond"]);
-  expect(world.actors.vale.xp).toBe(2 + boxes);
+  expect(world.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
 });
 
-it("carries the quest accepted at Pip's card into the opening as the same quest", () => {
-  let prelude = talkToPip(createPipWorld(17));
-  const take = legalActions(prelude).find((a) => a.offer === "quest:from:moth");
-  expect(take).toMatchObject({ kind: "take", label: "Accept quest" });
-  const turn = prelude.turn;
-  prelude = decodeSave(encodeSave(play(prelude, take).state));
-  expect(prelude.turn).toBe(turn);
+it("carries the quest held at Pip's card into the opening as the same quest", () => {
+  const prelude = talkToPip(createPipWorld(17));
   const quest = { kind: "item", target: "lamp", step: { verb: "give", to: "moth" } };
   expect(prelude.actors.vale.want).toMatchObject(quest);
-  let world = decodeSave(encodeSave(beginPipJourney(17, prelude)));
+  const world = decodeSave(encodeSave(beginPipJourney(17, prelude)));
   expect(world.opening).toBeDefined();
   expect(world.actors.vale.place).toBe("attic");
   expect(world.actors.vale.want).toMatchObject(quest);
-  world = selectLamp(world);
-  const move = legalActions(world).find((a) => a.kind === "move" && a.target === "pond");
-  world = decodeSave(encodeSave(play(world, move).state));
-  // The same quest is held, so Pip does not offer a second one.
-  expect(questOffers(world).map((o) => o.id)).not.toContain("quest:from:moth");
-  world = selectLamp(world, "lamp");
-  const give = legalActions(world).find((a) => a.kind === "give" && a.target === "moth");
-  const result = play(world, give);
-  expect(result.ok).toBe(true);
-  expect(result.state.actors.vale.want).toBeNull();
+  expect(world.actors.vale.want.since).toBe(world.turn);
 });
