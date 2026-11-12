@@ -4855,8 +4855,6 @@ pub(crate) mod tests {
                     )
                     .unwrap();
                 assert_eq!(pinned.requested_model_id(), model);
-                // Reasoning-first endpoints answer with effort none and
-                // never receive a temperature they would reject.
                 if ["openai/gpt-6-luna", "anthropic/claude-haiku-5.5"].contains(&model.as_str()) {
                     let parameters = pinned.candidate().supported_parameters();
                     assert!(parameters.reasoning, "{model}");
@@ -4865,7 +4863,16 @@ pub(crate) mod tests {
             }
             maps.push(models);
         }
-        assert_eq!(maps[0], maps[1]);
+        let cast = |models: [&str; 4]| {
+            let ids = ["vale", "moth", "keeper", "badger"].map(String::from);
+            let models = models.map(String::from);
+            ids.into_iter().zip(models).collect::<BTreeMap<_, _>>()
+        };
+        let (gemma, luna) = ("google/gemma-4-26b-a4b-it", "openai/gpt-6-luna");
+        let haiku = "anthropic/claude-haiku-5.5";
+        let mistral = "mistralai/mistral-small-3.2-24b-instruct";
+        assert_eq!(maps[0], cast([gemma, gemma, haiku, gemma]));
+        assert_eq!(maps[1], cast([luna, luna, haiku, mistral]));
     }
 
     #[test]

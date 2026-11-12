@@ -1205,6 +1205,16 @@ describe("deploy workflow", () => {
     expect(lonelyForestFlyConfig).toContain(
       'COSYWORLD_CARD_TEXT_MODEL = "openai/gpt-6-luna"',
     );
+    const cast = (vale, moth, badger) =>
+      `COSYWORLD_CARD_CHARACTER_MODELS_JSON = '{"vale":"${vale}","moth":"${moth}","keeper":"anthropic/claude-haiku-5.5","badger":"${badger}"}'`;
+    expect(primaryFlyConfig).toContain(cast(gemma, gemma, gemma));
+    expect(lonelyForestFlyConfig).toContain(
+      cast(
+        "openai/gpt-6-luna",
+        "openai/gpt-6-luna",
+        "mistralai/mistral-small-3.2-24b-instruct",
+      ),
+    );
     expect(lonelyForestFlyConfig).not.toContain("gemma");
     expect(lonelyForestFlyConfig).not.toContain("COSYWORLD_CARD_FALLBACK_MODELS");
   });
