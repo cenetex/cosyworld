@@ -62,7 +62,8 @@ describe("want data", () => {
           finish: "greek-burial-performed",
         },
       },
-      "greek-ismene": { kind: "place", target: "greek-sanctuary" },
+      // Ismene would ask Theseus about her father (open-door-rework).
+      "greek-ismene": { kind: "person", target: "greek-theseus" },
       // Creon wants the decree back; the guard wants to eat the bread
       // (Greek revision 20).
       "greek-creon": { kind: "item", target: "greek-decree" },
@@ -80,6 +81,29 @@ describe("want data", () => {
       },
       // Patroclus wants bread, and tells it once he trusts the traveler.
       "greek-patroclus": { kind: "item", target: "greek-bread", minTrust: 1 },
+      // The Open Door: each resident wants a person, a thing or a place.
+      "greek-rhapsode": { kind: "person", target: "greek-adrastus" },
+      "greek-market-neighbor": {
+        kind: "item",
+        target: "greek-bread",
+        step: { verb: "eat" },
+      },
+      "greek-aethra": { kind: "person", target: "greek-theseus" },
+      "greek-adrastus": { kind: "item", target: "greek-olive-branch" },
+      "greek-argive-mother": { kind: "item", target: "greek-ash-urn" },
+      "greek-iphis": {
+        kind: "place",
+        target: "greek-piraeus",
+        step: { verb: "lay", items: ["greek-ash-urn"] },
+      },
+      "greek-theseus": { kind: "item", target: "greek-burial-petition" },
+      "greek-quay-host": { kind: "person", target: "greek-household-witness" },
+      "greek-colonus-keeper": {
+        kind: "place",
+        target: "greek-colonus",
+        step: { verb: "lay", items: ["greek-oil-flask"] },
+      },
+      "greek-household-witness": { kind: "place", target: "greek-piraeus" },
       "willows-swede": { kind: "place", target: "willows-landing" },
       "hoppycat-glim-twice": { kind: "item", target: "hoppycat-loop-token" },
       boardyai: { kind: "connect", target: "humans" },

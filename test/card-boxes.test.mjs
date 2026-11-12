@@ -295,7 +295,10 @@ describe("XP for opening a box", () => {
       target: "greek-baker",
     });
     expect(made.opened["greek-bread"]).toEqual(["vale"]);
-    expect(made.actors.vale.xp).toBe(xp + 1);
+    // The wheat it used goes home to the Piraeus quay, which opens Thaleia
+    // there (open-door-rework): that box is the same play's too.
+    expect(made.opened["greek-quay-host"]).toEqual(["vale"]);
+    expect(made.actors.vale.xp).toBe(xp + 2);
     // The bread is used up and locks again; opening it again pays nothing.
     const relocked = structuredClone(made);
     relocked.usedUp = [...relocked.usedUp, "greek-bread"].sort();

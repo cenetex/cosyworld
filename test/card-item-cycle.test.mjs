@@ -63,6 +63,8 @@ import { exits } from "../v2/card-game/world.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 
 const LOOP = ["greek-bread", "greek-test-figs", "greek-test-wine"];
+// The Open Door's urn waits, made by nobody yet, at Eleusis: outside this loop.
+const inLoop = (used) => used.filter((id) => id !== "greek-ash-urn");
 const reload = (s) => decodeSave(encodeSave(s));
 function act(s, kind, fields = {}, actor = "vale") {
   const action = legalActions(s, actor).find(
@@ -191,7 +193,7 @@ describe("rules 95 item cycle", () => {
 
   it("starts the made thing used up and folds an older save once", () => {
     const s = harbor();
-    expect(s.usedUp).toEqual(["greek-provisions"]);
+    expect(inLoop(s.usedUp)).toEqual(["greek-provisions"]);
     expect(entityActive(s, "greek-provisions")).toBe(false);
     // A save from before rules 95 has no list: the untouched provisions
     // leave play, and a carried copy would have stayed.
@@ -199,7 +201,7 @@ describe("rules 95 item cycle", () => {
     delete old.usedUp;
     // Dione's fresh bread lies where it starts with no history, so it folds
     // like an untouched loaf (rules 102 bread starts used up too).
-    expect(decodeSave(JSON.stringify(old)).usedUp).toEqual([
+    expect(inLoop(decodeSave(JSON.stringify(old)).usedUp)).toEqual([
       "greek-bread",
       "greek-provisions",
     ]);
@@ -208,7 +210,7 @@ describe("rules 95 item cycle", () => {
       holder: "greek-courtyard",
       history: ["Turn 1: x"],
     };
-    expect(decodeSave(JSON.stringify(old)).usedUp).toEqual([]);
+    expect(inLoop(decodeSave(JSON.stringify(old)).usedUp)).toEqual([]);
   });
 
   it("makes the provisions from the set and again only once they are used up", () => {
@@ -224,7 +226,7 @@ describe("rules 95 item cycle", () => {
     );
     s = act(s, "give", { item: "greek-test-figs", target: "greek-shipmaster" });
     expect(s.items["greek-provisions"].holder).toBe("greek-harbor");
-    expect(s.usedUp).toEqual([...LOOP].sort());
+    expect(inLoop(s.usedUp)).toEqual([...LOOP].sort());
     unique(s);
     // Myrto leaves what she makes on the landing.
     s = wait(wait(s));
@@ -263,7 +265,7 @@ describe("rules 95 item cycle", () => {
     s = longRest(s);
     expect(s.actors.vale.sleeping).toBeUndefined();
     expect(s.items["greek-test-figs"].holder).toBe("greek-sanctuary");
-    expect(s.usedUp).toEqual([]);
+    expect(inLoop(s.usedUp)).toEqual([]);
     unique(s);
   });
 
@@ -404,7 +406,7 @@ describe("rules 95 item cycle", () => {
         s.actors.vale.place = "greek-sanctuary";
         s = longRest(reload(s));
         unique(s);
-        expect(s.usedUp).toEqual(["greek-provisions"]);
+        expect(inLoop(s.usedUp)).toEqual(["greek-provisions"]);
         for (const id of LOOP) s.items[id].holder = "vale";
         s.actors.vale.place = "greek-harbor";
         // The roaming Bard may have taken the ship; call it back.
@@ -419,7 +421,7 @@ describe("rules 95 item cycle", () => {
       s = act(s, "course", { target: "greek-piraeus" });
       s = wait(s);
       unique(s);
-      expect(s.usedUp).toEqual([...LOOP, "greek-provisions"].sort());
+      expect(inLoop(s.usedUp)).toEqual([...LOOP, "greek-provisions"].sort());
       s = act(s, "course", { target: "greek-harbor" });
       s = wait(s);
       s = act(s, "move", { target: "greek-harbor" });

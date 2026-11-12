@@ -48,12 +48,13 @@ const discovered = (world) => {
   world.crossings["pond-greek-harbor"].discovered = true;
   return world;
 };
-// A new world, each lasting opening, and an old full-scope world.
+// A new world, the same with the City Gate keys out in Attica (nothing
+// opens the Open Door: Attica is there from the start), the Ajax opening, and
+// an old full-scope world.
 const stages = {
   opening: () => discovered(createWorld()),
-  "open door": () => discovered(flags(createWorld(), "greek-open-door-open")),
-  ajax: () =>
-    discovered(flags(createWorld(), "greek-open-door-open", "greek-ajax-open")),
+  "open door": () => discovered(createWorld()),
+  ajax: () => discovered(flags(createWorld(), "greek-ajax-open")),
   full: () =>
     discovered(
       createWorld({
@@ -347,13 +348,19 @@ describe("ports reachable on foot or by a free leg home", () => {
       false,
     );
     // Carried aboard, the provisions open nothing: they must lie on deck
-    // (rules 102).
+    // (rules 102). The City Gate's keys stay out of reach, so the land road
+    // to Piraeus is shut too.
     const carried = structuredClone(s);
     carried.items["greek-provisions"].holder = "vale";
     carried.actors.vale.place = "greek-ship";
     expect(
       reach(carried, "greek-harbor", {
-        pinned: ["greek-provisions"],
+        pinned: [
+          "greek-provisions",
+          "greek-creon-writ",
+          "greek-decree",
+          "greek-olive-branch",
+        ],
         ship: true,
       }).has("greek-piraeus"),
     ).toBe(false);
@@ -550,8 +557,7 @@ describe("the roads home keep the Greek story gates", () => {
 
   for (const stage of ["open door", "ajax"])
     it(`keeps Thebes behind the City Gate from outside the walls: ${stage}`, () => {
-      // The herald's truce in the Agora opens the Long Walls from Piraeus.
-      const s = flags(stages[stage](), "greek-open-door-plea-registered");
+      const s = stages[stage]();
       for (const from of [...OUTSIDE_WALLS, "greek-cithaeron"]) {
         // Without the guard holding Creon's writ, a walker from Attica
         // reaches the battlefield but never the city: the guard bars his
@@ -572,23 +578,23 @@ describe("the roads home keep the Greek story gates", () => {
     });
 
   for (const stage of ["open door", "ajax"])
-    it(`keeps the City Gate shut while the open road reaches the countryside: ${stage}`, () => {
+    it(`walks on from the battlefield to the countryside, the Agora and Piraeus: ${stage}`, () => {
       const s = holding(stages[stage](), "greek-creon-writ", "greek-guard");
       const outcomes = ["greek-burial-account", "greek-creon-writ"];
       const starts = ["greek-harbor"];
       for (const from of starts) {
         const before = reach(s, from, { pinned: outcomes });
         expect(before.has("greek-battlefield")).toBe(true);
-        // The Battlefield–Cithaeron road and the connected countryside stay
-        // open even while the Theban outcome and City Gate remain unresolved.
+        // The Battlefield–Cithaeron road, the countryside, the Sacred Way and
+        // the Long Walls are plain roads, whatever the Theban outcome.
         expect(has(before, COUNTRYSIDE), from).toEqual(COUNTRYSIDE);
-        expect(has(before, CITY), from).toEqual([]);
+        expect(has(before, CITY), from).toEqual(CITY);
+        expect(before.has("greek-piraeus"), from).toBe(true);
       }
     });
 
   for (const stage of ["open door", "ajax"])
-    it(`keeps the Agora behind the petition or the truce: ${stage}`, () => {
-      // Thebes is settled and the countryside open: only the city waits.
+    it(`opens the Agora to a sea arrival and to a walker alike: ${stage}`, () => {
       // Myrto has packed a load of provisions (rules 95).
       const s = holding(
         stowProvisions(stages[stage](), "greek-harbor"),
@@ -600,49 +606,26 @@ describe("the roads home keep the Greek story gates", () => {
         "greek-olive-branch",
         "greek-provisions",
       ];
-      const starts = ["greek-harbor"];
-      for (const from of starts) {
-        // On foot, without the petition, the truce or the provisions, nobody
-        // reaches the city or Piraeus.
-        const before = reach(s, from, { pinned: keys });
-        expect(before.has("greek-eleusis"), from).toBe(true);
-        expect(has(before, CITY), from).toEqual([]);
-        expect(before.has("greek-piraeus"), from).toBe(false);
-        // The provisions aboard sail to Piraeus, and its Long Walls are open:
-        // a sea arrival walks to the Agora with no burial or truce.
-        const sailed = reach(s, from, {
-          pinned: keys.filter((id) => id !== "greek-provisions"),
-          ship: true,
-        });
-        expect(sailed.has("greek-piraeus"), from).toBe(true);
-        expect(has(sailed, CITY), from).toEqual(CITY);
-        // On foot, the mothers' petition at Eleusis opens the city road.
-        const heard = holding(
-          flags(structuredClone(s), "greek-open-door-mothers-heard"),
-          "greek-burial-petition",
-          "greek-eleusis",
-        );
-        const walked = reach(heard, from, { pinned: keys });
-        expect(walked.has("greek-athens"), from).toBe(true);
-        expect(walked.has("greek-piraeus"), from).toBe(true);
-        // The herald's truce in the Agora opens the Long Walls both ways.
-        const truce = holding(
-          flags(structuredClone(heard), "greek-open-door-plea-registered"),
-          "greek-olive-branch",
-          "greek-athens",
-        );
-        const open = reach(truce, from, { pinned: keys });
-        expect(open.has("greek-piraeus"), from).toBe(true);
-        const landed = reach(truce, "greek-piraeus", { pinned: keys });
-        expect(has(landed, CITY), from).toEqual(CITY);
-      }
+      // On foot, with no petition, truce or provisions: the Sacred Way and
+      // the Long Walls need nothing.
+      const walked = reach(s, "greek-harbor", { pinned: keys });
+      expect(has(walked, CITY)).toEqual(CITY);
+      expect(walked.has("greek-piraeus")).toBe(true);
+      // The provisions aboard sail to Piraeus, and the Long Walls lead in.
+      const sailed = reach(s, "greek-harbor", {
+        pinned: keys.filter((id) => id !== "greek-provisions"),
+        ship: true,
+      });
+      expect(sailed.has("greek-piraeus")).toBe(true);
+      expect(has(reach(s, "greek-piraeus", { pinned: keys }), CITY)).toEqual(
+        CITY,
+      );
     });
 });
 
-// The City Gate shut: it opens only while the guard holds Creon's writ. A sea
-// arrival stays at Piraeus until the truce, and the truce is only reached
-// through the gate, so the land route waits. Everywhere a traveler can get to
-// still leads home with every key carried off. The exposure ending that once
+// The City Gate shut: it opens only while the guard holds Creon's writ or the
+// herald's truce. A sea arrival walks the plain roads of Attica. Everywhere a
+// traveler can get to still leads home with every key carried off. The exposure ending that once
 // kept the gate shut for good was removed in rules 133, so the writ is taken
 // out of the guard's hands here.
 describe("the City Gate shut", () => {
@@ -665,27 +648,7 @@ describe("the City Gate shut", () => {
       if (bare.items[id]) bare.items[id].holder = "greek-ship";
     // Every place the sea route reaches, Eleusis, Colonus, the Cithaeron
     // road, the battlefield and the Hollow included, must lead home with
-    // every key gone. The one thing the search cannot play is a meeting, and
-    // the Sacred Way home from Eleusis waits on one: arriving there meets
-    // Aethra, which hears the mothers and leaves their petition at Eleusis.
-    // Walk it for real, then give the worst case that result.
-    let walked = createWorld();
-    walked.actors.vale.place = "greek-athens";
-    for (const target of ["greek-road-athens-eleusis", "greek-eleusis"]) {
-      const step = legalActions(walked).find(
-        (a) => a.kind === "move" && a.target === target,
-      );
-      walked = play(walked, step, walked.revision).state;
-    }
-    expect(
-      walked.packs["greek-drama"].flags["greek-open-door-mothers-heard"],
-    ).toBe(true);
-    expect(walked.items["greek-burial-petition"].holder).toBe("greek-eleusis");
-    expect(exits(walked, "greek-eleusis", "vale")).toContain(
-      "greek-road-athens-eleusis",
-    );
-    bare.packs["greek-drama"].flags["greek-open-door-mothers-heard"] = true;
-    bare.items["greek-burial-petition"].holder = "greek-eleusis";
+    // every key gone.
     const stranded = [...reached].filter(
       (place) =>
         !reach(bare, place, { pinned: KEYS, free: true, local: false }).has(

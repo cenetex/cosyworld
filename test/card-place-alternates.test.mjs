@@ -37,16 +37,6 @@ describe("alternate place paintings", () => {
     });
   });
 
-  it("shows the open Agora once the Open Door story has returned to Dione", () => {
-    const world = createWorld();
-    world.packs["greek-drama"].flags["greek-open-door-returned"] = true;
-    expect(backdrop("greek-athens", world)).toBe(
-      "./assets/greek-drama/open-door-agora.webp",
-    );
-    expect(backdrop("greek-athens", night(world))).toBe(
-      before.night["greek-athens"],
-    );
-  });
 
   it("shows each Willows sign's painting in its own light", () => {
     const world = createWorld();
