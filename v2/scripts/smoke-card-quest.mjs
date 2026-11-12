@@ -369,16 +369,17 @@ try {
     await selectCard(page, "greek-guard");
     await readyActionButton(page, "give").click();
     await page.waitForFunction(
-      (k) => JSON.parse(localStorage.getItem(k)).actors.vale.want === null,
+      (k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.target !== "greek-decree",
       gateKey,
     );
     await ready();
+    assert.equal((await saved(gateKey)).want.from, "quest:box:greek-battlefield");
     assert.equal(
       (await saved(gateKey)).xp,
       xp + 1,
       "the Give paid the experience, with no claim",
     );
-    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
+    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.deepEqual(errors, []);
     console.log(

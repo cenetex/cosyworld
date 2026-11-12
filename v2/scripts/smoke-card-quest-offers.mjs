@@ -318,6 +318,7 @@ try {
       );
       await t.layout();
       await t.shot("stacked");
+      await page.locator("#card-actions [data-drop-quest]").click();
       await motion(page, "no-preference");
       await page.locator("#card-actions [data-drop-quest]").click();
       const fading = page.locator(".card-exits .want-card");
