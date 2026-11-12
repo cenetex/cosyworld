@@ -194,6 +194,7 @@ fn talk_as_requires_a_claimed_avatar_and_a_present_resident() {
     };
     let talk = full::Talk {
         target: "moth".to_string(),
+        key: None,
     };
     // No claim yet: the actor resolution asks for a claim.
     assert_eq!(

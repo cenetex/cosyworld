@@ -321,6 +321,10 @@ pub(super) struct Command {
 #[serde(deny_unknown_fields)]
 pub(super) struct Talk {
     pub(super) target: String,
+    /// The caller's idempotency key (the Discord message id): retries with the
+    /// same key are one play.
+    #[serde(default)]
+    pub(super) key: Option<String>,
 }
 async fn command(
     State(state): State<AppState>,
@@ -487,12 +491,23 @@ pub(super) fn talk_as(
                 .cloned()
         })
         .ok_or("Choose someone here to talk to.")?;
+    let key = body
+        .key
+        .as_deref()
+        .filter(|k| {
+            !k.is_empty()
+                && k.len() <= 60
+                && k.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
+        .map(|k| format!("talk-{k}"))
+        .unwrap_or_else(|| format!("talk-{}", crate::random_hex(24)));
     let command = Command {
         op: "play".to_string(),
         avatar: Some(actor_id(actor).to_string()),
         action,
         target: Some(body.target.clone()),
-        key: format!("talk-{}", crate::random_hex(24)),
+        key,
         revealed: None,
         moving: false,
         surface: super::Surface::Discord,
