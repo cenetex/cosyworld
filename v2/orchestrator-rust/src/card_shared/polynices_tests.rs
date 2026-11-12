@@ -87,7 +87,8 @@ fn polynices_rites_match_the_source_model_and_replay_from_the_journal() {
     }
     let flags = &world.game["packs"]["greek-drama"]["flags"];
     assert_eq!(flags["greek-burial-performed"], true);
-    assert_eq!(flags["greek-open-door-open"], true);
+    // The burial opens nothing else: Attica is there from the start.
+    assert!(flags["greek-open-door-open"].is_null());
     assert_eq!(
         world.game["items"]["greek-oil-flask"]["holder"],
         "greek-colonus"
