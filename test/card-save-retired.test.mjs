@@ -10,6 +10,7 @@ import {
   carryLocalProgress,
   retiredSave,
 } from "../v2/card-game/legacy-saves.mjs";
+import { carryUpgrades } from "../v2/card-game/local-carry.mjs";
 
 // The rules 133 bump retired every earlier save: it is dropped, not lifted,
 // and only what a traveler carries survives.
@@ -45,6 +46,16 @@ describe("saves from before the rules 133 bump", () => {
     expect(fresh.turn).toBe(0);
     // The result is an ordinary current save.
     expect(decodeSave(encodeSave(fresh)).actors.vale.xp).toBe(9);
+  });
+
+  it("starts a new local game at level 1 and keeps only upgrades", () => {
+    const fresh = carryUpgrades(createWorld({ seed: 7 }), old());
+    const vale = fresh.actors.vale;
+    expect(vale.upgrades).toEqual(["scarf"]);
+    expect(vale.xp ?? 0).toBe(0);
+    expect(vale.level ?? 1).toBe(1);
+    expect(vale.carried).toBeUndefined();
+    expect(fresh.actors.vale.xp).toBe(createWorld({ seed: 7 }).actors.vale.xp);
   });
 
   it("ignores progress it cannot trust", () => {
