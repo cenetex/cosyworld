@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
+import { actionLabel } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -234,7 +235,7 @@ globalThis.workspaceSmokeBeat = {show: showActionBeat, clear: clearActionBeat};`
     }, ids.item);
     const action = page.locator("#card-actions button");
     const press = () => (width < 700 ? action.tap() : action.click());
-    const label = () => action.textContent();
+    const label = () => actionLabel(action);
     assert.equal(await label(), "Reload");
     await press();
     assert.equal(await label(), "Discard changes and reload");

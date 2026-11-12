@@ -13,15 +13,21 @@
 // and tier, and how to turn one. Presentation only: turning a card is
 // cosmetic and never touches the rules, the journal or sync.
 
-import { tapPrompt } from "./presentation.mjs";
-
 // Three or more unturned cards make a pack; one or two simply turn in place.
 export const PACK_MIN = 3;
 
-// The one button's words. A small fixed vocabulary, no counts.
+// The one button's words. A small fixed vocabulary, no counts. The whole
+// descriptor is the button: `text` is its sentence and the verb makes its
+// corner cue ("Tap to reveal all", "Tap to finish", "Tap to continue").
 export const PACK_REVEAL_ALL = "Reveal all";
-export const PACK_DONE = "Done";
-export const PACK_FINISH = tapPrompt(null, false).hint;
+export const PACK_FINISH = "Finish";
+export const PACK_DONE = "Continue";
+export const PACK_TEXT = {
+  reveal: "New cards unlocked",
+  finish: "Turning the cards",
+  done: "All cards revealed",
+};
+const ask = (kind, label) => ({ kind, label, text: PACK_TEXT[kind] });
 
 // The pack's order: the place's own card first, then residents, items, ways,
 // locked boxes, and offered quests (closed boxes too).
@@ -310,10 +316,10 @@ export function createPackOpening({
     },
     // The one button the pack asks for while nothing is chosen, or null.
     prompt(unturned) {
-      if (state === "running") return { kind: "finish", label: PACK_FINISH };
-      if (state === "turned") return { kind: "done", label: PACK_DONE };
+      if (state === "running") return ask("finish", PACK_FINISH);
+      if (state === "turned") return ask("done", PACK_DONE);
       if (state === "open" && left(unturned).length)
-        return { kind: "reveal", label: PACK_REVEAL_ALL };
+        return ask("reveal", PACK_REVEAL_ALL);
       return null;
     },
     // The tier a face-down card shows as a rim glow in an open pack, or

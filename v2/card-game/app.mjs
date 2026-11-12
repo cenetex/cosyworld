@@ -2474,10 +2474,11 @@ document.addEventListener(
   true,
 );
 function showBorrowedBeat() {
-  const combined =
-    borrowedBeat.avatar &&
-    !borrowedBeat.edit &&
-    borrowedBeat.buttons.length === 1;
+  // One button and no text to edit: the whole descriptor is the button, as
+  // a play's is (Settings, the ☰ menu, a seat). An avatar's beat types its
+  // message; the others read at once, as they did.
+  const single = !borrowedBeat.edit && borrowedBeat.buttons.length === 1,
+    combined = single && borrowedBeat.avatar;
   renderCardDescriptor(borrowedBeat, {
     placeArt,
     showNote: showActionBeatNote,
@@ -2492,11 +2493,18 @@ function showBorrowedBeat() {
           )
       : undefined,
   });
-  if (combined) cardTapHint($("card-actions").firstElementChild);
-  else {
+  if (!combined) {
     actionReveal.cancel();
     actionMessage = null;
   }
+  const button = single && $("card-actions").firstElementChild;
+  if (button?.disabled) {
+    // A reason is the corner cue in its own words, as Locked is.
+    $("action-beat").dataset.cardTap = "hint";
+    button.removeAttribute("aria-label");
+    for (const key of ["tapVerb", "tapName", "tapHint", "revealing"])
+      delete button.dataset[key];
+  } else if (button) cardTapHint(button);
   syncActionReveal();
   syncActionBeat();
 }
@@ -2617,14 +2625,34 @@ function renderActions() {
   const quiet = !rested && opening()?.step === "reveal";
   const closed = selected.some(cardIsClosed);
   const actions = rested || quiet || closed ? [] : ready;
+  // Nothing chosen in an open pack: the pack's one button, the same quiet
+  // button the opening uses (pack-opening.mjs).
+  const packAsk =
+    !rested && !quiet && !selected.length && !questOpen && !borrowedBeat
+      ? packPrompt()
+      : null;
   const clientText = quiet
     ? "Turn over the next card."
-    : !rested &&
+    : packAsk
+      ? packAsk.text
+      : !rested &&
         selected.length === 1 &&
         things[selected[0]]?.view &&
         !cardIsClosed(selected[0])
       ? `Look at ${theName(selected[0])} up close.`
       : "";
+  // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
+  // Its names go through the same discovery screen as every other word: a
+  // card the traveler has not found is not named (rules 133).
+  const asleepWords =
+    !rested && !closed && !actions.length && asleepReason(world, selected);
+  const asleep = asleepWords && visibleText(asleepWords);
+  // A Take refused for space says why in the context button (#2018). It
+  // plays nothing; the cards stay as they are.
+  const crowded =
+    !rested && !closed && hint === TOO_MANY_ITEMS && selected.find((id) => things[id]);
+  const crowdedWords =
+    crowded && `You have too many items to take ${theName(crowded).toLowerCase()}`;
   const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : isOfferId(id) ? "Quest" : nameOf(id)).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
@@ -2662,7 +2690,11 @@ function renderActions() {
           shownQuestCaption(questShown, false)
         : (
             (actions[0] && playText(actions[0])) ||
-            clientText
+            clientText ||
+            // A blocked play's reason is the card's own words.
+            asleep ||
+            crowdedWords ||
+            ""
           ).replace(
             /\b(the|an?) (?:the|an?) /giu,
             "$1 ",
@@ -2672,7 +2704,7 @@ function renderActions() {
   // waits in.
   const others = selected.filter((id) => id !== actor);
   const here = world.actors[actor].place;
-  const involved = lockShown
+  const involved = lockShown || packAsk
     ? []
     : questShown
       ? [actor, questShown.target].filter((id) => id && !cardIsCovered(id))
@@ -2686,6 +2718,9 @@ function renderActions() {
     lockShown?.recipe,
     lockShown
       ? { kind: "place", target: selected.find(cardIsClosed), covered: true }
+      : packAsk
+        ? // The pack is the carved back, as any unknown card is.
+          { kind: "place", target: pack.ids[0], covered: true }
       : questShown
         ? questView(questShown)
         : actions[0]
@@ -2701,7 +2736,7 @@ function renderActions() {
               known,
             )
           : null,
-    !lockShown,
+    !lockShown && !packAsk,
   );
   // A quest keeps its own tier; other plays take the rarest selected card.
   const rarest = questShown
@@ -2749,9 +2784,6 @@ function renderActions() {
       return button;
     }),
   );
-  // Nothing chosen in an open pack: the pack's one button, the same quiet
-  // button the opening uses (pack-opening.mjs).
-  const packAsk = !rested && !selected.length && !questOpen ? packPrompt() : null;
   if ((quiet && !closed) || packAsk) {
     const reveal = node("button", packAsk?.label ?? OPENING_REVEAL, "card-primary");
     reveal.type = "button";
@@ -2857,12 +2889,6 @@ function renderActions() {
     // The same descriptor and small corner cue as Continue.
     cardTapHint(why, openingBox ? "Open" : "Locked");
   }
-  // An Ask, Trade or Invite of a sleeping resident says so (rules 100).
-  // Its names go through the same discovery screen as every other word: a
-  // card the traveler has not found is not named (rules 133).
-  const asleepWords =
-    !sealed && !rested && !actions.length && asleepReason(world, selected);
-  const asleep = asleepWords && visibleText(asleepWords);
   if (asleep) {
     const blocked = node("button", asleep, "card-primary");
     blocked.type = "button";
@@ -2871,12 +2897,8 @@ function renderActions() {
     blocked.title = asleep;
     row.append(blocked);
   }
-  // A Take refused for space says why in the context button (#2018). It
-  // plays nothing; the cards stay as they are.
-  const crowded =
-    !sealed && !rested && hint === TOO_MANY_ITEMS && selected.find((id) => things[id]);
   if (crowded) {
-    const reason = `You have too many items to take ${theName(crowded).toLowerCase()}`;
+    const reason = crowdedWords;
     const blocked = node("button", reason, "card-primary");
     blocked.type = "button";
     blocked.disabled = true;
@@ -2884,13 +2906,14 @@ function renderActions() {
     blocked.title = reason;
     row.append(blocked);
   }
-  let message = heading.lastElementChild;
+  let message = heading.lastElementChild,
+    blockedCard = false;
   const only = actions.length === 1 ? actions[0] : null;
   if (
     sentence &&
     row.childElementCount === 1 &&
     !row.firstElementChild.disabled &&
-    (only || quiet || openingBox || row.firstElementChild.dataset.look)
+    (only || quiet || packAsk || openingBox || row.firstElementChild.dataset.look)
   ) {
     const button = row.firstElementChild;
     panel.setAttribute("data-card-tap", "");
@@ -2898,7 +2921,13 @@ function renderActions() {
       button.dataset.waitSentence = "";
     nameActionTap(
       button,
-      openingBox ? "Open" : quiet ? "Uncover" : actionTapVerb(only, button.textContent),
+      openingBox
+        ? "Open"
+        : quiet
+          ? "Uncover"
+          : packAsk
+            ? packAsk.label
+            : actionTapVerb(only, button.textContent),
       only?.label === "Wake" ? sentence : button.textContent,
     );
     message = button;
@@ -2908,6 +2937,20 @@ function renderActions() {
       row.firstElementChild,
       abandonQuest ? "Confirm" : "Discard",
     );
+  } else if (
+    sentence &&
+    !sealed &&
+    row.childElementCount === 1 &&
+    row.firstElementChild.dataset.blocked
+  ) {
+    // A blocked play is the same full card. Its reason is the card's words;
+    // beside a play or quest named above, the reason is the corner cue.
+    blockedCard = true;
+    if (!lockShown && !questShown && !actions[0] && !clientText) {
+      panel.setAttribute("data-card-tap", "");
+      message = row.firstElementChild;
+      heading.hidden = true;
+    } else panel.dataset.cardTap = "hint";
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = "";
@@ -2925,7 +2968,7 @@ function renderActions() {
     name,
   );
   // A disabled status cannot receive the tap that finishes typed words.
-  if (sealed) actionReveal.finish();
+  if (sealed || blockedCard) actionReveal.finish();
   delete $("action-beat").dataset.avatar;
   // A refused play whose cards are no longer chosen says so on the status
   // line, briefly, as its button would.
@@ -6064,7 +6107,7 @@ function adoptShared(value) {
         name: `${found.name} remembers you`,
         note: `${found.name}'s own world is in ☰ now.`,
         buttons: [
-          { label: "OK", id: "unlock-ok", run: () => clearActionBeat() },
+          { label: "Continue", id: "unlock-ok", run: () => clearActionBeat() },
         ],
       });
     selectCards(selected.filter((id) => availableCards(world).includes(id)));

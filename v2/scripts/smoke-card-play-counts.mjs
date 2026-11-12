@@ -2,7 +2,7 @@
 // off or under Global Privacy Control, no request is sent at all.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
-import { openSettings, pressSetting } from "./card-browser-helpers.mjs";
+import { actionLabel, openSettings, pressSetting } from "./card-browser-helpers.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 
@@ -65,7 +65,7 @@ try {
     // On by default: one batch, a day number and allowlisted totals only.
     const shown = await open("counts-on", width);
     const on = await toggle(shown.page);
-    assert.equal(await on.textContent(), "Stop sharing play counts");
+    assert.equal(await actionLabel(on), "Stop sharing play counts");
     batches.length = 0;
     await leave(shown);
     assert.equal(batches.length, 1, `one batch at ${width}px`);
@@ -80,7 +80,7 @@ try {
     await button.click();
     // Pressing a setting lowers its card; choose it again to read its label.
     await pressSetting(off.page, "counts", 0);
-    assert.equal(await off.page.locator("#setting-counts").textContent(), "Share play counts");
+    assert.equal(await actionLabel(off.page.locator("#setting-counts")), "Share play counts");
     batches.length = 0;
     await leave(off);
     assert.equal(batches.length, 0, `opt-out sends nothing at ${width}px`);
