@@ -6,7 +6,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "b5a274d2aca1b2a4"
+      "sha256": "2cfe9c4280b8b6a1"
     },
     "waterOffer": {
       "turn": 5,
@@ -15,7 +15,7 @@
         "greek-water-jar",
         "lamp"
       ],
-      "sha256": "30159ab11f23ce10"
+      "sha256": "e36171666dfe8829"
     },
     "water": {
       "turn": 6,
@@ -23,7 +23,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "eb3a7b8545edf00a"
+      "sha256": "5acab2052d14d24e"
     },
     "decree": {
       "turn": 7,
@@ -31,7 +31,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "46011931681e45a9"
+      "sha256": "43b078c1911ac9d1"
     },
     "traded": {
       "turn": 11,
@@ -40,7 +40,7 @@
         "greek-decree",
         "lamp"
       ],
-      "sha256": "2cf539b5b1ad9f6d"
+      "sha256": "97dd630df61ceb1d"
     },
     "writ": {
       "turn": 15,
@@ -49,7 +49,7 @@
         "greek-creon-writ",
         "lamp"
       ],
-      "sha256": "6f055a7dbff22c58"
+      "sha256": "2b2bb8eaef8a4479"
     },
     "opened": {
       "turn": 19,
@@ -57,7 +57,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "ea6260da8500eb8b"
+      "sha256": "a82b0fbff798a6f0"
     }
   },
   "greek-before-funeral-dry": {
@@ -67,7 +67,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "b5a274d2aca1b2a4"
+      "sha256": "2cfe9c4280b8b6a1"
     },
     "decree": {
       "turn": 3,
@@ -75,7 +75,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "615b3590b0a20910"
+      "sha256": "cf289f1e1e2788e5"
     }
   },
   "greek-gate-open": {
@@ -85,7 +85,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "b5a274d2aca1b2a4"
+      "sha256": "2cfe9c4280b8b6a1"
     },
     "waterOffer": {
       "turn": 5,
@@ -94,7 +94,7 @@
         "greek-water-jar",
         "lamp"
       ],
-      "sha256": "30159ab11f23ce10"
+      "sha256": "e36171666dfe8829"
     },
     "water": {
       "turn": 6,
@@ -102,7 +102,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "eb3a7b8545edf00a"
+      "sha256": "5acab2052d14d24e"
     },
     "decree": {
       "turn": 7,
@@ -110,7 +110,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "46011931681e45a9"
+      "sha256": "43b078c1911ac9d1"
     },
     "traded": {
       "turn": 11,
@@ -119,7 +119,7 @@
         "greek-decree",
         "lamp"
       ],
-      "sha256": "2cf539b5b1ad9f6d"
+      "sha256": "97dd630df61ceb1d"
     },
     "writ": {
       "turn": 15,
@@ -128,7 +128,7 @@
         "greek-creon-writ",
         "lamp"
       ],
-      "sha256": "6f055a7dbff22c58"
+      "sha256": "2b2bb8eaef8a4479"
     },
     "opened": {
       "turn": 19,
@@ -136,7 +136,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "ea6260da8500eb8b"
+      "sha256": "a82b0fbff798a6f0"
     },
     "battlefield": {
       "turn": 20,
@@ -144,7 +144,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "16ff2c146a1b5ad8"
+      "sha256": "7a9f09523e4de134"
     }
   },
   "greek-gate-open-full": {
@@ -154,7 +154,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "eeae4cc8fcda1b86"
+      "sha256": "c5a67e2b0ffcfd31"
     },
     "waterOffer": {
       "turn": 5,
@@ -163,7 +163,7 @@
         "greek-water-jar",
         "lamp"
       ],
-      "sha256": "db6f05cf45a39044"
+      "sha256": "944157116a46c976"
     },
     "water": {
       "turn": 6,
@@ -171,7 +171,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "29aee606840307ca"
+      "sha256": "188741a41d54a288"
     },
     "decree": {
       "turn": 7,
@@ -179,7 +179,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "a0acb46afdece5e4"
+      "sha256": "927d1f467162d899"
     },
     "traded": {
       "turn": 11,
@@ -188,7 +188,7 @@
         "greek-decree",
         "lamp"
       ],
-      "sha256": "30a4f5f74991bfd7"
+      "sha256": "9750d7c7798c3483"
     },
     "writ": {
       "turn": 15,
@@ -197,7 +197,7 @@
         "greek-creon-writ",
         "lamp"
       ],
-      "sha256": "9ddcb583698d81c1"
+      "sha256": "94be51a1fd612af9"
     },
     "opened": {
       "turn": 19,
@@ -205,7 +205,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "e0abe42a5961792f"
+      "sha256": "0fed21be3896f0d8"
     },
     "battlefield": {
       "turn": 20,
@@ -213,7 +213,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "6e80fcd72a95a5a4"
+      "sha256": "d0cf376b9a25cee6"
     }
   },
   "quest-cards": {
@@ -223,7 +223,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "70d70c392c7407d0"
+      "sha256": "d17c10163833376e"
     },
     "told": {
       "turn": 2,
@@ -231,7 +231,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "373a5030914c583f"
+      "sha256": "9b257b295b6223e7"
     },
     "accepted": {
       "turn": 2,
@@ -239,25 +239,25 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "373a5030914c583f"
+      "sha256": "9b257b295b6223e7"
     },
     "met": {
       "turn": 3,
       "place": "pond",
       "carried": [],
-      "sha256": "809d825a8c639dd6"
+      "sha256": "e8be50f0b4d400c1"
     },
     "sleepQuest": {
       "turn": 3,
       "place": "pond",
       "carried": [],
-      "sha256": "809d825a8c639dd6"
+      "sha256": "e8be50f0b4d400c1"
     },
     "levelled": {
       "turn": 24,
       "place": "attic",
       "carried": [],
-      "sha256": "f2a1fda80adabec8"
+      "sha256": "570e7564b48a4af2"
     }
   }
 }

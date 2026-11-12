@@ -10,12 +10,12 @@ import {
 
 const forest = "lonely-forest";
 const CARDS = [
-  ["forest-arcanum-0", forest, (s) => (s.packs[forest].met.skull = true)],
-  ["forest-arcanum-1", forest, "forest-scarf-vale-sewn"],
-  ["forest-arcanum-2", forest, "forest-walkers-heard"],
-  ["forest-arcanum-3", forest, "forest-welcomed"],
-  ["forest-arcanum-4", forest, "forest-watch-kept"],
-  ["forest-arcanum-5", forest, "forest-oak-heard"],
+  ["forest-arcanum-fool", forest, (s) => (s.packs[forest].met.skull = true)],
+  ["forest-arcanum-magician", forest, "forest-scarf-vale-sewn"],
+  ["forest-arcanum-high-priestess", forest, "forest-walkers-heard"],
+  ["forest-arcanum-empress", forest, "forest-welcomed"],
+  ["forest-arcanum-emperor", forest, "forest-watch-kept"],
+  ["forest-arcanum-hierophant", forest, "forest-oak-heard"],
 ];
 const world = () => createWorld({ seed: 7 });
 const prove = (s, pack, proof) => {
