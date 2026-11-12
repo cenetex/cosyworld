@@ -5,15 +5,18 @@ import {
   PACK_KINDS,
   PACK_MIN,
   PACK_REVEAL_ALL,
+  PACK_TEXT,
   PACK_TIERS,
   createPackOpening,
   packMembers,
+  packOrder,
   revealAnnouncement,
   runOrder,
   settleDelays,
   tellGlow,
   turnPlan,
 } from "../v2/card-game/pack-opening.mjs";
+import { tapPrompt } from "../v2/card-game/presentation.mjs";
 import { createSfx } from "../v2/card-game/sfx.mjs";
 
 // Made-up cards: the kind is the first letter of the id.
@@ -103,6 +106,42 @@ describe("which cards form a pack", () => {
   });
 });
 
+describe("where the pack lies in the hand", () => {
+  const hand = ["a-me", "i-lamp", "a-fox", "p-room", "i-gem", "i-pin", "w-lane"];
+  const holders = { "i-lamp": "a-me", "i-gem": "p-room", "i-pin": "p-room" };
+  const holderOf = (id) => holders[id] ?? null;
+
+  it("gathers its cards, in its order, where the first of them lay", () => {
+    expect(packOrder(hand, ["w-lane", "a-fox", "i-pin"], holderOf)).toEqual([
+      "a-me", "i-lamp", "w-lane", "a-fox", "i-pin", "p-room", "i-gem",
+    ]);
+    expect(packOrder(hand, [], holderOf)).toBe(hand);
+    expect(packOrder(hand, ["i-gone"], holderOf)).toBe(hand);
+  });
+
+  it("keeps a thing given to a pack card behind that card", () => {
+    const given = { ...holders, "i-lamp": "a-fox" };
+    expect(
+      packOrder(
+        ["a-me", "a-fox", "i-lamp", "p-room", "i-gem", "i-pin", "w-lane"],
+        ["w-lane", "a-fox", "i-pin"],
+        (id) => given[id] ?? null,
+      ),
+    ).toEqual(["a-me", "w-lane", "a-fox", "i-lamp", "i-pin", "p-room", "i-gem"]);
+  });
+
+  it("leaves a thing taken from the pack with its new holder", () => {
+    const taken = { ...holders, "i-pin": "a-me" };
+    expect(
+      packOrder(
+        ["a-me", "i-pin", "i-lamp", "a-fox", "p-room", "i-gem", "w-lane"],
+        ["w-lane", "a-fox"],
+        (id) => taken[id] ?? null,
+      ),
+    ).toEqual(["a-me", "i-pin", "i-lamp", "w-lane", "a-fox", "p-room", "i-gem"]);
+  });
+});
+
 describe("the pack's state machine", () => {
   it("runs closed, open, running, turned, done", () => {
     const { pack, timers } = make();
@@ -116,7 +155,7 @@ describe("the pack's state machine", () => {
     expect(pack.open()).toBe(true);
     expect(pack.state).toBe("open");
     expect(pack.open()).toBe(false);
-    expect(pack.prompt(t.unturned)).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL });
+    expect(pack.prompt(t.unturned)).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL, text: PACK_TEXT.reveal });
 
     const done = [];
     pack.revealAll({
@@ -129,13 +168,12 @@ describe("the pack's state machine", () => {
       done: () => done.push("done"),
     });
     expect(pack.state).toBe("running");
-    expect(pack.prompt(t.unturned)).toEqual({ kind: "finish", label: PACK_FINISH });
-    expect(PACK_FINISH).toBe("Tap to finish");
+    expect(pack.prompt(t.unturned)).toEqual({ kind: "finish", label: PACK_FINISH, text: PACK_TEXT.finish });
     timers.advance(20000);
     // Commons first, the rarest last, then the run is over.
     expect(done).toEqual(["p-here", "i-pin", "a-fox", "i-gem", "done"]);
     expect(pack.state).toBe("turned");
-    expect(pack.prompt(t.unturned)).toEqual({ kind: "done", label: PACK_DONE });
+    expect(pack.prompt(t.unturned)).toEqual({ kind: "done", label: PACK_DONE, text: PACK_TEXT.done });
 
     expect(pack.finish({ tierOf })).toBe(true);
     expect(pack.state).toBe("done");
@@ -159,7 +197,7 @@ describe("the pack's state machine", () => {
     for (const id of ["i-gem", "i-pin"]) pack.turnOne(id, { unturned: t.unturned, turn: t.turn });
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
     expect(pack.state).toBe("turned");
-    expect(pack.prompt(t.unturned).label).toBe("Done");
+    expect(pack.prompt(t.unturned).label).toBe(PACK_DONE);
   });
 
   it("skips: every card still face down turns now and the run ends, none half turned", () => {
@@ -265,6 +303,54 @@ describe("the pack's state machine", () => {
     expect(pack.state).toBe("none");
   });
 
+  it("lets go of a card that changed hands, turned or not, and keeps the rest", () => {
+    const { pack } = make();
+    const t = table(["a-fox", "i-gem", "i-pin", "w-lane"]);
+    const held = { "i-gem": "p-room", "i-pin": "p-room" };
+    const sync = () =>
+      pack.sync(t.cards, {
+        unturned: t.unturned,
+        kindOf,
+        holderOf: (id) => held[id] ?? null,
+      });
+    sync();
+    pack.open();
+    t.turn("i-gem");
+    sync();
+    expect(pack.ids).toEqual(["a-fox", "i-gem", "i-pin", "w-lane"]);
+    held["i-gem"] = "a-me";
+    expect(sync()).toBe(true);
+    expect(pack.ids).toEqual(["a-fox", "i-pin", "w-lane"]);
+    expect(pack.frameFor("i-gem")).toBeNull();
+    expect(pack.state).toBe("open");
+    held["i-pin"] = "a-fox";
+    sync();
+    expect(pack.ids).toEqual(["a-fox", "w-lane"]);
+    held["i-gem"] = "p-room";
+    sync();
+    expect(pack.ids).toEqual(["a-fox", "w-lane"]);
+  });
+
+  it("ends an open pack whose last face-down card was taken away", () => {
+    const { pack } = make();
+    const t = table(["a-fox", "i-gem", "i-pin"]);
+    const held = { "i-pin": "p-room" };
+    const sync = () =>
+      pack.sync(t.cards, {
+        unturned: t.unturned,
+        kindOf,
+        holderOf: (id) => held[id] ?? null,
+      });
+    sync();
+    pack.open();
+    t.turn("a-fox");
+    t.turn("i-gem");
+    held["i-pin"] = "a-fox";
+    sync();
+    expect(pack.ids).toEqual(["a-fox", "i-gem"]);
+    expect(pack.state).toBe("turned");
+  });
+
   it("dissolves while something else owns the table", () => {
     const { pack, timers } = make();
     const t = table(["a-fox", "i-gem", "i-pin"]);
@@ -308,8 +394,17 @@ describe("the pack's state machine", () => {
     expect(pack.frameFor("a-fox")).toEqual({ shown: true, top: false, under: 0 });
   });
 
-  it("uses only the three button labels", () => {
-    expect([PACK_REVEAL_ALL, PACK_FINISH, PACK_DONE]).toEqual(["Reveal all", "Tap to finish", "Done"]);
+  it("uses only three sentences and their tap cues", () => {
+    expect(PACK_TEXT).toEqual({
+      reveal: "New cards unlocked",
+      finish: "Turning the cards",
+      done: "All cards revealed",
+    });
+    expect(
+      [PACK_REVEAL_ALL, PACK_FINISH, PACK_DONE].map((verb) => tapPrompt(verb, true).hint),
+    ).toEqual(["Tap to reveal all", "Tap to finish", "Tap to continue"]);
+    // A confirm that already says how to tap is the cue as it stands.
+    expect(tapPrompt("Tap again to sign out", true).hint).toBe("Tap again to sign out");
   });
 });
 

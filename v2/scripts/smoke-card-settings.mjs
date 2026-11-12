@@ -13,6 +13,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
+  actionLabel,
   labelProblems,
   pressSetting,
   splitNameWords,
@@ -82,12 +83,12 @@ try {
       .locator('#settings-hand [data-holder="you"] > .card')
       .evaluateAll((cards) => cards.map((c) => c.dataset.setting));
     assert.equal(youHolds[0], "privacy");
-    assert.equal(await button(page).textContent(), "Close settings");
+    assert.equal(await actionLabel(button(page)), "Close settings");
     // Privacy is one tap away.
     await tapCard(setting(page, "privacy"));
-    assert.equal(await button(page).textContent(), "Open privacy");
+    assert.equal(await actionLabel(button(page)), "Open privacy");
     await tapCard(setting(page, "privacy"));
-    assert.equal(await button(page).textContent(), "Close settings");
+    assert.equal(await actionLabel(button(page)), "Close settings");
     // A folded group shows its first setting peeking out behind it.
     const sound = setting(page, "sound").locator("..");
     assert.equal(await sound.locator(".held-preview").count(), 1);
@@ -114,7 +115,7 @@ try {
     await tapCard(setting(page, "music"));
     assert.deepEqual(await splitNameWords(page), [], `${width}px names`);
     const press = page.locator("#setting-music");
-    assert.equal(await press.textContent(), "Turn music off");
+    assert.equal(await actionLabel(press), "Turn music off");
     if (shots) await page.screenshot({ path: `${shots}/music-${width}.png` });
     await press.click();
     assert.equal(await label(page, "music"), "Music, off");
@@ -124,21 +125,21 @@ try {
     );
     assert.equal(await expanded(page, "sound"), "false");
     assert.equal(await shown(page, "music"), false);
-    assert.equal(await button(page).textContent(), "Close settings");
-    // Next tip shows the next tip in place: Controls stays chosen.
+    assert.equal(await actionLabel(button(page)), "Close settings");
+    // Show the next tip shows the next tip in place: Controls stays chosen.
     await pressSetting(page, "controls");
     const tipText = () => page.locator(".action-beat-heading").textContent();
     const tips = [await tipText()];
     for (let i = 0; i < 2; i++) {
       await page.locator("#setting-controls").click();
       tips.push(await tipText());
-      assert.equal(await button(page).textContent(), "Next tip");
+      assert.equal(await actionLabel(button(page)), "Show the next tip");
       assert.equal(await expanded(page, "play"), "true");
     }
     assert.equal(new Set(tips).size, 3, `three tips: ${tips}`);
     await tapCard(setting(page, "controls"));
     await tapCard(setting(page, "play"));
-    assert.equal(await button(page).textContent(), "Close settings");
+    assert.equal(await actionLabel(button(page)), "Close settings");
     // Radio is offered in World and uses the same pack action in every viewport.
     await pressSetting(page, "pack-radio");
     await page
@@ -199,8 +200,12 @@ try {
       : ["new-game", "Tap again to replace this world"];
     await pressSetting(page, risky);
     assert.equal(
-      await page.locator(`#setting-${risky}`).textContent(),
+      await actionLabel(page.locator(`#setting-${risky}`)),
       confirm,
+    );
+    assert.equal(
+      await page.locator(`#setting-${risky}`).getAttribute("data-destructive"),
+      signedIn ? null : "",
     );
     assert.equal(
       await page.evaluate(
@@ -211,7 +216,7 @@ try {
     );
     // Escape unchooses; Close settings brings the play hand back.
     await page.keyboard.press("Escape");
-    assert.equal(await button(page).textContent(), "Close settings");
+    assert.equal(await actionLabel(button(page)), "Close settings");
     await dealt();
     await button(page).click();
     await page.locator("#hand .card").first().waitFor();

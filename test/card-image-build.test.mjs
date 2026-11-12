@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   copyFile,
   mkdir,
@@ -125,6 +126,29 @@ describe("phone image rebuilds", () => {
       expect(await manifest()).toEqual(cutout);
       expect(await outputs(cutout[source])).toEqual(accepted);
       expect(await outputs(cutout[unchanged])).toEqual(unchangedBytes);
+
+      const elsewhere = { ...cutout[source] };
+      const raw = await sharp(cutoutPhone)
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      raw.data[3] = 2;
+      const moved = await sharp(raw.data, { raw: raw.info })
+        .webp({ quality: 88, alphaQuality: 100, effort: 6 })
+        .toBuffer();
+      expect(moved).not.toEqual(cutoutPhone);
+      await writeFile(join(game, elsewhere.phone), moved);
+      elsewhere.phoneHash = createHash("sha256").update(moved).digest("hex");
+      const saved = JSON.parse(await bytes("image-variants.json"));
+      saved.images[source] = elsewhere;
+      await writeFile(
+        join(game, "image-variants.json"),
+        `${JSON.stringify(saved, null, 2)}\n`,
+      );
+      const pinned = await outputs(elsewhere);
+      await build("--check");
+      await build();
+      expect((await manifest())[source]).toEqual(elsewhere);
+      expect(await outputs(elsewhere)).toEqual(pinned);
 
       // Check mode reports corrupt committed output rather than repairing it.
       await writeFile(join(game, cutout[source].phone), "corrupt phone");

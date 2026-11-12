@@ -31,17 +31,19 @@ pub(super) struct Link {
     pub(super) config: AiConfig,
     pub(super) model: String,
     pub(super) provider: String,
+    pub(super) fallback: bool,
     concrete: Option<ConcreteModelIdentity>,
 }
 
 impl Link {
-    fn of(config: AiConfig) -> Option<Self> {
+    fn of(config: AiConfig, fallback: bool) -> Option<Self> {
         let selected = config.pin_model(ModelCapability::WorldContent).ok()?;
         let candidate = selected.candidate();
         Some(Self {
             model: candidate.requested_model_id().to_string(),
             provider: candidate.provider().to_string(),
             concrete: candidate.concrete_model().cloned(),
+            fallback,
             config,
         })
     }
@@ -61,9 +63,9 @@ impl Link {
 /// an earlier one, leaving out benched models. With every model benched the
 /// own model stays alone and fails at once, as a benched model does.
 pub(super) fn chain(config: &AiConfig, own: AiConfig, fallbacks: &[String]) -> Option<Vec<Link>> {
-    let mut chain = vec![Link::of(own)?];
+    let mut chain = vec![Link::of(own, false)?];
     for model in fallbacks {
-        let link = Link::of(tier_config(config, Some(model)));
+        let link = Link::of(tier_config(config, Some(model)), true);
         if let Some(link) = link.filter(|link| !chain.iter().any(|seen| seen.same(link))) {
             chain.push(link);
         }
@@ -76,7 +78,6 @@ pub(super) fn chain(config: &AiConfig, own: AiConfig, fallbacks: &[String]) -> O
     Some(chain)
 }
 
-/// Why an attempt gave no line.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Miss {
     /// The validator blocked the reply; the model may try again.
@@ -104,6 +105,7 @@ pub(super) async fn run<T, F, Fut>(
     deadline: tokio::time::Instant,
     links: usize,
     mut request: F,
+    timed_out: impl Fn(usize, u8),
 ) -> Result<T, ()>
 where
     F: FnMut(usize, u8, Duration) -> Fut,
@@ -128,6 +130,9 @@ where
             }
             let result =
                 tokio::time::timeout_at(now + budget, request(link, attempt, budget)).await;
+            if result.is_err() {
+                timed_out(link, attempt);
+            }
             attempt = attempt.saturating_add(1);
             match result {
                 Ok(Ok(spoken)) => return Ok(spoken),
@@ -158,7 +163,6 @@ mod tests {
             assert!(list(bad).unwrap_err().starts_with(LIST));
         }
         assert!(models(Some("[]".into()), true).is_err());
-        // The escalation model alone is a one-model chain.
         let alias = VoiceSettings::from_lookup(|name| {
             (name == "COSYWORLD_CARD_ESCALATION_MODEL").then(|| "a/b".into())
         });
@@ -188,12 +192,78 @@ mod tests {
         assert_eq!(models("b"), ["b"]);
     }
 
+    #[test]
+    fn dev_voices_default_to_gemma_and_fall_back_to_luna() {
+        let field = |file: &'static str, name: &str| {
+            let line = file.lines().find_map(|line| {
+                let value = line.trim().strip_prefix(name)?.strip_prefix(" = ")?;
+                Some(value.trim_matches(['\'', '"']))
+            });
+            line.map(String::from)
+        };
+        let dev = include_str!("../../../../fly.toml");
+        let default = field(dev, "COSYWORLD_CARD_TEXT_MODEL").unwrap();
+        assert_eq!(default, "google/gemma-4-26b-a4b-it");
+        let fallbacks = models(field(dev, LIST), false).unwrap();
+        assert_eq!(fallbacks, ["openai/gpt-6-luna"]);
+        let mut config = tiered_config("127.0.0.1:9".parse().unwrap(), &[]);
+        let registry = field(dev, "COSYWORLD_AI_REGISTRY_JSON").unwrap();
+        let registry = crate::ai_gateway::CapabilityRegistrySnapshot::from_json(&registry);
+        config.registry = Some(Arc::new(registry.unwrap()));
+        config
+            .capability_models
+            .insert(ModelCapability::WorldContent, default.clone());
+        let cast = field(dev, "COSYWORLD_CARD_CHARACTER_MODELS_JSON").unwrap();
+        let cast: std::collections::BTreeMap<String, String> = serde_json::from_str(&cast).unwrap();
+        let models = |id: &str| {
+            let own = tier_config(&config, cast.get(id).map(String::as_str));
+            let chain = chain(&config, own, &fallbacks).unwrap();
+            for link in &chain {
+                let pinned = link.config.pin_model(ModelCapability::WorldContent);
+                assert!(pinned.unwrap().candidate().supported_parameters().reasoning);
+            }
+            chain.into_iter().map(|link| link.model).collect::<Vec<_>>()
+        };
+        for id in ["vale", "moth", "badger", "pip"] {
+            assert_eq!(models(id), [default.as_str(), "openai/gpt-6-luna"]);
+        }
+        let keeper = ["anthropic/claude-haiku-5.5", "openai/gpt-6-luna"];
+        assert_eq!(models("keeper"), keeper);
+        let production = include_str!("../../../../fly.lonelyforest.toml");
+        let text = field(production, "COSYWORLD_CARD_TEXT_MODEL");
+        assert_eq!(text.as_deref(), Some("openai/gpt-6-luna"));
+        assert_eq!(field(production, LIST), None);
+    }
+
+    #[tokio::test]
+    async fn a_voice_on_an_unroutable_model_is_silent_and_counted() {
+        let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let provider = super::super::tests::plain_provider(seen.clone(), |_, _| {
+            "I remember the kindness beside the lamp.".into()
+        });
+        let (address, server) = serve(provider).await;
+        let config = tiered_config(address, &[]);
+        let models = [("vale".to_string(), "unlisted/model".to_string())].into();
+        let ids = ["vale".to_string()];
+        let mut c = context();
+        c.speakers = ids.to_vec();
+        let count = |key: &str| voice_metrics::snapshot()["rejections"][key].as_u64();
+        let before = count("unroutable").unwrap_or(0);
+        let alone = VoiceSettings::hosted();
+        let silent = complete_selected(&config, &c, &models, &alone, &ids, false, None).await;
+        assert!(silent.is_err());
+        assert!(count("unroutable") > Some(before));
+        assert!(seen.lock().unwrap().is_empty());
+        server.abort();
+    }
+
     #[tokio::test(start_paused = true)]
     async fn each_failure_moves_on_and_blocked_replies_move_on_after_the_attempts() {
         let settings = VoiceSettings::hosted();
         let deadline = tokio::time::Instant::now() + settings.scene_timeout;
         let mut seen = Vec::new();
-        let result = run(&settings, deadline, 4, |link, attempt, _| {
+        let late = Mutex::new(Vec::new());
+        let request = |link, attempt, _| {
             seen.push((link, attempt));
             async move {
                 match link {
@@ -203,10 +273,12 @@ mod tests {
                     _ => Ok(link),
                 }
             }
-        })
-        .await;
+        };
+        let timed_out = |link, attempt| late.lock().unwrap().push((link, attempt));
+        let result = run(&settings, deadline, 4, request, timed_out).await;
         assert_eq!(result, Ok(3));
         assert_eq!(seen, [(0, 0), (1, 1), (2, 2), (2, 3), (3, 4)]);
+        assert_eq!(*late.lock().unwrap(), [(1, 1)]);
     }
 
     /// Pip's line walks the chain: an empty reply, a 5xx, a reply blocked
@@ -267,6 +339,11 @@ mod tests {
         }
         let metrics = voice_metrics::snapshot();
         assert!(metrics["by_model"]["openai/d"]["fallbacks"].as_u64() >= Some(1));
+        let blocked =
+            |model: &str, reason: &str| metrics["by_model"][model]["rejections"][reason].as_u64();
+        assert!(blocked("anthropic/c", "assistant") >= Some(2));
+        assert!(blocked("mistralai/m", "provider") >= Some(1));
+        assert_eq!(blocked("openai/d", "assistant"), None);
         server.abort();
     }
 }

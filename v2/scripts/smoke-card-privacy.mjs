@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
-import { openSettings, pressSetting } from "./card-browser-helpers.mjs";
+import { actionLabel, openSettings, pressSetting } from "./card-browser-helpers.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 
@@ -76,7 +76,7 @@ try {
     // Settings deals the Privacy card first; its button opens the page.
     await openSettings(page);
     await pressSetting(page, "privacy", 0);
-    assert.equal(await page.textContent("#setting-privacy"), "Open privacy");
+    assert.equal(await actionLabel(page.locator("#setting-privacy")), "Open privacy");
     await page.screenshot({ path: `${output}/settings-${width}.png` });
 
     // A members-only server's sign-in lock shows the one-line notice.

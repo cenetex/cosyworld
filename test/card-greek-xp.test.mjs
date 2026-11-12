@@ -27,10 +27,10 @@ describe("XP the Greek and RatiRadio content pays", () => {
       ["veil", j.anointed, j.veiled],
       ["bury", j.veiled, j.buried],
     ].map(([name, a, b]) => [name, xp(b) - xp(a)]);
-    // Bury opens the Open Door: the Quay Host and five more residents, and
-    // the Cithaeron and Athens roads' boxes, one XP each (see the PR body).
-    expect(Object.fromEntries(gains)).toEqual({ anoint: 0, veil: 0, bury: 7 });
-    expect(xp(j.buried) - xp(j.beforeAnoint)).toBe(7);
+    // Bury opens nothing else (Attica is there from the start), so it pays
+    // only its own boxes: two XP.
+    expect(Object.fromEntries(gains)).toEqual({ anoint: 0, veil: 0, bury: 2 });
+    expect(xp(j.buried) - xp(j.beforeAnoint)).toBe(2);
   });
 
   it("pays following one account", () => {
@@ -79,7 +79,6 @@ describe("XP the Greek and RatiRadio content pays", () => {
       ["take", id("thermos")],
       ["move", id("dispatch-window")],
       ["drop", id("thermos")],
-      ["take", id("thermos")],
       ["move", home],
       ["drop", id("red-beanie")],
       ["take", id("raven-figurine")],

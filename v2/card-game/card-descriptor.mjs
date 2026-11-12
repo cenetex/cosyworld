@@ -73,7 +73,8 @@ export function renderCardDescriptor(
     );
   const note = document.querySelector(".action-beat-note");
   showNote(note, beat);
-  const buttons = beat.buttons.map(({ label, id, run, disabled }, index) => {
+  const buttons = beat.buttons.map((spec, index) => {
+    const { label, id, run, disabled, destructive } = spec;
     const previous = row.children[index];
     const button =
       previous?.dataset.keepMenu === "true" && previous.id === (id ?? "")
@@ -84,6 +85,8 @@ export function renderCardDescriptor(
     button.id = id ?? "";
     button.dataset.keepMenu = "true";
     button.disabled = Boolean(disabled);
+    if (destructive) button.dataset.destructive = "";
+    else delete button.dataset.destructive;
     button.onclick = run;
     return button;
   });

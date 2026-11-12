@@ -81,7 +81,7 @@
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
     },
     {
-      "paths": "^v2/card-game/card-(exit|ghost|swap|entry)\\.",
+      "paths": "^v2/card-game/card-(exit|ghost|swap|entry|travel)\\.",
       "smokes": ["smoke-card-swap", "smoke-card-exit", "smoke-card-beat-stack"]
     },
     {

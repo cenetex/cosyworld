@@ -29,7 +29,7 @@ describe("UI inventory guard", () => {
     expect(css.errors[0]).toBe(
       'New UI element class "quest-drop-panel" in a.css:3 is not in the approved UI inventory.',
     );
-    expect(css.errors.at(-1)).toMatch(/see AGENTS\.md/);
+    expect(css.errors.at(-1)).toMatch(/All UI must go through existing systems/);
     const html = '<body><main id="hand"></main><b id="drop"></b></body>';
     expect(check({ "index.html": html }).errors[0]).toContain(
       '"drop" in index',

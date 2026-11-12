@@ -1,9 +1,10 @@
 // The pack opening (pack-opening.mjs). Arriving at a place with three or more
 // cards not yet turned, they lie in the hand as ONE face-down stack. Tapping
 // it raises the hand and the cards rise into the row, still face down, a
-// Rare or better showing only a rim glow. The one button reads Reveal all;
-// a tap on a card turns it at once; Reveal all turns the rest commons first;
-// a tap finishes the run; Done settles every card back into the hand. A
+// Rare or better showing only a rim glow. The one button is the whole
+// descriptor (New cards unlocked, Tap to reveal all); a tap on a card turns
+// it at once; Reveal all turns the rest commons first; a tap finishes the
+// run; All cards revealed, Tap to continue settles them back into the hand. A
 // locked box in the pack is turned and stays locked. Nothing is named before
 // it is turned. At 390 and 1440 px, and with reduced motion.
 //
@@ -22,12 +23,14 @@ import { cardLevel } from "../card-game/rarity.mjs";
 import {
   createWorld,
   encodeSave,
+  legalActions,
   nameOf,
   people,
   places,
+  play,
   things,
 } from "../card-game/world.mjs";
-import { smokeWidths, tapCard, unreachableCards } from "./card-browser-helpers.mjs";
+import { focusedHandCard, settleHand, tapCard, unreachableCards } from "./card-browser-helpers.mjs";
 
 const shots = process.argv[2]
   ? new URL(`file://${process.argv[2].replace(/\/?$/u, "/")}`)
@@ -77,7 +80,7 @@ const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
 });
 
-async function openTable(width, motion, { covered, tag }) {
+async function openTable(width, motion, { covered, tag, place = scenario.place }) {
   const key = `cosyworld.reflected-shore.v1.${tag}`;
   const everything = [
     ...Object.keys(people),
@@ -85,7 +88,7 @@ async function openTable(width, motion, { covered, tag }) {
     ...Object.keys(places),
   ];
   const world = createWorld({ opening: false, seed: 7 });
-  world.actors.vale.place = scenario.place;
+  world.actors.vale.place = place;
   const page = await browser.newPage({
     viewport: { width, height: width < 600 ? 844 : 900 },
     reducedMotion: motion,
@@ -127,23 +130,43 @@ async function openTable(width, motion, { covered, tag }) {
   return { page, key, errors };
 }
 
+// The pack's one button is the whole descriptor: its sentence, and the tap
+// cue in its corner.
 const buttons = (page) =>
   page.evaluate(() =>
     [...document.querySelectorAll("#card-actions button")]
       .filter((b) => b.checkVisibility())
-      .map((b) => b.textContent.trim()),
+      .map((b) => `${b.textContent.trim()} / ${b.dataset.tapHint}`),
   );
-const oneButton = async (page, text, step) => {
+const ASKS = {
+  "Reveal all": "New cards unlocked / Tap to reveal all",
+  "Tap to finish": "Turning the cards / Tap to finish",
+  Done: "All cards revealed / Tap to continue",
+};
+const oneButton = async (page, ask, step) => {
+  const text = ASKS[ask];
   await page.waitForFunction(
     (text) => {
       const shown = [...document.querySelectorAll("#card-actions button")].filter((b) =>
         b.checkVisibility(),
       );
-      return shown.length === 1 && shown[0].textContent.trim() === text;
+      return (
+        shown.length === 1 &&
+        document.querySelector("#action-beat").getAttribute("data-card-tap") === "" &&
+        shown[0].dataset.revealing === "false" &&
+        `${shown[0].textContent.trim()} / ${shown[0].dataset.tapHint}` === text
+      );
     },
     text,
   );
   assert.deepEqual(await buttons(page), [text], step);
+  // The button fills its descriptor: no strip is left under it.
+  const fill = await page.evaluate(() => {
+    const panel = document.querySelector("#action-beat").getBoundingClientRect(),
+      button = document.querySelector("#card-actions button").getBoundingClientRect();
+    return panel.height - button.height;
+  });
+  assert.ok(fill <= 4, `${step}: the button fills the descriptor (${fill}px left)`);
 };
 const unturned = (page, key) =>
   page.evaluate(
@@ -257,6 +280,7 @@ for (const [width, motion] of [
   // 4. Reveal all: one button, "Tap to finish"; mid-run frames.
   await page.locator("#card-actions [data-pack='reveal']").click();
   await oneButton(page, "Tap to finish", `${label}: a run asks to be finished`);
+  assert.ok(members.includes(await focusedHandCard(page)), `${label}: Reveal all leaves focus on a card`);
   await page.waitForTimeout(motion === "reduce" ? 500 : 900);
   await shot("4-mid-run");
 
@@ -322,6 +346,7 @@ for (const [width, motion] of [
   await page.locator("#card-actions [data-pack='done']").click();
   await page.waitForFunction(() => !document.querySelector("#hand [data-pack]"));
   await page.waitForTimeout(700);
+  assert.ok(before.includes(await focusedHandCard(page)), `${label}: Done leaves focus on a card`);
   assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "false");
   assert.deepEqual([...(await handIds(page))].sort(), [...before].sort(), `${label}: every card is in the hand`);
   assert.equal(await page.locator("#hand [data-unrevealed='true']").count(), 0);
@@ -343,6 +368,150 @@ for (const [width, motion] of [
   assert.equal(await page.locator("#hand [data-pack]").count(), 0, "two cards form no pack");
   assert.ok((await unturned(page, key)).length >= 1);
   assert.deepEqual(errors, []);
+  await page.close();
+}
+
+function chooseHandover() {
+  for (const place of Object.keys(places)) {
+    try {
+      const world = createWorld({ opening: false, seed: 7 });
+      world.actors.vale.place = place;
+      const here = availableCards(world).filter(
+        (id) => id !== "vale" && !id.startsWith("quest:"),
+      );
+      if (here.length < 3) continue;
+      for (const take of legalActions(world).filter((a) => a.kind === "take")) {
+        if (world.items[take.item].holder !== place || isLockedBox(world, take.item)) continue;
+        const taken = play(world, take);
+        if (!taken.ok) continue;
+        const give = legalActions(taken.state)
+          .filter((a) => a.kind === "give" && a.item === take.item && here.includes(a.target))
+          .find((a) => {
+            const given = play(taken.state, a);
+            return given.ok && given.state.items[a.item].holder === a.target;
+          });
+        if (give) return { place, here, item: take.item, resident: give.target };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+const handover = chooseHandover();
+assert.ok(handover, "a place has a loose thing to take and a resident to give it to");
+console.log(`handover: ${handover.item} at ${handover.place}, then to ${handover.resident}`);
+
+const besideHolder = (page, item, holder) =>
+  page.evaluate(
+    ({ item, holder }) => {
+      const frameOf = (id) => document.querySelector(`#hand [data-card="${id}"]`)?.parentElement,
+        frame = frameOf(item),
+        owner = frameOf(holder);
+      if (!frame || !owner) return { missing: true };
+      let lead = frame.previousElementSibling;
+      while (lead && lead !== owner && lead.dataset.holder === holder)
+        lead = lead.previousElementSibling;
+      const shown = [...document.querySelectorAll("#hand > .card-frame")].filter((f) => !f.hidden),
+        box = frame.getBoundingClientRect(),
+        base = owner.getBoundingClientRect();
+      return {
+        holder: frame.dataset.holder,
+        pack: frame.dataset.pack ?? null,
+        hidden: frame.hidden,
+        pressed: frame.querySelector(".card").getAttribute("aria-pressed"),
+        grouped: lead === owner,
+        moving: frame.getAnimations().some((a) => a.playState === "running"),
+        between: shown.filter((f) => {
+          const left = f.getBoundingClientRect().left;
+          return f !== frame && f !== owner && left > base.left && left < box.left;
+        }).length,
+        right: box.left - base.left,
+        drop: Math.abs(box.top - base.top),
+        height: base.height,
+      };
+    },
+    { item, holder },
+  );
+const lies = async (page, item, holder, step, { settled = true } = {}) => {
+  const at = await besideHolder(page, item, holder);
+  assert.equal(at.holder, holder, `${step}: the card is its holder's`);
+  assert.equal(at.pack, null, `${step}: the card has left the pack`);
+  assert.equal(at.grouped, true, `${step}: the card lies in its holder's stack in the hand`);
+  if (at.hidden || !settled) return at;
+  assert.equal(at.between, 0, `${step}: no other card lies between the holder and the card`);
+  assert.ok(at.right > 0, `${step}: the card lies after its holder`);
+  assert.ok(at.drop < at.height / 2, `${step}: the card lies in its holder's row`);
+  return at;
+};
+const turnAndChoose = async (page, id) => {
+  const card = page.locator(`#hand [data-card="${id}"]`);
+  for (let tap = 0; tap < 3 && (await card.getAttribute("aria-pressed")) !== "true"; tap++) {
+    await tapCard(card);
+    await page.waitForFunction(
+      (id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.unrevealed === "false" && !card.dataset.revealing;
+      },
+      id,
+    );
+    await page.waitForTimeout(300);
+  }
+  assert.equal(await card.getAttribute("aria-pressed"), "true", `${id} is chosen`);
+};
+const redraw = async (page) => {
+  await tapCard(page.locator('#hand [data-card="vale"]'));
+  await page.waitForTimeout(600);
+};
+
+for (const [width, motion] of [
+  [390, "no-preference"],
+  [1440, "no-preference"],
+  [390, "reduce"],
+]) {
+  const label = `${width}px ${motion} handover`;
+  const { item, resident, place, here } = handover;
+  const { page, errors } = await openTable(width, motion, {
+    covered: here,
+    tag: `pack-handover-${width}-${motion}`,
+    place,
+  });
+  await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="closed"]').length > 1);
+  await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
+  await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length > 1);
+  await page.waitForTimeout(900);
+  await turnAndChoose(page, item);
+  await page.locator('#card-actions [data-action="take"]:not([data-revealing="true"])').click();
+  const taken = await lies(page, item, "vale", `${label}: at once after Take`, { settled: false });
+  assert.equal(taken.hidden, false, `${label}: the taken card shows`);
+  assert.equal(taken.pressed, "true", `${label}: the taken card stays chosen`);
+  assert.equal(taken.moving, motion !== "reduce", `${label}: the card travels only with motion`);
+  if (motion === "reduce") await lies(page, item, "vale", `${label}: at once, without motion`);
+  await page.waitForTimeout(700);
+  await lies(page, item, "vale", `${label}: settled after Take`);
+  assert.ok(
+    (await page.locator('#hand [data-pack="open"]').count()) >= 1,
+    `${label}: the rest of the pack stays open`,
+  );
+  await settleHand(page);
+  await redraw(page);
+  await lies(page, item, "vale", `${label}: after a redraw`);
+  if ((await page.locator(`#hand [data-card="${item}"]`).getAttribute("aria-pressed")) !== "true")
+    await tapCard(page.locator(`#hand [data-card="${item}"]`));
+  await turnAndChoose(page, resident);
+  await page.locator('#card-actions [data-action="give"]:not([data-revealing="true"])').click();
+  await page.waitForFunction(
+    ({ item, resident }) =>
+      document.querySelector(`#hand [data-card="${item}"]`)?.parentElement.dataset.holder === resident,
+    { item, resident },
+  );
+  await lies(page, item, resident, `${label}: at once after Give`, { settled: false });
+  await page.waitForTimeout(700);
+  await lies(page, item, resident, `${label}: settled after Give`);
+  await settleHand(page);
+  await redraw(page);
+  await lies(page, item, resident, `${label}: after a redraw of the gift`);
+  assert.deepEqual(errors, [], `${label}: no page errors`);
   await page.close();
 }
 

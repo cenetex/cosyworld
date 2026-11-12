@@ -16,6 +16,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { decodeSave, encodeSave, legalActions, play } from "../card-game/world.mjs";
 import { holdQuest, newWant } from "../card-game/want.mjs";
+import { DISSOLVE_MS } from "../card-game/card-travel.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { journeyWorlds } from "../../test/helpers/journey.mjs";
 import { questCards } from "../../test/journeys/quest-cards.mjs";
@@ -157,6 +158,10 @@ try {
         return seen.filter(Boolean).join("\n");
       });
     const offerCards = (page) => page.locator('#hand [data-card^="quest:"]');
+    const motion = async (page, reducedMotion) => {
+      await page.emulateMedia({ reducedMotion });
+      await page.evaluate(() => window.motionPreferenceReady);
+    };
     const label = async (page) =>
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
@@ -328,9 +333,17 @@ try {
       );
       await t.layout();
       await t.shot("stacked");
-      const drop = page.locator("#card-actions [data-drop-quest]");
-      await drop.click();
+      await motion(page, "no-preference");
       await page.locator("#card-actions [data-drop-quest]").click();
+      const fading = page.locator(".card-exits .want-card");
+      await fading.waitFor({ state: "attached" });
+      assert.ok(await page.evaluate(() => document.activeElement.closest("#hand")), "focus stays in the hand");
+      assert.equal(
+        await fading.evaluate((el) => el.parentElement.getAnimations()[0].effect.getTiming().duration),
+        DISSOLVE_MS,
+      );
+      await fading.waitFor({ state: "detached" });
+      await motion(page, "reduce");
       await t.ready();
       const next = await t.state();
       assert.equal(next.actors.vale.want.from, "quest:from:moth", "the next quest shows");

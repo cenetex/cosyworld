@@ -2,13 +2,12 @@
 // put instead of being cut out and drawn again: as it was when it is drawn
 // the same way, or brought to its new look in place when only its words or
 // pictures changed. What lies around its button (a folded quest, a stack's
-// edges) is redrawn when that changed. A quest card, whose taps carry the
-// quest it was drawn for, is always drawn anew. Presentation only.
+// edges) is redrawn when that changed. Presentation only.
 import { cardOf } from "./card-exit.mjs";
 
 const keyOf = (frame) => `${cardOf(frame)}@${frame.dataset.holder ?? ""}`;
-// A card's own button, the part of its frame that is kept.
-const cardIn = (frame) => frame.querySelector(":scope > .card[data-card]");
+const cardIn = (frame) =>
+  frame.querySelector(":scope > .card:is([data-card], [data-quest-entry])");
 
 // Whether two frames show the same card the same way. Whether a card takes
 // taps and the row's fan are set on the drawn row, so they never count.

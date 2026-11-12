@@ -1,0 +1,128 @@
+{
+  "pack": "badger-forest",
+  "name": "The Steam Clock",
+  "revision": 1,
+  "entry": "clearing",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "pond",
+      "arrive": "clearing",
+      "via": "pond-clearing"
+    }
+  ],
+  "space": {
+    "districts": [
+      {
+        "id": "d-clearing",
+        "name": "Forest Clearing",
+        "places": [
+          "clearing"
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "clearing",
+        "name": "Forest Clearing",
+        "kind": "place",
+        "district": "d-clearing"
+      },
+      {
+        "id": "pond",
+        "name": "Black pond",
+        "kind": "hub"
+      }
+    ],
+    "edges": [
+      {
+        "from": "clearing",
+        "to": "pond",
+        "kind": "crossing",
+        "gate": "crossing:clearing-pond"
+      },
+      {
+        "from": "pond",
+        "to": "clearing",
+        "kind": "crossing",
+        "gate": "crossing:pond-clearing"
+      }
+    ],
+    "retired": []
+  },
+  "mission": {
+    "gates": [
+      {
+        "id": "crossing:pond-clearing",
+        "kind": "crossing",
+        "title": "Black pond to Forest Clearing",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "sound(at=pond)"
+            }
+          ]
+        },
+        "words": "a sound at Black pond",
+        "ids": "a sound at pond",
+        "latch": [],
+        "live": [
+          "sound(at=pond)"
+        ],
+        "prerequisites": {}
+      },
+      {
+        "id": "crossing:clearing-pond",
+        "kind": "crossing",
+        "title": "Forest Clearing to Black pond",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "sound(at=pond|clearing)"
+            }
+          ]
+        },
+        "words": "a sound at Black pond or Forest Clearing",
+        "ids": "a sound at pond or clearing",
+        "latch": [],
+        "live": [
+          "sound(at=pond|clearing)"
+        ],
+        "prerequisites": {}
+      }
+    ],
+    "acts": [],
+    "wants": [],
+    "flags": {},
+    "items": [],
+    "needs": {
+      "topic:badger-cold-moss": [
+        "place:clearing",
+        "resident:badger"
+      ],
+      "topic:badger-no-bells": [
+        "place:clearing",
+        "resident:badger"
+      ]
+    }
+  },
+  "atoms": {
+    "sound(at=pond)": {
+      "kind": "sound",
+      "class": "live",
+      "words": "a sound at pond"
+    },
+    "sound(at=pond|clearing)": {
+      "kind": "sound",
+      "class": "live",
+      "words": "a sound at pond or clearing"
+    }
+  },
+  "conditionKinds": [
+    "sound"
+  ]
+}

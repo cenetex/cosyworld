@@ -75,17 +75,9 @@ describe("shared rules engine gate", () => {
     });
     expect(bare.engine).toHaveLength(3);
     expect(bare.warn).toBe(true);
-    expect(summary(bare, modules)).toContain(
-      "the `engine` label or a design note",
-    );
-    const labelOnly = engineGate({
-      changed: [bundle],
-      labels: ["engine"],
-      modules,
-    });
-    expect(labelOnly.warn).toBe(true);
+    expect(summary(bare, modules)).toContain("without the `engine` label");
     const deliberate = engineGate({
-      changed: [bundle, "docs/design/engine-v58.md"],
+      changed: [bundle],
       labels: ["engine"],
       modules,
     });

@@ -62,6 +62,20 @@ export async function openSettings(page) {
   await page.locator("#menu-button").click();
   await page.locator("#settings-hand .card").first().waitFor();
 }
+// The context button's own words. When the whole descriptor is the button
+// its text is the tap cue ("Tap to turn music off") and its accessible name
+// is the action; a blocked reason keeps its words as text.
+export async function actionLabel(button) {
+  return (await button.getAttribute("aria-label")) ?? (await button.textContent());
+}
+export const focusedHandCard = (page) =>
+  page.evaluate(() => {
+    const active = document.activeElement;
+    const shown =
+      active.matches("#hand .card-frame:not([hidden]) .card") &&
+      active.getClientRects().length > 0;
+    return shown ? active.dataset.card : active.tagName;
+  });
 export async function pressSetting(page, id, times = 1) {
   const card = page.locator(`#settings-hand [data-setting="${id}"]`);
   const frame = card.locator("..");
@@ -77,8 +91,7 @@ export async function closeSettings(page) {
     await page.keyboard.press("Escape");
 }
 
-// Signed out, Settings holds New game, which asks again before Vale's local
-// table starts over (#1892).
+// At a local table, Settings holds New game, which asks again (#1892, #2710).
 export async function startNewGame(page) {
   await openSettings(page);
   await pressSetting(page, "new-game", 2);
@@ -106,7 +119,12 @@ export async function openPack(page, id) {
     await page.waitForTimeout(900);
   }
   // The row is raised and the card is in it: a tap turns it at once.
-  if ((await card.getAttribute("data-unrevealed")) === "true") {
+  // A locked box reads data-unrevealed "false" yet is still face down to the
+  // pack (app.mjs draws it as the lock), so its first tap turns it too.
+  if (
+    (await card.getAttribute("data-unrevealed")) === "true" ||
+    (await card.getAttribute("data-locked")) === "true"
+  ) {
     await card.scrollIntoViewIfNeeded();
     await card.click({ position: await visibleSpot(card) });
     await page.waitForFunction(

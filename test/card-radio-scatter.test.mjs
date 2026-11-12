@@ -1,5 +1,6 @@
 import { onTestFinished } from "vitest";
 import { dwellRule } from "../v2/card-game/world/dwell.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave, play } from "../v2/card-game/world.mjs";
@@ -136,7 +137,9 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
     ["take", "hoppycat-red-thread-spool"], ["take", "lamp"], ["move", "pond"],
     ["ask", "cloth"], ["hold", "cloth"], ["drop", "lamp"],
     ["move", "greek-ship"], ["course", "greek-harbor"], ["wait"], ["move", "greek-harbor"],
-    ["move", "greek-ship"], ["course", "greek-piraeus"], ["wait"], ["move", "greek-piraeus"],
+    // A Hoppy Cat thing no longer opens the lane to Piraeus: the provisions
+    // Myrto packs must lie on deck.
+    ["move", "greek-ship"], ["stow"], ["course", "greek-piraeus"], ["wait"], ["move", "greek-piraeus"],
     ["move", "greek-ship"], ["course", "hoppycat-signal-jetty"], ["wait"],
     ["move", "hoppycat-signal-jetty"], ["move", "hoppycat-halfway-tea-garden"],
     ["drop", "cloth"], ["take", "ratiradio-red-beanie"], ["move", "pond"],
@@ -144,6 +147,7 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
   for (const [kind, id, target] of route) {
     s = endStandoff(s);
     if (kind === "hold") { s = selectLamp(s, id); continue; }
+    if (kind === "stow") { s = stowProvisions(s, "greek-ship"); continue; }
     const action = legalActions(s).find((a) => a.kind === kind &&
       (!id || a.item === id || a.target === id) && (!target || a.target === target));
     expect(action, `${kind} ${id || ""}`).toBeDefined();

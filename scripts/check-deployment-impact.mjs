@@ -46,8 +46,6 @@ export function isKnownNonProductionPath(file) {
     file.startsWith('test/') ||
     file.startsWith('v2/docs/') ||
     file.startsWith('v2/tests/') ||
-    file === '.github/AGENT.md' ||
-    file === '.github/PULL_REQUEST_TEMPLATE.md' ||
     file === 'v2/mvp.sh'
   );
 }

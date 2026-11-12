@@ -293,6 +293,23 @@ describe("level up", () => {
     expect(done.turn - card.turn).toBeGreaterThanOrEqual(LONG_SLEEP_TURNS);
   });
 
+  it("leaves an offered level quest unmet by a long rest at home while it is not held (rules 133)", () => {
+    const rested = (s) =>
+      s.log.some((e) => e.actorId === "vale" && e.rest === "long");
+    const longRest = (s) => {
+      for (let i = 0; i < 40 && !rested(s); i++)
+        s = act(s, (a, _, all) => a.sleep || (a.kind === "wait" && !all.some((b) => b.sleep)));
+      expect(rested(s)).toBe(true);
+      expect(s.actors.vale.place).toBe(homeOf("vale"));
+      return s;
+    };
+    const offered = longRest(atThreshold(questXp(2)));
+    expect(offered.actors.vale).toMatchObject({ level: 1, want: null, xp: questXp(2) });
+    expect(questOffers(offered).map((o) => o.kind)).toContain("level");
+    const held = longRest(take(atThreshold(questXp(2)), "quest:level"));
+    expect(held.actors.vale).toMatchObject({ level: 2, want: null });
+  });
+
   it("does not complete away from home, even in another sanctuary", () => {
     let s = held(atThreshold(3));
     s.actors.vale.place = "forest-cottage";

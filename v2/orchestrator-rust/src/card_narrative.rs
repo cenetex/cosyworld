@@ -56,6 +56,8 @@ mod observations;
 mod perception;
 #[path = "card_narrative/person.rs"]
 mod person;
+#[path = "card_narrative/promise.rs"]
+mod promise;
 #[path = "card_narrative/recall.rs"]
 mod recall;
 #[path = "card_narrative/recital.rs"]
@@ -2177,7 +2179,6 @@ async fn speak(
         .flatten()
         .or_else(|| character_models.get(id).map(String::as_str));
     let own = tier_config(config, own_model);
-    let links = fallback::chain(config, own, settings.fallbacks()).ok_or(())?;
     let system = waking::system(context, entity, part);
     let mut check = Check::new(context, entity, part);
     if part == Part::Line {
@@ -2194,6 +2195,19 @@ async fn speak(
         voice_metrics::Budget::measure(&system, context, entity, part),
     )
     .labelled(context);
+    let Some(links) = fallback::chain(config, own, settings.fallbacks()) else {
+        call.reject("unroutable");
+        call.finish(voice_metrics::Outcome::Silent);
+        tracing::warn!(
+            feature = "card_voice",
+            entity = id,
+            part = ?part,
+            model = own_model.unwrap_or("default"),
+            reason = "unroutable",
+            "card voice rejected"
+        );
+        return Err(());
+    };
     // Per model, for the bench: 1 an empty or blocked reply, 2 a usable line.
     let tiers: Vec<_> = links.iter().map(|_| AtomicU8::new(0)).collect();
     let spoken = fallback::run(
@@ -2208,7 +2222,7 @@ async fn speak(
             let check = &check;
             let call = &call;
             let tier = &tiers[n];
-            call.attempt(&link.model, &link.provider, n > 0);
+            call.attempt(&link.model, &link.provider, link.fallback);
             async move {
                 let request = ChatCompletionRequest {
                     feature: "card_voice",
@@ -2238,6 +2252,9 @@ async fn speak(
                         tracing::info!(
                             feature = "card_voice",
                             entity = id,
+                            part = ?part,
+                            model = %link.model,
+                            provider = %link.provider,
                             attempt = attempt + 1,
                             fallback = n,
                             reason = "provider",
@@ -2281,6 +2298,9 @@ async fn speak(
                     tracing::info!(
                         feature = "card_voice",
                         entity = id,
+                        part = ?part,
+                        model = %link.model,
+                        provider = %link.provider,
                         attempt = attempt + 1,
                         fallback = n,
                         reason,
@@ -2290,6 +2310,20 @@ async fn speak(
                     fallback::Miss::of(reason)
                 })
             }
+        },
+        |n: usize, attempt: u8| {
+            call.reject("timeout");
+            tracing::info!(
+                feature = "card_voice",
+                entity = id,
+                part = ?part,
+                model = %links[n].model,
+                provider = %links[n].provider,
+                attempt = attempt + 1,
+                fallback = n,
+                reason = "timeout",
+                "card voice rejected"
+            );
         },
     )
     .await;
@@ -2564,6 +2598,7 @@ impl<'a> Check<'a> {
         finished: bool,
         tell: bool,
     ) -> Result<(String, Vec<&'static str>), &'static str> {
+        let raw = speech::aloud(raw);
         let own = name(&self.entity.id);
         let mut flags = Vec::new();
         let mut flag = |on: bool, reason: &'static str| {
@@ -2605,7 +2640,9 @@ impl<'a> Check<'a> {
             if !observations::consistent(&text, self.context) {
                 return Err("observable_state");
             }
-            if !custody::consistent(&text, self.context, &self.entity.id) {
+            if !custody::consistent(&text, self.context, &self.entity.id)
+                || !promise::kept(&text, self.context, &self.entity.id)
+            {
                 return Err("custody");
             }
             flag(
@@ -2788,10 +2825,13 @@ impl<'a> Check<'a> {
         }
         // A finished, single-line imperative can stand without punctuation.
         // A continuation mark or a cut line needs a fresh complete reply.
-        let continuation = text.ends_with([',', ':', ';', '-', '–', '—', '‐', '‑']);
+        let broken = text.ends_with(['-', '–', '—', '‐', '‑']);
+        let continuation = text.ends_with([',', ':', ';']);
         if kept.is_empty() && finished && !continuation && bounded(text, self.limit) {
-            // Unpunctuated, one word, or a cut line: published, flagged.
-            flag(cut_line || text.split_whitespace().count() < 2, "shape");
+            flag(
+                broken || cut_line || text.split_whitespace().count() < 2,
+                "shape",
+            );
             kept = text.trim_matches(quotes).to_string();
         }
         flag(
@@ -2810,7 +2850,9 @@ impl<'a> Check<'a> {
         if !observations::consistent(&kept, self.context) {
             return Err("observable_state");
         }
-        if !custody::consistent(&kept, self.context, &self.entity.id) {
+        if !custody::consistent(&kept, self.context, &self.entity.id)
+            || !promise::kept(&kept, self.context, &self.entity.id)
+        {
             return Err("custody");
         }
         if !recital::consistent(&kept, &self.entity.id, self.entity.poem.as_ref()) {
@@ -4813,8 +4855,6 @@ pub(crate) mod tests {
                     )
                     .unwrap();
                 assert_eq!(pinned.requested_model_id(), model);
-                // Reasoning-first endpoints answer with effort none and
-                // never receive a temperature they would reject.
                 if ["openai/gpt-6-luna", "anthropic/claude-haiku-5.5"].contains(&model.as_str()) {
                     let parameters = pinned.candidate().supported_parameters();
                     assert!(parameters.reasoning, "{model}");
@@ -4823,7 +4863,16 @@ pub(crate) mod tests {
             }
             maps.push(models);
         }
-        assert_eq!(maps[0], maps[1]);
+        let cast = |models: [&str; 4]| {
+            let ids = ["vale", "moth", "keeper", "badger"].map(String::from);
+            let models = models.map(String::from);
+            ids.into_iter().zip(models).collect::<BTreeMap<_, _>>()
+        };
+        let (gemma, luna) = ("google/gemma-4-26b-a4b-it", "openai/gpt-6-luna");
+        let haiku = "anthropic/claude-haiku-5.5";
+        let mistral = "mistralai/mistral-small-3.2-24b-instruct";
+        assert_eq!(maps[0], cast([gemma, gemma, haiku, gemma]));
+        assert_eq!(maps[1], cast([luna, luna, haiku, mistral]));
     }
 
     #[test]
@@ -6186,7 +6235,7 @@ pub(crate) mod tests {
         let started = tokio::time::Instant::now();
         let deadline = started + settings.scene_timeout;
         let mut seen = Vec::new();
-        let result = fallback::run(&settings, deadline, 2, |link, attempt, budget| {
+        let request = |link, attempt, budget| {
             seen.push((
                 link == 1,
                 attempt,
@@ -6202,8 +6251,8 @@ pub(crate) mod tests {
                     std::future::pending::<Result<&str, fallback::Miss>>().await
                 }
             }
-        })
-        .await;
+        };
+        let result = fallback::run(&settings, deadline, 2, request, |_, _| {}).await;
         assert_eq!(result, Ok("recovered"));
         assert_eq!(seen.len(), 2);
         // Each model's share is the remaining time over the models left.
@@ -6220,7 +6269,7 @@ pub(crate) mod tests {
         let deadline = started + settings.scene_timeout;
         tokio::time::sleep(Duration::from_secs(14)).await;
         let mut seen = Vec::new();
-        let result = fallback::run(&settings, deadline, 2, |link, _, budget| {
+        let request = |link, _, budget| {
             seen.push((link == 1, tokio::time::Instant::now() - started, budget));
             async move {
                 if link == 1 {
@@ -6230,8 +6279,8 @@ pub(crate) mod tests {
                     std::future::pending::<Result<(), fallback::Miss>>().await
                 }
             }
-        })
-        .await;
+        };
+        let result = fallback::run(&settings, deadline, 2, request, |_, _| {}).await;
         assert_eq!(result, Ok(()));
         assert_eq!(seen.len(), 2);
         assert!(seen[0].2 <= Duration::from_secs(4));
@@ -6245,20 +6294,20 @@ pub(crate) mod tests {
         let settings = VoiceSettings::hosted();
         let deadline = tokio::time::Instant::now() + settings.scene_timeout;
         let mut seen = 0;
-        let result = fallback::run(&settings, deadline, 2, |_, _, _| {
+        let request = |_, _, _| {
             seen += 1;
             std::future::pending::<Result<(), fallback::Miss>>()
-        })
-        .await;
+        };
+        let result = fallback::run(&settings, deadline, 2, request, |_, _| {}).await;
         assert_eq!(result, Err(()));
         assert_eq!(seen, 2);
         assert!(tokio::time::Instant::now() >= deadline);
-        let result = fallback::run(&settings, deadline, 2, |_, _, _| {
+        let request = |_, _, _| {
             panic!("expired scenes have no request budget");
             #[allow(unreachable_code)]
             std::future::ready(Ok::<(), fallback::Miss>(()))
-        })
-        .await;
+        };
+        let result = fallback::run(&settings, deadline, 2, request, |_, _| {}).await;
         assert_eq!(result, Err(()));
     }
 

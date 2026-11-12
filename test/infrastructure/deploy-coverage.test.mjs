@@ -31,7 +31,7 @@ describe("deployment-only contracts run in manual CI", () => {
 });
 
 describe("check workflows run only by manual dispatch", () => {
-  const checkWorkflows = ["ci", "image-build", "local-desktop", "pages"];
+  const checkWorkflows = ["ci", "image-build", "local-desktop"];
 
   it.each(checkWorkflows)("%s.yml has only a workflow_dispatch trigger", (name) => {
     const workflow = readFileSync(

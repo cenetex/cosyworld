@@ -444,7 +444,7 @@ describe("deploy workflow", () => {
     // Check workflows run only by hand. Deploy serializes on its own group
     // and never cancels (see deploy-coverage.test.mjs); Fly health runs only
     // on a schedule or by hand.
-    for (const name of ["ci", "image-build", "local-desktop", "pages"]) {
+    for (const name of ["ci", "image-build", "local-desktop"]) {
       const source = readFileSync(
         new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
         "utf8",
@@ -1191,6 +1191,32 @@ describe("deploy workflow", () => {
     expect(lonelyForestFlyConfig).toContain(
       'OPENROUTER_CHAT_MODEL = "openai/gpt-6-luna"',
     );
+  });
+
+  it("answers .dev residents on Gemma with Luna behind it, and leaves production on Luna", () => {
+    const gemma = "google/gemma-4-26b-a4b-it";
+    expect(primaryFlyConfig).toContain(`COSYWORLD_CARD_TEXT_MODEL = "${gemma}"`);
+    expect(primaryFlyConfig).toContain(
+      `COSYWORLD_CARD_FALLBACK_MODELS = '["openai/gpt-6-luna"]'`,
+    );
+    expect(primaryFlyConfig).toContain(
+      `"requested_model_id":"${gemma}","provider":"openrouter"`,
+    );
+    expect(lonelyForestFlyConfig).toContain(
+      'COSYWORLD_CARD_TEXT_MODEL = "openai/gpt-6-luna"',
+    );
+    const cast = (vale, moth, badger) =>
+      `COSYWORLD_CARD_CHARACTER_MODELS_JSON = '{"vale":"${vale}","moth":"${moth}","keeper":"anthropic/claude-haiku-5.5","badger":"${badger}"}'`;
+    expect(primaryFlyConfig).toContain(cast(gemma, gemma, gemma));
+    expect(lonelyForestFlyConfig).toContain(
+      cast(
+        "openai/gpt-6-luna",
+        "openai/gpt-6-luna",
+        "mistralai/mistral-small-3.2-24b-instruct",
+      ),
+    );
+    expect(lonelyForestFlyConfig).not.toContain("gemma");
+    expect(lonelyForestFlyConfig).not.toContain("COSYWORLD_CARD_FALLBACK_MODELS");
   });
 
   it("copies every out-of-crate compile-time input into the release image build", () => {

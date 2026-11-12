@@ -29,8 +29,8 @@ const reload = (world) => decodeSave(encodeSave(world));
 const pack = packDefinition("greek-drama");
 
 const story = (id) => /^greek-(open-door|homecoming)-/.test(id);
-// Marathon's tale and the full return need Marathon, a rumour in new worlds
-// (rules 94); old full-scope worlds keep both.
+// Marathon's tale is a rumour in new worlds (rules 94); old full-scope worlds
+// keep it and its record. The full return needs neither.
 const fullJourney = () =>
   openDoorJourney(openDoorSteps({ rumours: true }), { rumours: true });
 const OUTCOMES = [
@@ -47,7 +47,9 @@ describe("the Open Door", () => {
     for (const id of ["eleusis", "piraeus", "colonus"])
       expect(state(world).flags[`greek-open-door-${id}-done`]).toBe(true);
     expect(entityActive(world, "greek-marathon")).toBe(false);
-    expect(state(world).flags["greek-open-door-returned"]).toBeUndefined();
+    // Dione's last card plays with no Marathon tale and no Marathon record.
+    expect(state(world).flags["greek-open-door-marathon-done"]).toBeFalsy();
+    expect(state(world).flags["greek-open-door-returned"]).toBe(true);
     for (const item of OUTCOMES.slice(0, 4))
       expect(world.items[item].holder).toBe("greek-courtyard");
   });
@@ -184,27 +186,27 @@ describe("the Open Door", () => {
       ).authorId,
     ).toBe("mara");
   });
-  it("opens four places when Dione receives the burial outcome", () => {
-    // The Open Door opens only by burying Polynices: the burial is played
-    // from createWorld by funeralJourney, and Dione's table follows.
+  it("has the four places from the start: the burial opens nothing", () => {
+    // Nothing opens the Open Door: Attica is there in a new world and
+    // before, during and after the burial. Marathon is a rumour (rules 94).
+    expect(accessible(createWorld())).toEqual(OPEN_DOOR_PLACES);
     const { veiled, buried } = funeralJourney();
-    // Piraeus Quays is Thebes's sea exit: the Charybdis calls there with
-    // cargo before Dione's invitation. Marathon is a rumour (rules 94).
-    expect(accessible(veiled)).toEqual(["greek-piraeus"]);
+    expect(accessible(veiled)).toEqual(OPEN_DOOR_PLACES);
     let world = buried;
     expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
-    expect(state(world).flags["greek-open-door-open"]).toBe(true);
+    expect(state(world).flags["greek-open-door-open"]).toBeUndefined();
     expect(legalActions(world).some((a) => a.kind === "choose")).toBe(false);
     world = openDoorWalk(reload(world), "harbor", "piraeus");
-    // The Long Walls stay shut from both ends until the herald's truce is
-    // in the Agora: a sea arrival stays at the quays. From the Agora the
-    // Sacred Way leads out to the countryside.
+    // The Long Walls are open from both ends with no truce: a sea arrival
+    // walks to the Agora. From the Agora the Sacred Way leads to the
+    // countryside.
     expect(world.actors.vale.place).toBe("greek-piraeus");
     expect(
       exits(world, "greek-piraeus", "vale").filter((to) => to !== "greek-ship"),
-    ).toEqual([]);
+    ).toEqual(["greek-road-athens-piraeus"]);
     expect(exits(world, "greek-athens", "vale")).toEqual([
       "greek-road-athens-eleusis",
+      "greek-road-athens-piraeus",
     ]);
     expect(entityActive(world, "greek-thinkery")).toBe(false);
     expect(entityActive(world, "greek-argolid-road")).toBe(false);
@@ -270,9 +272,9 @@ describe("the Open Door", () => {
     expect(viewed.world.actors.mara.place).not.toMatch(/^greek-/);
   });
 
-  it("keeps later places and choices behind the first invitation", () => {
+  it("offers no story button in the Open Door's places", () => {
     const world = createWorld();
-    expect(accessible(world)).toEqual(["greek-piraeus"]);
+    expect(accessible(world)).toEqual(OPEN_DOOR_PLACES);
     for (const place of OPEN_DOOR_PLACES) {
       world.actors.vale.place = place;
       expect(

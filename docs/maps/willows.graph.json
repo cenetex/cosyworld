@@ -1,0 +1,1095 @@
+{
+  "pack": "willows",
+  "name": "The Willows",
+  "revision": 2,
+  "entry": "willows-landing",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "pond",
+      "arrive": "willows-landing",
+      "via": "pond-willows-landing"
+    },
+    {
+      "joins": "greek-drama",
+      "at": "greek-ship",
+      "arrive": "willows-landing",
+      "via": "greek-ship-willows-landing"
+    }
+  ],
+  "space": {
+    "districts": [
+      {
+        "id": "d-willows-bank",
+        "name": "Crumbling Bank",
+        "places": [
+          "willows-bank"
+        ]
+      },
+      {
+        "id": "d-willows-camp",
+        "name": "River Camp",
+        "places": [
+          "willows-camp",
+          "willows-landing"
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "greek-ship",
+        "name": "The Charybdis",
+        "kind": "external"
+      },
+      {
+        "id": "pond",
+        "name": "Black pond",
+        "kind": "hub"
+      },
+      {
+        "id": "willows-bank",
+        "name": "Crumbling Bank",
+        "kind": "place",
+        "district": "d-willows-bank"
+      },
+      {
+        "id": "willows-camp",
+        "name": "River Camp",
+        "kind": "place",
+        "district": "d-willows-camp"
+      },
+      {
+        "id": "willows-landing",
+        "name": "River Landing",
+        "kind": "place",
+        "district": "d-willows-camp"
+      },
+      {
+        "id": "willows-thicket",
+        "name": "Willow Thicket",
+        "kind": "road"
+      }
+    ],
+    "edges": [
+      {
+        "from": "greek-ship",
+        "to": "willows-landing",
+        "kind": "crossing",
+        "gate": "crossing:greek-ship-willows-landing"
+      },
+      {
+        "from": "pond",
+        "to": "willows-landing",
+        "kind": "crossing",
+        "gate": "crossing:pond-willows-landing"
+      },
+      {
+        "from": "willows-bank",
+        "to": "willows-thicket",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "willows-camp",
+        "to": "willows-landing",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "willows-camp",
+        "to": "willows-thicket",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "willows-landing",
+        "to": "greek-ship",
+        "kind": "crossing",
+        "gate": "crossing:willows-landing-greek-ship"
+      },
+      {
+        "from": "willows-landing",
+        "to": "pond",
+        "kind": "crossing",
+        "gate": "crossing:willows-landing-pond"
+      },
+      {
+        "from": "willows-landing",
+        "to": "willows-camp",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "willows-thicket",
+        "to": "willows-bank",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "willows-thicket",
+        "to": "willows-camp",
+        "kind": "exit",
+        "gate": null
+      }
+    ],
+    "retired": []
+  },
+  "mission": {
+    "gates": [
+      {
+        "id": "crossing:greek-ship-willows-landing",
+        "kind": "crossing",
+        "title": "The Charybdis to River Landing",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "daylight(phase=night)"
+            },
+            {
+              "op": "atom",
+              "atom": "weather(condition=mist,place=greek-ship)"
+            },
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "ship_at(dock=pond,transport=greek-ship)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "ship_at(dock=@sea,transport=greek-ship)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "it is night and The Charybdis has mist weather and (greek-ship is docked at Black pond or greek-ship is at sea)",
+        "ids": "it is night and greek-ship has mist weather and (greek-ship is docked at pond or greek-ship is at sea)",
+        "latch": [],
+        "live": [
+          "daylight(phase=night)",
+          "ship_at(dock=@sea,transport=greek-ship)",
+          "ship_at(dock=pond,transport=greek-ship)",
+          "weather(condition=mist,place=greek-ship)"
+        ],
+        "prerequisites": {}
+      },
+      {
+        "id": "crossing:willows-landing-greek-ship",
+        "kind": "crossing",
+        "title": "River Landing to The Charybdis",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "daylight(phase=night)"
+            },
+            {
+              "op": "atom",
+              "atom": "weather(condition=mist,place=greek-ship)"
+            },
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "ship_at(dock=pond,transport=greek-ship)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "ship_at(dock=@sea,transport=greek-ship)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "it is night and The Charybdis has mist weather and (greek-ship is docked at Black pond or greek-ship is at sea)",
+        "ids": "it is night and greek-ship has mist weather and (greek-ship is docked at pond or greek-ship is at sea)",
+        "latch": [],
+        "live": [
+          "daylight(phase=night)",
+          "ship_at(dock=@sea,transport=greek-ship)",
+          "ship_at(dock=pond,transport=greek-ship)",
+          "weather(condition=mist,place=greek-ship)"
+        ],
+        "prerequisites": {}
+      },
+      {
+        "id": "crossing:willows-landing-pond",
+        "kind": "crossing",
+        "title": "River Landing to Black pond",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-paddle,place=willows-camp)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-sheet,place=willows-camp)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-rope,place=willows-camp)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-provisions,place=willows-camp)"
+            }
+          ]
+        },
+        "words": "Worn Paddle is in River Camp and Waterproof Sheet is in River Camp and Tent Rope is in River Camp and Food Sack is in River Camp",
+        "ids": "willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp",
+        "latch": [],
+        "live": [
+          "item_near(item=willows-paddle,place=willows-camp)",
+          "item_near(item=willows-provisions,place=willows-camp)",
+          "item_near(item=willows-rope,place=willows-camp)",
+          "item_near(item=willows-sheet,place=willows-camp)"
+        ],
+        "prerequisites": {
+          "item": [
+            "willows-paddle",
+            "willows-provisions",
+            "willows-rope",
+            "willows-sheet"
+          ]
+        }
+      },
+      {
+        "id": "crossing:pond-willows-landing",
+        "kind": "crossing",
+        "title": "Black pond to River Landing",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-paddle,place=willows-camp)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-sheet,place=willows-camp)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-rope,place=willows-camp)"
+            },
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-provisions,place=willows-camp)"
+            }
+          ]
+        },
+        "words": "Worn Paddle is in River Camp and Waterproof Sheet is in River Camp and Tent Rope is in River Camp and Food Sack is in River Camp",
+        "ids": "willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp",
+        "latch": [],
+        "live": [
+          "item_near(item=willows-paddle,place=willows-camp)",
+          "item_near(item=willows-provisions,place=willows-camp)",
+          "item_near(item=willows-rope,place=willows-camp)",
+          "item_near(item=willows-sheet,place=willows-camp)"
+        ],
+        "prerequisites": {
+          "item": [
+            "willows-paddle",
+            "willows-provisions",
+            "willows-rope",
+            "willows-sheet"
+          ]
+        }
+      },
+      {
+        "id": "resident:willows-swede",
+        "kind": "resident",
+        "title": "The Swede appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=willows-swede-gone,value=false)"
+            }
+          ]
+        },
+        "words": "willows-swede-gone is not set",
+        "ids": "willows-swede-gone is not set",
+        "latch": [
+          "flag(key=willows-swede-gone,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {}
+      }
+    ],
+    "acts": [
+      {
+        "id": "act:willows-examine-hull",
+        "kind": "act",
+        "title": "Examine the canoe",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "willows-landing",
+        "subject": "willows-landing",
+        "on": "wait",
+        "sets": [
+          "willows-hull-seen"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-count-stores",
+        "kind": "act",
+        "title": "Count the camp supplies",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_near(item=willows-provisions,place=willows-camp)"
+            }
+          ]
+        },
+        "words": "Food Sack is in River Camp",
+        "ids": "willows-provisions is in willows-camp",
+        "latch": [],
+        "live": [
+          "item_near(item=willows-provisions,place=willows-camp)"
+        ],
+        "prerequisites": {
+          "item": [
+            "willows-provisions"
+          ]
+        },
+        "at": "willows-camp",
+        "subject": "willows-camp",
+        "on": "wait",
+        "sets": [
+          "willows-stores-counted"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-examine-hollows",
+        "kind": "act",
+        "title": "Examine the sand hollows",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "willows-thicket",
+        "subject": "willows-thicket",
+        "on": "wait",
+        "sets": [
+          "willows-hollows-seen"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-hear-humming",
+        "kind": "act",
+        "title": "Listen across the river",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "willows-bank",
+        "subject": "willows-bank",
+        "on": "wait",
+        "sets": [
+          "willows-humming-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-look-beneath-roots",
+        "kind": "act",
+        "title": "Look beneath the roots",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "willows-bank",
+        "subject": "willows-bank",
+        "on": "wait",
+        "sets": [
+          "willows-mark-seen"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-pace-willows",
+        "kind": "act",
+        "title": "Pace out the willows",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "daylight(phase=day)"
+            }
+          ]
+        },
+        "words": "it is day",
+        "ids": "it is day",
+        "latch": [],
+        "live": [
+          "daylight(phase=day)"
+        ],
+        "prerequisites": {},
+        "at": "willows-camp",
+        "subject": "willows-camp",
+        "on": "wait",
+        "sets": [
+          "willows-willows-paced"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-pace-again",
+        "kind": "act",
+        "title": "Pace it again",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=willows-willows-paced,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "daylight(phase=night)"
+            }
+          ]
+        },
+        "words": "willows-willows-paced is set and it is night",
+        "ids": "willows-willows-paced is set and it is night",
+        "latch": [
+          "flag(key=willows-willows-paced,value=true)"
+        ],
+        "live": [
+          "daylight(phase=night)"
+        ],
+        "prerequisites": {
+          "act": [
+            "willows-pace-willows"
+          ],
+          "flag": [
+            "willows-willows-paced"
+          ]
+        },
+        "at": "willows-camp",
+        "subject": "willows-camp",
+        "on": "wait",
+        "sets": [
+          "willows-willows-nearer"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-listen-tent",
+        "kind": "act",
+        "title": "Lie still in the tent",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "daylight(phase=night)"
+            }
+          ]
+        },
+        "words": "it is night",
+        "ids": "it is night",
+        "latch": [],
+        "live": [
+          "daylight(phase=night)"
+        ],
+        "prerequisites": {},
+        "at": "willows-camp",
+        "subject": "willows-camp",
+        "on": "wait",
+        "sets": [
+          "willows-patterings-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-look-up-willows",
+        "kind": "act",
+        "title": "Look up at the willow tops",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "daylight(phase=night)"
+            }
+          ]
+        },
+        "words": "it is night",
+        "ids": "it is night",
+        "latch": [],
+        "live": [
+          "daylight(phase=night)"
+        ],
+        "prerequisites": {},
+        "at": "willows-thicket",
+        "subject": "willows-thicket",
+        "on": "wait",
+        "sets": [
+          "willows-shapes-seen"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-compare-signs",
+        "kind": "act",
+        "title": "Compare the strange signs",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "met(actor=willows-swede)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=willows-hull-seen,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=willows-stores-counted,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=willows-mark-seen,value=true)"
+            }
+          ]
+        },
+        "words": "The Swede has been met and willows-hull-seen is set and willows-stores-counted is set and willows-mark-seen is set",
+        "ids": "willows-swede has been met and willows-hull-seen is set and willows-stores-counted is set and willows-mark-seen is set",
+        "latch": [
+          "flag(key=willows-hull-seen,value=true)",
+          "flag(key=willows-mark-seen,value=true)",
+          "flag(key=willows-stores-counted,value=true)",
+          "met(actor=willows-swede)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "willows-count-stores",
+            "willows-examine-hull",
+            "willows-look-beneath-roots"
+          ],
+          "flag": [
+            "willows-hull-seen",
+            "willows-mark-seen",
+            "willows-stores-counted"
+          ],
+          "item": [
+            "willows-provisions"
+          ],
+          "resident": [
+            "willows-swede"
+          ]
+        },
+        "at": "willows-camp",
+        "subject": "willows-swede",
+        "on": "wait",
+        "sets": [
+          "willows-signs-shared"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:willows-swede-departs",
+        "kind": "act",
+        "title": "The Swede takes the canoe",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {
+          "resident": [
+            "willows-swede"
+          ]
+        },
+        "at": "willows-landing",
+        "subject": "willows-swede",
+        "on": "depart",
+        "sets": [
+          "willows-swede-gone"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      }
+    ],
+    "wants": [
+      {
+        "avatar": "willows-swede",
+        "kind": "place",
+        "target": "willows-landing",
+        "items": []
+      }
+    ],
+    "flags": {
+      "willows-hollows-seen": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-examine-hollows"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "willows-hull-seen": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-examine-hull"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:willows-compare-signs"
+        ],
+        "gates": [],
+        "acts": [
+          "act:willows-compare-signs"
+        ]
+      },
+      "willows-humming-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-hear-humming"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "willows-mark-seen": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-look-beneath-roots"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:willows-compare-signs"
+        ],
+        "gates": [],
+        "acts": [
+          "act:willows-compare-signs"
+        ]
+      },
+      "willows-patterings-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-listen-tent"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "willows-shapes-seen": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-look-up-willows"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "willows-signs-shared": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-compare-signs"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "willows-stores-counted": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-count-stores"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:willows-compare-signs"
+        ],
+        "gates": [],
+        "acts": [
+          "act:willows-compare-signs"
+        ]
+      },
+      "willows-swede-gone": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-swede-departs"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "resident:willows-swede"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "willows-willows-nearer": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-pace-again"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "willows-willows-paced": {
+        "kind": "latch",
+        "setBy": [
+          "act:willows-pace-willows"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:willows-pace-again"
+        ],
+        "gates": [],
+        "acts": [
+          "act:willows-pace-again"
+        ]
+      }
+    },
+    "items": [
+      {
+        "id": "willows-paddle",
+        "name": "Worn Paddle",
+        "holder": "willows-bank",
+        "consumedBy": [],
+        "readBy": [
+          "crossing:pond-willows-landing",
+          "crossing:willows-landing-pond"
+        ]
+      },
+      {
+        "id": "willows-map",
+        "name": "River Map",
+        "holder": "willows-camp",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "willows-rope",
+        "name": "Tent Rope",
+        "holder": "willows-bank",
+        "consumedBy": [],
+        "readBy": [
+          "crossing:pond-willows-landing",
+          "crossing:willows-landing-pond"
+        ]
+      },
+      {
+        "id": "willows-sheet",
+        "name": "Waterproof Sheet",
+        "holder": "willows-landing",
+        "consumedBy": [],
+        "readBy": [
+          "crossing:pond-willows-landing",
+          "crossing:willows-landing-pond"
+        ]
+      },
+      {
+        "id": "willows-provisions",
+        "name": "Food Sack",
+        "holder": "willows-landing",
+        "consumedBy": [],
+        "readBy": [
+          "act:willows-count-stores",
+          "crossing:pond-willows-landing",
+          "crossing:willows-landing-pond"
+        ]
+      },
+      {
+        "id": "willows-pot",
+        "name": "Stew Pot",
+        "holder": "willows-camp",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "willows-spoon",
+        "name": "Wooden Spoon",
+        "holder": "willows-camp",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "willows-pipe",
+        "name": "The Swede's Pipe",
+        "holder": "willows-swede",
+        "consumedBy": [],
+        "readBy": []
+      }
+    ],
+    "needs": {
+      "act:willows-compare-signs": [
+        "flag:willows-hull-seen",
+        "flag:willows-mark-seen",
+        "flag:willows-stores-counted",
+        "place:willows-camp",
+        "resident:willows-swede"
+      ],
+      "act:willows-count-stores": [
+        "item:willows-provisions",
+        "place:willows-camp",
+        "resident:willows-camp"
+      ],
+      "act:willows-examine-hollows": [
+        "place:willows-thicket",
+        "resident:willows-thicket"
+      ],
+      "act:willows-examine-hull": [
+        "place:willows-landing",
+        "resident:willows-landing"
+      ],
+      "act:willows-hear-humming": [
+        "place:willows-bank",
+        "resident:willows-bank"
+      ],
+      "act:willows-listen-tent": [
+        "place:willows-camp",
+        "resident:willows-camp"
+      ],
+      "act:willows-look-beneath-roots": [
+        "place:willows-bank",
+        "resident:willows-bank"
+      ],
+      "act:willows-look-up-willows": [
+        "place:willows-thicket",
+        "resident:willows-thicket"
+      ],
+      "act:willows-pace-again": [
+        "flag:willows-willows-paced",
+        "place:willows-camp",
+        "resident:willows-camp"
+      ],
+      "act:willows-pace-willows": [
+        "place:willows-camp",
+        "resident:willows-camp"
+      ],
+      "act:willows-swede-departs": [
+        "place:willows-landing",
+        "resident:willows-swede"
+      ],
+      "crossing:pond-willows-landing": [
+        "item:willows-paddle",
+        "item:willows-provisions",
+        "item:willows-rope",
+        "item:willows-sheet",
+        "place:willows-camp"
+      ],
+      "crossing:willows-landing-pond": [
+        "item:willows-paddle",
+        "item:willows-provisions",
+        "item:willows-rope",
+        "item:willows-sheet",
+        "place:willows-camp"
+      ],
+      "flag:willows-hollows-seen": [
+        "act:willows-examine-hollows"
+      ],
+      "flag:willows-hull-seen": [
+        "act:willows-examine-hull"
+      ],
+      "flag:willows-humming-heard": [
+        "act:willows-hear-humming"
+      ],
+      "flag:willows-mark-seen": [
+        "act:willows-look-beneath-roots"
+      ],
+      "flag:willows-patterings-heard": [
+        "act:willows-listen-tent"
+      ],
+      "flag:willows-shapes-seen": [
+        "act:willows-look-up-willows"
+      ],
+      "flag:willows-signs-shared": [
+        "act:willows-compare-signs"
+      ],
+      "flag:willows-stores-counted": [
+        "act:willows-count-stores"
+      ],
+      "flag:willows-swede-gone": [
+        "act:willows-swede-departs"
+      ],
+      "flag:willows-willows-nearer": [
+        "act:willows-pace-again"
+      ],
+      "flag:willows-willows-paced": [
+        "act:willows-pace-willows"
+      ],
+      "topic:willows-channels": [
+        "place:willows-camp",
+        "resident:willows-swede"
+      ],
+      "topic:willows-supper": [
+        "place:willows-camp",
+        "resident:willows-swede"
+      ],
+      "want:willows-swede": [
+        "place:willows-landing",
+        "resident:willows-swede"
+      ]
+    }
+  },
+  "atoms": {
+    "daylight(phase=day)": {
+      "kind": "daylight",
+      "class": "live",
+      "words": "it is day"
+    },
+    "daylight(phase=night)": {
+      "kind": "daylight",
+      "class": "live",
+      "words": "it is night"
+    },
+    "flag(key=willows-hull-seen,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "willows-hull-seen is set"
+    },
+    "flag(key=willows-mark-seen,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "willows-mark-seen is set"
+    },
+    "flag(key=willows-stores-counted,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "willows-stores-counted is set"
+    },
+    "flag(key=willows-swede-gone,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "willows-swede-gone is not set"
+    },
+    "flag(key=willows-willows-paced,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "willows-willows-paced is set"
+    },
+    "item_near(item=willows-paddle,place=willows-camp)": {
+      "kind": "item_near",
+      "class": "live",
+      "words": "willows-paddle is in willows-camp"
+    },
+    "item_near(item=willows-provisions,place=willows-camp)": {
+      "kind": "item_near",
+      "class": "live",
+      "words": "willows-provisions is in willows-camp"
+    },
+    "item_near(item=willows-rope,place=willows-camp)": {
+      "kind": "item_near",
+      "class": "live",
+      "words": "willows-rope is in willows-camp"
+    },
+    "item_near(item=willows-sheet,place=willows-camp)": {
+      "kind": "item_near",
+      "class": "live",
+      "words": "willows-sheet is in willows-camp"
+    },
+    "met(actor=willows-swede)": {
+      "kind": "met",
+      "class": "latch",
+      "words": "willows-swede has been met"
+    },
+    "ship_at(dock=@sea,transport=greek-ship)": {
+      "kind": "ship_at",
+      "class": "live",
+      "words": "greek-ship is at sea"
+    },
+    "ship_at(dock=pond,transport=greek-ship)": {
+      "kind": "ship_at",
+      "class": "live",
+      "words": "greek-ship is docked at pond"
+    },
+    "weather(condition=mist,place=greek-ship)": {
+      "kind": "weather",
+      "class": "live",
+      "words": "greek-ship has mist weather"
+    }
+  },
+  "conditionKinds": [
+    "daylight",
+    "flag",
+    "item_near",
+    "met",
+    "ship_at",
+    "weather"
+  ]
+}

@@ -384,7 +384,6 @@ describe("XP for opening a box", () => {
         ["take", id("thermos")],
         ["move", id("dispatch-window")],
         ["drop", id("thermos"), id("listening-room")],
-        ["take", id("thermos")],
         ["move", home],
         ["drop", id("red-beanie")],
         ["take", id("raven-figurine")],

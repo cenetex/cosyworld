@@ -6,20 +6,22 @@
 /// Talk about the chat itself, `|`-separated, matched as whole words
 /// anywhere.
 const META: &str =
-    "as an ai|language model|the user|roleplay|role-play|in character|out of character|\
-    your character|your objective|text-based|choose-your-own|the prompt|this prompt|\
-    your prompt|dialogue scene|this scenario|in this setting|continuation|\
-    i'm here to help|i am here to help|how can i assist|how may i assist|i can't assist|\
-    i cannot assist|i can't help with that|i cannot help with that|\
-    i'd be delighted to help|i can help you with that|i can provide|i'll provide|\
+    "as an ai|language model|the user|roleplay|role-play|stay in character|staying in character|\
+    in-character|out of character|does your character|your objective|text-based|\
+    choose-your-own|the prompt|this prompt|your prompt|dialogue scene|in this scenario|\
+    in this setting|i'm here to help.|i'm here to help!|i am here to help.|i am here to help!|\
+    how can i assist you?|how may i assist you?|how can i assist you today|\
+    how may i assist you today|i can't assist with that|i cannot assist with that|\
+    i can't help with that.|i cannot help with that.|\
+    i'd be delighted to help|i can help you with that|\
     would you like me to continue|let's break down what|let's break this down|\
     let's break it down|let's analyze|let's analyse|let's flesh out|let's solidify|\
-    let's build on|let's play this out|continue the story|continue this story|\
+    let's build on this|let's build on that|let's play this out|let's continue the story|\
+    let's continue this story|i'll continue the story|\
     continue the scene|continue this scene|continue the dialogue|continue the roleplay|\
-    what do you do?|or something else?|how can i help you today?|how may i help you today?|\
+    what do you do?|how can i help you today?|how may i help you today?|\
     i'd be happy to help with that|i'd be happy to help.|i would be happy to help with that|\
-    i would be happy to help.|happy to assist";
-/// What "here is" offers when a model hands over its work.
+    i would be happy to help.|happy to assist with that|happy to assist.";
 const WORK: &str =
     "reply response dialogue completion continuation rewrite draft breakdown line lines";
 /// What a model "notices" the person is doing ("It seems like you're
@@ -47,7 +49,14 @@ pub(super) fn assistant(text: &str) -> bool {
             .split(|c: char| !c.is_alphanumeric() && c != '\'')
             .filter(|w| !w.is_empty())
             .collect();
-        let offered = ["here is ", "here's ", "here are "].iter().any(|lead| {
+        let leads = [
+            "here is ",
+            "here's ",
+            "here are ",
+            "i can provide ",
+            "i'll provide ",
+        ];
+        let offered = leads.iter().any(|lead| {
             s.match_indices(lead).any(|(at, _)| {
                 let next: Vec<_> = s[at + lead.len()..].split_whitespace().take(4).collect();
                 next.iter().enumerate().any(|(i, word)| {
@@ -224,6 +233,22 @@ mod tests {
         "Please, sit. Can I help you with that bundle?",
         "I'd be happy to help you carry the lamp, Pip.",
         "How can I help you today, Pip? You look cold.",
+        "Is it the lamp you want, or something else?",
+        "I can provide oil for the journey.",
+        "I'll provide the bread if you bring the water.",
+        "The path is a continuation of the old road.",
+        "That is not in character for the keeper.",
+        "I can't help with that, the door is locked.",
+        "I cannot assist you past the gate.",
+        "Happy to assist, traveller.",
+        "I'm here to help, little one.",
+        "I am here to help you find the pond.",
+        "How can I assist you, traveller?",
+        "How may I assist you this evening?",
+        "Let's build on what we started at the pond.",
+        "This scenario has played out before, at the pond.",
+        "Your character shows in how you carry the lamp.",
+        "Continue the story you were telling me.",
     ];
 
     /// System talk and leaks: blocked, then resampled.
@@ -252,6 +277,16 @@ mod tests {
         ("I'd be happy to help with that.", "assistant"),
         ("Of course! I'd be happy to help.", "assistant"),
         ("Here is a reply for Pip.", "assistant"),
+        ("I can provide a reply for Pip.", "assistant"),
+        ("I'll provide a short response in my voice.", "assistant"),
+        ("I'm here to help!", "assistant"),
+        ("How may I assist you today?", "assistant"),
+        ("I'm sorry, I can't assist with that.", "assistant"),
+        ("Happy to assist.", "assistant"),
+        ("What does your character do next?", "assistant"),
+        ("In this scenario, I answer Pip.", "assistant"),
+        ("Let's build on this scene.", "assistant"),
+        ("I'll continue the story from the pond.", "assistant"),
         ("Of course! Here's a response in Pip's voice.", "assistant"),
         (
             "As an AI, I don't have a lamp, but here is a line.",

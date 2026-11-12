@@ -164,9 +164,8 @@ describe("knowing a lane is personal", () => {
     s = act(s, "vale", "move", "greek-piraeus");
     expect(s.actors.vale.place).toBe("greek-piraeus");
     expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(true);
-    // The quay opens with the Open Door; the Long Walls inland wait for the
-    // herald's truce.
-    expect(ask(s, "vale").exits).not.toContain("greek-road-athens-piraeus");
+    // The Long Walls inland are open: no burial or truce is needed.
+    expect(ask(s, "vale").exits).toContain("greek-road-athens-piraeus");
     // The voyage leaves the provisions whole on deck (rules 102), so the
     // ship may sail on to the Hoppy Cat jetty as well as home.
     expect(s.items["greek-provisions"].holder).toBe("greek-ship");
@@ -198,7 +197,7 @@ describe("knowing a lane is personal", () => {
     expect(disclosure.factId).toMatch(/^lane:greek-harbor>/);
     // A gated lane is told with the thing that opens it.
     expect(disclosure.text).toBe(
-      "Ships for Piraeus Quays leave from The Wine-Dark Harbor only with Travel Provisions or something from Hoppy Cat aboard.",
+      "Ships for Piraeus Quays leave from The Wine-Dark Harbor only with Travel Provisions aboard.",
     );
     // Talk context names the lanes Myrto knows from here.
     const myrto = context.entities.find((e) => e.id === "greek-shipmaster");

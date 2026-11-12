@@ -29,7 +29,7 @@ if [[ "$current" -gt "$ceiling" ]]; then
 
 main.rs grew from ${ceiling} to ${current} lines.
 
-ENG.md Priority #1 forbids new systems in main.rs. Extract the change through
+New systems do not go in main.rs. Extract the change through
 the documented world/, cards.rs, economy/, rpg/, ai_gateway/, persistence.rs,
 or moderation.rs seams, including tests that belong to the extracted system.
 

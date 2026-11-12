@@ -32,10 +32,11 @@ const unnamed = (world, id) =>
       : "a place I haven't found yet";
 
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-// Replaces each name in `unknown` (lower-case name to phrase) in a text.
-function blurrer(unknown, shown = []) {
+const opensSentence = (text, at) =>
+  /(?:^|[.!?…])[\s"'“”‘’(]*$/.test(text.slice(0, at));
+function blurrer(unknown, shown = [], short = new Map()) {
   if (!unknown.size) return (text) => text;
-  const names = [...unknown.keys(), ...shown]
+  const names = [...unknown.keys(), ...short.keys(), ...shown]
     .sort((a, b) => b.length - a.length)
     .map(escape);
   const pattern = new RegExp(
@@ -43,10 +44,12 @@ function blurrer(unknown, shown = []) {
     "gi",
   );
   return (text) =>
-    text?.replace(
-      pattern,
-      (word, name) => unknown.get(name.toLowerCase()) ?? word,
-    ) ?? text;
+    text?.replace(pattern, (word, name, at, whole) => {
+      const full = unknown.get(name.toLowerCase());
+      if (full) return full;
+      const bare = word === name && opensSentence(whole, at);
+      return (!bare && short.get(name)) || word;
+    }) ?? text;
 }
 
 // What an avatar's facts may name beyond the scene: its quests' targets
@@ -147,17 +150,21 @@ function coveredCards(world, isCovered) {
   };
 }
 const lowerName = (id) => nameOf(id).toLowerCase();
-// A covered card is also known by the last word of its name ("the attic" for
-// "Mirror attic") unless an uncovered card's name shares that word.
-function nameKeys(ids, shown) {
+function nameKeys(ids, shown, phrase) {
   const taken = new Set([...shown].map((name) => name.split(" ").at(-1)));
-  return ids.flatMap((id) => {
-    const full = lowerName(id);
-    const last = full.split(" ").at(-1);
-    return last !== full && last.length > 3 && !taken.has(last)
-      ? [[id, full], [id, last]]
-      : [[id, full]];
-  });
+  const full = new Map(), short = new Map();
+  for (const id of ids) {
+    const name = nameOf(id), last = name.split(" ").at(-1);
+    full.set(name.toLowerCase(), phrase(id));
+    if (
+      last !== name &&
+      last.length > 3 &&
+      /^[A-Z]/.test(last) &&
+      !taken.has(last.toLowerCase())
+    )
+      short.set(last, phrase(id));
+  }
+  return [full, short];
 }
 
 function privateWords(entity, blur) {
@@ -176,13 +183,10 @@ function privateWords(entity, blur) {
 
 export function coveredTextReader(world, isCovered) {
   const { unnamedIds, shown } = coveredCards(world, isCovered);
-  const names = new Map(
-    nameKeys(unnamedIds, shown).map(([id, key]) => [
-      key,
-      world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
-    ]),
+  const [names, short] = nameKeys(unnamedIds, shown, (id) =>
+    world.actors[id] ? "someone" : world.items[id] ? "something" : "a place",
   );
-  const blur = blurrer(names, shown);
+  const blur = blurrer(names, shown, short);
   return (text) => {
     const caption = blur(text);
     return caption && /^[A-Z]/.test(text)
@@ -200,15 +204,12 @@ export function forgetCovered(world, context, isCovered) {
   const kept = (id) => !hidden.has(id);
   const keepEntity = (id) =>
     id === actor || id === context.location || kept(id);
-  const unknown = new Map(
-    nameKeys(unnamedIds, shown).map(([id, key]) => [
-      key,
-      world.items[id]?.lit && !covered(world, id)
-        ? UNKNOWN_LIGHT
-        : unnamed(world, id),
-    ]),
+  const [unknown, short] = nameKeys(unnamedIds, shown, (id) =>
+    world.items[id]?.lit && !covered(world, id)
+      ? UNKNOWN_LIGHT
+      : unnamed(world, id),
   );
-  const blur = blurrer(unknown, shown);
+  const blur = blurrer(unknown, shown, short);
   const keptLine = ({ text }) => blur(text) === text;
   const outcome =
     context.outcome && revealedOutcome(world, context.outcome, actor, kept);

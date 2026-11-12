@@ -432,6 +432,7 @@ export function installCardWorkspace({
       edit: view.edit,
       buttons: view.actions.map((a, i) => ({
         ...{ label: a.label, id: buttonId(chosen, i), disabled: a.disabled },
+        destructive: Boolean(a.destructive && a.armed),
         run: () => press(a, i),
       })),
     };

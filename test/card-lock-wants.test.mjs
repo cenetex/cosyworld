@@ -511,7 +511,8 @@ describe("a lock in a real world shows only what the traveler knows", () => {
       for (const name of names)
         expect(text, `${def.id} must not name ${name}`).not.toContain(name);
     }
-    expect(shown).toBeGreaterThan(30);
+    // Attica's six residents and two roads no longer lie shut.
+    expect(shown).toBeGreaterThan(20);
   });
 
   it("names a card once it is discovered", () => {

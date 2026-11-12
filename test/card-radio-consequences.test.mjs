@@ -35,14 +35,13 @@ const route = [
   ["move", kitchen],
   ["drop", key],
   ["move", "station"],
-  ["move", kitchen],
 ];
 const fields = (kind, target) => ({
   [kind === "move" ? "target" : "item"]: target,
 });
 
 for (const opening of [false, true])
-  it(`keeps earned Radio entry without claiming custody (opening ${opening})`, () => {
+  it(`opens the Radio entrance only while the key is carried or inside (opening ${opening})`, () => {
     let world = createWorld({ seed: 17, opening });
     if (opening)
       holdChoice(world, "vale", { item: null, revision: world.revision });
@@ -63,9 +62,17 @@ for (const opening of [false, true])
       }
       if (kind === "take") expect(world.items[key].holder).toBe("vale");
     }
-    expect(trace).toEqual(route); // Seven reached transitions, not seven random attempts.
-    expect(world.packs.ratiradio.flags).toEqual({ "station-open": true });
+    expect(trace).toEqual(route); // Six reached transitions, not six random attempts.
+    expect(world.packs.ratiradio.flags).toEqual({});
     expect(world.items[key].holder).toBe(kitchen);
+    // The key lies inside the station, so the entrance stays open from
+    // outside; carried off, it shuts.
+    const enter = (w) =>
+      legalActions(w).some((a) => a.kind === "move" && a.target === kitchen);
+    expect(enter(world)).toBe(true);
+    const away = structuredClone(world);
+    away.items[key].holder = "pond";
+    expect(enter(away)).toBe(false);
     expect(world.items[key].history.some((s) => s.includes("Vale takes"))).toBe(
       true,
     );
@@ -130,9 +137,16 @@ it("agrees between today's source and compiled JS through the reachable trace", 
   }).world;
   world = sorted(world);
   let reached = 0;
-  for (const step of fixture.steps) {
+  for (const [index, step] of fixture.steps.entries()) {
     const request = { ...step.request, world };
     const before = structuredClone(request);
+    // The recorded journey re-entered the kitchen without the key (steps 7
+    // and 14). The entrance now follows the key, and the key lies inside the
+    // station, so those re-entries are still offered, with no flag set.
+    if ([7, 14].includes(index)) {
+      expect(step.request.action.target).toBe(kitchen);
+      expect(world.items[key].holder).toBe(kitchen);
+    }
     const result = dispatchShared(request);
     expect(request).toEqual(before);
     expect(result.ok, result.error).toBe(true);
@@ -148,7 +162,7 @@ it("agrees between today's source and compiled JS through the reachable trace", 
   }
   expect(reached).toBe(15);
   expect(world.items[key].holder).toBe(kitchen);
-  expect(world.packs.ratiradio.flags).toEqual({ "station-open": true });
+  expect(world.packs.ratiradio.flags).toEqual({});
   expect(world.actors.mara.place).toBe(kitchen);
 });
 
@@ -161,8 +175,7 @@ const ravenTrace = JSON.parse(
 );
 const home = "ratiradio-listening-room",
   raven = "ratiradio-raven";
-const figurine = "ratiradio-raven-figurine",
-  glass = "ratiradio-glass";
+const figurine = "ratiradio-raven-figurine";
 const receipt = "ratiradio-return-things";
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const digest = (world) => sha(JSON.stringify(sorted(world)));
@@ -170,19 +183,38 @@ const ruleFile = (name) =>
   readFileSync(
     new URL(`../v2/orchestrator-rust/src/card_shared/${name}`, import.meta.url),
   );
-// The frozen journey was recorded before the Thermos and Booth locks (#2605).
-// Current rules replay it with the extra plays those locks need: the Thermos
-// set down at the Dispatch Window, and a Talk with RATi holding the figurine.
-// `added` counts them, so each turn and revision shifts by that many.
-const thermos = "ratiradio-thermos";
-// The plays to add before frozen step `index`, then before local command
-// `index`. The frozen journey carries the Thermos on to the Listening Room.
+// The frozen journey was recorded before the Thermos and Booth locks (#2605),
+// and when RATi's first three doors latched open. Current rules replay it with
+// the plays those doors need, since each now follows its item and a traveler
+// carries three things: the entrance opens for a carried Station Key (it is
+// put down inside the kitchen and picked up again to go out and back), the
+// Dispatch Window opens for a held Red Beanie (kept in hand until the last
+// return, then carried out and back in with the glass), and the Thermos is
+// set down at the Dispatch Window and stays there. A Talk with RATi holding
+// the figurine opens the Booth. `added` counts the extra plays, so each turn
+// and revision shifts by that many.
+const thermos = "ratiradio-thermos",
+  beanie = "ratiradio-red-beanie",
+  stationKey = "ratiradio-station-key",
+  glass = "ratiradio-glass";
+// Recorded plays the live doors make unnecessary or impossible: leaving the
+// key in the kitchen, and setting the beanie and Thermos down in the
+// Listening Room.
+const skipped = new Set([37, 44, 45]);
+// The plays to add before local command `index`.
 const localLockPlays = (index) =>
-  index === 42
-    ? [["drop", thermos], ["take", thermos]]
-    : index === 55
-      ? [["talk", "ratiradio-rati"]]
-      : [];
+  ({
+    38: [["drop", glass]],
+    41: [
+      ["drop", stationKey],
+      ["take", glass],
+    ],
+    42: [["drop", thermos]],
+    48: [["take", stationKey]],
+    55: [["talk", "ratiradio-rati"]],
+    57: [["drop", beanie]],
+    59: [["take", beanie]],
+  })[index] ?? [];
 function assertReturn(world, at, added = 0) {
   const radio = world.packs.ratiradio;
   expect(!!radio.flags["raven-awake"]).toBe(at >= 59);
@@ -193,7 +225,7 @@ function assertReturn(world, at, added = 0) {
     expect(world.actors.vale.place).toBe(home);
     expect(world.actors[raven].place).toBe("pond"); // Returning does not summon Raven home.
     expect(world.items[figurine].holder).toBe(home);
-    expect(radio.flags["listening-open"]).toBe(true);
+    expect(radio.flags["listening-open"]).toBe(true); // frozen rules-131 content latches it
   }
   if (at >= 79) {
     expect(world.actors.mara.place).toBe(home);
@@ -324,6 +356,7 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
     awakened,
     added = 0;
   for (const [index, command] of ravenTrace.localRoute.commands.entries()) {
+    if (skipped.has(index)) continue;
     for (const [kind, to] of localLockPlays(index)) {
       const action = legalActions(world).find(
         (a) => a.kind === kind && (a.item === to || a.target === to),
@@ -353,7 +386,7 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
     const before = structuredClone(world),
       request = structuredClone(command);
     if (command.op === "play")
-      expect(legalActions(world)).toContainEqual(command.action);
+      expect(legalActions(world), `command ${index}`).toContainEqual(command.action);
     let result;
     if (command.op === "hold") {
       const next = structuredClone(world);
@@ -400,7 +433,7 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
     world = reload(play(world, rest, world.revision).state);
     added++;
   }
-  expect(world.turn).toBeGreaterThanOrEqual(63 + added);
+  expect(world.turn).toBeGreaterThanOrEqual(63 + added - skipped.size);
   expect(world.items[glass].holder).toBe("vale");
   expect(world.items[figurine].holder).toBe(home);
   expect(world.actors.vale.place).toBe(home);

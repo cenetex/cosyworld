@@ -140,6 +140,9 @@ export function createTextReveal({
     get complete() {
       return !current || current.shown === current.letters.length;
     },
+    get quick() {
+      return quickUntil > 0;
+    },
   };
 }
 

@@ -58,7 +58,9 @@ const openDoorPlaces = [
   "greek-colonus",
   "greek-eleusis",
 ];
-const sectionPlaces = pack.sections.flatMap((section) => section.places);
+// Attica's near side is simply there: the Cithaeron road leads from the
+// battlefield to Eleusis and Colonus whether or not Polynices is buried.
+const atticaOnFoot = ["greek-cithaeron", "greek-eleusis", "greek-colonus"];
 const ajaxPlaces = pack.sections.find(
   (section) => section.id === "greek-ajax",
 ).places;
@@ -109,11 +111,21 @@ describe("the Theban release and its ship", () => {
     const s = createWorld();
     expect(s.packs[pack.id].scope).toBe("opening");
     expect(reachable(s)).toEqual(
-      openingPlaces.filter((id) => !["greek-ship", "greek-polynices-hollow"].includes(id)).sort(),
+      [
+        ...openingPlaces.filter(
+          (id) => !["greek-ship", "greek-polynices-hollow"].includes(id),
+        ),
+        ...atticaOnFoot,
+      ].sort(),
     );
     s.crossings["pond-greek-harbor"].discovered = true;
-    expect(reachable(s)).toEqual(openingPlaces.filter((id) => id !== "greek-polynices-hollow").sort());
-    expect(reachable(s)).toHaveLength(9);
+    expect(reachable(s)).toEqual(
+      [
+        ...openingPlaces.filter((id) => id !== "greek-polynices-hollow"),
+        ...atticaOnFoot,
+      ].sort(),
+    );
+    expect(reachable(s)).toHaveLength(12);
     expect(pack.release.places).toHaveLength(25);
     for (const id of rumours) expect(pack.release.places).not.toContain(id);
     expect(
@@ -123,44 +135,46 @@ describe("the Theban release and its ship", () => {
     ).toEqual(
       [
         ...openingPlaces,
-        // Piraeus Quays is Thebes's sea exit, outside every section.
+        // Piraeus Quays is Thebes's sea exit, and its Long Walls lead to the
+        // Agora: the sea route to Athens, outside every section.
         "greek-piraeus",
-        ...sectionPlaces.filter(
-          (id) =>
-            !retired(id) &&
-            id !== "greek-road-athens-harbor" &&
-            !rumours.includes(id),
-        ),
+        "greek-road-athens-piraeus",
+        "greek-athens",
+        // Attica, there from the start: no section holds it back.
+        "greek-colonus",
+        "greek-eleusis",
+        "greek-cithaeron",
+        "greek-road-athens-eleusis",
       ].sort(),
     );
-    expect(entityActive(s, "greek-athens")).toBe(false);
+    expect(entityActive(s, "greek-athens")).toBe(true);
+    expect(entityActive(s, "greek-eleusis")).toBe(true);
     expect(entityActive(s, "greek-rhapsode")).toBe(true);
     expect(s.actors["greek-rhapsode"].place).toBe("greek-harbor");
   });
   it("opens the next countryside after Bury and keeps it through reload", () => {
     const journey = funeralJourney();
     let s = journey.buried;
-    expect(reachable(journey.veiled).filter((id) => id !== "greek-ship")).toEqual(
-      openingPlaces.filter((id) => id !== "greek-ship").sort(),
+    expect(
+      reachable(journey.veiled).filter((id) => id !== "greek-ship"),
+    ).toEqual(
+      [
+        ...openingPlaces.filter((id) => id !== "greek-ship"),
+        ...atticaOnFoot,
+      ].sort(),
     );
-    // Bury opens the Cithaeron road. The mothers' petition opens the Sacred
-    // Way; the herald's truce opens the Long Walls from Piraeus.
+    // The Cithaeron road is there from the start. The mothers' petition opens the Sacred
+    // Way; the Long Walls from Piraeus were never closed.
     expect(reachable(s)).toContain("greek-eleusis");
-    expect(reachable(s)).not.toContain("greek-athens");
     expect(reachable(s)).not.toContain("greek-road-coast");
     // Patroclus rides the ship once Polynices is buried and steps ashore when it
     // docks; an occupied ship cannot be called, so he is already on the quay.
     s.actors["greek-patroclus"].place = "greek-harbor";
     stowProvisions(s, "greek-ship");
     summonTransport(s, "greek-ship", "greek-harbor");
-    const city = [
-      "greek-athens",
-      "greek-road-athens-eleusis",
-      "greek-road-athens-piraeus",
-    ];
-    const sailed = openDoorReleasedPlaces.filter((id) => !city.includes(id));
+    const sailed = [...openDoorReleasedPlaces];
     expect(reachable(s)).toEqual(sailed.sort());
-    expect(reachable(s)).toHaveLength(14);
+    expect(reachable(s)).toHaveLength(17);
     s = decodeSave(encodeSave(s));
     expect(reachable(s)).toEqual(sailed.sort());
     for (const start of openDoorPlaces) {
@@ -171,8 +185,8 @@ describe("the Theban release and its ship", () => {
       // The land route home enters Thebes by the City Gate, open once the
       // guard has held the decree there.
       trip.openedRoutes = ["greek-gate>greek-battlefield"];
-      // The Long Walls lead home from the city once the plea's olive branch
-      // is in the Agora; the mothers' petition there keeps the Sacred Way
+      // The Long Walls lead home from the city; the mothers' petition there
+      // keeps the Sacred Way
       // open from Eleusis.
       Object.assign(trip.packs[pack.id].flags, {
         "greek-open-door-mothers-heard": true,
@@ -206,7 +220,12 @@ describe("the Theban release and its ship", () => {
     let s = createWorld();
     s.crossings["pond-greek-harbor"].discovered = true;
     for (let i = 0; i < 3; i++) s = decodeSave(encodeSave(s));
-    expect(reachable(s)).toEqual(openingPlaces.filter((id) => id !== "greek-polynices-hollow").sort());
+    expect(reachable(s)).toEqual(
+      [
+        ...openingPlaces.filter((id) => id !== "greek-polynices-hollow"),
+        ...atticaOnFoot,
+      ].sort(),
+    );
   });
   it("keeps a route from every opening place back to the pond after the signal", () => {
     // The City Gate is open for the return journey: the errands opened it.
@@ -224,7 +243,7 @@ describe("the Theban release and its ship", () => {
     const aboard = act(s, "move", { target: "greek-ship" });
     expect(exits(aboard, "greek-ship", "vale")).toEqual(["pond"]);
   });
-    it("rejects unknown release modes and changes to withheld residents", () => {
+  it("rejects unknown release modes and changes to withheld residents", () => {
     const s = createWorld();
     s.packs[pack.id].scope = "everything";
     expect(() => encodeSave(s)).toThrow();

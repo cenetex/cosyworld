@@ -32,7 +32,6 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
 import { locationWeather } from "../v2/card-game/weather.mjs";
 import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
-import { stowProvisions } from "./helpers/provisions.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
 const find = (world, fields) =>
@@ -68,10 +67,8 @@ const take = (world, item) =>
 // Wait out the saved world clock until night and mist beside the ship's rail.
 // The jump skips the rounds between, so the ship counts its idle rounds from
 // here (a resident aboard would otherwise sail it off on the next round).
-// The mist opens only with cargo aboard the Charybdis (rules 94): a packed
-// load of Travel Provisions rides along.
-function mist(world, cargo = true) {
-  if (cargo) stowProvisions(world, "greek-ship");
+// Only night and mist open the way: the ship carries no cargo.
+function mist(world) {
   while (!darkMist(world)) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
   world.transports["greek-ship"].since = world.turn;
@@ -275,13 +272,13 @@ describe("The Willows", () => {
     expect(locationWeather(mistyDay, "greek-ship").condition).toBe("mist");
     expect(isNight(mistyDay)).toBe(false);
     expect(deck(mistyDay)).not.toContain("willows-landing");
-    // The dark mist alone opens nothing: the Willows is a Charybdis leg
-    // beyond the free one, so it needs the Travel Provisions or something
-    // from Hoppy Cat aboard.
-    const empty = mist(at(0), false);
-    expect(deck(empty)).not.toContain("willows-landing");
+    // Night and dark mist are all it takes: the empty ship has no cargo, no
+    // Travel Provisions and nothing from Hoppy Cat aboard.
     const night = mist(at(0));
     expect(night.turn).toBe(24);
+    for (const [id, item] of Object.entries(night.items))
+      if (id.startsWith("greek-provisions") || id.startsWith("hoppycat-"))
+        expect(item.holder, id).not.toBe("greek-ship");
     expect(deck(night)).toContain("willows-landing");
     expect(availableCards(night)).toContain("willows-landing");
     // At Black Pond or at sea between ports (#1589); the same dark mist at
@@ -371,9 +368,10 @@ describe("The Willows", () => {
     expect(painting(day)).toBe(mended);
     expect(painting(decodeSave(encodeSave(day)))).toBe(mended);
     expect(painting(clock(gone, false))).not.toBe(mended);
+    // The canoe follows the kit alone: the Swede's departure does not shut it.
     const departed = structuredClone(day);
     departed.packs.willows.flags["willows-swede-gone"] = true;
-    expect(painting(departed)).not.toBe(mended);
+    expect(painting(departed)).toBe(mended);
     const night = clock(structuredClone(day), true);
     while (darkMist(night)) night.turn += 1;
     expect(painting(night)).toBe("./assets/willows/landing-night.webp");
@@ -454,7 +452,7 @@ describe("The Willows", () => {
       expect(mounted.packs[id]).toEqual(state);
   });
 
-  it("lets the Swede leave the world with the canoe, for good", () => {
+  it("lets the Swede leave the world for good, and leaves the canoe to the kit", () => {
     let world = move(kitHome(island()), "willows-landing");
     let swede = world.actors["willows-swede"];
     swede.place = "willows-landing";
@@ -472,7 +470,14 @@ describe("The Willows", () => {
       world = act(world, { kind: "wait" });
     expect(world.packs.willows.flags["willows-swede-gone"]).toBe(true);
     expect(entityActive(world, "willows-swede")).toBe(false);
-    expect(exits(world, "pond", "vale")).not.toContain("willows-landing");
+    // The canoe outlives him: the kit is still at the camp, so it still runs
+    // both ways, for anyone, and carrying a kit item off still shuts it.
+    expect(exits(world, "pond", "vale")).toContain("willows-landing");
+    expect(exits(world, "willows-landing", "vale")).toContain("pond");
+    const stripped = structuredClone(world);
+    stripped.items["willows-rope"].holder = "willows-bank";
+    expect(exits(stripped, "pond", "vale")).not.toContain("willows-landing");
+    expect(exits(stripped, "willows-landing", "vale")).not.toContain("pond");
     const saved = decodeSave(encodeSave(world));
     expect(saved.packs.willows).toEqual(world.packs.willows);
     const shared = dispatchShared({
