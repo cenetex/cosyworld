@@ -10,13 +10,13 @@ import {
 } from "../pack-registry.mjs";
 import { conditionMet, runHash } from "../pack-rules.mjs";
 import { places, sanctuaries } from "./catalog.mjs";
+import { arcanumOpen, isArcanum, recordOf } from "./arcana-record.mjs";
 import { companionOf } from "./company.mjs";
 import { homeOf } from "./home.mjs";
 import { rootHolder } from "./items.mjs";
 
 export const deck = { cards: data.cards };
-const cardIds = new Set(data.cards.map((card) => card.id));
-export const isArcanum = (id) => cardIds.has(id);
+export { arcanumOpen, isArcanum, recordOf };
 
 export function resolve(value, binding) {
   if (typeof value === "string")
@@ -34,15 +34,6 @@ const unfilled = (value) =>
     : Boolean(value) &&
       typeof value === "object" &&
       Object.values(value).some(unfilled);
-
-export function recordOf(s, traveler) {
-  const record = s.actors?.[traveler]?.arcana;
-  return {
-    proved: record?.proved || [],
-    held: record?.held || [],
-    did: record?.did || [],
-  };
-}
 
 const COUNTS = {
   carried: (s, who) =>
@@ -193,6 +184,55 @@ export function settleArcana(s, actor = null) {
   return s;
 }
 
+export function takeArcanum(s, actor, id) {
+  if (!isArcanum(id)) return false;
+  if (arcanumOpen(s, id, actor)) latch(s, actor, "held", id);
+  return true;
+}
+
+export function spreadCards(cardIds, spots, pick, placed = {}) {
+  const out = {};
+  const lying = () => [...Object.values(placed), ...Object.values(out)];
+  const free = (spot) => !lying().includes(spot.place);
+  for (const card of cardIds) {
+    if (placed[card]) continue;
+    const open = spots.some(free) ? spots.filter(free) : spots;
+    if (!open.length) continue;
+    const load = (region) =>
+      spots.filter((x) => x.region === region && !free(x)).length;
+    const regions = [...new Set(open.map((x) => x.region))].sort();
+    const least = Math.min(...regions.map(load));
+    const lightest = regions.filter((region) => load(region) === least);
+    const region = lightest[pick(`arcana-world:${card}`, lightest.length)];
+    const here = open.filter((x) => x.region === region);
+    out[card] = here[pick(`arcana-place:${card}`, here.length)].place;
+  }
+  return out;
+}
+
+export function installArcana(s, memories = null) {
+  const lying = Object.fromEntries(
+    data.cards
+      .filter((card) => s.items[card.id])
+      .map((card) => [card.id, s.items[card.id].holder]),
+  );
+  const spots = candidates(s, "place").map((place) => ({
+    place,
+    region: packEntity(place)?.packId ?? "hub",
+  }));
+  const picked = spreadCards(
+    data.cards.map((card) => card.id),
+    spots,
+    (key, n) => runHash(s, key) % n,
+    lying,
+  );
+  for (const [id, holder] of Object.entries(picked))
+    s.items[id] = { holder, history: [] };
+  if (memories && s.memories)
+    for (const { id } of data.cards) s.memories[id] ??= memories[id];
+  return s;
+}
+
 const validList = (list) =>
   Array.isArray(list) &&
   list.length <= 64 &&
@@ -201,17 +241,23 @@ const validList = (list) =>
   );
 
 export function validArcana(s) {
-  return Object.entries(s.actors || {}).every(([id, actor]) => {
-    const record = actor?.arcana;
-    if (record === undefined) return true;
-    return (
-      Boolean(humanAvatar(id)) &&
-      Boolean(record) &&
-      typeof record === "object" &&
-      !Array.isArray(record) &&
-      Object.keys(record).sort().join() === "did,held,proved" &&
-      [record.did, record.held, record.proved].every(validList) &&
-      record.held.every((card) => record.proved.includes(card))
-    );
-  });
+  const lie = Object.keys(s.items || {})
+    .filter(isArcanum)
+    .every((id) => Boolean(places[s.items[id].holder]));
+  return (
+    lie &&
+    Object.entries(s.actors || {}).every(([id, actor]) => {
+      const record = actor?.arcana;
+      if (record === undefined) return true;
+      return (
+        Boolean(humanAvatar(id)) &&
+        Boolean(record) &&
+        typeof record === "object" &&
+        !Array.isArray(record) &&
+        Object.keys(record).sort().join() === "did,held,proved" &&
+        [record.did, record.held, record.proved].every(validList) &&
+        record.held.every((card) => record.proved.includes(card))
+      );
+    })
+  );
 }

@@ -8,6 +8,7 @@ import {
 } from "./pack-registry.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
+import { isArcanum } from "./world/arcana.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { installItemCycle } from "./pack-items.mjs";
 
@@ -25,9 +26,7 @@ const RETIRED_SCHEMAS = [6, 7];
 export function retiredSave(text) {
   try {
     const s = typeof text === "string" ? JSON.parse(text) : text;
-    return s &&
-      typeof s === "object" &&
-      RETIRED_SCHEMAS.includes(s.schema)
+    return s && typeof s === "object" && RETIRED_SCHEMAS.includes(s.schema)
       ? s
       : null;
   } catch {
@@ -134,7 +133,7 @@ export function reconcileContent(s) {
     return holder;
   };
   const gone = Object.keys(s.items).filter(
-    (id) => !Object.hasOwn(authored, id),
+    (id) => !Object.hasOwn(authored, id) && !isArcanum(id),
   );
   for (const id of gone) {
     const keeper = root(id);

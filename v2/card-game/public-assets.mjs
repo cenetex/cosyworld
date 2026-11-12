@@ -1,3 +1,4 @@
+import arcana from "./arcana.json" with { type: "json" };
 import musicStreams from "./music-streams.json" with { type: "json" };
 import titleLogos from "./title-logos.json" with { type: "json" };
 import { roomTracks } from "./music.mjs";
@@ -317,6 +318,7 @@ const files = [
   "world/create.mjs",
   "world/boxes.mjs",
   "world/arcana.mjs",
+  "world/arcana-record.mjs",
   "world/lock-goals.mjs",
   "world/want-words.mjs",
   "world/company.mjs",
@@ -452,6 +454,8 @@ const files = [
 ];
 // A mounted pack can reuse an image already published by the card table.
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
+for (const { art } of arcana.cards)
+  if (art && !files.includes(art)) files.push(art);
 for (const { stage, card, phone } of Object.values(imageVariants.images))
   for (const file of [stage, card, phone])
     if (file && !files.includes(file)) files.push(file);

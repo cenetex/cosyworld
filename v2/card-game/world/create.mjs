@@ -12,6 +12,7 @@ import { packDefinition, packDefinitions } from "../pack-registry.mjs";
 import { validSeed } from "../pack-specials.mjs";
 import forest from "../forest.json" with { type: "json" };
 import { settleGuards } from "../resident-guard.mjs";
+import { isArcanum } from "./arcana.mjs";
 // These still live in world.mjs; the cycle resolves at call time.
 import {
   installPacks,
@@ -72,6 +73,7 @@ export function seedRun(s, seed) {
   s.run = { seed };
   // Doors placed before the world had a seed move to the seed's picks.
   delete s.doors;
+  for (const id of Object.keys(s.items).filter(isArcanum)) delete s.items[id];
   installPacks(s);
   return s;
 }
