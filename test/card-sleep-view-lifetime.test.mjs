@@ -1,8 +1,9 @@
+import { sleepingPortrait } from "../v2/card-game/sleep-portraits.mjs";
 import { heldItem } from "../v2/card-game/held-item.mjs";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createSleepView } from "../v2/card-game/sleep-view.mjs";
+import { asleepView, createSleepView } from "../v2/card-game/sleep-view.mjs";
 import {
   createWorld,
   decodeSave,
@@ -268,4 +269,21 @@ it("ignores a storage event from a retired account epoch", () => {
   app.storage({ key: "save", newValue: encodeSave(rest(100)) });
   expect(app.world).toBe(old);
   expect(v.active).toBe(true);
+});
+
+it("keeps the dreamer asleep to the eye until the wake ends", () => {
+  const { v, start, dream, readDream } = view();
+  const woke = start();
+  // The rules woke her at once; the wake plays after.
+  expect(woke.actors.vale.sleeping).toBeUndefined();
+  expect(v.sleeper).toBe("vale");
+  const shown = asleepView(woke, v.sleeper);
+  expect(sleepingPortrait(shown, "vale")).toMatch(/vale-sleeping/);
+  expect(sleepingPortrait(woke, "vale")).toBeNull();
+  expect(woke.actors.vale.sleeping).toBeUndefined();
+  dream();
+  readDream();
+  vi.advanceTimersByTime(10_000);
+  expect(v.active).toBe(false);
+  expect(v.sleeper).toBeNull();
 });

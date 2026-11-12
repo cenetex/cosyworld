@@ -18,6 +18,18 @@ import {
   sleepWake,
 } from "./sleep-presentation.mjs";
 
+// The art-only view of a wake in progress. A wake plays after the rules have
+// already woken the sleeper, so the presentation shows them asleep on a copy
+// of the world; the committed world is never changed.
+export function asleepView(world, id) {
+  const actor = world?.actors?.[id];
+  if (!actor || actor.sleeping) return world;
+  return {
+    ...world,
+    actors: { ...world.actors, [id]: { ...actor, sleeping: true } },
+  };
+}
+
 export function createSleepView({
   stage,
   speechRow,
@@ -147,6 +159,10 @@ export function createSleepView({
     },
     get active() {
       return Boolean(sequence);
+    },
+    // Who still shows asleep: the dreamer, until the wake sequence ends.
+    get sleeper() {
+      return sequence && wake ? wake.id : null;
     },
     // The catcher and the dialogue button take the same next tap.
     get dreamTap() {
