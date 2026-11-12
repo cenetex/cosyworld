@@ -39,7 +39,13 @@ describe("a chosen quest's completion action", () => {
     const s = createWorld();
     expect(questStep(s, quest("place", "greek-gate"), false)).toBe(null);
     expect(questStep(s, quest("item", "oil"), true)).toEqual({
-      reason: NOT_FOUND,
+      reason: NOT_FOUND.item,
+    });
+    expect(questStep(s, quest("person", "moth"), true)).toEqual({
+      reason: "Not met yet",
+    });
+    expect(questStep(s, quest("place", "greek-gate"), true)).toEqual({
+      reason: "Not discovered yet",
     });
   });
 

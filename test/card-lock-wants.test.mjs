@@ -4,6 +4,7 @@ import "./helpers/still-cast.mjs";
 import { createWorld } from "../v2/card-game/world.mjs";
 import { goalsFrom, MOST_GOALS } from "../v2/card-game/world/lock-goals.mjs";
 import {
+  SEEK,
   UNKNOWN,
   joinWants,
   wantWords,
@@ -22,8 +23,8 @@ import { questCards } from "./journeys/quest-cards.mjs";
 const CARDS = {
   pip: { kind: "person", name: "Pip" },
   ada: { kind: "person", name: "Ada" },
-  lamp: { kind: "item", name: "Lamp", home: "hut" },
-  jar: { kind: "item", name: "Jar", home: "bay" },
+  lamp: { kind: "item", name: "Lamp" },
+  jar: { kind: "item", name: "Jar" },
   tea: { kind: "item", name: "Tea", drink: true },
   coat: { kind: "item", name: "Coat" },
   hut: { kind: "place", name: "Hut" },
@@ -33,7 +34,6 @@ const cards = {
   name: (id) => CARDS[id].name,
   kind: (id) => CARDS[id].kind,
   drink: (id) => Boolean(CARDS[id].drink),
-  home: (id) => CARDS[id].home,
 };
 const all = () => true;
 const none = () => false;
@@ -53,7 +53,7 @@ describe("one wording of a want", () => {
     ],
     [
       { kind: "item", target: "lamp", step: { verb: "bring", at: "hut" } },
-      "bring Lamp home to Hut",
+      "bring Lamp to Hut",
     ],
     [
       { kind: "item", target: "jar", step: { verb: "bring", at: "hut" } },
@@ -111,16 +111,48 @@ describe("one wording of a want", () => {
 
   it("shows an undiscovered card by its kind and never by name", () => {
     for (const [want, words] of [
-      [{ kind: "item", target: "lamp" }, `find ${UNKNOWN.item}`],
-      [{ kind: "person", target: "pip" }, `find ${UNKNOWN.person}`],
-      [{ kind: "place", target: "hut" }, `reach ${UNKNOWN.place}`],
+      [{ kind: "item", target: "lamp" }, "find something"],
+      [{ kind: "person", target: "pip" }, "meet someone"],
+      [{ kind: "place", target: "hut" }, "discover somewhere"],
+      [
+        { kind: "item", target: "lamp", step: { verb: "find" } },
+        "find something",
+      ],
+      [
+        { kind: "item", target: "lamp", step: { verb: "find", at: "hut" } },
+        "find something somewhere you haven't discovered",
+      ],
+      [
+        { kind: "person", target: "pip", step: { verb: "attack" } },
+        "strike someone you haven't met",
+      ],
+      [
+        { kind: "person", target: "ada", step: { verb: "bring", at: "bay" } },
+        "bring someone you haven't met somewhere you haven't discovered",
+      ],
+      [
+        { kind: "person", target: "ada", step: { verb: "bring", to: "pip" } },
+        "bring someone you haven't met to someone you haven't met",
+      ],
+      [
+        {
+          kind: "item",
+          target: "tea",
+          step: { verb: "eat", with: "ada", at: "hut" },
+        },
+        "drink something you haven't found with someone you haven't met somewhere you haven't discovered",
+      ],
+      [
+        { kind: "place", target: "hut", step: { verb: "rest" } },
+        "rest somewhere you haven't discovered",
+      ],
       [
         { kind: "item", target: "lamp", step: { verb: "give", to: "pip" } },
         `give ${UNKNOWN.item} to ${UNKNOWN.person}`,
       ],
       [
         { kind: "item", target: "lamp", step: { verb: "bring", at: "hut" } },
-        `bring ${UNKNOWN.item} home to ${UNKNOWN.place}`,
+        "find something, and bring it somewhere you haven't discovered",
       ],
       [
         {
@@ -128,7 +160,7 @@ describe("one wording of a want", () => {
           target: "hut",
           step: { verb: "lay", items: ["lamp", "coat"] },
         },
-        `lay ${UNKNOWN.item} in ${UNKNOWN.place}`,
+        "lay something you haven't found somewhere you haven't discovered",
       ],
     ]) {
       const text = say(want, none);
@@ -145,21 +177,67 @@ describe("one wording of a want", () => {
     };
     const text = (...found) => say(want, (id) => found.includes(id));
     expect(text()).toBe(
-      `bring ${UNKNOWN.item} to ${UNKNOWN.person} at ${UNKNOWN.place}`,
+      "find something, and bring it to someone you haven't met somewhere you haven't discovered",
+    );
+    expect(text("pip", "hut")).toBe(
+      "find something, and bring it to Pip at Hut",
     );
     expect(text("lamp")).toBe(
-      `bring Lamp to ${UNKNOWN.person} at ${UNKNOWN.place}`,
+      "bring Lamp to someone you haven't met somewhere you haven't discovered",
     );
-    expect(text("lamp", "pip")).toBe(`bring Lamp to Pip at ${UNKNOWN.place}`);
+    expect(text("lamp", "pip")).toBe(
+      "bring Lamp to Pip somewhere you haven't discovered",
+    );
     expect(text("lamp", "pip", "hut")).toBe("bring Lamp to Pip at Hut");
   });
 
+  it("puts no preposition before an unknown place", () => {
+    const hid = (id) => id !== "hut";
+    for (const [want, words] of [
+      [
+        { kind: "item", target: "lamp", step: { verb: "bring", at: "hut" } },
+        "bring Lamp somewhere you haven't discovered",
+      ],
+      [
+        { kind: "person", target: "ada", step: { verb: "bring", at: "hut" } },
+        "bring Ada somewhere you haven't discovered",
+      ],
+      [
+        { kind: "item", target: "coat", step: { verb: "eat", at: "hut" } },
+        "eat Coat somewhere you haven't discovered",
+      ],
+      [
+        {
+          kind: "place",
+          target: "hut",
+          step: { verb: "lay", items: ["lamp"] },
+        },
+        "lay Lamp somewhere you haven't discovered",
+      ],
+      [
+        { kind: "person", target: "pip", step: { verb: "attack", at: "hut" } },
+        "strike Pip somewhere you haven't discovered",
+      ],
+    ])
+      expect(say(want, hid)).toBe(words);
+    expect(
+      say(
+        { kind: "item", target: "lamp", step: { verb: "bring", at: "hut" } },
+        (id) => id === "hut",
+      ),
+    ).toBe("find something, and bring it to Hut");
+  });
+
   it("words items, avatars and places alike: only the kind of card differs", () => {
-    const find = (kind, target) => say({ kind, target }, none).split(" ")[0];
-    expect(find("item", "lamp")).toBe("find");
-    expect(find("person", "pip")).toBe("find");
-    // A place is reached, an avatar met, an item found; each still unknown.
-    expect(say({ kind: "place", target: "hut" }, none)).toMatch(/^reach /u);
+    const seek = (kind, target) => say({ kind, target }, none);
+    expect(seek("item", "lamp")).toBe(SEEK.item);
+    expect(seek("person", "pip")).toBe(SEEK.person);
+    expect(seek("place", "hut")).toBe(SEEK.place);
+    expect(UNKNOWN).toEqual({
+      item: "something you haven't found",
+      person: "someone you haven't met",
+      place: "somewhere you haven't discovered",
+    });
   });
 
   it("is deterministic and leaves its input alone", () => {
@@ -184,7 +262,7 @@ describe("one wording of a want", () => {
       return words[0].toUpperCase() + words.slice(1);
     };
     expect(joinWants(wants, worded)).toBe(
-      "Talk with Pip and bring Lamp home to Hut",
+      "Talk with Pip and bring Lamp to Hut",
     );
     expect(joinWants([], worded)).toBe("");
   });

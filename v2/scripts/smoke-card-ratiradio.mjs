@@ -161,7 +161,7 @@ try {
       await clearSelection(page);
       await choose(raven);
       assert.equal(await card(raven).getAttribute("data-locked"), "true");
-      assert.match(await page.locator(".action-beat-heading").textContent(), /glass, raven figurine, red beanie/u);
+      assert.match(await page.locator(".action-beat-heading").textContent(), /^\s*Find something, and bring it to Listening Room\s*$/u);
       assert.equal(await page.locator('#card-actions [data-action="talk"], #card-actions [data-action="give"], #card-actions [data-action="threaten"]').count(), 0);
       await shot("raven-locked");
       report.checks.push("Locked Raven shows the return descriptor without interaction actions");
