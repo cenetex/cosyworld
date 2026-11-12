@@ -327,7 +327,9 @@ describe("XP for opening a box", () => {
       target: "greek-guard",
     });
     expect(opened.opened["greek-battlefield"]).toEqual(["vale"]);
-    expect(opened.actors.vale.xp).toBe(xp + 1);
+    // The box opens (1) and the Writ quest held for it is met from wherever
+    // it sits in the stack (1; rules 134 evaluates every held quest).
+    expect(opened.actors.vale.xp).toBe(xp + 2);
     // The guard walking off his post is nothing the traveller did.
     const gone = structuredClone(writ);
     gone.actors["greek-guard"].place = "greek-courtyard";

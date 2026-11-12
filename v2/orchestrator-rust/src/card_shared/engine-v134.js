@@ -2206,10 +2206,11 @@
         if (s.actors[other] && !a.talked.includes(other))
           a.talked = [...a.talked, other].slice(-64);
       }
-      if (a.want && questMet(s, id, a.want, talk, action)) {
-        commitMet(s, id, api, met2);
-        helped(s, id, api, action);
-      }
+      for (const held of api.player(id) ? heldOf(a) : a.want ? [a.want] : [])
+        if (questMet(s, id, held, talk, action)) {
+          commitMet(s, id, api, met2, held);
+          helped(s, id, api, action);
+        }
       if (a.xp > before) milestones(s, id, before, api);
     }
     return met2;

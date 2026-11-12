@@ -54,7 +54,8 @@ describe("XP the Greek and RatiRadio content pays", () => {
       "greek-helen-egypt",
       "greek-menelaus-egypt",
     ]);
-    expect(xp(world) - before).toBe(3);
+    // Three boxes, and a held quest met from beneath the others (rules 134).
+    expect(xp(world) - before).toBe(4);
   });
 
   const id = (name) => `ratiradio-${name}`;
@@ -127,13 +128,15 @@ describe("XP the Greek and RatiRadio content pays", () => {
     // the play that opens its box pays one more beside the box: two met here
     // without the keepsake wants (6), and one more when the keepsake wants
     // are held on top (10 in all, the figurine and the glass among them).
-    expect(without.total).toBe(6);
-    expect(withKeepsakes.total).toBe(10);
+    expect(without.total).toBe(7);
+    // Quests held beneath others are met too: the Listening Room walk pays 2 and the Booth 1 (12 in all).
+    expect(withKeepsakes.total).toBe(12);
     expect(withKeepsakes.gains).toEqual({
       "take ratiradio-red-beanie": 2,
       "talk ratiradio-rati": 1,
       "drop ratiradio-thermos": 1,
-      "move ratiradio-listening-room": 1,
+      "move ratiradio-listening-room": 2,
+      "move ratiradio-broadcast-booth": 1,
       "drop ratiradio-glass": 2,
       "drop ratiradio-raven-figurine": 3,
     });

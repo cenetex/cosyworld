@@ -57,7 +57,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "644795386ab71c2e"
+      "sha256": "d63c33abf4f8ff70"
     }
   },
   "greek-before-funeral-dry": {
@@ -136,7 +136,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "644795386ab71c2e"
+      "sha256": "d63c33abf4f8ff70"
     },
     "battlefield": {
       "turn": 20,
@@ -144,7 +144,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "34c4e3cb5e7b4450"
+      "sha256": "16f01336bece628d"
     }
   },
   "greek-gate-open-full": {
@@ -205,7 +205,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "8d81881addc8fc14"
+      "sha256": "8cb18ddde125b1d9"
     },
     "battlefield": {
       "turn": 20,
@@ -213,7 +213,7 @@
       "carried": [
         "lamp"
       ],
-      "sha256": "a0caba21b3b397f4"
+      "sha256": "8ca74812ecd4a8ad"
     }
   },
   "quest-cards": {

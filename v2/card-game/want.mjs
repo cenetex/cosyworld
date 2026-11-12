@@ -609,10 +609,14 @@ export function settleWants(s, actors, api, action = null) {
       if (s.actors[other] && !a.talked.includes(other))
         a.talked = [...a.talked, other].slice(-64);
     }
-    if (a.want && questMet(s, id, a.want, talk, action)) {
-      commitMet(s, id, api, met);
-      helped(s, id, api, action);
-    }
+    // Every quest a player holds is live, not only the top (rules 134): each
+    // one met by this play is paid and leaves the stack, top first. Only the
+    // top is shown. A resident holds one.
+    for (const held of api.player(id) ? heldOf(a) : a.want ? [a.want] : [])
+      if (questMet(s, id, held, talk, action)) {
+        commitMet(s, id, api, met, held);
+        helped(s, id, api, action);
+      }
     if (a.xp > before) milestones(s, id, before, api);
   }
   return met;

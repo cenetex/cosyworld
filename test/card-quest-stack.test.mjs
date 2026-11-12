@@ -201,3 +201,56 @@ describe("the stack is validated", () => {
     }
   });
 });
+
+describe("every held quest is live", () => {
+  const pip = () => talk(createPipWorld(5));
+
+  it("meets a buried quest while another is on top, and pays it", () => {
+    let s = pip();
+    holdQuest(s, "vale", newWant("place", "station", s.turn), "quest:box:test");
+    expect(sources(s)).toEqual(["quest:box:test", FROM]);
+    // Pip's quest is buried; giving him the lamp meets it from beneath.
+    s.items.lamp.holder = "vale";
+    s.actors.moth.place = "pond";
+    s.actors.vale.place = "pond";
+    const xp = s.actors.vale.xp;
+    const give = legalActions(s).find((a) => a.kind === "give" && a.target === "moth");
+    s = play(s, give, s.revision).state;
+    expect(sources(s)).toEqual(["quest:box:test"]);
+    expect(s.actors.vale.want.target).toBe("station");
+    expect(s.actors.vale.closed[FROM]).toBeTruthy();
+    expect(s.actors.vale.xp).toBeGreaterThan(xp);
+  });
+
+  it("meets two quests with one play, each paid, top first", () => {
+    let s = pip();
+    s.items.lamp.holder = "vale";
+    // A second quest on top asks for the same lamp to be held.
+    holdQuest(s, "vale", newWant("item", "lamp", s.turn), "quest:box:test");
+    expect(sources(s)).toEqual(["quest:box:test", FROM]);
+    const xp = s.actors.vale.xp;
+    s = wait(s);
+    // Holding the lamp meets the top one at once; Pip's waits for its give.
+    expect(sources(s)).toEqual([FROM]);
+    expect(s.actors.vale.xp).toBe(xp + 1);
+    s.actors.moth.place = "pond";
+    s.actors.vale.place = "pond";
+    const give = legalActions(s).find((a) => a.kind === "give" && a.target === "moth");
+    const before = s.actors.vale.xp;
+    s = play(s, give, s.revision).state;
+    expect(sources(s)).not.toContain(FROM);
+    // The give pays its own quest and helps Pip meet his want.
+    expect(s.actors.vale.xp).toBeGreaterThanOrEqual(before + 2);
+  });
+
+  it("clears buried quests the world already satisfies", () => {
+    let s = pip();
+    holdQuest(s, "vale", newWant("item", "lamp", s.turn), "quest:box:test");
+    holdQuest(s, "vale", newWant("place", "pond", s.turn), "quest:box:other");
+    s.items.lamp.holder = "vale";
+    s = wait(s);
+    expect(sources(s)).toEqual([FROM]);
+    expect(s.actors.vale.closed["quest:box:test"]).toBeTruthy();
+    expect(s.actors.vale.closed["quest:box:other"]).toBeTruthy();
+  });
+});
