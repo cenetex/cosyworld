@@ -74,7 +74,7 @@
     ".action-panel[data-avatar] .action-beat-text { -webkit-line-clamp: none; display: block; line-clamp: none; overflow: visible }",
     ".action-panel[data-card-tap=\"hint\"] .action-beat-body { padding-bottom: 22px }",
     ".action-panel[data-card-tap=\"hint\"] .action-beat-text strong { color: inherit; font-weight: 700 }",
-    ".action-panel[data-card-tap=\"hint\"] .action-beat-text { color: #f2e3c4; display: block; font: var(--action-font); overflow: visible }",
+    ".action-panel[data-card-tap=\"hint\"] .action-beat-text { color: #f2e3c4; display: block; font: var(--action-font); overflow-wrap: break-word; overflow: visible }",
     ".beat-action #card-actions button { -webkit-tap-highlight-color: transparent; background: transparent; border-radius: 0; border: 0; color: #f2e3c4; flex: 1 1 auto; font: 15px/1.25 Georgia,serif; margin: 0; max-width: none; min-height: 44px; padding: 4px 14px }",
     ".beat-action #card-actions button+button { box-shadow: inset 1px 0 0 var(--beat-divider) }",
     ".beat-action #card-actions button:active { background: #dfc38d33; color: var(--gold) }",
