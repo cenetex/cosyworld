@@ -12,9 +12,14 @@ use super::{name, profiles};
 /// Tablet", "something I can't make out".
 pub(super) fn the(thing: &str) -> String {
     let lower = thing.to_lowercase();
-    if ["the ", "a ", "an ", "something ", "someone "]
-        .iter()
-        .any(|lead| lower.starts_with(lead))
+    let owned = lower
+        .split(' ')
+        .next()
+        .is_some_and(|first| first.ends_with("'s") || first.ends_with('\''));
+    if owned
+        || ["the ", "a ", "an ", "something ", "someone "]
+            .iter()
+            .any(|lead| lower.starts_with(lead))
     {
         thing.to_string()
     } else {
@@ -155,7 +160,9 @@ pub(super) fn shift(text: &str, own: &str) -> String {
         let start = opens(&text, at);
         let possessive = ["'s ", "’s "].iter().find(|p| tail.starts_with(**p));
         if let Some(p) = possessive {
-            out.push_str(if start { "My " } else { "my " });
+            if !out.ends_with("my ") && !out.ends_with("My ") {
+                out.push_str(if start { "My " } else { "my " });
+            }
             from = end + p.len();
         } else if start && tail.starts_with(" and ") {
             // "Vale and The Bard talk" is "The Bard and I talk".
@@ -296,6 +303,18 @@ mod tests {
                 "Pip refused my offer of Bell.",
             ),
             ("Vale's lamp is lit.", "My lamp is lit."),
+            (
+                "I would trade my Vale's Seal for The Tin Ledger.",
+                "I would trade my Seal for The Tin Ledger.",
+            ),
+            (
+                "I would accept The Tin Ledger from Pip in trade for my Vale's Seal now.",
+                "I would accept The Tin Ledger from Pip in trade for my Seal now.",
+            ),
+            (
+                "If Pip asked me for Vale's Seal, I would refuse to give it.",
+                "If Pip asked me for my Seal, I would refuse to give it.",
+            ),
             ("Vales of mist.", "Vales of mist."),
             (
                 "I witnessed this just now: Vale gives the Lamp to Pip.",
@@ -308,6 +327,9 @@ mod tests {
         ] {
             assert_eq!(shift(text, "Vale"), mine, "{text}");
         }
+        assert_eq!(the("Orrin's Seal"), "Orrin's Seal");
+        assert_eq!(the("Tin Ledger"), "the Tin Ledger");
+        assert_eq!(the("The Tin Ledger"), "The Tin Ledger");
         assert_eq!(moments("for two turns"), "for two moments");
         assert_eq!(
             moments("The Bell made no sound this turn: it is silent."),

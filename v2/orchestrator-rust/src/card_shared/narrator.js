@@ -20544,11 +20544,16 @@
     const payments = carried(world, partner).filter(
       (item) => world.items[item].holder === partner && entityActive(world, item) && visibleItem(world, speaker, item, here2)
     );
+    const want = wantOf2(world, speaker);
+    const price = want?.kind === "item" && revealed(world, speaker, want, partner) && !carried(world, speaker).includes(want.target) && want.target;
     return items2.flatMap((item) => {
-      const facts = [willingToGive(world, speaker, item, partner) ? `If ${nameOf(partner)} asked me for ${nameOf(item)}, I would agree to give it.` : `If ${nameOf(partner)} asked me for ${nameOf(item)}, I would refuse to give it.`];
+      const given = willingToGive(world, speaker, item, partner);
+      const facts = [given ? `If ${nameOf(partner)} asked me for ${nameOf(item)}, I would agree to give it.` : `If ${nameOf(partner)} asked me for ${nameOf(item)}, I would refuse to give it.`];
+      if (price && !given)
+        facts.push(`I would trade my ${nameOf(item)} for ${nameOf(price)}.`);
       const offers = payments.filter((payment) => canTrade(world, partner, payment, item));
       for (const payment of offers)
-        facts.push(`I would accept ${nameOf(partner)}'s ${nameOf(payment)} in trade for my ${nameOf(item)} now.`);
+        facts.push(`I would accept ${nameOf(payment)} from ${nameOf(partner)} in trade for my ${nameOf(item)} now.`);
       if (payments.length && !offers.length)
         facts.push(`No item ${nameOf(partner)} is showing me would make me trade ${nameOf(item)} now.`);
       return facts;

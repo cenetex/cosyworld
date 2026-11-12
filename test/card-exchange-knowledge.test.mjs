@@ -1,6 +1,6 @@
 import "./helpers/still-cast.mjs";
 import { expect, it } from "vitest";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, nameOf, play } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
@@ -21,7 +21,7 @@ function act(world, fields) {
 }
 const knowledge = (world, id, hidden = null) =>
   narrativeContext(world, null, hidden).entities.find((e) => e.id === id)?.facts
-    .filter((f) => /asked me for|in trade for my|is showing me/.test(f)) || [];
+    .filter((f) => /asked me for|in trade for my|is showing me|I would trade my/.test(f)) || [];
 const answer = (world, verb) => world.log.findLast((e) => e.verb === verb).accepted;
 
 it("knows Ismene's refusal before the request and retains the real custody afterward", () => {
@@ -65,7 +65,7 @@ it("prices a visible offer through the same rules that commit its trade", () => 
   world.items.cloth.holder = "vale";
   world.actors.vale.heldItem = "bell";
   expect(knowledge(world, "keeper")).toContain(
-    "I would accept Vale's Bell in trade for my Oil flask now.");
+    "I would accept Bell from Vale in trade for my Oil flask now.");
   expect(knowledge(world, "keeper").join(" ")).not.toContain("Black cloth");
   const hidden = knowledge(world, "keeper", (id) => id === "bell").join(" ");
   expect(hidden).not.toContain("Bell");
@@ -73,6 +73,28 @@ it("prices a visible offer through the same rules that commit its trade", () => 
   expect(answer(world, "trade")).toBe(true);
   expect(world.items.oil.holder).toBe("vale");
   expect(world.items.bell.holder).toBe("keeper");
+});
+
+it("names the price of a kept item from its own want, shown or not (#2739)", () => {
+  let world = encounter();
+  const [mine, wanted] = [nameOf("oil"), nameOf("bell")];
+  const refuse = `If Vale asked me for ${mine}, I would refuse to give it.`;
+  const price = `I would trade my ${mine} for ${wanted}.`;
+  world.actors.keeper.want = null;
+  expect(knowledge(world, "keeper")).toEqual([refuse]);
+  world.actors.keeper.want = {kind: "item", target: "bell", since: 0, refusals: 0};
+  expect(knowledge(world, "keeper")).toEqual([refuse, price]);
+  world.items.bell.holder = "vale";
+  world.actors.vale.heldItem = "bell";
+  expect(knowledge(world, "keeper")).toEqual([refuse, price,
+    `I would accept ${wanted} from Vale in trade for my ${mine} now.`]);
+  expect(knowledge(world, "keeper", (id) => id === "bell")).toContain(
+    `I would trade my ${mine} for something I can't make out.`);
+  world = act(world, {kind: "ask", item: "oil", target: "keeper"});
+  expect(answer(world, "ask")).toBe(false);
+  world = act(world, {kind: "trade", item: "bell", receive: "oil"});
+  expect(answer(world, "trade")).toBe(true);
+  expect(knowledge(world, "keeper").join(" ")).not.toContain("I would trade my");
 });
 
 it("does not infer a better offer from the player's private inventory", () => {
@@ -110,7 +132,7 @@ it("recomputes the price after real grievances instead of retaining an earlier o
   world.items.bell.holder = "vale";
   world.actors.vale.heldItem = "bell";
   expect(knowledge(world, "keeper")).toContain(
-    "I would accept Vale's Bell in trade for my Oil flask now.");
+    "I would accept Bell from Vale in trade for my Oil flask now.");
   world = act(act(world, {kind: "ring", item: "bell"}), {kind: "ring", item: "bell"});
   expect(knowledge(world, "keeper")).toContain(
     "No item Vale is showing me would make me trade Oil flask now.");
