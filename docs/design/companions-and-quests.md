@@ -8,6 +8,8 @@ under [#2605](https://github.com/cenetex/cosyworld/issues/2605). Patroclus is
 
 The [quest and gate audit of 2026-11-11](quest-audit-2026-11-11.md) checks
 every authored gate in the mounted packs against these decisions.
+[The Open Door as interlocking puzzles](open-door-rework.md) is the first
+worked example of content built on them.
 
 This page does not reopen anything in wants and arcs. It adds three things
 that page leaves open: a companion who stays with you, a quest as one idea

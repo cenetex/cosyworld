@@ -19,6 +19,13 @@ Token and the Shelter Blanket stay, because residents value the token and the
 blanket is still read by Marathon's chain. Patroclus, the Ajax section and the
 Truce and Sacred Way latches are unchanged.
 
+**Then:** the RATi Radio entrance, Dispatch Window and Listening Room (R1 to
+R3) now follow their items, the Willows mist crossing needs only night and mist
+(W1), and the canoe outlives the Swede (W4, question 10). The Booth and Raven
+(R4, R5), the scatter pool (R7, question 8) and the items (R8, W6) are
+unchanged; the scatter pool is set in `pack-items.mjs`, so it needs a rules
+change.
+
 Audited `origin/main` at `fb5d5afbe` (package 1.2.127, rules 133; pack
 revisions: greek-drama 24, lonely-forest 3, ratiradio 3, willows 2,
 hoppycat-archive 4, badger-forest 1).

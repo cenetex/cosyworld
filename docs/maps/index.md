@@ -10,7 +10,7 @@ Maps of every mounted card pack: the places and ways, the gates that shut them, 
 | [Hoppy Cat: February Third](hoppycat-archive.md) | 6 | 11 | 10 | 52 | 52 | 1 |
 | [The Willows](willows.md) | 4 | 10 | 5 | 11 | 11 | 2 |
 | [Lonely Forest](lonely-forest.md) | 4 | 10 | 19 | 33 | 31 | 1 |
-| [Night Shift at RatiRadio](ratiradio.md) | 4 | 8 | 6 | 8 | 6 | 1 |
+| [Night Shift at RatiRadio](ratiradio.md) | 4 | 8 | 6 | 5 | 3 | 1 |
 
 ## How the packs join
 
@@ -41,6 +41,6 @@ The hub starts at `pond`. Entries come from each pack's bridge.
 - The Steam Clock: `sound`
 - The Wine-Dark Sea: `actor_at`, `choice`, `choice_unset`, `clock`, `flag`, `grounded`, `holding`, `in_hand`, `item_at`, `item_near`, `item_present`, `knows`, `light`, `met`, `pack_item_present`, `ship_at`
 - Hoppy Cat: February Third: `choice`, `choice_unset`, `drawn`, `flag`, `holding`, `item_at`, `item_near`, `item_present`, `met`
-- The Willows: `daylight`, `flag`, `item_near`, `item_present`, `met`, `pack_item_present`, `ship_at`, `weather`
+- The Willows: `daylight`, `flag`, `item_near`, `met`, `ship_at`, `weather`
 - Lonely Forest: `flag`, `holding`, `item_near`, `item_present`, `knows`, `light`, `met`, `tag_held`, `upgraded`
-- Night Shift at RatiRadio: `flag`, `holding`, `item_at`
+- Night Shift at RatiRadio: `flag`, `holding`, `item_at`, `item_present`

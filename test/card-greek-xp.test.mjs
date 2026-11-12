@@ -79,7 +79,6 @@ describe("XP the Greek and RatiRadio content pays", () => {
       ["take", id("thermos")],
       ["move", id("dispatch-window")],
       ["drop", id("thermos")],
-      ["take", id("thermos")],
       ["move", home],
       ["drop", id("red-beanie")],
       ["take", id("raven-figurine")],

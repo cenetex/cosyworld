@@ -163,38 +163,19 @@
                   "atom": "ship_at(dock=@sea,transport=greek-ship)"
                 }
               ]
-            },
-            {
-              "op": "or",
-              "of": [
-                {
-                  "op": "atom",
-                  "atom": "item_present(item=greek-provisions,place=greek-ship)"
-                },
-                {
-                  "op": "atom",
-                  "atom": "pack_item_present(pack=hoppycat-archive,place=greek-ship)"
-                }
-              ]
             }
           ]
         },
-        "words": "it is night and The Charybdis has mist weather and (greek-ship is docked at Black pond or greek-ship is at sea) and (Travel Provisions is in The Charybdis or a hoppycat-archive thing is in The Charybdis)",
-        "ids": "it is night and greek-ship has mist weather and (greek-ship is docked at pond or greek-ship is at sea) and (greek-provisions is in greek-ship or a hoppycat-archive thing is in greek-ship)",
+        "words": "it is night and The Charybdis has mist weather and (greek-ship is docked at Black pond or greek-ship is at sea)",
+        "ids": "it is night and greek-ship has mist weather and (greek-ship is docked at pond or greek-ship is at sea)",
         "latch": [],
         "live": [
           "daylight(phase=night)",
-          "item_present(item=greek-provisions,place=greek-ship)",
-          "pack_item_present(pack=hoppycat-archive,place=greek-ship)",
           "ship_at(dock=@sea,transport=greek-ship)",
           "ship_at(dock=pond,transport=greek-ship)",
           "weather(condition=mist,place=greek-ship)"
         ],
-        "prerequisites": {
-          "item": [
-            "greek-provisions"
-          ]
-        }
+        "prerequisites": {}
       },
       {
         "id": "crossing:willows-landing-greek-ship",
@@ -246,10 +227,6 @@
           "of": [
             {
               "op": "atom",
-              "atom": "flag(key=willows-swede-gone,value=false)"
-            },
-            {
-              "op": "atom",
               "atom": "item_near(item=willows-paddle,place=willows-camp)"
             },
             {
@@ -266,11 +243,9 @@
             }
           ]
         },
-        "words": "willows-swede-gone is not set and Worn Paddle is in River Camp and Waterproof Sheet is in River Camp and Tent Rope is in River Camp and Food Sack is in River Camp",
-        "ids": "willows-swede-gone is not set and willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp",
-        "latch": [
-          "flag(key=willows-swede-gone,value=false)"
-        ],
+        "words": "Worn Paddle is in River Camp and Waterproof Sheet is in River Camp and Tent Rope is in River Camp and Food Sack is in River Camp",
+        "ids": "willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp",
+        "latch": [],
         "live": [
           "item_near(item=willows-paddle,place=willows-camp)",
           "item_near(item=willows-provisions,place=willows-camp)",
@@ -295,10 +270,6 @@
           "of": [
             {
               "op": "atom",
-              "atom": "flag(key=willows-swede-gone,value=false)"
-            },
-            {
-              "op": "atom",
               "atom": "item_near(item=willows-paddle,place=willows-camp)"
             },
             {
@@ -315,11 +286,9 @@
             }
           ]
         },
-        "words": "willows-swede-gone is not set and Worn Paddle is in River Camp and Waterproof Sheet is in River Camp and Tent Rope is in River Camp and Food Sack is in River Camp",
-        "ids": "willows-swede-gone is not set and willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp",
-        "latch": [
-          "flag(key=willows-swede-gone,value=false)"
-        ],
+        "words": "Worn Paddle is in River Camp and Waterproof Sheet is in River Camp and Tent Rope is in River Camp and Food Sack is in River Camp",
+        "ids": "willows-paddle is in willows-camp and willows-sheet is in willows-camp and willows-rope is in willows-camp and willows-provisions is in willows-camp",
+        "latch": [],
         "live": [
           "item_near(item=willows-paddle,place=willows-camp)",
           "item_near(item=willows-provisions,place=willows-camp)",
@@ -826,8 +795,6 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "crossing:pond-willows-landing",
-          "crossing:willows-landing-pond",
           "resident:willows-swede"
         ],
         "gates": [],
@@ -979,10 +946,6 @@
         "place:willows-landing",
         "resident:willows-swede"
       ],
-      "crossing:greek-ship-willows-landing": [
-        "item:greek-provisions",
-        "place:greek-ship"
-      ],
       "crossing:pond-willows-landing": [
         "item:willows-paddle",
         "item:willows-provisions",
@@ -1100,20 +1063,10 @@
       "class": "live",
       "words": "willows-sheet is in willows-camp"
     },
-    "item_present(item=greek-provisions,place=greek-ship)": {
-      "kind": "item_present",
-      "class": "live",
-      "words": "greek-provisions is in greek-ship"
-    },
     "met(actor=willows-swede)": {
       "kind": "met",
       "class": "latch",
       "words": "willows-swede has been met"
-    },
-    "pack_item_present(pack=hoppycat-archive,place=greek-ship)": {
-      "kind": "pack_item_present",
-      "class": "live",
-      "words": "a hoppycat-archive thing is in greek-ship"
     },
     "ship_at(dock=@sea,transport=greek-ship)": {
       "kind": "ship_at",
@@ -1135,9 +1088,7 @@
     "daylight",
     "flag",
     "item_near",
-    "item_present",
     "met",
-    "pack_item_present",
     "ship_at",
     "weather"
   ]

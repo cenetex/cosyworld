@@ -21,7 +21,8 @@ visiting companion.
 ## Play
 
 Aboard the Greek ship on a misty night, at Black Pond or at sea between ports,
-choose Visit the Willows. River mist beside the rail leads to River Landing. By
+choose Visit the Willows. The ship carries no cargo for it; only night and mist
+open the way. River mist beside the rail leads to River Landing. By
 day, on a night without mist, or with the ship at any other port, the mist does
 not rise and the card is not on the deck. No date changes this: after Halloween
 as before, only night and mist open the way. The deck has its own sea weather
@@ -49,16 +50,17 @@ The Swede's kit is scattered: the Worn Paddle, Waterproof Sheet, Tent Rope and
 Food Sack. While all four are at the camp the canoe is mended: anyone may paddle
 it between the landing and Black Pond, and the Swede leaves his camp as a
 travelling resident (`stayUntil`). Carry one away and both wait again. If the
-Swede takes the canoe himself, he leaves the world for good and the canoe goes
-with him: his pipe stays on the sand and the canoe route closes. For now the
+Swede takes the canoe himself, he leaves the world for good; his pipe stays on
+the sand and the canoe stays with the kit, so anyone may still paddle it while
+the four things lie at the camp. For now the
 sheet and sack lie at the landing and the paddle and rope at the bank; the
 specials draw will scatter them across the other worlds. The pot, spoon, map and
 pipe stay at the camp as lore objects, each inscribed with one short line from
 the story.
 
 The open canoe crossing selects `landing-mended.webp` by day, using the same
-kit and departure conditions as travel. Removing a kit item or letting the
-Swede leave removes that painting. The ordinary night and dark-mist ship
+kit conditions as travel. Removing a kit item removes that painting; the
+Swede leaving does not. The ordinary night and dark-mist ship
 paintings still take over at night.
 
 Past the landing the island is never dry. The camp, the thicket and the bank

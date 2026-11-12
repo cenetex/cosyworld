@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-ship-willows",
   "pack": "willows",
-  "description": "On a misty night, while the Charybdis lies at Black Pond or sails between ports with the Travel Provisions or something from Hoppy Cat aboard, river mist beside its rail opens onto a small Danube island and keeps a path back. Once the Swede's kit is all back at his camp, the mended canoe also runs between the landing and Black Pond, for anyone.",
+  "description": "On a misty night, while the Charybdis lies at Black Pond or sails between ports, river mist beside its rail opens onto a small Danube island and keeps a path back. While the Swede's kit is all at his camp, the mended canoe also runs between the landing and Black Pond, for anyone.",
   "entries": [
     {
       "joins": "hub",
@@ -40,21 +40,6 @@
           "conditions": [
             { "kind": "ship_at", "transport": "greek-ship", "dock": "pond" },
             { "kind": "ship_at", "transport": "greek-ship", "dock": "@sea" }
-          ]
-        },
-        {
-          "kind": "any",
-          "conditions": [
-            {
-              "kind": "item_present",
-              "item": "greek-provisions",
-              "place": "greek-ship"
-            },
-            {
-              "kind": "pack_item_present",
-              "pack": "hoppycat-archive",
-              "place": "greek-ship"
-            }
           ]
         }
       ],
@@ -94,11 +79,6 @@
       "travel": "downriver in the mended canoe",
       "requires": [
         {
-          "kind": "flag",
-          "key": "willows-swede-gone",
-          "value": false
-        },
-        {
           "kind": "item_near",
           "item": "willows-paddle",
           "place": "willows-camp"
@@ -132,11 +112,6 @@
       "travelers": "any",
       "travel": "upriver in the mended canoe",
       "requires": [
-        {
-          "kind": "flag",
-          "key": "willows-swede-gone",
-          "value": false
-        },
         {
           "kind": "item_near",
           "item": "willows-paddle",
