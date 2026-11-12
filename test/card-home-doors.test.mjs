@@ -164,7 +164,9 @@ describe("an unlocked avatar's homecoming", () => {
         step: { verb: "bring", at: "theatre" },
       },
     });
-    expect(wantText(offers[0].want)).toContain("home");
+    expect(wantText(offers[0].want)).toBe(
+      "bring Theatre mask to Paper theatre",
+    );
   });
 
   it("puts every avatar's belonging and door where no lamp is needed", () => {

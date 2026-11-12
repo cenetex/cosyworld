@@ -68,7 +68,7 @@ describe("locked boxes", () => {
       });
       // The Shade is not yet met: the lock does not name him.
       expect(lockedQuest(world, "greek-polynices-hollow").text).toBe(
-        `Find ${UNKNOWN.person}`,
+        "Meet someone",
       );
     } finally {
       route.sealed.quest = quest;
