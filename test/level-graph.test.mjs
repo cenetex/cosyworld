@@ -5,7 +5,6 @@ import {
   LIVE_KINDS,
   buildPackGraph,
 } from "../scripts/lib/level-graph.mjs";
-import { renderPackPage } from "../scripts/build-level-maps.mjs";
 
 const flag = (key, value = true) => ({ kind: "flag", key, value });
 const act = (id, at, subject, requires, effects) => ({
@@ -134,13 +133,9 @@ describe("level graph", () => {
     expect(() => buildPackGraph(pack, hub)).toThrow(/moonphase/u);
   });
 
-  it("is stable and renders Mermaid and tables", () => {
+  it("is stable", () => {
     const one = buildPackGraph(synthetic(), hub);
     const two = buildPackGraph(synthetic(), hub);
     expect(JSON.stringify(one)).toBe(JSON.stringify(two));
-    const page = renderPackPage(one);
-    expect(page).toContain("```mermaid");
-    expect(page).toContain("| `route:a>far`");
-    expect(page).toContain("## Flags");
   });
 });

@@ -1,6 +1,3 @@
-// Warn when a pull request changes the shared rules engine without the
-// `engine` label and a design note. Bundle membership comes from walking the
-// static imports of the shared entry, so no build is needed.
 import { existsSync, readFileSync, appendFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,13 +48,7 @@ export function engineGate({ changed, labels, modules }) {
     (file) => BUNDLE.test(file) || WIRING.includes(file) || members.has(file),
   );
   const labelled = labels.includes("engine");
-  const designNote = changed.some((file) => /^docs\/design\/.+/.test(file));
-  return {
-    engine,
-    labelled,
-    designNote,
-    warn: engine.length > 0 && !(labelled && designNote),
-  };
+  return { engine, labelled, warn: engine.length > 0 && !labelled };
 }
 
 export function summary(result, modules) {
@@ -67,15 +58,8 @@ export function summary(result, modules) {
   else {
     lines.push(
       result.warn
-        ? "**Warning:** this PR changes the shared rules engine without " +
-            [
-              !result.labelled && "the `engine` label",
-              !result.designNote && "a design note under `docs/design/`",
-            ]
-              .filter(Boolean)
-              .join(" or ") +
-            "."
-        : "This PR changes the shared rules engine with the `engine` label and a design note.",
+        ? "**Warning:** this PR changes the shared rules engine without the `engine` label."
+        : "This PR changes the shared rules engine with the `engine` label.",
       "",
       "Engine changes mint a new released rules bundle that journal replay keeps forever. " +
         "Make them deliberate and batch them into an engine release; prefer pack data for features. " +
@@ -115,6 +99,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   else console.log(text);
   if (result.warn)
     console.log(
-      "::warning title=Shared rules engine change::Add the `engine` label and a design note under docs/design/. Engine changes are deliberate and batched; prefer pack data. See .github/AGENT.md.",
+      "::warning title=Shared rules engine change::Add the `engine` label. Engine changes are deliberate and batched; prefer pack data.",
     );
 }

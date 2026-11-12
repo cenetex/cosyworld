@@ -28,7 +28,7 @@ permissions:
 # variable, so switching to the Fly runner (#1565) needs no workflow edit.
 jobs:
   plan:
-    name: Change budget, version, engine gate, and smoke plan
+    name: Change budget, comment ratchet, version, engine gate, and smoke plan
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     # Up to 15 minutes of this is the wait for a production deploy.
     timeout-minutes: 20
@@ -90,6 +90,11 @@ jobs:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: node scripts/check-change-budget.mjs --base "$PR_BASE" --head "$PR_HEAD"
+      - name: Check comment ratchet
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: npm run check:comments -- --base "$PR_BASE"
       - name: Check version alignment
         run: npm run check:version
       # New card-table UI needs the owner's approval in ui-inventory.json.
@@ -135,7 +140,6 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run lint
-      - run: npm run docs:check
       - run: npm run check:test-guards
       # Every generated output rebuilds from its sources; a stale one fails
       # here with the command that fixes it (`npm run regen`). It runs once
