@@ -179,6 +179,8 @@ Two points where the owner's words are read, and the owner may correct them:
 
 ## One definition of a quest
 
+(The batch spec for level quests replacing XP is [level quests](level-quests.md).)
+
 **A quest is a want held by something, met by a world fact, and paid as XP to
 whoever's play met it.** The record exists already: a kind, a target and
 sometimes a step. What changes is who may hold one.

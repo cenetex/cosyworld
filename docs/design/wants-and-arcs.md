@@ -158,7 +158,8 @@ This draft does not reopen these.
   ([rules 95](rules-95-item-cycle-and-sealed-gates.md)).
 - Fixed verbs; Talk is the path to desires (#1581, open;
   [Talk-triggered choices](talk-triggered-choices.md)).
-- [Level curve](level-curve.md), [sleep](sleep.md) (#2028),
+- [Level quests replace XP](level-quests.md) (rules 134 spec),
+  [level curve](level-curve.md), [sleep](sleep.md) (#2028),
   [rest and sanctuary](../../v2/docs/card-table/rest-and-sanctuary.md)
   (#1648), [residents level at home](resident-level-home.md).
 - Crafting is a locked thing and its unlock quest
