@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
+import { STEP_GUARD_MS } from "../card-game/title-intro.mjs";
 
 export const traveller = ".title-card .card";
 export async function finishAcknowledgement(page) {
@@ -24,6 +25,7 @@ export async function finishAcknowledgement(page) {
     );
   }
   await page.waitForSelector(".title-ack[data-written]");
+  await page.waitForTimeout(STEP_GUARD_MS);
 }
 export const cardShown = async (page) => {
   await page.waitForSelector(traveller);

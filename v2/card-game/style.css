@@ -3392,7 +3392,7 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
 /* Its highlighted words take a gentle tint of their set's rarity tier colour
    (level-tiers.mjs), climbing as the poem goes, with a soft, low glow and a
    little weight: a stroke under the fill, so no glyph widens and nothing
-   reflows. The tint rises in the pause after a word's stanza, with no motion,
+   reflows. The tint rises as the next stanza starts writing, with no motion,
    and stays: all fifteen light the finished poem, well above AA contrast on
    the black. Reduced motion shows the tint and weight still, with no glow. */
 .title-ack-glow {

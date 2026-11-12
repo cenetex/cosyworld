@@ -617,6 +617,38 @@ async function checkBlips() {
 // scroll; while it writes, the panel follows the pen; keys complete each
 // stanza, then continue. The card gives up height so its hint and Privacy
 // stay on screen.
+async function checkFinish() {
+  for (const width of [1440, 390]) {
+    const context = await newContext(width, 844, { hasTouch: width === 390 });
+    const page = await open(context);
+    const press = () =>
+      width === 390
+        ? page.touchscreen.tap(width / 2, 10)
+        : page.mouse.click(width / 2, 10);
+    const phase = () => page.locator(".title-intro").getAttribute("data-phase");
+    await page.goto(`${origin}/?intro=1`);
+    await titlePhase(page);
+    await page.waitForSelector(".title-ack .speech-letter.revealed");
+    await press();
+    const quick = await streamState(page);
+    assert.ok(quick.dark > quick.letters / 2, "the first press only quickens");
+    await press();
+    await press();
+    await page.waitForSelector(".title-ack[data-written]");
+    assert.equal(await phase(), "ack", "a double tap finishes, no further");
+    assert.deepEqual((await glowState(page)).lit, phrases);
+    await page.waitForTimeout(1000);
+    assert.ok(whole(await streamState(page)));
+    assert.equal(await titlePlays(page), 0);
+    await shot(page, `finish-${width}`);
+    await press();
+    assert.equal(await phase(), "title", "the next press continues");
+    assert.equal(await titlePlays(page), 1);
+    assert.deepEqual(page.errors, []);
+    await context.close();
+  }
+}
+
 async function checkLargeText() {
   const inView = (page, selector) =>
     page.$eval(selector, (node) => {
@@ -1216,8 +1248,8 @@ try {
   const muted = await open(off);
   await muted.goto(`${origin}/?intro=1`);
   await titlePhase(muted);
-  // Each held phrase lights as its last letter is written, in a soft tint
-  // of its tier's colour, and stays lit.
+  // Each held phrase lights as the next stanza starts writing, in a soft
+  // tint of its tier's colour, and stays lit.
   await muted.evaluate(() => {
     window.__glows = [];
     window.__litStyle = null;
@@ -1237,7 +1269,7 @@ try {
     });
   });
   await muted.waitForSelector("#hand .card");
-  // Left alone, it is written in about 18 seconds, then the cue shows,
+  // Left alone, it is written in about 20 seconds, then the cue shows,
   // and one key then goes on.
   const begun = Date.now();
   await muted.waitForFunction(
@@ -1245,8 +1277,9 @@ try {
     null,
     { timeout: 40000 },
   );
-  assert.ok(Date.now() - begun > 20000, `written in ${Date.now() - begun} ms`);
-  await muted.waitForTimeout(1500);
+  const took = Date.now() - begun;
+  assert.ok(took > 14000 && took < 23000, `written in ${took} ms`);
+  await muted.waitForTimeout(2500);
   assert.ok(whole(await streamState(muted)), "the stream ends on its own");
   const lamp = await muted.evaluate(() => ({
     changes: window.__glows.map(([phrase, lit]) => [phrase, lit]),
@@ -1258,11 +1291,13 @@ try {
     phrases.map((phrase) => [phrase, true]),
     "each word lights once and never goes out",
   );
-  // Each lights while the pen holds at its own stanza's end.
-  assert.deepEqual(
-    lamp.written,
-    held.map(({ written }) => written),
-  );
+  const lastSet = held.at(-1).set;
+  held.forEach(({ word, set, due }, i) => {
+    if (set === lastSet) return;
+    assert.ok(lamp.written[i] >= due, `${word} at ${lamp.written[i]}`);
+    if (held[i + 1].set === set && due > held[i].written)
+      assert.ok(lamp.written[i + 1] > lamp.written[i], `${word} overlaps`);
+  });
   assert.deepEqual(
     [...new Set(lamp.style.split(", "))],
     [`${acknowledgement.glowInMs / 1000}s`],
@@ -1383,6 +1418,7 @@ try {
   assert.equal(await blips(quiet), 0, "reduced motion writes without blips");
   await reduced.close();
   await checkBlips();
+  await checkFinish();
   await checkLargeText();
   await checkTitleMusicAlone(browser, origin, shot);
   console.log(`Title intro smoke passed. Screenshots: ${shots.join(", ")}`);
