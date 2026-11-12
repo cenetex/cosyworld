@@ -19812,17 +19812,20 @@
   var UNKNOWN_PERSON = "someone I haven't met yet";
   var unnamed = (world, id) => world.actors[id] ? UNKNOWN_PERSON : world.items[id] ? UNKNOWN_THING : "a place I haven't found yet";
   var escape = (text2) => text2.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  function blurrer(unknown, shown = []) {
+  var opensSentence = (text2, at) => /(?:^|[.!?…])[\s"'“”‘’(]*$/.test(text2.slice(0, at));
+  function blurrer(unknown, shown = [], short = /* @__PURE__ */ new Map()) {
     if (!unknown.size) return (text2) => text2;
-    const names2 = [...unknown.keys(), ...shown].sort((a, b) => b.length - a.length).map(escape);
+    const names2 = [...unknown.keys(), ...short.keys(), ...shown].sort((a, b) => b.length - a.length).map(escape);
     const pattern = new RegExp(
       `\\b(?:(?:the|an?) )??(${names2.join("|")})\\b`,
       "gi"
     );
-    return (text2) => text2?.replace(
-      pattern,
-      (word, name) => unknown.get(name.toLowerCase()) ?? word
-    ) ?? text2;
+    return (text2) => text2?.replace(pattern, (word, name, at, whole6) => {
+      const full = unknown.get(name.toLowerCase());
+      if (full) return full;
+      const bare = word === name && opensSentence(whole6, at);
+      return !bare && short.get(name) || word;
+    }) ?? text2;
   }
   function questTargets(world, id) {
     const goal = world.memories[id]?.learning?.at(-1)?.goal;
@@ -19889,13 +19892,16 @@
     };
   }
   var lowerName = (id) => nameOf(id).toLowerCase();
-  function nameKeys(ids3, shown) {
+  function nameKeys(ids3, shown, phrase) {
     const taken = new Set([...shown].map((name) => name.split(" ").at(-1)));
-    return ids3.flatMap((id) => {
-      const full = lowerName(id);
-      const last = full.split(" ").at(-1);
-      return last !== full && last.length > 3 && !taken.has(last) ? [[id, full], [id, last]] : [[id, full]];
-    });
+    const full = /* @__PURE__ */ new Map(), short = /* @__PURE__ */ new Map();
+    for (const id of ids3) {
+      const name = nameOf(id), last = name.split(" ").at(-1);
+      full.set(name.toLowerCase(), phrase(id));
+      if (last !== name && last.length > 3 && /^[A-Z]/.test(last) && !taken.has(last.toLowerCase()))
+        short.set(last, phrase(id));
+    }
+    return [full, short];
   }
   function privateWords(entity, blur) {
     const kept = ({ text: text2 }) => blur(text2) === text2;
@@ -19916,13 +19922,12 @@
     if (!hidden.size) return context;
     const kept = (id) => !hidden.has(id);
     const keepEntity = (id) => id === actor || id === context.location || kept(id);
-    const unknown = new Map(
-      nameKeys(unnamedIds, shown).map(([id, key2]) => [
-        key2,
-        world.items[id]?.lit && !covered(world, id) ? UNKNOWN_LIGHT : unnamed(world, id)
-      ])
+    const [unknown, short] = nameKeys(
+      unnamedIds,
+      shown,
+      (id) => world.items[id]?.lit && !covered(world, id) ? UNKNOWN_LIGHT : unnamed(world, id)
     );
-    const blur = blurrer(unknown, shown);
+    const blur = blurrer(unknown, shown, short);
     const keptLine = ({ text: text2 }) => blur(text2) === text2;
     const outcome = context.outcome && revealedOutcome(world, context.outcome, actor, kept);
     const speakers = context.speakers.filter(keepEntity);

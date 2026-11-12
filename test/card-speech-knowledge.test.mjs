@@ -55,18 +55,16 @@ describe("speech knows only uncovered cards (#1575)", () => {
     expect(visible(limited)).not.toMatch(/shining|lamp|cloth/i);
   });
 
-  it("blurs a covered place by its short name too, not only its full name", () => {
+  it("blurs a covered place by its full name and leaves its common last word (#2740)", () => {
     const s = fresh(), covered = (id) => id === "attic";
     const full = nameOf("attic");
     const short = full.split(" ").at(-1);
     const read = coveredTextReader(s, covered);
-    expect(read(`It stands in ${full}; the glass shows only the ${short}.`)).not.toMatch(
-      new RegExp(`${short}`, "i"),
+    expect(read(`It stands in ${full}; dust lies in the ${short}.`)).toBe(
+      `It stands in a place; dust lies in the ${short}.`,
     );
-    // Once it is uncovered, both forms read plainly.
-    expect(coveredTextReader(s, () => false)(`the ${short}`)).toBe(`the ${short}`);
     const limited = forgetCovered(s, narrativeContext(s), covered);
-    expect(limited.events.join(" ")).not.toMatch(new RegExp(`\\b${short}\\b`, "i"));
+    expect(limited.events.join(" ")).not.toContain(full);
   });
 
   it("leaves the request untouched once the lamp is uncovered", () => {
