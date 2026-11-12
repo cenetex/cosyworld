@@ -346,11 +346,7 @@ export function cardPlay(world, selected) {
       );
     return single(
       null,
-      id !== "oil" && id !== "cloth"
-        ? "Pair with a person to give it, or this place to put it down."
-        : id === "oil"
-          ? "Hold it with an empty Lamp to fill the Lamp."
-          : "Pair with the Lamp or Bell to cover it.",
+      "Pair with a person to give it, or this place to put it down.",
     );
   }
   const item = cards.find((id) => things[id]);
@@ -439,12 +435,11 @@ export function cardPlay(world, selected) {
     if (give) return result(null, "Make room for both sides of the exchange.");
     return result(null, `Talk with ${nameOf(other)} to learn their quest.`);
   }
-  return result(action, "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.");
+  return result(action, "");
 }
 // A card tapped while a held thing is raised pairs with it only when the
-// pair plays (a give, a trade, a cover). Otherwise, if the tapped card alone
-// is taken or travelled to, the held thing is put aside so the tap leaves
-// its one button instead of a pair with no play.
+// pair plays. Otherwise a card that is taken or travelled to alone puts the
+// held thing aside, so the tap leaves its one button.
 export function settledChoice(world, cards, id) {
   if (cards.length !== 2 || !cards.includes(id)) return cards;
   if (!things[id] && !places[id]) return cards;

@@ -3079,7 +3079,9 @@ function renderActions() {
       ? `Not played: ${playLabel(a)}. ${refusedPlay(a)}`
       : playLabel(a);
   $("play-readout").textContent = selected.length
-    ? `${selectionName}. ${lockShown?.text || actions.map(readout).join(". ") || hint}`
+    ? [selectionName, lockShown?.text || actions.map(readout).join(". ") || hint]
+        .filter(Boolean)
+        .join(". ")
     : questOpen && shownQuests[0]
       ? shownQuestCaption(shownQuests[0], false)
       : "";
