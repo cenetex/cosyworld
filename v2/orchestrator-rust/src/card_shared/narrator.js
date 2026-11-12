@@ -15391,9 +15391,29 @@
             live: true,
             requires: [
               {
-                kind: "item_present",
-                item: "ratiradio-red-beanie",
-                place: "ratiradio-staff-kitchen"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_present",
+                    item: "ratiradio-red-beanie",
+                    place: "ratiradio-staff-kitchen"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-red-beanie",
+                    place: "ratiradio-dispatch-window"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-red-beanie",
+                    place: "ratiradio-listening-room"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-red-beanie",
+                    place: "ratiradio-broadcast-booth"
+                  }
+                ]
               },
               {
                 kind: "not",
@@ -15417,9 +15437,24 @@
             live: true,
             requires: [
               {
-                kind: "item_at",
-                item: "ratiradio-thermos",
-                place: "ratiradio-dispatch-window"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-thermos",
+                    place: "ratiradio-dispatch-window"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-thermos",
+                    place: "ratiradio-listening-room"
+                  },
+                  {
+                    kind: "item_at",
+                    item: "ratiradio-thermos",
+                    place: "ratiradio-broadcast-booth"
+                  }
+                ]
               }
             ],
             sealed: {
@@ -15600,7 +15635,7 @@
         ],
         bridge: {
           id: "shore-ratiradio",
-          description: "The Station Key at Black Pond opens the staff entrance at Empty Station, for whoever carries it. The way back out is always open."
+          description: "The Station Key at Black Pond opens the staff entrance at Empty Station while someone carries it, or while it is inside the station. The way back out is always open."
         },
         crossings: [
           {
@@ -15611,9 +15646,39 @@
             travel: "through the staff entrance",
             requires: [
               {
-                kind: "holding",
-                item: "ratiradio-station-key",
-                role: "actor"
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "holding",
+                    item: "ratiradio-station-key",
+                    role: "actor"
+                  },
+                  {
+                    kind: "any",
+                    conditions: [
+                      {
+                        kind: "item_present",
+                        item: "ratiradio-station-key",
+                        place: "ratiradio-staff-kitchen"
+                      },
+                      {
+                        kind: "item_present",
+                        item: "ratiradio-station-key",
+                        place: "ratiradio-dispatch-window"
+                      },
+                      {
+                        kind: "item_present",
+                        item: "ratiradio-station-key",
+                        place: "ratiradio-listening-room"
+                      },
+                      {
+                        kind: "item_present",
+                        item: "ratiradio-station-key",
+                        place: "ratiradio-broadcast-booth"
+                      }
+                    ]
+                  }
+                ]
               }
             ],
             scenery: {

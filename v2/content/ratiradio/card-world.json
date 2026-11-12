@@ -235,9 +235,29 @@
       "live": true,
       "requires": [
         {
-          "kind": "item_present",
-          "item": "ratiradio-red-beanie",
-          "place": "ratiradio-staff-kitchen"
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "item_present",
+              "item": "ratiradio-red-beanie",
+              "place": "ratiradio-staff-kitchen"
+            },
+            {
+              "kind": "item_at",
+              "item": "ratiradio-red-beanie",
+              "place": "ratiradio-dispatch-window"
+            },
+            {
+              "kind": "item_at",
+              "item": "ratiradio-red-beanie",
+              "place": "ratiradio-listening-room"
+            },
+            {
+              "kind": "item_at",
+              "item": "ratiradio-red-beanie",
+              "place": "ratiradio-broadcast-booth"
+            }
+          ]
         },
         {
           "kind": "not",
@@ -261,9 +281,24 @@
       "live": true,
       "requires": [
         {
-          "kind": "item_at",
-          "item": "ratiradio-thermos",
-          "place": "ratiradio-dispatch-window"
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "item_at",
+              "item": "ratiradio-thermos",
+              "place": "ratiradio-dispatch-window"
+            },
+            {
+              "kind": "item_at",
+              "item": "ratiradio-thermos",
+              "place": "ratiradio-listening-room"
+            },
+            {
+              "kind": "item_at",
+              "item": "ratiradio-thermos",
+              "place": "ratiradio-broadcast-booth"
+            }
+          ]
         }
       ],
       "sealed": {

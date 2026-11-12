@@ -18,13 +18,13 @@ flowchart LR
   n_ratiradio_staff_kitchen["Staff Kitchen"]
   n_station(("Empty station"))
   n_ratiradio_broadcast_booth --> n_ratiradio_listening_room
-  n_ratiradio_dispatch_window -. "Thermos lies at Dispatch Window" .-> n_ratiradio_listening_room
+  n_ratiradio_dispatch_window -. "(Thermos lies at Dispatch Window or Thermos lies at Lis…" .-> n_ratiradio_listening_room
   n_ratiradio_dispatch_window --> n_ratiradio_staff_kitchen
   n_ratiradio_listening_room -. "booth-open is set" .-> n_ratiradio_broadcast_booth
   n_ratiradio_listening_room --> n_ratiradio_dispatch_window
-  n_ratiradio_staff_kitchen -. "Red Beanie is in Staff Kitchen and not (Red Beanie lies…" .-> n_ratiradio_dispatch_window
+  n_ratiradio_staff_kitchen -. "(Red Beanie is in Staff Kitchen or Red Beanie lies at D…" .-> n_ratiradio_dispatch_window
   n_ratiradio_staff_kitchen -- "cross" --> n_station
-  n_station -. "cross: the traveler holds Station Key" .-> n_ratiradio_staff_kitchen
+  n_station -. "cross: (the traveler holds Station Key or (Station Key …" .-> n_ratiradio_staff_kitchen
   classDef stub stroke-dasharray: 4 3
   class n_station stub
 ```
@@ -75,10 +75,10 @@ Every condition that shuts a way, a place, a resident or a thing. The prerequisi
 
 | Gate | Direct condition | Transitive prerequisites | Latch (kept once made) and live (read now) |
 | --- | --- | --- | --- |
-| `route:ratiradio-staff-kitchen>ratiradio-dispatch-window`<br>Staff Kitchen to Dispatch Window | ratiradio-red-beanie is in ratiradio-staff-kitchen and not (ratiradio-red-beanie lies at ratiradio-staff-kitchen) | items: `ratiradio-red-beanie` | live: ratiradio-red-beanie lies at ratiradio-staff-kitchen; ratiradio-red-beanie is in ratiradio-staff-kitchen<br>route follows its condition<br>sealed (item ratiradio-red-beanie) |
-| `route:ratiradio-dispatch-window>ratiradio-listening-room`<br>Dispatch Window to Listening Room | ratiradio-thermos lies at ratiradio-dispatch-window | items: `ratiradio-thermos` | live: ratiradio-thermos lies at ratiradio-dispatch-window<br>route follows its condition<br>sealed (place ratiradio-listening-room) |
+| `route:ratiradio-staff-kitchen>ratiradio-dispatch-window`<br>Staff Kitchen to Dispatch Window | (ratiradio-red-beanie is in ratiradio-staff-kitchen or ratiradio-red-beanie lies at ratiradio-dispatch-window or ratiradio-red-beanie lies at ratiradio-listening-room or ratiradio-red-beanie lies at ratiradio-broadcast-booth) and not (ratiradio-red-beanie lies at ratiradio-staff-kitchen) | items: `ratiradio-red-beanie` | live: ratiradio-red-beanie lies at ratiradio-broadcast-booth; ratiradio-red-beanie lies at ratiradio-dispatch-window; ratiradio-red-beanie lies at ratiradio-listening-room; ratiradio-red-beanie lies at ratiradio-staff-kitchen; ratiradio-red-beanie is in ratiradio-staff-kitchen<br>route follows its condition<br>sealed (item ratiradio-red-beanie) |
+| `route:ratiradio-dispatch-window>ratiradio-listening-room`<br>Dispatch Window to Listening Room | (ratiradio-thermos lies at ratiradio-dispatch-window or ratiradio-thermos lies at ratiradio-listening-room or ratiradio-thermos lies at ratiradio-broadcast-booth) | items: `ratiradio-thermos` | live: ratiradio-thermos lies at ratiradio-broadcast-booth; ratiradio-thermos lies at ratiradio-dispatch-window; ratiradio-thermos lies at ratiradio-listening-room<br>route follows its condition<br>sealed (place ratiradio-listening-room) |
 | `route:ratiradio-listening-room>ratiradio-broadcast-booth`<br>Listening Room to Broadcast Booth | booth-open is set | flags: `booth-open`, `rati-awake`<br>items: `ratiradio-raven-figurine`<br>acts: `ratiradio-open-broadcast-booth`, `ratiradio-open-broadcast-booth-dispatch`, `ratiradio-open-broadcast-booth-kitchen`, `ratiradio-wake-rati`<br>residents: `ratiradio-rati` | latch: booth-open is set<br>route latches open once opened<br>sealed (place ratiradio-broadcast-booth) |
-| `crossing:station-ratiradio`<br>Empty station to Staff Kitchen | the traveler holds ratiradio-station-key | items: `ratiradio-station-key` | live: the traveler holds ratiradio-station-key |
+| `crossing:station-ratiradio`<br>Empty station to Staff Kitchen | (the traveler holds ratiradio-station-key or (ratiradio-station-key is in ratiradio-staff-kitchen or ratiradio-station-key is in ratiradio-dispatch-window or ratiradio-station-key is in ratiradio-listening-room or ratiradio-station-key is in ratiradio-broadcast-booth)) | items: `ratiradio-station-key` | live: the traveler holds ratiradio-station-key; ratiradio-station-key is in ratiradio-broadcast-booth; ratiradio-station-key is in ratiradio-dispatch-window; ratiradio-station-key is in ratiradio-listening-room; ratiradio-station-key is in ratiradio-staff-kitchen |
 | `resident:ratiradio-rati`<br>RATi appears | rati-awake is set | flags: `rati-awake`<br>acts: `ratiradio-wake-rati` | latch: rati-awake is set |
 | `resident:ratiradio-raven`<br>Raven appears | raven-awake is set | flags: `raven-awake`<br>items: `ratiradio-glass`, `ratiradio-raven-figurine`, `ratiradio-red-beanie`<br>acts: `ratiradio-return-things` | latch: raven-awake is set |
 

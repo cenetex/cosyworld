@@ -100,9 +100,11 @@ it("queues Radio only for its present key carrier and follows the key", () => {
   const crossed = play(s, move, s.revision, "mara");
   expect(crossed.ok, crossed.error).toBe(true);
   s = crossed.state;
-  // The entrance keeps no flag: it follows the key, so Vale, who carries none,
-  // still has no way in once Mara has crossed and the key is put away.
+  // The entrance keeps no flag: it follows the key. Mara took it inside, so
+  // it lies in the station and Vale may follow; put away, it shuts again.
   expect(s.packs.ratiradio.flags["station-open"]).toBeUndefined();
+  settleStationExits(s);
+  expect(ways(s, "vale")).toContain(door);
   s.items[key].holder = "pond";
   settleStationExits(s);
   expect(ways(s, "vale")).not.toContain(door);

@@ -182,7 +182,10 @@ it("checks the actual shared traveler: the entrance follows the key, not the wor
   expect(result.ok).toBe(true);
   s = result.world;
   expect(s.packs.ratiradio.flags["station-open"]).toBeUndefined();
-  // Nothing latched: Mara carries the key, so Vale still has no way in.
+  // Nothing latched: Mara carried the key inside, so it lies in the station
+  // and Vale may follow. Put away at the pond, it shuts the way again.
+  expect(entrance("vale")).toBeDefined();
+  s.items[id("station-key")].holder = "pond";
   expect(entrance("vale")).toBeUndefined();
   s.items[id("station-key")].holder = "vale";
   expect(entrance("vale")).toBeDefined();
@@ -322,15 +325,13 @@ it("uses three different lock kinds, one per door, in the pack data", () => {
   expect(route("dispatch-window")).toMatchObject({
     live: true,
     requires: [
-      { kind: "item_present", item: id("red-beanie") },
+      { kind: "any" },
       { kind: "not", condition: { kind: "item_at", item: id("red-beanie") } },
     ],
   });
   expect(route("listening-room")).toMatchObject({
     live: true,
-    requires: [
-      { kind: "item_at", item: id("thermos"), place: id("dispatch-window") },
-    ],
+    requires: [{ kind: "any" }],
   });
   expect(route("broadcast-booth").live).toBeUndefined();
   expect(door("booth-open").every((c) => c.on === "talk")).toBe(true);
@@ -388,6 +389,77 @@ it("shuts the Dispatch Window again when the Red Beanie is put down or carried o
   s = act(s, "move", id("staff-kitchen"));
   s = reload(act(s, "drop", id("red-beanie")));
   expect(canMove(s, id("dispatch-window"))).toBe(false);
+});
+
+// The three live doors never lock the radio away for good: wherever the key,
+// the beanie and the Thermos come to rest inside the station, the way in
+// stays open, and it shuts only when each has left the station.
+const station = ["staff-kitchen", "dispatch-window", "listening-room", "broadcast-booth"].map(id);
+const put = (s, name, where, at = "pond") => {
+  s.items[id(name)].holder = where;
+  s.actors.vale.place = at;
+  return s;
+};
+it("keeps the entrance open while the key lies anywhere inside, shut once it is gone", () => {
+  for (const room of station) {
+    const s = put(fixture(), "station-key", room, "station");
+    expect(canMove(s, id("staff-kitchen")), `key at ${room}`).toBe(true);
+  }
+  for (const away of ["pond", "clearing", "station"]) {
+    const s = put(fixture(), "station-key", away, "station");
+    expect(canMove(s, id("staff-kitchen")), `key at ${away}`).toBe(false);
+  }
+  // Carried by a traveler, it opens for that traveler.
+  expect(canMove(put(fixture(), "station-key", "vale", "station"), id("staff-kitchen"))).toBe(true);
+});
+
+it("opens the Dispatch Window for a beanie held in the kitchen or lying beyond it, never lying in the kitchen", () => {
+  const at = (where) => put(fixture(), "red-beanie", where, id("staff-kitchen"));
+  expect(canMove(at("vale"), id("dispatch-window"))).toBe(true);
+  for (const room of station.slice(1))
+    expect(canMove(at(room), id("dispatch-window")), `beanie at ${room}`).toBe(true);
+  for (const away of [id("staff-kitchen"), "pond", "clearing", "station"])
+    expect(canMove(at(away), id("dispatch-window")), `beanie at ${away}`).toBe(false);
+});
+
+it("opens the Listening Room for a Thermos lying at the Dispatch Window or beyond it, shut once it is gone", () => {
+  const at = (where) => put(fixture(), "thermos", where, id("dispatch-window"));
+  for (const room of station.slice(1))
+    expect(canMove(at(room), home), `thermos at ${room}`).toBe(true);
+  for (const away of ["vale", id("staff-kitchen"), "pond", "clearing"])
+    expect(canMove(at(away), home), `thermos at ${away}`).toBe(false);
+});
+
+// Wherever the key, the beanie and the Thermos come to rest (the pond, the
+// station or any station room), each door is open now, or its missing thing
+// lies where a traveler from the pond can walk to and pick it up without
+// passing a closed radio door. A thing carried to another pack is a mystery,
+// not a softlock: it can be carried back.
+it("leaves no placement of the key, beanie and Thermos that shuts a door for good", () => {
+  const spots = ["pond", "station", ...station];
+  const base = fixture();
+  const open = (s, at, to) => {
+    s.actors.vale.place = at;
+    return canMove(s, to);
+  };
+  const stuck = [];
+  for (const k of spots) for (const b of spots) for (const th of spots) {
+    const s = structuredClone(base);
+    s.items[id("station-key")].holder = k;
+    s.items[id("red-beanie")].holder = b;
+    s.items[id("thermos")].holder = th;
+    const outside = ["pond", "station"];
+    const entrance =
+      open(s, "station", id("staff-kitchen")) || outside.includes(k);
+    const window =
+      open(s, id("staff-kitchen"), id("dispatch-window")) ||
+      [...outside, id("staff-kitchen")].includes(b);
+    const room =
+      open(s, id("dispatch-window"), home) ||
+      [...outside, id("staff-kitchen")].includes(th);
+    if (!(entrance && window && room)) stuck.push({ k, b, th });
+  }
+  expect(stuck).toEqual([]);
 });
 
 it("never traps a traveler: every way out of the opened rooms stays plain", () => {

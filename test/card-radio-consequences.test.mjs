@@ -41,7 +41,7 @@ const fields = (kind, target) => ({
 });
 
 for (const opening of [false, true])
-  it(`opens the Radio entrance only while the key is carried (opening ${opening})`, () => {
+  it(`opens the Radio entrance only while the key is carried or inside (opening ${opening})`, () => {
     let world = createWorld({ seed: 17, opening });
     if (opening)
       holdChoice(world, "vale", { item: null, revision: world.revision });
@@ -65,10 +65,14 @@ for (const opening of [false, true])
     expect(trace).toEqual(route); // Six reached transitions, not six random attempts.
     expect(world.packs.ratiradio.flags).toEqual({});
     expect(world.items[key].holder).toBe(kitchen);
-    // Left behind with the key, the entrance is shut again from outside.
-    expect(
-      legalActions(world).some((a) => a.kind === "move" && a.target === kitchen),
-    ).toBe(false);
+    // The key lies inside the station, so the entrance stays open from
+    // outside; carried off, it shuts.
+    const enter = (w) =>
+      legalActions(w).some((a) => a.kind === "move" && a.target === kitchen);
+    expect(enter(world)).toBe(true);
+    const away = structuredClone(world);
+    away.items[key].holder = "pond";
+    expect(enter(away)).toBe(false);
     expect(world.items[key].history.some((s) => s.includes("Vale takes"))).toBe(
       true,
     );
@@ -136,15 +140,12 @@ it("agrees between today's source and compiled JS through the reachable trace", 
   for (const [index, step] of fixture.steps.entries()) {
     const request = { ...step.request, world };
     const before = structuredClone(request);
-    // The recorded journey re-entered the kitchen without the key, on the
-    // latched entrance. Today the entrance follows the key (R1): the recorded
-    // re-entries, Vale's at step 7 and Mara's at step 14, are not offered.
+    // The recorded journey re-entered the kitchen without the key (steps 7
+    // and 14). The entrance now follows the key, and the key lies inside the
+    // station, so those re-entries are still offered, with no flag set.
     if ([7, 14].includes(index)) {
       expect(step.request.action.target).toBe(kitchen);
-      const view = dispatchShared({ ...request, op: "view" });
-      expect(view.actions).not.toContainEqual(step.request.action);
-      expect(play(structuredClone(world), step.request.action).ok).toBe(false);
-      continue;
+      expect(world.items[key].holder).toBe(kitchen);
     }
     const result = dispatchShared(request);
     expect(request).toEqual(before);
@@ -159,10 +160,10 @@ it("agrees between today's source and compiled JS through the reachable trace", 
     );
     reached++;
   }
-  expect(reached).toBe(13);
+  expect(reached).toBe(15);
   expect(world.items[key].holder).toBe(kitchen);
   expect(world.packs.ratiradio.flags).toEqual({});
-  expect(world.actors.mara.place).toBe("station");
+  expect(world.actors.mara.place).toBe(kitchen);
 });
 
 // Fresh seed 92, no opening or injected custody/encounters. Shared successors

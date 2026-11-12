@@ -14,10 +14,19 @@ not three copies of one:
 The entrance, the Dispatch Window and the Listening Room open and close with
 their things (audit rows R1 to R3, 2026-11-11): each is a live way that reads
 its item as it stands now, with no flag. Only the way in is live; every way
-out is plain, so no one is ever shut inside. Because the entrance asks for a
-carried key and the Dispatch Window for a held beanie, a key left inside the
-kitchen, or a beanie left at home in the Listening Room, leaves later visitors
-outside until someone carries it out. The Broadcast Booth (once heard) and the
+out is plain, so no one is ever shut inside. Nor is anyone shut out for good,
+because each way also stays open while its item rests inside the station:
+
+| Way | Open while |
+| --- | --- |
+| Entrance (Empty Station to Staff Kitchen) | a traveler carries the Station Key, or the key is in any station room |
+| Dispatch Window | the Red Beanie is held in the Staff Kitchen, or lies in the Dispatch Window, the Listening Room or the Booth (a beanie lying in the kitchen opens nothing) |
+| Listening Room | the Thermos lies in the Dispatch Window, the Listening Room or the Booth |
+
+Each shuts again when its item is carried out of those places. So a key left
+in the kitchen, a beanie returned home to the Listening Room, or a Thermos left
+beyond the plate keep the station reachable. A thing carried off to another pack and left there keeps its door shut
+until someone carries it back. That is a mystery, not a softlock. The Broadcast Booth (once heard) and the
 Raven (once earned) stay latched until the next rules batch; the figurine may
 be put down afterward. Every
 locked way and the sealed Raven is drawn as a locked box with its reason from

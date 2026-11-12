@@ -119,8 +119,25 @@
           "op": "and",
           "of": [
             {
-              "op": "atom",
-              "atom": "item_present(item=ratiradio-red-beanie,place=ratiradio-staff-kitchen)"
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "item_present(item=ratiradio-red-beanie,place=ratiradio-staff-kitchen)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "item_at(item=ratiradio-red-beanie,place=ratiradio-dispatch-window)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "item_at(item=ratiradio-red-beanie,place=ratiradio-listening-room)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "item_at(item=ratiradio-red-beanie,place=ratiradio-broadcast-booth)"
+                }
+              ]
             },
             {
               "op": "not",
@@ -133,10 +150,13 @@
             }
           ]
         },
-        "words": "Red Beanie is in Staff Kitchen and not (Red Beanie lies at Staff Kitchen)",
-        "ids": "ratiradio-red-beanie is in ratiradio-staff-kitchen and not (ratiradio-red-beanie lies at ratiradio-staff-kitchen)",
+        "words": "(Red Beanie is in Staff Kitchen or Red Beanie lies at Dispatch Window or Red Beanie lies at Listening Room or Red Beanie lies at Broadcast Booth) and not (Red Beanie lies at Staff Kitchen)",
+        "ids": "(ratiradio-red-beanie is in ratiradio-staff-kitchen or ratiradio-red-beanie lies at ratiradio-dispatch-window or ratiradio-red-beanie lies at ratiradio-listening-room or ratiradio-red-beanie lies at ratiradio-broadcast-booth) and not (ratiradio-red-beanie lies at ratiradio-staff-kitchen)",
         "latch": [],
         "live": [
+          "item_at(item=ratiradio-red-beanie,place=ratiradio-broadcast-booth)",
+          "item_at(item=ratiradio-red-beanie,place=ratiradio-dispatch-window)",
+          "item_at(item=ratiradio-red-beanie,place=ratiradio-listening-room)",
           "item_at(item=ratiradio-red-beanie,place=ratiradio-staff-kitchen)",
           "item_present(item=ratiradio-red-beanie,place=ratiradio-staff-kitchen)"
         ],
@@ -159,16 +179,31 @@
           "op": "and",
           "of": [
             {
-              "op": "atom",
-              "atom": "item_at(item=ratiradio-thermos,place=ratiradio-dispatch-window)"
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "item_at(item=ratiradio-thermos,place=ratiradio-dispatch-window)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "item_at(item=ratiradio-thermos,place=ratiradio-listening-room)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "item_at(item=ratiradio-thermos,place=ratiradio-broadcast-booth)"
+                }
+              ]
             }
           ]
         },
-        "words": "Thermos lies at Dispatch Window",
-        "ids": "ratiradio-thermos lies at ratiradio-dispatch-window",
+        "words": "(Thermos lies at Dispatch Window or Thermos lies at Listening Room or Thermos lies at Broadcast Booth)",
+        "ids": "(ratiradio-thermos lies at ratiradio-dispatch-window or ratiradio-thermos lies at ratiradio-listening-room or ratiradio-thermos lies at ratiradio-broadcast-booth)",
         "latch": [],
         "live": [
-          "item_at(item=ratiradio-thermos,place=ratiradio-dispatch-window)"
+          "item_at(item=ratiradio-thermos,place=ratiradio-broadcast-booth)",
+          "item_at(item=ratiradio-thermos,place=ratiradio-dispatch-window)",
+          "item_at(item=ratiradio-thermos,place=ratiradio-listening-room)"
         ],
         "follows": "live",
         "seal": {
@@ -232,16 +267,46 @@
           "op": "and",
           "of": [
             {
-              "op": "atom",
-              "atom": "holding(item=ratiradio-station-key,role=actor)"
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "holding(item=ratiradio-station-key,role=actor)"
+                },
+                {
+                  "op": "or",
+                  "of": [
+                    {
+                      "op": "atom",
+                      "atom": "item_present(item=ratiradio-station-key,place=ratiradio-staff-kitchen)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "item_present(item=ratiradio-station-key,place=ratiradio-dispatch-window)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "item_present(item=ratiradio-station-key,place=ratiradio-listening-room)"
+                    },
+                    {
+                      "op": "atom",
+                      "atom": "item_present(item=ratiradio-station-key,place=ratiradio-broadcast-booth)"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         },
-        "words": "the traveler holds Station Key",
-        "ids": "the traveler holds ratiradio-station-key",
+        "words": "(the traveler holds Station Key or (Station Key is in Staff Kitchen or Station Key is in Dispatch Window or Station Key is in Listening Room or Station Key is in Broadcast Booth))",
+        "ids": "(the traveler holds ratiradio-station-key or (ratiradio-station-key is in ratiradio-staff-kitchen or ratiradio-station-key is in ratiradio-dispatch-window or ratiradio-station-key is in ratiradio-listening-room or ratiradio-station-key is in ratiradio-broadcast-booth))",
         "latch": [],
         "live": [
-          "holding(item=ratiradio-station-key,role=actor)"
+          "holding(item=ratiradio-station-key,role=actor)",
+          "item_present(item=ratiradio-station-key,place=ratiradio-broadcast-booth)",
+          "item_present(item=ratiradio-station-key,place=ratiradio-dispatch-window)",
+          "item_present(item=ratiradio-station-key,place=ratiradio-listening-room)",
+          "item_present(item=ratiradio-station-key,place=ratiradio-staff-kitchen)"
         ],
         "prerequisites": {
           "item": [
@@ -694,7 +759,11 @@
         "resident:ratiradio-listening-room"
       ],
       "crossing:station-ratiradio": [
-        "item:ratiradio-station-key"
+        "item:ratiradio-station-key",
+        "place:ratiradio-broadcast-booth",
+        "place:ratiradio-dispatch-window",
+        "place:ratiradio-listening-room",
+        "place:ratiradio-staff-kitchen"
       ],
       "flag:booth-open": [
         "act:ratiradio-open-broadcast-booth",
@@ -715,6 +784,7 @@
       ],
       "route:ratiradio-dispatch-window>ratiradio-listening-room": [
         "item:ratiradio-thermos",
+        "place:ratiradio-broadcast-booth",
         "place:ratiradio-dispatch-window",
         "place:ratiradio-listening-room"
       ],
@@ -724,6 +794,9 @@
       ],
       "route:ratiradio-staff-kitchen>ratiradio-dispatch-window": [
         "item:ratiradio-red-beanie",
+        "place:ratiradio-broadcast-booth",
+        "place:ratiradio-dispatch-window",
+        "place:ratiradio-listening-room",
         "place:ratiradio-staff-kitchen",
         "resident:undefined"
       ],
@@ -794,6 +867,16 @@
       "class": "live",
       "words": "ratiradio-raven-figurine lies at ratiradio-listening-room"
     },
+    "item_at(item=ratiradio-red-beanie,place=ratiradio-broadcast-booth)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "ratiradio-red-beanie lies at ratiradio-broadcast-booth"
+    },
+    "item_at(item=ratiradio-red-beanie,place=ratiradio-dispatch-window)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "ratiradio-red-beanie lies at ratiradio-dispatch-window"
+    },
     "item_at(item=ratiradio-red-beanie,place=ratiradio-listening-room)": {
       "kind": "item_at",
       "class": "live",
@@ -804,15 +887,45 @@
       "class": "live",
       "words": "ratiradio-red-beanie lies at ratiradio-staff-kitchen"
     },
+    "item_at(item=ratiradio-thermos,place=ratiradio-broadcast-booth)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "ratiradio-thermos lies at ratiradio-broadcast-booth"
+    },
     "item_at(item=ratiradio-thermos,place=ratiradio-dispatch-window)": {
       "kind": "item_at",
       "class": "live",
       "words": "ratiradio-thermos lies at ratiradio-dispatch-window"
     },
+    "item_at(item=ratiradio-thermos,place=ratiradio-listening-room)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "ratiradio-thermos lies at ratiradio-listening-room"
+    },
     "item_present(item=ratiradio-red-beanie,place=ratiradio-staff-kitchen)": {
       "kind": "item_present",
       "class": "live",
       "words": "ratiradio-red-beanie is in ratiradio-staff-kitchen"
+    },
+    "item_present(item=ratiradio-station-key,place=ratiradio-broadcast-booth)": {
+      "kind": "item_present",
+      "class": "live",
+      "words": "ratiradio-station-key is in ratiradio-broadcast-booth"
+    },
+    "item_present(item=ratiradio-station-key,place=ratiradio-dispatch-window)": {
+      "kind": "item_present",
+      "class": "live",
+      "words": "ratiradio-station-key is in ratiradio-dispatch-window"
+    },
+    "item_present(item=ratiradio-station-key,place=ratiradio-listening-room)": {
+      "kind": "item_present",
+      "class": "live",
+      "words": "ratiradio-station-key is in ratiradio-listening-room"
+    },
+    "item_present(item=ratiradio-station-key,place=ratiradio-staff-kitchen)": {
+      "kind": "item_present",
+      "class": "live",
+      "words": "ratiradio-station-key is in ratiradio-staff-kitchen"
     }
   },
   "conditionKinds": [
