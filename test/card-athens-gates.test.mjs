@@ -1,53 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave, exits } from "../v2/card-game/world.mjs";
-import {
-  openDoorStart,
-  openDoorWalk,
-  playOpenDoor,
-} from "./helpers/open-door.mjs";
+import { openDoorStart, traveler } from "./helpers/open-door.mjs";
 
-// Athens has two gates, each a live condition in pack data. The Sacred Way
-// leads from Eleusis into the city while the mothers' petition is at Eleusis
-// or in the Agora; the way back is always open. The Long Walls are open from
-// both ends from the start: the sea route to Athens needs no burial and no
-// truce, and is an alternative to the land route through the City Gate.
+// Athens has no gates (open-door-rework). The Sacred Way joins Eleusis and
+// the Agora, and the Long Walls the Agora and Piraeus, open from both ends
+// from the start: no petition, burial or truce is read by either road.
 const reload = (s) => decodeSave(encodeSave(s));
 const SACRED = "greek-road-athens-eleusis",
   WALLS = "greek-road-athens-piraeus";
 const opens = (s, from, road) => exits(s, from, "vale").includes(road);
+const ends = [
+  ["greek-eleusis", SACRED],
+  ["greek-athens", SACRED],
+  ["greek-athens", WALLS],
+  ["greek-piraeus", WALLS],
+];
 
-describe("the Athenian gates", () => {
-  it("opens the Sacred Way with the petition; the Long Walls need nothing", () => {
-    // The Long Walls are open from both ends before any truce, and the
-    // Sacred Way from Eleusis waits for the mothers.
-    let s = openDoorStart();
-    expect(opens(s, "greek-piraeus", WALLS)).toBe(true);
-    expect(opens(s, "greek-athens", WALLS)).toBe(true);
-    expect(opens(s, "greek-athens", SACRED)).toBe(true);
-    expect(opens(s, "greek-eleusis", SACRED)).toBe(false);
-    // Walked in through the City Gate, meeting the mothers brings their
-    // petition: the Sacred Way opens.
-    s = openDoorWalk(s, "eleusis");
-    expect(opens(s, "greek-eleusis", SACRED)).toBe(true);
-    s = playOpenDoor(s, "take", { item: "greek-burial-petition" });
-    s = openDoorWalk(s, "athens");
-    s = playOpenDoor(s, "give", {
-      item: "greek-burial-petition",
-      target: "greek-theseus",
-    });
-    // The petition and the herald's truce rest in the Agora.
-    expect(s.items["greek-burial-petition"].holder).toBe("greek-athens");
-    expect(s.items["greek-olive-branch"].holder).toBe("greek-athens");
-    expect(opens(reload(s), "greek-eleusis", SACRED)).toBe(true);
-    expect(opens(reload(s), "greek-athens", WALLS)).toBe(true);
-    // The truce leaves the Agora: the walls stay open.
-    s = playOpenDoor(s, "take", { item: "greek-olive-branch" });
-    s = openDoorWalk(s, "piraeus");
-    expect(s.items["greek-olive-branch"].holder).toBe("vale");
-    expect(opens(reload(s), "greek-athens", WALLS)).toBe(true);
-    expect(opens(s, "greek-piraeus", WALLS)).toBe(true);
-    // The petition taken away from the Agora leaves the Sacred Way open.
-    s.items["greek-burial-petition"].holder = "greek-colonus";
-    expect(opens(reload(s), "greek-eleusis", SACRED)).toBe(true);
+describe("the Athenian roads", () => {
+  it("are open from every end, whatever is carried where", () => {
+    const t = traveler(openDoorStart());
+    for (const [from, road] of ends) expect(opens(t.s, from, road)).toBe(true);
+    // Carry the petition to the Agora, trade it, take the truce to Piraeus.
+    t.move("eleusis").take("burial-petition").move("athens").waitFor("theseus");
+    t.trade("burial-petition", "theseus", "olive-branch").move("piraeus");
+    expect(t.s.items["greek-olive-branch"].holder).toBe("vale");
+    for (const [from, road] of ends)
+      expect(opens(reload(t.s), from, road)).toBe(true);
+    // The petition far from both ends changes nothing.
+    t.s.items["greek-burial-petition"].holder = "greek-colonus";
+    for (const [from, road] of ends)
+      expect(opens(reload(t.s), from, road)).toBe(true);
   });
 });

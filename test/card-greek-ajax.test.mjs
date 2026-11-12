@@ -20,9 +20,9 @@ import {
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
 import {
-  openDoorStart,
-  openDoorWalk,
-  playOpenDoor,
+  greekStart,
+  playGreek as playOpenDoor,
+  traveler,
 } from "./helpers/open-door.mjs";
 import {
   ajaxStart,
@@ -61,8 +61,8 @@ function shieldDelivered() {
 }
 
 describe("Earth Beside the Ships", () => {
-  it("offers the lasting ship invitation after the four local endings and return", () => {
-    const early = openDoorWalk(openDoorStart(), "harbor");
+  it("offers the lasting ship invitation in an old full-scope world only", () => {
+    const early = traveler(greekStart()).move("harbor").s;
     const talked = playOpenDoor(early, "talk", { target: "greek-shipmaster" });
     expect(ajaxState(talked).receipts["greek-ajax-invitation"]).toBeUndefined();
     expect(entityActive(early, "greek-ajax-landing")).toBe(false);

@@ -86,7 +86,10 @@ describe("legacy journey migration boundary", () => {
       "5431cd710d2e04f714bda9051b94ecae8c02b4f0f9717031eda5dd8582f38f10",
     );
     expect(actions).toHaveLength(52);
-    expect(packDefinition(packId).avatars[resident].journey.path).toEqual(path);
+    expect(path).toHaveLength(5);
+    // Today Myrine has no authored journey: she walks on her own want
+    // (open-door-rework). The old route lives on in the released content.
+    expect(packDefinition(packId).avatars[resident].journey).toBeUndefined();
   });
 
   // The source and the compiled bundle still agree at the shared boundary:

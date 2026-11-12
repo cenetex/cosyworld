@@ -1,12 +1,12 @@
 # The Wine-Dark Sea
 
 A Greek drama card-world pack reached from Black Pond. **Before the Burial**
-opens at seven painted places around Thebes. Dione's next invitation opens
-**The Open Door** around Athens. Travelers keep their identities,
+opens at seven painted places around Thebes. **The Open Door** around
+Athens is there from the start. Travelers keep their identities,
 belongings, memories and decisions across both local and shared games.
 Marathon, Troy and the Far Shores are **rumours** (rules 94, the breadth
-freeze): no way leads there in a world of this release, so Marathon's tale,
-Dione's full Open Door account and **Earth Beside the Ships**, Ajax's
+freeze): no way leads there in a world of this release, so Marathon and
+**Earth Beside the Ships**, Ajax's
 household and burial account near Troy, wait in old full-scope worlds only.
 
 ## Before the Burial
@@ -112,7 +112,7 @@ Thebes has no story buttons. Its deeds are the ordinary verbs:
 - The Theban-response branch is gone (the report-plan, permitted-burial and
   courtyard choices, the Guard's Tablet and the `greek-theban-response`
   outcomes): the burial is the three rites in the Hollow. It opens nothing
-  else: Attica is simply there, and the Open Door begins when you meet Aethra.
+  else: Attica is simply there, and its people wait for their own things.
 
 ### Locked boxes (rules 133)
 
@@ -196,36 +196,17 @@ Otherwise they read as an inventory lock accepting its key.
 
 ## The Open Door
 
-Nothing opens the Open Door. The Athenian Agora, Colonus Grove, the
-Eleusinian Sanctuary, the Sacred Way and the Cithaeron road are there from
-the start, and so are Aethra, Adrastus, Theseus, the Piraeus quay host and
-the grove keeper. The story begins when you meet Aethra; each later step
-keeps its own story flag. The burial of Polynices is its own story and gates
-none of it. The Long Walls from Piraeus Quays to the Agora are open from the
-start too. Marathon Altar is a rumour in this release.
-
-The main journey follows the mothers in Euripides' _Suppliant Women_.
-Carry their petition to Theseus, choose the civic response, hear its report,
-bring cloths for the funeral, place the ashes and prepare a berth home.
-The grove keeper tells Sophocles' _Oedipus at Colonus_ as an earlier tale.
-The altar keeper tells Euripides' _Children of Heracles_ in its own later
-generation. Gifts and present promises join the remembered accounts.
-
-Six short story cards follow these scenes. Twenty couplets distinguish
-present deeds, heard reports and chosen tellings. Homecoming adds sixteen
-couplets for early reports, Myrine’s arrival and her written answer. A
-traveler can bring each completed local story to Dione, then return for
-the rest. Dione's last card needs the Eleusis, Piraeus and Colonus accounts, the
-truce, the funeral account, the return list and the refuge tablet. Marathon's
-tale and its record are not required, so the Open Door can be finished in a
-world of this release. Marathon's tale still waits in old full-scope worlds.
-
-Myrine, an original household representative, agrees at Eleusis to walk
-to Piraeus. One Accompany play takes her along the shore path. She receives her
-household’s basket or joins the shared quay, following the chosen berth.
-Her signed return list carries her own words to Dione. The traveler chooses
-an earned basket or berth stanza, and Dione answers the reading. Read the [full scene and source guide](OPEN-DOOR.md) for the
-route, choices, source endings and original alternatives.
+Attica is there from the start: the Agora, Piraeus Quays, Colonus Grove, the
+Eleusinian Sanctuary and the plain roads between them. There are no steps and
+no ending. Eight residents are locked cards until their own thing is near
+their post (Aethra the cloth, Theseus the mothers' petition, Adrastus the
+herald's truce, the Argive Mother, Iphis and Myrine the funeral urn, Thaleia
+the wheat, the Grove Keeper the oil), and each wants something. Aethra makes
+the urn at her altar from the cloth, the oil and the truce. The truce also
+opens the City Gate in the guard's hands. Storylines meet only by sharing
+things; a spent thing goes home. Read [the Open Door](OPEN-DOOR.md) for who
+waits for what, the things and their homes, and the sources, and the
+[design page](../../../docs/design/open-door-rework.md) for the five puzzles.
 
 ## Earth Beside the Ships
 
@@ -301,8 +282,8 @@ and from Troy back to the harbor; a ship at, or bound for, a port it no
 longer sails to comes in to Piraeus with its riders. In a world of this
 release the rumours' residents and things go home unmet, and their story
 steps are forgotten, with whatever followed from them (Marathon's tale, the
-full return and Ajax's account). Athens is three districts joined by two
-gate roads; see [The Open Door](OPEN-DOOR.md).
+full return and Ajax's account). Athens is three districts joined by plain
+roads; see [The Open Door](OPEN-DOOR.md).
 
 A pack retires a place with `retired: true` and one exit, the place that took
 it in. No exit or route leads to it. A save upgrade moves anyone and anything
@@ -369,10 +350,10 @@ Completing the signal summons the Charybdis. Its saved discovery keeps the
 boarding shores open through lamp changes, reloads and later voyages. It
 sails the Black Pond route described above; the Travel Provisions
 (`greek-provisions`, made by Myrto) laid on deck open the lane to Piraeus. Boarding the ship is a dock's
-one link to the sea. Giving Theseus the mothers' petition brings the
-herald's truce (`greek-olive-branch`, the Open Door's Agora outcome) into the
-Agora. It no longer opens the Long Walls, which stand open from the start.
-Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
+one link to the sea. Theseus holds the herald's truce
+(`greek-olive-branch`) and trades it for the mothers' petition; its home is
+Dione's table. It no longer opens the Long Walls, which stand open from the
+start. Its card uses `assets/greek-drama/olive-branch.webp`, the wool-bound branch
 painting documented in [the Argos art handoff](../../card-game/assets/greek-drama/argos-alternates-README.md).
 Boarding keeps the ship at its harbour. The first course
 card played aboard sets the voyage for everyone, and the ship spends one world
@@ -444,11 +425,10 @@ node v2/scripts/smoke-card-theban-scenery.mjs
 node v2/scripts/smoke-card-greek-drama.mjs
 ```
 
-The Open Door tests cover every invitation, the ordinary-verb steps, object care,
-shared authorship, earned verses, interrupted duties and the return to Dione.
-Browser journeys play all five places at desktop and phone widths, inspect
-cards and art, reload during the story and hear the earned Bard context.
-Speech fixtures let these journeys run consistently.
+The Open Door tests play each of its five puzzles two ways from a new world,
+open and close every resident's lock, compute the checklist from the pack and
+place every key everywhere a traveler reaches without sealing anyone. The
+browser journey plays one solution at desktop and phone widths.
 
 Save checks use real earlier saves and frozen shared interpreters. They
 preserve old state through both checkpoint loading and journal-only recovery.

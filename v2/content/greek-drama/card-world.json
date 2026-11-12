@@ -1937,7 +1937,6 @@
       "text": "Road dust marks her sandals. She will not leave Eleusis before the ashes are in the mothers’ keeping; then she means to walk down to the Piraeus quays.",
       "place": "greek-eleusis",
       "home": "greek-eleusis",
-      "standoffs": false,
       "values": {},
       "seed": "Myrine of Argos.",
       "portrait": "assets/greek-drama/myrine.webp",
@@ -2296,8 +2295,18 @@
       "persona": "Describe the truce, its actual holder and its recorded use.",
       "requires": [
         {
-          "kind": "met",
-          "actor": "greek-theseus"
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "met",
+              "actor": "greek-theseus"
+            },
+            {
+              "kind": "item_at",
+              "item": "greek-olive-branch",
+              "place": "greek-athens"
+            }
+          ]
         }
       ],
       "home": "greek-courtyard",

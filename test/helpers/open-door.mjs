@@ -8,6 +8,8 @@ import { entityActive } from "../../v2/card-game/pack-registry.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { needsVoyage, sailTo } from "./voyage.mjs";
 import { endStandoff } from "./standoff.mjs";
+import { funeralJourney } from "./greek-funeral.mjs";
+import { summonTransport } from "../../v2/card-game/pack-transport.mjs";
 
 // The Open Door from a new world, by ordinary plays (open-door-rework.md).
 // Attica is there from the start. Its people open on the things they wait
@@ -43,9 +45,12 @@ export const OPEN_DOOR_CAST = [
   "greek-market-neighbor",
 ];
 
-// A new world with Vale at Dione's courtyard, the crossing found.
-export function greekStart() {
-  const world = createWorld();
+// A new world with Vale at Dione's courtyard, the crossing found. `full`
+// makes it an old full-scope world, where Marathon and Troy stand.
+export function greekStart({ full = false } = {}) {
+  const world = createWorld(
+    full ? { packScopes: { "greek-drama": "full" } } : {},
+  );
   world.crossings["pond-greek-harbor"].discovered = true;
   world.actors.vale.place = "greek-courtyard";
   world.actors.vale.visited.push("pond", "greek-harbor", "greek-courtyard");
@@ -131,6 +136,17 @@ export function traveler(world = greekStart()) {
   return t;
 }
 
+// One play in a Greek world; a move that needs the ship is sailed.
+export function playGreek(world, kind, fields = {}) {
+  if (
+    kind === "move" &&
+    Object.keys(fields).join() === "target" &&
+    needsVoyage(world, currentActor(world), fields.target)
+  )
+    return sailTo(world, fields.target);
+  return traveler(world).act(kind, fields).s;
+}
+
 // The land road out of Thebes (puzzle 5, order a): bake the one loaf, trade
 // it to the guard for the decree, trade the decree to Creon for his writ,
 // give the writ to the guard. Then pick up the burial kit.
@@ -199,3 +215,74 @@ export const whereIs = (s, id) => s.items[id].holder;
 export const holds = (s, who, id) => s.items[id].holder === g(who);
 // A resident's want has been met (the rules note the turn it was met).
 export const satisfied = (s, who) => s.actors[g(who)].metTurn !== undefined;
+
+// --- Starting worlds other suites share --------------------------------------
+
+// The four places of Attica a new world reaches; Marathon is a rumour.
+export const OPEN_DOOR_PLACES = [
+  "greek-athens",
+  "greek-piraeus",
+  "greek-colonus",
+  "greek-eleusis",
+];
+export function openDoorAction(world, kind, fields = {}) {
+  const action = legalActions(world).find(
+    (a) =>
+      a.kind === kind &&
+      Object.entries(fields).every(([key, value]) => a[key] === value),
+  );
+  if (!action)
+    throw new Error(`Missing Greek action: ${kind} ${JSON.stringify(fields)}`);
+  return action;
+}
+// A move aboard waits for the ship, calling it back if a resident sailed it.
+export function playOpenDoor(world, kind, fields = {}) {
+  if (kind === "move" && fields.target === "greek-ship")
+    for (
+      let wait = 0;
+      wait < 32 &&
+      !legalActions(world).some(
+        (a) => a.kind === "move" && a.target === "greek-ship",
+      );
+      wait++
+    ) {
+      if (world.transports["greek-ship"].dock !== world.actors.vale.place)
+        summonTransport(world, "greek-ship", world.actors.vale.place);
+      world = playGreek(world, "wait");
+    }
+  return playGreek(world, kind, fields);
+}
+export const openDoorWalk = (world, ...places) =>
+  traveler(world).move(...places).s;
+
+// A world after the burial, walked home to Dione's courtyard: the cloth is
+// home at Eleusis and the oil at Colonus. Each caller gets its own copy.
+// With `rumours` it is an old full-scope world.
+let buried;
+export function openDoorStart({ rumours = false } = {}) {
+  buried ||= funeralJourney().buried;
+  let world = structuredClone(buried);
+  if (rumours) world.packs["greek-drama"].scope = "full";
+  world = openDoorWalk(world, "courtyard");
+  if (world.items.lamp.holder === "vale")
+    world = playGreek(world, "drop", {
+      item: "lamp",
+      target: "greek-courtyard",
+    });
+  return world;
+}
+
+// That world with the petition traded to Theseus for the truce in the Agora,
+// over the Cithaeron road and the Sacred Way. The truce is left lying in the
+// Agora, so a traveler set down elsewhere carries nothing.
+let plea;
+export function openSeas() {
+  if (!plea) {
+    const t = traveler(openDoorStart());
+    t.move("eleusis").take("burial-petition");
+    t.move("athens").waitFor("theseus");
+    t.trade("burial-petition", "theseus", "olive-branch").drop("olive-branch");
+    plea = t.s;
+  }
+  return structuredClone(plea);
+}

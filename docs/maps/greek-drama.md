@@ -399,6 +399,7 @@ flowchart TD
   n_item_greek_oil_flask --> n_act_greek_anoint_polynices
   n_item_greek_oil_flask --> n_want_greek_antigone
   n_item_greek_oil_flask --> n_want_greek_polynices_shade
+  n_item_greek_olive_branch --> n_item_greek_olive_branch
   n_item_greek_olive_branch --> n_route_greek_gate_greek_battlefield
   n_item_greek_shovel --> n_act_greek_anoint_polynices
   n_item_greek_shovel --> n_act_greek_bury_polynices
@@ -511,7 +512,7 @@ Every condition that shuts a way, a place, a resident or a thing. The prerequisi
 | `resident:greek-patroclus`<br>Patroclus appears | greek-burial-performed is set and (greek-patroclus-met is set or greek-ship is docked at greek-piraeus) and (greek-patroclus-met is set or greek-provisions lies at greek-ship) | flags: `greek-burial-performed`, `greek-patroclus-met`, `greek-polynices-anointed`, `greek-polynices-veiled`<br>items: `greek-bread`, `greek-figs`, `greek-funeral-cloth`, `greek-oil-flask`, `greek-provisions`, `greek-shovel`, `greek-water-jar`, `greek-wheat`, `greek-wine-skin`<br>acts: `greek-anoint-polynices`, `greek-bury-polynices`, `greek-meet-patroclus`, `greek-shroud-polynices`<br>residents: `greek-polynices-shade`<br>wants: `greek-antigone`, `greek-polynices-shade` | latch: greek-burial-performed is set; greek-patroclus-met is set<br>live: greek-provisions lies at greek-ship; greek-ship is docked at greek-piraeus |
 | `item:greek-bread`<br>Courtyard Bread is made | always shut until sealed lock opens | items: `greek-water-jar`, `greek-wheat` | none |
 | `item:greek-provisions`<br>Travel Provisions is made | always shut until sealed lock opens | items: `greek-bread`, `greek-figs`, `greek-water-jar`, `greek-wheat`, `greek-wine-skin` | none |
-| `item:greek-olive-branch`<br>The Herald’s Truce appears | greek-theseus has been met | items: `greek-burial-petition`<br>residents: `greek-theseus` | latch: greek-theseus has been met |
+| `item:greek-olive-branch`<br>The Herald’s Truce appears | (greek-theseus has been met or greek-olive-branch lies at greek-athens) | items: `greek-burial-petition`<br>residents: `greek-theseus` | latch: greek-theseus has been met<br>live: greek-olive-branch lies at greek-athens |
 | `item:greek-egypt-testimony`<br>The Egyptian Witness Tablet appears | greek-helen-account chosen as egypt | choices: `greek-helen-account=egypt`<br>items: `greek-helen-accounts`<br>acts: `greek-helen-egypt` | latch: greek-helen-account chosen as egypt |
 | `item:greek-troy-testimony`<br>The Trojan Witness Tablet appears | greek-helen-account chosen as troy | choices: `greek-helen-account=troy`<br>items: `greek-helen-accounts`<br>acts: `greek-helen-troy` | latch: greek-helen-account chosen as troy |
 | `item:greek-tomb-testimony`<br>The Tomb Witness Tablet appears | greek-atreid-account chosen as aeschylus | choices: `greek-atreid-account=aeschylus`<br>items: `greek-atreid-record`<br>acts: `greek-atreid-aeschylus` | latch: greek-atreid-account chosen as aeschylus |

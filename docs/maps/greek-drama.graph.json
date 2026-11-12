@@ -2702,17 +2702,28 @@
           "op": "and",
           "of": [
             {
-              "op": "atom",
-              "atom": "met(actor=greek-theseus)"
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "met(actor=greek-theseus)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "item_at(item=greek-olive-branch,place=greek-athens)"
+                }
+              ]
             }
           ]
         },
-        "words": "Theseus has been met",
-        "ids": "greek-theseus has been met",
+        "words": "(Theseus has been met or The Herald’s Truce lies at Athenian Agora)",
+        "ids": "(greek-theseus has been met or greek-olive-branch lies at greek-athens)",
         "latch": [
           "met(actor=greek-theseus)"
         ],
-        "live": [],
+        "live": [
+          "item_at(item=greek-olive-branch,place=greek-athens)"
+        ],
         "prerequisites": {
           "item": [
             "greek-burial-petition"
@@ -7347,6 +7358,7 @@
         "home": "greek-courtyard",
         "consumedBy": [],
         "readBy": [
+          "item:greek-olive-branch",
           "resident:greek-adrastus",
           "route:greek-gate>greek-battlefield"
         ]
@@ -8051,6 +8063,8 @@
         "choice:greek-atreid-account=euripides"
       ],
       "item:greek-olive-branch": [
+        "item:greek-olive-branch",
+        "place:greek-athens",
         "resident:greek-theseus"
       ],
       "item:greek-palace-testimony": [
@@ -8732,6 +8746,11 @@
       "kind": "item_at",
       "class": "live",
       "words": "greek-ajax-tools lies at greek-ajax-grave"
+    },
+    "item_at(item=greek-olive-branch,place=greek-athens)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "greek-olive-branch lies at greek-athens"
     },
     "item_at(item=greek-provisions,place=greek-ship)": {
       "kind": "item_at",
