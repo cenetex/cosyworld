@@ -20,8 +20,6 @@ const settings = Object.freeze({
   effort: 6,
   phoneSize: 960,
 });
-// Phone stages fit inside phoneSize on their longer side. Adding this size
-// left the stage and card encodes alone, so their bytes are still reused.
 const encodeKeys = ["quality", "alphaQuality", "cardWidth", "effort"];
 const pick = (value) =>
   JSON.stringify(encodeKeys.map((key) => value?.[key] ?? null));
@@ -206,7 +204,7 @@ async function build() {
           Math.round((metadata.height * settings.cardWidth) / metadata.width)
       )
         throw new Error(`Image card dimensions changed: ${card}`);
-      if (metadata.hasAlpha)
+      if (metadata.hasAlpha && !check && !reused)
         await sameAlpha(source, cardBody, settings.cardWidth);
     }
     cardBytes += cardBody.length;
@@ -259,7 +257,8 @@ async function phoneVariant(
     if (check && (!body || saved.phone !== path))
       throw new Error(`Image phone output changed: ${path}`);
   }
-  if (!body) {
+  const fresh = !body;
+  if (fresh) {
     body = await sharp(source).resize(phoneFit).webp(settings).toBuffer();
     await writeChanged(path, body);
   }
@@ -270,7 +269,7 @@ async function phoneVariant(
     result.height !== Math.round(metadata.height * scale)
   )
     throw new Error(`Image phone dimensions changed: ${path}`);
-  if (metadata.hasAlpha) await sameAlpha(source, body, phoneFit);
+  if (metadata.hasAlpha && fresh) await sameAlpha(source, body, phoneFit);
   return { path, body };
 }
 await Promise.all(Array.from({ length: 2 }, build));
