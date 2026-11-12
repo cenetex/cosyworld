@@ -20723,10 +20723,10 @@
     "cosyworld.title-logo",
     "cosyworld.music-revealed"
   ]);
-  var isAccountGameKey = (key) => gameKeys.has(key) || /^(cosyworld\.cards\.|cosyworld\.reflected-shore\.v1|cosyworld\.performance:)/u.test(key);
+  var isAccountGameKey = (key2) => gameKeys.has(key2) || /^(cosyworld\.cards\.|cosyworld\.reflected-shore\.v1|cosyworld\.performance:)/u.test(key2);
   var metadata = (storage) => JSON.parse(storage.getItem(META) || "{}");
   var databaseName = (epoch) => epoch ? `${DB}:${epoch}` : DB;
-  var physicalKey = (epoch, key) => epoch && isAccountGameKey(key) ? `${PREFIX}${epoch}:${key}` : key;
+  var physicalKey = (epoch, key2) => epoch && isAccountGameKey(key2) ? `${PREFIX}${epoch}:${key2}` : key2;
   var stale = () => new Error("Account reset changed this browser. Reload to continue.");
   function createAccountStorage(storage, control = storage) {
     const initial = metadata(control);
@@ -20737,18 +20737,18 @@
     return {
       assertCurrent,
       databaseName: databaseName(initial.epoch),
-      keyFor: (key) => physicalKey(initial.epoch, key),
-      getItem(key) {
-        if (isAccountGameKey(key)) assertCurrent();
-        return storage.getItem(physicalKey(initial.epoch, key));
+      keyFor: (key2) => physicalKey(initial.epoch, key2),
+      getItem(key2) {
+        if (isAccountGameKey(key2)) assertCurrent();
+        return storage.getItem(physicalKey(initial.epoch, key2));
       },
-      setItem(key, value) {
-        if (isAccountGameKey(key)) assertCurrent();
-        storage.setItem(physicalKey(initial.epoch, key), value);
+      setItem(key2, value) {
+        if (isAccountGameKey(key2)) assertCurrent();
+        storage.setItem(physicalKey(initial.epoch, key2), value);
       },
-      removeItem(key) {
-        if (isAccountGameKey(key)) assertCurrent();
-        storage.removeItem(physicalKey(initial.epoch, key));
+      removeItem(key2) {
+        if (isAccountGameKey(key2)) assertCurrent();
+        storage.removeItem(physicalKey(initial.epoch, key2));
       }
     };
   }
