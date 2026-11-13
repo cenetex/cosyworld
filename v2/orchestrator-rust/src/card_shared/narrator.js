@@ -1876,12 +1876,23 @@
         text: "A woodcut card. A walker steps off a root with a lamp in one hand and a red scarf flying.",
         art: "assets/lonely-forest/arcanum-0.png",
         proof: [
-          { kind: "count", of: "carried", max: 0 },
+          {
+            kind: "count",
+            of: "carried",
+            max: 0
+          },
           {
             kind: "not",
-            condition: { kind: "actor_at", place: "$home" }
+            condition: {
+              kind: "actor_at",
+              place: "$home"
+            }
           },
-          { kind: "count", of: "visited", min: 6 }
+          {
+            kind: "count",
+            of: "visited",
+            min: 6
+          }
         ]
       },
       {
@@ -1890,7 +1901,13 @@
         name: "The Magician",
         text: "A woodcut card. A needle draws thread through a button on a red scarf.",
         art: "assets/lonely-forest/arcanum-1.png",
-        proof: [{ kind: "count", of: "opened", min: 1 }]
+        proof: [
+          {
+            kind: "count",
+            of: "opened",
+            min: 1
+          }
+        ]
       },
       {
         id: "arcanum-2",
@@ -1898,7 +1915,13 @@
         name: "The High Priestess",
         text: "A woodcut card. A veiled face looks out of a tall mirror under the rafters.",
         art: "assets/lonely-forest/arcanum-2.png",
-        proof: [{ kind: "count", of: "heard", min: 3 }]
+        proof: [
+          {
+            kind: "count",
+            of: "heard",
+            min: 3
+          }
+        ]
       },
       {
         id: "arcanum-3",
@@ -1907,8 +1930,15 @@
         text: "A woodcut card. A woman lays a red scarf on her table beside a bowl of fruit and a warm oven.",
         art: "assets/greek-drama/arcanum-3.png",
         roles: [
-          { name: "thing", kind: "item", is: "food" },
-          { name: "someone", kind: "resident" }
+          {
+            name: "thing",
+            kind: "item",
+            is: "food"
+          },
+          {
+            name: "someone",
+            kind: "resident"
+          }
         ],
         proof: [
           {
@@ -1927,7 +1957,10 @@
           {
             kind: "item",
             target: "$thing",
-            step: { verb: "eat", with: "$someone" }
+            step: {
+              verb: "eat",
+              with: "$someone"
+            }
           }
         ]
       },
@@ -1937,7 +1970,13 @@
         name: "The Emperor",
         text: "A woodcut card. An old bearded face of bark holds a small lit house in its roots.",
         art: "assets/lonely-forest/arcanum-4.png",
-        roles: [{ name: "place", kind: "place", is: "sanctuary" }],
+        roles: [
+          {
+            name: "place",
+            kind: "place",
+            is: "sanctuary"
+          }
+        ],
         proof: [
           {
             kind: "did",
@@ -1951,7 +1990,13 @@
           }
         ],
         desire: [
-          { kind: "place", target: "$place", step: { verb: "rest" } }
+          {
+            kind: "place",
+            target: "$place",
+            step: {
+              verb: "rest"
+            }
+          }
         ]
       },
       {
@@ -1960,13 +2005,480 @@
         name: "The Hierophant",
         text: "A woodcut card. An elder shows an open hand to two listeners under an arch of branches.",
         art: "assets/lonely-forest/arcanum-5.png",
-        proof: [{ kind: "count", of: "trusting", level: 2, min: 2 }]
+        proof: [
+          {
+            kind: "count",
+            of: "trusting",
+            level: 2,
+            min: 2
+          }
+        ]
+      },
+      {
+        id: "arcanum-6",
+        number: 6,
+        name: "The Lover",
+        text: "A woodcut card. Two people pull a young man two ways while Cupid aims from above.",
+        art: "assets/arcana/arcanum-6.png",
+        proof: [
+          {
+            kind: "did",
+            key: "bond",
+            match: {
+              verb: "accompany",
+              actorId: "$traveler",
+              accepted: true
+            },
+            while: [
+              {
+                kind: "company"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "company"
+          }
+        ]
+      },
+      {
+        id: "arcanum-7",
+        number: 7,
+        name: "The Chariot",
+        text: "A woodcut card. A driver leans from the cab of a steam train at full speed.",
+        art: "assets/arcana/arcanum-7.png",
+        roles: [
+          {
+            name: "vessel",
+            kind: "transport"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "course",
+            match: {
+              verb: "course",
+              actorId: "$traveler",
+              fromLocationId: "$vessel"
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "place",
+            target: "$vessel",
+            step: {
+              verb: "sail"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-8",
+        number: 8,
+        name: "Justice",
+        text: "A woodcut card. A pair of scales holds a key in one pan and a letter in the other.",
+        art: "assets/arcana/arcanum-8.png",
+        proof: [
+          {
+            kind: "did",
+            key: "fair-trade",
+            match: {
+              verb: "trade",
+              actorId: "$traveler",
+              accepted: true
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            step: {
+              verb: "trade"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-9",
+        number: 9,
+        name: "The Hermit",
+        text: "A woodcut card. A hooded walker carries a lantern through bare trees with a moth above.",
+        art: "assets/arcana/arcanum-9.png",
+        roles: [
+          {
+            name: "light",
+            kind: "item",
+            is: "lamp"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "night-walk",
+            match: {
+              verb: "move",
+              actorId: "$traveler",
+              light: true
+            },
+            while: [
+              {
+                kind: "daylight",
+                phase: "night"
+              },
+              {
+                kind: "held",
+                item: "$light",
+                actor: "$traveler"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            target: "$light",
+            lit: true
+          },
+          {
+            kind: "daylight",
+            phase: "night"
+          }
+        ]
+      },
+      {
+        id: "arcanum-10",
+        number: 10,
+        name: "The Wheel of Fortune",
+        text: "A woodcut card. A steam clock turns its gears beneath a bell.",
+        art: "assets/arcana/arcanum-10.png",
+        roles: [
+          {
+            name: "thing",
+            kind: "item",
+            is: "food"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "spent",
+            match: {
+              verb: "eat",
+              actorId: "$traveler",
+              itemId: "$thing"
+            },
+            without: ["reason"]
+          },
+          {
+            kind: "did",
+            key: "found",
+            match: {
+              verb: ["take", "ask"],
+              actorId: "$traveler",
+              itemId: "$thing"
+            },
+            without: ["reason"],
+            while: [
+              {
+                kind: "did",
+                key: "spent"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "eat"
+            }
+          },
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "find"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-11",
+        number: 11,
+        name: "Strength",
+        text: "A woodcut card. A woman kneels to tend the hurt paw of a wolf.",
+        art: "assets/arcana/arcanum-11.png",
+        proof: [
+          {
+            kind: "did",
+            key: "calm",
+            match: {
+              verb: "guard",
+              actorId: "$traveler"
+            },
+            while: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "fighting"
+                }
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "person",
+            step: {
+              verb: "brace against"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-12",
+        number: 12,
+        name: "The Hanged Man",
+        text: "A woodcut card. A figure hangs over still water, and its reflection is a small dark figure.",
+        art: "assets/arcana/arcanum-12.png",
+        proof: [
+          {
+            kind: "did",
+            key: "let-go",
+            match: {
+              verb: "drop",
+              actorId: "$traveler"
+            },
+            without: ["itemId"]
+          }
+        ],
+        desire: [
+          {
+            kind: "quest",
+            step: {
+              verb: "let go of"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-14",
+        number: 14,
+        name: "Temperance",
+        text: "A woodcut card. A hand pours from a thermos into two mugs.",
+        art: "assets/arcana/arcanum-14.png",
+        roles: [
+          {
+            name: "thing",
+            kind: "item",
+            is: "drink"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "poured",
+            match: {
+              verb: "eat",
+              actorId: "$traveler",
+              itemId: "$thing",
+              accepted: true
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "eat",
+              with: null
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-15",
+        number: 15,
+        name: "The Devil",
+        text: "A woodcut card. A horned figure stands on a box with two people tied to it.",
+        art: "assets/arcana/arcanum-15.png",
+        roles: [
+          {
+            name: "thing",
+            kind: "item",
+            is: "wanted"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "kept",
+            match: {
+              verb: "move",
+              actorId: "$traveler"
+            },
+            while: [
+              {
+                kind: "held",
+                item: "$thing",
+                actor: "$traveler"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "keep"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-16",
+        number: 16,
+        name: "The Tower",
+        text: "A woodcut card. Lightning strikes a tower as people fall from it and climb out.",
+        art: "assets/arcana/arcanum-16.png",
+        proof: [
+          {
+            kind: "count",
+            of: "opened",
+            box: "resident",
+            min: 1
+          }
+        ]
+      },
+      {
+        id: "arcanum-17",
+        number: 17,
+        name: "The Star",
+        text: "A woodcut card. A kneeling woman pours water from two jars under a star.",
+        art: "assets/arcana/arcanum-17.png",
+        proof: [
+          {
+            kind: "did",
+            key: "gift",
+            match: {
+              verb: "give",
+              actorId: "$traveler",
+              accepted: true
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            step: {
+              verb: "give"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-18",
+        number: 18,
+        name: "The Moon",
+        text: "A woodcut card. A moon shines on water where a doorway stands, and a lantern waits on the bank.",
+        art: "assets/arcana/arcanum-18.png",
+        roles: [
+          {
+            name: "light",
+            kind: "item",
+            is: "lamp"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "dark-walk",
+            match: {
+              verb: "move",
+              actorId: "$traveler",
+              light: false
+            },
+            while: [
+              {
+                kind: "daylight",
+                phase: "night"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "daylight",
+            phase: "night"
+          },
+          {
+            kind: "not",
+            condition: {
+              kind: "item",
+              target: "$light",
+              lit: true
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-19",
+        number: 19,
+        name: "The Sun",
+        text: "A woodcut card. Two people stand on a jetty under the sun, one in a red scarf.",
+        art: "assets/arcana/arcanum-19.png",
+        proof: [
+          {
+            kind: "did",
+            key: "home-together",
+            match: {
+              verb: ["move", "accompany"],
+              actorId: "$traveler",
+              locationId: "$home"
+            },
+            while: [
+              {
+                kind: "company"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "company"
+          },
+          {
+            kind: "place",
+            target: "$home"
+          }
+        ]
+      },
+      {
+        id: "arcanum-20",
+        number: 20,
+        name: "Judgement",
+        text: "A woodcut card. A raven circles a radio tower while a crowd gathers below.",
+        art: "assets/arcana/arcanum-20.png",
+        proof: [
+          {
+            kind: "count",
+            of: "trusting",
+            min: 5
+          }
+        ]
       },
       {
         id: "arcanum-21",
         number: 21,
         name: "The World",
-        text: "A woodcut card.",
+        text: "A woodcut card. A dancer turns with a red scarf inside a ring of branches beside a small house.",
+        art: "assets/arcana/arcanum-21.png",
         proof: [
           {
             kind: "did",
@@ -1980,7 +2492,13 @@
           }
         ],
         desire: [
-          { kind: "place", target: "$home", step: { verb: "rest" } }
+          {
+            kind: "place",
+            target: "$home",
+            step: {
+              verb: "rest"
+            }
+          }
         ]
       }
     ]
