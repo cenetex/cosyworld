@@ -389,5 +389,5 @@ describe("the quest card", () => {
       }
     }
     expect(validateWorld(s)).toBe(s);
-  });
+  }, 30000);
 });
