@@ -210,7 +210,7 @@
   "avatars": {
     "willows-swede": {
       "name": "The Swede",
-      "startLevel": 50,
+      "startLevel": 19,
       "text": "A stolid canoe traveller with wind-reddened hands. Now and then he holds a hand to his ear and looks up at the willow tops.",
       "place": "willows-camp",
       "travels": false,
@@ -302,7 +302,7 @@
   "items": {
     "willows-paddle": {
       "name": "Worn Paddle",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
       "persona": "A long wooden canoe paddle with a blade scraped strangely thin. Part of the Swede's kit; it belongs at the camp.",
       "holder": "willows-bank",
@@ -310,7 +310,7 @@
     },
     "willows-map": {
       "name": "River Map",
-      "startLevel": 30,
+      "startLevel": 15,
       "text": "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
       "persona": "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
       "holder": "willows-camp",
@@ -318,7 +318,7 @@
     },
     "willows-rope": {
       "name": "Tent Rope",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A spare coil of hemp rope from the Swede's tent.",
       "persona": "A spare coil of sound hemp rope. Part of the Swede's kit; it belongs at the camp.",
       "holder": "willows-bank",
@@ -333,7 +333,7 @@
     },
     "willows-provisions": {
       "name": "Food Sack",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
       "persona": "A canvas food sack holding oatmeal, potatoes, onions and tea. Part of the Swede's kit; it belongs at the camp.",
       "holder": "willows-landing",
@@ -341,7 +341,7 @@
     },
     "willows-pot": {
       "name": "Stew Pot",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "An iron stew pot. Scratched inside the lid: There is no bread.",
       "persona": "A small black iron stew pot from the camp. Words are scratched inside its lid.",
       "holder": "willows-camp",
@@ -349,7 +349,7 @@
     },
     "willows-spoon": {
       "name": "Wooden Spoon",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A long wooden spoon. Burnt into the handle: a kingdom of wonder and magic.",
       "persona": "A plain wooden cooking spoon. Words are burnt into its smoke-darkened handle.",
       "holder": "willows-camp",
@@ -357,7 +357,7 @@
     },
     "willows-pipe": {
       "name": "The Swede's Pipe",
-      "startLevel": 50,
+      "startLevel": 19,
       "text": "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
       "persona": "The Swede's well-used briar pipe. Words are scratched around its bowl.",
       "holder": "willows-swede",

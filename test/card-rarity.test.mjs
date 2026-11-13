@@ -10,12 +10,12 @@ import { packDefinitions, hub } from "../v2/card-game/pack-registry.mjs";
 
 describe("card level presentation", () => {
   it.each([
-    [0, 9, "common", "#c8dce6"],
-    [10, 19, "uncommon", "#8cdcff"],
-    [20, 29, "rare", "#be82ff"],
-    [30, 49, "epic", "#ffc85a"],
-    [50, 99, "legendary", "#fff082"],
-    [100, 144, "mythic", "#ff9ce6"],
+    [0, 5, "common", "#c8dce6"],
+    [6, 10, "uncommon", "#8cdcff"],
+    [11, 14, "rare", "#be82ff"],
+    [15, 18, "epic", "#ffc85a"],
+    [19, 20, "legendary", "#fff082"],
+    [21, 21, "mythic", "#ff9ce6"],
   ])(
     "keeps levels %i through %i in one Signal colour",
     (from, to, id, color) => {
@@ -31,18 +31,18 @@ describe("card level presentation", () => {
       actors: { vale: { xp: 45 } },
       items: { oil: { holder: "vale" } },
     };
-    expect(cardLevel(world, "vale")).toBe(10);
-    expect(cardLevel(world, "oil")).toBe(10);
+    expect(cardLevel(world, "vale")).toBe(6);
+    expect(cardLevel(world, "oil")).toBe(6);
     expect(cardLevel(world, "attic")).toBe(1);
     world.actors.vale.xp = 5050;
-    expect(cardLevel(world, "vale")).toBe(101);
+    expect(cardLevel(world, "vale")).toBe(21);
     expect(levelTier(cardLevel(world, "vale")).id).toBe("mythic");
     expect(world.actors.vale.xp).toBe(5050);
   });
 
   it("gives items their authored start level and tier, whatever holds them", () => {
     const world = { actors: { vale: { xp: 0 } }, items: {} };
-    expect(cardLevel(world, "lamp")).toBe(50);
+    expect(cardLevel(world, "lamp")).toBe(19);
     expect(levelTier(cardLevel(world, "greek-decree")).id).toBe("legendary");
     expect(levelTier(cardLevel(world, "greek-olive-branch")).id).toBe("epic");
     expect(levelTier(cardLevel(world, "willows-pot")).id).toBe("rare");

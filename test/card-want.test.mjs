@@ -48,9 +48,9 @@ describe("one want per avatar", () => {
 
   it("starts authored pack residents at their tier's first level", () => {
     const s = createWorld();
-    expect(levelOf(s, "greek-creon")).toBe(50);
+    expect(levelOf(s, "greek-creon")).toBe(19);
     expect(s.actors["greek-creon"].xp).toBe(1225);
-    expect(levelOf(s, "greek-antigone")).toBe(20);
+    expect(levelOf(s, "greek-antigone")).toBe(11);
     expect(levelOf(s, "greek-guard")).toBe(1);
     expect(levelOf(s, "vale")).toBe(1);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();

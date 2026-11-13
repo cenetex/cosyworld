@@ -13,6 +13,8 @@ import {
   worldLevel,
   worldPoints,
 } from "../v2/card-game/world-level.mjs";
+import { rankOf } from "../v2/card-game/level-tiers.mjs";
+import { rankXp } from "../v2/card-game/want.mjs";
 
 const memoryStorage = () => {
   const data = new Map();
@@ -21,10 +23,10 @@ const memoryStorage = () => {
     setItem: (k, v) => data.set(k, String(v)),
   };
 };
-// A resident who starts at level 1 reaches level n at n(n-1)/2 experience,
-// which takes moments (at most eight a moment).
+// A resident who starts at level 1 reaches a level on the 0-21 track at the
+// experience of its rank, which takes moments (at most eight a moment).
 const raise = (world, id, level) => {
-  world.actors[id].xp = (level * (level - 1)) / 2;
+  world.actors[id].xp = rankXp(rankOf(level));
   world.turn = Math.max(world.turn, Math.ceil(world.actors[id].xp / 8));
   world.revision = Math.max(world.revision, world.turn);
   return world;
@@ -86,23 +88,29 @@ test("thresholds follow the game's level tiers", () => {
     return worldLevel(world);
   };
   assert.deepEqual(
-    [0, 8, 9, 18, 19, 29, 49, 99].map((p) => [at(p).level, at(p).tier.id]),
+    [0, 4, 5, 9, 10, 13, 14, 17, 18, 19, 20].map((p) => [
+      at(p).level,
+      at(p).tier.id,
+    ]),
     [
       [1, "common"],
-      [9, "common"],
+      [5, "common"],
+      [6, "uncommon"],
       [10, "uncommon"],
-      [19, "uncommon"],
-      [20, "rare"],
-      [30, "epic"],
-      [50, "legendary"],
-      [100, "mythic"],
+      [11, "rare"],
+      [14, "rare"],
+      [15, "epic"],
+      [18, "epic"],
+      [19, "legendary"],
+      [20, "legendary"],
+      [21, "mythic"],
     ],
   );
 });
 
 test("the browser remembers each world's tier for the menu", () => {
   const storage = memoryStorage();
-  const rare = worldLevel(raise(createWorld(), "moth", 20)).tier;
+  const rare = worldLevel(raise(createWorld(), "moth", 11)).tier;
   assert.equal(cachedWorldTier("world:a", storage).id, "common");
   rememberWorldTier("world:a", rare, storage);
   assert.equal(cachedWorldTier("world:a", storage).id, "rare");

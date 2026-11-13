@@ -18,6 +18,7 @@ import { drawGlimpse, validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
+import { rankOf, trackLevel } from "./level-tiers.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A want may name a verb beyond the kind's own (hold, be at, talk). State
@@ -74,12 +75,13 @@ export const travels = (id, s = null) =>
 // level quest, which a long rest brings once experience reaches the next
 // level. Residents, whose time is not their own, level on experience alone.
 export const levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
-export const levelOf = (s, id) =>
+const rankAt = (s, id) =>
   s.actors[id]?.level ?? levelFor(s.actors[id]?.xp || 0);
+export const levelOf = (s, id) => trackLevel(rankAt(s, id));
 // Opted-in residents bank experience while away. Their authored home stays
 // fixed even when a journey or a visit changes their latest sanctuary.
 export const levelReturnHome = (s, id) =>
-  packPeople[id]?.levelAtHome && levelFor(s.actors[id].xp) > levelOf(s, id)
+  packPeople[id]?.levelAtHome && levelFor(s.actors[id].xp) > rankAt(s, id)
     ? packPeople[id].home
     : null;
 export function settleHomeLevels(s) {
@@ -117,13 +119,9 @@ export const questXp = (level) => {
 export const levelXp = (level) => questXp(level + 1) - levelGap(level);
 export const halfwayXp = (level) =>
   levelXp(level) + Math.ceil(levelGap(level) / 2);
-// A pack resident may start at an authored level, with the experience that
-// level takes, so its later level-ups stay on the same curve. Player and
-// human avatars always start at the bottom.
-export const startXp = (id) => {
-  const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
-  return (level * (level - 1)) / 2;
-};
+export const rankXp = (r) => (r * (r - 1)) / 2;
+export const startXp = (id) =>
+  rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
 
 export const wantOf = (s, id) => s.actors[id]?.want ?? null;
 // The same quest keeps its identity wherever it is read.

@@ -8,8 +8,8 @@ const appearances = {
 export const rarityForms = Object.freeze(
   Object.fromEntries(
     [
-      ["hoppycat-arc", 30, "epic", "left"],
-      ["hoppycat-hoppy-cat", 100, "mythic", "front"],
+      ["hoppycat-arc", 15, "epic", "left"],
+      ["hoppycat-hoppy-cat", 21, "mythic", "front"],
     ].map(([id, level, tier, facing]) => [
       id,
       {

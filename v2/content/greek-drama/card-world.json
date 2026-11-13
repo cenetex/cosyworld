@@ -1138,7 +1138,7 @@
   "avatars": {
     "greek-antigone": {
       "name": "Antigone",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
       "place": "greek-gate",
       "home": "greek-polynices-hollow",
@@ -1195,7 +1195,7 @@
     },
     "greek-creon": {
       "name": "Creon",
-      "startLevel": 50,
+      "startLevel": 19,
       "text": "He receives petitions beside the palace door. He wants his decree back in his own hands.",
       "place": "greek-palace",
       "home": "greek-palace",
@@ -1439,7 +1439,7 @@
     },
     "greek-helen-troy": {
       "name": "Helen",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "She checks the traveler's account against a witness tablet.",
       "place": "greek-troy-beach",
       "home": "greek-troy-beach",
@@ -1540,7 +1540,7 @@
     },
     "greek-electra-sophocles": {
       "name": "Electra",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "She has preserved an account of the household's losses.",
       "place": "greek-mycenae-palace",
       "home": "greek-mycenae-palace",
@@ -1566,7 +1566,7 @@
     },
     "greek-orestes-sophocles": {
       "name": "Orestes",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "He has come to hear his sister before committing himself.",
       "place": "greek-mycenae-palace",
       "home": "greek-mycenae-palace",
@@ -1718,7 +1718,7 @@
     },
     "greek-theseus": {
       "name": "Theseus",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "A petition table stands beside him. He waits for the mothers’ own account.",
       "place": "greek-athens",
       "home": "greek-athens",
@@ -1863,7 +1863,7 @@
     },
     "greek-ajax-odysseus": {
       "name": "Odysseus",
-      "startLevel": 30,
+      "startLevel": 15,
       "text": "Odysseus waits by the commanders’ tents. He can hear Teucer’s plea and speak for a former rival.",
       "place": "greek-greek-camp",
       "home": "greek-greek-camp",
@@ -2083,7 +2083,7 @@
     },
     "greek-shovel": {
       "name": "Burial Shovel",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A short iron shovel with soil caught beneath the blade.",
       "holder": "greek-gate",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -2092,7 +2092,7 @@
     },
     "greek-decree": {
       "name": "The Burial Decree",
-      "startLevel": 50,
+      "startLevel": 19,
       "text": "A public copy forbids burial of the brother left outside the city.",
       "holder": "greek-guard",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -2128,7 +2128,7 @@
     },
     "greek-olive-branch": {
       "name": "The Herald’s Truce",
-      "startLevel": 30,
+      "startLevel": 15,
       "text": "An olive branch bound with white wool carries the herald’s burial truce: Thebes gives up the Argive dead under witness.",
       "holder": "greek-athens",
       "art": "assets/greek-drama/olive-branch.webp",
@@ -2143,7 +2143,7 @@
     },
     "greek-egypt-testimony": {
       "name": "The Egyptian Witness Tablet",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
       "holder": "greek-egypt-tomb",
       "persona": "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -2214,7 +2214,7 @@
     },
     "greek-burial-petition": {
       "name": "The Mothers’ Petition",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "An olive branch lies across a tablet bearing the mothers’ request. Aethra has left room for the city’s answer.",
       "holder": "greek-eleusis",
       "art": "assets/greek-drama/burial-petition.png",
@@ -2243,7 +2243,7 @@
     },
     "greek-ash-urn": {
       "name": "The Funeral Urn",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A covered urn holds ashes entrusted to the mothers after the recorded recovery and funeral. Its clay is cool.",
       "holder": "greek-eleusis",
       "art": "assets/greek-drama/ash-urn.png",
@@ -2305,7 +2305,7 @@
     },
     "greek-ajax-shield": {
       "name": "Ajax’s Shield",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "Ajax’s shield waits to be carried to Tecmessa’s household for Eurysaces.",
       "holder": "greek-greek-camp",
       "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
