@@ -20,6 +20,7 @@ import { arcanaLevel, isArcanum, recordOf } from "./arcana-record.mjs";
 import { boxDefs } from "./boxes.mjs";
 import { homeOf } from "./home.mjs";
 import { rootHolder } from "./items.mjs";
+import { sleepQuest } from "../want.mjs";
 
 export const deck = { cards: data.cards };
 export { arcanaLevel, isArcanum, recordOf };
@@ -297,7 +298,7 @@ export function settleArcana(s, actor = null, since = 0) {
     if (dealt?.card.proof.every((c) => holds(s, c, dealt.binding))) {
       const record = s.actors[traveler].arcana;
       record.proved = [...new Set([...record.proved, dealt.card.id])].sort();
-      deal(s, traveler);
+      if (deal(s, traveler)) sleepQuest(s, traveler, { home: homeOf });
     } else if (!dealt && opened) deal(s, traveler);
   }
   return s;

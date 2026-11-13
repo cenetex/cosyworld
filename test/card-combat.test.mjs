@@ -406,8 +406,10 @@ describe("card standoffs", () => {
   it("lets the winning avatar collect the released item as a card play", () => {
     let s = meeting();
     s.turn = s.revision = 3;
-    // Level 6 is a tier above Pip, so Vale outlasts Pip's one-resolve strikes.
-    s.actors.vale.carried = s.actors.vale.xp = 45;
+    s.actors.vale.arcana = {
+      proved: [0, 1, 2, 3, 4, 5].map((n) => `arcanum-${n}`),
+      did: [],
+    };
     s = act(s, "threaten", "moth");
     // Strikes roll 1 to 3 a tier up, so the fight lasts two to four rounds.
     for (let i = 0; i < 4 && s.standoffs.length; i++)

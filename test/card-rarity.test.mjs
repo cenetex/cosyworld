@@ -28,16 +28,20 @@ describe("card level presentation", () => {
 
   it("reads earned levels without giving an owner's level to their things or place", () => {
     const world = {
-      actors: { vale: { xp: 45 } },
-      items: { oil: { holder: "vale" } },
+      actors: {
+        keeper: { xp: 45 },
+        vale: { xp: 45, arcana: { proved: ["arcanum-0", "arcanum-1"], did: [] } },
+      },
+      items: { oil: { holder: "keeper" } },
     };
-    expect(cardLevel(world, "vale")).toBe(6);
+    expect(cardLevel(world, "keeper")).toBe(6);
+    expect(cardLevel(world, "vale")).toBe(2);
     expect(cardLevel(world, "oil")).toBe(6);
     expect(cardLevel(world, "attic")).toBe(1);
-    world.actors.vale.xp = 5050;
-    expect(cardLevel(world, "vale")).toBe(21);
-    expect(levelTier(cardLevel(world, "vale")).id).toBe("mythic");
-    expect(world.actors.vale.xp).toBe(5050);
+    world.actors.keeper.xp = 5050;
+    expect(cardLevel(world, "keeper")).toBe(21);
+    expect(levelTier(cardLevel(world, "keeper")).id).toBe("mythic");
+    expect(world.actors.keeper.xp).toBe(5050);
   });
 
   it("gives items their authored start level and tier, whatever holds them", () => {

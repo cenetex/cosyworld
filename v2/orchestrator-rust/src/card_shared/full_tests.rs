@@ -1322,8 +1322,7 @@ fn stowing_the_lamp_then_playing_meets_vales_want_once_and_replays() {
     assert_eq!(first.len(), 1);
     assert_eq!(first[0]["wantMet"], json!({"kind":"item","target":"lamp"}));
     assert_eq!(first[0]["turn"], w.game["turn"]);
-    // The want is paid on the play that meets it: no reward to claim.
-    assert_eq!(w.game["actors"]["vale"]["xp"], 1);
+    assert_eq!(w.game["actors"]["vale"]["xp"], 0);
     assert!(w.game["actors"]["vale"]["want"].is_null());
     assert!(w.game["actors"]["vale"].get("questRewards").is_none());
     assert!(w.game.get("quests").is_none());

@@ -215,7 +215,6 @@ import {
   afterDeadline,
   waitForScene,
 } from "./dialogue.mjs";
-import { dropCost } from "./want.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
 import {
   currentActor,
@@ -3007,7 +3006,7 @@ function renderActions() {
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
-    noteText = `${shownQuestCaption(picked, false)}. Cost ${dropCost(world, actor)} XP.`;
+    noteText = `${shownQuestCaption(picked, false)}.`;
   }
   showActionBeatNote(note, { note: noteText });
   const text = abandonQuest ? "Discard this quest?" : sentence;

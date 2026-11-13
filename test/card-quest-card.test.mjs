@@ -335,7 +335,7 @@ describe("the quest card", () => {
     expect(questCards(s)).toEqual([]);
   });
 
-  it("drops the card when the rules meet the quest, paying on that play", () => {
+  it("drops the card when the rules meet the quest, on that play", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.lamp.holder = "attic";
@@ -351,9 +351,8 @@ describe("the quest card", () => {
       s,
       legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
     ).state;
-    // Nothing is sealed or left to claim: the card is gone, the XP is paid.
     expect(questCards(s)).toEqual([]);
-    expect(s.actors.vale.xp).toBe(xp + 1);
+    expect(s.actors.vale.xp).toBe(xp);
     expect(
       legalActions(s).some((a) => ["claim", "focus"].includes(a.kind)),
     ).toBe(false);

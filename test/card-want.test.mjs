@@ -11,7 +11,7 @@ import {
 } from "../v2/card-game/world.mjs";
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
-import { levelFor, levelOf, newWant, reviseStalledWants, wantCandidates, wantMet, REFUSAL_LIMIT, dropCost, STALL_TURNS, CONTENT_TURNS } from "../v2/card-game/want.mjs";
+import { levelFor, levelOf, newWant, reviseStalledWants, wantCandidates, wantMet, REFUSAL_LIMIT, STALL_TURNS, CONTENT_TURNS } from "../v2/card-game/want.mjs";
 import { questCards } from "../v2/card-game/quest-card.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -52,7 +52,7 @@ describe("one want per avatar", () => {
     expect(s.actors["greek-creon"].xp).toBe(1225);
     expect(levelOf(s, "greek-antigone")).toBe(11);
     expect(levelOf(s, "greek-guard")).toBe(1);
-    expect(levelOf(s, "vale")).toBe(1);
+    expect(levelOf(s, "vale")).toBe(0);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
@@ -88,18 +88,17 @@ describe("one want per avatar", () => {
     expect(wantMet(s, "vale", { actor: "vale", target: "keeper" })).toBe(false);
   });
 
-  it("commits want_met, pays one XP at once and leaves a player holding no quest", () => {
+  it("commits want_met, pays a traveler no XP and leaves a player holding no quest", () => {
     let s = createWorld();
     s.actors.vale.want = newWant("place", "pond", 0);
     s = play(s, act(s, "move", { target: "pond" })).state;
     const [event] = metEvents(s, "vale");
     expect(event.wantMet).toEqual({ kind: "place", target: "pond" });
     // Paid on the play that meets it: no receipt, no claim.
-    expect(s.actors.vale.xp).toBe(1);
+    expect(s.actors.vale.xp).toBe(0);
     expect(s.actors.vale.questRewards).toBeUndefined();
     expect(legalActions(s).some((a) => a.kind === "claim")).toBe(false);
-    // The player's level waits for its level quest.
-    expect(levelOf(s, "vale")).toBe(1);
+    expect(levelOf(s, "vale")).toBe(0);
     // Nothing is drawn for a player, now or after Sleep.
     expect(s.actors.vale.want).toBeNull();
     expect(s.actors.vale.content).toBeUndefined();
@@ -235,13 +234,13 @@ describe("one want per avatar", () => {
     expect(s.actors[id].want?.target).not.toBe(start.target);
   });
 
-  it("never redraws a player's quest for refusals; Drop costs", () => {
+  it("never redraws a player's quest for refusals; Drop is free", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.oil.holder = "keeper";
     s.actors.keeper.place = "station";
     s.actors.keeper.want = newWant("place", "station", 0);
-    const step = { ...newWant("item", "oil", 0), quest: { level: 2, left: 1 } };
+    const step = newWant("item", "oil", 0);
     Object.assign(s.actors.vale, { want: step, xp: 3, level: 1 });
     let refused = 0;
     for (let i = 0; i < REFUSAL_LIMIT; i++) {
@@ -252,11 +251,11 @@ describe("one want per avatar", () => {
       if (s.items.oil.holder === "keeper") refused += 1;
     }
     expect(refused).toBeGreaterThan(0);
-    // No free redraw (rules 98): the step stays, and only Drop, at its
-    // cost, takes it off.
     expect(s.actors.vale.want).toMatchObject({ target: "oil", refusals: 0 });
     expect(s.actors.vale.gaveUp).toBeUndefined();
-    expect(dropCost(s, "vale")).toBe(1);
+    s = play(s, act(s, "drop", { item: null }), s.revision).state;
+    expect(s.actors.vale.want).toBeNull();
+    expect(s.actors.vale.xp).toBe(3);
   });
 
   it("trusts only someone who gave the wanted item", () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld, homeOf, legalActions, play } from "../v2/card-game/world.mjs";
 import { DAYLIGHT_TURNS, isNight } from "../v2/card-game/daylight.mjs";
-import { questXp, questsOf } from "../v2/card-game/want.mjs";
+import { questsOf, sleepQuest } from "../v2/card-game/want.mjs";
 import {
   CONFIRM_MS,
   DREAM_WAIT_MS,
@@ -28,13 +28,14 @@ import {
 } from "../v2/card-game/stage-light.mjs";
 
 // Vale sleeps in the attic (a sanctuary) from `from` until the light changes.
-function sleepFrom(from, { xp = questXp(2) } = {}) {
+function sleepFrom(from, { xp = 6, dream = false } = {}) {
   let w = createWorld();
   w.actors.vale.place = "attic";
   w.turn = from;
   w.revision = Math.max(w.revision, from);
   w.actors.vale.xp = xp;
   w.actors.vale.level = 1;
+  if (dream) sleepQuest(w, "vale", { home: homeOf });
   w.actors.moth.want = null;
   w.actors.keeper.want = null;
   w = play(
@@ -94,7 +95,7 @@ function sequence(plan) {
 const DREAM_PLAN = sleepPlan({ dream: true, crossed: true });
 
 describe("waking from a sleep", () => {
-  it("deals no quest in a long rest, even with experience for the next level", () => {
+  it("deals no quest in a long rest, however much experience is held", () => {
     const { world, before } = sleepFrom(30);
     expect(world.turn).toBe(2 * DAYLIGHT_TURNS);
     const wake = sleepWake(world, "vale", before);
@@ -110,9 +111,16 @@ describe("waking from a sleep", () => {
     expect(sleepPlan(wake)).toEqual(["fade", "held", "light", "done"]);
   });
 
+  it("shows the dream card for the long rest that meets the sleep quest", () => {
+    const { world, before } = sleepFrom(30, { dream: true });
+    const wake = sleepWake(world, "vale", before);
+    expect(wake).toMatchObject({ woke: "dawn", long: true, dream: true });
+    expect(wake.glimpse).toMatchObject({ kind: "arcanum" });
+    expect(questsOf(world, "vale")).toEqual([]);
+    expect(sleepPlan(wake)).toEqual(DREAM_PLAN);
+  });
+
   it("shows no dream card for an ordinary long rest, only the dusk or dawn", () => {
-    // Not enough experience for the halfway dream, though the rules still
-    // bring a reflection.
     const { world, before } = sleepFrom(6, { xp: 0 });
     expect(world.turn).toBe(DAYLIGHT_TURNS);
     const wake = sleepWake(world, "vale", before);

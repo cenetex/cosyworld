@@ -4,8 +4,8 @@ import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { packDefinition, packPeople } from "../v2/card-game/pack-registry.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
-// Rules 133 package 3 changes what the Greek and RatiRadio content pays. These
-// totals are pinned so the owner can see them; they are not a balance target.
+// Travelers earn no XP (rules 136): these pin the boxes the Greek and
+// RatiRadio content credits to a traveler, and that none of it pays XP.
 const act = (world, kind, fields = {}) => {
   const action = legalActions(world).find(
     (a) =>
@@ -17,23 +17,29 @@ const act = (world, kind, fields = {}) => {
   if (!result.ok) throw new Error(result.error);
   return result.state;
 };
-const xp = (world) => world.actors.vale.xp;
+const xp = (world) =>
+  Object.values(world.opened || {}).filter((ids) => ids.includes("vale"))
+    .length;
+const paid = (world) => world.actors.vale.xp;
 
-describe("XP the Greek and RatiRadio content pays", () => {
-  it("pays the burial", () => {
+describe("boxes the Greek and RatiRadio content credits", () => {
+  it("pays nothing for the burial and credits no box", () => {
     const j = funeralJourney();
     const gains = [
       ["anoint", j.beforeAnoint, j.anointed],
       ["veil", j.anointed, j.veiled],
       ["bury", j.veiled, j.buried],
     ].map(([name, a, b]) => [name, xp(b) - xp(a)]);
-    // Bury opens nothing else (Attica is there from the start), so it pays
-    // only its own boxes: two XP.
-    expect(Object.fromEntries(gains)).toEqual({ anoint: 0, veil: 0, bury: 2 });
-    expect(xp(j.buried) - xp(j.beforeAnoint)).toBe(2);
+    expect(Object.fromEntries(gains)).toEqual({ anoint: 0, veil: 0, bury: 0 });
+    expect(
+      j.buried.log.some(
+        (e) => e.verb === "want_met" && e.actorId === "vale" && e.seq > j.veiled.eventSeq,
+      ),
+    ).toBe(true);
+    expect(paid(j.buried)).toBe(paid(j.beforeAnoint));
   });
 
-  it("pays following one account", () => {
+  it("credits following one account", () => {
     let world = createWorld({ packScopes: { "greek-drama": "full" } });
     world.crossings["pond-greek-harbor"].discovered = true;
     world.actors.vale.place = "greek-harbor";
@@ -41,6 +47,7 @@ describe("XP the Greek and RatiRadio content pays", () => {
     world.items.lamp.lit = false;
     world = act(world, "take", { item: "greek-helen-accounts" });
     const before = xp(world);
+    const xpBefore = paid(world);
     world = act(world, "give", {
       item: "greek-helen-accounts",
       target: "greek-shipmaster",
@@ -55,6 +62,7 @@ describe("XP the Greek and RatiRadio content pays", () => {
       "greek-menelaus-egypt",
     ]);
     expect(xp(world) - before).toBe(3);
+    expect(paid(world)).toBe(xpBefore);
   });
 
   const id = (name) => `ratiradio-${name}`;
@@ -105,10 +113,10 @@ describe("XP the Greek and RatiRadio content pays", () => {
       );
       if (xp(world) !== before) gains[`${kind} ${target}`] = xp(world) - before;
     }
-    return { gains, total: xp(world) };
+    return { gains, total: xp(world), paid: paid(world) - paid(s) };
   };
 
-  it("pays laying RATi's keepsakes", () => {
+  it("credits the boxes on the walk, and the keepsakes add none", () => {
     const staged = packPeople[id("rati")].wants;
     const withKeepsakes = walk();
     delete packPeople[id("rati")].wants;
@@ -118,19 +126,16 @@ describe("XP the Greek and RatiRadio content pays", () => {
     } finally {
       packPeople[id("rati")].wants = staged;
     }
-    // Four XP from boxes (the dispatch window, the Listening Room, the Booth
-    // is not walked here, and Raven); RATi's staged keepsake wants add three
-    // more when a keepsake meets its want. Items start at their pack homes
-    // here, as in card-boxes, so the figurine also meets its want on the move.
-    expect(without.total).toBe(4);
-    expect(withKeepsakes.total).toBe(9);
-    expect(withKeepsakes.gains).toEqual({
-      "take ratiradio-red-beanie": 1,
-      "talk ratiradio-rati": 1,
-      "drop ratiradio-thermos": 1,
-      "move ratiradio-listening-room": 1,
-      "drop ratiradio-glass": 2,
-      "drop ratiradio-raven-figurine": 3,
+    expect(withKeepsakes).toEqual(without);
+    expect(without).toEqual({
+      total: 4,
+      paid: 0,
+      gains: {
+        "take ratiradio-red-beanie": 1,
+        "drop ratiradio-thermos": 1,
+        "talk ratiradio-rati": 1,
+        "drop ratiradio-raven-figurine": 1,
+      },
     });
   });
 });
