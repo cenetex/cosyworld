@@ -133,6 +133,49 @@ describe("the words of a level card", () => {
     );
   });
 
+  it("words the second row from its desires, hidden until found", () => {
+    const s = createWorld({ seed: 7 });
+    const hidden = {
+      6: "travel with a companion",
+      7: `sail ${UNKNOWN.place}`,
+      8: "trade something for something",
+      9: "find something and be out at night",
+      10: `eat ${UNKNOWN.item} and find something`,
+      11: "brace against someone",
+      12: "let go of a quest",
+      14: `drink ${UNKNOWN.item} with someone`,
+      15: `keep ${UNKNOWN.item}`,
+      16: "free someone shut away",
+      17: "give something to someone",
+      18: `be out at night and go without ${UNKNOWN.item}`,
+      19: "travel with a companion and go home",
+      20: "be trusted by five more",
+    };
+    const shown = {
+      7: "sail The Charybdis",
+      9: "hold the lit Lamp and be out at night",
+      10: "eat Dried Figs and find Dried Figs",
+      14: "drink Wine Skin with someone",
+      15: "keep Lamp",
+      18: "be out at night and go without the lit Lamp",
+    };
+    for (const [n, text] of Object.entries(hidden))
+      expect(words(s, `arcanum-${n}`), n).toBe(text);
+    for (const [n, text] of Object.entries(shown))
+      expect(
+        words(s, `arcanum-${n}`, () => true),
+        n,
+      ).toBe(text);
+    expect(say([{ kind: "place", target: "den" }])).toBe("go home");
+    expect(say([{ kind: "item", step: { verb: "give" } }])).toBe(
+      "give something to someone",
+    );
+    expect(say([{ kind: "daylight", phase: "day" }])).toBe("be out by day");
+    expect(
+      say([{ kind: "count", of: "opened", box: "resident", min: 2 }]),
+    ).toBe("free two shut away");
+  });
+
   it("words every card in a fresh world", () => {
     for (const seed of [3, 7, 11]) {
       const s = createWorld({ seed });
@@ -141,7 +184,7 @@ describe("the words of a level card", () => {
     }
   });
 
-  it("carries the woodcut into the dream, and the card back for the World", () => {
+  it("carries the woodcut into the dream, and the card back for a card with none", () => {
     const glimpse = (id) => ({ level: 2, kind: "arcanum", id, at: "den" });
     expect(arcanumArt("arcanum-2")).toBe(
       "./assets/lonely-forest/arcanum-2.png",
@@ -150,6 +193,9 @@ describe("the words of a level card", () => {
       "./assets/lonely-forest/arcanum-2.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-21")).art).toBe(
+      "./assets/arcana/arcanum-21.png",
+    );
+    expect(glimpseCompanion(glimpse("arcanum-13")).art).toBe(
       "./assets/card-back.webp",
     );
     expect(glimpseCompanion(null)).toBeNull();

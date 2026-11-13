@@ -304,8 +304,15 @@ describe("the data file", () => {
       for (const role of card.roles || []) {
         expect(role.name).toMatch(/^[a-z]+$/);
         expect(["traveler", "home"]).not.toContain(role.name);
-        expect(["resident", "item", "place"]).toContain(role.kind);
-        expect([undefined, "food", "sanctuary"]).toContain(role.is);
+        expect(["resident", "item", "place", "transport"]).toContain(role.kind);
+        expect([
+          undefined,
+          "drink",
+          "food",
+          "lamp",
+          "sanctuary",
+          "wanted",
+        ]).toContain(role.is);
       }
       const used = strings([card.proof, card.desire || []])
         .filter((text) => text.startsWith("$"))
@@ -328,12 +335,20 @@ describe("the data file", () => {
     for (const c of all.filter((c) => c.kind === "did"))
       expect(Object.keys(c.match).length).toBeGreaterThan(0);
   });
-  it("gives every desire a kind and a target, three at most", () => {
+  it("gives every desire a kind it can say, three at most", () => {
     for (const card of data.cards) {
       expect((card.desire || []).length).toBeLessThanOrEqual(3);
       for (const want of card.desire || []) {
-        expect(["item", "person", "place"]).toContain(want.kind);
-        expect(want.target).toBeTypeOf("string");
+        expect([
+          "item",
+          "person",
+          "place",
+          "quest",
+          "company",
+          "daylight",
+          "not",
+        ]).toContain(want.kind);
+        if (want.target !== undefined) expect(want.target).toBeTypeOf("string");
       }
     }
   });

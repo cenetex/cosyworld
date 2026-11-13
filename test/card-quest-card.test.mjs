@@ -422,10 +422,10 @@ describe("the quest card", () => {
     expect(questNear(s, card)).toBe(false);
   });
 
-  it("draws the World on the card back, having no woodcut", () => {
+  it("draws the World with its woodcut", () => {
     const s = createWorld({ seed: 7 });
     s.actors.vale.arcana = { proved: [], did: [], dealt: "arcanum-21" };
-    expect(levelCard(s, "vale")).toMatchObject({ target: "arcanum-21", art: null, level: 1 });
+    expect(levelCard(s, "vale")).toMatchObject({ target: "arcanum-21", art: "./assets/arcana/arcanum-21.png", level: 1 });
     expect(questCaption({ ...levelCard(s, "vale"), level: null })).toBe("Rest at home");
   });
 });

@@ -6,6 +6,12 @@ export const UNKNOWN = {
   person: "someone you haven't met",
   place: "somewhere you haven't discovered",
 };
+const ANY = {
+  item: "something",
+  person: "someone",
+  place: "somewhere",
+  quest: "a quest",
+};
 export const SEEK = {
   item: "find something",
   person: "meet someone",
@@ -31,13 +37,6 @@ export const joinWants = (wants, say) =>
     })
     .join(" and ");
 
-/**
- * A want in words, lower case, from its structure:
- * `{kind, target, step?, lit?}`. `known(id)` says whether the traveler has
- * discovered the card; the default shows every name (history and rules).
- * `approach` ("discover" or "go to") is the card's own verb for reaching a
- * place. `cards` stands in for the table's cards (tests word made-up ones).
- */
 export function wantWords(
   want,
   known = () => true,
@@ -45,13 +44,20 @@ export function wantWords(
 ) {
   if (!want) return "nothing in particular";
   if (want.kind === "connect") return "introduce two people";
-  const name = (id) => (known(id) ? cards.name(id) : UNKNOWN[cards.kind(id)]);
+  const name = (id, kind) =>
+    id == null
+      ? ANY[kind]
+      : known(id)
+        ? cards.name(id)
+        : UNKNOWN[cards.kind(id)];
   const list = (ids) => [...new Set(ids.map(name))].join(", ");
   const near = (word, id) =>
-    known(id) || cards.kind(id) !== "place" ? `${word} ${name(id)}` : name(id);
+    id == null || known(id) || cards.kind(id) !== "place"
+      ? `${word} ${name(id, "place")}`
+      : name(id);
   const step = want.step,
-    what = name(want.target),
-    cold = !known(want.target),
+    what = name(want.target, want.kind),
+    cold = want.target != null && !known(want.target),
     verb = step?.verb === "attack" ? "strike" : step?.verb,
     act =
       cold && SEEK[want.kind]?.startsWith(`${verb} `)
@@ -59,9 +65,12 @@ export function wantWords(
         : `${verb} ${what}`;
   if (step?.verb === "lay")
     return `lay ${list(step.items)} ${near("in", want.target)}`;
-  if (step?.verb === "give") return `give ${what} to ${name(step.to)}`;
+  if (step?.verb === "give")
+    return `give ${what} to ${name(step.to, "person")}`;
+  if (step?.verb === "trade")
+    return `trade ${what} for ${name(step.for, "item")}`;
   if (step?.verb === "eat")
-    return `${cards.drink(want.target) ? "drink" : "eat"} ${what}${step.with ? ` with ${name(step.with)}` : ""}${step.at ? ` ${near("at", step.at)}` : ""}`;
+    return `${cards.drink(want.target) ? "drink" : "eat"} ${what}${step.with !== undefined ? ` with ${name(step.with, "person")}` : ""}${step.at ? ` ${near("at", step.at)}` : ""}`;
   if (step?.verb === "bring" && want.kind === "person")
     return `bring ${what} ${near("to", step.at ?? step.to)}`;
   if (step?.verb === "bring")
@@ -124,13 +133,16 @@ const COUNT_WORDS = {
       `be trusted${TRUST_WORDS[c.level ?? 1] ?? ""} by ${numberWord(n)} more`,
   },
   opened: {
-    min: (n) =>
-      n === 1
-        ? "open a locked box"
-        : `open ${many(n, "locked box", "locked boxes")}`,
+    min: (n, c) =>
+      c.box === "resident"
+        ? `free ${n === 1 ? "someone" : numberWord(n)} shut away`
+        : n === 1
+          ? "open a locked box"
+          : `open ${many(n, "locked box", "locked boxes")}`,
   },
 };
-const WANT_KINDS = ["item", "place", "person"];
+const WANT_KINDS = ["item", "place", "person", "quest"];
+const TIMES = { day: "be out by day", night: "be out at night" };
 const together = (words, last) =>
   words.length < 2
     ? (words[0] ?? null)
@@ -157,6 +169,10 @@ export function conditionWords(
     if (term?.kind === "actor_at") return `be at ${name(term.place)}`;
     if (term?.kind === "not" && term.condition?.kind === "actor_at")
       return `be away from ${name(term.condition.place)}`;
+    if (term?.kind === "not" && term.condition?.kind === "item")
+      return `go without ${shown(term.condition.target) ? `the ${term.condition.lit ? "lit " : ""}${table.name(term.condition.target)}` : UNKNOWN.item}`;
+    if (term?.kind === "company") return "travel with a companion";
+    if (term?.kind === "daylight") return TIMES[term.phase] ?? null;
     if (term?.kind === "all" || term?.kind === "any") {
       const parts = (term.conditions || []).map(words);
       return parts.length && parts.every(Boolean)
@@ -166,5 +182,7 @@ export function conditionWords(
     return null;
   };
   const parts = (terms || []).map(words);
-  return parts.length && parts.every(Boolean) ? together(parts, "and") : null;
+  return parts.length && parts.every(Boolean)
+    ? together(parts, "and").replace(/ to home\b/gu, " home")
+    : null;
 }
