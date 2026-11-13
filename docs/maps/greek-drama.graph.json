@@ -3731,45 +3731,6 @@
             "greek-shelter-blanket"
           ]
         }
-      },
-      {
-        "id": "item:greek-arcanum-empress",
-        "kind": "item",
-        "title": "The Empress appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "atom",
-              "atom": "flag(key=greek-water-returned,value=true)"
-            },
-            {
-              "op": "atom",
-              "atom": "item_at(item=greek-bread,place=greek-courtyard)"
-            }
-          ]
-        },
-        "words": "greek-water-returned is set and Courtyard Bread lies at Theban Courtyard",
-        "ids": "greek-water-returned is set and greek-bread lies at greek-courtyard",
-        "latch": [
-          "flag(key=greek-water-returned,value=true)"
-        ],
-        "live": [
-          "item_at(item=greek-bread,place=greek-courtyard)"
-        ],
-        "prerequisites": {
-          "act": [
-            "greek-return-water-jar"
-          ],
-          "flag": [
-            "greek-water-returned"
-          ],
-          "item": [
-            "greek-bread",
-            "greek-water-jar",
-            "greek-wheat"
-          ]
-        }
       }
     ],
     "acts": [
@@ -11879,12 +11840,8 @@
           "act:greek-return-water-jar"
         ],
         "clearedBy": [],
-        "readBy": [
-          "item:greek-arcanum-empress"
-        ],
-        "gates": [
-          "item:greek-arcanum-empress"
-        ],
+        "readBy": [],
+        "gates": [],
         "acts": []
       },
       "greek-witness-support": {
@@ -11915,9 +11872,7 @@
         "holder": "greek-courtyard",
         "home": "greek-courtyard",
         "consumedBy": [],
-        "readBy": [
-          "item:greek-arcanum-empress"
-        ]
+        "readBy": []
       },
       {
         "id": "greek-wheat",
@@ -12269,13 +12224,6 @@
           "act:greek-atreid-euripides",
           "act:greek-atreid-sophocles"
         ]
-      },
-      {
-        "id": "greek-arcanum-empress",
-        "name": "The Empress",
-        "holder": "greek-courtyard",
-        "consumedBy": [],
-        "readBy": []
       }
     ],
     "needs": {
@@ -13055,11 +13003,6 @@
       "item:greek-ajax-tools": [
         "flag:greek-ajax-open"
       ],
-      "item:greek-arcanum-empress": [
-        "flag:greek-water-returned",
-        "item:greek-bread",
-        "place:greek-courtyard"
-      ],
       "item:greek-ash-urn": [
         "flag:greek-open-door-bodies-returned",
         "flag:greek-open-door-cloths-laid"
@@ -13817,11 +13760,6 @@
       "class": "latch",
       "words": "greek-polynices-veiled is set"
     },
-    "flag(key=greek-water-returned,value=true)": {
-      "kind": "flag",
-      "class": "latch",
-      "words": "greek-water-returned is set"
-    },
     "grounded(item=lamp)": {
       "kind": "grounded",
       "class": "live",
@@ -13956,11 +13894,6 @@
       "kind": "item_at",
       "class": "live",
       "words": "greek-ajax-tools lies at greek-ajax-grave"
-    },
-    "item_at(item=greek-bread,place=greek-courtyard)": {
-      "kind": "item_at",
-      "class": "live",
-      "words": "greek-bread lies at greek-courtyard"
     },
     "item_at(item=greek-olive-branch,place=greek-courtyard)": {
       "kind": "item_at",

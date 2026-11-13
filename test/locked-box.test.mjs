@@ -14,6 +14,7 @@ import { settleGate } from "./helpers/world-life.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
+import { isArcanum } from "../v2/card-game/world/arcana.mjs";
 
 function act(s, kind, fields = {}) {
   const action = legalActions(s).find(
@@ -83,9 +84,9 @@ describe("locked boxes", () => {
   });
   it("lock the sealed card alone until its quest opens the way", () => {
     let s = greekErrands().decree;
-    expect(availableCards(s).filter((id) => isLockedBox(s, id))).toEqual([
-      "greek-battlefield",
-    ]);
+    expect(
+      availableCards(s).filter((id) => isLockedBox(s, id) && !isArcanum(id)),
+    ).toEqual(["greek-battlefield"]);
     expect(lockedQuest(s, "greek-battlefield")).toEqual({
       text: `Give ${UNKNOWN.item} to ${UNKNOWN.person}`,
       cards: [],

@@ -55,5 +55,40 @@
     "name": "Black pond",
     "persona": "A still pond beside the station. Deep shapes and faint ripples disturb its reflection. Describe visitors, light, sound and witnessed changes through small unsettling details.",
     "idiolect": "I'm a still black pond beside the station. Shapes move deep in me. Now and then a ripple breaks my reflection."
+  },
+  "arcanum-0": {
+    "kind": "item",
+    "name": "The Fool",
+    "persona": "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do."
+  },
+  "arcanum-1": {
+    "kind": "item",
+    "name": "The Magician",
+    "persona": "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do."
+  },
+  "arcanum-2": {
+    "kind": "item",
+    "name": "The High Priestess",
+    "persona": "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do."
+  },
+  "arcanum-3": {
+    "kind": "item",
+    "name": "The Empress",
+    "persona": "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do."
+  },
+  "arcanum-4": {
+    "kind": "item",
+    "name": "The Emperor",
+    "persona": "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do."
+  },
+  "arcanum-5": {
+    "kind": "item",
+    "name": "The Hierophant",
+    "persona": "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do."
+  },
+  "arcanum-21": {
+    "kind": "item",
+    "name": "The World",
+    "persona": "Describe the card as a woodcut print lying where it is. Do not say what it means or what it will do."
   }
 }

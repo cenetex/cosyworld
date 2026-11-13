@@ -12,6 +12,7 @@ import {
 import { newWant, setWant } from "./want.mjs";
 import { partyOf } from "./world/company.mjs";
 import { usedUp, useUp, bringBack } from "./item-use.mjs";
+import { arcanumOpen, isArcanum } from "./world/arcana-record.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -407,7 +408,14 @@ export function entityEnabled(world, id, saved = false, lockView = false) {
   if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
     return false;
   const e = packEntity(id);
-  if (!e) return true;
+  if (!e)
+    return (
+      !isArcanum(id) ||
+      (!lockView &&
+        Boolean(world.items?.[id]) &&
+        arcanumOpen(world, id) &&
+        entityEnabled(world, world.items[id].holder, saved))
+    );
   if (
     waitingAtHome(world, id) &&
     !entityEnabled(world, e.home, saved, lockView)

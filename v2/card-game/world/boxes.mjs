@@ -11,7 +11,6 @@
 //   lane      a port a ship cannot yet sail to
 //   crossing  a pack crossing with `sealed` (a home's door in a shared world)
 //   hub       a `reflectionRoutes` entry with `sealed` (the Black pond)
-//
 // `boxesAt(s, place, actor)` lists the boxes lying at a place. `boxOpen`
 // says whether the way is open now, `boxWant` what opens a shut one. A box
 // is the locked card's id, so a card with two entrances is one box.
@@ -47,6 +46,7 @@ import { guardOf } from "../resident-guard.mjs";
 import { levelFor } from "../want.mjs";
 import { life } from "../resident-home.mjs";
 import forest from "../forest.json" with { type: "json" };
+import { arcanaBoxesAt } from "./arcana.mjs";
 import { goalsOf, MOST_GOALS } from "./lock-goals.mjs";
 import { rootHolder } from "./items.mjs";
 import { exits } from "./geography.mjs";
@@ -465,6 +465,7 @@ export function boxesAt(s, place, actor = currentActor(s)) {
         break;
     }
   }
+  out.push(...arcanaBoxesAt(s, place, actor));
   return out.sort(
     (a, b) => BOX_KINDS.indexOf(a.kind) - BOX_KINDS.indexOf(b.kind),
   );

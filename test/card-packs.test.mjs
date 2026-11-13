@@ -1,3 +1,4 @@
+import { isArcanum } from "../v2/card-game/world/arcana-record.mjs";
 import { humanHomePack } from "../v2/card-game/human-cast.mjs";
 import { questing } from "./helpers/first-quest.mjs";
 import { describe, expect, it } from "vitest";
@@ -83,7 +84,11 @@ describe("world packs on the card table", () => {
   it("joins only hub entities the engine really has", () => {
     const base = (map) =>
       Object.keys(map).filter(
-        (id) => !packPlaces[id] && !packPeople[id] && !packThings[id],
+        (id) =>
+          !packPlaces[id] &&
+          !packPeople[id] &&
+          !packThings[id] &&
+          !isArcanum(id),
       );
     expect(hub.places).toEqual(base(places));
     expect(hub.avatars).toEqual(base(people));

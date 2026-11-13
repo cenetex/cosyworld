@@ -1,5 +1,6 @@
 // The authored catalog: places, people, things and their names, shared by the
 // browser rules and the shared engine. Split out of world.mjs (#1390).
+import arcana from "../arcana.json" with { type: "json" };
 import forest from "../forest.json" with { type: "json" };
 import {
   packPlaces,
@@ -13,7 +14,13 @@ export const sanctuaries = Object.keys(places).filter(
   (id) => places[id].sanctuary === true,
 );
 export const people = { ...forest.people, ...packPeople };
-export const things = { ...packThings, ...forest.things };
+export const things = {
+  ...packThings,
+  ...forest.things,
+  ...Object.fromEntries(
+    arcana.cards.map(({ id, name, text, art }) => [id, { name, text, art }]),
+  ),
+};
 validatePackLinks(places, people, things);
 
 export const nameOf = (id) =>

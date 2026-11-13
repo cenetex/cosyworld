@@ -9,6 +9,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
 import { isLockedBox } from "../v2/card-game/locked-box.mjs";
+import { isArcanum } from "../v2/card-game/world/arcana.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
 function cards(s, ...ids) {
   s = endStandoff(s);
@@ -22,7 +23,7 @@ function cards(s, ...ids) {
 describe("playing the world through cards", () => {
   it("offers reachable items, local avatars, exits and the current place", () => {
     let s = createWorld();
-    expect(availableCards(s)).toEqual([
+    expect(availableCards(s).filter((id) => !isArcanum(id))).toEqual([
       "vale",
       "station",
       // The Hoppy Cat spool lies here while the keeper's oil is at the pond.

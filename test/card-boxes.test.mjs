@@ -337,7 +337,9 @@ describe("XP for opening a box", () => {
       world.actors.vale.place = "clearing";
       world.turn = world.revision = 47;
       expect(entityActive(world, "badger")).toBe(false);
-      expect(boxesAt(world, "clearing")[0]).toMatchObject({
+      expect(
+        boxesAt(world, "clearing").find((box) => box.id === "badger"),
+      ).toMatchObject({
         id: "badger",
         kind: "resident",
         open: false,

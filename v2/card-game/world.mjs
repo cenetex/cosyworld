@@ -401,6 +401,7 @@ export function installPacks(s) {
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   for (const pack of packDefinitions) installSpecials(s, pack);
+  installArcana(s, fresh);
   installItemCycle(s, added);
   installLife(s, travels);
   installRouteKnowledge(s);
@@ -438,6 +439,14 @@ import {
 export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
 import { creditOpened, validOpened } from "./world/boxes.mjs";
+import {
+  arcanumOpen,
+  installArcana,
+  isArcanum,
+  settleArcana,
+  takeArcanum,
+  validArcana,
+} from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
 import { questOffers } from "./world/offers.mjs";
 export { questOffers };
@@ -947,6 +956,7 @@ export function holdChoice(s, actor, choice) {
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
+  settleArcana(s, actor, before.eventSeq ?? before.log.length);
   settleSealedItems(s, nameOf, (text, locationId) =>
     addLog(s, "World", text, { kind: "narration", locationId }),
   );
@@ -1429,7 +1439,7 @@ export function legalActions(s, actor = currentActor(s)) {
     if (
       canReach(s, actor, id) &&
       item.holder !== actor &&
-      hasSpace(s, actor, id)
+      (isArcanum(id) ? arcanumOpen(s, id, actor) : hasSpace(s, actor, id))
     ) {
       out.push(
         offer(
@@ -2495,7 +2505,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
       break;
     }
     case "take":
-      transfer(s, a.item, a.actor, a.text);
+      if (!takeArcanum(s, a.actor, a.item))
+        transfer(s, a.item, a.actor, a.text);
       break;
     case "drop":
       transfer(s, a.item, here, a.text);
@@ -3406,6 +3417,7 @@ export function play(
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
+  settleArcana(next, actor, s.eventSeq ?? s.log.length);
   // A sealed thing whose seal follows its facts goes home when they lapse.
   settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);
@@ -3574,6 +3586,7 @@ export function validateWorld(s) {
     !validHeldItems(s) ||
     !validOpenedRoutes(s.openedRoutes) ||
     !validOpened(s) ||
+    !validArcana(s) ||
     !validHidden(s) ||
     !validDoors(s) ||
     (s.hidden && !Object.hasOwn(places, s.hidden.place))
