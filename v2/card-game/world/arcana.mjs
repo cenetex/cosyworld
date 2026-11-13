@@ -16,14 +16,13 @@ import {
 import { conditionMet, runHash } from "../pack-rules.mjs";
 import { specialsAllow } from "../pack-specials.mjs";
 import { places, sanctuaries } from "./catalog.mjs";
-import { arcanumOpen, isArcanum, recordOf } from "./arcana-record.mjs";
-import { companionOf } from "./company.mjs";
+import { arcanaLevel, isArcanum, recordOf } from "./arcana-record.mjs";
+import { boxDefs } from "./boxes.mjs";
 import { homeOf } from "./home.mjs";
-import { MOST_GOALS } from "./lock-goals.mjs";
 import { rootHolder } from "./items.mjs";
 
 export const deck = { cards: data.cards };
-export { arcanumOpen, isArcanum, recordOf };
+export { arcanaLevel, isArcanum, recordOf };
 
 export function resolve(value, binding) {
   if (typeof value === "string")
@@ -59,8 +58,18 @@ const COUNTS = {
           who,
         ),
     ).length,
-  company: (s, who) => (companionOf(s, who) ? 1 : 0),
-  arcana: (s, who) => recordOf(s, who).held.length,
+  opened: (s, who) =>
+    Object.values(s.opened || {}).filter((ids) => ids.includes(who)).length,
+};
+
+const residents = (s) =>
+  Object.keys(s.actors || {}).filter((id) => !humanAvatar(id)).length;
+const COUNT_MOST = {
+  carried: (s) => Object.keys(s.items || {}).length,
+  visited: () => Math.min(64, Object.keys(places).length),
+  heard: residents,
+  trusting: residents,
+  opened: () => new Set(boxDefs().map((def) => def.id)).size,
 };
 
 export function holds(s, condition, binding) {
@@ -74,7 +83,9 @@ export function holds(s, condition, binding) {
       return !each(c.condition);
     case "count": {
       const n = COUNTS[c.of](s, binding.traveler, c);
-      return n >= (c.min ?? 0) && n <= (c.max ?? Infinity);
+      return c.min === undefined
+        ? n <= c.max
+        : n - (binding.base?.[c.of] ?? 0) >= c.min;
     }
     case "did":
       return recordOf(s, binding.traveler).did.includes(c.key);
@@ -102,7 +113,7 @@ function plain(s, id) {
 
 const KINDS = {
   resident: (s) => Object.keys(s.actors || {}).filter((id) => !humanAvatar(id)),
-  item: (s) => Object.keys(s.items || {}).filter((id) => !isArcanum(id)),
+  item: (s) => Object.keys(s.items || {}),
   place: () =>
     Object.keys(places).filter(
       (id) =>
@@ -166,114 +177,144 @@ const fits = (entry, c) =>
   (c.without || []).every((field) => !set(entry[field])) &&
   (c.present || []).every((id) => (entry.cast || []).includes(id));
 
-function latch(s, traveler, list, value) {
-  const record = (s.actors[traveler].arcana ??= recordOf(s, traveler));
-  record[list] = [...new Set([...record[list], value])].sort();
+const countsIn = (c) =>
+  c.kind === "count"
+    ? [c]
+    : [...(c.conditions || []), ...(c.condition ? [c.condition] : [])].flatMap(
+        countsIn,
+      );
+const risingIn = (card) =>
+  card.proof.flatMap(countsIn).filter((c) => c.min !== undefined);
+const cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
+
+export function deckOrder(s, traveler) {
+  const score = (id) => runHash(s, `arcana-deal:${traveler}:${id}`);
+  const ids = (list) => list.map((card) => card.id);
+  const middle = deck.cards
+    .filter((card) => card.number !== 0 && card.number !== 21)
+    .map((card) => card.id)
+    .sort((a, b) => score(a) - score(b) || (a < b ? -1 : a > b ? 1 : 0));
+  return [
+    ...ids(deck.cards.filter((card) => card.number === 0)),
+    ...middle,
+    ...ids(deck.cards.filter((card) => card.number === 21)),
+  ];
+}
+
+export function dealable(s, card, traveler) {
+  const binding = bindingOf(s, card, traveler);
+  return (
+    Boolean(binding) &&
+    resolve(risingIn(card), binding).every(
+      (c) =>
+        COUNTS[c.of](s, traveler, c) + c.min <=
+        COUNT_MOST[c.of](s, traveler, c),
+    )
+  );
+}
+
+export function nextCard(s, traveler, except = null) {
+  const record = recordOf(s, traveler);
+  return (
+    deckOrder(s, traveler).find(
+      (id) =>
+        !record.proved.includes(id) &&
+        id !== record.dealt &&
+        id !== except &&
+        dealable(s, cardOf(id), traveler),
+    ) ?? null
+  );
+}
+
+export function dealtCard(s, traveler) {
+  const record = recordOf(s, traveler);
+  const card = record.dealt && cardOf(record.dealt);
+  const binding = card && bindingOf(s, card, traveler);
+  return binding ? { card, binding: { ...binding, base: record.base } } : null;
+}
+
+export function arcanumTerms(s, traveler, id) {
+  const card = cardOf(id);
+  const binding = card && bindingOf(s, card, traveler);
+  if (!binding) return [];
+  return resolve(
+    card.desire?.length
+      ? [...card.desire, ...card.proof.filter((c) => !didsIn(c).length)]
+      : card.proof,
+    binding,
+  );
+}
+
+export const dreamCard = (s, traveler) =>
+  nextCard(s, traveler, recordOf(s, traveler).dealt);
+
+function deal(s, traveler) {
+  const id = nextCard(s, traveler);
+  const actor = s.actors[traveler];
+  if (actor.arcana) {
+    delete actor.arcana.dealt;
+    delete actor.arcana.base;
+  }
+  if (!id) return null;
+  const card = cardOf(id);
+  const binding = bindingOf(s, card, traveler);
+  const record = (actor.arcana ??= { proved: [], did: [] });
+  const fresh = new Set(
+    resolve(card.proof.flatMap(didsIn), binding).map((c) => c.key),
+  );
+  record.did = record.did.filter((key) => !fresh.has(key));
+  record.dealt = id;
+  const rising = resolve(risingIn(card), binding);
+  if (rising.length)
+    record.base = Object.fromEntries(
+      rising.map((c) => [c.of, COUNTS[c.of](s, traveler, c)]),
+    );
+  return id;
 }
 
 export function settleArcana(s, actor = null, since = 0) {
-  const seated = (id) => humanAvatar(id) && s.actors?.[id];
-  const open = (traveler) =>
-    deck.cards
-      .filter((card) => !recordOf(s, traveler).proved.includes(card.id))
-      .map((card) => [card, bindingOf(s, card, traveler)])
-      .filter(([, binding]) => binding);
-  const each = (ids, run) => {
-    for (const traveler of [...new Set(ids)].filter(seated).sort())
-      for (const [card, binding] of open(traveler))
-        run(traveler, card, binding);
-  };
+  const seated = (ids) =>
+    [...new Set(ids)].filter((id) => humanAvatar(id) && s.actors?.[id]).sort();
   const fresh = (s.log || []).filter((entry) => entry.seq > since);
   if (fresh.length)
-    each(
-      [actor, ...humanAvatarIds.filter((id) => heldByHuman(s, id))],
-      (traveler, card, binding) => {
-        for (const c of resolve(card.proof.flatMap(didsIn), binding))
-          if (fresh.some((entry) => fits(entry, c)))
-            latch(s, traveler, "did", c.key);
-      },
-    );
-  each(
-    [actor, ...humanAvatarIds.filter((id) => humanPresent(s, id))],
-    (traveler, card, binding) => {
-      if (card.proof.every((c) => holds(s, c, binding)))
-        latch(s, traveler, "proved", card.id);
-    },
-  );
-  return s;
-}
-
-export function takeArcanum(s, actor, id) {
-  if (!isArcanum(id)) return false;
-  if (arcanumOpen(s, id, actor)) latch(s, actor, "held", id);
-  return true;
-}
-
-export function spreadCards(cardIds, spots, pick, placed = {}) {
-  const out = {};
-  const lying = () => [...Object.values(placed), ...Object.values(out)];
-  const free = (spot) => !lying().includes(spot.place);
-  for (const card of cardIds) {
-    if (placed[card]) continue;
-    const open = spots.some(free) ? spots.filter(free) : spots;
-    if (!open.length) continue;
-    const load = (region) =>
-      spots.filter((x) => x.region === region && !free(x)).length;
-    const regions = [...new Set(open.map((x) => x.region))].sort();
-    const least = Math.min(...regions.map(load));
-    const lightest = regions.filter((region) => load(region) === least);
-    const region = lightest[pick(`arcana-world:${card}`, lightest.length)];
-    const here = open.filter((x) => x.region === region);
-    out[card] = here[pick(`arcana-place:${card}`, here.length)].place;
+    for (const traveler of seated([
+      actor,
+      ...humanAvatarIds.filter((id) => heldByHuman(s, id)),
+    ])) {
+      const dealt = dealtCard(s, traveler);
+      if (!dealt) continue;
+      const record = s.actors[traveler].arcana;
+      for (const c of resolve(dealt.card.proof.flatMap(didsIn), dealt.binding))
+        if (fresh.some((entry) => fits(entry, c)))
+          record.did = [...new Set([...record.did, c.key])].sort();
+    }
+  const opened = !s.opening || s.opening.crossed;
+  for (const traveler of seated([
+    actor,
+    ...humanAvatarIds.filter((id) => humanPresent(s, id)),
+  ])) {
+    const dealt = dealtCard(s, traveler);
+    if (dealt?.card.proof.every((c) => holds(s, c, dealt.binding))) {
+      const record = s.actors[traveler].arcana;
+      record.proved = [...new Set([...record.proved, dealt.card.id])].sort();
+      deal(s, traveler);
+    } else if (!dealt && opened) deal(s, traveler);
   }
-  return out;
-}
-
-export function installArcana(s, memories = null) {
-  const lying = Object.fromEntries(
-    data.cards
-      .filter((card) => s.items[card.id])
-      .map((card) => [card.id, s.items[card.id].holder]),
-  );
-  const spots = candidates(s, "place").map((place) => ({
-    place,
-    region: packEntity(place)?.packId ?? "hub",
-  }));
-  const picked = spreadCards(
-    data.cards.map((card) => card.id),
-    spots,
-    (key, n) => runHash(s, key) % n,
-    lying,
-  );
-  for (const [id, holder] of Object.entries(picked))
-    s.items[id] = { holder, history: [] };
-  if (memories && s.memories)
-    for (const { id } of data.cards) s.memories[id] ??= memories[id];
   return s;
 }
 
-export function arcanaBoxesAt(s, place, actor) {
-  if (!humanAvatar(actor) || (s.opening && !s.opening.crossed)) return [];
-  const record = recordOf(s, actor);
-  return deck.cards.flatMap((card) => {
-    const binding =
-      s.items?.[card.id]?.holder === place &&
-      !record.proved.includes(card.id) &&
-      !record.held.includes(card.id) &&
-      bindingOf(s, card, actor);
-    if (!binding || !card.desire?.length) return [];
-    const goals = resolve(card.desire, binding).slice(0, MOST_GOALS);
-    return [
-      {
-        id: card.id,
-        kind: "item",
-        at: place,
-        open: false,
-        want: goals[0] ?? null,
-        goals,
-      },
-    ];
-  });
+export function installArcana(s) {
+  for (const actor of Object.values(s.actors || {})) {
+    const record = actor?.arcana;
+    if (!record || typeof record !== "object" || Array.isArray(record))
+      continue;
+    delete record.held;
+    if (record.dealt === undefined || !validDeal(record)) {
+      delete record.dealt;
+      delete record.base;
+    }
+  }
+  return s;
 }
 
 const validList = (list) =>
@@ -283,24 +324,41 @@ const validList = (list) =>
     (id, i) => typeof id === "string" && id && (i === 0 || list[i - 1] < id),
   );
 
-export function validArcana(s) {
-  const lie = Object.keys(s.items || {})
-    .filter(isArcanum)
-    .every((id) => Boolean(places[s.items[id].holder]));
+function validDeal(record) {
+  const card = cardOf(record.dealt);
+  if (!card || !Array.isArray(record.proved) || record.proved.includes(card.id))
+    return false;
+  const rising = risingIn(card)
+    .map((c) => c.of)
+    .sort();
+  if (!rising.length) return record.base === undefined;
+  const base = record.base;
   return (
-    lie &&
-    Object.entries(s.actors || {}).every(([id, actor]) => {
-      const record = actor?.arcana;
-      if (record === undefined) return true;
-      return (
-        Boolean(humanAvatar(id)) &&
-        Boolean(record) &&
-        typeof record === "object" &&
-        !Array.isArray(record) &&
-        Object.keys(record).sort().join() === "did,held,proved" &&
-        [record.did, record.held, record.proved].every(validList) &&
-        record.held.every((card) => record.proved.includes(card))
-      );
-    })
+    Boolean(base) &&
+    typeof base === "object" &&
+    !Array.isArray(base) &&
+    Object.keys(base).sort().join() === rising.join() &&
+    Object.values(base).every((n) => Number.isSafeInteger(n) && n >= 0)
   );
+}
+
+export function validArcana(s) {
+  return Object.entries(s.actors || {}).every(([id, actor]) => {
+    const record = actor?.arcana;
+    if (record === undefined) return true;
+    if (!record || typeof record !== "object" || Array.isArray(record))
+      return false;
+    const keys = Object.keys(record);
+    return (
+      Boolean(humanAvatar(id)) &&
+      keys.includes("did") &&
+      keys.includes("proved") &&
+      keys.every((key) => ["base", "dealt", "did", "proved"].includes(key)) &&
+      validList(record.did) &&
+      validList(record.proved) &&
+      (record.dealt === undefined
+        ? record.base === undefined
+        : validDeal(record))
+    );
+  });
 }

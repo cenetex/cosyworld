@@ -67,15 +67,29 @@ describe("count conditions", () => {
     s.motives.grievances.bo[0].repaired = true;
     expect(holds(s, count("trusting", { level: 2, min: 2 }), me)).toBe(true);
   });
-  it("counts a companion and the arcana held", () => {
+  it("counts the locked boxes the traveler has opened", () => {
     const s = world();
-    expect(holds(s, count("company", { min: 1 }), me)).toBe(false);
-    s.actors.walker.companion = "ash";
-    expect(holds(s, count("company", { min: 1 }), me)).toBe(true);
-    expect(holds(s, count("arcana", { min: 1 }), me)).toBe(false);
-    s.actors.walker.arcana = { proved: ["a", "b"], held: ["a"], did: [] };
-    expect(holds(s, count("arcana", { min: 1 }), me)).toBe(true);
-    expect(holds(s, count("arcana", { min: 2 }), me)).toBe(false);
+    expect(holds(s, count("opened", { min: 1 }), me)).toBe(false);
+    s.opened = { gate: ["ash", "walker"], door: ["ash"], well: ["walker"] };
+    expect(holds(s, count("opened", { min: 2 }), me)).toBe(true);
+    expect(holds(s, count("opened", { min: 3 }), me)).toBe(false);
+    expect(() => holds(s, count("company", { min: 1 }), me)).toThrow();
+    expect(() => holds(s, count("arcana", { min: 1 }), me)).toThrow();
+  });
+  it("counts a min from the deal and a max as it stands", () => {
+    const s = world();
+    s.actors.walker.visited.push("mill");
+    const from = (base) => ({ ...me, base });
+    expect(holds(s, count("visited", { min: 2 }), from({}))).toBe(true);
+    expect(holds(s, count("visited", { min: 2 }), from({ visited: 1 }))).toBe(
+      false,
+    );
+    expect(holds(s, count("visited", { min: 1 }), from({ visited: 1 }))).toBe(
+      true,
+    );
+    expect(holds(s, count("carried", { max: 0 }), from({ carried: 9 }))).toBe(
+      true,
+    );
   });
 });
 
@@ -108,14 +122,19 @@ describe("did conditions", () => {
     const s = world();
     s.log.push({ seq: 1, verb: "move", actorId: "walker" });
     expect(holds(s, did, me)).toBe(false);
-    s.actors.walker.arcana = { proved: [], held: [], did: ["walked"] };
+    s.actors.walker.arcana = { proved: [], did: ["walked"] };
     s.log = [];
     expect(holds(s, did, me)).toBe(true);
     expect(holds(s, did, { traveler: "ash" })).toBe(false);
   });
   it("reads an absent record as empty and does not write one", () => {
     const s = world();
-    expect(recordOf(s, "walker")).toEqual({ proved: [], held: [], did: [] });
+    expect(recordOf(s, "walker")).toEqual({
+      proved: [],
+      did: [],
+      dealt: null,
+      base: {},
+    });
     expect(s.actors.walker.arcana).toBeUndefined();
   });
 });
@@ -129,12 +148,20 @@ describe("roles", () => {
       { name: "thing", kind: "item", is: "food" },
     ],
     proof: [
-      { kind: "did", key: "k", match: { targetId: "$someone", itemId: "$thing" } },
+      {
+        kind: "did",
+        key: "k",
+        match: { targetId: "$someone", itemId: "$thing" },
+      },
     ],
     desire: [{ kind: "person", target: "$other" }],
   };
   const pool = (s, kind, is) =>
-    kind === "item" ? (is === "food" ? ["pie", "bun"] : []) : ["cy", "bo", "ash"];
+    kind === "item"
+      ? is === "food"
+        ? ["pie", "bun"]
+        : []
+      : ["cy", "bo", "ash"];
   it("fills each role from the seed, the same every time", () => {
     const first = bindingOf(world(3), card, "walker", pool);
     expect(bindingOf(world(3), card, "walker", pool)).toEqual(first);
@@ -155,7 +182,11 @@ describe("roles", () => {
     expect(bindingOf(world(), card, "walker", one)).toBeNull();
   });
   it("keeps a role when the candidates around its pick change", () => {
-    const solo = { id: "solo", roles: [card.roles[0]], proof: card.proof.slice(0, 0) };
+    const solo = {
+      id: "solo",
+      roles: [card.roles[0]],
+      proof: card.proof.slice(0, 0),
+    };
     const base = ["ash", "bo", "cy", "dee", "eli"];
     const pick = (seed, ids) =>
       bindingOf(world(seed), solo, "walker", () => ids).someone;
@@ -166,7 +197,12 @@ describe("roles", () => {
       expect([was, "zed"]).toContain(now);
       if (now !== was) moved += 1;
       for (const gone of base.filter((id) => id !== was))
-        expect(pick(seed, base.filter((id) => id !== gone))).toBe(was);
+        expect(
+          pick(
+            seed,
+            base.filter((id) => id !== gone),
+          ),
+        ).toBe(was);
     }
     expect(moved).toBeLessThan(30);
   });
@@ -174,9 +210,15 @@ describe("roles", () => {
     expect(bindingOf(world(), card, "walker", () => [])).toBeNull();
   });
   it("leaves the card out when a role or a home is not filled", () => {
-    const stray = { id: "stray", proof: [{ kind: "actor_at", place: "$place" }] };
+    const stray = {
+      id: "stray",
+      proof: [{ kind: "actor_at", place: "$place" }],
+    };
     expect(bindingOf(world(), stray, "walker", pool)).toBeNull();
-    const homely = { id: "homely", proof: [{ kind: "actor_at", place: "$home" }] };
+    const homely = {
+      id: "homely",
+      proof: [{ kind: "actor_at", place: "$home" }],
+    };
     expect(bindingOf(world(), homely, "walker", pool)).toBeNull();
     expect(bindingOf(world(), homely, "vale", pool).home).toBe("attic");
     expect(proves(world(), homely, "walker")).toBe(false);
@@ -196,7 +238,7 @@ describe("the cards in a real world", () => {
       expect(proves(s, card, "vale"), card.id).toBe(false);
     }
   });
-  it("never lays a card on, or fills a role with, what the world did not draw", () => {
+  it("never fills a role with what the world did not draw", () => {
     let undrawn = 0;
     for (let seed = 1; seed <= 12; seed++) {
       const w = createWorld({ opening: true, seed });
@@ -210,13 +252,15 @@ describe("the cards in a real world", () => {
         candidates(w, kind),
       );
       expect(offered.filter((id) => out.includes(id))).toEqual([]);
-      for (const { id } of data.cards)
-        expect(out, `${id} seed ${seed}`).not.toContain(w.items[id].holder);
     }
     expect(undrawn).toBeGreaterThan(0);
   });
   it("offers only plain candidates: no avatar, no arcanum, sorted", () => {
-    for (const [kind, is] of [["resident"], ["item", "food"], ["place", "sanctuary"]]) {
+    for (const [kind, is] of [
+      ["resident"],
+      ["item", "food"],
+      ["place", "sanctuary"],
+    ]) {
       const ids = candidates(s, kind, is);
       expect(ids.length, kind).toBeGreaterThan(0);
       expect(ids).toEqual([...ids].sort());
@@ -271,7 +315,7 @@ describe("the data file", () => {
     }
   });
   it("gives every count a known reader and a bound", () => {
-    const readers = ["carried", "visited", "heard", "trusting", "company", "arcana"];
+    const readers = ["carried", "visited", "heard", "trusting", "opened"];
     for (const c of all.filter((c) => c.kind === "count")) {
       expect(readers).toContain(c.of);
       expect(c.min ?? c.max).toBeTypeOf("number");

@@ -1,5 +1,5 @@
 import data from "../arcana.json" with { type: "json" };
-import { currentActor } from "../human-cast.mjs";
+import { LEVEL_CAP } from "../level-tiers.mjs";
 
 const cardIds = new Set(data.cards.map((card) => card.id));
 export const isArcanum = (id) => cardIds.has(id);
@@ -8,12 +8,11 @@ export function recordOf(s, traveler) {
   const record = s.actors?.[traveler]?.arcana;
   return {
     proved: record?.proved || [],
-    held: record?.held || [],
     did: record?.did || [],
+    dealt: record?.dealt ?? null,
+    base: record?.base || {},
   };
 }
 
-export const arcanumOpen = (s, id, actor = currentActor(s)) => {
-  const record = recordOf(s, actor);
-  return record.proved.includes(id) && !record.held.includes(id);
-};
+export const arcanaLevel = (s, id) =>
+  Math.min(LEVEL_CAP, recordOf(s, id).proved.length);

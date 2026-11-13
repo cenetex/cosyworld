@@ -401,7 +401,7 @@ export function installPacks(s) {
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   for (const pack of packDefinitions) installSpecials(s, pack);
-  installArcana(s, fresh);
+  installArcana(s);
   installItemCycle(s, added);
   installLife(s, travels);
   installRouteKnowledge(s);
@@ -439,14 +439,7 @@ import {
 export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
 import { creditOpened, validOpened } from "./world/boxes.mjs";
-import {
-  arcanumOpen,
-  installArcana,
-  isArcanum,
-  settleArcana,
-  takeArcanum,
-  validArcana,
-} from "./world/arcana.mjs";
+import { installArcana, settleArcana, validArcana } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
 import { questOffers } from "./world/offers.mjs";
 export { questOffers };
@@ -1439,7 +1432,7 @@ export function legalActions(s, actor = currentActor(s)) {
     if (
       canReach(s, actor, id) &&
       item.holder !== actor &&
-      (isArcanum(id) ? arcanumOpen(s, id, actor) : hasSpace(s, actor, id))
+      hasSpace(s, actor, id)
     ) {
       out.push(
         offer(
@@ -2505,8 +2498,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
       break;
     }
     case "take":
-      if (!takeArcanum(s, a.actor, a.item))
-        transfer(s, a.item, a.actor, a.text);
+      transfer(s, a.item, a.actor, a.text);
       break;
     case "drop":
       transfer(s, a.item, here, a.text);
