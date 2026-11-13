@@ -374,20 +374,26 @@ describe("the quest card", () => {
     expect(questCards(s)).toEqual([]);
   });
 
-  it("shows one quest card for each quest held through a long run", () => {
-    let s = createWorld();
-    for (let turn = 0; turn < 400; turn++) {
-      const actions = legalActions(s);
-      s = play(s, actions[(turn * 7919) % actions.length]).state;
-      const cards = questCards(s);
-      expect(cards.length).toBeLessThanOrEqual(
-        1 + (s.actors.vale.under?.length ?? 0),
-      );
-      for (const quest of cards) {
-        expect(questCaption(quest)).toMatch(/^[A-Z]/);
-        expect(typeof questNear(s, quest)).toBe("boolean");
+  describe.sequential("quest cards through one 400-turn run", () => {
+    let checkpoint, completed = 0;
+    it.each([100, 200, 300, 400])("shows every held quest through turn %i", (end) => {
+      expect(completed).toBe(end - 100);
+      let s = checkpoint ? structuredClone(checkpoint) : createWorld();
+      for (let turn = end - 100; turn < end; turn++) {
+        const actions = legalActions(s);
+        s = play(s, actions[(turn * 7919) % actions.length]).state;
+        const cards = questCards(s);
+        expect(cards.length).toBeLessThanOrEqual(
+          1 + (s.actors.vale.under?.length ?? 0),
+        );
+        for (const quest of cards) {
+          expect(questCaption(quest)).toMatch(/^[A-Z]/);
+          expect(typeof questNear(s, quest)).toBe("boolean");
+        }
       }
-    }
-    expect(validateWorld(s)).toBe(s);
+      expect(validateWorld(s)).toBe(s);
+      checkpoint = s;
+      completed = end;
+    });
   });
 });
