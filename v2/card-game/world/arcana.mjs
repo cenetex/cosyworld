@@ -6,6 +6,8 @@ import {
   humanPresent,
 } from "../human-cast.mjs";
 import {
+  consumable,
+  entityActive,
   isFood,
   localRoadEnds,
   packDefinition,
@@ -20,6 +22,7 @@ import { specialsAllow } from "../pack-specials.mjs";
 import { places, sanctuaries } from "./catalog.mjs";
 import { arcanaLevel, isArcanum, recordOf } from "./arcana-record.mjs";
 import { boxDefs } from "./boxes.mjs";
+import { companionOf } from "./company.mjs";
 import { homeOf } from "./home.mjs";
 import { rootHolder } from "./items.mjs";
 import { sleepQuest } from "../want.mjs";
@@ -61,10 +64,14 @@ const COUNTS = {
           who,
         ),
     ).length,
-  opened: (s, who) =>
-    Object.values(s.opened || {}).filter((ids) => ids.includes(who)).length,
+  opened: (s, who, c) =>
+    Object.entries(s.opened || {}).filter(
+      ([id, ids]) => ids.includes(who) && boxOf(id, c.box),
+    ).length,
 };
 
+const boxOf = (id, kind) =>
+  !kind || boxDefs().some((def) => def.id === id && def.kind === kind);
 const residents = (s) => candidates(s, "resident");
 const unseen = (ids, seen) => ids.filter((id) => !seen.includes(id)).length;
 const ROOM = {
@@ -89,12 +96,14 @@ const ROOM = {
           who,
         ),
     ).length,
-  opened: (s, who) =>
+  opened: (s, who, c) =>
     new Set(
       boxDefs()
         .filter(
           (def) =>
+            (!c.box || def.kind === c.box) &&
             packOn(s, packIdOf(def.at)) &&
+            entityActive(s, def.at) &&
             (!def.pack || packOn(s, def.pack)) &&
             !s.opened?.[def.id]?.includes(who),
         )
@@ -119,6 +128,17 @@ export function holds(s, condition, binding) {
     }
     case "did":
       return recordOf(s, binding.traveler).did.includes(c.key);
+    case "fighting":
+      return (s.standoffs || []).some((fight) =>
+        Object.hasOwn(fight.resolve || {}, binding.traveler),
+      );
+    case "company": {
+      const mate = companionOf(s, binding.traveler);
+      return (
+        Boolean(mate) &&
+        s.actors[mate]?.place === s.actors[binding.traveler]?.place
+      );
+    }
     default:
       return conditionMet(s, c, null, null, binding.traveler);
   }
@@ -152,15 +172,23 @@ const KINDS = {
         !retiredPlace(id) &&
         !Object.values(transports).some((ship) => ship.place === id),
     ),
+  transport: () => Object.values(transports).map((ship) => ship.place),
 };
 const TRAITS = {
   food: isFood,
+  drink: (id) => consumable(id) === "drink",
+  lamp: (id, s) => typeof s.items[id]?.lit === "boolean",
   sanctuary: (id) => sanctuaries.includes(id),
+  wanted: (id, s) =>
+    residents(s).some(
+      (who) =>
+        s.actors[who].want?.kind === "item" && s.actors[who].want.target === id,
+    ),
 };
 
 export const candidates = (s, kind, is) =>
   KINDS[kind](s)
-    .filter((id) => plain(s, id) && (!is || TRAITS[is](id)))
+    .filter((id) => plain(s, id) && (!is || TRAITS[is](id, s)))
     .sort();
 
 export function bindingOf(s, card, traveler, pool = candidates) {
@@ -316,7 +344,10 @@ export function settleArcana(s, actor = null, since = 0) {
       if (!dealt) continue;
       const record = s.actors[traveler].arcana;
       for (const c of resolve(dealt.card.proof.flatMap(didsIn), dealt.binding))
-        if (fresh.some((entry) => fits(entry, c)))
+        if (
+          fresh.some((entry) => fits(entry, c)) &&
+          (c.while || []).every((w) => holds(s, w, dealt.binding))
+        )
           record.did = [...new Set([...record.did, c.key])].sort();
     }
   const opened = !s.opening || s.opening.crossed;
@@ -331,7 +362,8 @@ export function settleArcana(s, actor = null, since = 0) {
       if (deal(s, traveler)) sleepQuest(s, traveler, { home: homeOf });
     } else if (
       dealt
-        ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {})
+        ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {}) ||
+          (dealt.card.number === 21 && nextCard(s, traveler))
         : opened
     )
       deal(s, traveler);

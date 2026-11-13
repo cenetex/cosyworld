@@ -8,6 +8,141 @@
     "phoneSize": 960
   },
   "images": {
+    "assets/arcana/arcanum-10.png": {
+      "sourceHash": "8373c6b3a7ec37b3ee09b19c56216e4a441b2f5bb2f245cb2755f8fac78082e6",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-10.webp",
+      "stageHash": "a027908186774310ab44ecaa496711209ae5e6da7f685823ab8c4e6a47dca165",
+      "card": "assets/optimized/stage/png/arcana/arcanum-10.webp",
+      "cardHash": "a027908186774310ab44ecaa496711209ae5e6da7f685823ab8c4e6a47dca165",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-10.webp",
+      "phoneHash": "a027908186774310ab44ecaa496711209ae5e6da7f685823ab8c4e6a47dca165"
+    },
+    "assets/arcana/arcanum-11.png": {
+      "sourceHash": "8879ccb2a24500f986b52e66fd9b8277834ef68d845e860fb1c097864f6aef0e",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-11.webp",
+      "stageHash": "83f06e019200504396704ff8ee6bffd887778bcef36a6b7c72154b4d41d6cbd3",
+      "card": "assets/optimized/stage/png/arcana/arcanum-11.webp",
+      "cardHash": "83f06e019200504396704ff8ee6bffd887778bcef36a6b7c72154b4d41d6cbd3",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-11.webp",
+      "phoneHash": "83f06e019200504396704ff8ee6bffd887778bcef36a6b7c72154b4d41d6cbd3"
+    },
+    "assets/arcana/arcanum-12.png": {
+      "sourceHash": "b8c3bd60e5dfd1494705944d210a190702016d6a76910ca93dd42eaaa84b8165",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-12.webp",
+      "stageHash": "3fc4f04950cefb0177b0f921a247d65d907e3b4fc16831d39b1de29bcca2566c",
+      "card": "assets/optimized/stage/png/arcana/arcanum-12.webp",
+      "cardHash": "3fc4f04950cefb0177b0f921a247d65d907e3b4fc16831d39b1de29bcca2566c",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-12.webp",
+      "phoneHash": "3fc4f04950cefb0177b0f921a247d65d907e3b4fc16831d39b1de29bcca2566c"
+    },
+    "assets/arcana/arcanum-14.png": {
+      "sourceHash": "7cd165cfbbcf3d676b9f88742de034a582aa5fdd5994797dbaf3f8b044412c54",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-14.webp",
+      "stageHash": "e398271d23818c3b2a94948a5b2610f1762b5ea9ed345189e006b7f0ae5f286b",
+      "card": "assets/optimized/stage/png/arcana/arcanum-14.webp",
+      "cardHash": "e398271d23818c3b2a94948a5b2610f1762b5ea9ed345189e006b7f0ae5f286b",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-14.webp",
+      "phoneHash": "e398271d23818c3b2a94948a5b2610f1762b5ea9ed345189e006b7f0ae5f286b"
+    },
+    "assets/arcana/arcanum-15.png": {
+      "sourceHash": "c113d946f0dfd6f4f4b4c4864468506d6c888bee694f72c0ea6810d1ee260c4c",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-15.webp",
+      "stageHash": "7351fabbfc88d8056bd357693d3b6ceb7c649548f69ec898f9426824231d27a8",
+      "card": "assets/optimized/stage/png/arcana/arcanum-15.webp",
+      "cardHash": "7351fabbfc88d8056bd357693d3b6ceb7c649548f69ec898f9426824231d27a8",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-15.webp",
+      "phoneHash": "7351fabbfc88d8056bd357693d3b6ceb7c649548f69ec898f9426824231d27a8"
+    },
+    "assets/arcana/arcanum-16.png": {
+      "sourceHash": "4326ca70444e5529dd19fdb991792c54a24f120310ffd70ec9b39ea6bd5b3c3e",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-16.webp",
+      "stageHash": "2daa95a1cd4fc473ffbfa43a6a58c911db95d82c1296d2924ef976c5b4abfb83",
+      "card": "assets/optimized/stage/png/arcana/arcanum-16.webp",
+      "cardHash": "2daa95a1cd4fc473ffbfa43a6a58c911db95d82c1296d2924ef976c5b4abfb83",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-16.webp",
+      "phoneHash": "2daa95a1cd4fc473ffbfa43a6a58c911db95d82c1296d2924ef976c5b4abfb83"
+    },
+    "assets/arcana/arcanum-17.png": {
+      "sourceHash": "c9eb004ebd7cab87270c1d366c2fe4849da6bde78121288b3f8b2a3cb85032a3",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-17.webp",
+      "stageHash": "fa4be2045a4aba1ccffaa239ff29e366eeda91f20e5a1e5e896ef32d8689d05b",
+      "card": "assets/optimized/stage/png/arcana/arcanum-17.webp",
+      "cardHash": "fa4be2045a4aba1ccffaa239ff29e366eeda91f20e5a1e5e896ef32d8689d05b",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-17.webp",
+      "phoneHash": "fa4be2045a4aba1ccffaa239ff29e366eeda91f20e5a1e5e896ef32d8689d05b"
+    },
+    "assets/arcana/arcanum-18.png": {
+      "sourceHash": "5a63c574ae177fc7b4cefc77cd22c0eda89e806aa84b43e70f1589c9f31d332b",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-18.webp",
+      "stageHash": "a3f5487264720112dacbbe86fb05fd5538df857712b970cfa9ee1ba2df122682",
+      "card": "assets/optimized/stage/png/arcana/arcanum-18.webp",
+      "cardHash": "a3f5487264720112dacbbe86fb05fd5538df857712b970cfa9ee1ba2df122682",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-18.webp",
+      "phoneHash": "a3f5487264720112dacbbe86fb05fd5538df857712b970cfa9ee1ba2df122682"
+    },
+    "assets/arcana/arcanum-19.png": {
+      "sourceHash": "86fb6ccfacb31c52a82ac9711e03addc493b2503cc3cb4251693f6ebf277fbe7",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-19.webp",
+      "stageHash": "cf62707721eef55facc5525c00e6ab8c46bc8f04abf8edd5f4aa373d3bd17d8d",
+      "card": "assets/optimized/stage/png/arcana/arcanum-19.webp",
+      "cardHash": "cf62707721eef55facc5525c00e6ab8c46bc8f04abf8edd5f4aa373d3bd17d8d",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-19.webp",
+      "phoneHash": "cf62707721eef55facc5525c00e6ab8c46bc8f04abf8edd5f4aa373d3bd17d8d"
+    },
+    "assets/arcana/arcanum-20.png": {
+      "sourceHash": "6dc325844f5fde2be6ebf988c258600bf7b6f5c71c3f8f0b9b4184cfc0fdb591",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-20.webp",
+      "stageHash": "bd7db928a43f9e0527dd999a9086f3dadc0fe13dc1afef2e51bb7608640e9710",
+      "card": "assets/optimized/stage/png/arcana/arcanum-20.webp",
+      "cardHash": "bd7db928a43f9e0527dd999a9086f3dadc0fe13dc1afef2e51bb7608640e9710",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-20.webp",
+      "phoneHash": "bd7db928a43f9e0527dd999a9086f3dadc0fe13dc1afef2e51bb7608640e9710"
+    },
+    "assets/arcana/arcanum-21.png": {
+      "sourceHash": "fdb5e08b3d008b24e6e0b95bdd501ca8e75dcc409e194714a1dcd0da2d2345e9",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-21.webp",
+      "stageHash": "694275718482a66554a20771899dd8f1db8354d18edafa8ec48196d036242278",
+      "card": "assets/optimized/stage/png/arcana/arcanum-21.webp",
+      "cardHash": "694275718482a66554a20771899dd8f1db8354d18edafa8ec48196d036242278",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-21.webp",
+      "phoneHash": "694275718482a66554a20771899dd8f1db8354d18edafa8ec48196d036242278"
+    },
+    "assets/arcana/arcanum-6.png": {
+      "sourceHash": "9910c9bfd573f76d5916721e3c7788042bb09785999b7f33e15a09be17155cdb",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-6.webp",
+      "stageHash": "26760799396f0725a32ac7521b9b3d47e650a2b557097e2cd79f8d9f0b06adcc",
+      "card": "assets/optimized/stage/png/arcana/arcanum-6.webp",
+      "cardHash": "26760799396f0725a32ac7521b9b3d47e650a2b557097e2cd79f8d9f0b06adcc",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-6.webp",
+      "phoneHash": "26760799396f0725a32ac7521b9b3d47e650a2b557097e2cd79f8d9f0b06adcc"
+    },
+    "assets/arcana/arcanum-7.png": {
+      "sourceHash": "4eca65ee5d4f5af4e3f7fde0db90c3c0eb9c815216f19b8142ddcbfea0c03aba",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-7.webp",
+      "stageHash": "ad1c597e3b7294a8af258234dea4eab7c1e56895e24197f685bfef3fb8b706cb",
+      "card": "assets/optimized/stage/png/arcana/arcanum-7.webp",
+      "cardHash": "ad1c597e3b7294a8af258234dea4eab7c1e56895e24197f685bfef3fb8b706cb",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-7.webp",
+      "phoneHash": "ad1c597e3b7294a8af258234dea4eab7c1e56895e24197f685bfef3fb8b706cb"
+    },
+    "assets/arcana/arcanum-8.png": {
+      "sourceHash": "907fc394611fa8915f51468d5c3b6d437942e0a6e3bea6f13ed39541d6d2e166",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-8.webp",
+      "stageHash": "1e6adbc854011daef326ad267aa346ee86e9b2304f5e25e1d420eed4afbeeba9",
+      "card": "assets/optimized/stage/png/arcana/arcanum-8.webp",
+      "cardHash": "1e6adbc854011daef326ad267aa346ee86e9b2304f5e25e1d420eed4afbeeba9",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-8.webp",
+      "phoneHash": "1e6adbc854011daef326ad267aa346ee86e9b2304f5e25e1d420eed4afbeeba9"
+    },
+    "assets/arcana/arcanum-9.png": {
+      "sourceHash": "4f3f9fcd33153c950fc5ac7e7df7ad50f8fc6372eb419f41c77cb02a28f7e005",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-9.webp",
+      "stageHash": "16b87d5d1f3fed0e79ce37efabdb1722466d81b4ff557daf592a7710ea0c41eb",
+      "card": "assets/optimized/stage/png/arcana/arcanum-9.webp",
+      "cardHash": "16b87d5d1f3fed0e79ce37efabdb1722466d81b4ff557daf592a7710ea0c41eb",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-9.webp",
+      "phoneHash": "16b87d5d1f3fed0e79ce37efabdb1722466d81b4ff557daf592a7710ea0c41eb"
+    },
     "assets/attic.png": {
       "sourceHash": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e",
       "stage": "assets/optimized/stage/png/attic.webp",
