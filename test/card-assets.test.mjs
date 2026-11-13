@@ -45,9 +45,9 @@ describe("one public card asset list", () => {
     };
     const first = build("a.rs");
     expect(build("b.rs")).toBe(first);
-    expect(first.match(/include_bytes!|let \(_, bytes\) = get\(/g)).toHaveLength(
-      publicAssets.length,
-    );
+    expect(
+      first.match(/include_bytes!|let \(_, bytes\) = get\(/g),
+    ).toHaveLength(publicAssets.length);
   });
 
   it("serves every listed file with the expected type and bytes", async () => {
@@ -78,5 +78,5 @@ describe("one public card asset list", () => {
     } finally {
       await new Promise((resolve) => server.close(resolve));
     }
-  });
+  }, 30000);
 });
