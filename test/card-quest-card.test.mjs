@@ -375,8 +375,9 @@ describe("the quest card", () => {
   });
 
   describe.sequential("quest cards through one 400-turn run", () => {
-    let checkpoint;
+    let checkpoint, completed = 0;
     it.each([100, 200, 300, 400])("shows every held quest through turn %i", (end) => {
+      expect(completed).toBe(end - 100);
       let s = checkpoint ? structuredClone(checkpoint) : createWorld();
       for (let turn = end - 100; turn < end; turn++) {
         const actions = legalActions(s);
@@ -392,6 +393,7 @@ describe("the quest card", () => {
       }
       expect(validateWorld(s)).toBe(s);
       checkpoint = s;
+      completed = end;
     });
   });
 });

@@ -292,31 +292,35 @@ describe("the reflected shore card game", () => {
     expect(() => validateWorld(broken)).toThrow();
   });
 
-  it("preserves unique objects and valid state across 4000 varied turns", async () => {
-    let seed = 109,
-      picks = 0,
-      s = createWorld();
-    const itemIds = Object.keys(s.items).sort();
-    for (let i = 0; i < 4000; i++) {
-      // Keep progress messages flowing during the bounded simulation.
-      if (i % 100 === 0) await yieldToRunner();
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      const actions = legalActions(s);
-      const action =
-        i % 5 === 0 ? plan(s).action : actions[seed % actions.length];
-      const result = play(s, action);
-      expect(result.ok).toBe(true);
-      if (action.kind === "focus") picks += 1;
-      s = result.state;
-      expect(() => validateWorld(s)).not.toThrow();
-      expect(Object.keys(s.items).sort()).toEqual(itemIds);
-      if (i % 97 === 0) {
-        s = decodeSave(encodeSave(s));
-      }
-    }
-    // Choosing a quest spends no turn; a long rest at the sanctuary sleeps on.
-    expect(s.turn).toBeGreaterThanOrEqual(4000 - picks);
-  }, 120_000);
+  describe.sequential("one 4000-turn world journey", () => {
+    let checkpoint;
+    it.each(Array.from({ length: 40 }, (_, i) => (i + 1) * 100))(
+      "preserves unique objects and valid state through turn %i",
+      async (end) => {
+        expect(checkpoint?.end ?? 0).toBe(end - 100);
+        let { seed, picks, world: s } = checkpoint
+          ? structuredClone(checkpoint)
+          : { seed: 109, picks: 0, world: createWorld() };
+        const itemIds = Object.keys(s.items).sort();
+        for (let i = end - 100; i < end; i++) {
+          if (i % 100 === 0) await yieldToRunner();
+          seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+          const actions = legalActions(s);
+          const action =
+            i % 5 === 0 ? plan(s).action : actions[seed % actions.length];
+          const result = play(s, action);
+          expect(result.ok).toBe(true);
+          if (action.kind === "focus") picks += 1;
+          s = result.state;
+          expect(() => validateWorld(s)).not.toThrow();
+          expect(Object.keys(s.items).sort()).toEqual(itemIds);
+          if (i % 97 === 0) s = decodeSave(encodeSave(s));
+        }
+        expect(s.turn).toBeGreaterThanOrEqual(end - picks);
+        checkpoint = { seed, picks, world: s, end };
+      },
+    );
+  });
 
   it("scopes import permissions to the authoring page aliases", async () => {
     const server = createServer();
