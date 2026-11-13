@@ -346,7 +346,6 @@ describe("the data file", () => {
           "quest",
           "company",
           "daylight",
-          "not",
         ]).toContain(want.kind);
         if (want.target !== undefined) expect(want.target).toBeTypeOf("string");
       }

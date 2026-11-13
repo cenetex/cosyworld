@@ -142,7 +142,7 @@ const COUNT_WORDS = {
   },
 };
 const WANT_KINDS = ["item", "place", "person", "quest"];
-const TIMES = { day: "be out by day", night: "be out at night" };
+const TIMES = { day: "walk by day", night: "walk at night" };
 const together = (words, last) =>
   words.length < 2
     ? (words[0] ?? null)
@@ -169,10 +169,16 @@ export function conditionWords(
     if (term?.kind === "actor_at") return `be at ${name(term.place)}`;
     if (term?.kind === "not" && term.condition?.kind === "actor_at")
       return `be away from ${name(term.condition.place)}`;
-    if (term?.kind === "not" && term.condition?.kind === "item")
-      return `go without ${shown(term.condition.target) ? `the ${term.condition.lit ? "lit " : ""}${table.name(term.condition.target)}` : UNKNOWN.item}`;
     if (term?.kind === "company") return "travel with a companion";
-    if (term?.kind === "daylight") return TIMES[term.phase] ?? null;
+    if (term?.kind === "daylight") {
+      const light = (id) =>
+        shown(id) ? `the lit ${table.name(id)}` : "a light";
+      if (!TIMES[term.phase]) return null;
+      if (term.with) return `${TIMES[term.phase]} holding ${light(term.with)}`;
+      if (term.without)
+        return `${TIMES[term.phase]} without ${light(term.without)}`;
+      return TIMES[term.phase];
+    }
     if (term?.kind === "all" || term?.kind === "any") {
       const parts = (term.conditions || []).map(words);
       return parts.length && parts.every(Boolean)

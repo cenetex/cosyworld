@@ -2038,6 +2038,12 @@
         ],
         desire: [
           {
+            kind: "person",
+            step: {
+              verb: "invite"
+            }
+          },
+          {
             kind: "company"
           }
         ]
@@ -2138,13 +2144,9 @@
         ],
         desire: [
           {
-            kind: "item",
-            target: "$light",
-            lit: true
-          },
-          {
             kind: "daylight",
-            phase: "night"
+            phase: "night",
+            with: "$light"
           }
         ]
       },
@@ -2415,15 +2417,8 @@
         desire: [
           {
             kind: "daylight",
-            phase: "night"
-          },
-          {
-            kind: "not",
-            condition: {
-              kind: "item",
-              target: "$light",
-              lit: true
-            }
+            phase: "night",
+            without: "$light"
           }
         ]
       },

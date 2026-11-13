@@ -136,10 +136,10 @@ describe("the words of a level card", () => {
   it("words the second row from its desires, hidden until found", () => {
     const s = createWorld({ seed: 7 });
     const hidden = {
-      6: "travel with a companion",
+      6: "invite someone and travel with a companion",
       7: `sail ${UNKNOWN.place}`,
       8: "trade something for something",
-      9: "find something and be out at night",
+      9: "walk at night holding a light",
       10: `eat ${UNKNOWN.item} and find something`,
       11: "brace against someone",
       12: "let go of a quest",
@@ -147,17 +147,17 @@ describe("the words of a level card", () => {
       15: `keep ${UNKNOWN.item}`,
       16: "free someone shut away",
       17: "give something to someone",
-      18: `be out at night and go without ${UNKNOWN.item}`,
+      18: "walk at night without a light",
       19: "travel with a companion and go home",
       20: "be trusted by five more",
     };
     const shown = {
       7: "sail The Charybdis",
-      9: "hold the lit Lamp and be out at night",
+      9: "walk at night holding the lit Lamp",
       10: "eat Dried Figs and find Dried Figs",
       14: "drink Wine Skin with someone",
       15: "keep Lamp",
-      18: "be out at night and go without the lit Lamp",
+      18: "walk at night without the lit Lamp",
     };
     for (const [n, text] of Object.entries(hidden))
       expect(words(s, `arcanum-${n}`), n).toBe(text);
@@ -170,7 +170,7 @@ describe("the words of a level card", () => {
     expect(say([{ kind: "item", step: { verb: "give" } }])).toBe(
       "give something to someone",
     );
-    expect(say([{ kind: "daylight", phase: "day" }])).toBe("be out by day");
+    expect(say([{ kind: "daylight", phase: "day" }])).toBe("walk by day");
     expect(
       say([{ kind: "count", of: "opened", box: "resident", min: 2 }]),
     ).toBe("free two shut away");

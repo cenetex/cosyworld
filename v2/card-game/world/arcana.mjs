@@ -7,6 +7,7 @@ import {
 } from "../human-cast.mjs";
 import {
   consumable,
+  entityActive,
   isFood,
   localRoadEnds,
   packDefinition,
@@ -102,6 +103,7 @@ const ROOM = {
           (def) =>
             (!c.box || def.kind === c.box) &&
             packOn(s, packIdOf(def.at)) &&
+            entityActive(s, def.at) &&
             (!def.pack || packOn(s, def.pack)) &&
             !s.opened?.[def.id]?.includes(who),
         )
@@ -360,7 +362,8 @@ export function settleArcana(s, actor = null, since = 0) {
       if (deal(s, traveler)) sleepQuest(s, traveler, { home: homeOf });
     } else if (
       dealt
-        ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {})
+        ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {}) ||
+          (dealt.card.number === 21 && nextCard(s, traveler))
         : opened
     )
       deal(s, traveler);

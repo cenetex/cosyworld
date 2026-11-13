@@ -7317,7 +7317,7 @@
     ).length,
     opened: (s, who, c) => new Set(
       boxDefs().filter(
-        (def) => (!c.box || def.kind === c.box) && packOn(s, packIdOf(def.at)) && (!def.pack || packOn(s, def.pack)) && !s.opened?.[def.id]?.includes(who)
+        (def) => (!c.box || def.kind === c.box) && packOn(s, packIdOf(def.at)) && entityActive(s, def.at) && (!def.pack || packOn(s, def.pack)) && !s.opened?.[def.id]?.includes(who)
       ).map((def) => def.id)
     ).size
   };
@@ -7480,7 +7480,7 @@
         const record5 = s.actors[traveler].arcana;
         record5.proved = [.../* @__PURE__ */ new Set([...record5.proved, dealt.card.id])].sort();
         if (deal(s, traveler)) sleepQuest(s, traveler, { home: homeOf2 });
-      } else if (dealt ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {}) : opened)
+      } else if (dealt ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {}) || dealt.card.number === 21 && nextCard(s, traveler) : opened)
         deal(s, traveler);
     }
     return s;
