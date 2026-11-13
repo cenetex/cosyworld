@@ -10,7 +10,6 @@ import {
 import { boxDefs } from "./world/boxes.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
-import { isArcanum } from "./world/arcana.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { installItemCycle } from "./pack-items.mjs";
 
@@ -135,7 +134,7 @@ export function reconcileContent(s) {
     return holder;
   };
   const gone = Object.keys(s.items).filter(
-    (id) => !Object.hasOwn(authored, id) && !isArcanum(id),
+    (id) => !Object.hasOwn(authored, id),
   );
   for (const id of gone) {
     const keeper = root(id);

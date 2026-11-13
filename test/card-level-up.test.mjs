@@ -14,9 +14,9 @@ describe("card level-up", () => {
   });
 
   it("shifts the glow from the old tier colour to the new one", () => {
-    const plan = levelUpPlan(9, 10);
-    expect(plan.from.color).toBe(levelTier(9).color);
-    expect(plan.to.color).toBe(levelTier(10).color);
+    const plan = levelUpPlan(5, 6);
+    expect(plan.from.color).toBe(levelTier(5).color);
+    expect(plan.to.color).toBe(levelTier(6).color);
     expect(plan.from.color).not.toBe(plan.to.color);
     expect(plan.lift).toBeGreaterThan(levelUpPlan(2, 3).lift);
   });
@@ -25,8 +25,8 @@ describe("card level-up", () => {
     expect(LEVEL_UP_MS).toBeLessThanOrEqual(1200);
     for (const [a, b] of [
       [1, 2],
-      [9, 10],
-      [49, 50],
+      [5, 6],
+      [18, 19],
     ])
       expect(levelUpPlan(a, b).lift).toBeLessThanOrEqual(8);
   });

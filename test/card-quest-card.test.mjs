@@ -12,6 +12,7 @@ const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
   isQuestId,
+  levelCard,
   questCaption,
   questCard,
   questBox,
@@ -26,6 +27,8 @@ import {
 } from "../v2/card-game/quest-card.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
+import { settleArcana } from "../v2/card-game/world/arcana.mjs";
+import { homeOf } from "../v2/card-game/world/home.mjs";
 
 // An undiscovered card is worded by its kind, never by name.
 const { person: PERSON, place: PLACE } = UNKNOWN;
@@ -335,7 +338,7 @@ describe("the quest card", () => {
     expect(questCards(s)).toEqual([]);
   });
 
-  it("drops the card when the rules meet the quest, paying on that play", () => {
+  it("drops the card when the rules meet the quest, on that play", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.lamp.holder = "attic";
@@ -351,9 +354,8 @@ describe("the quest card", () => {
       s,
       legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
     ).state;
-    // Nothing is sealed or left to claim: the card is gone, the XP is paid.
     expect(questCards(s)).toEqual([]);
-    expect(s.actors.vale.xp).toBe(xp + 1);
+    expect(s.actors.vale.xp).toBe(xp);
     expect(
       legalActions(s).some((a) => ["claim", "focus"].includes(a.kind)),
     ).toBe(false);
@@ -390,4 +392,40 @@ describe("the quest card", () => {
     }
     expect(validateWorld(s)).toBe(s);
   }, 30000);
+
+  it("shows no level card before the deck deals one", () => {
+    const s = createWorld({ seed: 7 });
+    expect(levelCard(s, "vale")).toBeNull();
+  });
+
+  it("shows the dealt card after the held quests, a level up with its woodcut", () => {
+    const s = settleArcana(createWorld({ seed: 7 }), "vale");
+    s.actors.vale.arcana.proved = ["arcanum-5"];
+    const card = levelCard(s, "vale");
+    expect(card).toMatchObject({
+      key: "level:arcanum-0",
+      index: questCards(s).length,
+      actor: "vale",
+      kind: "arcanum",
+      target: "arcanum-0",
+      level: 2,
+      left: 1,
+      step: null,
+      art: "./assets/lonely-forest/arcanum-0.png",
+      home: homeOf("vale"),
+    });
+    expect(card.index).toBeGreaterThan(0);
+    expect(questCaption(card)).toBe(
+      "Level II: Carry nothing, be away from home and visit six new places",
+    );
+    expect(questTier(card, s)).toEqual(levelTier(2));
+    expect(questNear(s, card)).toBe(false);
+  });
+
+  it("draws the World on the card back, having no woodcut", () => {
+    const s = createWorld({ seed: 7 });
+    s.actors.vale.arcana = { proved: [], did: [], dealt: "arcanum-21" };
+    expect(levelCard(s, "vale")).toMatchObject({ target: "arcanum-21", art: null, level: 1 });
+    expect(questCaption({ ...levelCard(s, "vale"), level: null })).toBe("Rest at home");
+  });
 });

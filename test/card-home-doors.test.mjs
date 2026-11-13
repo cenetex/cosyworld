@@ -213,8 +213,7 @@ describe("an unlocked avatar's homecoming", () => {
     };
     const home = run();
     expect(home.actors.mara.place).toBe("theatre");
-    // The want is paid on the play that meets it: no claim.
-    expect(home.actors.mara.xp).toBe(1);
+    expect(home.actors.mara.xp).toBe(0);
     expect(questsOf(home, "mara").some((w) => w.target === "mask")).toBe(false);
     expect(run()).toEqual(home);
   });

@@ -14,14 +14,15 @@ export const sanctuaries = Object.keys(places).filter(
   (id) => places[id].sanctuary === true,
 );
 export const people = { ...forest.people, ...packPeople };
-export const things = {
-  ...packThings,
-  ...forest.things,
-  ...Object.fromEntries(
-    arcana.cards.map(({ id, name, text, art }) => [id, { name, text, art }]),
-  ),
-};
+export const things = { ...packThings, ...forest.things };
+export const arcanaCards = Object.fromEntries(
+  arcana.cards.map((card) => [card.id, card]),
+);
 validatePackLinks(places, people, things);
 
 export const nameOf = (id) =>
-  places[id]?.name || people[id]?.name || things[id]?.name || "the world";
+  places[id]?.name ||
+  people[id]?.name ||
+  things[id]?.name ||
+  arcanaCards[id]?.name ||
+  "the world";

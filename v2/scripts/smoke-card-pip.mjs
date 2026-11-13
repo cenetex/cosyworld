@@ -61,10 +61,11 @@ async function walkToGivenLamp(browser, base) {
   await choose("moth");
   await buttonReads(/gives the Lamp to Pip/iu);
   await button.first().click();
-  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:level", key, { timeout: 8000 });
+  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).items.lamp.holder === "moth", key, { timeout: 8000 });
   const saved = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
   assert.equal(saved.items.lamp.holder, "moth");
-  assert.equal(saved.actors.vale.want.quest.level, 2);
+  assert.notEqual(saved.actors.vale.want?.from, "quest:from:moth");
+  assert.equal(saved.actors.vale.xp, 0);
   assert.equal(saved.actors.vale.under, undefined);
   assert.equal(saved.actors.vale.place, "pond");
   assert.deepEqual(errors, []);

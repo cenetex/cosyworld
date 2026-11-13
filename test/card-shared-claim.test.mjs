@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
-import { questXp } from "../v2/card-game/want.mjs";
+import { levelOf } from "../v2/card-game/want.mjs";
 import { questOffers } from "../v2/card-game/world.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
@@ -35,13 +35,14 @@ describe("a claim into a newly founded shared world, at the bundled rules", () =
     },
   );
 
-  it("still replays a journaled claim that carried a level, with its offer", () => {
-    const out = claim(second, { xp: questXp(3), level: 2 });
+  it("still replays a journaled claim that carried a level, with no level offer", () => {
+    const out = claim(second, { xp: 6, level: 2 });
     expect(out.world.actors[second]).toMatchObject({
-      xp: questXp(3),
+      xp: 6,
       level: 2,
-      carried: questXp(3),
+      carried: 6,
     });
-    expect(levelOffer(out)).toHaveLength(1);
+    expect(levelOffer(out)).toEqual([]);
+    expect(levelOf(out.world, second)).toBe(0);
   });
 });

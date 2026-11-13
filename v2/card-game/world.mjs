@@ -401,7 +401,7 @@ export function installPacks(s) {
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   for (const pack of packDefinitions) installSpecials(s, pack);
-  installArcana(s, fresh);
+  installArcana(s);
   installItemCycle(s, added);
   installLife(s, travels);
   installRouteKnowledge(s);
@@ -440,11 +440,9 @@ export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
 import { creditOpened, validOpened } from "./world/boxes.mjs";
 import {
-  arcanumOpen,
+  dreamCard,
   installArcana,
-  isArcanum,
   settleArcana,
-  takeArcanum,
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
@@ -669,16 +667,13 @@ export function wantAPI(s) {
     reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
     rangeTest: (actor) => rangeTest(s, actor),
     wanders: (actor) => wanders(s, actor),
-    places: () => Object.keys(places),
     home: homeOf,
     active: (id) => entityActive(s, id),
     sanctuaries,
     restsAt,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
-    placeOf: (item) => itemPlace(s, item),
-    distance: (from, to, actor) =>
-      from === to ? 0 : (routeBetween(s, from, to, actor)?.length ?? 0) - 1,
-    log: (actor, want, xp) =>
+    dreamCard: (actor) => dreamCard(s, actor),
+    log: (actor, want) =>
       addLog(
         s,
         "World",
@@ -695,7 +690,6 @@ export function wantAPI(s) {
           verb: "want_met",
           wantMet: { kind: want.kind, target: want.target },
           wantKey: wantKey(actor, want),
-          ...(xp > 1 ? { questXp: xp } : {}),
           ...(want.kind === "item" ? { itemId: want.target } : {}),
           ...(want.kind === "person" ? { targetId: want.target } : {}),
         },
@@ -1439,7 +1433,7 @@ export function legalActions(s, actor = currentActor(s)) {
     if (
       canReach(s, actor, id) &&
       item.holder !== actor &&
-      (isArcanum(id) ? arcanumOpen(s, id, actor) : hasSpace(s, actor, id))
+      hasSpace(s, actor, id)
     ) {
       out.push(
         offer(
@@ -1867,10 +1861,7 @@ function settleQuests(s, acting) {
     )
       continue;
     for (const offer of questOffers(s, actor)) {
-      if (
-        !offer.want.quest &&
-        heldOf(s.actors[actor]).some((held) => sameQuest(held, offer.want))
-      )
+      if (heldOf(s.actors[actor]).some((held) => sameQuest(held, offer.want)))
         continue;
       const quest = holdQuest(s, actor, offer.want, offer.id);
       if (!quest) break;
@@ -2005,7 +1996,6 @@ const WAKE_REASONS = [
   "rested",
 ];
 const SLEEP_TURNS = 24;
-// What a long rest may dream (rules 99): the halfway glimpse.
 const DREAMS = ["glimpse"];
 // Sleep always ends by the next light change, so no sleep is longer than one
 // light period. A long rest needs half of one: two cannot both begin and end
@@ -2022,7 +2012,6 @@ function wakeUp(s, id, woke, text) {
     long = sanctuary && s.turn - z.since >= LONG_SLEEP_TURNS;
   if (sanctuary && s.defeats?.[id]) delete s.defeats[id];
   renewWant(s, id, wantAPI(s));
-  // A long rest may bring one dream: the halfway glimpse.
   const dream = long ? wake(s, id, wantAPI(s)) : null;
   addLog(s, "World", text, {
     kind: "action",
@@ -2505,8 +2494,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
       break;
     }
     case "take":
-      if (!takeArcanum(s, a.actor, a.item))
-        transfer(s, a.item, a.actor, a.text);
+      transfer(s, a.item, a.actor, a.text);
       break;
     case "drop":
       transfer(s, a.item, here, a.text);

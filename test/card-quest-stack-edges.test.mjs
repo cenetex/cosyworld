@@ -3,6 +3,7 @@ import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import {
   decodeSave,
   encodeSave,
+  homeOf,
   legalActions,
   LONG_SLEEP_TURNS,
   play,
@@ -11,13 +12,13 @@ import {
 import {
   MAX_CLOSED,
   closedKey,
+  DREAM_FROM,
   dropQuest,
-  dropCost,
   heldOf,
   holdQuest,
   newWant,
-  questXp,
   settleWants,
+  sleepQuest,
   validWant,
 } from "../v2/card-game/want.mjs";
 
@@ -34,39 +35,33 @@ const talk = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
 const sources = (s, who = "vale") => heldOf(s.actors[who]).map((w) => w.from);
 const lamp = { kind: "item", target: "lamp", step: { verb: "give", to: "moth" } };
 
-describe("the level quest after a discard", () => {
+describe("the sleep quest after a discard", () => {
+  const home = { home: homeOf };
   const sleepAtHome = (s) => {
     s.actors.vale.place = "attic";
     s = wait(s);
-    for (let i = 0; i < LONG_SLEEP_TURNS + 2 && s.actors.vale.level === 1; i++)
+    for (let i = 0; i < LONG_SLEEP_TURNS + 2 && sources(s).includes(DREAM_FROM); i++)
       s = play(s, legalActions(s).find((a) => a.sleep), s.revision).state;
     return s;
   };
 
-  it("is never recorded closed, comes back with the experience, and levels up", () => {
+  it("is dropped for nothing, never comes back by itself, and is met at home when held again", () => {
     let s = createPipWorld(5);
-    s.actors.vale.level = 1;
-    s.actors.vale.xp = questXp(2);
+    sleepQuest(s, "vale", home);
     s = wait(s);
-    expect(sources(s)).toEqual(["quest:level"]);
-    const cost = dropCost(s, "vale");
-    expect(cost).toBe(1);
+    expect(sources(s)).toEqual([DREAM_FROM]);
+    const xp = s.actors.vale.xp;
     s = act(s, (a) => a.kind === "drop" && !a.item);
-    expect(s.actors.vale.xp).toBe(questXp(2) - 1);
+    expect(s.actors.vale.xp).toBe(xp);
     expect(heldOf(s.actors.vale)).toEqual([]);
-    expect(s.actors.vale.closed?.["quest:level"]).toBeUndefined();
     s = wait(s);
     expect(heldOf(s.actors.vale)).toEqual([]);
-    s.actors.vale.xp = questXp(2);
-    s = wait(s);
-    expect(sources(s)).toEqual(["quest:level"]);
-    expect(s.actors.vale.want.quest).toEqual({ level: 2, left: 1 });
+    sleepQuest(s, "vale", home);
+    expect(sources(s)).toEqual([DREAM_FROM]);
     s = sleepAtHome(s);
-    expect(s.actors.vale.level).toBe(2);
     expect(heldOf(s.actors.vale)).toEqual([]);
-    s.actors.vale.xp = questXp(3);
-    s = wait(s);
-    expect(s.actors.vale.want.quest).toEqual({ level: 3, left: 1 });
+    expect(s.actors.vale.xp).toBe(xp);
+    expect(s.actors.vale.glimpse).toMatchObject({ kind: "arcanum" });
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 });

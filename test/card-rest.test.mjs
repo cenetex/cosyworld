@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, holdChoice, legalActions, places, play, sanctuaries, standoffFor, validateWorld, LONG_SLEEP_TURNS } from "../v2/card-game/world.mjs";
+import { createWorld, holdChoice, homeOf, legalActions, places, play, sanctuaries, standoffFor, validateWorld, LONG_SLEEP_TURNS } from "../v2/card-game/world.mjs";
 import {
   crossings,
   packDefinitions,
   packOf,
 } from "../v2/card-game/pack-registry.mjs";
-import { halfwayXp, knownActors, questXp } from "../v2/card-game/want.mjs";
+import { DREAM_FROM, knownActors, sleepQuest } from "../v2/card-game/want.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import { reflectionDue } from "../v2/card-game/reflections.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -73,7 +73,7 @@ describe("rest and sanctuary", () => {
   it("keeps a sanctuary Wait to one turn: losses clear, but no long rest or dream", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
-    s.actors.vale.xp = questXp(2);
+    sleepQuest(s, "vale", { home: homeOf });
     s.defeats = { vale: 2 };
     s = wait(s);
     expect(s.turn).toBe(1);
@@ -81,15 +81,14 @@ describe("rest and sanctuary", () => {
     expect(s.actors.vale.sleeping).toBeUndefined();
     expect(s.log.findLast((e) => e.verb === "wait").rest).toBeUndefined();
     expect(narrativeContext(s).rest).toBeFalsy();
-    expect(s.actors.vale.want?.quest).toBeUndefined();
+    expect(s.actors.vale.want?.from).toBe(DREAM_FROM);
     expect(validateWorld(s)).toBe(s);
   });
 
   it("dreams only after a long sanctuary Sleep; short ones just clear losses", () => {
     let s = createWorld();
     s.actors.vale.place = "attic";
-    s.actors.vale.xp = halfwayXp(1);
-    s.actors.vale.level = 1;
+    sleepQuest(s, "vale", { home: homeOf });
     // Keep unrelated resident visits from interrupting this daylight test.
     const quietResidents = (world) => {
       for (const id of ["moth", "keeper"])
@@ -112,7 +111,7 @@ describe("rest and sanctuary", () => {
       expect(woke(s, "vale").rest).toBeUndefined();
       expect(s.defeats).toEqual({});
       expect(narrativeContext(s).rest).toBeFalsy();
-      expect(s.actors.vale.want?.quest).toBeUndefined();
+      expect(s.actors.vale.want?.from).toBe(DREAM_FROM);
       expect(woke(s, "vale").dream).toBeUndefined();
     }
     // A Sleep from just after the light changes lasts until it next does.
@@ -125,7 +124,6 @@ describe("rest and sanctuary", () => {
       text: "Vale wakes at dawn.",
     });
     expect(DAYLIGHT_TURNS - 2).toBeGreaterThanOrEqual(LONG_SLEEP_TURNS);
-    // The long rest dreams the halfway glimpse and deals no quest.
     expect(waking.dream).toBe("glimpse");
     expect(s.actors.vale.want).toBeNull();
     const told = narrativeContext(s);

@@ -109,13 +109,13 @@
   "things": {
     "lamp": {
       "name": "Lamp",
-      "startLevel": 50,
+      "startLevel": 19,
       "text": "An oil lamp with soot-darkened glass. A full tank lights three room visits while held or placed; putting it away darkens it.",
       "valueRules": [{ "when": [{ "item": "lamp", "field": "fuel", "max": 0 }], "add": -5 }]
     },
     "oil": {
       "name": "Oil flask",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "Fills an empty lamp for three room visits when one carrier has both. Then it waits full again at the station.",
       "refuels": "lamp",
       "returnsTo": "station",
@@ -125,12 +125,12 @@
     },
     "bell": {
       "name": "Bell",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
     },
     "cloth": {
       "name": "Black cloth",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
     }
   },

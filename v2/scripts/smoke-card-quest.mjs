@@ -4,14 +4,13 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { questXp } from "../card-game/want.mjs";
 import { clearSelection, readyActionButton, revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
 
 // The player holds one quest. It folds behind the player's avatar as a face
 // down card; opening the avatar's stack shows it as the one quest card. A
 // chosen quest card gives exactly one button: its next step, or Discard when
-// it has none. A quest the rules meet simply goes, and its experience is paid
-// on the play that met it: there is nothing to claim.
+// it has none. A quest the rules meet simply goes on the play that met it,
+// paying a traveler no XP: there is nothing to claim.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
@@ -203,8 +202,8 @@ try {
       await page.locator("#hand .want-frame > .want-card").getAttribute("aria-pressed"),
       "false",
     );
-    // Any play meets it. Its experience is paid on that play and the card
-    // simply goes: there is no sealed card, no claim and no float.
+    // Any play meets it. The card simply goes, paying a traveler no XP: there
+    // is no sealed card, no claim and no float.
     const before = await saved();
     await tapCard(page.locator('#hand [data-card="vale"]'));
     await page
@@ -218,7 +217,7 @@ try {
       key,
     );
     const after = await saved();
-    assert.equal(after.xp, before.xp + 1, "the meeting play paid one XP");
+    assert.equal(after.xp, before.xp, "a traveler earns no XP");
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
     assert.equal(await page.locator("#hand .want-frame").count(), 0);
     assert.equal(await page.locator("#hand .quest-fold").count(), 0);
@@ -229,9 +228,9 @@ try {
       "no Claim button",
     );
 
-    // Discard. A level quest names its cost on its one button, asks again,
-    // and drops on the second tap with no turn passing.
-    await page.evaluate(({ key, xp }) => {
+    // Discard. A held quest has one button, asks again, and drops on the
+    // second tap with no turn passing and no cost.
+    await page.evaluate(({ key }) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
       vale.want = {
@@ -239,12 +238,9 @@ try {
         target: "station",
         since: s.turn,
         refusals: 0,
-        // A level quest: its Discard names the cost (rules 98).
-        quest: { level: 2, left: 1 },
       };
-      Object.assign(vale, { xp, level: 1 });
       localStorage.setItem(key, JSON.stringify(s));
-    }, { key, xp: questXp(2) });
+    }, { key });
     await page.reload();
     await ready();
     await page.locator("#hand .quest-fold").focus();
@@ -261,7 +257,7 @@ try {
       .locator('#card-actions [data-drop-quest="0"]:not([data-revealing="true"])')
       .waitFor();
     assert.equal(await page.locator("#card-actions button").count(), 1);
-    assert.equal(await drop.getAttribute("aria-label"), "Discard (−1 XP)");
+    assert.equal(await drop.getAttribute("aria-label"), "Discard");
     // Discard is the beat's usual context button, its words red.
     assert.deepEqual(
       await drop.evaluate((el) => {
@@ -283,7 +279,7 @@ try {
     );
     assert.match(
       await panel.locator(".action-beat-note").innerText(),
-      /Cost 1 XP/,
+      /^Discover somewhere\.$/u,
     );
     assert.equal(await panel.locator("button").count(), 1);
     // Escape asks no more; nothing was dropped.
@@ -299,13 +295,13 @@ try {
     await ready();
     assert.deepEqual(
       await saved(),
-      { turn: (await saved()).turn, xp: questXp(2) - 1, want: null },
-      "the quest dropped and paid its cost",
+      { turn: (await saved()).turn, xp: 0, want: null },
+      "the quest dropped at no cost",
     );
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
 
     // A step quest: at the Theban City Gate, the chosen quest card offers one
-    // button, Discard; giving the Decree meets it and pays one XP.
+    // button, Discard; giving the Decree meets it and pays no XP.
     const gateKey = `cosyworld.reflected-shore.v1.quest-give-${width}`;
     await page.evaluate(
       ({ gateKey, save, seen }) => {
@@ -376,8 +372,8 @@ try {
     assert.equal((await saved(gateKey)).want.from, "quest:box:greek-battlefield");
     assert.equal(
       (await saved(gateKey)).xp,
-      xp + 1,
-      "the Give paid the experience, with no claim",
+      xp,
+      "the Give paid a traveler no XP, with no claim",
     );
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);

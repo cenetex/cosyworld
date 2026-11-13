@@ -10,23 +10,21 @@ import {
   holdChoice,
   validateWorld,
 } from "../v2/card-game/world.mjs";
-import { levelFor } from "../v2/card-game/want.mjs";
+import { levelOf } from "../v2/card-game/want.mjs";
 
 describe("boxes and the one want", () => {
-  it("pays a box's XP at turn 0 without raising a level, and validates", () => {
+  it("credits a box at turn 0 with no XP or level, and validates", () => {
     const world = createWorld({ opening: true, seed: 17 });
     expect(world.turn).toBe(0);
     const xp = world.actors.vale.xp;
     holdChoice(world, "vale", { item: null, revision: world.revision });
     expect(world.opened).toEqual({ pond: ["vale"] });
-    expect(world.actors.vale.xp).toBe(xp + 1);
-    expect(world.actors.vale.level).toBe(levelFor(xp));
-    // Box XP plus the XP a want pays on its play stay within the cap.
+    expect(world.actors.vale.xp).toBe(xp);
+    expect(levelOf(world, "vale")).toBe(0);
     validateWorld(decodeSave(encodeSave(world)));
     world.turn = 1;
     world.actors.vale.xp += 1;
     validateWorld(decodeSave(encodeSave(world)));
-    // Enough XP for the next level still does not level an avatar up.
     world.actors.vale.xp = 40;
     expect(() => validateWorld(decodeSave(encodeSave(world)))).toThrow();
   });

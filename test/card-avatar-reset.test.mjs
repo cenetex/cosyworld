@@ -15,7 +15,7 @@ const ask = (world, op, actor, claimed = humanAvatarIds, extra = {}) =>
   dispatchShared({ world, op, actor, claimed, present: claimed, ...extra });
 
 describe("an owner deletes an avatar from a shared world (#1825)", () => {
-  it("starts the avatar over at level 1 and drops what it held where it stood", () => {
+  it("starts the avatar over at level 0 and drops what it held where it stood", () => {
     const start = along();
     const world = structuredClone(start);
     const mara = world.actors.mara;
@@ -25,7 +25,7 @@ describe("an owner deletes an avatar from a shared world (#1825)", () => {
     mara.want = {
       ...newWant("place", "attic", 0),
       step: { verb: "rest" },
-      quest: { level: 5, left: 1 },
+      from: "quest:dream",
     };
     mara.trust.vale = 2;
     world.actors.vale.trust.mara = 3;
@@ -35,7 +35,7 @@ describe("an owner deletes an avatar from a shared world (#1825)", () => {
     expect(result.ok).toBe(true);
     const after = result.world;
     expect(after.actors.mara).toEqual(start.actors.mara);
-    expect(levelOf(after, "mara")).toBe(1);
+    expect(levelOf(after, "mara")).toBe(0);
     expect(after.items.lamp.holder).toBe("pond");
     expect(after.items.mask.holder).toBe("pond");
     expect(after.actors.vale.trust.mara).toBe(0);
@@ -100,13 +100,13 @@ describe("an owner deletes an avatar from a shared world (#1825)", () => {
 });
 
 describe("an avatar's level travels with it (#1846)", () => {
-  it("joins at the level and experience it had in its last seat", () => {
+  it("joins with the experience it had in its last seat, its level read from cards", () => {
     const world = along();
     const joined = ask(world, "join", "ash", ["vale"], {
       progress: { level: 3, xp: 7 },
     }).world;
     expect(joined.actors.ash.xp).toBe(7);
-    expect(levelOf(joined, "ash")).toBe(3);
+    expect(levelOf(joined, "ash")).toBe(0);
     const plain = ask(world, "join", "ash", ["vale"]).world;
     expect(plain.actors.ash.xp).toBe(world.actors.ash.xp);
     for (const progress of [{ xp: -1 }, { xp: 2, level: 0 }, { level: 2 }])

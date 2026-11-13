@@ -9,7 +9,10 @@
       "art": "assets/lonely-forest/arcanum-0.png",
       "proof": [
         { "kind": "count", "of": "carried", "max": 0 },
-        { "kind": "not", "condition": { "kind": "actor_at", "place": "$home" } },
+        {
+          "kind": "not",
+          "condition": { "kind": "actor_at", "place": "$home" }
+        },
         { "kind": "count", "of": "visited", "min": 6 }
       ]
     },
@@ -19,7 +22,7 @@
       "name": "The Magician",
       "text": "A woodcut card. A needle draws thread through a button on a red scarf.",
       "art": "assets/lonely-forest/arcanum-1.png",
-      "proof": [{ "kind": "count", "of": "carried", "min": 3 }]
+      "proof": [{ "kind": "count", "of": "opened", "min": 1 }]
     },
     {
       "id": "arcanum-2",
@@ -96,7 +99,21 @@
       "number": 21,
       "name": "The World",
       "text": "A woodcut card.",
-      "proof": [{ "kind": "count", "of": "arcana", "min": 21 }]
+      "proof": [
+        {
+          "kind": "did",
+          "key": "home-rest",
+          "match": {
+            "verb": "wait",
+            "actorId": "$traveler",
+            "locationId": "$home",
+            "rest": "long"
+          }
+        }
+      ],
+      "desire": [
+        { "kind": "place", "target": "$home", "step": { "verb": "rest" } }
+      ]
     }
   ]
 }

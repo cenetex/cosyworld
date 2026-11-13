@@ -564,10 +564,9 @@ fn quiet_hold_handler_uses_the_authenticated_actor_and_replays() {
     let saved = full_store::world(&c, &id, time).unwrap();
     let mut actors = before.game["actors"].clone();
     actors["vale"]["heldItem"] = Value::Null;
-    // Putting the lamp out opens the Black pond and pays its one XP (rules
-    // 133); a level rises only through a quest, so it stays as it was.
-    actors["vale"]["xp"] = json!(1);
-    actors["vale"]["level"] = json!(1);
+    if let Some(arcana) = saved.game["actors"]["vale"].get("arcana") {
+        actors["vale"]["arcana"] = arcana.clone();
+    }
     assert_eq!(saved.game["opened"], json!({"pond":["vale"]}));
     assert_eq!(saved.game["actors"], actors);
     let mut lamp = before.game["items"]["lamp"].clone();
@@ -1322,8 +1321,7 @@ fn stowing_the_lamp_then_playing_meets_vales_want_once_and_replays() {
     assert_eq!(first.len(), 1);
     assert_eq!(first[0]["wantMet"], json!({"kind":"item","target":"lamp"}));
     assert_eq!(first[0]["turn"], w.game["turn"]);
-    // The want is paid on the play that meets it: no reward to claim.
-    assert_eq!(w.game["actors"]["vale"]["xp"], 1);
+    assert_eq!(w.game["actors"]["vale"]["xp"], 0);
     assert!(w.game["actors"]["vale"]["want"].is_null());
     assert!(w.game["actors"]["vale"].get("questRewards").is_none());
     assert!(w.game.get("quests").is_none());

@@ -1,7 +1,7 @@
 {
   "character": "hoppycat-hoppy-cat",
   "form": "mythic",
-  "minLevel": 100,
+  "minLevel": 21,
   "sourceReference": "https://pbs.twimg.com/media/HV_I7MnW4AAUO52?format=jpg&name=large",
   "tool": "image_gen.imagegen",
   "images": [
