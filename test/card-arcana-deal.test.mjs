@@ -3,8 +3,11 @@ import data from "../v2/card-game/arcana.json" with { type: "json" };
 import {
   latchingRoute,
   packDefinitions,
+  packIdOf,
+  packOn,
 } from "../v2/card-game/pack-registry.mjs";
 import {
+  candidates,
   dealable,
   dealtCard,
   deck,
@@ -25,6 +28,10 @@ import {
 } from "../v2/card-game/world.mjs";
 
 const FOOL = "arcanum-0";
+const packGroupOf = (place) =>
+  ["sea", "hoppy", "radio", "cottage", "shore"].find(
+    (g) => !packOn({ disabledPacks: [g] }, packIdOf(place)),
+  );
 const WORLD = "arcanum-21";
 const other = humanAvatarIds.find((id) => id !== "vale");
 const here = (s) => ({ kind: "actor_at", place: s.actors.vale.place });
@@ -120,6 +127,64 @@ describe("the deal", () => {
     expect(dealable(s, opened, "vale")).toBe(true);
     s.opened = Object.fromEntries(boxDefs().map((def) => [def.id, ["vale"]]));
     expect(dealable(s, opened, "vale")).toBe(false);
+  });
+
+  it("binds and counts nothing in a pack switched off", () => {
+    const s = createWorld({ seed: 3 });
+    const emperor = data.cards.find((c) => c.id === "arcanum-4");
+    const heard = card(1, [{ kind: "count", of: "heard", min: 10 }]);
+    expect(dealable(s, heard, "vale")).toBe(true);
+    s.disabledPacks = ["hoppy", "radio", "sea"];
+    for (const kind of ["place", "resident", "item"])
+      for (const id of candidates(s, kind))
+        expect(packOn(s, packIdOf(id)), id).toBe(true);
+    expect(candidates(s, "place", "sanctuary").length).toBeGreaterThan(0);
+    expect(dealable(s, emperor, "vale")).toBe(true);
+    expect(dealable(s, heard, "vale")).toBe(false);
+    const opened = card(1, [{ kind: "count", of: "opened", min: 1 }]);
+    s.opened = Object.fromEntries(
+      boxDefs()
+        .filter((def) => packOn(s, packIdOf(def.at)))
+        .map((def) => [def.id, ["vale"]]),
+    );
+    expect(dealable(s, opened, "vale")).toBe(false);
+  });
+
+  it("moves a dealt card's place out of a pack switched off", () => {
+    const s = createWorld({ seed: 3 });
+    deck.cards = data.cards.filter((c) => c.id === "arcanum-4");
+    s.actors.vale.arcana = { proved: [], did: [], dealt: "arcanum-4" };
+    const before = dealtCard(s, "vale").binding.place;
+    s.disabledPacks = [packGroupOf(before)];
+    settleArcana(s, "vale");
+    expect(recordOf(s, "vale").dealt).toBe("arcanum-4");
+    const after = dealtCard(s, "vale").binding.place;
+    expect(after).not.toBe(before);
+    expect(packOn(s, packIdOf(after))).toBe(true);
+  });
+
+  it("drops a dealt card that can no longer come true and deals the next", () => {
+    const s = createWorld({ seed: 3 });
+    deck.cards = [
+      card(0, [{ kind: "count", of: "heard", min: 10 }]),
+      card(1, [{ kind: "actor_at", place: "nowhere-near" }]),
+    ];
+    settleArcana(s, "vale");
+    expect(recordOf(s, "vale")).toMatchObject({
+      dealt: FOOL,
+      base: { heard: 0 },
+    });
+    settleArcana(s, "vale");
+    expect(recordOf(s, "vale").dealt).toBe(FOOL);
+    s.disabledPacks = ["hoppy", "radio", "sea"];
+    settleArcana(s, "vale");
+    expect(recordOf(s, "vale")).toMatchObject({
+      dealt: "arcanum-1",
+      proved: [],
+    });
+    delete s.disabledPacks;
+    settleArcana(s, "vale");
+    expect(recordOf(s, "vale").dealt).toBe("arcanum-1");
   });
 
   it("proves a card true when dealt only on a later settle", () => {

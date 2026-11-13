@@ -416,7 +416,7 @@ describe("the quest card", () => {
     });
     expect(card.index).toBeGreaterThan(0);
     expect(questCaption(card)).toBe(
-      "Level II: Carry nothing, be away from home and visit six places",
+      "Level II: Carry nothing, be away from home and visit six new places",
     );
     expect(questTier(card, s)).toEqual(levelTier(2));
     expect(questNear(s, card)).toBe(false);

@@ -331,10 +331,10 @@ try {
       assert.equal((await state()).actors.vale.place, "greek-courtyard");
       assert.equal(await page.evaluate(() => Boolean(window.funeralSong)), false);
       console.log(JSON.stringify({ width, funeralMusic: musicBefore, travelled: true, ended: true, reload: true }));
-      // The met funeral quest pays its experience on the last rite and goes:
+      // The met funeral quest goes on the last rite and pays a traveler no XP:
       assert.notEqual(done.actors.vale.want?.step?.verb, "lay");
       assert.ok(![done.actors.vale.want, ...(done.actors.vale.under || [])].some((w) => w?.step?.verb === "lay"));
-      assert.ok(done.actors.vale.xp > ready.actors.vale.xp);
+      assert.equal(done.actors.vale.xp, ready.actors.vale.xp);
       assert.deepEqual(errors, []);
       assert.deepEqual(failedAssets, []);
       console.log(

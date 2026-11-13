@@ -198,7 +198,8 @@ fn a_new_world_starts_at_no_level_and_keeps_the_upgrade() {
     carried
         .apply(&json!({"op":"play","actor":"vale","action":wait}))
         .unwrap();
-    assert!(holds_a_level(&carried));
+    assert!(!holds_a_level(&carried));
+    assert!(carried.game["actors"]["vale"]["arcana"].is_null());
     let fresh = found(&mut c, "ann").unwrap();
     let w = full_store::world(&c, &fresh, T).unwrap();
     let state = &w.game["actors"]["vale"];

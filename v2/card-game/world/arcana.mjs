@@ -10,6 +10,8 @@ import {
   localRoadEnds,
   packDefinition,
   packEntity,
+  packIdOf,
+  packOn,
   retiredPlace,
   transports,
 } from "../pack-registry.mjs";
@@ -63,14 +65,41 @@ const COUNTS = {
     Object.values(s.opened || {}).filter((ids) => ids.includes(who)).length,
 };
 
-const residents = (s) =>
-  Object.keys(s.actors || {}).filter((id) => !humanAvatar(id)).length;
-const COUNT_MOST = {
-  carried: (s) => Object.keys(s.items || {}).length,
-  visited: () => Math.min(64, Object.keys(places).length),
-  heard: residents,
-  trusting: residents,
-  opened: () => new Set(boxDefs().map((def) => def.id)).size,
+const residents = (s) => candidates(s, "resident");
+const unseen = (ids, seen) => ids.filter((id) => !seen.includes(id)).length;
+const ROOM = {
+  carried: (s, who) =>
+    candidates(s, "item").filter((id) => rootHolder(s, id) !== who).length,
+  visited: (s, who) =>
+    Math.min(
+      64 - COUNTS.visited(s, who),
+      unseen(candidates(s, "place"), s.actors[who]?.visited || []),
+    ),
+  heard: (s, who) =>
+    unseen(residents(s), Object.keys(s.actors[who]?.heard || {})),
+  trusting: (s, who, c) =>
+    residents(s).filter(
+      (other) =>
+        other !== who &&
+        !conditionMet(
+          s,
+          { kind: "trusted", actor: other, min: c.level ?? 1 },
+          null,
+          null,
+          who,
+        ),
+    ).length,
+  opened: (s, who) =>
+    new Set(
+      boxDefs()
+        .filter(
+          (def) =>
+            packOn(s, packIdOf(def.at)) &&
+            (!def.pack || packOn(s, def.pack)) &&
+            !s.opened?.[def.id]?.includes(who),
+        )
+        .map((def) => def.id),
+    ).size,
 };
 
 export function holds(s, condition, binding) {
@@ -97,10 +126,11 @@ export function holds(s, condition, binding) {
 
 function plain(s, id) {
   const e = packEntity(id);
-  if (!e) return true;
+  if (!e) return packOn(s, packIdOf(id));
   const pack = packDefinition(e.packId);
   const release = pack?.release;
   return (
+    packOn(s, e.packId) &&
     specialsAllow(s.packs?.[e.packId], pack, id) &&
     !e.requires?.length &&
     !e.appearsWhen?.length &&
@@ -202,14 +232,14 @@ export function deckOrder(s, traveler) {
   ];
 }
 
-export function dealable(s, card, traveler) {
+export function dealable(s, card, traveler, base = null) {
   const binding = bindingOf(s, card, traveler);
   return (
     Boolean(binding) &&
     resolve(risingIn(card), binding).every(
       (c) =>
-        COUNTS[c.of](s, traveler, c) + c.min <=
-        COUNT_MOST[c.of](s, traveler, c),
+        ROOM[c.of](s, traveler, c) >=
+        c.min - (base ? COUNTS[c.of](s, traveler, c) - (base[c.of] ?? 0) : 0),
     )
   );
 }
@@ -299,7 +329,12 @@ export function settleArcana(s, actor = null, since = 0) {
       const record = s.actors[traveler].arcana;
       record.proved = [...new Set([...record.proved, dealt.card.id])].sort();
       if (deal(s, traveler)) sleepQuest(s, traveler, { home: homeOf });
-    } else if (!dealt && opened) deal(s, traveler);
+    } else if (
+      dealt
+        ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {})
+        : opened
+    )
+      deal(s, traveler);
   }
   return s;
 }

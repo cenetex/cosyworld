@@ -29,13 +29,22 @@ describe("the words of a level card", () => {
       "carry no more than two things",
     );
     expect(say([{ kind: "count", of: "visited", min: 1 }])).toBe(
-      "visit one place",
+      "visit one new place",
     );
     expect(say([{ kind: "count", of: "heard", min: 21 }])).toBe(
-      "hear twenty-one wants",
+      "hear the wants of twenty-one more people",
+    );
+    expect(say([{ kind: "count", of: "heard", min: 1 }])).toBe(
+      "hear the wants of one more person",
+    );
+    expect(say([{ kind: "count", of: "trusting", min: 3 }])).toBe(
+      "be trusted by three more",
     );
     expect(say([{ kind: "count", of: "trusting", level: 2, min: 3 }])).toBe(
-      "be trusted by three",
+      "be trusted well by three more",
+    );
+    expect(say([{ kind: "count", of: "trusting", level: 3, min: 1 }])).toBe(
+      "be trusted deeply by one more",
     );
     expect(say([{ kind: "count", of: "opened", min: 1 }])).toBe(
       "open a locked box",
@@ -58,7 +67,9 @@ describe("the words of a level card", () => {
           ],
         },
       ]),
-    ).toBe("carry nothing, be away from home and be at moor or hear two wants");
+    ).toBe(
+      "carry nothing, be away from home and be at moor or hear the wants of two more people",
+    );
   });
 
   it("names home but nothing undiscovered", () => {
@@ -98,11 +109,11 @@ describe("the words of a level card", () => {
   it("words the real deck from its conditions", () => {
     const s = createWorld({ seed: 7 });
     expect(words(s, "arcanum-0")).toBe(
-      "carry nothing, be away from home and visit six places",
+      "carry nothing, be away from home and visit six new places",
     );
     expect(words(s, "arcanum-1")).toBe("open a locked box");
-    expect(words(s, "arcanum-2")).toBe("hear three wants");
-    expect(words(s, "arcanum-5")).toBe("be trusted by two");
+    expect(words(s, "arcanum-2")).toBe("hear the wants of three more people");
+    expect(words(s, "arcanum-5")).toBe("be trusted well by two more");
     expect(words(s, "arcanum-21")).toBe("rest at home");
   });
 

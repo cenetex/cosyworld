@@ -68,7 +68,7 @@ try {
     await page.reload();
     await ready();
     assert.equal(await page.locator("#hand .quest-fold").count(), 1);
-    // Any play meets it; the card goes and its experience is paid at once.
+    // Any play meets it; the card goes and a traveler earns no XP.
     const xp = (await vale()).xp;
     await clearSelection(page);
     await tapCard(page.locator('#hand [data-card="vale"]'));
@@ -81,7 +81,7 @@ try {
     // No want and no quest card anywhere in the hand.
     const content = await vale();
     assert.equal(content.want, null);
-    assert.ok(content.xp > xp, "the meeting play paid experience");
+    assert.equal(content.xp, xp, "a traveler earns no XP");
     assert.equal(await page.locator("#hand .quest-fold").count(), 0);
     assert.equal(await page.locator("#hand .want-frame").count(), 0);
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);

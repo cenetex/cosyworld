@@ -109,14 +109,20 @@ const NUMBERS = [
 ];
 export const numberWord = (n) => NUMBERS[n] ?? String(n);
 const many = (n, one, more) => `${numberWord(n)} ${n === 1 ? one : more}`;
+const TRUST_WORDS = { 1: "", 2: " well", 3: " deeply" };
 const COUNT_WORDS = {
   carried: {
     max: (n) =>
       n ? `carry no more than ${many(n, "thing", "things")}` : "carry nothing",
   },
-  visited: { min: (n) => `visit ${many(n, "place", "places")}` },
-  heard: { min: (n) => `hear ${many(n, "want", "wants")}` },
-  trusting: { min: (n) => `be trusted by ${numberWord(n)}` },
+  visited: { min: (n) => `visit ${many(n, "new place", "new places")}` },
+  heard: {
+    min: (n) => `hear the wants of ${many(n, "more person", "more people")}`,
+  },
+  trusting: {
+    min: (n, c) =>
+      `be trusted${TRUST_WORDS[c.level ?? 1] ?? ""} by ${numberWord(n)} more`,
+  },
   opened: {
     min: (n) =>
       n === 1
@@ -146,7 +152,7 @@ export function conditionWords(
       return wantWords(term, shown, { cards: table });
     if (term?.kind === "count") {
       const bound = term.min === undefined ? "max" : "min";
-      return COUNT_WORDS[term.of]?.[bound]?.(term[bound]) ?? null;
+      return COUNT_WORDS[term.of]?.[bound]?.(term[bound], term) ?? null;
     }
     if (term?.kind === "actor_at") return `be at ${name(term.place)}`;
     if (term?.kind === "not" && term.condition?.kind === "actor_at")

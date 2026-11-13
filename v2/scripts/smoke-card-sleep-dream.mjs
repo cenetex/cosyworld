@@ -1,15 +1,16 @@
-// Waking on the table (sleep spec §2 and §3). A long rest halfway to a level
-// goes dark with only the dreamer, shows the DREAM card, "Dreaming…" and the
-// dream, then opens on daylight at dawn; no quest is dealt on waking. An
-// ordinary long rest shows no dream card: the stage fades, holds black and
-// opens on night at dusk. Frames go to COSYWORLD_SLEEP_FRAMES when set.
+// Waking on the table. A long rest at home that meets the sleep quest a level
+// card dealt goes dark with only the dreamer, shows the DREAM card,
+// "Dreaming…" and the dream of a card not yet dealt, then opens on daylight
+// at dawn; the sleep quest goes on waking. An ordinary long rest shows no
+// dream card: the stage fades, holds black and opens on night at dusk.
+// Frames go to COSYWORLD_SLEEP_FRAMES when set.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { halfwayXp } from "../card-game/want.mjs";
+import { DREAM_FROM } from "../card-game/want.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import {
   readyActionButton,
@@ -37,15 +38,28 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.setDefaultTimeout(20000);
-  // Vale sleeps in the attic: from 31 to dawn (48) with experience halfway to
-  // the next level, or from 6 to dusk (24) with none.
+  // Vale sleeps in the attic: from 31 to dawn (48) holding the sleep quest
+  // the Fool's deal gave, or from 6 to dusk (24) with none.
   const world = createWorld();
   world.actors.vale.place = "attic";
   world.turn = halfway ? 30 : 5;
   world.revision = Math.max(world.revision, world.turn);
-  world.actors.vale.xp = halfway ? halfwayXp(1) : 0;
-  world.actors.vale.level = 1;
-  world.actors.vale.want = null;
+  world.actors.vale.arcana = {
+    proved: [],
+    did: [],
+    dealt: "arcanum-0",
+    base: { visited: world.actors.vale.visited.length },
+  };
+  world.actors.vale.want = halfway
+    ? {
+        kind: "place",
+        target: "attic",
+        since: world.turn,
+        refusals: 0,
+        step: { verb: "rest" },
+        from: DREAM_FROM,
+      }
+    : null;
   world.actors.moth.want = null;
   world.actors.keeper.want = null;
   world.items.lamp.holder = "station";
@@ -176,11 +190,6 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
   try {
     await page.goto(`${origin}/?table=dream`);
     await page.waitForFunction(() => document.body.inert === false);
-    assert.equal(
-      await page.locator("#hand .want-frame > .want-card").count(),
-      0,
-      "the old routine REST card leaves the hand",
-    );
     await selectCard(page, "vale", { touch });
     await play.click();
     await settled();
@@ -314,16 +323,16 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
         "dream",
       );
       assert.equal(await page.evaluate(() => window.wakeLineShown), false);
-      // No quest is dealt on waking: the avatar's stack holds none.
-      assert.equal(
-        await page.evaluate(
-          () =>
-            document.querySelectorAll("#hand .quest-fold, #hand .want-frame > .want-card")
-              .length,
-        ),
-        0,
-        "no quest is dealt on waking",
+      // The sleep quest is met, and the dream points to a card not yet dealt.
+      const vale = await page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1.dream"))
+            .actors.vale,
       );
+      assert.notEqual(vale.want?.from, DREAM_FROM, "the sleep quest is met");
+      assert.equal(vale.glimpse?.kind, "arcanum");
+      assert.notEqual(vale.glimpse.id, vale.arcana.dealt);
+      assert.equal(vale.arcana.proved.includes(vale.glimpse.id), false);
     } else {
       assert.match(period, /night/, "a dusk wake opens on night");
       assert.equal(
