@@ -97,6 +97,7 @@ import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
   isQuestId,
+  levelCard,
   questCards,
   questVisible,
   questCaption,
@@ -123,7 +124,8 @@ import {
 } from "./stage-light.mjs";
 import { asleepView, createSleepView } from "./sleep-view.mjs";
 import { DREAMING_LABEL, DREAM_TIER, withDream } from "./dream-card.mjs";
-import { paintGlimpse } from "./glimpse-card.mjs";
+import { arcanumArt, paintGlimpse } from "./glimpse-card.mjs";
+import { isArcanum } from "./world/arcana-record.mjs";
 import {
   CHANGE_FADE_MS,
   CROSSFADE_MS,
@@ -2857,9 +2859,8 @@ function renderActions() {
     }
     row.append(reveal);
   }
-  // The chosen quest card offers one button, Discard (a level quest costs
-  // experience, named on its button). Its step is done as any play is, by
-  // choosing the cards (the item and the person, the place).
+  // The chosen quest card offers one button, Discard. Its step is done as
+  // any play is, by choosing the cards (the item and the person, the place).
   const picked = questOpen && !rested ? shownQuests[0] : null;
   const legal = picked ? legalActions(world) : [];
   const drop =
@@ -3502,10 +3503,12 @@ const questArt = {
   url: (src) => imageUrl(src, "card"),
   portrait: (id) => portrait(id, null, asleepWorld(world)),
   thing: (id) => cardArt(id),
-  place: placeArt,
+  place: (id) => (isArcanum(id) ? (arcanumArt(id) ?? CARD_BACK) : placeArt(id)),
   back: cardBack,
 };
 function questView(quest) {
+  if (quest.kind === "arcanum")
+    return { verb: "Level Up", actor: null, kind: "place", target: quest.target, covered: false };
   const covered = questCovered(quest);
   return {
     verb: questVerb(world, quest, covered),
@@ -4367,7 +4370,6 @@ function renderScene() {
   paintGlimpse($("speech-row").parentElement, front?.companion ?? null, {
     artOf: beatPortrait,
     nameOf: (id) => visibleText(nameOf(id)),
-    icon: beatIcon,
   });
   $("speech-row").dataset.beat = front?.dream
     ? "dream"
@@ -5066,7 +5068,8 @@ function render() {
   for (let i = metWants(world.log, questSeq, currentActor(world)); i > 0; i--)
     count("quest.met");
   questSeq = world.eventSeq;
-  const liveQuests = questCards(world);
+  const dealtLevel = levelCard(world);
+  const liveQuests = [...questCards(world), ...(dealtLevel ? [dealtLevel] : [])];
   const dealtQuest = liveQuests.find(
     (quest) => questVisible(world, quest) && !shownQuests.some((shown) => shown.key === quest.key),
   );

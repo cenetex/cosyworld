@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import data from "../v2/card-game/arcana.json" with { type: "json" };
 import {
+  arcanumTerms,
   bindingOf,
   dealable,
   deck,
@@ -8,6 +9,8 @@ import {
   settleArcana,
 } from "../v2/card-game/world/arcana.mjs";
 import { arcanaCards, nameOf, things } from "../v2/card-game/world/catalog.mjs";
+import { homeOf } from "../v2/card-game/world/home.mjs";
+import { conditionWords } from "../v2/card-game/world/want-words.mjs";
 import { createWorld } from "../v2/card-game/world.mjs";
 
 const READERS = ["carried", "visited", "heard", "trusting", "opened"];
@@ -86,5 +89,29 @@ describe("the table of cards", () => {
       expect(arcanaCards[card.id]).toBe(card);
       expect(nameOf(card.id)).toBe(card.name);
     }
+  });
+
+  it("words every card from its conditions in a fresh world", () => {
+    for (const seed of [3, 7, 11]) {
+      const s = createWorld({ seed });
+      for (const card of data.cards) {
+        const words = conditionWords(
+          arcanumTerms(s, "vale", card.id),
+          () => false,
+          {
+            home: homeOf("vale"),
+          },
+        );
+        expect(words, `${card.id} seed ${seed}`).toBeTypeOf("string");
+        expect(words.length, `${card.id} seed ${seed}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("fails a card whose condition has no words", () => {
+    const s = createWorld({ seed: 3 });
+    deck.cards = [{ id: "arcanum-9", number: 9, proof: [{ kind: "riddle" }] }];
+    expect(arcanumTerms(s, "vale", "arcanum-9")).toEqual([{ kind: "riddle" }]);
+    expect(conditionWords(arcanumTerms(s, "vale", "arcanum-9"))).toBeNull();
   });
 });

@@ -82,3 +82,83 @@ export function wantWords(
   if (want.kind === "place") return `${approach ?? "go to"} ${what}`;
   return `talk with ${what}`;
 }
+
+const NUMBERS = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+  "twenty",
+  "twenty-one",
+];
+export const numberWord = (n) => NUMBERS[n] ?? String(n);
+const many = (n, one, more) => `${numberWord(n)} ${n === 1 ? one : more}`;
+const COUNT_WORDS = {
+  carried: {
+    max: (n) =>
+      n ? `carry no more than ${many(n, "thing", "things")}` : "carry nothing",
+  },
+  visited: { min: (n) => `visit ${many(n, "place", "places")}` },
+  heard: { min: (n) => `hear ${many(n, "want", "wants")}` },
+  trusting: { min: (n) => `be trusted by ${numberWord(n)}` },
+  opened: {
+    min: (n) =>
+      n === 1
+        ? "open a locked box"
+        : `open ${many(n, "locked box", "locked boxes")}`,
+  },
+};
+const WANT_KINDS = ["item", "place", "person"];
+const together = (words, last) =>
+  words.length < 2
+    ? (words[0] ?? null)
+    : `${words.slice(0, -1).join(", ")} ${last} ${words.at(-1)}`;
+
+export function conditionWords(
+  terms,
+  known = () => true,
+  { cards = TABLE, home = null } = {},
+) {
+  const shown = (id) => id === home || known(id);
+  const table = {
+    ...cards,
+    name: (id) => (id === home ? "home" : cards.name(id)),
+  };
+  const name = (id) => (shown(id) ? table.name(id) : UNKNOWN[table.kind(id)]);
+  const words = (term) => {
+    if (WANT_KINDS.includes(term?.kind))
+      return wantWords(term, shown, { cards: table });
+    if (term?.kind === "count") {
+      const bound = term.min === undefined ? "max" : "min";
+      return COUNT_WORDS[term.of]?.[bound]?.(term[bound]) ?? null;
+    }
+    if (term?.kind === "actor_at") return `be at ${name(term.place)}`;
+    if (term?.kind === "not" && term.condition?.kind === "actor_at")
+      return `be away from ${name(term.condition.place)}`;
+    if (term?.kind === "all" || term?.kind === "any") {
+      const parts = (term.conditions || []).map(words);
+      return parts.length && parts.every(Boolean)
+        ? together(parts, term.kind === "all" ? "and" : "or")
+        : null;
+    }
+    return null;
+  };
+  const parts = (terms || []).map(words);
+  return parts.length && parts.every(Boolean) ? together(parts, "and") : null;
+}

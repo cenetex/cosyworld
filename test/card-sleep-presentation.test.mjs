@@ -18,6 +18,7 @@ import {
   dreamBeat,
   withDream,
 } from "../v2/card-game/dream-card.mjs";
+import { arcanumArt, glimpseCompanion } from "../v2/card-game/glimpse-card.mjs";
 import {
   UNPAINTED_NIGHT_TINT,
   gradeStrength,
@@ -116,6 +117,11 @@ describe("waking from a sleep", () => {
     const wake = sleepWake(world, "vale", before);
     expect(wake).toMatchObject({ woke: "dawn", long: true, dream: true });
     expect(wake.glimpse).toMatchObject({ kind: "arcanum" });
+    expect(glimpseCompanion(wake.glimpse)).toMatchObject({
+      kind: "arcanum",
+      id: wake.glimpse.id,
+      art: arcanumArt(wake.glimpse.id) ?? "./assets/card-back.webp",
+    });
     expect(questsOf(world, "vale")).toEqual([]);
     expect(sleepPlan(wake)).toEqual(DREAM_PLAN);
   });
