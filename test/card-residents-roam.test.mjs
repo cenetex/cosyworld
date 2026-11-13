@@ -2,8 +2,7 @@
 // resident of every mounted pack is checked against one explicit allow-list:
 // anyone not listed is offered Invite beside the player and joins a standoff
 // when threatened; anyone freed to roam walks on a want, sleeps at home and
-// never leaves their pack. The allow-list is the whole list of who stays put
-// and why (docs/design/rules-100-world-life.md, "Who stays put").
+// never leaves their pack. The allow-list is the whole list of who stays put.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createWorld,
