@@ -194,7 +194,9 @@ async fn create(State(state): State<AppState>, h: HeaderMap, Json(body): Json<Cr
             .as_deref()
             .map(|save| {
                 imported::trusted_save(save, &body.signed, vocabulary(), |s| {
-                    World::hiding(Some(s), None, &Value::Null).is_ok()
+                    World::hiding(Some(s), None, &Value::Null)
+                        .ok()
+                        .map(|w| w.game)
                 })
             })
             .transpose()?;

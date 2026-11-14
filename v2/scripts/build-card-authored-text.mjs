@@ -13,6 +13,8 @@ import * as acorn from "acorn";
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import { laneEdges, laneOfEdge } from "../card-game/pack-transport.mjs";
+import { laneFact } from "../card-game/world/lanes.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = new URL(
@@ -24,7 +26,7 @@ const NARRATIVE = "v2/card-game/narrative.mjs";
 const EXCLUDED_SOURCES = new Set(["v2/card-game/speech.json"]);
 // Modules that write rules sentences without calling addLog: an action's
 // `text` becomes its log entry.
-const LOG = { call: "addLog", property: "text" };
+const LOG = { calls: ["addLog", "note"], property: "text" };
 const KINDS = ["action", "events", "facts", "memories", "disclosures"];
 // Roots: [module, top-level name, property path inside it or null].
 const ROOTS = {
@@ -185,6 +187,29 @@ function shapes(node, depth = 0) {
     out = [...shapes(node.left, depth), ...shapes(node.right, depth)];
   else if (node.type === "BinaryExpression" && node.operator === "+")
     out = concat(shapes(node.left, depth), shapes(node.right, depth));
+  else if (node.type === "CallExpression" && depth < 4) {
+    // A local helper such as near("to", id) has a literal preposition.
+    // Spell that argument out; its other arguments remain checked slots.
+    const fn = localInits.get(node.callee.name);
+    if (
+      fn?.type === "ArrowFunctionExpression" &&
+      fn.body.type !== "BlockStatement"
+    ) {
+      const bound = fn.params.flatMap((param, i) =>
+        param.type === "Identifier" &&
+        node.arguments[i]?.type === "Literal" &&
+        typeof node.arguments[i].value === "string"
+          ? [[param.name, node.arguments[i]]]
+          : [],
+      );
+      if (bound.length) {
+        const previous = localInits;
+        localInits = new Map([...localInits, ...bound]);
+        out = shapes(fn.body, depth + 1);
+        localInits = previous;
+      }
+    }
+  }
   return out && out.length <= VARIANTS ? out : slot;
 }
 
@@ -403,7 +428,7 @@ for (const [input, module] of modules) {
   for (const [name, node] of module.decls) {
     let writes = false;
     walk(node, (n, parent) => {
-      if (n.type === "CallExpression" && n.callee.name === LOG.call)
+      if (n.type === "CallExpression" && LOG.calls.includes(n.callee.name))
         writes = true;
       if (
         n.type === "Property" &&
@@ -447,6 +472,14 @@ KINDS.forEach((kind, bit) => {
   }
 });
 
+// Lane conditions compose names with "and"/"or". Enumerate their exact
+// current sentences instead of widening the generic template matcher.
+for (const edge of laneEdges())
+  catalog.literals.set(
+    laneFact(...laneOfEdge(edge)).text,
+    (1 << KINDS.length) - 1,
+  );
+
 // Earlier rules wrote this sentence into saves that players still import.
 const earlierDrop = ["", " drops the quest."];
 catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
@@ -454,6 +487,21 @@ catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
   (1 << KINDS.length) - 1,
   "n",
 ]);
+
+// Removed item names still occur in honest event knowledge. This finite map
+// comes from the immutable rules-137 catalog at 521c76cb39df10c2e552a9e2d88dc4a8d02d6fe9;
+// open-door-import.mjs verifies each ID/name against that original catalog.
+const retiredNames = [
+  ["greek-return-cloths", "Clean Burial Cloths"],
+  ["greek-provision-basket", "The Quay Basket"],
+  ["greek-return-list", "The Return List"],
+  ["greek-grove-cup", "The Grove Cup"],
+  ["greek-grove-honey", "Honey for the Grove"],
+  ["greek-refuge-tablet", "The Refuge Tablet"],
+  ["greek-pyre-account", "The Pyre Account"],
+  ["greek-marathon-record", "The Marathon Record"],
+].sort(([a], [b]) => a.localeCompare(b));
+for (const [, name] of retiredNames) names.add(name);
 
 const sources = inputs.filter((input) => !EXCLUDED_SOURCES.has(input));
 const sorted = (map) =>
@@ -463,6 +511,7 @@ const body = {
   kinds: KINDS,
   sources,
   names: [...names].sort(),
+  retired_names: retiredNames,
   literals: sorted(catalog.literals).map(([text, mask]) => [text, mask]),
   templates: sorted(catalog.templates).map(([, entry]) => entry),
 };

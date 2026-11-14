@@ -1,18 +1,9 @@
-//! A local save imported into a shared world (#2067) is untrusted: its text
-//! becomes journal state that other members' hosted prompts read. A string
-//! stays only when it is a word the rules or packs use (`Vocabulary`: an id,
-//! an enum or a schema field, alone or joined into a compound id, outside a
-//! sentence field), a pack name, rules-built text matching its field's
-//! authored catalog (`authored`), or a word the service wrote whose envelope
-//! comes with the import and verifies for that kind, speaker and a local
-//! save. A map key must fit its place: a map keyed by id (`ID_MAPS`) takes
-//! only ids of pack or rules content, alone or joined into a compound id,
-//! and any other object takes those or a name the rules give a property
-//! (`Vocabulary::fields`), never just any word of the rules source. Anything
-//! else is stripped
-//! before the first journal row: the list entry holding it is dropped, a
-//! lone field is cleared and a key is removed. A save the rules then refuse
-//! loses every avatar's inner life too (`strict`).
+//! Local saves entering shared worlds are untrusted prompt input (#2067).
+//! Keep authored field-specific sentences, names, bounded vocabulary tokens,
+//! and service-signed words bound to their kind, speaker and local world.
+//! Map keys must fit their schema position; vocabulary words alone are not IDs.
+//! Strip unsupported entries, fields and keys before the first journal row.
+//! If the filtered state is invalid, discard avatars' inner lives as well.
 //!
 //! Envelopes are not bound to one save and do not expire, so a word the
 //! service signed for one local save can be replayed into another save by
@@ -28,6 +19,7 @@ pub(crate) const ENVELOPES: usize = 800;
 const IMPORT_STEPS: usize = 40 * super::authored::REQUEST_STEPS;
 /// Strings and keys one import may hold. A 600-turn save holds about 20,000.
 const STRINGS: usize = 100_000;
+const SAVE_BYTES: usize = 2 * 1024 * 1024;
 /// Log speakers that are not characters (world.mjs `addLog`).
 const SPEAKERS: [&str; 2] = ["World", "You"];
 const SKEW_SECS: u64 = 300;
@@ -166,6 +158,35 @@ impl Vocabulary {
                 }
                 Value::Array(items) => items.iter().for_each(|v| walk(v, key, words, ids)),
                 Value::Object(map) => {
+                    if matches!(
+                        map.get("kind").and_then(Value::as_str),
+                        Some("set_flag" | "flag" | "choose" | "choice" | "choice_unset")
+                    ) {
+                        if let Some(key) =
+                            map.get("key").and_then(Value::as_str).filter(|s| token(s))
+                        {
+                            ids.insert(key.to_string());
+                        }
+                    }
+                    // A transport authors both ends of each lane. Keep the exact
+                    // compound ID, without admitting `>` to arbitrary tokens.
+                    if map.contains_key("docks") {
+                        for lane in map
+                            .get("lanes")
+                            .and_then(Value::as_array)
+                            .into_iter()
+                            .flatten()
+                        {
+                            if let (Some(from), Some(to)) =
+                                (lane["from"].as_str(), lane["to"].as_str())
+                            {
+                                ids.insert(format!("lane:{from}>{to}"));
+                                if lane["oneWay"] != true {
+                                    ids.insert(format!("lane:{to}>{from}"));
+                                }
+                            }
+                        }
+                    }
                     // A map of records is keyed by id.
                     if !map.is_empty() && map.values().all(Value::is_object) {
                         ids.extend(map.keys().cloned());
@@ -180,6 +201,14 @@ impl Vocabulary {
         }
         if let Ok(content) = serde_json::from_str::<Value>(content) {
             walk(&content, "", &mut words, &mut ids);
+        }
+        // Old learning conditions retain exact retired item IDs, never new map keys.
+        let historical: Value = serde_json::from_str(include_str!("authored-text.json"))
+            .expect("authored text catalog");
+        for entry in historical["retired_names"].as_array().into_iter().flatten() {
+            if let Some(id) = entry[0].as_str() {
+                words.insert(id.into());
+            }
         }
         Self { words, fields, ids }
     }
@@ -216,8 +245,16 @@ impl Vocabulary {
 
     /// Whether `key` may name an entry of the object at `path`.
     fn key(&self, key: &str, path: &[String]) -> bool {
-        let id = token(key) && Self::compound(key, &self.ids);
-        id || (!id_keyed(path) && self.fields.contains(key))
+        let closed = path.len() == 3 && path[0] == "actors" && path[2] == "closed";
+        let offer = closed
+            && ["quest:box:", "quest:from:", "quest:home:"]
+                .iter()
+                .any(|head| {
+                    key.strip_prefix(head)
+                        .is_some_and(|id| self.ids.contains(id))
+                });
+        let id = self.ids.contains(key) || (token(key) && Self::compound(key, &self.ids));
+        id || offer || (!id_keyed(path) && self.fields.contains(key))
     }
 }
 
@@ -384,6 +421,9 @@ impl Strip<'_> {
             return SPEAKERS.contains(&text) || name(text) || self.vocabulary.known(text);
         }
         if !SENTENCES.contains(&key) {
+            if self.vocabulary.ids.contains(text) {
+                return true;
+            }
             if token(text) {
                 return self.vocabulary.known(text);
             }
@@ -437,6 +477,7 @@ impl Strip<'_> {
                     .and_then(|t| t.split_once(": "))
                     .filter(|(turn, _)| turn.bytes().all(|b| b.is_ascii_digit()));
                 event.is_some_and(|(_, event)| self.matches(event, Field::Events))
+                    || self.matches(text, Field::Events)
             }
             ("evidence", _) | (_, "log") => self.matches(text, Field::Events),
             (_, "events" | "landmarks" | "sources") => self.matches(text, Field::Memories),
@@ -531,19 +572,42 @@ fn strict(save: &mut Value) {
     }
 }
 
-/// The save with untrusted text stripped. `accepted` asks the rules whether
-/// a stripped save still loads; a refused one is stripped `strict`ly. A save
-/// with nothing to strip goes to the rules once, when the world is founded.
+/// Reconcile valid saves before filtering: retired records must reach the
+/// rules together. Normalization vouches for no text; every resulting string
+/// is filtered. Invalid input still takes the existing cleanup path.
 pub(crate) fn trusted_save(
     save: &str,
     envelopes: &[Envelope],
     vocabulary: &Vocabulary,
-    accepted: impl Fn(&str) -> bool,
+    normalize: impl Fn(&str) -> Option<Value>,
 ) -> Result<String, String> {
+    if save.len() > SAVE_BYTES || envelopes.len() > ENVELOPES {
+        return Err("Choose a saved world.".into());
+    }
     let mut value: Value =
         serde_json::from_str(save).map_err(|_| "Choose a saved world.".to_string())?;
-    if !value.is_object() || envelopes.len() > ENVELOPES {
+    if !value.is_object() {
         return Err("Choose a saved world.".into());
+    }
+    // Bound bytes, JSON depth (serde's parser), and keys/values before rules run.
+    let mut pending = vec![&value];
+    let mut count = 0;
+    while let Some(v) = pending.pop() {
+        count += 1;
+        match v {
+            Value::Object(map) => {
+                count += map.len();
+                pending.extend(map.values());
+            }
+            Value::Array(items) => pending.extend(items),
+            _ => {}
+        }
+        if count > STRINGS {
+            return Err("Choose a saved world.".into());
+        }
+    }
+    if let Some(current) = normalize(save) {
+        value = current;
     }
     let turn = value["turn"].as_u64().unwrap_or(0);
     let mut strip = Strip {
@@ -577,7 +641,7 @@ pub(crate) fn trusted_save(
             dropped = strip.dropped,
             "left unverified text out of an imported save"
         );
-        if !accepted(&text) {
+        if normalize(&text).is_none() {
             tracing::warn!(
                 feature = "card_text",
                 "the rules refused a stripped imported save; its inner lives were left out"
