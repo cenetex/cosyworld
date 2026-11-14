@@ -3,9 +3,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
+import { addLog, createWorld, encodeSave, legalActions } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/card-play-queue/", import.meta.url);
 await mkdir(output, { recursive: true });
@@ -94,6 +94,10 @@ try {
           localStorage.setItem(
             "cosyworld.reflected-shore.v1.shared.play-queue.vale.seen",
             JSON.stringify(seen),
+          );
+          localStorage.setItem(
+            "cosyworld.reflected-shore.v1.shared.play-queue.vale.seen.covered",
+            JSON.stringify(["train", "routes"]),
           );
           localStorage.setItem("cosyworld.dialogue.sound", "off");
           localStorage.setItem(
@@ -217,14 +221,19 @@ try {
         assert.equal(plays.length, 0);
         await play.click();
         assert.equal(await page.locator("#card-actions button").count(), 0);
-        await page.keyboard.press("Escape");
-        await selectCard(page, "lamp");
-        const light = page.locator('#card-actions [data-action="light"]');
-        await light.click();
+        await clearSelection(page);
+        const move = legalActions(world, "vale").find((action) => action.kind === "move");
+        assert(move);
+        await selectCard(page, move.target);
+        await readyActionButton(page, "move").click();
         await thinkingIs("Thinking…");
         if (stale) {
-          world.items.lamp.lit = true;
-          world.revision++;
+          const moved = dispatchShared({
+            op: "play", world, actor: "vale", claimed: ["vale"],
+            present: ["vale"], action: move,
+          });
+          assert(moved.ok);
+          world = moved.world;
           queue = [];
           await page.waitForFunction(
             () =>
@@ -233,7 +242,7 @@ try {
           );
           assert.equal(plays.length, 0);
         } else {
-          await page.keyboard.press("Escape");
+          await clearSelection(page);
           await selectCard(page, "vale");
           await play.click();
           await thinkingIs("Thinking…");
@@ -248,7 +257,7 @@ try {
           assert.equal(plays.length, 1);
           // A new choice made while the first play is in flight waits
           // behind its Thinking card and is offered once the reply comes.
-          await selectCard(page, "lamp");
+          await selectCard(page, world.actors.vale.place);
           assert.equal(await page.locator("#card-actions button").count(), 0);
           await heldReply();
           queue = [];

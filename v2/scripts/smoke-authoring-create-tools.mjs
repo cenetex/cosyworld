@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
+import { readyActionButton } from "./card-browser-helpers.mjs";
 const server = createServer();
 await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch();
@@ -14,7 +15,7 @@ try {
     let owner = "first", release, uploadCalls = 0, requestKey, receipt;
     const errors = [], bodies = [], received = new Set();
     page.on("pageerror", error => errors.push(error.message));
-    await page.route("**/auth/account", route => route.fulfill({ json: { authenticated: true, user_id: owner, display_name: owner } }));
+    await page.route("**/auth/account", route => route.fulfill({ json: { authenticated: true, user_id: owner, display_name: owner, account_revision: 0 } }));
     await page.route("**/card-game/authoring/assets/*", async route => {
       const request = route.request(); uploadCalls++;
       assert.equal(request.headers()["x-authoring-owner"], "first");
@@ -41,9 +42,10 @@ try {
       return route.fulfill({ json: receipt });
     });
     const press = target => width < 700 ? target.tap() : target.click();
-    const action = () => press(page.locator("#card-actions button:enabled"));
+    const action = () => press(readyActionButton(page));
     const tool = async id => { await press(page.locator("#menu-button")); await press(page.locator(`[data-setting="designer-tool-${id}"]`)); };
-    const ready = name => page.getByRole("button", { name, exact: true }).waitFor();
+    const ready = name => page.locator("#card-actions").getByRole("button", { name, exact: true }).waitFor()
+      .catch(async failure => { throw new Error(`${failure.message}: ${await page.locator("#action-beat").innerText()}`); });
     const retry = () => ready("Retry Create");
     const read = () => page.evaluate(async () => {
       const { openAuthoringStore } = await import("/card-game/authoring-local-store.mjs");
@@ -68,11 +70,12 @@ try {
       await tool("create-private"); await retry();
       const before = uploadCalls;
       await action();
-      await ready("Refresh account");
+      await page.waitForFunction(() => document.querySelector(".action-beat-note").textContent.includes("Open the account that started this transfer"));
       assert.equal(uploadCalls, before);
       assert.equal((await read()).original.owner, "first");
       owner = "first";
-      await action(); await retry(); await action();
+      await page.reload();
+      await tool("create-private"); await retry(); await action();
     } else if (width === 390) {
       await retry();
       await tool("source");

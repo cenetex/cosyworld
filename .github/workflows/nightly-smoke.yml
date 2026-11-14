@@ -101,3 +101,4 @@ jobs:
           body=$(printf 'Failing smokes in the nightly run (%s):\n\n%s\n\nA shard that died before reporting fails the whole run; read its log.\n' \
             "$run" "$(printf '%s\n' "$list" | sed 's/^/- /')")
           if [ -n "$n" ]; then gh issue edit "$n" --body "$body"; else gh issue create --title "$TITLE" --body "$body"; fi
+          exit 1

@@ -9,7 +9,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((done) => server.listen(0, "127.0.0.1", done));
@@ -153,9 +153,11 @@ async function shared(width) {
       await page.locator("#card-actions button").textContent(),
       "Wake Vale",
     );
-    assert.equal(await page.locator("#action-beat .quest-ground").count(), 1);
+    assert.equal(await page.locator("#action-beat .quest-ground").count(), 0);
+    await clearSelection(page);
     await selectCard(page, world.actors.vale.place, { touch });
-    assert.deepEqual(await labels(page), ["Sleep on"]);
+    assert.deepEqual(await labels(page), ["Wake Vale"]);
+    assert.equal(await page.locator("#action-beat .quest-ground").count(), 1);
     await page.screenshot({ path: resolve(output, `asleep-${width}.png`) });
     await page.keyboard.press("Escape");
     // Its play in flight is a Thinking card with the sleeping art.
