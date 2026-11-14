@@ -36,13 +36,20 @@ describe("the removed Theban-response branch", () => {
     expect(pack.release.items).not.toContain("greek-guard-tablet");
     for (const id of GONE_CHOICES) {
       expect(pack.release.choices).not.toContain(id);
-      expect(pack.recital.verses.some((v) => v.choice === id), id).toBe(false);
+      expect(
+        pack.recital.verses.some((v) => v.choice === id),
+        id,
+      ).toBe(false);
       expect(
         pack.recital.claims.some((c) => c.anyChoices.includes(id)),
         id,
       ).toBe(false);
     }
-    expect(pack.choices.filter((c) => c.archived)).toEqual([]);
+    expect(
+      pack.choices
+        .filter((c) => c.archived)
+        .every((c) => /greek-(open-door|homecoming)-/.test(c.id)),
+    ).toBe(true);
   });
 
   it("leaves no fact that something reads and nothing writes", () => {
@@ -52,7 +59,8 @@ describe("the removed Theban-response branch", () => {
     const written = new Set();
     for (const c of pack.choices)
       for (const e of c.effects || [])
-        if (e.key && ["set_flag", "choose"].includes(e.kind)) written.add(e.key);
+        if (e.key && ["set_flag", "choose"].includes(e.kind))
+          written.add(e.key);
     const read = new Set();
     const collect = (conditions = []) => {
       for (const c of conditions) {

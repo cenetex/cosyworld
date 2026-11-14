@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 24,
+  "revision": 25,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -6526,6 +6526,1485 @@
         "chooses": [],
         "gives": [],
         "retires": []
+      },
+      {
+        "id": "act:greek-open-door-hear-mothers",
+        "kind": "act",
+        "title": "Hear the mothers’ request",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {
+          "item": [
+            "greek-funeral-cloth"
+          ],
+          "resident": [
+            "greek-aethra"
+          ]
+        },
+        "at": "greek-eleusis",
+        "subject": "greek-aethra",
+        "sets": [
+          "greek-open-door-mothers-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-hear-adrastus",
+        "kind": "act",
+        "title": "Ask Adrastus about the war",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-mothers-heard,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-mothers-heard is set",
+        "ids": "greek-open-door-mothers-heard is set",
+        "latch": [
+          "flag(key=greek-open-door-mothers-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-mothers"
+          ],
+          "flag": [
+            "greek-open-door-mothers-heard"
+          ],
+          "item": [
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-olive-branch"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-eleusis",
+        "subject": "greek-adrastus",
+        "sets": [
+          "greek-open-door-adrastus-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-register-plea",
+        "kind": "act",
+        "title": "Lay the mothers’ petition before Theseus",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-adrastus-heard,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-adrastus-heard is set",
+        "ids": "greek-open-door-adrastus-heard is set",
+        "latch": [
+          "flag(key=greek-open-door-adrastus-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-mothers-heard"
+          ],
+          "item": [
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-olive-branch"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-athens",
+        "subject": "greek-theseus",
+        "sets": [
+          "greek-open-door-plea-registered"
+        ],
+        "clears": [],
+        "chooses": [
+          "greek-open-door-recovery=truce"
+        ],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-hear-truce-report",
+        "kind": "act",
+        "title": "Receive the herald’s truce report",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "choice(key=greek-open-door-recovery,value=truce)"
+            }
+          ]
+        },
+        "words": "greek-open-door-recovery chosen as truce",
+        "ids": "greek-open-door-recovery chosen as truce",
+        "latch": [
+          "choice(key=greek-open-door-recovery,value=truce)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-register-plea"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-mothers-heard"
+          ],
+          "item": [
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-olive-branch"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-athens",
+        "subject": "greek-theseus",
+        "sets": [
+          "greek-open-door-bodies-returned"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-hear-quay",
+        "kind": "act",
+        "title": "Ask what the returning households need",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {
+          "item": [
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-quay-host"
+          ]
+        },
+        "at": "greek-piraeus",
+        "subject": "greek-quay-host",
+        "sets": [
+          "greek-open-door-quay-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-set-provisions",
+        "kind": "act",
+        "title": "Set the basket beside the resting place",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-quay-heard,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-quay-heard is set",
+        "ids": "greek-open-door-quay-heard is set",
+        "latch": [
+          "flag(key=greek-open-door-quay-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-quay"
+          ],
+          "flag": [
+            "greek-open-door-quay-heard"
+          ],
+          "item": [
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-quay-host"
+          ]
+        },
+        "at": "greek-piraeus",
+        "subject": "greek-quay-host",
+        "sets": [
+          "greek-open-door-quay-provisioned"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-lay-cloths",
+        "kind": "act",
+        "title": "Lay out the clean burial cloths",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-bodies-returned,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-bodies-returned is set",
+        "ids": "greek-open-door-bodies-returned is set",
+        "latch": [
+          "flag(key=greek-open-door-bodies-returned,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-register-plea"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-mothers-heard"
+          ],
+          "item": [
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-olive-branch"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-eleusis",
+        "subject": "greek-aethra",
+        "sets": [
+          "greek-open-door-cloths-laid"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-lay-ashes",
+        "kind": "act",
+        "title": "Place the urn in the mothers’ care",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-cloths-laid,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-cloths-laid is set",
+        "ids": "greek-open-door-cloths-laid is set",
+        "latch": [
+          "flag(key=greek-open-door-cloths-laid,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-register-plea"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-cloths-laid",
+            "greek-open-door-mothers-heard"
+          ],
+          "item": [
+            "greek-ash-urn",
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-oil-flask",
+            "greek-olive-branch"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-argive-mother",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-eleusis",
+        "subject": "greek-argive-mother",
+        "sets": [
+          "greek-open-door-ashes-laid",
+          "greek-open-door-eleusis-done"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-hear-pyre",
+        "kind": "act",
+        "title": "Hear what happened beside the pyre",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-ashes-laid,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-ashes-laid is set",
+        "ids": "greek-open-door-ashes-laid is set",
+        "latch": [
+          "flag(key=greek-open-door-ashes-laid,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-register-plea"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-ashes-laid",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-cloths-laid",
+            "greek-open-door-mothers-heard"
+          ],
+          "item": [
+            "greek-ash-urn",
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-oil-flask",
+            "greek-olive-branch"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-argive-mother",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-eleusis",
+        "subject": "greek-aethra",
+        "sets": [
+          "greek-open-door-pyre-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-family-berth",
+        "kind": "act",
+        "title": "Reserve the berth for the listed households",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-quay-provisioned,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-eleusis-done,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "choice_unset(key=greek-open-door-berth)"
+            }
+          ]
+        },
+        "words": "greek-open-door-quay-provisioned is set and greek-open-door-eleusis-done is set and greek-open-door-berth not chosen yet",
+        "ids": "greek-open-door-quay-provisioned is set and greek-open-door-eleusis-done is set and greek-open-door-berth not chosen yet",
+        "latch": [
+          "choice_unset(key=greek-open-door-berth)",
+          "flag(key=greek-open-door-eleusis-done,value=true)",
+          "flag(key=greek-open-door-quay-provisioned,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-quay",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-register-plea",
+            "greek-open-door-set-provisions"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-cloths-laid",
+            "greek-open-door-eleusis-done",
+            "greek-open-door-mothers-heard",
+            "greek-open-door-quay-heard",
+            "greek-open-door-quay-provisioned"
+          ],
+          "item": [
+            "greek-ash-urn",
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-oil-flask",
+            "greek-olive-branch",
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-argive-mother",
+            "greek-quay-host",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-piraeus",
+        "subject": "greek-quay-host",
+        "sets": [
+          "greek-open-door-piraeus-done"
+        ],
+        "clears": [],
+        "chooses": [
+          "greek-open-door-berth=family"
+        ],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-colonus-enter",
+        "kind": "act",
+        "title": "Hear the earlier tale of Oedipus",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {
+          "item": [
+            "greek-oil-flask"
+          ],
+          "resident": [
+            "greek-colonus-keeper"
+          ]
+        },
+        "at": "greek-colonus",
+        "subject": "greek-colonus-keeper",
+        "sets": [
+          "greek-open-door-colonus-entered"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-colonus-water",
+        "kind": "act",
+        "title": "Set water and honey by the grove",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-colonus-entered,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-colonus-entered is set",
+        "ids": "greek-open-door-colonus-entered is set",
+        "latch": [
+          "flag(key=greek-open-door-colonus-entered,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-colonus-enter"
+          ],
+          "flag": [
+            "greek-open-door-colonus-entered"
+          ],
+          "item": [
+            "greek-oil-flask"
+          ],
+          "resident": [
+            "greek-colonus-keeper"
+          ]
+        },
+        "at": "greek-colonus",
+        "subject": "greek-colonus-keeper",
+        "sets": [
+          "greek-open-door-colonus-water-set"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-colonus-daughters",
+        "kind": "act",
+        "title": "Hear the daughters’ return and the son’s plea",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-colonus-water-set,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-colonus-water-set is set",
+        "ids": "greek-open-door-colonus-water-set is set",
+        "latch": [
+          "flag(key=greek-open-door-colonus-water-set,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-colonus-enter",
+            "greek-open-door-colonus-water"
+          ],
+          "flag": [
+            "greek-open-door-colonus-entered",
+            "greek-open-door-colonus-water-set"
+          ],
+          "item": [
+            "greek-oil-flask"
+          ],
+          "resident": [
+            "greek-colonus-keeper"
+          ]
+        },
+        "at": "greek-colonus",
+        "subject": "greek-colonus-keeper",
+        "sets": [
+          "greek-open-door-colonus-daughters-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-colonus-farewell",
+        "kind": "act",
+        "title": "Hear the kept promise at the end",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-colonus-daughters-heard,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-colonus-daughters-heard is set",
+        "ids": "greek-open-door-colonus-daughters-heard is set",
+        "latch": [
+          "flag(key=greek-open-door-colonus-daughters-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-colonus-daughters",
+            "greek-open-door-colonus-enter",
+            "greek-open-door-colonus-water"
+          ],
+          "flag": [
+            "greek-open-door-colonus-daughters-heard",
+            "greek-open-door-colonus-entered",
+            "greek-open-door-colonus-water-set"
+          ],
+          "item": [
+            "greek-oil-flask"
+          ],
+          "resident": [
+            "greek-colonus-keeper"
+          ]
+        },
+        "at": "greek-colonus",
+        "subject": "greek-colonus-keeper",
+        "sets": [
+          "greek-open-door-colonus-farewell-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-colonus-custom",
+        "kind": "act",
+        "title": "Record a welcome for the next exile",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-colonus-farewell-heard,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-colonus-farewell-heard is set",
+        "ids": "greek-open-door-colonus-farewell-heard is set",
+        "latch": [
+          "flag(key=greek-open-door-colonus-farewell-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-colonus-daughters",
+            "greek-open-door-colonus-enter",
+            "greek-open-door-colonus-farewell",
+            "greek-open-door-colonus-water"
+          ],
+          "flag": [
+            "greek-open-door-colonus-daughters-heard",
+            "greek-open-door-colonus-entered",
+            "greek-open-door-colonus-farewell-heard",
+            "greek-open-door-colonus-water-set"
+          ],
+          "item": [
+            "greek-oil-flask"
+          ],
+          "resident": [
+            "greek-colonus-keeper"
+          ]
+        },
+        "at": "greek-colonus",
+        "subject": "greek-colonus-keeper",
+        "sets": [
+          "greek-open-door-colonus-done"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-marathon-enter",
+        "kind": "act",
+        "title": "Hear the tale of Heracles’s children",
+        "cond": {
+          "op": "and",
+          "of": []
+        },
+        "words": "",
+        "ids": "",
+        "latch": [],
+        "live": [],
+        "prerequisites": {},
+        "at": "greek-marathon",
+        "subject": "greek-marathon-keeper",
+        "sets": [
+          "greek-open-door-marathon-entered"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-marathon-blanket",
+        "kind": "act",
+        "title": "Lay the blanket inside the shelter",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-marathon-entered,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-marathon-entered is set",
+        "ids": "greek-open-door-marathon-entered is set",
+        "latch": [
+          "flag(key=greek-open-door-marathon-entered,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-marathon-enter"
+          ],
+          "flag": [
+            "greek-open-door-marathon-entered"
+          ]
+        },
+        "at": "greek-marathon",
+        "subject": "greek-marathon-keeper",
+        "sets": [
+          "greek-open-door-marathon-blanket-set"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-marathon-daughter",
+        "kind": "act",
+        "title": "Hear the daughter’s own answer",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-marathon-blanket-set,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-marathon-blanket-set is set",
+        "ids": "greek-open-door-marathon-blanket-set is set",
+        "latch": [
+          "flag(key=greek-open-door-marathon-blanket-set,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-marathon-blanket",
+            "greek-open-door-marathon-enter"
+          ],
+          "flag": [
+            "greek-open-door-marathon-blanket-set",
+            "greek-open-door-marathon-entered"
+          ]
+        },
+        "at": "greek-marathon",
+        "subject": "greek-marathon-keeper",
+        "sets": [
+          "greek-open-door-marathon-daughter-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-marathon-battle",
+        "kind": "act",
+        "title": "Hear the battle and the captive’s arrival",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-marathon-daughter-heard,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-marathon-daughter-heard is set",
+        "ids": "greek-open-door-marathon-daughter-heard is set",
+        "latch": [
+          "flag(key=greek-open-door-marathon-daughter-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-marathon-blanket",
+            "greek-open-door-marathon-daughter",
+            "greek-open-door-marathon-enter"
+          ],
+          "flag": [
+            "greek-open-door-marathon-blanket-set",
+            "greek-open-door-marathon-daughter-heard",
+            "greek-open-door-marathon-entered"
+          ]
+        },
+        "at": "greek-marathon",
+        "subject": "greek-marathon-keeper",
+        "sets": [
+          "greek-open-door-marathon-battle-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-marathon-captive",
+        "kind": "act",
+        "title": "Hear the claim against the captive",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-marathon-battle-heard,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-marathon-battle-heard is set",
+        "ids": "greek-open-door-marathon-battle-heard is set",
+        "latch": [
+          "flag(key=greek-open-door-marathon-battle-heard,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-marathon-battle",
+            "greek-open-door-marathon-blanket",
+            "greek-open-door-marathon-daughter",
+            "greek-open-door-marathon-enter"
+          ],
+          "flag": [
+            "greek-open-door-marathon-battle-heard",
+            "greek-open-door-marathon-blanket-set",
+            "greek-open-door-marathon-daughter-heard",
+            "greek-open-door-marathon-entered"
+          ]
+        },
+        "at": "greek-marathon",
+        "subject": "greek-marathon-keeper",
+        "sets": [
+          "greek-open-door-marathon-captive-heard",
+          "greek-open-door-marathon-done"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-open-door-return-dione",
+        "kind": "act",
+        "title": "Tell Dione what welcome has cost",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-eleusis-done,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-piraeus-done,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-colonus-done,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-eleusis-done is set and greek-open-door-piraeus-done is set and greek-open-door-colonus-done is set",
+        "ids": "greek-open-door-eleusis-done is set and greek-open-door-piraeus-done is set and greek-open-door-colonus-done is set",
+        "latch": [
+          "flag(key=greek-open-door-colonus-done,value=true)",
+          "flag(key=greek-open-door-eleusis-done,value=true)",
+          "flag(key=greek-open-door-piraeus-done,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-colonus-custom",
+            "greek-open-door-colonus-daughters",
+            "greek-open-door-colonus-enter",
+            "greek-open-door-colonus-farewell",
+            "greek-open-door-colonus-water",
+            "greek-open-door-family-berth",
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-quay",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-register-plea",
+            "greek-open-door-set-provisions"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-cloths-laid",
+            "greek-open-door-colonus-daughters-heard",
+            "greek-open-door-colonus-done",
+            "greek-open-door-colonus-entered",
+            "greek-open-door-colonus-farewell-heard",
+            "greek-open-door-colonus-water-set",
+            "greek-open-door-eleusis-done",
+            "greek-open-door-mothers-heard",
+            "greek-open-door-piraeus-done",
+            "greek-open-door-quay-heard",
+            "greek-open-door-quay-provisioned"
+          ],
+          "item": [
+            "greek-ash-urn",
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-oil-flask",
+            "greek-olive-branch",
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-argive-mother",
+            "greek-colonus-keeper",
+            "greek-quay-host",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-courtyard",
+        "subject": "greek-baker",
+        "sets": [
+          "greek-open-door-returned"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-homecoming-report-agora-truce",
+        "kind": "act",
+        "title": "Tell Dione about the burial truce",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-bodies-returned,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-homecoming-agora-reported,value=false)"
+            }
+          ]
+        },
+        "words": "greek-open-door-bodies-returned is set and greek-homecoming-agora-reported is not set",
+        "ids": "greek-open-door-bodies-returned is set and greek-homecoming-agora-reported is not set",
+        "latch": [
+          "flag(key=greek-homecoming-agora-reported,value=false)",
+          "flag(key=greek-open-door-bodies-returned,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-register-plea"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-mothers-heard"
+          ],
+          "item": [
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-olive-branch"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-courtyard",
+        "subject": "greek-baker",
+        "sets": [
+          "greek-homecoming-agora-reported"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-homecoming-report-eleusis-pledge",
+        "kind": "act",
+        "title": "Tell Dione about the burial pledge",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-eleusis-done,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-homecoming-eleusis-reported,value=false)"
+            }
+          ]
+        },
+        "words": "greek-open-door-eleusis-done is set and greek-homecoming-eleusis-reported is not set",
+        "ids": "greek-open-door-eleusis-done is set and greek-homecoming-eleusis-reported is not set",
+        "latch": [
+          "flag(key=greek-homecoming-eleusis-reported,value=false)",
+          "flag(key=greek-open-door-eleusis-done,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-register-plea"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-cloths-laid",
+            "greek-open-door-eleusis-done",
+            "greek-open-door-mothers-heard"
+          ],
+          "item": [
+            "greek-ash-urn",
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-oil-flask",
+            "greek-olive-branch"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-argive-mother",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-courtyard",
+        "subject": "greek-baker",
+        "sets": [
+          "greek-homecoming-eleusis-reported"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-homecoming-report-piraeus-family",
+        "kind": "act",
+        "title": "Tell Dione about the reserved berth",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-homecoming-arrived,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "choice(key=greek-homecoming-care,value=family)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-homecoming-piraeus-reported,value=false)"
+            }
+          ]
+        },
+        "words": "greek-homecoming-arrived is set and greek-homecoming-care chosen as family and greek-homecoming-piraeus-reported is not set",
+        "ids": "greek-homecoming-arrived is set and greek-homecoming-care chosen as family and greek-homecoming-piraeus-reported is not set",
+        "latch": [
+          "choice(key=greek-homecoming-care,value=family)",
+          "flag(key=greek-homecoming-arrived,value=true)",
+          "flag(key=greek-homecoming-piraeus-reported,value=false)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-homecoming-agree-journey",
+            "greek-homecoming-receive-family",
+            "greek-open-door-family-berth",
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-quay",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-register-plea",
+            "greek-open-door-set-provisions"
+          ],
+          "choice": [
+            "greek-homecoming-care=family",
+            "greek-open-door-berth=family",
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-homecoming-arrived",
+            "greek-homecoming-journey-agreed",
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-cloths-laid",
+            "greek-open-door-eleusis-done",
+            "greek-open-door-mothers-heard",
+            "greek-open-door-piraeus-done",
+            "greek-open-door-quay-heard",
+            "greek-open-door-quay-provisioned"
+          ],
+          "item": [
+            "greek-ash-urn",
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-oil-flask",
+            "greek-olive-branch",
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-argive-mother",
+            "greek-household-witness",
+            "greek-quay-host",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-courtyard",
+        "subject": "greek-baker",
+        "sets": [
+          "greek-homecoming-piraeus-reported",
+          "greek-homecoming-witness-heard"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-homecoming-report-colonus-custom",
+        "kind": "act",
+        "title": "Tell Dione about the grove’s welcome",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-colonus-done,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-homecoming-colonus-reported,value=false)"
+            }
+          ]
+        },
+        "words": "greek-open-door-colonus-done is set and greek-homecoming-colonus-reported is not set",
+        "ids": "greek-open-door-colonus-done is set and greek-homecoming-colonus-reported is not set",
+        "latch": [
+          "flag(key=greek-homecoming-colonus-reported,value=false)",
+          "flag(key=greek-open-door-colonus-done,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-colonus-custom",
+            "greek-open-door-colonus-daughters",
+            "greek-open-door-colonus-enter",
+            "greek-open-door-colonus-farewell",
+            "greek-open-door-colonus-water"
+          ],
+          "flag": [
+            "greek-open-door-colonus-daughters-heard",
+            "greek-open-door-colonus-done",
+            "greek-open-door-colonus-entered",
+            "greek-open-door-colonus-farewell-heard",
+            "greek-open-door-colonus-water-set"
+          ],
+          "item": [
+            "greek-oil-flask"
+          ],
+          "resident": [
+            "greek-colonus-keeper"
+          ]
+        },
+        "at": "greek-courtyard",
+        "subject": "greek-baker",
+        "sets": [
+          "greek-homecoming-colonus-reported"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-homecoming-report-marathon-alcmene",
+        "kind": "act",
+        "title": "Tell Dione the Marathon source ending",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-marathon-done,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-homecoming-marathon-reported,value=false)"
+            }
+          ]
+        },
+        "words": "greek-open-door-marathon-done is set and greek-homecoming-marathon-reported is not set",
+        "ids": "greek-open-door-marathon-done is set and greek-homecoming-marathon-reported is not set",
+        "latch": [
+          "flag(key=greek-homecoming-marathon-reported,value=false)",
+          "flag(key=greek-open-door-marathon-done,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-marathon-battle",
+            "greek-open-door-marathon-blanket",
+            "greek-open-door-marathon-captive",
+            "greek-open-door-marathon-daughter",
+            "greek-open-door-marathon-enter"
+          ],
+          "flag": [
+            "greek-open-door-marathon-battle-heard",
+            "greek-open-door-marathon-blanket-set",
+            "greek-open-door-marathon-daughter-heard",
+            "greek-open-door-marathon-done",
+            "greek-open-door-marathon-entered"
+          ]
+        },
+        "at": "greek-courtyard",
+        "subject": "greek-baker",
+        "sets": [
+          "greek-homecoming-marathon-reported"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-homecoming-agree-journey",
+        "kind": "act",
+        "title": "Agree to walk with Myrine to the quay",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-open-door-piraeus-done,value=true)"
+            }
+          ]
+        },
+        "words": "greek-open-door-piraeus-done is set",
+        "ids": "greek-open-door-piraeus-done is set",
+        "latch": [
+          "flag(key=greek-open-door-piraeus-done,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-open-door-family-berth",
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-quay",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-register-plea",
+            "greek-open-door-set-provisions"
+          ],
+          "choice": [
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-cloths-laid",
+            "greek-open-door-eleusis-done",
+            "greek-open-door-mothers-heard",
+            "greek-open-door-piraeus-done",
+            "greek-open-door-quay-heard",
+            "greek-open-door-quay-provisioned"
+          ],
+          "item": [
+            "greek-ash-urn",
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-oil-flask",
+            "greek-olive-branch",
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-argive-mother",
+            "greek-household-witness",
+            "greek-quay-host",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-eleusis",
+        "subject": "greek-household-witness",
+        "sets": [
+          "greek-homecoming-journey-agreed"
+        ],
+        "clears": [],
+        "chooses": [],
+        "gives": [],
+        "retires": []
+      },
+      {
+        "id": "act:greek-homecoming-receive-family",
+        "kind": "act",
+        "title": "Witness Myrine receive her household’s care",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=greek-homecoming-journey-agreed,value=true)"
+            },
+            {
+              "op": "atom",
+              "atom": "choice(key=greek-open-door-berth,value=family)"
+            },
+            {
+              "op": "atom",
+              "atom": "choice_unset(key=greek-homecoming-care)"
+            }
+          ]
+        },
+        "words": "greek-homecoming-journey-agreed is set and greek-open-door-berth chosen as family and greek-homecoming-care not chosen yet",
+        "ids": "greek-homecoming-journey-agreed is set and greek-open-door-berth chosen as family and greek-homecoming-care not chosen yet",
+        "latch": [
+          "choice(key=greek-open-door-berth,value=family)",
+          "choice_unset(key=greek-homecoming-care)",
+          "flag(key=greek-homecoming-journey-agreed,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "greek-homecoming-agree-journey",
+            "greek-open-door-family-berth",
+            "greek-open-door-hear-adrastus",
+            "greek-open-door-hear-mothers",
+            "greek-open-door-hear-quay",
+            "greek-open-door-hear-truce-report",
+            "greek-open-door-lay-ashes",
+            "greek-open-door-lay-cloths",
+            "greek-open-door-register-plea",
+            "greek-open-door-set-provisions"
+          ],
+          "choice": [
+            "greek-open-door-berth=family",
+            "greek-open-door-recovery=truce"
+          ],
+          "flag": [
+            "greek-homecoming-journey-agreed",
+            "greek-open-door-adrastus-heard",
+            "greek-open-door-bodies-returned",
+            "greek-open-door-cloths-laid",
+            "greek-open-door-eleusis-done",
+            "greek-open-door-mothers-heard",
+            "greek-open-door-piraeus-done",
+            "greek-open-door-quay-heard",
+            "greek-open-door-quay-provisioned"
+          ],
+          "item": [
+            "greek-ash-urn",
+            "greek-burial-petition",
+            "greek-funeral-cloth",
+            "greek-oil-flask",
+            "greek-olive-branch",
+            "greek-wheat"
+          ],
+          "resident": [
+            "greek-adrastus",
+            "greek-aethra",
+            "greek-argive-mother",
+            "greek-household-witness",
+            "greek-quay-host",
+            "greek-theseus"
+          ]
+        },
+        "at": "greek-piraeus",
+        "subject": "greek-household-witness",
+        "sets": [
+          "greek-homecoming-arrived"
+        ],
+        "clears": [],
+        "chooses": [
+          "greek-homecoming-care=family"
+        ],
+        "gives": [],
+        "retires": []
       }
     ],
     "wants": [
@@ -7135,6 +8614,497 @@
         "setBy": [
           "act:greek-helen-egypt-shelter",
           "act:greek-helen-troy-shelter"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "greek-homecoming-agora-reported": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-homecoming-report-agora-truce"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-agora-truce"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "greek-homecoming-arrived": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-homecoming-receive-family"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-piraeus-family"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-homecoming-report-piraeus-family"
+        ]
+      },
+      "greek-homecoming-colonus-reported": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-homecoming-report-colonus-custom"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-colonus-custom"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "greek-homecoming-eleusis-reported": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-homecoming-report-eleusis-pledge"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-eleusis-pledge"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "greek-homecoming-journey-agreed": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-homecoming-agree-journey"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-receive-family"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-homecoming-marathon-reported": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-homecoming-report-marathon-alcmene"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-marathon-alcmene"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "greek-homecoming-piraeus-reported": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-homecoming-report-piraeus-family"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-piraeus-family"
+        ],
+        "gates": [],
+        "acts": []
+      },
+      "greek-homecoming-witness-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-homecoming-report-piraeus-family"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "greek-open-door-adrastus-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-hear-adrastus"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-register-plea"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-register-plea",
+          "act:greek-open-door-hear-truce-report",
+          "act:greek-open-door-lay-cloths",
+          "act:greek-open-door-lay-ashes",
+          "act:greek-open-door-hear-pyre",
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-agora-truce",
+          "act:greek-homecoming-report-eleusis-pledge",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-open-door-ashes-laid": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-lay-ashes"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-hear-pyre"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-hear-pyre"
+        ]
+      },
+      "greek-open-door-bodies-returned": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-hear-truce-report"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-agora-truce",
+          "act:greek-open-door-lay-cloths"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-lay-cloths",
+          "act:greek-open-door-lay-ashes",
+          "act:greek-open-door-hear-pyre",
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-agora-truce",
+          "act:greek-homecoming-report-eleusis-pledge",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-open-door-cloths-laid": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-lay-cloths"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-lay-ashes"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-lay-ashes",
+          "act:greek-open-door-hear-pyre",
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-eleusis-pledge",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-open-door-colonus-daughters-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-colonus-daughters"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-colonus-farewell"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-colonus-farewell",
+          "act:greek-open-door-colonus-custom",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-colonus-custom"
+        ]
+      },
+      "greek-open-door-colonus-done": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-colonus-custom"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-colonus-custom",
+          "act:greek-open-door-return-dione"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-colonus-custom"
+        ]
+      },
+      "greek-open-door-colonus-entered": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-colonus-enter"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-colonus-water"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-colonus-water",
+          "act:greek-open-door-colonus-daughters",
+          "act:greek-open-door-colonus-farewell",
+          "act:greek-open-door-colonus-custom",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-colonus-custom"
+        ]
+      },
+      "greek-open-door-colonus-farewell-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-colonus-farewell"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-colonus-custom"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-colonus-custom",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-colonus-custom"
+        ]
+      },
+      "greek-open-door-colonus-water-set": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-colonus-water"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-colonus-daughters"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-colonus-daughters",
+          "act:greek-open-door-colonus-farewell",
+          "act:greek-open-door-colonus-custom",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-colonus-custom"
+        ]
+      },
+      "greek-open-door-eleusis-done": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-lay-ashes"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-eleusis-pledge",
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-eleusis-pledge",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-open-door-marathon-battle-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-marathon-battle"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-marathon-captive"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-marathon-captive",
+          "act:greek-homecoming-report-marathon-alcmene"
+        ]
+      },
+      "greek-open-door-marathon-blanket-set": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-marathon-blanket"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-marathon-daughter"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-marathon-daughter",
+          "act:greek-open-door-marathon-battle",
+          "act:greek-open-door-marathon-captive",
+          "act:greek-homecoming-report-marathon-alcmene"
+        ]
+      },
+      "greek-open-door-marathon-captive-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-marathon-captive"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "greek-open-door-marathon-daughter-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-marathon-daughter"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-marathon-battle"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-marathon-battle",
+          "act:greek-open-door-marathon-captive",
+          "act:greek-homecoming-report-marathon-alcmene"
+        ]
+      },
+      "greek-open-door-marathon-done": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-marathon-captive"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-report-marathon-alcmene"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-homecoming-report-marathon-alcmene"
+        ]
+      },
+      "greek-open-door-marathon-entered": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-marathon-enter"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-marathon-blanket"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-marathon-blanket",
+          "act:greek-open-door-marathon-daughter",
+          "act:greek-open-door-marathon-battle",
+          "act:greek-open-door-marathon-captive",
+          "act:greek-homecoming-report-marathon-alcmene"
+        ]
+      },
+      "greek-open-door-mothers-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-hear-mothers"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-hear-adrastus"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-hear-adrastus",
+          "act:greek-open-door-register-plea",
+          "act:greek-open-door-hear-truce-report",
+          "act:greek-open-door-lay-cloths",
+          "act:greek-open-door-lay-ashes",
+          "act:greek-open-door-hear-pyre",
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-agora-truce",
+          "act:greek-homecoming-report-eleusis-pledge",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-open-door-piraeus-done": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-family-berth"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-homecoming-agree-journey",
+          "act:greek-open-door-return-dione"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-open-door-plea-registered": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-register-plea"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "greek-open-door-pyre-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-hear-pyre"
+        ],
+        "clearedBy": [],
+        "readBy": [],
+        "gates": [],
+        "acts": []
+      },
+      "greek-open-door-quay-heard": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-hear-quay"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-set-provisions"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-set-provisions",
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-open-door-quay-provisioned": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-set-provisions"
+        ],
+        "clearedBy": [],
+        "readBy": [
+          "act:greek-open-door-family-berth"
+        ],
+        "gates": [],
+        "acts": [
+          "act:greek-open-door-family-berth",
+          "act:greek-open-door-return-dione",
+          "act:greek-homecoming-report-piraeus-family",
+          "act:greek-homecoming-agree-journey",
+          "act:greek-homecoming-receive-family"
+        ]
+      },
+      "greek-open-door-returned": {
+        "kind": "latch",
+        "setBy": [
+          "act:greek-open-door-return-dione"
         ],
         "clearedBy": [],
         "readBy": [],
@@ -7845,9 +9815,150 @@
         "place:greek-troy-beach",
         "resident:greek-helen-troy"
       ],
+      "act:greek-homecoming-agree-journey": [
+        "flag:greek-open-door-piraeus-done",
+        "place:greek-eleusis",
+        "resident:greek-household-witness"
+      ],
+      "act:greek-homecoming-receive-family": [
+        "choice:greek-open-door-berth=family",
+        "flag:greek-homecoming-journey-agreed",
+        "place:greek-piraeus",
+        "resident:greek-household-witness"
+      ],
+      "act:greek-homecoming-report-agora-truce": [
+        "flag:greek-open-door-bodies-returned",
+        "place:greek-courtyard",
+        "resident:greek-baker"
+      ],
+      "act:greek-homecoming-report-colonus-custom": [
+        "flag:greek-open-door-colonus-done",
+        "place:greek-courtyard",
+        "resident:greek-baker"
+      ],
+      "act:greek-homecoming-report-eleusis-pledge": [
+        "flag:greek-open-door-eleusis-done",
+        "place:greek-courtyard",
+        "resident:greek-baker"
+      ],
+      "act:greek-homecoming-report-marathon-alcmene": [
+        "flag:greek-open-door-marathon-done",
+        "place:greek-courtyard",
+        "resident:greek-baker"
+      ],
+      "act:greek-homecoming-report-piraeus-family": [
+        "choice:greek-homecoming-care=family",
+        "flag:greek-homecoming-arrived",
+        "place:greek-courtyard",
+        "resident:greek-baker"
+      ],
       "act:greek-meet-patroclus": [
         "place:greek-piraeus",
         "resident:greek-patroclus"
+      ],
+      "act:greek-open-door-colonus-custom": [
+        "flag:greek-open-door-colonus-farewell-heard",
+        "place:greek-colonus",
+        "resident:greek-colonus-keeper"
+      ],
+      "act:greek-open-door-colonus-daughters": [
+        "flag:greek-open-door-colonus-water-set",
+        "place:greek-colonus",
+        "resident:greek-colonus-keeper"
+      ],
+      "act:greek-open-door-colonus-enter": [
+        "place:greek-colonus",
+        "resident:greek-colonus-keeper"
+      ],
+      "act:greek-open-door-colonus-farewell": [
+        "flag:greek-open-door-colonus-daughters-heard",
+        "place:greek-colonus",
+        "resident:greek-colonus-keeper"
+      ],
+      "act:greek-open-door-colonus-water": [
+        "flag:greek-open-door-colonus-entered",
+        "place:greek-colonus",
+        "resident:greek-colonus-keeper"
+      ],
+      "act:greek-open-door-family-berth": [
+        "flag:greek-open-door-eleusis-done",
+        "flag:greek-open-door-quay-provisioned",
+        "place:greek-piraeus",
+        "resident:greek-quay-host"
+      ],
+      "act:greek-open-door-hear-adrastus": [
+        "flag:greek-open-door-mothers-heard",
+        "place:greek-eleusis",
+        "resident:greek-adrastus"
+      ],
+      "act:greek-open-door-hear-mothers": [
+        "place:greek-eleusis",
+        "resident:greek-aethra"
+      ],
+      "act:greek-open-door-hear-pyre": [
+        "flag:greek-open-door-ashes-laid",
+        "place:greek-eleusis",
+        "resident:greek-aethra"
+      ],
+      "act:greek-open-door-hear-quay": [
+        "place:greek-piraeus",
+        "resident:greek-quay-host"
+      ],
+      "act:greek-open-door-hear-truce-report": [
+        "choice:greek-open-door-recovery=truce",
+        "place:greek-athens",
+        "resident:greek-theseus"
+      ],
+      "act:greek-open-door-lay-ashes": [
+        "flag:greek-open-door-cloths-laid",
+        "place:greek-eleusis",
+        "resident:greek-argive-mother"
+      ],
+      "act:greek-open-door-lay-cloths": [
+        "flag:greek-open-door-bodies-returned",
+        "place:greek-eleusis",
+        "resident:greek-aethra"
+      ],
+      "act:greek-open-door-marathon-battle": [
+        "flag:greek-open-door-marathon-daughter-heard",
+        "place:greek-marathon",
+        "resident:greek-marathon-keeper"
+      ],
+      "act:greek-open-door-marathon-blanket": [
+        "flag:greek-open-door-marathon-entered",
+        "place:greek-marathon",
+        "resident:greek-marathon-keeper"
+      ],
+      "act:greek-open-door-marathon-captive": [
+        "flag:greek-open-door-marathon-battle-heard",
+        "place:greek-marathon",
+        "resident:greek-marathon-keeper"
+      ],
+      "act:greek-open-door-marathon-daughter": [
+        "flag:greek-open-door-marathon-blanket-set",
+        "place:greek-marathon",
+        "resident:greek-marathon-keeper"
+      ],
+      "act:greek-open-door-marathon-enter": [
+        "place:greek-marathon",
+        "resident:greek-marathon-keeper"
+      ],
+      "act:greek-open-door-register-plea": [
+        "flag:greek-open-door-adrastus-heard",
+        "place:greek-athens",
+        "resident:greek-theseus"
+      ],
+      "act:greek-open-door-return-dione": [
+        "flag:greek-open-door-colonus-done",
+        "flag:greek-open-door-eleusis-done",
+        "flag:greek-open-door-piraeus-done",
+        "place:greek-courtyard",
+        "resident:greek-baker"
+      ],
+      "act:greek-open-door-set-provisions": [
+        "flag:greek-open-door-quay-heard",
+        "place:greek-piraeus",
+        "resident:greek-quay-host"
       ],
       "act:greek-return-water-jar": [
         "item:greek-water-jar",
@@ -7923,6 +10034,15 @@
       "choice:greek-helen-response=shelter": [
         "act:greek-helen-egypt-shelter",
         "act:greek-helen-troy-shelter"
+      ],
+      "choice:greek-homecoming-care=family": [
+        "act:greek-homecoming-receive-family"
+      ],
+      "choice:greek-open-door-berth=family": [
+        "act:greek-open-door-family-berth"
+      ],
+      "choice:greek-open-door-recovery=truce": [
+        "act:greek-open-door-register-plea"
       ],
       "crossing:pond-greek-harbor": [
         "item:cloth",
@@ -8010,6 +10130,99 @@
       "flag:greek-helen-shelter-requested": [
         "act:greek-helen-egypt-shelter",
         "act:greek-helen-troy-shelter"
+      ],
+      "flag:greek-homecoming-agora-reported": [
+        "act:greek-homecoming-report-agora-truce"
+      ],
+      "flag:greek-homecoming-arrived": [
+        "act:greek-homecoming-receive-family"
+      ],
+      "flag:greek-homecoming-colonus-reported": [
+        "act:greek-homecoming-report-colonus-custom"
+      ],
+      "flag:greek-homecoming-eleusis-reported": [
+        "act:greek-homecoming-report-eleusis-pledge"
+      ],
+      "flag:greek-homecoming-journey-agreed": [
+        "act:greek-homecoming-agree-journey"
+      ],
+      "flag:greek-homecoming-marathon-reported": [
+        "act:greek-homecoming-report-marathon-alcmene"
+      ],
+      "flag:greek-homecoming-piraeus-reported": [
+        "act:greek-homecoming-report-piraeus-family"
+      ],
+      "flag:greek-homecoming-witness-heard": [
+        "act:greek-homecoming-report-piraeus-family"
+      ],
+      "flag:greek-open-door-adrastus-heard": [
+        "act:greek-open-door-hear-adrastus"
+      ],
+      "flag:greek-open-door-ashes-laid": [
+        "act:greek-open-door-lay-ashes"
+      ],
+      "flag:greek-open-door-bodies-returned": [
+        "act:greek-open-door-hear-truce-report"
+      ],
+      "flag:greek-open-door-cloths-laid": [
+        "act:greek-open-door-lay-cloths"
+      ],
+      "flag:greek-open-door-colonus-daughters-heard": [
+        "act:greek-open-door-colonus-daughters"
+      ],
+      "flag:greek-open-door-colonus-done": [
+        "act:greek-open-door-colonus-custom"
+      ],
+      "flag:greek-open-door-colonus-entered": [
+        "act:greek-open-door-colonus-enter"
+      ],
+      "flag:greek-open-door-colonus-farewell-heard": [
+        "act:greek-open-door-colonus-farewell"
+      ],
+      "flag:greek-open-door-colonus-water-set": [
+        "act:greek-open-door-colonus-water"
+      ],
+      "flag:greek-open-door-eleusis-done": [
+        "act:greek-open-door-lay-ashes"
+      ],
+      "flag:greek-open-door-marathon-battle-heard": [
+        "act:greek-open-door-marathon-battle"
+      ],
+      "flag:greek-open-door-marathon-blanket-set": [
+        "act:greek-open-door-marathon-blanket"
+      ],
+      "flag:greek-open-door-marathon-captive-heard": [
+        "act:greek-open-door-marathon-captive"
+      ],
+      "flag:greek-open-door-marathon-daughter-heard": [
+        "act:greek-open-door-marathon-daughter"
+      ],
+      "flag:greek-open-door-marathon-done": [
+        "act:greek-open-door-marathon-captive"
+      ],
+      "flag:greek-open-door-marathon-entered": [
+        "act:greek-open-door-marathon-enter"
+      ],
+      "flag:greek-open-door-mothers-heard": [
+        "act:greek-open-door-hear-mothers"
+      ],
+      "flag:greek-open-door-piraeus-done": [
+        "act:greek-open-door-family-berth"
+      ],
+      "flag:greek-open-door-plea-registered": [
+        "act:greek-open-door-register-plea"
+      ],
+      "flag:greek-open-door-pyre-heard": [
+        "act:greek-open-door-hear-pyre"
+      ],
+      "flag:greek-open-door-quay-heard": [
+        "act:greek-open-door-hear-quay"
+      ],
+      "flag:greek-open-door-quay-provisioned": [
+        "act:greek-open-door-set-provisions"
+      ],
+      "flag:greek-open-door-returned": [
+        "act:greek-open-door-return-dione"
       ],
       "flag:greek-patroclus-met": [
         "act:greek-meet-patroclus"
@@ -8447,6 +10660,16 @@
       "class": "latch",
       "words": "greek-helen-response not chosen yet"
     },
+    "choice_unset(key=greek-homecoming-care)": {
+      "kind": "choice_unset",
+      "class": "latch",
+      "words": "greek-homecoming-care not chosen yet"
+    },
+    "choice_unset(key=greek-open-door-berth)": {
+      "kind": "choice_unset",
+      "class": "latch",
+      "words": "greek-open-door-berth not chosen yet"
+    },
     "choice(key=greek-ajax-ending,value=appeal)": {
       "kind": "choice",
       "class": "latch",
@@ -8501,6 +10724,21 @@
       "kind": "choice",
       "class": "latch",
       "words": "greek-helen-account chosen as troy"
+    },
+    "choice(key=greek-homecoming-care,value=family)": {
+      "kind": "choice",
+      "class": "latch",
+      "words": "greek-homecoming-care chosen as family"
+    },
+    "choice(key=greek-open-door-berth,value=family)": {
+      "kind": "choice",
+      "class": "latch",
+      "words": "greek-open-door-berth chosen as family"
+    },
+    "choice(key=greek-open-door-recovery,value=truce)": {
+      "kind": "choice",
+      "class": "latch",
+      "words": "greek-open-door-recovery chosen as truce"
     },
     "clock(from=36,to=0)": {
       "kind": "clock",
@@ -8611,6 +10849,136 @@
       "kind": "flag",
       "class": "latch",
       "words": "greek-helen-heard-troy is set"
+    },
+    "flag(key=greek-homecoming-agora-reported,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-homecoming-agora-reported is not set"
+    },
+    "flag(key=greek-homecoming-arrived,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-homecoming-arrived is set"
+    },
+    "flag(key=greek-homecoming-colonus-reported,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-homecoming-colonus-reported is not set"
+    },
+    "flag(key=greek-homecoming-eleusis-reported,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-homecoming-eleusis-reported is not set"
+    },
+    "flag(key=greek-homecoming-journey-agreed,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-homecoming-journey-agreed is set"
+    },
+    "flag(key=greek-homecoming-marathon-reported,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-homecoming-marathon-reported is not set"
+    },
+    "flag(key=greek-homecoming-piraeus-reported,value=false)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-homecoming-piraeus-reported is not set"
+    },
+    "flag(key=greek-open-door-adrastus-heard,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-adrastus-heard is set"
+    },
+    "flag(key=greek-open-door-ashes-laid,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-ashes-laid is set"
+    },
+    "flag(key=greek-open-door-bodies-returned,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-bodies-returned is set"
+    },
+    "flag(key=greek-open-door-cloths-laid,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-cloths-laid is set"
+    },
+    "flag(key=greek-open-door-colonus-daughters-heard,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-colonus-daughters-heard is set"
+    },
+    "flag(key=greek-open-door-colonus-done,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-colonus-done is set"
+    },
+    "flag(key=greek-open-door-colonus-entered,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-colonus-entered is set"
+    },
+    "flag(key=greek-open-door-colonus-farewell-heard,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-colonus-farewell-heard is set"
+    },
+    "flag(key=greek-open-door-colonus-water-set,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-colonus-water-set is set"
+    },
+    "flag(key=greek-open-door-eleusis-done,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-eleusis-done is set"
+    },
+    "flag(key=greek-open-door-marathon-battle-heard,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-marathon-battle-heard is set"
+    },
+    "flag(key=greek-open-door-marathon-blanket-set,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-marathon-blanket-set is set"
+    },
+    "flag(key=greek-open-door-marathon-daughter-heard,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-marathon-daughter-heard is set"
+    },
+    "flag(key=greek-open-door-marathon-done,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-marathon-done is set"
+    },
+    "flag(key=greek-open-door-marathon-entered,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-marathon-entered is set"
+    },
+    "flag(key=greek-open-door-mothers-heard,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-mothers-heard is set"
+    },
+    "flag(key=greek-open-door-piraeus-done,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-piraeus-done is set"
+    },
+    "flag(key=greek-open-door-quay-heard,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-quay-heard is set"
+    },
+    "flag(key=greek-open-door-quay-provisioned,value=true)": {
+      "kind": "flag",
+      "class": "latch",
+      "words": "greek-open-door-quay-provisioned is set"
     },
     "flag(key=greek-patroclus-met,value=false)": {
       "kind": "flag",
