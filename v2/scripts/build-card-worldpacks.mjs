@@ -10,6 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { admitStore } from "./card-store-admission.mjs";
 import {
   packProblems,
   packWarnings,
@@ -34,9 +35,13 @@ if (
   problems.push("card-table.json needs schemaVersion 1 and distinct packs");
 
 const bridgeEntries = {};
-const packs = (table.packs || []).map((id) => {
-  const source = read(`content/${id}/card-world.json`);
-  const bridge = read(`worlds/${id}/card-bridge.json`);
+const sources = (table.packs || []).map((id) => [
+  id,
+  read(`content/${id}/card-world.json`),
+  read(`worlds/${id}/card-bridge.json`),
+]);
+sources.push(...admitStore(v2, table, { check }));
+const packs = sources.map(([id, source, bridge]) => {
   if (source.id !== id) problems.push(`${id}: source id must match its folder`);
   if (bridge.schemaVersion !== 1 || bridge.pack !== id)
     problems.push(`${id}: bridge needs schemaVersion 1 and pack "${id}"`);
@@ -218,8 +223,12 @@ if (check) {
     );
     process.exit(1);
   }
-  console.log(`Card world packs are current: ${table.packs.join(", ")}.`);
+  console.log(
+    `Card world packs are current: ${packs.map((p) => p.id).join(", ")}.`,
+  );
 } else {
   fs.writeFileSync(output, compiled);
-  console.log(`Wrote v2/card-game/packs.json: ${table.packs.join(", ")}.`);
+  console.log(
+    `Wrote v2/card-game/packs.json: ${packs.map((p) => p.id).join(", ")}.`,
+  );
 }

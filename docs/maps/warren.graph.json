@@ -1,0 +1,148 @@
+{
+  "pack": "warren",
+  "name": "The Warren",
+  "revision": 1,
+  "entry": "warren-threshold",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "pond",
+      "arrive": "warren-threshold",
+      "via": "pond-warren-threshold"
+    }
+  ],
+  "space": {
+    "districts": [
+      {
+        "id": "d-warren-shelf",
+        "name": "The Spore Shelf",
+        "places": [
+          "warren-ledger",
+          "warren-shelf",
+          "warren-threshold"
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "pond",
+        "name": "Black pond",
+        "kind": "hub"
+      },
+      {
+        "id": "warren-ledger",
+        "name": "The Ledger Nook",
+        "kind": "place",
+        "district": "d-warren-shelf"
+      },
+      {
+        "id": "warren-shelf",
+        "name": "The Spore Shelf",
+        "kind": "place",
+        "district": "d-warren-shelf"
+      },
+      {
+        "id": "warren-threshold",
+        "name": "The Threshold",
+        "kind": "place",
+        "district": "d-warren-shelf"
+      }
+    ],
+    "edges": [
+      {
+        "from": "pond",
+        "to": "warren-threshold",
+        "kind": "crossing",
+        "gate": null
+      },
+      {
+        "from": "warren-ledger",
+        "to": "warren-shelf",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "warren-shelf",
+        "to": "warren-ledger",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "warren-shelf",
+        "to": "warren-threshold",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "warren-threshold",
+        "to": "pond",
+        "kind": "crossing",
+        "gate": null
+      },
+      {
+        "from": "warren-threshold",
+        "to": "warren-shelf",
+        "kind": "exit",
+        "gate": null
+      }
+    ],
+    "retired": []
+  },
+  "mission": {
+    "gates": [],
+    "acts": [],
+    "wants": [
+      {
+        "avatar": "hissling",
+        "kind": "item",
+        "target": "spore-jar",
+        "items": []
+      },
+      {
+        "avatar": "sifter",
+        "kind": "item",
+        "target": "spore-jar",
+        "items": []
+      }
+    ],
+    "flags": {},
+    "items": [
+      {
+        "id": "spore-jar",
+        "name": "Memory-spore jar",
+        "holder": "warren-shelf",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "moon-token",
+        "name": "Moon token",
+        "holder": "hissling",
+        "consumedBy": [],
+        "readBy": []
+      }
+    ],
+    "needs": {
+      "topic:hissling-kept-things": [
+        "place:warren-threshold",
+        "resident:hissling"
+      ],
+      "topic:hissling-the-ledger": [
+        "place:warren-ledger",
+        "resident:hissling"
+      ],
+      "topic:sifter-even-fade": [
+        "place:warren-shelf",
+        "resident:sifter"
+      ],
+      "want:hissling": [
+        "resident:hissling"
+      ],
+      "want:sifter": [
+        "resident:sifter"
+      ]
+    }
+  },
+  "atoms": {},
+  "conditionKinds": []
+}
