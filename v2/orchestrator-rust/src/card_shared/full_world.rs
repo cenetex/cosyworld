@@ -84,12 +84,12 @@ impl World {
             present: self.present,
             rooms: [[0; 128]; 8],
         };
-        for a in 0..8 {
+        for (a, slot) in s.rooms.iter_mut().enumerate() {
             let room = self.room(a)?;
             if room.is_empty() || room.len() >= 128 || room.bytes().any(|b| b == 0) {
                 return Err("The place ID needs attention.".into());
             }
-            s.rooms[a][..room.len()].copy_from_slice(room.as_bytes());
+            slot[..room.len()].copy_from_slice(room.as_bytes());
         }
         Ok(s)
     }
