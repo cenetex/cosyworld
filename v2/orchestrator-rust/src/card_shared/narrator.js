@@ -2583,7 +2583,7 @@
     return Boolean(
       want && world.actors?.[id] && // A made thing still locked is wanted all the same (rules 102), and a
       // sealed one (rules 133).
-      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked) || Boolean(packThings[want.target]?.sealed)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !met(world, id, want) && trustedEnough(world, id, want, listener)
+      (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked) || Boolean(packThings[want.target]?.sealed)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !lostOf(world, want) && !met(world, id, want) && trustedEnough(world, id, want, listener)
     );
   }
   function wantFact(world, id, nameOf2, listener) {
@@ -2659,6 +2659,7 @@
     refusals: 0
   });
   var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
+  var lostOf = (s, w) => w ? [w.target, w.step?.to, w.step?.with, w.step?.at, ...w.step?.items || []].find((id) => typeof id === "string" && neverBack(s, id)) : void 0;
   var heldWant = (s, w) => ({
     ...newWant(w.kind, w.target, s.turn),
     ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {},
@@ -2674,7 +2675,7 @@
     if (!packPeople[id]?.wants) return null;
     const day = Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
     const entries = stagedWants(s, id).filter(
-      ({ open, want }) => open && validTarget(s, want.kind, want.target) && !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) && !questMet(s, id, heldWant(s, want), null, null)
+      ({ open, want }) => open && validTarget(s, want.kind, want.target) && !lostOf(s, want) && !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) && !questMet(s, id, heldWant(s, want), null, null)
     ).map((entry) => ({
       ...entry,
       rank: mixed(runHash(s, `staged:${id}:${entry.index}:${day}`))
@@ -2685,7 +2686,7 @@
     for (const [id, a] of Object.entries(s.actors)) {
       if (!("want" in a)) {
         const w = humanAvatarIds.includes(id) ? null : authoredWant(id);
-        a.want = humanAvatarIds.includes(id) ? null : stagedNext(s, id) ?? (w && validTarget(s, w.kind, w.target) ? heldWant(s, w) : null);
+        a.want = humanAvatarIds.includes(id) ? null : stagedNext(s, id) ?? (w && validTarget(s, w.kind, w.target) && !lostOf(s, w) ? heldWant(s, w) : null);
       }
       a.xp ??= startXp(id);
       delete a.halfwayIssued;
@@ -2739,7 +2740,8 @@
     if (!want) return false;
     if (want.step) return stepMet(s, actor, want, action);
     if (want.kind === "connect") return introduced(s, actor, talk);
-    if (want.kind === "item") return holdsAsWanted(s, actor, want);
+    if (want.kind === "item")
+      return holdsAsWanted(s, actor, want) || want.lit === void 0 && action?.kind === "give" && action.accepted === true && action.target === actor && action.item === want.target;
     if (want.kind === "place") return s.actors[actor].place === want.target;
     return Boolean(
       talk && s.actors[want.target]?.place === s.actors[actor].place && (talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor)
@@ -17684,6 +17686,21 @@
   var departed = (pack, state, id) => (pack.choices || []).some(
     (c) => c.on === "depart" && c.subject === id && owns4(state.receipts, c.id)
   );
+  function neverBack(world, id) {
+    if (world.actors?.[id]) {
+      const pack = packOf(id), state = pack && packState(world, pack.id);
+      return Boolean(state && departed(pack, state, id));
+    }
+    const thing = packThings[id];
+    if (!thing || !usedUp(world, id)) return false;
+    if (thing.locked) return neverBack(world, thing.locked.by);
+    if (thing.home && thing.regrow) return false;
+    return !packDefinitions.some(
+      (pack) => (pack.choices || []).some(
+        (c) => !c.archived && (c.repeats || !owns4(packState(world, pack.id)?.receipts, c.id)) && c.effects.some((e) => e.kind === "drop_item" && e.item === id)
+      )
+    );
+  }
   function committedChoiceText(world, pack, choice) {
     if (choice.summary) return choice.summary;
     const actor = world.log?.find(
