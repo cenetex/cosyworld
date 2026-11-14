@@ -345,13 +345,7 @@ fn an_import_spends_bounded_work() {
 
 /// A long honest save, played from createWorld through the whole burial,
 /// keeps every key and all its rules-built text through the import filter.
-// Ignored: it fails on current rules. The filter drops the told ship lane fact
-// ("Ships for ... only with Travel Provisions or something from Hoppy Cat
-// aboard." is built by `laneNeed` in v2/card-game/world/lanes.mjs, a slot the
-// authored-text catalog cannot match) and the Greek pack's new flags, and the
-// trimmed save then fails to load ("needs a fresh start"). Needs the owner.
 #[test]
-#[ignore = "import filter drops a played Greek save's lane fact and pack flags (owner)"]
 fn a_long_honest_save_keeps_its_text() {
     fn keys(value: &Value, path: String, out: &mut Vec<String>) {
         match value {
