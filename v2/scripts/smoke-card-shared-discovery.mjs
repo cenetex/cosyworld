@@ -20,7 +20,7 @@ const probe = `
 // Test-only access to the actual lifecycle promises and shared polling path.
 globalThis.discoveryProbe = {
   sync: () => sharedSession.sync(),
-  state: () => ({ revision: world.revision, trip }),
+  state: () => ({ revision: world.revision, trip, now: sharedSession.state.now }),
   wait: (key) => {
     globalThis.discoverySettled ||= {};
     globalThis.discoverySettled[key] = false;
@@ -235,15 +235,18 @@ try {
       (first) => document.querySelector("#dialogue-text").textContent === first,
       first,
     );
-    // Move the room clock past both lines; Live joins the latest line.
+    // A room clock update preserves this viewer's unread line.
     snapshot.now += 12000;
     await page.evaluate(() => {
       void window.discoveryProbe.sync();
     });
-    await page.waitForTimeout(250);
-    // The reader follows the room clock; ● live shows only when behind it.
-    if (await page.locator("#live-line").isVisible())
-      await page.locator("#live-line").click();
+    await page.waitForFunction(
+      (now) => window.discoveryProbe.state().now === now,
+      snapshot.now,
+    );
+    assert.equal(await page.textContent("#dialogue-text"), first);
+    assert.equal(await page.locator("#live-line").isVisible(), false);
+    await page.locator('#dialogue-advance[data-revealing="false"]').click();
     await page.waitForFunction(
       (second) =>
         document.querySelector("#dialogue-text").textContent === second,
