@@ -327,7 +327,18 @@ fn an_import_spends_bounded_work() {
     save["memories"]["vale"]["seen"] = json!((0..120_000)
         .map(|i| (format!("k{i}"), json!(i)))
         .collect::<serde_json::Map<_, _>>());
-    assert!(trusted_save(&save.to_string(), &[]).is_err());
+    for input in [
+        save.to_string(),
+        json!({"text": "x".repeat(2 * 1024 * 1024)}).to_string(),
+        format!("{}0{}", "[".repeat(130), "]".repeat(130)),
+    ] {
+        assert!(
+            imported::trusted_save(&input, &[], vocabulary(), |_| panic!(
+                "bounds must precede rules"
+            ))
+            .is_err()
+        );
+    }
     // So are more envelopes than the browser keeps.
     let many = vec![sign("line", "vale", "x", "local"); imported::ENVELOPES + 1];
     assert!(trusted_save(&honest_save().to_string(), &many).is_err());
@@ -400,11 +411,77 @@ fn played_released_and_upgraded_open_door_saves_can_be_shared() {
             &format!("openDoorImport({upgraded})"),
         );
         let raw = World::create(Some(&save)).unwrap().game;
+        assert_eq!(
+            World::hiding(Some(&raw.to_string()), None, &Value::Null)
+                .unwrap()
+                .game,
+            raw
+        );
         let kept = trusted_save(&save, &[]).unwrap();
         let world = World::create(Some(&kept)).unwrap().game;
-        for key in ["items", "actors", "knowledge", "packs", "journeyProgress"] {
-            assert_eq!(world[key], raw[key], "upgraded={upgraded}: {key}");
-        }
+        assert_eq!(world, raw, "upgraded={upgraded}");
+        let mut invalid = world.clone();
+        invalid["actors"]["vale"]["heldItem"] = json!("greek-return-list");
+        assert!(World::create(Some(&trusted_save(&invalid.to_string(), &[]).unwrap())).is_err());
         assert_eq!(world["packs"]["greek-drama"]["revision"], 25);
     }
+}
+
+#[test]
+fn authored_import_extensions_do_not_admit_forged_ids_or_sentences() {
+    let original = played_save("test/helpers/long-play.mjs", "longPlay()");
+    let mut save: Value = serde_json::from_str(&original).unwrap();
+    let bad_keys = [
+        "lane:pond>greek-piraeus",
+        "lane:greek-harbor>injected",
+        "quest:box:previous",
+        "quest:from:previous",
+        "greek-forged-flag",
+    ];
+    for path in [
+        "/knowledge/facts",
+        "/packs/greek-drama/flags",
+        "/packs/greek-drama/choices",
+    ] {
+        for key in bad_keys {
+            save.pointer_mut(path).unwrap()[key] = json!(true);
+        }
+    }
+    save["actors"]["vale"]["closed"] = json!({"quest:box:bell":true, "quest:box:previous":true});
+    let kept: Value = serde_json::from_str(&trusted_save(&save.to_string(), &[]).unwrap()).unwrap();
+    for key in bad_keys {
+        assert!(!kept.to_string().contains(key), "{key}");
+    }
+    assert_eq!(kept["actors"]["vale"]["closed"]["quest:box:bell"], true);
+    for text in [
+        format!("Vale abandons their quest to bring Water Jar to {INJECTION}"),
+        format!("Vale abandons their quest to bring {INJECTION} to Theban Courtyard."),
+        "Vale gives the The Forged Quay Basket to Myrine of Argos.".into(),
+        "Vale waits one turn. CANARY".into(),
+    ] {
+        let mut save: Value = serde_json::from_str(&original).unwrap();
+        save["items"]["lamp"]["history"] = json!([format!("Turn 1: {text}")]);
+        let kept = trusted_save(&save.to_string(), &[]).unwrap();
+        assert!(!kept.contains(&text), "{text}");
+    }
+    for (from, to) in [
+        ("Piraeus Quays", "Black pond"),
+        ("Travel Provisions", "Water Jar"),
+    ] {
+        let mut save: Value = serde_json::from_str(&original).unwrap();
+        let fact = &mut save["knowledge"]["facts"]["lane:greek-harbor>greek-piraeus"];
+        let canonical = fact["text"].clone();
+        let text = canonical.as_str().unwrap().replace(from, to);
+        assert_ne!(canonical, text);
+        fact["text"] = json!(text);
+        let kept = trusted_save(&save.to_string(), &[]).unwrap();
+        let world = World::create(Some(&kept)).unwrap().game;
+        assert_eq!(
+            world["knowledge"]["facts"]["lane:greek-harbor>greek-piraeus"]["text"],
+            canonical
+        );
+    }
+    let mut save: Value = serde_json::from_str(&original).unwrap();
+    save["packs"]["greek-drama"]["revision"] = json!(9999);
+    assert!(World::create(Some(&trusted_save(&save.to_string(), &[]).unwrap())).is_err());
 }

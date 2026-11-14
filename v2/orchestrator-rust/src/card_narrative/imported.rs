@@ -1,18 +1,9 @@
-//! A local save imported into a shared world (#2067) is untrusted: its text
-//! becomes journal state that other members' hosted prompts read. A string
-//! stays only when it is a word the rules or packs use (`Vocabulary`: an id,
-//! an enum or a schema field, alone or joined into a compound id, outside a
-//! sentence field), a pack name, rules-built text matching its field's
-//! authored catalog (`authored`), or a word the service wrote whose envelope
-//! comes with the import and verifies for that kind, speaker and a local
-//! save. A map key must fit its place: a map keyed by id (`ID_MAPS`) takes
-//! only ids of pack or rules content, alone or joined into a compound id,
-//! and any other object takes those or a name the rules give a property
-//! (`Vocabulary::fields`), never just any word of the rules source. Anything
-//! else is stripped
-//! before the first journal row: the list entry holding it is dropped, a
-//! lone field is cleared and a key is removed. A save the rules then refuse
-//! loses every avatar's inner life too (`strict`).
+//! Local saves entering shared worlds are untrusted prompt input (#2067).
+//! Keep authored field-specific sentences, names, bounded vocabulary tokens,
+//! and service-signed words bound to their kind, speaker and local world.
+//! Map keys must fit their schema position; vocabulary words alone are not IDs.
+//! Strip unsupported entries, fields and keys before the first journal row.
+//! If the filtered state is invalid, discard avatars' inner lives as well.
 //!
 //! Envelopes are not bound to one save and do not expire, so a word the
 //! service signed for one local save can be replayed into another save by
@@ -210,6 +201,14 @@ impl Vocabulary {
         }
         if let Ok(content) = serde_json::from_str::<Value>(content) {
             walk(&content, "", &mut words, &mut ids);
+        }
+        // Old learning conditions retain exact retired item IDs, never new map keys.
+        let historical: Value = serde_json::from_str(include_str!("authored-text.json"))
+            .expect("authored text catalog");
+        for entry in historical["retired_names"].as_array().into_iter().flatten() {
+            if let Some(id) = entry[0].as_str() {
+                words.insert(id.into());
+            }
         }
         Self { words, fields, ids }
     }
