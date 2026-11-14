@@ -44,18 +44,17 @@ try {
     for (const a of Object.values(fixture.actors))
       if (a.place === "greek-ship") a.place = "greek-harbor";
     // Residents never call the ship away from a human at its dock, so it
-    // leaves the harbor only when a resident boards. Seed the Bard there,
-    // bound for the shore.
-    if (place === "greek-harbor")
-      Object.assign(fixture.actors["greek-rhapsode"], {
-        place,
-        want: {
-          kind: "place",
-          target: "pond",
-          since: fixture.turn,
-          refusals: 0,
-        },
-      });
+    // leaves only when a resident boards. Seed the Bard at either dock,
+    // bound for its opposite shore.
+    Object.assign(fixture.actors["greek-rhapsode"], {
+      place,
+      want: {
+        kind: "place",
+        target: away,
+        since: fixture.turn,
+        refusals: 0,
+      },
+    });
     summonTransport(fixture, "greek-ship", away);
     assert.equal(fixture.transports["greek-ship"].dock, away);
     decodeSave(encodeSave(fixture));
@@ -195,6 +194,15 @@ try {
     await page.goto(`${origin}/?table=${table}`);
     await page.waitForSelector("#hand .card");
     await page.waitForTimeout(2000);
+    const ways = () =>
+      page.locator("#hand .card.location").evaluateAll(
+        (cards, here) =>
+          cards.map((card) => card.dataset.card).filter((id) => id !== here),
+        place,
+      );
+    const beforeWays = await ways();
+    assert.equal(beforeWays[0], topWay);
+    assert(!beforeWays.includes("greek-ship"));
     let fade;
     for (let n = 0; n < 8 && (await ship()).dock !== place; n++)
       fade = await wait();
@@ -206,14 +214,8 @@ try {
     const frame = shipCard.locator("xpath=..");
     const top = page.locator(`#hand [data-card="${topWay}"]`);
     assert.deepEqual(
-      await page
-        .locator("#hand .card.location")
-        .evaluateAll(
-          (cards, here) =>
-            cards.map((card) => card.dataset.card).filter((id) => id !== here),
-          place,
-        ),
-      [topWay, "greek-ship"],
+      await ways(),
+      [...beforeWays, "greek-ship"],
       "the ship joins the ways stack behind its first destination",
     );
     assert.equal(await top.getAttribute("aria-expanded"), "false");
