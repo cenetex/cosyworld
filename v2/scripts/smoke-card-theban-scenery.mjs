@@ -34,6 +34,9 @@ function initial() {
   s = act(s, "move", { target: "pond" });
   s = holdItem(s, "lamp");
   s.items.cloth.holder = "vale";
+  // This scenery walk starts with the palace's permission and presents it
+  // to the guard through the table before entering the battlefield.
+  s.items["greek-creon-writ"].holder = "vale";
   setLampFuel(s, 12, "pond");
   s.items.bell.holder = "station";
   s.actors.moth.place = "station";
@@ -282,14 +285,16 @@ try {
           await shot(id.replace("greek-", ""));
           visited.add(id);
         }
-        // The gate opens onto the battlefield while the guard holds the
-        // decree there; until then no card leads out.
-        const decree = (await state()).items["greek-decree"].holder;
-        if (id === "greek-palace" && !visited.has("greek-sanctuary"))
-          await use("greek-decree");
-        if (id === "greek-gate" && decree === "vale") {
+        // The guard opens the battlefield road when given Creon's writ.
+        const writ = (await state()).items["greek-creon-writ"].holder;
+        if (id === "greek-gate" && writ === "vale") {
           assert(!destinations.includes("greek-battlefield"));
-          await use("greek-decree", "greek-guard");
+          await use("greek-creon-writ", "greek-guard");
+          const opened = await state();
+          assert.equal(opened.items["greek-creon-writ"].holder, "greek-guard");
+          assert(legalActions(opened).some(
+            (action) => action.kind === "move" && action.target === "greek-battlefield",
+          ));
         }
       }
       assert.deepEqual([...visited].sort(), [

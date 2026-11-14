@@ -18,6 +18,7 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { MAX_DWELL } from "../card-game/world/dwell.mjs";
 
 function commit(world, kind, target) {
   const action = legalActions(world).find(
@@ -315,7 +316,16 @@ try {
     const tablet = "greek-helen-accounts";
     await playCard(tablet);
     if (branch === "troy") await travel("greek-well");
-    await pair(tablet, branch === "egypt" ? "greek-shipmaster" : "greek-elder");
+    const teller = branch === "egypt" ? "greek-shipmaster" : "greek-elder";
+    const canGiveTablet = async () => legalActions(await state()).some(
+      (action) => action.kind === "give" && action.item === tablet && action.target === teller,
+    );
+    // A resident may be dwelling one room away or asleep. Wait for the real
+    // handoff instead of assuming its authored home is its current position.
+    for (let n = 0; n < 2 * MAX_DWELL && !(await canGiveTablet()); n++)
+      await playCard("vale");
+    assert(await canGiveTablet(), `${teller} returns to hear Helen's account`);
+    await pair(tablet, teller);
     assert.equal(
       (await state()).items[tablet].holder,
       branch === "egypt" ? "greek-harbor" : "greek-well",
