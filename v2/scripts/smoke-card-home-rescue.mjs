@@ -148,7 +148,7 @@ try {
     assert.equal(await page.locator('#hand [data-card="station"]').count(), 0);
     for (const [kind, target] of [
       ["take", null],
-      ["move", "pond"],
+      ["move", "willows-bank"],
     ]) {
       const view = dispatchShared({
         op: "view",
@@ -173,18 +173,13 @@ try {
       });
       assert(result.ok, result.error);
       world = result.world;
-      if (kind === "take") assert.deepEqual(project().exits, ["pond"]);
+      if (kind === "take") {
+        assert.deepEqual(project().exits, ["willows-bank"]);
+        await page.locator('#hand [data-card="willows-bank"]').waitFor({ state: "attached" });
+      }
     }
-    // The pond joins the location stack face down (#1780).
-    await page
-      .locator('#hand [data-card="pond"]')
-      .waitFor({ state: "attached" });
-    await ready(page);
-    await selectCard(page, "pond", { touch: width === 390 });
-    await page.locator('#card-actions [data-action="move"]').click();
-    await page.waitForFunction(() =>
-      document.querySelector("#backdrop").src.includes("pond"),
-    );
+    assert.deepEqual(project().exits, ["station"]);
+    await page.locator('#hand [data-card="station"]').waitFor({ state: "attached" });
     await ready(page);
     await selectCard(page, "station", { touch: width === 390 });
     await page.locator('#card-actions [data-action="move"]').click();
@@ -196,7 +191,7 @@ try {
     assert.deepEqual(errors, []);
     await context.close();
     console.log(
-      `Home rescue: dry attic lamp, saved pond rescue, shared helper departure, and Ash pond-to-station travel passed at ${width}px.`,
+      `Home rescue: dry attic lamp, saved pond rescue, shared helper departure, and Ash's restored station exit passed at ${width}px.`,
     );
   }
 } finally {
