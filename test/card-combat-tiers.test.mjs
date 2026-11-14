@@ -12,21 +12,21 @@ import { levelTier } from "../v2/card-game/level-tiers.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
-const at = (vale, moth, seed = 7, revision = 0) => {
+const at = (keeper, moth, seed = 7, revision = 0) => {
   const s = createWorld({ seed });
-  s.actors.vale.level = vale;
+  s.actors.keeper.level = keeper;
   s.actors.moth.level = moth;
   s.revision = revision;
   return s;
 };
-// Every roll Vale makes on Pip over many seeds and plays.
-const rolls = (vale, moth) => {
-  const s = at(vale, moth);
+// Every roll the keeper makes on Pip over many seeds and plays.
+const rolls = (keeper, moth) => {
+  const s = at(keeper, moth);
   const seen = new Map();
   for (let seed = 1; seed <= 200; seed++)
     for (let revision = 0; revision < 10; revision++) {
       Object.assign(s, { run: { seed }, revision });
-      const damage = strikeDamage(s, "vale", "moth");
+      const damage = strikeDamage(s, "keeper", "moth");
       seen.set(damage, (seen.get(damage) || 0) + 1);
     }
   return seen;
@@ -35,8 +35,7 @@ const rolls = (vale, moth) => {
 describe("strike strength by level tier", () => {
   it("is equal within a tier and one step across a boundary", () => {
     expect(levelTier(1)).toBe(levelTier(2));
-    // [Vale's level, Pip's level, most Vale's strike can land, Vale outranks]
-    for (const [vale, moth, most, ranks] of [
+    for (const [keeper, moth, most, ranks] of [
       [1, 2, 2, false], // I and II are equally matched
       [2, 1, 2, false],
       [1, 9, 2, false],
@@ -50,8 +49,8 @@ describe("strike strength by level tier", () => {
       [100, 1, 3, true], // several tiers apart is still one step
       [1, 100, 1, false],
     ]) {
-      expect(strikePower(at(vale, moth), "vale", "moth")).toBe(most);
-      expect(outranks(at(vale, moth), "vale", "moth")).toBe(ranks);
+      expect(strikePower(at(keeper, moth), "keeper", "moth")).toBe(most);
+      expect(outranks(at(keeper, moth), "keeper", "moth")).toBe(ranks);
     }
   });
   it("rolls 1-2 in a tier, 1-3 a tier up and exactly 1 a tier down", () => {

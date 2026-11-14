@@ -11,15 +11,13 @@
 //   lane      a port a ship cannot yet sail to
 //   crossing  a pack crossing with `sealed` (a home's door in a shared world)
 //   hub       a `reflectionRoutes` entry with `sealed` (the Black pond)
-//
 // `boxesAt(s, place, actor)` lists the boxes lying at a place. `boxOpen`
 // says whether the way is open now, `boxWant` what opens a shut one. A box
 // is the locked card's id, so a card with two entrances is one box.
 //
-// Opening a box pays one XP to the traveller whose play opened it, once per
-// avatar per box per world (`s.opened`). A box that locks again does not pay
-// again. Time, weather, a resident walking in and a guard on his rounds pay
-// nothing; only the traveller's own play does (`creditOpened`).
+// Opening a box is credited to the traveller whose play opened it, once per
+// avatar per box per world (`s.opened`). Time, weather, a resident walking in
+// and a guard on his rounds credit nothing (`creditOpened`).
 import {
   conditionsMet,
   partyMet,
@@ -44,7 +42,6 @@ import {
   controlledByHuman,
 } from "../human-cast.mjs";
 import { guardOf } from "../resident-guard.mjs";
-import { levelFor } from "../want.mjs";
 import { life } from "../resident-home.mjs";
 import forest from "../forest.json" with { type: "json" };
 import { goalsOf, MOST_GOALS } from "./lock-goals.mjs";
@@ -540,13 +537,6 @@ export function creditOpened(before, next, actor) {
     if (!payees.length) continue;
     next.opened ??= {};
     next.opened[def.id] = [...(next.opened[def.id] || []), ...payees].sort();
-    // A level rises through its own quest, never from experience alone, so a
-    // traveller who has none held yet keeps the level they have.
-    for (const id of payees) {
-      const a = next.actors[id];
-      a.level ??= levelFor(a.xp || 0);
-      a.xp = (a.xp || 0) + 1;
-    }
     paid.push({ box: def.id, kind: def.kind, avatars: payees });
   }
   return paid;

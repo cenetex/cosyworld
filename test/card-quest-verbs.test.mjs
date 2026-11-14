@@ -9,14 +9,12 @@ import {
   wantMet,
 } from "../v2/card-game/want.mjs";
 
-// A level quest step with a verb beyond its kind's own.
 const step = (s, kind, target, verb, cards = {}) => {
   s.actors.vale.want = {
     kind,
     target,
     since: 0,
     refusals: 0,
-    quest: { level: 3, left: 1 },
     step: { verb, ...cards },
   };
   return s;
@@ -76,22 +74,26 @@ describe("quest step verbs", () => {
     expect(wantText(s.actors.vale.want)).toBe("strike Pip");
   });
 
-  it("validates a step's verb and cards", () => {
-    const s = step(createWorld(), "item", "lamp", "bring", {
-      to: "moth",
-      at: "pond",
-    });
+  it("validates a step only where a held quest can come from", () => {
+    const s = step(createWorld(), "item", "lamp", "give", { to: "moth" });
     s.turn = 1;
     expect(validWant(s, "vale")).toBe(true);
-    s.actors.vale.want.step = { verb: "meet" };
-    expect(validWant(s, "vale")).toBe(false);
     s.actors.vale.want.step = { verb: "give" };
     expect(validWant(s, "vale")).toBe(false);
-    // Rules 90 draws no violent step; one saved before stays valid.
+    step(s, "place", "attic", "rest");
+    expect(validWant(s, "vale")).toBe(true);
     expect(STEP_VERBS.person).toEqual(["meet"]);
-    step(s, "person", "moth", "attack");
-    expect(validWant(s, "vale")).toBe(true);
-    step(s, "item", "lamp", "find");
-    expect(validWant(s, "vale")).toBe(true);
+    for (const [kind, target, verb, cards] of [
+      ["item", "lamp", "bring", { to: "moth", at: "pond" }],
+      ["item", "lamp", "find", {}],
+      ["person", "moth", "attack", {}],
+      ["person", "moth", "meet", {}],
+    ]) {
+      step(s, kind, target, verb, cards);
+      expect(validWant(s, "vale"), verb).toBe(false);
+    }
+    step(s, "item", "lamp", "give", { to: "moth" });
+    s.actors.vale.want.quest = { level: 3, left: 1 };
+    expect(validWant(s, "vale")).toBe(false);
   });
 });

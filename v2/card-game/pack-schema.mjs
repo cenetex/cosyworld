@@ -734,8 +734,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       `avatar ${id} has an unknown field`,
     );
     check(
-      a.startLevel === undefined || intOk(a.startLevel, 1, 99),
-      `avatar ${id} startLevel needs a whole level from 1 to 99`,
+      a.startLevel === undefined || intOk(a.startLevel, 1, 21),
+      `avatar ${id} startLevel needs a whole level from 1 to 21`,
     );
     check(
       a.personalQuests === undefined || typeof a.personalQuests === "boolean",
@@ -1336,8 +1336,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       `item ${id} is invalid`,
     );
     check(
-      i.startLevel === undefined || intOk(i.startLevel, 1, 99),
-      `item ${id} startLevel needs a whole level from 1 to 99`,
+      i.startLevel === undefined || intOk(i.startLevel, 1, 21),
+      `item ${id} startLevel needs a whole level from 1 to 21`,
     );
     media(i.art, `item ${id} art`);
     requirements(i.requires, `item ${id} requires`);

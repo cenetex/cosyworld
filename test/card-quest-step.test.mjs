@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { NOT_FOUND, questStep } from "../v2/card-game/quest-step.mjs";
-import { questCard } from "../v2/card-game/quest-card.mjs";
+import { questCards } from "../v2/card-game/quest-card.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
+
+const questCard = (world, step = "lay") =>
+  questCards(world).find((q) => q.step?.verb === step) ?? questCards(world)[0];
 
 const quest = (kind, target, step = null) => ({
   actor: "vale",
@@ -35,7 +38,13 @@ describe("a chosen quest's completion action", () => {
     const s = createWorld();
     expect(questStep(s, quest("place", "greek-gate"), false)).toBe(null);
     expect(questStep(s, quest("item", "oil"), true)).toEqual({
-      reason: NOT_FOUND,
+      reason: NOT_FOUND.item,
+    });
+    expect(questStep(s, quest("person", "moth"), true)).toEqual({
+      reason: "Not met yet",
+    });
+    expect(questStep(s, quest("place", "greek-gate"), true)).toEqual({
+      reason: "Not discovered yet",
     });
   });
 

@@ -15,7 +15,11 @@ import {
 } from "./world.mjs";
 import { holdsAsWanted } from "./want.mjs";
 
-export const NOT_FOUND = "Not found yet";
+export const NOT_FOUND = {
+  item: "Not found yet",
+  person: "Not met yet",
+  place: "Not discovered yet",
+};
 
 function accepted(world, action) {
   if (action.kind === "give")
@@ -51,7 +55,7 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
   if (!questVisible(world, quest)) return null;
   const { actor, kind, target, step } = quest;
   if (kind === "connect" || !target) return null;
-  if (covered) return { reason: NOT_FOUND };
+  if (covered) return { reason: NOT_FOUND[kind] ?? NOT_FOUND.item };
   const here = world.actors[actor].place,
     mine = legal.filter((a) => a.actor === actor),
     placeOf = (id) => world.actors[id]?.place,
@@ -118,8 +122,11 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
     return choose((a) => a.kind === "talk" && a.target === target);
   if (kind !== "item") return null;
   return choose((a) => {
-    if (!["take", "ask"].includes(a.kind) ||
-        (a.item !== target && world.items[a.item]?.holder !== target)) return false;
+    if (
+      !["take", "ask"].includes(a.kind) ||
+      (a.item !== target && world.items[a.item]?.holder !== target)
+    )
+      return false;
     const next = structuredClone(world);
     next.items[a.item].holder = actor;
     settleHeldItems(next, handSnapshot(world));

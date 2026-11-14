@@ -63,7 +63,6 @@ describe("a want in Talk context", () => {
     const world = atStation();
     world.items.lamp.holder = "vale";
     world.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
-    // Told before, Pip's want gives Vale no quest above her own (rules 99).
     world.actors.vale.heard = { moth: "item:lamp" };
     const context = talkTo(world, "moth");
     const pip = factsOf(context, "moth");
@@ -73,7 +72,7 @@ describe("a want in Talk context", () => {
     ]);
     for (const entity of context.entities)
       expect(entity.facts.some((f) => QUEST_LINES.test(f))).toBe(false);
-    expect(factsOf(context, "vale")).toContain(`I want to be at ${nameOf("pond")}.`);
+    expect(factsOf(context, "vale")).toContain("Already holds the wanted Lamp.");
     expect(pip.length).toBeLessThanOrEqual(16);
   });
 

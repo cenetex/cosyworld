@@ -1,5 +1,4 @@
 // Talk tells a quest (#2196, rules 99; #2605). A player's Talk that reveals the
-// other avatar's want says it; the player takes it by a tap (Accept quest),
 // and nothing is pushed at the player. The quest that meets a want is read
 // from its shape (`questFor`):
 //   their item X   -> give(X, them):     the item, step give to them;
@@ -9,7 +8,7 @@
 // offered after a Talk lasts only while that want is still the one told. A
 // quest whose want has since changed leaves at the next settle, not as a
 // refusal. Met, it is a want met like any other.
-import { setWant, wantOf } from "./want.mjs";
+import { heldOf, releaseQuest } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
 import { pruneOffers, rollOffer } from "./offer-chance.mjs";
 import { staysByRole } from "./resident-guard.mjs";
@@ -107,10 +106,12 @@ const askerWants = (want, wanted) =>
 // The resident a held quest asks the traveler to bring or meet, whose bond it
 // pins: an escort or meeting, never an errand for an item.
 export function pinnedCompanion(s, traveler) {
-  const w = wantOf(s, traveler);
-  return w?.kind === "person" && w.step?.verb === "bring"
-    ? askerOf(s, w)
-    : null;
+  for (const w of heldOf(s.actors[traveler])) {
+    const asker =
+      w.kind === "person" && w.step?.verb === "bring" ? askerOf(s, w) : null;
+    if (asker) return asker;
+  }
+  return null;
 }
 
 // A player's Talk with `them`: the want of theirs that Talk reveals is
@@ -128,7 +129,6 @@ export function talkQuest(s, actor, them, api) {
   return quest;
 }
 // Whether the player was told this avatar's want and it is still theirs: the
-// first condition under which Accept quest may be offered (the second is the
 // visit's roll, offer-chance.mjs).
 export function toldWant(s, actor, them) {
   const want = s.actors[them]?.want;
@@ -141,9 +141,10 @@ export function pruneTalkQuests(s, api) {
   pruneOffers(s);
   for (const id of Object.keys(s.actors)) {
     if (!api.player(id)) continue;
-    const w = wantOf(s, id);
-    if (!talkQuestFrom(w) && !(w?.step && !w.quest && !w.story && w.kind === "person" && w.step.to))
-      continue;
-    if (!askerOf(s, w)) setWant(s.actors[id], null);
+    for (const w of heldOf(s.actors[id])) {
+      if (!talkQuestFrom(w) && !(w.step && !w.quest && !w.story && w.kind === "person" && w.step.to))
+        continue;
+      if (!askerOf(s, w)) releaseQuest(s.actors[id], w);
+    }
   }
 }

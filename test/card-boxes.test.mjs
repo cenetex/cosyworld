@@ -84,13 +84,12 @@ describe("the hub's boxes", () => {
     expect(isLockedBox(world, "pond")).toBe(true);
     // The Lamp is not yet discovered, so the lock does not name it.
     expect(lockedQuest(world, "pond")).toEqual({
-      text: "Find something undiscovered",
+      text: "Find something",
       cards: [],
     });
     expect(lockedQuest(world, "pond", () => true).text).toBe(
       "Hold the dark Lamp",
     );
-    // Visible does not mean openable: no move, and no card play opens it.
     expect(exits(world, "attic", "vale")).not.toContain("pond");
     expect(legalActions(world).filter((a) => a.target === "pond")).toEqual([]);
     expect(cardPlay(world, ["pond"]).action).toBeFalsy();
@@ -100,7 +99,7 @@ describe("the hub's boxes", () => {
     expect(boxesAt(out, "attic")[0]).toMatchObject({ id: "pond", open: true });
     expect(exits(out, "attic", "vale")).toContain("pond");
     expect(isLockedBox(out, "pond")).toBe(false);
-    expect(out.actors.vale.xp).toBe(world.actors.vale.xp + 1);
+    expect(out.actors.vale.xp).toBe(world.actors.vale.xp);
     expect(out.opened).toEqual({ pond: ["vale"] });
     expect(validOpened(out)).toBe(true);
     expect(decodeSave(encodeSave(out)).opened).toEqual({ pond: ["vale"] });
@@ -167,7 +166,6 @@ describe("the lock view", () => {
     });
     expect(availableCards(world)).toContain("greek-argos-tomb");
     expect(isLockedBox(world, "greek-argos-tomb")).toBe(true);
-    // It cannot be entered, talked to or acted on.
     expect(exits(world, "greek-argolid-road", "vale")).not.toContain(
       "greek-argos-tomb",
     );
@@ -285,8 +283,8 @@ describe("lanes", () => {
   });
 });
 
-describe("XP for opening a box", () => {
-  it("pays a give that makes the bread, once per avatar", () => {
+describe("credit for opening a box", () => {
+  it("credits a give that makes the bread, once per avatar, with no XP", () => {
     const { waterOffer } = greekErrands();
     const xp = waterOffer.actors.vale.xp;
     expect(waterOffer.opened).toBeUndefined();
@@ -295,25 +293,21 @@ describe("XP for opening a box", () => {
       target: "greek-baker",
     });
     expect(made.opened["greek-bread"]).toEqual(["vale"]);
-    // The wheat it used goes home to the Piraeus quay, which opens Thaleia
-    // there (open-door-rework): that box is the same play's too.
     expect(made.opened["greek-quay-host"]).toEqual(["vale"]);
-    expect(made.actors.vale.xp).toBe(xp + 2);
-    // The bread is used up and locks again; opening it again pays nothing.
+    expect(made.actors.vale.xp).toBe(xp);
     const relocked = structuredClone(made);
     relocked.usedUp = [...relocked.usedUp, "greek-bread"].sort();
     const again = structuredClone(relocked);
     again.usedUp = again.usedUp.filter((id) => id !== "greek-bread");
     expect(creditOpened(relocked, again, "vale")).toEqual([]);
     expect(again.actors.vale.xp).toBe(made.actors.vale.xp);
-    // Another traveller opening it is paid their own.
     again.controlledActors = ["vale", "mara"];
     expect(creditOpened(relocked, again, "mara")).toEqual([
       expect.objectContaining({ box: "greek-bread", avatars: ["mara"] }),
     ]);
     expect(again.opened["greek-bread"]).toEqual(["mara", "vale"]);
   });
-  it("pays a guard given the Writ, and not a guard who leaves", () => {
+  it("credits a guard given the Writ, and not a guard who leaves", () => {
     const writ = walk(greekErrands().writ, "gate");
     const xp = writ.actors.vale.xp;
     const opened = act(writ, "give", {
@@ -321,7 +315,7 @@ describe("XP for opening a box", () => {
       target: "greek-guard",
     });
     expect(opened.opened["greek-battlefield"]).toEqual(["vale"]);
-    expect(opened.actors.vale.xp).toBe(xp + 1);
+    expect(opened.actors.vale.xp).toBe(xp);
     // The guard walking off his post is nothing the traveller did.
     const gone = structuredClone(writ);
     gone.actors["greek-guard"].place = "greek-courtyard";
@@ -344,7 +338,9 @@ describe("XP for opening a box", () => {
       world.actors.vale.place = "clearing";
       world.turn = world.revision = 47;
       expect(entityActive(world, "badger")).toBe(false);
-      expect(boxesAt(world, "clearing")[0]).toMatchObject({
+      expect(
+        boxesAt(world, "clearing").find((box) => box.id === "badger"),
+      ).toMatchObject({
         id: "badger",
         kind: "resident",
         open: false,
@@ -358,7 +354,7 @@ describe("XP for opening a box", () => {
       Object.assign(badger, saved);
     }
   });
-  it("pays the Hollow's talk, a thing carried, a thing placed and a Raven woken", () => {
+  it("credits the Hollow's talk, a thing carried, a thing placed and a Raven woken", () => {
     const id = (name) => `ratiradio-${name}`;
     const home = id("listening-room");
     if (!packPeople[id("rati")]) return;
@@ -410,9 +406,7 @@ describe("XP for opening a box", () => {
           kind,
           kind === "talk" || kind === "move" ? { target } : { item: target },
         );
-        expect(world.actors.vale.xp - before, `${kind} ${target}`).toBe(
-          paid ? 1 : 0,
-        );
+        expect(world.actors.vale.xp - before, `${kind} ${target}`).toBe(0);
         if (paid) expect(world.opened[paid]).toContain("vale");
       }
       expect(Object.keys(world.opened).sort()).toEqual(
@@ -463,7 +457,7 @@ describe("a box shut for a shared world", () => {
 });
 
 describe("a lock for two", () => {
-  it("opens when two travellers stand together and pays both once", () => {
+  it("opens when two travellers stand together and credits both once", () => {
     const badger = packPeople.badger;
     const saved = { ...badger };
     badger.sealed = { at: "station" };
@@ -482,8 +476,8 @@ describe("a lock for two", () => {
       const next = act(world, "move", { target: "station" }, "ash");
       expect(entityActive(next, "badger")).toBe(true);
       expect(next.opened.badger).toEqual(["ash", "mara"]);
-      expect(next.actors.ash.xp).toBe(world.actors.ash.xp + 1);
-      expect(next.actors.mara.xp).toBe(world.actors.mara.xp + 1);
+      expect(next.actors.ash.xp).toBe(world.actors.ash.xp);
+      expect(next.actors.mara.xp).toBe(world.actors.mara.xp);
       // Walking out and in again pays nothing more.
       const out = act(next, "move", { target: "pond" }, "ash");
       const back = act(out, "move", { target: "station" }, "ash");

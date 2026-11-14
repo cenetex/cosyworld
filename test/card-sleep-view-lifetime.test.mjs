@@ -8,18 +8,18 @@ import {
   createWorld,
   decodeSave,
   encodeSave,
+  homeOf,
   legalActions,
   play,
 } from "../v2/card-game/world.mjs";
-import { halfwayXp } from "../v2/card-game/want.mjs";
+import { sleepQuest } from "../v2/card-game/want.mjs";
 
 function rest(eventSeq = 1) {
   let world = createWorld();
   world.actors.vale.place = "attic";
   world.turn = world.revision = 30;
   world.eventSeq = eventSeq;
-  world.actors.vale.xp = halfwayXp(1);
-  world.actors.vale.level = 1;
+  sleepQuest(world, "vale", { home: homeOf });
   world.actors.moth.want = world.actors.keeper.want = null;
   for (const sleep of [false, true]) {
     const action = legalActions(world, "vale").find((a) =>

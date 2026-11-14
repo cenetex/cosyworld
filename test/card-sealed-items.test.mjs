@@ -124,7 +124,7 @@ describe("a sealed item lies shut", () => {
 });
 
 describe("opening", () => {
-  it("opens on the play that makes its conditions true, pays one XP once, and latches", () => {
+  it("opens on the play that makes its conditions true, credits it once, and latches", () => {
     let s = world();
     s.items[FIGS].holder = "vale";
     const xp = s.actors.vale.xp;
@@ -132,17 +132,16 @@ describe("opening", () => {
     expect(entityActive(s, SHOVEL)).toBe(true);
     expect(boxesAt(s, gate, "vale").some((b) => b.id === SHOVEL)).toBe(false);
     expect(s.opened[SHOVEL]).toEqual(["vale"]);
-    expect(s.actors.vale.xp).toBe(xp + 1);
+    expect(s.actors.vale.xp).toBe(xp);
     expect(s.openedRoutes).toContain(`item:${SHOVEL}`);
     // Taken like any item.
     s = act(s, "take", { item: SHOVEL });
     expect(s.items[SHOVEL].holder).toBe("vale");
-    // The default latch: the fact lapsing does not shut it again, and
-    // picking the figs up again pays nothing.
+    // The default latch: the fact lapsing does not shut it again.
     s = act(s, "take", { item: FIGS });
     expect(entityActive(s, SHOVEL)).toBe(true);
     expect(s.items[SHOVEL].holder).toBe("vale");
-    expect(s.actors.vale.xp).toBe(xp + 1);
+    expect(s.opened[SHOVEL]).toEqual(["vale"]);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
   it("reads its conditions as they stand until the latch has run", () => {
@@ -193,7 +192,7 @@ describe("a live seal locks again", () => {
     s.items[SKIN].holder = "vale";
     const xp = s.actors.vale.xp;
     s = act(s, "drop", { item: SKIN });
-    expect(s.actors.vale.xp).toBeGreaterThan(xp);
+    expect(s.actors.vale.xp).toBe(xp);
     expect(s.opened[TOKEN]).toEqual(["vale"]);
     s = act(s, "take", { item: TOKEN });
     expect(s.items[TOKEN].holder).toBe("vale");

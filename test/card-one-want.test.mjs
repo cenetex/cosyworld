@@ -12,15 +12,15 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   CONTENT_TURNS,
-  dropCost,
+  DREAM_FROM,
   dropQuest,
   fillWants,
   newWant,
   nextWant,
   refuseWant,
   setWant,
-  takeQuest,
   wantCandidates,
+  holdQuest,
   wantOf,
 } from "../v2/card-game/want.mjs";
 
@@ -36,25 +36,28 @@ describe("one want per avatar", () => {
     expect(nextWant(s, "moth", wantAPI(s))).not.toBeNull();
   });
 
-  it("draws a resident's want from actor and turn alone, the same in worlds of different seeds (#2717)", () => {
-    const drawn = (seed, turn) => {
+  it("draws a resident's want from the world's seed, the actor and the turn (#2717)", () => {
+    const drawn = (seed, turn, actor = "moth") => {
       const s = createWorld({ seed });
       s.turn = s.revision = turn;
-      const pool = wantCandidates(s, "moth", wantAPI(s));
-      expect(pool.length).toBeGreaterThan(1);
       expect(s.run.seed).toBe(seed);
-      return JSON.stringify([pool, nextWant(s, "moth", wantAPI(s)).target]);
+      expect(wantCandidates(s, actor, wantAPI(s)).length).toBeGreaterThan(1);
+      return nextWant(s, actor, wantAPI(s)).target;
     };
     const each = Array.from({ length: 16 }, (_, i) => i + 1);
-    expect(new Set(each.map((seed) => drawn(seed, 0))).size).toBe(1);
+    expect(new Set(each.map((seed) => drawn(seed, 0))).size).toBeGreaterThan(1);
+    expect(each.map((seed) => drawn(seed, 0))).toEqual(
+      each.map((seed) => drawn(seed, 0)),
+    );
     expect(new Set(each.map((turn) => drawn(1, turn))).size).toBeGreaterThan(1);
   });
 
-  it("takes a quest only when none is held, and replaces nothing", () => {
+  it("holds a new quest on top of the one held, and replaces nothing", () => {
     const s = createWorld();
-    expect(takeQuest(s, "vale", pond(0))).toMatchObject({ target: "pond" });
-    expect(takeQuest(s, "vale", newWant("place", "attic", 0))).toBeNull();
-    expect(wantOf(s, "vale").target).toBe("pond");
+    expect(holdQuest(s, "vale", pond(0), "quest:box:a")).toMatchObject({ target: "pond" });
+    expect(holdQuest(s, "vale", newWant("place", "attic", 0), "quest:box:b")).toMatchObject({ target: "attic" });
+    expect(wantOf(s, "vale").target).toBe("attic");
+    expect(s.actors.vale.under.map((w) => w.target)).toEqual(["pond"]);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
@@ -62,7 +65,6 @@ describe("one want per avatar", () => {
     const s = createWorld();
     setWant(s.actors.vale, pond(0));
     s.actors.vale.xp = 4;
-    expect(dropCost(s, "vale")).toBe(0);
     const drop = legalActions(s).find((a) => a.kind === "drop" && !a.item);
     expect(drop).toMatchObject({ quest: 0 });
     const next = play(s, drop).state;
@@ -74,18 +76,16 @@ describe("one want per avatar", () => {
     );
   });
 
-  it("charges Sleep at home to drop, down to just under its threshold", () => {
+  it("drops the sleep quest for nothing", () => {
     const s = createWorld();
     Object.assign(s.actors.vale, { xp: 3, level: 1 });
     setWant(s.actors.vale, {
-      ...pond(0),
+      ...newWant("place", "attic", 0),
       step: { verb: "rest" },
-      quest: { level: 2, left: 1 },
+      from: DREAM_FROM,
     });
-    // The threshold of level 2 is 3: dropping leaves 2, so no level-up card.
-    expect(dropCost(s, "vale")).toBe(1);
     dropQuest(s, "vale");
-    expect(s.actors.vale).toMatchObject({ xp: 2, want: null });
+    expect(s.actors.vale).toMatchObject({ xp: 3, level: 1, want: null });
   });
 
   it("never lets a resident hold a stack: a set-aside want is replaced", () => {
@@ -109,7 +109,7 @@ describe("one want per avatar", () => {
     expect(s.actors.vale.want).toBeNull();
   });
 
-  it("holds no stack or receipts through a long run", () => {
+  it("holds no receipts, and no stack but a player's, through a long run", () => {
     let s = createWorld();
     for (let turn = 0; turn < 300; turn++) {
       const actions = legalActions(s);
@@ -117,7 +117,7 @@ describe("one want per avatar", () => {
       if (turn % 50 === 0) setWant(s.actors.vale, s.actors.vale.want ?? pond(s.turn));
     }
     for (const a of Object.values(s.actors)) {
-      expect(a.under).toBeUndefined();
+      if (a !== s.actors.vale) expect(a.under).toBeUndefined();
       expect(a.questRewards).toBeUndefined();
     }
     expect(legalActions(s).some((a) => ["claim", "focus"].includes(a.kind))).toBe(

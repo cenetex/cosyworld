@@ -279,7 +279,7 @@ describe("cosmetic upgrades travel with the traveler (#1873)", () => {
     expect(world.packs[PACK].receipts["forest-wear-scarf-vale"]).toBe(
       world.turn,
     );
-    expect(world.log.at(-1)).toMatchObject({
+    expect(world.log.findLast((e) => e.itemId === SCARF)).toMatchObject({
       kind: "narration",
       itemId: SCARF,
       actorId: "vale",

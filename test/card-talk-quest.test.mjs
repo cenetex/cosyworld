@@ -3,7 +3,7 @@
 // would meet it is read with `questFor`, and a tap (a later package) takes it.
 import { describe, expect, it } from "vitest";
 import { questing } from "./helpers/first-quest.mjs";
-import { acceptQuest } from "./helpers/accept-quest.mjs";
+import { heldFrom } from "./helpers/accept-quest.mjs";
 import {
   createWorld,
   decodeSave,
@@ -47,9 +47,9 @@ function station() {
 }
 
 describe("Talk tells a want", () => {
-  it("records what was told and gives the player nothing", () => {
+  it("records what was told, and holds the quest it gives", () => {
     let s = talk(station(), "moth");
-    expect(s.actors.vale.want).toBeNull();
+    expect(heldFrom(s, "moth").actors.vale.want.from).toBe("quest:from:moth");
     expect(s.actors.vale.heard).toEqual({ moth: "item:lamp" });
     expect(toldWant(s, "vale", "moth")).toBe(true);
     // Saved and loaded exactly; the same plays make the same world.
@@ -58,8 +58,7 @@ describe("Talk tells a want", () => {
       s.actors.vale.heard,
     );
     expect(validateWorld(reload(s))).toBeTruthy();
-    // The tap's quest gives the lamp to Pip.
-    acceptQuest(s, "moth");
+    heldFrom(s, "moth");
     expect(s.actors.vale.want).toMatchObject({
       kind: "item",
       target: "lamp",
@@ -100,17 +99,17 @@ describe("Talk tells a want", () => {
     expect(questFor(s, "moth", { kind: "connect", target: "humans" })).toBeNull();
   });
 
-  it("meets the taken quest for both: its own XP, and a helper's XP and trust", () => {
+  it("meets the taken quest for both: the helper's trust, and Pip's own XP", () => {
     let s = talk(station(), "moth");
-    acceptQuest(s, "moth");
+    heldFrom(s, "moth");
     const [vale, pip] = [s.actors.vale.xp, s.actors.moth.xp];
     s = act(
       s,
       (a) => a.kind === "give" && a.target === "moth" && a.item === "lamp",
     );
     expect(s.actors.vale.want).toBeNull();
-    // One for the quest met, one for helping Pip meet his own want.
-    expect(s.actors.vale.xp).toBe(vale + 2);
+    expect(s.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
+    expect(s.actors.vale.xp).toBe(vale);
     expect(s.actors.moth.xp).toBe(pip + 1);
     expect(s.actors.moth.trust.vale).toBe(1);
     expect(s.actors.vale.questRewards).toBeUndefined();
@@ -118,11 +117,12 @@ describe("Talk tells a want", () => {
 
   it("leaves a held Talk quest when their want changes first, without a refusal", () => {
     let s = talk(station(), "moth");
-    acceptQuest(s, "moth");
+    heldFrom(s, "moth");
     const xp = s.actors.vale.xp;
     s.actors.moth.want = newWant("place", "pond", s.turn);
     s = wait(s);
     expect(s.actors.vale.want).toBeNull();
+    expect(s.actors.vale.closed).toBeUndefined();
     expect(s.actors.vale.xp).toBe(xp);
     expect(validateWorld(reload(s))).toBeTruthy();
   });

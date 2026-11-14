@@ -24,14 +24,14 @@
     },
     {
       "file": "polynices-veiled.webp",
-      "source": "docs/design/assets/polynices/veiled-feather-study.png",
-      "sourceSha256": "38dd78b13adfe780d5cef650d1688a9ead9f5856ef60ed670e6d4985f2567c3e",
+      "source": "docs/design/assets/polynices/veiled-black-cloth-study.png",
+      "sourceSha256": "942bf94f476f0806ceb8a177e5d64d8411aa14d462c8a46985613c71ba583aba",
       "size": [
         1024,
         1536
       ],
-      "sha256": "df41b04fd68231100d1c70ec7649f6bcca0ac6d3e8f80bd7b12bfbfb0fbb3e6a",
-      "processing": "Lossless WebP export of the selected card study."
+      "sha256": "ec4181b089cb169cd7614c075492c569b6e25d48ca0d582749178585da0f8f98",
+      "processing": "Lossless WebP export of the approved Black cloth card study."
     },
     {
       "file": "polynices-grave.webp",

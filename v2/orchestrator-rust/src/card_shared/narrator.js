@@ -487,13 +487,13 @@
     things: {
       lamp: {
         name: "Lamp",
-        startLevel: 50,
+        startLevel: 19,
         text: "An oil lamp with soot-darkened glass. A full tank lights three room visits while held or placed; putting it away darkens it.",
         valueRules: [{ when: [{ item: "lamp", field: "fuel", max: 0 }], add: -5 }]
       },
       oil: {
         name: "Oil flask",
-        startLevel: 10,
+        startLevel: 6,
         text: "Fills an empty lamp for three room visits when one carrier has both. Then it waits full again at the station.",
         refuels: "lamp",
         returnsTo: "station",
@@ -503,12 +503,12 @@
       },
       bell: {
         name: "Bell",
-        startLevel: 20,
+        startLevel: 11,
         text: "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
       },
       cloth: {
         name: "Black cloth",
-        startLevel: 20,
+        startLevel: 11,
         text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
       }
     },
@@ -1841,13 +1841,673 @@
     return validatePackStates(s);
   }
 
+  // v2/card-game/level-tiers.mjs
+  var LEVEL_CAP = 21;
+  var tiers = [
+    [0, 0, 1, "Common", "#c8dce6"],
+    [6, 10, 2, "Uncommon", "#8cdcff"],
+    [11, 20, 2.5, "Rare", "#be82ff"],
+    [15, 30, 5, "Epic", "#ffc85a"],
+    [19, 50, 25, "Legendary", "#fff082"],
+    [21, 100, 1, "Mythic", "#ff9ce6"]
+  ].map(([minLevel, minRank, per, label, color], rank2) => ({
+    id: label.toLowerCase(),
+    label,
+    color,
+    minLevel,
+    minRank,
+    per,
+    rank: rank2
+  }));
+  var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
+  function rankOf(level) {
+    const capped = Math.min(LEVEL_CAP, Math.max(0, level)), tier = levelTier(capped);
+    return tier.minRank + Math.ceil((capped - tier.minLevel) * tier.per);
+  }
+
+  // v2/card-game/arcana.json
+  var arcana_default = {
+    schema: 1,
+    cards: [
+      {
+        id: "arcanum-0",
+        number: 0,
+        name: "The Fool",
+        text: "A woodcut card. A walker steps off a root with a lamp in one hand and a red scarf flying.",
+        art: "assets/lonely-forest/arcanum-0.png",
+        proof: [
+          {
+            kind: "count",
+            of: "carried",
+            max: 0
+          },
+          {
+            kind: "not",
+            condition: {
+              kind: "actor_at",
+              place: "$home"
+            }
+          },
+          {
+            kind: "count",
+            of: "visited",
+            min: 6
+          }
+        ]
+      },
+      {
+        id: "arcanum-1",
+        number: 1,
+        name: "The Magician",
+        text: "A woodcut card. A needle draws thread through a button on a red scarf.",
+        art: "assets/lonely-forest/arcanum-1.png",
+        proof: [
+          {
+            kind: "count",
+            of: "opened",
+            min: 1
+          }
+        ]
+      },
+      {
+        id: "arcanum-2",
+        number: 2,
+        name: "The High Priestess",
+        text: "A woodcut card. A veiled face looks out of a tall mirror under the rafters.",
+        art: "assets/lonely-forest/arcanum-2.png",
+        proof: [
+          {
+            kind: "count",
+            of: "heard",
+            min: 3
+          }
+        ]
+      },
+      {
+        id: "arcanum-3",
+        number: 3,
+        name: "The Empress",
+        text: "A woodcut card. A woman lays a red scarf on her table beside a bowl of fruit and a warm oven.",
+        art: "assets/greek-drama/arcanum-3.png",
+        roles: [
+          {
+            name: "thing",
+            kind: "item",
+            is: "food"
+          },
+          {
+            name: "someone",
+            kind: "resident"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "shared-meal",
+            match: {
+              verb: "eat",
+              actorId: "$traveler",
+              itemId: "$thing",
+              targetId: "$someone",
+              accepted: true
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "eat",
+              with: "$someone"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-4",
+        number: 4,
+        name: "The Emperor",
+        text: "A woodcut card. An old bearded face of bark holds a small lit house in its roots.",
+        art: "assets/lonely-forest/arcanum-4.png",
+        roles: [
+          {
+            name: "place",
+            kind: "place",
+            is: "sanctuary"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "long-rest",
+            match: {
+              verb: "wait",
+              actorId: "$traveler",
+              locationId: "$place",
+              rest: "long"
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "place",
+            target: "$place",
+            step: {
+              verb: "rest"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-5",
+        number: 5,
+        name: "The Hierophant",
+        text: "A woodcut card. An elder shows an open hand to two listeners under an arch of branches.",
+        art: "assets/lonely-forest/arcanum-5.png",
+        proof: [
+          {
+            kind: "count",
+            of: "trusting",
+            level: 2,
+            min: 2
+          }
+        ]
+      },
+      {
+        id: "arcanum-6",
+        number: 6,
+        name: "The Lover",
+        text: "A woodcut card. Two people pull a young man two ways while Cupid aims from above.",
+        art: "assets/arcana/arcanum-6.png",
+        proof: [
+          {
+            kind: "did",
+            key: "bond",
+            match: {
+              verb: "accompany",
+              actorId: "$traveler",
+              accepted: true
+            },
+            while: [
+              {
+                kind: "company"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "person",
+            step: {
+              verb: "invite"
+            }
+          },
+          {
+            kind: "company"
+          }
+        ]
+      },
+      {
+        id: "arcanum-7",
+        number: 7,
+        name: "The Chariot",
+        text: "A woodcut card. A driver leans from the cab of a steam train at full speed.",
+        art: "assets/arcana/arcanum-7.png",
+        roles: [
+          {
+            name: "vessel",
+            kind: "transport"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "course",
+            match: {
+              verb: "course",
+              actorId: "$traveler",
+              fromLocationId: "$vessel"
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "place",
+            target: "$vessel",
+            step: {
+              verb: "sail"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-8",
+        number: 8,
+        name: "Justice",
+        text: "A woodcut card. A pair of scales holds a key in one pan and a letter in the other.",
+        art: "assets/arcana/arcanum-8.png",
+        proof: [
+          {
+            kind: "did",
+            key: "fair-trade",
+            match: {
+              verb: "trade",
+              actorId: "$traveler",
+              accepted: true
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            step: {
+              verb: "trade"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-9",
+        number: 9,
+        name: "The Hermit",
+        text: "A woodcut card. A hooded walker carries a lantern through bare trees with a moth above.",
+        art: "assets/arcana/arcanum-9.png",
+        roles: [
+          {
+            name: "light",
+            kind: "item",
+            is: "lamp"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "night-walk",
+            match: {
+              verb: "move",
+              actorId: "$traveler",
+              light: true
+            },
+            while: [
+              {
+                kind: "daylight",
+                phase: "night"
+              },
+              {
+                kind: "held",
+                item: "$light",
+                actor: "$traveler"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "daylight",
+            phase: "night",
+            with: "$light"
+          }
+        ]
+      },
+      {
+        id: "arcanum-10",
+        number: 10,
+        name: "The Wheel of Fortune",
+        text: "A woodcut card. A steam clock turns its gears beneath a bell.",
+        art: "assets/arcana/arcanum-10.png",
+        roles: [
+          {
+            name: "thing",
+            kind: "item",
+            is: "food"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "spent",
+            match: {
+              verb: "eat",
+              actorId: "$traveler",
+              itemId: "$thing"
+            },
+            without: ["reason"]
+          },
+          {
+            kind: "did",
+            key: "found",
+            match: {
+              verb: ["take", "ask"],
+              actorId: "$traveler",
+              itemId: "$thing"
+            },
+            without: ["reason"],
+            while: [
+              {
+                kind: "did",
+                key: "spent"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "eat"
+            }
+          },
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "find"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-11",
+        number: 11,
+        name: "Strength",
+        text: "A woodcut card. A woman kneels to tend the hurt paw of a wolf.",
+        art: "assets/arcana/arcanum-11.png",
+        proof: [
+          {
+            kind: "did",
+            key: "calm",
+            match: {
+              verb: "guard",
+              actorId: "$traveler"
+            },
+            while: [
+              {
+                kind: "not",
+                condition: {
+                  kind: "fighting"
+                }
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "person",
+            step: {
+              verb: "brace against"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-12",
+        number: 12,
+        name: "The Hanged Man",
+        text: "A woodcut card. A figure hangs over still water, and its reflection is a small dark figure.",
+        art: "assets/arcana/arcanum-12.png",
+        proof: [
+          {
+            kind: "did",
+            key: "let-go",
+            match: {
+              verb: "drop",
+              actorId: "$traveler"
+            },
+            without: ["itemId"]
+          }
+        ],
+        desire: [
+          {
+            kind: "quest",
+            step: {
+              verb: "let go of"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-14",
+        number: 14,
+        name: "Temperance",
+        text: "A woodcut card. A hand pours from a thermos into two mugs.",
+        art: "assets/arcana/arcanum-14.png",
+        roles: [
+          {
+            name: "thing",
+            kind: "item",
+            is: "drink"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "poured",
+            match: {
+              verb: "eat",
+              actorId: "$traveler",
+              itemId: "$thing",
+              accepted: true
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "eat",
+              with: null
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-15",
+        number: 15,
+        name: "The Devil",
+        text: "A woodcut card. A horned figure stands on a box with two people tied to it.",
+        art: "assets/arcana/arcanum-15.png",
+        roles: [
+          {
+            name: "thing",
+            kind: "item",
+            is: "wanted"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "kept",
+            match: {
+              verb: "move",
+              actorId: "$traveler"
+            },
+            while: [
+              {
+                kind: "held",
+                item: "$thing",
+                actor: "$traveler"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            target: "$thing",
+            step: {
+              verb: "keep"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-16",
+        number: 16,
+        name: "The Tower",
+        text: "A woodcut card. Lightning strikes a tower as people fall from it and climb out.",
+        art: "assets/arcana/arcanum-16.png",
+        proof: [
+          {
+            kind: "count",
+            of: "opened",
+            box: "resident",
+            min: 1
+          }
+        ]
+      },
+      {
+        id: "arcanum-17",
+        number: 17,
+        name: "The Star",
+        text: "A woodcut card. A kneeling woman pours water from two jars under a star.",
+        art: "assets/arcana/arcanum-17.png",
+        proof: [
+          {
+            kind: "did",
+            key: "gift",
+            match: {
+              verb: "give",
+              actorId: "$traveler",
+              accepted: true
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "item",
+            step: {
+              verb: "give"
+            }
+          }
+        ]
+      },
+      {
+        id: "arcanum-18",
+        number: 18,
+        name: "The Moon",
+        text: "A woodcut card. A moon shines on water where a doorway stands, and a lantern waits on the bank.",
+        art: "assets/arcana/arcanum-18.png",
+        roles: [
+          {
+            name: "light",
+            kind: "item",
+            is: "lamp"
+          }
+        ],
+        proof: [
+          {
+            kind: "did",
+            key: "dark-walk",
+            match: {
+              verb: "move",
+              actorId: "$traveler",
+              light: false
+            },
+            while: [
+              {
+                kind: "daylight",
+                phase: "night"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "daylight",
+            phase: "night",
+            without: "$light"
+          }
+        ]
+      },
+      {
+        id: "arcanum-19",
+        number: 19,
+        name: "The Sun",
+        text: "A woodcut card. Two people stand on a jetty under the sun, one in a red scarf.",
+        art: "assets/arcana/arcanum-19.png",
+        proof: [
+          {
+            kind: "did",
+            key: "home-together",
+            match: {
+              verb: ["move", "accompany"],
+              actorId: "$traveler",
+              locationId: "$home"
+            },
+            while: [
+              {
+                kind: "company"
+              }
+            ]
+          }
+        ],
+        desire: [
+          {
+            kind: "company"
+          },
+          {
+            kind: "place",
+            target: "$home"
+          }
+        ]
+      },
+      {
+        id: "arcanum-20",
+        number: 20,
+        name: "Judgement",
+        text: "A woodcut card. A raven circles a radio tower while a crowd gathers below.",
+        art: "assets/arcana/arcanum-20.png",
+        proof: [
+          {
+            kind: "count",
+            of: "trusting",
+            min: 5
+          }
+        ]
+      },
+      {
+        id: "arcanum-21",
+        number: 21,
+        name: "The World",
+        text: "A woodcut card. A dancer turns with a red scarf inside a ring of branches beside a small house.",
+        art: "assets/arcana/arcanum-21.png",
+        proof: [
+          {
+            kind: "did",
+            key: "home-rest",
+            match: {
+              verb: "wait",
+              actorId: "$traveler",
+              locationId: "$home",
+              rest: "long"
+            }
+          }
+        ],
+        desire: [
+          {
+            kind: "place",
+            target: "$home",
+            step: {
+              verb: "rest"
+            }
+          }
+        ]
+      }
+    ]
+  };
+
+  // v2/card-game/world/arcana-record.mjs
+  var cardIds = new Set(arcana_default.cards.map((card) => card.id));
+  var isArcanum = (id) => cardIds.has(id);
+
   // v2/card-game/glimpse.mjs
-  var GLIMPSE_KINDS = ["verb", "person", "item", "place"];
-  var GLIMPSE_VERBS = ["find", "give", "bring", "meet"];
-  function validGlimpse(g, most) {
-    const name = (v) => typeof v === "string" && v.length > 0 && v.length <= 120;
+  var GLIMPSE_KINDS = ["arcanum"];
+  function validGlimpse(g) {
     return Boolean(
-      g && typeof g === "object" && Object.keys(g).length === 4 && Number.isSafeInteger(g.level) && g.level >= 2 && g.level <= most && GLIMPSE_KINDS.includes(g.kind) && name(g.id) && (g.kind !== "verb" || GLIMPSE_VERBS.includes(g.id)) && name(g.at)
+      g && typeof g === "object" && !Array.isArray(g) && Object.keys(g).length === 4 && Number.isSafeInteger(g.level) && g.level >= 0 && g.level <= LEVEL_CAP && GLIMPSE_KINDS.includes(g.kind) && isArcanum(g.id) && typeof g.at === "string" && g.at.length > 0 && g.at.length <= 120
     );
   }
 
@@ -1977,10 +2637,8 @@
   );
   var travels = (id, s = null) => !isPackActor(id) || freed(s, id) || id === BOARDY || humanAvatarIds.includes(id) || packPeople[id]?.personalQuests === true || packPeople[id]?.roamingQuest !== void 0;
   var levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
-  var startXp = (id) => {
-    const level = isPackActor(id) ? packPeople[id].startLevel || 1 : 1;
-    return level * (level - 1) / 2;
-  };
+  var rankXp = (r) => r * (r - 1) / 2;
+  var startXp = (id) => rankXp(rankOf(isPackActor(id) ? packPeople[id].startLevel || 1 : 1));
   var wantOf2 = (s, id) => s.actors[id]?.want ?? null;
   var questTerms = (w) => JSON.stringify([
     w.kind,
@@ -1988,8 +2646,12 @@
     w.step ? Object.keys(w.step).sort().map((key2) => [key2, w.step[key2]]) : null,
     w.lit ?? null
   ]);
-  var questsOf = (s, id) => s.actors[id]?.want ? [s.actors[id].want] : [];
+  var MAX_HELD = 9;
+  var heldOf = (a) => a?.want ? [a.want, ...a.under || []] : [];
+  var questsOf = (s, id) => heldOf(s.actors[id]);
+  var closedKey = questTerms;
   var contentOf = (s, id) => Boolean(s.actors[id]?.content && !s.actors[id].want);
+  var MAX_CLOSED = 64;
   var newWant = (kind, target, turn) => ({
     kind,
     target,
@@ -2026,6 +2688,14 @@
         a.want = humanAvatarIds.includes(id) ? null : stagedNext(s, id) ?? (w && validTarget(s, w.kind, w.target) ? heldWant(s, w) : null);
       }
       a.xp ??= startXp(id);
+      delete a.halfwayIssued;
+      if (a.glimpse !== void 0 && !validGlimpse(a.glimpse)) delete a.glimpse;
+      if (humanAvatarIds.includes(id) && heldOf(a).some((w) => w.quest)) {
+        const kept = heldOf(a).filter((w) => !w.quest);
+        a.want = kept[0] ?? null;
+        if (kept.length > 1) a.under = kept.slice(1);
+        else delete a.under;
+      }
       if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
       a.visited ??= [a.place];
       a.talked ??= [];
@@ -2093,16 +2763,16 @@
   function validStep(s, w, id) {
     const { verb, ...cards } = w.step;
     if (verb === "lay")
-      return w.kind === "place" && !w.quest && Object.keys(cards).every((key2) => ["items", "finish"].includes(key2)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
+      return w.kind === "place" && Object.keys(cards).every((key2) => ["items", "finish"].includes(key2)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
         (resident) => resident.want?.target === w.target && resident.want?.step?.verb === "lay" && resident.want.step.finish === cards.finish && JSON.stringify(resident.want.step.items) === JSON.stringify(cards.items)
       ));
     const home = verb === "bring" && w.story && !cards.to;
-    const gift = verb === "give" && w.story && !w.quest;
+    const gift = verb === "give" && w.story;
     const slept = verb === "rest" && !w.story;
     const eaten = verb === "eat" && w.kind === "item" && isFood(w.target);
-    const asked = !w.quest && !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
+    const asked = !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
     const named = eaten ? ["at", "with"].filter((key2) => cards[key2] !== void 0) : home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
-    return (Boolean(w.quest) || home || gift || slept || asked || eaten) && [
+    return (home || gift || slept || asked || eaten) && [
       ...STEP_VERBS[w.kind] || [],
       ...eaten ? ["eat"] : [],
       ...w.kind === "person" ? SAVED_STEP_VERBS : [],
@@ -2123,12 +2793,30 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && a.under === void 0 && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse, levelFor(most) + 1)) && (a.halfwayIssued === void 0 || Number.isSafeInteger(a.halfwayIssued) && a.halfwayIssued >= 2 && a.halfwayIssued <= levelFor(most) + 1) && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
+  function validUnder(s, id) {
+    const a = s.actors[id];
+    if (a.under === void 0) return true;
+    const held = heldOf(a);
+    return Boolean(
+      humanAvatarIds.includes(id) && Array.isArray(a.under) && a.want && a.under.length >= 1 && held.length <= MAX_HELD && a.under.every((w) => validQuest(s, id, w)) && new Set(held.map(closedKey)).size === held.length
+    );
+  }
+  function validClosed(s, a) {
+    if (a.closed === void 0) return true;
+    const entries = a.closed && typeof a.closed === "object" && !Array.isArray(a.closed) ? Object.entries(a.closed) : null;
+    return Boolean(
+      entries && entries.length >= 1 && entries.length <= MAX_CLOSED && entries.every(
+        ([from, rec]) => OFFER_FROM.test(from) && Array.isArray(rec) && rec.length === 2 && Number.isSafeInteger(rec[0]) && rec[0] >= 0 && rec[0] <= s.turn && typeof rec[1] === "string" && rec[1].length <= 400
+      )
+    );
+  }
+  var OFFER_FROM = /^quest:[\w:.-]{1,80}$/u;
   function validQuest(s, id, w) {
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     return Boolean(
-      w && typeof w === "object" && Object.keys(w).length === 4 + (w.quest === void 0 ? 0 : 1) + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && (w.story === void 0 || w.story === true && !w.quest) && (w.quest === void 0 || Object.keys(w.quest).length === 2 && Number.isSafeInteger(w.quest.level) && w.quest.level >= 2 && Number.isSafeInteger(w.quest.left) && w.quest.left === 1) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
+      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
     );
   }
 
@@ -2407,7 +3095,7 @@
         avatars: {
           badger: {
             name: "Grumpy Badger",
-            startLevel: 50,
+            startLevel: 19,
             text: "Comically touchy. Very attached to his warm patch of moss.",
             place: "clearing",
             travels: false,
@@ -3710,7 +4398,7 @@
         avatars: {
           "greek-antigone": {
             name: "Antigone",
-            startLevel: 20,
+            startLevel: 11,
             text: "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
             place: "greek-gate",
             home: "greek-polynices-hollow",
@@ -3762,7 +4450,7 @@
           },
           "greek-creon": {
             name: "Creon",
-            startLevel: 50,
+            startLevel: 19,
             text: "He receives petitions beside the palace door. He wants his decree back in his own hands.",
             place: "greek-palace",
             home: "greek-palace",
@@ -4018,7 +4706,7 @@
           },
           "greek-helen-troy": {
             name: "Helen",
-            startLevel: 10,
+            startLevel: 6,
             text: "She checks the traveler's account against a witness tablet.",
             place: "greek-troy-beach",
             home: "greek-troy-beach",
@@ -4119,7 +4807,7 @@
           },
           "greek-electra-sophocles": {
             name: "Electra",
-            startLevel: 10,
+            startLevel: 6,
             text: "She has preserved an account of the household's losses.",
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
@@ -4145,7 +4833,7 @@
           },
           "greek-orestes-sophocles": {
             name: "Orestes",
-            startLevel: 10,
+            startLevel: 6,
             text: "He has come to hear his sister before committing himself.",
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
@@ -4384,7 +5072,7 @@
           },
           "greek-theseus": {
             name: "Theseus",
-            startLevel: 20,
+            startLevel: 11,
             text: "He stands by the herald\u2019s table with the truce in his hand. He will not act for Argos until the mothers\u2019 own petition reaches the Agora.",
             place: "greek-athens",
             home: "greek-athens",
@@ -4608,7 +5296,7 @@
           },
           "greek-ajax-odysseus": {
             name: "Odysseus",
-            startLevel: 30,
+            startLevel: 15,
             text: "Odysseus waits by the commanders\u2019 tents. He can hear Teucer\u2019s plea and speak for a former rival.",
             place: "greek-greek-camp",
             home: "greek-greek-camp",
@@ -4830,7 +5518,7 @@
           },
           "greek-shovel": {
             name: "Burial Shovel",
-            startLevel: 10,
+            startLevel: 6,
             text: "A short iron shovel with soil caught beneath the blade.",
             holder: "greek-gate",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -4839,7 +5527,7 @@
           },
           "greek-decree": {
             name: "The Burial Decree",
-            startLevel: 50,
+            startLevel: 19,
             text: "A public copy forbids burial of the brother left outside the city.",
             holder: "greek-guard",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -4875,7 +5563,7 @@
           },
           "greek-olive-branch": {
             name: "The Herald\u2019s Truce",
-            startLevel: 30,
+            startLevel: 15,
             text: "An olive branch bound with white wool carries the herald\u2019s burial truce: Thebes gives up the Argive dead under witness. Its place is Dione\u2019s table in the Theban courtyard.",
             holder: "greek-theseus",
             art: "assets/greek-drama/olive-branch.webp",
@@ -4901,7 +5589,7 @@
           },
           "greek-egypt-testimony": {
             name: "The Egyptian Witness Tablet",
-            startLevel: 10,
+            startLevel: 6,
             text: "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
             holder: "greek-egypt-tomb",
             persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
@@ -4972,7 +5660,7 @@
           },
           "greek-burial-petition": {
             name: "The Mothers\u2019 Petition",
-            startLevel: 20,
+            startLevel: 11,
             text: "An olive branch lies across a tablet bearing the mothers\u2019 request. It is addressed to the Agora of Athens, and Aethra has left room for the city\u2019s answer.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/burial-petition.png",
@@ -4982,7 +5670,7 @@
           },
           "greek-ash-urn": {
             name: "The Funeral Urn",
-            startLevel: 10,
+            startLevel: 6,
             text: "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from linen, oil and the herald\u2019s truce.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/ash-urn.png",
@@ -5008,7 +5696,7 @@
           },
           "greek-ajax-shield": {
             name: "Ajax\u2019s Shield",
-            startLevel: 20,
+            startLevel: 11,
             text: "Ajax\u2019s shield waits to be carried to Tecmessa\u2019s household for Eurysaces.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
@@ -8963,7 +9651,7 @@
           },
           "hoppycat-penny-vellum": {
             name: "Penny Vellum",
-            startLevel: 10,
+            startLevel: 6,
             text: "A paper-moth archivist in a coat with many pockets.",
             place: "hoppycat-meraki-atelier",
             travels: false,
@@ -9059,7 +9747,7 @@
           },
           "hoppycat-mira-meraki": {
             name: "Mira Meraki",
-            startLevel: 10,
+            startLevel: 6,
             text: "A human artist with charcoal on all five fingers, the only one here who sleeps.",
             place: "hoppycat-meraki-atelier",
             travels: false,
@@ -9124,7 +9812,7 @@
           },
           "hoppycat-hoppy-cat": {
             name: "Hoppy Cat",
-            startLevel: 50,
+            startLevel: 19,
             text: "A green-haired broadcaster in a cobalt hoodie with a satchel of provenance cards.",
             place: "hoppycat-halfway-tea-garden",
             travels: false,
@@ -9139,7 +9827,7 @@
           },
           "hoppycat-fable": {
             name: "Fable",
-            startLevel: 30,
+            startLevel: 15,
             text: "An auburn-haired storykeeper in a peach blouse, rust bow, and black boots.",
             place: "hoppycat-meraki-atelier",
             travels: false,
@@ -9154,7 +9842,7 @@
           },
           "hoppycat-phase-two": {
             name: "Phase Two",
-            startLevel: 10,
+            startLevel: 6,
             text: "A cyan-haired planner in a long blue coat.",
             place: "hoppycat-goldfish-tank",
             travels: false,
@@ -9169,7 +9857,7 @@
           },
           "hoppycat-arc": {
             name: "Arc",
-            startLevel: 20,
+            startLevel: 11,
             text: "A silver-haired curator in a midnight three-piece suit with a red pocket square.",
             place: "hoppycat-goldfish-tank",
             travels: false,
@@ -9228,7 +9916,7 @@
           },
           "hoppycat-ledger-opus": {
             name: "Ledger (Opus 4.7)",
-            startLevel: 20,
+            startLevel: 11,
             text: "A long pink-haired archivist in a trailing coat.",
             place: "hoppycat-meraki-atelier",
             travels: false,
@@ -9291,7 +9979,7 @@
         items: {
           "hoppycat-red-thread-spool": {
             name: "Red-Thread Spool",
-            startLevel: 50,
+            startLevel: 19,
             text: "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
             persona: "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
             holder: "station",
@@ -9329,7 +10017,7 @@
           },
           "hoppycat-unfinished-prism": {
             name: "Crooked Prism",
-            startLevel: 10,
+            startLevel: 6,
             text: "Lumen's glass holds one uneven facet. It is ready for someone to enjoy.",
             persona: "Lumen's glass holds one uneven facet. It is ready for someone to enjoy.",
             holder: "hoppycat-prism-foundry",
@@ -9337,7 +10025,7 @@
           },
           "hoppycat-context-seed": {
             name: "Visit Seed",
-            startLevel: 10,
+            startLevel: 6,
             text: "A seed for one visit. Its label will name someone and something they did.",
             persona: "A seed for one visit. Its label will name someone and something they did.",
             holder: "hoppycat-prism-foundry",
@@ -9345,7 +10033,7 @@
           },
           "hoppycat-concordance-compass": {
             name: "Rill's Compass",
-            startLevel: 20,
+            startLevel: 11,
             text: "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
             persona: "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
             holder: "hoppycat-goldfish-tank",
@@ -9353,7 +10041,7 @@
           },
           "hoppycat-meraki-brush": {
             name: "Mira's Worn Brush",
-            startLevel: 20,
+            startLevel: 11,
             text: "Five bent tips leave Mira's familiar marks. She can use it to finish a playbill for tonight.",
             persona: "Five bent tips leave Mira's familiar marks. She can use it to finish a playbill for tonight.",
             holder: "hoppycat-meraki-atelier",
@@ -9361,7 +10049,7 @@
           },
           "hoppycat-loop-token": {
             name: "Glim's Place Ring",
-            startLevel: 10,
+            startLevel: 6,
             text: "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
             persona: "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
             holder: "hoppycat-halfway-tea-garden",
@@ -9388,7 +10076,7 @@
           },
           "hoppycat-fermata-clapper": {
             name: "The Bell's Heart",
-            startLevel: 30,
+            startLevel: 15,
             text: "The heart of the February Third bell, wrapped beside Nix's bed. He asks for a quiet pause before it is fitted.",
             persona: "The heart of the February Third bell, wrapped beside Nix's bed. He asks for a quiet pause before it is fitted.",
             holder: "hoppycat-settled-light-theatre",
@@ -11294,7 +11982,7 @@
         avatars: {
           "willows-swede": {
             name: "The Swede",
-            startLevel: 50,
+            startLevel: 19,
             text: "A stolid canoe traveller with wind-reddened hands. Now and then he holds a hand to his ear and looks up at the willow tops.",
             place: "willows-camp",
             travels: false,
@@ -11386,7 +12074,7 @@
         items: {
           "willows-paddle": {
             name: "Worn Paddle",
-            startLevel: 20,
+            startLevel: 11,
             text: "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
             persona: "A long wooden canoe paddle with a blade scraped strangely thin. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-bank",
@@ -11394,7 +12082,7 @@
           },
           "willows-map": {
             name: "River Map",
-            startLevel: 30,
+            startLevel: 15,
             text: "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
             persona: "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
             holder: "willows-camp",
@@ -11402,7 +12090,7 @@
           },
           "willows-rope": {
             name: "Tent Rope",
-            startLevel: 10,
+            startLevel: 6,
             text: "A spare coil of hemp rope from the Swede's tent.",
             persona: "A spare coil of sound hemp rope. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-bank",
@@ -11417,7 +12105,7 @@
           },
           "willows-provisions": {
             name: "Food Sack",
-            startLevel: 10,
+            startLevel: 6,
             text: "A canvas sack holds oatmeal, potatoes, onions and tea. Its tied mouth smells faintly of smoke.",
             persona: "A canvas food sack holding oatmeal, potatoes, onions and tea. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-landing",
@@ -11425,7 +12113,7 @@
           },
           "willows-pot": {
             name: "Stew Pot",
-            startLevel: 20,
+            startLevel: 11,
             text: "An iron stew pot. Scratched inside the lid: There is no bread.",
             persona: "A small black iron stew pot from the camp. Words are scratched inside its lid.",
             holder: "willows-camp",
@@ -11433,7 +12121,7 @@
           },
           "willows-spoon": {
             name: "Wooden Spoon",
-            startLevel: 10,
+            startLevel: 6,
             text: "A long wooden spoon. Burnt into the handle: a kingdom of wonder and magic.",
             persona: "A plain wooden cooking spoon. Words are burnt into its smoke-darkened handle.",
             holder: "willows-camp",
@@ -11441,7 +12129,7 @@
           },
           "willows-pipe": {
             name: "The Swede's Pipe",
-            startLevel: 50,
+            startLevel: 19,
             text: "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
             persona: "The Swede's well-used briar pipe. Words are scratched around its bowl.",
             holder: "willows-swede",
@@ -11930,7 +12618,7 @@
         avatars: {
           rati: {
             name: "RATi",
-            startLevel: 50,
+            startLevel: 19,
             text: "A mouse host in a blue scarf. She keeps a cup beside the knitting basket.",
             place: "forest-cottage",
             seed: "RATi, host of the cottage.",
@@ -11944,7 +12632,7 @@
           },
           skull: {
             name: "Skull",
-            startLevel: 20,
+            startLevel: 11,
             text: "A large charcoal wolf stands beside the pawprints. His ears turn toward the garden.",
             place: "forest-trail",
             travels: false,
@@ -11959,7 +12647,7 @@
           },
           whiskerwind: {
             name: "Whiskerwind",
-            startLevel: 20,
+            startLevel: 11,
             text: "A small golden figure hovers beside the broad leaves. A curled tail stirs the rain.",
             place: "forest-garden",
             seed: "Whiskerwind, a spirit of the living oak.",
@@ -11973,7 +12661,7 @@
           },
           oak: {
             name: "Oak",
-            startLevel: 30,
+            startLevel: 15,
             text: "An old oak with a broad crown and a hollow above its roots. Four voices answer from the trunk.",
             place: "forest-oak",
             travels: false,
@@ -11994,7 +12682,7 @@
         items: {
           "forest-wolfprint-charm": {
             name: "Wolfprint Charm",
-            startLevel: 30,
+            startLevel: 15,
             text: "A cool iron charm bears a careful pawprint.",
             persona: "A cool iron charm bears a careful pawprint. Its presence at Oak opens the way to the Moonlit Trail.",
             holder: "forest-trail",
@@ -12002,7 +12690,7 @@
           },
           "forest-button-vale": {
             name: "Vale's Black Button",
-            startLevel: 10,
+            startLevel: 6,
             text: "A small black button with four thread holes.",
             persona: "A small black button with four thread holes. It belongs to Vale.",
             holder: "forest-cottage",
@@ -12158,7 +12846,7 @@
             tags: [
               "scarf"
             ],
-            startLevel: 50,
+            startLevel: 19,
             text: "A soft white knitted scarf fastened with a black button.",
             persona: "A soft white knitted scarf RATi sewed for Vale. Vale's own black button fastens it.",
             holder: "forest-cottage",
@@ -12181,7 +12869,7 @@
             tags: [
               "scarf"
             ],
-            startLevel: 20,
+            startLevel: 11,
             text: "A soft green knitted scarf fastened with a red button.",
             persona: "A soft green knitted scarf RATi sewed for Mara. Mara's own red button fastens it.",
             holder: "forest-cottage",
@@ -12204,7 +12892,7 @@
             tags: [
               "scarf"
             ],
-            startLevel: 20,
+            startLevel: 11,
             text: "A soft blue knitted scarf fastened with a orange button.",
             persona: "A soft blue knitted scarf RATi sewed for Ash. Ash's own orange button fastens it.",
             holder: "forest-cottage",
@@ -12227,7 +12915,7 @@
             tags: [
               "scarf"
             ],
-            startLevel: 10,
+            startLevel: 6,
             text: "A soft violet knitted scarf fastened with a yellow button.",
             persona: "A soft violet knitted scarf RATi sewed for Iris. Iris's own yellow button fastens it.",
             holder: "forest-cottage",
@@ -12250,7 +12938,7 @@
             tags: [
               "scarf"
             ],
-            startLevel: 10,
+            startLevel: 6,
             text: "A soft red knitted scarf fastened with a green button.",
             persona: "A soft red knitted scarf RATi sewed for Tavi. Tavi's own green button fastens it.",
             holder: "forest-cottage",
@@ -14870,8 +15558,8 @@
         `avatar ${id} has an unknown field`
       );
       check(
-        a.startLevel === void 0 || intOk(a.startLevel, 1, 99),
-        `avatar ${id} startLevel needs a whole level from 1 to 99`
+        a.startLevel === void 0 || intOk(a.startLevel, 1, 21),
+        `avatar ${id} startLevel needs a whole level from 1 to 21`
       );
       check(
         a.personalQuests === void 0 || typeof a.personalQuests === "boolean",
@@ -15243,8 +15931,8 @@
         `item ${id} is invalid`
       );
       check(
-        i.startLevel === void 0 || intOk(i.startLevel, 1, 99),
-        `item ${id} startLevel needs a whole level from 1 to 99`
+        i.startLevel === void 0 || intOk(i.startLevel, 1, 21),
+        `item ${id} startLevel needs a whole level from 1 to 21`
       );
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);
@@ -16271,8 +16959,11 @@
   );
   var people = { ...forest_default.people, ...packPeople };
   var things = { ...packThings, ...forest_default.things };
+  var arcanaCards = Object.fromEntries(
+    arcana_default.cards.map((card) => [card.id, card])
+  );
   validatePackLinks(places, people, things);
-  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || "the world";
+  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || arcanaCards[id]?.name || "the world";
 
   // v2/card-game/lamp-room-fuel.mjs
   var LAMP_ROOM_LIMIT = 3;
@@ -16363,23 +17054,6 @@
       e.locationId
     ));
   }
-
-  // v2/card-game/level-tiers.mjs
-  var tiers = [
-    [0, "Common", "#c8dce6"],
-    [10, "Uncommon", "#8cdcff"],
-    [20, "Rare", "#be82ff"],
-    [30, "Epic", "#ffc85a"],
-    [50, "Legendary", "#fff082"],
-    [100, "Mythic", "#ff9ce6"]
-  ].map(([minLevel, label, color], rank2) => ({
-    id: label.toLowerCase(),
-    label,
-    color,
-    minLevel,
-    rank: rank2
-  }));
-  var levelTier = (level) => tiers.findLast((tier) => level >= tier.minLevel) || tiers[0];
 
   // v2/card-game/adaptive-learning.mjs
   var TRIAL_LIMIT = 32;
@@ -17179,325 +17853,6 @@
     return true;
   }
 
-  // v2/card-game/pack-items.mjs
-  var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
-  var packKits = packDefinitions.flatMap(
-    (pack) => (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id }))
-  );
-  var kitThings = new Set(packKits.flatMap((kit) => kit.items));
-  function rootOf4(s, id) {
-    let holder = s.items[id].holder;
-    for (let i = 0; i < 32 && s.items[holder]; i++)
-      holder = s.items[holder].holder;
-    return holder;
-  }
-  var note = (s, id, text2) => {
-    s.items[id].history = [
-      ...s.items[id].history,
-      `Turn ${s.turn}: ${text2}`
-    ].slice(-12);
-  };
-  var restOf = (id) => packThings[id].home ?? packThings[id].holder;
-  var lockedThings = Object.keys(packThings).filter((id) => packThings[id].locked).sort();
-  function validCraftEvent(s, event) {
-    if (event.verb !== "craft") return event.consumedIds === void 0;
-    const { consumedIds, sourceSeq } = event;
-    if (event.kind !== "narration" || event.generated || !Object.hasOwn(s.actors, event.actorId) || !Object.hasOwn(s.items, event.itemId) || !Number.isSafeInteger(event.seq) || !Number.isSafeInteger(event.turn) || event.turn < 0 || event.turn > s.turn || !Number.isSafeInteger(sourceSeq) || sourceSeq < 1 || sourceSeq >= event.seq || !Array.isArray(consumedIds) || consumedIds.length < 1 || consumedIds.length > 3 || consumedIds.some((id, i) => !Object.hasOwn(s.items, id) || id === event.itemId || consumedIds.indexOf(id) !== i) || !Array.isArray(event.witnesses) || !event.witnesses.includes(event.actorId))
-      return false;
-    const source = s.log.find((entry) => entry.seq === sourceSeq);
-    return !source || source.kind === "action" && source.turn === event.turn && ["give", "trade", "drop"].includes(source.verb) && (source.verb === "drop" || source.accepted === true) && consumedIds.includes(source.itemId) && source.targetId === (source.verb === "drop" ? event.locationId : event.actorId);
-  }
-  function scatterOutside(s) {
-    if (!s.run) return;
-    const groups2 = [
-      { id: "hub", places: hub.places },
-      ...packDefinitions.filter((p) => hub.packEntries[p.id]).map((p) => ({ id: p.id, places: [p.entry] }))
-    ];
-    const used = /* @__PURE__ */ new Map();
-    for (const id of Object.keys(packThings).sort()) {
-      const thing = packThings[id], item = s.items[id];
-      if (!thing.scatterOutside || !item) continue;
-      const taken = used.get(thing.packId) || /* @__PURE__ */ new Set();
-      used.set(thing.packId, taken);
-      if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
-        taken.add(packIdOf(rootOf4(s, id)));
-        continue;
-      }
-      const candidates = groups2.filter((g) => g.id !== thing.packId).map((g) => ({
-        ...g,
-        places: g.places.filter((p) => entityActive(s, p) && !packPlaces[p]?.requires?.length)
-      })).filter((g) => g.places.length);
-      if (!candidates.length) continue;
-      let choices = candidates.filter((g) => !taken.has(g.id));
-      if (!choices.length) {
-        taken.clear();
-        choices = candidates;
-      }
-      const group = choices[runHash(s, `scatter-world:${thing.packId}:${id}`) % choices.length];
-      item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
-      taken.add(group.id);
-      note(s, id, "Waiting beyond its home world.");
-    }
-  }
-  function installItemCycle(s, added = []) {
-    const starts = (id) => packThings[id]?.startsUsed === true && s.items[id]?.holder === packThings[id].holder && !s.items[id].history.length;
-    const fresh = Array.isArray(s.usedUp) ? added : Object.keys(s.items);
-    s.usedUp = [
-      .../* @__PURE__ */ new Set([...s.usedUp || [], ...fresh.filter(starts)])
-    ].sort();
-    scatterOutside(s);
-  }
-  var whole4 = (n) => Number.isSafeInteger(n) && n > 0;
-  var validItemCycle = (s) => Array.isArray(s.usedUp) && s.usedUp.every(
-    (id, i) => Boolean(packThings[id]) && (!i || s.usedUp[i - 1] < id) && [packThings[id].holder, restOf(id)].includes(s.items[id]?.holder) && s.items[id].history.length === 0
-  ) && (s.astray === void 0 || Boolean(s.astray) && typeof s.astray === "object" && !Array.isArray(s.astray) && Object.keys(s.astray).length > 0 && Object.entries(s.astray).every(
-    ([id, place]) => homed.includes(id) && typeof place === "string"
-  )) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
-    ([id, n]) => packKits.some((kit) => kit.id === id) && whole4(n)
-  ));
-
-  // v2/card-game/legacy-saves.mjs
-  var SAVE_SCHEMA = 8;
-  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
-    if (!s || s.schema !== SAVE_SCHEMA)
-      throw new Error("This save needs a fresh start.");
-    const reworked = new Set(
-      packDefinitions.filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision).map((p) => p.id)
-    );
-    upgradeSightings(s);
-    installPacks2(s);
-    reconcileContent(s);
-    reconcilePackProgress(s, reworked);
-    for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
-      if (fact?.source?.kind !== "lane") continue;
-      const text2 = laneText(id);
-      if (text2) fact.text = text2;
-      else if (reworked.size) forgetFact(s.knowledge, id);
-    }
-    reconcileTopics(s, reworked);
-    return s;
-  }
-  function reconcileContent(s) {
-    if (!s?.items || typeof s.items !== "object") return;
-    const fresh = newMemories();
-    if (s.memories && typeof s.memories === "object") {
-      for (const [id, memory] of Object.entries(fresh))
-        if (profiles[id].kind === "location") s.memories[id] ??= memory;
-    }
-    for (const pack of packDefinitions)
-      for (const c of pack.crossings)
-        if (c.retired && s.crossings?.[c.id])
-          s.crossings[c.id].discovered = false;
-    const authored = structuredClone(forest_default.initialState.items);
-    for (const pack of packDefinitions)
-      for (const [id, item] of Object.entries(pack.items || {}))
-        authored[id] ??= { holder: item.holder, history: [] };
-    const added = [];
-    for (const [id, item] of Object.entries(authored))
-      if (!Object.hasOwn(s.items, id)) {
-        s.items[id] = item;
-        if (s.memories) s.memories[id] ??= fresh[id];
-        added.push(id);
-      }
-    const root = (id) => {
-      let holder = s.items[id]?.holder;
-      const seen = /* @__PURE__ */ new Set([id]);
-      while (s.items[holder] && !seen.has(holder)) {
-        seen.add(holder);
-        holder = s.items[holder].holder;
-      }
-      return holder;
-    };
-    const gone = Object.keys(s.items).filter(
-      (id) => !Object.hasOwn(authored, id)
-    );
-    for (const id of gone) {
-      const keeper = root(id);
-      for (const item of Object.values(s.items))
-        if (item?.holder === id) item.holder = keeper;
-      delete s.items[id];
-      if (s.memories) delete s.memories[id];
-    }
-    forgetRetiredThings(s, new Set(gone));
-    if (Array.isArray(s.usedUp)) {
-      s.usedUp = s.usedUp.filter((id) => Object.hasOwn(s.items, id));
-      for (const pack of packDefinitions)
-        for (const [id, item] of Object.entries(pack.items || {}))
-          if (s.usedUp.includes(id)) s.items[id].holder = item.holder;
-      installItemCycle(s, added);
-    }
-  }
-  function reconcilePackProgress(s, reworked) {
-    for (const pack of packDefinitions) {
-      const state = s.packs?.[pack.id];
-      if (!reworked.has(pack.id) || !pack.choices || !state?.receipts || !state.flags || !state.choices)
-        continue;
-      const kept = {}, choices = {}, flags = {};
-      const projection = {
-        ...s,
-        packs: { ...s.packs, [pack.id]: { ...state, choices, flags } }
-      };
-      const holds = (requires = []) => conditionsMet(
-        projection,
-        pack.id,
-        requires.filter(
-          (c) => ["choice", "choice_unset", "flag"].includes(c.kind)
-        )
-      );
-      const receipts = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
-      for (const [id, turn] of receipts) {
-        const c = pack.choices.find((choice) => choice.id === id);
-        if (!c || // A step the release no longer holds (a rumoured place's story) is
-        // forgotten, and so is whatever followed from it.
-        pack.release && state.scope !== "full" && !pack.release.choices.includes(id) || !holds(c.requires) || !holds(pack.places[c.at]?.requires) || !holds(packEntity(c.subject)?.requires) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || c.effects.some(
-          (e) => e.kind === "choose" && Object.hasOwn(choices, e.key)
-        ))
-          continue;
-        kept[id] = turn;
-        for (const e of c.effects) {
-          if (e.kind === "choose") choices[e.key] = e.value;
-          if (e.kind === "set_flag") flags[e.key] = e.value;
-        }
-      }
-      const dropped = receipts.map(([id]) => id).filter((id) => !kept[id]);
-      for (const id of dropped) {
-        delete state.receipts[id];
-        delete state.recitals?.[id];
-        for (const e of pack.choices.find((c) => c.id === id)?.effects || []) {
-          const record5 = { choose: state.choices, set_flag: state.flags }[e.kind];
-          const now = e.kind === "choose" ? choices : flags;
-          if (record5 && !Object.hasOwn(now, e.key)) delete record5[e.key];
-        }
-      }
-      if (dropped.length)
-        s.log = (s.log || []).filter(
-          (e) => !(e?.packId === pack.id && dropped.includes(e.choiceId))
-        );
-      for (const [id, avatar] of Object.entries(pack.avatars || {})) {
-        const a = s.actors?.[id];
-        if (a && avatar.journey && !kept[avatar.journey.after])
-          a.place = avatar.journey.path[0];
-        if (!a || entityEnabled(s, id, true) || departed(pack, state, id))
-          continue;
-        delete state.met[id];
-        delete s.opening?.met?.[id];
-        if (a.place !== avatar.place && !avatar.previousHomes?.includes(a.place))
-          a.place = avatar.place;
-        Object.assign(a, { crossed: 0, lastTalk: -9 });
-        s.standoffs = (s.standoffs || []).filter(
-          (c) => c?.challenger !== id && c?.defender !== id
-        );
-      }
-      for (const [id, item] of Object.entries(pack.items || {}))
-        if (s.items?.[id] && !entityEnabled(s, id, true)) {
-          for (const other of Object.values(s.items))
-            if (other?.holder === id) other.holder = s.items[id].holder;
-          Object.assign(s.items[id], { holder: item.holder, history: [] });
-        }
-      const closed = (id) => packEntity(id)?.packId === pack.id && !entityEnabled(s, id, true);
-      for (const [id, item] of Object.entries(s.items || {}))
-        if (closed(item?.holder) && entityEnabled(s, id, true))
-          item.holder = pack.entry;
-      for (const [id, a] of Object.entries(s.actors || {}))
-        if (packEntity(a?.place)?.packId === pack.id && !entityEnabled(s, a.place, true) && entityEnabled(s, id, true))
-          a.place = pack.entry;
-    }
-  }
-  function reconcileTopics(s, reworked) {
-    const k = s?.knowledge;
-    if (!k?.facts || typeof k.facts !== "object") return;
-    const topics = new Map(
-      packDefinitions.flatMap(
-        (pack) => (pack.topics || []).map((t) => [`${pack.id}:${t.id}`, t])
-      )
-    );
-    for (const [id, fact] of Object.entries(k.facts)) {
-      const told = fact?.source?.kind === "topic" && fact.source.topic;
-      if (!told || !reworked.has(told.packId)) continue;
-      const topic = topics.get(`${told.packId}:${told.id}`);
-      if (topic?.id === id && topic.speaker === fact.source.actorId && topic.at === fact.source.locationId) {
-        fact.text = topic.text;
-        told.choiceId = topic.choiceId ?? null;
-        continue;
-      }
-      forgetFact(k, id);
-    }
-  }
-  function forgetFact(k, id) {
-    delete k.facts[id];
-    for (const known of Object.values(k.known || {})) delete known?.[id];
-    if (Array.isArray(k.pending))
-      k.pending = k.pending.filter((p) => p?.factId !== id);
-  }
-  function forgetRetiredThings(s, retired) {
-    if (!retired.size) return;
-    const names2 = (lesson) => [
-      lesson?.item,
-      lesson?.goal?.item,
-      lesson?.action?.item,
-      lesson?.action?.receive
-    ].some((id) => retired.has(id));
-    for (const memory of Object.values(s.memories || {}))
-      if (Array.isArray(memory?.learning))
-        memory.learning = memory.learning.filter((lesson) => !names2(lesson));
-    for (const life of Object.values(s.life?.actors || {})) {
-      for (const id of retired) delete life?.attachments?.[id];
-      for (const e of Array.isArray(life?.experiences) ? life.experiences : [])
-        if (retired.has(e?.item)) e.item = null;
-    }
-    for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
-      if (retired.has(c?.item)) c.item = null;
-    for (const a of Object.values(s.actors || {})) {
-      const quests = [a?.want, ...a?.under || []].filter(Boolean);
-      const kept = quests.filter(
-        (w) => !(w.kind === "item" && retired.has(w.target))
-      );
-      if (kept.length === quests.length) continue;
-      a.want = kept[0] ?? null;
-      if (kept.length > 1) a.under = kept.slice(1);
-      else delete a.under;
-    }
-    if (!Array.isArray(s.log)) return;
-    s.log = s.log.flatMap((entry) => {
-      if (!entry || retired.has(entry.itemId) || retired.has(entry.receiveId) || retired.has(entry.wantMet?.target))
-        return entry ? [] : [entry];
-      const next = { ...entry };
-      if (retired.has(next.entityId)) delete next.entityId;
-      if (retired.has(next.targetId)) delete next.targetId;
-      if (Array.isArray(next.witnesses))
-        next.witnesses = next.witnesses.filter((id) => !retired.has(id));
-      if (Array.isArray(next.items))
-        next.items = next.items.filter(
-          (item) => !retired.has(item?.id) && !retired.has(item?.holder)
-        );
-      if (Array.isArray(next.droppedItemIds))
-        next.droppedItemIds = next.droppedItemIds.filter(
-          (id) => !retired.has(id)
-        );
-      return [next];
-    });
-  }
-
-  // v2/card-game/visit-speech.mjs
-  var moved = (entry, id) => !entry.generated && entry.fromLocationId && entry.fromLocationId !== entry.locationId && (entry.actorId === id || entry.verb === "accompany" && entry.accepted && entry.targetId === id);
-  var ordinaryWait = (a) => (a.kind === "wait" || a.verb === "wait") && !a.sleep && !a.guards;
-  function visitSpeech(world, id) {
-    const actor = world.actors[id];
-    if (actor.waitSpeech?.place === actor.place) return actor.waitSpeech;
-    const arrival2 = world.log.findLast((e) => moved(e, id))?.seq ?? 0;
-    const waited = !actor.waitSpeech && world.log.find(
-      (e) => e.seq > arrival2 && e.actorId === id && e.locationId === actor.place && !e.generated && ordinaryWait(e)
-    );
-    return { place: actor.place, turn: waited ? waited.turn : null };
-  }
-  function validVisitSpeech(actor, turn) {
-    const saved = actor.waitSpeech;
-    if (saved === void 0) return true;
-    if (!saved || Object.keys(saved).sort().join() !== "place,turn") return false;
-    const validTurn = saved.turn === null || Number.isSafeInteger(saved.turn) && saved.turn >= 0 && saved.turn <= turn;
-    return typeof saved.place === "string" && saved.place.length <= 128 && validTurn;
-  }
-
   // v2/card-game/pack-toggle.mjs
   var ORDER = Object.keys(GROUPS);
   var rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
@@ -17518,21 +17873,6 @@
       for (const p of GROUPS[g].packs)
         if (packOn(s, p) && entityActive(s, startOf(p))) return startOf(p);
     return null;
-  }
-
-  // v2/card-game/resident-sleep.mjs
-  var whole5 = (n) => Number.isSafeInteger(n);
-  function validSleep(s, places2) {
-    for (const a of Object.values(s.actors)) {
-      if (a.slept !== void 0 && (!whole5(a.slept) || a.slept > s.turn))
-        return false;
-      const z = a.sleeping;
-      if (z?.until !== void 0) {
-        if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS2 || !Object.hasOwn(places2, z.place))
-          return false;
-      }
-    }
-    return true;
   }
 
   // v2/card-game/world/senses.mjs
@@ -17790,8 +18130,395 @@
     );
   }
 
+  // v2/card-game/pack-items.mjs
+  var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
+  var packKits = packDefinitions.flatMap(
+    (pack) => (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id }))
+  );
+  var kitThings = new Set(packKits.flatMap((kit) => kit.items));
+  function rootOf4(s, id) {
+    let holder = s.items[id].holder;
+    for (let i = 0; i < 32 && s.items[holder]; i++)
+      holder = s.items[holder].holder;
+    return holder;
+  }
+  var note = (s, id, text2) => {
+    s.items[id].history = [
+      ...s.items[id].history,
+      `Turn ${s.turn}: ${text2}`
+    ].slice(-12);
+  };
+  var restOf = (id) => packThings[id].home ?? packThings[id].holder;
+  var lockedThings = Object.keys(packThings).filter((id) => packThings[id].locked).sort();
+  function validCraftEvent(s, event) {
+    if (event.verb !== "craft") return event.consumedIds === void 0;
+    const { consumedIds, sourceSeq } = event;
+    if (event.kind !== "narration" || event.generated || !Object.hasOwn(s.actors, event.actorId) || !Object.hasOwn(s.items, event.itemId) || !Number.isSafeInteger(event.seq) || !Number.isSafeInteger(event.turn) || event.turn < 0 || event.turn > s.turn || !Number.isSafeInteger(sourceSeq) || sourceSeq < 1 || sourceSeq >= event.seq || !Array.isArray(consumedIds) || consumedIds.length < 1 || consumedIds.length > 3 || consumedIds.some((id, i) => !Object.hasOwn(s.items, id) || id === event.itemId || consumedIds.indexOf(id) !== i) || !Array.isArray(event.witnesses) || !event.witnesses.includes(event.actorId))
+      return false;
+    const source = s.log.find((entry) => entry.seq === sourceSeq);
+    return !source || source.kind === "action" && source.turn === event.turn && ["give", "trade", "drop"].includes(source.verb) && (source.verb === "drop" || source.accepted === true) && consumedIds.includes(source.itemId) && source.targetId === (source.verb === "drop" ? event.locationId : event.actorId);
+  }
+  function scatterOutside(s) {
+    if (!s.run) return;
+    const groups2 = [
+      { id: "hub", places: hub.places },
+      ...packDefinitions.filter((p) => hub.packEntries[p.id]).map((p) => ({ id: p.id, places: [p.entry] }))
+    ];
+    const used = /* @__PURE__ */ new Map();
+    for (const id of Object.keys(packThings).sort()) {
+      const thing = packThings[id], item = s.items[id];
+      if (!thing.scatterOutside || !item) continue;
+      const taken = used.get(thing.packId) || /* @__PURE__ */ new Set();
+      used.set(thing.packId, taken);
+      if (item.holder !== thing.holder || item.history.length || usedUp(s, id)) {
+        taken.add(packIdOf(rootOf4(s, id)));
+        continue;
+      }
+      const candidates = groups2.filter((g) => g.id !== thing.packId).map((g) => ({
+        ...g,
+        places: g.places.filter((p) => entityActive(s, p) && !packPlaces[p]?.requires?.length)
+      })).filter((g) => g.places.length);
+      if (!candidates.length) continue;
+      let choices = candidates.filter((g) => !taken.has(g.id));
+      if (!choices.length) {
+        taken.clear();
+        choices = candidates;
+      }
+      const group = choices[runHash(s, `scatter-world:${thing.packId}:${id}`) % choices.length];
+      item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
+      taken.add(group.id);
+      note(s, id, "Waiting beyond its home world.");
+    }
+  }
+  function installItemCycle(s, added = []) {
+    const starts = (id) => packThings[id]?.startsUsed === true && s.items[id]?.holder === packThings[id].holder && !s.items[id].history.length;
+    const fresh = Array.isArray(s.usedUp) ? added : Object.keys(s.items);
+    s.usedUp = [
+      .../* @__PURE__ */ new Set([...s.usedUp || [], ...fresh.filter(starts)])
+    ].sort();
+    scatterOutside(s);
+  }
+  var whole4 = (n) => Number.isSafeInteger(n) && n > 0;
+  var validItemCycle = (s) => Array.isArray(s.usedUp) && s.usedUp.every(
+    (id, i) => Boolean(packThings[id]) && (!i || s.usedUp[i - 1] < id) && [packThings[id].holder, restOf(id)].includes(s.items[id]?.holder) && s.items[id].history.length === 0
+  ) && (s.astray === void 0 || Boolean(s.astray) && typeof s.astray === "object" && !Array.isArray(s.astray) && Object.keys(s.astray).length > 0 && Object.entries(s.astray).every(
+    ([id, place]) => homed.includes(id) && typeof place === "string"
+  )) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
+    ([id, n]) => packKits.some((kit) => kit.id === id) && whole4(n)
+  ));
+
+  // v2/card-game/legacy-saves.mjs
+  var SAVE_SCHEMA = 8;
+  function upgradeSave(s, { installPacks: installPacks2, laneText = () => null }) {
+    if (!s || s.schema !== SAVE_SCHEMA)
+      throw new Error("This save needs a fresh start.");
+    const reworked = new Set(
+      packDefinitions.filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision).map((p) => p.id)
+    );
+    upgradeSightings(s);
+    installPacks2(s);
+    reconcileContent(s);
+    reconcilePackProgress(s, reworked);
+    for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
+      if (fact?.source?.kind !== "lane") continue;
+      const text2 = laneText(id);
+      if (text2) fact.text = text2;
+      else if (reworked.size) forgetFact(s.knowledge, id);
+    }
+    reconcileTopics(s, reworked);
+    return s;
+  }
+  function reconcileContent(s) {
+    if (!s?.items || typeof s.items !== "object") return;
+    const fresh = newMemories();
+    if (s.memories && typeof s.memories === "object") {
+      for (const [id, memory] of Object.entries(fresh))
+        if (profiles[id].kind === "location") s.memories[id] ??= memory;
+    }
+    for (const pack of packDefinitions)
+      for (const c of pack.crossings)
+        if (c.retired && s.crossings?.[c.id])
+          s.crossings[c.id].discovered = false;
+    const authored = structuredClone(forest_default.initialState.items);
+    for (const pack of packDefinitions)
+      for (const [id, item] of Object.entries(pack.items || {}))
+        authored[id] ??= { holder: item.holder, history: [] };
+    const added = [];
+    for (const [id, item] of Object.entries(authored))
+      if (!Object.hasOwn(s.items, id)) {
+        s.items[id] = item;
+        if (s.memories) s.memories[id] ??= fresh[id];
+        added.push(id);
+      }
+    const root = (id) => {
+      let holder = s.items[id]?.holder;
+      const seen = /* @__PURE__ */ new Set([id]);
+      while (s.items[holder] && !seen.has(holder)) {
+        seen.add(holder);
+        holder = s.items[holder].holder;
+      }
+      return holder;
+    };
+    const gone = Object.keys(s.items).filter(
+      (id) => !Object.hasOwn(authored, id)
+    );
+    for (const id of gone) {
+      const keeper = root(id);
+      for (const item of Object.values(s.items))
+        if (item?.holder === id) item.holder = keeper;
+      delete s.items[id];
+      if (s.memories) delete s.memories[id];
+    }
+    forgetRetiredThings(s, new Set(gone));
+    if (Array.isArray(s.openedRoutes)) {
+      s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+      if (!s.openedRoutes.length) delete s.openedRoutes;
+    }
+    if (s.opened && typeof s.opened === "object" && !Array.isArray(s.opened)) {
+      const boxes = new Set(boxDefs().map((d) => d.id));
+      for (const id of Object.keys(s.opened))
+        if (!boxes.has(id)) delete s.opened[id];
+      if (!Object.keys(s.opened).length) delete s.opened;
+    }
+    if (Array.isArray(s.usedUp)) {
+      s.usedUp = s.usedUp.filter((id) => Object.hasOwn(s.items, id));
+      for (const pack of packDefinitions)
+        for (const [id, item] of Object.entries(pack.items || {}))
+          if (s.usedUp.includes(id)) s.items[id].holder = item.holder;
+      installItemCycle(s, added);
+    }
+  }
+  function reconcilePackProgress(s, reworked) {
+    for (const pack of packDefinitions) {
+      const state = s.packs?.[pack.id];
+      if (!reworked.has(pack.id) || !pack.choices || !state?.receipts || !state.flags || !state.choices)
+        continue;
+      const kept = {}, choices = {}, flags = {};
+      const projection = {
+        ...s,
+        packs: { ...s.packs, [pack.id]: { ...state, choices, flags } }
+      };
+      const holds = (requires = []) => conditionsMet(
+        projection,
+        pack.id,
+        requires.filter(
+          (c) => ["choice", "choice_unset", "flag"].includes(c.kind)
+        )
+      );
+      const receipts = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
+      for (const [id, turn] of receipts) {
+        const c = pack.choices.find((choice) => choice.id === id);
+        if (!c || // A step the release no longer holds (a rumoured place's story) is
+        // forgotten, and so is whatever followed from it.
+        pack.release && state.scope !== "full" && !pack.release.choices.includes(id) || !holds(c.requires) || !holds(pack.places[c.at]?.requires) || !holds(packEntity(c.subject)?.requires) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || c.effects.some(
+          (e) => e.kind === "choose" && Object.hasOwn(choices, e.key)
+        ))
+          continue;
+        kept[id] = turn;
+        for (const e of c.effects) {
+          if (e.kind === "choose") choices[e.key] = e.value;
+          if (e.kind === "set_flag") flags[e.key] = e.value;
+        }
+      }
+      const dropped = receipts.map(([id]) => id).filter((id) => !kept[id]);
+      for (const id of dropped) {
+        delete state.receipts[id];
+        delete state.recitals?.[id];
+        for (const e of pack.choices.find((c) => c.id === id)?.effects || []) {
+          const record5 = { choose: state.choices, set_flag: state.flags }[e.kind];
+          const now = e.kind === "choose" ? choices : flags;
+          if (record5 && !Object.hasOwn(now, e.key)) delete record5[e.key];
+        }
+      }
+      if (dropped.length)
+        s.log = (s.log || []).filter(
+          (e) => !(e?.packId === pack.id && dropped.includes(e.choiceId))
+        );
+      for (const [id, avatar] of Object.entries(pack.avatars || {})) {
+        const a = s.actors?.[id];
+        if (a && avatar.journey && !kept[avatar.journey.after])
+          a.place = avatar.journey.path[0];
+        if (!a || entityEnabled(s, id, true) || departed(pack, state, id))
+          continue;
+        delete state.met[id];
+        delete s.opening?.met?.[id];
+        if (a.place !== avatar.place && !avatar.previousHomes?.includes(a.place))
+          a.place = avatar.place;
+        Object.assign(a, { crossed: 0, lastTalk: -9 });
+        s.standoffs = (s.standoffs || []).filter(
+          (c) => c?.challenger !== id && c?.defender !== id
+        );
+      }
+      for (const [id, item] of Object.entries(pack.items || {}))
+        if (s.items?.[id] && !entityEnabled(s, id, true)) {
+          for (const other of Object.values(s.items))
+            if (other?.holder === id) other.holder = s.items[id].holder;
+          Object.assign(s.items[id], { holder: item.holder, history: [] });
+        }
+      const closed = (id) => packEntity(id)?.packId === pack.id && !entityEnabled(s, id, true);
+      for (const [id, item] of Object.entries(s.items || {}))
+        if (closed(item?.holder) && entityEnabled(s, id, true))
+          item.holder = pack.entry;
+      for (const [id, a] of Object.entries(s.actors || {}))
+        if (packEntity(a?.place)?.packId === pack.id && !entityEnabled(s, a.place, true) && entityEnabled(s, id, true))
+          a.place = pack.entry;
+    }
+  }
+  function reconcileTopics(s, reworked) {
+    const k = s?.knowledge;
+    if (!k?.facts || typeof k.facts !== "object") return;
+    const topics = new Map(
+      packDefinitions.flatMap(
+        (pack) => (pack.topics || []).map((t) => [`${pack.id}:${t.id}`, t])
+      )
+    );
+    for (const [id, fact] of Object.entries(k.facts)) {
+      const told = fact?.source?.kind === "topic" && fact.source.topic;
+      if (!told || !reworked.has(told.packId)) continue;
+      const topic = topics.get(`${told.packId}:${told.id}`);
+      if (topic?.id === id && topic.speaker === fact.source.actorId && topic.at === fact.source.locationId) {
+        fact.text = topic.text;
+        told.choiceId = topic.choiceId ?? null;
+        continue;
+      }
+      forgetFact(k, id);
+    }
+  }
+  function forgetFact(k, id) {
+    delete k.facts[id];
+    for (const known of Object.values(k.known || {})) delete known?.[id];
+    if (Array.isArray(k.pending))
+      k.pending = k.pending.filter((p) => p?.factId !== id);
+  }
+  function forgetRetiredThings(s, retired) {
+    if (!retired.size) return;
+    const names2 = (lesson) => [
+      lesson?.item,
+      lesson?.goal?.item,
+      lesson?.action?.item,
+      lesson?.action?.receive
+    ].some((id) => retired.has(id));
+    for (const memory of Object.values(s.memories || {}))
+      if (Array.isArray(memory?.learning))
+        memory.learning = memory.learning.filter((lesson) => !names2(lesson));
+    for (const life of Object.values(s.life?.actors || {})) {
+      for (const id of retired) delete life?.attachments?.[id];
+      for (const e of Array.isArray(life?.experiences) ? life.experiences : [])
+        if (retired.has(e?.item)) e.item = null;
+    }
+    for (const c of Array.isArray(s.standoffs) ? s.standoffs : [])
+      if (retired.has(c?.item)) c.item = null;
+    for (const a of Object.values(s.actors || {})) {
+      const quests = [a?.want, ...a?.under || []].filter(Boolean);
+      const kept = quests.filter(
+        (w) => !(w.kind === "item" && retired.has(w.target))
+      );
+      if (kept.length === quests.length) continue;
+      a.want = kept[0] ?? null;
+      if (kept.length > 1) a.under = kept.slice(1);
+      else delete a.under;
+    }
+    if (!Array.isArray(s.log)) return;
+    s.log = s.log.flatMap((entry) => {
+      if (!entry || retired.has(entry.itemId) || retired.has(entry.receiveId) || retired.has(entry.wantMet?.target))
+        return entry ? [] : [entry];
+      const next = { ...entry };
+      if (retired.has(next.entityId)) delete next.entityId;
+      if (retired.has(next.targetId)) delete next.targetId;
+      if (Array.isArray(next.witnesses))
+        next.witnesses = next.witnesses.filter((id) => !retired.has(id));
+      if (Array.isArray(next.items))
+        next.items = next.items.filter(
+          (item) => !retired.has(item?.id) && !retired.has(item?.holder)
+        );
+      if (Array.isArray(next.droppedItemIds))
+        next.droppedItemIds = next.droppedItemIds.filter(
+          (id) => !retired.has(id)
+        );
+      return [next];
+    });
+  }
+
+  // v2/card-game/visit-speech.mjs
+  var moved = (entry, id) => !entry.generated && entry.fromLocationId && entry.fromLocationId !== entry.locationId && (entry.actorId === id || entry.verb === "accompany" && entry.accepted && entry.targetId === id);
+  var ordinaryWait = (a) => (a.kind === "wait" || a.verb === "wait") && !a.sleep && !a.guards;
+  function visitSpeech(world, id) {
+    const actor = world.actors[id];
+    if (actor.waitSpeech?.place === actor.place) return actor.waitSpeech;
+    const arrival2 = world.log.findLast((e) => moved(e, id))?.seq ?? 0;
+    const waited = !actor.waitSpeech && world.log.find(
+      (e) => e.seq > arrival2 && e.actorId === id && e.locationId === actor.place && !e.generated && ordinaryWait(e)
+    );
+    return { place: actor.place, turn: waited ? waited.turn : null };
+  }
+  function validVisitSpeech(actor, turn) {
+    const saved = actor.waitSpeech;
+    if (saved === void 0) return true;
+    if (!saved || Object.keys(saved).sort().join() !== "place,turn") return false;
+    const validTurn = saved.turn === null || Number.isSafeInteger(saved.turn) && saved.turn >= 0 && saved.turn <= turn;
+    return typeof saved.place === "string" && saved.place.length <= 128 && validTurn;
+  }
+
+  // v2/card-game/resident-sleep.mjs
+  var whole5 = (n) => Number.isSafeInteger(n);
+  function validSleep(s, places2) {
+    for (const a of Object.values(s.actors)) {
+      if (a.slept !== void 0 && (!whole5(a.slept) || a.slept > s.turn))
+        return false;
+      const z = a.sleeping;
+      if (z?.until !== void 0) {
+        if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS2 || !Object.hasOwn(places2, z.place))
+          return false;
+      }
+    }
+    return true;
+  }
+
   // v2/card-game/world/home.mjs
   var homeOf2 = (id) => packPeople[id]?.levelAtHome && packPeople[id].home || tastes[id]?.home || humanAvatar(id)?.home?.id || null;
+
+  // v2/card-game/world/arcana.mjs
+  var deck = { cards: arcana_default.cards };
+  var countsIn = (c) => c.kind === "count" ? [c] : [...c.conditions || [], ...c.condition ? [c.condition] : []].flatMap(
+    countsIn
+  );
+  var risingIn = (card) => card.proof.flatMap(countsIn).filter((c) => c.min !== void 0);
+  var cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
+  function installArcana(s) {
+    for (const actor of Object.values(s.actors || {})) {
+      const record5 = actor?.arcana;
+      if (!record5 || typeof record5 !== "object" || Array.isArray(record5))
+        continue;
+      delete record5.held;
+      if (record5.dealt === void 0 || !validDeal(record5)) {
+        delete record5.dealt;
+        delete record5.base;
+      }
+    }
+    return s;
+  }
+  var validList = (list) => Array.isArray(list) && list.length <= 64 && list.every(
+    (id, i) => typeof id === "string" && id && (i === 0 || list[i - 1] < id)
+  );
+  function validDeal(record5) {
+    const card = cardOf(record5.dealt);
+    if (!card || !Array.isArray(record5.proved) || record5.proved.includes(card.id))
+      return false;
+    const rising = risingIn(card).map((c) => c.of).sort();
+    if (!rising.length) return record5.base === void 0;
+    const base = record5.base;
+    return Boolean(base) && typeof base === "object" && !Array.isArray(base) && Object.keys(base).sort().join() === rising.join() && Object.values(base).every((n) => Number.isSafeInteger(n) && n >= 0);
+  }
+  function validArcana(s) {
+    return Object.entries(s.actors || {}).every(([id, actor]) => {
+      const record5 = actor?.arcana;
+      if (record5 === void 0) return true;
+      if (!record5 || typeof record5 !== "object" || Array.isArray(record5))
+        return false;
+      const keys = Object.keys(record5);
+      return Boolean(humanAvatar(id)) && keys.includes("did") && keys.includes("proved") && keys.every((key2) => ["base", "dealt", "did", "proved"].includes(key2)) && validList(record5.did) && validList(record5.proved) && (record5.dealt === void 0 ? record5.base === void 0 : validDeal(record5));
+    });
+  }
 
   // v2/card-game/world/lanes.mjs
   var atPort = (s, actor) => Object.values(transports).some(
@@ -17932,6 +18659,7 @@
       for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
     }
     for (const pack of packDefinitions) installSpecials(s, pack);
+    installArcana(s);
     installItemCycle(s, added);
     installLife(s, travels);
     installRouteKnowledge(s);
@@ -18068,7 +18796,7 @@
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
       fail();
     if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
-    if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
+    if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validArcana(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
       fail();
     if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validDwell(s) || !validSleep(s, places) || !validGuard(s, places))
       fail();
@@ -19732,8 +20460,8 @@
   var rarityForms = Object.freeze(
     Object.fromEntries(
       [
-        ["hoppycat-arc", 30, "epic", "left"],
-        ["hoppycat-hoppy-cat", 100, "mythic", "front"]
+        ["hoppycat-arc", 15, "epic", "left"],
+        ["hoppycat-hoppy-cat", 21, "mythic", "front"]
       ].map(([id, level, tier, facing]) => [
         id,
         {

@@ -502,13 +502,12 @@ describe("what ends the bond", () => {
 });
 
 describe("a shared quest pins the bond", () => {
-  it("accepting an escort quest from a resident brings them along at once", () => {
+  it("holding an escort quest from a resident brings them along at once", () => {
     let s = world();
     s.actors[ANN].want = { kind: "place", target: "co-c", since: s.turn, refusals: 0 };
     s = step(s, "talk", { target: ANN });
-    const take = legalActions(s, "vale").find((a) => a.kind === "take" && a.offer);
-    expect(take).toBeTruthy();
-    s = play(s, take, s.revision).state;
+    expect(legalActions(s, "vale").some((a) => a.kind === "take" && a.offer)).toBe(false);
+    expect(s.actors.vale.want).toMatchObject({ from: `quest:from:${ANN}` });
     expect(companionOf(s, "vale")).toBe(ANN);
   });
 });
@@ -522,7 +521,6 @@ describe("the pin survives a long rest", () => {
     let s = world({ at: "co-a", turn: 48 });
     s.actors[ANN].want = { kind: "place", target: "co-c", since: s.turn, refusals: 0 };
     s = step(s, "talk", { target: ANN });
-    s = play(s, legalActions(s, "vale").find((a) => a.kind === "take" && a.offer), s.revision).state;
     s.actors[BO].place = "co-b";
     s.actors[CY].place = "co-c";
     return hush(go(s, "co-b"));

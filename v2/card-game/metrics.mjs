@@ -26,10 +26,7 @@ const FLUSH_MS = 60_000;
 const MAX_COUNT = 1000;
 const DAY_MS = 86_400_000;
 
-// The counter for a play: quests have their own, Sleep is a kind of Wait.
-// A Take that names an offer is taking a quest, not picking a thing up.
 export function playCounter(action) {
-  if (action?.kind === "take" && action.offer) return "quest.accept";
   if (action?.kind === "drop" && !action.item) return "quest.abandon";
   if (action?.kind === "wait" && action.sleep) return "play.sleep";
   const name = `play.${action?.kind}`;

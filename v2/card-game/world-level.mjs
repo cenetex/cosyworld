@@ -1,6 +1,6 @@
 import { accountStorage as localStorage } from "./account-reset-storage.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
-import { levelTier, tiers } from "./level-tiers.mjs";
+import { levelTier, tiers, trackLevel } from "./level-tiers.mjs";
 import { conditionsMet, packDefinitions } from "./pack-registry.mjs";
 import { levelFor, levelOf, startXp } from "./want.mjs";
 
@@ -15,7 +15,10 @@ export function worldPoints(world) {
   let points = 0;
   for (const id of Object.keys(world?.actors || {}))
     if (!humanAvatarIds.includes(id))
-      points += Math.max(0, levelOf(world, id) - levelFor(startXp(id)));
+      points += Math.max(
+        0,
+        levelOf(world, id) - trackLevel(levelFor(startXp(id))),
+      );
   points += world?.openedRoutes?.length || 0;
   for (const pack of packDefinitions)
     for (const section of pack.sections || [])

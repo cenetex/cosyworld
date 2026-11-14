@@ -7,26 +7,17 @@ import {
   homeOf,
   holdChoice,
   legalActions,
-  LONG_SLEEP_TURNS,
   play,
   questOffers,
   validateWorld,
 } from "../v2/card-game/world.mjs";
-import {
-  availableCards,
-  asleepReason,
-  cardActions,
-  cardPlay,
-  cardType,
-  playLabel,
-} from "../v2/card-game/cards.mjs";
-import { BLOCKED } from "../v2/card-game/world/offers.mjs";
+import { availableCards } from "../v2/card-game/cards.mjs";
 import { restsAt } from "../v2/card-game/world/home.mjs";
 import {
   OFFER_ODDS,
   offerUnlocked,
 } from "../v2/card-game/offer-chance.mjs";
-import { questXp, dropCost, wantOf } from "../v2/card-game/want.mjs";
+import { DREAM_FROM, heldOf, levelOf, sleepQuest, wantOf } from "../v2/card-game/want.mjs";
 import { wantFact } from "../v2/card-game/want-talk.mjs";
 import { nameOf } from "../v2/card-game/world/catalog.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
@@ -41,109 +32,82 @@ const act = (s, pick, actor) => {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 };
-const take = (s, offer) =>
-  act(s, (a) => a.kind === "take" && a.offer === offer);
 const talk = (s, target) => act(s, (a) => a.kind === "talk" && a.target === target);
-const takes = (s) => legalActions(s).filter((a) => a.offer !== undefined);
+const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
+const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const GUARD = "greek-guard";
 
-describe("quest offers", () => {
-  it("offers a shut box's quest as a card, until the box opens", () => {
+describe("quest offers are held at once", () => {
+  it("holds a shut box's quest where the box lies, and not once it is gone", () => {
     const s = greekErrands().decree;
-    const box = questOffers(s).find((o) => o.kind === "box");
+    const box = heldOf(s.actors.vale).find((w) => w.from === "quest:box:greek-battlefield");
     expect(box).toMatchObject({
-      id: "quest:box:greek-battlefield",
-      source: "greek-battlefield",
-      label: "Accept quest",
-      blocked: null,
-      want: {
-        kind: "item",
-        target: "greek-creon-writ",
-        story: true,
-        step: { verb: "give", to: GUARD },
-      },
+      kind: "item",
+      target: "greek-creon-writ",
+      story: true,
+      step: { verb: "give", to: GUARD },
     });
-    expect(takes(s).map((a) => a.offer)).toContain(box.id);
+    expect(questOffers(s).some((o) => o.kind === "box")).toBe(false);
+    expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
     // The offer is deterministic for the same world.
     expect(questOffers(decodeSave(encodeSave(s)))).toEqual(questOffers(s));
-    // The box opens with the writ in the guard's hands: the card goes.
-    const open = greekErrands().opened;
-    expect(questOffers(open).some((o) => o.id === box.id)).toBe(false);
+    const fresh = structuredClone(s);
+    fresh.actors.vale.want = null;
+    delete fresh.actors.vale.under;
+    delete fresh.actors.vale.closed;
+    const standing = questOffers(fresh).find((o) => o.kind === "box");
+    expect(standing).toMatchObject({
+      id: "quest:box:greek-battlefield",
+      source: "greek-battlefield",
+      want: { target: "greek-creon-writ", story: true },
+    });
+    expect(standing).not.toHaveProperty("label");
+    expect(standing).not.toHaveProperty("blocked");
   });
 
-  it("offers a resident's quest after Talk, and not before", () => {
+  it("holds a resident's quest as Talk ends, and not before", () => {
     let s = greekErrands().decree;
-    expect(questOffers(s).some((o) => o.kind === "resident")).toBe(false);
+    expect(sources(s)).not.toContain(`quest:from:${GUARD}`);
     s.actors[GUARD].trust.vale = 1; // trusts: the offer is certain
     s = talk(s, GUARD);
-    const offer = questOffers(s).find((o) => o.kind === "resident");
-    expect(offer).toMatchObject({
-      id: `quest:from:${GUARD}`,
-      source: GUARD,
-      label: "Accept quest",
-      blocked: null,
-      want: { kind: "item", target: "greek-bread", step: { verb: "give", to: GUARD } },
+    const held = heldOf(s.actors.vale).find((w) => w.from === `quest:from:${GUARD}`);
+    expect(held).toMatchObject({
+      kind: "item",
+      target: "greek-bread",
+      step: { verb: "give", to: GUARD },
     });
-    // Leaving the place ends the offer; the want told does not come back
-    // until the next Talk.
-    const away = structuredClone(s);
-    away.actors.vale.place = "greek-courtyard";
-    expect(questOffers(away).some((o) => o.kind === "resident")).toBe(false);
-    // Taking it holds the quest and the card goes (it is the quest in hand).
-    s = take(s, offer.id);
-    expect(wantOf(s, "vale")).toMatchObject({ target: "greek-bread" });
+    expect(sources(s)[0]).toBe(`quest:from:${GUARD}`);
     expect(questOffers(s).some((o) => o.kind === "resident")).toBe(false);
   });
 
-  it("takes by a play that spends no turn and logs it", () => {
+  it("holds the quest in the play that made it stand, with no play and no log line of its own", () => {
     let s = greekErrands().decree;
+    s.actors[GUARD].trust.vale = 1;
     const turn = s.turn;
-    s = take(s, "quest:box:greek-battlefield");
-    expect(s.turn).toBe(turn);
-    expect(wantOf(s, "vale")).toMatchObject({ target: "greek-creon-writ" });
-    const entry = s.log.at(-1);
-    expect(entry).toMatchObject({
-      verb: "quest",
-      actorId: "vale",
-      targetId: "greek-battlefield",
-    });
-    expect(entry.text).toMatch(/takes up a quest/u);
+    s = talk(s, GUARD);
+    expect(s.turn).toBe(turn + 1);
+    expect(sources(s)).toContain(`quest:from:${GUARD}`);
+    expect(s.log.some((e) => e.verb === "quest")).toBe(false);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
-  it("carries the reason while a quest is held, and offers no play", () => {
+  it("stacks quests, discards only the top, and keeps a discarded one closed", () => {
     let s = greekErrands().decree;
-    s = take(s, "quest:box:greek-battlefield");
-    s = talk(s, GUARD);
     s.actors[GUARD].trust.vale = 1;
     s = talk(s, GUARD);
-    const offers = questOffers(s);
-    expect(offers.length).toBeGreaterThan(0);
-    for (const o of offers) expect(o.blocked).toBe(BLOCKED);
-    expect(takes(s)).toEqual([]);
-    // The client reads the reason through the one existing blocked button.
-    const id = offers[0].id;
-    expect(availableCards(s)).toContain(id);
-    expect(cardType(id)).toBe("quest");
-    expect(cardPlay(s, [id]).action).toBeFalsy();
-    expect(cardActions(s, [id]).actions).toEqual([]);
-    expect(asleepReason(s, [id])).toBe(BLOCKED);
-    // Discarding is free for an ordinary quest, and the card is live again.
-    const drop = find(s, (a) => a.kind === "drop" && !a.item);
-    expect(dropCost(s, "vale")).toBe(0);
-    s = play(s, drop, s.revision).state;
-    expect(questOffers(s).every((o) => o.blocked === null)).toBe(true);
-    expect(takes(s).length).toBeGreaterThan(0);
+    const before = sources(s);
+    expect(before.length).toBeGreaterThan(1);
+    const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
+    expect(drops).toHaveLength(1);
+    s = play(s, drops[0], s.revision).state;
+    expect(sources(s)).toEqual(before.slice(1));
+    expect(questOffers(s).every((o) => o.id !== before[0])).toBe(true);
+    expect(s.actors.vale.closed[before[0]]).toBeTruthy();
   });
 
-  it("gives an offer card its one play and its label", () => {
+  it("lays no quest card on the table", () => {
     const s = greekErrands().decree;
-    const id = "quest:box:greek-battlefield";
-    expect(availableCards(s)).toContain(id);
-    const { actions } = cardActions(s, [id]);
-    expect(actions).toHaveLength(1);
-    expect(actions[0]).toMatchObject({ kind: "take", offer: id });
-    expect(playLabel(actions[0], s)).toBe("Accept quest");
+    expect(availableCards(s).some((id) => id.startsWith("quest:"))).toBe(false);
   });
 });
 
@@ -218,16 +182,14 @@ describe("the chance on Talk", () => {
     for (let seed = 0; seed < 30; seed++) {
       const s = talk(seeded(seed, 1), GUARD);
       expect(offerUnlocked(s, "vale", GUARD)).toBe(true);
-      expect(questOffers(s).some((o) => o.id === `quest:from:${GUARD}`)).toBe(true);
+      expect(sources(s)).toContain(`quest:from:${GUARD}`);
     }
   });
 
-  it("applies to residents alone: a shut box always shows its card", () => {
+  it("applies to residents alone: a shut box's quest is always held", () => {
     for (let seed = 0; seed < 10; seed++) {
       const s = seeded(seed);
-      expect(
-        questOffers(s).some((o) => o.id === "quest:box:greek-battlefield"),
-      ).toBe(true);
+      expect(sources(s)).toContain("quest:box:greek-battlefield");
     }
   });
 
@@ -254,50 +216,28 @@ describe("the chance on Talk", () => {
   });
 });
 
-describe("level up", () => {
-  const atThreshold = (xp) => {
+describe("sleep and dream", () => {
+  const atHome = () => {
     const s = createWorld();
-    // Experience is capped by the turns played, so the clock has run on.
     s.turn = s.revision = 8;
     s.actors.vale.place = "attic";
-    s.actors.vale.level = 1;
-    s.actors.vale.xp = xp;
     return s;
   };
+  const rested = (s) =>
+    s.log.some((e) => e.actorId === "vale" && e.rest === "long");
+  const longRest = (s) => {
+    for (let i = 0; i < 40 && !rested(s); i++)
+      s = act(s, (a, _, all) => a.sleep || (a.kind === "wait" && !all.some((b) => b.sleep)));
+    expect(rested(s)).toBe(true);
+    return s;
+  };
+  const dreaming = (s) => heldOf(s.actors.vale).some((w) => w.from === DREAM_FROM);
 
-  it("shows the level-up card at the threshold and not under it", () => {
-    expect(questXp(2)).toBe(3);
-    expect(questOffers(atThreshold(2)).some((o) => o.kind === "level")).toBe(false);
-    const offer = questOffers(atThreshold(3)).find((o) => o.kind === "level");
-    expect(offer).toMatchObject({
-      id: "quest:level",
-      label: "Accept quest",
-      blocked: null,
-      want: {
-        kind: "place",
-        target: "attic",
-        quest: { level: 2, left: 1 },
-        step: { verb: "rest" },
-      },
-    });
-    // Level 2 needs the next threshold.
-    const two = atThreshold(questXp(3) - 1);
-    two.actors.vale.level = 2;
-    expect(questOffers(two).some((o) => o.kind === "level")).toBe(false);
-    two.actors.vale.xp = questXp(3);
-    expect(questOffers(two).some((o) => o.kind === "level")).toBe(true);
-  });
-
-  it("takes Sleep at home by a tap, blocked by any other quest", () => {
-    const held = atThreshold(3);
-    held.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
-    const offer = questOffers(held).find((o) => o.kind === "level");
-    expect(offer.blocked).toBe(BLOCKED);
-    expect(takes(held)).toEqual([]);
-    const s = take(atThreshold(3), "quest:level");
-    expect(wantOf(s, "vale")).toMatchObject({ target: "attic", quest: { level: 2 } });
-    // Held, it is not offered again.
-    expect(questOffers(s).some((o) => o.kind === "level")).toBe(false);
+  it("offers no level-up quest, however much experience a traveler holds", () => {
+    const s = atHome();
+    s.actors.vale.xp = 6;
+    expect(questOffers(s).map((o) => o.kind)).not.toContain("level");
+    expect(dreaming(wait(s))).toBe(false);
   });
 
   it("rests an avatar at a sanctuary or its own home, a resident only at a sanctuary", () => {
@@ -309,38 +249,22 @@ describe("level up", () => {
     expect(restsAt("moth", "pond")).toBe(false);
   });
 
-  it("completes on a long rest at the avatar's home, paying no XP", () => {
-    const journey = journeyWorlds(questCards);
-    const card = journey.sleepQuest;
-    expect(card.actors.vale.want).toMatchObject({ quest: { level: 2, left: 1 } });
-    const done = journey.levelled;
-    expect(done.actors.vale).toMatchObject({ level: 2, want: null, xp: 3 });
-    expect(done.actors.vale.xp).toBe(card.actors.vale.xp);
-    expect(questOffers(done).some((o) => o.kind === "level")).toBe(false);
+  it("meets the sleep quest on a long rest at home, paying no XP", () => {
+    const s = atHome();
+    sleepQuest(s, "vale", { home: homeOf });
+    expect(dreaming(s)).toBe(true);
+    const done = longRest(s);
+    expect(done.actors.vale.place).toBe(homeOf("vale"));
+    expect(dreaming(done)).toBe(false);
+    expect(done.actors.vale.xp).toBe(s.actors.vale.xp);
+    expect(done.actors.vale.glimpse).toMatchObject({ kind: "arcanum", at: "attic" });
     const woke = done.log.findLast((e) => e.actorId === "vale" && e.woke);
-    expect(woke.rest).toBe("long");
-    expect(done.turn - card.turn).toBeGreaterThanOrEqual(LONG_SLEEP_TURNS);
+    expect(woke).toMatchObject({ rest: "long", dream: "glimpse" });
   });
 
-  it("leaves an offered level quest unmet by a long rest at home while it is not held (rules 133)", () => {
-    const rested = (s) =>
-      s.log.some((e) => e.actorId === "vale" && e.rest === "long");
-    const longRest = (s) => {
-      for (let i = 0; i < 40 && !rested(s); i++)
-        s = act(s, (a, _, all) => a.sleep || (a.kind === "wait" && !all.some((b) => b.sleep)));
-      expect(rested(s)).toBe(true);
-      expect(s.actors.vale.place).toBe(homeOf("vale"));
-      return s;
-    };
-    const offered = longRest(atThreshold(questXp(2)));
-    expect(offered.actors.vale).toMatchObject({ level: 1, want: null, xp: questXp(2) });
-    expect(questOffers(offered).map((o) => o.kind)).toContain("level");
-    const held = longRest(take(atThreshold(questXp(2)), "quest:level"));
-    expect(held.actors.vale).toMatchObject({ level: 2, want: null });
-  });
-
-  it("does not complete away from home, even in another sanctuary", () => {
-    let s = take(atThreshold(3), "quest:level");
+  it("does not meet the sleep quest away from home, even in another sanctuary", () => {
+    let s = atHome();
+    sleepQuest(s, "vale", { home: homeOf });
     s.actors.vale.place = "forest-cottage";
     s.items.lamp.holder = "attic";
     for (const id of ["moth", "keeper"])
@@ -349,29 +273,17 @@ describe("level up", () => {
     for (let i = 0; i < 12 && s.actors.vale.sleeping !== undefined; i++)
       s = act(s, (a) => a.sleep);
     s = act(s, (a) => a.sleep);
-    expect(s.actors.vale.level).toBe(1);
-    expect(s.actors.vale.want).toMatchObject({ quest: { level: 2 } });
+    expect(dreaming(s)).toBe(true);
+    expect(s.actors.vale.glimpse).toBeUndefined();
   });
 
-  it("costs XP to discard, leaving the player just under the threshold", () => {
-    for (const xp of [3, 4, 9]) {
-      let s = take(atThreshold(xp), "quest:level");
-      const drop = find(s, (a) => a.kind === "drop" && !a.item);
-      expect(drop).toBeTruthy();
-      expect(dropCost(s, "vale")).toBe(xp - (questXp(2) - 1));
-      s = play(s, drop, s.revision).state;
-      expect(s.actors.vale.xp).toBe(questXp(2) - 1);
-      expect(s.actors.vale.want).toBeNull();
-      expect(questOffers(s).some((o) => o.kind === "level")).toBe(false);
-    }
-    // Level 2 to 3: just under the threshold of level 3, never below level 2.
-    let s = atThreshold(questXp(3) + 2);
-    s.actors.vale.level = 2;
-    s = take(s, "quest:level");
+  it("discards the sleep quest for nothing", () => {
+    let s = atHome();
+    s.actors.vale.xp = 4;
+    sleepQuest(s, "vale", { home: homeOf });
     s = play(s, find(s, (a) => a.kind === "drop" && !a.item), s.revision).state;
-    expect(s.actors.vale.xp).toBe(questXp(3) - 1);
-    expect(s.actors.vale.xp).toBeGreaterThanOrEqual(questXp(2));
-    expect(s.actors.vale.level).toBe(2);
+    expect(dreaming(s)).toBe(false);
+    expect(s.actors.vale.xp).toBe(4);
   });
 });
 
@@ -391,31 +303,28 @@ describe("the mirror back to the attic", () => {
   });
 });
 
-describe("a fresh world to the first level, by taps", () => {
+describe("a fresh world to the first level, quests held at once", () => {
   const w = journeyWorlds(questCards);
-  it("opens the pond for 1 XP and offers nothing yet", () => {
-    expect(w.opened.actors.vale.xp).toBe(1);
+  it("opens the pond for no XP and holds nothing yet", () => {
+    expect(w.opened.actors.vale.xp).toBe(0);
     expect(w.opened.opened).toEqual({ pond: ["vale"] });
     expect(questOffers(w.opened)).toEqual([]);
+    expect(heldOf(w.opened.actors.vale)).toEqual([]);
   });
-  it("shows Pip's Accept quest card after Talk, always", () => {
-    expect(wantOf(w.told, "vale")).toBeNull();
-    const offers = questOffers(w.told);
-    expect(offers.map((o) => o.id)).toEqual(["quest:from:moth"]);
-    expect(offers[0].label).toBe("Accept quest");
-    expect(takes(w.told).map((a) => a.label)).toEqual(["Accept quest"]);
+  it("holds Pip's quest as his Talk ends, always", () => {
+    expect(wantOf(w.told, "vale")).toMatchObject({ target: "lamp", from: "quest:from:moth" });
+    expect(questOffers(w.told)).toEqual([]);
+    expect(legalActions(w.told).filter((a) => a.offer !== undefined)).toEqual([]);
   });
-  it("holds the quest after the tap, meets it, and earns XP", () => {
+  it("meets the held quest and earns no XP", () => {
     expect(wantOf(w.accepted, "vale")).toMatchObject({ target: "lamp" });
-    expect(wantOf(w.met, "vale")).toBeNull();
-    // 1 for the pond, 1 for the quest and 1 for helping Pip.
-    expect(w.met.actors.vale.xp).toBe(3);
+    expect(sources(w.met)).toEqual([]);
+    expect(w.met.actors.vale.xp).toBe(0);
+    expect(w.met.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
   });
-  it("offers the level-up card at the threshold, and levels up at home", () => {
-    expect(questOffers(w.met).map((o) => o.id)).toEqual(["quest:level"]);
-    expect(w.met.actors.vale.level ?? 1).toBe(1);
-    expect(w.levelled.actors.vale.level).toBe(2);
-    expect(w.levelled.actors.vale.xp).toBe(3);
+  it("levels by cards, not by a long rest at home", () => {
+    expect(levelOf(w.met, "vale")).toBe(0);
+    expect(levelOf(w.levelled, "vale")).toBe(0);
     expect(w.levelled.actors.vale.place).toBe("attic");
   });
 });

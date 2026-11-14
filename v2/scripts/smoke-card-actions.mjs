@@ -31,7 +31,6 @@ const browser = await browserType.launch({
 });
 const LAMP_ALONE =
   "A steady flame. Pair with this place to put it down, or tap again to put it away.";
-const NO_PAIR = "Try Oil flask + Lamp, or Black cloth + Lamp / Bell.";
 const meeting = () => {
   const s = createWorld({ seed: 2531 });
   s.actors.moth.place = s.actors.keeper.place = "station";
@@ -601,8 +600,6 @@ try {
     assert.equal((await state()).standoffs.length, 1);
     await selectCard(page, "vale");
     await selectCard(page, "moth");
-    // In battle the selection names the verb: yourself and Pip is Guard,
-    // Pip alone is Strike, yourself alone is Brace.
     assert.deepEqual(await labels(), ["Cover"]);
     await page.keyboard.press("Escape");
     await selectCard(page, "moth");
@@ -686,19 +683,22 @@ try {
     if ([1440, 390].includes(width)) {
       await load(meeting());
       const reason = page.locator("#card-actions button");
-      for (const [cards, words] of [
-        [["moth", "keeper"], NO_PAIR],
-        [["vale", "lamp"], LAMP_ALONE],
-      ]) {
-        await page.keyboard.press("Escape");
-        for (const id of cards) await selectCard(page, id);
-        await page.locator('#action-beat[data-card-tap=""]').waitFor();
-        assert.equal(await reason.count(), 1);
-        assert.equal(await actionLabel(reason), words);
-        assert.equal(await reason.getAttribute("aria-disabled"), "true");
-        assert.equal(await reason.evaluate((b) => b.disabled), false);
-        assert.equal(await page.locator(".action-beat-heading").isVisible(), false);
-      }
+      await page.keyboard.press("Escape");
+      for (const id of ["moth", "keeper"]) await selectCard(page, id);
+      assert.equal(await reason.count(), 0, "a pair with no play names no pairing");
+      assert.equal(await page.locator(".action-beat-heading").isVisible(), false);
+      assert.equal(
+        await page.locator("#play-readout").textContent(),
+        await page.locator("#selection-name").textContent(),
+      );
+      await page.keyboard.press("Escape");
+      for (const id of ["vale", "lamp"]) await selectCard(page, id);
+      await page.locator('#action-beat[data-card-tap=""]').waitFor();
+      assert.equal(await reason.count(), 1);
+      assert.equal(await actionLabel(reason), LAMP_ALONE);
+      assert.equal(await reason.getAttribute("aria-disabled"), "true");
+      assert.equal(await reason.evaluate((b) => b.disabled), false);
+      assert.equal(await page.locator(".action-beat-heading").isVisible(), false);
       await shot("no-play");
       await page.keyboard.press("Tab");
       assert.equal(
@@ -728,11 +728,13 @@ try {
       await selectCard(page, "pond");
       await page.locator('#card-actions [data-revealing="false"]').click();
       assert.equal(await focusedHandCard(page), "pond", "a queued play leaves focus on its card");
-      await ready();
-      assert.equal((await state()).actors.vale.place, "pond");
       await page.waitForFunction(
-        () => document.querySelector(".play-dock").dataset.covered === "false" &&
-          document.activeElement !== document.body,
+        (key) =>
+          JSON.parse(localStorage.getItem(key)).actors.vale.place === "pond" &&
+          document.querySelector(".play-dock").dataset.covered === "false" &&
+          document.querySelector("#hand").dataset.cooling === "false" &&
+          document.activeElement.matches("#hand .card-frame:not([hidden]) .card"),
+        key,
       );
       assert.equal(await focusedHandCard(page), "pond", "travel returns focus to the hand");
     }

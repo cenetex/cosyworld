@@ -139,7 +139,6 @@ describe("an unlocked avatar's homecoming", () => {
     expect(lamplessPlaces).toContain(spot);
     expect([...hidingPlaces(world), ...hub.places]).toContain(spot);
     expect(world.doors.theatre).toBe("clearing");
-    // Nothing is pushed: the quest is Accept quest on the home's shut door.
     expect(questsOf(world, "mara")).toEqual([]);
     expect(world.actors.mara.want).toBeNull();
     const seated = {
@@ -156,8 +155,6 @@ describe("an unlocked avatar's homecoming", () => {
     expect(offers[0]).toMatchObject({
       id: "quest:home:theatre",
       kind: "home",
-      label: "Accept quest",
-      blocked: null,
       want: {
         kind: "item",
         target: "mask",
@@ -165,7 +162,9 @@ describe("an unlocked avatar's homecoming", () => {
         step: { verb: "bring", at: "theatre" },
       },
     });
-    expect(wantText(offers[0].want)).toContain("home");
+    expect(wantText(offers[0].want)).toBe(
+      "bring Theatre mask to Paper theatre",
+    );
   });
 
   it("puts every avatar's belonging and door where no lamp is needed", () => {
@@ -186,9 +185,13 @@ describe("an unlocked avatar's homecoming", () => {
       world = playAs(
         world,
         "mara",
-        (a) => a.kind === "take" && a.offer === "quest:home:theatre",
+        (a) => a.kind === "wait" && !a.sleep,
       ).world;
-      expect(world.actors.mara.want).toMatchObject({ target: "mask" });
+      expect(questsOf(world, "mara").map((w) => w.from)).toContain(
+        "quest:home:theatre",
+      );
+      while (world.actors.mara.want.from !== "quest:home:theatre")
+        world = playAs(world, "mara", (a) => a.kind === "drop" && !a.item).world;
       world.actors.mara.place = world.items.mask.holder;
       world = playAs(
         world,
@@ -210,8 +213,7 @@ describe("an unlocked avatar's homecoming", () => {
     };
     const home = run();
     expect(home.actors.mara.place).toBe("theatre");
-    // The want is paid on the play that meets it: no claim.
-    expect(home.actors.mara.xp).toBe(1);
+    expect(home.actors.mara.xp).toBe(0);
     expect(questsOf(home, "mara").some((w) => w.target === "mask")).toBe(false);
     expect(run()).toEqual(home);
   });

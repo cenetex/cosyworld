@@ -5,7 +5,9 @@ import {
   entityEnabled,
   packEntity,
   departed,
+  latchingRoute,
 } from "./pack-registry.mjs";
+import { boxDefs } from "./world/boxes.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import forest from "./forest.json" with { type: "json" };
@@ -25,9 +27,7 @@ const RETIRED_SCHEMAS = [6, 7];
 export function retiredSave(text) {
   try {
     const s = typeof text === "string" ? JSON.parse(text) : text;
-    return s &&
-      typeof s === "object" &&
-      RETIRED_SCHEMAS.includes(s.schema)
+    return s && typeof s === "object" && RETIRED_SCHEMAS.includes(s.schema)
       ? s
       : null;
   } catch {
@@ -144,6 +144,16 @@ export function reconcileContent(s) {
     if (s.memories) delete s.memories[id];
   }
   forgetRetiredThings(s, new Set(gone));
+  if (Array.isArray(s.openedRoutes)) {
+    s.openedRoutes = s.openedRoutes.filter(latchingRoute);
+    if (!s.openedRoutes.length) delete s.openedRoutes;
+  }
+  if (s.opened && typeof s.opened === "object" && !Array.isArray(s.opened)) {
+    const boxes = new Set(boxDefs().map((d) => d.id));
+    for (const id of Object.keys(s.opened))
+      if (!boxes.has(id)) delete s.opened[id];
+    if (!Object.keys(s.opened).length) delete s.opened;
+  }
   // A used-up thing waits where its content now starts it (rules 95).
   if (Array.isArray(s.usedUp)) {
     s.usedUp = s.usedUp.filter((id) => Object.hasOwn(s.items, id));

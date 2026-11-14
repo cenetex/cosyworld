@@ -12,6 +12,7 @@ const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
   isQuestId,
+  levelCard,
   questCaption,
   questCard,
   questBox,
@@ -26,9 +27,11 @@ import {
 } from "../v2/card-game/quest-card.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
+import { settleArcana } from "../v2/card-game/world/arcana.mjs";
+import { homeOf } from "../v2/card-game/world/home.mjs";
 
 // An undiscovered card is worded by its kind, never by name.
-const { item: ITEM, person: PERSON, place: PLACE } = UNKNOWN;
+const { person: PERSON, place: PLACE } = UNKNOWN;
 
 describe("the quest card", () => {
   it("shows a Give's place only when the gift is bound to one", () => {
@@ -116,13 +119,13 @@ describe("the quest card", () => {
       target: "lamp",
     });
     expect(questCaption(quest)).toBe("Hold Lamp");
-    expect(questCaption(quest, true)).toBe(`Find ${ITEM}`);
+    expect(questCaption(quest, true)).toBe("Find something");
   });
 
   it("explains an undiscovered destination without naming it", () => {
     const s = createWorld();
     const quest = { ...questCard(s), kind: "place", target: "clearing" };
-    expect(questCaption(quest, true)).toBe(`Reach ${PLACE}`);
+    expect(questCaption(quest, true)).toBe("Discover somewhere");
     expect(questCaption(quest)).toBe("Go to Forest Clearing");
     expect(questVerb(s, quest, true)).toBe("Discover");
   });
@@ -133,10 +136,10 @@ describe("the quest card", () => {
       level: 3,
       step: { verb: "find" },
     };
-    expect(questCaption(quest, true)).toBe(`Level III: Find ${ITEM}`);
+    expect(questCaption(quest, true)).toBe("Level III: Find something");
     quest.step.at = "pond";
     expect(questCaption(quest, true)).toBe(
-      `Level III: Find ${ITEM} at Black pond`,
+      "Level III: Find something at Black pond",
     );
   });
 
@@ -145,7 +148,7 @@ describe("the quest card", () => {
     const quest = { ...questCard(s), kind: "place", target: "clearing" };
     const caption = (covered) =>
       questCaption(quest, covered, questVerb(s, quest, covered));
-    expect(caption(true)).toBe(`Reach ${PLACE}`);
+    expect(caption(true)).toBe("Discover somewhere");
     expect(caption(false)).toBe("Discover Forest Clearing");
     s.actors.vale.visited.push("clearing");
     expect(caption(false)).toBe("Go to Forest Clearing");
@@ -161,7 +164,7 @@ describe("the quest card", () => {
       step: { verb: "rest" },
     };
     expect(questCaption(quest, true, questVerb(s, quest, true))).toBe(
-      `Level III: Rest at ${PLACE}`,
+      `Level III: Rest ${PLACE}`,
     );
     expect(questCaption(quest, false, questVerb(s, quest))).toBe(
       "Level III: Go to Black pond and rest there",
@@ -174,7 +177,7 @@ describe("the quest card", () => {
       kind: "person",
       target: "moth",
     };
-    expect(questCaption(quest, true)).toBe(`Find ${PERSON}`);
+    expect(questCaption(quest, true)).toBe("Meet someone");
     expect(questCaption(quest)).toBe("Talk with Pip");
   });
 
@@ -187,11 +190,9 @@ describe("the quest card", () => {
       step: { verb: "bring", at: "theatre" },
     };
     expect(questCaption(quest, true)).toBe(
-      `Bring ${ITEM} home to Paper theatre`,
+      "Find something, and bring it to Paper theatre",
     );
-    expect(questCaption(quest)).toBe(
-      "Bring Theatre mask home to Paper theatre",
-    );
+    expect(questCaption(quest)).toBe("Bring Theatre mask to Paper theatre");
   });
 
   it("names the homecoming item and home only after each card is revealed", () => {
@@ -205,14 +206,14 @@ describe("the quest card", () => {
     const revealed = new Set();
     const caption = () =>
       questCaption(quest, false, null, (id) => revealed.has(id));
-    expect(caption()).toBe(`Bring ${ITEM} home to ${PLACE}`);
+    expect(caption()).toBe(`Find something, and bring it ${PLACE}`);
     revealed.add("routes");
-    expect(caption()).toBe(`Bring Route board home to ${PLACE}`);
+    expect(caption()).toBe(`Bring Route board ${PLACE}`);
     revealed.add("train");
-    expect(caption()).toBe("Bring Route board home to Between-hours carriage");
+    expect(caption()).toBe("Bring Route board to Between-hours carriage");
     revealed.delete("routes");
     expect(caption()).toBe(
-      `Bring ${ITEM} home to Between-hours carriage`,
+      "Find something, and bring it to Between-hours carriage",
     );
   });
 
@@ -225,7 +226,7 @@ describe("the quest card", () => {
       `Bring Lamp to ${PERSON} at Black pond`,
     );
     expect(questCaption(quest, false, null, (id) => id !== "pond")).toBe(
-      `Bring Lamp to Pip at ${PLACE}`,
+      `Bring Lamp to Pip ${PLACE}`,
     );
   });
 
@@ -236,7 +237,7 @@ describe("the quest card", () => {
       step: { verb: "bring", to: "moth", at: "pond" },
     };
     expect(questCaption(quest, true)).toBe(
-      `Level III: Bring ${ITEM} to Pip at Black pond`,
+      "Level III: Find something, and bring it to Pip at Black pond",
     );
     expect(questCaption(quest)).toBe(
       "Level III: Bring Lamp to Pip at Black pond",
@@ -246,7 +247,7 @@ describe("the quest card", () => {
         { ...quest, kind: "place", target: "pond", step: { verb: "rest" } },
         true,
       ),
-    ).toBe(`Level III: Rest at ${PLACE}`);
+    ).toBe(`Level III: Rest ${PLACE}`);
   });
 
   it("keeps a connection quest without inventing an undiscovered target", () => {
@@ -329,34 +330,45 @@ describe("the quest card", () => {
 
   it("shows the one held quest", () => {
     const s = createWorld();
-    expect(questCards(s).map((q) => [q.index, q.target])).toEqual([[0, "lamp"]]);
+    expect(questCards(s).map((q) => [q.index, q.target])).toEqual([
+      [0, "lamp"],
+    ]);
     expect(questCard(s).target).toBe("lamp");
     s.actors.vale.want = null;
     expect(questCards(s)).toEqual([]);
   });
 
-  it("drops the card when the rules meet the quest, paying on that play", () => {
+  it("drops the card when the rules meet the quest, on that play", () => {
     let s = createWorld();
     s.actors.vale.place = "station";
     s.items.lamp.holder = "attic";
-    s.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    s.actors.vale.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
     expect(questCards(s).map((q) => q.target)).toEqual(["pond"]);
     const xp = s.actors.vale.xp;
     s = play(
       s,
       legalActions(s).find((a) => a.kind === "move" && a.target === "pond"),
     ).state;
-    // Nothing is sealed or left to claim: the card is gone, the XP is paid.
     expect(questCards(s)).toEqual([]);
-    expect(s.actors.vale.xp).toBe(xp + 1);
-    expect(legalActions(s).some((a) => ["claim", "focus"].includes(a.kind))).toBe(
-      false,
-    );
+    expect(s.actors.vale.xp).toBe(xp);
+    expect(
+      legalActions(s).some((a) => ["claim", "focus"].includes(a.kind)),
+    ).toBe(false);
   });
 
   it("drops a discarded quest without paying", () => {
     let s = createWorld();
-    s.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
+    s.actors.vale.want = {
+      kind: "place",
+      target: "pond",
+      since: 0,
+      refusals: 0,
+    };
     s = play(
       s,
       legalActions(s).find((a) => a.kind === "drop" && !a.item),
@@ -364,18 +376,56 @@ describe("the quest card", () => {
     expect(questCards(s)).toEqual([]);
   });
 
-  it("never shows more than the one quest card through a long run", () => {
+  it("shows one quest card for each quest held through a long run", () => {
     let s = createWorld();
     for (let turn = 0; turn < 400; turn++) {
       const actions = legalActions(s);
       s = play(s, actions[(turn * 7919) % actions.length]).state;
       const cards = questCards(s);
-      expect(cards.length).toBeLessThanOrEqual(1);
+      expect(cards.length).toBeLessThanOrEqual(
+        1 + (s.actors.vale.under?.length ?? 0),
+      );
       for (const quest of cards) {
         expect(questCaption(quest)).toMatch(/^[A-Z]/);
         expect(typeof questNear(s, quest)).toBe("boolean");
       }
     }
     expect(validateWorld(s)).toBe(s);
+  }, 30000);
+
+  it("shows no level card before the deck deals one", () => {
+    const s = createWorld({ seed: 7 });
+    expect(levelCard(s, "vale")).toBeNull();
+  });
+
+  it("shows the dealt card after the held quests, a level up with its woodcut", () => {
+    const s = settleArcana(createWorld({ seed: 7 }), "vale");
+    s.actors.vale.arcana.proved = ["arcanum-5"];
+    const card = levelCard(s, "vale");
+    expect(card).toMatchObject({
+      key: "level:arcanum-0",
+      index: questCards(s).length,
+      actor: "vale",
+      kind: "arcanum",
+      target: "arcanum-0",
+      level: 2,
+      left: 1,
+      step: null,
+      art: "./assets/lonely-forest/arcanum-0.png",
+      home: homeOf("vale"),
+    });
+    expect(card.index).toBeGreaterThan(0);
+    expect(questCaption(card)).toBe(
+      "Level II: Carry nothing, be away from home and visit six new places",
+    );
+    expect(questTier(card, s)).toEqual(levelTier(2));
+    expect(questNear(s, card)).toBe(false);
+  });
+
+  it("draws the World with its woodcut", () => {
+    const s = createWorld({ seed: 7 });
+    s.actors.vale.arcana = { proved: [], did: [], dealt: "arcanum-21" };
+    expect(levelCard(s, "vale")).toMatchObject({ target: "arcanum-21", art: "./assets/arcana/arcanum-21.png", level: 1 });
+    expect(questCaption({ ...levelCard(s, "vale"), level: null })).toBe("Rest at home");
   });
 });

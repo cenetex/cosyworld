@@ -257,7 +257,10 @@ describe("the world slots (#1877)", () => {
           actor: "mara",
           held: held("mara", "ash"),
           online: held("ash"),
-          actors: { ash: { level: 4, xp: 9 }, mara: { xp: 3 } },
+          actors: {
+            ash: { level: 4, xp: 9, arcana: { proved: ["arcanum-0", "arcanum-1", "arcanum-2", "arcanum-3"], did: [] } },
+            mara: { xp: 3, arcana: { proved: ["arcanum-0", "arcanum-1", "arcanum-2"], did: [] } },
+          },
         },
       ],
       here,

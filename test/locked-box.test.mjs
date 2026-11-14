@@ -10,10 +10,11 @@ import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
-import { acceptQuest } from "./helpers/accept-quest.mjs";
+
 import { questsOf } from "../v2/card-game/want.mjs";
 import { packDefinitions } from "../v2/card-game/pack-registry.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
+import { isArcanum } from "../v2/card-game/world/arcana.mjs";
 
 function act(s, kind, fields = {}) {
   const action = legalActions(s).find(
@@ -68,7 +69,7 @@ describe("locked boxes", () => {
       });
       // The Shade is not yet met: the lock does not name him.
       expect(lockedQuest(world, "greek-polynices-hollow").text).toBe(
-        `Find ${UNKNOWN.person}`,
+        "Meet someone",
       );
     } finally {
       route.sealed.quest = quest;
@@ -83,9 +84,9 @@ describe("locked boxes", () => {
   });
   it("lock the sealed card alone until its quest opens the way", () => {
     let s = greekErrands().decree;
-    expect(availableCards(s).filter((id) => isLockedBox(s, id))).toEqual([
-      "greek-battlefield",
-    ]);
+    expect(
+      availableCards(s).filter((id) => isLockedBox(s, id) && !isArcanum(id)),
+    ).toEqual(["greek-battlefield"]);
     expect(lockedQuest(s, "greek-battlefield")).toEqual({
       text: `Give ${UNKNOWN.item} to ${UNKNOWN.person}`,
       cards: [],
@@ -106,13 +107,14 @@ describe("locked boxes", () => {
       text: "Give Creon's Writ to The Gate Guard",
       cards: [],
     });
-    // The box offers its quest as a card (rules 133); Talk with the guard
-    // tells his own (rules 102).
-    expect(
-      legalActions(s).some((a) => a.offer === "quest:box:greek-battlefield"),
-    ).toBe(true);
+    expect(questsOf(s, "vale").map((w) => w.from)).toContain(
+      "quest:box:greek-battlefield",
+    );
     s = act(s, "talk", { target: "greek-guard" });
-    acceptQuest(s, "greek-guard");
+    expect(questsOf(s, "vale")[0].from).toBe("quest:from:greek-guard");
+    expect(questsOf(s, "vale").map((w) => w.from)).toContain(
+      "quest:box:greek-battlefield",
+    );
     expect(questsOf(s, "vale")).toContainEqual(
       expect.objectContaining({ kind: "item", target: "greek-bread" }),
     );

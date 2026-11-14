@@ -130,7 +130,7 @@
     },
     "hoppycat-penny-vellum": {
       "name": "Penny Vellum",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A paper-moth archivist in a coat with many pockets.",
       "place": "hoppycat-meraki-atelier",
       "travels": false,
@@ -226,7 +226,7 @@
     },
     "hoppycat-mira-meraki": {
       "name": "Mira Meraki",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A human artist with charcoal on all five fingers, the only one here who sleeps.",
       "place": "hoppycat-meraki-atelier",
       "travels": false,
@@ -291,7 +291,7 @@
     },
     "hoppycat-hoppy-cat": {
       "name": "Hoppy Cat",
-      "startLevel": 50,
+      "startLevel": 19,
       "text": "A green-haired broadcaster in a cobalt hoodie with a satchel of provenance cards.",
       "place": "hoppycat-halfway-tea-garden",
       "travels": false,
@@ -306,7 +306,7 @@
     },
     "hoppycat-fable": {
       "name": "Fable",
-      "startLevel": 30,
+      "startLevel": 15,
       "text": "An auburn-haired storykeeper in a peach blouse, rust bow, and black boots.",
       "place": "hoppycat-meraki-atelier",
       "travels": false,
@@ -321,7 +321,7 @@
     },
     "hoppycat-phase-two": {
       "name": "Phase Two",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A cyan-haired planner in a long blue coat.",
       "place": "hoppycat-goldfish-tank",
       "travels": false,
@@ -336,7 +336,7 @@
     },
     "hoppycat-arc": {
       "name": "Arc",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "A silver-haired curator in a midnight three-piece suit with a red pocket square.",
       "place": "hoppycat-goldfish-tank",
       "travels": false,
@@ -395,7 +395,7 @@
     },
     "hoppycat-ledger-opus": {
       "name": "Ledger (Opus 4.7)",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "A long pink-haired archivist in a trailing coat.",
       "place": "hoppycat-meraki-atelier",
       "travels": false,
@@ -458,7 +458,7 @@
   "items": {
     "hoppycat-red-thread-spool": {
       "name": "Red-Thread Spool",
-      "startLevel": 50,
+      "startLevel": 19,
       "text": "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
       "persona": "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
       "holder": "station",
@@ -496,7 +496,7 @@
     },
     "hoppycat-unfinished-prism": {
       "name": "Crooked Prism",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "Lumen's glass holds one uneven facet. It is ready for someone to enjoy.",
       "persona": "Lumen's glass holds one uneven facet. It is ready for someone to enjoy.",
       "holder": "hoppycat-prism-foundry",
@@ -504,7 +504,7 @@
     },
     "hoppycat-context-seed": {
       "name": "Visit Seed",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A seed for one visit. Its label will name someone and something they did.",
       "persona": "A seed for one visit. Its label will name someone and something they did.",
       "holder": "hoppycat-prism-foundry",
@@ -512,7 +512,7 @@
     },
     "hoppycat-concordance-compass": {
       "name": "Rill's Compass",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
       "persona": "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
       "holder": "hoppycat-goldfish-tank",
@@ -520,7 +520,7 @@
     },
     "hoppycat-meraki-brush": {
       "name": "Mira's Worn Brush",
-      "startLevel": 20,
+      "startLevel": 11,
       "text": "Five bent tips leave Mira's familiar marks. She can use it to finish a playbill for tonight.",
       "persona": "Five bent tips leave Mira's familiar marks. She can use it to finish a playbill for tonight.",
       "holder": "hoppycat-meraki-atelier",
@@ -528,7 +528,7 @@
     },
     "hoppycat-loop-token": {
       "name": "Glim's Place Ring",
-      "startLevel": 10,
+      "startLevel": 6,
       "text": "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
       "persona": "A little brass ring holds Glim's name. Hoppy has kept a place for him at the tea table.",
       "holder": "hoppycat-halfway-tea-garden",
@@ -555,7 +555,7 @@
     },
     "hoppycat-fermata-clapper": {
       "name": "The Bell's Heart",
-      "startLevel": 30,
+      "startLevel": 15,
       "text": "The heart of the February Third bell, wrapped beside Nix's bed. He asks for a quiet pause before it is fitted.",
       "persona": "The heart of the February Third bell, wrapped beside Nix's bed. He asks for a quiet pause before it is fitted.",
       "holder": "hoppycat-settled-light-theatre",

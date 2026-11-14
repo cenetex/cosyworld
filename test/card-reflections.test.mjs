@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { rest } from "./fixtures/card-rest.mjs";
 import {
   createWorld,
+  homeOf,
   legalActions,
   play,
   encodeSave,
@@ -13,7 +14,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
-import { halfwayXp } from "../v2/card-game/want.mjs";
+import { sleepQuest } from "../v2/card-game/want.mjs";
 import {
   reflectionContext,
   applySharedReflections,
@@ -229,9 +230,7 @@ it("dates a later shared reflection to its speech and refuses stale ones", () =>
 it("accepts a later reflection after a real Sleep long rest at a sanctuary", () => {
   let s = enableMotives(createWorld());
   s.actors.vale.place = "attic";
-  // With the experience for level 2, the rest dreams the glimpse: the
-  // only long rests that dream (rules 99).
-  Object.assign(s.actors.vale, { level: 1, xp: halfwayXp(1) });
+  sleepQuest(s, "vale", { home: homeOf });
   const pick = (test) => (s = play(s, legalActions(s).find(test)).state);
   pick((a) => a.kind === "wait");
   pick((a) => a.sleep);
@@ -332,8 +331,7 @@ it("gives a shared sleeper woken by another seat's play its dream at its own nex
   s.actors.moth.place = "station";
   s.actors.boardyai.place = "greek-palace";
   s.actors.moth.want = s.actors.boardyai.want = null;
-  // Due its level quest, so the long rest dreams (rules 99).
-  Object.assign(s.actors.vale, { level: 1, xp: halfwayXp(1) });
+  sleepQuest(s, "vale", { home: homeOf });
   s.turn = s.revision = DAYLIGHT_TURNS + 1;
   const seats = { claimed: ["vale", "mara"], present: ["vale", "mara"] };
   let world = dispatchShared({ op: "create", save: encodeSave(s) }).world;

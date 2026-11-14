@@ -3,7 +3,10 @@
 // authored or decides anything; the rules own the want (want.mjs).
 import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
-import { wantWords } from "./world/want-words.mjs";
+import { conditionWords, wantWords } from "./world/want-words.mjs";
+import { arcanaLevel, arcanumTerms, dealtCard } from "./world/arcana.mjs";
+import { homeOf } from "./world/home.mjs";
+import { arcanumArt } from "./glimpse-card.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
@@ -46,9 +49,6 @@ export function questVisible(world, quest) {
     ), quest.actor);
 }
 
-// The quest the player holds: a list of none or one (questsOf is the rules'
-// zero-or-one view of the single want). A card's key changes when its quest
-// is met, set aside or moves on a step.
 const questShape = (world, actor, want, key, index) => ({
   key,
   index,
@@ -69,10 +69,23 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
-// An offered quest in the held quest's own shape, so one face draws both.
-// The offer's id is its key and it has no index: nothing is held yet.
-export const offerQuest = (world, offer, actor = currentActor(world)) =>
-  questShape(world, actor, offer.want, offer.id, -1);
+export function levelCard(world, actor = currentActor(world)) {
+  const card = dealtCard(world, actor)?.card;
+  if (!card) return null;
+  return {
+    key: `level:${card.id}`,
+    index: questsOf(world, actor).length,
+    actor,
+    kind: "arcanum",
+    target: card.id,
+    level: Math.min(21, arcanaLevel(world, actor) + 1),
+    left: 1,
+    step: null,
+    art: arcanumArt(card.id),
+    conditions: arcanumTerms(world, actor, card.id),
+    home: homeOf(actor) ?? null,
+  };
+}
 // The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
@@ -103,12 +116,15 @@ export function questCaption(
         ...(quest.lit === undefined ? {} : { lit: quest.lit }),
         ...(quest.story ? { story: true } : {}),
       };
-  const words = wantWords(want, shown, {
-    // The accessible goal names the same verb as the place card, including
-    // places whose name is known but which this avatar has not visited yet.
-    approach:
-      verb === "Discover" ? "discover" : verb === "Go to" ? "go to" : null,
-  });
+  const words =
+    quest.kind === "arcanum"
+      ? (conditionWords(quest.conditions, known, { home: quest.home }) ?? "…")
+      : wantWords(want, shown, {
+          // The accessible goal names the same verb as the place card, including
+          // places whose name is known but which this avatar has not visited yet.
+          approach:
+            verb === "Discover" ? "discover" : verb === "Go to" ? "go to" : null,
+        });
   const caption = words[0].toUpperCase() + words.slice(1);
   return quest.level ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
 }
@@ -171,7 +187,7 @@ export const questBox = (quest, known = () => true) =>
 // card shows only near or far: never who holds the target or how many moves.
 export const NEAR_MOVES = 2;
 export function questNear(world, quest) {
-  if (!quest.target) return false;
+  if (!quest.target || quest.kind === "arcanum") return false;
   const { actor, kind, target } = quest;
   const at =
     kind === "place"
@@ -217,6 +233,7 @@ export function questVerb(world, quest, covered = false) {
 // found (`known` is false) stays unknown. Presentation only, from levels in
 // the world.
 export function questTier(quest, world = null, known = () => true) {
+  if (quest.kind === "arcanum") return levelTier(quest.level);
   const named = [quest.target, quest.step?.to, quest.step?.at];
   const levels = world
     ? named.filter((id) => id && known(id)).map((id) => cardLevel(world, id))
@@ -226,8 +243,6 @@ export function questTier(quest, world = null, known = () => true) {
 
 // The hand id of the quest card: there is only ever the one.
 export const questId = () => `${QUEST_CARD}:0`;
-// Only the held quest's own id: the offers (`quest:from:`, `quest:box:`,
-// `quest:home:`, `quest:level`) are ordinary cards of the table.
 export const isQuestId = (id) => id === questId();
 
 // The hand with the quest card after the player's avatar and what it

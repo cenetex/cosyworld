@@ -15,7 +15,8 @@ import {
   crossedPortraitTier,
   rarityForms,
 } from "../v2/card-game/rarity-portraits.mjs";
-import { levelOf, newWant } from "../v2/card-game/want.mjs";
+import { levelOf, newWant, rankXp } from "../v2/card-game/want.mjs";
+import { rankOf } from "../v2/card-game/level-tiers.mjs";
 import {
   flipStagePortrait,
   portraitFraming,
@@ -29,7 +30,7 @@ describe("earned Hoppy Cat portraits", () => {
     (id, form) => {
       let world = fresh();
       const base = portrait(id),
-        threshold = (form.level * (form.level - 1)) / 2;
+        threshold = rankXp(rankOf(form.level));
       expect(portrait(id, null, world)).toBe(base);
       world.turn = 1000;
       world.revision = world.turn;

@@ -137,8 +137,7 @@ describe("switching a pack off and on (rules 98)", () => {
     const s = world((w) => {
       w.actors.vale.sanctuary = garden;
       const rest = { kind: "place", target: garden, since: 0, refusals: 0 };
-      const quest = { level: 2, left: 1 };
-      w.actors.vale.want = { ...rest, quest, step: { verb: "rest" } };
+      w.actors.vale.want = { ...rest, step: { verb: "rest" } };
     });
     const after = ok(play(s, off(HOPPY)));
     expect(after.actors.vale.sanctuary).toBeUndefined();

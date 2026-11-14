@@ -185,6 +185,9 @@ fn measured_approaches_and_later_success_survive_journal_only_replay() {
     // gift earns trust and a later request succeeds.
     w.game["actors"]["vale"]["want"] =
         json!({"kind":"item","target":"cloth","since":0,"refusals":0});
+    w.game["actors"]["vale"]["closed"] = json!({
+        "quest:box:train": [0, r#"["item","routes",[["at","station"],["verb","bring"]],null]"#]
+    });
     w.game["actors"]["keeper"]["want"] =
         json!({"kind":"item","target":"bell","since":0,"refusals":0});
     w.apply(&json!({"op":"claim","actor":"vale"})).unwrap();

@@ -7,6 +7,7 @@ import {
   legalActions,
   plan,
   play,
+  questOffers,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
@@ -35,13 +36,11 @@ function start(shared = false) {
   return world;
 }
 
-it("offers the box's quest only to a player holding no want (rules 133)", () => {
+it("holds the box's quest at once, on top of one already held (rules 134)", () => {
   const free = start();
-  const gate = (w) =>
-    legalActions(w).find(
-      (a) => a.kind === "take" && a.offer === `quest:box:${hollow}`,
-    );
-  expect(gate(free)).toBeTruthy();
+  const stands = (w) =>
+    questOffers(w).find((o) => o.id === `quest:box:${hollow}`);
+  expect(stands(free)).toBeTruthy();
   const held = structuredClone(free);
   held.actors.vale.want = {
     kind: "place",
@@ -49,9 +48,15 @@ it("offers the box's quest only to a player holding no want (rules 133)", () => 
     since: 0,
     refusals: 0,
   };
-  expect(gate(held)).toBeUndefined();
-  const next = play(free, gate(free)).state;
+  expect(stands(held)).toBeTruthy();
+  const wait = (w) =>
+    play(w, legalActions(w).find((a) => a.kind === "wait" && !a.sleep)).state;
+  const next = wait(free);
   expect(next.actors.vale.want).toMatchObject({ target: shade });
+  expect(stands(next)).toBeUndefined();
+  const stacked = wait(held);
+  expect(stacked.actors.vale.want).toMatchObject({ target: shade });
+  expect(stacked.actors.vale.under[0]).toMatchObject({ target: "pond" });
 });
 
 it.each([
@@ -73,13 +78,15 @@ it.each([
       return local;
     };
     let world = start(shared);
-    world.turn = world.revision = turnOfNight;
+    world.turn = world.revision = turnOfNight - 1;
     const act = (kind, target) => {
       const actions = shared
         ? both({ op: "view", world, ...seats }).actions
         : legalActions(world);
       const action = actions.find(
-        (a) => a.kind === kind && (a.target === target || a.offer === target),
+        (a) =>
+          a.kind === kind &&
+          (a.target === target || (kind === "wait" && !a.sleep)),
       );
       expect(action, kind).toBeTruthy();
       const result = shared
@@ -90,13 +97,12 @@ it.each([
     };
     for (const actor of ["vale", antigone])
       expect(exits(world, field, actor)).not.toContain(hollow);
+    act("wait");
+    expect(world.turn).toBe(turnOfNight);
     expect(plan(world, antigone).action?.target).not.toBe(hollow);
     expect(lifeHome(antigone, world)).toBe(hollow);
     expect(isLockedBox(world, hollow)).toBe(true);
     expect(lockedQuest(world, hollow).cards).toEqual([]);
-    const turn = world.turn;
-    act("take", `quest:box:${hollow}`);
-    expect(world.turn).toBe(turn);
     expect(world.actors.vale.want).toMatchObject({
       kind: "person",
       target: shade,

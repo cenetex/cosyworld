@@ -61,6 +61,8 @@ const RULES = [
   "want.mjs",
   "weather.mjs",
   "world.mjs",
+  "world/arcana-record.mjs",
+  "world/arcana.mjs",
   "world/boxes.mjs",
   "world/company.mjs",
   "world/dwell.mjs",

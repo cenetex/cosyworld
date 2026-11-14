@@ -113,7 +113,7 @@ describe("rules 95 item cycle on the server", () => {
     // The City Gate is guarded (rules 102), so the sealed card is the
     // garden's way to the trail.
     world.actors.mara.place = "forest-garden";
-    doing("mara", "take", (a) => a.offer === "quest:box:forest-trail");
+    doing("mara", "wait");
     expect(world.actors.mara.want.step).toEqual({
       verb: "give",
       to: "oak",
