@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -55,7 +55,7 @@ try {
     await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.02 });
     // Walk to the station, where Pip and the keeper come on stage.
     await selectCard(page, "station");
-    await page.locator("#card-actions button").first().click();
+    await readyActionButton(page, "move").click();
     await page.waitForFunction(
       () =>
         !document.querySelector("#travel.travelling") &&
@@ -90,7 +90,7 @@ try {
         const moving = [...document.querySelectorAll("#cast *")].some(
           (el) => el.getAnimations().length,
         );
-        if (window.seen.length < 30 || (moving && window.seen.length < 600))
+        if (window.seen.length < 30 || moving)
           requestAnimationFrame(look);
         else window.seenDone = true;
       };
@@ -108,8 +108,7 @@ try {
         new StorageEvent("storage", { key, newValue: next }),
       );
     }, `cosyworld.reflected-shore.v1.${table}`);
-    // The settle plays at a quarter speed, so every frame of it is seen.
-    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.25 });
+    // Keep the slowed timeline continuous while measuring the settle.
     await page.waitForFunction(() => window.seenDone);
     const jumps = await page.evaluate(() =>
       window.seen.slice(1).flatMap((now, i) =>

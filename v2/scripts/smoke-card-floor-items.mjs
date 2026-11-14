@@ -1,6 +1,6 @@
 // Things lying in the current place stand on the painted floor as props: bare
 // item cutouts behind the cast, at stable spots clear of the dialogue.
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, readyActionButton, revealOpening, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -15,13 +15,13 @@ await mkdir(output, { recursive: true });
 // start, and RatiRadio's request slip lies beside the bell. Boardy's calling card waits there too, but it shows only while
 // BoardyAI does, with two connected humans. Since the Swede's kit is
 // scattered (#1692), the willows camp floor holds the map, pot and spoon.
-const station = createWorld({ opening: true });
+const station = createWorld({ opening: true, seed: 7 });
 station.actors.vale.place = "station";
 assert.deepEqual(
   sceneStaging(station, { currentState: true }).floorItems.map(({ id }) => id),
   ["bell", "ratiradio-request-slip"],
 );
-const willows = createWorld({ opening: true });
+const willows = createWorld({ opening: true, seed: 7 });
 willows.actors.vale.place = "willows-camp";
 assert.deepEqual(
   sceneStaging(willows, { currentState: true }).floorItems.map(({ id }) => id),
@@ -29,7 +29,7 @@ assert.deepEqual(
 );
 // A crowded station floor for the browser: four camp things set down beside
 // the bell.
-const camp = createWorld({ opening: true });
+const camp = createWorld({ opening: true, seed: 7 });
 camp.actors.vale.place = "station";
 for (const id of [
   "willows-map",
@@ -81,7 +81,7 @@ try {
           JSON.stringify({ enabled: false, volume: 0 }),
         );
       },
-      { key, save: encodeSave(createWorld({ opening: true })) },
+      { key, save: encodeSave(createWorld({ opening: true, seed: 7 })) },
     );
     async function ready() {
       const deadline = Date.now() + 20000;
@@ -98,9 +98,10 @@ try {
     }
     async function cards(...ids) {
       await ready();
+      await clearSelection(page);
       for (const id of ids)
         await selectCard(page, id, { touch: width === 390 });
-      await page.locator("#card-actions .card-primary").click();
+      await readyActionButton(page).click();
       await ready();
     }
     const floor = page.locator("#floor-items .floor-item");
@@ -126,7 +127,11 @@ try {
             ),
           ) === JSON.stringify(ids),
         ids,
-      );
+      ).catch(async (error) => {
+        const actual = await floor.evaluateAll((items) => items.map((el) => el.dataset.item));
+        const state = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+        throw new Error(`${shot}: expected ${ids}, got ${actual}; place=${state.actors.vale.place}; lamp=${JSON.stringify(state.items.lamp)}; ${error.message}`);
+      });
       for (const id of ids)
         await page
           .locator(`#floor-items [data-item="${id}"] img`)
@@ -228,6 +233,7 @@ try {
       .locator('#hand [data-card="lamp"]')
       .waitFor({ state: "attached" });
     await ready();
+    await revealOpening(page);
     await assertFloor([], "attic-empty");
     await cards("lamp", "attic");
     await assertFloor(["lamp"], "attic-lamp-down");
@@ -248,7 +254,7 @@ try {
       .locator('#hand [data-card="bell"]')
       .waitFor({ state: "attached" });
     await ready();
-    await assertFloor(["bell"], "station-start");
+    await assertFloor(["bell", "ratiradio-request-slip"], "station-start");
     // A fresh render puts every prop back on the same spot.
     const before = await propBoxes();
     await page.reload();
@@ -256,7 +262,7 @@ try {
       .locator('#hand [data-card="bell"]')
       .waitFor({ state: "attached" });
     await ready();
-    await assertFloor(["bell"], "station-again");
+    await assertFloor(["bell", "ratiradio-request-slip"], "station-again");
     const after = await propBoxes();
     for (const [id, box] of Object.entries(before))
       box.forEach((value, index) =>
