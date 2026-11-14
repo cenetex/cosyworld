@@ -1,29 +1,25 @@
-// The halfway glimpse's card (rules 99, sleep spec §5): the one aspect it
-// locked, beside the DREAM card, partly shown. A place or person comes half
-// out of the dark and an item lies half under the cloth; a verb shows only
-// its glyph. Its only text is its name label. Presentation only: it reads
-// the saved `actor.glimpse` and never touches the rules.
+// The dream's glimpse card: the arcanum the dream points to, beside the
+// DREAM card, half out of the dark. Its only text is its name label.
+// Presentation only: it reads the saved `actor.glimpse`.
+import { arcanaCards } from "./world/catalog.mjs";
+import { imageUrl } from "./images.mjs";
 
-// The glyph each verb's beat caption uses.
-export const VERB_GLYPHS = { find: "✦", give: "✋", bring: "↳", meet: "⇄" };
-export const VERB_NAMES = {
-  find: "Find",
-  give: "Give",
-  bring: "Bring",
-  meet: "Meet",
-};
-// How much of the card shows, from 0 (dark) to 1.
+const CARD_BACK = "./assets/card-back.webp";
 export const GLIMPSE_REVEALED = 0.5;
+export const arcanumArt = (id) =>
+  arcanaCards[id]?.art ? `./${arcanaCards[id].art}` : null;
 
-// The DREAM card's companion for a glimpse, or null.
 export const glimpseCompanion = (glimpse) =>
   glimpse
-    ? { kind: glimpse.kind, id: glimpse.id, revealed: GLIMPSE_REVEALED }
+    ? {
+        kind: glimpse.kind,
+        id: glimpse.id,
+        art: arcanumArt(glimpse.id) ?? CARD_BACK,
+        revealed: GLIMPSE_REVEALED,
+      }
     : null;
 
-// Draws the companion into the DREAM card's row, or removes it. `artOf`
-// gives an entity's card art, `nameOf` its name and `icon` a glyph's node.
-export function paintGlimpse(row, companion, { artOf, nameOf, icon }) {
+export function paintGlimpse(row, companion, { artOf, nameOf }) {
   let card = row.querySelector(":scope > .glimpse-card");
   if (!companion) return card?.remove();
   const key = `${companion.kind}:${companion.id}`;
@@ -33,21 +29,17 @@ export function paintGlimpse(row, companion, { artOf, nameOf, icon }) {
   card.dataset.key = key;
   card.dataset.kind = companion.kind;
   card.style.setProperty("--revealed", String(companion.revealed));
-  const verb = companion.kind === "verb";
   const face = document.createElement("div");
   face.className = "glimpse-face";
-  if (verb) face.append(icon(VERB_GLYPHS[companion.id] ?? ""));
-  else {
-    const image = document.createElement("img");
-    image.alt = "";
-    image.decoding = "async";
-    image.src = artOf(companion.id);
-    face.append(image);
-  }
+  const image = document.createElement("img");
+  image.alt = "";
+  image.decoding = "async";
+  image.src = companion.art
+    ? imageUrl(companion.art, "card")
+    : artOf(companion.id);
+  face.append(image);
   const name = document.createElement("figcaption");
   name.className = "glimpse-name";
-  name.textContent = verb
-    ? (VERB_NAMES[companion.id] ?? companion.id)
-    : nameOf(companion.id);
+  name.textContent = nameOf(companion.id);
   card.replaceChildren(face, name);
 }

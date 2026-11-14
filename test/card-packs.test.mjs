@@ -51,7 +51,6 @@ function act(s, kind, target, item) {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 }
-// Vale stands in the clearing with every bell silent.
 function clearing() {
   const s = enableMotives(createWorld());
   s.actors.vale.place = "clearing";

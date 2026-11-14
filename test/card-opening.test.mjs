@@ -126,7 +126,7 @@ describe("dousing the lamp in the attic", () => {
     expect(s.memories.keeper.events).toEqual([]);
     // Vale holds no quest in the attic, so nothing is met there.
     expect(s.actors.vale.xp).toBe(0);
-    expect(levelOf(s, "vale")).toBe(1);
+    expect(levelOf(s, "vale")).toBe(0);
     // Waiting does not spend room fuel or open the mirror.
     expect(s.items.lamp).toMatchObject({ lit: true, fuel: 12 });
     expect(exits(s, "attic")).toEqual([]);
@@ -149,14 +149,13 @@ describe("dousing the lamp in the attic", () => {
       met: { vale: 0 },
     });
     expect(lit.locations.attic.anchored).toBe(true);
-    // Putting the lamp out opens the pond box and pays its one XP.
     expect(isLockedBox(before, "pond")).toBe(true);
     expect(availableCards(lit)).toContain("pond");
     expect(isLockedBox(lit, "pond")).toBe(false);
-    expect(lit.actors.vale.xp).toBe(before.actors.vale.xp + 1);
+    expect(lit.actors.vale.xp).toBe(before.actors.vale.xp);
     expect(lit.opened).toEqual({ pond: ["vale"] });
     expect(exits(lit, "attic")).toEqual(["pond"]);
-    expect(levelOf(lit, "vale")).toBe(1);
+    expect(levelOf(lit, "vale")).toBe(0);
     expect(
       lit.log.some((e) => e.verb === "want_met" && e.actorId === "vale"),
     ).toBe(false);

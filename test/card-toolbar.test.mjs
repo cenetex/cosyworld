@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { onlinePlayers } from "../v2/card-game/toolbar.mjs";
 
+const proved = (n) => ({
+  proved: Array.from({ length: n }, (_, i) => `arcanum-${i}`),
+  did: [],
+});
 function snapshot() {
   return {
     actor: "mara",
@@ -9,7 +13,7 @@ function snapshot() {
     world: {
       actors: {
         vale: { place: "station", xp: 0 },
-        mara: { place: "pond", xp: 6 },
+        mara: { place: "pond", xp: 6, arcana: proved(4) },
         ash: { place: "belfry", xp: 0 },
         nell: { place: "glasshouse", xp: 0 },
         keeper: { place: "station", xp: 0 },
@@ -29,7 +33,7 @@ describe("players in the shared world", () => {
     });
     expect(rows[1]).toMatchObject({
       name: "Vale",
-      level: 1,
+      level: 0,
       self: false,
     });
   });
@@ -38,7 +42,7 @@ describe("players in the shared world", () => {
     const before = onlinePlayers(state);
     state.world.actors.vale.place = "pond";
     expect(onlinePlayers(state)).toEqual(before);
-    state.world.actors.vale.xp = 3;
+    state.world.actors.vale.arcana = proved(3);
     expect(onlinePlayers(state)[1].level).toBe(3);
     expect(onlinePlayers(state).every((row) => !("location" in row))).toBe(
       true,

@@ -3,7 +3,6 @@
 //   resident  someone here who told you their want, and
 //             offers it this visit (offer-chance.mjs)
 //   home      your own home's door, shut
-//   level     your experience reached the next level
 //
 import { entityActive } from "../pack-registry.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
@@ -12,8 +11,6 @@ import {
   closedAny,
   closedBy,
   heldOf,
-  holdsLevelQuest,
-  levelUpQuest,
   newWant,
   sameQuest,
 } from "../want.mjs";
@@ -23,11 +20,10 @@ import { offerUnlocked } from "../offer-chance.mjs";
 import { boxWant, shutBoxesAt } from "./boxes.mjs";
 import { nameOf, people } from "./catalog.mjs";
 import { travelerOf } from "./company.mjs";
-import { homeOf } from "./home.mjs";
 
-export const OFFER_KINDS = ["box", "resident", "home", "level"];
+export const OFFER_KINDS = ["box", "resident", "home"];
 export const offerId = (kind, source) =>
-  kind === "level" ? "quest:level" : `quest:${kind === "resident" ? "from" : kind}:${source}`;
+  `quest:${kind === "resident" ? "from" : kind}:${source}`;
 export const isOfferId = (id) => typeof id === "string" && id.startsWith("quest:");
 
 // The quest a shut box gives: the thing to hold or bring, the place to reach
@@ -73,7 +69,7 @@ export function questOffers(s, actor = currentActor(s)) {
       !want ||
       closedBy(a, id, want) ||
       closedAny(a, want) ||
-      (!want.quest && heldOf(a).some((held) => sameQuest(held, want))) ||
+      heldOf(a).some((held) => sameQuest(held, want)) ||
       withAnother(s, actor, kind, source, want)
     )
       return;
@@ -106,10 +102,6 @@ export function questOffers(s, actor = currentActor(s)) {
     )
       continue;
     add("resident", them, questFor(s, them, want));
-  }
-  if (!holdsLevelQuest(a)) {
-    const level = levelUpQuest(s, actor, { home: homeOf });
-    if (level) add("level", actor, level);
   }
   return out;
 }

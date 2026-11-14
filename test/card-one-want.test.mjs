@@ -12,7 +12,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   CONTENT_TURNS,
-  dropCost,
+  DREAM_FROM,
   dropQuest,
   fillWants,
   newWant,
@@ -65,7 +65,6 @@ describe("one want per avatar", () => {
     const s = createWorld();
     setWant(s.actors.vale, pond(0));
     s.actors.vale.xp = 4;
-    expect(dropCost(s, "vale")).toBe(0);
     const drop = legalActions(s).find((a) => a.kind === "drop" && !a.item);
     expect(drop).toMatchObject({ quest: 0 });
     const next = play(s, drop).state;
@@ -77,18 +76,16 @@ describe("one want per avatar", () => {
     );
   });
 
-  it("charges Sleep at home to drop, down to just under its threshold", () => {
+  it("drops the sleep quest for nothing", () => {
     const s = createWorld();
     Object.assign(s.actors.vale, { xp: 3, level: 1 });
     setWant(s.actors.vale, {
-      ...pond(0),
+      ...newWant("place", "attic", 0),
       step: { verb: "rest" },
-      quest: { level: 2, left: 1 },
+      from: DREAM_FROM,
     });
-    // The threshold of level 2 is 3: dropping leaves 2, so no level-up card.
-    expect(dropCost(s, "vale")).toBe(1);
     dropQuest(s, "vale");
-    expect(s.actors.vale).toMatchObject({ xp: 2, want: null });
+    expect(s.actors.vale).toMatchObject({ xp: 3, level: 1, want: null });
   });
 
   it("never lets a resident hold a stack: a set-aside want is replaced", () => {

@@ -155,7 +155,7 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
     expect(trust(world)).toBe(3);
   });
 
-  it("tells that he wants bread, and the gift at trust 3 pays 1 XP without error", () => {
+  it("tells that he wants bread, and the gift at trust 3 pays no XP and raises no error", () => {
     let world = metOnQuay();
     world = act(world, "talk", { target: PATROCLUS });
     expect(world.actors[PATROCLUS].want).toMatchObject({
@@ -167,7 +167,7 @@ describe("Patroclus unlocks on the Charybdis at Piraeus", () => {
     const before = world.actors.vale.xp;
     world = act(world, "give", { item: "greek-bread", target: PATROCLUS });
     expect(trust(world)).toBe(3);
-    expect(world.actors.vale.xp - before).toBe(2);
+    expect(world.actors.vale.xp - before).toBe(0);
   });
 
   it("is offered Accompany at once, and one joint move works", () => {

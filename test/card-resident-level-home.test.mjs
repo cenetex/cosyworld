@@ -138,7 +138,7 @@ describe("resident levels earned at a fixed home", () => {
     expect(levelReturnHome(restored, resident)).toBeNull();
   });
 
-  it("keeps ordinary resident gains immediate and human gains quest-bound", () => {
+  it("keeps ordinary resident gains immediate and a traveler's level on cards", () => {
     delete packPeople[resident].levelAtHome;
     let s = fixture();
     s.turn = s.revision = 1;
@@ -146,7 +146,7 @@ describe("resident levels earned at a fixed home", () => {
     s = advance(s, "move", "station");
     expect(s.actors[resident].place).not.toBe(home);
     expect(levelOf(s, resident)).toBe(2);
-    expect(levelOf(s, "vale")).toBe(1);
+    expect(levelOf(s, "vale")).toBe(0);
   });
 
   it("accepts only an explicit fixed sanctuary home for the option", () => {

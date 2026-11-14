@@ -3,6 +3,7 @@ import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import {
   decodeSave,
   encodeSave,
+  homeOf,
   legalActions,
   LONG_SLEEP_TURNS,
   play,
@@ -10,11 +11,11 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import {
-  dropCost,
+  DREAM_FROM,
   heldOf,
   holdQuest,
   newWant,
-  questXp,
+  sleepQuest,
 } from "../v2/card-game/want.mjs";
 import { questCards } from "../v2/card-game/quest-card.mjs";
 
@@ -61,61 +62,57 @@ describe("an offer is held without an accept play", () => {
 
 describe("quests stack", () => {
   const piped = () => talk(createPipWorld(5));
-  const levelled = () => {
+  const dreaming = () => {
     const s = piped();
-    s.actors.vale.level = 1;
-    s.actors.vale.xp = questXp(2);
     s.actors.moth.place = "pond";
+    sleepQuest(s, "vale", { home: homeOf });
     return wait(s);
   };
 
-  it("holds the level quest like any other, stacked on top of Pip's", () => {
-    const s = levelled();
-    expect(sources(s)).toEqual(["quest:level", FROM]);
-    expect(s.actors.vale.want).toMatchObject({ quest: { level: 2, left: 1 } });
+  it("holds the sleep quest like any other, stacked on top of Pip's", () => {
+    const s = dreaming();
+    expect(sources(s)).toEqual([DREAM_FROM, FROM]);
+    expect(s.actors.vale.want).toMatchObject({
+      kind: "place",
+      target: homeOf("vale"),
+      step: { verb: "rest" },
+    });
     expect(s.actors.vale.under).toHaveLength(1);
     expect(s.actors.vale.under[0].target).toBe("lamp");
-    expect(questCards(s).map((q) => q.level)).toEqual([2, null]);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
-  it("stacks two offers made by one play, the level quest last and on top", () => {
-    const start = createPipWorld(5);
-    start.actors.vale.level = 1;
-    start.actors.vale.xp = questXp(2);
-    const s = talk(start);
-    expect(sources(s)).toEqual(["quest:level", FROM]);
-    expect(s.actors.vale.want.quest).toEqual({ level: 2, left: 1 });
+  it("holds one sleep quest at a time", () => {
+    const s = dreaming();
+    expect(sleepQuest(s, "vale", { home: homeOf })).toBeNull();
+    expect(sources(s)).toEqual([DREAM_FROM, FROM]);
   });
 
   it("shows the next quest when the top one is discarded", () => {
-    let s = levelled();
-    expect(dropCost(s, "vale")).toBeGreaterThan(0);
+    let s = dreaming();
     s = discard(s);
     expect(sources(s)).toEqual([FROM]);
     expect(s.actors.vale.want.target).toBe("lamp");
     expect(s.actors.vale.under).toBeUndefined();
-    expect(dropCost(s, "vale")).toBe(0);
     s = discard(s);
     expect(heldOf(s.actors.vale)).toEqual([]);
     expect(s.actors.vale.want).toBeNull();
   });
 
-  it("meets Sleep at home from beneath another quest", () => {
-    let s = levelled();
+  it("meets the sleep quest from beneath another quest", () => {
+    let s = dreaming();
     s.actors.vale.place = "attic";
     s = wait(s);
     holdQuest(s, "vale", newWant("place", "pond", s.turn), "quest:box:test");
     expect(s.actors.vale.want.target).toBe("pond");
-    expect(heldOf(s.actors.vale).some((w) => w.quest?.level === 2)).toBe(true);
-    for (let i = 0; i < LONG_SLEEP_TURNS + 2 && s.actors.vale.level !== 2; i++) {
+    for (let i = 0; i < LONG_SLEEP_TURNS + 2 && sources(s).includes(DREAM_FROM); i++) {
       const sleep = legalActions(s).find((a) => a.sleep);
       if (!sleep) break;
       s = play(s, sleep, s.revision).state;
     }
-    expect(s.actors.vale.level).toBe(2);
+    expect(sources(s)).not.toContain(DREAM_FROM);
     expect(sources(s)).toContain("quest:box:test");
-    expect(heldOf(s.actors.vale).some((w) => w.quest)).toBe(false);
+    expect(s.actors.vale.glimpse).toMatchObject({ kind: "arcanum" });
   });
 });
 
@@ -152,7 +149,7 @@ describe("a closed quest stays closed", () => {
     expect(s.actors.vale.want).toMatchObject({ target: "bell", step: { verb: "give", to: "moth" } });
   });
 
-  it("closes a quest that was met, so it is not held again and paid twice", () => {
+  it("closes a quest that was met, so it is not held again", () => {
     let s = talk(createPipWorld(5));
     s.actors.vale.want.refusals = 0;
     s.items.lamp.holder = "vale";
@@ -160,7 +157,7 @@ describe("a closed quest stays closed", () => {
     expect(give).toBeTruthy();
     const xp = s.actors.vale.xp;
     s = play(s, give, s.revision).state;
-    expect(s.actors.vale.xp).toBe(xp + 2); // the quest, and helping Pip meet his want
+    expect(s.actors.vale.xp).toBe(xp);
     expect(sources(s)).not.toContain(FROM);
     expect(s.actors.vale.closed[FROM]).toBeTruthy();
   });
@@ -188,7 +185,7 @@ describe("the stack is validated", () => {
 describe("every held quest is live", () => {
   const pip = () => talk(createPipWorld(5));
 
-  it("meets a buried quest while another is on top, and pays it", () => {
+  it("meets a buried quest while another is on top", () => {
     let s = pip();
     holdQuest(s, "vale", newWant("place", "station", s.turn), "quest:from:test");
     expect(sources(s)).toEqual(["quest:from:test", FROM]);
@@ -201,10 +198,10 @@ describe("every held quest is live", () => {
     expect(sources(s)).toEqual(["quest:from:test"]);
     expect(s.actors.vale.want.target).toBe("station");
     expect(s.actors.vale.closed[FROM]).toBeTruthy();
-    expect(s.actors.vale.xp).toBe(xp + 2);
+    expect(s.actors.vale.xp).toBe(xp);
   });
 
-  it("meets two quests with one play, each paid, top first", () => {
+  it("meets two quests with one play, top first", () => {
     let s = pip();
     s.items.lamp.holder = "vale";
     holdQuest(s, "vale", newWant("item", "lamp", s.turn), "quest:from:test");
@@ -212,7 +209,7 @@ describe("every held quest is live", () => {
     const xp = s.actors.vale.xp;
     s = wait(s);
     expect(sources(s)).toEqual([FROM]);
-    expect(s.actors.vale.xp).toBe(xp + 1);
+    expect(s.actors.vale.xp).toBe(xp);
     s.actors.moth.place = "pond";
     s.actors.vale.place = "pond";
     const give = legalActions(s).find((a) => a.kind === "give" && a.target === "moth");
@@ -220,7 +217,7 @@ describe("every held quest is live", () => {
     s = play(s, give, s.revision).state;
     expect(sources(s)).not.toContain(FROM);
     expect(s.opened.attic).toEqual(["vale"]);
-    expect(s.actors.vale.xp).toBe(before + 3);
+    expect(s.actors.vale.xp).toBe(before);
   });
 
   it("clears buried quests the world already satisfies", () => {

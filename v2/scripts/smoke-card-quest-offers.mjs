@@ -260,7 +260,7 @@ try {
       await page.close();
     }
 
-    // 4. Meeting the want pays XP and needs no Claim.
+    // 4. Meeting the want pays a traveler no XP and needs no Claim.
     {
       const t = await open("quest-offers-met", decodeSave(encodeSave(journey.accepted)));
       const { page } = t;
@@ -274,7 +274,7 @@ try {
       await page.locator('#card-actions [data-action="give"]').click();
       await t.ready();
       const met = await t.state();
-      assert(met.actors.vale.xp > xp, "XP rose");
+      assert.equal(met.actors.vale.xp, xp, "a traveler earns no XP");
       assert.notEqual(met.actors.vale.want?.from, "quest:from:moth");
       assert.equal(await page.getByText(/claim/i).count(), 0);
       assert.deepEqual(t.errors, []);
@@ -288,10 +288,11 @@ try {
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
-      assert.equal((await t.state()).actors.vale.want.quest.level, 2);
+      const level = await t.state();
+      assert.equal(level.actors.vale.want?.quest, undefined);
+      assert.ok(level.actors.vale.arcana.dealt, "a level card is dealt");
       await openHeld(page, t);
-      assert.equal(await t.oneButton(), 1);
-      assert.match(await label(page), /^Discard/u);
+      assert.ok(await t.oneButton() <= 1);
       await t.layout();
       await t.shot("level-up");
       assert.deepEqual(t.errors, []);
@@ -313,8 +314,8 @@ try {
       assert.equal(await label(page), "Discard");
       assert.equal(
         await page.locator("#hand .want-frame > .place-edge").count(),
-        1,
-        "the quest beneath lies as one stack edge",
+        2,
+        "the quest beneath and the level card lie as stack edges",
       );
       await t.layout();
       await t.shot("stacked");
@@ -336,7 +337,7 @@ try {
       assert.equal(next.actors.vale.under, undefined);
       assert.equal(next.actors.vale.closed["quest:box:test"][1].includes("cloth"), true);
       await openHeld(page, t);
-      assert.equal(await page.locator("#hand .want-frame > .place-edge").count(), 0);
+      assert.equal(await page.locator("#hand .want-frame > .place-edge").count(), 1);
       assert.equal(await label(page), "Discard");
       assert.deepEqual(t.errors, []);
       await page.close();

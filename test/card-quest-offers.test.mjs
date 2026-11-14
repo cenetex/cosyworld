@@ -1,8 +1,8 @@
 import { expect, it } from "vitest";
 import { journeyWorlds } from "./helpers/journey.mjs";
 import { questCards as journey } from "./journeys/quest-cards.mjs";
-import { decodeSave, encodeSave, legalActions } from "../v2/card-game/world.mjs";
-import { heldOf } from "../v2/card-game/want.mjs";
+import { decodeSave, encodeSave, homeOf, legalActions } from "../v2/card-game/world.mjs";
+import { heldOf, sleepQuest } from "../v2/card-game/want.mjs";
 import {
   availableCards,
   cardActions,
@@ -24,7 +24,7 @@ const OFFER = "quest:from:moth";
 
 it("tells the held quest's id from an offer's id", () => {
   expect(isQuestId(questId())).toBe(true);
-  for (const id of [OFFER, "quest:box:greek-gate", "quest:home:x", "quest:level"])
+  for (const id of [OFFER, "quest:box:greek-gate", "quest:home:x", "quest:dream"])
     expect(isQuestId(id)).toBe(false);
   expect(isQuestId("quest:1")).toBe(false);
 });
@@ -69,10 +69,10 @@ it("gives a chosen card no accept play: the held quest's one button is Discard",
   const drop = legalActions(world).filter((a) => a.kind === "drop" && !a.item);
   expect(drop).toHaveLength(1);
   expect(playLabel(drop[0], world)).toBe("Discard");
-  const level = clone(worlds.met);
-  expect(heldOf(level.actors.vale)[0].quest).toBeTruthy();
-  const costly = legalActions(level).find((a) => a.kind === "drop" && !a.item);
-  expect(playLabel(costly, level)).toMatch(/^Discard \(−\d+ XP\)$/u);
+  const dreaming = clone(worlds.met);
+  expect(sleepQuest(dreaming, "vale", { home: homeOf })).toBeTruthy();
+  const free = legalActions(dreaming).find((a) => a.kind === "drop" && !a.item);
+  expect(playLabel(free, dreaming)).toBe("Discard");
 });
 
 it("offers no play for a stale offer id, held quest or not", () => {

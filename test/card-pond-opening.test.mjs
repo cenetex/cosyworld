@@ -75,7 +75,8 @@ describe("the attic opening and saved pond journeys", () => {
     world = selectLamp(world, "lamp");
     const xp = world.actors.vale.xp;
     world = act(world, "wait");
-    expect(world.actors.vale.xp).toBe(xp + 1);
+    expect(world.actors.vale.xp).toBe(xp);
+    expect(world.log.some((e) => e.verb === "want_met" && e.actorId === "vale")).toBe(true);
     expect(exits(world, "pond")).toEqual(["station", "attic"]);
     world = act(world, "wait");
     world = act(world, "move", "station");

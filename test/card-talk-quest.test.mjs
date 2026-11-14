@@ -99,7 +99,7 @@ describe("Talk tells a want", () => {
     expect(questFor(s, "moth", { kind: "connect", target: "humans" })).toBeNull();
   });
 
-  it("meets the taken quest for both: its own XP, and a helper's XP and trust", () => {
+  it("meets the taken quest for both: the helper's trust, and Pip's own XP", () => {
     let s = talk(station(), "moth");
     heldFrom(s, "moth");
     const [vale, pip] = [s.actors.vale.xp, s.actors.moth.xp];
@@ -109,8 +109,7 @@ describe("Talk tells a want", () => {
     );
     expect(s.actors.vale.want).toBeNull();
     expect(s.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
-    // One for the quest met, one for helping Pip meet his own want.
-    expect(s.actors.vale.xp).toBe(vale + 2);
+    expect(s.actors.vale.xp).toBe(vale);
     expect(s.actors.moth.xp).toBe(pip + 1);
     expect(s.actors.moth.trust.vale).toBe(1);
     expect(s.actors.vale.questRewards).toBeUndefined();

@@ -79,9 +79,8 @@ fn woke(world: &World) -> Option<Value> {
 
 // Rules 133 in the C QuickJS host: one want per avatar. A Talk records the
 // want told and hands the player nothing; giving the item the keeper wants
-// pays the helper one XP at once (no claim) and raises the keeper's trust, a
-// long rest at halfway dreams the glimpse and never a quest. The journal
-// replays every new record (`heard`, `halfwayIssued`, `glimpse`) exactly.
+// pays the traveler no XP and raises the keeper's trust, and a long rest with
+// no sleep quest dreams nothing. The journal replays every record exactly.
 #[test]
 fn rules_133_one_want_commits_and_replays_in_the_c_host() {
     let mut world = created(engine::VERSION);
@@ -137,10 +136,10 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
     let stow = json!({"op":"hold","actor":"vale","choice":{
         "item":null,"revision":world.game["revision"]}});
     commit(&mut world, stow);
-    assert_eq!(world.game["actors"]["vale"]["xp"], 2);
+    assert_eq!(world.game["actors"]["vale"]["xp"], 0);
     assert!(quests(&world).is_empty());
     assert_eq!(world.game["actors"]["keeper"]["trust"]["vale"], 1);
-    assert_eq!(world.game["actors"]["vale"]["halfwayIssued"], 2);
+    assert!(world.game["actors"]["vale"].get("halfwayIssued").is_none());
     assert!(world.game["actors"]["vale"].get("questRewards").is_none());
     assert!(quests(&world).is_empty());
 
@@ -167,9 +166,8 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
         panic!("no long rest");
     };
     let event = long_rest(&mut world);
-    assert_eq!(event["dream"], "glimpse");
-    assert_eq!(world.game["actors"]["vale"]["glimpse"]["level"], 2);
-    // A long rest deals the glimpse and never a quest.
+    assert!(event.get("dream").is_none());
+    assert!(world.game["actors"]["vale"].get("glimpse").is_none());
     assert!(quests(&world).is_empty());
 
     // The journal alone rebuilds the same world, here and reopened.

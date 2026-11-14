@@ -217,13 +217,13 @@ try {
       await page.reload();
       await ready();
       assert.deepEqual(await covered(), ["attic", "lamp"]);
-      // Putting the lamp out opens the pond box and pays one XP.
+      // Putting the lamp out opens the pond box and pays a traveler no XP.
       assert.equal((await state()).actors.vale.xp, 0);
       await putOutOpening(page);
       await turnOverPond();
       await unveil("pond");
       await finish();
-      assert.equal((await state()).actors.vale.xp, 1);
+      assert.equal((await state()).actors.vale.xp, 0);
       assert.deepEqual((await state()).opened, { pond: ["vale"] });
       assert.equal((await state()).actors.vale.place, "attic");
       // Dousing the lamp shows the Black Pond in the glass.

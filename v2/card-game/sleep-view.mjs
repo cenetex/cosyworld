@@ -214,7 +214,7 @@ export function createSleepView({
               ? null
               : (state.text ?? "…"),
           armed: state.armed,
-          // The halfway glimpse shows its aspect beside the card.
+          // The dream shows the card it points to beside the card.
           companion: glimpseCompanion(dreamt.glimpse),
         }),
         front: Boolean(sequence) && DARK_BEATS.has(beat),

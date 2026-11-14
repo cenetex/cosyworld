@@ -7,7 +7,6 @@ import {
   homeOf,
   holdChoice,
   legalActions,
-  LONG_SLEEP_TURNS,
   play,
   questOffers,
   validateWorld,
@@ -18,7 +17,7 @@ import {
   OFFER_ODDS,
   offerUnlocked,
 } from "../v2/card-game/offer-chance.mjs";
-import { questXp, dropCost, heldOf, wantOf } from "../v2/card-game/want.mjs";
+import { DREAM_FROM, heldOf, levelOf, sleepQuest, wantOf } from "../v2/card-game/want.mjs";
 import { wantFact } from "../v2/card-game/want-talk.mjs";
 import { nameOf } from "../v2/card-game/world/catalog.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
@@ -100,7 +99,6 @@ describe("quest offers are held at once", () => {
     expect(before.length).toBeGreaterThan(1);
     const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
     expect(drops).toHaveLength(1);
-    expect(dropCost(s, "vale")).toBe(0);
     s = play(s, drops[0], s.revision).state;
     expect(sources(s)).toEqual(before.slice(1));
     expect(questOffers(s).every((o) => o.id !== before[0])).toBe(true);
@@ -218,49 +216,28 @@ describe("the chance on Talk", () => {
   });
 });
 
-describe("level up", () => {
-  const atThreshold = (xp) => {
+describe("sleep and dream", () => {
+  const atHome = () => {
     const s = createWorld();
-    // Experience is capped by the turns played, so the clock has run on.
     s.turn = s.revision = 8;
     s.actors.vale.place = "attic";
-    s.actors.vale.level = 1;
-    s.actors.vale.xp = xp;
     return s;
   };
+  const rested = (s) =>
+    s.log.some((e) => e.actorId === "vale" && e.rest === "long");
+  const longRest = (s) => {
+    for (let i = 0; i < 40 && !rested(s); i++)
+      s = act(s, (a, _, all) => a.sleep || (a.kind === "wait" && !all.some((b) => b.sleep)));
+    expect(rested(s)).toBe(true);
+    return s;
+  };
+  const dreaming = (s) => heldOf(s.actors.vale).some((w) => w.from === DREAM_FROM);
 
-  const held = (s) => wait(s);
-
-  it("stands the level-up quest at the threshold and not under it", () => {
-    expect(questXp(2)).toBe(3);
-    expect(questOffers(atThreshold(2)).some((o) => o.kind === "level")).toBe(false);
-    const offer = questOffers(atThreshold(3)).find((o) => o.kind === "level");
-    expect(offer).toMatchObject({
-      id: "quest:level",
-      want: {
-        kind: "place",
-        target: "attic",
-        quest: { level: 2, left: 1 },
-        step: { verb: "rest" },
-      },
-    });
-    // Level 2 needs the next threshold.
-    const two = atThreshold(questXp(3) - 1);
-    two.actors.vale.level = 2;
-    expect(questOffers(two).some((o) => o.kind === "level")).toBe(false);
-    two.actors.vale.xp = questXp(3);
-    expect(questOffers(two).some((o) => o.kind === "level")).toBe(true);
-  });
-
-  it("holds Sleep at home at once, on top of any other quest", () => {
-    const other = atThreshold(3);
-    other.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
-    const s = held(other);
-    expect(wantOf(s, "vale")).toMatchObject({ target: "attic", quest: { level: 2 } });
-    expect(s.actors.vale.under).toHaveLength(1);
-    expect(s.actors.vale.under[0].target).toBe("pond");
-    expect(questOffers(s).some((o) => o.kind === "level")).toBe(false);
-    expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
+  it("offers no level-up quest, however much experience a traveler holds", () => {
+    const s = atHome();
+    s.actors.vale.xp = 6;
+    expect(questOffers(s).map((o) => o.kind)).not.toContain("level");
+    expect(dreaming(wait(s))).toBe(false);
   });
 
   it("rests an avatar at a sanctuary or its own home, a resident only at a sanctuary", () => {
@@ -272,36 +249,22 @@ describe("level up", () => {
     expect(restsAt("moth", "pond")).toBe(false);
   });
 
-  it("completes on a long rest at the avatar's home, paying no XP", () => {
-    const journey = journeyWorlds(questCards);
-    const card = journey.sleepQuest;
-    expect(card.actors.vale.want).toMatchObject({ quest: { level: 2, left: 1 } });
-    const done = journey.levelled;
-    expect(done.actors.vale).toMatchObject({ level: 2, want: null, xp: 3 });
-    expect(done.actors.vale.xp).toBe(card.actors.vale.xp);
-    expect(questOffers(done).some((o) => o.kind === "level")).toBe(false);
+  it("meets the sleep quest on a long rest at home, paying no XP", () => {
+    const s = atHome();
+    sleepQuest(s, "vale", { home: homeOf });
+    expect(dreaming(s)).toBe(true);
+    const done = longRest(s);
+    expect(done.actors.vale.place).toBe(homeOf("vale"));
+    expect(dreaming(done)).toBe(false);
+    expect(done.actors.vale.xp).toBe(s.actors.vale.xp);
+    expect(done.actors.vale.glimpse).toMatchObject({ kind: "arcanum", at: "attic" });
     const woke = done.log.findLast((e) => e.actorId === "vale" && e.woke);
-    expect(woke.rest).toBe("long");
-    expect(done.turn - card.turn).toBeGreaterThanOrEqual(LONG_SLEEP_TURNS);
+    expect(woke).toMatchObject({ rest: "long", dream: "glimpse" });
   });
 
-  it("meets a level quest that stands by a long rest at home, with no accept play (rules 134)", () => {
-    const rested = (s) =>
-      s.log.some((e) => e.actorId === "vale" && e.rest === "long");
-    const longRest = (s) => {
-      for (let i = 0; i < 40 && !rested(s); i++)
-        s = act(s, (a, _, all) => a.sleep || (a.kind === "wait" && !all.some((b) => b.sleep)));
-      expect(rested(s)).toBe(true);
-      expect(s.actors.vale.place).toBe(homeOf("vale"));
-      return s;
-    };
-    const done = longRest(atThreshold(questXp(2)));
-    expect(done.actors.vale).toMatchObject({ level: 2, want: null, xp: questXp(2) });
-    expect(questOffers(done).some((o) => o.kind === "level")).toBe(false);
-  });
-
-  it("does not complete away from home, even in another sanctuary", () => {
-    let s = held(atThreshold(3));
+  it("does not meet the sleep quest away from home, even in another sanctuary", () => {
+    let s = atHome();
+    sleepQuest(s, "vale", { home: homeOf });
     s.actors.vale.place = "forest-cottage";
     s.items.lamp.holder = "attic";
     for (const id of ["moth", "keeper"])
@@ -310,29 +273,17 @@ describe("level up", () => {
     for (let i = 0; i < 12 && s.actors.vale.sleeping !== undefined; i++)
       s = act(s, (a) => a.sleep);
     s = act(s, (a) => a.sleep);
-    expect(s.actors.vale.level).toBe(1);
-    expect(s.actors.vale.want).toMatchObject({ quest: { level: 2 } });
+    expect(dreaming(s)).toBe(true);
+    expect(s.actors.vale.glimpse).toBeUndefined();
   });
 
-  it("costs XP to discard, leaving the player just under the threshold", () => {
-    for (const xp of [3, 4, 9]) {
-      let s = held(atThreshold(xp));
-      const drop = find(s, (a) => a.kind === "drop" && !a.item);
-      expect(drop).toBeTruthy();
-      expect(dropCost(s, "vale")).toBe(xp - (questXp(2) - 1));
-      s = play(s, drop, s.revision).state;
-      expect(s.actors.vale.xp).toBe(questXp(2) - 1);
-      expect(s.actors.vale.want).toBeNull();
-      expect(questOffers(s).some((o) => o.kind === "level")).toBe(false);
-    }
-    // Level 2 to 3: just under the threshold of level 3, never below level 2.
-    let s = atThreshold(questXp(3) + 2);
-    s.actors.vale.level = 2;
-    s = held(s);
+  it("discards the sleep quest for nothing", () => {
+    let s = atHome();
+    s.actors.vale.xp = 4;
+    sleepQuest(s, "vale", { home: homeOf });
     s = play(s, find(s, (a) => a.kind === "drop" && !a.item), s.revision).state;
-    expect(s.actors.vale.xp).toBe(questXp(3) - 1);
-    expect(s.actors.vale.xp).toBeGreaterThanOrEqual(questXp(2));
-    expect(s.actors.vale.level).toBe(2);
+    expect(dreaming(s)).toBe(false);
+    expect(s.actors.vale.xp).toBe(4);
   });
 });
 
@@ -354,8 +305,8 @@ describe("the mirror back to the attic", () => {
 
 describe("a fresh world to the first level, quests held at once", () => {
   const w = journeyWorlds(questCards);
-  it("opens the pond for 1 XP and holds nothing yet", () => {
-    expect(w.opened.actors.vale.xp).toBe(1);
+  it("opens the pond for no XP and holds nothing yet", () => {
+    expect(w.opened.actors.vale.xp).toBe(0);
     expect(w.opened.opened).toEqual({ pond: ["vale"] });
     expect(questOffers(w.opened)).toEqual([]);
     expect(heldOf(w.opened.actors.vale)).toEqual([]);
@@ -365,18 +316,15 @@ describe("a fresh world to the first level, quests held at once", () => {
     expect(questOffers(w.told)).toEqual([]);
     expect(legalActions(w.told).filter((a) => a.offer !== undefined)).toEqual([]);
   });
-  it("meets the held quest and earns XP", () => {
+  it("meets the held quest and earns no XP", () => {
     expect(wantOf(w.accepted, "vale")).toMatchObject({ target: "lamp" });
-    expect(wantOf(w.met, "vale")).toMatchObject({ quest: { level: 2 } });
-    // 1 for the pond, 1 for the quest and 1 for helping Pip.
-    expect(w.met.actors.vale.xp).toBe(3);
+    expect(sources(w.met)).toEqual([]);
+    expect(w.met.actors.vale.xp).toBe(0);
     expect(w.met.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
   });
-  it("holds the level-up quest at the threshold, and levels up at home", () => {
-    expect(sources(w.met)).toEqual(["quest:level"]);
-    expect(w.met.actors.vale.level ?? 1).toBe(1);
-    expect(w.levelled.actors.vale.level).toBe(2);
-    expect(w.levelled.actors.vale.xp).toBe(3);
+  it("levels by cards, not by a long rest at home", () => {
+    expect(levelOf(w.met, "vale")).toBe(0);
+    expect(levelOf(w.levelled, "vale")).toBe(0);
     expect(w.levelled.actors.vale.place).toBe("attic");
   });
 });

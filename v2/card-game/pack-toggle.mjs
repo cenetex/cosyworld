@@ -177,7 +177,7 @@ function scatter(s, pack, api) {
     const turned = (w) =>
       w.step?.verb === "rest" && mine(w.target)
         ? {
-            ...restStep(s, id, api.want, w.quest),
+            ...restStep(s, id, api.want),
             ...(w.from ? { from: w.from } : {}),
           }
         : w;
