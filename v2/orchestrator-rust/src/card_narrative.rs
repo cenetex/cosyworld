@@ -1019,7 +1019,7 @@ async fn generate(
             untrusted::sign_lines(&mut value, &context);
             ([("cache-control", "no-store")], Json(value)).into_response()
         }
-        Err(response) => response,
+        Err(response) => *response,
     }
 }
 
@@ -1042,7 +1042,7 @@ async fn complete(
     character_models: &BTreeMap<String, String>,
     settings: &VoiceSettings,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-) -> Result<Value, Response> {
+) -> Result<Value, Box<Response>> {
     let voiced = voiced(context);
     let scene = complete_selected(
         config,
@@ -1064,7 +1064,7 @@ async fn complete_selected(
     voiced: &[String],
     reflections: bool,
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
-) -> Result<Value, Response> {
+) -> Result<Value, Box<Response>> {
     for model in settings.reflection_model.iter().chain(settings.fallbacks()) {
         if let Err(failure) =
             tier_config(config, Some(model)).pin_model(ModelCapability::WorldContent)
@@ -1073,7 +1073,8 @@ async fn complete_selected(
             return Err(error(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "Character voice tiers are waiting for eligible model settings.",
-            ));
+            )
+            .into());
         }
     }
     let deadline = tokio::time::Instant::now() + settings.scene_timeout;
@@ -1179,7 +1180,8 @@ async fn complete_selected(
         return Err(error(
             StatusCode::BAD_GATEWAY,
             "A character's words need another try.",
-        ));
+        )
+        .into());
     }
     let omitted: Vec<_> = context
         .entities
@@ -1304,13 +1306,15 @@ async fn voice_lines(
     }
 }
 
-/// The viewer left mid-scene, so no further line can be streamed. Kept apart
-/// from `Response` so the voicing helpers return a small error.
+/// The viewer left mid-scene, so no further line can be streamed.
 struct SceneClosed;
 
-impl From<SceneClosed> for Response {
+impl From<SceneClosed> for Box<Response> {
     fn from(_: SceneClosed) -> Self {
-        error(StatusCode::SERVICE_UNAVAILABLE, "The scene has closed.")
+        Box::new(error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "The scene has closed.",
+        ))
     }
 }
 

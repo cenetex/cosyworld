@@ -239,15 +239,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bs58"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
-dependencies = [
- "tinyvec",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -368,29 +359,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
-name = "cosyworld-ai-model"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "cosyworld-orchestrator"
 version = "1.2.128"
 dependencies = [
  "axum",
  "base64 0.22.1",
- "bs58",
  "cc",
- "cosyworld-ai-model",
  "ed25519-dalek",
  "futures-util",
  "image",
  "llama-cpp-2",
  "openssl",
- "qrcode",
  "rand 0.8.6",
  "reqwest",
  "rquickjs",
@@ -1460,15 +1439,6 @@ name = "pxfm"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0c5ccf5294c6ccd63a74f1565028353830a9c2f5eb0c682c355c471726a6e3f"
-
-[[package]]
-name = "qrcode"
-version = "0.14.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d68782463e408eb1e668cf6152704bd856c78c5b6417adaee3203d8f4c1fc9ec"
-dependencies = [
- "image",
-]
 
 [[package]]
 name = "quick-error"
