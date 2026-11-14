@@ -782,6 +782,25 @@ export const departed = (pack, state, id) =>
   (pack.choices || []).some(
     (c) => c.on === "depart" && c.subject === id && owns(state.receipts, c.id),
   );
+export function neverBack(world, id) {
+  if (world.actors?.[id]) {
+    const pack = packOf(id),
+      state = pack && packState(world, pack.id);
+    return Boolean(state && departed(pack, state, id));
+  }
+  const thing = packThings[id];
+  if (!thing || !usedUp(world, id)) return false;
+  if (thing.locked) return neverBack(world, thing.locked.by);
+  if (thing.home && thing.regrow) return false;
+  return !packDefinitions.some((pack) =>
+    (pack.choices || []).some(
+      (c) =>
+        !c.archived &&
+        (c.repeats || !owns(packState(world, pack.id)?.receipts, c.id)) &&
+        c.effects.some((e) => e.kind === "drop_item" && e.item === id),
+    ),
+  );
+}
 // One receipt per turn: a departure waits while this turn already has one.
 export const departureWaits = (world, actor, to) =>
   !!departure(world, actor, to) &&
