@@ -26,10 +26,12 @@ const write = (r, file, data) =>
   fs.writeFileSync(path.join(r, file), JSON.stringify(data));
 const asset = "card-game/assets/sample/nested/pixel.png";
 
-it("keeps the unconnected catalog empty", () => {
-  expect(verifyStore(fileURLToPath(new URL("../v2", import.meta.url)))).toEqual(
-    [],
-  );
+it("verifies Warren without admitting the unmounted snapshot", () => {
+  expect(
+    verifyStore(fileURLToPath(new URL("../v2", import.meta.url))).map(
+      ({ entry }) => entry.id,
+    ),
+  ).toEqual([]);
 });
 
 it("verifies nested assets, then excludes an unmounted pack", () => {
