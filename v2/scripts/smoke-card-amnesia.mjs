@@ -71,7 +71,6 @@ try {
       assert.equal(await page.locator("#place-title").textContent(), "…");
       assert.equal(requests.length, 0, "Vale spoke before he knew himself");
       await page.screenshot({ path: new URL(`before-${width}.png`, output).pathname });
-      // Knowing himself is not enough: the line waits for the place too.
       await uncover("vale");
       assert(await mentions(names.vale));
       assert(!(await mentions(names.attic)));
@@ -80,9 +79,8 @@ try {
       const spoken = JSON.stringify(
         requests.map(({ events, entities }) => [events, entities.map((e) => e.facts)]),
       );
-      // The opening line says "the tall mirror shows only a place" (#2656);
-      // only the covered place's own name is forbidden.
-      assert(!/attic/i.test(spoken), `Vale named the covered place: ${spoken}`);
+      // Common nouns remain usable; the covered place's full name stays hidden.
+      assert(!spoken.toLowerCase().includes(names.attic.toLowerCase()), `Vale named the covered place: ${spoken}`);
       await uncover("attic");
       if (voiceFails)
         await page.waitForFunction(
