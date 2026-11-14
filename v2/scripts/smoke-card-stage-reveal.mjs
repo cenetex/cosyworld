@@ -13,6 +13,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
+  clearSelection,
   revealCard,
   selectCard,
   smokeWidths,
@@ -160,13 +161,13 @@ try {
       }
       // Stowing the revealed held lamp darkens the room without a turn.
       const lamp = page.locator('#hand [data-card="lamp"]');
-      assert.equal(await lamp.getAttribute("aria-pressed"), "true");
+      assert.equal(await lamp.getAttribute("data-lit"), "true");
       assert.equal(
         await page.locator('#card-actions [data-action="snuff"]').count(),
         0,
       );
       await shot("04-lamp-held");
-      await selectCard(page, "lamp");
+      await clearSelection(page);
       const stowed = await page.evaluate(() =>
         JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1")),
       );

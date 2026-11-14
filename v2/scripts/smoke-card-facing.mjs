@@ -1,4 +1,4 @@
-import { selectCard } from "./card-browser-helpers.mjs";
+import { holdItem } from "./card-browser-helpers.mjs";
 import { legalActions } from "../card-game/world.mjs";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
@@ -28,13 +28,14 @@ try {
       ? pairs
       : [pairs[0], pairs.at(-1)]) {
       for (const mirrored of [false, true]) {
-        const world = createWorld();
+        let world = createWorld();
         world.sharedVersion = 1;
         world.playerActorId = actor;
         world.controlledActors = [actor];
         world.presentActors = [actor];
         world.actors[actor].place = "greek-courtyard";
         world.items.lamp.holder = actor;
+        world = holdItem(world, "lamp", actor);
         if (resident === "keeper") {
           world.actors.keeper.place = "greek-courtyard";
           world.actors["greek-baker"].place = "greek-well";
@@ -106,7 +107,6 @@ try {
           },
           { actor, resident },
         );
-        await selectCard(page, "lamp");
         const held = page.locator(
           `[data-avatar="${actor}"] .portrait-held-item`,
         );

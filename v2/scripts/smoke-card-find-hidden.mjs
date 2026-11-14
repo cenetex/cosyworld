@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, readyActionButton, selectCard } from "./card-browser-helpers.mjs";
 
 // One hidden avatar per world (#1936): ☰ shows the avatars this passkey has
 // not found as card backs, and a Talk with the hidden one unlocks it. There
@@ -74,9 +74,10 @@ try {
     await page.route(/\/card-game\/shared\/worlds\/here\/command$/, (route) => {
       const body = route.request().postDataJSON();
       if (!["enter", "heartbeat"].includes(body.op)) commands.push(body);
-      if (body.op === "play") {
+      if (["play", "hold"].includes(body.op)) {
         const played = dispatchShared({
           ...body,
+          choice: body.action,
           world,
           actor: "vale",
           claimed: ["vale"],
@@ -113,8 +114,9 @@ try {
     await page.keyboard.press("Escape");
     // A later shared snapshot carries the Talk's unlock into the action
     // beat. Its portrait, name and dismiss button must all render.
+    await clearSelection(page);
     await selectCard(page, "mara", { touch: width === 390 });
-    await page.locator('#card-actions [data-action="talk"]').click();
+    await readyActionButton(page, "talk").click();
     const done = page.locator("#unlock-ok");
     await done.waitFor({ state: "visible" });
     assert.match(
