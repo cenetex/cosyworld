@@ -1306,8 +1306,7 @@ async fn voice_lines(
     }
 }
 
-/// The viewer left mid-scene, so no further line can be streamed. Kept apart
-/// from `Response` so the voicing helpers return a small error.
+/// The viewer left mid-scene, so no further line can be streamed.
 struct SceneClosed;
 
 impl From<SceneClosed> for Box<Response> {
