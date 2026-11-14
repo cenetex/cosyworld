@@ -214,4 +214,15 @@ it("keeps archived choices unavailable and rejects malformed or future revisions
     bad.packs["greek-drama"].revision = revision;
     expect(() => decodeSave(JSON.stringify(bad))).toThrow(/fresh start/);
   }
+  const badJourney = structuredClone(loaded);
+  badJourney.journeyProgress["greek-household-witness"] = {
+    agreement: "greek-homecoming-agree-journey",
+    step: 4,
+  };
+  expect(() => decodeSave(JSON.stringify(badJourney))).toThrow(/fresh start/);
+  const badHeld = structuredClone(loaded);
+  badHeld.actors.vale.heldItem = "greek-return-cloths";
+  expect(() => decodeSave(JSON.stringify(badHeld))).toThrow(
+    "The held item is invalid.",
+  );
 });
