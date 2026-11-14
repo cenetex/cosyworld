@@ -80,7 +80,9 @@ struct Create {
     #[allow(dead_code)]
     moving: bool,
 }
-async fn blocking(f: impl FnOnce() -> Result<Value> + Send + 'static) -> Result<Value> {
+async fn blocking<T: Send + 'static>(
+    f: impl FnOnce() -> Result<T> + Send + 'static,
+) -> Result<T> {
     tokio::task::spawn_blocking(f)
         .await
         .map_err(|_| "The shared world is taking a moment.".to_string())?
@@ -360,7 +362,7 @@ async fn command(
 // A refused world names itself and the rules' reason, which says where a
 // save failed validation, so a 409 is diagnosable from the host log. Only the
 // world ID and rule text are logged.
-fn logged(id: &str, f: impl FnOnce() -> Result<Value>) -> Result<Value> {
+fn logged<T>(id: &str, f: impl FnOnce() -> Result<T>) -> Result<T> {
     let result = f();
     if let Err(error) = &result {
         tracing::warn!(world = %id, %error, "shared world request refused");
@@ -442,11 +444,28 @@ async fn talk(
         logged(&id, || talk_as(&state, &id, &revision, &body))
     })
     .await;
-    if committed.is_err() {
-        return reply(committed);
+    let key = match committed {
+        Ok((_, key)) => key,
+        Err(error) => return reply(Err(error)),
+    };
+    // Voice in the background (under the capacity permit kick takes), then wait
+    // a bounded time for this play's words before returning the view.
+    kick(state.clone(), id.clone());
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    loop {
+        let s = state.clone();
+        let wid = id.clone();
+        let k = key.clone();
+        let settled = tokio::task::spawn_blocking(move || {
+            let c = db(&s)?;
+            play_settled(&c, &wid, &k)
+        })
+        .await;
+        if matches!(settled, Ok(Ok(true))) || std::time::Instant::now() > deadline {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
-    // Voice the talk inline, then return the view with the fresh lines.
-    let _ = voice_once(&state, &id).await;
     let worker = state.clone();
     let wid = id.clone();
     let view = blocking(move || {
@@ -459,12 +478,27 @@ async fn talk(
     reply(view)
 }
 
+fn play_settled(c: &rusqlite::Connection, id: &str, key: &str) -> Result<bool> {
+    let status: Option<String> = c
+        .query_row(
+            "SELECT status FROM card_full_plays WHERE world=?1 AND id=?2",
+            params![id, key],
+            |r| r.get(0),
+        )
+        .optional()
+        .map_err(sql_error)?;
+    Ok(matches!(
+        status.as_deref(),
+        Some("done") | Some("failed") | Some("cancelled")
+    ))
+}
+
 pub(super) fn talk_as(
     state: &AppState,
     id: &str,
     revision: &crate::account_revision::Revision,
     body: &Talk,
-) -> Result<Value> {
+) -> Result<(Value, String)> {
     let u = &revision.user;
     let mut c = db(state)?;
     store::schema(&c)?;
@@ -507,7 +541,7 @@ pub(super) fn talk_as(
         avatar: Some(actor_id(actor).to_string()),
         action,
         target: Some(body.target.clone()),
-        key,
+        key: key.clone(),
         revealed: None,
         moving: false,
         surface: super::Surface::Discord,
@@ -515,7 +549,7 @@ pub(super) fn talk_as(
     let value = run(&tx, id, u, &command, now())?;
     let value = super::sync::response(&tx, id, u, value, None)?;
     tx.commit().map_err(sql_error)?;
-    Ok(value)
+    Ok((value, key))
 }
 // Leaving keeps the claim; releasing frees the avatar for someone else.
 fn leave(
