@@ -108,8 +108,7 @@ try {
         new StorageEvent("storage", { key, newValue: next }),
       );
     }, `cosyworld.reflected-shore.v1.${table}`);
-    // The settle plays at a quarter speed, so every frame of it is seen.
-    await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.25 });
+    // Keep the slowed timeline continuous while measuring the settle.
     await page.waitForFunction(() => window.seenDone);
     const jumps = await page.evaluate(() =>
       window.seen.slice(1).flatMap((now, i) =>

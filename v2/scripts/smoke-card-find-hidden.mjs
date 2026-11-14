@@ -99,6 +99,7 @@ try {
     assert.equal(await menu.locator("#avatar-find").count(), 0);
     // Not yet found: six card backs, Mara among them, and no names.
     const backs = menu.locator(".slot-back img");
+    await backs.first().waitFor();
     assert.equal(await backs.count(), 6);
     assert.equal(
       await menu.locator(".slot-cast").getAttribute("aria-label"),
