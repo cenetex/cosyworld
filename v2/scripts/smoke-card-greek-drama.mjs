@@ -154,11 +154,15 @@ try {
         s.items.lamp.fuel >= 4,
         "the lamp has enough oil for the signal",
       );
-      if (!(await state()).items.lamp.lit) await playCard("lamp");
-      // Cover the lit lamp, then uncover it: the whole ship signal.
-      await pair("cloth", "lamp");
-      await playCard("cloth");
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
+      // Set the fueled lamp on the shore. The remaining cloth takes Vale's
+      // hand and completes the arrangement; then recover the lamp to travel.
+      await pair("lamp", "pond");
+      const called = await state();
+      assert.equal(called.items.lamp.holder, "pond");
+      assert.equal(called.items.lamp.lit, true);
+      assert.equal(called.actors.vale.heldItem, "cloth");
+      assert.equal(called.crossings["pond-greek-harbor"].discovered, true);
+      await playCard("lamp");
     };
     const travel = async (id) => {
       const before = await state();
@@ -179,7 +183,7 @@ try {
           await playCard("vale");
       const boarding =
         before.actors.vale.place === "pond" && id === "greek-harbor";
-      if (boarding && before.transports["greek-ship"].dock !== "pond")
+      if (boarding && !before.crossings["pond-greek-harbor"].discovered)
         await signalShip();
       if (
         boarding ||
@@ -219,7 +223,7 @@ try {
       await playCard(id);
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
       assert.equal(await page.textContent("#place-title"), places[id].name);
-      if (boarding && (await state()).items.lamp.lit) await playCard("lamp");
+      if (boarding) await clearSelection(page);
     };
     const artReady = async () => {
       await page.waitForFunction(() =>

@@ -161,11 +161,16 @@ try {
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
-      // Cover, then uncover, the lit lamp; the call survives a reload.
-      await use("cloth", "lamp");
-      await use("cloth");
+      // A grounded, fueled lamp beside the held cloth calls the ship.
+      await use("lamp", "pond");
+      const called = await state();
+      assert.equal(called.items.lamp.holder, "pond");
+      assert.equal(called.items.lamp.lit, true);
+      assert.equal(called.actors.vale.heldItem, "cloth");
+      assert.equal(called.crossings["pond-greek-harbor"].discovered, true);
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
+      assert.equal((await state()).crossings["pond-greek-harbor"].discovered, true);
       // A newly docked ship arrives covered; uncover it before reading it.
       await revealCard(page, "greek-ship");
       assert.equal(
@@ -179,6 +184,7 @@ try {
         /ship-deck/,
       );
       await shot("pond-ship");
+      await use("lamp");
       await use("greek-ship");
       assert.equal((await state()).actors.vale.place, "greek-ship");
       await shot("aboard-ship");
@@ -194,7 +200,7 @@ try {
       await use("vale");
       await use("greek-harbor");
       assert.equal((await state()).packs["greek-drama"].scope, "opening");
-      await use("lamp");
+      await clearSelection(page);
       if (await endStandoff(page, await state())) await ready();
       await shot("harbor");
       const harborSave = await page.evaluate(
