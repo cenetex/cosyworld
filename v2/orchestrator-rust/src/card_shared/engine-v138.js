@@ -7047,6 +7047,7 @@
         );
       for (const [id, avatar] of Object.entries(pack.avatars || {})) {
         const a = s.actors?.[id];
+        if (!avatar.journey) delete s.journeyProgress?.[id];
         if (a && avatar.journey && !kept[avatar.journey.after])
           a.place = avatar.journey.path[0];
         if (!a || entityEnabled(s, id, true) || departed(pack, state, id))
