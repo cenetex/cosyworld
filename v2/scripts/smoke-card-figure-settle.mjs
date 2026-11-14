@@ -90,7 +90,7 @@ try {
         const moving = [...document.querySelectorAll("#cast *")].some(
           (el) => el.getAnimations().length,
         );
-        if (window.seen.length < 30 || (moving && window.seen.length < 600))
+        if (window.seen.length < 30 || moving)
           requestAnimationFrame(look);
         else window.seenDone = true;
       };
