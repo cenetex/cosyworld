@@ -385,6 +385,7 @@ pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>)
     tx.commit().map_err(sql_error)?;
     Ok(value)
 }
+#[cfg(test)]
 pub(super) fn command_as(
     state: &AppState,
     id: &str,
@@ -463,6 +464,7 @@ async fn talk(
     reply(view)
 }
 
+#[cfg(test)]
 pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Result<Value> {
     let c = db(state)?;
     let revision = crate::account_revision::Revision {
