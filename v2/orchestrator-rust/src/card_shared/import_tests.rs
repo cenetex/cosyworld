@@ -43,12 +43,12 @@ fn sign(kind: &str, entity: &str, text: &str, world: &str) -> Envelope {
     })
 }
 
-fn accepted(save: &str) -> bool {
-    World::create(Some(save)).is_ok()
+fn normalized(save: &str) -> Option<Value> {
+    World::create(Some(save)).ok().map(|w| w.game)
 }
 
 fn trusted_save(save: &str, envelopes: &[Envelope]) -> Result<String, String> {
-    imported::trusted_save(save, envelopes, vocabulary(), accepted)
+    imported::trusted_save(save, envelopes, vocabulary(), normalized)
 }
 
 #[test]
@@ -389,5 +389,22 @@ fn a_long_honest_save_keeps_its_text() {
         "actors",
     ] {
         assert_eq!(world[key], raw[key], "{key}");
+    }
+}
+
+#[test]
+fn played_released_and_upgraded_open_door_saves_can_be_shared() {
+    for upgraded in [false, true] {
+        let save = played_save(
+            "test/helpers/open-door-import.mjs",
+            &format!("openDoorImport({upgraded})"),
+        );
+        let raw = World::create(Some(&save)).unwrap().game;
+        let kept = trusted_save(&save, &[]).unwrap();
+        let world = World::create(Some(&kept)).unwrap().game;
+        for key in ["items", "actors", "knowledge", "packs", "journeyProgress"] {
+            assert_eq!(world[key], raw[key], "upgraded={upgraded}: {key}");
+        }
+        assert_eq!(world["packs"]["greek-drama"]["revision"], 25);
     }
 }
