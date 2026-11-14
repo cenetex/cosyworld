@@ -301,6 +301,16 @@ try {
     const opposite =
       branch === "egypt" ? "greek-troy-beach" : "greek-egypt-tomb";
     const evidence = `greek-${branch}-testimony`;
+    const otherAccountLocked = async () => {
+      assert.equal(await card(opposite).getAttribute("data-locked"), "true");
+      assert.equal(
+        legalActions(await state()).some(
+          (action) => action.kind === "move" && action.target === opposite,
+        ),
+        false,
+        "The other account stays a locked road, never a legal destination",
+      );
+    };
     await travel("greek-harbor");
     const tablet = "greek-helen-accounts";
     await playCard(tablet);
@@ -311,7 +321,7 @@ try {
       branch === "egypt" ? "greek-harbor" : "greek-well",
     );
     if (branch === "troy") await travel("greek-harbor");
-    assert.equal(await card(opposite).count(), 0);
+    await otherAccountLocked();
     await travel(destination);
     await playCard(evidence);
     assert.equal(rootHolder(await state(), evidence), "vale");
@@ -324,7 +334,7 @@ try {
       fullPage: true,
     });
     await travel("greek-harbor");
-    assert.equal(await card(opposite).count(), 0);
+    await otherAccountLocked();
     await travel("pond");
     current = await state();
     assert.equal(
@@ -362,7 +372,7 @@ try {
       places["greek-harbor"].name,
     );
     await ready();
-    assert.equal(await card(opposite).count(), 0);
+    await otherAccountLocked();
     await travel("pond");
     assert.equal(rootHolder(await state(), evidence), "vale");
     assert.ok(requests.some((r) => r.location === "greek-gate"));

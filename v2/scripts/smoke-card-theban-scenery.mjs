@@ -174,7 +174,7 @@ try {
       // A newly docked ship arrives covered; uncover it before reading it.
       await revealCard(page, "greek-ship");
       assert.equal(
-        await card("greek-ship").locator(".name").innerText(),
+        await card("greek-ship").locator(".name").textContent(),
         "The Charybdis",
       );
       // From the pond the ship's card shows where it goes: the deck, not
