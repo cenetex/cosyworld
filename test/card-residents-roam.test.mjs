@@ -190,9 +190,7 @@ describe("freed residents walk on their wants and sleep at home", () => {
     it(`${id} errands out and home again`, () => {
       let s = worlds[scenario]();
       const home = lifeHome(id, s);
-      // The player stays out of the way: residents step off only where none is.
-      if (s.actors.vale.place === home)
-        s.actors.vale.place = exits(s, home, "vale")[0];
+      s.actors.vale.place = "station";
       if (!entityActive(s, id)) {
         // Sealed until its story opens: shown the way the story would. An
         // Open Door resident, once met, stays open.

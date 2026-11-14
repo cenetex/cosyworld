@@ -137,13 +137,13 @@ describe("Greek ways between the districts are plain roads", () => {
 describe("Greek residents are locked boxes on their own present things", () => {
   // Each opens while its thing is at its post, nothing else (open-door-rework).
   const rows = [
-    ["greek-aethra", "greek-eleusis", "greek-funeral-cloth", /^Bring Funeral Cloth home to Eleusinian Sanctuary$/u],
+    ["greek-aethra", "greek-eleusis", "greek-funeral-cloth", /^Bring Funeral Cloth to Eleusinian Sanctuary$/u],
     ["greek-theseus", "greek-athens", "greek-burial-petition", /^Bring The Mothers’ Petition to Athenian Agora$/u],
-    ["greek-quay-host", "greek-piraeus", "greek-wheat", /^Bring Sack of Wheat home to Piraeus Quays$/u],
-    ["greek-colonus-keeper", "greek-colonus", "greek-oil-flask", /^Bring Funeral Oil home to Colonus Grove$/u],
-    ["greek-argive-mother", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn home to Eleusinian Sanctuary$/u],
-    ["greek-iphis", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn home to Eleusinian Sanctuary$/u],
-    ["greek-household-witness", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn home to Eleusinian Sanctuary$/u],
+    ["greek-quay-host", "greek-piraeus", "greek-wheat", /^Bring Sack of Wheat to Piraeus Quays$/u],
+    ["greek-colonus-keeper", "greek-colonus", "greek-oil-flask", /^Bring Funeral Oil to Colonus Grove$/u],
+    ["greek-argive-mother", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn to Eleusinian Sanctuary$/u],
+    ["greek-iphis", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn to Eleusinian Sanctuary$/u],
+    ["greek-household-witness", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn to Eleusinian Sanctuary$/u],
   ];
   for (const [who, place, thing, reason] of rows)
     it(`${who} lies sealed at ${place} until ${thing} is there`, () => {
