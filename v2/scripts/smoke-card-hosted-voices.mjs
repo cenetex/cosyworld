@@ -135,7 +135,6 @@ async function checkSharedVoice(width) {
   await page.waitForFunction(() => document.body.inert === false);
   await revealCard(page, "vale");
   await revealCard(page, room);
-  // Covered words must remain silent, including through the voice service.
   assert.equal(
     await page.textContent("#dialogue-text"),
     "Something is steady.",
@@ -143,6 +142,11 @@ async function checkSharedVoice(width) {
   assert.equal(await page.evaluate(() => window.voicePlayback.starts), 0);
   assert.deepEqual(voices, []);
   await revealCard(page, "lamp");
+  assert.equal(
+    await page.getAttribute('#hand [data-card="lamp"]', "data-unrevealed"),
+    "false",
+    "The lamp is uncovered through its discovery pack and location stack",
+  );
   await page.waitForFunction(
     () => document.querySelector("#speech-row").dataset.voice === "playing",
   );

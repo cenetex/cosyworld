@@ -216,7 +216,7 @@ async function fanWays(page, frame) {
 // card of its own; a folded stack's top card fans it out (#2256).
 async function fanAvatarStack(page, holder) {
   const folded = page.locator(
-    `#hand .card-frame[data-holder="${holder}"]:not([hidden], [data-want]) > .card[aria-expanded="false"]:not(.location)`,
+    `#hand .card-frame[data-holder="${holder}"]:not([hidden], [data-want], [data-pack]) > .card[aria-expanded="false"]:not(.location)`,
   );
   if (!(await folded.count())) return false;
   const id = await folded.first().getAttribute("data-card");
