@@ -133,8 +133,7 @@ try {
       await selectCard(page, "greek-baker");
       await page.locator('#card-actions [data-action="give"]').click();
       await reachTurn(2);
-      // Residents dwell after each arrival. The Bard keeps its destination
-      // while Vale waits, then walks the next ordinary road into the city.
+      // The Bard keeps its destination through the dwell, then walks on.
       let state = await saved();
       assert.equal(state.actors[singer].place, "greek-road-thebes");
       const leavesAt = state.actors[singer].dwellUntil;

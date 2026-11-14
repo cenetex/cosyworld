@@ -1,8 +1,6 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import { clearSelection, endStandoff, holdItem, selectCard, setLampFuel } from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
-// Exercise the public card UI and its one saved history, at desktop and phone
-// widths. Text is a bounded fixture; the deterministic model owns every result.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -155,8 +153,7 @@ try {
         s.items.lamp.fuel >= 4,
         "the lamp has enough oil for the signal",
       );
-      // Set the fueled lamp on the shore. The remaining cloth takes Vale's
-      // hand and completes the arrangement; then recover the lamp to travel.
+      // Ground the fueled lamp beside the held cloth, then recover it.
       await pair("lamp", "pond");
       const called = await state();
       assert.equal(called.items.lamp.holder, "pond");
@@ -320,8 +317,7 @@ try {
     const canGiveTablet = async () => legalActions(await state()).some(
       (action) => action.kind === "give" && action.item === tablet && action.target === teller,
     );
-    // A resident may be dwelling one room away or asleep. Wait for the real
-    // handoff instead of assuming its authored home is its current position.
+    // Wait for the resident's actual handoff after its dwell or sleep.
     for (let n = 0; n < 2 * MAX_DWELL && !(await canGiveTablet()); n++)
       await playCard("vale");
     assert(await canGiveTablet(), `${teller} returns to hear Helen's account`);

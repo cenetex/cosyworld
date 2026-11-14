@@ -28,8 +28,7 @@ function initial() {
   let s = createWorld({ opening: true });
   // Keep the ship at harbor until this scenery fixture completes the signal.
   s.actors["greek-rhapsode"].place = "attic";
-  // The opening starts lit; douse it to open the mirror, then relight it at
-  // the pond for the ship signal (#1653).
+  // Stow the lamp to open the mirror.
   s = holdItem(s, null);
   s = act(s, "move", { target: "pond" });
   s = holdItem(s, "lamp");
@@ -278,9 +277,12 @@ try {
           "greek-athens",
           "greek-argolid-road",
           "greek-aulis",
-          "greek-cithaeron",
         ])
-          assert(!destinations.includes(hidden));
+          assert(!destinations.includes(hidden), `${hidden} is not offered from ${id}`);
+        if (id === "greek-battlefield")
+          assert(legalActions(await state()).some(
+            (action) => action.kind === "move" && action.target === "greek-cithaeron",
+          ), "The released Cithaeron road opens from the battlefield");
         if (!visited.has(id)) {
           await shot(id.replace("greek-", ""));
           visited.add(id);
@@ -288,10 +290,14 @@ try {
         // The guard opens the battlefield road when given Creon's writ.
         const writ = (await state()).items["greek-creon-writ"].holder;
         if (id === "greek-gate" && writ === "vale") {
-          assert(!destinations.includes("greek-battlefield"));
+          assert.equal(await card("greek-battlefield").getAttribute("data-locked"), "true");
+          assert.equal(legalActions(await state()).some(
+            (action) => action.kind === "move" && action.target === "greek-battlefield",
+          ), false);
           await use("greek-creon-writ", "greek-guard");
           const opened = await state();
           assert.equal(opened.items["greek-creon-writ"].holder, "greek-guard");
+          assert.equal(await card("greek-battlefield").getAttribute("data-locked"), "false");
           assert(legalActions(opened).some(
             (action) => action.kind === "move" && action.target === "greek-battlefield",
           ));
