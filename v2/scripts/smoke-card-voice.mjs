@@ -4,9 +4,12 @@ import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
   clearSelection,
+  revealCard,
   revealOpening,
   selectCard,
   startNewGame,
+  smokeWidths,
+  readyActionButton,
 } from "./card-browser-helpers.mjs";
 // Vale wakes knowing only the cards his player has uncovered (#1575).
 const wake = async (page) => {
@@ -21,7 +24,7 @@ await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const output = new URL(`../../output/card-voice-${type}/`, import.meta.url);
 await mkdir(output, { recursive: true });
 try {
-  for (const width of [1440, 390, 320]) {
+  for (const width of smokeWidths([1440, 390, 320])) {
     const page = await browser.newPage({
       viewport: {
         width,
@@ -54,13 +57,12 @@ try {
             : "There is time to look around.",
       })),
     });
-    // The opening starts lit (#1653), so the first play douses the lamp.
-    let heldLight;
+    let heldWait;
     await page.route("**/card-game/text", (route) => {
       const input = route.request().postDataJSON();
       requests.push(input);
-      if (input.outcome.card.kind === "snuff" && !heldLight) {
-        heldLight = { route, input };
+      if (input.outcome.card.kind === "wait" && !heldWait) {
+        heldWait = { route, input };
         return;
       }
       return route.fulfill({
@@ -84,12 +86,10 @@ try {
     };
     const playCards = async (kind, ids, speaks = true) => {
       const before = requests.length;
-      // A held item stays raised after its play; start each play fresh.
-      await page.keyboard.press("Escape");
+      await clearSelection(page);
       for (const id of ids) await selectCard(page, id);
-      await page.locator(`#card-actions [data-action="${kind}"]`).click();
+      await readyActionButton(page, kind).click();
       await finish();
-      // Ordinary plays are silent: their beat is the caption.
       if (!speaks)
         return assert.equal(requests.length, before, `${kind} stays silent`);
       assert.equal(requests.length, before + 1, `${kind} requests speech once`);
@@ -141,6 +141,27 @@ try {
         "The speaker stays beside the text",
       );
     };
+    const quietLamp = async () => {
+      const saved = () => page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)), key,
+      );
+      const before = await saved(), count = requests.length;
+      await clearSelection(page);
+      await finish();
+      const stowed = await saved();
+      assert.equal(stowed.actors.vale.heldItem, null);
+      assert.equal(stowed.items.lamp.lit, false);
+      await selectCard(page, "lamp");
+      await finish();
+      const held = await saved();
+      assert.equal(held.actors.vale.heldItem, "lamp");
+      assert.equal(held.items.lamp.lit, true);
+      for (const state of [stowed, held]) {
+        assert.equal(state.turn, before.turn, "Holding does not spend a turn");
+        assert.equal(state.items.lamp.fuelRooms, before.items.lamp.fuelRooms);
+      }
+      assert.equal(requests.length, count, "Holding and stowing ask for no speech");
+    };
     try {
       await page.goto(
         `http://127.0.0.1:${server.address().port}/?table=voice-${width}`,
@@ -174,6 +195,7 @@ try {
       assert.equal(opening.turn, 0);
       assert.equal(opening.actors.vale.place, "attic");
       assert.equal(opening.items.lamp.lit, true);
+      await quietLamp();
       // The player's first quest waits for the Black Pond (#1768).
       assert.equal(opening.actors.vale.want, null, "The attic holds no quest");
       // Stage Vale past the pond with the quest of holding the lamp he holds.
@@ -192,19 +214,18 @@ try {
       await page.reload();
       await finish();
       assert.equal(requests.length, 1, "Staging the quest asks for no speech");
-      await selectCard(page, "lamp");
-      await page.locator('#card-actions [data-action="snuff"]').click();
+      await clearSelection(page);
+      await selectCard(page, "attic");
+      await readyActionButton(page, "wait").click();
       await finish(); // The delayed request releases the hand after scene preparation.
-      assert(heldLight);
+      assert(heldWait);
       assert.equal(await page.locator("#speaker").innerText(), "Vale");
       assert.equal(await page.locator("#dialogue-text").textContent(), "");
-      // Holding the lamp meets Vale's quest on the first play; the scene
-      // request carries that outcome.
-      assert.deepEqual(heldLight.input.outcome.card.wantMet, {
+      assert.deepEqual(heldWait.input.outcome.card.wantMet, {
         kind: "item",
         target: "lamp",
       });
-      await playCards("light", ["lamp"], false);
+      await playCards("wait", ["vale"], false);
       // A replaced slow reply keeps the met quest in the saved history.
       assert.ok(
         await page.evaluate(
@@ -215,11 +236,11 @@ try {
           key,
         ),
       );
-      await heldLight.route
+      await heldWait.route
         .fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(response(heldLight.input)),
+          body: JSON.stringify(response(heldWait.input)),
         })
         .catch(() => {});
       await page.waitForTimeout(100);
@@ -228,21 +249,18 @@ try {
         key,
       );
       assert(
-        !saved.log.some((line) => line.text === reaction("snuff")),
+        !saved.log.some((line) => line.text === reaction("wait")),
         "Stale dialogue stays out of the current turn",
       );
-      // Waking from a long rest in the attic speaks.
-      await playCards("wait", ["attic"]);
-      await playCards("drop", ["lamp", "attic"], false);
-      await playCards("take", ["lamp"], false);
+      await playCards("drop", ["lamp", "attic"]);
+      await playCards("take", ["lamp"]);
       if (width === 390) {
-        // A new game's first Put out crosses the discovery and quest cues.
         await startNewGame(page);
+        await wake(page);
         await finish();
-        await playCards("snuff", ["lamp"], false);
+        await quietLamp();
+        await playCards("wait", ["attic"]);
       }
-      // A new game's first Put out is silent, so only the narrowest phone
-      // steps back to Vale's long Stay reply.
       if (width === 320) {
         // Step back through the beat stack to Vale's long reply.
         for (
@@ -285,7 +303,7 @@ try {
       });
       assert.deepEqual(errors, []);
       console.log(
-        `Opening, Put out replacement, quest completion and Stay speech, and silent Light, Put down and Take passed in ${type} at ${width}px.`,
+        `Opening, quiet lamp holding, delayed Wait replacement, quest history, Put down and Take speech passed in ${type} at ${width}px.`,
       );
     } finally {
       await page.close();
@@ -341,7 +359,7 @@ try {
     await page.goto(
       `http://127.0.0.1:${server.address().port}/?table=voice-fallback`,
     );
-    await wake(page);
+    await revealCard(page, "vale");
     await page.waitForFunction(
       () => document.querySelector("#dialogue-text")?.textContent.length > 0,
     );
