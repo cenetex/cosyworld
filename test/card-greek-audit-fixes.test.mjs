@@ -7,6 +7,7 @@ import { createWorld, legalActions } from "../v2/card-game/world.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
 import {
   entityActive,
+  entityShown,
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 
@@ -16,14 +17,18 @@ describe("Attica is simply there", () => {
     const flags = world.packs["greek-drama"].flags;
     expect(flags["greek-burial-performed"]).toBeFalsy();
     expect(flags["greek-open-door-open"]).toBeUndefined();
+    // Its people are on the table from the first turn, each a locked card
+    // waiting for its own thing (open-door-rework), never for the burial.
     for (const id of [
       "greek-aethra",
       "greek-adrastus",
       "greek-theseus",
       "greek-quay-host",
       "greek-colonus-keeper",
-    ])
-      expect(entityActive(world, id), id).toBe(true);
+    ]) {
+      expect(entityShown(world, id), id).toBe(true);
+      expect(entityActive(world, id), id).toBe(false);
+    }
     for (const id of [
       "greek-colonus",
       "greek-eleusis",
@@ -31,12 +36,7 @@ describe("Attica is simply there", () => {
       "greek-road-athens-eleusis",
     ])
       expect(entityActive(world, id), id).toBe(true);
-    for (const id of [
-      "greek-return-cloths",
-      "greek-provision-basket",
-      "greek-grove-cup",
-      "greek-grove-honey",
-    ])
+    for (const id of ["greek-burial-petition", "greek-funeral-cloth", "greek-oil-flask"])
       expect(entityActive(world, id), id).toBe(true);
     // Marathon stays a rumour in a new world.
     expect(entityActive(world, "greek-marathon")).toBe(false);

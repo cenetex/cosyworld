@@ -20,9 +20,9 @@ import {
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
 import {
-  openDoorStart,
-  openDoorWalk,
-  playOpenDoor,
+  greekStart,
+  playGreek as playOpenDoor,
+  traveler,
 } from "./helpers/open-door.mjs";
 import {
   ajaxStart,
@@ -61,8 +61,8 @@ function shieldDelivered() {
 }
 
 describe("Earth Beside the Ships", () => {
-  it("offers the lasting ship invitation after the four local endings and return", () => {
-    const early = openDoorWalk(openDoorStart(), "harbor");
+  it("offers the lasting ship invitation in an old full-scope world only", () => {
+    const early = traveler(greekStart()).move("harbor").s;
     const talked = playOpenDoor(early, "talk", { target: "greek-shipmaster" });
     expect(ajaxState(talked).receipts["greek-ajax-invitation"]).toBeUndefined();
     expect(entityActive(early, "greek-ajax-landing")).toBe(false);
@@ -161,7 +161,9 @@ describe("Earth Beside the Ships", () => {
     ].map((id) => `greek-ajax-${id}`);
     for (const id of talkIds)
       expect(pack.choices.find((c) => c.id === id).on).toBe("talk");
-    expect(pack.choices.filter((c) => c.on === undefined)).toEqual([]);
+    expect(
+      pack.choices.filter((c) => !c.archived && c.on === undefined),
+    ).toEqual([]);
     const chooses = (w) => legalActions(w).filter((a) => a.kind === "choose");
     const talkTo = (world, target) => {
       expect(chooses(world)).toEqual([]);
@@ -285,9 +287,8 @@ describe("Earth Beside the Ships", () => {
   });
 });
 
-
 describe("shared Ajax testimony", () => {
-it("lets a second carrier learn the signed account and bring its paper to Dione", () => {
+  it("lets a second carrier learn the signed account and bring its paper to Dione", () => {
     const original = ajaxAccount("public");
     let world = dispatchShared({
       op: "create",

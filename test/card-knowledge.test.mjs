@@ -33,7 +33,7 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
-import { openDoorStart, openDoorWalk } from "./helpers/open-door.mjs";
+import { greekStart, openDoorWalk } from "./helpers/open-door.mjs";
 
 const clause = "Pip found a shell beside the pond.";
 const bare = () => ({
@@ -610,23 +610,19 @@ describe("Talk publication and learned facts", () => {
 describe("authored topics keep their saved deed identity", () => {
   const pack = packDefinition("greek-drama");
   const originalTopics = pack.topics;
-  // The mothers' request now commits on meeting Aethra. These cases stand it
-  // in for a choice that commits through its Talk topic.
-  const mothers = pack.choices.find(
-    (c) => c.id === "greek-open-door-hear-mothers",
-  );
-  beforeEach(() => delete mothers.on);
+  // The guard's decree commits on meeting him. These cases stand it in for a
+  // choice that commits through its Talk topic.
+  const decree = pack.choices.find((c) => c.id === "greek-hear-decree");
+  beforeEach(() => delete decree.on);
   afterEach(() => {
-    mothers.on = "meet";
+    decree.on = "meet";
     if (originalTopics === undefined) delete pack.topics;
     else pack.topics = originalTopics;
   });
   it("records the plea's receipt once at the Talk and teaches it from the words", () => {
-    const choice = pack.choices.find(
-      (c) => c.id === "greek-open-door-hear-mothers",
-    );
+    const choice = decree;
     const text =
-      "The Argive mothers ask Athens to recover their sons for burial.";
+      "A public decree forbids burial of the brother left outside the city.";
     pack.topics = [
       {
         id: choice.id,
@@ -637,9 +633,9 @@ describe("authored topics keep their saved deed identity", () => {
         choiceId: choice.id,
       },
     ];
-    let world = openDoorWalk(openDoorStart(), "eleusis");
+    let world = openDoorWalk(greekStart(), "gate");
     const action = legalActions(world).find(
-      (a) => a.kind === "talk" && a.target === "greek-aethra",
+      (a) => a.kind === "talk" && a.target === choice.subject,
     );
     world = play(world, action).state;
     const context = narrativeContext(world, action);
@@ -652,15 +648,13 @@ describe("authored topics keep their saved deed identity", () => {
     const restored = decodeSave(encodeSave(world));
     expect(restored.packs[pack.id].receipts[choice.id]).toBe(world.turn);
     expect(restored.knowledge.known.vale[choice.id].teller).toBe(
-      "greek-aethra",
+      choice.subject,
     );
   });
   it("lets a resident who seeks Vale out tell the plea without making her choice", () => {
-    const choice = pack.choices.find(
-      (c) => c.id === "greek-open-door-hear-mothers",
-    );
+    const choice = decree;
     const text =
-      "The Argive mothers ask Athens to recover their sons for burial.";
+      "A public decree forbids burial of the brother left outside the city.";
     pack.topics = [
       {
         id: choice.id,
@@ -671,30 +665,29 @@ describe("authored topics keep their saved deed identity", () => {
         choiceId: choice.id,
       },
     ];
-    let world = openDoorWalk(openDoorStart(), "eleusis");
-    // Aethra's own quest is to talk with Vale, so she speaks first.
+    let world = openDoorWalk(greekStart(), "gate");
+    // The guard's own quest is to talk with Vale, so he speaks first.
     world.actors[choice.subject].want = {
       kind: "person",
       target: "vale",
       since: world.turn,
       refusals: 0,
     };
-    // The roaming Bard stays at Marathon this turn instead of walking in.
+    // The roaming Bard stays at the harbor instead of walking in.
     world.actors["greek-rhapsode"].want = {
       kind: "place",
-      target: "greek-marathon",
+      target: "greek-harbor",
       since: world.turn,
       refusals: 0,
     };
-    // Adrastus stays where he is, so the plea reaches Vale and no one else.
-    world.actors["greek-adrastus"].want = {
+    // Antigone keeps to herself, so the decree reaches Vale and no one else.
+    world.actors["greek-antigone"].want = {
       kind: "place",
-      target: world.actors["greek-adrastus"].place,
+      target: world.actors["greek-antigone"].place,
       since: world.turn,
       refusals: 0,
     };
-    // Wait until she has sought Vale out (a resident dwells where she
-    // arrived before walking on), never for a fixed number of turns.
+    // Wait until he has sought Vale out, never for a fixed number of turns.
     const sought = () =>
       world.log.some(
         (e) =>
@@ -711,7 +704,7 @@ describe("authored topics keep their saved deed identity", () => {
     let context = narrativeContext(world, wait);
     expect(context.disclosures[0].factId).toBe(choice.id);
     world = applyGeneratedText(world, context, response(context, text));
-    // She tells it; the choice stays Vale's own deed for her own Talk.
+    // He tells it; the choice stays Vale's own deed for Vale's own Talk.
     expect(knowsFact(world, "vale", choice.id)).toBe(true);
     expect(world.packs[pack.id].receipts[choice.id]).toBeUndefined();
     const talk = legalActions(world).find(
@@ -725,19 +718,17 @@ describe("authored topics keep their saved deed identity", () => {
     expect(decodeSave(encodeSave(world))).toEqual(world);
   });
   it("records the source scene after its public fact was learned earlier", () => {
-    const choice = pack.choices.find(
-      (c) => c.id === "greek-open-door-hear-mothers",
-    );
+    const choice = decree;
     const topic = {
       id: choice.id,
       speaker: choice.subject,
       at: choice.at,
-      text: "The Argive mothers ask Athens to recover their sons for burial.",
+      text: "A public decree forbids burial of the brother left outside the city.",
       requires: choice.requires,
       choiceId: choice.id,
     };
     pack.topics = [topic];
-    let world = openDoorWalk(openDoorStart(), "eleusis");
+    let world = openDoorWalk(greekStart(), "gate");
     const entry = { seq: ++world.eventSeq, turn: world.turn };
     reserveKnowledge(world, topic.speaker, "vale", entry, [
       { ...topic, packId: pack.id },
@@ -748,7 +739,7 @@ describe("authored topics keep their saved deed identity", () => {
       [topic.speaker, "vale"],
       topic.at,
     );
-    addLog(world, "Aethra", topic.text, {
+    addLog(world, "The Gate Guard", topic.text, {
       generated: true,
       kind: "dialogue",
       actorId: topic.speaker,

@@ -58,9 +58,18 @@ const openDoorPlaces = [
   "greek-colonus",
   "greek-eleusis",
 ];
-// Attica's near side is simply there: the Cithaeron road leads from the
-// battlefield to Eleusis and Colonus whether or not Polynices is buried.
-const atticaOnFoot = ["greek-cithaeron", "greek-eleusis", "greek-colonus"];
+// Attica is simply there: the Cithaeron road leads from the battlefield to
+// Eleusis and Colonus whether or not Polynices is buried, and the Sacred Way
+// and the Long Walls are plain roads on to the Agora and Piraeus.
+const atticaOnFoot = [
+  "greek-cithaeron",
+  "greek-eleusis",
+  "greek-colonus",
+  "greek-road-athens-eleusis",
+  "greek-athens",
+  "greek-road-athens-piraeus",
+  "greek-piraeus",
+];
 const ajaxPlaces = pack.sections.find(
   (section) => section.id === "greek-ajax",
 ).places;
@@ -70,19 +79,6 @@ const rumours = ["greek-marathon", ...ajaxPlaces];
 const openDoorReleasedPlaces = pack.release.places.filter(
   (id) => !retired(id) && id !== "greek-road-athens-harbor",
 );
-const openDoorItems = [
-  "greek-burial-petition",
-  "greek-return-cloths",
-  "greek-provision-basket",
-  "greek-ash-urn",
-  "greek-return-list",
-  "greek-grove-cup",
-  "greek-grove-honey",
-  "greek-shelter-blanket",
-  "greek-refuge-tablet",
-  "greek-pyre-account",
-  "greek-marathon-record",
-];
 const act = (s, kind, fields = {}) => {
   if (kind === "move" && needsVoyage(s, "vale", fields.target))
     return sailTo(s, fields.target);
@@ -125,7 +121,7 @@ describe("the Theban release and its ship", () => {
         ...atticaOnFoot,
       ].sort(),
     );
-    expect(reachable(s)).toHaveLength(12);
+    expect(reachable(s)).toHaveLength(16);
     expect(pack.release.places).toHaveLength(25);
     for (const id of rumours) expect(pack.release.places).not.toContain(id);
     expect(
@@ -163,8 +159,7 @@ describe("the Theban release and its ship", () => {
         ...atticaOnFoot,
       ].sort(),
     );
-    // The Cithaeron road is there from the start. The mothers' petition opens the Sacred
-    // Way; the Long Walls from Piraeus were never closed.
+    // The Cithaeron road, the Sacred Way and the Long Walls are plain roads.
     expect(reachable(s)).toContain("greek-eleusis");
     expect(reachable(s)).not.toContain("greek-road-coast");
     // Patroclus rides the ship once Polynices is buried and steps ashore when it
@@ -185,15 +180,7 @@ describe("the Theban release and its ship", () => {
       // The land route home enters Thebes by the City Gate, open once the
       // guard has held the decree there.
       trip.openedRoutes = ["greek-gate>greek-battlefield"];
-      // The Long Walls lead home from the city; the mothers' petition there
-      // keeps the Sacred Way
-      // open from Eleusis.
-      Object.assign(trip.packs[pack.id].flags, {
-        "greek-open-door-mothers-heard": true,
-        "greek-open-door-plea-registered": true,
-      });
-      for (const id of ["greek-burial-petition", "greek-olive-branch"])
-        trip.items[id].holder = "greek-athens";
+      // The Long Walls and the Sacred Way lead home from the city.
       const seen = new Set([start]);
       for (const id of seen)
         for (const to of exits(trip, id, "vale"))

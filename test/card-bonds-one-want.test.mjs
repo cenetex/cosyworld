@@ -25,7 +25,9 @@ const setup = (trust) => {
   s.sharedVersion = 1;
   s.controlledActors = s.presentActors = ["vale"];
   s.actors[R].place = s.actors.vale.place = "greek-gate";
-  packPeople[R].want = { ...packPeople[R].want, minTrust: 2 };
+  // A want for a place she can name: her own sanctuary.
+  packPeople[R].want = { kind: "place", target: "greek-sanctuary", minTrust: 2 };
+  s.actors[R].want = { kind: "place", target: "greek-sanctuary", since: s.turn, refusals: 0 };
   s.actors[R].trust.vale = trust;
   return s;
 };

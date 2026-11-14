@@ -94,7 +94,7 @@ describe("the Greek pack's locked boxes", () => {
     expect(new Set(wants).size).toBe(3);
   });
 
-  it("shows the Open Door's first residents as plain cards, not locked boxes", () => {
+  it("locks the Open Door's people on their own things, never on a flag", () => {
     const s = at(full(), "greek-athens");
     expect(flags(s)["greek-burial-performed"]).toBeFalsy();
     const ids = [
@@ -102,12 +102,12 @@ describe("the Greek pack's locked boxes", () => {
       "greek-adrastus",
       "greek-theseus",
       "greek-colonus-keeper",
-      "greek-marathon-keeper",
+      "greek-quay-host",
     ];
     for (const id of ids) {
-      // No seal and no condition: Attica's people are simply there.
-      expect(pack.avatars[id].sealed, id).toBeUndefined();
-      expect(pack.avatars[id].requires, id).toBeUndefined();
+      const read = JSON.stringify(pack.avatars[id].requires);
+      expect(read, id).toMatch(/"kind":"item_(near|at)"/u);
+      expect(read, id).not.toMatch(/"kind":"(flag|choice)"/u);
       const w = {
         ...s,
         actors: {
@@ -115,7 +115,10 @@ describe("the Greek pack's locked boxes", () => {
           vale: { ...s.actors.vale, place: pack.avatars[id].place },
         },
       };
-      expect(isLockedBox(w, id), id).toBe(false);
+      expect(isLockedBox(w, id), id).toBe(true);
+      expect(lockText(w, id), id).toMatch(/^Bring .+ to .+/u);
     }
+    // Marathon's keeper is a rumour in new worlds and keeps no lock.
+    expect(pack.avatars["greek-marathon-keeper"].requires).toBeUndefined();
   });
 });

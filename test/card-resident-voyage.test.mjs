@@ -36,6 +36,8 @@ function start(
   s.actors.mara.place = PIRAEUS;
   s.actors[BARD].place = SHIP;
   delete s.actors[BARD].under;
+  // Set aboard by hand, he is not still staying where he last arrived.
+  delete s.actors[BARD].dwellUntil;
   s.actors[BARD].want = {
     kind: "place",
     target: PIRAEUS,

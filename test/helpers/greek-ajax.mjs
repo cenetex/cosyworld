@@ -3,7 +3,7 @@ import {
   narrativeContext,
   applyGeneratedText,
 } from "../../v2/card-game/narrative.mjs";
-import { openDoorJourney, openDoorSteps, playOpenDoor } from "./open-door.mjs";
+import { greekStart, playGreek as playOpenDoor } from "./open-door.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
 
@@ -34,13 +34,12 @@ export const ajaxMove = (world, ...places) =>
     world,
   );
 
-let returned;
+// Troy is a rumour in new worlds (rules 94); old full-scope worlds keep it,
+// and there Myrto's invitation waits on nothing else.
+let start;
 export function ajaxStart() {
-  // Troy is a rumour in new worlds (rules 94); old full-scope worlds keep it.
-  returned ||= openDoorJourney(openDoorSteps({ rumours: true }), {
-    rumours: true,
-  }).world;
-  return structuredClone(returned);
+  start ||= greekStart({ full: true });
+  return structuredClone(start);
 }
 
 // Publish the reserved source words through the same path as recorded Talk.

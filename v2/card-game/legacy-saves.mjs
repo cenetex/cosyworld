@@ -78,7 +78,14 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
   // Packs saved at an earlier revision follow their reworked story below.
   const reworked = new Set(
     packDefinitions
-      .filter((p) => (s.packs?.[p.id]?.revision ?? p.revision) < p.revision)
+      .filter((p) => {
+        const revision = s.packs?.[p.id]?.revision;
+        return (
+          Number.isSafeInteger(revision) &&
+          revision > 0 &&
+          revision < p.revision
+        );
+      })
       .map((p) => p.id),
   );
   upgradeSightings(s);
@@ -94,6 +101,8 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     else if (reworked.size) forgetFact(s.knowledge, id);
   }
   reconcileTopics(s, reworked);
+  for (const pack of packDefinitions)
+    if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
   return s;
 }
 
@@ -245,6 +254,7 @@ export function reconcilePackProgress(s, reworked) {
     // Valid saves already meet everything below; a reworked pack may not.
     for (const [id, avatar] of Object.entries(pack.avatars || {})) {
       const a = s.actors?.[id];
+      if (!avatar.journey) delete s.journeyProgress?.[id];
       // A journey not yet agreed starts from its first step.
       if (a && avatar.journey && !kept[avatar.journey.after])
         a.place = avatar.journey.path[0];
@@ -339,6 +349,7 @@ export function forgetRetiredThings(s, retired) {
     if (retired.has(c?.item)) c.item = null;
   // A wish for a retired thing is let go; the rest of the stack stays.
   for (const a of Object.values(s.actors || {})) {
+    if (retired.has(a.heldItem)) delete a.heldItem;
     const quests = [a?.want, ...(a?.under || [])].filter(Boolean);
     const kept = quests.filter(
       (w) => !(w.kind === "item" && retired.has(w.target)),

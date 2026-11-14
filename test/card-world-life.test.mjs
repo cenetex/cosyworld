@@ -29,7 +29,9 @@ describe("home and range", () => {
     const s = lifeWorld();
     expect(rangeOf(s, GUARD)).toBe(0);
     expect(rangeOf(s, "oak")).toBe(0);
-    expect(rangeOf(s, "greek-aethra")).toBe(1);
+    expect(rangeOf(s, "greek-adrastus")).toBe(1);
+    // Aethra keeps to her altar (travels: false), whatever her range.
+    expect(rangeOf(s, "greek-aethra")).toBe(0);
     expect(rangeOf(s, "greek-ajax-tecmessa")).toBe(1);
     expect(rangeOf(s, "greek-creon")).toBe(2);
     expect(rangeOf(s, "greek-shipmaster")).toBe(2);

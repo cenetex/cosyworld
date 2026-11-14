@@ -82,6 +82,9 @@ describe("want.minTrust", () => {
   it("tells the desire only at that trust, and only to a listener", () => {
     const s = lifeWorld();
     s.actors[R].place = "greek-gate";
+    // A want for a place she can name: her own sanctuary.
+    packPeople[R].want = { kind: "place", target: "greek-sanctuary" };
+    s.actors[R].want = { ...packPeople[R].want, since: s.turn, refusals: 0 };
     const want = wantOf(s, R);
     expect(revealed(s, R, want, "vale")).toBe(true);
     packPeople[R].want = { ...packPeople[R].want, minTrust: 1 };

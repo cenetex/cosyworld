@@ -23,14 +23,16 @@ const xp = (world) =>
 const paid = (world) => world.actors.vale.xp;
 
 describe("boxes the Greek and RatiRadio content credits", () => {
-  it("pays nothing for the burial and credits no box", () => {
+  it("credits the returned kit's boxes without paying traveler XP", () => {
     const j = funeralJourney();
     const gains = [
       ["anoint", j.beforeAnoint, j.anointed],
       ["veil", j.anointed, j.veiled],
       ["bury", j.veiled, j.buried],
     ].map(([name, a, b]) => [name, xp(b) - xp(a)]);
-    expect(Object.fromEntries(gains)).toEqual({ anoint: 0, veil: 0, bury: 0 });
+    expect(Object.fromEntries(gains)).toEqual({ anoint: 1, veil: 1, bury: 0 });
+    expect(j.anointed.opened["greek-colonus-keeper"]).toEqual(["vale"]);
+    expect(j.veiled.opened["greek-aethra"]).toEqual(["vale"]);
     expect(
       j.buried.log.some(
         (e) => e.verb === "want_met" && e.actorId === "vale" && e.seq > j.veiled.eventSeq,
