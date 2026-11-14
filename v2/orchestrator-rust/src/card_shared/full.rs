@@ -385,6 +385,7 @@ pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>)
     tx.commit().map_err(sql_error)?;
     Ok(value)
 }
+#[cfg(test)]
 pub(super) fn command_as(
     state: &AppState,
     id: &str,
@@ -434,9 +435,9 @@ async fn talk(
         let state = worker;
         let id = wid;
         valid_id(&id)?;
-        let u = user(&state, &h, true)?;
-        admit(&u)?;
-        logged(&id, || talk_as(&state, &id, &u, &body))
+        let revision = super::revision(&state, &h, true)?;
+        admit(&revision.user)?;
+        logged(&id, || talk_with_revision(&state, &id, &revision, &body))
     })
     .await;
     if committed.is_err() {
@@ -463,7 +464,22 @@ async fn talk(
     reply(view)
 }
 
+#[cfg(test)]
 pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Result<Value> {
+    let c = db(state)?;
+    let revision = crate::account_revision::Revision {
+        user: u.into(),
+        epoch: crate::account_revision::current(&c, u).map_err(sql_error)?,
+    };
+    talk_with_revision(state, id, &revision, body)
+}
+fn talk_with_revision(
+    state: &AppState,
+    id: &str,
+    revision: &crate::account_revision::Revision,
+    body: &Talk,
+) -> Result<Value> {
+    let u = &revision.user;
     let c = db(state)?;
     store::schema(&c)?;
     let actor = bindings::mine(&c, id, u)?.ok_or("Claim an avatar first.")?;
@@ -496,7 +512,7 @@ pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Resul
         moving: false,
         surface: "discord".to_string(),
     };
-    command_as(state, id, u, &command, None)
+    command_with_revision(state, id, revision, &command, None)
 }
 // Leaving keeps the claim; releasing frees the avatar for someone else.
 fn leave(

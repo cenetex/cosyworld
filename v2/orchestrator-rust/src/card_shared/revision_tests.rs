@@ -1,6 +1,117 @@
 use super::*;
 use crate::account_revision::{Error, Revision, REVISION_HEADER, USER_HEADER};
 
+fn talk_fixture() -> (
+    std::path::PathBuf,
+    AppState,
+    rusqlite::Connection,
+    String,
+    Talk,
+) {
+    let path = std::env::temp_dir().join(format!("talk-revision-{}.sqlite", crate::random_hex(12)));
+    let state = crate::test_app_state(Some(path.clone()));
+    let c = db(&state).unwrap();
+    store::schema(&c).unwrap();
+    c.execute(
+        "INSERT INTO auth_users VALUES('ann','ann','Ann','active',0,0)",
+        [],
+    )
+    .unwrap();
+    let id = "a".repeat(48);
+    let mut world = World::create(None).unwrap();
+    world.game["actors"]["moth"]["place"] = world.game["actors"]["vale"]["place"].clone();
+    super::super::store::create(&c, &id, "ann", now()).unwrap();
+    store::seed(&c, &id, &world, "test-create", now()).unwrap();
+    let command = Command {
+        op: "claim".into(),
+        avatar: Some("vale".into()),
+        action: Value::Null,
+        target: None,
+        key: String::new(),
+        moving: false,
+        surface: "browser".into(),
+        revealed: None,
+    };
+    command_as(&state, &id, "ann", &command, None).unwrap();
+    let view = store::world(&c, &id, now()).unwrap().project(0).unwrap();
+    assert!(view["actions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|action| action["kind"] == "talk" && action["target"] == "moth"));
+    let talk = Talk {
+        avatar: Some("vale".into()),
+        target: "moth".into(),
+    };
+    (path, state, c, id, talk)
+}
+
+#[test]
+fn shared_talk_keeps_its_admitted_revision_until_enqueue() {
+    let (path, state, c, id, talk) = talk_fixture();
+    let admitted = Revision::capture(&c, "ann", &HeaderMap::new()).unwrap();
+    c.execute("INSERT INTO account_revisions VALUES('ann',1)", [])
+        .unwrap();
+    let count = || {
+        c.query_row("SELECT count(*) FROM card_full_plays", [], |r| {
+            r.get::<_, i64>(0)
+        })
+        .unwrap()
+    };
+    let before = count();
+    assert_eq!(
+        talk_with_revision(&state, &id, &admitted, &talk).unwrap_err(),
+        Error::Changed.to_string()
+    );
+    assert_eq!(count(), before);
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_HEADER, "ann".parse().unwrap());
+    headers.insert(REVISION_HEADER, "1".parse().unwrap());
+    let fresh = Revision::capture(&c, "ann", &headers).unwrap();
+    talk_with_revision(&state, &id, &fresh, &talk).unwrap();
+    assert_eq!(count(), before + 1);
+    drop(c);
+    drop(state);
+    let _ = std::fs::remove_file(path);
+}
+
+#[tokio::test]
+async fn current_shared_http_talk_still_queues_the_available_action() {
+    use axum::{body::Body, extract::ConnectInfo, http::Request};
+    use tower::ServiceExt;
+    let (path, state, c, id, _) = talk_fixture();
+    c.execute("INSERT INTO account_revisions VALUES('ann',1)", [])
+        .unwrap();
+    let cookie = state.account_auth.test_session("ann");
+    let router = crate::routes::card_app_router(
+        state.clone(),
+        crate::shutdown::ShutdownSubscription::idle(),
+    );
+    let mut request = Request::builder()
+        .method("POST")
+        .uri(format!("/card-game/shared/worlds/{id}/talk"))
+        .header("content-type", "application/json")
+        .header("cookie", &cookie)
+        .header(USER_HEADER, "ann")
+        .header(REVISION_HEADER, "1")
+        .body(Body::from(r#"{"avatar":"vale","target":"moth"}"#))
+        .unwrap();
+    request.extensions_mut().insert(ConnectInfo(
+        "127.0.0.1:8841".parse::<std::net::SocketAddr>().unwrap(),
+    ));
+    let response = router.oneshot(request).await.unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let queued: i64 = c.query_row(
+        "SELECT count(*) FROM card_full_plays WHERE user='ann' AND json_extract(command,'$.action.kind')='talk' AND json_extract(command,'$.action.target')='moth'",
+        [],
+        |r| r.get(0),
+    ).unwrap();
+    assert_eq!(queued, 1);
+    drop(c);
+    drop(state);
+    let _ = std::fs::remove_file(path);
+}
+
 #[test]
 fn shared_command_rechecks_after_waiting_for_its_write_transaction() {
     let path =
@@ -79,27 +190,30 @@ async fn stale_shared_http_commands_keep_the_reload_code() {
         "/card-game/shared/worlds".to_string(),
         format!("/card-game/shared/worlds/{}/command", "a".repeat(48)),
         format!("/card-game/shared/worlds/{}/browser-chat", "a".repeat(48)),
+        format!("/card-game/shared/worlds/{}/talk", "a".repeat(48)),
     ] {
-        for supplied in [false, true] {
+        for supplied in [None, Some(("ann", "0")), Some(("other", "1"))] {
             let mut builder = Request::builder()
                 .method("POST")
                 .uri(&route)
                 .header("content-type", "application/json")
                 .header("cookie", &cookie);
-            if supplied {
+            if let Some((user, revision)) = supplied {
                 builder = builder
-                    .header(USER_HEADER, "ann")
-                    .header(REVISION_HEADER, "0");
+                    .header(USER_HEADER, user)
+                    .header(REVISION_HEADER, revision);
             }
             let mut request = builder
                 .body(Body::from(r#"{"op":"claim","key":"stale"}"#))
                 .unwrap();
-            // Create denies unknown fields: give each endpoint its actual body.
             if route.ends_with("worlds") {
                 *request.body_mut() = Body::from("{}");
             }
             if route.ends_with("browser-chat") {
                 *request.body_mut() = Body::from(r#"{"key":"stale","failure":true}"#);
+            }
+            if route.ends_with("talk") {
+                *request.body_mut() = Body::from(r#"{"target":"moth"}"#);
             }
             request.extensions_mut().insert(ConnectInfo(
                 "127.0.0.1:8841".parse::<std::net::SocketAddr>().unwrap(),
