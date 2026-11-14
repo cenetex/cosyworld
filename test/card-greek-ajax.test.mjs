@@ -161,7 +161,9 @@ describe("Earth Beside the Ships", () => {
     ].map((id) => `greek-ajax-${id}`);
     for (const id of talkIds)
       expect(pack.choices.find((c) => c.id === id).on).toBe("talk");
-    expect(pack.choices.filter((c) => c.on === undefined)).toEqual([]);
+    expect(
+      pack.choices.filter((c) => !c.archived && c.on === undefined),
+    ).toEqual([]);
     const chooses = (w) => legalActions(w).filter((a) => a.kind === "choose");
     const talkTo = (world, target) => {
       expect(chooses(world)).toEqual([]);
@@ -285,9 +287,8 @@ describe("Earth Beside the Ships", () => {
   });
 });
 
-
 describe("shared Ajax testimony", () => {
-it("lets a second carrier learn the signed account and bring its paper to Dione", () => {
+  it("lets a second carrier learn the signed account and bring its paper to Dione", () => {
     const original = ajaxAccount("public");
     let world = dispatchShared({
       op: "create",
