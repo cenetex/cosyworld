@@ -79,17 +79,18 @@ async fn stale_shared_http_commands_keep_the_reload_code() {
         "/card-game/shared/worlds".to_string(),
         format!("/card-game/shared/worlds/{}/command", "a".repeat(48)),
         format!("/card-game/shared/worlds/{}/browser-chat", "a".repeat(48)),
+        format!("/card-game/shared/worlds/{}/talk", "a".repeat(48)),
     ] {
-        for supplied in [false, true] {
+        for supplied in [None, Some(("ann", "0")), Some(("other", "1"))] {
             let mut builder = Request::builder()
                 .method("POST")
                 .uri(&route)
                 .header("content-type", "application/json")
                 .header("cookie", &cookie);
-            if supplied {
+            if let Some((user, revision)) = supplied {
                 builder = builder
-                    .header(USER_HEADER, "ann")
-                    .header(REVISION_HEADER, "0");
+                    .header(USER_HEADER, user)
+                    .header(REVISION_HEADER, revision);
             }
             let mut request = builder
                 .body(Body::from(r#"{"op":"claim","key":"stale"}"#))
@@ -100,6 +101,9 @@ async fn stale_shared_http_commands_keep_the_reload_code() {
             }
             if route.ends_with("browser-chat") {
                 *request.body_mut() = Body::from(r#"{"key":"stale","failure":true}"#);
+            }
+            if route.ends_with("talk") {
+                *request.body_mut() = Body::from(r#"{"target":"moth"}"#);
             }
             request.extensions_mut().insert(ConnectInfo(
                 "127.0.0.1:8841".parse::<std::net::SocketAddr>().unwrap(),
