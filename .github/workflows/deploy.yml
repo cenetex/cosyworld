@@ -345,12 +345,12 @@ jobs:
       - name: Checkout committed release
         uses: actions/checkout@v7
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+          filter: blob:none
 
       # A manual CI run or a .dev train's gate on this commit (or on the
       # commit a release only bumps the version of) runs the same Rust tests
-      # and lint. Reuse its result; run the checks here when none ran them,
-      # or they were cancelled or failed.
+      # and lint. Reuse success; otherwise run the checks here.
       - name: Reuse CI Rust checks for this commit
         id: ci
         env:
