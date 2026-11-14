@@ -86,8 +86,7 @@ describe("the reflected shore card game", () => {
     expect(exits(s, "pond")).toContain("attic");
     s = act(s, "cover", "cloth", "lamp");
     expect(covered(s, "lamp")).toBe(true);
-    expect(exits(s, "pond")).toContain("station");
-    expect(exits(s, "pond")).not.toContain("attic");
+    expect(exits(s, "pond")).toEqual(["station"]);
     s = endStandoff(s);
     const fuel = s.items.lamp.fuelRooms;
     s = act(s, "take", "cloth");
@@ -102,8 +101,7 @@ describe("the reflected shore card game", () => {
     s = act(s, "move", null, "pond");
     expect(s.actors.vale.place).toBe("pond");
     expect(s.actors.vale.crossed).toBe(2);
-    expect(exits(s, "pond")).toContain("station");
-    expect(exits(s, "pond")).not.toContain("attic");
+    expect(exits(s, "pond")).toEqual(["station"]);
   });
 
   it("moves a cover with its object when a different avatar takes it", () => {

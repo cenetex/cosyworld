@@ -12,7 +12,7 @@
         "contract": "cosyworld.card-table/1",
         "sha256": "ec4aa9f7bd1b5842e3d00f4d2e9d68311577704410da215ba30a23bbd07771a2"
       },
-      "mounted": true
+      "mounted": false
     }
   ]
 }

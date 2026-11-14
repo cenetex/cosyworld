@@ -52,8 +52,6 @@ const NO_INVITE = {
 };
 // Residents who do not join a standoff.
 const NO_STANDOFF = {
-  hissling: "The Hissling is a peaceful Warren resident (standoffs: false).",
-  sifter: "The Sifter is a peaceful Warren resident (standoffs: false).",
   badger:
     "The Badger is asleep until greeted and card-packs pins that a sleeper cannot be threatened (standoffs: false).",
   "greek-rhapsode": "The rhapsode is the pack's recital actor, which the pack schema pins to standoffs: false.",
