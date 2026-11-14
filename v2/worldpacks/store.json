@@ -1,4 +1,18 @@
 {
   "schemaVersion": 1,
-  "packs": []
+  "packs": [
+    {
+      "id": "warren",
+      "source": {
+        "repo": "deniskoval431-hash/cosyworld-worldpack-warren",
+        "commit": "cea0aee7c9e8f12ed6407133d37d8bab3d18e047"
+      },
+      "pinned": {
+        "revision": 1,
+        "contract": "cosyworld.card-table/1",
+        "sha256": "ec4aa9f7bd1b5842e3d00f4d2e9d68311577704410da215ba30a23bbd07771a2"
+      },
+      "mounted": false
+    }
+  ]
 }
