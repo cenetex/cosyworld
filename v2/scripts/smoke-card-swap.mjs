@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { SWAP_MS } from "../card-game/card-swap.mjs";
-import { readyActionButton, revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
+import { putOutOpening, readyActionButton, revealOpening, selectCard, startNewGame, tapCard } from "./card-browser-helpers.mjs";
 
 // A scene change swaps the hand in beats, not one cut (card-swap.mjs).
 // Travel: the cards left behind fall as ghosts, nearest Vale first, as the
@@ -276,14 +276,14 @@ try {
     // Put out in a new world's attic: the lamp and the attic turn to their
     // dark faces as the light goes down, keeping their nodes, and the pond
     // is dealt face down behind the attic.
-    await page.evaluate(() => document.querySelector("#confirm-reset").click());
+    await startNewGame(page);
     await ready();
     await revealOpening(page);
     await page.waitForTimeout(600);
     await page.evaluate(() => {
       document.querySelector('#hand [data-card="lamp"]').swapMark = "kept";
     });
-    await tap("#card-actions .card-primary");
+    await putOutOpening(page);
     await strip("put-out");
     await settled();
     const douse = await watched();
