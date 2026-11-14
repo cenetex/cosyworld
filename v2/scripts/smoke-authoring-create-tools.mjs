@@ -43,7 +43,8 @@ try {
     const press = target => width < 700 ? target.tap() : target.click();
     const action = () => press(page.locator("#card-actions button:enabled"));
     const tool = async id => { await press(page.locator("#menu-button")); await press(page.locator(`[data-setting="designer-tool-${id}"]`)); };
-    const retry = () => page.waitForFunction(() => document.querySelector("#card-actions button")?.textContent === "Retry Create");
+    const ready = name => page.getByRole("button", { name, exact: true }).waitFor();
+    const retry = () => ready("Retry Create");
     const read = () => page.evaluate(async () => {
       const { openAuthoringStore } = await import("/card-game/authoring-local-store.mjs");
       const store = await openAuthoringStore(), key = new URL(location.href).searchParams.get("draft");
@@ -55,7 +56,7 @@ try {
     });
     await page.goto(`http://127.0.0.1:${server.address().port}/make?sample=1`);
     await tool("create-private");
-    await page.waitForFunction(() => document.querySelector("#card-actions button")?.textContent === "Create private world");
+    await ready("Create private world");
     await action();
     if (width === 1440) {
       await page.waitForFunction(() => document.querySelector(".action-beat-note").textContent.includes("Uploading"), null, { timeout: 10_000 })
@@ -67,7 +68,7 @@ try {
       await tool("create-private"); await retry();
       const before = uploadCalls;
       await action();
-      await page.waitForFunction(() => document.querySelector(".action-beat-note").textContent.includes("Signed in"));
+      await ready("Refresh account");
       assert.equal(uploadCalls, before);
       assert.equal((await read()).original.owner, "first");
       owner = "first";
@@ -82,7 +83,7 @@ try {
       await page.reload();
       await tool("create-private"); await retry(); await action();
     } else {
-      await page.waitForFunction(() => document.querySelector("#card-actions button")?.textContent === "Refresh account");
+      await ready("Refresh account");
       await action(); await retry(); await action();
     }
     await page.waitForFunction(() => document.querySelector(".action-beat-note").textContent.includes("has a private saved copy"));

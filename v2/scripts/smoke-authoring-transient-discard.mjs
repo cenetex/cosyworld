@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { smokeWidths } from "./card-browser-helpers.mjs";
+import { actionLabel, smokeWidths } from "./card-browser-helpers.mjs";
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });
@@ -180,7 +180,7 @@ try {
     await reload();
     await press(action);
     assert.equal((await state()).pending, "Keep this description");
-    assert.equal(await action.innerText(), "Confirm reload and discard");
+    assert.equal(await actionLabel(action), "Confirm reload and discard");
     await page.evaluate(() => window.review.reply());
     await page.waitForTimeout(450);
     await press(action);
