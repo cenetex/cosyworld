@@ -1,8 +1,6 @@
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
 import { clearSelection, endStandoff, holdItem, selectCard, setLampFuel } from "./card-browser-helpers.mjs";
 import { checkOpeningPoem } from "./smoke-card-opening-poem.mjs";
-// Exercise the public card UI and its one saved history, at desktop and phone
-// widths. Text is a bounded fixture; the deterministic model owns every result.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -18,6 +16,7 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { MAX_DWELL } from "../card-game/world/dwell.mjs";
 
 function commit(world, kind, target) {
   const action = legalActions(world).find(
@@ -154,11 +153,14 @@ try {
         s.items.lamp.fuel >= 4,
         "the lamp has enough oil for the signal",
       );
-      if (!(await state()).items.lamp.lit) await playCard("lamp");
-      // Cover the lit lamp, then uncover it: the whole ship signal.
-      await pair("cloth", "lamp");
-      await playCard("cloth");
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
+      // Ground the fueled lamp beside the held cloth, then recover it.
+      await pair("lamp", "pond");
+      const called = await state();
+      assert.equal(called.items.lamp.holder, "pond");
+      assert.equal(called.items.lamp.lit, true);
+      assert.equal(called.actors.vale.heldItem, "cloth");
+      assert.equal(called.crossings["pond-greek-harbor"].discovered, true);
+      await playCard("lamp");
     };
     const travel = async (id) => {
       const before = await state();
@@ -179,7 +181,7 @@ try {
           await playCard("vale");
       const boarding =
         before.actors.vale.place === "pond" && id === "greek-harbor";
-      if (boarding && before.transports["greek-ship"].dock !== "pond")
+      if (boarding && !before.crossings["pond-greek-harbor"].discovered)
         await signalShip();
       if (
         boarding ||
@@ -219,7 +221,7 @@ try {
       await playCard(id);
       assert.equal((await state()).actors.vale.place, id, `travel to ${id}`);
       assert.equal(await page.textContent("#place-title"), places[id].name);
-      if (boarding && (await state()).items.lamp.lit) await playCard("lamp");
+      if (boarding) await clearSelection(page);
     };
     const artReady = async () => {
       await page.waitForFunction(() =>
@@ -297,17 +299,35 @@ try {
     const opposite =
       branch === "egypt" ? "greek-troy-beach" : "greek-egypt-tomb";
     const evidence = `greek-${branch}-testimony`;
+    const otherAccountLocked = async () => {
+      assert.equal(await card(opposite).getAttribute("data-locked"), "true");
+      assert.equal(
+        legalActions(await state()).some(
+          (action) => action.kind === "move" && action.target === opposite,
+        ),
+        false,
+        "The other account stays a locked road, never a legal destination",
+      );
+    };
     await travel("greek-harbor");
     const tablet = "greek-helen-accounts";
     await playCard(tablet);
     if (branch === "troy") await travel("greek-well");
-    await pair(tablet, branch === "egypt" ? "greek-shipmaster" : "greek-elder");
+    const teller = branch === "egypt" ? "greek-shipmaster" : "greek-elder";
+    const canGiveTablet = async () => legalActions(await state()).some(
+      (action) => action.kind === "give" && action.item === tablet && action.target === teller,
+    );
+    // Wait for the resident's actual handoff after its dwell or sleep.
+    for (let n = 0; n < 2 * MAX_DWELL && !(await canGiveTablet()); n++)
+      await playCard("vale");
+    assert(await canGiveTablet(), `${teller} returns to hear Helen's account`);
+    await pair(tablet, teller);
     assert.equal(
       (await state()).items[tablet].holder,
       branch === "egypt" ? "greek-harbor" : "greek-well",
     );
     if (branch === "troy") await travel("greek-harbor");
-    assert.equal(await card(opposite).count(), 0);
+    await otherAccountLocked();
     await travel(destination);
     await playCard(evidence);
     assert.equal(rootHolder(await state(), evidence), "vale");
@@ -320,7 +340,7 @@ try {
       fullPage: true,
     });
     await travel("greek-harbor");
-    assert.equal(await card(opposite).count(), 0);
+    await otherAccountLocked();
     await travel("pond");
     current = await state();
     assert.equal(
@@ -358,7 +378,7 @@ try {
       places["greek-harbor"].name,
     );
     await ready();
-    assert.equal(await card(opposite).count(), 0);
+    await otherAccountLocked();
     await travel("pond");
     assert.equal(rootHolder(await state(), evidence), "vale");
     assert.ok(requests.some((r) => r.location === "greek-gate"));

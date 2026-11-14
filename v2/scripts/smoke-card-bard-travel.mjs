@@ -9,7 +9,12 @@ import {
   legalActions,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
-import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
+import { MAX_DWELL } from "../card-game/world/dwell.mjs";
+import {
+  clearSelection,
+  selectCard,
+  wordsFellSilent,
+} from "./card-browser-helpers.mjs";
 
 const singer = "greek-rhapsode";
 const want = (kind, target, since = 0) => ({
@@ -48,8 +53,8 @@ try {
     // A fresh Bard wants to hear Vale and walks every ordinary step to her.
     {
       const world = enableMotives(createWorld());
-      world.actors.vale.place = "greek-gate";
-      world.items["greek-shovel"].holder = "vale";
+      world.actors.vale.place = "greek-courtyard";
+      world.items["greek-water-jar"].holder = "vale";
       world.crossings["pond-greek-harbor"].discovered = true;
       assert.equal(world.actors[singer].place, "greek-harbor");
       world.actors[singer].want = want("person", "vale");
@@ -119,38 +124,62 @@ try {
         `http://127.0.0.1:${server.address().port}/?table=bard-route-${width}`,
       );
       await settle();
-      await selectCard(page, "greek-guard");
+      await selectCard(page, "greek-baker");
       await page.locator('[data-action="talk"]').click();
       await reachTurn(1);
       assert.equal((await saved()).actors[singer].place, "greek-road-thebes");
-      // Handing the guard the shovel reports the plan.
-      await selectCard(page, "greek-shovel");
-      await selectCard(page, "greek-guard");
+      // Return the water jar: this living deed gives the Bard a verse.
+      await selectCard(page, "greek-water-jar");
+      await selectCard(page, "greek-baker");
       await page.locator('#card-actions [data-action="give"]').click();
       await reachTurn(2);
-      // The Bard walks on into the city; its first step after the deed
-      // records the verse's visit.
+      // The Bard keeps its destination through the dwell, then walks on.
       let state = await saved();
+      assert.equal(state.actors[singer].place, "greek-road-thebes");
+      const leavesAt = state.actors[singer].dwellUntil;
+      assert.ok(leavesAt > state.turn);
+      assert.equal(
+        state.packs["greek-drama"].recitals["greek-return-water-jar"].visit,
+        null,
+      );
+      for (
+        let n = 0;
+        n <= MAX_DWELL && state.actors[singer].place !== "greek-courtyard";
+        n++
+      ) {
+        await clearSelection(page);
+        await selectCard(page, "greek-courtyard");
+        const wait = page.locator("#card-actions")
+          .getByRole("button", { name: "Wait", exact: true });
+        if (!(await wait.count()))
+          for (let tap = 0; tap < 2; tap++)
+            await selectCard(page, "greek-courtyard");
+        await wait.click();
+        await reachTurn(state.turn + 1);
+        state = await saved();
+        if (state.turn < leavesAt)
+          assert.equal(state.actors[singer].place, "greek-road-thebes");
+      }
       assert.equal(state.actors[singer].place, "greek-courtyard");
       assert.deepEqual(state.actors[singer].want, want("person", "vale"));
       assert.equal(
-        state.packs["greek-drama"].recitals["greek-report-plan"].visit,
-        2,
+        state.packs["greek-drama"].recitals["greek-return-water-jar"].visit,
+        state.turn,
       );
-      await selectCard(page, "vale");
-      await page.locator('#card-actions [data-action="wait"]').click();
-      await reachTurn(3);
-      state = await saved();
-      assert.equal(state.actors[singer].place, "greek-gate");
+      const arrivalTurn = state.turn;
+      await clearSelection(page);
       await selectCard(page, singer);
       await page.locator('#card-actions [data-action="talk"]').click();
-      await reachTurn(4);
+      await reachTurn(arrivalTurn + 1);
       assert.equal(await wordsFellSilent(page, key), false);
       const poem = requests.at(-1).entities.find((e) => e.id === singer)?.poem;
       assert.equal(poem.stanzas.length, 1);
       // Couplet text is lore, never dialogue context.
-      assert.equal(poem.stanzas[0].id, "greek-report-plan");
-      assert.equal(JSON.stringify(poem).includes("hidden plan"), false);
+      assert.equal(poem.stanzas[0].id, "greek-return-water-jar");
+      assert.equal(
+        JSON.stringify(poem).includes("I set the water by her hands"),
+        false,
+      );
       assert.equal(poem.stanzas[0].authorName, "Vale");
       await page.screenshot({
         path: new URL(`legal-arrival-${width}.png`, output).pathname,
@@ -180,6 +209,7 @@ try {
       world.actors.rue.place = world.actors.moth.place = "station";
       world.items.routes.holder = "rue";
       world.actors.moth.trust.rue = 1;
+      world.actors.moth.want = want("place", "train");
       const table = `carriage-invitation-${width}`,
         key = `cosyworld.reflected-shore.v1.${table}`;
       const page = await browser.newPage({

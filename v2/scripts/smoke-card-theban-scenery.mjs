@@ -28,12 +28,14 @@ function initial() {
   let s = createWorld({ opening: true });
   // Keep the ship at harbor until this scenery fixture completes the signal.
   s.actors["greek-rhapsode"].place = "attic";
-  // The opening starts lit; douse it to open the mirror, then relight it at
-  // the pond for the ship signal (#1653).
+  // Stow the lamp to open the mirror.
   s = holdItem(s, null);
   s = act(s, "move", { target: "pond" });
   s = holdItem(s, "lamp");
   s.items.cloth.holder = "vale";
+  // This scenery walk starts with the palace's permission and presents it
+  // to the guard through the table before entering the battlefield.
+  s.items["greek-creon-writ"].holder = "vale";
   setLampFuel(s, 12, "pond");
   s.items.bell.holder = "station";
   s.actors.moth.place = "station";
@@ -161,15 +163,20 @@ try {
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
-      // Cover, then uncover, the lit lamp; the call survives a reload.
-      await use("cloth", "lamp");
-      await use("cloth");
+      // A grounded, fueled lamp beside the held cloth calls the ship.
+      await use("lamp", "pond");
+      const called = await state();
+      assert.equal(called.items.lamp.holder, "pond");
+      assert.equal(called.items.lamp.lit, true);
+      assert.equal(called.actors.vale.heldItem, "cloth");
+      assert.equal(called.crossings["pond-greek-harbor"].discovered, true);
       await page.reload();
       await card("cloth").waitFor({ state: "attached" });
+      assert.equal((await state()).crossings["pond-greek-harbor"].discovered, true);
       // A newly docked ship arrives covered; uncover it before reading it.
       await revealCard(page, "greek-ship");
       assert.equal(
-        await card("greek-ship").locator(".name").innerText(),
+        await card("greek-ship").locator(".name").textContent(),
         "The Charybdis",
       );
       // From the pond the ship's card shows where it goes: the deck, not
@@ -179,6 +186,7 @@ try {
         /ship-deck/,
       );
       await shot("pond-ship");
+      await use("lamp");
       await use("greek-ship");
       assert.equal((await state()).actors.vale.place, "greek-ship");
       await shot("aboard-ship");
@@ -194,7 +202,7 @@ try {
       await use("vale");
       await use("greek-harbor");
       assert.equal((await state()).packs["greek-drama"].scope, "opening");
-      await use("lamp");
+      await clearSelection(page);
       if (await endStandoff(page, await state())) await ready();
       await shot("harbor");
       const harborSave = await page.evaluate(
@@ -269,21 +277,30 @@ try {
           "greek-athens",
           "greek-argolid-road",
           "greek-aulis",
-          "greek-cithaeron",
         ])
-          assert(!destinations.includes(hidden));
+          assert(!destinations.includes(hidden), `${hidden} is not offered from ${id}`);
+        if (id === "greek-battlefield")
+          assert(legalActions(await state()).some(
+            (action) => action.kind === "move" && action.target === "greek-cithaeron",
+          ), "The released Cithaeron road opens from the battlefield");
         if (!visited.has(id)) {
           await shot(id.replace("greek-", ""));
           visited.add(id);
         }
-        // The gate opens onto the battlefield while the guard holds the
-        // decree there; until then no card leads out.
-        const decree = (await state()).items["greek-decree"].holder;
-        if (id === "greek-palace" && !visited.has("greek-sanctuary"))
-          await use("greek-decree");
-        if (id === "greek-gate" && decree === "vale") {
-          assert(!destinations.includes("greek-battlefield"));
-          await use("greek-decree", "greek-guard");
+        // The guard opens the battlefield road when given Creon's writ.
+        const writ = (await state()).items["greek-creon-writ"].holder;
+        if (id === "greek-gate" && writ === "vale") {
+          assert.equal(await card("greek-battlefield").getAttribute("data-locked"), "true");
+          assert.equal(legalActions(await state()).some(
+            (action) => action.kind === "move" && action.target === "greek-battlefield",
+          ), false);
+          await use("greek-creon-writ", "greek-guard");
+          const opened = await state();
+          assert.equal(opened.items["greek-creon-writ"].holder, "greek-guard");
+          assert.equal(await card("greek-battlefield").getAttribute("data-locked"), "false");
+          assert(legalActions(opened).some(
+            (action) => action.kind === "move" && action.target === "greek-battlefield",
+          ));
         }
       }
       assert.deepEqual([...visited].sort(), [
