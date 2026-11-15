@@ -128,12 +128,24 @@ try {
         `The Greek hand stayed busy at ${width}px: ${errors.join("; ")}`,
       );
     };
+    const unlockSelected = async (id) => {
+      const unlock = page.locator(`[data-unlock-box="${id}"]`);
+      if (!(await unlock.count())) return;
+      assert(await unlock.isEnabled(), `${id} is eligible for Unlock`);
+      const before = await state();
+      await unlock.click();
+      await page.waitForFunction((id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.locked === "false" && !card.dataset.revealing;
+      }, id);
+      assert.deepEqual(await state(), before, "Unlock preserves the whole world");
+    };
     const playCard = async (id) => {
       await ready();
       if (await endStandoff(page, await state())) await ready();
-      // A held item stays raised after its play; start each play fresh.
       await clearSelection(page);
       await selectCard(page, id);
+      await unlockSelected(id);
       await page.locator("#card-actions .card-primary").click();
       await ready();
     };

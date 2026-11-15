@@ -133,7 +133,7 @@ try {
       // revealing finishes the words; only a ready button plays Wait.
       const action = readyActionButton(page, "wait").first();
       await action.waitFor();
-      assert.equal(await action.getAttribute("aria-label"), "Wait");
+      assert.equal((await action.innerText()).trim(), "Wait");
       await action.click();
       // Settled: the hand shows the play's revision, the overlay has no fade
       // running or waiting on its image (fadeLayer holds opacity 0 inline
