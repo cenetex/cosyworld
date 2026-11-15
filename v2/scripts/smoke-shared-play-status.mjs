@@ -172,12 +172,12 @@ async function check(width) {
       await selectCard(page, "vale", { touch: width === 390 });
     await wait.waitFor();
     // Vale again after a Wait offers Sleep; letting go brings back Wait.
-    if ((await wait.getAttribute("aria-label")) === "Sleep") {
+    if ((await wait.innerText()).trim() === "Sleep") {
       await selectCard(page, "vale", { touch: width === 390 });
       await selectCard(page, "vale", { touch: width === 390 });
     }
     await readyActionButton(page, "wait").waitFor();
-    assert.equal(await wait.getAttribute("aria-label"), "Wait");
+    assert.equal((await wait.innerText()).trim(), "Wait");
   };
   try {
     await page.goto(`${origin}/?world=status`);
