@@ -61,6 +61,7 @@ async function watch(guild) {
   if (!found) return;
   const room = createRoom(guild.id, found.channel.id);
   room.webhookId = found.webhook.id;
+  room.talkMs = config.DISCORD_TALK_MS;
   try {
     const recent = await found.channel.messages.fetch({ limit: 20 });
     seed(room, recent.values(), cast);

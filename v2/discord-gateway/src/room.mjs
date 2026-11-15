@@ -1,4 +1,4 @@
-import { addressedResident, addressee, decide, focusOn, mentioned, speaker, strength } from "./attention.mjs";
+import { addressee, attend, decide, focusOn, join, mentioned, speaker, spoke, strength } from "./attention.mjs";
 import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
 import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
@@ -28,7 +28,7 @@ export function createRoom(guildId, channelId) {
 export function nudge(room, entry, cast, { delay, run, timers = globalThis }) {
   if (!entry || entry.resident) return false;
   calm(room, timers);
-  if (room.messages.at(-1) !== entry || !addressee(room.messages, cast, undefined, room.focus)) return false;
+  if (room.messages.at(-1) !== entry || !attend(room.messages, cast, undefined, room).reason) return false;
   const fire = () => {
     if (room.nudge !== armed) return;
     if (room.busy) {
@@ -53,7 +53,7 @@ function overtaken(room, messageId, residentId, cast) {
   const index = room.messages.findIndex((entry) => entry.id === messageId);
   if (index < 0) return false;
   for (let at = index + 1; at < room.messages.length; at += 1) {
-    const other = addressee(room.messages, cast, at, room.focus);
+    const other = addressee(room.messages, cast, at, room);
     if (other && other !== residentId) return true;
   }
   return false;
@@ -104,8 +104,7 @@ export function record(room, message, webhookId, cast) {
       "Someone";
     room.heard += 1;
     room.halt?.abort();
-    const named = addressedResident(entry, cast, room.messages);
-    if (named) focusOn(room, named, speaker(entry), entry.at);
+    join(room, entry, cast);
   }
   room.messages.push(entry);
   if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
@@ -168,7 +167,7 @@ export function requestBody(room, config, addressed, now = Date.now()) {
 }
 
 export function createStats() {
-  return { replies: 0, continued: 0, exchanges: 0, skips: {}, failures: {}, flags: {} };
+  return { replies: 0, continued: 0, exchanges: 0, skips: {}, failures: {}, flags: {}, conversation: {} };
 }
 
 function count(table, key) {
@@ -181,7 +180,7 @@ function counts(table) {
 }
 
 export function summary(stats) {
-  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)} continued=${stats.continued} exchanges=${stats.exchanges} flags=${counts(stats.flags)}`;
+  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)} continued=${stats.continued} exchanges=${stats.exchanges} flags=${counts(stats.flags)} conversation=${counts(stats.conversation)}`;
 }
 
 function turn(room, resident, text, toward, at, cast) {
@@ -192,6 +191,7 @@ function turn(room, resident, text, toward, at, cast) {
   } else if (toward) {
     focusOn(room, resident.id, toward, at);
   }
+  spoke(room, resident.id, toward, at);
 }
 
 async function post(room, resident, text, { config, cast, send, sleep, stats, log }, toward = room.focus[resident.id]?.target) {
@@ -405,6 +405,7 @@ export function tick({
     const decision = decide(room, guild, now, config, cast);
     if (decision.act === "wait") continue;
     log(`decision act=${decision.act} reason=${decision.reason} guild=${room.guildId} channel=${room.channelId}`);
+    if (decision.reason?.startsWith("conversation")) count(stats.conversation, decision.reason);
     const messageId = room.messages.at(-1).id;
     const before = { gap: room.handledGap, reply: room.lastReplyAt, ambient: room.lastAmbientAt };
     room.handledGap = messageId;
