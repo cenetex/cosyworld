@@ -1,0 +1,152 @@
+{
+  "date": "2026-11-14",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2758",
+  "mode": "reference-based regeneration",
+  "palette_source": "The November 14 full art brief in issue #2758 specifies black and cream, with red used only for named scarves. Older crops contain other spot colors; those accents become cream in this batch.",
+  "shared_prompt": "Use case: stylized-concept. Asset type: one final full-size portrait woodcut tarot card for CosyWorld. Image 1 is the owner's existing small card, supplied as the design and composition reference. Redraw its main composition, figures, objects, corner emblems, foliage, number plate and name plate as a richly detailed hand-carved woodcut print at exactly 1024 by 1536 pixels, portrait 2:3. Draw crisp new carved contours and fine hatching at this resolution, rather than enlarging the tiny reference. Follow the current deck brief's palette: dense near-black ink and warm aged cream paper ONLY, except a vermilion red scarf if the card-specific instructions name one. Convert all older blue, teal, green, orange and brown spot inks in the reference to cream. Keep light natural paper grain, irregular hand-printed ink edges, calm folk woodcut character, readable graphic silhouettes and bold hand-printed serif capital lettering. Show one complete flat card, front-on, filling the opaque canvas, every rounded cream outer corner and full border visible. No perspective, table, external ground, cast shadow, hands holding the card, extra text, new symbols, gradients, photorealism, watercolor, metallic decoration, collage or watermark. Follow the card-specific details below when they clarify the small reference.",
+  "assets": [
+    {
+      "id": "arcanum-6",
+      "number": 6,
+      "name": "The Lover",
+      "reference": "assets/arcana/arcanum-6.png",
+      "output": "assets/arcana/full-size/arcanum-6.png",
+      "prompt": "VI THE LOVER. Preserve the curly-haired young man standing in the center between a bearded person at left and a woman at right. The left person touches his shoulder; the right woman reaches toward his open hand as they draw him two ways. Small winged Cupid flies above, aiming a bow and arrow rightward. A tiny temple sits on a hill at upper right and a forked path curves below. Four moth emblems in the corners and ivory leaf sprigs at the sides. Top plate exact text: VI. Bottom plate exact text: THE LOVER. All clothes are plain cream and black. NO scarf and NO red anywhere. Convert the source's blue moths to cream."
+    },
+    {
+      "id": "arcanum-7",
+      "number": 7,
+      "name": "The Chariot",
+      "reference": "assets/arcana/arcanum-7.png",
+      "output": "assets/arcana/full-size/arcanum-7.png",
+      "prompt": "VII THE CHARIOT. Preserve the close three-quarter view of a steam train moving toward the right. The adult driver, wearing a plain railway cap and rolled-sleeve shirt, leans from the cab window at upper right with one hand on the sill. A rounded locomotive boiler extends toward left; a thick plume of pale steam curls above; strong diagonal rails run across the lower foreground. Four bell emblems at the corners, small leaf sprigs at the upper sides. Top plate exact text: VII. Bottom plate exact text: THE CHARIOT. Cream and black only, including rails and corner bells. No scarf or red."
+    },
+    {
+      "id": "arcanum-8",
+      "number": 8,
+      "name": "Justice",
+      "reference": "assets/arcana/arcanum-8.png",
+      "output": "assets/arcana/full-size/arcanum-8.png",
+      "prompt": "VIII JUSTICE, Marseille order. Preserve the solemn woman facing directly forward behind a balanced set of scales. Her two hands rest at equal height on the beam; the upright post stands in the center. A complete key rests in the left pan and a closed sealed envelope rests in the right pan. Her plain cloak crosses the shoulders with one round brooch. Four moth corner emblems and upper leaf sprigs. Top plate exact text: VIII. Bottom plate exact text: JUSTICE. Keep the beam level and pans balanced. Convert the blue cloak and moths to cream; only cream and black, no scarf or red."
+    },
+    {
+      "id": "arcanum-9",
+      "number": 9,
+      "name": "The Hermit",
+      "reference": "assets/arcana/arcanum-9.png",
+      "output": "assets/arcana/full-size/arcanum-9.png",
+      "prompt": "IX THE HERMIT. Preserve the cloaked hooded walker in profile facing left, carrying a square oil lantern ahead in one hand. A small square pack is strapped on the back at right. Bare branching winter trees frame the figure; one large moth spreads its wings above and one small moth silhouette appears inside the lantern glass. Four round four-hole sewing-button corner emblems and upper leaf sprigs. Top plate exact text: IX. Bottom plate exact text: THE HERMIT. Black and cream only; convert olive buttons and muted tree/moth accents to cream. No scarf and no red."
+    },
+    {
+      "id": "arcanum-10",
+      "number": 10,
+      "name": "The Wheel of Fortune",
+      "reference": "assets/arcana/arcanum-10.png",
+      "output": "assets/arcana/full-size/arcanum-10.png",
+      "prompt": "X WHEEL OF FORTUNE. Preserve the tall old steam clock on rough mossy stones, round dial in its upper half, thin clock hands, tick marks without Arabic digits. Its open lower case reveals two hanging weights and three interlocking toothed gears. Bent pipes run down the right side; a small bell hangs to the left; pale steam curls at upper left. Four oil-lantern corner emblems and upper leaf sprigs. Top plate exact text: X. Bottom plate exact two-line text: WHEEL OF on the first line, FORTUNE on the second, matching the reference. No extra THE. Only cream and black, even on clock hands and corner lanterns. No red or scarf."
+    },
+    {
+      "id": "arcanum-11",
+      "number": 11,
+      "name": "Strength",
+      "reference": "assets/arcana/arcanum-11.png",
+      "output": "assets/arcana/full-size/arcanum-11.png",
+      "prompt": "XI STRENGTH, Marseille order. Preserve the woman at left gently tending the hurt front paw of the large calm wolf at right. She cradles the paw in her lower open hand and carefully removes a small curved thorn with the other. The wolf lowers its head toward her; ears and long muzzle remain recognizable. Intimate close composition, kind focused expression. Four small oil-lantern corner emblems, upper leaf sprigs. Top plate exact text: XI. Bottom plate exact text: STRENGTH. The curved thorn and corner lanterns must be cream, never red or orange. Black and cream only. No scarf, blood, wound detail or gore."
+    },
+    {
+      "id": "arcanum-12",
+      "number": 12,
+      "name": "The Hanged Man",
+      "reference": "assets/arcana/arcanum-12.png",
+      "output": "assets/arcana/full-size/arcanum-12.png",
+      "prompt": "XII THE HANGED MAN. Preserve the calm curly-haired clothed figure suspended upside down by one ankle from the broad tree branch across the top. The free leg bends across the attached straight leg, arms rest quietly behind the torso, face above the still water rather than touching it. Ripples below reflect a small dark standing person upright in a pale band of reflected light. No violent distress. Four bell corner emblems and upper foliage. Top plate exact text: XII. Bottom plate exact two-line text: THE HANGED on the first line, MAN on the second. Convert teal water and bells to cream; black and cream only, no scarf or red."
+    },
+    {
+      "id": "arcanum-13",
+      "number": 13,
+      "name": "The Nameless Card",
+      "reference": "assets/arcana/references/arcanum-13.png",
+      "output": "assets/arcana/arcanum-13.png",
+      "prompt": "XIII, the nameless card. Preserve the supplied owner's woodcut: a hooded skeleton holding a long scythe, its curved blade cutting a vermilion-red scarf cleanly into two falling halves. Behind it a small old steamer waits on still dark water. Preserve the reference's exact relative placement and corner emblems. The scarf is the only red. The skeleton is a symbolic carved-print figure, no corpse, blood, gore or text about death. Top plate exact text: XIII. The entire cream bottom name plate must remain COMPLETELY BLANK: no name, letters, dots, symbols or ornament inside that plate. Do not write DEATH, THE NAMELESS CARD or XIII in the bottom plate. Cream and black only apart from the cut red scarf."
+    },
+    {
+      "id": "arcanum-14",
+      "number": 14,
+      "name": "Temperance",
+      "reference": "assets/arcana/arcanum-14.png",
+      "output": "assets/arcana/full-size/arcanum-14.png",
+      "prompt": "XIV TEMPERANCE. Preserve the large hand entering at upper left, pouring a pale stream from a tilted old thermos into the left of two matching mugs on a simple narrow shelf. The second mug waits beside it to the right. Behind at upper right stands a small square stove with stovepipe and a simple flame inside. Four oil-lantern corner emblems and leaf sprigs. Top plate exact text: XIV. Bottom plate exact text: TEMPERANCE. Make the thermos, hand, stream and two mugs clearly separate. Convert orange thermos, fire and lantern accents to cream. Black and cream only, no red or scarf."
+    },
+    {
+      "id": "arcanum-15",
+      "number": 15,
+      "name": "The Devil",
+      "reference": "assets/arcana/arcanum-15.png",
+      "output": "assets/arcana/full-size/arcanum-15.png",
+      "prompt": "XV THE DEVIL. Preserve the mythic horned, winged adult figure standing with both feet ON the closed rectangular wooden box in the lower center. The torso is bare in the neutral antique-art manner, hips covered by a draped cloth, broad feathered wings spreading behind, arms open with palms outward. At lower left and right, two smaller adult people hold loose ropes tied to the box; the loops are visibly loose enough to slip free. A circular lock is centered on the box front. The box stays closed and remains the pedestal. Four round four-hole button emblems and leaf sprigs. Top plate exact text: XV. Bottom plate exact text: THE DEVIL. Black and cream only, no scarf or red."
+    },
+    {
+      "id": "arcanum-16",
+      "number": 16,
+      "name": "The Tower",
+      "reference": "assets/arcana/arcanum-16.png",
+      "output": "assets/arcana/full-size/arcanum-16.png",
+      "prompt": "XVI THE TOWER. Preserve the great stone tower filling the right side, its blocks cracking apart at the crown under a single jagged lightning strike from upper left. One clothed person falls or leaps outward at mid-height toward left; another person at lower left reaches to help them or climb free. Show motion and breaking masonry as bold graphic woodcut shapes, no injury detail. Four oil-lantern corner emblems and upper leaves. Top plate exact text: XVI. Bottom plate exact text: THE TOWER. Convert the old orange burst and lantern accents to cream. Only cream and black, no red, scarf, fire-colored rays or gore."
+    },
+    {
+      "id": "arcanum-17",
+      "number": 17,
+      "name": "The Star",
+      "reference": "assets/arcana/arcanum-17.png",
+      "output": "assets/arcana/full-size/arcanum-17.png",
+      "prompt": "XVII THE STAR. Preserve the adult woman kneeling with her back three-quarters to the viewer, calmly pouring from two round jars: the left stream into a small pool, the right onto the ground. Neutral classical-art figure, source pose and body proportions. One large eight-pointed star dominates above, surrounded by four small stars, with upper leaf sprigs and four moth corner emblems. Top plate exact text: XVII. Bottom plate exact text: THE STAR. Water, moths and all other marks are cream and black only; remove the source's blue ink. No scarf, red or additional people."
+    },
+    {
+      "id": "arcanum-18",
+      "number": 18,
+      "name": "The Moon",
+      "reference": "assets/arcana/arcanum-18.png",
+      "output": "assets/arcana/full-size/arcanum-18.png",
+      "prompt": "XVIII THE MOON. Preserve a broad cream crescent moon high above black still water. At center, a lone tall round-topped open doorway stands in the shallows; its opening stays black, with a few pale steps visible inside. Willow branches hang along both upper sides. A small complete oil lantern stands on the near bank at lower left, its pale reflection leading into the water. Four bell corner emblems. Top plate exact text: XVIII. Bottom plate exact text: THE MOON. Doorframe, water ripples and bells become cream rather than teal. Cream and black only, no red or scarf."
+    },
+    {
+      "id": "arcanum-19",
+      "number": 19,
+      "name": "The Sun",
+      "reference": "assets/arcana/arcanum-19.png",
+      "output": "assets/arcana/full-size/arcanum-19.png",
+      "prompt": "XIX THE SUN. Preserve the two adult travelers facing each other in the lower half: curly-haired young man at left wearing the vermilion-red scarf, woman with loosely tied hair at right in a plain tunic. Both look up toward a great sun above. A wooden jetty sits on quiet water between their shoulders in the middle distance. The sun's circular disc, long triangular rays and background are cream and black, NOT red. Four oil-lantern corner emblems and leaf sprigs. Top plate exact text: XIX. Bottom plate exact text: THE SUN. Red appears ONLY on the left traveler's scarf; convert old orange sun rays and lantern emblems to cream."
+    },
+    {
+      "id": "arcanum-20",
+      "number": 20,
+      "name": "Judgement",
+      "reference": "assets/arcana/arcanum-20.png",
+      "output": "assets/arcana/full-size/arcanum-20.png",
+      "prompt": "XX JUDGEMENT. Preserve the great black raven with wings outspread across the upper middle, above a slender triangular lattice radio mast. Concentric curved lines radiate outward as sound. Below the mast is a low building with a broad multi-pane window; a row of many adult listeners seen from behind gathers in silhouette across the foreground and looks upward. Four oil-lantern corner emblems and leaf sprigs. Top plate exact text: XX. Bottom plate exact text: JUDGEMENT, spelled J-U-D-G-E-M-E-N-T. Window panes and corner lanterns are cream, not orange. Black and cream only, no red or scarf."
+    },
+    {
+      "id": "arcanum-21",
+      "number": 21,
+      "name": "The World",
+      "reference": "assets/arcana/arcanum-21.png",
+      "output": "assets/arcana/full-size/arcanum-21.png",
+      "prompt": "XXI THE WORLD. Preserve the adult dancer in profile facing left, arms extended wide, one leg lifted and bent behind, inside the complete tall oval wreath of intertwined leafy branches. A long vermilion-red scarf flies diagonally across the torso and outward on both sides. A small cottage with two lit windows stands on a rise inside the ring at lower right. Match the source's four corner emblems: bell at upper left, moth at upper right, round four-hole button at lower left, oil lantern at lower right, all now cream. Top plate exact text: XXI. Bottom plate exact text: THE WORLD. Only the scarf uses red; cottage, branches and every emblem remain cream and black."
+    },
+    {
+      "id": "tarot-back",
+      "name": "Star back",
+      "reference": "assets/arcana/references/tarot-back.png",
+      "output": "assets/arcana/tarot-back.png",
+      "prompt": "STAR CARD BACK. Recreate the supplied owner's complete woodcut tarot back, perfectly balanced with 180-degree rotational symmetry. Preserve the cream rounded outer border, black inner field, three concentric cream rings around a central black disc holding TWO cream four-pointed stars. Preserve the large moth at the top and its rotated counterpart at the bottom, bell flowers and leafy sprigs in all four corners, and paired curling vines between them. No number plate, no name plate, no lettering anywhere. Black and warm cream only, no red or other colors. Flat printed card front-on, entire border and rounded corners visible."
+    },
+    {
+      "id": "tarot-back-locked",
+      "name": "Keyhole back",
+      "reference": "assets/arcana/references/tarot-back-locked.png",
+      "output": "assets/arcana/tarot-back-locked.png",
+      "prompt": "KEYHOLE CARD BACK. Recreate the supplied owner's complete woodcut back. The companion supplied full-size STAR BACK is the border, linework and layout reference: match it as closely as possible, changing only the symbol inside the central black disc. Keep the exact cream rounded outer border, black field, three concentric cream rings, top and bottom moths, corner bell flowers and leafy sprigs, and paired curling vines. Inside the central black disc place ONE cream keyhole silhouette with one small cream dot on each side, instead of the two stars. No number plate, no name plate, no letters or numerals. Black and warm cream only, no red or other colors. Entire flat printed card and all rounded corners visible."
+    }
+  ]
+}
