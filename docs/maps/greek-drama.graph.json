@@ -8032,9 +8032,21 @@
         "items": []
       },
       {
+        "avatar": "greek-ismene",
+        "kind": "place",
+        "target": "greek-polynices-hollow",
+        "items": []
+      },
+      {
         "avatar": "greek-creon",
         "kind": "item",
         "target": "greek-decree",
+        "items": []
+      },
+      {
+        "avatar": "greek-creon",
+        "kind": "person",
+        "target": "greek-elder",
         "items": []
       },
       {
@@ -8114,6 +8126,12 @@
         "items": [
           "greek-oil-flask"
         ]
+      },
+      {
+        "avatar": "greek-colonus-keeper",
+        "kind": "person",
+        "target": "greek-ismene",
+        "items": []
       },
       {
         "avatar": "greek-household-witness",
@@ -10599,6 +10617,7 @@
         "resident:greek-iphis"
       ],
       "want:greek-ismene": [
+        "place:greek-polynices-hollow",
         "resident:greek-ismene"
       ],
       "want:greek-market-neighbor": [

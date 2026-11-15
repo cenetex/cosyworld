@@ -1609,6 +1609,25 @@
                   "actor": "greek-ismene"
                 }
               ]
+            },
+            {
+              "want": {
+                "kind": "place",
+                "target": "greek-polynices-hollow",
+                "minTrust": 2
+              },
+              "when": [
+                {
+                  "kind": "holding",
+                  "item": "greek-household-token",
+                  "actor": "greek-ismene"
+                },
+                {
+                  "kind": "flag",
+                  "key": "greek-burial-performed",
+                  "value": true
+                }
+              ]
             }
           ],
           "tastes": {
@@ -1633,10 +1652,28 @@
           },
           "seed": "Creon, King of Thebes.",
           "portrait": "assets/greek-drama/chthonic-creon.png",
-          "want": {
-            "kind": "item",
-            "target": "greek-decree"
-          },
+          "wants": [
+            {
+              "want": {
+                "kind": "item",
+                "target": "greek-decree"
+              }
+            },
+            {
+              "want": {
+                "kind": "person",
+                "target": "greek-elder",
+                "minTrust": 1
+              },
+              "when": [
+                {
+                  "kind": "holding",
+                  "item": "greek-decree",
+                  "actor": "greek-creon"
+                }
+              ]
+            }
+          ],
           "tastes": {
             "likes": "public procedure, named witnesses",
             "sore": "private defiance presented as settled law",
@@ -2350,16 +2387,34 @@
             "at": "greek-colonus"
           },
           "travels": false,
-          "want": {
-            "kind": "place",
-            "target": "greek-colonus",
-            "step": {
-              "verb": "lay",
-              "items": [
-                "greek-oil-flask"
+          "wants": [
+            {
+              "want": {
+                "kind": "place",
+                "target": "greek-colonus",
+                "step": {
+                  "verb": "lay",
+                  "items": [
+                    "greek-oil-flask"
+                  ]
+                }
+              }
+            },
+            {
+              "want": {
+                "kind": "person",
+                "target": "greek-ismene",
+                "minTrust": 1
+              },
+              "when": [
+                {
+                  "kind": "item_at",
+                  "item": "greek-oil-flask",
+                  "place": "greek-colonus"
+                }
               ]
             }
-          }
+          ]
         },
         "greek-marathon-keeper": {
           "name": "The Altar Keeper",
