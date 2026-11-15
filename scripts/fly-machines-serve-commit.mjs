@@ -2,7 +2,6 @@
 
 // Exit 0 when every started app machine of a Fly app carries the commit a
 // rollout just deployed; otherwise name the machines that do not and exit 1.
-//
 // `flyctl deploy` can report success and still lose its machines: a release
 // started outside the train (a `fly secrets set` without `--stage`) reads the
 // machine config before the rollout updates it, waits for the machine lease,

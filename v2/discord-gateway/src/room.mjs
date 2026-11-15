@@ -2,9 +2,9 @@ import { addressee, attend, decide, focusOn, join, mentioned, namedIn, speaker, 
 import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
 import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
-import { consult, steer } from "./coordinator.mjs";
+import { consult, responders, steer } from "./coordinator.mjs";
 
-export const RING = 20;
+export const RING = 150;
 const IGNORED_MS = 300000;
 const EXCHANGE_ODDS = [0.85, 0.6, 0.4, 0.25];
 
@@ -193,7 +193,11 @@ function rate(part, whole) {
 
 export function summary(stats) {
   const actions = stats.actions;
-  return [
+  const { misses = 0, updates = 0 } = stats.coordinator;
+  const missed = misses - (stats.seen?.misses ?? 0);
+  const warning = missed > 0 && updates === (stats.seen?.updates ?? 0) ? `coordinator all-missing misses=${missed}\n` : "";
+  stats.seen = { misses, updates };
+  return warning + [
     `summary replies=${stats.replies} actions=${counts(actions)}`,
     `continuation=${rate(actions.continue ?? 0, actions.speak ?? 0)}`,
     `exchanges=${stats.exchanges} ignored=${rate(stats.ignored, stats.ignored + stats.answered)}`,
@@ -322,6 +326,42 @@ async function exchange(room, guild, deps) {
   }
 }
 
+async function follow(room, guild, extras, asked, deps) {
+  const { config, cast, lines, typing, sleep, stats, save, heard } = deps;
+  const said = room.lastLine ? [room.lastLine.text] : [];
+  for (const id of extras) {
+    const other = cast.find((resident) => resident.id === id);
+    if (!other || room.heard !== heard || guild.replies >= config.DISCORD_DAILY_REPLIES) return;
+    const halt = new AbortController();
+    room.halt = halt;
+    room.busy = true;
+    const stop = typist(room, typing, config.DISCORD_TYPING_MS);
+    try {
+      await sleep(pause(said.at(-1) ?? ""), halt.signal);
+      if (halt.signal.aborted || room.heard !== heard) return;
+      const body = requestBody(room, config, id);
+      if (body.messages.at(-1)?.resident === id) continue;
+      const returned = await lines(body, halt.signal);
+      const next = (returned?.lines ?? []).find((found) => found?.id === id && typeof found.text === "string" && found.text.trim());
+      if (!next || halt.signal.aborted || room.heard !== heard) return;
+      if (echoes(next.text, said)) continue;
+      await post(room, other, next.text.trim(), deps, asked);
+      guild.replies += 1;
+      count(stats.actions, "join");
+      said.push(next.text);
+      try {
+        save();
+      } catch {}
+    } catch {
+      return;
+    } finally {
+      stop();
+      if (room.halt === halt) room.halt = null;
+      room.busy = false;
+    }
+  }
+}
+
 async function goOn(room, guild, first, deps) {
   const { config, lines, typing, sleep, random, stats, save } = deps;
   const { heard } = deps;
@@ -432,18 +472,21 @@ export function tick({
     if (decision.act === "wait") continue;
     const messageId = room.messages.at(-1).id;
     const asks = ["conversation-member", "conversation-unclear"].includes(decision.reason);
+    const ask = { config, cast, coordinate, stats, log };
     if (coordinate && decision.act === "reply" && asks && decision.talk) {
       room.busy = true;
-      const ask = { config, cast, coordinate, stats, log };
       running.push(
-        consult(room, decision.talk, ask, config.DISCORD_COORDINATE_INLINE_MS).then((notes) => {
+        consult(room, ask, config.DISCORD_COORDINATE_INLINE_MS, now).then((answers) => {
           room.busy = false;
-          return start(steer(decision, notes, cast, stats));
+          return start(steer(decision, answers, cast, config, stats));
         }),
       );
       continue;
     }
-    running.push(start(decision));
+    const later = coordinate && decision.act === "reply" && decision.addressed
+      ? consult(room, ask, config.DISCORD_COORDINATE_INLINE_MS * 3, now).catch(() => null)
+      : null;
+    running.push(start(later ? { ...decision, later } : decision));
     function start(decision) {
     const capped = decision.reason === "daily-cap";
     if (capped && guild.capped !== day) log(`daily-cap reached guild=${room.guildId}`);
@@ -492,9 +535,16 @@ export function tick({
           stats.replies += 1;
           count(stats.actions, "speak");
           if (!spoken) return undefined;
-          return goOn(room, guild, spoken, deps).then(() =>
-            decision.ambient && !config.DISCORD_SELF_EXCHANGES ? undefined : exchange(room, guild, deps),
-          );
+          const asked = room.messages.find((entry) => entry.id === messageId);
+          const joining = decision.extra
+            ? Promise.resolve(decision.extra)
+            : (decision.later ?? Promise.resolve(null)).then((answers) => responders(answers, config, spoken.resident.id).slice(1));
+          return joining.then((extras) => {
+            if (extras.length) return follow(room, guild, extras, asked ? speaker(asked) : undefined, deps);
+            return goOn(room, guild, spoken, deps).then(() =>
+              decision.ambient && !config.DISCORD_SELF_EXCHANGES ? undefined : exchange(room, guild, deps),
+            );
+          });
         }
         count(stats.failures, reason);
         log(`lines failed reason=${reason} attempt=${attempt} guild=${room.guildId} channel=${room.channelId}`);
