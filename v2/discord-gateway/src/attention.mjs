@@ -126,12 +126,13 @@ export function attend(messages, cast, index = messages.length - 1, room = {}) {
     .filter(({ talk }) => active(talk, last.at, span) && talk.members.includes(who))
     .sort((a, b) => b.talk.spoke - a.talk.spoke);
   if (!inside.length) return { resident: null, reason: null };
+  const talk = inside[0].id;
   if (humansTalking(messages, index)) {
     return assess(last.text).question
-      ? { resident: null, reason: "conversation-unclear" }
-      : { resident: null, reason: "conversation-skip-humans-talking" };
+      ? { resident: null, reason: "conversation-unclear", talk }
+      : { resident: null, reason: "conversation-skip-humans-talking", talk };
   }
-  return { resident: inside[0].id, reason: "conversation-member" };
+  return { resident: talk, reason: "conversation-member", talk };
 }
 
 export function addressee(messages, cast, index = messages.length - 1, room = {}) {
@@ -170,8 +171,8 @@ export function decide(room, guildDay, now, config, cast) {
   if ((guildDay?.replies ?? 0) >= config.DISCORD_DAILY_REPLIES) {
     return result("skip", "daily-cap", { addressed });
   }
-  if (addressed) return result("reply", attended.reason, { addressed });
-  if (fast) return result("reply", attended.reason);
+  if (addressed) return result("reply", attended.reason, { addressed, talk: attended.talk });
+  if (fast) return result("reply", attended.reason, { talk: attended.talk });
   const window = messages.slice(-config.DISCORD_DENSITY_WINDOW);
   if (window.filter((entry) => entry.resident).length >= config.DISCORD_DENSITY_MAX) {
     return result("skip", "density");

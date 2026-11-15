@@ -95,7 +95,7 @@ test("two people replying to each other are left to talk, unless they ask someth
   assert.deepEqual(fixed.asked, ["rati"]);
   assert.equal(fixed.stats.skips["conversation-skip-humans-talking"], 1);
   hear(fixed, "m4", 20000, "so where did you go?", B, "m3");
-  assert.deepEqual(attend(fixed.room.messages, cast, undefined, fixed.room), { resident: null, reason: "conversation-unclear" });
+  assert.deepEqual(attend(fixed.room.messages, cast, undefined, fixed.room), { resident: null, reason: "conversation-unclear", talk: "rati" });
   await beat(fixed, 22000);
   assert.deepEqual(fixed.asked, ["rati", null]);
 });

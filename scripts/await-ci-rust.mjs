@@ -1,9 +1,5 @@
 #!/usr/bin/env node
 
-// The production Rust gate reruns the checks CI already runs on the same
-// commit. This reads CI's check runs for the commit and lets the gate reuse
-// them: it waits while they run, and falls back to running the checks itself
-// when CI did not run them, was cancelled, or failed.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
