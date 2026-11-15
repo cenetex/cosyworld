@@ -592,11 +592,16 @@ try {
         );
         await other.evaluate((key) => {
           const save = JSON.parse(localStorage.getItem(key));
-          Object.assign(save.actors.vale.arcana, { dealt: "arcanum-1", base: { opened: 1 } });
+          save.actors.vale.arcana = {
+            proved: [],
+            did: [],
+            spread: [{ card: "arcanum-1", face: "up", base: { opened: 1 } }],
+            need: ["arcanum-1"],
+          };
           save.revision++;
           localStorage.setItem(key, JSON.stringify(save));
         }, key);
-        const newQuest = page.locator('#hand [data-quest-key="level:arcanum-1"]');
+        const newQuest = page.locator('#hand [data-quest-key="tarot:arcanum-1"]');
         await newQuest.waitFor();
         await settleHand();
         const questBox = await newQuest.boundingBox();
