@@ -9,7 +9,7 @@ describe("a new world's opening", () => {
 
   it("shows the Black pond as a locked box whose words name the pair", () => {
     expect(isLockedBox(world, "pond")).toBe(true);
-    expect(lockWords(world, "pond", () => true)).toBe("Bring Lamp to Mirror attic");
+    expect(lockWords(world, "pond", () => true)).toBe("Lay Lamp in Mirror attic");
     expect(exits(world, "attic")).toEqual([]);
     expect(cardPlay(world, ["lamp"]).action).toBeFalsy();
     expect(cardPlay(world, ["lamp"]).hint).toBe(
