@@ -1,4 +1,4 @@
-import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
+import { createWorld, legalActions, play, questPreviews } from "../../v2/card-game/world.mjs";
 import { worldLife } from "../../v2/card-game/resident-home.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { endStandoff } from "./standoff.mjs";
@@ -49,6 +49,9 @@ export function funeralJourney(world = null) {
     move("gate");
     act("trade", { item: "greek-bread", receive: "greek-decree" });
     act("talk", { target: "greek-antigone" });
+    const burial = questPreviews(world).find((q) => q.source === "greek-antigone" && q.action);
+    if (!burial) throw new Error("Antigone must offer her burial quest.");
+    act("take", { offer: burial.id });
     move("palace");
     act("trade", { item: "greek-decree", receive: "greek-creon-writ" });
     move(world.actors["greek-guard"].place.replace("greek-", ""));

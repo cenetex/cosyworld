@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { acceptOffer } from "./helpers/accept-quest.mjs";
 
 // A world of invented places and people (test/helpers/company-world.mjs), so
 // story edits to the real packs never break these rules tests. It is mounted
@@ -506,7 +507,8 @@ describe("a shared quest pins the bond", () => {
     let s = world();
     s.actors[ANN].want = { kind: "place", target: "co-c", since: s.turn, refusals: 0 };
     s = step(s, "talk", { target: ANN });
-    expect(legalActions(s, "vale").some((a) => a.kind === "take" && a.offer)).toBe(false);
+    expect(s.actors.vale.want).toBeNull();
+    s = acceptOffer(s, ANN);
     expect(s.actors.vale.want).toMatchObject({ from: `quest:from:${ANN}` });
     expect(companionOf(s, "vale")).toBe(ANN);
   });
@@ -521,6 +523,7 @@ describe("the pin survives a long rest", () => {
     let s = world({ at: "co-a", turn: 48 });
     s.actors[ANN].want = { kind: "place", target: "co-c", since: s.turn, refusals: 0 };
     s = step(s, "talk", { target: ANN });
+    s = acceptOffer(s, ANN);
     s.actors[BO].place = "co-b";
     s.actors[CY].place = "co-c";
     return hush(go(s, "co-b"));

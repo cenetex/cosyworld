@@ -29,6 +29,7 @@ import {
 import { packDefinition, hub } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { questsOf } from "../v2/card-game/want.mjs";
+import { acceptOffer } from "./helpers/accept-quest.mjs";
 import {
   exportManifest,
   parseDraft,
@@ -98,6 +99,8 @@ it("opens the garden after delivery to the keeper and keeps the return free", ()
   act("take", { item: "sample-bell" });
   act("move", { target: "sample-station" });
   expect(gardenOpen()).toBe(false);
+  expect(questsOf(world, actor)).toEqual([]);
+  world = acceptOffer(world, "sample-garden");
   expect(questsOf(world, actor)[0]).toMatchObject({
     kind: "item",
     target: "sample-bell",

@@ -45,7 +45,7 @@ it("migrates every claimed avatar while preserving unclaimed resident wants", ()
   const old = dispatchShared({ op: "create", seed: 17 }).world;
   old.actors.vale.want = goal(old);
   old.actors.ash.want = goal(old, "cloth");
-  delete old.actors.vale.pendingQuests;
+  for (const a of Object.values(old.actors)) delete a.pendingQuests;
   const npc = structuredClone(old.actors.mara.want);
   const loaded = load({ world: old, actor: "vale", claimed: ["vale", "ash"], present: ["vale"] });
   for (const id of ["vale", "ash"]) {
@@ -94,11 +94,17 @@ it("accepts a current source using its exact saved pending goal", () => {
 
 it("revalidates stale, duplicate and full-stack acceptance atomically", () => {
   const s = createWorld({ seed: 17 });
+  settleArcana(s, "vale");
   s.actors.vale.pendingQuests = [goal(s)];
   const action = questPreviews(s)[0].action;
   const next = accept(s);
   expect(play(next, action, s.revision).ok).toBe(false);
   expect(play(next, action, next.revision).ok).toBe(false);
+  const changed = accept(s, "level");
+  const stale = dispatchShared({ op: "play", world: changed, actor: "vale",
+    claimed: ["vale"], present: ["vale"], action });
+  expect(stale.ok).toBe(false);
+  expect(stale.world.actors.vale.pendingQuests).toEqual([goal(s)]);
   const full = structuredClone(s);
   const held = Object.keys(full.items).filter((id) => id !== "oil").slice(0, 9)
     .map((id) => newWant("item", id, full.turn));

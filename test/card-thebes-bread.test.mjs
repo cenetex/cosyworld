@@ -24,6 +24,7 @@ import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { courseOptions } from "../v2/card-game/pack-transport.mjs";
+import { acceptOffer } from "./helpers/accept-quest.mjs";
 
 const pack = packDefinition("greek-drama");
 const GATE = "greek-gate",
@@ -116,10 +117,11 @@ describe("the guard and the decree", () => {
     // The card beyond is locked; its reason names him, and its quest is a card.
     expect(availableCards(s)).toContain(FIELD);
     expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
+    s = acceptOffer(s, FIELD);
     expect(
       questsOf(s, "vale").find((w) => w.from === `quest:box:${FIELD}`),
     ).toBeTruthy();
-    const talked = act(s, "talk", { target: GUARD });
+    const talked = acceptOffer(act(s, "talk", { target: GUARD }), GUARD);
     expect(questsOf(talked, "vale")[0].from).toBe(`quest:from:${GUARD}`);
     expect(questsOf(talked, "vale")).toContainEqual(
       expect.objectContaining({

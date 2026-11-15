@@ -277,6 +277,12 @@ describe("the full world shared by human avatars", () => {
       since: world.turn,
       refusals: 0,
     };
+    world.actors.mara.pendingQuests = [world.actors.mara.want];
+    world.actors.mara.want = null;
+    const review = ask(world, "view", "mara");
+    const accept = review.actions.find((a) => a.offer?.startsWith("quest:pending:"));
+    expect(accept).toBeTruthy();
+    Object.assign(world, ask(world, "play", "mara", { action: accept }).world);
     const view = ask(world, "view", "vale", { present: ["vale"] });
     expect(
       view.actions.some((a) => a.kind === "talk" && a.target === "mara"),
@@ -397,7 +403,7 @@ describe("the full world shared by human avatars", () => {
     let world = result.world;
     for (let count = 8; count > 3; count--) {
       const view = ask(world, "view", "vale", { present: ["vale"] });
-      expect(view.actions.some((a) => a.kind === "take")).toBe(false);
+      expect(view.actions.some((a) => a.kind === "take" && a.item)).toBe(false);
       world = ask(world, "play", "vale", {
         present: ["vale"],
         action: view.actions.find((a) => a.kind === "drop"),

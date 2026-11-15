@@ -14,6 +14,7 @@ import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { lifeHome } from "../v2/card-game/resident-home.mjs";
 import { packTalkChoice } from "../v2/card-game/pack-registry.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { acceptOffer } from "./helpers/accept-quest.mjs";
 
 const pack = "greek-drama",
   field = "greek-battlefield",
@@ -36,7 +37,7 @@ function start(shared = false) {
   return world;
 }
 
-it("holds the box's quest at once, on top of one already held (rules 134)", () => {
+it("accepts the box's quest on top of one already held", () => {
   const free = start();
   const stands = (w) =>
     questOffers(w).find((o) => o.id === `quest:box:${hollow}`);
@@ -52,9 +53,12 @@ it("holds the box's quest at once, on top of one already held (rules 134)", () =
   const wait = (w) =>
     play(w, legalActions(w).find((a) => a.kind === "wait" && !a.sleep)).state;
   const next = wait(free);
+  expect(next.actors.vale.want).toBeNull();
+  acceptOffer(next, hollow);
   expect(next.actors.vale.want).toMatchObject({ target: shade });
   expect(stands(next)).toBeUndefined();
   const stacked = wait(held);
+  acceptOffer(stacked, hollow);
   expect(stacked.actors.vale.want).toMatchObject({ target: shade });
   expect(stacked.actors.vale.under[0]).toMatchObject({ target: "pond" });
 });
@@ -103,7 +107,8 @@ it.each([
     expect(lifeHome(antigone, world)).toBe(hollow);
     expect(isLockedBox(world, hollow)).toBe(true);
     expect(lockedQuest(world, hollow).cards).toEqual([]);
-    expect(world.actors.vale.want).toMatchObject({
+    expect(world.actors.vale.want).toBeNull();
+    expect(questOffers(world).find((q) => q.source === hollow).want).toMatchObject({
       kind: "person",
       target: shade,
     });

@@ -5,6 +5,7 @@ import { journeyWorlds } from "./helpers/journey.mjs";
 import { greekGateOpen, greekGateOpenFull } from "./journeys/greek-before-funeral.mjs";
 import { questCards, questVisible, questVerb } from "../v2/card-game/quest-card.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
+import { acceptOffer } from "./helpers/accept-quest.mjs";
 import {
   createWorld,
   decodeSave,
@@ -91,6 +92,7 @@ it.each(["opening", "full"])(
       world = result.state;
     };
     act({ kind: "talk", target: antigone });
+    world = acceptOffer(world, antigone);
     expect(burialCard(world)?.art).toContain("polynices-fallen");
     act({ kind: "move", target: "greek-battlefield" });
     world.turn = world.revision = 36;
@@ -142,5 +144,5 @@ it("keeps a meeting with the shade after dawn", () => {
   result.state.turn = result.state.revision = 48;
   const dawn = decodeSave(encodeSave(result.state));
   expect(talk(dawn)).toBeUndefined();
-  expect(burialCard(dawn)?.target).toBe(hollow);
+  expect(legalActions(dawn).some((a) => a.kind === "move" && a.target === hollow)).toBe(true);
 });

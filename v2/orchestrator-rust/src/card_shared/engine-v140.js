@@ -7297,7 +7297,7 @@
       world.log = start.log;
     }
     installPacks(world);
-    world.actors.vale.pendingQuests = [];
+    for (const id of humanAvatarIds) world.actors[id].pendingQuests = [];
     installJourneyProgress(world, packDefinitions);
     for (const [id, scope] of Object.entries(packScopes)) {
       if (!world.packs[id] || !["opening", "full"].includes(scope) || !packDefinition(id)?.release)
@@ -8640,7 +8640,7 @@
         q.id,
         `${nameOf(actor)} accepts a quest.`,
         [q.id]
-      ), offer: q.id, label: "Accept" });
+      ), offer: q.id, label: "Accept", revision: s.revision });
     if (actor === currentActor(s) || controlledByHuman(s, actor))
       questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
         const goal = w.kind === "person" && !w.step ? `meet ${nameOf(w.target)}` : wantText(w);
@@ -9828,7 +9828,7 @@
       return { ok: true, state: next2 };
     }
     const exact = legalActions(s, actor).find((a) => a.key === action?.key);
-    if (!exact)
+    if (!exact || exact.offer !== void 0 && action.revision !== s.revision)
       return {
         ok: false,
         state: s,
