@@ -42,6 +42,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
     world.log = start.log;
   }
   installPacks(world);
+  world.actors.vale.pendingQuests = [];
   installJourneyProgress(world, packDefinitions);
   for (const [id, scope] of Object.entries(packScopes)) {
     if (
