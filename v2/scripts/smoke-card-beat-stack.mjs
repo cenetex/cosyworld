@@ -18,6 +18,7 @@ import { enableMotives } from "../card-game/motives.mjs";
 import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
 import {
   stackHits,
+  tapCard,
   selectCard,
   clearSelection,
   smokeWidths,
@@ -615,7 +616,6 @@ try {
       await page.waitForFunction(
         () => document.querySelector("#speaker")?.textContent === "Vale",
       );
-      // An NPC action uses the same main type and keeps face-down items unnamed.
       await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
         key,
         save: npcSave,
@@ -623,6 +623,8 @@ try {
       await page.reload();
       const npcCaption = page.locator("#beat-captions [data-primary]");
       await npcCaption.waitFor();
+      await tapCard(page.locator('#hand .card-frame[data-pack="closed"]:visible > .card'));
+      assert.equal(await page.locator(".beat-stack").getAttribute("data-action"), "false");
       assert.equal(await front(), "Pip");
       assert.equal(
         await npcCaption.textContent(),
