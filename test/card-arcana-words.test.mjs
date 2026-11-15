@@ -16,8 +16,29 @@ const cards = {
 };
 const say = (terms, known = () => true, home = "den") =>
   conditionWords(terms, known, { cards, home });
+const hold = (s, id, face = "up", did = []) => {
+  s.actors.vale.arcana = {
+    proved: [],
+    did,
+    spread: [
+      {
+        card: id,
+        face,
+        base: {
+          visited: s.actors.vale.visited.length,
+          heard: Object.keys(s.actors.vale.heard || {}).length,
+          trusting: 0,
+          opened: 0,
+        },
+      },
+    ],
+  };
+  return s;
+};
 const words = (s, id, known = () => false) =>
-  conditionWords(arcanumTerms(s, "vale", id), known, { home: homeOf("vale") });
+  conditionWords(arcanumTerms(hold(s, id), "vale", 0), known, {
+    home: homeOf("vale"),
+  });
 const cardOf = (id) => deck.cards.find((card) => card.id === id);
 
 describe("the words of a level card", () => {
@@ -136,10 +157,10 @@ describe("the words of a level card", () => {
   it("words the second row from its desires, hidden until found", () => {
     const s = createWorld({ seed: 7 });
     const hidden = {
-      6: "invite someone and travel with a companion",
+      6: "invite someone and travel with them",
       7: `sail ${UNKNOWN.place}`,
       8: "trade something for something",
-      9: "walk at night holding a light",
+      9: "walk alone at night holding a light",
       10: `eat ${UNKNOWN.item} and find something`,
       11: "brace against someone",
       12: "let go of a quest",
@@ -147,17 +168,17 @@ describe("the words of a level card", () => {
       15: `keep ${UNKNOWN.item}`,
       16: "free someone shut away",
       17: "give something to someone",
-      18: "walk at night without a light",
+      18: "walk at night with no light",
       19: "travel with a companion and go home",
       20: "be trusted by five more",
     };
     const shown = {
       7: "sail The Charybdis",
-      9: "walk at night holding the lit Lamp",
+      9: "walk alone at night holding the lit Lamp",
       10: "eat Dried Figs and find Dried Figs",
       14: "drink Wine Skin with someone",
       15: "keep Lamp",
-      18: "walk at night without the lit Lamp",
+      18: "walk at night with no light",
     };
     for (const [n, text] of Object.entries(hidden))
       expect(words(s, `arcanum-${n}`), n).toBe(text);
@@ -174,6 +195,22 @@ describe("the words of a level card", () => {
     expect(
       say([{ kind: "count", of: "opened", box: "resident", min: 2 }]),
     ).toBe("free two shut away");
+  });
+
+  it("counts down what is left and drops a step that is done", () => {
+    const s = createWorld({ seed: 7 });
+    hold(s, "arcanum-0");
+    s.actors.vale.visited.push("pond", "station");
+    const terms = arcanumTerms(s, "vale", 0);
+    expect(conditionWords(terms, () => true, { home: homeOf("vale") })).toBe(
+      "carry nothing, be away from home and visit four more new places",
+    );
+    expect(JSON.stringify(terms)).not.toMatch(/2\/6|"min":6/u);
+    const wheel = (did) =>
+      conditionWords(arcanumTerms(hold(s, "arcanum-10", "up", did), "vale", 0));
+    expect(wheel([])).toBe("eat Dried Figs and find Dried Figs");
+    expect(wheel(["spent"])).toBe("find Dried Figs");
+    expect(arcanumTerms(hold(s, "arcanum-10", "down"), "vale", 0)).toEqual([]);
   });
 
   it("words every card in a fresh world", () => {
@@ -196,6 +233,9 @@ describe("the words of a level card", () => {
       "./assets/arcana/full-size/arcanum-21.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-13")).art).toBe(
+      "./assets/arcana/arcanum-13.png",
+    );
+    expect(glimpseCompanion(glimpse("arcanum-99")).art).toBe(
       "./assets/card-back.webp",
     );
     expect(glimpseCompanion(null)).toBeNull();

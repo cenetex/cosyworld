@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
+  TAROT_BACK,
+  TAROT_LOCKED_BACK,
   createLockedBoxes,
   isLockedBox,
   lockedQuest,
 } from "../v2/card-game/locked-box.mjs";
+import { existsSync } from "node:fs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
@@ -110,7 +113,7 @@ describe("locked boxes", () => {
     expect(questsOf(s, "vale").map((w) => w.from)).toContain(
       "quest:box:greek-battlefield",
     );
-    s = act(s, "talk", { target: "greek-guard" });
+    s = act(act(s, "talk", { target: "greek-guard" }), "accept", { target: "greek-guard" });
     expect(questsOf(s, "vale")[0].from).toBe("quest:from:greek-guard");
     expect(questsOf(s, "vale").map((w) => w.from)).toContain(
       "quest:box:greek-battlefield",
@@ -220,7 +223,7 @@ describe("locked boxes", () => {
     world.actors.vale.place = "greek-ship";
     world.transports["greek-ship"].dock = "greek-harbor";
     expect(lockedQuest(world, "greek-piraeus", () => true)).toEqual({
-      text: "Bring Travel Provisions to The Charybdis",
+      text: "Lay Travel Provisions in The Charybdis",
       cards: [],
     });
   });
@@ -241,5 +244,14 @@ describe("locked boxes", () => {
     // Locked again, it is a box again.
     boxes.draw(["way"], ["way"]);
     expect(boxes.draw(["way"], [])).toEqual(["way"]);
+  });
+});
+
+describe("tarot backs", () => {
+  it("draws a face-down tarot with the star back and a locked one with the keyhole back", () => {
+    expect(TAROT_BACK).toBe("./assets/arcana/tarot-back.png");
+    expect(TAROT_LOCKED_BACK).toBe("./assets/arcana/tarot-back-locked.png");
+    for (const back of [TAROT_BACK, TAROT_LOCKED_BACK])
+      expect(existsSync(new URL(`../v2/card-game/${back.slice(2)}`, import.meta.url))).toBe(true);
   });
 });

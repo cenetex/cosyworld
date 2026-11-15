@@ -1756,3 +1756,43 @@ fn first_ship_signal_unlocks_shared_round_trips_and_replays() {
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
 }
+#[test]
+fn the_deck_follows_the_passkey_into_new_rules_only() {
+    let path =
+        std::env::temp_dir().join(format!("full-card-world-{}.sqlite", crate::random_hex(12)));
+    let mut c = store::open(&path).unwrap();
+    full_store::schema(&c).unwrap();
+    let id = "f".repeat(48);
+    store::create(&c, &id, "owner", now()).unwrap();
+    full_store::seed(&c, &id, &World::create(None).unwrap(), "test-create", now()).unwrap();
+    let (mara, vale) = (actor_index("mara").unwrap(), actor_index("vale").unwrap());
+    let tx = c.transaction().unwrap();
+    for (a, upgrade) in [
+        (vale, "arcanum-5"),
+        (vale, "arcanum-0"),
+        (mara, "scarf"),
+        (mara, "arcanum-5"),
+    ] {
+        tx.execute(
+            "INSERT INTO card_avatar_upgrades(user,actor,upgrade) VALUES('u',?,?)",
+            rusqlite::params![a, upgrade],
+        )
+        .unwrap();
+    }
+    let mut w = World::create(None).unwrap();
+    w.version = "full-card-world/141".into();
+    let command = full::claim_command(&tx, &w, "u", mara).unwrap();
+    assert_eq!(
+        command["progress"]["upgrades"],
+        json!(["arcanum-0", "arcanum-5", "scarf"])
+    );
+    w.version = "full-card-world/140".into();
+    let command = full::claim_command(&tx, &w, "u", mara).unwrap();
+    assert_eq!(command["progress"]["upgrades"], json!(["scarf"]));
+    full::run(&tx, &id, "u", &body("claim", Some("mara")), now()).unwrap();
+    let claimed = full_store::world(&tx, &id, now()).unwrap();
+    assert_eq!(
+        claimed.game["actors"]["mara"]["upgrades"],
+        json!(["arcanum-0", "arcanum-5", "scarf"])
+    );
+}

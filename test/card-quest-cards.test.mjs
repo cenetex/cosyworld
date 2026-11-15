@@ -13,10 +13,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { restsAt } from "../v2/card-game/world/home.mjs";
-import {
-  OFFER_ODDS,
-  offerUnlocked,
-} from "../v2/card-game/offer-chance.mjs";
+import { offerFrom } from "../v2/card-game/offer-chance.mjs";
 import { DREAM_FROM, heldOf, levelOf, sleepQuest, wantOf } from "../v2/card-game/want.mjs";
 import { wantFact } from "../v2/card-game/want-talk.mjs";
 import { nameOf } from "../v2/card-game/world/catalog.mjs";
@@ -33,6 +30,7 @@ const act = (s, pick, actor) => {
   return result.state;
 };
 const talk = (s, target) => act(s, (a) => a.kind === "talk" && a.target === target);
+const accept = (s, target) => act(s, (a) => a.kind === "accept" && a.target === target);
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const GUARD = "greek-guard";
@@ -65,11 +63,14 @@ describe("quest offers are held at once", () => {
     expect(standing).not.toHaveProperty("blocked");
   });
 
-  it("holds a resident's quest as Talk ends, and not before", () => {
+  it("holds a resident's quest only once it is accepted after Talk", () => {
     let s = greekErrands().decree;
     expect(sources(s)).not.toContain(`quest:from:${GUARD}`);
-    s.actors[GUARD].trust.vale = 1; // trusts: the offer is certain
     s = talk(s, GUARD);
+    expect(sources(s)).not.toContain(`quest:from:${GUARD}`);
+    const turn = s.turn;
+    s = accept(s, GUARD);
+    expect(s.turn).toBe(turn);
     const held = heldOf(s.actors.vale).find((w) => w.from === `quest:from:${GUARD}`);
     expect(held).toMatchObject({
       kind: "item",
@@ -77,28 +78,16 @@ describe("quest offers are held at once", () => {
       step: { verb: "give", to: GUARD },
     });
     expect(sources(s)[0]).toBe(`quest:from:${GUARD}`);
-    expect(questOffers(s).some((o) => o.kind === "resident")).toBe(false);
-  });
-
-  it("holds the quest in the play that made it stand, with no play and no log line of its own", () => {
-    let s = greekErrands().decree;
-    s.actors[GUARD].trust.vale = 1;
-    const turn = s.turn;
-    s = talk(s, GUARD);
-    expect(s.turn).toBe(turn + 1);
-    expect(sources(s)).toContain(`quest:from:${GUARD}`);
-    expect(s.log.some((e) => e.verb === "quest")).toBe(false);
+    expect(s.log.some((e) => e.verb === "accept")).toBe(false);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
-  it("stacks quests, discards only the top, and keeps a discarded one closed", () => {
-    let s = greekErrands().decree;
-    s.actors[GUARD].trust.vale = 1;
-    s = talk(s, GUARD);
+  it("stacks quests, discards any one, and keeps a discarded one closed", () => {
+    let s = accept(talk(greekErrands().decree, GUARD), GUARD);
     const before = sources(s);
     expect(before.length).toBeGreaterThan(1);
     const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
-    expect(drops).toHaveLength(1);
+    expect(drops.map((a) => a.quest)).toEqual(before.map((_, i) => i));
     s = play(s, drops[0], s.revision).state;
     expect(sources(s)).toEqual(before.slice(1));
     expect(questOffers(s).every((o) => o.id !== before[0])).toBe(true);
@@ -111,107 +100,38 @@ describe("quest offers are held at once", () => {
   });
 });
 
-describe("the chance on Talk", () => {
-  // The roll is seeded by the run and the turn of the Talk, so the clock
-  // moves on a little to give each "seed" its own roll.
-  const seeded = (seed, trust = 0) => {
-    const s = structuredClone(greekErrands().decree);
-    s.turn += seed;
-    s.revision += seed;
-    s.actors[GUARD].trust.vale = trust;
-    return s;
-  };
-
-  it("is rolled once a visit: repeated Talk keeps it", () => {
-    for (let seed = 0; seed < 24; seed++) {
-      let s = talk(seeded(seed), GUARD);
-      const rec = structuredClone(s.actors.vale.offered[GUARD]);
-      const unlocked = offerUnlocked(s, "vale", GUARD);
-      for (let i = 0; i < 3; i++) {
-        s = talk(s, GUARD);
-        expect(s.actors.vale.offered[GUARD]).toEqual(rec);
-        expect(offerUnlocked(s, "vale", GUARD)).toBe(unlocked);
-      }
-    }
-  });
-
-  it("is deterministic for a seed and comes out both ways", () => {
-    const opens = [];
-    for (let seed = 0; seed < 40; seed++) {
-      const a = talk(seeded(seed), GUARD).actors.vale.offered[GUARD].open;
-      const b = talk(seeded(seed), GUARD).actors.vale.offered[GUARD].open;
-      expect(b).toBe(a);
-      opens.push(a);
-    }
-    const yes = opens.filter(Boolean).length;
-    expect(yes).toBeGreaterThan(0);
-    expect(yes).toBeLessThan(opens.length);
-    // About the stated odds (a hundredth each, forty seeds).
-    expect(Math.abs(yes / opens.length - OFFER_ODDS / 100)).toBeLessThan(0.3);
-  });
-
-  it("is rolled again on a new visit", () => {
-    let seen = 0;
-    for (let seed = 0; seed < 30; seed++) {
-      let s = talk(seeded(seed), GUARD);
-      const first = s.actors.vale.offered[GUARD];
-      // Leave and come back: the record lapses, and the next Talk rolls.
-      s = act(s, (a) => a.kind === "move" && a.target === "greek-courtyard");
-      expect(s.actors.vale.offered).toBeUndefined();
-      s = act(s, (a) => a.kind === "move" && a.target === "greek-gate");
+describe("the offer on Talk", () => {
+  it("comes every time, from a stranger too, and lapses at the next play", () => {
+    for (let i = 0; i < 6; i++) {
+      let s = structuredClone(greekErrands().decree);
+      s.turn += i;
+      s.revision += i;
+      s.actors[GUARD].trust.vale = 0;
       s = talk(s, GUARD);
-      const second = s.actors.vale.offered[GUARD];
-      expect(second.at).toBe(first.at);
-      if (second.open !== first.open) seen++;
-    }
-    expect(seen).toBeGreaterThan(0);
-  });
-
-  it("lapses when a day passes", () => {
-    let s = talk(seeded(3), GUARD);
-    expect(s.actors.vale.offered?.[GUARD]).toBeDefined();
-    s = structuredClone(s);
-    s.turn += 48;
-    s.revision += 48;
-    expect(offerUnlocked(s, "vale", GUARD)).toBe(false);
-    s = act(s, (a) => a.kind === "wait" && !a.sleep);
-    expect(s.actors.vale.offered).toBeUndefined();
-  });
-
-  it("is certain for someone who trusts the traveler", () => {
-    for (let seed = 0; seed < 30; seed++) {
-      const s = talk(seeded(seed, 1), GUARD);
-      expect(offerUnlocked(s, "vale", GUARD)).toBe(true);
-      expect(sources(s)).toContain(`quest:from:${GUARD}`);
+      expect(offerFrom(s, "vale")).toBe(GUARD);
+      expect(find(s, (a) => a.kind === "accept" && a.target === GUARD)).toBeTruthy();
+      s = wait(s);
+      expect(offerFrom(s, "vale")).toBeNull();
+      expect(find(s, (a) => a.kind === "accept")).toBeUndefined();
     }
   });
 
   it("applies to residents alone: a shut box's quest is always held", () => {
-    for (let seed = 0; seed < 10; seed++) {
-      const s = seeded(seed);
-      expect(sources(s)).toContain("quest:box:greek-battlefield");
-    }
+    expect(sources(greekErrands().decree)).toContain("quest:box:greek-battlefield");
   });
 
-  it("never gates a hub starter want, and says so in the Talk context", () => {
+  it("says so in the Talk context", () => {
     const after = journeyWorlds(questCards).told;
-    expect(offerUnlocked(after, "vale", "moth")).toBe(true);
     expect(wantFact(after, "moth", nameOf, "vale")).toBe(
       "I want the Lamp. I would be glad of your help.",
-    );
-    // A stranger whose roll came out shut says only what they want.
-    const stranger = talk(seeded(0), GUARD);
-    const sentence = wantFact(stranger, GUARD, nameOf, "vale");
-    expect(sentence.endsWith("I would be glad of your help.")).toBe(
-      offerUnlocked(stranger, "vale", GUARD),
     );
   });
 
   it("saves only a valid record", () => {
-    const s = talk(seeded(5), GUARD);
+    const s = talk(greekErrands().decree, GUARD);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
     const bad = JSON.parse(encodeSave(s));
-    bad.actors.vale.offered[GUARD].open = "yes";
+    bad.actors.vale.offered.from = "vale";
     expect(() => decodeSave(JSON.stringify(bad))).toThrow();
   });
 });
@@ -303,7 +223,7 @@ describe("the mirror back to the attic", () => {
   });
 });
 
-describe("a fresh world to the first level, quests held at once", () => {
+describe("a fresh world to the first level", () => {
   const w = journeyWorlds(questCards);
   it("opens the pond for no XP and holds nothing yet", () => {
     expect(w.opened.actors.vale.xp).toBe(0);
@@ -311,10 +231,10 @@ describe("a fresh world to the first level, quests held at once", () => {
     expect(questOffers(w.opened)).toEqual([]);
     expect(heldOf(w.opened.actors.vale)).toEqual([]);
   });
-  it("holds Pip's quest as his Talk ends, always", () => {
-    expect(wantOf(w.told, "vale")).toMatchObject({ target: "lamp", from: "quest:from:moth" });
-    expect(questOffers(w.told)).toEqual([]);
-    expect(legalActions(w.told).filter((a) => a.offer !== undefined)).toEqual([]);
+  it("offers Pip's quest as his Talk ends, always, and holds it once accepted", () => {
+    expect(heldOf(w.told.actors.vale)).toEqual([]);
+    expect(offerFrom(w.told, "vale")).toBe("moth");
+    expect(wantOf(w.accepted, "vale")).toMatchObject({ target: "lamp", from: "quest:from:moth" });
   });
   it("meets the held quest and earns no XP", () => {
     expect(wantOf(w.accepted, "vale")).toMatchObject({ target: "lamp" });

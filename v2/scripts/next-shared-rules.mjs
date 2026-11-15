@@ -1,5 +1,4 @@
 // Give a branch's shared rules the next free version after main's live rules.
-//
 // Every merge to main deploys, so main's newest rules bundle is live and its
 // bytes are fixed for journal replay. Branches that change rule modules all
 // want the next version. Run this after rebasing or merging main:

@@ -22,8 +22,8 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(await page.evaluate(() => document.body.inert), false);
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.card), "moth");
   await page.locator('#card-actions [data-action="talk"]').click();
-  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 4000 });
-  assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0, "no quest offer card lies in the hand");
+  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.heard?.moth === "item:lamp", key, { timeout: 4000 });
+  assert.equal(await page.locator('#hand .want-frame').count(), 0, "the prelude lays no offer card");
   await page.locator('.title-intro[data-phase="ack"]').waitFor({ timeout: 8000 });
   // The land acknowledgement and the logo, then the opening itself: no second box.
   let secondBox = false;
@@ -36,26 +36,48 @@ async function walkToGivenLamp(browser, base) {
   await page.locator('#hand [data-card="vale"]').waitFor();
   const carried = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
   assert.equal(carried.actors.vale.place, "attic");
-  assert.deepEqual(carried.actors.vale.want?.step, { verb: "give", to: "moth" });
-  // The opening: open the attic, turn over the lamp. Nothing is left chosen
-  // that has no button.
-  await choose("attic");
-  await buttonReads(/closed box/iu);
-  await button.first().click();
-  await buttonReads(/turn over the next card/iu);
-  await button.first().click();
-  await page.waitForFunction(() => document.querySelector('#hand [data-card="attic"]')?.getAttribute("aria-pressed") === "true" && document.querySelector("#card-actions button"));
-  assert.equal(await page.locator('#hand [data-card="lamp"][aria-pressed="true"]').count(), 0, "the lamp is not left chosen");
-  // Put the lamp out: choose Vale to show it, raise it, lower it.
+  assert.equal(carried.actors.vale.want ?? null, null);
+  assert.deepEqual(carried.actors.vale.heard, { moth: "item:lamp" });
+  // The opening: each face-down card chosen shows its own Reveal.
+  for (const id of ["attic", "lamp"]) {
+    await choose(id);
+    await buttonReads(/new card unlocked/iu);
+    await button.first().click();
+    await page.waitForFunction((id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false", id);
+  }
+  const travel = async (place, name) => {
+    await page.keyboard.press("Escape");
+    await choose(place);
+    await buttonReads(new RegExp(`(goes|carries the Lamp) to ${name}`, "iu"));
+    await press(() => page.waitForFunction((name) => document.getElementById("place-title")?.textContent === name, name, { timeout: 2500 }));
+  };
+  // Put the lamp down in the attic: the mirror opens onto the pond.
   await choose("vale");
   await choose("lamp");
+  await choose("attic");
+  await buttonReads(/puts the Lamp in Mirror attic/iu);
+  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).items.lamp.holder === "attic", key, { timeout: 2500 }));
+  await travel("pond", "Black pond");
+  assert.equal(await page.locator('#hand .want-frame').count(), 0, "no offer before Pip is asked again");
+  // Back along the narrow path for the lamp, and through the open mirror with it lit.
+  await travel("attic", "Mirror attic");
+  await page.keyboard.press("Escape");
+  await page.locator('#hand [data-card="attic"]').click();
+  await page.locator('#hand [data-card="lamp"]').waitFor({ state: "visible" });
+  await choose("lamp");
+  await buttonReads(/takes the Lamp/iu);
+  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).items.lamp.holder === "vale", key, { timeout: 2500 }));
+  await travel("pond", "Black pond");
+  assert.equal(decodeSave(await page.evaluate((key) => localStorage.getItem(key), key)).items.lamp.lit, true);
+  await page.keyboard.press("Escape");
   await page.locator('#hand [data-card="lamp"]').click();
-  await page.waitForFunction(() => document.querySelector('#hand [data-card="lamp"]')?.dataset.lit === "false");
-  await choose("pond");
-  await buttonReads(/goes to Black pond/iu);
-  await press(() => page.waitForFunction(() => document.getElementById("place-title")?.textContent === "Black pond", null, { timeout: 2500 }));
-  // The quest she holds is Pip's own: no second offer lies at the pond.
-  assert.equal(await page.locator('#hand [data-card="quest:from:moth"]').count(), 0);
+  await page.waitForFunction(() => document.querySelector('#hand [data-card="lamp"]')?.getAttribute("aria-pressed") !== "true");
+  await choose("moth");
+  await page.locator('#card-actions [data-action="talk"]').waitFor();
+  await press(() => page.locator('#card-actions [data-action="accept"]').waitFor({ timeout: 8000 }));
+  assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
+  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 2500 }));
+  await page.keyboard.press("Escape");
   await choose("vale");
   await choose("lamp");
   await choose("moth");
@@ -69,7 +91,7 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(saved.actors.vale.under, undefined);
   assert.equal(saved.actors.vale.place, "pond");
   assert.deepEqual(errors, []);
-  console.log("Pip first quest: box, Talk, held quest, fade, opening, pond and Give passed.");
+  console.log("Pip first quest: box, Talk, fade, opening, Accept at the pond and Give passed.");
   await page.close();
 }
 // Choosing and pressing, waiting on what the screen shows. A press soon after
@@ -151,8 +173,8 @@ try {
     assert(pip.width > 80 && pip.x >= 0 && pip.x + pip.width <= width);
     await page.screenshot({ path: new URL(`pip-${width}.png`, output).pathname });
     await talk.click();
-    await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 4000 });
-    assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0);
+    await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.heard?.moth === "item:lamp", key, { timeout: 4000 });
+    assert.equal(await page.locator('#hand .want-frame').count(), 0);
     // Closed during the fade: the page returns to the fade, not to Pip.
     await page.reload();
     await page.locator('.title-intro[data-phase="ack"]').waitFor();
@@ -160,10 +182,8 @@ try {
     await page.locator(".title-intro").waitFor({ state: "detached" });
     const journey = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     assert.equal(journey.actors.vale.place, "attic");
-    // Pip's Talk is the rules' own: Vale carries what he told her and the quest
-    // she accepted from him, the same one the pond would have offered.
     assert.deepEqual(journey.actors.vale.heard, { moth: "item:lamp" });
-    assert.deepEqual(journey.actors.vale.want?.step, { verb: "give", to: "moth" });
+    assert.equal(journey.actors.vale.want ?? null, null);
     await page.reload();
     await page.locator('#hand [data-card="vale"]').waitFor();
     assert.equal(await talk.count(), 0);

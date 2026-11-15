@@ -1260,9 +1260,7 @@ describe("speech grounding in resolved card plays", () => {
     const outcome = turnOutcome(createWorld());
     expect(outcome.card.kind).toBe("arrive");
     expect(outcome.avatars).toHaveLength(3);
-    // The hub things plus each mounted clue lying at the station.
-    const clue = createWorld().items["ratiradio-request-slip"] ? ["ratiradio-request-slip"] : [];
-    expect(outcome.items.map((item) => item.id).sort()).toEqual(["bell", "cloth", "lamp", "oil", "hoppycat-red-thread-spool", ...clue].sort());
+    expect(outcome.items.map((item) => item.id).sort()).toEqual(["bell", "cloth", "lamp", "oil"]);
     expect(avatar(outcome, "moth")).toMatchObject({
       location: "pond",
       travel: null,

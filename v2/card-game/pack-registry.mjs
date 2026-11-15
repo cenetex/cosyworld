@@ -11,10 +11,12 @@ import {
 } from "./pack-journeys.mjs";
 import { newWant, setWant } from "./want.mjs";
 import { partyOf } from "./world/company.mjs";
-import { usedUp, useUp, bringBack } from "./item-use.mjs";
+import { gone, usedUp, useUp, bringBack } from "./item-use.mjs";
+import { restForGood } from "./world/for-good.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
+import forest from "./forest.json" with { type: "json" };
 import {
   humanHomePack,
   currentActor,
@@ -238,12 +240,13 @@ export const freed = (world, id) =>
   Array.isArray(packPeople[id]?.stayUntil) &&
   conditionsMet(world, packPeople[id].packId, packPeople[id].stayUntil, id);
 export const staysPut = (id, world = null) =>
-  packPeople[id]?.travels === false && !freed(world, id);
+  (packPeople[id] ?? forest.people[id])?.travels === false && !freed(world, id);
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
 export const recordJourneyTravel = (world, id, from, to) =>
   advanceJourney(world, packOf(id), id, from, to);
-export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
+export const avoidsStandoffs = (id) =>
+  (packPeople[id] ?? forest.people[id])?.standoffs === false;
 export const fixturesAt = (place) =>
   Object.entries(packFixtures)
     .filter(([, f]) => f.at === place)
@@ -407,7 +410,10 @@ export function entityEnabled(world, id, saved = false, lockView = false) {
   if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
     return false;
   const e = packEntity(id);
-  if (!e) return true;
+  if (!e)
+    return (forest.people[id]?.appearsWhen || []).every((c) =>
+      evaluateCondition(world, c, null),
+    );
   if (
     waitingAtHome(world, id) &&
     !entityEnabled(world, e.home, saved, lockView)
@@ -556,7 +562,12 @@ export function packExits(world, place, actor = null) {
 export function actorCanVisit(actor, place, world = null) {
   if (actor === BOARDY) return true;
   if (world?.invitedPlaces?.[actor]?.includes(place)) return true;
-  if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
+  if (
+    !actor ||
+    humanAvatarIds.includes(actor) ||
+    roamingQuestActor(actor) ||
+    forest.people[actor]?.stops
+  )
     return true;
   const a = packPeople[actor],
     destination = packPlaces[place];
@@ -783,6 +794,7 @@ export const departed = (pack, state, id) =>
     (c) => c.on === "depart" && c.subject === id && owns(state.receipts, c.id),
   );
 export function neverBack(world, id) {
+  if (gone(world, id)) return true;
   if (world.actors?.[id]) {
     const pack = packOf(id),
       state = pack && packState(world, pack.id);
@@ -1012,6 +1024,9 @@ const restGated = (requires = [], id) =>
       : restGated(c.conditions || (c.condition ? [c.condition] : []), id),
   );
 export function validatePackStates(world) {
+  return !packStatesFault(world);
+}
+export function packStatesFault(world) {
   if (
     !record(world.packs) ||
     !validJourneyProgress(world, packDefinitions) ||
@@ -1021,7 +1036,7 @@ export function validatePackStates(world) {
         .sort()
         .join()
   )
-    return false;
+    return "packs";
   for (const pack of packDefinitions) {
     if (!pack.choices) continue;
     const state = world.packs[pack.id];
@@ -1065,7 +1080,7 @@ export function validatePackStates(world) {
           turn > world.turn,
       )
     )
-      return false;
+      return `pack:${pack.id}:record`;
     if (
       world.opening &&
       !sharedEnabled(world) &&
@@ -1073,7 +1088,7 @@ export function validatePackStates(world) {
         (id) => owns(pack.avatars, id) && !owns(state.met, id),
       )
     )
-      return false;
+      return `pack:${pack.id}:met`;
     const events = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
     const choices = {},
       flags = {},
@@ -1115,11 +1130,11 @@ export function validatePackStates(world) {
               state.met[condition.actor] >= turn),
         )
       )
-        return false;
+        return `pack:${pack.id}:receipt:${id}`;
       seenTurns.add(turn);
       for (const effect of c.effects) {
         if (effect.kind === "choose") {
-          if (owns(choices, effect.key)) return false;
+          if (owns(choices, effect.key)) return `pack:${pack.id}:choice:${id}`;
           choices[effect.key] = effect.value;
         }
         if (effect.kind === "set_flag") flags[effect.key] = effect.value;
@@ -1129,7 +1144,7 @@ export function validatePackStates(world) {
       Object.keys(a).length === Object.keys(b).length &&
       Object.entries(a).every(([k, v]) => owns(b, k) && b[k] === v);
     if (!equals(choices, state.choices) || !equals(flags, state.flags))
-      return false;
+      return `pack:${pack.id}:flags`;
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
         !entityEnabled(world, id, true) &&
@@ -1140,19 +1155,18 @@ export function validatePackStates(world) {
           world.actors[id]?.lastTalk !== -9 ||
           owns(state.met, id))
       )
-        return false;
-    // Presence-gated things keep their saved place while their humans are away.
-    // A thing gated on where it rests may have travelled and come back to
-    // that place.
+        return `pack:${pack.id}:actor:${id}`;
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
         !entityEnabled(world, id, true) &&
         !(waitingAtHome(world, id) && world.items[id].history.length === 0) &&
+        !(gone(world, id) && world.items[id]?.holder === restForGood(id)) &&
+        !(item.home !== undefined && world.items[id]?.holder === item.home) &&
         (world.items[id]?.holder !== item.holder ||
           (world.items[id]?.history?.length !== 0 &&
             !restGated(item.requires, id)))
       )
-        return false;
+        return `pack:${pack.id}:item:${id}`;
   }
-  return true;
+  return null;
 }

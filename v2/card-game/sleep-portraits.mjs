@@ -17,6 +17,7 @@ const residentSleepPortraits = {
   "greek-antigone": "assets/sleep/residents/greek-antigone-sleeping.png",
   "greek-baker": "assets/sleep/greek-baker-sleeping.png",
   "greek-patroclus": "assets/sleep/residents/greek-patroclus-sleeping.png",
+  listener: "assets/listener/listener-sleeping.webp",
 };
 export const sleepPortraitAssets = [
   ...[...travelers].flatMap((id) =>

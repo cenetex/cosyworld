@@ -96,7 +96,12 @@ export function traveler(world = greekStart()) {
     give: (item, to) => t.act("give", { item: g(item), target: g(to) }),
     trade: (item, to, receive) =>
       t.act("trade", { item: g(item), receive: g(receive) }),
-    talk: (who) => t.act("talk", { target: g(who) }),
+    talk(who) {
+      t.act("talk", { target: g(who) });
+      return legalActions(t.s).some((a) => a.kind === "accept")
+        ? t.act("accept", { target: g(who) })
+        : t;
+    },
     walkWith(who, ...places) {
       for (const place of places)
         for (const destination of greekTravelTargets(

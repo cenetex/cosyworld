@@ -1,11 +1,11 @@
-import { levelTier, romanLevel } from "./rarity.mjs";
+import { levelTier, shownLevel } from "./rarity.mjs";
 
 // A card whose level rises glows once, shifting from its old tier colour to
 // the new one, lifts a little and changes its numeral in place. One smooth
 // swell, no text, no pulses; reduced motion shows the new level at once.
 export const LEVEL_UP_MS = 1100;
 
-export function levelUpPlan(from, to, { reduced = false } = {}) {
+export function levelUpPlan(from, to, { reduced = false, id = null } = {}) {
   if (reduced || !Number.isSafeInteger(from) || !(to > from)) return null;
   const before = levelTier(from),
     after = levelTier(to);
@@ -13,8 +13,8 @@ export function levelUpPlan(from, to, { reduced = false } = {}) {
     ms: LEVEL_UP_MS,
     lift: after.id === before.id ? 4 : 7,
     glow: after.id === before.id ? 14 : 22,
-    from: { color: before.color, numeral: romanLevel(from) },
-    to: { color: after.color, numeral: romanLevel(to) },
+    from: { color: before.color, numeral: shownLevel(id, from) },
+    to: { color: after.color, numeral: shownLevel(id, to) },
   };
 }
 
@@ -85,6 +85,7 @@ export function transformPortrait(
 export function levelUpCard(button, from, options = {}) {
   const plan = levelUpPlan(from, Number(button.dataset.level), {
     reduced: options.reduced ?? reduceMotion(),
+    id: button.dataset.card ?? null,
   });
   if (!plan) return Promise.resolve(false);
   if (options.previousPortrait)

@@ -1,12 +1,5 @@
 #!/usr/bin/env node
 
-// Bump the release version across every file that must stay aligned, in one
-// step. The root package.json version is shared by the web game, local game
-// helper, and Mac shell. Both Cargo manifests and lock files move with it.
-// Usage:
-//   npm run version:bump            # patch bump (1.0.84 -> 1.0.85)
-//   npm run version:bump -- 1.1.0   # explicit version
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +11,6 @@ function readJson(relative) {
 }
 
 function writeJson(relative, value) {
-  // package-lock.json ships with two-space indentation and a trailing newline.
   writeFileSync(path.join(repoRoot, relative), `${JSON.stringify(value, null, 2)}\n`);
 }
 
@@ -81,7 +73,6 @@ function bumpRustFiles(version) {
   }
   writeFileSync(manifest, updated);
 
-  // Keep Cargo.lock in lockstep without requiring a local toolchain build.
   const lock = path.join(repoRoot, 'v2/orchestrator-rust/Cargo.lock');
   const lockSource = readFileSync(lock, 'utf8');
   const lockUpdated = lockSource.replace(

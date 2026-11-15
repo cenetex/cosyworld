@@ -142,5 +142,8 @@ export function createQuestEntries() {
     unseen(key) {
       if (key === held) due = false;
     },
+    seen(key) {
+      shown.add(key);
+    },
   };
 }

@@ -246,7 +246,6 @@ describe("deploy workflow", () => {
         "(needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true')",
       );
     }
-    // A train skips the gate job rather than spend a runner on it.
     expect(gate).toContain(`if: \${{ always() && ${fullRelease} }}`);
     expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
     expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
@@ -1178,13 +1177,13 @@ describe("deploy workflow", () => {
   });
 
   it("uses the card voice model for unbound and player-avatar voice", () => {
-    const voiceDefault =
-      'COSYWORLD_AI_CAPABILITY_MODELS_JSON = \'{"voice":"openai/gpt-6-luna"';
+    const capabilities =
+      'COSYWORLD_AI_CAPABILITY_MODELS_JSON = \'{"voice":"google/gemma-4-26b-a4b-it","intent_json":"openai/gpt-6-luna","world_content":"google/gemini-4-hydrogen"}\'';
     const voiceDeclaration =
       '"requested_model_id":"openai/gpt-6-luna","provider":"openrouter"';
 
     for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
-      expect(config).toContain(voiceDefault);
+      expect(config).toContain(capabilities);
       expect(config).toContain(voiceDeclaration);
       expect(config).not.toContain('"voice":"mistralai/mistral-nemo"');
     }
@@ -1193,7 +1192,7 @@ describe("deploy workflow", () => {
     );
   });
 
-  it("answers .dev residents on Gemma with Luna behind it, and leaves production on Luna", () => {
+  it("answers residents on Gemma with Luna behind it on .dev and production", () => {
     const gemma = "google/gemma-4-26b-a4b-it";
     expect(primaryFlyConfig).toContain(`COSYWORLD_CARD_TEXT_MODEL = "${gemma}"`);
     expect(primaryFlyConfig).toContain(
@@ -1202,21 +1201,17 @@ describe("deploy workflow", () => {
     expect(primaryFlyConfig).toContain(
       `"requested_model_id":"${gemma}","provider":"openrouter"`,
     );
+    expect(lonelyForestFlyConfig).toContain(`COSYWORLD_CARD_TEXT_MODEL = "${gemma}"`);
     expect(lonelyForestFlyConfig).toContain(
-      'COSYWORLD_CARD_TEXT_MODEL = "openai/gpt-6-luna"',
+      `COSYWORLD_CARD_FALLBACK_MODELS = '["openai/gpt-6-luna"]'`,
+    );
+    expect(lonelyForestFlyConfig).toContain(
+      `"requested_model_id":"${gemma}","provider":"openrouter"`,
     );
     const cast = (vale, moth, badger) =>
-      `COSYWORLD_CARD_CHARACTER_MODELS_JSON = '{"vale":"${vale}","moth":"${moth}","keeper":"anthropic/claude-haiku-5.5","badger":"${badger}"}'`;
+      `COSYWORLD_CARD_CHARACTER_MODELS_JSON = '{"vale":"${vale}","moth":"${moth}","keeper":"anthropic/claude-haiku-5.5","badger":"${badger}","listener":"${vale}"}'`;
     expect(primaryFlyConfig).toContain(cast(gemma, gemma, gemma));
-    expect(lonelyForestFlyConfig).toContain(
-      cast(
-        "openai/gpt-6-luna",
-        "openai/gpt-6-luna",
-        "mistralai/mistral-small-3.2-24b-instruct",
-      ),
-    );
-    expect(lonelyForestFlyConfig).not.toContain("gemma");
-    expect(lonelyForestFlyConfig).not.toContain("COSYWORLD_CARD_FALLBACK_MODELS");
+    expect(lonelyForestFlyConfig).toContain(cast(gemma, gemma, gemma));
   });
 
   it("copies every out-of-crate compile-time input into the release image build", () => {

@@ -10,6 +10,7 @@ import {
   places,
   plan,
   play,
+  reflectionOpen,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 const wantPlace = (target) => ({
@@ -87,7 +88,8 @@ describe("the attic opening and saved pond journeys", () => {
   it("keeps the attic reflection and its dry-lamp recovery on the pond", () => {
     let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
-    expect(exits(world, "attic")).toEqual([]);
+    expect(exits(world, "attic")).toEqual(["pond"]);
+    expect(reflectionOpen(world, "attic")).toBe(false);
     setFuel(world, 0);
     world.items.lamp.lit = false;
     world.items.cloth.holder = "pond";
@@ -98,15 +100,13 @@ describe("the attic opening and saved pond journeys", () => {
     expect(world.actors.vale.place).toBe("station");
   });
 
-  // The planner has no lamp special case: the lit mirror is no route, so
-  // it waits; once the lamp is doused by a play, the mirror is the way out.
-  it("plans the mirror departure only once the carried lamp is doused", () => {
+  it("takes the narrow path with the lit lamp once the pond is opened", () => {
     const world = fresh();
     world.actors.vale.place = "attic";
     world.actors.vale.want = wantPlace("pond");
     world.actors.vale.heldItem = "lamp";
     settleLamp(world);
-    expect(plan(world).action.kind).toBe("wait");
+    expect(plan(world).action).toMatchObject({ kind: "move", target: "pond" });
     const dark = selectLamp(world);
     expect(plan(dark).action).toMatchObject({ kind: "move", target: "pond" });
   });

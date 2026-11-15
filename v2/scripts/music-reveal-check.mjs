@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import {
-  selectCard,
   startNewGame,
   openSettings,
   closeSettings,
   pressSetting,
   putOutOpening,
   revealOpening,
-  readyActionButton,
 } from "./card-browser-helpers.mjs";
 import { roomTracks } from "../card-game/music.mjs";
 
-// The opening attic stays silent until the lamp goes out and the mirror first
-// shows the Black pond. Spies on the room-music element and its gain stand in
+// A new world stays silent until its first play. Spies on the room-music element and its gain stand in
 // for an audio device. The browser keeps Chrome's gesture autoplay policy.
 export async function checkMusicReveal(browser, origin) {
   const context = await browser.newContext({
@@ -54,25 +51,11 @@ export async function checkMusicReveal(browser, origin) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const audio = (read) => page.locator("#room-music").evaluate(read);
-  const revealed = () =>
-    page.evaluate(() => localStorage.getItem("cosyworld.music-revealed"));
   const playing = () =>
     page.waitForFunction(() => {
       const a = document.querySelector("#room-music");
       return !a.paused && a.currentTime > 0;
     });
-  async function playCard(card) {
-    await page.waitForFunction(
-      () => document.querySelector("#hand").dataset.cooling === "false",
-    );
-    // Folding the hand preserves the lit lamp; clearSelection would stow it.
-    await page.keyboard.press("Escape");
-    await selectCard(page, card);
-    await readyActionButton(page).click();
-    await page.waitForFunction(
-      () => document.querySelector("#hand").dataset.cooling === "false",
-    );
-  }
   async function menuStatus() {
     await openSettings(page);
     const text = await page.locator("#music-status").textContent();
@@ -81,30 +64,13 @@ export async function checkMusicReveal(browser, origin) {
   }
   try {
     await page.goto(`${origin}/?table=music-reveal`);
-    // Placing the held lamp is a first play, but the lit attic stays silent. The
-    // opening offers no play until the lamp and attic are revealed.
+    // A new world is silent until its first play, Put down in the attic.
     await revealOpening(page);
-    await playCard("attic");
-    assert.equal(
-      await page.evaluate(
-        () =>
-          JSON.parse(
-            localStorage.getItem("cosyworld.reflected-shore.v1.music-reveal"),
-          ).turn,
-      ),
-      1,
-    );
     await page.waitForTimeout(1200);
-    assert(await audio((a) => a.paused), "The lit attic stays silent");
+    assert(await audio((a) => a.paused), "The new world waits for a play");
     assert.deepEqual(await page.evaluate(() => window.musicPlays), []);
-    assert.equal(await revealed(), null);
-    assert.equal(await menuStatus(), "Music waits for the dark.");
-    // Take the grounded lamp and stow it: the mirror opens and music fades in.
-    await playCard("lamp");
+    assert.equal(await menuStatus(), "Play your first card to start music.");
     await putOutOpening(page);
-    await page
-      .locator('#hand [data-card="pond"]')
-      .waitFor({ state: "attached" });
     await playing();
     assert(
       new URL(await audio((a) => a.src)).pathname.endsWith(
@@ -115,30 +81,19 @@ export async function checkMusicReveal(browser, origin) {
     const fade = await page.evaluate(() =>
       window.musicRamps.find((r) => r.to > 0),
     );
-    assert.equal(fade.from, 0, "The reveal starts from silence");
+    assert.equal(fade.from, 0, "The first play starts from silence");
     assert(Math.abs(fade.to - 0.3) < 0.001, "and fades to the music volume");
     assert(fade.seconds > 0.5 && fade.seconds <= 1.05, "over a short fade");
-    const firstWorld = await revealed();
-    assert.match(firstWorld, /^local:.*music-reveal:\d+$/);
-    console.log("Music: silent lit attic, the pond reveal fades it in");
-    // Relit, the mirror closes, but the reveal has happened: a reload plays.
-    await selectCard(page, "lamp");
-    await page.waitForFunction(
-      () =>
-        document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
-        "true",
-    );
+    console.log("Music: a silent new world, the first play fades it in");
     // Settings holds the song, so it plays once Settings closes.
     await page.reload();
     await openSettings(page);
     await closeSettings(page);
     await playing();
-    console.log("Music: a reload after the reveal keeps music");
-    // A new world wakes in the silent attic again.
+    console.log("Music: a reload after the first play keeps music");
     await startNewGame(page);
     await page.reload();
     await openSettings(page);
-    // Music off: the reveal is recorded and nothing plays.
     await pressSetting(page, "music");
     assert.equal(
       await page.locator("#music-toggle").getAttribute("aria-pressed"),
@@ -146,22 +101,13 @@ export async function checkMusicReveal(browser, origin) {
     );
     await closeSettings(page);
     await page.evaluate(() => (window.musicPlays = []));
-    // The new world opens on its reveals, then the lamp is stowed.
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
     await putOutOpening(page);
-    await page
-      .locator('#hand [data-card="pond"]')
-      .waitFor({ state: "attached" });
     await page.waitForTimeout(1200);
     assert(await audio((a) => a.paused), "Music off stays off");
     assert.deepEqual(await page.evaluate(() => window.musicPlays), []);
-    const secondWorld = await revealed();
-    assert(
-      secondWorld && secondWorld !== firstWorld,
-      "A new world reveals anew",
-    );
     await openSettings(page);
     await pressSetting(page, "music");
     await closeSettings(page);

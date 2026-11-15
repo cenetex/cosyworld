@@ -219,11 +219,26 @@ pub(super) fn take_progress(c: &Connection, user: &str, a: usize) -> Result<Opti
 // Cosmetic upgrades are one-way and per passkey (#1873). Each one is kept
 // here for good and goes with every claim. Rules before 81 cannot take them.
 pub(super) fn carries_upgrades(version: &str) -> bool {
+    rules_from(version, 81)
+}
+pub(super) fn carries_arcana(version: &str) -> bool {
+    rules_from(version, 141)
+}
+fn rules_from(version: &str, first: u32) -> bool {
     version
         .rsplit('/')
         .next()
         .and_then(|n| n.parse::<u32>().ok())
-        .is_some_and(|n| n >= 81)
+        .is_some_and(|n| n >= first)
+}
+pub(super) fn deck(c: &Connection, user: &str) -> Result<Vec<String>> {
+    let sql = "SELECT DISTINCT upgrade FROM card_avatar_upgrades WHERE user=? AND upgrade LIKE 'arcanum-%' ORDER BY upgrade";
+    let mut q = c.prepare(sql).map_err(sql_error)?;
+    let rows = q
+        .query_map(params![user], |r| r.get(0))
+        .map_err(sql_error)?;
+    rows.collect::<std::result::Result<_, _>>()
+        .map_err(sql_error)
 }
 pub(super) fn upgrades(c: &Connection, user: &str, a: usize) -> Result<Vec<String>> {
     let sql = "SELECT upgrade FROM card_avatar_upgrades WHERE user=? AND actor=? ORDER BY upgrade";

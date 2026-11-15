@@ -72,7 +72,7 @@ describe("a want in Talk context", () => {
     ]);
     for (const entity of context.entities)
       expect(entity.facts.some((f) => QUEST_LINES.test(f))).toBe(false);
-    expect(factsOf(context, "vale")).toContain("Already holds the wanted Lamp.");
+    expect(factsOf(context, "vale")).not.toContain("Already holds the wanted Lamp.");
     expect(pip.length).toBeLessThanOrEqual(16);
   });
 

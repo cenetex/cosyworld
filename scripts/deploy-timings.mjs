@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 
 // Where Deploy runs spend their time, from GitHub's job and step timings.
-//
 //   node scripts/deploy-timings.mjs [--limit 30]   table of recent runs
 //   node scripts/deploy-timings.mjs --run <id>     one-line summary of a run
-//
 // For each run kind (tag, promotion, dispatch, .dev train) it reports p50 and
 // p90 wall time, the wait before the first job started, the critical path,
 // and how often the Rust gate reused a CI run and the image was reused

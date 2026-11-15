@@ -438,11 +438,6 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       )
     )
       return problems;
-    if (
-      e.desire !== undefined &&
-      !check(record(e.desire), "desire must be a record")
-    )
-      return problems;
   }
   if (
     pack.continuity !== undefined &&
@@ -724,7 +719,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "passWhen",
         "appearsWhen",
         "values",
-        "desire",
+        "bonds",
         "want",
         "wants",
         "requires",
@@ -1283,21 +1278,14 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           ),
         `avatar ${id} values are invalid`,
       );
-    if (a.desire !== undefined) {
-      const d = a.desire;
-      check(
-        keysOk(d, ["items", "location", "avatars", "requires"]) &&
-          Array.isArray(d.items) &&
-          d.items.length <= 3 &&
-          d.items.every((i) => owns(items, i)) &&
-          Array.isArray(d.avatars) &&
-          d.avatars.length <= 2 &&
-          d.avatars.every((i) => owns(avatars, i) || i === hub.player) &&
-          (d.location === null || owns(places, d.location)),
-        `avatar ${id} desire is invalid`,
-      );
-      requirements(d.requires, `avatar ${id} desire requires`);
-    }
+    check(
+      a.bonds === undefined ||
+        (record(a.bonds) &&
+          Object.entries(a.bonds).every(
+            ([other, n]) => other !== id && owns(avatars, other) && intOk(n, 0, 3),
+          )),
+      `avatar ${id} bonds are invalid`,
+    );
     requirements(a.passWhen, `avatar ${id} passage requires`, false);
     requirements(a.stayUntil, `avatar ${id} stayUntil`);
   }
@@ -1321,7 +1309,9 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "reservedUntil",
         "recoverTo",
         "scatterOutside",
+        "legend",
       ]) &&
+        (i.legend === undefined || textOk(i.legend, 120)) &&
         (i.tags === undefined ||
           (Array.isArray(i.tags) &&
             i.tags.length >= 1 &&
@@ -1613,7 +1603,6 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     ...choices,
   ].forEach((e) => {
     verifyRefs(e.requires);
-    if (e.desire) verifyRefs(e.desire.requires);
   });
   if (pack.sections !== undefined) {
     check(

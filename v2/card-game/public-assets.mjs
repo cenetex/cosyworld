@@ -6,13 +6,13 @@ import { CUE_TRACKS } from "./music-cues.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
+import discordFaces from "./assets/discord-faces.json" with { type: "json" };
 import { daylightAssets } from "./daylight.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
 import { sleepPortraitAssets } from "./sleep-portraits.mjs";
 import { BENCH, SCENE } from "./settings-cards.mjs";
 
-// The local server, release smoke, and Rust asset generator use this list.
 const files = [
   "handover.mjs",
   "battle-context.mjs",
@@ -121,7 +121,6 @@ const files = [
     "jab-left",
     "jab-right",
   ].map((id) => `assets/combat/effects/${id}.png`),
-  // Combat pose art, chosen by combat-portraits.mjs.
   ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
     (id) =>
       ["", "-scarf"].flatMap((wardrobe) =>
@@ -169,7 +168,6 @@ const files = [
   "locked-box.mjs",
   "mystery-view.mjs",
   "stage-reveal.mjs",
-  "opening.mjs",
   "card-level-up.mjs",
   // Willows sign alternates chosen by the willows pack.
   ...[
@@ -280,6 +278,7 @@ const files = [
   "assets/shared/places/loft.png",
   "assets/shared/items/shears.png",
   "index.html",
+  "assets/share/lonely-forest.jpg",
   // The Privacy page (#2052), served at /privacy.
   "privacy.html",
   "privacy.css",
@@ -321,6 +320,7 @@ const files = [
   "world/boxes.mjs",
   "world/arcana.mjs",
   "world/arcana-record.mjs",
+  "world/stops.mjs",
   "world/lock-goals.mjs",
   "world/want-words.mjs",
   "world/company.mjs",
@@ -328,6 +328,9 @@ const files = [
   "world/geography.mjs",
   "world/home.mjs",
   "world/offers.mjs",
+  "world/rumours.mjs",
+  "world/for-good.mjs",
+  "world/found.mjs",
   "world/items.mjs",
   "world/lanes.mjs",
   "world/senses.mjs",
@@ -389,6 +392,7 @@ const files = [
   "expression.mjs",
   "emoji-symbols.json",
   "dialogue.mjs",
+  "speech-pages.mjs",
   "card-names.mjs",
   "character-speech.mjs",
   "hosted-voices.mjs",
@@ -434,6 +438,9 @@ const files = [
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
   ),
+  ...["", "-offering", "-happy", "-sad", "-brace"].map(
+    (pose) => `assets/listener/listener${pose}.webp`,
+  ),
   // Keep the art URLs published by earlier Rust releases.
   ...[0, 1, 2, 4, 5].map(
     (number) => `assets/lonely-forest/arcanum-${number}.png`,
@@ -468,6 +475,12 @@ const files = [
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
 for (const { art } of arcana.cards)
   if (art && !files.includes(art)) files.push(art);
+for (const portrait of Object.keys(discordFaces)) {
+  const [dir, file] = [portrait.split("/").at(-2), portrait.split("/").at(-1)];
+  files.push(`assets/faces/${dir}-${file.replace(/\.[a-z0-9]+$/, "")}.webp`);
+}
+for (const back of ["assets/arcana/tarot-back.png", "assets/arcana/tarot-back-locked.png"])
+  if (!files.includes(back)) files.push(back);
 for (const { stage, card, phone } of Object.values(imageVariants.images))
   for (const file of [stage, card, phone])
     if (file && !files.includes(file)) files.push(file);

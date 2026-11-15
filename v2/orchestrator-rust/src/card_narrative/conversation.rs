@@ -10,7 +10,6 @@ use super::{
     SpokenLine,
 };
 
-/// The recent talk here: at most this many lines, oldest dropped first.
 pub(super) const CHAT_LINES: usize = 6;
 /// And at most about this many characters (about 100 tokens), so a
 /// conversation prompt stays near #1537's 350 tokens.
@@ -52,6 +51,11 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
         .collect();
     if context.outcome.is_none() {
         here.extend(super::listener(context, id));
+        for other in &context.present {
+            if other != id && !here.contains(other) {
+                here.push(other.clone());
+            }
+        }
     }
     match here.len() {
         0 => "I'm alone here.".into(),

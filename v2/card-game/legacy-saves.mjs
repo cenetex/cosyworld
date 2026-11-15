@@ -50,7 +50,7 @@ export function carryLocalProgress(world, old) {
       );
       to.upgrades = [...new Set([...(to.upgrades || []), ...kept])]
         .sort()
-        .slice(0, 16);
+        .slice(0, 40);
     }
     if (
       !count(from.xp) ||
@@ -89,6 +89,8 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
       .map((p) => p.id),
   );
   upgradeSightings(s);
+  for (const a of Object.values(s.actors || {}))
+    if (a?.offered && !Object.hasOwn(a.offered, "from")) delete a.offered;
   installPacks(s);
   reconcileContent(s);
   reconcilePackProgress(s, reworked);

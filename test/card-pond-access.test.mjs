@@ -160,7 +160,8 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
       }
       if (condition === "at the station") s.items.lamp.holder = "station";
       const before = encodeSave(s);
-      const rescue = condition === "at the station";
+      const rescue =
+        condition === "at the station" || Boolean(s.opened?.pond?.includes("vale"));
       expect(exits(s, "attic").includes("pond")).toBe(rescue);
       expect(entered(s, "pond")).toBe(rescue);
       const move = cardPlay(s, ["pond"]).action;
@@ -188,21 +189,25 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
 describe.each([true, false])(
   "return toward light at the pond (opening: %s)",
   (opening) => {
-    it.each(["attic", "moth"])(
-      "keeps both mirrors shut while the lamp held by %s shines in the attic",
-      (holder) => {
-        const s = pond(opening);
-        s.actors.moth.place = "attic";
-        s.items.lamp.holder = holder;
-        const restored = decodeSave(encodeSave(s));
-        expect(reflectionOpen(restored, "pond")).toBe(false);
-        expect(reflectionOpen(restored, "attic")).toBe(false);
-        if (restored.actors[holder]) restored.actors[holder].heldItem = null;
-        else setFuel(restored, 0);
-        settleLamp(restored);
-        expect(reflectionOpen(restored, "attic")).toBe(true);
-      },
-    );
+    it("keeps both mirrors shut while the lamp held by moth shines in the attic", () => {
+      const s = pond(opening);
+      s.actors.moth.place = "attic";
+      s.items.lamp.holder = "moth";
+      const restored = decodeSave(encodeSave(s));
+      expect(reflectionOpen(restored, "pond")).toBe(false);
+      expect(reflectionOpen(restored, "attic")).toBe(false);
+      restored.actors.moth.heldItem = null;
+      settleLamp(restored);
+      expect(reflectionOpen(restored, "attic")).toBe(true);
+    });
+    it("opens the attic mirror while the lamp rests in the attic", () => {
+      const s = pond(opening);
+      s.items.lamp.holder = "attic";
+      const restored = decodeSave(encodeSave(s));
+      expect(restored.items.lamp.lit).toBe(true);
+      expect(reflectionOpen(restored, "attic")).toBe(true);
+      expect(reflectionOpen(restored, "pond")).toBe(false);
+    });
     it.each(["pond", "moth"])(
       "keeps the attic mirror dark when a distant lamp is held by %s",
       (holder) => {

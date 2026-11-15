@@ -48,6 +48,7 @@ try {
     await page.goto(`http://127.0.0.1:${server.address().port}/?intro=1`);
     await page.waitForSelector('.title-intro[data-phase="ack"]');
     await page.keyboard.press("Escape");
+    await page.waitForSelector(".title-intro", { state: "detached" });
     await page.waitForFunction(
       () =>
         document.querySelector('#hand [data-card="vale"]')?.dataset

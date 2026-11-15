@@ -23,7 +23,7 @@ function fixture(kind) {
   // The waiting resident is met on the first trip from the attic. Dousing
   // the lamp opens the mirror; lighting it at the pond opens the way back.
   const start =
-    kind === "resident" ? atticOpening() : createWorld({ opening: true });
+    kind === "resident" ? atticOpening() : createWorld({ opening: true, seed: 7 });
   let s = enableMotives(start);
   s = holdItem(s, null);
   for (const target of kind === "resident" ? [] : ["pond", "attic"]) {
@@ -37,9 +37,10 @@ function fixture(kind) {
     s = result.state;
   }
   s.actors.moth.place = kind === "resident" ? "pond" : "attic";
+  if (kind !== "resident") s.opening.met.moth = 0;
+  if (kind === "shared") s.actors.vale.place = s.actors.moth.place = "station";
   s.items.lamp.holder = "vale";
   s.items.lamp.fuel = 8;
-  // A doused lamp in the attic keeps the mirror open: hold nothing.
   return holdItem(s, null);
 }
 
@@ -54,6 +55,7 @@ try {
     ["follow", 1440, "no-preference", 0],
     ["follow", 390, "no-preference", 2500],
     ["shared", 1440, "no-preference", 0],
+    ["shared-locked", 1440, "no-preference", 0],
     ["resident", 390, "no-preference", 0],
     ["follow", 390, "reduce", 0],
     ["reset", 390, "no-preference", 0],
@@ -63,7 +65,7 @@ try {
       reducedMotion: motion,
     });
     page.setDefaultTimeout(15000);
-    const table = `movement-${kind}-${width}-${motion}`;
+    const table = `move-${kind}-${width}-${motion}`;
     const key = `cosyworld.reflected-shore.v1.${table}`;
     const report = { kind, width, motion, latency, errors: [] };
     results.push(report);
@@ -144,8 +146,8 @@ try {
         function sample() {
           if (!window.movementCheck.active) return;
           const hand = document.querySelector("#hand"),
-            // A quest for a place is a location card too (#1704); skip it.
-            placeCard = hand.querySelector(".location:not(.want-card)"),
+            // The return card precedes the current place in the hand.
+            placeCard = hand.querySelector(`.location[data-card="${document.body.dataset.place}"]:not(.want-card)`),
             bounds = hand.getBoundingClientRect(),
             place = placeCard.getBoundingClientRect();
           window.movementCheck.frames.push({
@@ -165,7 +167,7 @@ try {
         }
         requestAnimationFrame(sample);
       });
-      if (kind === "shared") await selectCard(page, "moth");
+      if (kind.startsWith("shared")) await selectCard(page, "moth");
       // The pond arrives as a closed box when the lamp is first put out.
       if (kind === "resident") {
         await revealCard(page, "pond");
@@ -313,7 +315,7 @@ try {
             pip.start + pip.delay >= vale.start + 200,
             "Pip follows in a separate entrance.",
           );
-        if (kind === "shared")
+        if (kind.startsWith("shared"))
           assert(
             Math.abs(pip.start + pip.delay - vale.start - vale.delay) < 100,
             "Agreed companions arrive together.",
@@ -329,7 +331,7 @@ try {
       else
         assert.match(
           caption,
-          kind === "shared"
+          kind.startsWith("shared")
             ? /Pip travelled with Vale/
             : /Pip followed from Mirror attic/,
         );
@@ -341,6 +343,12 @@ try {
           request.outcome.avatars.find((a) => a.id === "moth")?.travel
             ?.companions ?? [],
           kind === "shared" ? ["vale"] : [],
+        );
+      if (kind === "shared-locked")
+        assert.equal(
+          request.outcome.avatars.find((a) => a.id === "moth").travel,
+          null,
+          "A locked attic origin is concealed from generated speech.",
         );
       await page.screenshot({ path: new URL(`${table}.png`, output).pathname });
       assert.deepEqual(report.errors, []);

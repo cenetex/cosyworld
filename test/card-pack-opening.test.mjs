@@ -20,7 +20,7 @@ import { tapPrompt } from "../v2/card-game/presentation.mjs";
 import { createSfx } from "../v2/card-game/sfx.mjs";
 
 // Made-up cards: the kind is the first letter of the id.
-const KINDS = { p: "place", a: "avatar", i: "item", w: "way", b: "box", o: "offer" };
+const KINDS = { p: "place", a: "avatar", i: "item", w: "way", b: "box", o: "offer", t: "tarot" };
 const kindOf = (id) => KINDS[id[0]];
 const TIER = { "i-gem": "rare", "i-crown": "legendary", "a-fox": "uncommon", "w-lane": "epic" };
 const tierOf = (id) => TIER[id] ?? "common";
@@ -75,7 +75,7 @@ describe("which cards form a pack", () => {
     expect(packMembers(cards, { unturned, kindOf })).toEqual([
       "p-here", "a-fox", "i-gem", "i-pin", "w-lane", "b-gate", "o-deal",
     ]);
-    expect(PACK_KINDS).toEqual(["place", "avatar", "item", "way", "box", "offer"]);
+    expect(PACK_KINDS).toEqual(["place", "avatar", "item", "way", "box", "offer", "tarot"]);
   });
 
   it("leaves out cards already turned", () => {
@@ -97,6 +97,17 @@ describe("which cards form a pack", () => {
     const hand = ["i-b", "i-a", "i-b", "i-c"];
     const { unturned } = table(hand);
     expect(packMembers(hand, { unturned, kindOf })).toEqual(["i-b", "i-a", "i-c"]);
+  });
+
+  it("lays tarots after the offers, and three of them form a pack", () => {
+    const hand = ["t-up", "o-deal", "t-locked", "i-gem"];
+    const { unturned } = table(hand);
+    expect(packMembers(hand, { unturned, kindOf })).toEqual([
+      "i-gem", "o-deal", "t-up", "t-locked",
+    ]);
+    const spread = ["t-up", "t-down", "t-locked"];
+    expect(packMembers(spread, { unturned: table(spread).unturned, kindOf })).toHaveLength(3);
+    expect(packMembers(spread.slice(0, 2), { unturned: table(spread).unturned, kindOf })).toEqual([]);
   });
 
   it("treats a locked box like any other face-down card", () => {
@@ -151,11 +162,12 @@ describe("the pack's state machine", () => {
     expect(pack.state).toBe("closed");
     expect(pack.ids).toEqual(["p-here", "a-fox", "i-gem", "i-pin"]);
     expect(pack.prompt(t.unturned)).toBeNull();
+    expect(pack.prompt(t.unturned, { lowered: true })).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL, text: PACK_TEXT.reveal });
 
     expect(pack.open()).toBe(true);
     expect(pack.state).toBe("open");
     expect(pack.open()).toBe(false);
-    expect(pack.prompt(t.unturned)).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL, text: PACK_TEXT.reveal });
+    expect(pack.prompt(t.unturned, { lowered: true })).toBeNull();
 
     const done = [];
     pack.revealAll({
@@ -182,19 +194,16 @@ describe("the pack's state machine", () => {
     expect(pack.state).toBe("none");
   });
 
-  it("turns one card at once in an open pack and moves to turned when all are", () => {
+  it("moves an open pack to turned when its cards are turned one by one", () => {
     const { pack } = make();
     const t = table(["a-fox", "i-gem", "i-pin"]);
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
-    expect(pack.turnOne("a-fox", { unturned: t.unturned, turn: t.turn })).toBe(false);
     pack.open();
-    expect(pack.turnOne("a-fox", { unturned: t.unturned, turn: t.turn })).toBe(true);
-    expect(pack.turnOne("a-fox", { unturned: t.unturned, turn: t.turn })).toBe(false);
-    expect(pack.turnOne("zzz", { unturned: t.unturned, turn: t.turn })).toBe(false);
+    t.turn("a-fox");
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
     expect(pack.state).toBe("open");
-    expect(pack.prompt(t.unturned).kind).toBe("reveal");
-    for (const id of ["i-gem", "i-pin"]) pack.turnOne(id, { unturned: t.unturned, turn: t.turn });
+    expect(pack.prompt(t.unturned)).toBeNull();
+    for (const id of ["i-gem", "i-pin"]) t.turn(id);
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
     expect(pack.state).toBe("turned");
     expect(pack.prompt(t.unturned).label).toBe(PACK_DONE);
@@ -375,7 +384,7 @@ describe("the pack's state machine", () => {
     const open = table(["a-fox", "i-gem", "i-pin"]);
     pack.sync(open.cards, { unturned: open.unturned, kindOf });
     pack.open();
-    pack.turnOne("a-fox", { unturned: open.unturned, turn: open.turn });
+    open.turn("a-fox");
     pack.dismiss({ unturned: open.unturned, turnNow: open.turn, tierOf });
     expect([...open.covered].sort()).toEqual(["i-gem", "i-pin"]);
     // Two left face down: no new pack, they turn in place.
@@ -394,9 +403,10 @@ describe("the pack's state machine", () => {
     expect(pack.frameFor("a-fox")).toEqual({ shown: true, top: false, under: 0 });
   });
 
-  it("uses only three sentences and their tap cues", () => {
+  it("uses only four sentences and their tap cues", () => {
     expect(PACK_TEXT).toEqual({
       reveal: "New cards unlocked",
+      one: "New card unlocked",
       finish: "Turning the cards",
       done: "All cards revealed",
     });

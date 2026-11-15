@@ -52,7 +52,7 @@ describe("want data", () => {
           .map(([id, a]) => [id, a.want]),
       ),
     ).toEqual({
-      // Antigone and RATi carry staged `wants` (rules 133), not a single want.
+      // Antigone, Ismene, Creon, the Grove Keeper and RATi carry staged `wants` (rules 133).
       "greek-polynices-shade": {
         kind: "place",
         target: "greek-polynices-hollow",
@@ -62,17 +62,17 @@ describe("want data", () => {
           finish: "greek-burial-performed",
         },
       },
-      // Ismene would ask Theseus about her father (open-door-rework).
-      "greek-ismene": { kind: "person", target: "greek-theseus" },
-      // Creon wants the decree back; the guard wants to eat the bread
-      // (Greek revision 20).
-      "greek-creon": { kind: "item", target: "greek-decree" },
+      // The guard wants to eat the bread (Greek revision 20).
       "greek-guard": {
         kind: "item",
         target: "greek-bread",
         step: { verb: "eat" },
       },
-      "greek-baker": { kind: "place", target: "greek-courtyard" },
+      "greek-baker": {
+        kind: "place",
+        target: "greek-courtyard",
+        step: { verb: "lay", items: ["greek-water-jar"] },
+      },
       // Myrto makes the provisions and wants to eat them at Piraeus.
       "greek-shipmaster": {
         kind: "item",
@@ -98,11 +98,6 @@ describe("want data", () => {
       },
       "greek-theseus": { kind: "item", target: "greek-burial-petition" },
       "greek-quay-host": { kind: "person", target: "greek-household-witness" },
-      "greek-colonus-keeper": {
-        kind: "place",
-        target: "greek-colonus",
-        step: { verb: "lay", items: ["greek-oil-flask"] },
-      },
       "greek-household-witness": { kind: "place", target: "greek-piraeus" },
       "willows-swede": { kind: "place", target: "willows-landing" },
       "hoppycat-glim-twice": { kind: "item", target: "hoppycat-loop-token" },

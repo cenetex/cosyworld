@@ -1,115 +1,179 @@
-// Discord adapter. This file is the only one that imports discord.js; the core
-// modules are testable without it.
-import { Client, GatewayIntentBits } from "discord.js";
-import { loadBindings, saveBindings, bindingFor } from "./bindings.mjs";
+import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
+import { readConfig } from "./config.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
-import { residentIdentity } from "./identity.mjs";
-import { resolveTarget, resolveWorld, talkTo } from "./talk.mjs";
+import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
+import { createRoom, createStats, record, seed, summary } from "./room.mjs";
+import { startHealth } from "./health.mjs";
+import { wait } from "./beats.mjs";
+import { channelLines, conversationNotes, coordinate, fetchCast } from "./orchestrator.mjs";
+import { heard, hush } from "./turns.mjs";
 
-const token = process.env.DISCORD_TOKEN;
-const orchestrator = (process.env.ORCHESTRATOR_URL || "http://127.0.0.1:3102").replace(/\/+$/, "");
-const bindingsFile = process.env.DISCORD_BINDINGS_FILE || "bindings.json";
+const config = readConfig(process.env);
 
-if (!token) {
+if (!config.DISCORD_TOKEN) {
   console.error("DISCORD_TOKEN is required");
   process.exit(1);
 }
 
-// Resident catalog is fetched from the orchestrator's /meta and pack catalogs.
-// Phase 1b wires this to the compiled pack registry; until then /who shows the
-// forest cast names with no portrait (the webhook falls back to its default).
-function residentsForPack(pack) {
-  if (pack !== "lonely-forest") return [];
-  return [
-    { id: "vale", name: "Vale", portraitPath: null },
-    { id: "moth", name: "Pip", portraitPath: null },
-    { id: "keeper", name: "The keeper", portraitPath: null },
-  ];
-}
-
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.MessageContent],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
-const bindings = loadBindings(bindingsFile);
+const state = loadState(config.DISCORD_STATE_FILE);
+const rooms = new Map();
+const webhooks = new Map();
+const channels = new Map();
+let cast = [];
+const stats = createStats();
+const startedAt = Date.now();
+let lastTickAt = null;
 
-async function webhookForChannel(channel) {
-  const webhooks = await channel.fetchWebhooks();
-  const owned = webhooks.find((webhook) => webhook.owner?.id === client.user?.id);
-  return owned ?? (await channel.createWebhook({ name: "CosyWorld" }));
+function log(line) {
+  console.log(line);
 }
-const deps = {
-  bindings,
-  save: () => saveBindings(bindingsFile, bindings),
-  assetBase: `${orchestrator}/assets`,
-  residentsFor: residentsForPack,
-};
 
-client.once("ready", async () => {
+function save() {
+  try {
+    saveState(config.DISCORD_STATE_FILE, state);
+  } catch (error) {
+    log(`state save failed: ${error?.code ?? "error"}`);
+  }
+}
+
+async function refreshCast() {
+  const next = await fetchCast(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, config.DISCORD_PACK);
+  if (next) cast = next;
+  else log("cast unavailable");
+}
+
+function forget(guildId) {
+  for (const [channelId, room] of rooms) {
+    if (room.guildId !== guildId) continue;
+    hush(room);
+    rooms.delete(channelId);
+    webhooks.delete(channelId);
+    channels.delete(channelId);
+  }
+}
+
+async function watch(guild) {
+  forget(guild.id);
+  const found = await ensureChannel(guild, { state, config, botUserId: client.user.id, log });
+  save();
+  if (!found) return;
+  const room = createRoom(guild.id, found.channel.id);
+  room.webhookId = found.webhook.id;
+  try {
+    const recent = await found.channel.messages.fetch({ limit: 100 });
+    seed(room, recent.values(), cast);
+  } catch (error) {
+    log(`history unavailable in guild ${guild.id}: ${error?.code ?? "error"}`);
+  }
+  webhooks.set(found.channel.id, found.webhook);
+  channels.set(found.channel.id, found.channel);
+  rooms.set(found.channel.id, room);
+}
+
+function jot(body) {
+  return conversationNotes(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body);
+}
+
+function ask(body, signal) {
+  return coordinate(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal);
+}
+
+function poll() {
+  lastTickAt = Date.now();
+}
+
+function turnDeps() {
+  return {
+    config,
+    cast,
+    state,
+    lines: (body, signal) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal),
+    send: (room, payload) => webhooks.get(room.channelId)?.send(payload),
+    typing: (room) => channels.get(room.channelId)?.sendTyping(),
+    save,
+    log,
+    stats,
+    sleep: wait,
+    coordinate: ask,
+    notes: jot,
+  };
+}
+
+client.once(Events.ClientReady, async () => {
   try {
     await client.application.commands.set(commandDefinitions());
-    console.log("CosyWorld gateway ready");
   } catch (error) {
-    console.error("command registration failed", error);
+    log(`command registration failed: ${error?.code ?? "error"}`);
   }
+  await refreshCast();
+  for (const guild of client.guilds.cache.values()) {
+    await watch(guild).catch(() => log(`watch failed in guild ${guild.id}`));
+  }
+  setInterval(poll, Math.max(1000, config.DISCORD_POLL_MS));
+  setInterval(() => log(summary(stats)), 600000);
+  setInterval(() => void refreshCast(), Math.max(60000, config.DISCORD_CAST_REFRESH_MS));
+  log("Lonely Forest gateway ready");
 });
 
-client.on("interactionCreate", async (interaction) => {
+client.on(Events.GuildCreate, async (guild) => {
+  guildState(state, guild.id).off = false;
+  await watch(guild).catch(() => log(`watch failed in guild ${guild.id}`));
+});
+
+client.on(Events.GuildDelete, (guild) => {
+  forget(guild.id);
+  delete state.guilds[guild.id];
+  save();
+});
+
+client.on(Events.ChannelDelete, (channel) => {
+  const room = rooms.get(channel.id);
+  if (!room) return;
+  hush(room);
+  rooms.delete(channel.id);
+  webhooks.delete(channel.id);
+  channels.delete(channel.id);
+  const entry = guildState(state, room.guildId);
+  entry.off = true;
+  entry.channelId = null;
+  save();
+  log(`channel removed in guild ${room.guildId}`);
+});
+
+client.on(Events.MessageCreate, (message) => {
+  const room = rooms.get(message.channelId);
+  if (!room) return;
+  const entry = record(room, message, room.webhookId, cast, stats);
+  heard(room, entry, turnDeps());
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-  const result = dispatch(
-    interaction.commandName,
-    {
-      channelId: interaction.channelId,
-      guildId: interaction.guildId,
-      options: Object.fromEntries(
-        (interaction.options.data || []).map((option) => [option.name, option.value]),
-      ),
-    },
-    deps,
-  );
+  const result = dispatch(interaction.commandName, {
+    cast: () => cast,
+    pack: config.DISCORD_PACK,
+    assetBase: config.ORCHESTRATOR_URL,
+  });
   try {
-    await interaction.deferReply({ ephemeral: result.ephemeral });
-    await interaction.editReply({ content: result.content });
+    await interaction.reply({
+      content: result.content,
+      flags: result.ephemeral ? MessageFlags.Ephemeral : undefined,
+      allowedMentions: { parse: [] },
+    });
   } catch (error) {
-    console.error("reply failed", error);
+    log(`reply failed: ${error?.code ?? "error"}`);
   }
 });
 
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
-  const binding = bindingFor(bindings, message.channelId);
-  if (!binding || binding.mode !== "room") return;
-  const residents = residentsForPack(binding.pack);
-  const target = resolveTarget(message.content, residents);
-  if (!target) return;
-  const botToken = process.env.COSYWORLD_BOT_TOKEN;
-  try {
-    const world = await resolveWorld(fetch, orchestrator, {
-      token: botToken,
-      discordUserId: message.author.id,
-    });
-    if (!world) return;
-    const lines = await talkTo(fetch, orchestrator, {
-      worldId: world.worldId,
-      avatarId: world.avatarId,
-      target,
-      text: message.content,
-      token: botToken,
-      discordUserId: message.author.id,
-    });
-    const webhook = await webhookForChannel(message.channel);
-    for (const line of lines) {
-      const resident = residents.find((r) => r.id === line.id) ?? { id: line.id, name: line.id };
-      const identity = residentIdentity(resident, `${orchestrator}/assets`);
-      await webhook.send({
-        content: line.text,
-        username: identity.username,
-        avatarURL: identity.avatarUrl ?? undefined,
-        allowedMentions: { parse: [] },
-      });
-    }
-  } catch (error) {
-    console.error("talk failed", error);
-  }
-});
+startHealth(8080, () => ({
+  ready: client.isReady(),
+  rooms: rooms.size,
+  cast: cast.length,
+  lastTickAt,
+  startedAt,
+}));
 
-client.login(token);
+client.login(config.DISCORD_TOKEN);

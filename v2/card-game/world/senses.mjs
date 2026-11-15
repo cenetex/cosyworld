@@ -6,9 +6,7 @@ import { nameOf } from "./catalog.mjs";
 import { currentActor } from "../human-cast.mjs";
 import forest from "../forest.json" with { type: "json" };
 
-// A reflection opens while its authored conditions hold (#1600). Forest data
-// opens the attic mirror once the lamp there is dark, and the pond's way back
-// while the lamp shines on the shore.
+// A reflection opens while its authored conditions hold (#1600).
 export const reflectionsFrom = (s, from) =>
   (forest.reflectionRoutes || [])
     .filter(

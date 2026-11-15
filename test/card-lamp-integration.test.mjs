@@ -31,7 +31,7 @@ function hold(world, item) {
 const lampInHand = () => commit(createWorld(), "take", { item: "lamp" });
 
 describe("three-room lamp authority", () => {
-  it("anchors the opening attic when stowing reveals its mirror", () => {
+  it("opens the opening mirror by stowing and anchors the attic only on leaving", () => {
     const world = createWorld({ opening: true });
     expect(world.items.lamp).toMatchObject({ holder: "vale", lit: true });
     expect(exits(world, "attic", "vale")).not.toContain("pond");
@@ -42,7 +42,7 @@ describe("three-room lamp authority", () => {
       choice: { item: null, revision: world.revision },
     });
     hold(world, null);
-    expect(world.locations.attic.anchored).toBe(true);
+    expect(world.locations.attic.anchored).toBe(false);
     expect(world.items.lamp.lit).toBe(false);
     expect(exits(world, "attic", "vale")).toContain("pond");
     expect(shared.world.items.lamp).toEqual(world.items.lamp);

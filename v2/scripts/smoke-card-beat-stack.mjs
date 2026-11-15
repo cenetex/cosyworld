@@ -15,6 +15,8 @@ import {
   play,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { holdQuest } from "../card-game/want.mjs";
+import { questFor } from "../card-game/talk-quest.mjs";
 import { SPEECH_OCCASIONS } from "../card-game/speech-occasions.mjs";
 import {
   stackHits,
@@ -158,6 +160,7 @@ fixture = play(
   legalActions(fixture).find((a) => a.kind === "move" && a.target === "pond"),
 ).state;
 fixture.items.bell.holder = "vale";
+holdQuest(fixture, "vale", questFor(fixture, "moth", fixture.actors.moth.want), "quest:from:moth");
 const save = encodeSave(fixture);
 const npcFixture = structuredClone(fixture);
 addLog(npcFixture, "Vale", "The lantern swings.", {
@@ -612,7 +615,9 @@ try {
         return [fade?.effect.getTiming().duration, ghost?.isConnected];
       });
       assert.deepEqual(cleared, [200, false], "the cleared stack fades");
-      assert.equal(await page.locator(".dialogue").isHidden(), true);
+      await page.waitForFunction(
+        () => document.querySelector("#speaker")?.textContent === "Vale",
+      );
       // An NPC action uses the same main type and keeps face-down items unnamed.
       await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
         key,

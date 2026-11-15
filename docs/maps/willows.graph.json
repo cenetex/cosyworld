@@ -839,7 +839,7 @@
       {
         "id": "willows-map",
         "name": "River Map",
-        "holder": "willows-camp",
+        "holder": "willows-swede",
         "consumedBy": [],
         "readBy": []
       },
@@ -873,20 +873,6 @@
           "crossing:pond-willows-landing",
           "crossing:willows-landing-pond"
         ]
-      },
-      {
-        "id": "willows-pot",
-        "name": "Stew Pot",
-        "holder": "willows-camp",
-        "consumedBy": [],
-        "readBy": []
-      },
-      {
-        "id": "willows-spoon",
-        "name": "Wooden Spoon",
-        "holder": "willows-camp",
-        "consumedBy": [],
-        "readBy": []
       },
       {
         "id": "willows-pipe",

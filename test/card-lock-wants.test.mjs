@@ -287,10 +287,13 @@ describe("what a lock waits on, from its conditions", () => {
     expect(goals([{ kind: "holding", item: "lamp", role: "actor" }])).toEqual([
       { kind: "item", target: "lamp" },
     ]);
-    for (const kind of ["item_near", "item_at", "item_present"])
+    for (const kind of ["item_near", "item_present"])
       expect(goals([{ kind, item: "lamp", place: "hut" }])).toEqual([
         { kind: "item", target: "lamp", step: { verb: "bring", at: "hut" } },
       ]);
+    expect(goals([{ kind: "item_at", item: "lamp", place: "hut" }])).toEqual([
+      { kind: "place", target: "hut", step: { verb: "lay", items: ["lamp"] } },
+    ]);
     expect(
       goals([{ kind: "light", item: "lamp", at: ["hut"], uncovered: true }]),
     ).toEqual([{ kind: "item", target: "lamp", lit: true }]);
@@ -338,7 +341,7 @@ describe("what a lock waits on, from its conditions", () => {
       ],
     };
     expect(goals([either])).toEqual([
-      { kind: "item", target: "coat", step: { verb: "bring", at: "bay" } },
+      { kind: "place", target: "bay", step: { verb: "lay", items: ["coat"] } },
     ]);
   });
 
@@ -524,7 +527,7 @@ describe("a lock in a real world shows only what the traveler knows", () => {
   });
 
   it("words a quest offered to a fresh traveler without its undiscovered names", () => {
-    const told = journeyWorlds(questCards).told;
+    const told = journeyWorlds(questCards).accepted;
     const offers = questsOf(told, "vale").map((want) => ({ id: want.from, want }));
     expect(offers.length).toBeGreaterThan(0);
     for (const offer of offers) {

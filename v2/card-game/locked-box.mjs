@@ -8,7 +8,6 @@
 import { LOCKED_BOX, lockWords, sealedReason } from "./cards.mjs";
 
 export { LOCKED_BOX };
-export const CLOSED_BOX = "A closed box.";
 // What opens a locked box (cards.mjs `lockWords`), or null for any other card.
 export function lockedQuest(world, id, known = () => false) {
   const text = lockWords(world, id, known);
@@ -17,6 +16,8 @@ export function lockedQuest(world, id, known = () => false) {
 
 // The locked carved lid has a recessed iron keyhole (assets/README.md).
 export const LOCKED_BACK = "./assets/card-back-locked.webp";
+export const TAROT_BACK = "./assets/arcana/tarot-back.png";
+export const TAROT_LOCKED_BACK = "./assets/arcana/tarot-back-locked.png";
 
 // Whether the card is still locked behind its quest for this player.
 export const isLockedBox = (world, id) => sealedReason(world, id) !== null;

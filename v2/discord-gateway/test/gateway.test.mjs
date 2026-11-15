@@ -1,62 +1,124 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { rmSync } from "node:fs";
-import { loadBindings, saveBindings, bind, unbind, bindingFor, DEFAULT_PACK } from "../src/bindings.mjs";
 import { avatarUrl, residentIdentity } from "../src/identity.mjs";
-import { dispatch } from "../src/commands.mjs";
+import { commandDefinitions, dispatch } from "../src/commands.mjs";
+import { channelLines, fetchCast } from "../src/orchestrator.mjs";
 
-function makeDeps() {
-  const bindings = new Map();
-  const file = join(tmpdir(), `cw-bindings-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
-  return {
-    deps: {
-      bindings,
-      save: () => saveBindings(file, bindings),
-      assetBase: "https://lonelyforest.com/assets",
-      residentsFor: () => [
-        { id: "vale", name: "Vale", portraitPath: "forest/vale.png" },
-        { id: "moth", name: "Pip", portraitPath: null },
-      ],
-    },
-    file,
-  };
-}
-
-test("bindings round-trip through a file", () => {
-  const { deps, file } = makeDeps();
-  bind(deps.bindings, "c1", { guildId: "g1", mode: "room", pack: DEFAULT_PACK });
-  deps.save();
-  const loaded = loadBindings(file);
-  assert.equal(bindingFor(loaded, "c1").pack, DEFAULT_PACK);
-  assert.equal(bindingFor(loaded, "c1").mode, "room");
-  rmSync(file, { force: true });
-});
+const deps = {
+  cast: () => [
+    { id: "rati", name: "RATi", portrait: "/card-game/assets/lonely-forest/rati.png" },
+    { id: "skull", name: "Skull", portrait: null },
+  ],
+  pack: "lonely-forest",
+  assetBase: "https://cosyworld.example",
+};
 
 test("identity builds a webhook face", () => {
-  const base = "https://lonelyforest.com/assets/";
-  assert.equal(avatarUrl(base, "forest/vale.png"), "https://lonelyforest.com/assets/forest/vale.png");
+  const base = "https://cosyworld.example/";
+  assert.equal(
+    avatarUrl(base, "/card-game/assets/lonely-forest/rati.png"),
+    "https://cosyworld.example/card-game/assets/lonely-forest/rati.png",
+  );
   assert.equal(avatarUrl(base, null), null);
+  const resident = {
+    name: "RATi",
+    portrait: "/card-game/assets/lonely-forest/rati.png",
+    avatar: "/card-game/assets/faces/lonely-forest-rati.webp",
+  };
+  assert.equal(
+    residentIdentity(resident, base).avatarUrl,
+    "https://cosyworld.example/card-game/assets/faces/lonely-forest-rati.webp",
+  );
+  assert.equal(
+    residentIdentity({ ...resident, avatar: undefined }, base).avatarUrl,
+    "https://cosyworld.example/card-game/assets/lonely-forest/rati.png",
+  );
   assert.equal(residentIdentity({ name: "discordVale" }, base).username, "Vale");
   assert.equal(residentIdentity({ name: "x".repeat(100) }, base).username.length, 80);
-  assert.equal(residentIdentity({ name: "Pip", portraitPath: null }, base).avatarUrl, null);
+  assert.equal(residentIdentity({ name: "Pip", portrait: null }, base).avatarUrl, null);
 });
 
-test("setup, who, unbind, privacy, unknown", () => {
-  const { deps } = makeDeps();
-  const ctx = { channelId: "c1", guildId: "g1", options: {} };
-  assert.match(dispatch("setup", ctx, deps).content, /Bound this channel/);
-  assert.match(dispatch("who", ctx, deps).content, /Vale, Pip/);
-  dispatch("unbind", ctx, deps);
-  assert.equal(bindingFor(deps.bindings, "c1"), null);
-  assert.match(dispatch("privacy", ctx, deps).content, /never asks for attention/);
-  assert.equal(dispatch("nope", ctx, deps).content, "Unknown command.");
+test("only who and privacy are commands", () => {
+  assert.deepEqual(
+    commandDefinitions().map((command) => command.name),
+    ["who", "privacy"],
+  );
+  assert.match(dispatch("who", deps).content, /RATi, Skull/);
+  assert.equal(dispatch("nope", deps).content, "Unknown command.");
 });
 
-test("privacy discloses journaled acts for planned anonymous play", () => {
-  const { deps } = makeDeps();
-  const content = dispatch("privacy", { options: {} }, deps).content;
-  assert.match(content, /Anonymous Discord play is planned, not available yet/);
-  assert.match(content, /committed game acts will be recorded even without linking an account/);
+test("privacy says messages go to AI models", () => {
+  const content = dispatch("privacy", deps).content;
+  assert.match(content, /sent to AI models to write residents' replies/);
+  assert.match(content, /links no accounts/);
+  assert.doesNotMatch(content, /Anonymous Discord play/);
+});
+
+function recorder(response) {
+  const calls = [];
+  const fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (response instanceof Error) throw response;
+    return response;
+  };
+  return { calls, fetch };
+}
+
+test("the orchestrator calls send only the Bearer token", async () => {
+  const cast = recorder({
+    status: 200,
+    json: async () => ({
+      pack: "lonely-forest",
+      residents: [
+        { id: "rati", name: "RATi", portrait: "/p.png", avatar: "/f.webp" },
+        { id: "oak", name: "Oak", portrait: "/o.png" },
+      ],
+    }),
+  });
+  assert.deepEqual(await fetchCast(cast.fetch, "https://x", "t", "lonely-forest"), [
+    { id: "rati", name: "RATi", portrait: "/p.png", avatar: "/f.webp" },
+    { id: "oak", name: "Oak", portrait: "/o.png", avatar: null },
+  ]);
+  assert.equal(cast.calls[0].url, "https://x/discord/cast?pack=lonely-forest");
+  assert.deepEqual(cast.calls[0].options.headers, { authorization: "Bearer t" });
+
+  const lines = recorder({ status: 200, json: async () => ({ lines: [{ id: "rati", name: "RATi", text: "Hi." }] }) });
+  const body = { pack: "lonely-forest", addressed: null, messages: [{ author: "Mara", text: "Hello?" }] };
+  assert.deepEqual(await channelLines(lines.fetch, "https://x", "t", body), {
+    lines: [{ id: "rati", name: "RATi", text: "Hi." }],
+    reason: null,
+  });
+  assert.equal(lines.calls[0].url, "https://x/discord/lines");
+  assert.equal(lines.calls[0].options.method, "POST");
+  assert.deepEqual(lines.calls[0].options.headers, {
+    authorization: "Bearer t",
+    "content-type": "application/json",
+  });
+  assert.deepEqual(JSON.parse(lines.calls[0].options.body), body);
+});
+
+test("orchestrator errors become silence with a reason", async () => {
+  const body = { pack: "lonely-forest", messages: [] };
+  const ask = (reply) => channelLines(recorder(reply).fetch, "https://x", "t", body);
+  assert.deepEqual(await ask({ status: 500, json: async () => ({}) }), { lines: [], reason: "http-500" });
+  assert.deepEqual(await ask({ status: 429, json: async () => ({}) }), { lines: [], reason: "http-429" });
+  assert.deepEqual(await ask({ status: 200, json: async () => { throw new SyntaxError("bad"); } }), {
+    lines: [],
+    reason: "error",
+  });
+  assert.deepEqual(await ask(new Error("offline")), { lines: [], reason: "error" });
+  const timeout = new Error("slow");
+  timeout.name = "TimeoutError";
+  assert.deepEqual(await ask(timeout), { lines: [], reason: "timeout" });
+  assert.deepEqual(await ask({ status: 200, json: async () => ({ lines: [], reason: "busy" }) }), {
+    lines: [],
+    reason: "busy",
+  });
+  assert.deepEqual(await ask({ status: 200, json: async () => ({ lines: [] }) }), { lines: [], reason: "empty" });
+  assert.equal(await fetchCast(recorder({ status: 404, json: async () => ({}) }).fetch, "https://x", "t", "nope"), null);
+  assert.equal(await fetchCast(recorder(new Error("offline")).fetch, "https://x", "t", "p"), null);
+  assert.equal(
+    await fetchCast(recorder({ status: 200, json: async () => ({ residents: [] }) }).fetch, "https://x", "t", "p"),
+    null,
+  );
 });

@@ -124,7 +124,10 @@ const COUNT_WORDS = {
     max: (n) =>
       n ? `carry no more than ${many(n, "thing", "things")}` : "carry nothing",
   },
-  visited: { min: (n) => `visit ${many(n, "new place", "new places")}` },
+  visited: {
+    min: (n, c) =>
+      `visit ${c.more ? `${numberWord(n)} more ${n === 1 ? "new place" : "new places"}` : many(n, "new place", "new places")}`,
+  },
   heard: {
     min: (n) => `hear the wants of ${many(n, "more person", "more people")}`,
   },
@@ -137,8 +140,8 @@ const COUNT_WORDS = {
       c.box === "resident"
         ? `free ${n === 1 ? "someone" : numberWord(n)} shut away`
         : n === 1
-          ? "open a locked box"
-          : `open ${many(n, "locked box", "locked boxes")}`,
+          ? `open ${c.more ? "one more locked box" : "a locked box"}`
+          : `open ${numberWord(n)}${c.more ? " more" : ""} locked boxes`,
   },
 };
 const WANT_KINDS = ["item", "place", "person", "quest"];
@@ -169,15 +172,19 @@ export function conditionWords(
     if (term?.kind === "actor_at") return `be at ${name(term.place)}`;
     if (term?.kind === "not" && term.condition?.kind === "actor_at")
       return `be away from ${name(term.condition.place)}`;
-    if (term?.kind === "company") return "travel with a companion";
+    if (term?.kind === "company")
+      return term.invited ? "travel with them" : "travel with a companion";
     if (term?.kind === "daylight") {
       const light = (id) =>
         shown(id) ? `the lit ${table.name(id)}` : "a light";
-      if (!TIMES[term.phase]) return null;
-      if (term.with) return `${TIMES[term.phase]} holding ${light(term.with)}`;
-      if (term.without)
-        return `${TIMES[term.phase]} without ${light(term.without)}`;
-      return TIMES[term.phase];
+      const walk = TIMES[term.phase]?.replace(
+        "walk",
+        term.alone ? "walk alone" : "walk",
+      );
+      if (!walk) return null;
+      if (term.with) return `${walk} holding ${light(term.with)}`;
+      if (term.dark) return `${walk} with no light`;
+      return walk;
     }
     if (term?.kind === "all" || term?.kind === "any") {
       const parts = (term.conditions || []).map(words);

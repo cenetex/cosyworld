@@ -66,17 +66,11 @@ const act = (s, kind, fields = {}, actor) => {
 
 describe("the hub's boxes", () => {
   const opening = () => createWorld({ opening: true, seed: 17 });
-  it("draws the Black pond as the first box, opened by putting the lamp out", () => {
+  it("draws the Black pond as the first box, opened by putting the lamp down", () => {
     const world = opening();
+    const lay = { kind: "place", target: "attic", step: { verb: "lay", items: ["lamp"] } };
     expect(boxesAt(world, "attic")).toEqual([
-      {
-        id: "pond",
-        kind: "hub",
-        at: "attic",
-        open: false,
-        want: null,
-        goals: [{ kind: "item", target: "lamp", lit: false }],
-      },
+      { id: "pond", kind: "hub", at: "attic", open: false, want: lay, goals: [lay] },
     ]);
     expect(availableCards(world)).toEqual(
       expect.arrayContaining(["attic", "lamp", "vale", "pond"]),
@@ -84,15 +78,19 @@ describe("the hub's boxes", () => {
     expect(isLockedBox(world, "pond")).toBe(true);
     // The Lamp is not yet discovered, so the lock does not name it.
     expect(lockedQuest(world, "pond")).toEqual({
-      text: "Find something",
+      text: "Lay something you haven't found somewhere you haven't discovered",
       cards: [],
     });
     expect(lockedQuest(world, "pond", () => true).text).toBe(
-      "Hold the dark Lamp",
+      "Lay Lamp in Mirror attic",
     );
     expect(exits(world, "attic", "vale")).not.toContain("pond");
     expect(legalActions(world).filter((a) => a.target === "pond")).toEqual([]);
     expect(cardPlay(world, ["pond"]).action).toBeFalsy();
+    const down = act(world, "drop", { item: "lamp", target: "attic" });
+    expect(boxesAt(down, "attic")[0]).toMatchObject({ id: "pond", open: true });
+    expect(down.opened).toEqual({ pond: ["vale"] });
+    expect(exits(down, "attic", "vale")).toContain("pond");
     const out = structuredClone(world);
     holdChoice(out, "vale", { item: null, revision: out.revision });
     expect(out.items.lamp.lit).toBe(false);
@@ -104,13 +102,13 @@ describe("the hub's boxes", () => {
     expect(validOpened(out)).toBe(true);
     expect(decodeSave(encodeSave(out)).opened).toEqual({ pond: ["vale"] });
   });
-  it("pays once: a box that locks again pays nothing more", () => {
+  it("pays once, and stays open to the avatar who opened it", () => {
     let world = opening();
     holdChoice(world, "vale", { item: null, revision: world.revision });
     const paid = world.actors.vale.xp;
     holdChoice(world, "vale", { item: "lamp", revision: world.revision });
     expect(world.items.lamp.lit).toBe(true);
-    expect(boxesAt(world, "attic")[0].open).toBe(false);
+    expect(boxesAt(world, "attic")[0].open).toBe(true);
     holdChoice(world, "vale", { item: null, revision: world.revision });
     expect(boxesAt(world, "attic")[0].open).toBe(true);
     expect(world.actors.vale.xp).toBe(paid);
@@ -271,9 +269,9 @@ describe("lanes", () => {
         open: false,
         goals: [
           {
-            kind: "item",
-            target: "greek-provisions",
-            step: { verb: "bring", at: "greek-ship" },
+            kind: "place",
+            target: "greek-ship",
+            step: { verb: "lay", items: ["greek-provisions"] },
           },
         ],
       }),

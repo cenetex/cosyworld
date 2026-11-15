@@ -6,12 +6,10 @@
 // and otherwise waits only for the older run's Fly rollout to finish. An
 // older run that reaches its rollout after a newer run exists skips it.
 // See docs/release.md#superseding-production-deploys.
-//
 //   start            outputs owns=true|false; cancels older runs it covers
 //   claim <app>      before a rollout: outputs superseded=true|false, after
 //                    waiting for older rollouts of <app> to finish
 //   wait <app>       before a backup: waits for every other rollout of <app>
-//
 // <app> is primary or lonelyforest. Environment: GH_REPO, GH_TOKEN,
 // GITHUB_RUN_ID, and optionally COSYWORLD_SUPERSEDE_POLL_SECS (20) and
 // COSYWORLD_SUPERSEDE_WAIT_SECS (1800).

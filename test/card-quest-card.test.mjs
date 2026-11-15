@@ -12,7 +12,7 @@ const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { availableCards } from "../v2/card-game/cards.mjs";
 import {
   isQuestId,
-  levelCard,
+  levelCards,
   questCaption,
   questCard,
   questBox,
@@ -27,7 +27,6 @@ import {
 } from "../v2/card-game/quest-card.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
-import { settleArcana } from "../v2/card-game/world/arcana.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
 
 // An undiscovered card is worded by its kind, never by name.
@@ -399,20 +398,32 @@ describe("the quest card", () => {
     });
   });
 
-  it("shows no level card before the deck deals one", () => {
+  it("shows no level card before the Listener gives one", () => {
     const s = createWorld({ seed: 7 });
-    expect(levelCard(s, "vale")).toBeNull();
+    expect(levelCards(s, "vale")).toEqual([]);
   });
 
-  it("shows the dealt card after the held quests, a level up with its woodcut", () => {
-    const s = settleArcana(createWorld({ seed: 7 }), "vale");
-    s.actors.vale.arcana.proved = ["arcanum-5"];
-    const card = levelCard(s, "vale");
+  it("shows each tarot of the spread, a level up with its woodcut, and names no face-down card", () => {
+    const s = createWorld({ seed: 7 });
+    s.actors.vale.arcana = {
+      proved: ["arcanum-5"],
+      did: [],
+      spread: [
+        {
+          card: "arcanum-0",
+          face: "up",
+          base: { visited: s.actors.vale.visited.length },
+        },
+        { card: "arcanum-2", face: "down", base: { heard: 0 } },
+      ],
+    };
+    const [card, down] = levelCards(s, "vale");
     expect(card).toMatchObject({
-      key: "level:arcanum-0",
-      index: questCards(s).length,
+      key: "tarot:vale:arcanum-0",
+      index: 0,
       actor: "vale",
       kind: "arcanum",
+      face: "up",
       target: "arcanum-0",
       level: 2,
       left: 1,
@@ -420,18 +431,43 @@ describe("the quest card", () => {
       art: "./assets/arcana/full-size/arcanum-0.png",
       home: homeOf("vale"),
     });
-    expect(card.index).toBeGreaterThan(0);
     expect(questCaption(card)).toBe(
       "Level II: Carry nothing, be away from home and visit six new places",
     );
     expect(questTier(card, s)).toEqual(levelTier(2));
     expect(questNear(s, card)).toBe(false);
+    expect(down).toMatchObject({
+      key: "tarot:vale:down:0",
+      index: 1,
+      face: "down",
+      target: null,
+      conditions: null,
+    });
+    expect(JSON.stringify(down)).not.toContain("arcanum-2");
+    expect(down.art).toBe("./assets/arcana/tarot-back.png");
+    expect(questCaption(down)).toBe("");
+  });
+
+  it("draws a locked tarot with the keyhole back and keeps its words", () => {
+    const s = createWorld({ seed: 7 });
+    s.actors.vale.arcana = {
+      proved: [],
+      did: [],
+      spread: [{ card: "arcanum-21", face: "locked" }],
+    };
+    const [locked] = levelCards(s, "vale");
+    expect(locked).toMatchObject({ face: "locked", target: "arcanum-21", art: "./assets/arcana/tarot-back-locked.png" });
+    expect(questCaption({ ...locked, level: null })).toBe("Rest at home");
   });
 
   it("draws the World with its woodcut", () => {
     const s = createWorld({ seed: 7 });
-    s.actors.vale.arcana = { proved: [], did: [], dealt: "arcanum-21" };
-    expect(levelCard(s, "vale")).toMatchObject({ target: "arcanum-21", art: "./assets/arcana/full-size/arcanum-21.png", level: 1 });
-    expect(questCaption({ ...levelCard(s, "vale"), level: null })).toBe("Rest at home");
+    s.actors.vale.arcana = {
+      proved: [],
+      did: [],
+      spread: [{ card: "arcanum-21", face: "up" }],
+    };
+    expect(levelCards(s, "vale")[0]).toMatchObject({ target: "arcanum-21", art: "./assets/arcana/full-size/arcanum-21.png", level: 1 });
+    expect(questCaption({ ...levelCards(s, "vale")[0], level: null })).toBe("Rest at home");
   });
 });

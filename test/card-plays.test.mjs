@@ -26,9 +26,6 @@ describe("playing the world through cards", () => {
     expect(availableCards(s).filter((id) => !isArcanum(id))).toEqual([
       "vale",
       "station",
-      // The Hoppy Cat spool lies here while the keeper's oil is at the pond.
-      "hoppycat-red-thread-spool",
-      ...(s.items["ratiradio-request-slip"] ? ["ratiradio-request-slip"] : []),
       "lamp",
       "bell",
       "pond",

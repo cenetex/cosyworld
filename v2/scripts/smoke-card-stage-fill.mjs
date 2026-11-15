@@ -10,6 +10,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { encodeSave, places, validateWorld } from "../card-game/world.mjs";
 import { openDoorStart } from "../../test/helpers/open-door.mjs";
+import { stowProvisions } from "../../test/helpers/provisions.mjs";
 import { selectCard } from "./card-browser-helpers.mjs";
 
 const output = new URL("../../output/stage-fill/", import.meta.url);
@@ -19,6 +20,7 @@ await mkdir(output, { recursive: true });
 const seeds = Object.keys(places).flatMap((place) => {
   const world = openDoorStart();
   world.actors.vale.place = place;
+  if (place === "greek-ship") stowProvisions(world, place);
   try {
     // encodeSave trusts a world the rules just validated, so check the moved
     // avatar in full before saving it.
@@ -209,6 +211,7 @@ try {
       }
       await page.keyboard.press("Escape");
     }
+    assert.equal(await page.evaluate(() => document.body.dataset.place), place);
     for (const [width, height] of [
       [390, 844],
       [320, 568],

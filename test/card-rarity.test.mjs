@@ -4,7 +4,9 @@ import {
   levelTier,
   rarityColor,
   romanLevel,
+  shownLevel,
 } from "../v2/card-game/rarity.mjs";
+import { createWorld } from "../v2/card-game/world.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { packDefinitions, hub } from "../v2/card-game/pack-registry.mjs";
 
@@ -44,12 +46,22 @@ describe("card level presentation", () => {
     expect(world.actors.keeper.xp).toBe(5050);
   });
 
+  it("shows a traveler with no cards a blank level, and others their number", () => {
+    const world = createWorld({ seed: 3 });
+    expect(cardLevel(world, "vale")).toBe(0);
+    expect(shownLevel("vale", cardLevel(world, "vale"))).toBe("");
+    world.actors.vale.arcana = { proved: ["arcanum-0"], did: [], level: 1 };
+    expect(shownLevel("vale", cardLevel(world, "vale"))).toBe("I");
+    expect(shownLevel("keeper", 0)).toBe(romanLevel(0));
+    expect(shownLevel("lamp", cardLevel(world, "lamp"))).toBe("XIX");
+  });
+
   it("gives items their authored start level and tier, whatever holds them", () => {
     const world = { actors: { vale: { xp: 0 } }, items: {} };
     expect(cardLevel(world, "lamp")).toBe(19);
     expect(levelTier(cardLevel(world, "greek-decree")).id).toBe("legendary");
     expect(levelTier(cardLevel(world, "greek-olive-branch")).id).toBe("epic");
-    expect(levelTier(cardLevel(world, "willows-pot")).id).toBe("rare");
+    expect(levelTier(cardLevel(world, "willows-paddle")).id).toBe("rare");
     expect(levelTier(cardLevel(world, "hoppycat-context-seed")).id).toBe(
       "uncommon",
     );
@@ -58,9 +70,9 @@ describe("card level presentation", () => {
       packDefinitions.find((p) => p.id === "willows"),
     );
     expect(packProblems(pack, hub).join(" ")).not.toContain("item ");
-    pack.items["willows-pot"].startLevel = 0;
+    pack.items["willows-paddle"].startLevel = 0;
     expect(packProblems(pack, hub).join(" ")).toContain(
-      "willows-pot startLevel",
+      "willows-paddle startLevel",
     );
   });
 

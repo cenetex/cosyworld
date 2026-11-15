@@ -31,6 +31,8 @@ mod authored;
 mod between;
 #[path = "card_narrative/browser.rs"]
 pub(crate) mod browser;
+#[path = "card_narrative/channel.rs"]
+mod channel;
 #[path = "card_narrative/conversation.rs"]
 mod conversation;
 #[path = "card_narrative/custody.rs"]
@@ -71,6 +73,8 @@ pub(crate) use reflections::shared as shared_reflections;
 mod instruction;
 #[path = "card_narrative/speech.rs"]
 mod speech;
+#[path = "card_narrative/system_one.rs"]
+mod system_one;
 #[path = "card_narrative/untrusted.rs"]
 mod untrusted;
 #[cfg(test)]
@@ -302,6 +306,7 @@ struct TextState {
     limits: Arc<Mutex<RateLimiter>>,
     in_flight: Arc<InFlight>,
     capacity: Arc<Semaphore>,
+    discord_capacity: Arc<Semaphore>,
 }
 
 pub(super) fn router<S: Clone + Send + Sync + 'static>(ai: Arc<Option<AiConfig>>) -> Router<S> {
@@ -359,6 +364,10 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             "/.well-known/cosyworld-signing-keys.json",
             axum::routing::get(crate::routes::signed_envelope::well_known),
         )
+        .route("/discord/cast", axum::routing::get(channel::cast_route))
+        .route("/discord/lines", post(channel::lines))
+        .route("/discord/coordinate", post(channel::coordinate))
+        .route("/discord/notes", post(channel::notes))
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(TextState {
             ai,
@@ -366,6 +375,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             limits: Arc::new(Mutex::new(RateLimiter::default())),
             in_flight: Arc::new(InFlight::default()),
             capacity: Arc::new(Semaphore::new(TOTAL_CONCURRENCY)),
+            discord_capacity: Arc::new(Semaphore::new(channel::CONCURRENCY)),
             background: Arc::new(reflections::Queue::new(
                 settings
                     .as_ref()
@@ -571,6 +581,8 @@ struct Context {
     /// Why this play speaks (the narrator's speech occasion), for metrics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     occasion: Option<String>,
+    #[serde(skip)]
+    present: Vec<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -802,8 +814,6 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         })
 }
 
-// Restate the resolved action and each trip for every voice, including places.
-// The model can then keep a character's style while following the player's play.
 fn error(status: StatusCode, message: &str) -> Response {
     refusal(status, message, "10")
 }
@@ -1414,7 +1424,6 @@ struct VoiceSettings {
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
-    /// `COSYWORLD_CARD_FALLBACK_MODELS`, in order (`fallback::models`).
     fallback_models: Vec<String>,
 }
 
@@ -4602,6 +4611,7 @@ pub(crate) mod tests {
             ("moth", "moth-model"),
             ("keeper", "keeper-model"),
             ("badger", "badger-model"),
+            ("listener", "listener-model"),
         ]
         .into_iter()
         .map(|(id, m)| (id.into(), m.into()))
@@ -4867,23 +4877,22 @@ pub(crate) mod tests {
             }
             maps.push(models);
         }
-        let cast = |models: [&str; 4]| {
-            let ids = ["vale", "moth", "keeper", "badger"].map(String::from);
+        let cast = |models: [&str; 5]| {
+            let ids = ["vale", "moth", "keeper", "badger", "listener"].map(String::from);
             let models = models.map(String::from);
             ids.into_iter().zip(models).collect::<BTreeMap<_, _>>()
         };
-        let (gemma, luna) = ("google/gemma-4-26b-a4b-it", "openai/gpt-6-luna");
+        let gemma = "google/gemma-4-26b-a4b-it";
         let haiku = "anthropic/claude-haiku-5.5";
-        let mistral = "mistralai/mistral-small-3.2-24b-instruct";
-        assert_eq!(maps[0], cast([gemma, gemma, haiku, gemma]));
-        assert_eq!(maps[1], cast([luna, luna, haiku, mistral]));
+        assert_eq!(maps[0], cast([gemma, gemma, haiku, gemma, gemma]));
+        assert_eq!(maps[1], cast([gemma, gemma, haiku, gemma, gemma]));
     }
 
     #[test]
     fn character_model_config_covers_every_avatar_with_exact_ids() {
         assert!(parse_character_models(r#"{"vale":"one"}"#).is_err());
         assert!(parse_character_models(
-            r#"{"vale":"one","moth":"two","keeper":"three","badger":"four"}"#
+            r#"{"vale":"one","moth":"two","keeper":"three","badger":"four","listener":"five"}"#
         )
         .is_ok());
     }
@@ -5714,7 +5723,7 @@ pub(crate) mod tests {
         let server = tokio::spawn(async move {
             axum::serve(listener, provider).await.unwrap();
         });
-        let mut models = parse_character_models(r#"{"vale":"vale-model","moth":"moth-model","keeper":"keeper-model","badger":"badger-model"}"#).unwrap();
+        let mut models = parse_character_models(r#"{"vale":"vale-model","moth":"moth-model","keeper":"keeper-model","badger":"badger-model","listener":"listener-model"}"#).unwrap();
         for model in models.values_mut() {
             *model = "test-entity-model".into();
         }
@@ -5780,6 +5789,7 @@ pub(crate) mod tests {
             ("moth", "moth-model"),
             ("keeper", "keeper-model"),
             ("badger", "badger-model"),
+            ("listener", "listener-model"),
         ]
         .into_iter()
         .map(|(id, m)| (id.into(), m.into()))

@@ -44,6 +44,7 @@ fn public_path(method: &Method, path: &str) -> bool {
         || path.starts_with("/internal/")
         || path.starts_with("/health")
         || path.starts_with("/moderation")
+        || path.starts_with("/discord/")
         || method == Method::OPTIONS
     {
         return true;
@@ -106,6 +107,8 @@ mod tests {
             (Method::GET, "/auth/account"),
             (Method::POST, "/auth/passkey/login/start"),
             (Method::POST, "/internal/canonical/commands"),
+            (Method::POST, "/discord/lines"),
+            (Method::GET, "/discord/cast"),
         ] {
             assert!(public_path(&method, path), "{method} {path}");
         }

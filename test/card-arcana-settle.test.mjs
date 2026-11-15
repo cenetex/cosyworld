@@ -35,6 +35,11 @@ function shared(s, other) {
   return s;
 }
 
+const up = (card) => ({ card, face: "up" });
+const holding = (s, who, card, extra = {}) => {
+  s.actors[who].arcana = { proved: [], did: [], spread: [up(card)], ...extra };
+  return s;
+};
 const other = humanAvatarIds.find((id) => id !== "vale");
 const residentOf = (s) =>
   Object.keys(s.actors).find((id) => !humanAvatarIds.includes(id));
@@ -63,42 +68,57 @@ afterEach(() => {
 });
 
 describe("settling after a play", () => {
-  it("proves the dealt card when a play makes it true, and keeps it", () => {
-    let s = createWorld({ seed: 3 });
-    expect(s.actors.vale.arcana).toBeUndefined();
+  it("unlocks a held card when a play makes it true, and it leaves its slot", () => {
+    let s = holding(createWorld({ seed: 3 }), "vale", HERE);
     s = act(s, "move");
     expect(s.actors.vale.place).toBe(far);
-    expect(s.actors.vale.arcana).toEqual({ proved: [], did: [], dealt: HERE });
-    s = act(s, "wait");
     expect(s.actors.vale.arcana).toEqual({
       proved: [HERE],
       did: [],
-      dealt: WAITED,
+      level: 0,
+      done: [HERE],
     });
+    expect(s.actors.vale.upgrades).toEqual([HERE]);
     s = act(s, "move");
     expect(recordOf(s, "vale").proved).toEqual([HERE]);
   });
-  it("latches a did key of the dealt card and outlives the journal", () => {
-    let s = act(createWorld({ seed: 3 }), "move");
-    s = act(s, "wait");
-    expect(recordOf(s, "vale").did).toEqual([]);
+  it("latches a did key of a held card and outlives the journal", () => {
+    let s = holding(createWorld({ seed: 3 }), "vale", WAITED);
+    s = act(s, "move");
+    expect(recordOf(s, "vale").proved).toEqual([]);
     s.log = [];
     s = act(s, "wait");
     expect(s.actors.vale.arcana).toEqual({
-      proved: [HERE, WAITED],
+      proved: [WAITED],
       did: ["waited"],
+      level: 0,
+      done: [WAITED],
     });
+  });
+  it("marks a face-down card done and keeps it face down", () => {
+    const s = createWorld({ seed: 3 });
+    s.actors.vale.arcana = {
+      proved: [],
+      did: [],
+      spread: [{ card: WAITED, face: "down" }],
+    };
+    s.log.push({ seq: 1, verb: "wait", actorId: "vale" });
+    settleArcana(s, "vale");
+    expect(s.actors.vale.arcana.spread).toEqual([
+      { card: WAITED, face: "down", done: true },
+    ]);
+    expect(recordOf(s, "vale").proved).toEqual([]);
   });
   it("reads no deed for a card not dealt", () => {
     const s = createWorld({ seed: 3 });
-    s.actors.vale.arcana = { proved: [], did: [], dealt: HERE };
+    s.actors.vale.arcana = { proved: [], did: [], spread: [up(HERE)] };
     s.log.push({ seq: 1, verb: "wait", actorId: "vale" });
     settleArcana(s, "vale");
     expect(recordOf(s, "vale").did).toEqual([]);
   });
   it("does not count a generated line or another actor's line", () => {
     const s = createWorld({ seed: 3 });
-    s.actors.vale.arcana = { proved: [HERE], did: [], dealt: WAITED };
+    s.actors.vale.arcana = { proved: [HERE], did: [], spread: [up(WAITED)] };
     s.log.push(
       { seq: 1, verb: "wait", actorId: "vale", generated: true },
       { seq: 2, verb: "wait", actorId: other },
@@ -112,7 +132,7 @@ describe("settling after a play", () => {
     const proved = (extra, entry) => {
       deck.cards = [{ id: HERE, number: 0, proof: did(extra) }];
       const s = createWorld({ seed: 3 });
-      s.actors.vale.arcana = { proved: [], did: [], dealt: HERE };
+      s.actors.vale.arcana = { proved: [], did: [], spread: [up(HERE)] };
       s.log.push({
         seq: 1,
         verb: "wait",
@@ -133,10 +153,8 @@ describe("settling after a play", () => {
   });
   it("keeps each traveler's record apart", () => {
     let s = shared(createWorld({ seed: 3 }), other);
+    holding(holding(s, "vale", HERE), other, HERE);
     s = act(s, "move");
-    expect(recordOf(s, "vale").dealt).toBe(HERE);
-    expect(recordOf(s, other).dealt).toBe(HERE);
-    s = act(s, "wait");
     expect(recordOf(s, "vale").proved).toEqual([HERE]);
     expect(recordOf(s, other).proved).toEqual([]);
     const mine = structuredClone(s.actors.vale.arcana);
@@ -145,7 +163,8 @@ describe("settling after a play", () => {
     expect(s.actors[other].arcana).toEqual({
       proved: [HERE],
       did: [],
-      dealt: WAITED,
+      level: 0,
+      done: [HERE],
     });
     expect(s.actors.vale.arcana).toEqual(mine);
   });
@@ -156,12 +175,12 @@ describe("settling after a play", () => {
     s.actors[other].place = far;
     settleArcana(s, resident);
     settleArcana(s);
-    expect(recordOf(s, "vale").proved).toEqual([HERE]);
+    expect(s.actors.vale.arcana).toBeUndefined();
     expect(s.actors[resident].arcana).toBeUndefined();
     expect(s.actors[other].arcana).toBeUndefined();
   });
   it("is gone when the avatar is reset", () => {
-    let s = act(act(createWorld({ seed: 3 }), "move"), "wait");
+    let s = act(holding(createWorld({ seed: 3 }), "vale", HERE), "move");
     shared(s, other);
     expect(s.actors.vale.arcana.proved).toEqual([HERE]);
     resetAvatar(s, "vale");
@@ -170,7 +189,7 @@ describe("settling after a play", () => {
   it("reads only the lines written since the mark it is given", () => {
     const fresh = () => {
       const s = createWorld({ seed: 3 });
-      s.actors.vale.arcana = { proved: [HERE], did: [], dealt: WAITED };
+      s.actors.vale.arcana = { proved: [HERE], did: [], spread: [up(WAITED)] };
       s.log.push({ seq: 4, verb: "wait", actorId: "vale" });
       return s;
     };
@@ -193,7 +212,7 @@ describe("settling after a play", () => {
       s.controlledActors = ["vale"];
       s.presentActors = ["vale"];
       s.heldActors = held;
-      s.actors[other].arcana = { proved: [], did: [], dealt: WAITED };
+      s.actors[other].arcana = { proved: [], did: [], spread: [up(WAITED)] };
       s.actors[other].sleeping = {
         since: s.turn,
         place: s.actors[other].place,
@@ -208,7 +227,7 @@ describe("settling after a play", () => {
     expect(s.actors[other].arcana).toEqual({
       proved: [],
       did: ["woke"],
-      dealt: WAITED,
+      spread: [up(WAITED)],
     });
     s.presentActors.push(other);
     s.controlledActors.push(other);
@@ -225,11 +244,16 @@ describe("the saved record", () => {
     expect(recordOf(fresh, "vale")).toEqual({
       proved: [],
       did: [],
-      dealt: null,
-      base: {},
+      level: null,
+      calls: 0,
+      callers: [],
+      need: [],
+      done: [],
+      spread: [],
+      sale: false,
     });
     expect(fresh.actors.vale.arcana).toBeUndefined();
-    const s = act(act(fresh, "move"), "wait");
+    const s = act(holding(fresh, "vale", HERE), "move");
     const back = decodeSave(encodeSave(s));
     expect(back.actors.vale.arcana).toEqual(s.actors.vale.arcana);
     expect(back.actors.vale.arcana.proved).toEqual([HERE]);
@@ -241,28 +265,56 @@ describe("the saved record", () => {
       s.actors[who].arcana = arcana;
       return s;
     };
+    const heard = { card: "arcanum-2", face: "up", base: { heard: 0 } };
+    const meal = {
+      card: "arcanum-3",
+      face: "locked",
+      bind: { thing: "bread", someone: "pip" },
+    };
     const good = {
       proved: ["arcanum-0"],
       did: ["k"],
-      dealt: "arcanum-2",
-      base: { heard: 0 },
+      level: 1,
+      need: ["arcanum-3", "arcanum-2"],
+      done: ["arcanum-2"],
+      spread: [heard, meal, { card: "arcanum-8", face: "down", done: true }],
+      sale: true,
+      calls: 2,
+      callers: ["keeper", "pip"],
     };
     expect(() => validateWorld(withRecord("vale", good))).not.toThrow();
     const done = { proved: ["a", "b"], did: [] };
     expect(() => validateWorld(withRecord("vale", done))).not.toThrow();
-    const meal = { proved: [], did: [], dealt: "arcanum-3" };
-    expect(() => validateWorld(withRecord("vale", meal))).not.toThrow();
     const resident = residentOf(createWorld({ seed: 3 }));
     expect(validArcana(withRecord(other, good))).toBe(true);
+    const slot = (extra) => ({ ...good, spread: [{ ...heard, ...extra }] });
     for (const [who, bad] of [
       ["vale", { ...good, held: [] }],
-      ["vale", { ...good, dealt: "arcanum-0" }],
-      ["vale", { ...good, dealt: "coin" }],
-      ["vale", { ...good, base: undefined }],
-      ["vale", { ...good, base: { heard: -1 } }],
-      ["vale", { ...good, base: { heard: 0, visited: 0 } }],
-      ["vale", { ...meal, base: {} }],
-      ["vale", { proved: [], did: [], base: { heard: 0 } }],
+      ["vale", { ...good, dealt: "arcanum-2" }],
+      ["vale", { ...good, level: 22 }],
+      ["vale", { ...good, level: -1 }],
+      ["vale", { ...good, need: [] }],
+      ["vale", { ...good, need: ["coin"] }],
+      ["vale", { ...good, need: ["arcanum-2", "arcanum-2"] }],
+      ["vale", { ...good, done: ["arcanum-3", "arcanum-2"] }],
+      ["vale", { ...good, sale: false }],
+      ["vale", { ...good, callers: [] }],
+      ["vale", { ...good, callers: ["pip", "keeper"] }],
+      ["vale", { ...good, callers: ["keeper", "keeper"] }],
+      ["vale", { ...good, callers: ["keeper", "moth", "pip"] }],
+      ["vale", { ...good, calls: undefined }],
+      ["vale", { ...good, spread: [] }],
+      ["vale", { ...good, spread: [heard, heard] }],
+      ["vale", slot({ card: "coin" })],
+      ["vale", slot({ face: "sideways" })],
+      ["vale", slot({ done: true })],
+      ["vale", slot({ base: undefined })],
+      ["vale", slot({ base: { heard: -1 } })],
+      ["vale", slot({ base: { heard: 0, visited: 0 } })],
+      ["vale", slot({ scale: 4 })],
+      ["vale", slot({ bind: { thing: "bread" } })],
+      ["vale", { ...good, spread: [{ ...meal, bind: { thing: "bread" } }] }],
+      ["vale", { ...good, spread: [{ card: "arcanum-3", face: "up" }] }],
       ["vale", { ...good, proved: ["b", "a"] }],
       ["vale", { ...good, proved: ["a", "a", "b"] }],
       ["vale", { ...good, extra: [] }],

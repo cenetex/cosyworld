@@ -1,12 +1,10 @@
 // Extract a pack's space graph and mission graph from its authored data.
-//
 // The space graph is the places and the ways between them (exits, routes,
 // crossings, sea lanes). The mission graph is what the ways, residents and
 // things are shut behind (flags, choices, items, acts, wants) and which acts
 // set each flag. A gate is any condition that shuts something. For each gate
 // this computes the full transitive set of things that can matter to it, taken
 // over every alternative of every `any`.
-//
 // It reads the compiled pack (`v2/card-game/packs.json`, which is the card
 // pack compiler's own merge of `card-world.json` and `card-bridge.json`), so
 // it never re-parses the sources differently from the game. It never runs the

@@ -1155,9 +1155,15 @@ try {
     for (let i = 0; i < 50 && page.wakings < 1; i++)
       await page.waitForTimeout(100);
     assert.equal(page.wakings, 1);
-    await page.locator('#hand .card[data-card="attic"]').click();
+    // The rest of the opening hand lies in one closed pack: a tap opens it,
+    // the next chooses the attic, and its own Reveal turns it.
+    const atticOpen = page.locator('#card-actions [data-open-box="attic"]');
+    for (let tap = 0; tap < 3 && !(await atticOpen.count()); tap++) {
+      await page.locator('#hand .card[data-card="attic"]').click();
+      await page.waitForTimeout(600);
+    }
     assert.equal(await page.locator('#hand .card[data-card="attic"]').getAttribute("data-unrevealed"), "true");
-    await page.locator('#card-actions [data-open-box="attic"]').click();
+    await atticOpen.click();
     await page.waitForFunction(() =>
       document.querySelector(
         '#hand .card[data-card="attic"][data-unrevealed="false"]',

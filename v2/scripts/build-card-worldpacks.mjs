@@ -1,5 +1,4 @@
 // Compile the card table's world packs and their bridges into one runtime file.
-//
 //   node v2/scripts/build-card-worldpacks.mjs          # write card-game/packs.json
 //   node v2/scripts/build-card-worldpacks.mjs --check  # fail if it is stale or invalid
 //

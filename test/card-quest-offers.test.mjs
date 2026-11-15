@@ -12,6 +12,8 @@ import {
 import {
   handWithQuest,
   isQuestId,
+  offerCard,
+  offerWords,
   questCaption,
   questCards,
   questId,
@@ -38,15 +40,37 @@ it("keeps the held quest's card with the hand and drops only a stale one", () =>
   expect(held.indexOf(questId())).toBeGreaterThan(held.indexOf("vale"));
 });
 
-it("lays no offer on the table: a standing offer is already held", () => {
+it("lays the offer as its own card after Talk, held only once accepted", () => {
   const world = worlds.told;
-  expect(heldOf(world.actors.vale).map((w) => w.from)).toEqual([OFFER]);
+  expect(heldOf(world.actors.vale)).toEqual([]);
   expect(availableCards(world).some((id) => id.startsWith("quest:"))).toBe(false);
-  expect(legalActions(world).some((a) => a.kind === "take" && a.offer)).toBe(false);
+  expect(offerCard(world)).toMatchObject({ offer: "moth", kind: "item", target: "lamp", full: false });
+  const accept = legalActions(world).filter((a) => a.kind === "accept");
+  expect(accept).toMatchObject([{ target: "moth", cards: [] }]);
+  expect(playLabel(accept[0], world)).toBe("Accept");
+  expect(cardActions(world, ["moth"]).actions.some((a) => a.kind === "accept")).toBe(false);
+  expect(heldOf(worlds.accepted.actors.vale).map((w) => w.from)).toEqual([OFFER]);
+  expect(offerCard(worlds.accepted)).toBeNull();
+});
+
+it("words the offer as the resident asking, naming nothing undiscovered", () => {
+  const quest = offerCard(worlds.told);
+  expect(offerWords(quest)).toBe("Pip asks for the Lamp");
+  expect(offerWords(quest, (id) => id !== "lamp")).toBe(
+    "Pip asks for something you haven't found",
+  );
+  const escort = {
+    ...quest,
+    kind: "person",
+    target: "moth",
+    step: { verb: "bring", at: "attic" },
+  };
+  expect(offerWords(escort)).toMatch(/^Pip asks you to bring Pip to /u);
+  expect(offerWords(escort, (id) => id !== "attic")).not.toMatch(/attic/iu);
 });
 
 it("draws the held quest's face from its want, in the rules' own words", () => {
-  const world = worlds.told;
+  const world = worlds.accepted;
   const [quest] = questCards(world);
   expect(quest).toMatchObject({ kind: "item", target: "lamp", level: null });
   const verb = questVerb(world, quest, false);
@@ -54,7 +78,7 @@ it("draws the held quest's face from its want, in the rules' own words", () => {
 });
 
 it("keeps a name the player has not uncovered hidden on the face", () => {
-  const world = worlds.told;
+  const world = worlds.accepted;
   const [quest] = questCards(world);
   const covered = questCaption(quest, true, questVerb(world, quest, true), (id) => id !== "lamp");
   expect(covered).not.toMatch(/lamp/iu);
@@ -64,7 +88,7 @@ it("keeps a name the player has not uncovered hidden on the face", () => {
 });
 
 it("gives a chosen card no accept play: the held quest's one button is Discard", () => {
-  const world = worlds.told;
+  const world = worlds.accepted;
   expect(cardActions(world, [OFFER]).actions).toEqual([]);
   const drop = legalActions(world).filter((a) => a.kind === "drop" && !a.item);
   expect(drop).toHaveLength(1);

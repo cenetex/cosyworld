@@ -11,6 +11,7 @@ import {
 import { knowsFact, grievanceActive } from "./knowledge.mjs";
 import { locationWeather } from "./weather.mjs";
 import { usedUp } from "./item-use.mjs";
+import { calledTravelers, selling } from "./world/arcana-record.mjs";
 // General rules over world-pack data: crossings and their signals, fixtures
 // that sound, and residents with a temperament. No rule here names a pack,
 // place, resident or hub object; the compiled packs supply every name.
@@ -231,6 +232,14 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       );
     case "item_at":
       return s.items[c.item]?.holder === c.place && !usedUp(s, c.item);
+    case "arcana_called":
+      return calledTravelers(s).length > 0;
+    case "arcana_selling":
+      return Object.keys(s.actors).some(
+        (id) =>
+          selling(s, id) &&
+          s.actors[id].place === s.actors[c.actor]?.place,
+      );
     // Any thing from that world in the place: carried there or resting there.
     case "pack_item_present":
       return Object.keys(s.items).some(

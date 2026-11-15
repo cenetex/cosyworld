@@ -1,0 +1,26 @@
+app = "cosyworld-discord"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ORCHESTRATOR_URL = "https://cosyworld.fly.dev"
+  DISCORD_STATE_FILE = "/data/discord.json"
+
+[mounts]
+  source = "discord_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+[checks.health]
+  type = "http"
+  port = 8080
+  path = "/health"
+  method = "GET"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "60s"

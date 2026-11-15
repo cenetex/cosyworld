@@ -1,4 +1,4 @@
-import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, holdItem, readyActionButton, selectCard, setLampFuel } from "./card-browser-helpers.mjs";
 // Actual card UI, deterministic speech fixture, and saved crossing conditions.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -8,7 +8,7 @@ import { createWorld, encodeSave, addLog } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 
 function fixture(place, lit = false) {
-  const s = createWorld({ opening: true });
+  const s = createWorld({ opening: true, seed: 7 });
   // Isolate the signal puzzle from the bard's separate fresh-harbor voyage.
   s.actors["greek-rhapsode"].place = "attic";
   s.opening.crossed = true;
@@ -22,9 +22,8 @@ function fixture(place, lit = false) {
   // keep their wants from walking into the crossing puzzle.
   s.actors.moth.want = null;
   s.actors.keeper.want = null;
-  s.items.lamp.holder = "vale";
-  s.items.lamp.lit = lit;
-  s.items.lamp.fuel = 12;
+  s.items.lamp.holder = lit ? place : "vale";
+  setLampFuel(s, 12, place);
   s.items.bell.holder = "vale";
   s.items.cloth.holder = place === "pond" ? "vale" : "station";
   if (place === "clearing") {
@@ -36,7 +35,7 @@ function fixture(place, lit = false) {
     locationId: place,
     actorId: "vale",
   });
-  return encodeSave(s);
+  return encodeSave(holdItem(s, null));
 }
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -100,21 +99,12 @@ try {
       }
       throw new Error(`Hand stayed busy at ${width}px: ${errors.join("; ")}`);
     };
-    const use = async (id) => {
+    const use = async (id, kind) => {
       await ready();
       // A held item stays raised after its play; start each play fresh.
       await clearSelection(page);
       await selectCard(page, id);
-      await page.locator("#card-actions .card-primary").click();
-      await ready();
-    };
-    const pair = async (one, two) => {
-      await ready();
-      await clearSelection(page);
-      await selectCard(page, one);
-
-      await selectCard(page, two);
-      await page.locator("#card-actions .card-primary").click();
+      await readyActionButton(page, kind).click();
       await ready();
     };
     const signal = async ({ reloadHalfway = false } = {}) => {
@@ -122,20 +112,24 @@ try {
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
-      // Cover the lit lamp, then uncover it: the whole signal.
-      await pair("cloth", "lamp");
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
+      // A grounded lit lamp waits for the cloth to be actively held.
+      assert.equal((await state()).items.lamp.holder, "pond");
+      assert.equal((await state()).items.lamp.lit, true);
+      assert.equal((await state()).crossings["pond-greek-harbor"].discovered, false);
       if (reloadHalfway) {
         await page.reload();
         await ready();
-        assert.equal((await state()).crossings["pond-greek-harbor"].phase, 1);
+        assert.equal((await state()).items.lamp.holder, "pond");
+        assert.equal((await state()).crossings["pond-greek-harbor"].discovered, false);
       }
       assert.equal(
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
-      await use("cloth");
-      assert.equal((await state()).crossings["pond-greek-harbor"].phase, 2);
+      await clearSelection(page);
+      await selectCard(page, "cloth");
+      assert.equal((await state()).actors.vale.heldItem, "cloth");
+      assert.equal((await state()).crossings["pond-greek-harbor"].discovered, true);
       assert.equal(await card("greek-ship").count(), 1);
     };
     const load = async (save) => {
@@ -167,10 +161,11 @@ try {
     };
     const ringClock = async () => {
       await ready();
-      await page.locator('#hand [data-card="clearing"]').click();
-
+      await clearSelection(page);
+      await selectCard(page, "clearing");
       await page
         .getByRole("button", { name: "Ring the Steam Clock", exact: true })
+        .and(page.locator(':not([data-revealing="true"])'))
         .click();
       await ready();
     };
@@ -188,7 +183,7 @@ try {
     await page.reload();
     await ready();
     assert.equal(await card("pond").count(), 1);
-    for (let i = 0; i < 3; i++) await use("clearing");
+    for (let i = 0; i < 3; i++) await use("vale", "wait");
     assert.equal(await card("pond").count(), 0);
     await page.reload();
     await ready();
@@ -233,6 +228,7 @@ try {
     assert.equal((await state()).actors.vale.place, "pond");
     await load(fixture("pond", true));
     await signal({ reloadHalfway: true });
+    await use("lamp", "take");
     await use("greek-ship");
     assert.equal((await state()).actors.vale.place, "greek-ship");
     assert.equal(await card("greek-harbor").count(), 1);

@@ -3,37 +3,43 @@ body.local-app #owned-worlds-button,
 body.local-app #shared-worlds-button {
   display: none;
 }
-.topbar .top-actions {
-  width: auto;
-  gap: 2px;
-  padding: 0;
-  border: 1px solid #ded1b31a;
-  border-radius: 10px;
-  background: #10151cb3;
-  backdrop-filter: blur(16px);
+.topbar .brand {
+  min-width: 0;
 }
-.topbar .top-actions button {
+.topbar .brand .brand-logo {
+  max-width: min(160px, 40vw, 100%);
+}
+.topbar .top-actions {
+  flex: none;
+  width: auto;
+  gap: 6px;
+  padding: 0;
+}
+.topbar .top-actions :is(button, a) {
   display: inline-flex;
+  box-sizing: border-box;
   align-items: center;
   justify-content: center;
   gap: 7px;
   min-width: 44px;
   min-height: 44px;
   padding: 0 10px;
-  border: 0;
+  border: 1px solid #ded1b31a;
   border-radius: 10px;
-  background: transparent;
+  background: #10151cb3;
+  backdrop-filter: blur(16px);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   color: #e6dfd1;
 }
+.topbar .top-actions a:hover,
 .topbar .top-actions button:hover,
 .topbar .top-actions button[aria-expanded="true"] {
-  background: #e1d2af13;
+  background: linear-gradient(#e1d2af13, #e1d2af13), #10151cb3;
   color: #fff2d5;
 }
-.topbar .top-actions button:focus-visible {
+.topbar .top-actions :is(button, a):focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
@@ -85,7 +91,6 @@ body.local-app #shared-worlds-button {
 .world-menu button:focus-visible {
   outline-offset: -2px;
 }
-/* ☰'s face: the friends online in this world now. */
 .friend-chips {
   display: flex;
 }
@@ -105,7 +110,6 @@ body.local-app #shared-worlds-button {
 .friend-chips i:first-child {
   margin-left: 0;
 }
-/* The portrait's head, from its upper middle. */
 .friend-chips img {
   position: absolute;
   top: -1px;
@@ -150,9 +154,9 @@ body.local-app #shared-worlds-button {
   }
   .topbar .top-actions {
     width: auto;
-    gap: 2px;
+    gap: 4px;
   }
-  .topbar .top-actions button {
+  .topbar .top-actions :is(button, a) {
     padding: 0 10px;
   }
   .world-menu {
@@ -164,7 +168,7 @@ body.local-app #shared-worlds-button {
   .topbar {
     padding-inline: 6px;
   }
-  .topbar .top-actions button {
+  .topbar .top-actions :is(button, a) {
     padding-inline: 8px;
   }
 }
