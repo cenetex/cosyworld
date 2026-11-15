@@ -6,13 +6,13 @@ import { CUE_TRACKS } from "./music-cues.mjs";
 import { packMediaFiles } from "./pack-registry.mjs";
 import imageVariants from "./image-variants.json" with { type: "json" };
 import voiceCast from "./voices.json" with { type: "json" };
+import discordFaces from "./assets/discord-faces.json" with { type: "json" };
 import { daylightAssets } from "./daylight.mjs";
 import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
 import { sleepPortraitAssets } from "./sleep-portraits.mjs";
 import { BENCH, SCENE } from "./settings-cards.mjs";
 
-// The local server, release smoke, and Rust asset generator use this list.
 const files = [
   "handover.mjs",
   "battle-context.mjs",
@@ -459,6 +459,10 @@ const files = [
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
 for (const { art } of arcana.cards)
   if (art && !files.includes(art)) files.push(art);
+for (const portrait of Object.keys(discordFaces)) {
+  const [dir, file] = [portrait.split("/").at(-2), portrait.split("/").at(-1)];
+  files.push(`assets/faces/${dir}-${file.replace(/\.[a-z0-9]+$/, "")}.webp`);
+}
 for (const back of ["assets/arcana/tarot-back.png", "assets/arcana/tarot-back-locked.png"])
   if (!files.includes(back)) files.push(back);
 for (const { stage, card, phone } of Object.values(imageVariants.images))
