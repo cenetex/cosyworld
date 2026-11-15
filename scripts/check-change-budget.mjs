@@ -19,7 +19,6 @@ export function loadConfig(file = CONFIG_PATH) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-// The excluded group a path belongs to, or null when it counts.
 export function classify(file, config) {
   for (const [group, { paths }] of Object.entries(config.excluded)) {
     if (

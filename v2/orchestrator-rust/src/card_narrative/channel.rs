@@ -77,6 +77,8 @@ pub(super) struct LinesRequest {
     pack: String,
     #[serde(default)]
     addressed: Option<String>,
+    #[serde(default)]
+    continuing: Option<String>,
     messages: Vec<Message>,
 }
 
@@ -155,14 +157,13 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
     if request.addressed.as_deref().is_some_and(|id| !member(id)) {
         return Err("addressed must be a resident of the cast");
     }
-    if request
-        .messages
-        .last()
-        .is_some_and(|m| m.resident.is_some())
-    {
-        return Err("the last message must be from a person");
+    let last = request.messages.last().and_then(|m| m.resident.as_deref());
+    match request.continuing.as_deref() {
+        Some(_) if request.addressed.is_some() => Err("continuing cannot be addressed"),
+        Some(id) if last != Some(id) => Err("the last message must be the continuing resident's"),
+        None if last.is_some() => Err("the last message must be from a person"),
+        _ => Ok(()),
     }
-    Ok(())
 }
 
 fn travelers() -> &'static std::collections::BTreeSet<String> {
@@ -248,7 +249,15 @@ async fn pick(config: &AiConfig, cast: &[Resident], request: &LinesRequest) -> O
     if let Some(id) = request.addressed.as_ref() {
         return cast.iter().any(|r| &r.id == id).then(|| id.clone());
     }
-    let mut choices: Vec<&str> = cast.iter().map(|r| r.id.as_str()).collect();
+    let continuing = request.continuing.as_deref();
+    if continuing.is_some() && request.messages.last().is_some_and(|m| unfinished(&m.text)) {
+        return continuing.map(str::to_string);
+    }
+    let mut choices: Vec<&str> = cast
+        .iter()
+        .map(|r| r.id.as_str())
+        .filter(|id| continuing.is_none_or(|c| c == *id))
+        .collect();
     choices.push("none");
     let format = json!({
         "type": "json_schema",
@@ -303,6 +312,13 @@ async fn pick(config: &AiConfig, cast: &[Resident], request: &LinesRequest) -> O
     let answer: Value = serde_json::from_str(completion.text.trim()).ok()?;
     let who = answer["who"].as_str()?;
     cast.iter().any(|r| r.id == who).then(|| who.to_string())
+}
+
+fn unfinished(text: &str) -> bool {
+    let text = text.trim_end();
+    text.ends_with(['\u{2026}', '-', '\u{2014}', '\u{2013}', ','])
+        || text.ends_with("...")
+        || text.chars().last().is_some_and(char::is_alphanumeric)
 }
 
 fn scene(resident: &Resident, messages: &[Message]) -> Option<Context> {
@@ -625,6 +641,17 @@ mod tests {
         assert!(validate(&addressed, &residents).is_err());
         addressed.addressed = Some("rati".into());
         assert!(validate(&addressed, &residents).is_ok());
+        let mut going = request(json!([human, rati]));
+        going.continuing = Some("rati".into());
+        assert!(validate(&going, &residents).is_ok());
+        going.continuing = Some("skull".into());
+        assert!(validate(&going, &residents).is_err());
+        going.continuing = Some("rati".into());
+        going.addressed = Some("rati".into());
+        assert!(validate(&going, &residents).is_err());
+        let mut going = request(json!([rati, human]));
+        going.continuing = Some("rati".into());
+        assert!(validate(&going, &residents).is_err());
         assert!(serde_json::from_value::<LinesRequest>(
             json!({"pack": "lonely-forest", "messages": [human], "user": "1"})
         )
@@ -785,6 +812,66 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, json!({"lines": [], "reason": "no-line"}));
         assert!(requests.len() >= 2);
+    }
+
+    #[test]
+    fn a_line_without_an_ending_is_unfinished() {
+        for text in [
+            "And then",
+            "Wait\u{2026}",
+            "Well...",
+            "I mean -",
+            "So\u{2014}",
+            "First,",
+        ] {
+            assert!(unfinished(text), "{text}");
+        }
+        for text in [
+            "Come in.",
+            "Who?",
+            "Go!",
+            "Night \u{1f319}",
+            "\u{201c}Yes.\u{201d}",
+        ] {
+            assert!(!unfinished(text), "{text}");
+        }
+    }
+
+    fn going(last: &str) -> Value {
+        json!({
+            "pack": "lonely-forest",
+            "continuing": "rati",
+            "messages": [
+                {"author": "Jun", "text": "RATi, can I come in?"},
+                {"resident": "rati", "text": last}
+            ]
+        })
+    }
+
+    #[tokio::test]
+    async fn an_unfinished_line_continues_without_an_intent_call() {
+        let reply = "the kettle is still warm.";
+        let (status, body, requests) =
+            post_lines("{}", Some(reply), TOKEN, going("The door sticks, but")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["lines"][0]["text"], reply);
+        assert!(requests.iter().all(|r| r.get("response_format").is_none()));
+        assert_eq!(
+            turn_of(&requests[0], "user"),
+            "Jun says, \u{201c}RATi, can I come in?\u{201d}"
+        );
+        assert!(prompt_of(&requests[0]).contains("I said: \"The door sticks, but\""));
+    }
+
+    #[tokio::test]
+    async fn a_finished_line_asks_whether_the_same_resident_goes_on() {
+        let (status, body, requests) =
+            post_lines(r#"{"who":"none"}"#, Some("More."), TOKEN, going("Come in.")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
+        assert_eq!(requests.len(), 1);
+        let schema = &requests[0]["response_format"]["json_schema"]["schema"];
+        assert_eq!(schema["properties"]["who"]["enum"], json!(["rati", "none"]));
     }
 
     #[tokio::test]
