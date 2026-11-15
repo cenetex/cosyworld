@@ -1,10 +1,8 @@
 use super::{
-    bounded, complete_selected, error, profiles, seed_sentence, system_one, voice_scenes, Context,
-    TextState, VoiceSettings,
+    bounded, complete_selected, error, profiles, system_one, voice_scenes, Context, TextState,
+    VoiceSettings,
 };
-use crate::ai_gateway::{
-    request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability,
-};
+use crate::ai_gateway::AiConfig;
 use crate::rate_limit::{RateLimit, RateLimiter};
 use axum::{
     extract::{
@@ -42,7 +40,8 @@ const SCENE_MESSAGES: usize = 6;
 const ADDRESSED_WAIT: Duration = Duration::from_secs(3);
 const ADDRESSED_CALL: Duration = Duration::from_secs(6);
 const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
-const COORDINATE_CALL: Duration = Duration::from_secs(4);
+const CANDIDATES: usize = 8;
+const HISTORY: usize = 200;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 struct Resident {
@@ -291,28 +290,6 @@ fn speaker(message: &Message, cast: &[Resident]) -> String {
             .map_or_else(|| id.clone(), |r| r.name.clone()),
         None => label(message.author.as_deref().unwrap_or_default()),
     }
-}
-
-fn forest(pack_id: &str, cast: &[Resident]) -> String {
-    let name = pack(pack_id)
-        .and_then(|p| p["name"].as_str())
-        .unwrap_or("forest");
-    let opening = match name.strip_prefix("The ") {
-        Some(rest) => format!("I am the {rest}."),
-        None => format!("I am the {name}."),
-    };
-    std::iter::once(opening)
-        .chain(cast.iter().map(|r| {
-            let seed = seed_sentence(&r.id);
-            let seed = seed.trim_end_matches('.');
-            if seed.contains(',') {
-                format!("{seed}, lives in me.")
-            } else {
-                format!("{seed} lives in me.")
-            }
-        }))
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 fn profile(resident: &Resident) -> Value {
@@ -666,67 +643,130 @@ pub(super) async fn lines(
     ])
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
-#[serde(deny_unknown_fields)]
-struct Notes {
-    topic: String,
-    goal: String,
-    summary: String,
-    owed: String,
-}
-
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct CoordinateRequest {
     pack: String,
+    residents: Vec<String>,
     #[serde(default)]
-    notes: Option<Notes>,
-    messages: Vec<Message>,
+    people: Vec<String>,
+    state: Map<String, Value>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Choice {
-    topic: String,
-    goal: String,
-    summary: String,
-    owed: String,
-    speak: String,
+fn arranged(request: &CoordinateRequest, cast: &[Resident]) -> Option<Value> {
+    let member = |id: &str| cast.iter().find(|r| r.id == id);
+    let fits = (1..=CANDIDATES).contains(&request.residents.len())
+        && request.residents.iter().all(|id| member(id).is_some())
+        && request.people.len() <= CANDIDATES
+        && request.people.iter().all(|name| bounded(name, 32));
+    let lines = request.state.get("history")?.as_array()?;
+    if !fits || lines.is_empty() || lines.len() > HISTORY {
+        return None;
+    }
+    let mut history = Vec::with_capacity(lines.len());
+    for line in lines {
+        let mut line = line.as_object()?.clone();
+        if !bounded(line.get("text")?.as_str()?, 400) {
+            return None;
+        }
+        let (speaker, role) = match (line.remove("resident"), line.remove("person")) {
+            (Some(Value::String(id)), None) => (member(&id)?.name.clone(), "resident"),
+            (None, Some(Value::String(name))) if bounded(&name, 32) => (label(&name), "person"),
+            _ => return None,
+        };
+        line.insert("speaker".into(), json!(speaker));
+        line.insert("role".into(), json!(role));
+        history.push(Value::Object(line));
+    }
+    let mut state = request.state.clone();
+    let mut residents = Map::new();
+    for resident in cast {
+        let mut seen = state
+            .get("residents")
+            .and_then(|r| r.get(&resident.id))
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default();
+        seen.insert("profile".into(), profile(resident));
+        residents.insert(resident.id.clone(), Value::Object(seen));
+    }
+    state.insert("residents".into(), Value::Object(residents));
+    state.insert("history".into(), Value::Array(history));
+    Some(Value::Object(state))
 }
 
-fn sound(notes: &Notes) -> bool {
-    bounded(&notes.topic, 40)
-        && bounded(&notes.goal, 120)
-        && bounded(&notes.summary, 300)
-        && bounded(&notes.owed, 32)
-}
-
-fn chosen(text: &str, cast: &[Resident]) -> Option<Choice> {
-    let choice: Choice = serde_json::from_str(text.trim()).ok()?;
-    let notes = Notes {
-        topic: choice.topic.clone(),
-        goal: choice.goal.clone(),
-        summary: choice.summary.clone(),
-        owed: choice.owed.clone(),
+fn asked(request: &CoordinateRequest, cast: &[Resident]) -> Value {
+    let name = |id: &str| {
+        cast.iter()
+            .find(|r| r.id == id)
+            .map_or(id.to_string(), |r| r.name.clone())
     };
-    let speaker = choice.speak == "none" || cast.iter().any(|r| r.id == choice.speak);
-    (sound(&notes) && speaker).then_some(choice)
+    let mut owed: Map<String, Value> = request
+        .residents
+        .iter()
+        .map(|id| {
+            (
+                id.clone(),
+                json!(format!("{} is owed the next reply", name(id))),
+            )
+        })
+        .collect();
+    owed.insert(
+        "a person".into(),
+        json!("A person in the channel is owed the next reply"),
+    );
+    owed.insert("nobody".into(), json!("Nobody is owed a reply right now"));
+    let mut questions = json!({
+        "owed": {"type": "choice", "instructions": "Who is owed the next reply in this conversation?", "criteria": owed},
+        "for_resident": {"type": "noul", "instructions": "Is the newest message in history meant for a resident at all?"}
+    });
+    let noul = |instructions: String| json!({"type": "noul", "instructions": instructions});
+    for id in &request.residents {
+        questions[format!("respond_{id}")] = noul(format!(
+            "Should {} answer the newest message in history?",
+            name(id)
+        ));
+        questions[format!("in_{id}")] = noul(format!(
+            "Is {} part of the conversation happening right now?",
+            name(id)
+        ));
+    }
+    for (index, person) in request.people.iter().enumerate() {
+        questions[format!("in_p{index}")] = noul(format!(
+            "Is {} part of the conversation happening right now?",
+            label(person)
+        ));
+    }
+    questions
 }
 
-fn noted(request: &CoordinateRequest, cast: &[Resident]) -> String {
-    let before = request.notes.as_ref().map(|n| {
-        format!(
-            "topic: {}\ngoal: {}\nsummary: {}\nowed: {}\n\n",
-            n.topic, n.goal, n.summary, n.owed
-        )
-    });
-    let lines = request
-        .messages
-        .iter()
-        .map(|m| format!("{}: {}", speaker(m, cast), m.text))
-        .collect::<Vec<_>>()
-        .join("\n");
-    format!("{}{lines}", before.unwrap_or_default())
+fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Value {
+    let rounded = |p: f64| (p * 100.0).round() / 100.0;
+    let mut respond = Map::new();
+    let mut members = Map::new();
+    for id in &request.residents {
+        if let Some(p) = system_one::noul(answers, &format!("respond_{id}")) {
+            respond.insert(id.clone(), json!(rounded(p)));
+        }
+        if let Some(p) = system_one::noul(answers, &format!("in_{id}")) {
+            members.insert(id.clone(), json!(rounded(p)));
+        }
+    }
+    for (index, person) in request.people.iter().enumerate() {
+        if let Some(p) = system_one::noul(answers, &format!("in_p{index}")) {
+            members.insert(person.clone(), json!(rounded(p)));
+        }
+    }
+    let owed = system_one::choice(answers, "owed")
+        .filter(|(who, _)| {
+            ["a person", "nobody"].contains(who) || request.residents.iter().any(|id| id == who)
+        })
+        .map(|(who, confidence)| json!({"choice": who, "confidence": rounded(confidence)}));
+    let mut body = json!({"respond": respond, "members": members, "owed": owed});
+    if let Some(p) = system_one::noul(answers, "for_resident") {
+        body["for_resident"] = json!(rounded(p));
+    }
+    body
 }
 
 pub(super) async fn coordinate(
@@ -743,82 +783,30 @@ pub(super) async fn coordinate(
     let Some(residents) = cast(&request.pack) else {
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
-    let fits = (1..=12).contains(&request.messages.len())
-        && request.notes.as_ref().is_none_or(sound)
-        && request
-            .messages
-            .iter()
-            .all(|m| match (&m.author, &m.resident) {
-                (Some(author), None) => bounded(author, 32) && bounded(&m.text, 400),
-                (None, Some(id)) => residents.iter().any(|r| &r.id == id) && bounded(&m.text, 400),
-                _ => false,
-            });
-    if !fits {
+    let Some(mut view) = arranged(&request, &residents) else {
         return error(
             StatusCode::BAD_REQUEST,
-            "send 1 to 12 messages and bounded notes",
+            "send 1 to 8 residents, at most 8 people, and 1 to 200 history lines",
         );
-    }
+    };
     let Some(config) = state.ai.as_ref().as_ref() else {
-        return coordinated(None, "not-configured");
+        return coordinated(None, "not-configured".into());
     };
-    let Ok(_slot) = state.capacity.clone().try_acquire_owned() else {
-        return coordinated(None, "busy");
-    };
-    let mut choices: Vec<&str> = residents.iter().map(|r| r.id.as_str()).collect();
-    choices.push("none");
-    let text = json!({"type": "string"});
-    let format = json!({
-        "type": "json_schema",
-        "json_schema": {
-            "name": "discord_conversation",
-            "strict": true,
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "topic": text, "goal": text, "summary": text, "owed": text,
-                    "speak": {"type": "string", "enum": choices}
-                },
-                "required": ["topic", "goal", "summary", "owed", "speak"],
-                "additionalProperties": false
-            }
+    let questions = asked(&request, &residents);
+    let tokens = system_one::fit(&mut view, &questions);
+    tracing::info!(feature = "discord", tokens, "discord coordinate state");
+    match system_one::ask(config, "discord_coordinate", &view, questions).await {
+        Ok(answers) if !answers.is_empty() => {
+            coordinated(Some(answered(&request, &answers)), "ok".into())
         }
-    });
-    let system = forest(&request.pack, &residents);
-    let user = noted(&request, &residents);
-    let completion = request_chat_completion(
-        config,
-        ChatCompletionRequest {
-            feature: "discord_coordinate",
-            prompt_version: "discord-coordinate-v1",
-            capability: ModelCapability::IntentJson,
-            system: &system,
-            user: &user,
-            temperature: 0.0,
-            max_tokens: 160,
-            timeout: COORDINATE_CALL,
-            max_attempts: 1,
-            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
-            response_format: Some(&format),
-            room_id: None,
-        },
-    )
-    .await;
-    match completion {
-        Ok(done) => match chosen(&done.text, &residents) {
-            Some(choice) => coordinated(Some(choice), "ok"),
-            None => coordinated(None, "schema"),
-        },
-        Err(_) => coordinated(None, "model"),
+        Ok(_) => coordinated(None, "jev-shape".into()),
+        Err(reason) => coordinated(None, reason),
     }
 }
 
-fn coordinated(choice: Option<Choice>, reason: &'static str) -> Response {
-    tracing::info!(feature = "discord", reason, "discord coordinate");
-    let body = match choice {
-        Some(choice) => json!({"choice": choice}),
-        None => json!({"choice": null, "reason": reason}),
-    };
+fn coordinated(answers: Option<Value>, reason: String) -> Response {
+    tracing::info!(feature = "discord", reason = %reason, "discord coordinate");
+    let body = json!({"answers": answers, "reason": reason});
     ([("cache-control", "no-store")], Json(body)).into_response()
 }
 
@@ -1036,10 +1024,8 @@ mod tests {
                 post(move |Json(body): Json<Value>| {
                     let seen = seen.clone();
                     async move {
-                        let asks_intent = body.get("response_format").is_some();
                         seen.lock().unwrap().push(body.clone());
-                        let text = if asks_intent { Some(intent) } else { voice };
-                        match text {
+                        match voice {
                             Some(text) => Json(json!({
                                 "model": body["model"],
                                 "choices": [{"message": {"content": text}, "finish_reason": "stop"}]
@@ -1338,61 +1324,96 @@ mod tests {
         (status, body, requests)
     }
 
-    fn gin() -> Value {
+    fn met() -> Value {
         json!({
             "pack": "lonely-forest",
-            "notes": {"topic": "tea", "goal": "chat with RATi", "summary": "Ash asked RATi about tea.", "owed": "none"},
-            "messages": [
-                {"author": "Ash", "text": "what about gin"},
-                {"resident": "rati", "text": "Gin is for later."},
-                {"author": "Bea", "text": "pour him gin instead"}
-            ]
+            "residents": ["vale", "rati"],
+            "people": ["Ash"],
+            "state": {
+                "notes": {"topic": "meeting"},
+                "residents": {"vale": {"streak": 0}},
+                "history": [
+                    {"person": "Ash", "text": "evening all", "ago": 40},
+                    {"person": "Ash", "text": "Vale have you met RATi?", "ago": 2, "named": ["Vale", "RATi"]}
+                ]
+            }
         })
     }
 
     #[tokio::test]
-    async fn the_coordinator_returns_notes_and_a_choice() {
-        let answer = r#"{"topic":"gin","goal":"get RATi to pour gin","summary":"Bea asks RATi for gin.","owed":"rati","speak":"rati"}"#;
-        let (status, body, requests) = post_coordinate(answer, gin()).await;
+    async fn the_coordinator_asks_jev_once_and_returns_typed_answers() {
+        let answer = r#"{"answers": {
+            "owed": {"type": "choice", "choice": "vale", "probabilities": {"vale": 0.9}, "confidence": 0.876},
+            "for_resident": {"type": "noul", "noul": 0.97},
+            "respond_vale": {"type": "noul", "noul": 0.93},
+            "respond_rati": {"type": "noul", "noul": 0.71},
+            "in_vale": {"type": "noul", "noul": 0.9},
+            "in_rati": {"type": "noul", "noul": 0.4},
+            "in_p0": {"type": "noul", "noul": 0.99}
+        }, "usage": {"cost": 0.000017}}"#;
+        let (status, body, requests) = post_coordinate(answer, met()).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(body["choice"]["owed"], "rati");
-        assert_eq!(body["choice"]["speak"], "rati");
-        let schema = &requests[0]["response_format"]["json_schema"]["schema"];
         assert_eq!(
-            schema["properties"]["speak"]["enum"]
-                .as_array()
-                .unwrap()
-                .last()
-                .unwrap(),
-            "none"
+            body,
+            json!({"reason": "ok", "answers": {
+                "owed": {"choice": "vale", "confidence": 0.88},
+                "for_resident": 0.97,
+                "respond": {"vale": 0.93, "rati": 0.71},
+                "members": {"vale": 0.9, "rati": 0.4, "Ash": 0.99}
+            }})
         );
-        let user = turn_of(&requests[0], "user");
-        assert!(user.starts_with("topic: tea\ngoal: chat with RATi"));
-        assert!(user.ends_with("RATi: Gin is for later.\nBea: pour him gin instead"));
-        assert!(turn_of(&requests[0], "system").starts_with("I am the Lonely Forest."));
+        assert_eq!(requests.len(), 1);
+        let asked = &requests[0];
+        assert_eq!(asked["questions"].as_object().unwrap().len(), 7);
+        let state = &asked["state"];
+        assert_eq!(state["notes"]["topic"], "meeting");
+        assert_eq!(state["residents"]["vale"]["streak"], 0);
+        assert_eq!(state["residents"]["vale"]["profile"]["name"], "Vale");
+        assert_eq!(
+            state["history"][1],
+            json!({"speaker": "Ash", "role": "person", "text": "Vale have you met RATi?", "ago": 2, "named": ["Vale", "RATi"]})
+        );
     }
 
     #[tokio::test]
-    async fn a_bad_coordinator_answer_is_refused_whole() {
-        for answer in [
-            r#"{"topic":"gin","goal":"g","summary":"s","owed":"rati","speak":"mara"}"#,
-            r#"{"topic":"gin","goal":"g","summary":"s","owed":"rati"}"#,
-            r#"{"topic":"","goal":"g","summary":"s","owed":"rati","speak":"none"}"#,
-            "not json",
-        ] {
-            let (status, body, _) = post_coordinate(answer, gin()).await;
-            assert_eq!(status, StatusCode::OK);
-            assert_eq!(
-                body,
-                json!({"choice": null, "reason": "schema"}),
-                "{answer}"
-            );
+    async fn a_failed_or_empty_jev_call_returns_a_reason() {
+        let (status, body, _) = post_coordinate("not json", met()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body, json!({"answers": null, "reason": "jev-http-500"}));
+        let mut impostor = met();
+        impostor["state"]["history"][0]["person"] = json!("RATi");
+        let (_, body, asked) = post_coordinate(r#"{"answers": {}}"#, impostor).await;
+        assert_eq!(body, json!({"answers": null, "reason": "jev-shape"}));
+        assert_eq!(asked[0]["state"]["history"][0]["speaker"], "Someone");
+        let (_, body, _) = post_coordinate(r#"{"nothing": 1}"#, met()).await;
+        assert_eq!(body, json!({"answers": null, "reason": "jev-shape"}));
+    }
+
+    #[tokio::test]
+    async fn a_bad_coordinate_request_reaches_no_model() {
+        let mut stranger = met();
+        stranger["residents"] = json!(["mara"]);
+        let mut empty = met();
+        empty["state"]["history"] = json!([]);
+        let mut both = met();
+        both["state"]["history"][0]["resident"] = json!("vale");
+        let mut long = met();
+        long["state"]["history"][0]["text"] = json!("s".repeat(401));
+        for body in [stranger, empty, both, long] {
+            let (status, _, requests) = post_coordinate("{}", body).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert!(requests.is_empty());
         }
-        let mut long = gin();
-        long["notes"]["summary"] = json!("s".repeat(301));
-        let (status, _, requests) = post_coordinate("{}", long).await;
-        assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert!(requests.is_empty());
+    }
+
+    #[test]
+    fn a_long_history_is_trimmed_from_the_oldest_line() {
+        let line = json!({"speaker": "Ash", "role": "person", "text": "a".repeat(400)});
+        let mut state = json!({"history": vec![line; 400]});
+        let questions = json!({"owed": {"type": "noul", "instructions": "x"}});
+        let tokens = system_one::fit(&mut state, &questions);
+        assert!(tokens <= system_one::TOKENS_PER_QUESTION);
+        assert!(state["history"].as_array().unwrap().len() < 400);
     }
 
     #[tokio::test]
