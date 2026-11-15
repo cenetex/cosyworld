@@ -246,6 +246,8 @@ export function createCharacterSpeech({
       state: state(),
       message: failed && failed.entry === shown?.entry ? failed.message : "",
     });
+  const warn = (message) =>
+    changed({ key: shown?.key, state: "error", message });
   function drop(entry) {
     entry.controller.abort();
     queue.splice(queue.indexOf(entry), 1);
@@ -421,19 +423,9 @@ export function createCharacterSpeech({
           void context
             .resume()
             .then(pump)
-            .catch(() =>
-              changed({
-                key: shown?.key,
-                state: "error",
-                message: "Tap the line to hear its voice.",
-              }),
-            );
+            .catch(() => warn("Tap the line to hear its voice."));
       } catch {
-        changed({
-          key: shown?.key,
-          state: "error",
-          message: "Voice playback needs another try.",
-        });
+        warn("Voice playback needs another try.");
       }
     },
     pause(value) {
