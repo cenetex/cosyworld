@@ -60,6 +60,21 @@ it("reclamps an expanding awake portrait and releases departed figures", () => {
   expect(
     box.bottom - parseFloat(figure.style.bottom) - height,
   ).toBeGreaterThanOrEqual(0);
+  box.width = box.right = 390;
+  height = 400;
+  const group = [figure, ...["vale", "moth"].map((avatar) => ({
+    ...figure, dataset: { avatar }, style: {},
+  }))];
+  cast.children = group;
+  show(group.map((el, i) => ({
+    id: el.dataset.avatar, paintedSpot: [10 + i * 40, 80, 1],
+  })));
+  pending();
+  for (const el of group) {
+    const left = parseFloat(el.style.left);
+    expect(left - height / 3).toBeGreaterThanOrEqual(0);
+    expect(left + height / 3).toBeLessThanOrEqual(box.width);
+  }
   figure.parentElement = null;
   cast.children = [];
   show([]);
