@@ -9,9 +9,11 @@ import { toldWant } from "../v2/card-game/talk-quest.mjs";
 import { wantOf } from "../v2/card-game/want-talk.mjs";
 
 const R = "greek-ismene";
-const saved = packPeople[R].want;
+const saved = { want: packPeople[R].want, wants: packPeople[R].wants };
 afterEach(() => {
-  packPeople[R].want = saved;
+  for (const key of ["want", "wants"])
+    if (saved[key] === undefined) delete packPeople[R][key];
+    else packPeople[R][key] = saved[key];
 });
 
 const talkTo = (s) => {
@@ -26,6 +28,7 @@ const setup = (trust) => {
   s.controlledActors = s.presentActors = ["vale"];
   s.actors[R].place = s.actors.vale.place = "greek-gate";
   // A want for a place she can name: her own sanctuary.
+  delete packPeople[R].wants;
   packPeople[R].want = { kind: "place", target: "greek-sanctuary", minTrust: 2 };
   s.actors[R].want = { kind: "place", target: "greek-sanctuary", since: s.turn, refusals: 0 };
   s.actors[R].trust.vale = trust;

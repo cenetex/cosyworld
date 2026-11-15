@@ -5948,15 +5948,6 @@
       "phone": "assets/optimized/phone/png/willows/pipe.webp",
       "phoneHash": "35f54305aa281cf1476aa60e18d72e62ee2587d30920903ba913f36d59de24e8"
     },
-    "assets/willows/pot.png": {
-      "sourceHash": "433b5e43a726e2050c7313979543786b6962cc286c27bfe902772c662649fdfe",
-      "stage": "assets/optimized/stage/png/willows/pot.webp",
-      "stageHash": "f60f37c1ce00fb7ed0294505a9d6cf1eaf879d4b5dd392417d1f2024e0f9d915",
-      "card": "assets/optimized/card/png/willows/pot.webp",
-      "cardHash": "eee9f388265c0e2da01ff4f98fb11bef33d7729a1dd397953e480925df48324f",
-      "phone": "assets/optimized/phone/png/willows/pot.webp",
-      "phoneHash": "f5888cc074ac8333f328a462bc7fb6cbb00b5b78bb6ca839a519db29526f9eaa"
-    },
     "assets/willows/provisions.png": {
       "sourceHash": "67ff40dd6d2e665d05fc81cc739d00debdd5db7c97587427324034cb5dcf220c",
       "stage": "assets/optimized/stage/png/willows/provisions.webp",
@@ -5983,15 +5974,6 @@
       "cardHash": "b84f6f237a9589fce610c2fc882c132a1eb7e654387c2bd618083b697622e540",
       "phone": "assets/optimized/phone/png/willows/sheet.webp",
       "phoneHash": "4b6289309542eb88194984b2a7d3ea0edbc70526aa9892f794d01c8fa6e0bbea"
-    },
-    "assets/willows/spoon.png": {
-      "sourceHash": "b39bdc5e9e5b32fab60cb7be65fb4ce1c58f620a016aa36b667101bc8c5cf25e",
-      "stage": "assets/optimized/stage/png/willows/spoon.webp",
-      "stageHash": "54c857e4279869fea3da40070adc4fe4118e2cd03e360c77b874e33309c7e1f9",
-      "card": "assets/optimized/card/png/willows/spoon.webp",
-      "cardHash": "fa3a8ce300298ff67fdd112138f6def84171e8aed7d4eb8c5f70fd788efe86b3",
-      "phone": "assets/optimized/phone/png/willows/spoon.webp",
-      "phoneHash": "cbc16e7f9cd6864e184dc5d64e615b51cac73380a6c05346f25f8bd0e0870227"
     },
     "assets/willows/swede-listening-uncanny.webp": {
       "sourceHash": "1a4438993356470e6ca0d1ff9199ceeae3d0ecc9ea9091c689993ab132763cba",

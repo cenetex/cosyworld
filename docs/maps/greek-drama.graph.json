@@ -8021,6 +8021,12 @@
       },
       {
         "avatar": "greek-ismene",
+        "kind": "item",
+        "target": "greek-household-token",
+        "items": []
+      },
+      {
+        "avatar": "greek-ismene",
         "kind": "person",
         "target": "greek-theseus",
         "items": []

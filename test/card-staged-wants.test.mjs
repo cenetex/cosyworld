@@ -31,7 +31,8 @@ const R = "greek-ismene",
   gate = "greek-gate";
 const saved = { want: packPeople[R].want, wants: packPeople[R].wants };
 const restore = () => {
-  packPeople[R].want = saved.want;
+  if (saved.want === undefined) delete packPeople[R].want;
+  else packPeople[R].want = saved.want;
   if (saved.wants === undefined) delete packPeople[R].wants;
   else packPeople[R].wants = saved.wants;
 };
@@ -90,7 +91,12 @@ describe("schema", () => {
         a.wants = [];
       }),
     ).toThrow();
-    expect(() => attempt((a) => (a.wants = wants(1)))).toThrow(
+    expect(() =>
+      attempt((a) => {
+        a.want = place("greek-sanctuary").want;
+        a.wants = wants(1);
+      }),
+    ).toThrow(
       /want or wants, not both/u,
     );
     expect(() =>
@@ -153,7 +159,7 @@ describe("schema", () => {
   });
 });
 
-const STAGED = { "greek-antigone": 1, "ratiradio-rati": 3 };
+const STAGED = { "greek-antigone": 1, "greek-ismene": 2, "ratiradio-rati": 3 };
 describe("selection", () => {
   it("installs an eligible entry, and none whose when does not hold", () => {
     stage(item("greek-figs", {}, flag("a")), item("greek-shovel"));
@@ -255,8 +261,7 @@ describe("selection", () => {
   it("leaves a resident with one want exactly as before", () => {
     for (const pack of packDefinitions) {
       for (const [id, person] of Object.entries(pack.avatars)) {
-        // Two shipped residents carry staged wants (rules 133): Antigone's
-        // burial and RATi's keepsakes. Everyone else has one want or none.
+        // Antigone, Ismene and RATi carry staged wants. Everyone else has one want or none.
         if (STAGED[id]) {
           expect(person.want, id).toBeUndefined();
           expect(person.wants.length, id).toBe(STAGED[id]);
@@ -267,11 +272,12 @@ describe("selection", () => {
       }
     }
     const s = world();
-    expect(termsOf(s.actors[R].want)).toEqual(termsOf(authoredWant(R)));
-    s.actors[R].place = authoredWant(R).target;
-    if (authoredWant(R).kind === "place") {
-      settleWants(s, [R], wantAPI(s));
-      expect(s.actors[R].content).toBe(true);
+    const one = "greek-baker";
+    expect(termsOf(s.actors[one].want)).toEqual(termsOf(authoredWant(one)));
+    s.actors[one].place = authoredWant(one).target;
+    if (authoredWant(one).kind === "place") {
+      settleWants(s, [one], wantAPI(s));
+      expect(s.actors[one].content).toBe(true);
     }
   });
 });

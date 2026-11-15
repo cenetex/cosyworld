@@ -52,7 +52,7 @@ describe("want data", () => {
           .map(([id, a]) => [id, a.want]),
       ),
     ).toEqual({
-      // Antigone and RATi carry staged `wants` (rules 133), not a single want.
+      // Antigone, Ismene and RATi carry staged `wants` (rules 133), not a single want.
       "greek-polynices-shade": {
         kind: "place",
         target: "greek-polynices-hollow",
@@ -62,8 +62,6 @@ describe("want data", () => {
           finish: "greek-burial-performed",
         },
       },
-      // Ismene would ask Theseus about her father (open-door-rework).
-      "greek-ismene": { kind: "person", target: "greek-theseus" },
       // Creon wants the decree back; the guard wants to eat the bread
       // (Greek revision 20).
       "greek-creon": { kind: "item", target: "greek-decree" },

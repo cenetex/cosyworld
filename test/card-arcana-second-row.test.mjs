@@ -182,7 +182,8 @@ describe("the second row, played in a created world", () => {
     s = act(s, walk("pond"));
     expect(proved(s)).toEqual(["arcanum-15"]);
     let t = only("arcanum-15");
-    t = act(t, kind("take", { item: "ratiradio-request-slip" }));
+    t.items.cloth.holder = "station";
+    t = act(t, kind("take", { item: "cloth" }));
     t = act(t, walk("pond"));
     expect(proved(t)).toEqual([]);
   });
