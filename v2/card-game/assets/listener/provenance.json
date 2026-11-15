@@ -41,6 +41,21 @@
       ],
       "bytes": 260920,
       "sha256": "3803f98b15184bb8e8c65ccde2042e968f25604a407f9d57703a4ed0cfd9a09a"
+    },
+    {
+      "file": "listener-deck.webp",
+      "source": "Generated with built-in image_gen",
+      "role": "A short stack of face-down star-back tarot cards tied with a thin black ribbon; no deck item mechanics are introduced.",
+      "size": [
+        1254,
+        1254
+      ],
+      "sha256": "33ebaa718608d189a1207a798ec22bed340899aae224a220524c960879918738",
+      "source_file": "docs/design/assets/listener/listener-deck.png",
+      "source_sha256": "7ffd5f1d77edea59c8cd7cd037d1195178f7cdd6f623ab6a9719c6acd6a24c24",
+      "bytes": 363276,
+      "encoding": "Sharp WebP quality 90, alpha quality 100, effort 6; no resize or crop",
+      "receipt": "docs/design/assets/art-batches/triptych-01-records.json"
     }
   ]
 }

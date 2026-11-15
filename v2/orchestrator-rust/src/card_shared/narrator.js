@@ -5925,14 +5925,14 @@
             name: "Helen\u2019s Account Tablet",
             text: "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy.",
             holder: "greek-harbor",
-            art: "assets/greek-drama/testimony.png",
+            art: "assets/greek-drama/helen-accounts.png",
             persona: "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy."
           },
           "greek-atreid-record": {
             name: "Record of the House of Atreus",
             text: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter.",
             holder: "greek-argolid-road",
-            art: "assets/greek-drama/tomb-testimony.png",
+            art: "assets/greek-drama/atreid-record.png",
             persona: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter."
           }
         },
