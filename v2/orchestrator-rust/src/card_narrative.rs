@@ -31,6 +31,8 @@ mod authored;
 mod between;
 #[path = "card_narrative/browser.rs"]
 pub(crate) mod browser;
+#[path = "card_narrative/channel.rs"]
+mod channel;
 #[path = "card_narrative/conversation.rs"]
 mod conversation;
 #[path = "card_narrative/custody.rs"]
@@ -359,6 +361,8 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             "/.well-known/cosyworld-signing-keys.json",
             axum::routing::get(crate::routes::signed_envelope::well_known),
         )
+        .route("/discord/cast", axum::routing::get(channel::cast_route))
+        .route("/discord/lines", post(channel::lines))
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(TextState {
             ai,
@@ -802,8 +806,6 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
         })
 }
 
-// Restate the resolved action and each trip for every voice, including places.
-// The model can then keep a character's style while following the player's play.
 fn error(status: StatusCode, message: &str) -> Response {
     refusal(status, message, "10")
 }
