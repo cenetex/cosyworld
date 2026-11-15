@@ -4,6 +4,7 @@ import {
   openSettings,
   closeSettings,
   pressSetting,
+  putOutOpening,
 } from "./card-browser-helpers.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { humanAvatars, humanAvatarIds } from "../card-game/human-cast.mjs";
@@ -117,17 +118,16 @@ export async function checkSharedMusicOpenings(browser, origin) {
         /first card/,
       );
       await closeSettings(page);
-      await selectCard(page, avatar.item.id);
       if (actor === "vale") {
         // Vale's first play puts the lamp down in the attic.
-        await selectCard(page, "attic");
-        await page.locator('#card-actions [data-action="drop"]').click();
+        await putOutOpening(page);
         await page.waitForFunction(() => {
           const a = document.querySelector("#room-music");
           return !a.paused && a.currentTime > 0;
         });
         assert(started.has(actor));
       } else {
+        await selectCard(page, avatar.item.id);
         assert(
           await page.locator("#room-music").evaluate((a) => a.paused),
           "Selecting an item keeps the opening silent",
