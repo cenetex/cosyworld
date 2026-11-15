@@ -493,6 +493,9 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
     let messages = &request.messages;
     let start = messages.len().saturating_sub(SCENE_MESSAGES);
     let (mut facts, memories) = awareness(resident, &request.channel);
+    if messages.last().and_then(|m| m.resident.as_ref()) == Some(&resident.id) {
+        facts.push("I spoke last here.".into());
+    }
     let (own, place) = knowledge(resident, &request.pack);
     facts.extend(own);
     let conversation: Vec<Value> = messages[start..]
@@ -739,6 +742,17 @@ fn arranged(request: &CoordinateRequest, cast: &[Resident]) -> Option<Value> {
         history.push(Value::Object(line));
     }
     let mut state = request.state.clone();
+    state.remove("previous");
+    if let Some(last) = history.last() {
+        state.insert(
+            "last".into(),
+            json!({"speaker": last["speaker"], "role": last["role"], "text": last["text"]}),
+        );
+    }
+    if let Some(at) = history.iter().rposition(|l| l["role"] == "person") {
+        let replied = history[at + 1..].iter().any(|l| l["role"] == "resident");
+        state.insert("answered".into(), json!(replied));
+    }
     let mut residents = Map::new();
     for resident in cast {
         let mut seen = state
@@ -1332,6 +1346,18 @@ mod tests {
             turn_of(&requests[0], "user"),
             "Skull says, \u{201c}RATi, did you hear that?\u{201d}"
         );
+        assert!(!turn_of(&requests[0], "assistant").contains("I spoke last here."));
+        let again = json!({
+            "pack": "lonely-forest",
+            "addressed": "skull",
+            "messages": [
+                {"author": "Jun", "text": "Skull?"},
+                {"resident": "skull", "text": "Skull tilts his head."}
+            ]
+        });
+        let (_, _, requests) = post_lines("{}", Some(reply), TOKEN, again).await;
+        let view = turn_of(&requests[0], "assistant");
+        assert!(view.contains("I spoke last here."), "{view}");
     }
 
     async fn post_coordinate(answer: &'static str, body: Value) -> (StatusCode, Value, Vec<Value>) {
@@ -1398,6 +1424,25 @@ mod tests {
             state["history"][1],
             json!({"speaker": "Ash", "role": "person", "text": "Vale have you met RATi?", "ago": 2, "named": ["Vale", "RATi"]})
         );
+        assert_eq!(
+            state["last"],
+            json!({"speaker": "Ash", "role": "person", "text": "Vale have you met RATi?"})
+        );
+        assert_eq!(state["answered"], false);
+        let mut replied = met();
+        replied["state"]["previous"] = json!({"next": {"choice": "vale"}});
+        replied["state"]["history"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!({"resident": "vale", "text": "Not yet.", "ago": 1}));
+        let (_, _, asked) = post_coordinate(answer, replied).await;
+        let state = &asked[0]["state"];
+        assert_eq!(
+            state["last"],
+            json!({"speaker": "Vale", "role": "resident", "text": "Not yet."})
+        );
+        assert_eq!(state["answered"], true);
+        assert!(state.get("previous").is_none());
         let (_, body, _) = post_coordinate(
             r#"{"answers": {"next": {"type": "choice", "choice": "mara", "probabilities": {}, "confidence": 0.9}}}"#,
             met(),

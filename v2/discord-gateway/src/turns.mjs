@@ -1,8 +1,8 @@
 import { addressedResident, assess } from "./attention.mjs";
 import { guildState, today } from "./channel.mjs";
-import { wait } from "./beats.mjs";
+import { repeatsLine, wait } from "./beats.mjs";
 import { payload, refresh } from "./coordinator.mjs";
-import { post, requestBody, typist } from "./room.mjs";
+import { ownLines, post, requestBody, typist } from "./room.mjs";
 
 function bump(table, key) {
   table[key] = (table[key] ?? 0) + 1;
@@ -40,7 +40,6 @@ export async function next(room, { config, cast, coordinate, stats, log }, signa
     return fallback;
   }
   bump(stats.coordinator, "updates");
-  room.jev = { answers: result.answers, at: last?.at ?? 0 };
   const odds = answer.probabilities ?? {};
   const p = Number(odds[answer.choice] ?? answer.confidence ?? 0);
   const who = answer.choice !== "none" && p >= config.DISCORD_NEXT_THRESHOLD && cast.some((r) => r.id === answer.choice) ? answer.choice : null;
@@ -78,7 +77,13 @@ async function cycle(room, deps, halt) {
         log(`lines failed reason=${returned?.reason ?? "empty"} ${where(room)}`);
         return;
       }
-      await post(room, resident, line.text.trim(), deps);
+      const text = line.text.trim();
+      if (repeatsLine(ownLines(room, id), text)) {
+        bump(stats.skips, "repeat");
+        log(`skip repeat resident=${id} ${where(room)}`);
+        return;
+      }
+      await post(room, resident, text, deps);
       room.lastResidentAt = Date.now();
       guild.replies += 1;
       stats.replies += 1;

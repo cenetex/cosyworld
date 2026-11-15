@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { beats, pause, repeatsOpening } from "../src/beats.mjs";
+import { beats, pause, repeatsLine, repeatsOpening } from "../src/beats.mjs";
 
 const LONG =
   "The kettle is on and the cups are by the window. The door sticks in the rain, so lean on it. " +
@@ -32,4 +32,16 @@ test("a repeated opening matches the first words of the resident's last five lin
   assert.ok(!repeatsOpening(ring, "rati", "Oh, the."));
   const old = [{ resident: "rati", text: "Oh the kettle is on." }, ...Array(5).fill({ resident: "rati", text: "Something else here." })];
   assert.ok(!repeatsOpening(old, "rati", "Oh the kettle again."));
+});
+
+test("a repeat ignores case, spaces and punctuation and allows a small change", () => {
+  const own = ["Skull tilts his head to the side, his ears twitching forward toward ratimics."];
+  assert.ok(repeatsLine(own, "skull tilts his head to the side his ears twitching forward toward RATIMICS"));
+  assert.ok(repeatsLine(own, "Skull tilts his head to the side, his ears twitching forward toward Ash."));
+  assert.ok(!repeatsLine(own, "Skull lies down by the fire."));
+  assert.ok(repeatsLine(["👀❓✨"], "✨👀❓"));
+  assert.ok(repeatsLine(["🌧️🐾"], "🌧🐾"));
+  assert.ok(!repeatsLine(["👀❓✨"], "🌿🏠"));
+  assert.ok(!repeatsLine(["..."], "!!!"));
+  assert.ok(!repeatsLine([], "Hello there."));
 });

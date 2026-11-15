@@ -13,6 +13,7 @@ export function createRoom(guildId, channelId) {
     handledGap: null,
     heard: 0,
     awaiting: null,
+    said: {},
   };
 }
 
@@ -157,6 +158,11 @@ export function summary(stats) {
   ].join(" ");
 }
 
+export function ownLines(room, id) {
+  const posted = room.messages.filter((entry) => entry.resident === id).slice(-3).map((entry) => entry.text);
+  return [...posted, ...(room.said?.[id] ?? [])];
+}
+
 export async function post(room, resident, text, { config, send, sleep, stats, log }) {
   if (repeatsOpening(room.messages, resident.id, text)) {
     count(stats.flags, "repeated-opening");
@@ -179,5 +185,7 @@ export async function post(room, resident, text, { config, send, sleep, stats, l
       if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
     }
   }
+  room.said ??= {};
+  room.said[resident.id] = [...(room.said[resident.id] ?? []), text].slice(-3);
   room.awaiting ??= at;
 }
