@@ -57,6 +57,7 @@ async function cycle(room, deps, halt) {
   const { config, cast, lines, typing, sleep = wait, stats, log, state, save } = deps;
   const heard = room.heard;
   refresh(room, deps).catch(() => {});
+  const retried = new Set();
   for (;;) {
     if (halt.signal.aborted || room.heard !== heard) return;
     const guild = guildState(state, room.guildId);
@@ -86,7 +87,9 @@ async function cycle(room, deps, halt) {
       if (repeatsLine(ownLines(room, id), text)) {
         bump(stats.skips, "repeat");
         log(`skip repeat resident=${id} ${where(room)}`);
-        return;
+        if (retried.has(id)) return;
+        retried.add(id);
+        continue;
       }
       if (narrates(text, resident.name)) {
         bump(stats.skips, "narration");

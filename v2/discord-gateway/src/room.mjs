@@ -115,9 +115,10 @@ export function awareness(room, now) {
 }
 
 export function requestBody(room, config, addressed, now = Date.now()) {
+  const speaker = addressed && room.messages.at(-1)?.resident === addressed ? { continuing: addressed } : { addressed: addressed ?? null };
   return {
     pack: config.DISCORD_PACK,
-    addressed: addressed ?? null,
+    ...speaker,
     channel: awareness(room, now),
     messages: room.messages
       .slice(-Math.max(1, config.DISCORD_CONTEXT_MESSAGES))

@@ -46,7 +46,10 @@ function fixture(answers, extra = {}) {
       const answer = answers.shift();
       return typeof answer === "function" ? answer() : answer;
     },
-    lines: async (body) => ({ lines: [{ id: body.addressed, text: `I am ${body.addressed}, line ${fixed.sent.length + 1}.` }] }),
+    lines: async (body) => {
+      const id = body.addressed ?? body.continuing;
+      return { lines: [{ id, text: `I am ${id}, line ${fixed.sent.length + 1}.` }] };
+    },
     send: async (target, payload) => {
       fixed.payloads.push(payload);
       fixed.sent.push(payload.username.split(" ")[0]);
@@ -182,17 +185,21 @@ test("after a resident's line, the next Jev state and voice request both hold it
   assert.deepEqual({ resident: last.resident, text: last.text }, { resident: "skull", text: said[0] });
   assert.equal(fixed.asks[1].state.previous, undefined);
   assert.deepEqual(voices[1].messages.at(-1), { resident: "skull", text: said[0] });
+  assert.equal(voices[0].addressed, "skull");
+  assert.equal(voices[0].continuing, undefined);
+  assert.equal(voices[1].continuing, "skull");
+  assert.equal(voices[1].addressed, undefined);
   assert.deepEqual(voices[1].channel.residents.find((r) => r.id === "skull").lines, [said[0]]);
 });
 
-test("a resident's repeated line is not posted and ends the run", async () => {
-  const fixed = fixture(Array.from({ length: 4 }, () => next("skull", 0.99)), {
+test("a resident's repeated line is not posted, Jev decides again once, then the run ends", async () => {
+  const fixed = fixture(Array.from({ length: 6 }, () => next("skull", 0.99)), {
     lines: async () => ({ lines: [{ id: "skull", text: "I hear you, Ash, but the trees are louder than you tonight." }] }),
   });
   await fixed.hear("m1", "Skull?");
   assert.deepEqual(fixed.sent, ["Skull"]);
-  assert.equal(fixed.asks.length, 2);
-  assert.equal(fixed.stats.skips.repeat, 1);
+  assert.equal(fixed.asks.length, 3);
+  assert.equal(fixed.stats.skips.repeat, 2);
   assert.ok(fixed.logs.includes("skip repeat resident=skull guild=g1 channel=c1"));
   assert.ok(fixed.logs.every((line) => !line.includes("trees") && !line.includes("Ash")));
 });
@@ -201,10 +208,19 @@ test("near-same emoji lines count as a repeat", async () => {
   const replies = ["👀❓✨", "✨ 👀 ❓!"];
   const fixed = fixture(Array.from({ length: 4 }, () => next("whiskerwind", 0.8)), {
     cast: [...cast, { id: "whiskerwind", name: "Whiskerwind" }],
-    lines: async () => ({ lines: [{ id: "whiskerwind", text: replies.shift() ?? "🌿" }] }),
+    lines: async () => ({ lines: [{ id: "whiskerwind", text: replies.shift() ?? "❓👀✨" }] }),
   });
   await fixed.hear("m1", "Whiskerwind?");
   assert.deepEqual(fixed.sent, ["Whiskerwind"]);
+  assert.equal(fixed.stats.skips.repeat, 2);
+});
+
+test("after a repeat, Jev's next pick still speaks", async () => {
+  const fixed = fixture([next("skull", 0.9), next("skull", 0.9), next("rati", 0.9), next("none", 0.9)], {
+    lines: async (body) => (body.addressed === "rati" ? { lines: [{ id: "rati", text: "The kettle is on." }] } : { lines: [{ id: "skull", text: "The trees are loud tonight." }] }),
+  });
+  await fixed.hear("m1", "Skull?");
+  assert.deepEqual(fixed.sent, ["Skull", "RATi"]);
   assert.equal(fixed.stats.skips.repeat, 1);
 });
 
