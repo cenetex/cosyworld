@@ -35,7 +35,7 @@ test("config gives safe defaults and rejects bad numbers", () => {
   assert.equal(config.DISCORD_AMBIENT_QUIET_MS, 120000);
   assert.equal(config.DISCORD_AMBIENT_COOLDOWN_MS, 1800000);
   assert.equal(config.DISCORD_MIN_REPLY_GAP_MS, 60000);
-  assert.equal(config.DISCORD_DAILY_REPLIES, 100);
+  assert.equal(config.DISCORD_DAILY_REPLIES, 500);
   assert.equal(config.DISCORD_DENSITY_WINDOW, 6);
   assert.equal(config.DISCORD_DENSITY_MAX, 2);
   assert.equal(config.DISCORD_CONTEXT_MESSAGES, 12);
@@ -106,7 +106,7 @@ test("addressed messages use a 5 s reply gap, others keep the 60 s gap", () => {
 
 test("the daily cap skips", () => {
   const messages = [human("m1", 0, "RATi, can I come in?")];
-  const decision = decide(room(messages), { replies: 100 }, MIN, config, cast);
+  const decision = decide(room(messages), { replies: 500 }, MIN, config, cast);
   assert.equal(decision.act, "skip");
   assert.equal(decision.reason, "daily-cap");
 });

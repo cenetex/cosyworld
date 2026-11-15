@@ -111,7 +111,7 @@ test("an unfinished line goes on at most twice, as the same resident", async () 
   assert.deepEqual(bodies[1].messages.at(-1), { resident: "rati", text: "Come in, but" });
   assert.equal(bodies[1].addressed, null);
   assert.equal(stats.continued, 2);
-  assert.equal(state.guilds.g1.replies, 3);
+  assert.equal(state.guilds.g1.replies, 1);
   assert.equal(room.busy, false);
 });
 

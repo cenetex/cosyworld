@@ -474,3 +474,17 @@ test("each request carries the channel as seen in memory", () => {
   });
 });
 
+
+test("a full daily cap is logged once a day and silences the room", async () => {
+  const { room, rooms, state } = fixture();
+  state.guilds.g1 = { channelId: "c1", off: false, day: "1970-01-01", replies: config.DISCORD_DAILY_REPLIES };
+  const logs = [];
+  const stats = createStats();
+  const run = (now) => tick({ rooms, state, now, config, cast, lines: async () => ({ lines: [] }), send: async () => {}, save: () => {}, log: (l) => logs.push(l), stats });
+  record(room, message("m1", 0, "RATi, hello?"), "hook", cast);
+  await run(9000);
+  record(room, message("m2", 10000, "RATi, still there?"), "hook", cast);
+  await run(19000);
+  assert.deepEqual(logs, ["daily-cap reached guild=g1"]);
+  assert.equal(stats.skips["daily-cap"], 2);
+});

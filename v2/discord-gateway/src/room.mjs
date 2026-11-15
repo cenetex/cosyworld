@@ -307,7 +307,7 @@ async function goOn(room, guild, first, deps) {
   for (let extra = 0; extra < config.DISCORD_CONTINUE_MAX; extra += 1) {
     const open = unfinished(line.text);
     if (!open && random() >= config.DISCORD_CONTINUE_RATE) return;
-    if (room.heard !== heard || guild.replies >= config.DISCORD_DAILY_REPLIES) return;
+    if (room.heard !== heard) return;
     const halt = new AbortController();
     room.halt = halt;
     room.busy = true;
@@ -326,7 +326,6 @@ async function goOn(room, guild, first, deps) {
       await sleep(pause(next.text), halt.signal);
       if (halt.signal.aborted) return;
       await post(room, line.resident, next.text.trim(), deps);
-      guild.replies += 1;
       stats.continued += 1;
       try {
         save();
@@ -404,7 +403,10 @@ export function tick({
     }
     const decision = decide(room, guild, now, config, cast);
     if (decision.act === "wait") continue;
-    log(`decision act=${decision.act} reason=${decision.reason} guild=${room.guildId} channel=${room.channelId}`);
+    const capped = decision.reason === "daily-cap";
+    if (capped && guild.capped !== day) log(`daily-cap reached guild=${room.guildId}`);
+    if (capped) guild.capped = day;
+    else log(`decision act=${decision.act} reason=${decision.reason} guild=${room.guildId} channel=${room.channelId}`);
     if (decision.reason?.startsWith("conversation")) count(stats.conversation, decision.reason);
     const messageId = room.messages.at(-1).id;
     const before = { gap: room.handledGap, reply: room.lastReplyAt, ambient: room.lastAmbientAt };
