@@ -206,6 +206,7 @@ try {
         vale.want = {
           kind: "item",
           target: "lamp",
+          accepted: true,
           since: s.turn,
           refusals: 0,
         };

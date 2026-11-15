@@ -101,7 +101,7 @@ async function local(width, questAfterWait = false) {
   const world = W.createWorld();
   world.actors.vale.place = world.actors.moth.place = "pond";
   world.actors.moth.want = null;
-  if (questAfterWait) world.actors.vale.want = newWant("item", "oil", world.turn);
+  if (questAfterWait) world.actors.vale.want = { ...newWant("item", "oil", world.turn), accepted: true };
   world.items.lamp.holder = "vale";
   const key = "cosyworld.reflected-shore.v1.present";
   let mode = "reply";
