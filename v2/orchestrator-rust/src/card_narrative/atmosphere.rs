@@ -50,7 +50,6 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
 }
 
 pub(super) fn consistent(text: &str, id: &str) -> bool {
-    // A narrator keeps its own "I" or "we" but never addresses anyone.
     let banned: &[&str] = if narrator(id) {
         &["you", "your", "yours"]
     } else {
