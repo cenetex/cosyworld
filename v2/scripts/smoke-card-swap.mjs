@@ -275,11 +275,15 @@ try {
     assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
     // Put out in a new world's attic: the lamp and the attic turn to their
     // dark faces as the light goes down, keeping their nodes, and the pond
-    // is dealt face down behind the attic.
+    // opens from its locked box behind the attic.
     await startNewGame(page);
     await ready();
     await revealOpening(page);
     await page.waitForTimeout(600);
+    assert.equal(
+      await page.locator('#hand [data-card="pond"]').getAttribute("data-locked"),
+      "true",
+    );
     await page.evaluate(() => {
       document.querySelector('#hand [data-card="lamp"]').swapMark = "kept";
     });
@@ -296,10 +300,10 @@ try {
     assert.equal(douse.valeFrame, "kept");
     const pond = await page.evaluate(() => {
       const card = document.querySelector('#hand [data-card="pond"]');
-      return [card.parentElement.hidden, card.dataset.unrevealed];
+      return [card.parentElement.hidden, card.dataset.unrevealed, card.dataset.locked];
     });
-    // The attic's lone way on is dealt face down at the row's right end.
-    assert.deepEqual(pond, [false, "true"], "the pond is dealt face down");
+    // Opening its lock reveals the attic's lone way at the row's right end.
+    assert.deepEqual(pond, [false, "false", "false"], "the pond's box opens");
     if (reduced) assert.deepEqual(douse.ghosts, []);
     else {
       assert.deepEqual(douse.ghosts.sort(), ["attic", "lamp"]);
