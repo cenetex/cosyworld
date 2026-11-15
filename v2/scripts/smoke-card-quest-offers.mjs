@@ -166,7 +166,7 @@ try {
       await selectCard(page, "vale");
       const fold = page.locator("#hand .quest-fold");
       if (await fold.isVisible()) await fold.click();
-      else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
+      else await tapCard(page.locator("#hand .want-frame > .want-card").first());
       await page.locator("#hand .want-frame:not([hidden]) > .want-card").waitFor();
       await t.ready();
     };
