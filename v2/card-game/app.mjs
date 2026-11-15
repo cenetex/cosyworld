@@ -221,6 +221,7 @@ import {
   waitForScene,
 } from "./dialogue.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
+import { createPagedReveal, speechPages } from "./speech-pages.mjs";
 import {
   currentActor,
   places,
@@ -730,6 +731,7 @@ let storyStatus = "ready",
   renderedHandPlace = null,
   renderedHandState = null,
   speechKey = null,
+  speechPageKey = null,
   speechGlyphs = [],
   shownLetters = 0,
   glyphLines = [],
@@ -1026,6 +1028,38 @@ function measureSpeech() {
   speechScrollTarget = text.scrollTop;
 }
 new ResizeObserver(measureSpeech).observe($("dialogue-text"));
+function speechRoom() {
+  const row = $("speech-row"), text = $("dialogue-text"), stack = row.parentElement;
+  if (row.hidden || text.hidden || stack.hidden || stack.dataset.action === "true")
+    return setStyle(text.style, "--speech-room", null), Infinity;
+  const { bottom, left, right } = stack.getBoundingClientRect(), style = getComputedStyle(row);
+  const chrome = text.offsetTop + row.clientTop + parseFloat(style.paddingBottom) + 17 +
+    ($("beat-captions").hidden ? 0 : $("beat-captions").offsetHeight) +
+    (parseFloat(getComputedStyle(stack).getPropertyValue("--beat-peek")) || 0);
+  let limit = Math.max(document.querySelector(".topbar").getBoundingClientRect().bottom + 8, innerHeight * 0.35);
+  for (const name of $("hand").querySelectorAll(".card-frame:not([hidden]) .name")) {
+    const box = name.getBoundingClientRect();
+    if (box.height && box.bottom < bottom && box.right > left && box.left < right) limit = Math.max(limit, box.bottom + 6);
+  }
+  const room = Math.max(parseFloat(getComputedStyle(text).lineHeight) * 2 || 44, bottom - limit - chrome);
+  setStyle(text.style, "--speech-room", `${Math.floor(room)}px`);
+  return room;
+}
+function paginateSpeech(words, { whole = false } = {}) {
+  const text = $("dialogue-text"), room = speechRoom(), kept = [...text.childNodes], top = text.scrollTop;
+  if (whole || room === Infinity) return [words];
+  const pages = speechPages(words, (part) => ((text.textContent = part), text.scrollHeight <= room + 1));
+  text.replaceChildren(...kept);
+  text.scrollTop = top;
+  return pages;
+}
+let speechRoomTimer = 0;
+const syncSpeechRoom = () => {
+  clearTimeout(speechRoomTimer);
+  speechRoomTimer = setTimeout(() => reveal.repage(), 300);
+};
+const speechRoomWatch = new ResizeObserver(syncSpeechRoom);
+[$("dialogue-text"), $("hand")].forEach((part) => speechRoomWatch.observe(part));
 function replyPending() {
   return sharedSession
     ? Boolean(shownSceneLine && storyStatus === "pending" &&
@@ -1034,13 +1068,13 @@ function replyPending() {
 }
 function updateSpeechControls(complete) {
   complete &&= inscribing.size === 0;
-  const waiting = !reviewing && replyPending();
+  const waiting = !reviewing && replyPending() && !reveal.morePages;
   const { frontIndex, liveIndex, pending } = stackView;
   const own = frontIndex === liveIndex && pending?.own;
   const cancel = own?.cancel && (thinkingArmed ? "Confirm" : own.committed ? "Stop waiting" : "Cancel");
   const sharedForward = sharedSession && shownSceneLine && !sharedAdvanceRequested &&
     (ownPlayInFlight() || sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq));
-  const forward = (reviewing && (frontIndex < liveIndex || choiceInStack())) ||
+  const forward = reveal.morePages || (reviewing && (frontIndex < liveIndex || choiceInStack())) ||
     exchange.hasNext || sharedForward || queuedChoice;
   const label = reviewing ? "Step forward to a later beat" : "Continue to the next beat";
   const dreamTap = sleepView.dreamTap;
@@ -1119,7 +1153,8 @@ function writeActionMessage(root, text, key, name) {
   if (frame?.key === key) painter.paint(frame);
   else actionReveal.show(key, text, currentActor(world));
 }
-const reveal = createTextReveal({
+const reveal = createPagedReveal({
+  paginate: paginateSpeech,
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
     if (
@@ -1135,10 +1170,6 @@ const reveal = createTextReveal({
     if (speechKey !== value.key) {
       speechKey = value.key;
       completedSpokenLine = null;
-      shownLetters = 0;
-      speechComplete = null;
-      text.scrollTop = 0;
-      speechSounds.stop();
       if (shownSceneLine?.silent) characterSpeech.clear();
       else
         characterSpeech.show(
@@ -1147,28 +1178,33 @@ const reveal = createTextReveal({
           value.text,
           sharedVoiceReference(sharedSession?.state, shownSceneLine),
         );
-      speechGlyphs = letterSpans(value.text);
-      text.replaceChildren(...speechGlyphs);
-      nameLetters(speechGlyphs, value.text, sceneCards());
-      speechPainter.start(speechGlyphs);
-      measureSpeech();
       $("speech-announcement").textContent = "";
     }
-    speechPainter.paint(value);
+    if (speechPageKey !== value.pageKey) {
+      speechPageKey = value.pageKey;
+      shownLetters = 0;
+      speechComplete = null;
+      text.scrollTop = 0;
+      speechSounds.stop();
+      speechGlyphs = letterSpans(value.page);
+      text.replaceChildren(...speechGlyphs);
+      text.dataset.page = value.pageKey.split("#").at(-1).split(":")[0];
+      nameLetters(speechGlyphs, value.page, sceneCards());
+      speechPainter.start(speechGlyphs);
+      measureSpeech();
+    }
+    speechPainter.paint({ shown: value.shown, complete: value.pageComplete });
     shownLetters = value.shown;
-    if (speechComplete !== value.complete) {
-      speechComplete = value.complete;
-      updateSpeechControls(value.complete);
+    if (speechComplete !== value.pageComplete) {
+      speechComplete = value.pageComplete;
+      updateSpeechControls(value.pageComplete);
       // A read line lets a play in flight show its Thinking card.
       queueMicrotask(() =>
         value.complete && ownPlayInFlight() ? renderScene() : syncPhase(),
       );
     }
-    // Layout is measured once per line or resize, then reused for each
-    // letter. A line that outgrows the box turns a page: the new line starts
-    // at the top, and the words being read never slide.
     const [top, bottom] = glyphLines[Math.max(0, shownLetters - 1)] || [0, 0];
-    if (!value.complete && bottom > speechScrollTarget + speechHeight) {
+    if (!value.pageComplete && bottom > speechScrollTarget + speechHeight) {
       speechScrollTarget = top;
       text.scrollTop = top;
     }
@@ -4421,6 +4457,7 @@ function renderScene() {
       keepPrefetch: Boolean(localRuntime() && exchange.preparing),
     });
     speechKey = null;
+    speechPageKey = null;
     $("dialogue-text").replaceChildren();
     // An action beat is announced when it arrives live.
     const announce =
@@ -4432,7 +4469,7 @@ function renderScene() {
       $("speech-announcement").textContent = announce;
     } else if (!announce) $("speech-announcement").textContent = "";
   }
-  updateSpeechControls(reveal.complete);
+  updateSpeechControls(reveal.pageComplete);
   // The card behind is one earlier beat: tap it to step back in time.
   const behindButton = $("beat-behind");
   behindButton.hidden = !behind;
@@ -4501,7 +4538,7 @@ function inscribe(item, text) {
       if (!value.complete || !inscribing.has(item)) return;
       item.classList.remove("inscribe");
       inscribing.delete(item);
-      updateSpeechControls(reveal.complete);
+      updateSpeechControls(reveal.pageComplete);
       syncPhase();
     },
   });
@@ -4671,7 +4708,7 @@ new ResizeObserver(([entry]) => {
   // Let this measurement finish before it changes the hand and dock sizes.
   dialogueResizeFrame = requestAnimationFrame(() => {
     dialogueResizeFrame = 0;
-    setStyle(document.body.style, "--dialogue-size", `${dialogueSize}px`);
+    setStyle(document.body.style, "--dialogue-size", `${$("action-beat").hidden ? 0 : dialogueSize}px`);
   });
 }).observe(document.querySelector(".dialogue"));
 function syncActionBeat() {
@@ -4688,7 +4725,7 @@ function syncActionBeat() {
     syncLiveBeat();
     if (show && choiceInStack())
       $("dialogue-advance").setAttribute("aria-label", "Step back in dialogue");
-    else if (!panel.hidden) updateSpeechControls(reveal.complete);
+    else if (!panel.hidden) updateSpeechControls(reveal.pageComplete);
   }
   if (panel.hidden !== show) return;
   if (!drawn) {
@@ -4821,10 +4858,14 @@ function stepForward() {
 // Tap the front card: finish the line, step toward live, or move the
 // exchange on to its next speaker.
 function advanceFront() {
-  if (!$("dialogue-text").hidden && !reveal.complete) {
+  if (!$("dialogue-text").hidden && !reveal.pageComplete) {
     count("line.finish_early");
     reveal.finish();
     speechSounds.stop();
+    return;
+  }
+  if (!$("dialogue-text").hidden && reveal.nextPage()) {
+    updateSpeechControls(false);
     return;
   }
   if (stepForward()) return;
@@ -4841,7 +4882,7 @@ function advanceFront() {
       syncSharedLine();
       renderActions();
     } else exchange.advance();
-    updateSpeechControls(reveal.complete);
+    updateSpeechControls(reveal.pageComplete);
   }
 }
 $("speech-row").addEventListener(
@@ -5760,6 +5801,7 @@ window.addEventListener("storage", (event) => {
   exchange.cancel();
   reveal.cancel();
   speechKey = null;
+  speechPageKey = null;
   speechSounds.stop();
   try {
     const previous = world, previousQuests = shownQuests;

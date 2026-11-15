@@ -390,6 +390,7 @@ const files = [
   "expression.mjs",
   "emoji-symbols.json",
   "dialogue.mjs",
+  "speech-pages.mjs",
   "card-names.mjs",
   "character-speech.mjs",
   "hosted-voices.mjs",

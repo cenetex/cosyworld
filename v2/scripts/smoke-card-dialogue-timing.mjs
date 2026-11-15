@@ -250,12 +250,16 @@ try {
             await page.locator("#speaker-portrait").getAttribute("data-entity"),
             speaker,
           );
-          if (
-            (await page
-              .locator("#dialogue-advance")
-              .getAttribute("data-revealing")) === "true"
-          )
-            await page.locator("#dialogue-advance").click();
+          const advance = page.locator("#dialogue-advance");
+          const at = page.locator("#dialogue-text");
+          const turning = async () =>
+            /^(\d+)\/(?!\1$)/.test((await at.getAttribute("data-page")) || "");
+          for (let p = 0; p < 9; p++) {
+            if ((await advance.getAttribute("data-revealing")) === "true")
+              await advance.click();
+            if (!(await turning())) break;
+            await advance.click();
+          }
           assert.equal(await card("vale").isDisabled(), false);
           if (kind === "wait" && i === speakers.length - 1) {
             queuedTurn = (await state()).turn;
@@ -286,7 +290,7 @@ try {
             }
             break;
           }
-          await page.locator("#dialogue-advance").click();
+          await advance.click();
           if (i < speakers.length - 1) {
             // The next beat arrives in front while the finished one recedes.
             assert.equal(await card("vale").isDisabled(), false);
