@@ -354,6 +354,22 @@ export function installPacks(s) {
       s.items[id] = structuredClone(item);
       s.memories[id] ??= fresh[id];
     }
+  for (const [id, person] of Object.entries(forest.people))
+    if (person.place && !s.actors[id]) {
+      s.actors[id] = {
+        place: person.place,
+        crossed: 0,
+        lastTalk: -9,
+        trust: Object.fromEntries(
+          actorIds.filter((other) => other !== id).map((other) => [other, 0]),
+        ),
+      };
+      for (const other of Object.keys(s.actors))
+        if (other !== id) s.actors[other].trust[id] ??= 0;
+      s.peaceUntil[id] = 0;
+      s.memories[id] ??= fresh[id];
+      if (s.motives) s.motives.grievances[id] ??= [];
+    }
   // A crossing these rules no longer have, such as a home's old pond door,
   // leaves the save.
   for (const home of Object.keys(humanHomeGates))
@@ -409,6 +425,30 @@ export function installPacks(s) {
   installRouteKnowledge(s);
   installWants(s);
 }
+export function movesTo(world, actor, to) {
+  const from = world.actors[actor].place;
+  const steps = new Map([[from, 0]]),
+    came = new Map(),
+    queue = [from];
+  for (let i = 0; i < queue.length; i++) {
+    const here = queue[i];
+    if (here === to) return steps.get(here);
+    const projected = {
+      ...world,
+      actors: {
+        ...world.actors,
+        [actor]: { ...world.actors[actor], place: here },
+      },
+    };
+    for (const next of exits(projected, here, actor, came.get(here) ?? null))
+      if (!steps.has(next)) {
+        steps.set(next, steps.get(here) + 1);
+        came.set(next, here);
+        queue.push(next);
+      }
+  }
+  return null;
+}
 // Travellers who learn the roads start from their home region's routes.
 export function installRouteKnowledge(s) {
   s.routeKnowledge ??= {};
@@ -444,12 +484,15 @@ import { boxIdOpen, creditOpened, validOpened } from "./world/boxes.mjs";
 import {
   dreamCard,
   installArcana,
+  sells,
   settleArcana,
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
 import { questOffers } from "./world/offers.mjs";
-import { goneSince } from "./world/for-good.mjs";
+import { giveUpForGood, goneSince } from "./world/for-good.mjs";
+import { settleStops } from "./world/stops.mjs";
+const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
 export { questOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
@@ -620,6 +663,7 @@ function refusalReason(s, a) {
 // What the other side will say to a Give or Trade. The residents' planner
 // reads this to avoid some offers it expects to be refused.
 export function expects(s, a) {
+  if (a.kind === "give" && keepsForGood(a.target)) return sells(s, a.actor);
   if (a.kind === "give")
     return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
   if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
@@ -2562,6 +2606,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
         trustGiver(s, a.target, a.item, a.actor);
       transfer(s, a.item, a.target, a.text);
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
+      else if (keepsForGood(a.target)) giveUpForGood(s, a.item);
       break;
     }
     case "ring":
@@ -3352,6 +3397,15 @@ export function play(
       arriveRoamingRecitals(next, packDefinitions, id);
   }
   residentRound(next, [actor, respondent, ...residents].filter(Boolean));
+  settleStops(next, {
+    distance: (traveler, to) => movesTo(next, traveler, to),
+    arrive: (id, to) =>
+      addLog(next, "World", `${nameOf(id)} arrives.`, {
+        kind: "narration",
+        actorId: id,
+        locationId: to,
+      }),
+  });
   companionRound(
     next,
     [actor, respondent, ...residents].filter(Boolean),

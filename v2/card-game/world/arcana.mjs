@@ -29,6 +29,7 @@ import { sleepQuest } from "../want.mjs";
 
 export const deck = { cards: data.cards };
 export { arcanaLevel, isArcanum, recordOf };
+export const sells = (s, traveler) => recordOf(s, traveler).sale;
 
 export function resolve(value, binding) {
   if (typeof value === "string")
@@ -422,12 +423,13 @@ export function validArcana(s) {
       keys.includes("did") &&
       keys.includes("proved") &&
       keys.every((key) =>
-        ["base", "calls", "dealt", "did", "proved"].includes(key),
+        ["base", "calls", "dealt", "did", "proved", "sale"].includes(key),
       ) &&
       (record.calls === undefined ||
         (Number.isSafeInteger(record.calls) &&
           record.calls >= 1 &&
           record.calls <= CALLS)) &&
+      (record.sale === undefined || record.sale === true) &&
       validList(record.did) &&
       validList(record.proved) &&
       (record.dealt === undefined

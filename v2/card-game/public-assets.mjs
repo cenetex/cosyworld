@@ -318,6 +318,7 @@ const files = [
   "world/boxes.mjs",
   "world/arcana.mjs",
   "world/arcana-record.mjs",
+  "world/stops.mjs",
   "world/lock-goals.mjs",
   "world/want-words.mjs",
   "world/company.mjs",
@@ -432,6 +433,7 @@ const files = [
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
   ),
+  ...["", "-offering"].map((pose) => `assets/listener/listener${pose}.webp`),
   // Keep the art URLs published by earlier Rust releases.
   ...[
     "antigone",

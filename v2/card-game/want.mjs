@@ -15,6 +15,7 @@ import {
   packOf,
   packPeople,
 } from "./pack-registry.mjs";
+import forest from "./forest.json" with { type: "json" };
 import { DAYLIGHT_TURNS, packDiscovered, runHash } from "./pack-rules.mjs";
 import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
@@ -68,8 +69,9 @@ export const knownActors = (s) =>
         s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
 // Pack residents keep to their own scene unless their data lets them travel.
+export const wantless = (id) => forest.people[id]?.wants === false;
 export const travels = (id, s = null) =>
-  !isPackActor(id) ||
+  (!isPackActor(id) && forest.people[id]?.travels !== false) ||
   freed(s, id) ||
   id === BOARDY ||
   humanAvatarIds.includes(id) ||
@@ -289,7 +291,8 @@ export function stagedNext(s, id, previous = null) {
 // Every actor carries a want record, experience and what it has seen.
 export function installWants(s) {
   for (const [id, a] of Object.entries(s.actors)) {
-    if (!("want" in a)) {
+    if (wantless(id)) a.want = null;
+    else if (!("want" in a)) {
       // A player has no authored want: it takes its quests by a tap. A
       // resident with staged wants takes one of them, else its authored want.
       const w = humanAvatarIds.includes(id) ? null : authoredWant(id);
@@ -396,6 +399,7 @@ export function wantCandidates(
 // all of it seen, curiosity starts over from here; then anything known, and
 // at last even the want just met, again. A player is never drawn a want.
 export function nextWant(s, actor, api, previous = null) {
+  if (wantless(actor)) return null;
   const staged = stagedNext(s, actor, previous);
   if (staged) return staged;
   const roll = runHash(s, `want:${actor}:${s.turn}`);
@@ -720,7 +724,7 @@ function sawLost(s, id, lost, action, api) {
 export function fillWants(s, api, now = false) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (a.want) delete a.content;
-    if (api.player(id)) continue;
+    if (api.player(id) || wantless(id)) continue;
     if (
       !a.want &&
       entityActive(s, id) &&

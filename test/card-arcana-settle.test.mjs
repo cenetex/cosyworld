@@ -228,6 +228,7 @@ describe("the saved record", () => {
       dealt: null,
       base: {},
       calls: 0,
+      sale: false,
     });
     expect(fresh.actors.vale.arcana).toBeUndefined();
     const s = act(act(fresh, "move"), "wait");

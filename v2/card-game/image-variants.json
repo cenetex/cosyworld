@@ -4310,6 +4310,33 @@
       "phone": "assets/optimized/stage/png/lamp-card.webp",
       "phoneHash": "2948748c10d7fd740f566debc6d57d83058d18b952f705db969192249603d47d"
     },
+    "assets/listener/listener-offering.webp": {
+      "sourceHash": "3803f98b15184bb8e8c65ccde2042e968f25604a407f9d57703a4ed0cfd9a09a",
+      "stage": "assets/listener/listener-offering.webp",
+      "stageHash": "3803f98b15184bb8e8c65ccde2042e968f25604a407f9d57703a4ed0cfd9a09a",
+      "card": "assets/optimized/card/webp/listener/listener-offering.webp",
+      "cardHash": "a5ae8251ed561ccffad76913e11f31ad0b7915a6c437f6ee960bb812a331eb7f",
+      "phone": "assets/optimized/phone/webp/listener/listener-offering.webp",
+      "phoneHash": "2e3ff448b23868f2a9dac209aba76708b822ea6a90448e389909c95d1561feae"
+    },
+    "assets/listener/listener-sleeping.webp": {
+      "sourceHash": "025a1208082919c233f1afa11e7ed60814975679a1a6b9dac3e81a2539215e04",
+      "stage": "assets/listener/listener-sleeping.webp",
+      "stageHash": "025a1208082919c233f1afa11e7ed60814975679a1a6b9dac3e81a2539215e04",
+      "card": "assets/optimized/card/webp/listener/listener-sleeping.webp",
+      "cardHash": "f52478ab35e1d176abe80c9076c4544d3cc94976295deb7a03428cf9dfb6cde5",
+      "phone": "assets/optimized/phone/webp/listener/listener-sleeping.webp",
+      "phoneHash": "d9c40a1cc63cc6f8ecfdaa4b835b8b47b6835a816752a53931bd9f597b5025a7"
+    },
+    "assets/listener/listener.webp": {
+      "sourceHash": "5e570ca4a0ddc3c77689fb7455cf4ee24ce9b8595dffb8406490892beedd4ac8",
+      "stage": "assets/listener/listener.webp",
+      "stageHash": "5e570ca4a0ddc3c77689fb7455cf4ee24ce9b8595dffb8406490892beedd4ac8",
+      "card": "assets/optimized/card/webp/listener/listener.webp",
+      "cardHash": "765b583f3395bcdf6357a2982516a81dd45eff0b9f06796062dd7b80191ea11d",
+      "phone": "assets/optimized/phone/webp/listener/listener.webp",
+      "phoneHash": "f637ba089f654433474e855004714c77046c0c064f9357688d4d4c2abcb4c638"
+    },
     "assets/lonely-forest/arcanum-0.png": {
       "sourceHash": "4d437b2f496f71b0448031eddc4f5e5a705d5f08f993438bab7e188290955853",
       "stage": "assets/optimized/stage/png/lonely-forest/arcanum-0.webp",

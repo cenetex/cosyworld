@@ -77,6 +77,7 @@ const RULES = [
   "world/for-good.mjs",
   "world/senses.mjs",
   "world/station.mjs",
+  "world/stops.mjs",
   "world/want-words.mjs",
 ];
 

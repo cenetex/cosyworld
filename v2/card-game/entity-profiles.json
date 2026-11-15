@@ -14,6 +14,11 @@
     "name": "The keeper",
     "seed": "The keeper of the empty station."
   },
+  "listener": {
+    "kind": "avatar",
+    "name": "The Listener",
+    "seed": "The Listener, behind the grille of a box on wheels."
+  },
   "lamp": {
     "kind": "item",
     "name": "Lamp",

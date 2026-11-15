@@ -10,8 +10,8 @@ import { arcanumArt } from "./glimpse-card.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
-  exits,
   itemPlace,
+  movesTo,
   nameOf,
   places,
   rootHolder,
@@ -130,30 +130,8 @@ export function questCaption(
 }
 
 // Places between here and there along the routes this avatar can use now.
-export function questDistance(world, actor, to) {
-  const from = world.actors[actor].place;
-  const steps = new Map([[from, 0]]),
-    came = new Map(),
-    queue = [from];
-  for (let i = 0; i < queue.length; i++) {
-    const here = queue[i];
-    if (here === to) return steps.get(here);
-    const projected = {
-      ...world,
-      actors: {
-        ...world.actors,
-        [actor]: { ...world.actors[actor], place: here },
-      },
-    };
-    for (const next of exits(projected, here, actor, came.get(here) ?? null))
-      if (!steps.has(next)) {
-        steps.set(next, steps.get(here) + 1);
-        came.set(next, here);
-        queue.push(next);
-      }
-  }
-  return null;
-}
+export const questDistance = (world, actor, to) =>
+  movesTo(world, actor, to);
 
 // The place a quest card's screen shows behind its figures, or null: a
 // step's own place (`at`) once it is known, or else where the player stands

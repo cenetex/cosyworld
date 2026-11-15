@@ -4,7 +4,11 @@
 //             offers it this visit (offer-chance.mjs)
 //   home      your own home's door, shut
 //
-import { entityActive } from "../pack-registry.mjs";
+import { entityActive, neverBack, packOf } from "../pack-registry.mjs";
+import { packDiscovered, runHash } from "../pack-rules.mjs";
+import { usedUp } from "../item-use.mjs";
+import { arcanaLevel, recordOf } from "./arcana-record.mjs";
+import { rootHolder } from "./items.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
   MAX_HELD,
@@ -23,7 +27,8 @@ import { boxWant, shutBoxesAt } from "./boxes.mjs";
 import { nameOf, people } from "./catalog.mjs";
 import { travelerOf } from "./company.mjs";
 
-export const OFFER_KINDS = ["box", "resident", "home"];
+export const OFFER_KINDS = ["box", "resident", "home", "listener"];
+const LISTENER = "listener";
 export const offerId = (kind, source) =>
   `quest:${kind === "resident" ? "from" : kind}:${source}`;
 export const isOfferId = (id) => typeof id === "string" && id.startsWith("quest:");
@@ -106,5 +111,60 @@ export function questOffers(s, actor = currentActor(s)) {
       continue;
     add("resident", them, questFor(s, them, want));
   }
+  if (
+    recordOf(s, actor).sale &&
+    s.actors[LISTENER]?.place === here &&
+    entityActive(s, LISTENER) &&
+    !Object.values(s.items).some((item) => item.holder === actor)
+  )
+    for (const target of fetchPool(s, actor))
+      add("listener", target, {
+        ...newWant("item", target, s.turn),
+        story: true,
+        step: { verb: "give", to: LISTENER },
+      });
   return out;
+}
+
+function fetchPool(s, actor) {
+  const level = arcanaLevel(s, actor);
+  const order = (ids) =>
+    ids
+      .map((id) => [runHash(s, `listener-fetch:${actor}:${level}:${id}`), id])
+      .sort(([x, a], [y, b]) => x - y || (a < b ? -1 : 1))
+      .map(([, id]) => id);
+  const known = (id) => {
+    const pack = packOf(id);
+    return !pack || packDiscovered(s, pack.id);
+  };
+  const wanted = (active) =>
+    new Set(
+      Object.entries(s.actors)
+        .filter(
+          ([id, a]) =>
+            !humanAvatar(id) &&
+            a.want?.kind === "item" &&
+            (!active || entityActive(s, id)),
+        )
+        .map(([, a]) => a.want.target),
+    );
+  const fits = (id) =>
+    Object.hasOwn(s.items, id) &&
+    !neverBack(s, id) &&
+    !usedUp(s, id) &&
+    ![actor, LISTENER].includes(rootHolder(s, id));
+  const near = wanted(true),
+    far = wanted(false);
+  const ids = Object.keys(s.items);
+  const tiers = [
+    ids.filter((id) => near.has(id) && known(id)),
+    ids.filter((id) => entityActive(s, id) && known(id)),
+    ids.filter((id) => far.has(id)),
+    ids,
+  ];
+  const pool = [];
+  for (const tier of tiers)
+    for (const id of order(tier.filter(fits)))
+      if (pool.length < 3 && !pool.includes(id)) pool.push(id);
+  return pool;
 }

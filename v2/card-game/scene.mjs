@@ -101,6 +101,9 @@ export function portrait(id, facing = null, world = null) {
         residentPose(world, id),
       )
     }`;
+  const hub = people[id];
+  if (hub?.portrait)
+    return `./${residentPose(world, id)?.portrait ?? hub.portrait}`;
   return `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
 }
 
@@ -108,14 +111,16 @@ export function portrait(id, facing = null, world = null) {
 // conditions hold. It reads committed state only, so local and shared tables
 // show the same sprite; portrait() returns that sprite's path.
 export function residentPose(world, id) {
-  const resident = packPeople[id];
+  const resident = packPeople[id] ?? people[id];
   const place = world?.actors?.[id]?.place;
   if (!resident?.poses || !place) return null;
+  const holds = (requires) =>
+    resident.packId
+      ? conditionsMet(world, resident.packId, requires)
+      : requires.every((c) => conditionMet(world, c, null));
   return (
     resident.poses.find(
-      (pose) =>
-        (!pose.at || pose.at === place) &&
-        conditionsMet(world, resident.packId, pose.requires),
+      (pose) => (!pose.at || pose.at === place) && holds(pose.requires),
     ) || null
   );
 }

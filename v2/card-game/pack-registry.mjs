@@ -15,6 +15,7 @@ import { gone, usedUp, useUp, bringBack } from "./item-use.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
+import forest from "./forest.json" with { type: "json" };
 import {
   humanHomePack,
   currentActor,
@@ -238,12 +239,13 @@ export const freed = (world, id) =>
   Array.isArray(packPeople[id]?.stayUntil) &&
   conditionsMet(world, packPeople[id].packId, packPeople[id].stayUntil, id);
 export const staysPut = (id, world = null) =>
-  packPeople[id]?.travels === false && !freed(world, id);
+  (packPeople[id] ?? forest.people[id])?.travels === false && !freed(world, id);
 export const packJourneyDestination = (world, id) =>
   journeyNextPlace(world, packOf(id), id);
 export const recordJourneyTravel = (world, id, from, to) =>
   advanceJourney(world, packOf(id), id, from, to);
-export const avoidsStandoffs = (id) => packPeople[id]?.standoffs === false;
+export const avoidsStandoffs = (id) =>
+  (packPeople[id] ?? forest.people[id])?.standoffs === false;
 export const fixturesAt = (place) =>
   Object.entries(packFixtures)
     .filter(([, f]) => f.at === place)
@@ -407,7 +409,10 @@ export function entityEnabled(world, id, saved = false, lockView = false) {
   if (!saved && world.disabledPacks && !packOn(world, packIdOf(id)))
     return false;
   const e = packEntity(id);
-  if (!e) return true;
+  if (!e)
+    return (forest.people[id]?.appearsWhen || []).every((c) =>
+      evaluateCondition(world, c, null),
+    );
   if (
     waitingAtHome(world, id) &&
     !entityEnabled(world, e.home, saved, lockView)
@@ -556,7 +561,12 @@ export function packExits(world, place, actor = null) {
 export function actorCanVisit(actor, place, world = null) {
   if (actor === BOARDY) return true;
   if (world?.invitedPlaces?.[actor]?.includes(place)) return true;
-  if (!actor || humanAvatarIds.includes(actor) || roamingQuestActor(actor))
+  if (
+    !actor ||
+    humanAvatarIds.includes(actor) ||
+    roamingQuestActor(actor) ||
+    forest.people[actor]?.stops
+  )
     return true;
   const a = packPeople[actor],
     destination = packPlaces[place];
