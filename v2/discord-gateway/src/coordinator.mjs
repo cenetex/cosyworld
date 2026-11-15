@@ -78,8 +78,7 @@ export function payload(room, config, cast, now = Date.now()) {
     residents: view,
     history,
   };
-  const notes = Object.values(room.talks ?? {}).find((talk) => talk.notes)?.notes;
-  if (notes) state.notes = notes;
+  if (room.notes) state.notes = room.notes;
   if (room.jev) state.previous = room.jev.answers;
   return { pack: config.DISCORD_PACK, residents, people: humans.map((h) => h.name), state };
 }
@@ -164,13 +163,32 @@ export function steer(decision, answers, cast, config, stats) {
   return decision;
 }
 
+const LIMITS = { topic: 40, goal: 120, summary: 300 };
+
+export async function refresh(room, { config, notes, log }) {
+  if (!notes || room.heard - (room.notedHeard ?? 0) < config.DISCORD_NOTES_EVERY) return;
+  room.notedHeard = room.heard;
+  const messages = room.messages
+    .slice(-12)
+    .map((entry) => (entry.resident ? { resident: entry.resident, text: entry.text } : { author: entry.author, text: entry.text }));
+  const body = { pack: config.DISCORD_PACK, messages, ...(room.notes ? { notes: room.notes } : {}) };
+  const found = (await notes(body).catch(() => null))?.notes;
+  const fits = (key) => typeof found?.[key] === "string" && found[key].trim() && Array.from(found[key]).length <= LIMITS[key];
+  if (!Object.keys(LIMITS).every(fits)) {
+    log(`notes miss guild=${room.guildId} channel=${room.channelId}`);
+    return;
+  }
+  room.notes = { topic: found.topic, goal: found.goal, summary: found.summary };
+  log(`notes update topic=${found.topic.length} goal=${found.goal.length} summary=${found.summary.length} guild=${room.guildId} channel=${room.channelId}`);
+}
+
 export function noteSoon(room, deps, timers = globalThis) {
   if (!deps.coordinate) return;
   timers.clearTimeout(room.noteTimer);
   room.noteTimer = timers.setTimeout(() => {
     if (room.noting) return;
     room.noting = true;
-    consult(room, deps, deps.config.DISCORD_COORDINATE_INLINE_MS * 3)
+    Promise.all([consult(room, deps, deps.config.DISCORD_COORDINATE_INLINE_MS * 3), refresh(room, deps)])
       .catch(() => {})
       .finally(() => {
         room.noting = false;

@@ -30,6 +30,7 @@ const NUMBERS = {
   DISCORD_DECISION_MS: 3600000,
   DISCORD_JEV_THRESHOLD: 0.6,
   DISCORD_MAX_RESPONDERS: 2,
+  DISCORD_NOTES_EVERY: 4,
 };
 
 function number(value, fallback) {

@@ -43,6 +43,20 @@ export async function coordinate(fetch, origin, token, body, signal) {
   }
 }
 
+export async function conversationNotes(fetch, origin, token, body) {
+  try {
+    const response = await fetch(`${origin}/discord/notes`, {
+      method: "POST",
+      headers: { ...headers(token), "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    return response.status === 200 ? await response.json() : { notes: null, reason: `http-${response.status}` };
+  } catch {
+    return { notes: null, reason: "error" };
+  }
+}
+
 export async function channelLines(fetch, origin, token, body, signal) {
   try {
     const response = await fetch(`${origin}/discord/lines`, {

@@ -5,7 +5,7 @@ import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
 import { calm, createRoom, createStats, nudge, record, seed, summary, tick } from "./room.mjs";
 import { startHealth } from "./health.mjs";
 import { wait } from "./beats.mjs";
-import { channelLines, coordinate, fetchCast } from "./orchestrator.mjs";
+import { channelLines, conversationNotes, coordinate, fetchCast } from "./orchestrator.mjs";
 import { noteSoon } from "./coordinator.mjs";
 
 const config = readConfig(process.env);
@@ -94,6 +94,10 @@ function run(targets, now = Date.now()) {
   });
 }
 
+function jot(body) {
+  return conversationNotes(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body);
+}
+
 function ask(body, signal) {
   return coordinate(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal);
 }
@@ -155,7 +159,7 @@ client.on(Events.MessageCreate, (message) => {
   if (!room) return;
   const entry = record(room, message, room.webhookId, cast, stats);
   nudge(room, entry, cast, { delay: config.DISCORD_ADDRESSED_DEBOUNCE_MS, run: answerNow });
-  noteSoon(room, { config, cast, coordinate: ask, stats, log });
+  noteSoon(room, { config, cast, coordinate: ask, notes: jot, stats, log });
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

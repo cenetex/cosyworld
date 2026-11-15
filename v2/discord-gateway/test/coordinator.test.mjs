@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
 import { emptyState } from "../src/channel.mjs";
-import { noteSoon, payload } from "../src/coordinator.mjs";
+import { noteSoon, payload, refresh } from "../src/coordinator.mjs";
 import { createRoom, createStats, record, summary, tick } from "../src/room.mjs";
 
 const config = readConfig({ ORCHESTRATOR_URL: "https://cosyworld.example", DISCORD_COORDINATE_INLINE_MS: "20" });
@@ -142,4 +142,23 @@ test("the payload keeps the hour of history and labels replies", () => {
   assert.deepEqual(body.state.history.at(-1), { person: "Bea", text: "me too", ago: 0, replyTo: "Ash" });
   assert.deepEqual(body.state.participants.find((p) => p.name === "Bea").talkedTo, ["Ash"]);
   assert.equal(payload(room, config, cast, 200000 + 3600001 + 160000).state.history.length, 0);
+});
+
+test("notes refresh off the reply path every few messages and feed the Jev state", async () => {
+  const fixed = fixture([]);
+  const sent = [];
+  const answers = [{ notes: { topic: "", goal: "g", summary: "s" } }, { notes: { topic: "tea", goal: "share tea", summary: "Ash asks RATi for tea." } }];
+  const deps = { config, notes: async (body) => (sent.push(body), answers.shift()), log: (line) => fixed.logs.push(line) };
+  for (let n = 1; n <= 3; n += 1) hear(fixed, `m${n}`, n * 1000, `RATi, tea ${n}?`, A);
+  await refresh(fixed.room, deps);
+  assert.equal(sent.length, 0);
+  hear(fixed, "m4", 4000, "RATi, tea?", A);
+  await refresh(fixed.room, deps);
+  assert.equal(fixed.room.notes, undefined);
+  for (let n = 5; n <= 8; n += 1) hear(fixed, `m${n}`, n * 1000, `more tea ${n}`, A);
+  await refresh(fixed.room, deps);
+  assert.equal(sent.length, 2);
+  assert.deepEqual(sent[1].messages.at(-1), { author: "Ash", text: "more tea 8" });
+  assert.equal(payload(fixed.room, config, cast, 9000).state.notes.topic, "tea");
+  assert.deepEqual(fixed.logs, ["notes miss guild=g1 channel=c1", "notes update topic=3 goal=9 summary=22 guild=g1 channel=c1"]);
 });
