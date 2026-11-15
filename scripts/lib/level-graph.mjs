@@ -1,5 +1,4 @@
 // Extract a pack's space graph and mission graph from its authored data.
-//
 // The space graph is the places and the ways between them (exits, routes,
 // crossings, sea lanes). The mission graph is what the ways, residents and
 // things are shut behind (flags, choices, items, acts, wants) and which acts
