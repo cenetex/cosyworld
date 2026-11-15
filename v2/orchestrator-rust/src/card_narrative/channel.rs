@@ -1734,7 +1734,7 @@ mod tests {
         std::env::set_var("COSYWORLD_DISCORD_NOTES_MODEL", "test-entity-model");
         let post_notes = |answer: &'static str, body: Value| async move {
             let seen = Arc::new(Mutex::new(Vec::new()));
-            let (address, server) = serve(provider(seen.clone(), answer, None)).await;
+            let (address, server) = serve(provider(seen.clone(), "{}", Some(answer))).await;
             let app = router_with_models::<()>(
                 Arc::new(Some(intent_config(address))),
                 Ok(BTreeMap::new()),
