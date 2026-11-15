@@ -24,7 +24,7 @@ function next(choice, p) {
 function fixture(answers, extra = {}) {
   const room = createRoom("g1", "c1");
   room.webhookId = "hook";
-  const fixed = { room, sent: [], asks: [], logs: [], stats: createStats(), state: emptyState() };
+  const fixed = { room, sent: [], payloads: [], asks: [], logs: [], stats: createStats(), state: emptyState() };
   fixed.deps = {
     config,
     cast,
@@ -40,6 +40,7 @@ function fixture(answers, extra = {}) {
     },
     lines: async (body) => ({ lines: [{ id: body.addressed, text: `${body.addressed} line ${fixed.sent.length + 1}.` }] }),
     send: async (target, payload) => {
+      fixed.payloads.push(payload);
       fixed.sent.push(payload.username.split(" ")[0]);
       return { id: `s${fixed.sent.length}`, createdTimestamp: Date.now() };
     },
@@ -57,6 +58,7 @@ test("Jev's next speaker answers, the next ask lets another follow, and none end
   const fixed = fixture([next("vale", 0.8), next("rati", 0.7), next("none", 0.9)]);
   await fixed.hear("m1", "Vale have you met RATi?");
   assert.deepEqual(fixed.sent, ["Vale", "RATi"]);
+  assert.deepEqual(fixed.payloads[0].allowedMentions, { parse: [] });
   assert.equal(fixed.asks.length, 3);
   assert.deepEqual(fixed.asks[0].residents.slice(0, 2), ["vale", "rati"]);
   assert.equal(fixed.asks[1].state.history.at(-1).resident, "vale");
