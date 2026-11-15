@@ -42,6 +42,7 @@ import { arrive, hideAvatar } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
+import { claimQuestConsent } from "./want.mjs";
 
 function validateTransition(world) {
   settleHeldItems(world);
@@ -223,6 +224,7 @@ export function dispatchShared(request) {
     return response(world);
   }
   if (request.op === "join") {
+    if (!world.heldActors.includes(actor)) claimQuestConsent(world, actor);
     if (!world.controlledActors.includes(actor))
       world.controlledActors.push(actor);
     if (!world.heldActors.includes(actor)) world.heldActors.push(actor);

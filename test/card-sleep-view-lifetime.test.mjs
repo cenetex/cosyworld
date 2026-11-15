@@ -194,6 +194,7 @@ function appBoundary(sleepView, world) {
     freshWorld: createWorld,
     currentActor: () => "vale",
     SAVE_KEY: "save",
+    SEEN_KEY: "save.seen",
     accountStorageKey: (key) => `epoch:${key}`,
     sharedSession: null,
     startingPip: false,

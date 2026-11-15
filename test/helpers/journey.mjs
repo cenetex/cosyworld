@@ -6,6 +6,7 @@ import {
   holdChoice,
   legalActions,
   play,
+  questPreviews,
 } from "../../v2/card-game/world.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { needsVoyage, sailTo } from "./voyage.mjs";
@@ -60,6 +61,10 @@ export function playJourney(journey) {
         if (needsVoyage(world, actor, target)) world = sailTo(world, target);
         else act(i, { kind: "move", target });
       }
+    } else if (step.accept) {
+      const q = questPreviews(world).find((p) => p.source === step.accept && p.action);
+      if (!q) fail(i, step, "that quest is not offered here");
+      act(i, { kind: "take", offer: q.id });
     } else if ("hold" in step) {
       const next = structuredClone(world);
       holdChoice(next, currentActor(world), {

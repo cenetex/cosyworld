@@ -1,8 +1,6 @@
 // Face-down cards use a plain back; real locks use the keyhole. At
 // the shut City Gate the battlefield is a nameless lid with a red edge.
-// Talk gives the guard's quest. Giving
-// the guard Creon's Writ opens the way: the box turns over once and
-// stays open through redraws.
+// Giving the guard Creon's Writ enables Unlock; its lid waits for that tap.
 //
 //   node v2/scripts/smoke-card-locked-box.mjs [screenshot-dir]
 import assert from "node:assert/strict";
@@ -239,10 +237,9 @@ try {
       // Escape preserves the held writ; inspect the box alone first.
       await clearSelection(page);
       const beforeBox = await questState();
-      // Selecting the box keeps its contents concealed. Talk gives the guard's quest.
       await selectCard(page, FIELD);
       const lock = page.locator('#card-actions [data-blocked="gate"]');
-      assert.equal(await lock.textContent(), "Locked");
+      assert.match(await lock.textContent(), /Unlock/iu);
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
         "Give Creon's Writ to The Gate Guard",
@@ -285,10 +282,16 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
+      const offered = await state();
+      assert.equal(offered.actors.vale.want, null, "Talk leaves the box quest unheld");
+      await clearSelection(page);
+      await selectCard(page, FIELD);
+      await page.locator('[data-accept-quest]:not([data-revealing="true"])').click();
       await page.waitForFunction(
         (key) => Boolean(JSON.parse(localStorage.getItem(key)).actors.vale.want),
         key,
       );
+      assert.equal((await state()).turn, offered.turn, "Accept advances no time");
       const vale = (await state()).actors.vale;
       assert(
         [vale.want, ...(vale.under || [])].some(
@@ -316,28 +319,39 @@ try {
       await page.keyboard.press("Escape");
       await boxed();
 
-      // The writ to the guard opens the way; the box turns over once.
+      // Eligibility alone leaves the lid closed, including after reload.
       await page.keyboard.press("Escape");
       await selectCard(page, "greek-creon-writ");
       await selectCard(page, "greek-guard");
       const give = readyActionButton(page, "give");
       await give.waitFor();
-      await page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
-      const turning = page.waitForFunction(() => globalThis.lidState, null, {
-        polling: 20,
-        timeout: 20000,
-      });
       await give.click();
       assert.equal(
         (await state()).items["greek-creon-writ"].holder,
         "greek-guard",
       );
-      await page.keyboard.press("Escape");
-      const revealing = revealCard(page, FIELD);
-      assert.equal(await (await turning).jsonValue(), "held", "the locked lid turned");
+      await ready();
+      assert.equal(await attr("data-locked"), "true");
+      assert.equal(await attr("data-revealing"), null);
+      assert.equal(await field.locator(".name").textContent(), "");
+      await page.reload();
+      await ready();
+      assert.equal(await attr("data-locked"), "true");
+      await clearSelection(page);
+      await selectCard(page, FIELD);
+      const unlock = page.locator(`#card-actions [data-unlock-box="${FIELD}"]`);
+      assert.equal(await unlock.isDisabled(), false);
+      const beforeUnlock = await state();
+      await page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
+      const turning = page.waitForFunction(() => globalThis.lidState, null, {
+        polling: 20, timeout: 20000,
+      });
+      await unlock.click();
+      assert.equal(await (await turning).jsonValue(), "held", "the explicit Unlock lifts the lid");
+      assert.deepEqual(await state(), beforeUnlock, "Unlock leaves the complete saved world unchanged");
       await shot("02-box-turning", 1200);
       await page.evaluate(() => globalThis.lid.forEach((m) => m.play()));
-      await revealing;
+      await page.waitForFunction((id) => !document.querySelector(`[data-card="${id}"]`).dataset.revealing, FIELD);
       await ready();
       await open();
       await shot("03-box-open");

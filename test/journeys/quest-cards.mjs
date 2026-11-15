@@ -11,6 +11,7 @@ export const questCards = {
     { kind: "move", item: "lamp", target: "pond" },
     { kind: "talk", target: "moth" },
     { at: "told" },
+    { accept: "moth" },
     { at: "accepted" },
     { kind: "give", item: "lamp", target: "moth" },
     { at: "met" },

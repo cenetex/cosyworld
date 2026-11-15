@@ -9,7 +9,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { decodeSave, encodeSave, legalActions, play } from "../card-game/world.mjs";
-import { holdQuest, newWant } from "../card-game/want.mjs";
+import { newWant } from "../card-game/want.mjs";
 import { DISSOLVE_MS } from "../card-game/card-travel.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { journeyWorlds } from "../../test/helpers/journey.mjs";
@@ -18,6 +18,7 @@ import {
   clearSelection,
   openPack,
   putOutOpening,
+  readyActionButton,
   revealCard,
   selectCard,
   smokeWidths,
@@ -112,19 +113,21 @@ try {
         return buttons;
       };
       const layout = async () => {
+        assert(await page.locator('#hand .want-frame:not([hidden]) > .want-card[data-quest-id]').isVisible(),
+          "measure a visible held quest");
         const problems = await page.evaluate(() => {
           const bar = document.getElementById("action-beat").getBoundingClientRect();
           const out = [];
-          for (const el of document.querySelectorAll('#hand [data-card^="quest:"]')) {
+          for (const el of document.querySelectorAll('#hand .want-card[data-quest-id]')) {
             const frame = el.parentElement;
             if (frame.hidden) continue;
             const box = el.getBoundingClientRect();
-            if (box.width < 40 || box.height < 40) out.push(`${el.dataset.card} is tiny`);
+            if (box.width < 40 || box.height < 40) out.push(`${el.dataset.questId} is tiny`);
             if (box.right < 0 || box.left > innerWidth + 1) continue;
             if (box.top < 0 || box.bottom > innerHeight + 2)
-              out.push(`${el.dataset.card} leaves the page`);
+              out.push(`${el.dataset.questId} leaves the page`);
             if (box.top < bar.bottom && box.bottom > bar.top && box.top > bar.top)
-              out.push(`${el.dataset.card} lies under the action bar`);
+              out.push(`${el.dataset.questId} lies under the action bar`);
           }
           return out;
         });
@@ -160,6 +163,18 @@ try {
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
 
+    const accept = async (page, t, source, review = false) => {
+      await clearSelection(page);
+      await selectCard(page, source);
+      if (review) await page.locator("[data-review-quests]").click();
+      const before = await t.state();
+      await page.locator('[data-accept-quest]:not([data-revealing="true"])').click();
+      await page.waitForFunction(({ key, revision }) =>
+        JSON.parse(localStorage.getItem(key)).revision > revision,
+      { key: t.key, revision: before.revision });
+      await t.ready();
+      assert.equal((await t.state()).turn, before.turn, "Accept advances no time");
+    };
     const openHeld = async (page, t) => {
       await clearSelection(page);
       await selectCard(page, "vale");
@@ -182,7 +197,7 @@ try {
       assert.equal(await t.oneButton(), 1);
       const shut = page.locator("#card-actions button").first();
       assert.equal(await shut.isDisabled(), true);
-      assert.equal(await shut.textContent(), "Locked");
+      assert.equal(await shut.textContent(), "Unlock");
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
         "Find something",
@@ -197,10 +212,16 @@ try {
       );
       assert.equal(await offerCards(page).count(), 0);
       assert.deepEqual((await t.state()).opened, { pond: ["vale"] });
-      // The lamp out, the pond is open: go to Pip.
+      // Unlock the eligible pond, then go to Pip.
       await clearSelection(page);
       await selectCard(page, "pond");
-      await page.locator("#card-actions .card-primary").click();
+      await page.locator('[data-unlock-box="pond"]:not([data-revealing="true"])').click();
+      await page.waitForFunction(() =>
+        !document.querySelector('#hand [data-card="pond"]').dataset.revealing);
+      await revealCard(page, "pond", { keepSelected: true });
+      await readyActionButton(page, "move").click();
+      await page.waitForFunction((key) =>
+        JSON.parse(localStorage.getItem(key)).actors.vale.place === "pond", t.key);
       await t.ready();
       assert.equal((await t.state()).actors.vale.place, "pond");
       assert.equal(await offerCards(page).count(), 0, "no offer before Pip is heard");
@@ -208,6 +229,8 @@ try {
       await selectCard(page, "moth");
       await page.locator('#card-actions [data-action="talk"]').click();
       await t.ready();
+      assert.equal((await t.state()).actors.vale.want, null, "hearing Pip leaves the quest unheld");
+      await accept(page, t, "moth");
       const held = await t.state();
       assert.deepEqual(
         { kind: held.actors.vale.want.kind, target: held.actors.vale.want.target, from: held.actors.vale.want.from },
@@ -237,6 +260,7 @@ try {
       await page.goto(`${origin}/?table=quest-offers-covered-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
+      await accept(page, t, "moth");
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
       const hidden = await surfaces(page);
@@ -291,6 +315,8 @@ try {
       const level = await t.state();
       assert.equal(level.actors.vale.want?.quest, undefined);
       assert.ok(level.actors.vale.arcana.dealt, "a level card is dealt");
+      await accept(page, t, "vale", true);
+      assert.equal((await t.state()).actors.vale.arcana.accepted, level.actors.vale.arcana.dealt);
       await openHeld(page, t);
       assert.ok(await t.oneButton() <= 1);
       await t.layout();
@@ -301,13 +327,17 @@ try {
 
     {
       const world = decodeSave(encodeSave(journey.told));
-      holdQuest(world, "vale", newWant("item", "cloth", world.turn), "quest:box:test");
+      world.actors.vale.pendingQuests.push({ ...newWant("item", "cloth", world.turn), from: "quest:box:test" });
       const t = await open("quest-offers-stack", world);
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-stack-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
+      await accept(page, t, "moth");
+      await accept(page, t, "vale", true);
+      assert.equal((await t.state()).actors.vale.want.target, "cloth");
+      await accept(page, t, "vale", true);
       assert.equal(await page.locator("#hand .want-frame").count(), 1, "only the top quest is shown");
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
@@ -358,10 +388,12 @@ try {
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
+      await accept(page, t, "greek-battlefield");
       assert.equal((await t.state()).actors.vale.want.target, "greek-creon-writ");
+      await clearSelection(page);
       await selectCard(page, "greek-battlefield");
       assert.equal(await t.oneButton(), 1);
-      assert.equal(await page.locator("#card-actions button").first().textContent(), "Locked");
+      assert.equal(await page.locator("#card-actions button").first().textContent(), "Unlock");
       await openHeld(page, t);
       assert.equal(await label(page), "Discard");
       await t.layout();

@@ -35,6 +35,8 @@
     "smoke-card-opening-hold": 20,
     "smoke-card-dialogue-continuation": 25,
     "smoke-card-zero-turn-beats": 60,
+    "smoke-card-quest-consent@1440": 60,
+    "smoke-card-quest-consent@390": 60,
     "smoke-card-quest-offers@1440": 45,
     "smoke-card-quest-offers@390": 45,
     "smoke-card-quest-offers@320": 45,

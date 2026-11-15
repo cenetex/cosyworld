@@ -7,6 +7,7 @@ import { newMemories, rememberEvent } from "../memory.mjs";
 import { settleHeldItems } from "../held-item.mjs";
 import { installKnowledge } from "../knowledge.mjs";
 import { travels, fillWants } from "../want.mjs";
+import { humanAvatarIds } from "../human-cast.mjs";
 import { installLife } from "../life.mjs";
 import { packDefinition, packDefinitions } from "../pack-registry.mjs";
 import { validSeed } from "../pack-specials.mjs";
@@ -42,6 +43,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
     world.log = start.log;
   }
   installPacks(world);
+  for (const id of humanAvatarIds) world.actors[id].pendingQuests = [];
   installJourneyProgress(world, packDefinitions);
   for (const [id, scope] of Object.entries(packScopes)) {
     if (

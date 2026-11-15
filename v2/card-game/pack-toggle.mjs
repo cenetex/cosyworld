@@ -179,6 +179,7 @@ function scatter(s, pack, api) {
         ? {
             ...restStep(s, id, api.want),
             ...(w.from ? { from: w.from } : {}),
+            ...(w.accepted ? { accepted: true } : {}),
           }
         : w;
     if (a.want) a.want = turned(a.want);

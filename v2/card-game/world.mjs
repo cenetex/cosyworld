@@ -81,6 +81,7 @@ import {
 import {
   knownActors as readKnownActors,
   installWants,
+  installQuestConsent,
   wake,
   dropQuest,
   holdQuest,
@@ -447,7 +448,7 @@ import {
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
-import { questOffers } from "./world/offers.mjs";
+import { questCandidates, questOffers } from "./world/offers.mjs";
 export { questOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
@@ -986,6 +987,13 @@ function offer(kind, actor, item, target, text, cards) {
     key: [kind, actor, item || "", target || ""].join(":"),
   };
 }
+export function questPreviews(s, actor = currentActor(s)) {
+  const legal = legalActions(s, actor);
+  return questCandidates(s, actor).map((p) => {
+    const action = legal.find((a) => a.offer === p.id) ?? null;
+    return { ...p, action, reason: p.reason || (action ? null : "Finish your current play first.") };
+  });
+}
 // A battle holds its whole room. Its combatants are the keys of `resolve`,
 // in the order they joined; rules 84 keeps no sides.
 export const fightersOf = (c) => Object.keys(c.resolve);
@@ -1256,6 +1264,7 @@ export function legalActions(s, actor = currentActor(s)) {
       (e) =>
         e.kind === "action" &&
         e.actorId === actor &&
+        e.verb !== "quest" &&
         !e.generated,
     )?.verb === "wait"
   )
@@ -1624,6 +1633,11 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
+  for (const q of questCandidates(s, actor)) {
+    if (q.reason) continue;
+    const action = offer("take", actor, null, q.id, `${nameOf(actor)} accepts a quest.`, [q.id]);
+    out.push({ ...action, key: `${action.key}:${s.revision}`, offer: q.id, label: "Accept", revision: s.revision });
+  }
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
       const goal =
@@ -1877,13 +1891,6 @@ function settleQuests(s, acting) {
       !entityActive(s, actor)
     )
       continue;
-    for (const offer of questOffers(s, actor)) {
-      if (heldOf(s.actors[actor]).some((held) => sameQuest(held, offer.want)))
-        continue;
-      const quest = holdQuest(s, actor, offer.want, offer.id);
-      if (!quest) break;
-      if (actor === acting) bindAsker(s, actor, quest, true);
-    }
     if (actor === acting && !companionOf(s, actor))
       for (const held of heldOf(s.actors[actor])) bindAsker(s, actor, held, false);
   }
@@ -3245,6 +3252,23 @@ export function play(
   const next = structuredClone(s);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
+  if (exact.offer !== undefined) {
+    const chosen = questCandidates(next, actor).find((q) => q.id === exact.offer);
+    if (chosen.kind === "level") next.actors[actor].arcana.accepted = next.actors[actor].arcana.dealt;
+    else {
+      const a = next.actors[actor], q = chosen.quest;
+      holdQuest(next, actor, { ...q, accepted: true }, q.from);
+      a.pendingQuests = (a.pendingQuests || []).filter((w) => !sameQuest(w, q));
+      if (a.residentWant && sameQuest(a.residentWant, q)) delete a.residentWant;
+      if (q.from === "quest:dream" && a.arcana) a.arcana.dreamed = a.arcana.proved.length;
+      bindAsker(next, actor, a.want, true);
+    }
+    next.revision += 1;
+    addLog(next, "World", `${nameOf(actor)} accepts a quest.`, {
+      kind: "action", actorId: actor, verb: "quest", targetId: chosen.source, witnesses: [actor],
+    });
+    return { ok: true, state: validateWorld(next) };
+  }
   // resident sleep becomes its returning player's own.
   if (!exact.guards) delete next.actors[actor].guarding;
   const dozing = next.actors[actor].sleeping;
@@ -4035,6 +4059,7 @@ export function decodeSave(text) {
       installPacks,
       laneText: laneFactText,
     });
+    installQuestConsent(s);
     installJourneyProgress(s, packDefinitions);
     // An earlier save records the gates already open as it loads, and its
     // guards take their posts (rules 100).

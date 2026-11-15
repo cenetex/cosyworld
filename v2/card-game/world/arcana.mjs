@@ -25,7 +25,6 @@ import { boxDefs } from "./boxes.mjs";
 import { companionOf } from "./company.mjs";
 import { homeOf } from "./home.mjs";
 import { rootHolder } from "./items.mjs";
-import { sleepQuest } from "../want.mjs";
 
 export const deck = { cards: data.cards };
 export { arcanaLevel, isArcanum, recordOf };
@@ -291,6 +290,10 @@ export function dealtCard(s, traveler) {
   const binding = card && bindingOf(s, card, traveler);
   return binding ? { card, binding: { ...binding, base: record.base } } : null;
 }
+export const levelAccepted = (s, traveler) => Boolean(
+  s.actors[traveler]?.arcana?.accepted &&
+  s.actors[traveler].arcana.accepted === recordOf(s, traveler).dealt,
+);
 
 export function arcanumTerms(s, traveler, id) {
   const card = cardOf(id);
@@ -313,6 +316,7 @@ function deal(s, traveler) {
   if (actor.arcana) {
     delete actor.arcana.dealt;
     delete actor.arcana.base;
+    delete actor.arcana.accepted;
   }
   if (!id) return null;
   const card = cardOf(id);
@@ -359,7 +363,7 @@ export function settleArcana(s, actor = null, since = 0) {
     if (dealt?.card.proof.every((c) => holds(s, c, dealt.binding))) {
       const record = s.actors[traveler].arcana;
       record.proved = [...new Set([...record.proved, dealt.card.id])].sort();
-      if (deal(s, traveler)) sleepQuest(s, traveler, { home: homeOf });
+      deal(s, traveler);
     } else if (
       dealt
         ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {}) ||
@@ -380,6 +384,7 @@ export function installArcana(s) {
     if (record.dealt === undefined || !validDeal(record)) {
       delete record.dealt;
       delete record.base;
+      delete record.accepted;
     }
   }
   return s;
@@ -421,7 +426,10 @@ export function validArcana(s) {
       Boolean(humanAvatar(id)) &&
       keys.includes("did") &&
       keys.includes("proved") &&
-      keys.every((key) => ["base", "dealt", "did", "proved"].includes(key)) &&
+      keys.every((key) => ["base", "dealt", "did", "proved", "accepted", "dreamed"].includes(key)) &&
+      (record.accepted === undefined || record.accepted === record.dealt) &&
+      (record.dreamed === undefined || (Number.isInteger(record.dreamed) &&
+        record.dreamed >= 0 && record.dreamed <= record.proved.length)) &&
       validList(record.did) &&
       validList(record.proved) &&
       (record.dealt === undefined

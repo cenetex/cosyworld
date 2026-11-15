@@ -26,7 +26,6 @@ export function createPipWorld(seed = newRunSeed()) {
   return world;
 }
 
-// Pip's Talk is the rules' own: it records the want he told, and his quest
 export function talkToPip(world) {
   const talk = legalActions(world).find(
     (a) => a.kind === "talk" && a.target === "moth",
@@ -35,13 +34,15 @@ export function talkToPip(world) {
   return result?.ok ? result.state : world;
 }
 
-// The first world after Pip's card: Vale in the attic, carrying what Pip told
 export function beginPipJourney(seed = newRunSeed(), prelude = talkToPip(createPipWorld(seed))) {
   const world = createLandingWorld(null, seed);
-  const { heard, want } = prelude.actors.vale;
+  const { heard, want, pendingQuests } = prelude.actors.vale;
   if (heard) world.actors.vale.heard = structuredClone(heard);
-  // so the pond's offer of it is not a second one.
   if (want)
     world.actors.vale.want = { ...structuredClone(want), since: world.turn };
+  if (pendingQuests)
+    world.actors.vale.pendingQuests = pendingQuests.map((q) => ({
+      ...structuredClone(q), since: world.turn,
+    }));
   return world;
 }

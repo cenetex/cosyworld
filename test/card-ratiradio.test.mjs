@@ -23,6 +23,7 @@ import * as itemRules from "../v2/card-game/pack-items.mjs";
 import { roamingActors } from "../v2/card-game/roaming-routes.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { newWant, questsOf } from "../v2/card-game/want.mjs";
+import { acceptOffer } from "./helpers/accept-quest.mjs";
 
 // This acceptance contract runs only when its pack is mounted.
 const it = check.skipIf(!packPeople["ratiradio-rati"]);
@@ -526,6 +527,7 @@ it("hears the figurine from RATi in any room of the station", () => {
 
 it("does not complete the Thermos door's quest by carrying the Thermos", () => {
   let s = steps(fixture(), upTo("move", id("dispatch-window")));
+  s = acceptOffer(s, home);
   const open = () =>
     questsOf(s, "vale").some((q) => q.target === home);
   expect(open()).toBe(true);

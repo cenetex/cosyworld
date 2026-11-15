@@ -187,6 +187,8 @@ describe("an unlocked avatar's homecoming", () => {
         "mara",
         (a) => a.kind === "wait" && !a.sleep,
       ).world;
+      expect(questsOf(world, "mara")).toEqual([]);
+      world = playAs(world, "mara", (a) => a.offer?.startsWith("quest:home:theatre:")).world;
       expect(questsOf(world, "mara").map((w) => w.from)).toContain(
         "quest:home:theatre",
       );

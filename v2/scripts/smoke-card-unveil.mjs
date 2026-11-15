@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
   putOutOpening,
+  clearSelection,
   readyActionButton,
   revealCard,
   selectCard,
@@ -86,15 +87,20 @@ try {
       page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
-    // The locked pond turns over once when the lamp goes out (rules 133): it
-    // shows as itself, not as a closed box. The reveal ceremony below is for a
-    // card that is covered, so forget the pond, reload, and wait for it to lie
-    // face down again.
+    // Unlock the eligible pond, then cover it for the separate reveal ceremony.
     const turnOverPond = async () => {
+      await clearSelection(page);
+      await selectCard(page, "pond");
+      assert.equal(await page.locator('#hand [data-card="pond"]').getAttribute("data-locked"), "true");
+      const before = await state();
+      const unlock = page.locator('[data-unlock-box="pond"]');
+      assert(await unlock.isEnabled());
+      await unlock.click();
       await page.waitForFunction(() => {
         const pond = document.querySelector('#hand [data-card="pond"]');
         return pond?.dataset.locked === "false" && !pond.dataset.revealing;
       });
+      assert.deepEqual(await state(), before, "Unlock changes no world state");
       await page.evaluate((key) => {
         const name = `${key}.seen.covered`;
         const covered = JSON.parse(localStorage.getItem(name) || "[]");
@@ -180,7 +186,7 @@ try {
       const opening = ["attic", "lamp", "vale"];
       assert.deepEqual(await covered(), opening);
       // The Black pond lies in the hand from the start as a locked box (not
-      // a covered one); putting the lamp out opens it (rules 133).
+      // a covered one); putting the lamp out enables Unlock.
       assert.equal(
         await page
           .locator('#hand [data-card="pond"]')
@@ -217,7 +223,7 @@ try {
       await page.reload();
       await ready();
       assert.deepEqual(await covered(), ["attic", "lamp"]);
-      // Putting the lamp out opens the pond box and pays a traveler no XP.
+      // Putting the lamp out enables Unlock and pays a traveler no XP.
       assert.equal((await state()).actors.vale.xp, 0);
       await putOutOpening(page);
       await turnOverPond();

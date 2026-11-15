@@ -8,6 +8,7 @@ import {
   LONG_SLEEP_TURNS,
   play,
   questOffers,
+  questPreviews,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import {
@@ -26,18 +27,26 @@ const act = (s, pick) => {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 };
-const talk = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
+const talk = (s, accept = true) => {
+  s = act(s, (a) => a.kind === "talk" && a.target === "moth");
+  const q = questPreviews(s).find((p) => p.source === "moth" && p.action);
+  return accept && q ? act(s, (a) => a.key === q.action.key) : s;
+};
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
 const discard = (s) => act(s, (a) => a.kind === "drop" && !a.item);
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const FROM = "quest:from:moth";
 const reload = (s) => decodeSave(encodeSave(s));
 
-describe("an offer is held without an accept play", () => {
-  it("holds Pip's quest as his Talk ends, with nothing to accept", () => {
+describe("an offer is held only after Accept", () => {
+  it("keeps Pip's quest offered after Talk, then accepts without a turn", () => {
     const before = createPipWorld(5);
     expect(heldOf(before.actors.vale)).toEqual([]);
-    const s = talk(before);
+    let s = talk(before, false);
+    expect(s.turn).toBe(before.turn + 1);
+    expect(s.actors.vale.want).toBeNull();
+    const offered = questPreviews(s).find((p) => p.source === "moth");
+    s = act(s, (a) => a.key === offered.action.key);
     expect(s.turn).toBe(before.turn + 1);
     expect(s.actors.vale.want).toMatchObject({
       kind: "item",
@@ -46,8 +55,8 @@ describe("an offer is held without an accept play", () => {
       from: FROM,
     });
     expect(questOffers(s)).toEqual([]);
-    expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
-    expect(s.log.some((e) => e.verb === "quest")).toBe(false);
+    expect(questPreviews(s).some((q) => q.source === "moth")).toBe(false);
+    expect(s.log.some((e) => e.verb === "quest")).toBe(true);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 

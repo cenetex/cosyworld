@@ -9,6 +9,7 @@ import {
   legalActions,
   play,
   questOffers,
+  questPreviews,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { availableCards } from "../v2/card-game/cards.mjs";
@@ -36,10 +37,14 @@ const talk = (s, target) => act(s, (a) => a.kind === "talk" && a.target === targ
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const GUARD = "greek-guard";
+const accept = (s, source) => {
+  const q = questPreviews(s).find((p) => p.source === source && p.action);
+  return act(s, (a) => a.key === q?.action?.key);
+};
 
-describe("quest offers are held at once", () => {
-  it("holds a shut box's quest where the box lies, and not once it is gone", () => {
-    const s = greekErrands().decree;
+describe("quest offers require Accept", () => {
+  it("accepts a shut box's quest where the box lies", () => {
+    const s = accept(greekErrands().decree, "greek-battlefield");
     const box = heldOf(s.actors.vale).find((w) => w.from === "quest:box:greek-battlefield");
     expect(box).toMatchObject({
       kind: "item",
@@ -48,7 +53,7 @@ describe("quest offers are held at once", () => {
       step: { verb: "give", to: GUARD },
     });
     expect(questOffers(s).some((o) => o.kind === "box")).toBe(false);
-    expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
+    expect(questPreviews(s).some((q) => q.source === "greek-battlefield")).toBe(false);
     // The offer is deterministic for the same world.
     expect(questOffers(decodeSave(encodeSave(s)))).toEqual(questOffers(s));
     const fresh = structuredClone(s);
@@ -65,11 +70,13 @@ describe("quest offers are held at once", () => {
     expect(standing).not.toHaveProperty("blocked");
   });
 
-  it("holds a resident's quest as Talk ends, and not before", () => {
+  it("holds a resident's quest only after Talk and Accept", () => {
     let s = greekErrands().decree;
     expect(sources(s)).not.toContain(`quest:from:${GUARD}`);
     s.actors[GUARD].trust.vale = 1; // trusts: the offer is certain
     s = talk(s, GUARD);
+    expect(sources(s)).not.toContain(`quest:from:${GUARD}`);
+    s = accept(s, GUARD);
     const held = heldOf(s.actors.vale).find((w) => w.from === `quest:from:${GUARD}`);
     expect(held).toMatchObject({
       kind: "item",
@@ -80,21 +87,24 @@ describe("quest offers are held at once", () => {
     expect(questOffers(s).some((o) => o.kind === "resident")).toBe(false);
   });
 
-  it("holds the quest in the play that made it stand, with no play and no log line of its own", () => {
+  it("accepts without another turn and records the choice", () => {
     let s = greekErrands().decree;
     s.actors[GUARD].trust.vale = 1;
     const turn = s.turn;
     s = talk(s, GUARD);
     expect(s.turn).toBe(turn + 1);
+    s = accept(s, GUARD);
+    expect(s.turn).toBe(turn + 1);
     expect(sources(s)).toContain(`quest:from:${GUARD}`);
-    expect(s.log.some((e) => e.verb === "quest")).toBe(false);
+    expect(s.log.some((e) => e.verb === "quest")).toBe(true);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
   it("stacks quests, discards only the top, and keeps a discarded one closed", () => {
-    let s = greekErrands().decree;
+    let s = accept(greekErrands().decree, "greek-battlefield");
     s.actors[GUARD].trust.vale = 1;
     s = talk(s, GUARD);
+    s = accept(s, GUARD);
     const before = sources(s);
     expect(before.length).toBeGreaterThan(1);
     const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
@@ -182,14 +192,14 @@ describe("the chance on Talk", () => {
     for (let seed = 0; seed < 30; seed++) {
       const s = talk(seeded(seed, 1), GUARD);
       expect(offerUnlocked(s, "vale", GUARD)).toBe(true);
-      expect(sources(s)).toContain(`quest:from:${GUARD}`);
+      expect(questOffers(s).some((q) => q.source === GUARD)).toBe(true);
     }
   });
 
-  it("applies to residents alone: a shut box's quest is always held", () => {
+  it("applies to residents alone: a shut box's quest is always offered", () => {
     for (let seed = 0; seed < 10; seed++) {
       const s = seeded(seed);
-      expect(sources(s)).toContain("quest:box:greek-battlefield");
+      expect(questOffers(s).some((q) => q.id === "quest:box:greek-battlefield")).toBe(true);
     }
   });
 
@@ -303,7 +313,7 @@ describe("the mirror back to the attic", () => {
   });
 });
 
-describe("a fresh world to the first level, quests held at once", () => {
+describe("a fresh world to the first level, with explicit quests", () => {
   const w = journeyWorlds(questCards);
   it("opens the pond for no XP and holds nothing yet", () => {
     expect(w.opened.actors.vale.xp).toBe(0);
@@ -311,10 +321,10 @@ describe("a fresh world to the first level, quests held at once", () => {
     expect(questOffers(w.opened)).toEqual([]);
     expect(heldOf(w.opened.actors.vale)).toEqual([]);
   });
-  it("holds Pip's quest as his Talk ends, always", () => {
-    expect(wantOf(w.told, "vale")).toMatchObject({ target: "lamp", from: "quest:from:moth" });
-    expect(questOffers(w.told)).toEqual([]);
-    expect(legalActions(w.told).filter((a) => a.offer !== undefined)).toEqual([]);
+  it("offers Pip's quest after Talk and holds it after Accept", () => {
+    expect(wantOf(w.told, "vale")).toBeNull();
+    expect(wantOf(w.accepted, "vale")).toMatchObject({ target: "lamp", from: "quest:from:moth" });
+    expect(questPreviews(w.told).find((q) => q.source === "moth").action).toBeTruthy();
   });
   it("meets the held quest and earns no XP", () => {
     expect(wantOf(w.accepted, "vale")).toMatchObject({ target: "lamp" });

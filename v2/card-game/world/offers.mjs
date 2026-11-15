@@ -14,8 +14,12 @@ import {
   lostOf,
   newWant,
   sameQuest,
+  DREAM_FROM,
+  questTerms,
 } from "../want.mjs";
-import { questFor, toldWant } from "../talk-quest.mjs";
+import { askerOf, questFor, talkQuestFrom, toldWant } from "../talk-quest.mjs";
+import { dealtCard, levelAccepted, recordOf } from "./arcana.mjs";
+import { homeOf } from "./home.mjs";
 import { revealed } from "../want-talk.mjs";
 import { offerUnlocked } from "../offer-chance.mjs";
 import { boxWant, shutBoxesAt } from "./boxes.mjs";
@@ -38,7 +42,6 @@ const boxQuest = (s, { kind, target, step }) => ({
   ...(step ? { step: { ...step } } : {}),
 });
 
-// An escort or meeting offered by a resident who is already another
 function withAnother(s, actor, kind, source, want) {
   const traveler = travelerOf(s, source);
   return Boolean(
@@ -61,7 +64,7 @@ const isPlayer = (s, actor) =>
  */
 export function questOffers(s, actor = currentActor(s)) {
   const a = s.actors[actor];
-  if (!a || !isPlayer(s, actor) || heldOf(a).length >= MAX_HELD) return [];
+  if (!a || !isPlayer(s, actor)) return [];
   const here = a.place,
     out = [];
   const add = (kind, source, want) => {
@@ -105,5 +108,35 @@ export function questOffers(s, actor = currentActor(s)) {
       continue;
     add("resident", them, questFor(s, them, want));
   }
+  return out;
+}
+
+const identity = (w) => JSON.stringify([w.from ?? null, w.since, w.refusals, questTerms(w)]);
+export function questCandidates(s, actor = currentActor(s)) {
+  const a = s.actors[actor];
+  if (!a || !isPlayer(s, actor)) return [];
+  const pending = [...(a.pendingQuests || []), ...(a.residentWant ? [a.residentWant] : [])];
+  const held = heldOf(a), out = [];
+  const add = (kind, source, want, id) => {
+    if (want && held.some((w) => sameQuest(w, want))) return;
+    const saved = want && pending.find((w) => sameQuest(w, want) && (w.from ?? null) === (want.from ?? null));
+    want = saved || want;
+    const reason = want && lostOf(s, want) ? "This goal is no longer possible."
+      : want && talkQuestFrom(want) && !askerOf(s, want) ? "This person no longer asks for this."
+        : want && withAnother(s, actor, "resident", askerOf(s, want), want) ? "This person is with another traveler."
+          : kind !== "level" && held.length >= MAX_HELD ? "Finish or discard a quest first." : null;
+    const key = `${id}:${want ? identity(want) : recordOf(s, actor).dealt}`;
+    if (!out.some((q) => q.id === key))
+      out.push({ id: key, source, kind, quest: want, reason });
+  };
+  for (const offered of questOffers(s, actor))
+    add(offered.kind, offered.source, { ...offered.want, from: offered.id }, offered.id);
+  for (const want of pending) add("pending", actor, want, "quest:pending");
+  const record = recordOf(s, actor);
+  if (dealtCard(s, actor) && !levelAccepted(s, actor)) add("level", actor, null, "quest:level");
+  if (record.dealt && record.proved.length > (a.arcana.dreamed ?? 0) &&
+      ![...pending, ...held].some((w) => w.from === DREAM_FROM))
+    add("sleep", actor, { ...newWant("place", homeOf(actor), s.turn),
+      step: { verb: "rest" }, from: DREAM_FROM }, `quest:dream:${record.proved.length}`);
   return out;
 }

@@ -263,6 +263,7 @@
     world.presentActors = [...present];
     return world;
   }
+  var heldByHuman = (world, id) => (world.heldActors || world.controlledActors || ["vale"]).includes(id);
   var residentAvatar = (world, id) => sharedEnabled(world) && Boolean(humanAvatar(id)) && !controlledByHuman(world, id) && !world.absent?.includes(id);
   var roomHumanCount = (world, place) => humanAvatarIds.filter(
     (id) => humanPresent(world, id) && world.actors[id]?.place === place
@@ -2649,6 +2650,17 @@
   var MAX_HELD = 9;
   var heldOf = (a) => a?.want ? [a.want, ...a.under || []] : [];
   var questsOf = (s, id) => heldOf(s.actors[id]);
+  function installQuestConsent(s) {
+    for (const id of humanAvatarIds) {
+      const a = s.actors[id];
+      if (!a || id !== currentActor(s) && !heldByHuman(s, id) || a.pendingQuests !== void 0) continue;
+      if (!validWant(s, id)) throw new Error("Invalid saved quests.");
+      a.pendingQuests = heldOf(a);
+      a.want = null;
+      delete a.under;
+      if (a.arcana) a.arcana.dreamed = a.arcana.proved.length;
+    }
+  }
   var closedKey = questTerms;
   var contentOf = (s, id) => Boolean(s.actors[id]?.content && !s.actors[id].want);
   var MAX_CLOSED = 64;
@@ -2658,7 +2670,7 @@
     since: turn,
     refusals: 0
   });
-  var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
+  var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : Object.hasOwn(forest_default.places, target) || Object.hasOwn(packPlaces, target);
   var lostOf = (s, w) => w ? [w.target, w.step?.to, w.step?.with, w.step?.at, ...w.step?.items || []].find((id) => typeof id === "string" && neverBack(s, id)) : void 0;
   var heldWant = (s, w) => ({
     ...newWant(w.kind, w.target, s.turn),
@@ -2795,7 +2807,7 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && (a.pendingQuests === void 0 || humanAvatarIds.includes(id) && Array.isArray(a.pendingQuests) && a.pendingQuests.length <= MAX_HELD && a.pendingQuests.every((w) => validQuest(s, id, w)) && new Set(a.pendingQuests.map(closedKey)).size === a.pendingQuests.length) && (a.residentWant === void 0 || humanAvatarIds.includes(id) && validQuest(s, id, a.residentWant)) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validUnder(s, id) {
     const a = s.actors[id];
@@ -2818,7 +2830,7 @@
   function validQuest(s, id, w) {
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     return Boolean(
-      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
+      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.accepted === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.accepted === void 0 || w.accepted === true) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
     );
   }
 
@@ -19406,6 +19418,7 @@
       if (record5.dealt === void 0 || !validDeal(record5)) {
         delete record5.dealt;
         delete record5.base;
+        delete record5.accepted;
       }
     }
     return s;
@@ -19429,7 +19442,7 @@
       if (!record5 || typeof record5 !== "object" || Array.isArray(record5))
         return false;
       const keys = Object.keys(record5);
-      return Boolean(humanAvatar(id)) && keys.includes("did") && keys.includes("proved") && keys.every((key2) => ["base", "dealt", "did", "proved"].includes(key2)) && validList(record5.did) && validList(record5.proved) && (record5.dealt === void 0 ? record5.base === void 0 : validDeal(record5));
+      return Boolean(humanAvatar(id)) && keys.includes("did") && keys.includes("proved") && keys.every((key2) => ["base", "dealt", "did", "proved", "accepted", "dreamed"].includes(key2)) && (record5.accepted === void 0 || record5.accepted === record5.dealt) && (record5.dreamed === void 0 || Number.isInteger(record5.dreamed) && record5.dreamed >= 0 && record5.dreamed <= record5.proved.length) && validList(record5.did) && validList(record5.proved) && (record5.dealt === void 0 ? record5.base === void 0 : validDeal(record5));
     });
   }
 
@@ -19899,6 +19912,7 @@
         installPacks,
         laneText: laneFactText
       });
+      installQuestConsent(s);
       installJourneyProgress(s, packDefinitions);
       installConversations(s);
       latchRoutes(s);
@@ -20062,7 +20076,7 @@
       (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
     ).slice(0, 8);
     const waited = speakers[0] === currentActor(world) && (played?.verb === "wait" ? played : !played && waitedThisTurn(world));
-    const rested = speakers[0] === currentActor(world) && restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
+    const rested = played?.verb !== "quest" && speakers[0] === currentActor(world) && restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
     const resting2 = waited || rested ? currentActor(world) : null;
     const rest = waited?.rest === "long" || rested ? "long" : null;
     const dream = rest ? ((waited?.rest === "long" ? waited : null) || restingWake(world.log, currentActor(world), world.turn))?.dream ?? null : null;
@@ -20140,7 +20154,7 @@
     const actor = currentActor(world);
     const played = playedEntry(world);
     const verb = played?.verb;
-    if (verb === "claim") return { occasion: null, speakers: [], scenery: false };
+    if (verb === "claim" || verb === "quest") return { occasion: null, speakers: [], scenery: false };
     const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
     const near = (id) => Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
     const thisTurn = world.log.filter(
