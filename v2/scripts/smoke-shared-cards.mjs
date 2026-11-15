@@ -947,13 +947,14 @@ try {
   // the stage while the later Waits are still queued.
   for (const page of [vale, mara]) {
     await expectStage(page, ["vale", nellId, ashId, "mara"]);
-    // Waiting plays have no chips (owner, 2026-11-01).
     assert.equal(
       await page.locator("#shared-queue, .shared-play-avatar").count(),
       0,
     );
     assert.equal(await page.locator("#live-line").isVisible(), false);
-    await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
+    await page.locator(
+      '.beat-stack[data-action="true"] > #speech-row, .beat-stack:not([data-action="true"]) > #beat-behind',
+    ).click({ position: { x: 80, y: 6 } });
     const returnLive = page.getByRole("button", {
       name: /^Return to live dialogue/,
     });
@@ -1031,6 +1032,10 @@ try {
   // Closing it must reveal Vale, Mara and the third visitor in order, with
   // partial letters.
   const speakers = ["Vale", "Mara", avatarOf(nellId).name];
+  for (const page of [vale, mara]) {
+    const stack = page.locator('#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card');
+    if (await stack.count()) await tapCard(stack.first());
+  }
   await openSettings(mara);
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
