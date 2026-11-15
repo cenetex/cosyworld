@@ -11,7 +11,6 @@
 // (Rust: anywhere in the attribute/doc block above, or an `= "..."` string);
 // one without fails with file:line. Like the lint-warning ceiling, a count above
 // the ceiling fails; below it only prints a note to lower the ceiling.
-//
 //   node scripts/check-test-skips.mjs [--ref <git-ref>] [--root <dir>] [--list]
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
