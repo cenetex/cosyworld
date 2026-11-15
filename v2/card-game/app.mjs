@@ -524,6 +524,10 @@ const fresh = new Set();
 const shownLevels = new Map();
 const shownStageLevels = new Map();
 const coveredCards = new Set();
+const lockedBoxes = createLockedBoxes();
+const lockScope = () => JSON.stringify([world.run?.seed, currentActor(world)]);
+let lockedScope = lockScope(), lockRevision = 0;
+const pendingLock = (id) => lockedBoxes.boxed(id) || isLockedBox(world, id);
 let openingHeld = false;
 // The held quest on show (none or one) and whether its card is chosen. A
 // first quest glows (questFresh); questSeq is the last event seen, to count
@@ -559,15 +563,16 @@ const PIP_KNOWN = ["moth", "lamp"];
 const cardIsCovered = (id) => pipPrelude()
   ? !PIP_KNOWN.includes(id) || coveredCards.has(id)
   : !encountered.has(id) || coveredCards.has(id);
+const canRevealCard = (id) => cardIsCovered(id) && !pendingLock(id);
 const unseenCards = () =>
   availableCards(world).filter((id) => !encountered.has(id));
-const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
+const cardIsClosed = (id) => cardIsCovered(id) || pendingLock(id);
 // The pack opening (pack-opening.mjs): three or more cards not yet turned sit
 // in the hand as one face-down stack. It holds card ids only.
 const pack = createPackOpening({ reduced: () => reducedMotion.matches });
 const packTucked = (id) => pack.state === "closed" && pack.has(id);
 const packKind = (id) =>
-  isLockedBox(world, id)
+  pendingLock(id)
     ? "box"
     : id === placeHere()
       ? "place"
@@ -580,7 +585,7 @@ const packKind = (id) =>
 // face down in an open pack (the one place a covered card's tier shows).
 const packTier = (id) => levelTier(cardLevel(world, id)).id;
 const CARD_BACK = "./assets/card-back.webp";
-const cardBack = (id) => isLockedBox(world, id) ? LOCKED_BACK : CARD_BACK;
+const cardBack = (id) => pendingLock(id) ? LOCKED_BACK : CARD_BACK;
 const visibleText = (text) => coveredText(world, text, cardIsClosed);
 // The scene's uncovered cards, so text writes their names in their card's
 // colour (card-names.mjs).
@@ -611,9 +616,37 @@ const avatarKnown = () => !coveredCards.has(currentActor(world));
 const selfKnown = () =>
   avatarKnown() && !coveredCards.has(world.actors[currentActor(world)].place);
 const readerState = () => sharedReadingState(sharedSession.state, selfKnown());
+function loadPendingLocks(reset = false) {
+  const scope = lockScope();
+  let ids = [], revision = 0;
+  try {
+    const saved = !reset && JSON.parse(localStorage.getItem(`${SEEN_KEY}.locked`));
+    if (saved?.scope === scope && Array.isArray(saved.ids)) {
+      ids = saved.ids.filter((id) => people[id] || things[id] || places[id]);
+      if (Number.isSafeInteger(saved.revision) && saved.revision >= 0) revision = saved.revision;
+    }
+  } catch {}
+  if (!reset && scope === lockedScope && revision < lockRevision) return;
+  lockedScope = scope;
+  lockRevision = revision;
+  lockedBoxes.restore(ids);
+}
+function observeLocks() {
+  if (world.revision < lockRevision) return false;
+  return lockedBoxes.observe(availableCards(world).filter((id) => isLockedBox(world, id)));
+}
 function rememberCards() {
   try {
+    const newer = JSON.parse(localStorage.getItem(`${SEEN_KEY}.locked`));
+    if (newer?.scope === lockScope() && newer.revision > lockRevision) {
+      loadPendingLocks();
+      observeLocks();
+    }
+    lockRevision = Math.max(lockRevision, world.revision);
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
+    localStorage.setItem(`${SEEN_KEY}.locked`, JSON.stringify({
+      scope: lockScope(), revision: lockRevision, ids: lockedBoxes.ids(),
+    }));
     localStorage.setItem(
       `${SEEN_KEY}.covered`,
       JSON.stringify([...coveredCards]),
@@ -624,6 +657,8 @@ function loadSeen(reset = false) {
   let saved = [],
     opening = reset;
   coveredCards.clear();
+  loadPendingLocks(reset);
+  observeLocks();
   let stored = null;
   try {
     stored = reset ? null : localStorage.getItem(SEEN_KEY);
@@ -864,6 +899,11 @@ function updateCardCooldown() {
     "#hand button, #card-actions button",
   )) {
     if (freshStart && button.dataset.keepMenu) continue;
+    if (button.dataset.unlockBox) {
+      button.disabled = selectionBlocked() || isLockedBox(world, button.dataset.unlockBox) ||
+        !availableCards(world).includes(button.dataset.unlockBox);
+      continue;
+    }
     button.disabled = selectionBlocked() && !button.dataset.blocked;
     if (button.dataset.card)
       button.draggable =
@@ -1763,7 +1803,7 @@ function uncover(
   id,
   { flip = true, lid = null, fade = true, batch = false, announce = true } = {},
 ) {
-  if (!cardIsCovered(id)) return;
+  if (!cardIsCovered(id) || pendingLock(id)) return;
   const was = opening()?.step;
   encountered.add(id);
   coveredCards.delete(id);
@@ -1794,7 +1834,7 @@ function turnCard(button) {
 // table; pack-opening.mjs decides everything else.
 function packSync(cards) {
   return pack.sync(cards, {
-    unturned: cardIsCovered,
+    unturned: canRevealCard,
     kindOf: packKind,
     holderOf: (id) => tableHolder(world, id),
     allowed: !saveBlocked && !pipPrelude() && !opening(),
@@ -1826,7 +1866,7 @@ function applyPackFrame(frame, id) {
 // the row is raised.
 const packPrompt = () =>
   !selected.length && !questOpen && !rowCollapsed
-    ? pack.prompt(cardIsCovered)
+    ? pack.prompt(canRevealCard)
     : null;
 // A face-down card in an open pack shows its tier only as a rim glow, from
 // Rare up: no number, name or art, and no `data-level` (a covered card still
@@ -1891,7 +1931,7 @@ function openPack() {
 function revealAllPack() {
   packStepAt = performance.now();
   pack.revealAll({
-    unturned: cardIsCovered,
+    unturned: canRevealCard,
     tierOf: packTier,
     turn: (id) => {
       uncover(id, { announce: false });
@@ -1902,7 +1942,7 @@ function revealAllPack() {
   render();
 }
 function skipPack() {
-  pack.skip({ unturned: cardIsCovered, turnNow: packTurnNow });
+  pack.skip({ unturned: canRevealCard, turnNow: packTurnNow });
 }
 // A tap on a pack's card: the stack opens; an open pack's card turns at once
 // (outside a pack the first tap still only selects); during the run a tap
@@ -1917,15 +1957,15 @@ function packTap(id) {
     skipPack();
     return true;
   }
-  if (pack.state === "open" && cardIsCovered(id))
-    return pack.turnOne(id, { unturned: cardIsCovered, turn: (card) => uncover(card) });
+  if (pack.state === "open" && canRevealCard(id))
+    return pack.turnOne(id, { unturned: canRevealCard, turn: (card) => uncover(card) });
   return false;
 }
 // Tapping away, Escape or Done: the pack goes back into the hand, a run
 // first finishing at once. Cards still face down stay face down.
 function packDismiss() {
   if (!["open", "running", "turned"].includes(pack.state)) return;
-  if (pack.dismiss({ unturned: cardIsCovered, turnNow: packTurnNow, tierOf: packTier }))
+  if (pack.dismiss({ unturned: canRevealCard, turnNow: packTurnNow, tierOf: packTier }))
     sfx.card("settle", 3);
 }
 // A new local world's opening, while it lasts (opening.mjs).
@@ -2733,7 +2773,9 @@ function renderActions() {
             : null) || {
             text: selected.some((id) => isLockedBox(world, id))
               ? LOCKED_BOX
-              : CLOSED_BOX,
+              : selected.some((id) => lockedBoxes.boxed(id))
+                ? "Ready to unlock."
+                : CLOSED_BOX,
             cards: [],
           }
         : null,
@@ -2921,9 +2963,10 @@ function renderActions() {
   // The context button keeps a closed box's contents concealed.
   const sealed = !rested && closed;
   const closedCard = selected.find(cardIsClosed);
-  const openingBox = sealed && !isLockedBox(world, closedCard) ? closedCard : null;
+  const unlocking = sealed && pendingLock(closedCard);
+  const openingBox = sealed && !unlocking ? closedCard : null;
   if (sealed) {
-    const why = node("button", openingBox ? "Tap to open" : "Locked", "card-action");
+    const why = node("button", openingBox ? "Tap to open" : "Unlock", "card-action");
     why.type = "button";
     why.disabled = Boolean(openingBox) && selectionBlocked();
     why.title = lockShown.text;
@@ -2937,11 +2980,15 @@ function renderActions() {
         }
       };
     } else {
-      blockPlay(why, "gate");
-      why.setAttribute("aria-label", `Locked. ${lockShown.text}`);
+      why.dataset.unlockBox = closedCard;
+      why.disabled = selectionBlocked() || isLockedBox(world, closedCard) ||
+        !availableCards(world).includes(closedCard);
+      why.onclick = () => unlockBox(closedCard);
+      if (why.disabled) blockPlay(why, "gate");
+      why.setAttribute("aria-label", `Unlock. ${lockShown.text}`);
     }
     row.append(why);
-    cardTapHint(why, openingBox ? "Open" : "Locked");
+    cardTapHint(why, openingBox ? "Open" : "Unlock");
   }
   for (const [reason, kind] of [
     [asleep, "asleep"],
@@ -3111,34 +3158,17 @@ const handMotions = new Map();
 // Cards new to the hand rise in, and quests are dealt face down
 // (card-entry.mjs).
 const handEntries = createCardEntries(),
-  questsInView = createQuestEntries(),
-  lockedBoxes = createLockedBoxes();
+  questsInView = createQuestEntries();
 // Quests turned face up at least once: only these show their parts' tier
 // while folded.
 const revealedQuests = new Set();
-// A box whose quest is done turns over once, the next time it is in view. A
-// box never uncovered opens as a newly found card does, with its name.
-function openLockedBoxes() {
-  const buttons = [...$("hand").children]
-    .filter((frame) => !frame.dataset.want)
-    .map((frame) => frame.querySelector(".card"));
-  const opening = lockedBoxes.draw(
-    buttons
-      .filter((button) => !button.parentElement.hidden)
-      .map((button) => button.dataset.card),
-    buttons
-      .filter((button) => isLockedBox(world, button.dataset.card))
-      .map((button) => button.dataset.card),
-  );
-  const lid = imageUrl(LOCKED_BACK, "card");
-  for (const id of opening) {
-    const button = buttons.find((b) => b.dataset.card === id);
-    if (cardIsCovered(id)) {
-      // Face down for a moment, under the locked lid, until it is named.
-      openingLid(button, lid);
-      setTimeout(() => uncover(id, { lid }));
-    } else void turnCard(openingLid(button, lid));
-  }
+function unlockBox(id) {
+  if (selectionBlocked() || !selected.includes(id)) return;
+  const available = availableCards(world);
+  if (!lockedBoxes.unlock(id, available, available.filter((card) => isLockedBox(world, card)))) return;
+  lastPlayAt = performance.now();
+  coveredCards.add(id);
+  uncover(id, { lid: imageUrl(LOCKED_BACK, "card") });
 }
 // The lid that lifts is the one the card lay under (card-reveal.mjs).
 function openingLid(button, lid) {
@@ -3277,7 +3307,7 @@ function card(id) {
     crossingFace = type === "location" ? travelCard(world, id) : null,
     def = crossingFace ? { ...base, name: crossingFace.name } : base,
     // A card locked behind a quest is a carved wooden box (locked-box.mjs).
-    locked = isLockedBox(world, id),
+    locked = pendingLock(id),
     hidden = cardIsCovered(id) || locked;
   const raised =
     selected.includes(id) || Boolean(places[id] && expandedHolders.has(id));
@@ -5021,6 +5051,8 @@ for (const id of ["hand", "settings-hand"]) {
   });
 }
 function render() {
+  if (lockedScope !== lockScope()) loadPendingLocks();
+  if (observeLocks()) rememberCards();
   if (questOpen && !questVisible(world, shownQuests[0])) questOpen = false;
   for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
     delete card.dataset.hovered;
@@ -5111,6 +5143,7 @@ function render() {
     handCards,
     [...encountered],
     [...coveredCards],
+    lockedBoxes.ids(),
     legalActions(world).map((action) => action.key),
     pack.key(),
     // The sleeper's card shows the sleeping art until the wake ends.
@@ -5285,7 +5318,6 @@ function render() {
     showQuests(opening || Boolean(heldSource?.handed));
     // A new quest rises where the player can see its slot in the hand.
     if (dealtQuest && !opening) revealHandCard(questId(), { instant: true });
-    openLockedBoxes();
     // Every new place is measured before any card starts moving, so the
     // row is laid out once rather than once per card.
     const moves = [];
@@ -5721,6 +5753,20 @@ function resetTable(next = freshWorld()) {
   resumeScene();
 }
 window.addEventListener("storage", (event) => {
+  if (event.key === accountStorageKey(`${SEEN_KEY}.locked`)) {
+    try {
+      if (JSON.parse(event.newValue)?.scope !== lockScope()) return;
+    } catch { return; }
+    const pending = lockedBoxes.ids();
+    loadPendingLocks();
+    for (const id of pending)
+      if (!lockedBoxes.boxed(id)) {
+        encountered.add(id);
+        coveredCards.delete(id);
+      }
+    render();
+    return;
+  }
   if (sharedSession || event.key !== accountStorageKey(SAVE_KEY) || !event.newValue) return;
   cancelPipTransition();
   playQueue.clear();

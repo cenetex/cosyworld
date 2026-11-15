@@ -1,10 +1,7 @@
 // A card locked behind a quest lies in the hand as a carved wooden box: the
 // card back, its painting and name hidden. Its closed lid keeps the contents
 // concealed, while selection can show the authored quest needed to open it.
-// Once the rules open the way, the box turns over once, with the
-// same lift as an uncovered card (card-reveal.mjs), and the card shows as
-// itself from then on. Presentation only: it reads the committed world and
-// never touches rules, saves, the journal or sync.
+// Rules eligibility leaves the lid shut until its player chooses Unlock.
 import { LOCKED_BOX, lockWords, sealedReason } from "./cards.mjs";
 
 export { LOCKED_BOX };
@@ -21,19 +18,21 @@ export const LOCKED_BACK = "./assets/card-back-locked.webp";
 // Whether the card is still locked behind its quest for this player.
 export const isLockedBox = (world, id) => sealedReason(world, id) !== null;
 
-// Boxes this view has drawn. `draw(shown, locked)` takes the cards in view
-// now and the cards drawn locked now (in view or tucked in a stack), and
-// returns the ones due to turn over: drawn locked before, in view and open
-// now. Each turns once; a redraw never covers it again. A box that leaves
-// the hand still locked turns when it is next seen open.
 export function createLockedBoxes() {
   const boxed = new Set();
   return {
-    draw(shown, locked) {
-      const shut = new Set(locked);
-      for (const id of shut) boxed.add(id);
-      return shown.filter((id) => !shut.has(id) && boxed.delete(id));
+    observe(locked) {
+      const size = boxed.size;
+      for (const id of locked) boxed.add(id);
+      return boxed.size !== size;
     },
+    restore(ids = []) {
+      boxed.clear();
+      for (const id of ids) boxed.add(id);
+    },
+    unlock: (id, available, locked) =>
+      available.includes(id) && !locked.includes(id) && boxed.delete(id),
+    ids: () => [...boxed],
     boxed: (id) => boxed.has(id),
     clear: () => boxed.clear(),
   };
