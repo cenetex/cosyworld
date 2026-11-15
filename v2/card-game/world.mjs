@@ -706,7 +706,6 @@ export function wantAPI(s) {
           kind: "narration",
           actorId: actor,
           entityId: card,
-          ...(by ? { targetId: by } : {}),
           cast: [actor],
           witnesses: [actor],
           consequence: true,

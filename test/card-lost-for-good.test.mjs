@@ -73,6 +73,13 @@ const keptHome = (world, at = null) =>
         entityActive(world, id) &&
         (!at || actorCanVisit(id, at, world)),
     );
+const unseen = (world, id, text) => {
+  const context = narrativeContext(world);
+  return (
+    !context.events.includes(text) &&
+    !JSON.stringify(context.entities.filter((e) => e.id !== id)).includes(text)
+  );
+};
 const losses = (world, id) =>
   world.log.filter((e) => e.consequence && e.actorId === id);
 
@@ -112,7 +119,9 @@ describe("a want on a thing that can never come back", () => {
     expect(world.actors[id].want?.target).not.toBe(BUTTON);
     expect(world.actors[id].trust.vale).toBe(1);
     const [loss] = losses(world, id);
-    expect(loss).toMatchObject({ entityId: BUTTON, targetId: "vale" });
+    expect(loss).toMatchObject({ entityId: BUTTON, witnesses: [id] });
+    expect(loss.text).toContain("Vale lost it");
+    expect(unseen(world, id, loss.text)).toBe(true);
     expect(knowsFact(world, id, `event:${loss.seq}`)).toBe(true);
     expect(knowsFact(world, "vale", `event:${loss.seq}`)).toBe(false);
     validateWorld(reload(world));
@@ -131,7 +140,6 @@ describe("a want on a thing that can never come back", () => {
     expect(world.actors[id].want?.target).not.toBe(BUTTON);
     expect(world.actors[id].trust.vale).toBe(2);
     const [loss] = losses(world, id);
-    expect(loss.targetId).toBeUndefined();
     expect(loss.text).toContain("gone for good");
   });
 
@@ -210,10 +218,16 @@ describe("a want on a thing that can never come back", () => {
       delete fresh.actors[id].want;
       installWants(fresh);
       expect(fresh.actors[id].want?.target).not.toBe(made);
+      world.actors.vale.place = world.actors[id].place;
       world = act(world, "wait");
       expect(world.actors[id].want?.target).not.toBe(made);
-      expect(losses(world, id)[0]).toMatchObject({ entityId: made });
+      const [loss] = losses(world, id);
+      expect(loss).toMatchObject({ entityId: made });
+      expect(loss.text).toContain("gone for good");
+      expect(unseen(world, id, loss.text)).toBe(true);
       validateWorld(reload(world));
+      world = act(world, "talk", { target: id });
+      expect(JSON.stringify(narrativeContext(world))).toContain(loss.text);
     });
   });
 });

@@ -21145,7 +21145,7 @@
     );
     const told = (id) => disclosures.filter((d) => d.speaker === id).map((d) => d.factId);
     const eventEntries = world.log.filter(
-      (entry) => entry.turn === world.turn && !entry.generated && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
+      (entry) => entry.turn === world.turn && !entry.generated && (!entry.consequence || entry.witnesses?.includes(currentActor(world))) && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
     ).slice(-8);
     const events = eventEntries.map((entry) => entry.text);
     const bellHandled = localItems.includes("bell") || [played?.itemId, played?.receiveId].includes("bell");

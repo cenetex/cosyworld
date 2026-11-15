@@ -322,6 +322,8 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       (entry) =>
         entry.turn === world.turn &&
         !entry.generated &&
+        (!entry.consequence ||
+          entry.witnesses?.includes(currentActor(world))) &&
         (entry.locationId === location ||
           entry.fromLocationId === location ||
           entry.witnesses?.includes(currentActor(world))),

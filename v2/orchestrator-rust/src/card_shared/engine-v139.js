@@ -5345,18 +5345,20 @@
     for (const id of missing) world.memories[id].seen ??= {};
   }
   function rememberEvent(world, entry) {
-    const related2 = /* @__PURE__ */ new Set([
-      entry.locationId,
-      entry.fromLocationId,
-      entry.actorId,
-      entry.entityId,
-      entry.itemId,
-      entry.receiveId,
-      entry.targetId,
-      ...entry.witnesses || [],
-      ...entry.cast || [],
-      ...(entry.items || []).map((item) => item.id)
-    ]);
+    const related2 = new Set(
+      entry.consequence ? entry.witnesses : [
+        entry.locationId,
+        entry.fromLocationId,
+        entry.actorId,
+        entry.entityId,
+        entry.itemId,
+        entry.receiveId,
+        entry.targetId,
+        ...entry.witnesses || [],
+        ...entry.cast || [],
+        ...(entry.items || []).map((item) => item.id)
+      ]
+    );
     for (const id of related2) {
       if (!profiles[id]) continue;
       if (profiles[id].kind === "avatar" && world.controlledActors?.includes(id) && !world.presentActors?.includes(id) && entry.actorId !== id)
@@ -7920,7 +7922,6 @@
           kind: "narration",
           actorId: actor,
           entityId: card,
-          ...by ? { targetId: by } : {},
           cast: [actor],
           witnesses: [actor],
           consequence: true

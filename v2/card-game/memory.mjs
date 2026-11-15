@@ -53,18 +53,22 @@ export function upgradeSightings(world) {
 
 // A place and its contents retain events there. Avatars retain witnessed events.
 export function rememberEvent(world, entry) {
-  const related = new Set([
-    entry.locationId,
-    entry.fromLocationId,
-    entry.actorId,
-    entry.entityId,
-    entry.itemId,
-    entry.receiveId,
-    entry.targetId,
-    ...(entry.witnesses || []),
-    ...(entry.cast || []),
-    ...(entry.items || []).map((item) => item.id),
-  ]);
+  const related = new Set(
+    entry.consequence
+      ? entry.witnesses
+      : [
+          entry.locationId,
+          entry.fromLocationId,
+          entry.actorId,
+          entry.entityId,
+          entry.itemId,
+          entry.receiveId,
+          entry.targetId,
+          ...(entry.witnesses || []),
+          ...(entry.cast || []),
+          ...(entry.items || []).map((item) => item.id),
+        ],
+  );
   for (const id of related) {
     if (!profiles[id]) continue;
     if (
