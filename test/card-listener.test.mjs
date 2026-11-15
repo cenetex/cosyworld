@@ -207,4 +207,19 @@ describe("the Listener", () => {
     );
     expect(gone(world, target)).toBe(true);
   });
+
+  it("takes a pack thing that starts in a resident's hands for good", () => {
+    let world = beside(call(createWorld({ seed: 5 }), { sale: true }));
+    world.items["willows-pipe"].holder = "vale";
+    world = reload(world);
+    world = act(
+      world,
+      (a) =>
+        a.kind === "give" && a.item === "willows-pipe" && a.target === ID,
+    );
+    expect(neverBack(world, "willows-pipe")).toBe(true);
+    expect(world.actors.vale.arcana.spread.length).toBeGreaterThan(0);
+    world = wait(world);
+    expect(validateWorld(reload(world))).toBeTruthy();
+  });
 });
