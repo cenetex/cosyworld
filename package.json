@@ -15,6 +15,7 @@
     "check:test-guards": "node scripts/check-test-skips.mjs && node scripts/check-recorded-saves.mjs",
     "check:ui": "node scripts/check-ui-inventory.mjs",
     "check:comments": "node scripts/check-comment-ratchet.mjs",
+    "probe:emergence": "node v2/scripts/emergence-probe.mjs",
     "deploy:timings": "node scripts/deploy-timings.mjs",
     "v2:start": "./v2/mvp.sh start",
     "v2:restart": "./v2/mvp.sh restart",
