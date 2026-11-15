@@ -248,7 +248,8 @@ describe("the six card character voices", () => {
     f.speech.retry(); // An explicit request can still replay the same line.
     await tick();
     expect(f.sources).toHaveLength(2);
-    f.speech.show("second", "vale", "Hello."); // Same words, new occurrence.
+    f.sources[1].onended();
+    f.speech.show("second", "vale", "Hello.");
     await tick();
     expect(f.sources).toHaveLength(3);
   });
@@ -279,6 +280,7 @@ describe("the six card character voices", () => {
     ]) {
       reload.speech.show("line", "vale", "Hello.");
       await tick();
+      reload.sources.at(-1).onended();
     }
     expect(reload.sources).toHaveLength(3);
   });
@@ -303,6 +305,7 @@ describe("the six card character voices", () => {
     f.speech.show("muted", "vale", "Hello.");
     await tick();
     expect(f.sources).toHaveLength(1);
+    f.sources[0].onended();
     let release;
     f.load.mockImplementationOnce(
       () =>
@@ -423,7 +426,7 @@ describe("the six card character voices", () => {
       expect(f.sources).toHaveLength(1);
     }
   });
-  it("drops late speech after skipping and stops speech immediately when muted", async () => {
+  it("queues lines in order and never stops one for a new line or a click", async () => {
     const f = fixture();
     let release;
     f.load.mockImplementationOnce(
@@ -436,16 +439,85 @@ describe("the six card character voices", () => {
     f.speech.show("old", "vale", "Old line.");
     await tick();
     f.speech.show("new", "mara", "New line.");
+    f.speech.clear();
     await tick();
     release(audio());
     await tick();
     expect(f.sources).toHaveLength(1);
-    expect(f.events.at(-1).key).toBe("new");
+    expect(f.load.mock.calls.map((call) => call[1])).toEqual([
+      "Old line.",
+      "New line.",
+    ]);
+    f.speech.show("third", "keeper", "Third line.");
+    await tick();
+    expect(f.sources).toHaveLength(1);
+    expect(f.sources[0].stop).not.toHaveBeenCalled();
+    f.sources[0].onended();
+    await tick();
+    expect(f.sources).toHaveLength(2);
+    f.sources[1].onended();
+    await tick();
+    expect(f.sources).toHaveLength(3);
+    expect(f.sources.some((source) => source.stop.mock.calls.length)).toBe(
+      false,
+    );
+  });
+  it("drops the oldest waiting lines past the cap and stale lines", async () => {
+    let time = 0;
+    const f = fixture({ now: () => time });
+    const spoken = () =>
+      f.load.mock.calls
+        .filter((call) => !call[2].aborted)
+        .map((call) => call[1]);
+    f.speech.unlock();
+    f.speech.show("playing", "vale", "First.");
+    await tick();
+    for (const key of ["a", "b", "c", "d", "e"])
+      f.speech.show(key, "mara", `Line ${key}.`);
+    f.sources[0].onended();
+    await tick();
+    f.sources[1].onended();
+    await tick();
+    f.sources[2].onended();
+    await tick();
+    f.sources[3].onended();
+    await tick();
+    expect(f.sources).toHaveLength(4);
+    expect(spoken()).toEqual(["First.", "Line c.", "Line d.", "Line e."]);
+    f.speech.show("hold", "keeper", "Hold.");
+    f.speech.show("long", "vale", "x".repeat(300));
+    f.speech.show("longer", "mara", "y".repeat(300));
+    await tick();
+    expect(spoken()).not.toContain("x".repeat(300));
+    expect(spoken()).toContain("y".repeat(300));
+    f.sources.at(-1).onended();
+    await tick();
+    f.sources.at(-1).onended();
+    await tick();
+    f.speech.pause(true);
+    f.speech.show("late", "mara", "Late.");
+    time += 61_000;
+    f.speech.show("held", "vale", "Held.");
+    f.speech.pause(false);
+    f.sources.at(-1).onended();
+    await tick();
+    expect(spoken()).toContain("Held.");
+    expect(spoken()).not.toContain("Late.");
+  });
+  it("stops speech and empties the queue at once when muted", async () => {
+    const f = fixture();
+    f.speech.unlock();
+    f.speech.show("old", "vale", "Old line.");
+    await tick();
+    f.speech.show("new", "mara", "New line.");
+    await tick();
     f.speech.setEnabled(false);
     expect(f.sources[0].stop).toHaveBeenCalledOnce();
     expect(f.speech.busy).toBe(false);
+    expect(f.events.at(-1).state).toBe("off");
     f.speech.show("muted", "keeper", "Quiet.");
     await tick();
+    expect(f.sources).toHaveLength(1);
     expect(f.load).toHaveBeenCalledTimes(2);
   });
   it("clears a failed decode from cache and supports retry and unsupported speakers", async () => {
@@ -465,6 +537,6 @@ describe("the six card character voices", () => {
     expect(f.events.at(-1).state).toBe("playing");
     f.speech.show("other", "echo", "bong");
     expect(f.speech.busy).toBe(false);
-    expect(f.sources[0].stop).toHaveBeenCalledOnce();
+    expect(f.sources[0].stop).not.toHaveBeenCalled();
   });
 });

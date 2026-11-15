@@ -5,7 +5,6 @@ import { localVoiceClient } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 
 const connected = (client) => Boolean(client.available?.());
-// Hosted voices are free to a signed-in passkey (hosted-voices.mjs).
 const voiceClient = () => localVoiceClient() || hostedVoices().voices;
 const audioType = (blob) => ["audio/mpeg", "audio/wav"].includes(blob.type);
 
@@ -199,6 +198,12 @@ export function createVoiceHistory(storage) {
   };
 }
 
+const QUEUE_LINES = 3;
+const QUEUE_SECONDS = 30;
+const STALE_MS = 60_000;
+const LETTERS_PER_SECOND = 14;
+const spokenSeconds = (text) => text.length / LETTERS_PER_SECOND;
+
 export function createCharacterSpeech({
   client = voiceClient(),
   load = createVoiceClips({ client }),
@@ -207,97 +212,167 @@ export function createCharacterSpeech({
   changed = () => {},
   history = createVoiceHistory(),
   scope = () => "session",
+  now = () => Date.now(),
 } = {}) {
   let context,
-    source,
-    current,
+    source = null,
+    playing = null,
+    shown = null,
+    failed = null,
     prefetch,
     enabled = true,
     paused = false;
-  const publish = (state, message = "") =>
-    changed({ key: current?.key, state, message });
-  function stop(notify = true, keepPrefetch = false) {
-    if (!keepPrefetch) {
-      prefetch?.controller.abort();
-      prefetch = null;
+  const queue = [];
+  const running = () => Boolean(context && context.state === "running");
+  const pending = (entry) =>
+    Boolean(entry && (playing === entry || queue.includes(entry)));
+  function state() {
+    if (!enabled) return "off";
+    const entry = shown?.entry;
+    if (failed && failed.entry === entry && entry) return failed.state;
+    if (
+      shown &&
+      characterVoices[shown.speaker] &&
+      !connected(client) &&
+      !pending(entry)
+    )
+      return "connect";
+    if (entry && playing === entry) return source ? "playing" : "loading";
+    return "ready";
+  }
+  const publish = () =>
+    changed({
+      key: shown?.key,
+      state: state(),
+      message: failed && failed.entry === shown?.entry ? failed.message : "",
+    });
+  function drop(entry) {
+    entry.controller.abort();
+    queue.splice(queue.indexOf(entry), 1);
+  }
+  function trim() {
+    const fresh = scope();
+    for (const entry of [...queue])
+      if (entry.scope !== fresh || now() - entry.at > STALE_MS) drop(entry);
+    while (
+      queue.length > 1 &&
+      (queue.length > QUEUE_LINES ||
+        queue.reduce((sum, entry) => sum + spokenSeconds(entry.text), 0) >
+          QUEUE_SECONDS)
+    )
+      drop(queue[0]);
+  }
+  function prepare(entry) {
+    if (!entry.clip) {
+      entry.clip = load(
+        entry.speaker,
+        entry.text,
+        AbortSignal.any([
+          entry.controller.signal,
+          AbortSignal.timeout(client.timeoutMs || 25_000),
+        ]),
+        entry.reference,
+      );
+      entry.clip.catch(() => {});
     }
-    current?.controller?.abort();
+    return entry.clip;
+  }
+  function finished(entry) {
+    if (playing !== entry) return;
+    playing = null;
+    publish();
+    pump();
+  }
+  async function play(entry) {
+    publish();
+    try {
+      if (entry.retry || !history.has(entry.scope, entry.key)) {
+        const blob = await prepare(entry);
+        let buffer;
+        try {
+          buffer = await context.decodeAudioData(await blob.arrayBuffer());
+        } catch (error) {
+          await load.remove?.(entry.speaker, entry.text, entry.reference);
+          throw error;
+        }
+        if (playing !== entry) return;
+        if (entry.retry || !history.has(entry.scope, entry.key)) {
+          if (
+            !Number.isFinite(buffer.duration) ||
+            buffer.duration <= 0 ||
+            buffer.duration > 90
+          )
+            throw new Error("This voice needs another try.");
+          const node = context.createBufferSource();
+          source = node;
+          node.buffer = buffer;
+          node.connect(context.destination);
+          node.onended = () => {
+            if (source !== node) return;
+            node.disconnect();
+            source = null;
+            finished(entry);
+          };
+          node.start();
+          history.add(entry.scope, entry.key);
+          publish();
+          return;
+        }
+      }
+    } catch (error) {
+      if (playing !== entry || entry.controller.signal.aborted) return;
+      failed = {
+        entry,
+        state: connected(client) ? "error" : "connect",
+        message:
+          error?.name === "TimeoutError"
+            ? "This voice needs another try."
+            : error?.message || "This voice needs another try.",
+      };
+    }
+    finished(entry);
+  }
+  function pump() {
+    if (!enabled || paused || playing || !running()) return;
+    trim();
+    for (const entry of queue) prepare(entry);
+    const entry = queue.shift();
+    if (!entry) return;
+    playing = entry;
+    void play(entry);
+  }
+  function enqueue({ retry = false } = {}) {
+    if (
+      !shown ||
+      !enabled ||
+      !characterVoices[shown.speaker] ||
+      !connected(client) ||
+      pending(shown.entry) ||
+      (!retry && history.has(shown.scope, shown.key))
+    )
+      return;
+    shown.entry = {
+      ...shown,
+      retry,
+      at: now(),
+      controller: new AbortController(),
+    };
+    queue.push(shown.entry);
+    trim();
+    if (running() && !paused) for (const entry of queue) prepare(entry);
+  }
+  function silence() {
+    prefetch?.controller.abort();
+    prefetch = null;
+    for (const entry of [...queue]) drop(entry);
+    if (playing) playing.controller.abort();
+    playing = null;
+    failed = null;
     if (source) {
       source.onended = null;
       source.stop();
       source.disconnect();
       source = null;
-    }
-    if (current) {
-      current.busy = false;
-      current.attempted = true;
-    }
-    if (notify) publish(enabled ? "ready" : "off");
-  }
-  async function run({ retry = false } = {}) {
-    if (
-      !enabled ||
-      paused ||
-      !current ||
-      current.attempted ||
-      !context ||
-      context.state !== "running"
-    )
-      return;
-    const line = current;
-    line.attempted = true;
-    if (!retry && history.has(line.scope, line.key)) return;
-    line.busy = true;
-    line.controller = new AbortController();
-    const signal = AbortSignal.any([
-      line.controller.signal,
-      AbortSignal.timeout(client.timeoutMs || 25_000),
-    ]);
-    publish("loading");
-    try {
-      const blob = await load(line.speaker, line.text, signal, line.reference);
-      signal.throwIfAborted();
-      let buffer;
-      try {
-        buffer = await context.decodeAudioData(await blob.arrayBuffer());
-      } catch (error) {
-        await load.remove?.(line.speaker, line.text, line.reference);
-        throw error;
-      }
-      signal.throwIfAborted();
-      if (current !== line) return;
-      if (!retry && history.has(line.scope, line.key)) {
-        line.busy = false;
-        publish("ready");
-        return;
-      }
-      if (
-        !Number.isFinite(buffer.duration) ||
-        buffer.duration <= 0 ||
-        buffer.duration > 90
-      )
-        throw new Error("This voice needs another try.");
-      const playing = context.createBufferSource();
-      source = playing;
-      playing.buffer = buffer;
-      playing.connect(context.destination);
-      playing.onended = () => {
-        if (current !== line || source !== playing) return;
-        playing.disconnect();
-        source = null;
-        line.busy = false;
-        publish("ready");
-      };
-      playing.start();
-      history.add(line.scope, line.key);
-      publish("playing");
-    } catch (error) {
-      if (current !== line || line.controller.signal.aborted) return;
-      line.busy = false;
-      publish(
-        connected(client) ? "error" : "connect",
-        signal.aborted ? "This voice needs another try." : error.message,
-      );
     }
   }
   return {
@@ -319,26 +394,24 @@ export function createCharacterSpeech({
       Boolean(
         enabled &&
           characterVoices[speaker] &&
-          (connected(client) || current?.busy),
+          (connected(client) || pending(shown?.entry)),
       ),
     show(key, speaker, text, reference) {
-      if (current?.key === key && current.scope === scope()) return;
-      stop(false, prefetch?.speaker === speaker && prefetch.text === text);
-      current = characterVoices[speaker]
-        ? {
-            key,
-            speaker,
-            text,
-            reference,
-            scope: scope(),
-            attempted: history.has(scope(), key),
-            busy: false,
-          }
-        : null;
-      publish(
-        !enabled ? "off" : current && !connected(client) ? "connect" : "ready",
+      if (shown?.key === key && shown.scope === scope()) return;
+      if (
+        prefetch &&
+        (prefetch.speaker !== speaker || prefetch.text !== text)
+      ) {
+        prefetch.controller.abort();
+        prefetch = null;
+      }
+      shown = { key, speaker, text, reference, scope: scope() };
+      shown.entry = [playing, ...queue].find(
+        (entry) => entry && entry.key === key && entry.scope === shown.scope,
       );
-      void run();
+      enqueue();
+      publish();
+      pump();
     },
     unlock() {
       if (!enabled) return;
@@ -347,10 +420,20 @@ export function createCharacterSpeech({
         if (!paused)
           void context
             .resume()
-            .then(run)
-            .catch(() => publish("error", "Tap the line to hear its voice."));
+            .then(pump)
+            .catch(() =>
+              changed({
+                key: shown?.key,
+                state: "error",
+                message: "Tap the line to hear its voice.",
+              }),
+            );
       } catch {
-        publish("error", "Voice playback needs another try.");
+        changed({
+          key: shown?.key,
+          state: "error",
+          message: "Voice playback needs another try.",
+        });
       }
     },
     pause(value) {
@@ -360,37 +443,41 @@ export function createCharacterSpeech({
       else
         void context
           .resume()
-          .then(run)
+          .then(pump)
           .catch(() => {});
     },
     setEnabled(value) {
       enabled = value;
-      if (!enabled) stop();
-      else {
-        if (current)
-          current.attempted = history.has(current.scope, current.key);
-        void run();
-      }
+      if (!enabled) silence();
+      else enqueue();
+      publish();
+      pump();
     },
     connectionChanged() {
-      stop(false);
-      if (current) current.attempted = history.has(current.scope, current.key);
-      publish(connected(client) ? "ready" : "connect");
-      void run();
+      if (!connected(client)) for (const entry of [...queue]) drop(entry);
+      else enqueue();
+      publish();
+      pump();
     },
     retry() {
-      stop(false);
-      if (current) current.attempted = false;
-      void run({ retry: true });
+      if (!shown) return;
+      if (failed?.entry === shown.entry) failed = null;
+      if (queue.includes(shown.entry)) drop(shown.entry);
+      if (playing !== shown.entry) shown.entry = null;
+      enqueue({ retry: true });
+      publish();
+      pump();
     },
-    stop,
     clear({ keepPrefetch = false } = {}) {
-      stop(false, keepPrefetch);
-      current = null;
-      publish("ready");
+      if (!keepPrefetch) {
+        prefetch?.controller.abort();
+        prefetch = null;
+      }
+      shown = null;
+      publish();
     },
     get busy() {
-      return Boolean(current?.busy);
+      return Boolean(enabled && running() && pending(shown?.entry));
     },
   };
 }
