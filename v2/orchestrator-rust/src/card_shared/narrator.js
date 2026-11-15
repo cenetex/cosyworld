@@ -3017,6 +3017,19 @@
     return true;
   }
 
+  // v2/card-game/world/for-good.mjs
+  var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
+  var startOf = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
+  function restForGood(item) {
+    let rest = restOf(item);
+    for (let i = 0; i < 8 && rest !== void 0; i++) {
+      if (startOf(rest)) return startOf(rest);
+      if (restOf(rest) === void 0) return rest;
+      rest = restOf(rest);
+    }
+    return rest;
+  }
+
   // v2/card-game/packs.json
   var packs_default = {
     schemaVersion: 1,
@@ -17966,7 +17979,7 @@
         if (!entityEnabled(world, id, true) && !departed(pack, state, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns4(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
-        if (!entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
+        if (!entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && !(gone(world, id) && world.items[id]?.holder === restForGood(id)) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
           return false;
     }
     return true;
@@ -18924,12 +18937,12 @@
       [...list].sort((a, b) => rank(a.joins) - rank(b.joins))
     ])
   );
-  var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
+  var startOf2 = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
   var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && ORDER.some((g) => groupAwake(list, g)) && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
   function firstStart(s) {
     for (const g of ORDER)
       for (const p of GROUPS[g].packs)
-        if (packOn(s, p) && entityActive(s, startOf(p))) return startOf(p);
+        if (packOn(s, p) && entityActive(s, startOf2(p))) return startOf2(p);
     return null;
   }
 
@@ -19186,19 +19199,6 @@
         (id, i) => Object.hasOwn(s.actors || {}, id) && (!i || who[i - 1] < id)
       )
     );
-  }
-
-  // v2/card-game/world/for-good.mjs
-  var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
-  var startOf2 = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
-  function restForGood(item) {
-    let rest = restOf(item);
-    for (let i = 0; i < 8 && rest !== void 0; i++) {
-      if (startOf2(rest)) return startOf2(rest);
-      if (restOf(rest) === void 0) return rest;
-      rest = restOf(rest);
-    }
-    return rest;
   }
 
   // v2/card-game/pack-items.mjs

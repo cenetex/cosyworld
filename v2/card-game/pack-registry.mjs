@@ -12,6 +12,7 @@ import {
 import { newWant, setWant } from "./want.mjs";
 import { partyOf } from "./world/company.mjs";
 import { gone, usedUp, useUp, bringBack } from "./item-use.mjs";
+import { restForGood } from "./world/for-good.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
 import compiled from "./packs.json" with { type: "json" };
@@ -1153,12 +1154,11 @@ export function validatePackStates(world) {
       )
         return false;
     // Presence-gated things keep their saved place while their humans are away.
-    // A thing gated on where it rests may have travelled and come back to
-    // that place.
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
         !entityEnabled(world, id, true) &&
         !(waitingAtHome(world, id) && world.items[id].history.length === 0) &&
+        !(gone(world, id) && world.items[id]?.holder === restForGood(id)) &&
         (world.items[id]?.holder !== item.holder ||
           (world.items[id]?.history?.length !== 0 &&
             !restGated(item.requires, id)))
