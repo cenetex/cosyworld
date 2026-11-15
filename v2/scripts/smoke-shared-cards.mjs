@@ -395,6 +395,15 @@ async function wake(page) {
     }, `${actor} uncovers ${id}`);
   await clearSelection(page);
 }
+async function readSharedLine(page, text) {
+  await until(async () => {
+    if ((await page.locator("#dialogue-text").textContent())?.trim() === text)
+      return true;
+    const next = page.locator('#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]');
+    if (await next.isVisible()) await next.click();
+    return false;
+  }, `the reader reaches ${text}`, 80, 250);
+}
 async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   let expected;
   await until(() => {
@@ -406,6 +415,7 @@ async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   }, "the selected human receives its plain fixture reply");
   // Observe the actual letter transitions in-page, even when the driver checks later.
   try {
+    await readSharedLine(page, expected);
     await page.waitForFunction(
       ({ expected, speaker }) => {
         const samples = window.sharedReveals.filter(
@@ -1012,11 +1022,8 @@ try {
   // Continue through each saved line and prove its letters animate in order.
   for (const page of [vale, mara]) {
     const expected = [];
-    for (const speaker of speakers) {
-      if (expected.length)
-        await page.locator('#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]').click();
+    for (const speaker of speakers)
       expected.push(await expectSharedReveal(page, queueRequestStart, speaker));
-    }
     const order = await page.evaluate(
       (expected) => [
         ...new Set(
@@ -1213,11 +1220,7 @@ try {
       !journalOps(seq).some((row) => row.op === "speech"),
       "no speech is journaled for words that failed",
     );
-    await until(
-      async () =>
-        (await vale.locator("#dialogue-text").textContent())?.trim() === "…",
-      "Vale's beat shows …",
-    );
+    await readSharedLine(vale, "…");
     assert.equal(await vale.locator("#story-status").isVisible(), false);
     assert.equal(await vale.locator("#story-retry, #story-error").count(), 0);
     assert.doesNotMatch(
@@ -1227,6 +1230,7 @@ try {
     const before = failedView.world;
     const settled = journalOps(0).at(-1).seq;
     failReplies = false;
+    const recoveryRequestStart = requests.length;
     // The next play is taken at once and speaks: one play, one speech, and
     // perhaps the speaker's private reflection (shared-worlds.md).
     const next = {
@@ -1269,6 +1273,7 @@ try {
       new Set(["play"]),
     );
     assert(after.turn > before.turn, "the next play ran");
+    await expectSharedReveal(vale, recoveryRequestStart);
     assert.equal(await vale.locator("#story-retry, #story-error").count(), 0);
   }
   assert.deepEqual(errors, []);
