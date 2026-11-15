@@ -2646,7 +2646,7 @@ function cardTapHint(button, verb = actionTapVerb(null, button.textContent), lab
   nameActionTap(button, verb, label);
 }
 
-const choiceKey = () => `${selected.join("+")}:${questOpen}:${rowCollapsed}`;
+const choiceKey = () => `${selected.join("+")}:${questOpen}:${rowCollapsed}:${questReviewId}`;
 let queuedChoice = false;
 function queueChoice() {
   queuedChoice ||= Boolean(shownSceneLine && (
@@ -2752,8 +2752,11 @@ function renderActions() {
   const closed = selected.some(cardIsClosed);
   const ownCard = selected.length === 1 && selected[0] === currentActor(world);
   const reviewQuests = ownCard && questReviewId !== null;
-  const previews = !rested && selected.length === 1
-    ? questPreviews(world).filter((p) => ownCard ? reviewQuests : p.source === selected[0])
+  const closedSources = selected.filter(pendingLock);
+  const previewSource = selected.length === 1 ? selected[0]
+    : closedSources.length === 1 ? closedSources[0] : null;
+  const previews = !rested && previewSource
+    ? questPreviews(world).filter((p) => ownCard ? reviewQuests : p.source === previewSource)
     : [];
   const preview = previews.find((p) => p.id === questReviewId) ?? previews[0];
   const previewCard = preview && questPreviewCard(world, preview);
@@ -2949,6 +2952,7 @@ function renderActions() {
     review.type = "button";
     review.dataset.reviewQuests = "";
     review.onclick = () => {
+      queueChoice();
       questReviewId = reviewQuests ? null : "";
       renderActions();
     };
@@ -2972,6 +2976,7 @@ function renderActions() {
       next.type = "button";
       next.dataset.nextQuest = "";
       next.onclick = () => {
+        queueChoice();
         questReviewId = previews[(previews.indexOf(preview) + 1) % previews.length].id;
         renderActions();
       };

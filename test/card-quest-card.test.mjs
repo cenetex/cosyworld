@@ -5,6 +5,7 @@ import {
   legalActions,
   nameOf,
   play,
+  questPreviews,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 // Play here starts past the pond, where the first quest begins.
@@ -405,8 +406,10 @@ describe("the quest card", () => {
   });
 
   it("shows the dealt card after the held quests, a level up with its woodcut", () => {
-    const s = settleArcana(createWorld({ seed: 7 }), "vale");
+    let s = settleArcana(createWorld({ seed: 7 }), "vale");
     s.actors.vale.arcana.proved = ["arcanum-5"];
+    expect(levelCard(s, "vale")).toBeNull();
+    s = play(s, questPreviews(s).find((q) => q.kind === "level").action).state;
     const card = levelCard(s, "vale");
     expect(card).toMatchObject({
       key: "level:arcanum-0",
@@ -429,8 +432,10 @@ describe("the quest card", () => {
   });
 
   it("draws the World with its woodcut", () => {
-    const s = createWorld({ seed: 7 });
+    let s = createWorld({ seed: 7 });
     s.actors.vale.arcana = { proved: [], did: [], dealt: "arcanum-21" };
+    expect(levelCard(s, "vale")).toBeNull();
+    s = play(s, questPreviews(s).find((q) => q.kind === "level").action).state;
     expect(levelCard(s, "vale")).toMatchObject({ target: "arcanum-21", art: "./assets/arcana/arcanum-21.png", level: 1 });
     expect(questCaption({ ...levelCard(s, "vale"), level: null })).toBe("Rest at home");
   });
