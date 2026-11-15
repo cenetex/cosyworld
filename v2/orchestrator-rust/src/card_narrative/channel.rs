@@ -797,17 +797,13 @@ pub(super) async fn lines(
 pub(super) struct CoordinateRequest {
     pack: String,
     residents: Vec<String>,
-    #[serde(default)]
-    people: Vec<String>,
     state: Map<String, Value>,
 }
 
 fn arranged(request: &CoordinateRequest, cast: &[Resident]) -> Option<Value> {
     let member = |id: &str| cast.iter().find(|r| r.id == id);
     let fits = (1..=CANDIDATES).contains(&request.residents.len())
-        && request.residents.iter().all(|id| member(id).is_some())
-        && request.people.len() <= CANDIDATES
-        && request.people.iter().all(|name| bounded(name, 32));
+        && request.residents.iter().all(|id| member(id).is_some());
     let lines = request.state.get("history")?.as_array()?;
     if !fits || lines.is_empty() || lines.len() > HISTORY {
         return None;
@@ -846,77 +842,31 @@ fn arranged(request: &CoordinateRequest, cast: &[Resident]) -> Option<Value> {
 }
 
 fn asked(request: &CoordinateRequest, cast: &[Resident]) -> Value {
-    let name = |id: &str| {
-        cast.iter()
-            .find(|r| r.id == id)
-            .map_or(id.to_string(), |r| r.name.clone())
-    };
-    let mut owed: Map<String, Value> = request
-        .residents
+    let mut criteria: Map<String, Value> = cast
         .iter()
-        .map(|id| {
-            (
-                id.clone(),
-                json!(format!("{} is owed the next reply", name(id))),
-            )
-        })
+        .filter(|r| request.residents.contains(&r.id))
+        .map(|r| (r.id.clone(), json!(format!("{} speaks next", r.name))))
         .collect();
-    owed.insert(
-        "a person".into(),
-        json!("A person in the channel is owed the next reply"),
+    criteria.insert(
+        "none".into(),
+        json!("Nobody; the people talk or the moment rests"),
     );
-    owed.insert("nobody".into(), json!("Nobody is owed a reply right now"));
-    let mut questions = json!({
-        "owed": {"type": "choice", "instructions": "Who is owed the next reply in this conversation?", "criteria": owed},
-        "for_resident": {"type": "noul", "instructions": "Is the newest message in history meant for a resident at all?"}
-    });
-    let noul = |instructions: String| json!({"type": "noul", "instructions": instructions});
-    for id in &request.residents {
-        questions[format!("respond_{id}")] = noul(format!(
-            "Should {} answer the newest message in history?",
-            name(id)
-        ));
-        questions[format!("in_{id}")] = noul(format!(
-            "Is {} part of the conversation happening right now?",
-            name(id)
-        ));
-    }
-    for (index, person) in request.people.iter().enumerate() {
-        questions[format!("in_p{index}")] = noul(format!(
-            "Is {} part of the conversation happening right now?",
-            label(person)
-        ));
-    }
-    questions
+    json!({"next": {"type": "choice", "instructions": "Who speaks next?", "criteria": criteria}})
 }
 
-fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Value {
+fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Option<Value> {
     let rounded = |p: f64| (p * 100.0).round() / 100.0;
-    let mut respond = Map::new();
-    let mut members = Map::new();
-    for id in &request.residents {
-        if let Some(p) = system_one::noul(answers, &format!("respond_{id}")) {
-            respond.insert(id.clone(), json!(rounded(p)));
-        }
-        if let Some(p) = system_one::noul(answers, &format!("in_{id}")) {
-            members.insert(id.clone(), json!(rounded(p)));
-        }
-    }
-    for (index, person) in request.people.iter().enumerate() {
-        if let Some(p) = system_one::noul(answers, &format!("in_p{index}")) {
-            members.insert(person.clone(), json!(rounded(p)));
-        }
-    }
-    let owed = system_one::choice(answers, "owed")
-        .filter(|(who, _)| {
-            ["a person", "nobody"].contains(who) || request.residents.iter().any(|id| id == who)
-        })
-        .map(|(who, confidence)| json!({"choice": who, "confidence": rounded(confidence)}));
-    let mut body = json!({"respond": respond, "members": members, "owed": owed});
-    if let Some(p) = system_one::noul(answers, "for_resident") {
-        body["for_resident"] = json!(rounded(p));
-    }
-    body
+    let (choice, confidence) = system_one::choice(answers, "next")?;
+    let known = |id: &str| id == "none" || request.residents.iter().any(|r| r == id);
+    let probabilities: Map<String, Value> = answers["next"]["probabilities"]
+        .as_object()?
+        .iter()
+        .filter(|(id, _)| known(id))
+        .filter_map(|(id, p)| Some((id.clone(), json!(rounded(p.as_f64()?)))))
+        .collect();
+    known(choice).then(|| {
+        json!({"next": {"choice": choice, "confidence": rounded(confidence), "probabilities": probabilities}})
+    })
 }
 
 pub(super) async fn coordinate(
@@ -936,7 +886,7 @@ pub(super) async fn coordinate(
     let Some(mut view) = arranged(&request, &residents) else {
         return error(
             StatusCode::BAD_REQUEST,
-            "send 1 to 8 residents, at most 8 people, and 1 to 200 history lines",
+            "send 1 to 8 residents and 1 to 200 history lines",
         );
     };
     let Some(config) = state.ai.as_ref().as_ref() else {
@@ -946,10 +896,10 @@ pub(super) async fn coordinate(
     let tokens = system_one::fit(&mut view, &questions);
     tracing::info!(feature = "discord", tokens, "discord coordinate state");
     match system_one::ask(config, "discord_coordinate", &view, questions).await {
-        Ok(answers) if !answers.is_empty() => {
-            coordinated(Some(answered(&request, &answers)), "ok".into())
-        }
-        Ok(_) => coordinated(None, "jev-shape".into()),
+        Ok(answers) => match answered(&request, &answers) {
+            Some(answers) => coordinated(Some(answers), "ok".into()),
+            None => coordinated(None, "jev-shape".into()),
+        },
         Err(reason) => coordinated(None, reason),
     }
 }
@@ -1612,7 +1562,6 @@ mod tests {
         json!({
             "pack": "lonely-forest",
             "residents": ["vale", "rati"],
-            "people": ["Ash"],
             "state": {
                 "notes": {"topic": "meeting"},
                 "residents": {"vale": {"streak": 0}},
@@ -1625,38 +1574,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_coordinator_asks_jev_once_and_returns_typed_answers() {
-        let answer = r#"{"answers": {
-            "owed": {"type": "choice", "choice": "vale", "probabilities": {"vale": 0.9}, "confidence": 0.876},
-            "for_resident": {"type": "noul", "noul": 0.97},
-            "respond_vale": {"type": "noul", "noul": 0.93},
-            "respond_rati": {"type": "noul", "noul": 0.71},
-            "in_vale": {"type": "noul", "noul": 0.9},
-            "in_rati": {"type": "noul", "noul": 0.4},
-            "in_p0": {"type": "noul", "noul": 0.99}
-        }, "usage": {"cost": 0.000017}}"#;
+    async fn the_coordinator_asks_who_speaks_next() {
+        let answer = r#"{"answers": {"next": {"type": "choice", "choice": "vale",
+            "probabilities": {"vale": 0.876, "rati": 0.1, "none": 0, "mara": 0.0}, "confidence": 0.8}},
+            "usage": {"cost": 0.000017}}"#;
         let (status, body, requests) = post_coordinate(answer, met()).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(
             body,
-            json!({"reason": "ok", "answers": {
-                "owed": {"choice": "vale", "confidence": 0.88},
-                "for_resident": 0.97,
-                "respond": {"vale": 0.93, "rati": 0.71},
-                "members": {"vale": 0.9, "rati": 0.4, "Ash": 0.99}
-            }})
+            json!({"reason": "ok", "answers": {"next": {"choice": "vale", "confidence": 0.8,
+                "probabilities": {"vale": 0.88, "rati": 0.1, "none": 0.0}}}})
         );
         assert_eq!(requests.len(), 1);
         let asked = &requests[0];
-        assert_eq!(asked["questions"].as_object().unwrap().len(), 7);
+        assert_eq!(asked["questions"].as_object().unwrap().len(), 1);
+        let criteria = asked["questions"]["next"]["criteria"].as_object().unwrap();
+        assert_eq!(
+            criteria.keys().collect::<Vec<_>>(),
+            ["none", "rati", "vale"]
+        );
         let state = &asked["state"];
         assert_eq!(state["notes"]["topic"], "meeting");
         assert_eq!(state["residents"]["vale"]["streak"], 0);
         assert_eq!(state["residents"]["vale"]["profile"]["name"], "Vale");
+        assert_eq!(state["world"]["homes"]["RATi"], "Cosy Cottage");
         assert_eq!(
             state["history"][1],
             json!({"speaker": "Ash", "role": "person", "text": "Vale have you met RATi?", "ago": 2, "named": ["Vale", "RATi"]})
         );
+        let (_, body, _) = post_coordinate(
+            r#"{"answers": {"next": {"type": "choice", "choice": "mara", "probabilities": {}, "confidence": 0.9}}}"#,
+            met(),
+        )
+        .await;
+        assert_eq!(body, json!({"answers": null, "reason": "jev-shape"}));
     }
 
     #[tokio::test]
