@@ -129,10 +129,26 @@ try {
         .locator("#hand")
         .getAttribute("data-presented-revision");
       await watch();
-      // Selecting Mara starts her action sentence. Its first tap while
-      // revealing finishes the words; only a ready button plays Wait.
+      // Read an arriving reply before the queued Wait; never step backward.
       const action = readyActionButton(page, "wait").first();
-      await action.waitFor();
+      const forward = page.locator(
+        '#dialogue-advance:is([aria-label="Finish reading"], [aria-label="Continue to the next beat"])',
+      );
+      const revision = await page.evaluate(
+        (key) => JSON.parse(localStorage.getItem(key)).revision, key,
+      );
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline && !(await action.isVisible())) {
+        if (await forward.isVisible())
+          await forward.click({ timeout: Math.max(1, deadline - Date.now()) });
+        else await page.waitForTimeout(40);
+      }
+      await action.waitFor({ timeout: Math.max(1, deadline - Date.now()) });
+      assert.equal(
+        await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).revision, key),
+        revision,
+        "reading the prior reply does not play a turn",
+      );
       assert.equal((await action.innerText()).trim(), "Wait");
       await action.click();
       // Settled: the hand shows the play's revision, the overlay has no fade
