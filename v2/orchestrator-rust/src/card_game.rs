@@ -58,13 +58,25 @@ async fn download() -> Response {
     (StatusCode::FOUND, [(header::LOCATION, DOWNLOAD_URL)]).into_response()
 }
 
-async fn index() -> Response {
+async fn index(headers: HeaderMap) -> Response {
     let budget = narrative::client_budget_ms();
     let mut page = String::from_utf8_lossy(include_bytes!("../../card-game/index.html")).replacen(
         r#"name="cosy-story-budget-ms" content="30000""#,
         &format!(r#"name="cosy-story-budget-ms" content="{budget}""#),
         1,
     );
+    if let Some(host) = headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .filter(|host| {
+            !host.is_empty()
+                && host
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b".-:".contains(&byte))
+        })
+    {
+        page = page.replace("https://lonelyforest.com/", &format!("https://{host}/"));
+    }
     if std::env::var("COSYWORLD_LOCAL_APP").as_deref() == Ok("1") {
         page = page.replacen(
             "<head>",
@@ -78,8 +90,8 @@ async fn index() -> Response {
     response
 }
 
-async fn authoring_index() -> Response {
-    let mut response = index().await;
+async fn authoring_index(headers: HeaderMap) -> Response {
+    let mut response = index(headers).await;
     let policy = CSP
         .replace("img-src 'self' data:", "img-src 'self' data: blob:")
         .replace(
@@ -102,7 +114,7 @@ async fn asset(
     headers: HeaderMap,
 ) -> Response {
     if path == "index.html" {
-        return index().await;
+        return index(headers).await;
     }
     let Some((content_type, bytes)) = cosyworld_orchestrator::card_assets::get(&path) else {
         return StatusCode::NOT_FOUND.into_response();
@@ -457,6 +469,29 @@ mod tests {
                     "{range}"
                 );
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn share_tags_point_at_the_host_that_served_the_page() {
+        for (host, origin) in [
+            (Some("cosyworld.fly.dev"), "https://cosyworld.fly.dev/"),
+            (Some("bad host\""), "https://lonelyforest.com/"),
+            (None, "https://lonelyforest.com/"),
+        ] {
+            let mut builder = Request::builder().uri("/");
+            if let Some(host) = host {
+                builder = builder.header(header::HOST, host);
+            }
+            let response = router::<()>()
+                .oneshot(builder.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            let page = String::from_utf8(body.to_vec()).unwrap();
+            assert!(page.contains(&format!(
+                r#"property="og:image" content="{origin}card-game/assets/share/lonely-forest.jpg""#
+            )));
         }
     }
 

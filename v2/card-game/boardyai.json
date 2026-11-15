@@ -47,11 +47,6 @@
         "sore": "A rushed introduction",
         "reason": "Bring two human players together."
       },
-      "desire": {
-        "items": [],
-        "location": null,
-        "avatars": []
-      },
       "want": { "kind": "connect", "target": "humans" },
       "personalQuests": true
     }

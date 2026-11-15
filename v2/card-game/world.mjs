@@ -158,7 +158,11 @@ import {
   avoidsStandoffs,
   transports,
   consumable,
+  neverBack,
+  packOf,
 } from "./pack-registry.mjs";
+import { authoredWant } from "./want-talk.mjs";
+import { dailyRumours, dayOf, noteRumours, talkRumours } from "./world/rumours.mjs";
 import {
   newCrossingState,
   newPackRecord,
@@ -343,7 +347,8 @@ export { createWorld, seedRun };
 // Mount every pack missing from this save: its crossings, its state, and its
 // residents with fresh relationships. Earlier saves keep their own history.
 export function installPacks(s) {
-  const added = [];
+  const added = [],
+    mounted = [];
   installTransports(s);
   s.crossings ??= {};
   s.packs ??= {};
@@ -392,6 +397,7 @@ export function installPacks(s) {
     }
     if (s.packs[pack.id]) continue;
     s.packs[pack.id] = newPackRecord(pack);
+    mounted.push(pack);
     for (const [id, a] of Object.entries(pack.avatars)) {
       if (s.actors[id]) throw new Error("A pack resident is already present.");
       s.actors[id] = {
@@ -419,6 +425,10 @@ export function installPacks(s) {
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   for (const pack of packDefinitions) installSpecials(s, pack);
+  for (const pack of mounted)
+    for (const [id, a] of Object.entries(pack.avatars))
+      for (const [other, n] of Object.entries(a.bonds || {}))
+        if (s.actors[id].trust[other] !== undefined) s.actors[id].trust[other] = n;
   installArcana(s);
   installItemCycle(s, added);
   installLife(s, travels);
@@ -491,11 +501,12 @@ import {
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
-import { questOffers } from "./world/offers.mjs";
+import { questOffers, residentOffer } from "./world/offers.mjs";
+import { lapseOffer } from "./offer-chance.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
 import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
-export { questOffers };
+export { questOffers, residentOffer };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
@@ -720,6 +731,11 @@ export function wantAPI(s) {
     active: (id) => entityActive(s, id),
     sanctuaries,
     restsAt,
+    worldOf: (id) => packOf(id)?.id ?? "hub",
+    gone: (id) => neverBack(s, id),
+    kindOf: (id) =>
+      Object.hasOwn(s.items, id) ? "item" : Object.hasOwn(s.actors, id) ? "person" : Object.hasOwn(places, id) ? "place" : null,
+    thick: authoredWant,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
     dreamCard: (actor) => dreamCard(s, actor),
     log: (actor, want) =>
@@ -1673,6 +1689,18 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
+  const asked = residentOffer(s, actor);
+  if (asked && !asked.full)
+    out.push(
+      offer(
+        "accept",
+        actor,
+        null,
+        asked.source,
+        `${nameOf(actor)} accepts ${nameOf(asked.source)}'s quest.`,
+        [],
+      ),
+    );
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
       const goal =
@@ -1724,6 +1752,7 @@ export function legalActions(s, actor = currentActor(s)) {
 // it ends. Arrivals are locked in too. Wait and the battle's own plays stay,
 // and the threatened side may still hand over the demanded item.
 const ROOM_LOCKED = new Set([
+  "accept",
   "eat",
   "talk",
   "threaten",
@@ -2806,6 +2835,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
   // A player's Talk that reveals a want new to them records what was said, so
   // Accept quest can offer it while it is still the want told (#2605).
   if (a.kind === "talk") talkQuest(s, a.actor, a.target, wantAPI(s));
+  if (a.kind === "talk" && s.actors[a.target] && controlledByHuman(s, a.actor))
+    talkRumours(s, a.actor, a.target);
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
@@ -3314,6 +3345,16 @@ export function play(
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  if (exact.kind === "accept") {
+    const asked = residentOffer(next, actor);
+    const quest = holdQuest(next, actor, asked.want, asked.id);
+    lapseOffer(next, actor);
+    bindAsker(next, actor, quest, true);
+    next.revision += 1;
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
+  lapseOffer(next, actor);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
   // resident sleep becomes its returning player's own.
@@ -3527,6 +3568,8 @@ export function play(
   settleLamp(next);
   settleStationExits(next);
   settleQuests(next, actor);
+  noteRumours(s, next, wantAPI(next), wantAPI(s));
+  if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
   // It stops at the first refused play, and the sleep cap bounds it.

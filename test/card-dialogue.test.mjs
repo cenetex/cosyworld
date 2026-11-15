@@ -7,6 +7,8 @@ import {
   waitForScene,
   splitLetters,
   createSpeechSounds,
+  letterDelay,
+  lineDelay,
 } from "../v2/card-game/dialogue.mjs";
 afterEach(() => vi.useRealTimers());
 function player(options = {}) {
@@ -20,6 +22,53 @@ function player(options = {}) {
   });
   return { reveal, frames, sound, last: () => frames.at(-1) };
 }
+describe("line pace", () => {
+  const line = splitLetters(
+    "The lamp burns low, and the pond keeps its secrets under a thin ice skin.",
+  );
+  const delays = line.map((_, i) => lineDelay(line, i));
+  const steady = line.map((letter) => letterDelay(letter));
+  it("starts twice as fast and slows to the steady pace at the end", () => {
+    expect(delays[0]).toBe(steady[0] / 2);
+    expect(delays[1]).toBe(steady[1] / 2);
+    expect(delays.at(-2)).toBe(steady.at(-2));
+    const tail = delays.slice(-12, -1).map((ms, i) => ms / steady.at(i - 12));
+    for (let i = 1; i < tail.length; i++)
+      expect(tail[i]).toBeGreaterThanOrEqual(tail[i - 1]);
+    expect(tail.at(-1)).toBeGreaterThan(tail[0]);
+  });
+  it("never waits longer than the steady pace and saves time on the line", () => {
+    let total = 0,
+      old = 0;
+    for (const [i, ms] of delays.entries()) {
+      expect(ms).toBeGreaterThan(0);
+      expect(ms).toBeLessThanOrEqual(steady[i]);
+      total += ms;
+      old += steady[i];
+    }
+    expect(total).toBeLessThan(old * 0.6);
+  });
+  it("types at the faster pace on 60 Hz paint frames", () => {
+    let time = 0,
+      callback = null;
+    const frames = [];
+    const reveal = createTextReveal({
+      frame: (value) => frames.push(value),
+      now: () => time,
+      requestFrame: (next) => {
+        callback = next;
+        return 1;
+      },
+      cancelFrame: () => {},
+    });
+    reveal.show("a", "a".repeat(80), "vale");
+    while (!frames.at(-1).complete) {
+      time += 1000 / 60;
+      callback();
+    }
+    expect(time).toBeLessThan(1300);
+  });
+});
 describe("paced conversation", () => {
   it("uses a steady letter clock with punctuation pauses and holds the finished line", () => {
     const { reveal, last, sound } = player();
@@ -27,7 +76,7 @@ describe("paced conversation", () => {
     expect(last().shown).toBe(0);
     vi.advanceTimersByTime(84);
     expect(last().shown).toBe(3);
-    vi.advanceTimersByTime(89);
+    vi.advanceTimersByTime(16);
     expect(last().shown).toBe(3);
     vi.advanceTimersByTime(1);
     expect(last().shown).toBe(4);
@@ -65,7 +114,7 @@ describe("paced conversation", () => {
   it("keeps one line through unrelated renders and cancels it when another is chosen", () => {
     const { reveal, last, frames, sound } = player();
     reveal.show("a", "Old words", "vale");
-    vi.advanceTimersByTime(56);
+    vi.advanceTimersByTime(42);
     reveal.show("a", "Old words", "vale");
     expect(last().shown).toBe(2);
     reveal.show("b", "A reply", "keeper");
@@ -92,14 +141,14 @@ describe("paced conversation", () => {
   it("pauses in a hidden tab or menu and resumes at the same letter", () => {
     const { reveal, last, sound } = player();
     reveal.show("a", "Quiet water", "pond");
-    vi.advanceTimersByTime(56);
+    vi.advanceTimersByTime(42);
     reveal.pause(true);
     const count = sound.mock.calls.length;
     vi.advanceTimersByTime(10000);
     expect(last().shown).toBe(2);
     expect(sound).toHaveBeenCalledTimes(count);
     reveal.pause(false);
-    vi.advanceTimersByTime(28);
+    vi.advanceTimersByTime(14);
     expect(last().shown).toBe(3);
   });
   it("finishes a section, holds its pause, then resumes its typing voice", () => {
@@ -127,12 +176,12 @@ describe("paced conversation", () => {
   it("keeps the rest of a punctuation pause when a menu closes", () => {
     const { reveal, last } = player();
     reveal.show("a", "Hi, Pip", "vale");
-    vi.advanceTimersByTime(100);
+    vi.advanceTimersByTime(80);
     expect(last().shown).toBe(3);
     reveal.pause(true);
     vi.advanceTimersByTime(10000);
     reveal.pause(false);
-    vi.advanceTimersByTime(73);
+    vi.advanceTimersByTime(20);
     expect(last().shown).toBe(3);
     vi.advanceTimersByTime(1);
     expect(last().shown).toBe(4);
@@ -186,6 +235,7 @@ describe("paced conversation", () => {
     const reveal = createTextReveal({
       frame,
       sound,
+      delay: () => 28,
       now: () => time,
       requestFrame: (next) => {
         callback = next;
@@ -333,35 +383,44 @@ describe("short character voices", () => {
 });
 
 describe("one exchange per card play", () => {
-  it.each([false, true])("holds a queued choice after the last reply (stream: %s)", (streaming) => {
-    let held = true;
-    const show = vi.fn();
-    const exchange = createExchange({ show, holdLast: () => held });
-    const lines = [
-      { seq: 1, entityId: "gate", text: "The way opens." },
-      { seq: 2, entityId: "decree", text: "The seal is warm." },
-      { seq: 3, entityId: "vale", text: "I have it." },
-    ];
-    exchange.begin();
-    exchange.load(lines.slice(0, streaming ? 1 : 3), { pending: streaming });
-    exchange.revealed(1);
-    if (streaming) exchange.load(lines);
-    expect(exchange.current.seq).toBe(1);
-    exchange.advance();
-    exchange.revealed(2);
-    expect(exchange.current.seq).toBe(2);
-    exchange.advance();
-    exchange.revealed(3);
-    expect(exchange.read).toBe(true);
-    expect(exchange.active).toBe(true);
-    exchange.pause(true);
-    exchange.pause(false);
-    expect(exchange.current.seq).toBe(3);
-    expect(show.mock.calls.map(([line]) => line.entityId)).toEqual(["gate", "decree", "vale"]);
-    if (streaming) { held = false; exchange.settleLast(); }
-    else exchange.advance();
-    expect(exchange.active).toBe(false);
-  });
+  it.each([false, true])(
+    "holds a queued choice after the last reply (stream: %s)",
+    (streaming) => {
+      let held = true;
+      const show = vi.fn();
+      const exchange = createExchange({ show, holdLast: () => held });
+      const lines = [
+        { seq: 1, entityId: "gate", text: "The way opens." },
+        { seq: 2, entityId: "decree", text: "The seal is warm." },
+        { seq: 3, entityId: "vale", text: "I have it." },
+      ];
+      exchange.begin();
+      exchange.load(lines.slice(0, streaming ? 1 : 3), { pending: streaming });
+      exchange.revealed(1);
+      if (streaming) exchange.load(lines);
+      expect(exchange.current.seq).toBe(1);
+      exchange.advance();
+      exchange.revealed(2);
+      expect(exchange.current.seq).toBe(2);
+      exchange.advance();
+      exchange.revealed(3);
+      expect(exchange.read).toBe(true);
+      expect(exchange.active).toBe(true);
+      exchange.pause(true);
+      exchange.pause(false);
+      expect(exchange.current.seq).toBe(3);
+      expect(show.mock.calls.map(([line]) => line.entityId)).toEqual([
+        "gate",
+        "decree",
+        "vale",
+      ]);
+      if (streaming) {
+        held = false;
+        exchange.settleLast();
+      } else exchange.advance();
+      expect(exchange.active).toBe(false);
+    },
+  );
   function setup() {
     vi.useFakeTimers();
     const show = vi.fn(),

@@ -134,7 +134,7 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
   s.actors.moth.trust.vale = 1;
   expect(s.items["ratiradio-red-beanie"].holder).toBe("hoppycat-halfway-tea-garden");
   const route = [
-    ["take", "hoppycat-red-thread-spool"], ["take", "lamp"], ["move", "pond"],
+    ["take", "lamp"], ["move", "pond"],
     ["ask", "cloth"], ["hold", "cloth"], ["drop", "lamp"],
     ["move", "greek-ship"], ["course", "greek-harbor"], ["wait"], ["move", "greek-harbor"],
     // A Hoppy Cat thing no longer opens the lane to Piraeus: the provisions

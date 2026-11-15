@@ -2,10 +2,11 @@ import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import { readConfig } from "./config.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
 import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
-import { calm, createRoom, createStats, nudge, record, seed, summary, tick } from "./room.mjs";
+import { createRoom, createStats, record, seed, summary } from "./room.mjs";
 import { startHealth } from "./health.mjs";
 import { wait } from "./beats.mjs";
-import { channelLines, fetchCast } from "./orchestrator.mjs";
+import { channelLines, conversationNotes, coordinate, fetchCast } from "./orchestrator.mjs";
+import { heard, hush } from "./turns.mjs";
 
 const config = readConfig(process.env);
 
@@ -47,7 +48,7 @@ async function refreshCast() {
 function forget(guildId) {
   for (const [channelId, room] of rooms) {
     if (room.guildId !== guildId) continue;
-    calm(room);
+    hush(room);
     rooms.delete(channelId);
     webhooks.delete(channelId);
     channels.delete(channelId);
@@ -62,7 +63,7 @@ async function watch(guild) {
   const room = createRoom(guild.id, found.channel.id);
   room.webhookId = found.webhook.id;
   try {
-    const recent = await found.channel.messages.fetch({ limit: 20 });
+    const recent = await found.channel.messages.fetch({ limit: 100 });
     seed(room, recent.values(), cast);
   } catch (error) {
     log(`history unavailable in guild ${guild.id}: ${error?.code ?? "error"}`);
@@ -72,14 +73,23 @@ async function watch(guild) {
   rooms.set(found.channel.id, room);
 }
 
-function run(targets, now = Date.now()) {
+function jot(body) {
+  return conversationNotes(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body);
+}
+
+function ask(body, signal) {
+  return coordinate(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal);
+}
+
+function poll() {
   lastTickAt = Date.now();
-  void tick({
-    rooms: targets,
-    state,
-    now,
+}
+
+function turnDeps() {
+  return {
     config,
     cast,
+    state,
     lines: (body, signal) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal),
     send: (room, payload) => webhooks.get(room.channelId)?.send(payload),
     typing: (room) => channels.get(room.channelId)?.sendTyping(),
@@ -87,19 +97,9 @@ function run(targets, now = Date.now()) {
     log,
     stats,
     sleep: wait,
-    random: Math.random,
-  });
-}
-
-function poll() {
-  run(rooms);
-}
-
-function answerNow(room) {
-  if (rooms.get(room.channelId) !== room) return;
-  const last = room.messages.at(-1);
-  const quiet = (last?.at ?? 0) + config.DISCORD_ADDRESSED_QUIET_MS;
-  run(new Map([[room.channelId, room]]), Math.max(Date.now(), quiet));
+    coordinate: ask,
+    notes: jot,
+  };
 }
 
 client.once(Events.ClientReady, async () => {
@@ -132,7 +132,7 @@ client.on(Events.GuildDelete, (guild) => {
 client.on(Events.ChannelDelete, (channel) => {
   const room = rooms.get(channel.id);
   if (!room) return;
-  calm(room);
+  hush(room);
   rooms.delete(channel.id);
   webhooks.delete(channel.id);
   channels.delete(channel.id);
@@ -146,8 +146,8 @@ client.on(Events.ChannelDelete, (channel) => {
 client.on(Events.MessageCreate, (message) => {
   const room = rooms.get(message.channelId);
   if (!room) return;
-  const entry = record(room, message, room.webhookId, cast);
-  nudge(room, entry, cast, { delay: config.DISCORD_ADDRESSED_DEBOUNCE_MS, run: answerNow });
+  const entry = record(room, message, room.webhookId, cast, stats);
+  heard(room, entry, turnDeps());
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

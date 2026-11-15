@@ -86,7 +86,13 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
+      route.fulfill({
+        json: {
+          authenticated: true,
+          user_id: "smoke-user",
+          account_revision: 0,
+        },
+      }),
     );
     await page.route(
       /\/card-game\/shared\/worlds\/toolbar(?:\/command)?$/,
@@ -127,6 +133,69 @@ try {
         }),
       );
     assert.equal(bounds.length, 1);
+    assert.deepEqual(
+      await page
+        .locator(".top-actions > *")
+        .evaluateAll((nodes) =>
+          nodes.map((node) => [
+            node.tagName,
+            node.getAttribute("aria-label").replace(/,.*friend.*/, ""),
+            node.getAttribute("href"),
+            node.getAttribute("target"),
+            node.getAttribute("rel"),
+            !!node.querySelector(".toolbar-icon svg path"),
+          ]),
+        ),
+      [
+        [
+          "A",
+          "Discord",
+          "https://discord.gg/Qd4ztZYvmD",
+          "_blank",
+          "noopener noreferrer",
+          true,
+        ],
+        [
+          "A",
+          "X, @lonelyforestAi",
+          "https://x.com/lonelyforestAi",
+          "_blank",
+          "noopener noreferrer",
+          true,
+        ],
+        ["BUTTON", "Menu", null, null, null, true],
+      ],
+    );
+    const tiles = await page
+      .locator(".top-actions > *, .topbar .brand")
+      .evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const box = node.getBoundingClientRect();
+          return {
+            left: box.left,
+            right: box.right,
+            width: box.width,
+            height: box.height,
+          };
+        }),
+      );
+    const brand = tiles.shift();
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+      width,
+      `no sideways scroll at ${width}`,
+    );
+    for (const tile of tiles) {
+      assert(
+        tile.left >= brand.right && tile.right <= width,
+        `top bar icons clear of the title at ${width}`,
+      );
+      assert(
+        tile.width >= 44 && tile.height >= 44,
+        `full tap target at ${width}`,
+      );
+      assert.equal(tile.height, tiles[2].height);
+    }
     for (const box of bounds) {
       assert(box.x >= 0 && box.right <= width, `${box.id} fits at ${width}`);
       assert(
@@ -160,6 +229,7 @@ try {
       await menu.locator(".menu-tools button").allTextContents(),
       ["Memory", "Invite", "Settings"],
     );
+    assert.equal(await menu.locator(".menu-tools a").count(), 0);
     // ☰ lists world slots; the world played now shows, on one line, the
     // avatars that entered it and "+" for its open seats (#1877).
     const current = menu.locator('.world-slot[data-current="true"]');
@@ -186,7 +256,7 @@ try {
     assert.equal(await menu.locator(".profile-card").count(), 0);
     const card = page.locator(".dialogue > .action-panel");
     const actions = page.locator(
-      ".dialogue .action-panel #card-actions button",
+      ".dialogue .action-panel[data-avatar] #card-actions button",
     );
     const note = page.locator(".dialogue > .action-panel .action-beat-note");
     assert.equal(await actions.count(), 0);

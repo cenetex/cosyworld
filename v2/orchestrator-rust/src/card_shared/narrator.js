@@ -193,7 +193,8 @@
             },
             while: [
               {
-                kind: "company"
+                kind: "company",
+                invited: true
               }
             ]
           }
@@ -206,7 +207,8 @@
             }
           },
           {
-            kind: "company"
+            kind: "company",
+            invited: true
           }
         ]
       },
@@ -288,8 +290,7 @@
             key: "night-walk",
             match: {
               verb: "move",
-              actorId: "$traveler",
-              light: true
+              actorId: "$traveler"
             },
             while: [
               {
@@ -300,6 +301,16 @@
                 kind: "held",
                 item: "$light",
                 actor: "$traveler"
+              },
+              {
+                kind: "lit",
+                item: "$light"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "company"
+                }
               }
             ]
           }
@@ -308,7 +319,8 @@
           {
             kind: "daylight",
             phase: "night",
-            with: "$light"
+            with: "$light",
+            alone: true
           }
         ]
       },
@@ -579,26 +591,24 @@
         name: "The Moon",
         text: "A woodcut card. A moon shines on water where a doorway stands, and a lantern waits on the bank.",
         art: "assets/arcana/arcanum-18.png",
-        roles: [
-          {
-            name: "light",
-            kind: "item",
-            is: "lamp"
-          }
-        ],
         proof: [
           {
             kind: "did",
             key: "dark-walk",
             match: {
               verb: "move",
-              actorId: "$traveler",
-              light: false
+              actorId: "$traveler"
             },
             while: [
               {
                 kind: "daylight",
                 phase: "night"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "lit"
+                }
               }
             ]
           }
@@ -607,7 +617,7 @@
           {
             kind: "daylight",
             phase: "night",
-            without: "$light"
+            dark: true
           }
         ]
       },
@@ -1539,11 +1549,6 @@
           likes: "Two human players sharing a room",
           sore: "A rushed introduction",
           reason: "Bring two human players together."
-        },
-        desire: {
-          items: [],
-          location: null,
-          avatars: []
         },
         want: { kind: "connect", target: "humans" },
         personalQuests: true
@@ -2636,27 +2641,12 @@
   }
 
   // v2/card-game/offer-chance.mjs
-  var DAY_TURNS = DAYLIGHT_TURNS * 2;
-  var offerDay = (turn) => Math.floor(turn / DAY_TURNS);
-  function starterWant(s, them) {
-    const authored = forest_default.people[them]?.want, want = s.actors[them]?.want;
-    return Boolean(
-      authored && want && authored.kind === want.kind && authored.target === want.target
-    );
-  }
-  var trusts = (s, actor, them) => (s.actors[them]?.trust?.[actor] || 0) >= 1;
-  function live(s, actor, them) {
-    const rec = s.actors[actor]?.offered?.[them];
-    return rec && s.actors[actor].place === rec.at && s.actors[them]?.place === rec.at && offerDay(s.turn) === rec.day ? rec : null;
-  }
-  var offerUnlocked = (s, actor, them) => trusts(s, actor, them) || starterWant(s, them) || Boolean(live(s, actor, them)?.open);
+  var offerFrom = (s, actor) => s.actors[actor]?.offered?.from ?? null;
   function validOffered(s, id) {
     const offered = s.actors[id].offered;
     if (offered === void 0) return true;
     return Boolean(
-      offered && typeof offered === "object" && !Array.isArray(offered) && Object.keys(offered).length > 0 && Object.entries(offered).every(
-        ([them, rec]) => them !== id && Object.hasOwn(s.actors, them) && rec && Object.keys(rec).sort().join() === "at,day,open" && typeof rec.at === "string" && typeof rec.open === "boolean" && Number.isSafeInteger(rec.day) && rec.day >= 0 && rec.day <= offerDay(s.turn)
-      )
+      offered && typeof offered === "object" && Object.keys(offered).sort().join() === "from,turn" && offered.from !== id && Object.hasOwn(s.actors, offered.from) && Number.isSafeInteger(offered.turn) && offered.turn >= 0 && offered.turn <= s.turn
     );
   }
 
@@ -2723,7 +2713,7 @@
     }
     if (!revealed(world, id, want, listener)) return null;
     const name = nameOf2(want.target);
-    const help = listener && offerUnlocked(world, listener, id) ? " I would be glad of your help." : "";
+    const help = listener && offerFrom(world, listener) === id ? " I would be glad of your help." : "";
     if (want.step?.verb === "lay")
       return `I want ${want.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.${help}`;
     return (want.kind === "item" ? want.step?.verb === "eat" ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf2(want.step.at)}` : ""}.` : `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
@@ -2738,6 +2728,26 @@
   var validDwell = (s) => Object.values(s.actors).every(
     (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
   );
+
+  // v2/card-game/world/rumours.mjs
+  var RUMOURS_HELD = 3;
+  var TELL_FAILS = 2;
+  var KINDS = ["item", "place", "person", "gone"];
+  var FIELDS = "at,day,holder,hops,kind,subject,teller";
+  var dayOf = (s) => Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
+  var keyOf = (kind, target) => `${kind}:${target}`;
+  function rumourWords(s, r, names2) {
+    const name = names2.name(r.subject);
+    const line = r.kind === "gone" ? `${name} is gone for good.` : r.hops === 0 && r.holder ? `${names2.name(r.holder)} has ${name}${r.at && r.at !== r.subject ? ` at ${names2.name(r.at)}` : ""}.` : r.hops <= 1 && r.at && r.at !== r.subject ? `${name} is at ${names2.name(r.at)}.` : r.hops <= 2 && names2.world(r.at ?? r.subject) ? `${name} is somewhere in ${names2.world(r.at ?? r.subject)}.` : names2.legend(r.subject) ?? `People speak of ${name}.`;
+    return r.teller ? `${names2.name(r.teller)} told me: ${line}` : line;
+  }
+  function validRumours(s, id) {
+    const a = s.actors[id], day = dayOf(s), list = a.rumours;
+    const ref = (x) => x === null || typeof x === "string";
+    return (a.heardOn === void 0 || Number.isSafeInteger(a.heardOn) && a.heardOn >= 0 && a.heardOn <= day) && (list === void 0 || Array.isArray(list) && list.length >= 1 && list.length <= RUMOURS_HELD && new Set(list.map((r) => keyOf(r?.kind, r?.subject))).size === list.length && list.every(
+      (r) => r && Object.keys(r).filter((k) => k !== "fails").sort().join() === FIELDS && (r.fails === void 0 || Number.isInteger(r.fails) && r.fails >= 1 && r.fails <= TELL_FAILS) && KINDS.includes(r.kind) && typeof r.subject === "string" && r.subject.length <= 80 && ref(r.at) && ref(r.holder) && ref(r.teller) && [0, 1, 2, 3].includes(r.hops) && Number.isSafeInteger(r.day) && r.day >= 0 && r.day <= day
+    ));
+  }
 
   // v2/card-game/want.mjs
   var WANT_KINDS = ["item", "place", "person", "connect"];
@@ -2936,7 +2946,7 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validUnder(s, id) {
     const a = s.actors[id];
@@ -2990,6 +3000,19 @@
       seen.add(a.companion);
     }
     return true;
+  }
+
+  // v2/card-game/world/for-good.mjs
+  var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
+  var startOf = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
+  function restForGood(item) {
+    let rest = restOf(item);
+    for (let i = 0; i < 8 && rest !== void 0; i++) {
+      if (startOf(rest)) return startOf(rest);
+      if (restOf(rest) === void 0) return rest;
+      rest = restOf(rest);
+    }
+    return rest;
   }
 
   // v2/card-game/packs.json
@@ -3423,7 +3446,7 @@
         packId: "cosyworld.greek-drama",
         revision: 25,
         name: "The Wine-Dark Sea",
-        description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
+        description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
         entry: "greek-harbor",
         continuity: {
@@ -3570,7 +3593,7 @@
               "greek-eleusis"
             ],
             backdrop: "assets/greek-drama/bacchae-cithaeron-day.webp",
-            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. It stays open both ways. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. It stays open both ways. Travelers meet, talk, rest and carry their belongings here.",
             road: [
               "greek-battlefield",
               "greek-eleusis"
@@ -3720,14 +3743,14 @@
           },
           "greek-argolid-road": {
             name: "The Argolid Crossroads",
-            text: "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey.",
+            text: "Three roads leave a shaded meeting place.",
             exits: [
               "greek-harbor",
               "greek-argos-sanctuary",
               "greek-corinth"
             ],
             backdrop: "assets/greek-drama/grove.svg",
-            persona: "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey."
+            persona: "Three roads leave a shaded meeting place."
           },
           "greek-argos-sanctuary": {
             name: "Argive Shore Sanctuary",
@@ -4153,7 +4176,7 @@
           "greek-road-thebes": {
             name: "Theban Harbor Road",
             text: "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
-            persona: "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road over the olive hills between The Wine-Dark Harbor and Theban Courtyard. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-harbor",
               "greek-courtyard"
@@ -4182,7 +4205,7 @@
           "greek-road-athens-piraeus": {
             name: "The Long Walls",
             text: "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
-            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. It is open from either end. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road between the long walls, joining Piraeus Quays and Athenian Agora. It is open from either end. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-piraeus",
               "greek-athens"
@@ -4211,7 +4234,7 @@
           "greek-road-athens-eleusis": {
             name: "The Sacred Way",
             text: "A paved road runs from Demeter\u2019s sanctuary to the Dipylon, the double gate of Athens. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. Small shrines stand along the verge.",
-            persona: "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road between Athenian Agora and Eleusinian Sanctuary, with small shrines along the verge. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-athens",
               "greek-eleusis"
@@ -4569,6 +4592,9 @@
               likes: "practical help, care for the dead",
               sore: "being told that family grief is an inconvenience",
               reason: "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+            },
+            bonds: {
+              "greek-ismene": 3
             }
           },
           "greek-ismene": {
@@ -4582,14 +4608,53 @@
             },
             seed: "Ismene, sister of Antigone.",
             portrait: "assets/greek-drama/chthonic-ismene.png",
-            want: {
-              kind: "person",
-              target: "greek-theseus"
-            },
+            wants: [
+              {
+                want: {
+                  kind: "item",
+                  target: "greek-household-token"
+                }
+              },
+              {
+                want: {
+                  kind: "person",
+                  target: "greek-theseus"
+                },
+                when: [
+                  {
+                    kind: "holding",
+                    item: "greek-household-token",
+                    actor: "greek-ismene"
+                  }
+                ]
+              },
+              {
+                want: {
+                  kind: "place",
+                  target: "greek-polynices-hollow",
+                  minTrust: 2
+                },
+                when: [
+                  {
+                    kind: "holding",
+                    item: "greek-household-token",
+                    actor: "greek-ismene"
+                  },
+                  {
+                    kind: "flag",
+                    key: "greek-burial-performed",
+                    value: true
+                  }
+                ]
+              }
+            ],
             tastes: {
               likes: "careful plans, a safe place for family",
               sore: "being called indifferent because she is afraid",
               reason: "She has gathered clean cloth under the altar roof and checks the road before speaking. She would ask Theseus of Athens where her father was laid."
+            },
+            bonds: {
+              "greek-antigone": 3
             }
           },
           "greek-creon": {
@@ -4605,15 +4670,28 @@
             },
             seed: "Creon, King of Thebes.",
             portrait: "assets/greek-drama/chthonic-creon.png",
-            want: {
-              kind: "item",
-              target: "greek-decree"
-            },
-            desire: {
-              items: [],
-              location: "greek-palace",
-              avatars: []
-            },
+            wants: [
+              {
+                want: {
+                  kind: "item",
+                  target: "greek-decree"
+                }
+              },
+              {
+                want: {
+                  kind: "person",
+                  target: "greek-elder",
+                  minTrust: 1
+                },
+                when: [
+                  {
+                    kind: "holding",
+                    item: "greek-decree",
+                    actor: "greek-creon"
+                  }
+                ]
+              }
+            ],
             tastes: {
               likes: "public procedure, named witnesses",
               sore: "private defiance presented as settled law",
@@ -4661,12 +4739,13 @@
             portrait: "assets/greek-drama/chthonic-baker.png",
             want: {
               kind: "place",
-              target: "greek-courtyard"
-            },
-            desire: {
-              items: [],
-              location: "greek-courtyard",
-              avatars: []
+              target: "greek-courtyard",
+              step: {
+                verb: "lay",
+                items: [
+                  "greek-water-jar"
+                ]
+              }
             },
             tastes: {
               likes: "a returned jar, a fed neighbor",
@@ -5326,16 +5405,34 @@
               at: "greek-colonus"
             },
             travels: false,
-            want: {
-              kind: "place",
-              target: "greek-colonus",
-              step: {
-                verb: "lay",
-                items: [
-                  "greek-oil-flask"
+            wants: [
+              {
+                want: {
+                  kind: "place",
+                  target: "greek-colonus",
+                  step: {
+                    verb: "lay",
+                    items: [
+                      "greek-oil-flask"
+                    ]
+                  }
+                }
+              },
+              {
+                want: {
+                  kind: "person",
+                  target: "greek-ismene",
+                  minTrust: 1
+                },
+                when: [
+                  {
+                    kind: "item_at",
+                    item: "greek-oil-flask",
+                    place: "greek-colonus"
+                  }
                 ]
               }
-            }
+            ]
           },
           "greek-marathon-keeper": {
             name: "The Altar Keeper",
@@ -5411,6 +5508,9 @@
             },
             sealed: {
               at: "greek-ajax-household"
+            },
+            bonds: {
+              "greek-ajax-teucer": 2
             }
           },
           "greek-ajax-teucer": {
@@ -5436,6 +5536,9 @@
             },
             sealed: {
               at: "greek-greek-camp"
+            },
+            bonds: {
+              "greek-ajax-tecmessa": 2
             }
           },
           "greek-ajax-odysseus": {
@@ -5584,7 +5687,7 @@
             name: "Water Jar",
             text: "A filled clay jar with a repaired handle. Dione needs it back at the common table.",
             holder: "greek-well",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A filled clay jar with a repaired handle, drawn at the well. Dione needs it back at the common table, where her bread is made.",
             art: "assets/greek-drama/water-jar.png",
             home: "greek-well",
             absentReturn: true
@@ -5593,7 +5696,7 @@
             name: "Courtyard Bread",
             text: "A round loaf from Dione's oven, baked from well water and wheat.",
             holder: "greek-courtyard",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A round loaf from Dione's oven, baked from well water and wheat in the Theban courtyard.",
             art: "assets/greek-drama/bread.png",
             home: "greek-courtyard",
             tags: [
@@ -5613,7 +5716,7 @@
             name: "Sack of Wheat",
             text: "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus.",
             holder: "greek-baker",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus for Dione's oven.",
             art: "assets/greek-drama/wheat.png",
             home: "greek-piraeus",
             absentReturn: true
@@ -5622,7 +5725,7 @@
             name: "Dried Figs",
             text: "Dried figs from the trees beside the sanctuary altar, strung for a journey.",
             holder: "greek-sanctuary",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Dried figs from the trees beside the sanctuary altar, strung for a journey.",
             art: "assets/greek-drama/figs.png",
             home: "greek-sanctuary",
             tags: [
@@ -5634,7 +5737,7 @@
             name: "Wine Skin",
             text: "A stoppered leather skin of wine from the gate's ration, for a crew at sea.",
             holder: "greek-gate",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A stoppered leather skin of wine from the gate's ration, for a crew at sea.",
             art: "assets/greek-drama/wine-skin.png",
             home: "greek-gate",
             tags: [
@@ -5646,7 +5749,7 @@
             name: "Funeral Cloth",
             text: "Clean linen from the looms at Eleusis, folded for a burial.",
             holder: "greek-sanctuary",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Clean linen from the looms at Eleusis, folded for a burial.",
             art: "assets/greek-drama/funeral-cloth.png",
             home: "greek-eleusis",
             absentReturn: true
@@ -5655,7 +5758,7 @@
             name: "Funeral Oil",
             text: "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
             holder: "greek-courtyard",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
             art: "assets/greek-drama/oil-lekythos.png",
             home: "greek-colonus",
             absentReturn: true
@@ -5665,7 +5768,7 @@
             startLevel: 6,
             text: "A short iron shovel with soil caught beneath the blade.",
             holder: "greek-gate",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A short iron shovel with soil caught beneath the blade.",
             art: "assets/greek-drama/shovel.png",
             home: "greek-gate"
           },
@@ -5674,21 +5777,21 @@
             startLevel: 19,
             text: "A public copy forbids burial of the brother left outside the city.",
             holder: "greek-guard",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A public copy of Creon's decree. It forbids burial of the brother left outside the city.",
             art: "assets/greek-drama/decree.png"
           },
           "greek-household-token": {
             name: "Household Token",
             text: "A small marked seal identifies the bereaved household for a public petition.",
             holder: "greek-sanctuary",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A small marked seal that names the bereaved household for a public petition.",
             art: "assets/greek-drama/household-token.png"
           },
           "greek-provisions": {
             name: "Travel Provisions",
             text: "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
             holder: "greek-harbor",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
             art: "assets/greek-drama/provisions.png",
             home: "greek-harbor",
             startsUsed: true,
@@ -5711,7 +5814,7 @@
             text: "An olive branch bound with white wool carries the herald\u2019s burial truce: Thebes gives up the Argive dead under witness. Its place is Dione\u2019s table in the Theban courtyard.",
             holder: "greek-theseus",
             art: "assets/greek-drama/olive-branch.webp",
-            persona: "Describe the truce, its actual holder and its recorded use.",
+            persona: "An olive branch bound with white wool: the herald's burial truce. Thebes gives up the Argive dead under witness.",
             requires: [
               {
                 kind: "any",
@@ -5736,7 +5839,7 @@
             startLevel: 6,
             text: "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
             holder: "greek-egypt-tomb",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. It records Helen's stay in Egypt and tells her apart from the phantom sent to Troy.",
             art: "assets/greek-drama/testimony.png",
             requires: [
               {
@@ -5750,7 +5853,7 @@
             name: "The Trojan Witness Tablet",
             text: "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
             holder: "greek-troy-beach",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. It records Helen's journey from Troy and makes no claim that a phantom took her place.",
             art: "assets/greek-drama/troy-testimony.png",
             requires: [
               {
@@ -5764,7 +5867,7 @@
             name: "The Tomb Witness Tablet",
             text: "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
             holder: "greek-argos-tomb",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. Its account begins with offerings and a meeting at Agamemnon's tomb.",
             art: "assets/greek-drama/tomb-testimony.png",
             requires: [
               {
@@ -5778,7 +5881,7 @@
             name: "The Palace Witness Tablet",
             text: "The testimony begins with Electra waiting outside the Mycenaean palace.",
             holder: "greek-mycenae-palace",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. Its account begins with Electra waiting outside the Mycenaean palace.",
             art: "assets/greek-drama/palace-testimony.png",
             requires: [
               {
@@ -5792,7 +5895,7 @@
             name: "The Farmer's Witness Tablet",
             text: "The testimony begins in a poor household in the Argive countryside.",
             holder: "greek-argive-farm",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. Its account begins in a poor household in the Argive countryside.",
             art: "assets/greek-drama/farm-testimony.png",
             requires: [
               {
@@ -5808,7 +5911,7 @@
             text: "An olive branch lies across a tablet bearing the mothers\u2019 request. It is addressed to the Agora of Athens, and Aethra has left room for the city\u2019s answer.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/burial-petition.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
+            persona: "An olive branch across a tablet that bears the mothers' request to the Agora of Athens. Room is left for the city's answer.",
             home: "greek-eleusis",
             absentReturn: true
           },
@@ -5818,7 +5921,7 @@
             text: "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from linen, oil and the herald\u2019s truce.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/ash-urn.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
+            persona: "A covered clay urn for the Argive ashes, made at Aethra's altar from linen, oil and the herald's truce.",
             home: "greek-eleusis",
             startsUsed: true,
             locked: {
@@ -5903,7 +6006,7 @@
           "greek-burial-account": {
             name: "Burial Account",
             text: "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
             holder: "greek-battlefield",
             art: "assets/greek-drama/burial-account.webp",
             requires: [
@@ -5917,7 +6020,7 @@
           "greek-creon-writ": {
             name: "Creon's Writ",
             text: "A sealed writ from the palace. With it, Creon permits the household to bury the brother, and the gate guard to stand aside.",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A sealed writ from the palace. With it Creon lets the household bury the brother, and the gate guard stands aside.",
             holder: "greek-creon",
             art: "assets/greek-drama/creon-writ.webp"
           },
@@ -9710,16 +9813,8 @@
             "greek-colonus",
             "greek-eleusis",
             "greek-road-thebes",
-            "greek-road-athens-harbor",
             "greek-road-athens-piraeus",
-            "greek-road-coast",
-            "greek-road-athens-colonus",
             "greek-road-athens-eleusis",
-            "greek-road-athens-marathon",
-            "greek-road-piraeus-eleusis",
-            "greek-road-colonus-eleusis",
-            "greek-road-colonus-marathon",
-            "greek-athens-harbor",
             "greek-cithaeron",
             "greek-polynices-hollow"
           ],
@@ -10658,7 +10753,7 @@
             },
             name: "Signal Jetty",
             text: "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home.",
-            persona: "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home. Use the saved story facts for completed deeds.",
+            persona: "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home.",
             exits: [
               "hoppycat-halfway-tea-garden",
               "hoppycat-goldfish-tank",
@@ -11013,33 +11108,10 @@
           "hoppycat-red-thread-spool": {
             name: "Red-Thread Spool",
             startLevel: 19,
-            text: "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
-            persona: "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
-            holder: "station",
-            art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png",
-            requires: [
-              {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "not",
-                    condition: {
-                      kind: "item_present",
-                      item: "oil",
-                      place: "station"
-                    }
-                  },
-                  {
-                    kind: "not",
-                    condition: {
-                      kind: "item_at",
-                      item: "hoppycat-red-thread-spool",
-                      place: "station"
-                    }
-                  }
-                ]
-              }
-            ]
+            text: "A warm spool left on a mooring post at the jetty, its loose thread trailing toward the tea garden. It catches only on relationships someone has chosen to carry forward.",
+            persona: "A warm spool left on a mooring post at the Signal Jetty, its loose thread trailing toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+            holder: "hoppycat-signal-jetty",
+            art: "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
           },
           "hoppycat-provenance-card": {
             name: "The Maker's Label",
@@ -12813,7 +12885,7 @@
               "willows-camp"
             ],
             backdrop: "assets/willows/landing.webp",
-            voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: "Wind in the reeds. Only \u2014 the reeds are not moving. Wind, then." "An otter. Its eyes were yellow because the sun was low." "The paddle lies nearer the water than I left it. The wind." "The boatman crossed himself. Boatmen do."`,
+            voice: 'I am the landing, and I speak in the first person, in one to three very short sentences. I notice one small change and find an ordinary reason for it. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "Wind in the reeds. Only \u2014 the reeds are not moving. Wind, then." "An otter. Its eyes were yellow because the sun was low." "The paddle lies nearer the water than I left it. The wind." "The boatman crossed himself. Boatmen do."',
             backdrops: [
               {
                 backdrop: "assets/willows/landing-boatman.webp",
@@ -12849,14 +12921,14 @@
           },
           "willows-camp": {
             name: "River Camp",
-            text: "A canvas tent stands on a sandy rise beside a low fire. The Swede watches the willow tops. Through one gap lies the canoe; through the willows, the crumbling bank.",
-            persona: "A canvas tent beside a low fire, ringed by willows on a sandy rise. I am the camp and speak in the first person, as the traveller who measures, counts and explains. The Swede is the one resident. The kit he needs to leave is whatever the current facts place here; paced distances follow recorded discoveries.",
+            text: "A canvas tent stands on a sandy rise beside a low fire, an iron stew pot and a long wooden spoon by the embers. The Swede watches the willow tops. Through one gap lies the canoe; through the willows, the crumbling bank.",
+            persona: "A canvas tent beside a low fire, ringed by willows on a sandy rise. An iron stew pot and a wooden spoon sit by the embers; scratched inside the pot lid: There is no bread. I am the camp and speak in the first person, as the traveller who measures, counts and explains. The Swede is the one resident. The kit he needs to leave is whatever the current facts place here; paced distances follow recorded discoveries.",
             exits: [
               "willows-landing",
               "willows-thicket"
             ],
             backdrop: "assets/willows/camp.webp",
-            voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Use only paces named in the facts. Examples: "The fire leans away from the willows. A draught off the river." "The island is smaller tonight. The river takes sand. It takes. That is all rivers do." "I paced it at supper. Eleven paces to the nearest willow. Nine now." "Count the willows if it helps. I counted them at supper and there were \u2014"`,
+            voice: 'I am the camp, and I speak in the first person, in one to three very short sentences. I measure, count and explain, and I count in the paces I have walked. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "The fire leans away from the willows. A draught off the river." "The island is smaller tonight. The river takes sand. It takes. That is all rivers do." "I paced it at supper. Eleven paces to the nearest willow. Nine now." "Count the willows if it helps. I counted them at supper and there were \u2014"',
             stage: {
               focus: {
                 x: 82,
@@ -12942,7 +13014,7 @@
                 ]
               }
             ],
-            voice: 'Speak as the willows, many together: one to three very short sentences. Use we, us and our, never I. Rustle, lean, chatter and count: count the travellers, the paces, the leaves. Never explain and never give a reason. Never name what moves above us. Never address anyone. Examples: "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."',
+            voice: 'We are the willows, many together, and we speak as we, us and our, in one to three very short sentences. We rustle, lean, chatter and count: the travellers, the paces, the leaves. We give no reasons. "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."',
             road: [
               "willows-camp",
               "willows-bank"
@@ -13009,7 +13081,7 @@
                 ]
               }
             ],
-            voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: "A humming across the water. A steamer, far off. There are no steamers here." "Something turns below the roots. A log. It is a log." "The current turns him over. The marks are \u2014"`
+            voice: 'I am the bank, and I speak in the first person, in one to three very short sentences. I listen, and I explain what I hear. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "A humming across the water. A steamer, far off. There are no steamers here." "Something turns below the roots. A log. It is a log." "The current turns him over. The marks are \u2014"'
           }
         },
         avatars: {
@@ -13068,11 +13140,6 @@
               kind: "place",
               target: "willows-landing"
             },
-            desire: {
-              items: [],
-              location: null,
-              avatars: []
-            },
             stayUntil: [
               {
                 kind: "item_near",
@@ -13108,7 +13175,7 @@
           "willows-paddle": {
             name: "Worn Paddle",
             startLevel: 11,
-            text: "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
+            text: "One wooden paddle lies on the bank. Its blade has been scraped strangely thin.",
             persona: "A long wooden canoe paddle with a blade scraped strangely thin. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-bank",
             art: "assets/willows/paddle.png"
@@ -13118,7 +13185,7 @@
             startLevel: 15,
             text: "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
             persona: "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
-            holder: "willows-camp",
+            holder: "willows-swede",
             art: "assets/willows/map.png"
           },
           "willows-rope": {
@@ -13143,22 +13210,6 @@
             persona: "A canvas food sack holding oatmeal, potatoes, onions and tea. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-landing",
             art: "assets/willows/provisions.png"
-          },
-          "willows-pot": {
-            name: "Stew Pot",
-            startLevel: 11,
-            text: "An iron stew pot. Scratched inside the lid: There is no bread.",
-            persona: "A small black iron stew pot from the camp. Words are scratched inside its lid.",
-            holder: "willows-camp",
-            art: "assets/willows/pot.png"
-          },
-          "willows-spoon": {
-            name: "Wooden Spoon",
-            startLevel: 6,
-            text: "A long wooden spoon. Burnt into the handle: a kingdom of wonder and magic.",
-            persona: "A plain wooden cooking spoon. Words are burnt into its smoke-darkened handle.",
-            holder: "willows-camp",
-            art: "assets/willows/spoon.png"
           },
           "willows-pipe": {
             name: "The Swede's Pipe",
@@ -13926,7 +13977,7 @@
               "scarf"
             ],
             startLevel: 11,
-            text: "A soft blue knitted scarf fastened with a orange button.",
+            text: "A soft blue knitted scarf fastened with an orange button.",
             persona: "A soft blue knitted scarf RATi sewed for Ash. Ash's own orange button fastens it.",
             holder: "forest-cottage",
             requires: [
@@ -14016,7 +14067,7 @@
             tags: [
               "scarf"
             ],
-            text: "A soft amber knitted scarf fastened with a indigo button.",
+            text: "A soft amber knitted scarf fastened with an indigo button.",
             persona: "A soft amber knitted scarf RATi sewed for Cass. Cass's own indigo button fastens it.",
             holder: "forest-cottage",
             requires: [
@@ -14393,7 +14444,7 @@
             on: "meet",
             for: "ash",
             label: "Ash meets RATi",
-            text: "RATi looks at Ash's coat and finds a thread where a orange button should be. Somewhere in the world, the button has gone.",
+            text: "RATi looks at Ash's coat and finds a thread where an orange button should be. Somewhere in the world, the button has gone.",
             requires: [
               {
                 kind: "not",
@@ -14513,7 +14564,7 @@
             on: "meet",
             for: "orin",
             label: "Cass meets RATi",
-            text: "RATi looks at Cass's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
+            text: "RATi looks at Cass's coat and finds a thread where an indigo button should be. Somewhere in the world, the button has gone.",
             requires: [
               {
                 kind: "not",
@@ -15375,7 +15426,7 @@
         schemaVersion: 1,
         id: "ratiradio",
         packId: "cosyworld.ratiradio",
-        revision: 3,
+        revision: 4,
         name: "Night Shift at RatiRadio",
         description: "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
         entry: "ratiradio-staff-kitchen",
@@ -15557,7 +15608,7 @@
           "ratiradio-raven-figurine": {
             name: "Raven Figurine",
             text: "A small ceramic raven, lost beyond the station. Hold it and talk with RATi to open the Broadcast Booth, then leave it in the Listening Room.",
-            persona: "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. It must rest directly in the Listening Room with the glass and beanie.",
+            persona: "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. Its place is in the Listening Room, beside the glass and the beanie.",
             holder: "ratiradio-listening-room",
             art: "assets/ratiradio/raven-figurine.webp",
             reservedUntil: [
@@ -15589,9 +15640,16 @@
           "ratiradio-request-slip": {
             name: "Request Slip",
             text: "Lost beyond the station: a red beanie, thermos, ceramic raven and glass. Search the other worlds. Bring the beanie, raven and glass home to the Listening Room.",
-            persona: "A creased radio request slip with a lost-property note. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
-            holder: "station",
-            art: "assets/ratiradio/request-slip.webp"
+            persona: "A creased radio request slip with a lost-property note. RATi keeps it by his radio. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
+            holder: "ratiradio-rati",
+            art: "assets/ratiradio/request-slip.webp",
+            requires: [
+              {
+                kind: "flag",
+                key: "rati-awake",
+                value: true
+              }
+            ]
           },
           "ratiradio-portable-radio": {
             name: "Portable Radio",
@@ -16400,8 +16458,6 @@
         "requires must be a record list"
       ))
         return problems2;
-      if (e.desire !== void 0 && !check(record3(e.desire), "desire must be a record"))
-        return problems2;
     }
     if (pack.continuity !== void 0 && !check(
       record3(pack.continuity) && Array.isArray(pack.continuity.groups) && pack.continuity.groups.length <= 4 && pack.continuity.groups.every(
@@ -16581,7 +16637,7 @@
           "passWhen",
           "appearsWhen",
           "values",
-          "desire",
+          "bonds",
           "want",
           "wants",
           "requires",
@@ -16929,14 +16985,12 @@
           ),
           `avatar ${id} values are invalid`
         );
-      if (a.desire !== void 0) {
-        const d = a.desire;
-        check(
-          keysOk(d, ["items", "location", "avatars", "requires"]) && Array.isArray(d.items) && d.items.length <= 3 && d.items.every((i) => owns3(items2, i)) && Array.isArray(d.avatars) && d.avatars.length <= 2 && d.avatars.every((i) => owns3(avatars, i) || i === hub2.player) && (d.location === null || owns3(places2, d.location)),
-          `avatar ${id} desire is invalid`
-        );
-        requirements(d.requires, `avatar ${id} desire requires`);
-      }
+      check(
+        a.bonds === void 0 || record3(a.bonds) && Object.entries(a.bonds).every(
+          ([other, n]) => other !== id && owns3(avatars, other) && intOk(n, 0, 3)
+        ),
+        `avatar ${id} bonds are invalid`
+      );
       requirements(a.passWhen, `avatar ${id} passage requires`, false);
       requirements(a.stayUntil, `avatar ${id} stayUntil`);
     }
@@ -16959,8 +17013,9 @@
           "sealed",
           "reservedUntil",
           "recoverTo",
-          "scatterOutside"
-        ]) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
+          "scatterOutside",
+          "legend"
+        ]) && (i.legend === void 0 || textOk(i.legend, 120)) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       check(
@@ -17120,7 +17175,6 @@
       ...choices
     ].forEach((e) => {
       verifyRefs(e.requires);
-      if (e.desire) verifyRefs(e.desire.requires);
     });
     if (pack.sections !== void 0) {
       check(
@@ -17965,7 +18019,7 @@
         if (!entityEnabled(world, id, true) && !departed(pack, state, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns4(state.met, id)))
           return false;
       for (const [id, item] of Object.entries(pack.items || {}))
-        if (!entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
+        if (!entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && !(gone(world, id) && world.items[id]?.holder === restForGood(id)) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
           return false;
     }
     return true;
@@ -18281,7 +18335,7 @@
 
   // v2/card-game/learning.mjs
   var kinds = ["ask", "accompany"];
-  var keyOf = (a) => [a.kind, a.target, a.item || "", a.destination || ""].join(":");
+  var keyOf2 = (a) => [a.kind, a.target, a.item || "", a.destination || ""].join(":");
   function learningFacts(world, actor, nameOf2) {
     const facts = trialFacts(world, actor, nameOf2);
     if (facts) return facts;
@@ -18306,7 +18360,7 @@
         destination: l.destination
       };
       const source = world.log.find((e) => e.seq === l.seq);
-      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
+      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf2(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
     });
     return valid;
   }
@@ -18799,7 +18853,7 @@
   };
 
   // v2/card-game/resident-home.mjs
-  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
+  var DAY_TURNS = DAYLIGHT_TURNS * 2;
   var own = (o, k) => Boolean(o) && Object.hasOwn(o, k);
   var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
   var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
@@ -18923,12 +18977,12 @@
       [...list].sort((a, b) => rank(a.joins) - rank(b.joins))
     ])
   );
-  var startOf = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
+  var startOf2 = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
   var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && ORDER.some((g) => groupAwake(list, g)) && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
   function firstStart(s) {
     for (const g of ORDER)
       for (const p of GROUPS[g].packs)
-        if (packOn(s, p) && entityActive(s, startOf(p))) return startOf(p);
+        if (packOn(s, p) && entityActive(s, startOf2(p))) return startOf2(p);
     return null;
   }
 
@@ -19187,19 +19241,6 @@
     );
   }
 
-  // v2/card-game/world/for-good.mjs
-  var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
-  var startOf2 = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
-  function restForGood(item) {
-    let rest = restOf(item);
-    for (let i = 0; i < 8 && rest !== void 0; i++) {
-      if (startOf2(rest)) return startOf2(rest);
-      if (restOf(rest) === void 0) return rest;
-      rest = restOf(rest);
-    }
-    return rest;
-  }
-
   // v2/card-game/pack-items.mjs
   var homed = Object.keys(packThings).filter((id) => packThings[id].home).sort();
   var packKits = packDefinitions.flatMap(
@@ -19299,6 +19340,8 @@
       }).map((p) => p.id)
     );
     upgradeSightings(s);
+    for (const a of Object.values(s.actors || {}))
+      if (a?.offered && !Object.hasOwn(a.offered, "from")) delete a.offered;
     installPacks2(s);
     reconcileContent(s);
     reconcilePackProgress(s, reworked);
@@ -19554,7 +19597,7 @@
         return false;
       const z = a.sleeping;
       if (z?.until !== void 0) {
-        if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS2 || !Object.hasOwn(places2, z.place))
+        if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS || !Object.hasOwn(places2, z.place))
           return false;
       }
     }
@@ -19732,7 +19775,7 @@
     ])
   );
   function installPacks(s) {
-    const added = [];
+    const added = [], mounted = [];
     installTransports(s);
     s.crossings ??= {};
     s.packs ??= {};
@@ -19777,6 +19820,7 @@
       }
       if (s.packs[pack.id]) continue;
       s.packs[pack.id] = newPackRecord(pack);
+      mounted.push(pack);
       for (const [id, a] of Object.entries(pack.avatars)) {
         if (s.actors[id]) throw new Error("A pack resident is already present.");
         s.actors[id] = {
@@ -19804,6 +19848,10 @@
       for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
     }
     for (const pack of packDefinitions) installSpecials(s, pack);
+    for (const pack of mounted)
+      for (const [id, a] of Object.entries(pack.avatars))
+        for (const [other, n] of Object.entries(a.bonds || {}))
+          if (s.actors[id].trust[other] !== void 0) s.actors[id].trust[other] = n;
     installArcana(s);
     installItemCycle(s, added);
     installLife(s, travels);
@@ -21414,12 +21462,18 @@
           return { id, facts: [], desire: null, memories: [], previous: null };
         const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location) : [];
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf, currentActor(world)) : null;
+        const cause = want && world.actors[id]?.rumours?.find((r) => r.subject === wantOf2(world, id)?.target);
         const glimpse = world.actors[id]?.glimpse;
         const glimpsed = cast.dream === "glimpse" && id === resting2 && glimpse ? `In a dream, a glimpse: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.` : null;
         const between = beforeFirstLight ? { entries: [], retold: [] } : betweenUs(world, id, speakers, nameOf);
         const facts = [
           ...glimpsed ? [glimpsed] : [],
           ...want ? [want] : [],
+          ...cause ? [rumourWords(world, cause, {
+            name: nameOf,
+            world: (thing) => packOf(thing)?.name,
+            legend: (thing) => packThings[thing]?.legend
+          })] : [],
           ...kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : [],
           ...knowledgeFacts(
             pastDeedsAside(world, id, told(id), between.retold),

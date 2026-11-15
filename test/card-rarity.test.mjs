@@ -61,7 +61,7 @@ describe("card level presentation", () => {
     expect(cardLevel(world, "lamp")).toBe(19);
     expect(levelTier(cardLevel(world, "greek-decree")).id).toBe("legendary");
     expect(levelTier(cardLevel(world, "greek-olive-branch")).id).toBe("epic");
-    expect(levelTier(cardLevel(world, "willows-pot")).id).toBe("rare");
+    expect(levelTier(cardLevel(world, "willows-paddle")).id).toBe("rare");
     expect(levelTier(cardLevel(world, "hoppycat-context-seed")).id).toBe(
       "uncommon",
     );
@@ -70,9 +70,9 @@ describe("card level presentation", () => {
       packDefinitions.find((p) => p.id === "willows"),
     );
     expect(packProblems(pack, hub).join(" ")).not.toContain("item ");
-    pack.items["willows-pot"].startLevel = 0;
+    pack.items["willows-paddle"].startLevel = 0;
     expect(packProblems(pack, hub).join(" ")).toContain(
-      "willows-pot startLevel",
+      "willows-paddle startLevel",
     );
   });
 

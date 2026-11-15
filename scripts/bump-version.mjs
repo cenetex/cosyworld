@@ -1,11 +1,5 @@
 #!/usr/bin/env node
 
-// Bump the release version across every file that must stay aligned, in one
-// step. The root package.json version is shared by the web game, local game
-// helper, and Mac shell. Both Cargo manifests and lock files move with it.
-// Usage:
-//   npm run version:bump            # patch bump (1.0.84 -> 1.0.85)
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

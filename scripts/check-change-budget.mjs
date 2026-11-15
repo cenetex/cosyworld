@@ -2,8 +2,6 @@
 // Keep each branch small: fail when hand-written changes against the merge
 // base exceed the budget in scripts/change-budget.json. The pre-push hook and
 // CI both run this. Assets, lockfiles, and generated outputs never count.
-// Override, rarely: COSYWORLD_LARGE_CHANGE=<reason>, or in CI a
-// `Large-Change: <reason>` line in the pull request body (COSYWORLD_PR_BODY).
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -32,8 +30,6 @@ export function classify(file, config) {
   return null;
 }
 
-// Parse `git diff --numstat -z`: "added\tdeleted\tpath\0", or for a rename
-// "added\tdeleted\t\0from\0to\0". Binary files report "-".
 export function parseNumstat(text) {
   const fields = text.split("\0");
   const entries = [];

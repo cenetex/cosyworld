@@ -21,6 +21,7 @@ import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
+import { HEARD_FROM, heardWant, rivalled, validRumours } from "./world/rumours.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
 import {
   arcanaLevel,
@@ -413,17 +414,25 @@ export function wantCandidates(
     .map(([kind, target]) => `${kind}:${target}`)
     .sort();
 }
-// A resident with no want left draws one: something near and new first; with
-// all of it seen, curiosity starts over from here; then anything known, and
-// at last even the want just met, again. A player is never drawn a want.
 export function nextWant(s, actor, api, previous = null) {
   if (wantless(actor)) return null;
   const staged = stagedNext(s, actor, previous);
   if (staged) return staged;
+  const thick = previous?.from === HEARD_FROM && authoredWant(actor);
+  if (thick && validTarget(s, thick.kind, thick.target) && !lostOf(s, thick))
+    return heldWant(s, thick);
+  const a = s.actors[actor];
+  const heard = heardWant(
+    s,
+    actor,
+    api,
+    [previous?.target, s.turn - (a.gaveUp?.turn ?? -CONTENT_TURNS) < CONTENT_TURNS && a.gaveUp.target],
+    travels(actor, s) || Boolean(api.wanders?.(actor)),
+  );
+  if (heard) return heard;
   const roll = runHash(s, `want:${actor}:${s.turn}`);
   let pool = wantCandidates(s, actor, api, previous);
   if (!pool.length) {
-    const a = s.actors[actor];
     a.visited = [a.place];
     a.talked = [];
     pool = wantCandidates(s, actor, api, previous);
@@ -701,7 +710,8 @@ export function reviseStalledWants(s, actors, api) {
       want &&
       !api.player(id) &&
       (travels(id, s) || api.wanders?.(id) || want.refusals > 0) &&
-      s.turn - stallStart(s, id, want) >= STALL_TURNS
+      s.turn - stallStart(s, id, want) >= STALL_TURNS &&
+      !rivalled(s, id, api)
     )
       giveUp(s, id, api);
   }
@@ -878,6 +888,7 @@ export function validWant(s, id) {
         whole(a.gaveUp.turn))) &&
     list(a.talked, s.actors) &&
     validHeard(s, id) &&
+    validRumours(s, id) &&
     validOffered(s, id) &&
     !a.talked.includes(id) &&
     Array.isArray(a.visited) &&

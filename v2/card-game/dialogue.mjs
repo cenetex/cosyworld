@@ -1,8 +1,3 @@
-// A complete line gets its own clock, independent of network chunk timing.
-// The same reveal writes dialogue and the effects inscribed on beat cards
-// (app.mjs): one letter at a time on one steady beat, with a short rest after
-// punctuation. Each letter fades in over REVEAL_FADE_MS (style.css
-// `.speech-letter`), so two or three are soft at once.
 export const REVEAL_FADE_MS = 60,
   REVEAL_FINISH_MS = 150;
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
@@ -14,12 +9,19 @@ export function letterDelay(letter) {
   if (/[,;:—]/u.test(letter)) return 90;
   return 28;
 }
+export const LINE_EASE_SHARE = 0.18;
+export function lineDelay(letters, index) {
+  const steady = letterDelay(letters[index]);
+  const tail = Math.max(1, Math.round(letters.length * LINE_EASE_SHARE));
+  const near = (index + 2 - letters.length + tail) / tail;
+  const p = Math.min(1, Math.max(0, near));
+  return steady / (1 + (1 - p) ** 2);
+}
 export function createTextReveal({
   frame,
   sound = () => {},
   reduced = () => false,
-  // The ms after each letter (and its index) before the next.
-  delay = letterDelay,
+  delay = (letter, index, letters) => lineDelay(letters, index),
   now = () => performance.now(),
   requestFrame = globalThis.requestAnimationFrame?.bind(globalThis),
   cancelFrame = globalThis.cancelAnimationFrame?.bind(globalThis),
@@ -55,11 +57,12 @@ export function createTextReveal({
       queue();
       return;
     }
-    // A quickened section still paints in order, at most four letters per frame.
     const steps = quickUntil
       ? Math.min(4, 1 + Math.floor((time - due) / 8))
-      : 1;
+      : 2;
     for (let i = 0; i < steps; i++) {
+      if (current.shown === current.letters.length) break;
+      if (i && !quickUntil && due > time) break;
       const letter = current.letters[current.shown++];
       if (!reduced() && /[\p{L}\p{N}]/u.test(letter) && current.shown % 2 === 1)
         sound(current.speaker, letter, current.shown);
@@ -68,14 +71,14 @@ export function createTextReveal({
         due = time;
         break;
       }
-      const pause = quickUntil ? 8 : delay(letter, current.shown - 1);
-      due = quickUntil ? due + pause : Math.max(due + pause, time + pause / 2);
+      const pause = quickUntil
+        ? 8
+        : delay(letter, current.shown - 1, current.letters);
+      due += pause;
+      if (!quickUntil && time - due > pause) due = time + pause / 2;
     }
     if (quickUntil) due = Math.max(due, time + 4);
     emit();
-    // Keep the cadence through small frame delays. A slow frame reveals one
-    // letter, and the clock never catches up faster than twice the beat, so
-    // returning from a busy frame keeps a steady beat rather than a burst.
     queue();
   }
   return {
@@ -111,6 +114,7 @@ export function createTextReveal({
         remaining = delay(
           current.letters[current.shown - 1],
           current.shown - 1,
+          current.letters,
         );
         schedule(remaining);
       }

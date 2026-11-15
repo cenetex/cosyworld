@@ -1183,8 +1183,11 @@ describe("deploy workflow", () => {
     const voiceDeclaration =
       '"requested_model_id":"openai/gpt-6-luna","provider":"openrouter"';
 
+    expect(primaryFlyConfig).toContain(
+      'COSYWORLD_AI_CAPABILITY_MODELS_JSON = \'{"voice":"google/gemma-4-26b-a4b-it"',
+    );
+    expect(lonelyForestFlyConfig).toContain(voiceDefault);
     for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
-      expect(config).toContain(voiceDefault);
       expect(config).toContain(voiceDeclaration);
       expect(config).not.toContain('"voice":"mistralai/mistral-nemo"');
     }

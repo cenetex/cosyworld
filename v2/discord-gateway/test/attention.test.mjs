@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
-import { assess, addressee, addressedResident, decide } from "../src/attention.mjs";
+import { assess, addressee, addressedResident, decide, mentioned, namedIn } from "../src/attention.mjs";
 
 const config = readConfig({});
 const cast = [
@@ -35,7 +35,7 @@ test("config gives safe defaults and rejects bad numbers", () => {
   assert.equal(config.DISCORD_AMBIENT_QUIET_MS, 120000);
   assert.equal(config.DISCORD_AMBIENT_COOLDOWN_MS, 1800000);
   assert.equal(config.DISCORD_MIN_REPLY_GAP_MS, 60000);
-  assert.equal(config.DISCORD_DAILY_REPLIES, 100);
+  assert.equal(config.DISCORD_DAILY_REPLIES, 500);
   assert.equal(config.DISCORD_DENSITY_WINDOW, 6);
   assert.equal(config.DISCORD_DENSITY_MAX, 2);
   assert.equal(config.DISCORD_CONTEXT_MESSAGES, 12);
@@ -88,9 +88,32 @@ test("addressed replies after 1.5 s while unaddressed waits until 45 s", () => {
   assert.equal(decide(plain, day, 45000, config, cast).act, "reply");
 });
 
+test("a common-word name needs its capital", () => {
+  const keeper = [{ id: "keeper", name: "Keeper" }];
+  assert.equal(addressedResident({ text: "Keeper, what time is it?" }, keeper, []), "keeper");
+  assert.equal(addressedResident({ text: "ask The Keeper" }, keeper, []), "keeper");
+  assert.equal(addressedResident({ text: "the keeper said it was late" }, keeper, []), null);
+  assert.equal(addressedResident({ text: "pip, are you there?" }, [{ id: "moth", name: "Pip" }], []), "moth");
+});
+
 test("a name inside another word is not a mention", () => {
   assert.equal(addressedResident({ text: "my skullcap is warm" }, cast, []), null);
   assert.equal(addressedResident({ text: "Hi SKULL!" }, cast, []), "skull");
+});
+
+test("the vocative wins over cast order, otherwise the first name in the text", () => {
+  const both = [
+    { id: "rati", name: "RATi" },
+    { id: "vale", name: "Vale" },
+    { id: "skull", name: "Skull" },
+  ];
+  const to = (text) => addressedResident({ text }, both, []);
+  assert.equal(to("Vale have you met RATi?"), "vale");
+  assert.equal(to("hey Vale, is RATi home?"), "vale");
+  assert.equal(to("did RATi see the moon, Vale?"), "vale");
+  assert.equal(to("I think RATi likes it. Skull: what about you?"), "skull");
+  assert.equal(to("I told Vale that RATi was here"), "vale");
+  assert.deepEqual(namedIn("Vale have you met RATi?", both), ["vale", "rati"]);
 });
 
 test("addressed messages use a 5 s reply gap, others keep the 60 s gap", () => {
@@ -106,7 +129,7 @@ test("addressed messages use a 5 s reply gap, others keep the 60 s gap", () => {
 
 test("the daily cap skips", () => {
   const messages = [human("m1", 0, "RATi, can I come in?")];
-  const decision = decide(room(messages), { replies: 100 }, MIN, config, cast);
+  const decision = decide(room(messages), { replies: 500 }, MIN, config, cast);
   assert.equal(decision.act, "skip");
   assert.equal(decision.reason, "daily-cap");
 });
@@ -165,13 +188,9 @@ test("a reply to a resident's webhook message counts as addressed", () => {
   assert.equal(decision.addressed, "skull");
 });
 
-test("a follow-up from the same person keeps the address, another person breaks it", () => {
-  const messages = [human("m1", 0, "RATi, can I"), human("m2", 0, "come in?")];
-  assert.equal(addressee(messages, cast), "rati");
-  assert.equal(decide(room(messages), day, 1500, config, cast).addressed, "rati");
-  const broken = [...messages, { id: "m3", at: 0, author: "Jun", text: "hello all" }];
-  assert.equal(addressee(broken, cast), null);
-  const long = [human("m1", 0, "RATi, hi"), human("m2", 0, "one"), human("m3", 0, "two"), human("m4", 0, "three")];
-  assert.equal(addressee(long, cast), null);
-  assert.equal(addressee([resident("r1", 0, "rati", "Yes?")], cast), null);
+
+test("another resident is mentioned only by a whole name", () => {
+  assert.equal(mentioned("Skull, did you hear that?", cast, "rati"), "skull");
+  assert.equal(mentioned("my skullcap is warm", cast, "rati"), null);
+  assert.equal(mentioned("I am Skull.", cast, "skull"), null);
 });

@@ -577,7 +577,7 @@ main {
   text-align: right;
   font-size: 10px;
   color: var(--muted);
-  margin-top: -5px;
+  margin-top: 2px;
 }
 #story-status {
   display: inline-flex;
@@ -1776,7 +1776,7 @@ body .card.drag-over {
 }
 body .dialogue {
   bottom: calc(var(--dock-height) + 2px);
-  max-width: 720px;
+  max-width: 860px;
   width: calc(100% - 28px);
   background: #10151ddd;
   border-color: #b09a6a55;
@@ -1890,9 +1890,6 @@ body .cast[data-count] {
   }
 }
 
-/* The name always sits on top: portrait and name share the header row, the
-   speech runs the full width under them and grows to show the whole line,
-   and the action captions follow the speech. */
 .speech-row {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
@@ -1901,10 +1898,11 @@ body .cast[data-count] {
     "line line"
     "hint hint";
   column-gap: 8px;
-  align-items: center;
+  align-items: start;
 }
 .speaker-portrait {
   grid-area: portrait;
+  align-self: center;
   position: relative;
   height: 34px;
   overflow: hidden;
@@ -1932,6 +1930,7 @@ body .cast[data-count] {
 }
 body .dialogue-heading {
   grid-area: heading;
+  align-self: center;
   min-width: 0;
   gap: 4px;
   min-height: 28px;
@@ -1941,6 +1940,9 @@ body #speaker {
 }
 body .speech-line {
   grid-area: line;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   min-width: 0;
   min-height: 24px;
 }
@@ -1952,7 +1954,9 @@ body #dialogue-text {
     16px/1.4 Georgia,
     serif;
   height: auto;
-  overflow: visible;
+  max-height: var(--speech-room, none);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
   overflow-wrap: anywhere;
   margin: 2px 0 0;
   padding-right: 0;
@@ -2034,7 +2038,7 @@ body[data-hand-expanded="false"]
     bottom: max(22px, env(safe-area-inset-bottom));
     transform: none;
     width: calc(100% - var(--resting-hand-width) - 110px);
-    max-width: 620px;
+    max-width: 900px;
   }
   /* Raising the hand slides the dialogue from beside the deck to the middle
      in the same 280 ms as the cards grow into their row (app.mjs), and back
@@ -2729,6 +2733,7 @@ body .beat-live {
   border-radius: 50%;
 }
 .beat-stack[data-action="true"] > #speech-row .speech-line {
+  display: block;
   flex: 1;
   align-self: auto;
   min-width: 0;
@@ -3119,7 +3124,6 @@ main > .dialogue {
     min-height: 0;
   }
   body[data-dialogue-over="true"] .beat-stack #dialogue-text {
-    max-height: none;
     margin: 0;
     line-height: 1.3;
   }

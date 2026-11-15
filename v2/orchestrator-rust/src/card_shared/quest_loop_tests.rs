@@ -116,6 +116,9 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
         .expect("direct Talk has durable participants");
     assert_eq!(conversation["turn"], world.game["turn"]);
     assert!(conversation["seq"].as_u64().unwrap() > 0);
+    assert!(quests(&world).is_empty());
+    let accept = play(&world, |a| a["kind"] == "accept" && a["target"] == "keeper");
+    commit(&mut world, accept);
     let held = quests(&world);
     assert_eq!(held.len(), 1);
     assert_eq!(held[0]["from"], "quest:from:keeper");

@@ -10,6 +10,7 @@ export function admitStore(v2, table, options) {
       "Store group conflicts with the hub",
     );
     groups[entry.id] = { name: world.name, packs: [entry.id] };
+    for (const avatar of Object.values(world.avatars || {})) delete avatar.desire;
   }
   table.hub.switchable = groups;
   return admitted.map(({ entry, world, bridge }) => [entry.id, world, bridge]);
