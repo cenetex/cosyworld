@@ -8,7 +8,7 @@ import { readyActionButton, revealOpening, selectCard, startNewGame, tapCard } f
 
 // A scene change swaps the hand in beats, not one cut (card-swap.mjs).
 // Travel: the cards left behind fall as ghosts, nearest Vale first, as the
-// veil comes down; the new place's cards rise after a beat. Put out: the
+// veil comes down; the new place's cards rise after a beat. Stowing: the
 // lamp's and the attic's faces fade to their dark ones as the light goes
 // down. Vale keeps his nodes, the hand drawn is the rules' hand, every
 // ghost is released, and reduced motion only fades the hand. Node counts
@@ -273,7 +273,7 @@ try {
     });
     await tapCard(station);
     assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
-    // Put out in a new world's attic: the lamp and the attic turn to their
+    // Stow in a new world's attic: the lamp and the attic turn to their
     // dark faces as the light goes down, keeping their nodes, and the pond
     // opens from its locked box behind the attic.
     await startNewGame(page);
@@ -306,7 +306,7 @@ try {
     assert.deepEqual(pond, [false, "false", "false"], "the pond's box opens");
     if (reduced) assert.deepEqual(douse.ghosts, []);
     else {
-      assert.deepEqual(douse.ghosts.sort(), ["attic", "lamp"]);
+      assert.deepEqual(douse.ghosts.sort(), ["attic", "lamp", "vale"]);
       assert(douse.released, "the old faces are released");
       for (const fade of douse.motions.filter((m) => m.ghost))
         assert(fade.at + fade.delay + fade.duration <= SWAP_MS + slack);
@@ -316,7 +316,7 @@ try {
     assert.deepEqual(hand, offered, "the hand is the rules' hand");
     assert.deepEqual(errors, []);
     console.log(
-      `Travel and Put out swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
+      `Travel and stowing swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
     );
     await page.close();
   }
