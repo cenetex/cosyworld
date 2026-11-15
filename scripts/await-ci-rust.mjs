@@ -41,8 +41,6 @@ export function versionOnly(files) {
   );
 }
 
-// One of 'reuse', 'wait', or 'run', with the reason. Checks from the
-// current run (`selfRunId`) never count: they are this gate itself.
 export function decide(checkRuns, { missingIsFinal = false, selfRunId = '' } = {}) {
   const nameOf = (run) => GATE_CHECKS[run.name] ?? run.name;
   const eligible = checkRuns.filter((run) =>
