@@ -392,9 +392,10 @@ describe("the pack's state machine", () => {
     expect(pack.frameFor("a-fox")).toEqual({ shown: true, top: false, under: 0 });
   });
 
-  it("uses only three sentences and their tap cues", () => {
+  it("uses only four sentences and their tap cues", () => {
     expect(PACK_TEXT).toEqual({
       reveal: "New cards unlocked",
+      one: "New card unlocked",
       finish: "Turning the cards",
       done: "All cards revealed",
     });

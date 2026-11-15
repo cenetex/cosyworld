@@ -141,7 +141,7 @@ const buttons = (page) =>
       .map((b) => `${b.textContent.trim()} / ${b.dataset.tapHint}`),
   );
 const ASKS = {
-  Reveal: "New cards unlocked / Tap to reveal",
+  Reveal: "New card unlocked / Tap to reveal",
   "Reveal all": "New cards unlocked / Tap to reveal all",
   "Tap to finish": "Turning the cards / Tap to finish",
   Done: "All cards revealed / Tap to continue",

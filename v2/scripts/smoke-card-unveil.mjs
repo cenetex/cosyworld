@@ -204,7 +204,7 @@ try {
       await page.keyboard.press("Enter");
       assert.equal(await lamp.getAttribute("data-unrevealed"), "true");
       assert.equal(await lamp.getAttribute("aria-pressed"), "true");
-      assert.match(await page.locator("#action-beat").innerText(), /New cards unlocked/);
+      assert.match(await page.locator("#action-beat").innerText(), /New card unlocked/);
       assert.match(await page.locator("#card-actions [data-open-box]").getAttribute("aria-label"), /reveal/i);
       assert.deepEqual(await state(), initial);
       // Lowering and selecting again never reveals the contents.

@@ -2697,7 +2697,7 @@ function renderActions() {
     lockShown =
       !rested && closed
         ? selected.some(cardIsCovered)
-          ? { text: PACK_TEXT.reveal, cards: [] }
+          ? { text: PACK_TEXT.one, cards: [] }
           : (selected.length === 1 && lockedQuest(world, selected[0], known)) ||
             { text: LOCKED_BOX, cards: [] }
         : null,

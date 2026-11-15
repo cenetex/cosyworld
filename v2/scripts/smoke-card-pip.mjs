@@ -40,20 +40,35 @@ async function walkToGivenLamp(browser, base) {
   // The opening: each face-down card chosen shows its own Reveal.
   for (const id of ["attic", "lamp"]) {
     await choose(id);
-    await buttonReads(/new cards unlocked/iu);
+    await buttonReads(/new card unlocked/iu);
     await button.first().click();
     await page.waitForFunction((id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false", id);
   }
-  // Put the lamp out: choose Vale to show it, raise it, lower it.
+  const travel = async (place, name) => {
+    await page.keyboard.press("Escape");
+    await choose(place);
+    await buttonReads(new RegExp(`(goes|carries the Lamp) to ${name}`, "iu"));
+    await press(() => page.waitForFunction((name) => document.getElementById("place-title")?.textContent === name, name, { timeout: 2500 }));
+  };
+  // Put the lamp down in the attic: the mirror opens onto the pond.
   await choose("vale");
   await choose("lamp");
-  await page.locator('#hand [data-card="lamp"]').click();
-  await page.waitForFunction(() => document.querySelector('#hand [data-card="lamp"]')?.dataset.lit === "false");
-  await choose("pond");
-  await buttonReads(/goes to Black pond/iu);
-  await press(() => page.waitForFunction(() => document.getElementById("place-title")?.textContent === "Black pond", null, { timeout: 2500 }));
+  await choose("attic");
+  await buttonReads(/puts the Lamp in Mirror attic/iu);
+  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).items.lamp.holder === "attic", key, { timeout: 2500 }));
+  await travel("pond", "Black pond");
   // The quest she holds is Pip's own: no second offer lies at the pond.
   assert.equal(await page.locator('#hand [data-card="quest:from:moth"]').count(), 0);
+  // Back along the narrow path for the lamp, and through the open mirror with it lit.
+  await travel("attic", "Mirror attic");
+  await page.keyboard.press("Escape");
+  await page.locator('#hand [data-card="attic"]').click();
+  await page.locator('#hand [data-card="lamp"]').waitFor({ state: "visible" });
+  await choose("lamp");
+  await buttonReads(/takes the Lamp/iu);
+  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).items.lamp.holder === "vale", key, { timeout: 2500 }));
+  await travel("pond", "Black pond");
+  assert.equal(decodeSave(await page.evaluate((key) => localStorage.getItem(key), key)).items.lamp.lit, true);
   await choose("vale");
   await choose("lamp");
   await choose("moth");

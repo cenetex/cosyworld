@@ -25,6 +25,7 @@ export const PACK_FINISH = "Finish";
 export const PACK_DONE = "Continue";
 export const PACK_TEXT = {
   reveal: "New cards unlocked",
+  one: "New card unlocked",
   finish: "Turning the cards",
   done: "All cards revealed",
 };
