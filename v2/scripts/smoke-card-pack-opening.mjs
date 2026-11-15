@@ -32,7 +32,17 @@ import {
   play,
   things,
 } from "../card-game/world.mjs";
-import { focusedHandCard, settleHand, tapCard, unreachableCards } from "./card-browser-helpers.mjs";
+import { createPipWorld } from "../card-game/pip-landing.mjs";
+import { deck } from "../card-game/world/arcana.mjs";
+import {
+  clearSelection,
+  focusedHandCard,
+  readyActionButton,
+  selectCard,
+  settleHand,
+  tapCard,
+  unreachableCards,
+} from "./card-browser-helpers.mjs";
 
 const shots = process.argv[2]
   ? new URL(`file://${process.argv[2].replace(/\/?$/u, "/")}`)
@@ -82,15 +92,15 @@ const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
 });
 
-async function openTable(width, motion, { covered, tag, place = scenario.place }) {
+async function openTable(width, motion, { covered, tag, place = scenario.place, world: given = null }) {
   const key = `cosyworld.reflected-shore.v1.${tag}`;
   const everything = [
     ...Object.keys(people),
     ...Object.keys(things),
     ...Object.keys(places),
   ];
-  const world = createWorld({ opening: false, seed: 7 });
-  world.actors.vale.place = place;
+  const world = given ?? createWorld({ opening: false, seed: 7 });
+  if (!given) world.actors.vale.place = place;
   const page = await browser.newPage({
     viewport: { width, height: width < 600 ? 844 : 900 },
     reducedMotion: motion,
@@ -523,6 +533,103 @@ for (const [width, motion] of [
   await settleHand(page);
   await redraw(page);
   await lies(page, item, resident, `${label}: after a redraw of the gift`);
+  assert.deepEqual(errors, [], `${label}: no page errors`);
+  await page.close();
+}
+
+// A spread the Listener deals for a thing comes as its own face-down cards in
+// the same pack: the locked one under the keyhole back from the start, a
+// chosen card turned by its own Reveal, the rest by Reveal all.
+function spreadWorld() {
+  let world = createPipWorld(5);
+  const talk = legalActions(world, "vale").find((a) => a.kind === "talk" && a.target === "moth");
+  world = play(world, talk, world.revision, "vale").state;
+  const known = deck.cards.filter((card) => ![0, 21].includes(card.number)).map((card) => card.id);
+  world.actors.vale.upgrades = ["arcanum-0", ...known.sort().slice(0, 4)].sort();
+  world.actors.vale.arcana = { proved: [], did: [], level: 1, sale: true };
+  world.items.bell.holder = "vale";
+  return world;
+}
+const tarotFaces = (page) =>
+  page.evaluate(() =>
+    [...document.querySelectorAll('#hand .want-card[data-quest-key^="tarot:vale:"]')].map((c) => ({
+      key: c.dataset.questKey,
+      face: c.dataset.face ?? "",
+      unrevealed: c.dataset.unrevealed,
+      back: c.querySelector(".card-back")?.getAttribute("src") ?? "",
+      pack: c.parentElement.dataset.pack ?? null,
+      shown: !c.parentElement.hidden,
+      label: c.getAttribute("aria-label"),
+    })),
+  );
+for (const oneByOne of [false, true]) {
+  const label = `spread ${oneByOne ? "one by one" : "Reveal all"}`;
+  const { page, errors } = await openTable(390, "no-preference", {
+    covered: [],
+    tag: `pack-spread-${oneByOne}`,
+    world: spreadWorld(),
+  });
+  await selectCard(page, "bell");
+  await selectCard(page, "listener");
+  await readyActionButton(page, "give").click();
+  await page.waitForFunction(
+    () => document.querySelectorAll('#hand .want-card[data-quest-key^="tarot:vale:"]').length === 3,
+  );
+  await settleHand(page);
+  const dealt = await tarotFaces(page);
+  assert.deepEqual(dealt.map((c) => c.unrevealed), ["true", "true", "true"], `${label}: the spread is dealt face down`);
+  assert.deepEqual(dealt.map((c) => c.pack), ["closed", "closed", "closed"], `${label}: the spread is one pack`);
+  for (const card of dealt) {
+    assert.match(card.label, /^(A face-down card|3 closed boxes\. Select to open\.)$/u, `${label}: ${card.key} is not named face down`);
+    assert.match(
+      card.back,
+      card.face === "locked" ? /tarot-back-locked/u : /tarot-back(?!-locked)/u,
+      `${label}: ${card.key} lies under its own back`,
+    );
+  }
+  await clearSelection(page);
+  await page.mouse.move(2, 2);
+  await oneButton(page, "Reveal all", `${label}: a lowered spread asks Reveal all`);
+  assert.equal(
+    (await tarotFaces(page)).filter((c) => c.shown).length,
+    1,
+    `${label}: the lowered spread shows one stack`,
+  );
+  if (oneByOne) {
+    await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
+    await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length >= 3);
+    await page.waitForTimeout(900);
+    const up = dealt.find((c) => c.face === "up");
+    const card = page.locator(`#hand .want-card[data-quest-key="${up.key}"]`);
+    await tapCard(card);
+    await oneButton(page, "Reveal", `${label}: a chosen face-down tarot asks Reveal`);
+    await page.locator(`#card-actions [data-open-box="${up.key}"]`).click();
+    await page.waitForFunction(
+      (key) => document.querySelector(`#hand [data-quest-key="${key}"]`)?.dataset.unrevealed === "false",
+      up.key,
+    );
+    assert.match(
+      await page.locator("#discovery-announcement").textContent(),
+      /^New card: /u,
+      `${label}: the turned tarot is announced`,
+    );
+    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+  } else {
+    await page.locator("#card-actions [data-pack='reveal']").click();
+    const finish = page.locator("#card-actions [data-pack='finish']");
+    await page.waitForTimeout(400);
+    if (await finish.count()) await finish.click();
+    await oneButton(page, "Done", `${label}: the turned spread asks for Done`);
+    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+    const turned = await tarotFaces(page);
+    for (const card of turned) {
+      assert.equal(card.unrevealed, card.face === "down" ? "true" : "false", `${label}: ${card.key} is turned`);
+      if (card.face !== "down") assert.match(card.label, /^Quest: Level/u, `${label}: ${card.key} is named`);
+    }
+    await page.waitForTimeout(300);
+    await page.locator("#card-actions [data-pack='done']").click();
+    await page.waitForFunction(() => !document.querySelector("#hand [data-pack]"));
+  }
   assert.deepEqual(errors, [], `${label}: no page errors`);
   await page.close();
 }

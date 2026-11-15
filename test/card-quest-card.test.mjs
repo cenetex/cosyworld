@@ -419,7 +419,7 @@ describe("the quest card", () => {
     };
     const [card, down] = levelCards(s, "vale");
     expect(card).toMatchObject({
-      key: "tarot:arcanum-0",
+      key: "tarot:vale:arcanum-0",
       index: 0,
       actor: "vale",
       kind: "arcanum",
@@ -437,7 +437,7 @@ describe("the quest card", () => {
     expect(questTier(card, s)).toEqual(levelTier(2));
     expect(questNear(s, card)).toBe(false);
     expect(down).toMatchObject({
-      key: "tarot:down:1",
+      key: "tarot:vale:down:0",
       index: 1,
       face: "down",
       target: null,

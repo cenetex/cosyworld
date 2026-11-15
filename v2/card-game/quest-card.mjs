@@ -70,9 +70,13 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
+export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
 export const levelCards = (world, actor = currentActor(world)) =>
-  spreadOf(world, actor).map(({ index, card, face }) => ({
-    key: face === "down" ? `tarot:down:${index}` : `tarot:${card}`,
+  spreadOf(world, actor).map(({ index, card, face }, _, all) => ({
+    key:
+      face === "down"
+        ? `tarot:${actor}:down:${all.slice(0, index).filter((slot) => slot.face === "down").length}`
+        : `tarot:${actor}:${card}`,
     index,
     actor,
     kind: "arcanum",

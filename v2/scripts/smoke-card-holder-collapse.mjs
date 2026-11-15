@@ -601,7 +601,7 @@ try {
           save.revision++;
           localStorage.setItem(key, JSON.stringify(save));
         }, key);
-        const newQuest = page.locator('#hand [data-quest-key="tarot:arcanum-1"]');
+        const newQuest = page.locator('#hand [data-quest-key="tarot:vale:arcanum-1"]');
         await newQuest.waitFor();
         await settleHand();
         const questBox = await newQuest.boundingBox();
