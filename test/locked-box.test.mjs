@@ -228,21 +228,34 @@ describe("locked boxes", () => {
     });
   });
 
-  it("turn over once, when next seen open, and never cover again", () => {
+  it("keeps observed locks pending until an eligible available box is unlocked", () => {
     const boxes = createLockedBoxes();
-    expect(boxes.draw(["field"], [])).toEqual([]);
-    expect(boxes.draw(["gate", "field"], ["field"])).toEqual([]);
-    expect(boxes.draw(["gate", "field"], ["field"])).toEqual([]);
-    expect(boxes.draw(["gate", "field", "field"], [])).toEqual(["field"]);
+    expect(boxes.observe(["field", "way"])).toBe(true);
+    expect(boxes.observe(["field"])).toBe(false);
+    boxes.observe([]);
+    expect(boxes.ids()).toEqual(["field", "way"]);
+    expect(boxes.unlock("field", ["field"], ["field"])).toBe(false);
+    expect(boxes.unlock("way", ["field"], [])).toBe(false);
+    expect(boxes.unlock("field", ["field"], [])).toBe(true);
     expect(boxes.boxed("field")).toBe(false);
-    expect(boxes.draw(["gate", "field"], [])).toEqual([]);
-    // Opened while tucked in a stack or away, it turns when next seen.
-    expect(boxes.draw(["gate"], ["way"])).toEqual([]);
-    expect(boxes.draw(["gate"], [])).toEqual([]);
-    expect(boxes.draw([], [])).toEqual([]);
-    expect(boxes.draw(["gate", "way"], [])).toEqual(["way"]);
-    // Locked again, it is a box again.
-    boxes.draw(["way"], ["way"]);
-    expect(boxes.draw(["way"], [])).toEqual(["way"]);
+    expect(boxes.unlock("field", ["field"], [])).toBe(false);
+    expect(boxes.ids()).toEqual(["way"]);
+  });
+
+  it("restores pending lids without covering already open legacy cards", () => {
+    const boxes = createLockedBoxes();
+    boxes.observe([]);
+    expect(boxes.boxed("field")).toBe(false);
+    boxes.restore(["way", "way"]);
+    expect(boxes.ids()).toEqual(["way"]);
+    const saved = boxes.ids();
+    saved.push("field");
+    expect(boxes.boxed("field")).toBe(false);
+    boxes.clear();
+    expect(boxes.ids()).toEqual([]);
+    boxes.restore(["way"]);
+    expect(boxes.unlock("way", ["way"], [])).toBe(true);
+    boxes.observe(["way"]);
+    expect(boxes.boxed("way")).toBe(true);
   });
 });
