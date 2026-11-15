@@ -200,7 +200,21 @@ export async function checkOpenDoor(browser, origin) {
           }, id);
           assert.deepEqual(await state(), beforeUnlock, "Unlock preserves the world");
         }
-        await readyActionButton(page, kind).first().click();
+        try {
+          await readyActionButton(page, kind).first().click();
+        } catch (error) {
+          console.error("Open Door action failed", JSON.stringify({ kind, fields, cards,
+            ui: await page.evaluate(() => ({
+              selected: [...document.querySelectorAll('#hand .card[aria-pressed="true"]')].map((card) => card.dataset.card),
+              buttons: [...document.querySelectorAll("#card-actions button")].map((button) => ({
+                text: button.textContent, ...button.dataset, disabled: button.disabled,
+              })),
+              caption: document.querySelector(".action-beat-text")?.textContent,
+              dialogue: document.querySelector("#dialogue-text")?.textContent,
+            })),
+          }));
+          throw error;
+        }
         await settle();
         const after = await state();
         const sleptThrough = after.log
