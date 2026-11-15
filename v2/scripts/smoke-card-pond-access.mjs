@@ -11,6 +11,7 @@ import {
 } from "../card-game/world.mjs";
 import { fillLampFuel, settleLamp } from "../card-game/lamp-state.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
+import { isLockedBox } from "../card-game/locked-box.mjs";
 
 const act = (s, kind, target) => {
   const action = legalActions(s).find(
@@ -113,17 +114,33 @@ try {
     // A way that is shut lies in the hand as a locked box, never as a card to
     // enter (rules 133).
     const opened = async (id) => {
+      await ready();
+      assert.equal(await card(id).getAttribute("data-locked"), "true");
+      await selectCard(page, id);
+      const unlock = page.locator(`[data-unlock-box="${id}"]`);
+      assert(await unlock.isEnabled());
+      const before = await state();
+      await unlock.click();
       await page.waitForFunction(
         (id) =>
           document.querySelector(`#hand [data-card="${id}"]`)?.dataset
             .locked === "false" && !document.querySelector("#hand [data-revealing]"),
         id,
       );
+      assert.deepEqual(await state(), before, "Unlock changes no world state");
       await ready();
     };
     const assertShut = async (id) => {
+      assert.equal(isLockedBox(await state(), id), true);
       assert.equal(await card(id).count(), 1);
       assert.equal(await card(id).getAttribute("data-locked"), "true");
+    };
+    const assertPondCredit = async () => {
+      const current = await state();
+      assert.deepEqual(current.opened.pond, ["vale"]);
+      assert.equal(isLockedBox(current, "pond"), false);
+      assert(legalActions(current).some((a) => a.kind === "move" && a.target === "pond"));
+      assert.equal(await card("pond").getAttribute("data-locked"), "false");
     };
     await card("attic").waitFor({ state: "attached" });
     await ready();
@@ -235,17 +252,7 @@ try {
       },
       { key, value: encodeSave(departed) },
     );
-    await page.waitForFunction(
-      () =>
-        document.querySelector('#hand [data-card="attic"]')?.dataset
-          .locked === "false",
-    );
-    // The box turns over once; let its lid settle before choosing it.
-    await page.waitForFunction(
-      () => !document.querySelector("#hand [data-revealing]"),
-    );
-    await ready();
-    await selectCard(page, "attic");
+    await opened("attic");
     await page.locator("#card-actions .card-primary").click();
     await ready();
     // Held lit at the pond, the lamp brought Vale back into its light.
@@ -254,15 +261,37 @@ try {
       await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
-    await assertShut("pond");
+    await assertPondCredit();
     await painted("attic-lit");
     // Daylight remains undimmed, independently of a portable lamp glow.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
+    await page.reload();
+    await ready();
+    await assertPondCredit();
+    // A separate fresh counterpart has neither visited nor earned Pond passage.
+    const uncredited = await state();
+    delete uncredited.opened.pond;
+    if (!Object.keys(uncredited.opened).length) delete uncredited.opened;
+    uncredited.actors.vale.visited = uncredited.actors.vale.visited.filter((id) => id !== "pond");
+    assert.equal(isLockedBox(uncredited, "pond"), true);
+    await page.evaluate(
+      ({ key, value }) => {
+        localStorage.setItem(key, value);
+        window.dispatchEvent(new StorageEvent("storage", { key, newValue: value }));
+      },
+      { key, value: encodeSave(uncredited) },
+    );
+    await ready();
+    await assertShut("pond");
+    await page.reload();
+    await ready();
+    await assertShut("pond");
     // Stowing it shows the Black Pond in the glass and the way out.
     await selectCard(page, "lamp");
     await ready();
     assert.equal((await state()).items.lamp.lit, false);
     await opened("pond");
+    await assertPondCredit();
     await painted("attic-doused");
     // With the lamp stowed, daylight has no ambient light pool.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
@@ -277,13 +306,12 @@ try {
     assert.equal(await card("pond").count(), 1);
     await painted("attic-doused");
     assert.equal((await state()).actors.vale.place, "attic");
-    // Holding shuts the mirror again; stowing reopens it.
+    // Earned passage survives holding the lit lamp and reloading.
     await selectCard(page, "lamp");
     await ready();
-    await assertShut("pond");
+    await assertPondCredit();
     await painted("attic-lit");
-    // Lit with the cloth here, the stack holds only the cottage stairs and
-    // the mirror still shows only the room.
+    // Cloth adds the cottage stairs without closing earned Pond passage.
     const clothed = await state();
     clothed.items.cloth.holder = "attic";
     await page.evaluate(
@@ -297,7 +325,7 @@ try {
     );
     await card("forest-cottage").waitFor({ state: "attached" });
     await ready();
-    await assertShut("pond");
+    await assertPondCredit();
     // The one way on waits at the row's right end (#2272).
     assert.equal(
       await page
@@ -310,19 +338,19 @@ try {
     await page.reload();
     await ready();
     await painted("attic-lit-cottage");
-    await assertShut("pond");
+    await assertPondCredit();
     await page.reload();
     await ready();
     await selectCard(page, "lamp");
     await ready();
-    await opened("pond");
+    await assertPondCredit();
     await selectCard(page, "pond");
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).actors.vale.place, "pond");
     assert.deepEqual(errors, []);
     console.log(
-      `Stow to leave, lit at the pond to return, lit and stowed paintings undimmed by day, Pip keeping room fuel at the pond, exhaustion and carried-away closing, reload and holding passed at ${width}px.`,
+      `Stow to earn passage, explicit Unlock, credited exits across holding and reload, lit and stowed paintings undimmed by day, Pip keeping room fuel at the pond, exhaustion and carried-away closing passed at ${width}px.`,
     );
     await page.close();
   }
