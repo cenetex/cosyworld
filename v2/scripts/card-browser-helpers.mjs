@@ -118,15 +118,15 @@ export async function openPack(page, id) {
     // The hand rises and the cards rise into the row (460 ms, 350 ms apart).
     await page.waitForTimeout(900);
   }
-  // The row is raised and the card is in it: a tap chooses it and its one
-  // button reveals it. A locked box reads data-unrevealed "false" yet is
-  // still face down to the pack (app.mjs draws it as the lock).
+  // Choose the exposed card; a real lock keeps its separate Unlock control.
   if (
     (await card.getAttribute("data-unrevealed")) === "true" ||
     (await card.getAttribute("data-locked")) === "true"
   ) {
     await card.scrollIntoViewIfNeeded();
-    await card.click({ position: await visibleSpot(card) });
+    if ((await card.getAttribute("aria-pressed")) !== "true")
+      await card.click({ position: await visibleSpot(card) });
+    if ((await card.getAttribute("data-locked")) === "true") return true;
     await page.locator(`#card-actions [data-open-box="${id}"]`).click();
     await page.waitForFunction(
       (id) => {
@@ -412,7 +412,7 @@ export async function revealOpening(page) {
   );
 }
 // The first puzzle is an ordinary pair: Lamp and Mirror attic, Put down.
-export async function putOutOpening(page) {
+export async function putOutOpening(page, { unlock = true } = {}) {
   await revealOpening(page);
   await page.keyboard.press("Escape");
   await page.mouse.move(2, 2);
@@ -432,11 +432,21 @@ export async function putOutOpening(page) {
     await page.waitForTimeout(200);
   }
   await drop.click();
-  await page.waitForFunction(
-    () =>
-      document.querySelector('#hand [data-card="pond"]')?.dataset.locked ===
-      "false",
-  );
+  await page.waitForFunction(() =>
+    document.querySelector('#hand [data-card="lamp"]')?.closest(".card-frame").dataset.holder === "attic");
+  await settleHand(page);
+  if (!unlock) return;
+  await clearSelection(page);
+  await selectCard(page, "pond");
+  await page.waitForFunction(() => {
+    const button = document.querySelector('[data-unlock-box="pond"]');
+    return button && !button.disabled;
+  });
+  await page.locator('[data-unlock-box="pond"]').click();
+  await page.waitForFunction(() => {
+    const pond = document.querySelector('#hand [data-card="pond"]');
+    return pond?.dataset.locked === "false" && !pond.dataset.revealing;
+  });
 }
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).

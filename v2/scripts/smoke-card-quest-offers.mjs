@@ -205,7 +205,7 @@ try {
       assert.doesNotMatch(await surfaces(page), /lamp/iu);
       assert.equal(await offerCards(page).count(), 0);
       await t.shot("pond-shut");
-      await putOutOpening(page);
+      await putOutOpening(page, { unlock: false });
       await t.ready();
       await page.waitForFunction(
         () => !document.querySelector("#hand [data-revealing]"),

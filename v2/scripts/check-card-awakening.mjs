@@ -97,7 +97,7 @@ try {
   // The pond already lies in the hand as a locked box.
   assert.equal(await page.locator('[data-card="pond"]').count(), 1);
   assert.equal((await state()).opened, undefined);
-  await putOutOpening(page);
+  await putOutOpening(page, { unlock: false });
   await ready();
   assert.deepEqual((await state()).opened, { pond: ["vale"] });
   await clearSelection(page);
