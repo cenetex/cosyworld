@@ -36,7 +36,7 @@
         number: 0,
         name: "The Fool",
         text: "A woodcut card. A walker steps off a root with a lamp in one hand and a red scarf flying.",
-        art: "assets/lonely-forest/arcanum-0.png",
+        art: "assets/arcana/full-size/arcanum-0.png",
         proof: [
           {
             kind: "count",
@@ -62,7 +62,7 @@
         number: 1,
         name: "The Magician",
         text: "A woodcut card. A needle draws thread through a button on a red scarf.",
-        art: "assets/lonely-forest/arcanum-1.png",
+        art: "assets/arcana/full-size/arcanum-1.png",
         proof: [
           {
             kind: "count",
@@ -76,7 +76,7 @@
         number: 2,
         name: "The High Priestess",
         text: "A woodcut card. A veiled face looks out of a tall mirror under the rafters.",
-        art: "assets/lonely-forest/arcanum-2.png",
+        art: "assets/arcana/full-size/arcanum-2.png",
         proof: [
           {
             kind: "count",
@@ -90,7 +90,7 @@
         number: 3,
         name: "The Empress",
         text: "A woodcut card. A woman lays a red scarf on her table beside a bowl of fruit and a warm oven.",
-        art: "assets/greek-drama/arcanum-3.png",
+        art: "assets/arcana/full-size/arcanum-3.png",
         roles: [
           {
             name: "thing",
@@ -131,7 +131,7 @@
         number: 4,
         name: "The Emperor",
         text: "A woodcut card. An old bearded face of bark holds a small lit house in its roots.",
-        art: "assets/lonely-forest/arcanum-4.png",
+        art: "assets/arcana/full-size/arcanum-4.png",
         roles: [
           {
             name: "place",
@@ -166,7 +166,7 @@
         number: 5,
         name: "The Hierophant",
         text: "A woodcut card. An elder shows an open hand to two listeners under an arch of branches.",
-        art: "assets/lonely-forest/arcanum-5.png",
+        art: "assets/arcana/full-size/arcanum-5.png",
         proof: [
           {
             kind: "count",
@@ -181,7 +181,7 @@
         number: 6,
         name: "The Lover",
         text: "A woodcut card. Two people pull a young man two ways while Cupid aims from above.",
-        art: "assets/arcana/arcanum-6.png",
+        art: "assets/arcana/full-size/arcanum-6.png",
         proof: [
           {
             kind: "did",
@@ -217,7 +217,7 @@
         number: 7,
         name: "The Chariot",
         text: "A woodcut card. A driver leans from the cab of a steam train at full speed.",
-        art: "assets/arcana/arcanum-7.png",
+        art: "assets/arcana/full-size/arcanum-7.png",
         roles: [
           {
             name: "vessel",
@@ -250,7 +250,7 @@
         number: 8,
         name: "Justice",
         text: "A woodcut card. A pair of scales holds a key in one pan and a letter in the other.",
-        art: "assets/arcana/arcanum-8.png",
+        art: "assets/arcana/full-size/arcanum-8.png",
         proof: [
           {
             kind: "did",
@@ -276,7 +276,7 @@
         number: 9,
         name: "The Hermit",
         text: "A woodcut card. A hooded walker carries a lantern through bare trees with a moth above.",
-        art: "assets/arcana/arcanum-9.png",
+        art: "assets/arcana/full-size/arcanum-9.png",
         roles: [
           {
             name: "light",
@@ -329,7 +329,7 @@
         number: 10,
         name: "The Wheel of Fortune",
         text: "A woodcut card. A steam clock turns its gears beneath a bell.",
-        art: "assets/arcana/arcanum-10.png",
+        art: "assets/arcana/full-size/arcanum-10.png",
         roles: [
           {
             name: "thing",
@@ -389,7 +389,7 @@
         number: 11,
         name: "Strength",
         text: "A woodcut card. A woman kneels to tend the hurt paw of a wolf.",
-        art: "assets/arcana/arcanum-11.png",
+        art: "assets/arcana/full-size/arcanum-11.png",
         proof: [
           {
             kind: "did",
@@ -473,7 +473,7 @@
         number: 14,
         name: "Temperance",
         text: "A woodcut card. A hand pours from a thermos into two mugs.",
-        art: "assets/arcana/arcanum-14.png",
+        art: "assets/arcana/full-size/arcanum-14.png",
         roles: [
           {
             name: "thing",
@@ -509,7 +509,7 @@
         number: 15,
         name: "The Devil",
         text: "A woodcut card. A horned figure stands on a box with two people tied to it.",
-        art: "assets/arcana/arcanum-15.png",
+        art: "assets/arcana/full-size/arcanum-15.png",
         roles: [
           {
             name: "thing",
@@ -549,7 +549,7 @@
         number: 16,
         name: "The Tower",
         text: "A woodcut card. Lightning strikes a tower as people fall from it and climb out.",
-        art: "assets/arcana/arcanum-16.png",
+        art: "assets/arcana/full-size/arcanum-16.png",
         proof: [
           {
             kind: "count",
@@ -564,7 +564,7 @@
         number: 17,
         name: "The Star",
         text: "A woodcut card. A kneeling woman pours water from two jars under a star.",
-        art: "assets/arcana/arcanum-17.png",
+        art: "assets/arcana/full-size/arcanum-17.png",
         proof: [
           {
             kind: "did",
@@ -590,7 +590,7 @@
         number: 18,
         name: "The Moon",
         text: "A woodcut card. A moon shines on water where a doorway stands, and a lantern waits on the bank.",
-        art: "assets/arcana/arcanum-18.png",
+        art: "assets/arcana/full-size/arcanum-18.png",
         proof: [
           {
             kind: "did",
@@ -626,7 +626,7 @@
         number: 19,
         name: "The Sun",
         text: "A woodcut card. Two people stand on a jetty under the sun, one in a red scarf.",
-        art: "assets/arcana/arcanum-19.png",
+        art: "assets/arcana/full-size/arcanum-19.png",
         proof: [
           {
             kind: "did",
@@ -658,7 +658,7 @@
         number: 20,
         name: "Judgement",
         text: "A woodcut card. A raven circles a radio tower while a crowd gathers below.",
-        art: "assets/arcana/arcanum-20.png",
+        art: "assets/arcana/full-size/arcanum-20.png",
         proof: [
           {
             kind: "count",
@@ -672,7 +672,7 @@
         number: 21,
         name: "The World",
         text: "A woodcut card. A dancer turns with a red scarf inside a ring of branches beside a small house.",
-        art: "assets/arcana/arcanum-21.png",
+        art: "assets/arcana/full-size/arcanum-21.png",
         proof: [
           {
             kind: "did",
@@ -17955,8 +17955,11 @@
     (c) => c.kind === "item_at" ? c.item === id : restGated(c.conditions || (c.condition ? [c.condition] : []), id)
   );
   function validatePackStates(world) {
+    return !packStatesFault(world);
+  }
+  function packStatesFault(world) {
     if (!record4(world.packs) || !validJourneyProgress(world, packDefinitions) || Object.keys(world.packs).sort().join() !== packDefinitions.map((p) => p.id).sort().join())
-      return false;
+      return "packs";
     for (const pack of packDefinitions) {
       if (!pack.choices) continue;
       const state = world.packs[pack.id];
@@ -17979,11 +17982,11 @@
           )
         ) || world.opening && !sharedEnabled(world) && world.opening.met?.[id] !== turn || !Number.isSafeInteger(turn) || turn < 0 || turn > world.turn
       ))
-        return false;
+        return `pack:${pack.id}:record`;
       if (world.opening && !sharedEnabled(world) && Object.keys(world.opening.met || {}).some(
         (id) => owns4(pack.avatars, id) && !owns4(state.met, id)
       ))
-        return false;
+        return `pack:${pack.id}:met`;
       const events = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
       const choices = {}, flags = {}, seenTurns = /* @__PURE__ */ new Set();
       const projection = {
@@ -18002,11 +18005,11 @@
         if (!c || state.scope === "opening" && pack.release && !pack.release.choices.includes(id) || !Number.isSafeInteger(turn) || turn < 1 || turn > world.turn || seenTurns.has(turn) || !sectionAllows(projection, pack, c.at, conditionsMet) || !sectionAllows(projection, pack, c.subject, conditionsMet) || !progressionMet(c.requires) || !progressionMet(pack.places[c.at].requires) || !progressionMet(packEntity(c.subject)?.requires) || (c.requires || []).some(
           (condition) => condition.kind === "met" && (!owns4(state.met, condition.actor) || state.met[condition.actor] >= turn)
         ))
-          return false;
+          return `pack:${pack.id}:receipt:${id}`;
         seenTurns.add(turn);
         for (const effect of c.effects) {
           if (effect.kind === "choose") {
-            if (owns4(choices, effect.key)) return false;
+            if (owns4(choices, effect.key)) return `pack:${pack.id}:choice:${id}`;
             choices[effect.key] = effect.value;
           }
           if (effect.kind === "set_flag") flags[effect.key] = effect.value;
@@ -18014,15 +18017,15 @@
       }
       const equals = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([k, v]) => owns4(b, k) && b[k] === v);
       if (!equals(choices, state.choices) || !equals(flags, state.flags))
-        return false;
+        return `pack:${pack.id}:flags`;
       for (const [id, actor] of Object.entries(pack.avatars))
         if (!entityEnabled(world, id, true) && !departed(pack, state, id) && (world.actors[id]?.place !== actor.place && !actor.previousHomes?.includes(world.actors[id]?.place) || world.actors[id]?.crossed !== 0 || world.actors[id]?.lastTalk !== -9 || owns4(state.met, id)))
-          return false;
+          return `pack:${pack.id}:actor:${id}`;
       for (const [id, item] of Object.entries(pack.items || {}))
-        if (!entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && !(gone(world, id) && world.items[id]?.holder === restForGood(id)) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
-          return false;
+        if (!entityEnabled(world, id, true) && !(waitingAtHome(world, id) && world.items[id].history.length === 0) && !(gone(world, id) && world.items[id]?.holder === restForGood(id)) && !(item.home !== void 0 && world.items[id]?.holder === item.home) && (world.items[id]?.holder !== item.holder || world.items[id]?.history?.length !== 0 && !restGated(item.requires, id)))
+          return `pack:${pack.id}:item:${id}`;
     }
-    return true;
+    return null;
   }
 
   // v2/card-game/held-item.mjs
@@ -19937,14 +19940,17 @@
   var DREAMS = ["glimpse"];
   var LONG_SLEEP_TURNS = DAYLIGHT_TURNS / 2;
   function validateWorld(s) {
-    const fail = () => {
-      throw new Error(
-        "This save needs a fresh start. Your previous save is kept until you choose New game."
+    const fail = (check) => {
+      throw Object.assign(
+        new Error(
+          "This save needs a fresh start. Your previous save is kept until you choose New game."
+        ),
+        { check }
       );
     };
     if (!s || s.schema !== SAVE_SCHEMA || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn)
-      fail();
-    if (!validStationExitOrder(s, stationTargets)) fail();
+      fail("turn");
+    if (!validStationExitOrder(s, stationTargets)) fail("station-exits");
     if (!validKnowledge(
       s,
       actorIds,
@@ -19952,7 +19958,7 @@
       authoredKnowledgeTopics(),
       laneFactText
     ))
-      fail();
+      fail("knowledge");
     if (s.sharedMigration !== void 0) {
       const m = s.sharedMigration;
       if (!sharedEnabled(s) || !m || m.version !== 1 || Object.keys(m).some(
@@ -19962,15 +19968,15 @@
       ) || !Number.isSafeInteger(m.legacyTurn) || m.legacyTurn < 0 || m.legacyTurn > 4294967295 || !Array.isArray(m.uses) || m.uses.length !== 8 || m.uses.some((n) => !Number.isInteger(n) || n < 0 || n > 2147483647) || m.inventoryAllowances !== void 0 && (!m.inventoryAllowances || Array.isArray(m.inventoryAllowances) || typeof m.inventoryAllowances !== "object" || Object.entries(m.inventoryAllowances).some(
         ([id, n]) => !humanAvatar(id) || !Number.isInteger(n) || n < 4 || n > 8
       )))
-        fail();
+        fail("shared-migration");
     }
-    if (s.playerActorId !== void 0 && !humanAvatar(s.playerActorId)) fail();
+    if (s.playerActorId !== void 0 && !humanAvatar(s.playerActorId)) fail("player");
     for (const field of ["controlledActors", "presentActors", "heldActors"]) {
       if (s[field] !== void 0 && (!Array.isArray(s[field]) || s[field].length > 8 || new Set(s[field]).size !== s[field].length || s[field].some((id) => !humanAvatar(id))))
-        fail();
+        fail(field);
     }
     if (s.presentActors && (!s.controlledActors || s.presentActors.some((id) => !s.controlledActors.includes(id))))
-      fail();
+      fail("present-actors");
     if (s.opening !== void 0) {
       const o = s.opening;
       if (!o || ![1, 2].includes(o.version) || typeof o.crossed !== "boolean" || o.leftHome !== void 0 && typeof o.leftHome !== "boolean" || !o.met || o.met.vale !== 0 || Object.keys(o.met).some((id) => !actorIds.includes(id)) || Object.values(o.met).some(
@@ -19978,98 +19984,115 @@
       ) || !sharedEnabled(s) && o.met.keeper !== void 0 && o.met.moth === void 0 && !leftHome(s) || !o.crossed && (!openingPlace(s.actors?.vale?.place) || Object.keys(o.met).some(
         (id) => id !== "vale" && !roamingActors.includes(id)
       )) || o.version === 1 && o.crossed && !s.locations?.attic.anchored || o.crossed && o.met.moth === void 0 && !leftHome(s) || o.version === 2 && !o.crossed)
-        fail();
+        fail("opening");
     }
     if (Object.keys(s.actors || {}).sort().join() !== sortedActorKeys || Object.keys(s.items || {}).sort().join() !== sortedItemKeys)
-      fail();
+      fail("cast");
     if (s.invitedPlaces !== void 0 && (!s.invitedPlaces || typeof s.invitedPlaces !== "object" || Array.isArray(s.invitedPlaces) || Object.entries(s.invitedPlaces).some(
       ([actor, visits]) => !actorIds.includes(actor) || !Array.isArray(visits) || visits.length > Object.keys(places).length || new Set(visits).size !== visits.length || visits.some((place) => !Object.hasOwn(places, place))
     )))
-      fail();
+      fail("invited-places");
     if (s.run !== void 0 && (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed)))
-      fail();
-    if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
-    if (!validConversations(s) || !validHeldItems(s) || !validOpenedRoutes(s.openedRoutes) || !validOpened(s) || !validArcana(s) || !validHidden(s) || !validDoors(s) || s.hidden && !Object.hasOwn(places, s.hidden.place))
-      fail();
-    if (!validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) || !validMemories(s) || !validMotives(s) || !validLife(s, Object.keys(places)) || !validHome(s) || !validCompanions(s, actorIds) || !validDwell(s) || !validSleep(s, places) || !validGuard(s, places))
-      fail();
+      fail("run");
+    if (!validPackState(s, sensesFor(s))) fail(packStatesFault(s) ?? "packs");
+    const parts = {
+      "item-cycle": () => validItemCycle(s),
+      conversations: () => validConversations(s),
+      "held-items": () => validHeldItems(s),
+      "opened-routes": () => validOpenedRoutes(s.openedRoutes),
+      opened: () => validOpened(s),
+      arcana: () => validArcana(s),
+      hidden: () => validHidden(s) && !(s.hidden && !Object.hasOwn(places, s.hidden.place)),
+      doors: () => validDoors(s),
+      routes: () => validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]),
+      memories: () => validMemories(s),
+      motives: () => validMotives(s),
+      life: () => validLife(s, Object.keys(places)),
+      home: () => validHome(s),
+      companions: () => validCompanions(s, actorIds),
+      dwell: () => validDwell(s),
+      sleep: () => validSleep(s, places),
+      guard: () => validGuard(s, places)
+    };
+    for (const [check, ok] of Object.entries(parts)) if (!ok()) fail(check);
     if (!s.locations || typeof s.locations.attic?.anchored !== "boolean" || ![null, "hush"].includes(s.locations.pond?.answer))
-      fail();
+      fail("locations");
     if (!s.peaceUntil || Object.keys(s.peaceUntil).sort().join() !== sortedActorKeys || Object.values(s.peaceUntil).some(
       (turn) => !Number.isSafeInteger(turn) || turn < 0 || turn > s.turn + 3
     ) || !Array.isArray(s.standoffs) || s.standoffs.length > Math.floor(actorIds.length / 2))
-      fail();
+      fail("peace");
     if (s.defeats !== void 0 && (!s.defeats || typeof s.defeats !== "object" || Array.isArray(s.defeats) || Object.entries(s.defeats).some(
       ([id, count]) => !actorIds.includes(id) || !Number.isInteger(count) || count < 1 || count >= DEFEATS_TO_SEND_HOME
     )))
-      fail();
+      fail("defeats");
     const fighting = /* @__PURE__ */ new Set();
     for (const c of s.standoffs) {
       if (!c || !actorIds.includes(c.challenger) || !actorIds.includes(c.defender) || c.challenger === c.defender || !Object.hasOwn(places, c.location) || c.item !== null && !ids.includes(c.item) || typeof c.answered !== "boolean" || !Number.isSafeInteger(c.opened) || c.opened < 1 || c.opened > s.turn || !validThreatSource(s, c))
-        fail();
+        fail("standoff");
       const pair = c.resolve && typeof c.resolve === "object" ? fightersOf(c) : [];
       if (pair.length < 2 || pair.some((id) => !actorIds.includes(id) || fighting.has(id)))
-        fail();
+        fail("standoff");
       for (const id of pair) fighting.add(id);
       if (pair.some(
         (id) => s.actors[id].place !== c.location || s.peaceUntil[id] > s.turn
       ) || c.item && rootHolder(s, c.item) !== c.defender)
-        fail();
+        fail("standoff");
       for (const field of ["resolve", "guarding", "struck", "steppedBack"])
         if (!c[field] || Object.keys(c[field]).sort().join() !== pair.slice().sort().join())
-          fail();
+          fail("standoff");
       for (const map of [c.covering, c.hitBy])
         if (map !== void 0 && (!map || typeof map !== "object" || Object.entries(map).some(
           ([id, other]) => !pair.includes(id) || !pair.includes(other) || id === other
         )))
-          fail();
+          fail("standoff");
       if (pair.some(
         (id) => !Number.isInteger(c.resolve[id]) || c.resolve[id] < 1 || c.resolve[id] > 4 || typeof c.guarding[id] !== "boolean" || typeof c.struck[id] !== "boolean" || typeof c.steppedBack[id] !== "boolean"
       ))
-        fail();
+        fail("standoff");
     }
     for (const [id, a] of Object.entries(s.actors)) {
-      if (!validVisitSpeech(a, s.turn)) fail();
+      if (!validVisitSpeech(a, s.turn)) fail(`actor:${id}:speech`);
       if (!a.trust || Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] || Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3))
-        fail();
+        fail(`actor:${id}:trust`);
       if (!Object.hasOwn(places, a.place) || !actorCanVisit(id, a.place, s) || entityActive(s, id) && !entityActive(s, a.place) || !Number.isSafeInteger(a.crossed) || a.crossed < 0 || !Number.isSafeInteger(a.lastTalk) || a.lastTalk > s.turn || a.sanctuary !== void 0 && !sanctuaries.includes(a.sanctuary) || a.sleeping !== void 0 && a.sleeping?.until === void 0 && (!a.sleeping || Object.keys(a.sleeping).sort().join() !== "place,present,since" || !Number.isSafeInteger(a.sleeping.since) || a.sleeping.since < 0 || a.sleeping.since > s.turn || s.turn - a.sleeping.since >= SLEEP_TURNS || !Object.hasOwn(places, a.sleeping.place) || !Array.isArray(a.sleeping.present) || a.sleeping.present.some(
         (x, i, all) => !actorIds.includes(x) || i && all[i - 1] >= x
       )))
-        fail();
-      if (!validWant(s, id) || a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
-        fail();
+        fail(`actor:${id}:place`);
+      if (!validWant(s, id)) fail(`actor:${id}:want`);
+      if (a.visited.length > Object.keys(places).length || a.visited.some((place) => !Object.hasOwn(places, place)) || a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
+        fail(`actor:${id}:visited`);
     }
     for (const [id, item] of Object.entries(s.items)) {
       if (!holderIds.has(item.holder) && !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell")))
-        fail();
+        fail(`item:${id}:holder`);
       if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace(s, id))))
-        fail();
+        fail(`item:${id}:active`);
       if (!Array.isArray(item.history) || item.history.length > 12 || item.history.some((t) => typeof t !== "string" || t.length > 400))
-        fail();
+        fail(`item:${id}:history`);
     }
     for (const actor of actorIds) {
       const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
       const count = carried(s, actor).length;
-      if (count > (allowance || 3) || allowance && allowance !== count) fail();
+      if (count > (allowance || 3) || allowance && allowance !== count) fail(`actor:${actor}:carried`);
     }
-    if (!validRadioItem(s)) fail();
+    if (!validRadioItem(s)) fail("radio");
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
     if (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4 || !Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > LAMP_FUEL || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
-      fail();
+      fail("lamp");
     if (Object.hasOwn(oil, "doses") || !Number.isInteger(bell.ringing) || bell.ringing < 0 || bell.ringing > 3 || covered(s, "bell") && bell.ringing > 0)
-      fail();
+      fail("oil-bell");
     const signal = s.locations.pond.shipSignal;
     if (signal !== void 0 && (!Number.isInteger(signal) || signal < 0 || signal > 4))
-      fail();
+      fail("signal");
     if (!Array.isArray(s.log) || s.log.filter((e) => !e?.generated).length > LOG_LIMIT || s.log.filter((e) => e?.generated).length > GENERATED_LOG_LIMIT || s.log.some(
       (e) => !Number.isSafeInteger(e.turn) || e.turn < 0 || e.turn > s.turn || typeof e.text !== "string" || e.text.length > 600 || typeof e.speaker !== "string" || e.speaker.length > 40
     ))
-      fail();
+      fail("log");
     if (s.eventSeq !== void 0 && (!Number.isSafeInteger(s.eventSeq) || s.eventSeq < s.log.length))
-      fail();
+      fail("event-seq");
     if (s.arrival !== void 0 && (!s.arrival || !Number.isSafeInteger(s.arrival.seq) || s.arrival.seq < 1 || s.arrival.seq > s.eventSeq || !Object.hasOwn(places, s.arrival.fromLocationId) || !Object.hasOwn(places, s.arrival.locationId) || s.arrival.fromLocationId === s.arrival.locationId))
-      fail();
-    if (!validDisabledPacks(s.disabledPacks)) fail();
+      fail("arrival");
+    if (!validDisabledPacks(s.disabledPacks)) fail("disabled-packs");
     let seq = 0;
     const verbs2 = [
       "radio",
@@ -20106,60 +20129,60 @@
     ];
     const cast = castIds, entities2 = entityIds;
     for (const e of s.log) {
-      if (!validHandover(s, e)) fail();
+      if (!validHandover(s, e)) fail(`log:${e.seq}:handover`);
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
-          fail();
+          fail(`log:${e.seq}:seq`);
         seq = e.seq;
       }
-      if (e.kind !== void 0 && !LOG_KINDS.includes(e.kind)) fail();
+      if (e.kind !== void 0 && !LOG_KINDS.includes(e.kind)) fail(`log:${e.seq}:kind`);
       if (e.witnesses !== void 0 && (!Array.isArray(e.witnesses) || e.witnesses.length > actorIds.length + ids.length || e.witnesses.some((id) => !cast.has(id))))
-        fail();
-      if (e.entityId != null && !entities2.has(e.entityId)) fail();
+        fail(`log:${e.seq}:witnesses`);
+      if (e.entityId != null && !entities2.has(e.entityId)) fail(`log:${e.seq}:entity`);
       if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
-        fail();
-      if (e.generated !== void 0 && e.generated !== true) fail();
+        fail(`log:${e.seq}:from`);
+      if (e.generated !== void 0 && e.generated !== true) fail(`log:${e.seq}:generated`);
       for (const field of ["departureTo", "arrivalFrom"])
         if (e[field] !== void 0 && (!e.generated || e.kind !== "dialogue" || !actorIds.includes(e.actorId) || !Object.hasOwn(places, e[field]) || e[field] === e.locationId))
-          fail();
-      if (e.departureTo && e.arrivalFrom) fail();
-      if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
-      if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
-      if (e.verb != null && !verbs2.includes(e.verb)) fail();
-      if (!validCraftEvent(s, e)) fail();
+          fail(`log:${e.seq}:speech-move`);
+      if (e.departureTo && e.arrivalFrom) fail(`log:${e.seq}:speech-move`);
+      if (e.actorId != null && !actorIds.includes(e.actorId)) fail(`log:${e.seq}:actor`);
+      if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail(`log:${e.seq}:location`);
+      if (e.verb != null && !verbs2.includes(e.verb)) fail(`log:${e.seq}:verb`);
+      if (!validCraftEvent(s, e)) fail(`log:${e.seq}:craft`);
       if (e.verb === "craft" && (!places[e.locationId] || !holderIds.has(e.holderId) && !ids.includes(e.holderId)))
-        fail();
-      if (e.receipt !== void 0) fail();
+        fail(`log:${e.seq}:craft`);
+      if (e.receipt !== void 0) fail(`log:${e.seq}:receipt`);
       if (e.outcome !== void 0 && !OUTCOMES.includes(e.outcome) || e.droppedItemIds !== void 0 && (!Array.isArray(e.droppedItemIds) || e.droppedItemIds.some((id) => !ids.includes(id))))
-        fail();
+        fail(`log:${e.seq}:outcome`);
       if (e.verb === "choose") {
         const pack = packDefinition(e.packId), choice = pack?.choices.find((c) => c.id === e.choiceId);
         if (!choice || !humanAvatar(e.actorId) || e.targetId !== choice.subject || e.locationId !== choice.at || s.packs[e.packId].receipts[e.choiceId] !== e.turn)
-          fail();
-      } else if (e.packId !== void 0 || e.choiceId !== void 0) fail();
+          fail(`log:${e.seq}:choose`);
+      } else if (e.packId !== void 0 || e.choiceId !== void 0) fail(`log:${e.seq}:choose`);
       if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
-        fail();
-      if (e.accepted !== void 0 && typeof e.accepted !== "boolean") fail();
+        fail(`log:${e.seq}:destination`);
+      if (e.accepted !== void 0 && typeof e.accepted !== "boolean") fail(`log:${e.seq}:accepted`);
       if (e.rest !== void 0 && (e.rest !== "long" || e.verb !== "wait") || e.sleep !== void 0 && (e.sleep !== true || e.verb !== "wait") || e.dream !== void 0 && (!DREAMS.includes(e.dream) || e.rest !== "long") || e.woke !== void 0 && (!WAKE_REASONS.includes(e.woke) || e.verb !== "wait") || e.guards !== void 0 && (e.verb !== "wait" || !Object.hasOwn(places, e.guards)))
-        fail();
+        fail(`log:${e.seq}:rest`);
       if (e.reason !== void 0 && (!REFUSED_VERBS.includes(e.verb) || e.accepted !== false || !REFUSAL_REASONS.includes(e.reason)))
-        fail();
+        fail(`log:${e.seq}:reason`);
       if (e.verb === "accompany" && (!actorIds.includes(e.actorId) || !actorIds.includes(e.targetId) || e.targetId === e.actorId || !Object.hasOwn(places, e.destinationId) || !Object.hasOwn(places, e.fromLocationId) || e.destinationId === e.fromLocationId || typeof e.accepted !== "boolean" || e.locationId !== (e.accepted ? e.destinationId : e.fromLocationId)))
-        fail();
-      if (e.itemId != null && !ids.includes(e.itemId)) fail();
-      if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
+        fail(`log:${e.seq}:accompany`);
+      if (e.itemId != null && !ids.includes(e.itemId)) fail(`log:${e.seq}:item`);
+      if (e.receiveId != null && !ids.includes(e.receiveId)) fail(`log:${e.seq}:receive`);
       if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantKey !== void 0 && (e.verb !== "want_met" || typeof e.wantKey !== "string" || e.wantKey.length > 600 || !e.wantKey.startsWith(
         `${e.actorId}:${e.wantMet?.kind}:${e.wantMet?.target}:`
       )) || e.questXp !== void 0 && (e.verb !== "want_met" || !Number.isInteger(e.questXp) || e.questXp < 2 || e.questXp > levelTier(Infinity).rank + 1) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : !entities2.has(e.wantMet.target))))
-        fail();
-      if (e.targetId != null && !entities2.has(e.targetId)) fail();
-      if (e.light !== void 0 && typeof e.light !== "boolean") fail();
+        fail(`log:${e.seq}:want-met`);
+      if (e.targetId != null && !entities2.has(e.targetId)) fail(`log:${e.seq}:target`);
+      if (e.light !== void 0 && typeof e.light !== "boolean") fail(`log:${e.seq}:light`);
       if (e.cast !== void 0 && (!Array.isArray(e.cast) || e.cast.length > actorIds.length || new Set(e.cast).size !== e.cast.length || e.cast.some((id) => !actorIds.includes(id))))
-        fail();
+        fail(`log:${e.seq}:cast`);
       if (e.items !== void 0 && (!Array.isArray(e.items) || e.items.length > ids.length || e.items.some(
         (item) => !item || !ids.includes(item.id) || !entities2.has(item.holder)
       )))
-        fail();
+        fail(`log:${e.seq}:items`);
     }
     return s;
   }

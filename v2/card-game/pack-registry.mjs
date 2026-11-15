@@ -1024,6 +1024,9 @@ const restGated = (requires = [], id) =>
       : restGated(c.conditions || (c.condition ? [c.condition] : []), id),
   );
 export function validatePackStates(world) {
+  return !packStatesFault(world);
+}
+export function packStatesFault(world) {
   if (
     !record(world.packs) ||
     !validJourneyProgress(world, packDefinitions) ||
@@ -1033,7 +1036,7 @@ export function validatePackStates(world) {
         .sort()
         .join()
   )
-    return false;
+    return "packs";
   for (const pack of packDefinitions) {
     if (!pack.choices) continue;
     const state = world.packs[pack.id];
@@ -1077,7 +1080,7 @@ export function validatePackStates(world) {
           turn > world.turn,
       )
     )
-      return false;
+      return `pack:${pack.id}:record`;
     if (
       world.opening &&
       !sharedEnabled(world) &&
@@ -1085,7 +1088,7 @@ export function validatePackStates(world) {
         (id) => owns(pack.avatars, id) && !owns(state.met, id),
       )
     )
-      return false;
+      return `pack:${pack.id}:met`;
     const events = Object.entries(state.receipts).sort((a, b) => a[1] - b[1]);
     const choices = {},
       flags = {},
@@ -1127,11 +1130,11 @@ export function validatePackStates(world) {
               state.met[condition.actor] >= turn),
         )
       )
-        return false;
+        return `pack:${pack.id}:receipt:${id}`;
       seenTurns.add(turn);
       for (const effect of c.effects) {
         if (effect.kind === "choose") {
-          if (owns(choices, effect.key)) return false;
+          if (owns(choices, effect.key)) return `pack:${pack.id}:choice:${id}`;
           choices[effect.key] = effect.value;
         }
         if (effect.kind === "set_flag") flags[effect.key] = effect.value;
@@ -1141,7 +1144,7 @@ export function validatePackStates(world) {
       Object.keys(a).length === Object.keys(b).length &&
       Object.entries(a).every(([k, v]) => owns(b, k) && b[k] === v);
     if (!equals(choices, state.choices) || !equals(flags, state.flags))
-      return false;
+      return `pack:${pack.id}:flags`;
     for (const [id, actor] of Object.entries(pack.avatars))
       if (
         !entityEnabled(world, id, true) &&
@@ -1152,18 +1155,18 @@ export function validatePackStates(world) {
           world.actors[id]?.lastTalk !== -9 ||
           owns(state.met, id))
       )
-        return false;
-    // Presence-gated things keep their saved place while their humans are away.
+        return `pack:${pack.id}:actor:${id}`;
     for (const [id, item] of Object.entries(pack.items || {}))
       if (
         !entityEnabled(world, id, true) &&
         !(waitingAtHome(world, id) && world.items[id].history.length === 0) &&
         !(gone(world, id) && world.items[id]?.holder === restForGood(id)) &&
+        !(item.home !== undefined && world.items[id]?.holder === item.home) &&
         (world.items[id]?.holder !== item.holder ||
           (world.items[id]?.history?.length !== 0 &&
             !restGated(item.requires, id)))
       )
-        return false;
+        return `pack:${pack.id}:item:${id}`;
   }
-  return true;
+  return null;
 }

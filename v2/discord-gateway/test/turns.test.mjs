@@ -113,3 +113,44 @@ test("promotion and commands are never asked about", async () => {
   assert.equal(fixed.asks.length, 0);
   assert.equal(fixed.stats.skips.promo, 1);
 });
+
+test("after a resident's line, the next Jev state and voice request both hold it as that resident's", async () => {
+  const said = ["Skull tilts his head.", "Skull sniffs the air and looks to the trees."];
+  const voices = [];
+  const fixed = fixture([next("skull", 0.9), next("skull", 0.9), next("none", 0.9)], {
+    lines: async (body) => {
+      voices.push(body);
+      return { lines: [{ id: "skull", text: said[voices.length - 1] }] };
+    },
+  });
+  await fixed.hear("m1", "Skull?");
+  assert.deepEqual(fixed.sent, ["Skull", "Skull"]);
+  const last = fixed.asks[1].state.history.at(-1);
+  assert.deepEqual({ resident: last.resident, text: last.text }, { resident: "skull", text: said[0] });
+  assert.equal(fixed.asks[1].state.previous, undefined);
+  assert.deepEqual(voices[1].messages.at(-1), { resident: "skull", text: said[0] });
+  assert.deepEqual(voices[1].channel.residents.find((r) => r.id === "skull").lines, [said[0]]);
+});
+
+test("a resident's repeated line is not posted and ends the run", async () => {
+  const fixed = fixture(Array.from({ length: 4 }, () => next("skull", 0.99)), {
+    lines: async () => ({ lines: [{ id: "skull", text: "Skull tilts his head to the side, his ears twitching forward toward Ash." }] }),
+  });
+  await fixed.hear("m1", "Skull?");
+  assert.deepEqual(fixed.sent, ["Skull"]);
+  assert.equal(fixed.asks.length, 2);
+  assert.equal(fixed.stats.skips.repeat, 1);
+  assert.ok(fixed.logs.includes("skip repeat resident=skull guild=g1 channel=c1"));
+  assert.ok(fixed.logs.every((line) => !line.includes("tilts") && !line.includes("Ash")));
+});
+
+test("near-same emoji lines count as a repeat", async () => {
+  const replies = ["👀❓✨", "✨ 👀 ❓!"];
+  const fixed = fixture(Array.from({ length: 4 }, () => next("whiskerwind", 0.8)), {
+    cast: [...cast, { id: "whiskerwind", name: "Whiskerwind" }],
+    lines: async () => ({ lines: [{ id: "whiskerwind", text: replies.shift() ?? "🌿" }] }),
+  });
+  await fixed.hear("m1", "Whiskerwind?");
+  assert.deepEqual(fixed.sent, ["Whiskerwind"]);
+  assert.equal(fixed.stats.skips.repeat, 1);
+});

@@ -428,7 +428,7 @@ describe("the quest card", () => {
       level: 2,
       left: 1,
       step: null,
-      art: "./assets/lonely-forest/arcanum-0.png",
+      art: "./assets/arcana/full-size/arcanum-0.png",
       home: homeOf("vale"),
     });
     expect(questCaption(card)).toBe(
@@ -467,7 +467,7 @@ describe("the quest card", () => {
       did: [],
       spread: [{ card: "arcanum-21", face: "up" }],
     };
-    expect(levelCards(s, "vale")[0]).toMatchObject({ target: "arcanum-21", art: "./assets/arcana/arcanum-21.png", level: 1 });
+    expect(levelCards(s, "vale")[0]).toMatchObject({ target: "arcanum-21", art: "./assets/arcana/full-size/arcanum-21.png", level: 1 });
     expect(questCaption({ ...levelCards(s, "vale")[0], level: null })).toBe("Rest at home");
   });
 });
