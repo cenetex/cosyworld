@@ -1759,7 +1759,7 @@ mod tests {
             r#"{"topic":"gin","goal":"get RATi to pour gin","summary":"Ash asks RATi for gin."}"#;
         let (status, body, requests) = post_notes(good, chat.clone()).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(body["notes"]["topic"], "gin");
+        assert_eq!(body["notes"]["topic"], "gin", "{body}");
         assert_eq!(requests[0]["model"], "test-entity-model");
         assert!(turn_of(&requests[0], "user").ends_with("RATi: Gin is for later."));
         for bad in [r#"{"topic":"","goal":"g","summary":"s"}"#, "not json"] {
