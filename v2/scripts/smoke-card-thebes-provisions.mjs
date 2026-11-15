@@ -20,7 +20,7 @@ import {
 import { enableMotives } from "../card-game/motives.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
-import { revealCard, selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, readyActionButton, revealCard, selectCard } from "./card-browser-helpers.mjs";
 
 const SET = ["greek-bread", "greek-figs", "greek-wine-skin"];
 const output = process.argv[2]
@@ -104,6 +104,29 @@ try {
             ids.every((id) => cards.some((c) => c.dataset.card === id)),
           ids,
         );
+    const unlockSelected = async () => {
+      const unlock = page.locator("#card-actions [data-unlock-box]");
+      if (!(await unlock.count())) return;
+      assert(await unlock.isEnabled());
+      const id = await unlock.getAttribute("data-unlock-box"), before = await state();
+      await unlock.click();
+      await page.waitForFunction((id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.locked === "false" && !card.dataset.revealing;
+      }, id);
+      assert.deepEqual(await state(), before);
+    };
+    const acceptSelected = async () => {
+      const accept = page.locator("[data-accept-quest]");
+      assert(await accept.isEnabled());
+      const before = await state();
+      await accept.click();
+      await page.waitForFunction(({ key, revision }) =>
+        JSON.parse(localStorage.getItem(key)).revision > revision, { key, revision: before.revision });
+      assert.equal((await state()).turn, before.turn);
+      assert.deepEqual((await state()).log, before.log);
+      await ready();
+    };
     const primary = async (...ids) => {
       await ready();
       // A tap on a folded stack fans it before it chooses: choose again
@@ -113,7 +136,10 @@ try {
         for (const id of ids) await selectCard(page, id);
       }
       assert.ok(await chosen(ids), `chose ${ids}`);
-      await page.locator("#card-actions .card-primary").click();
+      await unlockSelected();
+      for (const id of ids)
+        if ((await card(id).getAttribute("aria-pressed")) !== "true") await selectCard(page, id);
+      await readyActionButton(page).click();
       await ready();
     };
     // Walk the shortest road there, a card play per place.
@@ -163,6 +189,9 @@ try {
     // quest to seek on the card (Talk with him gives his).
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-battlefield");
+    await acceptSelected();
+    await clearSelection(page);
+    await selectCard(page, "greek-battlefield");
     const guarded = page.locator('#card-actions [data-blocked="gate"]');
     assert.equal(
       await guarded.getAttribute("title"),
@@ -210,6 +239,9 @@ try {
     assert.equal(await port.getAttribute("data-locked"), "true");
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-piraeus");
+    await acceptSelected();
+    await clearSelection(page);
+    await selectCard(page, "greek-piraeus");
     const shut = page.locator('#card-actions [data-blocked="gate"]');
     assert.equal(
       await shut.getAttribute("title"),
@@ -227,7 +259,11 @@ try {
       (await state()).items["greek-provisions"].holder,
       "greek-ship",
     );
-    assert.notEqual(await port.getAttribute("data-locked"), "true");
+    assert.equal(await port.getAttribute("data-locked"), "true");
+    await clearSelection(page);
+    await selectCard(page, "greek-piraeus");
+    await unlockSelected();
+    assert.equal(await port.getAttribute("data-locked"), "false");
     await primary("greek-piraeus");
     for (
       let n = 0;
