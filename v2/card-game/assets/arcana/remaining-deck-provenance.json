@@ -1,0 +1,544 @@
+{
+  "date": "2026-11-14",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2758",
+  "reference_commit": "816a1427fee90c48616c5fccb605444b5dbaea19",
+  "palette_source": "Owner correction in this chat, November 14: retain the relevant suit's color. The owner's existing crop defines placements: periwinkle moths, teal bells, olive buttons, terracotta lanterns. The World combines all four; backs keep their original cream/black design.",
+  "assets": [
+    {
+      "id": "arcanum-6",
+      "number": 6,
+      "name": "The Lover",
+      "file": "assets/arcana/full-size/arcanum-6.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/arcanum-6.png",
+      "owner_crop_sha256": "9910c9bfd573f76d5916721e3c7788042bb09785999b7f33e15a09be17155cdb",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-aa1ef080-f189-43e1-98ec-8070ec705ae2.png",
+          "sha256": "ad8249d50e9fcf7362da43c42a4d529afd8ddbb9eafe666760ce54257fc2c231"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/arcanum-6.png",
+          "sha256": "9910c9bfd573f76d5916721e3c7788042bb09785999b7f33e15a09be17155cdb"
+        }
+      ],
+      "source_filename": "exec-72f50ec0-f892-4ae7-a2aa-da60fce86acd.png",
+      "source_sha256": "218a2ef3a0db06bae6c089c5da95356d684b3b3168446c26000b3ac91e3f0b32",
+      "file_sha256": "218a2ef3a0db06bae6c089c5da95356d684b3b3168446c26000b3ac91e3f0b32",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-6",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use periwinkle blue for all four moth corner emblems. Keep Cupid, all three figures, temple, paths and foliage cream and black. No scarf or red."
+    },
+    {
+      "id": "arcanum-7",
+      "number": 7,
+      "name": "The Chariot",
+      "file": "assets/arcana/full-size/arcanum-7.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/arcanum-7.png",
+      "owner_crop_sha256": "4eca65ee5d4f5af4e3f7fde0db90c3c0eb9c815216f19b8142ddcbfea0c03aba",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-5423d5d6-fa2a-4593-98cf-02f069401192.png",
+          "sha256": "3a741c61c6f7e945efc1752bc6f3b98b92cfa64fe5daf5edec7fe50d81773791"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/arcanum-7.png",
+          "sha256": "4eca65ee5d4f5af4e3f7fde0db90c3c0eb9c815216f19b8142ddcbfea0c03aba"
+        }
+      ],
+      "source_filename": "exec-653d9741-79d8-440c-b9ee-0981d8eabd03.png",
+      "source_sha256": "97093f93a6f11a0d0c3d372c014502f6752c5895bd61460e3532e48c8b59fb91",
+      "file_sha256": "97093f93a6f11a0d0c3d372c014502f6752c5895bd61460e3532e48c8b59fb91",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-7",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use deep teal for the four bell corner emblems and the railway rails, as in the original. Train, driver, steam, foliage, lettering and border remain cream and black. No scarf or red."
+    },
+    {
+      "id": "arcanum-8",
+      "number": 8,
+      "name": "Justice",
+      "file": "assets/arcana/full-size/arcanum-8.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/arcanum-8.png",
+      "owner_crop_sha256": "907fc394611fa8915f51468d5c3b6d437942e0a6e3bea6f13ed39541d6d2e166",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-47100b49-d8ff-4c1e-96e0-9265b3e0591e.png",
+          "sha256": "f63c1f53b32b4220e15a396e27b897d64df8ceca030dc1ca753685fadb1a4285"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/arcanum-8.png",
+          "sha256": "907fc394611fa8915f51468d5c3b6d437942e0a6e3bea6f13ed39541d6d2e166"
+        }
+      ],
+      "source_filename": "exec-3a76812a-fe29-4b45-8d98-807c40b16098.png",
+      "source_sha256": "85b910dccb26169f26dc16d1b4958a3372de3872dfcb73591456fff8cad858b1",
+      "file_sha256": "85b910dccb26169f26dc16d1b4958a3372de3872dfcb73591456fff8cad858b1",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-8",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use periwinkle blue for the woman's shoulder cloak and all four moth corner emblems. Keep her face, hands, balanced scales, key and envelope cream and black. No scarf or red."
+    },
+    {
+      "id": "arcanum-9",
+      "number": 9,
+      "name": "The Hermit",
+      "file": "assets/arcana/full-size/arcanum-9.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/arcanum-9.png",
+      "owner_crop_sha256": "4f3f9fcd33153c950fc5ac7e7df7ad50f8fc6372eb419f41c77cb02a28f7e005",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-66aac54f-0e10-4c3b-a56e-9da1b84982ef.png",
+          "sha256": "4ae58799b0e8af14c37f9b0f6684048857a171511f8fa55a8968af22f48ff5cd"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/arcanum-9.png",
+          "sha256": "4f3f9fcd33153c950fc5ac7e7df7ad50f8fc6372eb419f41c77cb02a28f7e005"
+        }
+      ],
+      "source_filename": "exec-932d707a-bd63-40cb-aecf-f2b00a219c63.png",
+      "source_sha256": "2a6c4e54af7d95ef42d3f540c85acb0b6a68ba35a784433bd1ad9e66092592b9",
+      "file_sha256": "2a6c4e54af7d95ef42d3f540c85acb0b6a68ba35a784433bd1ad9e66092592b9",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-9",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use olive green for the four four-hole button corner emblems. Preserve the original's restrained gray-brown bare trees and upper moth; figure and lantern remain cream and black. No scarf or red."
+    },
+    {
+      "id": "arcanum-10",
+      "number": 10,
+      "name": "The Wheel of Fortune",
+      "file": "assets/arcana/full-size/arcanum-10.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/arcanum-10.png",
+      "owner_crop_sha256": "8373c6b3a7ec37b3ee09b19c56216e4a441b2f5bb2f245cb2755f8fac78082e6",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-2851d9d2-40a6-41e6-b773-62783ac7e5bc.png",
+          "sha256": "32db825afc87d22e1d40f3c50e7f432b8c2ecfee9b31e0d6337b2025f673636d"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/arcanum-10.png",
+          "sha256": "8373c6b3a7ec37b3ee09b19c56216e4a441b2f5bb2f245cb2755f8fac78082e6"
+        }
+      ],
+      "source_filename": "exec-63d19e0e-fbd8-41f5-baa2-6fc4dcd82539.png",
+      "source_sha256": "9e8b1ef3f7c1c8f0a04535743f2466b8e8d5fbf72fb08be45c100ff240ea8538",
+      "file_sha256": "9e8b1ef3f7c1c8f0a04535743f2466b8e8d5fbf72fb08be45c100ff240ea8538",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-10",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use terracotta orange for all four lantern corner emblems and the small clock hands, matching the original. Clock body, bell, pipes, weights, gears and steam remain cream and black. No scarf."
+    },
+    {
+      "id": "arcanum-11",
+      "number": 11,
+      "name": "Strength",
+      "file": "assets/arcana/full-size/arcanum-11.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/arcanum-11.png",
+      "owner_crop_sha256": "8879ccb2a24500f986b52e66fd9b8277834ef68d845e860fb1c097864f6aef0e",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-11842d7c-7813-4fa6-aa9c-3a04db877719.png",
+          "sha256": "cadca25f285cfbeec92b42836021bb36560cf9c2988bf6e39bd5d81b0c819bbe"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/arcanum-11.png",
+          "sha256": "8879ccb2a24500f986b52e66fd9b8277834ef68d845e860fb1c097864f6aef0e"
+        }
+      ],
+      "source_filename": "exec-2bc513f1-350d-4b5c-8b37-8cd5467956e0.png",
+      "source_sha256": "4f5fd299c9f6734763417471fa4e93022bf6f9c1932d16ef5aafad8715a21d6f",
+      "file_sha256": "4f5fd299c9f6734763417471fa4e93022bf6f9c1932d16ef5aafad8715a21d6f",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-11",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use terracotta orange for all four lantern corner emblems and the small curved thorn being removed. Figure, wolf and paw remain cream and black. No scarf, blood or gore."
+    },
+    {
+      "id": "arcanum-12",
+      "number": 12,
+      "name": "The Hanged Man",
+      "file": "assets/arcana/full-size/arcanum-12-handstand-alternate.png",
+      "mode": "style-reference regeneration",
+      "owner_crop": "assets/arcana/arcanum-12.png",
+      "owner_crop_sha256": "b8c3bd60e5dfd1494705944d210a190702016d6a76910ca93dd42eaaa84b8165",
+      "inputs": [
+        {
+          "role": "style and frame reference only",
+          "file": "assets/arcana/full-size/arcanum-7.png",
+          "sha256": "97093f93a6f11a0d0c3d372c014502f6752c5895bd61460e3532e48c8b59fb91"
+        }
+      ],
+      "source_filename": "exec-6617d13a-ce12-4d26-bd8f-9ab31001395f.png",
+      "source_sha256": "4107f984446cbc7a61abb1d023f06f46bac6f9f805dd4013c578157eccc089a4",
+      "file_sha256": "4107f984446cbc7a61abb1d023f06f46bac6f9f805dd4013c578157eccc089a4",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-12",
+      "prompt_formula": "asset.full_prompt",
+      "palette": "Use deep teal for all four bell corner emblems and the still-water ripples. Figure, branch, support loop and reflection remain cream and black. No scarf or red.",
+      "composition_adaptation": "Fresh supported handstand replaces the suspended source pose after output safety rejections; arcanum-7 is a frame/style/color reference only.",
+      "review_status": "alternate; original XII remains live",
+      "review_finding": "The supported handstand is well drawn but changes the original suspension/surrender symbolism. A targeted supported-aerial edit was rejected by the image service."
+    },
+    {
+      "id": "arcanum-13",
+      "number": 13,
+      "name": "The Nameless Card",
+      "file": "assets/arcana/arcanum-13.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/references/arcanum-13.png",
+      "owner_crop_sha256": "e680ce6ad9ec3a87d23105b7cedc2ec1a77903358af80d15b705215313a91ee9",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-c1082a1f-3388-4bfd-9378-fe77b95e42d8.png",
+          "sha256": "5f53c69b63505ad1afc54908fded00e33d55d35d0717be7842a22ffa6b2c2947"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/references/arcanum-13.png",
+          "sha256": "e680ce6ad9ec3a87d23105b7cedc2ec1a77903358af80d15b705215313a91ee9"
+        }
+      ],
+      "source_filename": "exec-f2093b8f-4dfa-499d-980a-b8d88f90bb5a.png",
+      "source_sha256": "9269b8acd128f12c74a41ff35f5ab0549e04b97fa1178837477aeccb793d5e31",
+      "file_sha256": "9269b8acd128f12c74a41ff35f5ab0549e04b97fa1178837477aeccb793d5e31",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-13",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use deep teal for all four bell corner emblems and the small water ripples under the steamer. Keep the cut scarf vermilion red. Skeleton, robe, scythe, ship and empty boots remain cream and black. Keep the entire bottom name plate blank."
+    },
+    {
+      "id": "arcanum-14",
+      "number": 14,
+      "name": "Temperance",
+      "file": "assets/arcana/full-size/arcanum-14.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/arcanum-14.png",
+      "owner_crop_sha256": "7cd165cfbbcf3d676b9f88742de034a582aa5fdd5994797dbaf3f8b044412c54",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-43b21853-e020-4b6c-acf6-a782d68362be.png",
+          "sha256": "da18630e08a3b8f432ee3f890a520b9461945075ca2e8f7451c16dec280c06d6"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/arcanum-14.png",
+          "sha256": "7cd165cfbbcf3d676b9f88742de034a582aa5fdd5994797dbaf3f8b044412c54"
+        }
+      ],
+      "source_filename": "exec-cbc454ab-d26f-4b53-a68b-d34964232393.png",
+      "source_sha256": "f31d44e2aa93d874315771dc0a06203aae487857b9800619500eb3ce29f09010",
+      "file_sha256": "f31d44e2aa93d874315771dc0a06203aae487857b9800619500eb3ce29f09010",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-14",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use terracotta orange for all four lantern corner emblems, the main thermos body and the small stove flame. Keep the hand, pouring stream, mugs, stove frame and border cream and black. No scarf."
+    },
+    {
+      "id": "arcanum-15",
+      "number": 15,
+      "name": "The Devil",
+      "file": "assets/arcana/full-size/arcanum-15.png",
+      "mode": "reference-based regeneration",
+      "owner_crop": "assets/arcana/arcanum-15.png",
+      "owner_crop_sha256": "c113d946f0dfd6f4f4b4c4864468506d6c888bee694f72c0ea6810d1ee260c4c",
+      "inputs": [
+        {
+          "role": "owner composition and palette reference",
+          "file": "assets/arcana/arcanum-15.png",
+          "sha256": "c113d946f0dfd6f4f4b4c4864468506d6c888bee694f72c0ea6810d1ee260c4c"
+        }
+      ],
+      "source_filename": "exec-97294954-8e74-40a6-b844-9430a8932516.png",
+      "source_sha256": "5e642b53de1765253ead733c9ba3df00578e929effd8199343c3a7e9e28164c7",
+      "file_sha256": "5e642b53de1765253ead733c9ba3df00578e929effd8199343c3a7e9e28164c7",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-15",
+      "prompt_formula": "shared_prompt + \"\\n\\n\" + asset.prompt",
+      "palette": "Use olive green for all four four-hole button corner emblems. Keep the fully clothed winged adult figure, horns, closed box, loose ropes and smaller fully clothed people cream and black. No scarf or red."
+    },
+    {
+      "id": "arcanum-16",
+      "number": 16,
+      "name": "The Tower",
+      "file": "assets/arcana/full-size/arcanum-16.png",
+      "mode": "suit-color-edit",
+      "owner_crop": "assets/arcana/arcanum-16.png",
+      "owner_crop_sha256": "4326ca70444e5529dd19fdb991792c54a24f120310ffd70ec9b39ea6bd5b3c3e",
+      "inputs": [
+        {
+          "role": "edit target",
+          "source_filename": "exec-3d5a5f17-87f2-441e-8e74-8614d6ef4942.png",
+          "sha256": "80be7d1ce74af527b6498589be6a3c90fa6b8a363748095bf4c269e92a818056"
+        },
+        {
+          "role": "owner palette reference",
+          "file": "assets/arcana/arcanum-16.png",
+          "sha256": "4326ca70444e5529dd19fdb991792c54a24f120310ffd70ec9b39ea6bd5b3c3e"
+        }
+      ],
+      "source_filename": "exec-108a3a6c-8ab9-4343-b849-aae3f217d2fd.png",
+      "source_sha256": "4247e3f51d1ef28c599c203f071a4e7aaa4f34695f3456c621fdb74f7fa98a83",
+      "file_sha256": "4247e3f51d1ef28c599c203f071a4e7aaa4f34695f3456c621fdb74f7fa98a83",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-16",
+      "prompt_formula": "color_edit_shared_prompt + \"\\n\\n\" + asset.color_edit_prompt",
+      "palette": "Use terracotta orange for all four lantern corner emblems and the broad lightning-burst rays at upper left, as in the original. Tower, lightning bolt, figures and stones remain cream and black. No scarf."
+    },
+    {
+      "id": "arcanum-17",
+      "number": 17,
+      "name": "The Star",
+      "file": "assets/arcana/full-size/arcanum-17.png",
+      "mode": "reference-based regeneration",
+      "owner_crop": "assets/arcana/arcanum-17.png",
+      "owner_crop_sha256": "c9eb004ebd7cab87270c1d366c2fe4849da6bde78121288b3f8b2a3cb85032a3",
+      "inputs": [
+        {
+          "role": "owner composition and palette reference",
+          "file": "assets/arcana/arcanum-17.png",
+          "sha256": "c9eb004ebd7cab87270c1d366c2fe4849da6bde78121288b3f8b2a3cb85032a3"
+        }
+      ],
+      "source_filename": "exec-c965e563-720e-47f2-8f78-ee6b966bc81d.png",
+      "source_sha256": "c285be1028bdc54e3ca0e5506fe1ed53a484b4609ee138fc8a4bbd966196b587",
+      "file_sha256": "c285be1028bdc54e3ca0e5506fe1ed53a484b4609ee138fc8a4bbd966196b587",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-17",
+      "prompt_formula": "shared_prompt + \"\\n\\n\" + asset.prompt",
+      "palette": "Use periwinkle blue for all four moth corner emblems and the two streams of poured water and pool. Keep the fully clothed adult woman, jars, stars and ground cream and black. No scarf or red."
+    },
+    {
+      "id": "arcanum-18",
+      "number": 18,
+      "name": "The Moon",
+      "file": "assets/arcana/full-size/arcanum-18.png",
+      "mode": "reference-based regeneration",
+      "owner_crop": "assets/arcana/arcanum-18.png",
+      "owner_crop_sha256": "5a63c574ae177fc7b4cefc77cd22c0eda89e806aa84b43e70f1589c9f31d332b",
+      "inputs": [
+        {
+          "role": "owner composition and palette reference",
+          "file": "assets/arcana/arcanum-18.png",
+          "sha256": "5a63c574ae177fc7b4cefc77cd22c0eda89e806aa84b43e70f1589c9f31d332b"
+        }
+      ],
+      "source_filename": "exec-a56f0d31-29de-45a4-918b-f0220a582b1a.png",
+      "source_sha256": "5f53abbcb562bf3b70e94a0c0081f076439000dc48d903c10be4aae284de5558",
+      "file_sha256": "5f53abbcb562bf3b70e94a0c0081f076439000dc48d903c10be4aae284de5558",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-18",
+      "prompt_formula": "shared_prompt + \"\\n\\n\" + asset.prompt",
+      "palette": "Use deep teal for all four bell corner emblems, the doorway's arched frame and its visible steps and the water ripples/reflection. Moon, willow branches, lantern and border remain cream and black. No scarf or red."
+    },
+    {
+      "id": "arcanum-19",
+      "number": 19,
+      "name": "The Sun",
+      "file": "assets/arcana/full-size/arcanum-19.png",
+      "mode": "reference-based regeneration",
+      "owner_crop": "assets/arcana/arcanum-19.png",
+      "owner_crop_sha256": "86fb6ccfacb31c52a82ac9711e03addc493b2503cc3cb4251693f6ebf277fbe7",
+      "inputs": [
+        {
+          "role": "owner composition and palette reference",
+          "file": "assets/arcana/arcanum-19.png",
+          "sha256": "86fb6ccfacb31c52a82ac9711e03addc493b2503cc3cb4251693f6ebf277fbe7"
+        }
+      ],
+      "source_filename": "exec-a9e4374e-6708-48c7-936f-d98481a43ab4.png",
+      "source_sha256": "3c48041d54269be86fb8661b73aee0ee45d4884cf5bdac5bda768fa22395972b",
+      "file_sha256": "3c48041d54269be86fb8661b73aee0ee45d4884cf5bdac5bda768fa22395972b",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-19",
+      "prompt_formula": "shared_prompt + \"\\n\\n\" + asset.prompt",
+      "palette": "Use terracotta orange for all four lantern corner emblems and the sun's long triangular rays. The left traveler's scarf alone is vermilion red. Keep sun disc, faces, tunics, jetty, water and border cream and black."
+    },
+    {
+      "id": "arcanum-20",
+      "number": 20,
+      "name": "Judgement",
+      "file": "assets/arcana/full-size/arcanum-20.png",
+      "mode": "reference-based regeneration",
+      "owner_crop": "assets/arcana/arcanum-20.png",
+      "owner_crop_sha256": "6dc325844f5fde2be6ebf988c258600bf7b6f5c71c3f8f0b9b4184cfc0fdb591",
+      "inputs": [
+        {
+          "role": "owner composition and palette reference",
+          "file": "assets/arcana/arcanum-20.png",
+          "sha256": "6dc325844f5fde2be6ebf988c258600bf7b6f5c71c3f8f0b9b4184cfc0fdb591"
+        }
+      ],
+      "source_filename": "exec-76faa096-d246-4158-a05b-c9995e1485ff.png",
+      "source_sha256": "96b3367a7dac6a68da8a95c2cc5f32186fb000c033a26bc6481fa7d8843dc542",
+      "file_sha256": "96b3367a7dac6a68da8a95c2cc5f32186fb000c033a26bc6481fa7d8843dc542",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-20",
+      "prompt_formula": "shared_prompt + \"\\n\\n\" + asset.prompt",
+      "palette": "Use terracotta orange for all four lantern corner emblems and the building's window panes. Raven, radio mast, sound rings, crowd and border remain cream and black. No scarf."
+    },
+    {
+      "id": "arcanum-21",
+      "number": 21,
+      "name": "The World",
+      "file": "assets/arcana/full-size/arcanum-21.png",
+      "mode": "reference-based regeneration",
+      "owner_crop": "assets/arcana/arcanum-21.png",
+      "owner_crop_sha256": "fdb5e08b3d008b24e6e0b95bdd501ca8e75dcc409e194714a1dcd0da2d2345e9",
+      "inputs": [
+        {
+          "role": "owner composition and palette reference",
+          "file": "assets/arcana/arcanum-21.png",
+          "sha256": "fdb5e08b3d008b24e6e0b95bdd501ca8e75dcc409e194714a1dcd0da2d2345e9"
+        }
+      ],
+      "source_filename": "exec-d95b02a3-548c-4769-a6e3-a698465d423b.png",
+      "source_sha256": "2c4561449e26d1048e0461e0bab380cbe03573d15fa9a199dce4c426fb0c0274",
+      "file_sha256": "2c4561449e26d1048e0461e0bab380cbe03573d15fa9a199dce4c426fb0c0274",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "arcanum-21",
+      "prompt_formula": "shared_prompt + \"\\n\\n\" + asset.prompt",
+      "palette": "Preserve all four suit colors in the four different corner emblems: deep teal bell at upper left, periwinkle-blue moth at upper right, olive-green button at lower left, terracotta-orange lantern at lower right. Cottage windows use terracotta orange. The flying scarf is vermilion red. Dancer, oval wreath, lettering and frame remain cream and black."
+    },
+    {
+      "id": "tarot-back",
+      "name": "Star back",
+      "file": "assets/arcana/tarot-back.png",
+      "mode": "reference-based regeneration",
+      "owner_crop": "assets/arcana/references/tarot-back.png",
+      "owner_crop_sha256": "28106f34c90a649722a501413b1c063a4e6f1379bd7617cad9203e8a7a2f82ac",
+      "inputs": [
+        {
+          "role": "owner composition and palette reference",
+          "file": "assets/arcana/references/tarot-back.png",
+          "sha256": "28106f34c90a649722a501413b1c063a4e6f1379bd7617cad9203e8a7a2f82ac"
+        }
+      ],
+      "source_filename": "exec-52a135ca-916c-459f-afdd-339e0d477d7e.png",
+      "source_sha256": "eb922d1178ae093137a750f8eab8fd60fff7492921426a5ea64e59b6d594301b",
+      "file_sha256": "eb922d1178ae093137a750f8eab8fd60fff7492921426a5ea64e59b6d594301b",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "tarot-back",
+      "prompt_formula": "shared_prompt + \"\\n\\n\" + asset.prompt"
+    },
+    {
+      "id": "tarot-back-locked",
+      "name": "Keyhole back",
+      "file": "assets/arcana/tarot-back-locked.png",
+      "mode": "precise-center-edit",
+      "owner_crop": "assets/arcana/references/tarot-back-locked.png",
+      "owner_crop_sha256": "6844bb4d06eb569eccf8653783ac895759d8af86675f7ebe3958090a8fa4efe2",
+      "inputs": [
+        {
+          "role": "edit target",
+          "file": "assets/arcana/tarot-back.png",
+          "sha256": "eb922d1178ae093137a750f8eab8fd60fff7492921426a5ea64e59b6d594301b"
+        },
+        {
+          "role": "owner symbol reference",
+          "file": "assets/arcana/references/tarot-back-locked.png",
+          "sha256": "6844bb4d06eb569eccf8653783ac895759d8af86675f7ebe3958090a8fa4efe2"
+        }
+      ],
+      "source_filename": "exec-2ce39011-424f-4f10-8723-9a2cfe5e4cf1.png",
+      "source_sha256": "93aed7db8b966f3dd6cafe5c0a6e73a05be19db8ff38a73684a68b44ca19d458",
+      "file_sha256": "93aed7db8b966f3dd6cafe5c0a6e73a05be19db8ff38a73684a68b44ca19d458",
+      "width": 1024,
+      "height": 1536,
+      "alpha_range": [255, 255],
+      "processing": "Unchanged selected generated PNG; no resizing or cropping.",
+      "prompt_file": "remaining-deck-prompts.json",
+      "prompt_id": "tarot-back-locked",
+      "prompt_formula": "asset.full_prompt"
+    }
+  ]
+}
