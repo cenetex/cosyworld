@@ -34,7 +34,7 @@ import { boxDefs } from "./boxes.mjs";
 import { companionOf } from "./company.mjs";
 import { found } from "./found.mjs";
 import { homeOf } from "./home.mjs";
-import { rootHolder } from "./items.mjs";
+import { rootHolder, shining } from "./items.mjs";
 import { conditionWords } from "./want-words.mjs";
 import { LEVEL_CAP } from "../level-tiers.mjs";
 export const deck = { cards: data.cards };
@@ -148,9 +148,17 @@ export function holds(s, condition, binding) {
       const mate = companionOf(s, binding.traveler);
       return (
         Boolean(mate) &&
+        (!c.invited || mate === binding.invited) &&
         s.actors[mate]?.place === s.actors[binding.traveler]?.place
       );
     }
+    case "lit":
+      return candidates(s, "item", "lamp").some(
+        (id) =>
+          (!c.item || id === c.item) &&
+          rootHolder(s, id) === binding.traveler &&
+          glows(s, id),
+      );
     default:
       return conditionMet(s, c, null, null, binding.traveler);
   }
@@ -186,6 +194,12 @@ const KINDS = {
     ),
   transport: () => Object.values(transports).map((ship) => ship.place),
 };
+const glows = (s, id) =>
+  id === "lamp"
+    ? shining(s)
+    : s.items[id]?.lit === true &&
+      (s.items[id].fuel ?? 1) > 0 &&
+      s.items.cloth?.holder !== id;
 const TRAITS = {
   food: isFood,
   drink: (id) => consumable(id) === "drink",
@@ -211,7 +225,7 @@ export function bindingOf(s, card, traveler, pool = candidates) {
   for (const role of card.roles || []) {
     const free = [...pool(s, role.kind, role.is)]
       .sort()
-      .filter((id) => !taken.includes(id));
+      .filter((id) => !taken.includes(id) && !neverBack(s, id));
     if (!free.length) return null;
     const score = (id) =>
       runHash(s, `arcana-role:${card.id}:${role.name}:${id}`);
@@ -359,6 +373,25 @@ function makeSlot(s, traveler, id, face, scale = 1) {
   return slot;
 }
 
+const SPENDS = ["eat", "give", "trade"];
+function uses(s, traveler, slot) {
+  const card = slotCard(slot);
+  const binding = slotBinding(s, slot, traveler);
+  const spent = new Set(
+    resolve(card.proof.flatMap(didsIn), binding)
+      .filter((c) => [c.match?.verb].flat().some((v) => SPENDS.includes(v)))
+      .map((c) => c.match.itemId),
+  );
+  return Object.values(slot.bind || {}).map((id) => [id, spent.has(id)]);
+}
+
+function clash(s, traveler, a, b) {
+  const kept = new Map(uses(s, traveler, a));
+  return uses(s, traveler, b).some(
+    ([id, spent]) => kept.has(id) && (spent || kept.get(id)),
+  );
+}
+
 export function nextSpread(s, traveler) {
   const level = arcanaLevel(s, traveler);
   if (level >= LEVEL_CAP) return [];
@@ -380,24 +413,25 @@ export function nextSpread(s, traveler) {
   const unknown = middle.filter((id) => !unlocked.includes(id));
   const used = new Set();
   const tried = recordOf(s, traveler).need;
-  const pick = (all, face, at) => {
-    const ids = [
+  const pick = (all, face, at, other = null) => {
+    for (const id of [
       ...all.filter((card) => !tried.includes(card)),
       ...all.filter((card) => tried.includes(card)),
-    ];
-    const id = ids.find(
-      (card) =>
-        !used.has(card) && dealable(s, scaled(cardOf(card), at), traveler),
-    );
-    if (!id) return null;
-    used.add(id);
-    return makeSlot(s, traveler, id, face, at);
+    ]) {
+      if (used.has(id) || !dealable(s, scaled(cardOf(id), at), traveler))
+        continue;
+      const slot = makeSlot(s, traveler, id, face, at);
+      if (!slot || (other && clash(s, traveler, other, slot))) continue;
+      used.add(id);
+      return slot;
+    }
+    return null;
   };
   const up = pick(known, "up", scale);
   const down = pick(known, "down", 1);
   const locked = unknown.length
-    ? pick(unknown, "locked", scale)
-    : pick(known, "locked", nextScale(level + 1));
+    ? pick(unknown, "locked", scale, up)
+    : pick(known, "locked", nextScale(level + 1), up);
   return [up, down, locked].filter(Boolean);
 }
 
@@ -502,7 +536,9 @@ function visit(s, traveler, say) {
         deed = deedOf(slot);
       if (!slot.done) {
         slot.face = "up";
-        tell(`${nameOf(LISTENER)} turns over ${name}${deed ? `, still to do: ${deed}` : ""}.`);
+        tell(
+          `${nameOf(LISTENER)} turns over ${name}${deed ? `, still to do: ${deed}` : ""}.`,
+        );
         continue;
       }
       tell(`${nameOf(LISTENER)} turns over ${name}${deed ? `: ${deed}` : ""}.`);
@@ -637,8 +673,13 @@ export function settleArcana(s, actor = null, since = 0, say = null) {
         if (!binding) continue;
         for (const c of resolve(slotCard(slot).proof.flatMap(didsIn), binding))
           if (
-            fresh.some((entry) => fits(entry, c)) &&
-            (c.while || []).every((w) => holds(s, w, binding))
+            fresh.some(
+              (entry) =>
+                fits(entry, c) &&
+                (c.while || []).every((w) =>
+                  holds(s, w, { ...binding, invited: entry.targetId }),
+                ),
+            )
           )
             record.did = sorted([...record.did, c.key]);
       }
@@ -734,6 +775,11 @@ export function installArcana(s) {
     delete record.dealt;
     delete record.base;
     delete record.accepted;
+    for (const slot of Array.isArray(record.spread) ? record.spread : [])
+      if (slot?.card === "arcanum-18" && plainObject(slot.bind) &&
+          Object.keys(slot.bind).join() === "light" &&
+          typeof slot.bind.light === "string" && slot.bind.light)
+        delete slot.bind;
     const proved = Array.isArray(record.proved)
       ? record.proved.filter(isArcanum)
       : [];

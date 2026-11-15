@@ -80,6 +80,31 @@ pub(super) struct LinesRequest {
     #[serde(default)]
     continuing: Option<String>,
     messages: Vec<Message>,
+    #[serde(default)]
+    channel: Channel,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Channel {
+    #[serde(default)]
+    quiet: Option<u64>,
+    #[serde(default)]
+    active: Vec<String>,
+    #[serde(default)]
+    residents: Vec<Recent>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Recent {
+    id: String,
+    #[serde(default)]
+    lines: Vec<String>,
+    #[serde(default)]
+    streak: u32,
+    #[serde(default)]
+    since: Option<u64>,
 }
 
 fn authorized(headers: &HeaderMap, expected: Option<&str>) -> bool {
@@ -154,6 +179,18 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
             return Err("each text needs 1 to 400 characters");
         }
     }
+    let channel = &request.channel;
+    if channel.active.len() > 12 || !channel.active.iter().all(|name| bounded(name, 32)) {
+        return Err("active needs at most 12 names of 1 to 32 characters");
+    }
+    if channel.residents.len() > cast.len()
+        || !channel
+            .residents
+            .iter()
+            .all(|r| member(&r.id) && r.lines.len() <= 3 && r.lines.iter().all(|l| bounded(l, 400)))
+    {
+        return Err("residents must be the cast, each with at most 3 lines");
+    }
     if request.addressed.as_deref().is_some_and(|id| !member(id)) {
         return Err("addressed must be a resident of the cast");
     }
@@ -161,7 +198,11 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
     match request.continuing.as_deref() {
         Some(_) if request.addressed.is_some() => Err("continuing cannot be addressed"),
         Some(id) if last != Some(id) => Err("the last message must be the continuing resident's"),
-        None if last.is_some() => Err("the last message must be from a person"),
+        None if last.is_some()
+            && (request.addressed.is_none() || request.addressed.as_deref() == last) =>
+        {
+            Err("the last message must be from a person or another resident")
+        }
         _ => Ok(()),
     }
 }
@@ -321,8 +362,61 @@ fn unfinished(text: &str) -> bool {
         || text.chars().last().is_some_and(char::is_alphanumeric)
 }
 
-fn scene(resident: &Resident, messages: &[Message]) -> Option<Context> {
+fn minutes(seconds: u64) -> String {
+    match seconds / 60 {
+        1 => "a minute".into(),
+        n => format!("{n} minutes"),
+    }
+}
+
+fn awareness(resident: &Resident, channel: &Channel) -> (Vec<String>, Vec<Value>) {
+    let mut facts = Vec::new();
+    let mut memories = Vec::new();
+    if let Some(own) = channel.residents.iter().find(|r| r.id == resident.id) {
+        if own.streak >= 2 {
+            facts.push(format!("I have spoken {} times in a row here.", own.streak));
+        }
+        if let Some(since) = own.since.filter(|s| *s >= 60) {
+            facts.push(format!("I last spoke here {} ago.", minutes(since)));
+        }
+        for line in &own.lines {
+            let text = format!("{}: {line}", resident.name);
+            memories.push(json!({"turn": 1, "kind": "expression", "text": text}));
+        }
+    }
+    if let Some(quiet) = channel.quiet.filter(|q| *q >= 60) {
+        facts.push(format!(
+            "It was quiet here for {} before this.",
+            minutes(quiet)
+        ));
+    }
+    (facts, memories)
+}
+
+fn present(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Vec<String> {
+    let resident_of = |name: &str| cast.iter().find(|r| r.id == name).map(|r| r.id.clone());
+    let mut here: Vec<String> = Vec::new();
+    let spoken = request.messages.iter().rev().map(|m| match &m.resident {
+        Some(id) => id.clone(),
+        None => label(m.author.as_deref().unwrap_or_default()),
+    });
+    let active = request
+        .channel
+        .active
+        .iter()
+        .map(|name| resident_of(name.as_str()).unwrap_or_else(|| label(name)));
+    for id in spoken.chain(active) {
+        if id != resident.id && id != "Someone" && !here.contains(&id) && here.len() < 8 {
+            here.push(id);
+        }
+    }
+    here
+}
+
+fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Option<Context> {
+    let messages = &request.messages;
     let start = messages.len().saturating_sub(SCENE_MESSAGES);
+    let (facts, memories) = awareness(resident, &request.channel);
     let conversation: Vec<Value> = messages[start..]
         .iter()
         .map(|m| {
@@ -341,13 +435,14 @@ fn scene(resident: &Resident, messages: &[Message]) -> Option<Context> {
         "focus": null,
         "speakers": [&resident.id],
         "entities": [
-            {"id": &resident.id, "facts": [], "desire": null, "memories": [], "previous": null},
+            {"id": &resident.id, "facts": facts, "desire": null, "memories": memories, "previous": null},
             {"id": &resident.place, "facts": [], "desire": null, "memories": [], "previous": null}
         ],
         "conversation": conversation
     }))
     .ok()?;
     context.acting_avatar = Some(resident.id.clone());
+    context.present = present(resident, cast, request);
     Some(context)
 }
 
@@ -355,7 +450,8 @@ async fn speak(
     state: &TextState,
     config: &AiConfig,
     resident: &Resident,
-    messages: &[Message],
+    cast: &[Resident],
+    request: &LinesRequest,
     addressed: bool,
 ) -> Result<String, &'static str> {
     let models = state
@@ -373,7 +469,7 @@ async fn speak(
     if addressed {
         settings = brisk(settings);
     }
-    let context = scene(resident, messages).ok_or("no-line")?;
+    let context = scene(resident, cast, request).ok_or("no-line")?;
     let voiced = vec![resident.id.clone()];
     let started = Instant::now();
     let result = voice_scenes::run(
@@ -529,7 +625,7 @@ pub(super) async fn lines(
     let Some(resident) = residents.iter().find(|r| r.id == id) else {
         return silent("no-speaker");
     };
-    let text = match speak(&state, config, resident, &request.messages, addressed).await {
+    let text = match speak(&state, config, resident, &residents, &request, addressed).await {
         Ok(text) => text,
         Err(reason) => return silent(reason),
     };
@@ -613,6 +709,20 @@ mod tests {
         assert!(cast("no-such-pack").is_none());
     }
 
+    #[test]
+    fn every_face_avatar_is_a_public_asset() {
+        let faces: Value =
+            serde_json::from_str(include_str!("../../../card-game/assets/discord-faces.json"))
+                .unwrap();
+        for portrait in faces.as_object().unwrap().keys() {
+            let avatar = face_avatar(portrait).unwrap();
+            let path = avatar.strip_prefix("/card-game/").unwrap();
+            let (content_type, _) = cosyworld_orchestrator::card_assets::get(path)
+                .unwrap_or_else(|| panic!("{avatar} is not a public card asset"));
+            assert_eq!(content_type, "image/webp");
+        }
+    }
+
     fn request(messages: Value) -> LinesRequest {
         serde_json::from_value(json!({"pack": "lonely-forest", "messages": messages})).unwrap()
     }
@@ -636,6 +746,11 @@ mod tests {
         assert!(check(json!([{"author": "Mara", "text": "a".repeat(400)}])).is_ok());
         assert!(check(json!([{"resident": "vale", "text": "Hi."}, human])).is_err());
         assert!(check(json!([human, rati])).is_err());
+        let mut turned = request(json!([human, rati]));
+        turned.addressed = Some("skull".into());
+        assert!(validate(&turned, &residents).is_ok());
+        turned.addressed = Some("rati".into());
+        assert!(validate(&turned, &residents).is_err());
         let mut addressed = request(json!([human]));
         addressed.addressed = Some("vale".into());
         assert!(validate(&addressed, &residents).is_err());
@@ -812,6 +927,84 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, json!({"lines": [], "reason": "no-line"}));
         assert!(requests.len() >= 2);
+    }
+
+    #[tokio::test]
+    async fn channel_awareness_is_data_in_the_view_and_the_prompt_shape_holds() {
+        let reply = "Come in, all of you.";
+        let mut body = talk(Some("rati"));
+        body["channel"] = json!({
+            "quiet": 300,
+            "active": ["skull", "Mara", "RATi"],
+            "residents": [{"id": "rati", "lines": ["The kettle is on."], "streak": 2, "since": 120}]
+        });
+        let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(answer["lines"][0]["text"], reply);
+        let voice = &requests[0];
+        assert_eq!(
+            turn_of(voice, "system"),
+            format!("You are RATi, host of the cottage. {SAY_ALOUD}")
+        );
+        assert_eq!(
+            turn_of(voice, "user"),
+            "Jun says, \u{201c}RATi, can I come in?\u{201d}"
+        );
+        let view = turn_of(voice, "assistant");
+        assert!(
+            view.contains("Jun and Mara and Skull are here with me."),
+            "{view}"
+        );
+        assert!(!view.contains("alone"));
+        assert!(view.contains("I have spoken 2 times in a row here."));
+        assert!(view.contains("I last spoke here 2 minutes ago."));
+        assert!(view.contains("It was quiet here for 5 minutes before this."));
+        assert_eq!(view.matches("Reply with").count(), 0);
+    }
+
+    #[test]
+    fn awareness_follows_the_contract() {
+        let residents = cast("lonely-forest").unwrap();
+        let mut asked = request(json!([{"author": "Mara", "text": "Hi."}]));
+        asked.channel.active = vec!["x".repeat(33)];
+        assert!(validate(&asked, &residents).is_err());
+        asked.channel.active = vec!["Mara".into(); 13];
+        assert!(validate(&asked, &residents).is_err());
+        let with = |residents: Value| {
+            serde_json::from_value::<LinesRequest>(json!({
+                "pack": "lonely-forest",
+                "messages": [{"author": "Mara", "text": "Hi."}],
+                "channel": {"residents": residents}
+            }))
+        };
+        let ok = with(json!([{"id": "rati", "lines": ["a", "b", "c"]}])).unwrap();
+        assert!(validate(&ok, &residents).is_ok());
+        let long = with(json!([{"id": "rati", "lines": ["a", "b", "c", "d"]}])).unwrap();
+        assert!(validate(&long, &residents).is_err());
+        let stranger = with(json!([{"id": "vale"}])).unwrap();
+        assert!(validate(&stranger, &residents).is_err());
+        assert!(with(json!([{"id": "rati", "text": "x"}])).is_err());
+    }
+
+    #[tokio::test]
+    async fn a_resident_answers_another_resident_who_named_it() {
+        let reply = "Only the wind.";
+        let body = json!({
+            "pack": "lonely-forest",
+            "addressed": "rati",
+            "messages": [
+                {"author": "Jun", "text": "Is anyone awake?"},
+                {"resident": "skull", "text": "RATi, did you hear that?"}
+            ]
+        });
+        let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(answer["lines"][0]["id"], "rati");
+        assert!(requests.iter().all(|r| r.get("response_format").is_none()));
+        assert_eq!(
+            turn_of(&requests[0], "user"),
+            "Skull says, \u{201c}RATi, did you hear that?\u{201d}"
+        );
     }
 
     #[test]

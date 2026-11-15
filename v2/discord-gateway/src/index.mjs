@@ -4,6 +4,7 @@ import { commandDefinitions, dispatch } from "./commands.mjs";
 import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
 import { calm, createRoom, createStats, nudge, record, seed, summary, tick } from "./room.mjs";
 import { startHealth } from "./health.mjs";
+import { wait } from "./beats.mjs";
 import { channelLines, fetchCast } from "./orchestrator.mjs";
 
 const config = readConfig(process.env);
@@ -79,12 +80,14 @@ function run(targets, now = Date.now()) {
     now,
     config,
     cast,
-    lines: (body) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body),
+    lines: (body, signal) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal),
     send: (room, payload) => webhooks.get(room.channelId)?.send(payload),
     typing: (room) => channels.get(room.channelId)?.sendTyping(),
     save,
     log,
     stats,
+    sleep: wait,
+    random: Math.random,
   });
 }
 
