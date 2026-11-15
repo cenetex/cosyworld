@@ -20,6 +20,19 @@ test("identity builds a webhook face", () => {
     "https://cosyworld.example/card-game/assets/lonely-forest/rati.png",
   );
   assert.equal(avatarUrl(base, null), null);
+  const resident = {
+    name: "RATi",
+    portrait: "/card-game/assets/lonely-forest/rati.png",
+    avatar: "/card-game/assets/faces/lonely-forest-rati.webp",
+  };
+  assert.equal(
+    residentIdentity(resident, base).avatarUrl,
+    "https://cosyworld.example/card-game/assets/faces/lonely-forest-rati.webp",
+  );
+  assert.equal(
+    residentIdentity({ ...resident, avatar: undefined }, base).avatarUrl,
+    "https://cosyworld.example/card-game/assets/lonely-forest/rati.png",
+  );
   assert.equal(residentIdentity({ name: "discordVale" }, base).username, "Vale");
   assert.equal(residentIdentity({ name: "x".repeat(100) }, base).username.length, 80);
   assert.equal(residentIdentity({ name: "Pip", portrait: null }, base).avatarUrl, null);

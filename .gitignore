@@ -23,6 +23,7 @@ discordService.log
 # Media files
 images/*
 *.webp
+!v2/card-game/assets/faces/*.webp
 !v2/card-game/assets/greek-drama/*.webp
 !v2/card-game/assets/hoppycat-archive/*.webp
 !v2/card-game/assets/willows/*.webp
