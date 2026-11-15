@@ -9,13 +9,13 @@ import {
 import {
   candidates,
   dealable,
-  dealtCard,
   deck,
   deckOrder,
   dreamCard,
-  nextCard,
+  nextSpread,
   recordOf,
   settleArcana,
+  spreadOf,
 } from "../v2/card-game/world/arcana.mjs";
 import { boxDefs, boxesAt } from "../v2/card-game/world/boxes.mjs";
 import {
@@ -56,19 +56,17 @@ afterEach(() => {
 });
 
 describe("the deal", () => {
-  it("deals the Fool first once the opening is crossed, and not during it", () => {
+  it("deals nothing on its own, during the opening or after it", () => {
     const s = createWorld({ opening: true, seed: 5 });
-    expect(s.opening.crossed).toBe(false);
     settleArcana(s, "vale");
     expect(s.actors.vale.arcana).toBeUndefined();
     s.opening.crossed = true;
     settleArcana(s, "vale");
-    expect(recordOf(s, "vale").dealt).toBe(FOOL);
+    expect(s.actors.vale.arcana).toBeUndefined();
     const t = createWorld({ seed: 5 });
     const wait = legalActions(t, "vale").find((a) => a.kind === "wait");
     const next = play(t, wait, t.revision, "vale").state;
-    expect(recordOf(next, "vale").dealt).toBe(FOOL);
-    expect(dealtCard(next, "vale").card.id).toBe(FOOL);
+    expect(next.actors.vale.arcana).toBeUndefined();
     expect(() => validateWorld(next)).not.toThrow();
   });
 
@@ -95,27 +93,13 @@ describe("the deal", () => {
     expect(new Set(travelers).size).toBeGreaterThan(1);
   });
 
-  it("deals the World only when nothing else can be dealt", () => {
-    const s = createWorld({ seed: 5 });
-    deck.cards = [
-      card(0, [here(s)]),
-      card(2, [here(s)], UNBOUND),
-      card(3, [{ kind: "count", of: "heard", min: 999 }]),
-      card(21, [here(s)]),
-    ];
-    expect(nextCard(s, "vale")).toBe(FOOL);
-    s.actors.vale.arcana = { proved: [FOOL], did: [] };
-    expect(nextCard(s, "vale")).toBe(WORLD);
-    deck.cards.push(card(4, [here(s)]));
-    expect(nextCard(s, "vale")).toBe("arcanum-4");
-  });
-
   it("skips a card whose roles cannot be bound", () => {
     const s = createWorld({ seed: 5 });
-    deck.cards = [card(0, [here(s)], UNBOUND), card(1, [here(s)])];
+    deck.cards = [card(1, [here(s)], UNBOUND), card(2, [here(s)])];
     expect(dealable(s, deck.cards[0], "vale")).toBe(false);
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").dealt).toBe("arcanum-1");
+    expect(nextSpread(s, "vale")).toEqual([
+      { card: "arcanum-2", face: "locked" },
+    ]);
   });
 
   it("skips a card whose count cannot rise that far in this world", () => {
@@ -150,109 +134,54 @@ describe("the deal", () => {
     expect(dealable(s, opened, "vale")).toBe(false);
   });
 
-  it("moves a dealt card's place out of a pack switched off", () => {
+  it("keeps a held card's place in a pack switched off", () => {
     const s = createWorld({ seed: 3 });
     deck.cards = data.cards.filter((c) => c.id === "arcanum-4");
-    s.actors.vale.arcana = { proved: [], did: [], dealt: "arcanum-4" };
-    const before = dealtCard(s, "vale").binding.place;
+    s.actors.vale.arcana = {
+      proved: [],
+      did: [],
+      spread: [{ card: "arcanum-4", face: "up" }],
+    };
+    settleArcana(s, "vale");
+    const before = spreadOf(s, "vale")[0].binding.place;
     s.disabledPacks = [packGroupOf(before)];
     settleArcana(s, "vale");
-    expect(recordOf(s, "vale").dealt).toBe("arcanum-4");
-    const after = dealtCard(s, "vale").binding.place;
-    expect(after).not.toBe(before);
-    expect(packOn(s, packIdOf(after))).toBe(true);
+    expect(spreadOf(s, "vale")[0].binding.place).toBe(before);
   });
 
-  it("drops a dealt card that can no longer come true and deals the next", () => {
-    const s = createWorld({ seed: 3 });
-    deck.cards = [
-      card(0, [{ kind: "count", of: "heard", min: 10 }]),
-      card(1, [{ kind: "actor_at", place: "nowhere-near" }]),
-    ];
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale")).toMatchObject({
-      dealt: FOOL,
-      base: { heard: 0 },
-    });
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").dealt).toBe(FOOL);
-    s.disabledPacks = ["hoppy", "radio", "sea"];
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale")).toMatchObject({
-      dealt: "arcanum-1",
-      proved: [],
-    });
-    delete s.disabledPacks;
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").dealt).toBe("arcanum-1");
-  });
-
-  it("proves a card true when dealt only on a later settle", () => {
-    const s = createWorld({ seed: 5 });
-    deck.cards = [card(0, [here(s)])];
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale")).toMatchObject({ dealt: FOOL, proved: [] });
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale")).toMatchObject({ dealt: null, proved: [FOOL] });
-  });
-
-  it("counts a min from the deal", () => {
-    const s = createWorld({ seed: 5 });
-    deck.cards = [card(0, [{ kind: "count", of: "visited", min: 1 }])];
-    s.actors.vale.visited = ["attic", "station"];
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").base).toEqual({ visited: 2 });
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").proved).toEqual([]);
-    s.actors.vale.visited.push("pond");
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").proved).toEqual([FOOL]);
-  });
-
-  it("proves at most one card each settle", () => {
-    const s = createWorld({ seed: 5 });
-    deck.cards = [card(0, [here(s)]), card(1, [here(s)])];
-    s.actors.vale.arcana = { proved: [], did: [], dealt: FOOL };
-    settleArcana(s, "vale");
-    expect(s.actors.vale.arcana).toEqual({
-      proved: [FOOL],
-      did: [],
-      dealt: "arcanum-1",
-    });
-    settleArcana(s, "vale");
-    expect(s.actors.vale.arcana).toEqual({
-      proved: [FOOL, "arcanum-1"],
-      did: [],
-    });
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").proved).toHaveLength(2);
-  });
-
-  it("deals the next card on a proof and clears its deeds", () => {
+  it("dreams of a middle card not unlocked and not held", () => {
     const s = createWorld({ seed: 5 });
     deck.cards = [card(0, [here(s)]), card(1, [waited]), card(2, [waited])];
-    s.actors.vale.arcana = { proved: [], did: ["kept", "waited"], dealt: FOOL };
-    expect(dreamCard(s, "vale")).toBe(nextCard(s, "vale", FOOL));
-    expect(dreamCard(s, "vale")).not.toBe(FOOL);
-    settleArcana(s, "vale");
-    const record = recordOf(s, "vale");
-    expect(record.proved).toEqual([FOOL]);
-    expect(record.dealt).not.toBeNull();
-    expect(record.did).toEqual(["kept"]);
+    s.actors.vale.upgrades = ["arcanum-1"];
+    expect(dreamCard(s, "vale")).toBe("arcanum-2");
+    s.actors.vale.arcana = {
+      proved: [],
+      did: [],
+      spread: [{ card: "arcanum-2", face: "locked" }],
+    };
+    expect(dreamCard(s, "vale")).toBeNull();
   });
 
-  it("keeps a second traveler's deal apart", () => {
+  it("keeps a second traveler's spread apart", () => {
     const s = createWorld({ seed: 5 });
     s.sharedVersion = 1;
     s.controlledActors = ["vale", other];
     s.presentActors = ["vale", other];
     s.heldActors = ["vale", other];
-    deck.cards = [card(0, [here(s)]), card(1, [here(s)])];
+    deck.cards = [card(1, [here(s)])];
+    for (const who of ["vale", other])
+      s.actors[who].arcana = {
+        proved: [],
+        did: [],
+        spread: [{ card: "arcanum-1", face: "up" }],
+      };
     s.actors[other].place = "nowhere-near";
     settleArcana(s, "vale");
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").proved).toEqual([FOOL]);
-    expect(recordOf(s, other)).toMatchObject({ proved: [], dealt: FOOL });
+    expect(recordOf(s, "vale").proved).toEqual(["arcanum-1"]);
+    expect(recordOf(s, other)).toMatchObject({
+      proved: [],
+      spread: [{ card: "arcanum-1", face: "up" }],
+    });
   });
 
   it("lays no card in the world and opens no box for one", () => {
@@ -270,7 +199,7 @@ describe("the deal", () => {
 });
 
 describe("a world saved with the cards on the table", () => {
-  it("loses the cards, keeps what was proved and deals again", () => {
+  it("loses the cards and keeps what was proved", () => {
     const s = createWorld({ seed: 5 });
     const at = s.actors.vale.place;
     s.items[FOOL] = { holder: at, history: [] };
@@ -297,19 +226,22 @@ describe("a world saved with the cards on the table", () => {
     expect(loaded.actors.vale.arcana).toEqual({
       proved: [FOOL],
       did: ["long-rest"],
+      level: 1,
     });
+    expect(loaded.actors.vale.upgrades).toContain(FOOL);
     expect(validateWorld(loaded)).toBe(loaded);
-    settleArcana(loaded, "vale");
-    expect(recordOf(loaded, "vale").dealt).not.toBe(FOOL);
-    expect(recordOf(loaded, "vale").dealt).not.toBeNull();
   });
 
-  it("drops a deal the content no longer has", () => {
+  it("puts a dealt card back in the deck", () => {
     const s = createWorld({ seed: 5 });
     s.actors.vale.arcana = { proved: [FOOL], did: [], dealt: FOOL };
     expect(() => validateWorld(s)).toThrow();
     const loaded = decodeSave(JSON.stringify(s));
-    expect(loaded.actors.vale.arcana).toEqual({ proved: [FOOL], did: [] });
+    expect(loaded.actors.vale.arcana).toEqual({
+      proved: [FOOL],
+      did: [],
+      level: 1,
+    });
   });
 });
 

@@ -16,8 +16,29 @@ const cards = {
 };
 const say = (terms, known = () => true, home = "den") =>
   conditionWords(terms, known, { cards, home });
+const hold = (s, id, face = "up", did = []) => {
+  s.actors.vale.arcana = {
+    proved: [],
+    did,
+    spread: [
+      {
+        card: id,
+        face,
+        base: {
+          visited: s.actors.vale.visited.length,
+          heard: Object.keys(s.actors.vale.heard || {}).length,
+          trusting: 0,
+          opened: 0,
+        },
+      },
+    ],
+  };
+  return s;
+};
 const words = (s, id, known = () => false) =>
-  conditionWords(arcanumTerms(s, "vale", id), known, { home: homeOf("vale") });
+  conditionWords(arcanumTerms(hold(s, id), "vale", 0), known, {
+    home: homeOf("vale"),
+  });
 const cardOf = (id) => deck.cards.find((card) => card.id === id);
 
 describe("the words of a level card", () => {
@@ -176,6 +197,22 @@ describe("the words of a level card", () => {
     ).toBe("free two shut away");
   });
 
+  it("counts down what is left and drops a step that is done", () => {
+    const s = createWorld({ seed: 7 });
+    hold(s, "arcanum-0");
+    s.actors.vale.visited.push("pond", "station");
+    const terms = arcanumTerms(s, "vale", 0);
+    expect(conditionWords(terms, () => true, { home: homeOf("vale") })).toBe(
+      "carry nothing, be away from home and visit four more new places",
+    );
+    expect(JSON.stringify(terms)).not.toMatch(/2\/6|"min":6/u);
+    const wheel = (did) =>
+      conditionWords(arcanumTerms(hold(s, "arcanum-10", "up", did), "vale", 0));
+    expect(wheel([])).toBe("eat Dried Figs and find Dried Figs");
+    expect(wheel(["spent"])).toBe("find Dried Figs");
+    expect(arcanumTerms(hold(s, "arcanum-10", "down"), "vale", 0)).toEqual([]);
+  });
+
   it("words every card in a fresh world", () => {
     for (const seed of [3, 7, 11]) {
       const s = createWorld({ seed });
@@ -196,6 +233,9 @@ describe("the words of a level card", () => {
       "./assets/arcana/arcanum-21.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-13")).art).toBe(
+      "./assets/arcana/arcanum-13.png",
+    );
+    expect(glimpseCompanion(glimpse("arcanum-99")).art).toBe(
       "./assets/card-back.webp",
     );
     expect(glimpseCompanion(null)).toBeNull();

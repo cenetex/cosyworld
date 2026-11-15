@@ -132,8 +132,12 @@ describe("did conditions", () => {
     expect(recordOf(s, "walker")).toEqual({
       proved: [],
       did: [],
-      dealt: null,
-      base: {},
+      level: null,
+      calls: 0,
+      need: [],
+      done: [],
+      spread: [],
+      sale: false,
     });
     expect(s.actors.walker.arcana).toBeUndefined();
   });

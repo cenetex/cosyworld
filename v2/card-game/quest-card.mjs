@@ -4,14 +4,15 @@
 import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
 import { conditionWords, wantWords } from "./world/want-words.mjs";
-import { arcanaLevel, arcanumTerms, dealtCard } from "./world/arcana.mjs";
+import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
 import { homeOf } from "./world/home.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
+import { TAROT_BACK, TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
-  exits,
   itemPlace,
+  movesTo,
   nameOf,
   places,
   rootHolder,
@@ -69,23 +70,25 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
-export function levelCard(world, actor = currentActor(world)) {
-  const card = dealtCard(world, actor)?.card;
-  if (!card) return null;
-  return {
-    key: `level:${card.id}`,
-    index: questsOf(world, actor).length,
+export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
+export const levelCards = (world, actor = currentActor(world)) =>
+  spreadOf(world, actor).map(({ index, card, face }, _, all) => ({
+    key:
+      face === "down"
+        ? `tarot:${actor}:down:${all.slice(0, index).filter((slot) => slot.face === "down").length}`
+        : `tarot:${actor}:${card}`,
+    index,
     actor,
     kind: "arcanum",
-    target: card.id,
+    face,
+    target: face === "down" ? null : card,
     level: Math.min(21, arcanaLevel(world, actor) + 1),
     left: 1,
     step: null,
-    art: arcanumArt(card.id),
-    conditions: arcanumTerms(world, actor, card.id),
+    art: face === "down" ? TAROT_BACK : face === "locked" ? TAROT_LOCKED_BACK : arcanumArt(card),
+    conditions: face === "down" ? null : arcanumTerms(world, actor, index),
     home: homeOf(actor) ?? null,
-  };
-}
+  }));
 // The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
@@ -116,6 +119,7 @@ export function questCaption(
         ...(quest.lit === undefined ? {} : { lit: quest.lit }),
         ...(quest.story ? { story: true } : {}),
       };
+  if (quest.kind === "arcanum" && quest.face === "down") return "";
   const words =
     quest.kind === "arcanum"
       ? (conditionWords(quest.conditions, known, { home: quest.home }) ?? "…")
@@ -130,30 +134,8 @@ export function questCaption(
 }
 
 // Places between here and there along the routes this avatar can use now.
-export function questDistance(world, actor, to) {
-  const from = world.actors[actor].place;
-  const steps = new Map([[from, 0]]),
-    came = new Map(),
-    queue = [from];
-  for (let i = 0; i < queue.length; i++) {
-    const here = queue[i];
-    if (here === to) return steps.get(here);
-    const projected = {
-      ...world,
-      actors: {
-        ...world.actors,
-        [actor]: { ...world.actors[actor], place: here },
-      },
-    };
-    for (const next of exits(projected, here, actor, came.get(here) ?? null))
-      if (!steps.has(next)) {
-        steps.set(next, steps.get(here) + 1);
-        came.set(next, here);
-        queue.push(next);
-      }
-  }
-  return null;
-}
+export const questDistance = (world, actor, to) =>
+  movesTo(world, actor, to);
 
 // The place a quest card's screen shows behind its figures, or null: a
 // step's own place (`at`) once it is known, or else where the player stands

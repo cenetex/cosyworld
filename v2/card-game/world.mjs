@@ -354,6 +354,22 @@ export function installPacks(s) {
       s.items[id] = structuredClone(item);
       s.memories[id] ??= fresh[id];
     }
+  for (const [id, person] of Object.entries(forest.people))
+    if (person.place && !s.actors[id]) {
+      s.actors[id] = {
+        place: person.place,
+        crossed: 0,
+        lastTalk: -9,
+        trust: Object.fromEntries(
+          actorIds.filter((other) => other !== id).map((other) => [other, 0]),
+        ),
+      };
+      for (const other of Object.keys(s.actors))
+        if (other !== id) s.actors[other].trust[id] ??= 0;
+      s.peaceUntil[id] = 0;
+      s.memories[id] ??= fresh[id];
+      if (s.motives) s.motives.grievances[id] ??= [];
+    }
   // A crossing these rules no longer have, such as a home's old pond door,
   // leaves the save.
   for (const home of Object.keys(humanHomeGates))
@@ -409,6 +425,30 @@ export function installPacks(s) {
   installRouteKnowledge(s);
   installWants(s);
 }
+export function movesTo(world, actor, to) {
+  const from = world.actors[actor].place;
+  const steps = new Map([[from, 0]]),
+    came = new Map(),
+    queue = [from];
+  for (let i = 0; i < queue.length; i++) {
+    const here = queue[i];
+    if (here === to) return steps.get(here);
+    const projected = {
+      ...world,
+      actors: {
+        ...world.actors,
+        [actor]: { ...world.actors[actor], place: here },
+      },
+    };
+    for (const next of exits(projected, here, actor, came.get(here) ?? null))
+      if (!steps.has(next)) {
+        steps.set(next, steps.get(here) + 1);
+        came.set(next, here);
+        queue.push(next);
+      }
+  }
+  return null;
+}
 // Travellers who learn the roads start from their home region's routes.
 export function installRouteKnowledge(s) {
   s.routeKnowledge ??= {};
@@ -442,13 +482,19 @@ export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
 import { boxIdOpen, creditOpened, validOpened } from "./world/boxes.mjs";
 import {
+  discardTarot,
   dreamCard,
   installArcana,
+  takes,
   settleArcana,
+  spreadOf,
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
 import { questOffers } from "./world/offers.mjs";
+import { giveUpForGood, goneSince } from "./world/for-good.mjs";
+import { settleStops, stopsOf } from "./world/stops.mjs";
+const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
 export { questOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
@@ -619,6 +665,7 @@ function refusalReason(s, a) {
 // What the other side will say to a Give or Trade. The residents' planner
 // reads this to avoid some offers it expects to be refused.
 export function expects(s, a) {
+  if (a.kind === "give" && keepsForGood(a.target)) return takes(s, a.actor);
   if (a.kind === "give")
     return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
   if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
@@ -967,7 +1014,9 @@ export function holdChoice(s, actor, choice) {
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
-  settleArcana(s, actor, before.eventSeq ?? before.log.length);
+  settleArcana(s, actor, before.eventSeq ?? before.log.length, (text, detail) =>
+    addLog(s, "World", text, detail),
+  );
   settleSealedItems(s, nameOf, (text, locationId) =>
     addLog(s, "World", text, { kind: "narration", locationId }),
   );
@@ -1625,7 +1674,7 @@ export function legalActions(s, actor = currentActor(s)) {
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
   if (actor === currentActor(s) || controlledByHuman(s, actor))
-    questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
+    questsOf(s, actor).forEach((w, quest) => {
       const goal =
         w.kind === "person" && !w.step
           ? `meet ${nameOf(w.target)}`
@@ -1639,6 +1688,18 @@ export function legalActions(s, actor = currentActor(s)) {
         [],
       );
       out.push({ ...drop, quest, key: `${drop.key}:${quest}` });
+    });
+  if (actor === currentActor(s) || controlledByHuman(s, actor))
+    spreadOf(s, actor).forEach(({ card, face }, tarot) => {
+      const drop = offer(
+        "drop",
+        actor,
+        null,
+        null,
+        `${nameOf(actor)} sets down ${face === "down" ? "a face-down card" : nameOf(card)}.`,
+        [],
+      );
+      out.push({ ...drop, tarot, key: `${drop.key}:tarot:${tarot}` });
     });
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
@@ -1867,9 +1928,6 @@ function settleCompanions(s) {
     if (!travelerOf(s, id) && s.actors[id]?.place === lifeHome(id, s))
       narrowTickets(s, id);
 }
-// A traveler wakes from a long rest: the companion is dismissed unless a
-// quest taken on from them pins the bond.
-// through a long rest while the quest is held (rules 133).
 function dropOpenedBoxQuests(s) {
   for (const [actor, a] of Object.entries(s.actors))
     for (const held of heldOf(a))
@@ -2334,6 +2392,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     ),
     ...ids.filter((id) => entityActive(s, id) && itemPlace(s, id) === here),
   ];
+  const usedBefore = new Set(s.usedUp);
   const conflict = standoffFor(s, a.actor);
   if (conflict) {
     conflict.guarding[a.actor] = false;
@@ -2342,7 +2401,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "drop" && !a.item) {
-    dropQuest(s, a.actor);
+    if (a.tarot !== undefined) discardTarot(s, a.actor, a.tarot);
+    else dropQuest(s, a.actor, a.quest ?? 0);
     addLog(s, "World", a.text, {
       kind: "action",
       actorId: a.actor,
@@ -2563,6 +2623,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
         trustGiver(s, a.target, a.item, a.actor);
       transfer(s, a.item, a.target, a.text);
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
+      else if (keepsForGood(a.target)) giveUpForGood(s, a.item);
       break;
     }
     case "ring":
@@ -2661,6 +2722,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
       : {}),
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
     ...(handover ? { handover } : {}),
+    ...(goneSince(s, usedBefore).length
+      ? { gone: goneSince(s, usedBefore) }
+      : {}),
   });
   const sourceSeq = s.log.at(-1).seq;
   if (a.kind === "threaten")
@@ -3350,6 +3414,27 @@ export function play(
       arriveRoamingRecitals(next, packDefinitions, id);
   }
   residentRound(next, [actor, respondent, ...residents].filter(Boolean));
+  settleStops(next, {
+    distance: (traveler, to) => movesTo(next, traveler, to),
+    arrive: (id, to) =>
+      addLog(next, "World", `${nameOf(id)} arrives.`, {
+        kind: "narration",
+        actorId: id,
+        locationId: to,
+      }),
+  });
+  const by = next.actors[currentActor(next)]?.place;
+  if (
+    next.opening &&
+    Object.keys(forest.people).some(
+      (id) =>
+        stopsOf(id) &&
+        next.actors[id]?.place === by &&
+        next.opening.met?.[id] === undefined &&
+        entityActive(next, id),
+    )
+  )
+    meetCast(next);
   companionRound(
     next,
     [actor, respondent, ...residents].filter(Boolean),
@@ -3423,7 +3508,9 @@ export function play(
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
-  settleArcana(next, actor, s.eventSeq ?? s.log.length);
+  settleArcana(next, actor, s.eventSeq ?? s.log.length, (text, detail) =>
+    addLog(next, "World", text, detail),
+  );
   // A sealed thing whose seal follows its facts goes home when they lapse.
   settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);

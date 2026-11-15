@@ -1,5 +1,32 @@
 {
   "schema": 1,
+  "calls": 3,
+  "visit": {
+    "match": {
+      "verb": "talk",
+      "actorId": "$traveler",
+      "targetId": "listener"
+    }
+  },
+  "price": {
+    "match": {
+      "verb": "give",
+      "actorId": "$traveler",
+      "targetId": "listener",
+      "accepted": true
+    },
+    "with": ["gone"]
+  },
+  "levels": [
+    {
+      "from": 11,
+      "scale": 2
+    },
+    {
+      "from": 18,
+      "scale": 3
+    }
+  ],
   "cards": [
     {
       "id": "arcanum-0",
@@ -329,14 +356,16 @@
           "target": "$thing",
           "step": {
             "verb": "eat"
-          }
+          },
+          "key": "spent"
         },
         {
           "kind": "item",
           "target": "$thing",
           "step": {
             "verb": "find"
-          }
+          },
+          "key": "found"
         }
       ]
     },
@@ -395,6 +424,31 @@
           "kind": "quest",
           "step": {
             "verb": "let go of"
+          }
+        }
+      ]
+    },
+    {
+      "id": "arcanum-13",
+      "number": 13,
+      "name": "The Nameless Card",
+      "text": "A woodcut card. A hooded skeleton cuts a red scarf with a scythe while a steamer waits on dark water.",
+      "art": "assets/arcana/arcanum-13.png",
+      "proof": [
+        {
+          "kind": "did",
+          "key": "given-up",
+          "match": {
+            "actorId": "$traveler"
+          },
+          "with": ["gone"]
+        }
+      ],
+      "desire": [
+        {
+          "kind": "item",
+          "step": {
+            "verb": "give up"
           }
         }
       ]
