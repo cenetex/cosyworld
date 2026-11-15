@@ -75,11 +75,17 @@ async function check(width) {
     isMobile: width === 390,
     hasTouch: width === 390,
   });
-  await page.addInitScript(() =>
-    localStorage.setItem(
-      "cosyworld.reflected-shore.v1.shared.status.vale.seen",
-      JSON.stringify(["vale", "station"]),
-    ),
+  await page.addInitScript(
+    (seen) =>
+      localStorage.setItem(
+        "cosyworld.reflected-shore.v1.shared.status.vale.seen",
+        JSON.stringify(seen),
+      ),
+    [
+      ...Object.keys(world.actors),
+      ...Object.keys(world.items),
+      ...Object.keys(world.locations),
+    ],
   );
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/auth/account", (route) =>
@@ -398,9 +404,8 @@ async function checkRefusalFits(width, height, zoom = 1) {
   try {
     await page.goto(`${origin}/?world=fits`);
     await page.waitForFunction(() => document.body.inert === false);
-    // A stranger's first table is the opening's closed boxes with the lamp
-    // raised, and its one button opens the lamp until Vale and it are open.
-    // The attic, cottage and pond lie in a pack that selecting them opens.
+    // A stranger's first table deals face down; the attic, cottage and pond
+    // lie in a pack that selecting them opens.
     await revealCard(page, "vale");
     await settleHand(page);
     await revealCard(page, "lamp", { keepSelected: true });
