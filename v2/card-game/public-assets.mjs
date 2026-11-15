@@ -439,6 +439,13 @@ const files = [
     (number) => `assets/lonely-forest/arcanum-${number}.png`,
   ),
   "assets/greek-drama/arcanum-3.png",
+  ...Array.from(
+    { length: 16 },
+    (_, index) => `assets/arcana/arcanum-${index + 6}.png`,
+  ),
+  "assets/arcana/tarot-back.png",
+  "assets/arcana/tarot-back-locked.png",
+  "assets/arcana/full-size/arcanum-12-handstand-alternate.png",
   ...[
     "antigone",
     "baker",

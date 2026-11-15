@@ -193,7 +193,7 @@ describe("the words of a level card", () => {
       "./assets/arcana/full-size/arcanum-2.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-21")).art).toBe(
-      "./assets/arcana/arcanum-21.png",
+      "./assets/arcana/full-size/arcanum-21.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-13")).art).toBe(
       "./assets/card-back.webp",

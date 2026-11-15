@@ -151,7 +151,7 @@
       "number": 6,
       "name": "The Lover",
       "text": "A woodcut card. Two people pull a young man two ways while Cupid aims from above.",
-      "art": "assets/arcana/arcanum-6.png",
+      "art": "assets/arcana/full-size/arcanum-6.png",
       "proof": [
         {
           "kind": "did",
@@ -185,7 +185,7 @@
       "number": 7,
       "name": "The Chariot",
       "text": "A woodcut card. A driver leans from the cab of a steam train at full speed.",
-      "art": "assets/arcana/arcanum-7.png",
+      "art": "assets/arcana/full-size/arcanum-7.png",
       "roles": [
         {
           "name": "vessel",
@@ -218,7 +218,7 @@
       "number": 8,
       "name": "Justice",
       "text": "A woodcut card. A pair of scales holds a key in one pan and a letter in the other.",
-      "art": "assets/arcana/arcanum-8.png",
+      "art": "assets/arcana/full-size/arcanum-8.png",
       "proof": [
         {
           "kind": "did",
@@ -244,7 +244,7 @@
       "number": 9,
       "name": "The Hermit",
       "text": "A woodcut card. A hooded walker carries a lantern through bare trees with a moth above.",
-      "art": "assets/arcana/arcanum-9.png",
+      "art": "assets/arcana/full-size/arcanum-9.png",
       "roles": [
         {
           "name": "light",
@@ -287,7 +287,7 @@
       "number": 10,
       "name": "The Wheel of Fortune",
       "text": "A woodcut card. A steam clock turns its gears beneath a bell.",
-      "art": "assets/arcana/arcanum-10.png",
+      "art": "assets/arcana/full-size/arcanum-10.png",
       "roles": [
         {
           "name": "thing",
@@ -345,7 +345,7 @@
       "number": 11,
       "name": "Strength",
       "text": "A woodcut card. A woman kneels to tend the hurt paw of a wolf.",
-      "art": "assets/arcana/arcanum-11.png",
+      "art": "assets/arcana/full-size/arcanum-11.png",
       "proof": [
         {
           "kind": "did",
@@ -404,7 +404,7 @@
       "number": 14,
       "name": "Temperance",
       "text": "A woodcut card. A hand pours from a thermos into two mugs.",
-      "art": "assets/arcana/arcanum-14.png",
+      "art": "assets/arcana/full-size/arcanum-14.png",
       "roles": [
         {
           "name": "thing",
@@ -440,7 +440,7 @@
       "number": 15,
       "name": "The Devil",
       "text": "A woodcut card. A horned figure stands on a box with two people tied to it.",
-      "art": "assets/arcana/arcanum-15.png",
+      "art": "assets/arcana/full-size/arcanum-15.png",
       "roles": [
         {
           "name": "thing",
@@ -480,7 +480,7 @@
       "number": 16,
       "name": "The Tower",
       "text": "A woodcut card. Lightning strikes a tower as people fall from it and climb out.",
-      "art": "assets/arcana/arcanum-16.png",
+      "art": "assets/arcana/full-size/arcanum-16.png",
       "proof": [
         {
           "kind": "count",
@@ -495,7 +495,7 @@
       "number": 17,
       "name": "The Star",
       "text": "A woodcut card. A kneeling woman pours water from two jars under a star.",
-      "art": "assets/arcana/arcanum-17.png",
+      "art": "assets/arcana/full-size/arcanum-17.png",
       "proof": [
         {
           "kind": "did",
@@ -521,7 +521,7 @@
       "number": 18,
       "name": "The Moon",
       "text": "A woodcut card. A moon shines on water where a doorway stands, and a lantern waits on the bank.",
-      "art": "assets/arcana/arcanum-18.png",
+      "art": "assets/arcana/full-size/arcanum-18.png",
       "roles": [
         {
           "name": "light",
@@ -559,7 +559,7 @@
       "number": 19,
       "name": "The Sun",
       "text": "A woodcut card. Two people stand on a jetty under the sun, one in a red scarf.",
-      "art": "assets/arcana/arcanum-19.png",
+      "art": "assets/arcana/full-size/arcanum-19.png",
       "proof": [
         {
           "kind": "did",
@@ -591,7 +591,7 @@
       "number": 20,
       "name": "Judgement",
       "text": "A woodcut card. A raven circles a radio tower while a crowd gathers below.",
-      "art": "assets/arcana/arcanum-20.png",
+      "art": "assets/arcana/full-size/arcanum-20.png",
       "proof": [
         {
           "kind": "count",
@@ -605,7 +605,7 @@
       "number": 21,
       "name": "The World",
       "text": "A woodcut card. A dancer turns with a red scarf inside a ring of branches beside a small house.",
-      "art": "assets/arcana/arcanum-21.png",
+      "art": "assets/arcana/full-size/arcanum-21.png",
       "proof": [
         {
           "kind": "did",
