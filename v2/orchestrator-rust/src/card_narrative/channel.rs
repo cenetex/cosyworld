@@ -384,7 +384,11 @@ fn spoken(lines: Vec<Value>) -> Response {
 
 fn silent(reason: &'static str) -> Response {
     tracing::info!(feature = "discord", reason, "discord line silent");
-    spoken(Vec::new())
+    (
+        [("cache-control", "no-store")],
+        Json(json!({"lines": [], "reason": reason})),
+    )
+        .into_response()
 }
 
 pub(super) async fn cast_route(
@@ -431,19 +435,19 @@ pub(super) async fn lines(
         return error(StatusCode::BAD_REQUEST, message);
     }
     let Some(config) = state.ai.as_ref().as_ref() else {
-        return silent("unavailable");
+        return silent("not-configured");
     };
     let Some(_permits) = enter(&state) else {
         return silent("busy");
     };
     let Some(id) = pick(config, &residents, &request).await else {
-        return silent("no_speaker");
+        return silent("no-speaker");
     };
     let Some(resident) = residents.iter().find(|r| r.id == id) else {
-        return silent("no_speaker");
+        return silent("no-speaker");
     };
     let Some(text) = speak(&state, config, resident, &request.messages).await else {
-        return silent("no_line");
+        return silent("no-line");
     };
     spoken(vec![
         json!({"id": &resident.id, "name": &resident.name, "text": text}),
@@ -681,7 +685,7 @@ mod tests {
         let (status, body, requests) =
             post_lines(r#"{"who":"none"}"#, Some("Hello."), TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": []}));
+        assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
         assert_eq!(requests.len(), 1);
         let system = turn_of(&requests[0], "system");
         assert!(system.starts_with("I am the Lonely Forest."));
@@ -694,7 +698,7 @@ mod tests {
         let (status, body, requests) =
             post_lines(r#"{"who":"vale"}"#, Some("Hello."), TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": []}));
+        assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
         assert_eq!(requests.len(), 1);
     }
 
@@ -703,7 +707,7 @@ mod tests {
         let (status, body, requests) =
             post_lines(r#"{"who":"skull"}"#, None, TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": []}));
+        assert_eq!(body, json!({"lines": [], "reason": "no-line"}));
         assert!(requests.len() >= 2);
     }
 
@@ -768,7 +772,7 @@ mod tests {
         for _ in 0..LIMIT.max_hits {
             let (status, body) = read(app.clone().oneshot(post()).await.unwrap()).await;
             assert_eq!(status, StatusCode::OK);
-            assert_eq!(body, json!({"lines": []}));
+            assert_eq!(body, json!({"lines": [], "reason": "not-configured"}));
         }
         let (status, _) = read(app.clone().oneshot(post()).await.unwrap()).await;
         assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);

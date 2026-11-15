@@ -14,6 +14,8 @@ export function createRoom(guildId, channelId) {
     lastReplyAt: 0,
     lastAmbientAt: 0,
     busy: false,
+    attempt: null,
+    sending: false,
   };
 }
 
@@ -70,11 +72,32 @@ export function requestBody(room, config, addressed) {
   };
 }
 
+export function createStats() {
+  return { replies: 0, skips: {}, failures: {} };
+}
+
+function count(table, key) {
+  table[key] = (table[key] ?? 0) + 1;
+}
+
+function counts(table) {
+  const entries = Object.entries(table).sort(([a], [b]) => a.localeCompare(b));
+  return entries.length ? entries.map(([key, n]) => `${key}:${n}`).join(",") : "none";
+}
+
+export function summary(stats) {
+  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)}`;
+}
+
 async function answer(room, body, { config, cast, lines, send }) {
   room.busy = true;
+  let posted = 0;
+  let reason = null;
   try {
     const returned = await lines(body);
-    for (const line of Array.isArray(returned) ? returned : []) {
+    const found = Array.isArray(returned?.lines) ? returned.lines : [];
+    reason = found.length ? null : (returned?.reason ?? "empty");
+    for (const line of found) {
       const resident = cast.find((candidate) => candidate.id === line?.id);
       if (!resident || typeof line.text !== "string" || !line.text.trim()) continue;
       const identity = residentIdentity(resident, config.ORCHESTRATOR_URL);
@@ -84,15 +107,18 @@ async function answer(room, body, { config, cast, lines, send }) {
         avatarURL: identity.avatarUrl ?? undefined,
         allowedMentions: { parse: [] },
       });
+      posted += 1;
     }
-  } catch {
-    return;
+    if (!posted && !reason) reason = "no-resident";
+  } catch (error) {
+    reason = posted ? null : room.sending ? "send" : "error";
   } finally {
     room.busy = false;
   }
+  return { posted, reason };
 }
 
-export function tick({ rooms, state, now, config, cast, lines, send, save }) {
+export function tick({ rooms, state, now, config, cast, lines, send, save, log = () => {}, stats = createStats() }) {
   const running = [];
   if (!cast?.length) return Promise.all(running);
   for (const room of rooms.values()) {
@@ -105,15 +131,46 @@ export function tick({ rooms, state, now, config, cast, lines, send, save }) {
     }
     const decision = decide(room, guild, now, config, cast);
     if (decision.act === "wait") continue;
-    room.handledGap = room.messages.at(-1).id;
-    if (decision.act === "skip") continue;
+    log(`decision act=${decision.act} reason=${decision.reason} guild=${room.guildId} channel=${room.channelId}`);
+    const messageId = room.messages.at(-1).id;
+    const before = { gap: room.handledGap, reply: room.lastReplyAt, ambient: room.lastAmbientAt };
+    room.handledGap = messageId;
+    if (decision.act === "skip") {
+      count(stats.skips, decision.reason);
+      continue;
+    }
+    const attempt = room.attempt?.id === messageId ? room.attempt.count + 1 : 1;
+    room.attempt = { id: messageId, count: attempt };
     room.lastReplyAt = now;
     if (decision.ambient) room.lastAmbientAt = now;
     guild.replies += 1;
     try {
       save(state);
     } catch {}
-    running.push(answer(room, requestBody(room, config, decision.addressed), { config, cast, lines, send }));
+    const send_ = (target, payload) => {
+      room.sending = true;
+      return send(target, payload);
+    };
+    room.sending = false;
+    running.push(
+      answer(room, requestBody(room, config, decision.addressed), { config, cast, lines, send: send_ }).then(
+        ({ posted, reason }) => {
+          if (posted || !reason) {
+            stats.replies += 1;
+            return;
+          }
+          count(stats.failures, reason);
+          log(`lines failed reason=${reason} attempt=${attempt} guild=${room.guildId} channel=${room.channelId}`);
+          if (guild.day === day && guild.replies > 0) guild.replies -= 1;
+          room.lastReplyAt = before.reply;
+          room.lastAmbientAt = before.ambient;
+          if (attempt < 2) room.handledGap = before.gap;
+          try {
+            save(state);
+          } catch {}
+        },
+      ),
+    );
   }
   return Promise.all(running);
 }

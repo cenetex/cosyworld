@@ -15,3 +15,12 @@ primary_region = "sjc"
 [[vm]]
   size = "shared-cpu-1x"
   memory = "256mb"
+
+[checks.health]
+  type = "http"
+  port = 8080
+  path = "/health"
+  method = "GET"
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "60s"
