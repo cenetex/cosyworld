@@ -183,7 +183,7 @@ try {
             .map((card) => card.dataset.card)
             .sort(),
         );
-      const opening = ["attic", "lamp", "vale"];
+      const opening = ["attic", "lamp"];
       assert.deepEqual(await covered(), opening);
       // The Black pond lies in the hand from the start as a locked box (not
       // a covered one); putting the lamp out enables Unlock.
@@ -196,33 +196,40 @@ try {
       await page.screenshot({
         path: new URL(`attic-start-${width}.png`, output).pathname,
       });
-      const vale = page.locator('#hand [data-card="vale"]');
+      // Vale is known from the title; the rest lie in one closed pack.
+      assert.equal(
+        await page.locator('#hand [data-card="vale"]').getAttribute("data-unrevealed"),
+        "false",
+      );
       const initial = await state();
-      await vale.focus();
+      const stack = page.locator('#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card');
+      await stack.first().click();
+      await page.locator('#hand [data-pack="open"]').first().waitFor();
+      const lamp = page.locator('#hand [data-card="lamp"]');
+      await lamp.focus();
       await page.keyboard.press("Enter");
-      assert.equal(await vale.getAttribute("data-unrevealed"), "true");
-      assert.equal(await vale.getAttribute("aria-pressed"), "true");
-      assert.match(await page.locator("#action-beat").innerText(), /A closed box\./);
-      assert.match(await page.locator("#card-actions [data-open-box]").getAttribute("aria-label"), /open/i);
+      assert.equal(await lamp.getAttribute("data-unrevealed"), "true");
+      assert.equal(await lamp.getAttribute("aria-pressed"), "true");
+      assert.match(await page.locator("#action-beat").innerText(), /New card unlocked/);
+      assert.match(await page.locator("#card-actions [data-open-box]").getAttribute("aria-label"), /reveal/i);
       assert.deepEqual(await state(), initial);
       // Lowering and selecting again never reveals the contents.
-      await vale.click();
-      assert.equal(await vale.getAttribute("aria-pressed"), "false");
-      assert.equal(await vale.getAttribute("data-unrevealed"), "true");
-      await vale.click();
+      await lamp.click();
+      assert.equal(await lamp.getAttribute("aria-pressed"), "false");
+      assert.equal(await lamp.getAttribute("data-unrevealed"), "true");
+      await lamp.click();
       await page.locator("#card-actions [data-open-box]").focus();
       await page.keyboard.press("Enter");
-      assert.equal(await vale.getAttribute("data-unrevealed"), "false");
-      assert.equal(await vale.getAttribute("aria-pressed"), "true");
+      await page.waitForFunction(() => document.querySelector('#hand [data-card="lamp"]')?.dataset.unrevealed === "false");
       const opened = await state();
       assert.equal(opened.turn, initial.turn);
       assert.deepEqual(opened.actors, initial.actors);
       assert.deepEqual(opened.items, initial.items);
-      assert.deepEqual(await covered(), ["attic", "lamp"]);
+      assert.deepEqual(await covered(), ["attic"]);
       // A reload keeps the table known: nothing is covered again.
       await page.reload();
       await ready();
-      assert.deepEqual(await covered(), ["attic", "lamp"]);
+      assert.deepEqual(await covered(), ["attic"]);
       // Putting the lamp out enables Unlock and pays a traveler no XP.
       assert.equal((await state()).actors.vale.xp, 0);
       await putOutOpening(page);
@@ -254,9 +261,9 @@ try {
         "the pond waits at the row's right end",
       );
       assert.equal(await pond.getAttribute("data-unrevealed"), "true");
-      // Stowing is quiet: no turn, reply, or retired lamp action is offered.
-      assert.equal((await state()).turn, 0);
-      assert.equal((await state()).actors.vale.heldItem, null);
+      // Put down is one ordinary turn; no retired lamp action is offered.
+      assert.equal((await state()).turn, 1);
+      assert.equal((await state()).items.lamp.holder, "attic");
       assert.equal((await state()).items.lamp.fuelRooms, 3);
       assert.equal(
         await page
@@ -272,7 +279,7 @@ try {
             ...document.querySelectorAll('#hand .card[aria-pressed="true"]'),
           ].map((card) => card.dataset.card),
         );
-      assert(!(await pressed()).includes("lamp"), "the stowed lamp stays lowered");
+      assert(!(await pressed()).includes("lamp"), "the lamp put down is not chosen");
       // Raise a real known partner before testing closed-pair drag suppression.
       await selectCard(page, "vale");
       const held = await pressed();
@@ -538,8 +545,6 @@ try {
       assert.equal((await state()).actors.vale.place, "attic");
       assert.equal((await state()).items.lamp.lit, true);
       assert.deepEqual(await covered(), opening);
-      // Read the new opening line before choosing the lamp's quiet Reveal.
-      await revealCard(page, "vale");
       await finish();
       assert.equal((await state()).turn, 0);
       await putOutOpening(page);

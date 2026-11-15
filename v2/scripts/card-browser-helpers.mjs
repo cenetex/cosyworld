@@ -118,15 +118,16 @@ export async function openPack(page, id) {
     // The hand rises and the cards rise into the row (460 ms, 350 ms apart).
     await page.waitForTimeout(900);
   }
-  // The row is raised and the card is in it: a tap turns it at once.
-  // A locked box reads data-unrevealed "false" yet is still face down to the
-  // pack (app.mjs draws it as the lock), so its first tap turns it too.
+  // The row is raised and the card is in it: a tap chooses it and its one
+  // button reveals it. A locked box reads data-unrevealed "false" yet is
+  // still face down to the pack (app.mjs draws it as the lock).
   if (
     (await card.getAttribute("data-unrevealed")) === "true" ||
     (await card.getAttribute("data-locked")) === "true"
   ) {
     await card.scrollIntoViewIfNeeded();
     await card.click({ position: await visibleSpot(card) });
+    await page.locator(`#card-actions [data-open-box="${id}"]`).click();
     await page.waitForFunction(
       (id) => {
         const card = document.querySelector(`#hand [data-card="${id}"]`);
@@ -309,7 +310,7 @@ export async function endStandoff(page, world, actor = "vale") {
 // A fanned card lies partly under the next ones (the row grows with every
 // offer card), so its centre may be covered. Aim at a point where the card
 // itself is topmost, as a player taps its visible part.
-async function visibleSpot(card) {
+export async function visibleSpot(card) {
   await card.scrollIntoViewIfNeeded();
   return card.evaluate((el) => {
     const box = el.getBoundingClientRect(),
@@ -375,39 +376,65 @@ export function readyActionButton(page, kind) {
   const action = kind ? `[data-action="${kind}"]` : ".card-primary";
   return page.locator(`#card-actions ${action}:not([data-revealing="true"])`);
 }
-// The opening reveals Vale, the held lamp and the attic without a turn.
-// Stowing the lamp then darkens the mirror quietly, with no Light/Snuff play.
+// The opening hand lies lowered as one closed pack: Reveal all turns it,
+// and a card left face down is chosen and revealed by its own button.
 export async function revealOpening(page) {
-  await revealCard(page, "vale");
-  // Vale's own waking line starts with his reveal and holds the bar.
   await settleHand(page);
-  await revealCard(page, "lamp", { keepSelected: true });
-  const reveal = page.locator(
-    '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
-  );
-  if (
-    (await page
-      .locator('#hand [data-card="attic"]')
-      .getAttribute("data-unrevealed")) === "true"
-  )
-    await reveal.click();
+  for (let step = 0; step < 80; step++) {
+    const ask = page.locator(
+      '#card-actions [data-pack]:not([disabled]):not([data-revealing="true"])',
+    );
+    const advance = page.locator("#dialogue-advance");
+    if (await page.locator("#card-actions [data-pack]").count()) {
+      if ((await ask.count()) && (await ask.first().isVisible()))
+        await ask.first().click();
+      else if (await advance.isVisible()) await advance.click();
+      await page.waitForTimeout(300);
+      continue;
+    }
+    if (await page.locator("#hand [data-revealing]").count()) {
+      await page.waitForTimeout(100);
+      continue;
+    }
+    const down = await page.evaluate(
+      () =>
+        document.querySelector('#hand .card[data-unrevealed="true"]')?.dataset
+          .card,
+    );
+    if (!down) break;
+    await revealCard(page, down);
+  }
   await page.waitForFunction(
     () =>
-      document.querySelector('#hand [data-card="attic"]')?.dataset
-        .unrevealed === "false",
-  );
-  await page.waitForFunction(
-    () => !document.querySelector("#hand [data-revealing]"),
+      !document.querySelector("#hand [data-revealing]") &&
+      !document.querySelector('#hand [data-unrevealed="true"]') &&
+      !document.querySelector('#hand [data-pack="open"]'),
   );
 }
+// The first puzzle is an ordinary pair: Lamp and Mirror attic, Put down.
 export async function putOutOpening(page) {
   await revealOpening(page);
-  const lamp = await revealCard(page, "lamp");
-  await tapCard(lamp);
-  if ((await lamp.getAttribute("aria-pressed")) === "true") await tapCard(lamp);
+  await page.keyboard.press("Escape");
+  await page.mouse.move(2, 2);
+  if (
+    (await page.locator('#hand [data-card="lamp"]').getAttribute("aria-pressed")) !== "true"
+  )
+    await selectCard(page, "lamp");
+  const attic = page.locator('#hand [data-card="attic"]');
+  for (let tries = 0; tries < 3; tries++) {
+    if ((await attic.getAttribute("aria-pressed")) === "true") break;
+    await selectCard(page, "attic");
+  }
+  const drop = readyActionButton(page, "drop");
+  for (let step = 0; step < 100 && !(await drop.isVisible()); step++) {
+    const advance = page.locator("#dialogue-advance");
+    if (await advance.isVisible()) await advance.click();
+    await page.waitForTimeout(200);
+  }
+  await drop.click();
   await page.waitForFunction(
     () =>
-      document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
+      document.querySelector('#hand [data-card="pond"]')?.dataset.locked ===
       "false",
   );
 }

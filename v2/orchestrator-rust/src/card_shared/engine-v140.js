@@ -1953,28 +1953,8 @@
   var MAX_HELD = 9;
   var heldOf = (a) => a?.want ? [a.want, ...a.under || []] : [];
   var questsOf = (s, id) => heldOf(s.actors[id]);
-  function installQuestConsent(s) {
-    for (const id of humanAvatarIds) {
-      const a = s.actors[id];
-      if (!a || id !== currentActor(s) && !heldByHuman(s, id) || a.pendingQuests !== void 0) continue;
-      if (!validWant(s, id)) throw new Error("Invalid saved quests.");
-      a.pendingQuests = heldOf(a);
-      a.want = null;
-      delete a.under;
-      if (a.arcana) a.arcana.dreamed = a.arcana.proved.length;
-    }
-  }
-  function claimQuestConsent(s, id) {
-    const a = s.actors[id];
-    if (!a) return;
-    installQuestConsent(s);
-    const autonomous = heldOf(a).filter((w) => !w.accepted);
-    if (autonomous.length) a.residentWant = autonomous[0];
-    for (const w of autonomous) releaseQuest(a, w);
-  }
   var closedKey = questTerms;
   function setWant(a, want) {
-    if (!want?.accepted) delete a.residentWant;
     a.want = want ?? null;
     if (a.want) delete a.content;
     return a.want;
@@ -2026,6 +2006,16 @@
     step: { verb: "rest" }
   });
   var DREAM_FROM = "quest:dream";
+  function sleepQuest(s, actor, api) {
+    const a = s.actors[actor], home = api.home(actor);
+    if (!a || !home || heldOf(a).some((w) => w.from === DREAM_FROM)) return null;
+    return holdQuest(
+      s,
+      actor,
+      { ...newWant("place", home, s.turn), step: { verb: "rest" } },
+      DREAM_FROM
+    );
+  }
   function wake(s, actor, api) {
     const a = s.actors[actor];
     if (api.sanctuaries.includes(a.place)) a.sanctuary = a.place;
@@ -2037,7 +2027,6 @@
       (q) => q.from === DREAM_FROM && q.step?.verb === "rest" && q.target === a.place
     );
     if (!w || api.home(actor) !== a.place) return null;
-    if (a.arcana) a.arcana.dreamed = a.arcana.proved.length;
     commitMet(s, actor, api, [], w);
     const id = api.dreamCard?.(actor);
     if (!id) return null;
@@ -2055,7 +2044,7 @@
     since: turn,
     refusals: 0
   });
-  var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : Object.hasOwn(forest_default.places, target) || Object.hasOwn(packPlaces, target);
+  var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
   var lostOf = (s, w) => w ? [w.target, w.step?.to, w.step?.with, w.step?.at, ...w.step?.items || []].find((id) => typeof id === "string" && neverBack(s, id)) : void 0;
   var heldWant = (s, w) => ({
     ...newWant(w.kind, w.target, s.turn),
@@ -2366,7 +2355,7 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && (a.pendingQuests === void 0 || humanAvatarIds.includes(id) && Array.isArray(a.pendingQuests) && a.pendingQuests.length <= MAX_HELD && a.pendingQuests.every((w) => validQuest(s, id, w)) && new Set(a.pendingQuests.map(closedKey)).size === a.pendingQuests.length) && (a.residentWant === void 0 || humanAvatarIds.includes(id) && validQuest(s, id, a.residentWant)) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validUnder(s, id) {
     const a = s.actors[id];
@@ -2389,7 +2378,7 @@
   function validQuest(s, id, w) {
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     return Boolean(
-      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.accepted === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.accepted === void 0 || w.accepted === true) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
+      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
     );
   }
 
@@ -6051,8 +6040,14 @@
           else if (condition.role === "actor")
             push({ kind: "item", target: condition.item });
           break;
-        case "item_near":
         case "item_at":
+          push({
+            kind: "place",
+            target: condition.place,
+            step: { verb: "lay", items: [condition.item] }
+          });
+          break;
+        case "item_near":
         case "item_present":
           push({
             kind: "item",
@@ -6206,8 +6201,7 @@
       if (mine(a.sanctuary)) delete a.sanctuary;
       const turned = (w) => w.step?.verb === "rest" && mine(w.target) ? {
         ...restStep(s, id, api.want),
-        ...w.from ? { from: w.from } : {},
-        ...w.accepted ? { accepted: true } : {}
+        ...w.from ? { from: w.from } : {}
       } : w;
       if (a.want) a.want = turned(a.want);
       if (a.under) a.under = a.under.map(turned);
@@ -6312,7 +6306,7 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && (!homeGateRecoverable(s, place, gate, actor) || controlledByHuman(s, actor) && rootHolder(s, gate.item) === actor && Boolean(s.opened?.[gate.rescue]?.includes(actor))) ? (
       // With its rescue place asleep, the first pack on takes them in (rules 98).
       entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
     ) : null;
@@ -6331,7 +6325,7 @@
   function pondRescueExit(s, place, actor, previous) {
     actor ||= currentActor(s);
     const lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
-    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous))
+    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous))
       return null;
     if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous)))
       return null;
@@ -6472,6 +6466,7 @@
         return true;
     }
   }
+  var boxIdOpen = (s, id, actor) => boxDefs().some((def) => def.id === id && boxOpen(s, def, actor));
   function boxOpen(s, box, actor = currentActor(s)) {
     const def = defOf(box);
     if (!def) return true;
@@ -6511,7 +6506,13 @@
         };
       if (condition.kind === "holding" && condition.role === "actor")
         return { kind: "item", target: condition.item };
-      if (["item_near", "item_at", "item_present"].includes(condition.kind))
+      if (condition.kind === "item_at")
+        return {
+          kind: "place",
+          target: condition.place,
+          step: { verb: "lay", items: [condition.item] }
+        };
+      if (["item_near", "item_present"].includes(condition.kind))
         return {
           kind: "item",
           target: condition.item,
@@ -7297,7 +7298,6 @@
       world.log = start.log;
     }
     installPacks(world);
-    for (const id of humanAvatarIds) world.actors[id].pendingQuests = [];
     installJourneyProgress(world, packDefinitions);
     for (const [id, scope] of Object.entries(packScopes)) {
       if (!world.packs[id] || !["opening", "full"].includes(scope) || !packDefinition(id)?.release)
@@ -7492,9 +7492,6 @@
     const binding = card && bindingOf(s, card, traveler);
     return binding ? { card, binding: { ...binding, base: record5.base } } : null;
   }
-  var levelAccepted = (s, traveler) => Boolean(
-    s.actors[traveler]?.arcana?.accepted && s.actors[traveler].arcana.accepted === recordOf(s, traveler).dealt
-  );
   var dreamCard = (s, traveler) => nextCard(s, traveler, recordOf(s, traveler).dealt);
   function deal(s, traveler) {
     const id = nextCard(s, traveler);
@@ -7502,7 +7499,6 @@
     if (actor.arcana) {
       delete actor.arcana.dealt;
       delete actor.arcana.base;
-      delete actor.arcana.accepted;
     }
     if (!id) return null;
     const card = cardOf(id);
@@ -7544,7 +7540,7 @@
       if (dealt?.card.proof.every((c) => holds2(s, c, dealt.binding))) {
         const record5 = s.actors[traveler].arcana;
         record5.proved = [.../* @__PURE__ */ new Set([...record5.proved, dealt.card.id])].sort();
-        deal(s, traveler);
+        if (deal(s, traveler)) sleepQuest(s, traveler, { home: homeOf2 });
       } else if (dealt ? !dealable(s, dealt.card, traveler, dealt.binding.base ?? {}) || dealt.card.number === 21 && nextCard(s, traveler) : opened)
         deal(s, traveler);
     }
@@ -7559,7 +7555,6 @@
       if (record5.dealt === void 0 || !validDeal(record5)) {
         delete record5.dealt;
         delete record5.base;
-        delete record5.accepted;
       }
     }
     return s;
@@ -7583,7 +7578,7 @@
       if (!record5 || typeof record5 !== "object" || Array.isArray(record5))
         return false;
       const keys = Object.keys(record5);
-      return Boolean(humanAvatar(id)) && keys.includes("did") && keys.includes("proved") && keys.every((key3) => ["base", "dealt", "did", "proved", "accepted", "dreamed"].includes(key3)) && (record5.accepted === void 0 || record5.accepted === record5.dealt) && (record5.dreamed === void 0 || Number.isInteger(record5.dreamed) && record5.dreamed >= 0 && record5.dreamed <= record5.proved.length) && validList(record5.did) && validList(record5.proved) && (record5.dealt === void 0 ? record5.base === void 0 : validDeal(record5));
+      return Boolean(humanAvatar(id)) && keys.includes("did") && keys.includes("proved") && keys.every((key3) => ["base", "dealt", "did", "proved"].includes(key3)) && validList(record5.did) && validList(record5.proved) && (record5.dealt === void 0 ? record5.base === void 0 : validDeal(record5));
     });
   }
 
@@ -7606,7 +7601,7 @@
   var isPlayer = (s, actor) => actor === currentActor(s) || controlledByHuman(s, actor);
   function questOffers(s, actor = currentActor(s)) {
     const a = s.actors[actor];
-    if (!a || !isPlayer(s, actor)) return [];
+    if (!a || !isPlayer(s, actor) || heldOf(a).length >= MAX_HELD) return [];
     const here = a.place, out = [];
     const add = (kind, source, want) => {
       const id = offerId(kind, source);
@@ -7637,34 +7632,6 @@
         continue;
       add("resident", them, questFor(s, them, want));
     }
-    return out;
-  }
-  var identity = (w) => JSON.stringify([w.from ?? null, w.since, w.refusals, questTerms(w)]);
-  function questCandidates(s, actor = currentActor(s)) {
-    const a = s.actors[actor];
-    if (!a || !isPlayer(s, actor)) return [];
-    const pending = [...a.pendingQuests || [], ...a.residentWant ? [a.residentWant] : []];
-    const held = heldOf(a), out = [];
-    const add = (kind, source, want, id) => {
-      if (want && held.some((w) => sameQuest(w, want))) return;
-      const saved = want && pending.find((w) => sameQuest(w, want) && (w.from ?? null) === (want.from ?? null));
-      want = saved || want;
-      const reason = want && lostOf(s, want) ? "This goal is no longer possible." : want && talkQuestFrom(want) && !askerOf(s, want) ? "This person no longer asks for this." : want && withAnother(s, actor, "resident", askerOf(s, want), want) ? "This person is with another traveler." : kind !== "level" && held.length >= MAX_HELD ? "Finish or discard a quest first." : null;
-      const key3 = `${id}:${want ? identity(want) : recordOf(s, actor).dealt}`;
-      if (!out.some((q) => q.id === key3))
-        out.push({ id: key3, source, kind, quest: want, reason });
-    };
-    for (const offered of questOffers(s, actor))
-      add(offered.kind, offered.source, { ...offered.want, from: offered.id }, offered.id);
-    for (const want of pending) add("pending", actor, want, "quest:pending");
-    const record5 = recordOf(s, actor);
-    if (dealtCard(s, actor) && !levelAccepted(s, actor)) add("level", actor, null, "quest:level");
-    if (record5.dealt && record5.proved.length > (a.arcana.dreamed ?? 0) && ![...pending, ...held].some((w) => w.from === DREAM_FROM))
-      add("sleep", actor, {
-        ...newWant("place", homeOf2(actor), s.turn),
-        step: { verb: "rest" },
-        from: DREAM_FROM
-      }, `quest:dream:${record5.proved.length}`);
     return out;
   }
 
@@ -8150,8 +8117,7 @@
     settleHeldItems(s);
     settleLamp(s);
     creditOpened(before, s, actor);
-    if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
-      s.locations.attic.anchored = true;
+    dropOpenedBoxQuests(s);
     settleCrossingUnlocks(s, sensesFor(s));
     wakeSleepers(s, before, []);
     latchRoutes(s);
@@ -8333,7 +8299,7 @@
         offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor])
       );
     else if (!asleep && !transportPlace(here) && !lampGuttering(s, here) && (actor === currentActor(s) || controlledByHuman(s, actor)) && s.log.findLast(
-      (e) => e.kind === "action" && e.actorId === actor && e.verb !== "quest" && !e.generated
+      (e) => e.kind === "action" && e.actorId === actor && !e.generated
     )?.verb === "wait")
       out.push(sleep);
     if (!conflict && !transportPlace(here) && (actor === currentActor(s) || controlledByHuman(s, actor))) {
@@ -8632,11 +8598,6 @@
         out.push(action);
       }
     out.push(...fixtureOffers(s, actor, sensesFor(s)));
-    for (const q of questCandidates(s, actor)) {
-      if (q.reason) continue;
-      const action = offer("take", actor, null, q.id, `${nameOf(actor)} accepts a quest.`, [q.id]);
-      out.push({ ...action, key: `${action.key}:${s.revision}`, offer: q.id, label: "Accept", revision: s.revision });
-    }
     if (actor === currentActor(s) || controlledByHuman(s, actor))
       questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
         const goal = w.kind === "person" && !w.step ? `meet ${nameOf(w.target)}` : wantText(w);
@@ -8804,10 +8765,24 @@
       if (!travelerOf(s, id) && s.actors[id]?.place === lifeHome(id, s))
         narrowTickets(s, id);
   }
+  function dropOpenedBoxQuests(s) {
+    for (const [actor, a] of Object.entries(s.actors))
+      for (const held of heldOf(a))
+        if (held.from?.startsWith("quest:box:") && boxIdOpen(s, held.from.slice(10), actor))
+          releaseQuest(a, held);
+  }
   function settleQuests(s, acting) {
+    dropOpenedBoxQuests(s);
     for (const actor of Object.keys(s.actors).sort()) {
       if (!(actor === currentActor(s) || controlledByHuman(s, actor)) || !entityActive(s, actor))
         continue;
+      for (const offer2 of questOffers(s, actor)) {
+        if (heldOf(s.actors[actor]).some((held) => sameQuest(held, offer2.want)))
+          continue;
+        const quest = holdQuest(s, actor, offer2.want, offer2.id);
+        if (!quest) break;
+        if (actor === acting) bindAsker(s, actor, quest, true);
+      }
       if (actor === acting && !companionOf(s, actor))
         for (const held of heldOf(s.actors[actor])) bindAsker(s, actor, held, false);
     }
@@ -9833,27 +9808,6 @@
     const next = structuredClone(s);
     settleStationExits(next);
     if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-    if (exact.offer !== void 0) {
-      const chosen = questCandidates(next, actor).find((q) => q.id === exact.offer);
-      if (chosen.kind === "level") next.actors[actor].arcana.accepted = next.actors[actor].arcana.dealt;
-      else {
-        const a = next.actors[actor], q = chosen.quest;
-        holdQuest(next, actor, { ...q, accepted: true }, q.from);
-        a.pendingQuests = (a.pendingQuests || []).filter((w) => !sameQuest(w, q));
-        if (a.residentWant && sameQuest(a.residentWant, q)) delete a.residentWant;
-        if (q.from === "quest:dream" && a.arcana) a.arcana.dreamed = a.arcana.proved.length;
-        bindAsker(next, actor, a.want, true);
-      }
-      next.revision += 1;
-      addLog(next, "World", `${nameOf(actor)} accepts a quest.`, {
-        kind: "action",
-        actorId: actor,
-        verb: "quest",
-        targetId: chosen.source,
-        witnesses: [actor]
-      });
-      return { ok: true, state: validateWorld(next) };
-    }
     if (!exact.guards) delete next.actors[actor].guarding;
     const dozing = next.actors[actor].sleeping;
     if (dozing?.until !== void 0)
@@ -9888,9 +9842,6 @@
     if (dwellRule.on && controlledByHuman(next, actor) && ["talk", "ask", "give", "trade", "accompany"].includes(exact.kind) && exact.target && exact.target !== actor && !controlledByHuman(next, exact.target) && next.actors[exact.target]?.place === next.actors[actor].place && (exact.kind !== "accompany" || !next.log.findLast((e) => e.verb === "accompany")?.accepted))
       startAttend(next, exact.target);
     creditOpened(s, next, actor);
-    if (next.opening && !next.locations.attic.anchored && ["light", "snuff"].includes(exact.kind) && next.actors.vale.place === "attic") {
-      next.locations.attic.anchored = true;
-    }
     for (const id of residents2) {
       if (id === respondent || !active.includes(id) || controlledByHuman(next, id))
         continue;
@@ -10253,7 +10204,6 @@
         installPacks,
         laneText: laneFactText
       });
-      installQuestConsent(s);
       installJourneyProgress(s, packDefinitions);
       installConversations(s);
       latchRoutes(s);
@@ -10422,7 +10372,7 @@
       (id) => id && (id === location || audience.includes(id) || localItems.includes(id))
     ).slice(0, 8);
     const waited = speakers[0] === currentActor(world) && (played?.verb === "wait" ? played : !played && waitedThisTurn(world));
-    const rested = played?.verb !== "quest" && speakers[0] === currentActor(world) && restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
+    const rested = speakers[0] === currentActor(world) && restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
     const resting2 = waited || rested ? currentActor(world) : null;
     const rest2 = waited?.rest === "long" || rested ? "long" : null;
     const dream = rest2 ? ((waited?.rest === "long" ? waited : null) || restingWake(world.log, currentActor(world), world.turn))?.dream ?? null : null;
@@ -10710,7 +10660,7 @@
     const actor = currentActor(world);
     const played = playedEntry(world);
     const verb = played?.verb;
-    if (verb === "claim" || verb === "quest") return { occasion: null, speakers: [], scenery: false };
+    if (verb === "claim") return { occasion: null, speakers: [], scenery: false };
     const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
     const near = (id) => Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
     const thisTurn = world.log.filter(
@@ -10938,7 +10888,6 @@
       return response(world);
     }
     if (request.op === "join") {
-      if (!world.heldActors.includes(actor)) claimQuestConsent(world, actor);
       if (!world.controlledActors.includes(actor))
         world.controlledActors.push(actor);
       if (!world.heldActors.includes(actor)) world.heldActors.push(actor);

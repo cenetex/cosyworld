@@ -5,7 +5,6 @@
 import { LOCKED_BOX, lockWords, sealedReason } from "./cards.mjs";
 
 export { LOCKED_BOX };
-export const CLOSED_BOX = "A closed box.";
 // What opens a locked box (cards.mjs `lockWords`), or null for any other card.
 export function lockedQuest(world, id, known = () => false) {
   const text = lockWords(world, id, known);

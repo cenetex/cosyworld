@@ -84,7 +84,8 @@ function attic() {
   const world = enableMotives(createWorld());
   world.actors.vale.place = "attic";
   world.items.cloth.holder = "vale";
-  world.items.lamp.holder = "attic";
+  world.items.lamp.holder = "vale";
+  world.actors.vale.heldItem = "lamp";
   world.items.lamp.lit = true;
   world.items.lamp.fuel = 12;
   return world;

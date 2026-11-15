@@ -394,7 +394,13 @@
         sealed: {},
         requires: [
           { kind: "item_present", item: "lamp", place: "attic" },
-          { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
+          {
+            kind: "any",
+            conditions: [
+              { kind: "item_at", item: "lamp", place: "attic" },
+              { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
+            ]
+          }
         ]
       },
       {
@@ -419,6 +425,7 @@
         exits: [],
         backdrop: "assets/shared/places/attic-dark.webp",
         backdrops: [
+          { backdrop: "assets/attic/attic-doused.webp", requires: [{ kind: "item_at", item: "lamp", place: "attic" }] },
           { backdrop: "assets/attic/attic-lit.webp", requires: [{ kind: "light", item: "lamp", at: ["attic"], uncovered: true }] },
           { backdrop: "assets/attic/attic-doused.webp", requires: [{ kind: "item_present", item: "lamp", place: "attic" }] }
         ],
@@ -455,7 +462,7 @@
       },
       moth: {
         name: "Pip",
-        text: "A moth in a borrowed waistcoat. Seeks a lit lamp and a witness at the pond.",
+        text: "A moth in a borrowed waistcoat.",
         tastes: {
           likes: "Warm light and a splendid waistcoat",
           sore: "Someone spoiling the light"
@@ -469,7 +476,7 @@
       },
       keeper: {
         name: "The keeper",
-        text: "A tall figure with a clock for a face. Seeks a bell and a witness in the attic.",
+        text: "A tall figure with a clock for a face.",
         tastes: {
           likes: "Quiet hours and properly returned things",
           sore: "Unnecessary ringing"
@@ -489,13 +496,13 @@
       lamp: {
         name: "Lamp",
         startLevel: 19,
-        text: "An oil lamp with soot-darkened glass. A full tank lights three room visits while held or placed; putting it away darkens it.",
+        text: "An oil lamp with soot-darkened glass.",
         valueRules: [{ when: [{ item: "lamp", field: "fuel", max: 0 }], add: -5 }]
       },
       oil: {
         name: "Oil flask",
         startLevel: 6,
-        text: "Fills an empty lamp for three room visits when one carrier has both. Then it waits full again at the station.",
+        text: "A corked glass flask of lamp oil.",
         refuels: "lamp",
         returnsTo: "station",
         valueRules: [
@@ -505,12 +512,12 @@
       bell: {
         name: "Bell",
         startLevel: 11,
-        text: "A hand bell with a worn handle. Rings for three turns. Its ring carries far over still water. The Black cloth stops its sound."
+        text: "A hand bell with a worn handle."
       },
       cloth: {
         name: "Black cloth",
         startLevel: 11,
-        text: "Cover the lamp to block its light, or the bell to stop its sound. Travels with the covered object."
+        text: "A square of heavy black cloth."
       }
     },
     initialState: {
@@ -18847,7 +18854,7 @@
 
   // v2/card-game/world/geography.mjs
   var placeText = (s, place) => [
-    place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : s.opening && place === "station" ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond." : places[place].text,
+    place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : places[place].text,
     ...crossingScenery(
       s,
       place,
@@ -18904,7 +18911,7 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && !homeGateRecoverable(s, place, gate, actor) ? (
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && (!homeGateRecoverable(s, place, gate, actor) || controlledByHuman(s, actor) && rootHolder(s, gate.item) === actor && Boolean(s.opened?.[gate.rescue]?.includes(actor))) ? (
       // With its rescue place asleep, the first pack on takes them in (rules 98).
       entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
     ) : null;
@@ -18923,7 +18930,7 @@
   function pondRescueExit(s, place, actor, previous) {
     actor ||= currentActor(s);
     const lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
-    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) && !knownActors2(s).includes(actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous))
+    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous))
       return null;
     if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous)))
       return null;

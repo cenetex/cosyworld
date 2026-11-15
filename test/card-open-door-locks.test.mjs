@@ -66,7 +66,7 @@ describe("each resident opens on its own present thing", () => {
       const look = structuredClone(s);
       look.actors.vale.place = at;
       expect(lockWords(look, who, () => true)).toMatch(
-        new RegExp(`^Bring ${packThings[item].name}`),
+        new RegExp(`^(Bring|Lay) ${packThings[item].name}`),
       );
       s = wait(put(s, item, at));
       expect(entityActive(s, who)).toBe(true);

@@ -236,6 +236,8 @@ function present(s, def) {
 }
 
 /** Whether the box stands open to this actor now, as the hand shows it. */
+export const boxIdOpen = (s, id, actor) =>
+  boxDefs().some((def) => def.id === id && boxOpen(s, def, actor));
 export function boxOpen(s, box, actor = currentActor(s)) {
   const def = defOf(box);
   if (!def) return true;
@@ -281,7 +283,13 @@ function conditionGoal(s, packId, conditions, actor) {
       };
     if (condition.kind === "holding" && condition.role === "actor")
       return { kind: "item", target: condition.item };
-    if (["item_near", "item_at", "item_present"].includes(condition.kind))
+    if (condition.kind === "item_at")
+      return {
+        kind: "place",
+        target: condition.place,
+        step: { verb: "lay", items: [condition.item] },
+      };
+    if (["item_near", "item_present"].includes(condition.kind))
       return {
         kind: "item",
         target: condition.item,

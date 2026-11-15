@@ -30,7 +30,7 @@ const browser = await browserType.launch({
       : undefined,
 });
 const LAMP_ALONE =
-  "A steady flame. Pair with this place to put it down, or tap again to put it away.";
+  "Pair with a person to give it, or this place to put it down.";
 const meeting = () => {
   const s = createWorld({ seed: 2531 });
   s.actors.moth.place = s.actors.keeper.place = "station";
