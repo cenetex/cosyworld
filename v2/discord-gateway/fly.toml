@@ -1,0 +1,17 @@
+app = "cosyworld-discord"
+primary_region = "sjc"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ORCHESTRATOR_URL = "https://cosyworld.fly.dev"
+  DISCORD_BINDINGS_FILE = "/data/bindings.json"
+
+[mounts]
+  source = "discord_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
