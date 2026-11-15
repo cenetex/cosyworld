@@ -229,6 +229,15 @@ for (const [width, motion] of [
         `${label}: "${name}" is named before its card is turned`,
       );
   assert.equal(closedFacts.tells, 0, `${label}: a closed stack shows no tell`);
+  const valeCard = (page) =>
+    page.evaluate(() => {
+      const c = document.querySelector('#hand .card[data-card="vale"]');
+      return c && { label: c.getAttribute("aria-label"), numeral: c.querySelector(".card-level")?.textContent ?? null };
+    });
+  const blank = await valeCard(page);
+  assert.ok(blank, `${label}: Vale's card is in the hand`);
+  assert.doesNotMatch(blank.label, /level/u, `${label}: Vale with no cards reads no level`);
+  assert.equal(blank.numeral, "", `${label}: Vale with no cards shows no numeral`);
   assert.deepEqual(await unreachableCards(page), [], `${label}: a closed pack's cards are reachable`);
   await shot("1-closed");
 
@@ -575,6 +584,8 @@ for (const oneByOne of [false, true]) {
     tag: `pack-spread-${oneByOne}`,
     world: spreadWorld(),
   });
+  const levelled = await page.evaluate(() => document.querySelector('#hand .card[data-card="vale"]')?.getAttribute("aria-label") ?? "");
+  assert.match(levelled, /, level 1$/u, `${label}: Vale with a card keeps the level`);
   await selectCard(page, "bell");
   await selectCard(page, "listener");
   await readyActionButton(page, "give").click();

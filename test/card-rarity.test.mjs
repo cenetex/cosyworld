@@ -4,7 +4,9 @@ import {
   levelTier,
   rarityColor,
   romanLevel,
+  shownLevel,
 } from "../v2/card-game/rarity.mjs";
+import { createWorld } from "../v2/card-game/world.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { packDefinitions, hub } from "../v2/card-game/pack-registry.mjs";
 
@@ -42,6 +44,16 @@ describe("card level presentation", () => {
     expect(cardLevel(world, "keeper")).toBe(21);
     expect(levelTier(cardLevel(world, "keeper")).id).toBe("mythic");
     expect(world.actors.keeper.xp).toBe(5050);
+  });
+
+  it("shows a traveler with no cards a blank level, and others their number", () => {
+    const world = createWorld({ seed: 3 });
+    expect(cardLevel(world, "vale")).toBe(0);
+    expect(shownLevel("vale", cardLevel(world, "vale"))).toBe("");
+    world.actors.vale.arcana = { proved: ["arcanum-0"], did: [], level: 1 };
+    expect(shownLevel("vale", cardLevel(world, "vale"))).toBe("I");
+    expect(shownLevel("keeper", 0)).toBe(romanLevel(0));
+    expect(shownLevel("lamp", cardLevel(world, "lamp"))).toBe("XIX");
   });
 
   it("gives items their authored start level and tier, whatever holds them", () => {

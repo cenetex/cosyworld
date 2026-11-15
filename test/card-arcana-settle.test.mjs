@@ -246,6 +246,7 @@ describe("the saved record", () => {
       did: [],
       level: null,
       calls: 0,
+      callers: [],
       need: [],
       done: [],
       spread: [],
@@ -279,6 +280,7 @@ describe("the saved record", () => {
       spread: [heard, meal, { card: "arcanum-8", face: "down", done: true }],
       sale: true,
       calls: 2,
+      callers: ["keeper", "pip"],
     };
     expect(() => validateWorld(withRecord("vale", good))).not.toThrow();
     const done = { proved: ["a", "b"], did: [] };
@@ -296,6 +298,11 @@ describe("the saved record", () => {
       ["vale", { ...good, need: ["arcanum-2", "arcanum-2"] }],
       ["vale", { ...good, done: ["arcanum-3", "arcanum-2"] }],
       ["vale", { ...good, sale: false }],
+      ["vale", { ...good, callers: [] }],
+      ["vale", { ...good, callers: ["pip", "keeper"] }],
+      ["vale", { ...good, callers: ["keeper", "keeper"] }],
+      ["vale", { ...good, callers: ["keeper", "moth", "pip"] }],
+      ["vale", { ...good, calls: undefined }],
       ["vale", { ...good, spread: [] }],
       ["vale", { ...good, spread: [heard, heard] }],
       ["vale", slot({ card: "coin" })],

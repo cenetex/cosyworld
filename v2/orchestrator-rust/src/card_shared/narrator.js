@@ -1106,6 +1106,7 @@
       did: record5?.did || [],
       level: record5?.level ?? null,
       calls: record5?.calls ?? 0,
+      callers: record5?.callers || [],
       need: record5?.need || [],
       done: record5?.done || [],
       spread: record5?.spread || [],
@@ -19634,6 +19635,7 @@
       const keys = Object.keys(record5);
       return Boolean(humanAvatar(id)) && keys.includes("did") && keys.includes("proved") && keys.every(
         (key2) => [
+          "callers",
           "calls",
           "did",
           "done",
@@ -19643,7 +19645,7 @@
           "sale",
           "spread"
         ].includes(key2)
-      ) && (record5.calls === void 0 || Number.isSafeInteger(record5.calls) && record5.calls >= 1 && record5.calls <= CALLS) && (record5.sale === void 0 || record5.sale === true) && (record5.level === void 0 || validLevel(record5.level)) && (record5.spread === void 0 || validSpread(record5.spread)) && (record5.need === void 0 || validNeed(record5.need)) && (record5.done === void 0 || validDone(record5.done)) && validList(record5.did) && validList(record5.proved);
+      ) && (record5.calls === void 0 || Number.isSafeInteger(record5.calls) && record5.calls >= 1 && record5.calls <= CALLS) && (record5.callers === void 0 || validList(record5.callers) && record5.callers.length >= 1 && record5.callers.length <= (record5.calls ?? 0)) && (record5.sale === void 0 || record5.sale === true) && (record5.level === void 0 || validLevel(record5.level)) && (record5.spread === void 0 || validSpread(record5.spread)) && (record5.need === void 0 || validNeed(record5.need)) && (record5.done === void 0 || validDone(record5.done)) && validList(record5.did) && validList(record5.proved);
     });
   }
 

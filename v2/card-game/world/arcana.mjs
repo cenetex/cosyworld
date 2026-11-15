@@ -476,6 +476,7 @@ function leave(record, slot) {
 function visit(s, traveler, say) {
   const record = recordFor(s, traveler);
   delete record.calls;
+  delete record.callers;
   const tell = (text) =>
     say?.(text, {
       kind: "narration",
@@ -528,7 +529,7 @@ function visit(s, traveler, say) {
       unlockedOf(s, traveler).includes(world);
     if (rises) {
       record.level = Math.min(LEVEL_CAP, arcanaLevel(s, traveler) + 1);
-      tell(`${nameOf(traveler)} is now level ${record.level}.`);
+      tell(`${nameOf(traveler)} rises a level.`);
     }
     delete record.need;
     delete record.done;
@@ -759,6 +760,7 @@ export function validArcana(s) {
       keys.includes("proved") &&
       keys.every((key) =>
         [
+          "callers",
           "calls",
           "did",
           "done",
@@ -773,6 +775,10 @@ export function validArcana(s) {
         (Number.isSafeInteger(record.calls) &&
           record.calls >= 1 &&
           record.calls <= CALLS)) &&
+      (record.callers === undefined ||
+        (validList(record.callers) &&
+          record.callers.length >= 1 &&
+          record.callers.length <= (record.calls ?? 0))) &&
       (record.sale === undefined || record.sale === true) &&
       (record.level === undefined || validLevel(record.level)) &&
       (record.spread === undefined || validSpread(record.spread)) &&
