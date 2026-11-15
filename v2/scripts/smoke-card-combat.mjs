@@ -265,8 +265,9 @@ try {
     const raisedHand = await handRect();
     const brace = readyActionButton(page, "guard");
     await brace.waitFor();
-    assert.equal(await brace.getAttribute("aria-label"), "Brace");
-    assert.equal(await brace.getAttribute("data-tap-hint"), "Tap to brace");
+    assert.equal((await brace.innerText()).trim(), "Brace");
+    assert.equal(await page.locator("[data-review-quests]").count(), 1);
+    assert.equal(await page.locator("#action-beat").getAttribute("data-card-tap"), null);
     await brace.click();
     // The hand locks, untappable, as soon as the play commits, and the
     // dialogue steps aside; only the player lowers the hand.
