@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "ratiradio",
   "packId": "cosyworld.ratiradio",
-  "revision": 3,
+  "revision": 4,
   "name": "Night Shift at RatiRadio",
   "description": "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
   "entry": "ratiradio-staff-kitchen",
@@ -216,9 +216,16 @@
     "ratiradio-request-slip": {
       "name": "Request Slip",
       "text": "Lost beyond the station: a red beanie, thermos, ceramic raven and glass. Search the other worlds. Bring the beanie, raven and glass home to the Listening Room.",
-      "persona": "A creased radio request slip with a lost-property note. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
-      "holder": "station",
-      "art": "assets/ratiradio/request-slip.webp"
+      "persona": "A creased radio request slip with a lost-property note. RATi keeps it by his radio. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
+      "holder": "ratiradio-rati",
+      "art": "assets/ratiradio/request-slip.webp",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "rati-awake",
+          "value": true
+        }
+      ]
     },
     "ratiradio-portable-radio": {
       "name": "Portable Radio",

@@ -55,8 +55,8 @@
     },
     "willows-camp": {
       "name": "River Camp",
-      "text": "A canvas tent stands on a sandy rise beside a low fire. The Swede watches the willow tops. Through one gap lies the canoe; through the willows, the crumbling bank.",
-      "persona": "A canvas tent beside a low fire, ringed by willows on a sandy rise. I am the camp and speak in the first person, as the traveller who measures, counts and explains. The Swede is the one resident. The kit he needs to leave is whatever the current facts place here; paced distances follow recorded discoveries.",
+      "text": "A canvas tent stands on a sandy rise beside a low fire, an iron stew pot and a long wooden spoon by the embers. The Swede watches the willow tops. Through one gap lies the canoe; through the willows, the crumbling bank.",
+      "persona": "A canvas tent beside a low fire, ringed by willows on a sandy rise. An iron stew pot and a wooden spoon sit by the embers; scratched inside the pot lid: There is no bread. I am the camp and speak in the first person, as the traveller who measures, counts and explains. The Swede is the one resident. The kit he needs to leave is whatever the current facts place here; paced distances follow recorded discoveries.",
       "exits": ["willows-landing", "willows-thicket"],
       "backdrop": "assets/willows/camp.webp",
       "voice": "Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Use only paces named in the facts. Examples: \"The fire leans away from the willows. A draught off the river.\" \"The island is smaller tonight. The river takes sand. It takes. That is all rivers do.\" \"I paced it at supper. Eleven paces to the nearest willow. Nine now.\" \"Count the willows if it helps. I counted them at supper and there were —\"",
@@ -313,7 +313,7 @@
       "startLevel": 15,
       "text": "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
       "persona": "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
-      "holder": "willows-camp",
+      "holder": "willows-swede",
       "art": "assets/willows/map.png"
     },
     "willows-rope": {
@@ -338,22 +338,6 @@
       "persona": "A canvas food sack holding oatmeal, potatoes, onions and tea. Part of the Swede's kit; it belongs at the camp.",
       "holder": "willows-landing",
       "art": "assets/willows/provisions.png"
-    },
-    "willows-pot": {
-      "name": "Stew Pot",
-      "startLevel": 11,
-      "text": "An iron stew pot. Scratched inside the lid: There is no bread.",
-      "persona": "A small black iron stew pot from the camp. Words are scratched inside its lid.",
-      "holder": "willows-camp",
-      "art": "assets/willows/pot.png"
-    },
-    "willows-spoon": {
-      "name": "Wooden Spoon",
-      "startLevel": 6,
-      "text": "A long wooden spoon. Burnt into the handle: a kingdom of wonder and magic.",
-      "persona": "A plain wooden cooking spoon. Words are burnt into its smoke-darkened handle.",
-      "holder": "willows-camp",
-      "art": "assets/willows/spoon.png"
     },
     "willows-pipe": {
       "name": "The Swede's Pipe",

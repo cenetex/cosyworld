@@ -340,47 +340,6 @@
         }
       },
       {
-        "id": "item:hoppycat-red-thread-spool",
-        "kind": "item",
-        "title": "Red-Thread Spool appears",
-        "cond": {
-          "op": "and",
-          "of": [
-            {
-              "op": "or",
-              "of": [
-                {
-                  "op": "not",
-                  "of": [
-                    {
-                      "op": "atom",
-                      "atom": "item_present(item=oil,place=station)"
-                    }
-                  ]
-                },
-                {
-                  "op": "not",
-                  "of": [
-                    {
-                      "op": "atom",
-                      "atom": "item_at(item=hoppycat-red-thread-spool,place=station)"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        "words": "(not (Oil flask is in Empty station) or not (Red-Thread Spool lies at Empty station))",
-        "ids": "(not (oil is in station) or not (hoppycat-red-thread-spool lies at station))",
-        "latch": [],
-        "live": [
-          "item_at(item=hoppycat-red-thread-spool,place=station)",
-          "item_present(item=oil,place=station)"
-        ],
-        "prerequisites": {}
-      },
-      {
         "id": "item:hoppycat-loop-token",
         "kind": "item",
         "title": "Glim's Place Ring appears",
@@ -4333,11 +4292,10 @@
       {
         "id": "hoppycat-red-thread-spool",
         "name": "Red-Thread Spool",
-        "holder": "station",
+        "holder": "hoppycat-signal-jetty",
         "consumedBy": [],
         "readBy": [
-          "act:hoppycat-thread",
-          "item:hoppycat-red-thread-spool"
+          "act:hoppycat-thread"
         ]
       },
       {
@@ -5284,11 +5242,6 @@
       "class": "live",
       "words": "hoppycat-loop-token lies at hoppycat-halfway-tea-garden"
     },
-    "item_at(item=hoppycat-red-thread-spool,place=station)": {
-      "kind": "item_at",
-      "class": "live",
-      "words": "hoppycat-red-thread-spool lies at station"
-    },
     "item_near(item=hoppycat-return-path-checklist,place=hoppycat-signal-jetty)": {
       "kind": "item_near",
       "class": "live",
@@ -5298,11 +5251,6 @@
       "kind": "item_near",
       "class": "live",
       "words": "hoppycat-unfinished-prism is in hoppycat-prism-foundry"
-    },
-    "item_present(item=oil,place=station)": {
-      "kind": "item_present",
-      "class": "live",
-      "words": "oil is in station"
     },
     "met(actor=hoppycat-arc)": {
       "kind": "met",
@@ -5338,7 +5286,6 @@
     "holding",
     "item_at",
     "item_near",
-    "item_present",
     "met"
   ]
 }

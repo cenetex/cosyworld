@@ -459,33 +459,10 @@
     "hoppycat-red-thread-spool": {
       "name": "Red-Thread Spool",
       "startLevel": 19,
-      "text": "A warm spool left on the empty station's bench, its loose thread trailing toward the pond. It catches only on relationships someone has chosen to carry forward.",
-      "persona": "A warm spool left on the empty station's bench, its loose thread trailing past the pond toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
-      "holder": "station",
-      "art": "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png",
-      "requires": [
-        {
-          "kind": "any",
-          "conditions": [
-            {
-              "kind": "not",
-              "condition": {
-                "kind": "item_present",
-                "item": "oil",
-                "place": "station"
-              }
-            },
-            {
-              "kind": "not",
-              "condition": {
-                "kind": "item_at",
-                "item": "hoppycat-red-thread-spool",
-                "place": "station"
-              }
-            }
-          ]
-        }
-      ]
+      "text": "A warm spool left on a mooring post at the jetty, its loose thread trailing toward the tea garden. It catches only on relationships someone has chosen to carry forward.",
+      "persona": "A warm spool left on a mooring post at the Signal Jetty, its loose thread trailing toward a garden of kettle trees. It catches only on relationships someone has chosen to carry forward.",
+      "holder": "hoppycat-signal-jetty",
+      "art": "assets/hoppycat-archive/hoppycat-red-thread-spool-cutout.png"
     },
     "hoppycat-provenance-card": {
       "name": "The Maker's Label",

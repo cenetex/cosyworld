@@ -24,6 +24,7 @@ const route = pack.routes.find((r) => r.from === field && r.to === hollow);
 const saved = {
   requires: packPeople[R].requires,
   want: packPeople[R].want,
+  wants: packPeople[R].wants,
   routeRequires: route.requires,
   routeTraveler: route.travelerRequires,
   choices: pack.choices,
@@ -31,7 +32,8 @@ const saved = {
 const restore = (o, k, v) => (v === undefined ? delete o[k] : (o[k] = v));
 afterEach(() => {
   restore(packPeople[R], "requires", saved.requires);
-  packPeople[R].want = saved.want;
+  restore(packPeople[R], "want", saved.want);
+  restore(packPeople[R], "wants", saved.wants);
   restore(route, "requires", saved.routeRequires);
   restore(route, "travelerRequires", saved.routeTraveler);
   pack.choices = saved.choices;
@@ -83,6 +85,7 @@ describe("want.minTrust", () => {
     const s = lifeWorld();
     s.actors[R].place = "greek-gate";
     // A want for a place she can name: her own sanctuary.
+    delete packPeople[R].wants;
     packPeople[R].want = { kind: "place", target: "greek-sanctuary" };
     s.actors[R].want = { ...packPeople[R].want, since: s.turn, refusals: 0 };
     const want = wantOf(s, R);
@@ -106,7 +109,8 @@ describe("want.minTrust", () => {
       [4, false],
     ]) {
       const p = structuredClone(packDefinition("greek-drama"));
-      p.avatars[R].want.minTrust = minTrust;
+      delete p.avatars[R].wants;
+      p.avatars[R].want = { kind: "place", target: "greek-sanctuary", minTrust };
       const check = () => validatePackDefinition(p);
       if (ok) expect(check).not.toThrow();
       else expect(check).toThrow();

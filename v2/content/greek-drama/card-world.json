@@ -1163,10 +1163,27 @@
       },
       "seed": "Ismene, sister of Antigone.",
       "portrait": "assets/greek-drama/chthonic-ismene.png",
-      "want": {
-        "kind": "person",
-        "target": "greek-theseus"
-      },
+      "wants": [
+        {
+          "want": {
+            "kind": "item",
+            "target": "greek-household-token"
+          }
+        },
+        {
+          "want": {
+            "kind": "person",
+            "target": "greek-theseus"
+          },
+          "when": [
+            {
+              "kind": "holding",
+              "item": "greek-household-token",
+              "actor": "greek-ismene"
+            }
+          ]
+        }
+      ],
       "tastes": {
         "likes": "careful plans, a safe place for family",
         "sore": "being called indifferent because she is afraid",
