@@ -1206,7 +1206,7 @@ describe("deploy workflow", () => {
       'COSYWORLD_CARD_TEXT_MODEL = "openai/gpt-6-luna"',
     );
     const cast = (vale, moth, badger) =>
-      `COSYWORLD_CARD_CHARACTER_MODELS_JSON = '{"vale":"${vale}","moth":"${moth}","keeper":"anthropic/claude-haiku-5.5","badger":"${badger}"}'`;
+      `COSYWORLD_CARD_CHARACTER_MODELS_JSON = '{"vale":"${vale}","moth":"${moth}","keeper":"anthropic/claude-haiku-5.5","badger":"${badger}","listener":"${vale}"}'`;
     expect(primaryFlyConfig).toContain(cast(gemma, gemma, gemma));
     expect(lonelyForestFlyConfig).toContain(
       cast(

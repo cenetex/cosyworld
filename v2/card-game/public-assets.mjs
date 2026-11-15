@@ -318,6 +318,7 @@ const files = [
   "world/boxes.mjs",
   "world/arcana.mjs",
   "world/arcana-record.mjs",
+  "world/stops.mjs",
   "world/lock-goals.mjs",
   "world/want-words.mjs",
   "world/company.mjs",
@@ -325,6 +326,8 @@ const files = [
   "world/geography.mjs",
   "world/home.mjs",
   "world/offers.mjs",
+  "world/for-good.mjs",
+  "world/found.mjs",
   "world/items.mjs",
   "world/lanes.mjs",
   "world/senses.mjs",
@@ -431,6 +434,7 @@ const files = [
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
   ),
+  ...["", "-offering"].map((pose) => `assets/listener/listener${pose}.webp`),
   // Keep the art URLs published by earlier Rust releases.
   ...[
     "antigone",
@@ -455,6 +459,8 @@ const files = [
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
 for (const { art } of arcana.cards)
   if (art && !files.includes(art)) files.push(art);
+for (const back of ["assets/arcana/tarot-back.png", "assets/arcana/tarot-back-locked.png"])
+  if (!files.includes(back)) files.push(back);
 for (const { stage, card, phone } of Object.values(imageVariants.images))
   for (const file of [stage, card, phone])
     if (file && !files.includes(file)) files.push(file);

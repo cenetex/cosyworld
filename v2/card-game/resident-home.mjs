@@ -101,7 +101,8 @@ export function lifeHome(id, world) {
 // Infinity is no limit (the hub's residents). null is no home life at all:
 // players and their away avatars, roamers, journeys and freed residents.
 export function rangeOf(s, id) {
-  if (own(forest.people, id)) return id === "vale" ? null : Infinity;
+  if (own(forest.people, id))
+    return id === "vale" || forest.people[id].stops ? null : Infinity;
   const a = packPeople[id];
   if (
     !a ||

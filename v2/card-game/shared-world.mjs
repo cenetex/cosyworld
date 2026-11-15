@@ -1,3 +1,4 @@
+import { isArcanum } from "./world/arcana-record.mjs";
 import { settleLamp } from "./lamp-state.mjs";
 import { privateView } from "./learning.mjs";
 import { settleHeldItems } from "./held-item.mjs";
@@ -101,7 +102,7 @@ function carryProgress(actor, progress) {
   if (upgrades !== undefined) {
     if (
       !Array.isArray(upgrades) ||
-      upgrades.length > 16 ||
+      upgrades.length > 40 ||
       upgrades.some(
         (u) => typeof u !== "string" || !/^[a-z][a-z0-9-]{0,39}$/.test(u),
       )
@@ -164,7 +165,13 @@ function importClientSave(save) {
     delete raw[key];
   // Upgrades are per passkey, and a local save is its own passkey (#1873).
   for (const actor of Object.values(raw.actors || {})) delete actor?.upgrades;
-  return decodeSave(JSON.stringify(raw));
+  const world = decodeSave(JSON.stringify(raw));
+  for (const actor of Object.values(world.actors || {}))
+    if (actor?.upgrades) {
+      actor.upgrades = actor.upgrades.filter((id) => !isArcanum(id));
+      if (!actor.upgrades.length) delete actor.upgrades;
+    }
+  return world;
 }
 export function dispatchShared(request) {
   if (!request || typeof request !== "object")

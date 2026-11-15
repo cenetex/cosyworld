@@ -124,7 +124,10 @@ const COUNT_WORDS = {
     max: (n) =>
       n ? `carry no more than ${many(n, "thing", "things")}` : "carry nothing",
   },
-  visited: { min: (n) => `visit ${many(n, "new place", "new places")}` },
+  visited: {
+    min: (n, c) =>
+      `visit ${c.more ? `${numberWord(n)} more ${n === 1 ? "new place" : "new places"}` : many(n, "new place", "new places")}`,
+  },
   heard: {
     min: (n) => `hear the wants of ${many(n, "more person", "more people")}`,
   },
@@ -137,8 +140,8 @@ const COUNT_WORDS = {
       c.box === "resident"
         ? `free ${n === 1 ? "someone" : numberWord(n)} shut away`
         : n === 1
-          ? "open a locked box"
-          : `open ${many(n, "locked box", "locked boxes")}`,
+          ? `open ${c.more ? "one more locked box" : "a locked box"}`
+          : `open ${numberWord(n)}${c.more ? " more" : ""} locked boxes`,
   },
 };
 const WANT_KINDS = ["item", "place", "person", "quest"];

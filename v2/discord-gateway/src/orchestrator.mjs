@@ -31,12 +31,15 @@ export async function channelLines(fetch, origin, token, body) {
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (response.status !== 200) return [];
+    if (response.status !== 200) return { lines: [], reason: `http-${response.status}` };
     const parsed = await response.json();
-    return (Array.isArray(parsed?.lines) ? parsed.lines : []).filter(
+    const lines = (Array.isArray(parsed?.lines) ? parsed.lines : []).filter(
       (line) => typeof line?.id === "string" && typeof line?.text === "string" && line.text,
     );
-  } catch {
-    return [];
+    if (lines.length) return { lines, reason: null };
+    const reason = typeof parsed?.reason === "string" && parsed.reason ? parsed.reason : "empty";
+    return { lines, reason };
+  } catch (error) {
+    return { lines: [], reason: error?.name === "TimeoutError" || error?.name === "AbortError" ? "timeout" : "error" };
   }
 }

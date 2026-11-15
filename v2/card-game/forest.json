@@ -111,6 +111,27 @@
       "grievances": [
         { "kind": "noise", "on": [{ "kind": "ring" }], "reason": "{actor} rang the bell during a perfectly good quiet moment." }
       ]
+    },
+    "listener": {
+      "name": "The Listener",
+      "text": "A black confessional box on iron-rimmed wheels. Behind the brass grille, someone listens.",
+      "tastes": {
+        "likes": "Low voices and a thing given up for good",
+        "sore": "Anyone peering through the grille"
+      },
+      "place": "pond",
+      "home": "pond",
+      "values": {},
+      "wants": false,
+      "keepsForGood": true,
+      "travels": false,
+      "standoffs": false,
+      "stops": ["pond", "greek-harbor", "willows-landing", "hoppycat-signal-jetty"],
+      "appearsWhen": [{ "kind": "arcana_called" }],
+      "portrait": "assets/listener/listener.webp",
+      "poses": [
+        { "portrait": "assets/listener/listener-offering.webp", "requires": [{ "kind": "arcana_selling", "actor": "listener" }] }
+      ]
     }
   },
   "things": {

@@ -604,11 +604,16 @@ try {
         );
         await other.evaluate((key) => {
           const save = JSON.parse(localStorage.getItem(key));
-          Object.assign(save.actors.vale.arcana, { dealt: "arcanum-1", base: { opened: 1 } });
+          save.actors.vale.arcana = {
+            proved: [],
+            did: [],
+            spread: [{ card: "arcanum-1", face: "up", base: { opened: 1 } }],
+            need: ["arcanum-1"],
+          };
           save.revision++;
           localStorage.setItem(key, JSON.stringify(save));
         }, key);
-        const newQuest = page.locator('#hand [data-quest-key="level:arcanum-1"]');
+        const newQuest = page.locator('#hand [data-quest-key="tarot:vale:arcanum-1"]');
         await clearSelection(page);
         await selectCard(page, "vale");
         await page.locator("[data-review-quests]").click();
@@ -618,7 +623,7 @@ try {
         const turn = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).turn, key);
         await accept.click();
         await page.waitForFunction((key) =>
-          JSON.parse(localStorage.getItem(key)).actors.vale.arcana.accepted === "arcanum-1", key);
+          JSON.parse(localStorage.getItem(key)).actors.vale.arcana.spread[0].accepted === true, key);
         assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).turn, key), turn,
           "Accept advances no turn");
         await newQuest.waitFor();

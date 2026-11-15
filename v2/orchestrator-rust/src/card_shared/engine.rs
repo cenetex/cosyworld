@@ -13,7 +13,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/141";
+pub(super) const VERSION: &str = "full-card-world/143";
+pub(super) const HUNDRED_FORTY_SECOND_VERSION: &str = "full-card-world/142";
+pub(super) const HUNDRED_FORTY_FIRST_VERSION: &str = "full-card-world/141";
 pub(super) const HUNDRED_FORTIETH_VERSION: &str = "full-card-world/140";
 pub(super) const HUNDRED_THIRTY_NINTH_VERSION: &str = "full-card-world/139";
 pub(super) const HUNDRED_THIRTY_EIGHTH_VERSION: &str = "full-card-world/138";
@@ -153,7 +155,9 @@ pub(super) const FIFTH_VERSION: &str = "full-card-world/5";
 pub(super) const PREVIOUS_VERSION: &str = "full-card-world/3";
 pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
-const SOURCE: &str = include_str!("engine-v141.js");
+const SOURCE: &str = include_str!("engine-v143.js");
+const HUNDRED_FORTY_SECOND_SOURCE: &str = include_str!("engine-v142.js");
+const HUNDRED_FORTY_FIRST_SOURCE: &str = include_str!("engine-v141.js");
 const HUNDRED_FORTIETH_SOURCE: &str = include_str!("engine-v140.js");
 const HUNDRED_THIRTY_NINTH_SOURCE: &str = include_str!("engine-v139.js");
 const HUNDRED_THIRTY_EIGHTH_SOURCE: &str = include_str!("engine-v138.js");
@@ -449,6 +453,8 @@ pub(super) fn historical(version: &str) -> bool {
             | HUNDRED_THIRTY_EIGHTH_VERSION
             | HUNDRED_THIRTY_NINTH_VERSION
             | HUNDRED_FORTIETH_VERSION
+            | HUNDRED_FORTY_FIRST_VERSION
+            | HUNDRED_FORTY_SECOND_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -522,6 +528,8 @@ pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> 
 fn source(version: &str) -> Option<&'static str> {
     Some(match version {
         VERSION => SOURCE,
+        HUNDRED_FORTY_SECOND_VERSION => HUNDRED_FORTY_SECOND_SOURCE,
+        HUNDRED_FORTY_FIRST_VERSION => HUNDRED_FORTY_FIRST_SOURCE,
         HUNDRED_FORTIETH_VERSION => HUNDRED_FORTIETH_SOURCE,
         HUNDRED_THIRTY_NINTH_VERSION => HUNDRED_THIRTY_NINTH_SOURCE,
         HUNDRED_THIRTY_EIGHTH_VERSION => HUNDRED_THIRTY_EIGHTH_SOURCE,

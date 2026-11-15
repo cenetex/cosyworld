@@ -4,12 +4,16 @@ import {
 } from "../v2/card-game/world.mjs";
 import { boxIdOpen } from "../v2/card-game/world/boxes.mjs";
 import { heldOf, newWant } from "../v2/card-game/want.mjs";
-import { levelAccepted, settleArcana } from "../v2/card-game/world/arcana.mjs";
+import { levelAccepted } from "../v2/card-game/world/arcana.mjs";
 import { dispatchShared, load } from "../v2/card-game/shared-world.mjs";
 import { speechOccasions } from "../v2/card-game/speech-occasions.mjs";
 import { dialogueCast } from "../v2/card-game/scene-cast.mjs";
 import { reflectionContext } from "../v2/card-game/reflections.mjs";
 
+const pendingTarot = (s) => {
+  s.actors.vale.arcana = { proved: [], did: [], spread: [{ card: "arcanum-21", face: "up" }] };
+  return s;
+};
 const wait = (s) => play(s, legalActions(s).find((a) => a.kind === "wait" && !a.sleep)).state;
 const goal = (s, item = "oil") => ({ ...newWant("item", item, s.turn), from: "quest:box:greek-gate" });
 const accept = (s, kind = "pending") => {
@@ -140,7 +144,7 @@ it("accepts a current source using its exact saved pending goal", () => {
 
 it("revalidates stale, duplicate and full-stack acceptance atomically", () => {
   const s = createWorld({ seed: 17 });
-  settleArcana(s, "vale");
+  pendingTarot(s);
   s.actors.vale.pendingQuests = [goal(s)];
   const action = questPreviews(s)[0].action;
   expect(play(s, { key: action.key }, s.revision).ok).toBe(true);
@@ -153,7 +157,7 @@ it("revalidates stale, duplicate and full-stack acceptance atomically", () => {
   expect(stale.ok).toBe(false);
   expect(stale.world.actors.vale.pendingQuests).toEqual([goal(s)]);
   const full = structuredClone(s);
-  const held = Object.keys(full.items).filter((id) => id !== "oil").slice(0, 9)
+  const held = Object.keys(full.items).filter((id) => id !== "oil").slice(0, 3)
     .map((id) => newWant("item", id, full.turn));
   full.actors.vale.want = held[0];
   full.actors.vale.under = held.slice(1);
@@ -217,17 +221,18 @@ it("keeps a remote obsolete resident goal visible without accepting or discardin
 
 it("accepts only the current level tracker without resetting its progress", () => {
   const s = createWorld({ seed: 17 });
-  settleArcana(s, "vale");
+  pendingTarot(s);
   const before = structuredClone(s.actors.vale.arcana);
   expect(levelAccepted(s, "vale")).toBe(false);
   const next = accept(s, "level");
-  expect(next.actors.vale.arcana).toEqual({ ...before, accepted: before.dealt });
+  expect(next.actors.vale.arcana).toEqual({ ...before,
+    spread: [{ ...before.spread[0], accepted: true }] });
   expect(levelAccepted(next, "vale")).toBe(true);
   expect(questPreviews(next).some((q) => q.kind === "level")).toBe(false);
 });
 
 it("keeps shared Accept silent after an earlier same-turn Wait", () => {
-  const s = wait(createWorld({ seed: 17 }));
+  const s = pendingTarot(wait(createWorld({ seed: 17 })));
   const action = questPreviews(s).find((p) => p.kind === "level").action;
   const result = dispatchShared({ op: "play", world: s, actor: "vale",
     claimed: ["vale"], present: ["vale"], action, revision: s.revision });

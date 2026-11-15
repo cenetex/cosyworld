@@ -32,8 +32,17 @@ export function sendHome(world, id, rest) {
     delete life.attachments?.[id];
 }
 
+export const gone = (world, id) =>
+  Array.isArray(world.gone) && world.gone.includes(id);
+
+export function useUpForGood(world, id, rest) {
+  useUp(world, id, rest);
+  world.gone = [...new Set([...(world.gone || []), id])].sort();
+}
+
 // Bring a used-up thing back into play at a holder.
 export function bringBack(world, id, holder) {
+  if (gone(world, id)) return;
   world.usedUp = world.usedUp.filter((other) => other !== id);
   world.items[id].holder = holder;
   world.items[id].history = [];

@@ -15,6 +15,9 @@ const groups = {
     ),
     "assets/vale.png",
     "assets/keeper-right.png",
+    ...["", "-sleeping", "-offering"].map(
+      (pose) => `assets/listener/listener${pose}.webp`,
+    ),
     ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
       (id) => [
         `assets/shared/characters/${id}.png`,

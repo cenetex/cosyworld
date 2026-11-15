@@ -20,7 +20,7 @@ import { tapPrompt } from "../v2/card-game/presentation.mjs";
 import { createSfx } from "../v2/card-game/sfx.mjs";
 
 // Made-up cards: the kind is the first letter of the id.
-const KINDS = { p: "place", a: "avatar", i: "item", w: "way", b: "box", o: "offer" };
+const KINDS = { p: "place", a: "avatar", i: "item", w: "way", b: "box", o: "offer", t: "tarot" };
 const kindOf = (id) => KINDS[id[0]];
 const TIER = { "i-gem": "rare", "i-crown": "legendary", "a-fox": "uncommon", "w-lane": "epic" };
 const tierOf = (id) => TIER[id] ?? "common";
@@ -75,7 +75,7 @@ describe("which cards form a pack", () => {
     expect(packMembers(cards, { unturned, kindOf })).toEqual([
       "p-here", "a-fox", "i-gem", "i-pin", "w-lane", "b-gate", "o-deal",
     ]);
-    expect(PACK_KINDS).toEqual(["place", "avatar", "item", "way", "box", "offer"]);
+    expect(PACK_KINDS).toEqual(["place", "avatar", "item", "way", "box", "offer", "tarot"]);
   });
 
   it("leaves out cards already turned", () => {
@@ -97,6 +97,17 @@ describe("which cards form a pack", () => {
     const hand = ["i-b", "i-a", "i-b", "i-c"];
     const { unturned } = table(hand);
     expect(packMembers(hand, { unturned, kindOf })).toEqual(["i-b", "i-a", "i-c"]);
+  });
+
+  it("lays tarots after the offers, and three of them form a pack", () => {
+    const hand = ["t-up", "o-deal", "t-locked", "i-gem"];
+    const { unturned } = table(hand);
+    expect(packMembers(hand, { unturned, kindOf })).toEqual([
+      "i-gem", "o-deal", "t-up", "t-locked",
+    ]);
+    const spread = ["t-up", "t-down", "t-locked"];
+    expect(packMembers(spread, { unturned: table(spread).unturned, kindOf })).toHaveLength(3);
+    expect(packMembers(spread.slice(0, 2), { unturned: table(spread).unturned, kindOf })).toEqual([]);
   });
 
   it("treats a locked box like any other face-down card", () => {

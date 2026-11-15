@@ -43,6 +43,20 @@ export function addressedResident(message, cast, ring = []) {
   return found?.id ?? null;
 }
 
+const BURST = 3;
+
+export function addressee(messages, cast, index = messages.length - 1) {
+  const last = messages[index];
+  if (!last || last.resident) return null;
+  for (let at = index; at >= 0 && at > index - BURST; at -= 1) {
+    const entry = messages[at];
+    if (entry.resident || entry.author !== last.author) break;
+    const found = addressedResident(entry, cast, messages);
+    if (found) return found;
+  }
+  return null;
+}
+
 function humansSinceResident(messages) {
   let count = 0;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -61,11 +75,12 @@ export function decide(room, guildDay, now, config, cast) {
   if (last.id === room.handledGap) return result("wait", "handled");
   const { risks, question } = assess(last.text);
   if (risks.length) return result("skip", risks[0]);
-  const addressed = addressedResident(last, cast, messages);
+  const addressed = addressee(messages, cast);
   const quiet = now - last.at;
   const threshold = addressed ? config.DISCORD_ADDRESSED_QUIET_MS : config.DISCORD_QUIET_MS;
   if (quiet < threshold) return result("wait", "not-quiet", { addressed });
-  if (room.lastReplyAt && now - room.lastReplyAt < config.DISCORD_MIN_REPLY_GAP_MS) {
+  const gap = addressed ? config.DISCORD_ADDRESSED_REPLY_GAP_MS : config.DISCORD_MIN_REPLY_GAP_MS;
+  if (room.lastReplyAt && now - room.lastReplyAt < gap) {
     return result("wait", "reply-gap", { addressed });
   }
   if ((guildDay?.replies ?? 0) >= config.DISCORD_DAILY_REPLIES) {

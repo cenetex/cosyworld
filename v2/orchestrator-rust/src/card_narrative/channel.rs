@@ -1,5 +1,6 @@
 use super::{
     bounded, complete_selected, error, profiles, seed_sentence, voice_scenes, Context, TextState,
+    VoiceSettings,
 };
 use crate::ai_gateway::{
     request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability,
@@ -38,6 +39,9 @@ pub(super) const CONCURRENCY: usize = 1;
 const DEFAULT_PACK: &str = "lonely-forest";
 const LINE_LIMIT: usize = 240;
 const SCENE_MESSAGES: usize = 6;
+const ADDRESSED_WAIT: Duration = Duration::from_secs(3);
+const ADDRESSED_CALL: Duration = Duration::from_secs(6);
+const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 struct Resident {
@@ -46,6 +50,8 @@ struct Resident {
     #[serde(skip)]
     place: String,
     portrait: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    avatar: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,6 +93,19 @@ fn packs() -> &'static Value {
     })
 }
 
+fn face_avatar(portrait: &str) -> Option<String> {
+    static FACES: OnceLock<Value> = OnceLock::new();
+    let faces = FACES.get_or_init(|| {
+        serde_json::from_str(include_str!("../../../card-game/assets/discord-faces.json"))
+            .expect("embedded discord face boxes")
+    });
+    faces.get(portrait)?;
+    let (dir, file) = portrait.rsplit_once('/')?;
+    let pack_dir = dir.rsplit('/').next()?;
+    let stem = file.rsplit_once('.').map_or(file, |(stem, _)| stem);
+    Some(format!("/card-game/assets/faces/{pack_dir}-{stem}.webp"))
+}
+
 fn pack(pack_id: &str) -> Option<&'static Value> {
     packs()["packs"]
         .as_array()?
@@ -107,6 +126,7 @@ fn cast(pack_id: &str) -> Option<Vec<Resident>> {
                 id: id.clone(),
                 name: avatar["name"].as_str().unwrap_or(id).to_string(),
                 place: avatar["place"].as_str()?.to_string(),
+                avatar: face_avatar(&portrait),
                 portrait: format!("/card-game/{portrait}"),
             })
         })
@@ -320,12 +340,26 @@ async fn speak(
     config: &AiConfig,
     resident: &Resident,
     messages: &[Message],
-) -> Option<String> {
-    let models = state.character_models.as_ref().as_ref().ok()?;
-    let mut settings = state.settings.as_ref().as_ref().ok()?.clone();
+    addressed: bool,
+) -> Result<String, &'static str> {
+    let models = state
+        .character_models
+        .as_ref()
+        .as_ref()
+        .map_err(|_| "no-line")?;
+    let mut settings = state
+        .settings
+        .as_ref()
+        .as_ref()
+        .map_err(|_| "no-line")?
+        .clone();
     settings.line_limit = LINE_LIMIT;
-    let context = scene(resident, messages)?;
+    if addressed {
+        settings = brisk(settings);
+    }
+    let context = scene(resident, messages).ok_or("no-line")?;
     let voiced = vec![resident.id.clone()];
+    let started = Instant::now();
     let result = voice_scenes::run(
         "discord",
         &context,
@@ -334,13 +368,29 @@ async fn speak(
         complete_selected(config, &context, models, &settings, &voiced, false, None),
     )
     .await
-    .ok()?;
-    let text = result["entries"]
-        .as_array()?
-        .iter()
-        .find(|entry| entry["id"] == resident.id.as_str())?["text"]
-        .as_str()?;
-    bounded(text, LINE_LIMIT).then(|| text.to_string())
+    .ok();
+    let text = result.as_ref().and_then(|result| {
+        result["entries"]
+            .as_array()?
+            .iter()
+            .find(|entry| entry["id"] == resident.id.as_str())?["text"]
+            .as_str()
+    });
+    match text {
+        Some(text) if bounded(text, LINE_LIMIT) => Ok(text.to_string()),
+        _ if started.elapsed() >= settings.scene_timeout => Err("timeout"),
+        _ => Err("no-line"),
+    }
+}
+
+fn brisk(mut settings: VoiceSettings) -> VoiceSettings {
+    if settings.call_timeout > VoiceSettings::hosted().call_timeout {
+        return settings;
+    }
+    settings.call_timeout = settings.call_timeout.min(ADDRESSED_CALL);
+    settings.scene_timeout = settings.scene_timeout.min(ADDRESSED_SCENE);
+    settings.attempts = 1;
+    settings
 }
 
 fn spend(limits: &mut RateLimiter, now: Instant) -> bool {
@@ -368,8 +418,19 @@ fn admitted(state: &TextState, headers: &HeaderMap, lines: bool) -> Result<(), R
     Ok(())
 }
 
-fn enter(state: &TextState) -> Option<(OwnedSemaphorePermit, OwnedSemaphorePermit)> {
-    let own = state.discord_capacity.clone().try_acquire_owned().ok()?;
+async fn enter(
+    state: &TextState,
+    wait: Duration,
+) -> Option<(OwnedSemaphorePermit, OwnedSemaphorePermit)> {
+    let slot = state.discord_capacity.clone();
+    let own = if wait.is_zero() {
+        slot.try_acquire_owned().ok()?
+    } else {
+        tokio::time::timeout(wait, slot.acquire_owned())
+            .await
+            .ok()?
+            .ok()?
+    };
     let shared = state.capacity.clone().try_acquire_owned().ok()?;
     Some((own, shared))
 }
@@ -384,7 +445,11 @@ fn spoken(lines: Vec<Value>) -> Response {
 
 fn silent(reason: &'static str) -> Response {
     tracing::info!(feature = "discord", reason, "discord line silent");
-    spoken(Vec::new())
+    (
+        [("cache-control", "no-store")],
+        Json(json!({"lines": [], "reason": reason})),
+    )
+        .into_response()
 }
 
 pub(super) async fn cast_route(
@@ -431,19 +496,26 @@ pub(super) async fn lines(
         return error(StatusCode::BAD_REQUEST, message);
     }
     let Some(config) = state.ai.as_ref().as_ref() else {
-        return silent("unavailable");
+        return silent("not-configured");
     };
-    let Some(_permits) = enter(&state) else {
+    let addressed = request.addressed.is_some();
+    let wait = if addressed {
+        ADDRESSED_WAIT
+    } else {
+        Duration::ZERO
+    };
+    let Some(_permits) = enter(&state, wait).await else {
         return silent("busy");
     };
     let Some(id) = pick(config, &residents, &request).await else {
-        return silent("no_speaker");
+        return silent("no-speaker");
     };
     let Some(resident) = residents.iter().find(|r| r.id == id) else {
-        return silent("no_speaker");
+        return silent("no-speaker");
     };
-    let Some(text) = speak(&state, config, resident, &request.messages).await else {
-        return silent("no_line");
+    let text = match speak(&state, config, resident, &request.messages, addressed).await {
+        Ok(text) => text,
+        Err(reason) => return silent(reason),
     };
     spoken(vec![
         json!({"id": &resident.id, "name": &resident.name, "text": text}),
@@ -453,8 +525,8 @@ pub(super) async fn lines(
 #[cfg(test)]
 mod tests {
     use super::super::conversation::SAY_ALOUD;
+    use super::super::router_with_models;
     use super::super::tests::{prompt_of, serve, test_config, turn_of};
-    use super::super::{router_with_models, VoiceSettings};
     use super::*;
     use axum::{
         body::{to_bytes, Body},
@@ -513,6 +585,14 @@ mod tests {
         ] {
             assert_eq!(find(id).portrait, portrait);
         }
+        assert_eq!(
+            find("rati").avatar.as_deref(),
+            Some("/card-game/assets/faces/lonely-forest-rati.webp")
+        );
+        assert_eq!(
+            find("oak").avatar.as_deref(),
+            Some("/card-game/assets/faces/lonely-forest-oakheart.webp")
+        );
         assert_eq!(find("oak").name, "Oak");
         assert!(cast("no-such-pack").is_none());
     }
@@ -681,7 +761,7 @@ mod tests {
         let (status, body, requests) =
             post_lines(r#"{"who":"none"}"#, Some("Hello."), TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": []}));
+        assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
         assert_eq!(requests.len(), 1);
         let system = turn_of(&requests[0], "system");
         assert!(system.starts_with("I am the Lonely Forest."));
@@ -694,7 +774,7 @@ mod tests {
         let (status, body, requests) =
             post_lines(r#"{"who":"vale"}"#, Some("Hello."), TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": []}));
+        assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
         assert_eq!(requests.len(), 1);
     }
 
@@ -703,7 +783,7 @@ mod tests {
         let (status, body, requests) =
             post_lines(r#"{"who":"skull"}"#, None, TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": []}));
+        assert_eq!(body, json!({"lines": [], "reason": "no-line"}));
         assert!(requests.len() >= 2);
     }
 
@@ -768,15 +848,14 @@ mod tests {
         for _ in 0..LIMIT.max_hits {
             let (status, body) = read(app.clone().oneshot(post()).await.unwrap()).await;
             assert_eq!(status, StatusCode::OK);
-            assert_eq!(body, json!({"lines": []}));
+            assert_eq!(body, json!({"lines": [], "reason": "not-configured"}));
         }
         let (status, _) = read(app.clone().oneshot(post()).await.unwrap()).await;
         assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
     }
 
-    #[test]
-    fn discord_holds_at_most_one_shared_slot() {
-        let state = TextState {
+    fn slots() -> TextState {
+        TextState {
             background: Arc::new(super::super::reflections::Queue::new(1)),
             ai: Arc::new(None),
             character_models: Arc::new(Ok(BTreeMap::new())),
@@ -785,9 +864,14 @@ mod tests {
             in_flight: Arc::new(super::super::InFlight::default()),
             capacity: Arc::new(tokio::sync::Semaphore::new(super::super::TOTAL_CONCURRENCY)),
             discord_capacity: Arc::new(tokio::sync::Semaphore::new(CONCURRENCY)),
-        };
-        let held = enter(&state).expect("a free slot");
-        assert!(enter(&state).is_none());
+        }
+    }
+
+    #[tokio::test]
+    async fn discord_holds_at_most_one_shared_slot() {
+        let state = slots();
+        let held = enter(&state, Duration::ZERO).await.expect("a free slot");
+        assert!(enter(&state, Duration::ZERO).await.is_none());
         assert_eq!(
             state.capacity.available_permits(),
             super::super::TOTAL_CONCURRENCY - 1
@@ -796,10 +880,37 @@ mod tests {
         let players: Vec<_> = (0..super::super::TOTAL_CONCURRENCY)
             .map(|_| state.capacity.clone().try_acquire_owned().unwrap())
             .collect();
-        assert!(enter(&state).is_none());
+        assert!(enter(&state, Duration::ZERO).await.is_none());
         assert_eq!(state.discord_capacity.available_permits(), CONCURRENCY);
         drop(players);
-        assert!(enter(&state).is_some());
+        assert!(enter(&state, Duration::ZERO).await.is_some());
+    }
+
+    #[tokio::test]
+    async fn an_addressed_request_waits_briefly_for_the_slot() {
+        let state = slots();
+        let held = enter(&state, Duration::ZERO).await.expect("a free slot");
+        assert!(enter(&state, Duration::from_millis(20)).await.is_none());
+        let waiting = {
+            let state = state.clone();
+            tokio::spawn(async move { enter(&state, ADDRESSED_WAIT).await.is_some() })
+        };
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        drop(held);
+        assert!(waiting.await.unwrap());
+    }
+
+    #[test]
+    fn addressed_lines_use_tighter_hosted_deadlines() {
+        let hosted = VoiceSettings::hosted();
+        let tight = brisk(hosted.clone());
+        assert_eq!(tight.call_timeout, ADDRESSED_CALL);
+        assert_eq!(tight.scene_timeout, ADDRESSED_SCENE);
+        assert_eq!(tight.attempts, 1);
+        assert_eq!(tight.fallback_models, hosted.fallback_models);
+        assert_eq!(tight.reflection_model, hosted.reflection_model);
+        assert!(ADDRESSED_CALL < hosted.call_timeout && ADDRESSED_SCENE < hosted.scene_timeout);
+        assert_eq!(brisk(VoiceSettings::local()), VoiceSettings::local());
     }
 
     async fn read(response: Response) -> (StatusCode, Value) {
@@ -836,7 +947,8 @@ mod tests {
         assert!(residents.contains(&json!({
             "id": "rati",
             "name": "RATi",
-            "portrait": "/card-game/assets/lonely-forest/rati.png"
+            "portrait": "/card-game/assets/lonely-forest/rati.png",
+            "avatar": "/card-game/assets/faces/lonely-forest-rati.webp"
         })));
         let (status, body) = read(
             app.clone()

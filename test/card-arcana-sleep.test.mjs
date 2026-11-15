@@ -31,8 +31,6 @@ import {
 } from "../v2/card-game/world.mjs";
 
 const FOOL = "arcanum-0";
-const WORLD = "arcanum-21";
-const realWorld = data.cards.find((card) => card.id === WORLD);
 const at = (place) => ({ kind: "actor_at", place });
 const dreams = (s) =>
   heldOf(s.actors.vale).filter((w) => w.from === DREAM_FROM);
@@ -74,15 +72,24 @@ function synthetic(far, cards) {
     ...extra,
   }));
 }
-function provedFool(cards) {
-  const s = createWorld({ seed: 3 });
+function visit(s) {
+  const record = (s.actors.vale.arcana ??= { proved: [], did: [] });
+  record.calls = 3;
+  s.actors.listener.place = s.actors.vale.place;
+  return act(s, (a) => a.kind === "talk" && a.target === "listener");
+}
+function leveledFool(cards) {
+  let s = createWorld({ seed: 3 });
   const far = legalActions(s, "vale").find((a) => a.kind === "move").target;
   synthetic(far, cards);
-  settleArcana(s, "vale");
-  expect(recordOf(s, "vale").dealt).toBe(FOOL);
+  s = visit(s);
+  expect(recordOf(s, "vale").spread).toEqual([{ card: FOOL, face: "down" }]);
+  s = accept(s, "level");
   s.actors.vale.place = far;
   settleArcana(s, "vale");
-  expect(recordOf(s, "vale").proved).toEqual([FOOL]);
+  expect(recordOf(s, "vale").spread[0].done).toBe(true);
+  s = visit(s);
+  expect(levelOf(s, "vale")).toBe(1);
   s.actors.vale.place = homeOf("vale");
   return accept(quiet(s), "sleep");
 }
@@ -92,21 +99,29 @@ afterEach(() => {
 });
 
 describe("travelers level by cards", () => {
-  it("raises the level from 0 to 1 when the Fool is proved", () => {
-    let s = wait(createWorld({ seed: 3 }));
-    expect(recordOf(s, "vale").dealt).toBe(FOOL);
-    expect(levelOf(s, "vale")).toBe(0);
+  it("raises the level from 0 to 1 when the Listener turns over a done Fool", () => {
+    let s = createWorld({ seed: 3 });
     s.actors.vale.place = "pond";
+    s = visit(s);
+    expect(levelOf(s, "vale")).toBe(0);
+    s = accept(s, "level");
     for (const item of Object.values(s.items))
       if (item.holder === "vale") item.holder = "pond";
     const fresh = Object.keys(places).filter(
       (id) => !s.actors.vale.visited.includes(id),
     );
     s.actors.vale.visited = [...s.actors.vale.visited, ...fresh.slice(0, 6)];
-    settleArcana(s, "vale");
+    s = wait(s);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      card: FOOL,
+      face: "down",
+      done: true,
+    });
+    expect(levelOf(s, "vale")).toBe(0);
+    s = visit(s);
     expect(recordOf(s, "vale").proved).toEqual([FOOL]);
+    expect(s.actors.vale.upgrades).toContain(FOOL);
     expect(levelOf(s, "vale")).toBe(1);
-    expect(recordOf(s, "vale").dealt).not.toBeNull();
     expect(dreams(s)).toEqual([]);
     s = accept(s, "sleep");
     expect(dreams(s)).toEqual([
@@ -119,16 +134,8 @@ describe("travelers level by cards", () => {
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
-  it("deals the next card with each proof and holds the sleep quest once", () => {
-    const s = provedFool([[0], [1], [2], [21]]);
-    const far = deck.cards[0].proof[0].place;
-    expect(dreams(s)).toHaveLength(1);
-    s.actors.vale.place = far;
-    settleArcana(s, "vale");
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale").proved).toHaveLength(3);
-    expect(recordOf(s, "vale").dealt).toBe(WORLD);
-    expect(levelOf(s, "vale")).toBe(3);
+  it("holds the sleep quest once", () => {
+    const s = leveledFool([[0], [1], [2], [21]]);
     expect(dreams(s)).toHaveLength(1);
     expect(sleepQuest(s, "vale", { home: homeOf })).toBeNull();
     expect(dreams(s)).toHaveLength(1);
@@ -136,25 +143,10 @@ describe("travelers level by cards", () => {
 });
 
 describe("the sleep quest and the dream", () => {
-  it("offers a later Sleep cycle after a discarded one, without holding it automatically", () => {
-    let s = provedFool([[0], [1], [2], [21]]);
-    s = accept(s, "level");
-    s = act(s, (a) => a.kind === "drop" && !a.item);
-    expect(questPreviews(s).some((q) => q.kind === "sleep")).toBe(false);
-    s.actors.vale.place = deck.cards[0].proof[0].place;
-    settleArcana(s, "vale");
-    expect(s.actors.vale.arcana.accepted).toBeUndefined();
-    expect(dreams(s)).toEqual([]);
-    expect(questPreviews(s).some((q) => q.kind === "sleep" && q.action)).toBe(true);
-    s = accept(s, "sleep");
-    expect(dreams(s)).toHaveLength(1);
-  });
-  it("is met by a long rest at home, which dreams the card after the dealt one", () => {
-    let s = provedFool([[0], [1], [2], [21]]);
-    const dealt = recordOf(s, "vale").dealt;
+  it("is met by a long rest at home, which dreams a card not yet known", () => {
+    let s = leveledFool([[0], [1], [2], [21]]);
     const next = dreamCard(s, "vale");
-    expect(next).not.toBeNull();
-    expect([FOOL, dealt]).not.toContain(next);
+    expect(["arcanum-1", "arcanum-2"]).toContain(next);
     const xp = s.actors.vale.xp;
     s = longRest(s);
     expect(dreams(s)).toEqual([]);
@@ -167,13 +159,12 @@ describe("the sleep quest and the dream", () => {
     });
     const woke = s.log.findLast((e) => e.actorId === "vale" && e.woke);
     expect(woke).toMatchObject({ rest: "long", dream: "glimpse" });
-    expect(recordOf(s, "vale").dealt).toBe(dealt);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
     expect(reflectionContext(accept(s, "level")).resting).toBeNull();
   });
 
   it("is not met by a long rest away from home", () => {
-    let s = provedFool([[0], [1], [2], [21]]);
+    let s = leveledFool([[0], [1], [2], [21]]);
     s.actors.vale.place = "forest-cottage";
     s.items.lamp.holder = "attic";
     s = wait(s);
@@ -184,26 +175,14 @@ describe("the sleep quest and the dream", () => {
     expect(s.actors.vale.glimpse).toBeUndefined();
   });
 
-  it("dreams nothing when no undealt card is left", () => {
-    let s = provedFool([[0], [21]]);
-    expect(recordOf(s, "vale").dealt).toBe(WORLD);
+  it("dreams nothing when no unknown card is left", () => {
+    let s = leveledFool([[0], [21]]);
     expect(dreams(s)).toHaveLength(1);
     s = longRest(s);
     expect(dreams(s)).toEqual([]);
     expect(s.actors.vale.glimpse).toBeUndefined();
     const woke = s.log.findLast((e) => e.actorId === "vale" && e.woke);
     expect(woke.dream).toBeUndefined();
-  });
-
-  it("raises the level when the World is proved by a rest at home, and deals nothing after", () => {
-    let s = provedFool([[0], [21, realWorld.proof, { desire: realWorld.desire }]]);
-    expect(recordOf(s, "vale").dealt).toBe(WORLD);
-    s = longRest(s);
-    expect(recordOf(s, "vale").proved).toEqual([FOOL, WORLD]);
-    expect(recordOf(s, "vale").dealt).toBeNull();
-    expect(levelOf(s, "vale")).toBe(2);
-    expect(dreams(s)).toEqual([]);
-    expect(s.actors.vale.glimpse).toBeUndefined();
   });
 });
 
