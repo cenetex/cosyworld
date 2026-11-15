@@ -160,7 +160,8 @@ describe("the sleep quest and the dream", () => {
     const woke = s.log.findLast((e) => e.actorId === "vale" && e.woke);
     expect(woke).toMatchObject({ rest: "long", dream: "glimpse" });
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
-    expect(reflectionContext(accept(s, "level")).resting).toBeNull();
+    s.actors.vale.pendingQuests = [{ ...newWant("item", "oil", s.turn), from: "quest:box:remote" }];
+    expect(reflectionContext(accept(s, "pending")).resting).toBeNull();
   });
 
   it("is not met by a long rest away from home", () => {

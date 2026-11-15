@@ -5,7 +5,7 @@ import {
   encodeSave,
   legalActions,
   play,
-  questOffers,
+  questPreviews,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import {
@@ -26,6 +26,13 @@ const act = (s, pick) => {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 };
+const accept = (s, kind = "resident") => {
+  const q = questPreviews(s).find((q) => q.kind === kind);
+  const turn = s.turn;
+  const next = act(s, (a) => a.key === q?.action?.key);
+  expect(next.turn).toBe(turn);
+  return next;
+};
 const talk = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
 const give = (s) =>
@@ -41,6 +48,7 @@ const TARGETS = [
 const boxQuests = (s, n) =>
   TARGETS.slice(0, n).map(([kind, target], i) => ({
     ...newWant(kind, target, s.turn),
+    accepted: true,
     from: `quest:box:slot-${i}`,
   }));
 const fill = (s, n) => {
@@ -48,7 +56,7 @@ const fill = (s, n) => {
   return s;
 };
 const ready = () => {
-  const s = talk(createPipWorld(5));
+  const s = accept(talk(createPipWorld(5)));
   s.items.lamp.holder = "vale";
   s.actors.moth.place = s.actors.vale.place;
   return s;
@@ -62,28 +70,37 @@ describe("three quest slots", () => {
     const after = talk(s);
     expect(sources(after)).not.toContain(FROM);
     expect(heldOf(after.actors.vale)).toHaveLength(3);
-    expect(questOffers(after)).toEqual([]);
+    expect(questPreviews(after).find((q) => q.kind === "resident")).toMatchObject({
+      action: null, reason: "Finish or discard a quest first.",
+    });
     expect(validateWorld(reload(after))).toBeTruthy();
   });
 
-  it("loads a save with five held quests as three, and the released ones stand again", () => {
+  it("keeps all five old quests pending, accepts only three, and does not refill automatically", () => {
     const s = talk(createPipWorld(5));
-    const pip = s.actors.vale.want;
+    const pip = questPreviews(s).find((q) => q.kind === "resident").quest;
     const extra = boxQuests(s, 4);
     s.actors.vale.want = extra[0];
     s.actors.vale.under = [...extra.slice(1), pip];
-    expect(heldOf(s.actors.vale)).toHaveLength(5);
+    delete s.actors.vale.pendingQuests;
+    const old = structuredClone(heldOf(s.actors.vale));
     let loaded = decodeSave(JSON.stringify(s));
-    expect(validateWorld(loaded)).toBeTruthy();
-    expect(sources(loaded)).toEqual(extra.slice(0, 3).map((w) => w.from));
+    expect(heldOf(loaded.actors.vale)).toEqual([]);
+    expect(loaded.actors.vale.pendingQuests).toEqual(old);
+    for (let i = 0; i < 3; i++) loaded = accept(loaded, "pending");
+    expect(heldOf(loaded.actors.vale)).toHaveLength(3);
     expect(loaded.actors.vale.closed?.[FROM]).toBeUndefined();
     loaded = act(loaded, (a) => a.kind === "drop" && !a.item && a.quest === 0);
+    expect(sources(loaded)).not.toContain(FROM);
+    expect(heldOf(loaded.actors.vale)).toHaveLength(2);
+    loaded = accept(loaded);
     expect(sources(loaded)).toContain(FROM);
     expect(heldOf(loaded.actors.vale)).toHaveLength(3);
+    expect(validateWorld(reload(loaded))).toBeTruthy();
   });
 
   it("discards the second held quest and keeps the others", () => {
-    const s = fill(talk(createPipWorld(5)), 1);
+    const s = fill(accept(talk(createPipWorld(5))), 1);
     expect(sources(s)).toEqual(["quest:box:slot-0", FROM]);
     const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
     expect(drops.map((a) => a.quest)).toEqual([0, 1]);

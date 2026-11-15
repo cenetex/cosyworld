@@ -18,6 +18,7 @@ import {
   movesTo,
   play,
   questOffers,
+  questPreviews,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 
@@ -195,6 +196,11 @@ describe("the Listener", () => {
       expect(!pack || packDiscovered(world, pack.id)).toBe(true);
     }
     world = wait(world);
+    expect(heldOf(world.actors.vale)).toEqual([]);
+    for (let i = 0; i < 3; i++) {
+      const q = questPreviews(world).find((q) => q.kind === "listener");
+      world = act(world, (a) => a.key === q.action.key);
+    }
     expect(heldOf(world.actors.vale).map((w) => w.from).sort()).toEqual(
       offers.map((o) => o.id).sort(),
     );
