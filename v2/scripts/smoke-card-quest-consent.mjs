@@ -89,7 +89,7 @@ try {
     const before = await state(), beforeCalls = calls;
     await page.locator("[data-accept-quest]").click();
     await page.waitForFunction((revision) => window.consentProbe.state().revision > revision, before.revision);
-    await ready();
+    await ready("[data-unlock-box]");
     assert.equal((await state()).turn, before.turn);
     assert.equal(calls, beforeCalls, "Accept requests no new narration");
     assert((await state()).actors.vale.want.accepted);
@@ -131,6 +131,7 @@ try {
     const line = await page.locator("#dialogue-text").textContent(), callsBefore = calls;
     await page.locator("[data-accept-quest]").click();
     await page.waitForFunction(() => window.consentProbe.state().actors.vale.pendingQuests.length === 2);
+    await ready("[data-review-quests]");
     assert.equal((await state()).actors.vale.want.target, "oil");
     assert.equal((await state()).actors.vale.want.since, pendingBefore.find((q) => q.target === "oil").since);
     assert.equal(calls, callsBefore);
