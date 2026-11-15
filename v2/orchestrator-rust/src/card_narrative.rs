@@ -304,6 +304,7 @@ struct TextState {
     limits: Arc<Mutex<RateLimiter>>,
     in_flight: Arc<InFlight>,
     capacity: Arc<Semaphore>,
+    discord_capacity: Arc<Semaphore>,
 }
 
 pub(super) fn router<S: Clone + Send + Sync + 'static>(ai: Arc<Option<AiConfig>>) -> Router<S> {
@@ -370,6 +371,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
             limits: Arc::new(Mutex::new(RateLimiter::default())),
             in_flight: Arc::new(InFlight::default()),
             capacity: Arc::new(Semaphore::new(TOTAL_CONCURRENCY)),
+            discord_capacity: Arc::new(Semaphore::new(channel::CONCURRENCY)),
             background: Arc::new(reflections::Queue::new(
                 settings
                     .as_ref()

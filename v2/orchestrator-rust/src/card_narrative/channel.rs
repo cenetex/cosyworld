@@ -4,7 +4,7 @@ use super::{
 use crate::ai_gateway::{
     request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability,
 };
-use crate::rate_limit::RateLimit;
+use crate::rate_limit::{RateLimit, RateLimiter};
 use axum::{
     extract::{
         rejection::{JsonRejection, QueryRejection},
@@ -20,11 +20,21 @@ use std::{
     sync::OnceLock,
     time::{Duration, Instant},
 };
+use tokio::sync::OwnedSemaphorePermit;
 
 const LIMIT: RateLimit = RateLimit {
     max_hits: 30,
     window: Duration::from_secs(60),
 };
+const PER_HOUR: RateLimit = RateLimit {
+    max_hits: 300,
+    window: Duration::from_secs(3600),
+};
+const PER_DAY: RateLimit = RateLimit {
+    max_hits: 2400,
+    window: Duration::from_secs(86_400),
+};
+pub(super) const CONCURRENCY: usize = 1;
 const DEFAULT_PACK: &str = "lonely-forest";
 const LINE_LIMIT: usize = 240;
 const SCENE_MESSAGES: usize = 6;
@@ -316,19 +326,35 @@ async fn speak(
     bounded(text, LINE_LIMIT).then(|| text.to_string())
 }
 
-fn admitted(state: &TextState, headers: &HeaderMap) -> Result<(), Response> {
+fn spend(limits: &mut RateLimiter, now: Instant) -> bool {
+    limits.allow("discord".into(), LIMIT, now)
+        && limits.allow("discord-hour".into(), PER_HOUR, now)
+        && limits.allow("discord-day".into(), PER_DAY, now)
+}
+
+fn admitted(state: &TextState, headers: &HeaderMap, lines: bool) -> Result<(), Response> {
     let token = std::env::var("COSYWORLD_BOT_TOKEN").ok();
     if !authorized(headers, token.as_deref()) {
         return Err(error(StatusCode::UNAUTHORIZED, "unauthorized"));
     }
-    let allowed = state
-        .limits
-        .lock()
-        .is_ok_and(|mut limits| limits.allow("discord".into(), LIMIT, Instant::now()));
+    let now = Instant::now();
+    let allowed = state.limits.lock().is_ok_and(|mut limits| {
+        if lines {
+            spend(&mut limits, now)
+        } else {
+            limits.allow("discord-cast".into(), LIMIT, now)
+        }
+    });
     if !allowed {
         return Err(error(StatusCode::TOO_MANY_REQUESTS, "busy"));
     }
     Ok(())
+}
+
+fn enter(state: &TextState) -> Option<(OwnedSemaphorePermit, OwnedSemaphorePermit)> {
+    let own = state.discord_capacity.clone().try_acquire_owned().ok()?;
+    let shared = state.capacity.clone().try_acquire_owned().ok()?;
+    Some((own, shared))
 }
 
 fn spoken(lines: Vec<Value>) -> Response {
@@ -349,7 +375,7 @@ pub(super) async fn cast_route(
     headers: HeaderMap,
     query: Result<Query<CastQuery>, QueryRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers) {
+    if let Err(refused) = admitted(&state, &headers, false) {
         return refused;
     }
     let Ok(Query(query)) = query else {
@@ -371,7 +397,7 @@ pub(super) async fn lines(
     headers: HeaderMap,
     request: Result<Json<LinesRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers) {
+    if let Err(refused) = admitted(&state, &headers, true) {
         return refused;
     }
     let request = match request {
@@ -390,7 +416,7 @@ pub(super) async fn lines(
     let Some(config) = state.ai.as_ref().as_ref() else {
         return silent("unavailable");
     };
-    let Ok(_permit) = state.capacity.clone().try_acquire_owned() else {
+    let Some(_permits) = enter(&state) else {
         return silent("busy");
     };
     let Some(id) = pick(config, &residents, &request).await else {
@@ -676,6 +702,87 @@ mod tests {
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(body, json!({"error": "unauthorized"}));
         assert!(requests.is_empty());
+    }
+
+    #[test]
+    fn discord_spend_has_minute_hour_and_day_budgets() {
+        let start = Instant::now();
+        let mut limits = RateLimiter::default();
+        for _ in 0..LIMIT.max_hits {
+            assert!(spend(&mut limits, start));
+        }
+        assert!(!spend(&mut limits, start));
+        let mut limits = RateLimiter::default();
+        let mut admitted = 0;
+        for call in 0..PER_HOUR.max_hits as u64 + 20 {
+            if spend(&mut limits, start + Duration::from_secs(call * 3)) {
+                admitted += 1;
+            }
+        }
+        assert_eq!(admitted, PER_HOUR.max_hits);
+        let mut limits = RateLimiter::default();
+        let mut admitted = 0;
+        for call in 0..PER_DAY.max_hits as u64 + 20 {
+            if spend(&mut limits, start + Duration::from_secs(call * 13)) {
+                admitted += 1;
+            }
+        }
+        assert_eq!(admitted, PER_DAY.max_hits);
+        const { assert!(PER_HOUR.max_hits * 4 <= super::super::PER_HOUR.max_hits) };
+        const { assert!(PER_DAY.max_hits < PER_HOUR.max_hits * 24) };
+    }
+
+    #[tokio::test]
+    async fn the_thirty_first_call_in_a_minute_is_refused() {
+        std::env::set_var("COSYWORLD_BOT_TOKEN", TOKEN);
+        let app = router_with_models::<()>(
+            Arc::new(None),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings::hosted()),
+        );
+        let body = serde_json::to_vec(&talk(None)).unwrap();
+        let post = || {
+            Request::post("/discord/lines")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {TOKEN}"))
+                .body(Body::from(body.clone()))
+                .unwrap()
+        };
+        for _ in 0..LIMIT.max_hits {
+            let (status, body) = read(app.clone().oneshot(post()).await.unwrap()).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(body, json!({"lines": []}));
+        }
+        let (status, _) = read(app.clone().oneshot(post()).await.unwrap()).await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    #[test]
+    fn discord_holds_at_most_one_shared_slot() {
+        let state = TextState {
+            background: Arc::new(super::super::reflections::Queue::new(1)),
+            ai: Arc::new(None),
+            character_models: Arc::new(Ok(BTreeMap::new())),
+            settings: Arc::new(Ok(VoiceSettings::hosted())),
+            limits: Arc::new(Mutex::new(RateLimiter::default())),
+            in_flight: Arc::new(super::super::InFlight::default()),
+            capacity: Arc::new(tokio::sync::Semaphore::new(super::super::TOTAL_CONCURRENCY)),
+            discord_capacity: Arc::new(tokio::sync::Semaphore::new(CONCURRENCY)),
+        };
+        let held = enter(&state).expect("a free slot");
+        assert!(enter(&state).is_none());
+        assert_eq!(
+            state.capacity.available_permits(),
+            super::super::TOTAL_CONCURRENCY - 1
+        );
+        drop(held);
+        let players: Vec<_> = (0..super::super::TOTAL_CONCURRENCY)
+            .map(|_| state.capacity.clone().try_acquire_owned().unwrap())
+            .collect();
+        assert!(enter(&state).is_none());
+        assert_eq!(state.discord_capacity.available_permits(), CONCURRENCY);
+        drop(players);
+        assert!(enter(&state).is_some());
     }
 
     async fn read(response: Response) -> (StatusCode, Value) {
