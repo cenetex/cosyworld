@@ -1,0 +1,42 @@
+const TIMEOUT_MS = 30000;
+
+function headers(token) {
+  return { authorization: `Bearer ${token}` };
+}
+
+export async function fetchCast(fetch, origin, token, pack) {
+  try {
+    const response = await fetch(`${origin}/discord/cast?pack=${encodeURIComponent(pack)}`, {
+      headers: headers(token),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (response.status !== 200) return null;
+    const body = await response.json();
+    const residents = (Array.isArray(body?.residents) ? body.residents : []).filter(
+      (resident) => typeof resident?.id === "string" && typeof resident?.name === "string",
+    );
+    return residents.length
+      ? residents.map(({ id, name, portrait }) => ({ id, name, portrait: portrait ?? null }))
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function channelLines(fetch, origin, token, body) {
+  try {
+    const response = await fetch(`${origin}/discord/lines`, {
+      method: "POST",
+      headers: { ...headers(token), "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (response.status !== 200) return [];
+    const parsed = await response.json();
+    return (Array.isArray(parsed?.lines) ? parsed.lines : []).filter(
+      (line) => typeof line?.id === "string" && typeof line?.text === "string" && line.text,
+    );
+  } catch {
+    return [];
+  }
+}
