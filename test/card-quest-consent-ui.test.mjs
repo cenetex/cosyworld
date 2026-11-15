@@ -109,10 +109,16 @@ it("forwards the exact shared Accept and refuses to refresh its stale revision",
     sharedLineSeq: null, crypto: { randomUUID: () => "test-play" }, playLabel: () => "Accept",
     reviewing: true, reviewBeat: { seq: 5 }, sharedAdvanceRequested: false,
     showSharedPlay: noop, hiddenFor: noop, encountered: new Set(), cardIsCovered: () => false,
-    performance: { now: () => 1000 }, playQueue: {}, keepHeldSelection: vi.fn(),
+    selectionBlocked: () => false, lastPlayAt: -Infinity, SETTLE_MS: 400, restedChoice: "before",
+    performance: { now: () => 1000 }, playQueue: { submit: vi.fn() }, keepHeldSelection: vi.fn(),
     trackSharedPlay: noop, restoreHandFocus: noop };
   vm.createContext(context);
   vm.runInContext(app.slice(at, app.indexOf("\n}", at) + 2), context);
+  const commitAt = app.indexOf("function commitAction(");
+  vm.runInContext(app.slice(commitAt, app.indexOf("\n}", commitAt) + 2), context);
+  context.commitAction(action, 9);
+  expect(context.playQueue.submit).toHaveBeenCalledWith(action, 9);
+  expect(context.restedChoice).toBe("before");
   await context.submitSharedPlay(action);
   expect(forwarded.mock.calls[0][0]).toBe(action);
   expect(context.keepHeldSelection).not.toHaveBeenCalled();

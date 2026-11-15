@@ -2150,6 +2150,10 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (action.choiceId) hum.hush();
   // The same play chosen again keeps it; its Thinking card cancels it.
   if (playQueue.pending?.action.key === action.key) return;
+  if (action.offer !== undefined) {
+    playQueue.submit(action, revision);
+    return;
+  }
   // A play leaves the hand where it is: raised stays raised. Its beat rests
   // at once; the Thinking card stands for it until its scene.
   restedChoice = choiceKey();
