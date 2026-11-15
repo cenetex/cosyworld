@@ -75,7 +75,6 @@ export function overrideReason(env) {
   );
 }
 
-// Returns { ok, lines } where lines are the report to print.
 export function evaluate(totals, config, env = {}) {
   const { budget } = config;
   const excluded = Object.entries(totals.excluded)

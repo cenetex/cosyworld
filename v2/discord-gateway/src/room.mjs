@@ -1,6 +1,7 @@
 import { addressee, decide } from "./attention.mjs";
 import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
+import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
 
 export const RING = 20;
 
@@ -17,6 +18,8 @@ export function createRoom(guildId, channelId) {
     attempt: null,
     sending: false,
     nudge: null,
+    heard: 0,
+    halt: null,
   };
 }
 
@@ -83,6 +86,7 @@ export function record(room, message, webhookId, cast) {
     text,
     replyTo: message.reference?.messageId ?? null,
   };
+  if (room.messages.some((known) => known.id === entry.id)) return null;
   if (message.webhookId) {
     if (!webhookId || message.webhookId !== webhookId) return null;
     const resident = cast.find(
@@ -95,6 +99,8 @@ export function record(room, message, webhookId, cast) {
     entry.author =
       clean(message.member?.displayName ?? message.author?.globalName ?? message.author?.username, 32) ||
       "Someone";
+    room.heard += 1;
+    room.halt?.abort();
   }
   room.messages.push(entry);
   if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
@@ -120,7 +126,7 @@ export function requestBody(room, config, addressed) {
 }
 
 export function createStats() {
-  return { replies: 0, skips: {}, failures: {} };
+  return { replies: 0, continued: 0, skips: {}, failures: {}, flags: {} };
 }
 
 function count(table, key) {
@@ -133,12 +139,78 @@ function counts(table) {
 }
 
 export function summary(stats) {
-  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)}`;
+  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)} continued=${stats.continued} flags=${counts(stats.flags)}`;
 }
 
-async function answer(room, body, messageId, { config, cast, lines, send, typing }) {
+async function post(room, resident, text, { config, send, sleep, stats, log }) {
+  if (repeatsOpening(room.messages, resident.id, text)) {
+    count(stats.flags, "repeated-opening");
+    log(`flag repeated-opening resident=${resident.id} guild=${room.guildId} channel=${room.channelId}`);
+  }
+  const identity = residentIdentity(resident, config.ORCHESTRATOR_URL);
+  const parts = beats(text, { min: config.DISCORD_BEAT_MIN_CHARS });
+  for (const [index, part] of parts.entries()) {
+    if (index) await sleep(pause(part));
+    const sent = await send(room, {
+      content: part,
+      username: identity.username,
+      avatarURL: identity.avatarUrl ?? undefined,
+      allowedMentions: { parse: [] },
+    });
+    if (typeof sent?.id === "string" && !room.messages.some((entry) => entry.id === sent.id)) {
+      room.messages.push({ id: sent.id, at: sent.createdTimestamp ?? 0, text: part, replyTo: null, resident: resident.id });
+      if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
+    }
+  }
+}
+
+async function goOn(room, guild, first, deps) {
+  const { config, lines, typing, sleep, random, stats, save } = deps;
+  const heard = room.heard;
+  let line = first;
+  for (let extra = 0; extra < config.DISCORD_CONTINUE_MAX; extra += 1) {
+    const open = unfinished(line.text);
+    if (!open && random() >= config.DISCORD_CONTINUE_RATE) return;
+    if (room.heard !== heard || guild.replies >= config.DISCORD_DAILY_REPLIES) return;
+    const halt = new AbortController();
+    room.halt = halt;
+    room.busy = true;
+    let stop = open ? typist(room, typing, config.DISCORD_TYPING_MS) : () => {};
+    try {
+      const body = requestBody(room, config, null);
+      if (body.messages.at(-1)?.resident !== line.resident.id) {
+        body.messages.push({ resident: line.resident.id, text: line.text });
+        body.messages.splice(0, body.messages.length - Math.max(1, config.DISCORD_CONTEXT_MESSAGES));
+      }
+      const returned = await lines({ ...body, continuing: line.resident.id }, halt.signal);
+      const next = (returned?.lines ?? []).find((found) => found?.id === line.resident.id && typeof found.text === "string" && found.text.trim());
+      if (!next || halt.signal.aborted) return;
+      stop();
+      stop = typist(room, typing, config.DISCORD_TYPING_MS);
+      await sleep(pause(next.text), halt.signal);
+      if (halt.signal.aborted) return;
+      await post(room, line.resident, next.text.trim(), deps);
+      guild.replies += 1;
+      stats.continued += 1;
+      try {
+        save();
+      } catch {}
+      line = { resident: line.resident, text: next.text.trim() };
+    } catch {
+      return;
+    } finally {
+      stop();
+      if (room.halt === halt) room.halt = null;
+      room.busy = false;
+    }
+  }
+}
+
+async function answer(room, body, messageId, deps) {
+  const { cast, lines, config, typing } = deps;
   room.busy = true;
   let posted = 0;
+  let spoken = null;
   let reason = null;
   let stale = false;
   const stop = typist(room, typing, config.DISCORD_TYPING_MS);
@@ -153,14 +225,9 @@ async function answer(room, body, messageId, { config, cast, lines, send, typing
         stale = true;
         break;
       }
-      const identity = residentIdentity(resident, config.ORCHESTRATOR_URL);
-      await send(room, {
-        content: line.text,
-        username: identity.username,
-        avatarURL: identity.avatarUrl ?? undefined,
-        allowedMentions: { parse: [] },
-      });
+      await post(room, resident, line.text.trim(), deps);
       posted += 1;
+      spoken = { resident, text: line.text.trim() };
     }
     if (stale) reason = null;
     else if (!posted && !reason) reason = "no-resident";
@@ -170,7 +237,7 @@ async function answer(room, body, messageId, { config, cast, lines, send, typing
     stop();
     room.busy = false;
   }
-  return { posted, reason, stale };
+  return { posted, reason, stale, spoken };
 }
 
 export function tick({
@@ -185,6 +252,8 @@ export function tick({
   save,
   log = () => {},
   stats = createStats(),
+  sleep = async () => {},
+  random = () => 1,
 }) {
   const running = [];
   if (!cast?.length) return Promise.all(running);
@@ -219,14 +288,9 @@ export function tick({
       return send(target, payload);
     };
     room.sending = false;
+    const deps = { config, cast, lines, send: send_, typing, sleep, random, stats, log, save: () => save(state) };
     running.push(
-      answer(room, requestBody(room, config, decision.addressed), messageId, {
-        config,
-        cast,
-        lines,
-        send: send_,
-        typing,
-      }).then(({ posted, reason, stale }) => {
+      answer(room, requestBody(room, config, decision.addressed), messageId, deps).then(({ posted, reason, stale, spoken }) => {
         const refund = () => {
           if (guild.day === day && guild.replies > 0) guild.replies -= 1;
           room.lastReplyAt = before.reply;
@@ -243,7 +307,7 @@ export function tick({
         }
         if (posted || !reason) {
           stats.replies += 1;
-          return;
+          return spoken ? goOn(room, guild, spoken, deps) : undefined;
         }
         count(stats.failures, reason);
         log(`lines failed reason=${reason} attempt=${attempt} guild=${room.guildId} channel=${room.channelId}`);
