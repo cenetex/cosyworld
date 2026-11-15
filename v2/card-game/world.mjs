@@ -964,7 +964,7 @@ export function holdChoice(s, actor, choice) {
   settleLamp(s);
   // Putting the lamp down or out opens the Black pond: a hold can open a box.
   creditOpened(before, s, actor);
-  dropOpenedBoxQuests(s);
+  dropOpenedBoxQuests(before, s);
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
@@ -1883,15 +1883,15 @@ function settleCompanions(s) {
 }
 // A traveler wakes from a long rest: the companion is dismissed unless a
 // quest taken on from them pins the bond.
-// through a long rest while the quest is held (rules 133).
-function dropOpenedBoxQuests(s) {
+function dropOpenedBoxQuests(before, s) {
   for (const [actor, a] of Object.entries(s.actors))
     for (const held of heldOf(a))
-      if (held.from?.startsWith("quest:box:") && boxIdOpen(s, held.from.slice(10), actor))
+      if (held.from?.startsWith("quest:box:") &&
+          !boxIdOpen(before, held.from.slice(10), actor) && boxIdOpen(s, held.from.slice(10), actor))
         releaseQuest(a, held);
 }
-function settleQuests(s, acting) {
-  dropOpenedBoxQuests(s);
+function settleQuests(s, acting, before) {
+  dropOpenedBoxQuests(before, s);
   for (const actor of Object.keys(s.actors).sort()) {
     if (
       !(actor === currentActor(s) || controlledByHuman(s, actor)) ||
@@ -3245,7 +3245,7 @@ export function play(
     settleLamp(next);
     settleCrossingUnlocks(next, sensesFor(next));
     settleStationExits(next);
-    settleQuests(next, actor);
+    settleQuests(next, actor, s);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3463,7 +3463,7 @@ export function play(
   settleHeldItems(next, handSnapshot(s));
   settleLamp(next);
   settleStationExits(next);
-  settleQuests(next, actor);
+  settleQuests(next, actor, s);
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
   // It stops at the first refused play, and the sleep cap bounds it.
