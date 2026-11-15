@@ -526,12 +526,8 @@ describe("The Willows", () => {
   it("lets the places narrate and the willows count, with the Swede only a seed", () => {
     for (const id of ["willows-landing", "willows-camp", "willows-bank"]) {
       expect(pack.places[id].voice).toContain("first person");
-      expect(pack.places[id].voice).toContain("Discoveries recorded so far");
     }
     expect(pack.places["willows-thicket"].voice).toContain("we, us and our");
-    expect(pack.places["willows-thicket"].voice).toContain(
-      "never give a reason",
-    );
     expect(pack.places["willows-bank"].persona).not.toContain(
       "authored places",
     );

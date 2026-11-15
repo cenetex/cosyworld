@@ -104,7 +104,7 @@
       },
       "name": "Signal Jetty",
       "text": "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home.",
-      "persona": "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home. Use the saved story facts for completed deeds.",
+      "persona": "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home.",
       "exits": [
         "hoppycat-halfway-tea-garden",
         "hoppycat-goldfish-tank",
