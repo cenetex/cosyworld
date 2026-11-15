@@ -1,6 +1,6 @@
 use super::{
-    bounded, complete_selected, error, profiles, seed_sentence, voice_scenes, Context, TextState,
-    VoiceSettings,
+    bounded, complete_selected, error, profiles, seed_sentence, system_one, voice_scenes, Context,
+    TextState, VoiceSettings,
 };
 use crate::ai_gateway::{
     request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability,
@@ -16,7 +16,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 use std::{
     sync::OnceLock,
     time::{Duration, Instant},
@@ -315,6 +315,34 @@ fn forest(pack_id: &str, cast: &[Resident]) -> String {
         .join(" ")
 }
 
+fn profile(resident: &Resident) -> Value {
+    let card = &profiles()[&resident.id];
+    let mut view = json!({"name": &resident.name, "place": &resident.place});
+    for key in ["seed", "text", "expression", "tastes"] {
+        if let Some(value) = card.get(key).filter(|v| !v.is_null()) {
+            view[key] = value.clone();
+        }
+    }
+    view
+}
+
+fn heard(request: &LinesRequest, cast: &[Resident]) -> Value {
+    let residents: Map<String, Value> = cast.iter().map(|r| (r.id.clone(), profile(r))).collect();
+    let history: Vec<Value> = request
+        .messages
+        .iter()
+        .map(|m| {
+            let role = if m.resident.is_some() {
+                "resident"
+            } else {
+                "person"
+            };
+            json!({"speaker": speaker(m, cast), "role": role, "text": &m.text})
+        })
+        .collect();
+    json!({"residents": residents, "history": history})
+}
+
 async fn pick(config: &AiConfig, cast: &[Resident], request: &LinesRequest) -> Option<String> {
     if let Some(id) = request.addressed.as_ref() {
         return cast.iter().any(|r| &r.id == id).then(|| id.clone());
@@ -323,65 +351,39 @@ async fn pick(config: &AiConfig, cast: &[Resident], request: &LinesRequest) -> O
     if continuing.is_some() && request.messages.last().is_some_and(|m| unfinished(&m.text)) {
         return continuing.map(str::to_string);
     }
-    let mut choices: Vec<&str> = cast
-        .iter()
-        .map(|r| r.id.as_str())
-        .filter(|id| continuing.is_none_or(|c| c == *id))
-        .collect();
-    choices.push("none");
-    let format = json!({
-        "type": "json_schema",
-        "json_schema": {
-            "name": "discord_speaker",
-            "strict": true,
-            "schema": {
-                "type": "object",
-                "properties": {"who": {"type": "string", "enum": choices}},
-                "required": ["who"],
-                "additionalProperties": false
-            }
+    let mut state = heard(request, cast);
+    let questions = match continuing.and_then(|id| cast.iter().find(|r| r.id == id)) {
+        Some(resident) => json!({"goes_on": {
+            "type": "noul",
+            "instructions": format!("Does {} have more to say right now, before anyone else speaks?", resident.name)
+        }}),
+        None => {
+            let mut criteria: Map<String, Value> = cast
+                .iter()
+                .map(|r| (r.id.clone(), json!(format!("{} speaks next", r.name))))
+                .collect();
+            criteria.insert("none".into(), json!("No resident speaks next"));
+            json!({"speak": {
+                "type": "choice",
+                "instructions": "Which resident, if any, would naturally speak next in this conversation?",
+                "criteria": criteria
+            }})
         }
-    });
-    let system = forest(&request.pack, cast);
-    let user = request
-        .messages
-        .iter()
-        .map(|m| format!("{}: {}", speaker(m, cast), m.text))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let completion = request_chat_completion(
-        config,
-        ChatCompletionRequest {
-            feature: "discord_intent",
-            prompt_version: "discord-intent-v1",
-            capability: ModelCapability::IntentJson,
-            system: &system,
-            user: &user,
-            temperature: 0.0,
-            max_tokens: 16,
-            timeout: Duration::from_secs(6),
-            max_attempts: 1,
-            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
-            response_format: Some(&format),
-            room_id: None,
-        },
-    )
-    .await;
-    let completion = match completion {
-        Ok(completion) => completion,
+    };
+    system_one::fit(&mut state, &questions);
+    let answers = match system_one::ask(config, "discord_intent", &state, questions).await {
+        Ok(answers) => answers,
         Err(failure) => {
-            tracing::info!(
-                feature = "discord",
-                reason = "intent",
-                failure = failure.code(),
-                "discord line silent"
-            );
+            tracing::info!(feature = "discord", reason = "intent", failure = %failure, "discord line silent");
             return None;
         }
     };
-    let answer: Value = serde_json::from_str(completion.text.trim()).ok()?;
-    let who = answer["who"].as_str()?;
-    cast.iter().any(|r| r.id == who).then(|| who.to_string())
+    let bar = system_one::threshold();
+    if let Some(id) = continuing {
+        return (system_one::noul(&answers, "goes_on")? >= bar).then(|| id.to_string());
+    }
+    let (who, confidence) = system_one::choice(&answers, "speak")?;
+    (confidence >= bar && cast.iter().any(|r| r.id == who)).then(|| who.to_string())
 }
 
 fn unfinished(text: &str) -> bool {
@@ -1014,24 +1016,47 @@ mod tests {
         intent: &'static str,
         voice: Option<&'static str>,
     ) -> Router {
-        Router::new().route(
-            "/chat/completions",
-            post(move |Json(body): Json<Value>| {
-                let seen = seen.clone();
-                async move {
-                    let asks_intent = body.get("response_format").is_some();
-                    seen.lock().unwrap().push(body.clone());
-                    let text = if asks_intent { Some(intent) } else { voice };
-                    match text {
-                        Some(text) => Json(json!({
-                            "model": body["model"],
-                            "choices": [{"message": {"content": text}, "finish_reason": "stop"}]
-                        }))
-                        .into_response(),
-                        None => (StatusCode::INTERNAL_SERVER_ERROR, "down").into_response(),
+        let judged = seen.clone();
+        Router::new()
+            .route(
+                "/systemone",
+                post(move |Json(body): Json<Value>| {
+                    let seen = judged.clone();
+                    async move {
+                        seen.lock().unwrap().push(body);
+                        match serde_json::from_str::<Value>(intent) {
+                            Ok(answer) => Json(answer).into_response(),
+                            Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "down").into_response(),
+                        }
                     }
-                }
-            }),
+                }),
+            )
+            .route(
+                "/chat/completions",
+                post(move |Json(body): Json<Value>| {
+                    let seen = seen.clone();
+                    async move {
+                        let asks_intent = body.get("response_format").is_some();
+                        seen.lock().unwrap().push(body.clone());
+                        let text = if asks_intent { Some(intent) } else { voice };
+                        match text {
+                            Some(text) => Json(json!({
+                                "model": body["model"],
+                                "choices": [{"message": {"content": text}, "finish_reason": "stop"}]
+                            }))
+                            .into_response(),
+                            None => (StatusCode::INTERNAL_SERVER_ERROR, "down").into_response(),
+                        }
+                    }
+                }),
+            )
+    }
+
+    fn speak_answer(who: &str, confidence: f64) -> &'static str {
+        Box::leak(
+            json!({"answers": {"speak": {"type": "choice", "choice": who, "confidence": confidence}}})
+                .to_string()
+                .into_boxed_str(),
         )
     }
 
@@ -1085,7 +1110,7 @@ mod tests {
             json!({"lines": [{"id": "rati", "name": "RATi", "text": reply}]})
         );
         assert!(!requests.is_empty());
-        assert!(requests.iter().all(|r| r.get("response_format").is_none()));
+        assert!(requests.iter().all(|r| r.get("questions").is_none()));
         let voice = &requests[0];
         assert_eq!(
             turn_of(voice, "user"),
@@ -1104,29 +1129,49 @@ mod tests {
     #[tokio::test]
     async fn the_intent_may_choose_nobody() {
         let (status, body, requests) =
-            post_lines(r#"{"who":"none"}"#, Some("Hello."), TOKEN, talk(None)).await;
+            post_lines(speak_answer("none", 0.9), Some("Hello."), TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
         assert_eq!(requests.len(), 1);
-        let system = turn_of(&requests[0], "system");
-        assert!(system.starts_with("I am the Lonely Forest."));
-        assert!(system.contains("RATi, host of the cottage, lives in me."));
-        assert!(turn_of(&requests[0], "user").ends_with("Jun: RATi, can I come in?"));
+        let asked = &requests[0];
+        assert_eq!(asked["model"], "typesafe/jev-1.14");
+        assert_eq!(asked["questions"]["speak"]["type"], "choice");
+        assert!(asked["questions"]["speak"]["criteria"]
+            .get("none")
+            .is_some());
+        assert_eq!(
+            asked["state"]["residents"]["rati"]["seed"],
+            "RATi, host of the cottage."
+        );
+        assert_eq!(
+            asked["state"]["history"][2],
+            json!({"speaker": "Jun", "role": "person", "text": "RATi, can I come in?"})
+        );
     }
 
     #[tokio::test]
-    async fn an_intent_outside_the_cast_is_silence() {
-        let (status, body, requests) =
-            post_lines(r#"{"who":"mara"}"#, Some("Hello."), TOKEN, talk(None)).await;
-        assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
-        assert_eq!(requests.len(), 1);
+    async fn an_intent_outside_the_cast_or_below_the_bar_is_silence() {
+        for answer in [
+            speak_answer("mara", 0.9),
+            speak_answer("skull", 0.3),
+            "not json",
+        ] {
+            let (status, body, requests) =
+                post_lines(answer, Some("Hello."), TOKEN, talk(None)).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(
+                body,
+                json!({"lines": [], "reason": "no-speaker"}),
+                "{answer}"
+            );
+            assert_eq!(requests.len(), 1);
+        }
     }
 
     #[tokio::test]
     async fn a_failed_voice_is_silence() {
         let (status, body, requests) =
-            post_lines(r#"{"who":"skull"}"#, None, TOKEN, talk(None)).await;
+            post_lines(speak_answer("skull", 0.9), None, TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, json!({"lines": [], "reason": "no-line"}));
         assert!(requests.len() >= 2);
@@ -1203,7 +1248,7 @@ mod tests {
         let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["id"], "rati");
-        assert!(requests.iter().all(|r| r.get("response_format").is_none()));
+        assert!(requests.iter().all(|r| r.get("questions").is_none()));
         assert_eq!(
             turn_of(&requests[0], "user"),
             "Skull says, \u{201c}RATi, did you hear that?\u{201d}"
@@ -1251,7 +1296,7 @@ mod tests {
             post_lines("{}", Some(reply), TOKEN, going("The door sticks, but")).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["lines"][0]["text"], reply);
-        assert!(requests.iter().all(|r| r.get("response_format").is_none()));
+        assert!(requests.iter().all(|r| r.get("questions").is_none()));
         assert_eq!(
             turn_of(&requests[0], "user"),
             "Jun says, \u{201c}RATi, can I come in?\u{201d}"
@@ -1261,13 +1306,16 @@ mod tests {
 
     #[tokio::test]
     async fn a_finished_line_asks_whether_the_same_resident_goes_on() {
+        let no = r#"{"answers": {"goes_on": {"type": "noul", "noul": 0.2}}}"#;
         let (status, body, requests) =
-            post_lines(r#"{"who":"none"}"#, Some("More."), TOKEN, going("Come in.")).await;
+            post_lines(no, Some("More."), TOKEN, going("Come in.")).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
         assert_eq!(requests.len(), 1);
-        let schema = &requests[0]["response_format"]["json_schema"]["schema"];
-        assert_eq!(schema["properties"]["who"]["enum"], json!(["rati", "none"]));
+        assert_eq!(requests[0]["questions"]["goes_on"]["type"], "noul");
+        let yes = r#"{"answers": {"goes_on": {"type": "noul", "noul": 0.8}}}"#;
+        let (_, body, _) = post_lines(yes, Some("More."), TOKEN, going("Come in.")).await;
+        assert_eq!(body["lines"][0]["id"], "rati");
     }
 
     async fn post_coordinate(answer: &'static str, body: Value) -> (StatusCode, Value, Vec<Value>) {
@@ -1350,7 +1398,7 @@ mod tests {
     #[tokio::test]
     async fn a_bad_token_reaches_no_model() {
         let (status, body, requests) = post_lines(
-            r#"{"who":"rati"}"#,
+            speak_answer("rati", 0.9),
             Some("Hello."),
             WRONG,
             talk(Some("rati")),
