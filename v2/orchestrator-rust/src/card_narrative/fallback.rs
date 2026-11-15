@@ -312,7 +312,6 @@ mod tests {
             fallback_models: chain.map(String::from).to_vec(),
             ..VoiceSettings::hosted()
         };
-        // Vale talks to Pip, who answers the line Vale says this turn.
         let mut c = context();
         (c.scenery, c.focus) = (false, None);
         let mut outcome = solo_departure();
