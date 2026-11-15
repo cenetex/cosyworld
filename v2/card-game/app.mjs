@@ -1841,7 +1841,7 @@ function turnCard(button) {
 // table; pack-opening.mjs decides everything else.
 function packSync(cards) {
   return pack.sync(cards, {
-    unturned: canRevealCard,
+    unturned: cardIsClosed,
     kindOf: packKind,
     holderOf: (id) => tableHolder(world, id),
     allowed: !saveBlocked && !pipPrelude() && !titleShowing(),
@@ -1873,7 +1873,7 @@ function applyPackFrame(frame, id) {
 // the row is raised.
 const packPrompt = () =>
   !selected.length && !questOpen
-    ? pack.prompt(canRevealCard, { lowered: rowCollapsed })
+    ? pack.prompt(canRevealCard, { lowered: rowCollapsed, locked: pendingLock })
     : null;
 // A face-down card in an open pack shows its tier only as a rim glow, from
 // Rare up: no number, name or art, and no `data-level` (a covered card still
@@ -1890,27 +1890,31 @@ function syncPackTells() {
     else clearTell(button);
   }
 }
+const packRevealed = new Set();
 const packTopTier = () =>
-  pack.ids
+  [...packRevealed]
     .map(packTier)
     .reduce((top, tier) => (tierRank(tier) > tierRank(top) ? tier : top), "common");
 function packAnnounce() {
   $("discovery-announcement").textContent = revealAnnouncement(
-    pack.ids.length,
+    packRevealed.size,
     packTopTier(),
     (id) => id.charAt(0).toUpperCase() + id.slice(1),
   );
 }
-// The run's end, whether it played out or was skipped: every turn in flight
-// is finished, the redraw is one, and the button becomes Done.
 function packTurned() {
   packStepAt = performance.now();
-  for (const id of pack.ids) finishCardReveal(id);
+  for (const id of packRevealed) finishCardReveal(id);
   rememberCards();
   packAnnounce();
   render();
 }
-const packTurnNow = (id) => uncover(id, { flip: false, batch: true });
+function turnPackCard(id, options) {
+  if (!canRevealCard(id)) return;
+  uncover(id, options);
+  if (!cardIsCovered(id)) packRevealed.add(id);
+}
+const packTurnNow = (id) => turnPackCard(id, { flip: false, batch: true });
 // When the pack last changed what its one button does.
 let packStepAt = -Infinity;
 function openPack() {
@@ -1937,11 +1941,12 @@ function openPack() {
 }
 function revealAllPack() {
   packStepAt = performance.now();
+  packRevealed.clear();
   pack.revealAll({
     unturned: canRevealCard,
     tierOf: packTier,
     turn: (id) => {
-      uncover(id, { announce: false });
+      turnPackCard(id, { announce: false });
       revealHandCard(id);
     },
     done: packTurned,

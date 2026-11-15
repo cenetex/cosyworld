@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { expect, it } from "vitest";
 import { createLockedBoxes } from "../v2/card-game/locked-box.mjs";
-import { createPackOpening } from "../v2/card-game/pack-opening.mjs";
+import { createPackOpening, revealAnnouncement, tierRank } from "../v2/card-game/pack-opening.mjs";
 
 const source = readFileSync(new URL("../v2/card-game/app.mjs", import.meta.url), "utf8");
 const body = (name) => {
@@ -27,6 +27,7 @@ function view(saved = new Map(), shared = false) {
     selectionBlocked: () => state.blocked, opening: () => null,
     openingHeld: false, sharedSession: shared ? {} : null, syncSharedLine() {},
     openingTable: false, startingPip: false, pipPrelude: () => false,
+    currentActor: () => state.world.actor, titleShowing: () => false,
     fresh: new Set(), shownLevels: new Set(), shownStageLevels: new Set(),
     render() {}, nameOf: (id) => id, $: () => ({ querySelector: () => null }),
     performance: { now: () => 100 }, imageUrl: (url) => url, LOCKED_BACK: "locked.webp",
@@ -112,21 +113,39 @@ it("does not restore an unlocked lid from an older shared snapshot or storage re
   expect(s.lockedBoxes.ids()).toEqual(["field"]);
   expect(JSON.parse(saved.get("seen.locked")).revision).toBe(6);
 });
-it("excludes pending lids from Reveal all and its skip path", () => {
+it("groups pending lids with ordinary covers but excludes them from Reveal all and skip", () => {
   const { state: s, locked } = view();
   s.observeLocks(); locked.clear();
-  for (const id of ["plain", "second", "third"]) s.coveredCards.add(id);
+  s.coveredCards.add("second");
   const declaration = source.match(/^const canRevealCard = .+;$/mu)[0];
   const unturned = vm.runInContext(`${declaration} canRevealCard;`, s);
   const pack = createPackOpening({ reduced: () => true });
-  pack.sync(["field", "plain", "second", "third"], { unturned, kindOf: () => "item" });
-  expect(pack.ids).toEqual(["plain", "second", "third"]);
+  Object.assign(s, { pack, cardIsClosed: (id) => s.cardIsCovered(id) || s.pendingLock(id),
+    packKind: (id) => id === "field" ? "box" : "item", tableHolder: () => null, saveBlocked: false });
+  vm.runInContext(body("packSync"), s);
+  s.packSync(["field", "plain", "second"]);
+  expect(pack.ids).toEqual(["plain", "second", "field"]);
   pack.open();
   const turn = (id) => s.uncover(id, { batch: true });
   pack.revealAll({ unturned, tierOf: () => "common", turn, done() {} });
   pack.skip({ unturned, turnNow: turn });
   expect(s.lockedBoxes.boxed("field")).toBe(true);
   expect(s.coveredCards.size).toBe(0);
+});
+it("announces only actually revealed cards, excluding a locked card's rarer tier", () => {
+  const { state: s } = view(), announcement = {};
+  s.observeLocks(); s.coveredCards.add("second");
+  Object.assign(s, { packRevealed: new Set(), tierRank, revealAnnouncement,
+    packTier: (id) => ({ plain: "common", second: "rare", field: "mythic" })[id],
+    $: () => announcement });
+  const at = source.indexOf("const packTopTier =");
+  vm.runInContext(source.match(/^const canRevealCard = .+;$/mu)[0] + "\n" +
+    source.slice(at, source.indexOf("function packAnnounce", at)) +
+    [body("turnPackCard"), body("packAnnounce")].join("\n"), s);
+  for (const id of ["plain", "second", "field"]) s.turnPackCard(id, { batch: true });
+  s.packAnnounce();
+  expect(announcement.textContent).toBe("2 cards turned. Rarest: Rare.");
+  expect(s.lockedBoxes.boxed("field")).toBe(true);
 });
 it("observes locks after local backup rewind while shared reloads keep their fence", () => {
   for (const shared of [false, true]) {
@@ -138,7 +157,7 @@ it("observes locks after local backup rewind while shared reloads keep their fen
     locked.clear(); s.world.revision++; s.observeLocks();
     expect(s.lockedBoxes.boxed("field")).toBe(!shared);
     expect(JSON.parse(saved.get("seen.locked")).revision).toBe(shared ? 20 : 4);
-    s.unlockBox("field");
+    s.selected = ["field"]; s.unlockBox("field");
     expect(s.lockedBoxes.ids()).toEqual([]);
     s.world.revision++; s.available.push("plain"); locked.add("plain"); s.observeLocks(); s.rememberCards();
     locked.clear(); s.world.revision++; s.observeLocks();

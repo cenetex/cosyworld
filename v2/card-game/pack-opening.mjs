@@ -28,6 +28,7 @@ export const PACK_TEXT = {
   one: "New card unlocked",
   finish: "Turning the cards",
   done: "All cards revealed",
+  locked: "Locked cards await Unlock",
 };
 const ask = (kind, label) => ({ kind, label, text: PACK_TEXT[kind] });
 
@@ -324,9 +325,12 @@ export function createPackOpening({
     },
     // The one button the pack asks for while nothing is chosen, or null.
     // Reveal all waits for the hand to lie lowered.
-    prompt(unturned, { lowered = false } = {}) {
+    prompt(unturned, { lowered = false, locked = () => false } = {}) {
       if (state === "running") return ask("finish", PACK_FINISH);
-      if (state === "turned") return ask("done", PACK_DONE);
+      if (state === "turned") return {
+        ...ask("done", PACK_DONE),
+        ...(ids.some(locked) ? { text: PACK_TEXT.locked } : {}),
+      };
       if (state === "closed" && lowered && left(unturned).length)
         return ask("reveal", PACK_REVEAL_ALL);
       return null;
