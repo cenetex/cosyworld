@@ -252,3 +252,16 @@ test("a reply that only narrates the resident's own action is not posted", async
   await spoken.hear("m1", "Skull?");
   assert.deepEqual(spoken.sent, ["Skull"]);
 });
+
+test("an image-only message is a real message and asks for a decision", async () => {
+  const fixed = fixture([next("vale", 0.9), next("none", 0.9)]);
+  const url = "https://cdn.discordapp.com/attachments/1/2/pond.png";
+  const attachments = new Map([["1", { url, name: "pond.png", contentType: "image/png", size: 2048 }]]);
+  const entry = record(fixed.room, { id: "p1", createdTimestamp: Date.now(), content: "", attachments, author: { id: "u1", bot: false }, member: { displayName: "Ash" } }, "hook", cast, fixed.stats);
+  heard(fixed.room, entry, fixed.deps, now);
+  await fixed.room.turning;
+  assert.equal(fixed.stats.skips["low-signal"], undefined);
+  assert.equal(fixed.asks.length, 2);
+  assert.deepEqual(fixed.asks[0].state.history.at(-1).images, [url]);
+  assert.deepEqual(fixed.sent, ["Vale"]);
+});
