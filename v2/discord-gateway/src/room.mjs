@@ -3,6 +3,12 @@ import { beats, pause, repeatsOpening } from "./beats.mjs";
 
 export const RING = 150;
 const IGNORED_MS = 300000;
+const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const IMAGE_HOSTS = new Set(["cdn.discordapp.com", "media.discordapp.net"]);
+const IMAGE_BYTES = 8 * 1024 * 1024;
+const IMAGES_PER_MESSAGE = 2;
+const IMAGES_PER_REQUEST = 4;
+const SHARES = "[shares an image]";
 
 export function createRoom(guildId, channelId) {
   return {
@@ -37,15 +43,54 @@ function clean(text, limit) {
   return Array.from(collapsed).slice(0, limit).join("").trim();
 }
 
+function kind(attachment) {
+  const declared = String(attachment?.contentType ?? "").split(";")[0].trim().toLowerCase();
+  if (declared) return declared;
+  const ending = /\.(png|jpe?g|webp|gif)$/i.exec(String(attachment?.name ?? ""))?.[1]?.toLowerCase();
+  return ending ? `image/${ending === "jpg" ? "jpeg" : ending}` : "";
+}
+
+function discordCdn(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && IMAGE_HOSTS.has(parsed.hostname) && !parsed.port && !parsed.username && url.length <= 2048;
+  } catch {
+    return false;
+  }
+}
+
+export function images(message) {
+  const found = [];
+  for (const attachment of message.attachments?.values?.() ?? []) {
+    if (found.length >= IMAGES_PER_MESSAGE) break;
+    const size = Number(attachment?.size);
+    if (IMAGE_TYPES.has(kind(attachment)) && size > 0 && size <= IMAGE_BYTES && discordCdn(attachment.url)) found.push(attachment.url);
+  }
+  return found;
+}
+
+export function pictured(entries) {
+  let left = IMAGES_PER_REQUEST;
+  const parts = [];
+  for (const entry of [...entries].reverse()) {
+    const kept = (entry.images ?? []).slice(0, left);
+    left -= kept.length;
+    parts.unshift(kept.length ? { text: entry.text, images: kept } : { text: entry.text || (entry.images?.length ? SHARES : "") });
+  }
+  return parts;
+}
+
 export function record(room, message, webhookId, cast, stats = null) {
   const text = clean(message.content, 400);
-  if (!text) return null;
+  const seen = message.webhookId ? [] : images(message);
+  if (!text && !seen.length) return null;
   const entry = {
     id: message.id,
     at: message.createdTimestamp ?? 0,
     text,
     replyTo: message.reference?.messageId ?? null,
   };
+  if (seen.length) entry.images = seen;
   if (room.messages.some((known) => known.id === entry.id)) return null;
   if (message.webhookId) {
     if (!webhookId || message.webhookId !== webhookId) return null;
@@ -116,15 +161,15 @@ export function awareness(room, now) {
 
 export function requestBody(room, config, addressed, now = Date.now()) {
   const speaker = addressed && room.messages.at(-1)?.resident === addressed ? { continuing: addressed } : { addressed: addressed ?? null };
+  const recent = room.messages.slice(-Math.max(1, config.DISCORD_CONTEXT_MESSAGES));
+  const parts = pictured(recent);
   return {
     pack: config.DISCORD_PACK,
     ...speaker,
     channel: awareness(room, now),
-    messages: room.messages
-      .slice(-Math.max(1, config.DISCORD_CONTEXT_MESSAGES))
-      .map((entry) =>
-        entry.resident ? { resident: entry.resident, text: entry.text } : { author: entry.author, text: entry.text },
-      ),
+    messages: recent.map((entry, index) =>
+      entry.resident ? { resident: entry.resident, ...parts[index] } : { author: entry.author, ...parts[index] },
+    ),
   };
 }
 

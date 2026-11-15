@@ -119,7 +119,7 @@ export function hush(room, timers = globalThis) {
 export function heard(room, entry, deps, timers = globalThis) {
   if (!entry || entry.resident) return null;
   hush(room, timers);
-  const { risks } = assess(entry.text);
+  const risks = assess(entry.text).risks.filter((risk) => !(risk === "low-signal" && entry.images?.length));
   if (risks.length) {
     bump(deps.stats.skips, risks[0]);
     return null;

@@ -95,3 +95,50 @@ test("a resident who spoke last goes on with continuing", () => {
   assert.equal(going.addressed, undefined);
   assert.equal(requestBody(room, config, "rati", 2000).addressed, "rati");
 });
+
+const cdn = (name) => `https://cdn.discordapp.com/attachments/1/2/${name}?ex=1&is=2&hm=3`;
+const picture = (name, extra = {}) => ({ url: cdn(name), name, contentType: "image/png", size: 1000, ...extra });
+const attached = (...files) => new Map(files.map((file, index) => [String(index), file]));
+
+test("image attachments map to images, at most two, from Discord's CDN only", () => {
+  const { room } = fixture();
+  const only = record(room, message("i1", 0, "", { attachments: attached(picture("a.png")) }), "hook", cast);
+  assert.equal(only.text, "");
+  assert.deepEqual(only.images, [cdn("a.png")]);
+  const mixed = record(
+    room,
+    message("i2", 1, "look", {
+      attachments: attached(
+        picture("notes.txt", { contentType: "text/plain" }),
+        picture("huge.png", { size: 9 * 1024 * 1024 }),
+        { ...picture("x.png"), url: "https://example.com/x.png" },
+        { ...picture("y.png"), url: "http://cdn.discordapp.com/attachments/1/2/y.png" },
+        picture("b.webp", { contentType: "image/webp" }),
+        picture("c.gif", { contentType: undefined }),
+        picture("d.jpg", { contentType: "image/jpeg" }),
+      ),
+    }),
+    "hook",
+    cast,
+  );
+  assert.deepEqual(mixed.images, [cdn("b.webp"), cdn("c.gif")]);
+  assert.equal(record(room, message("i3", 2, "", { attachments: attached(picture("t.txt", { contentType: "text/plain" })) }), "hook", cast), null);
+  assert.equal(record(room, message("i4", 3, "plain"), "hook", cast).images, undefined);
+});
+
+test("a request carries at most four images, newest first, and a placeholder for the rest", () => {
+  const room = createRoom("g1", "c1");
+  room.messages.push(
+    { id: "a", at: 0, text: "", images: [cdn("1.png")], author: "Jun" },
+    { id: "b", at: 1, text: "old", images: [cdn("2.png")], author: "Jun" },
+    { id: "c", at: 2, text: "", images: [cdn("3.png"), cdn("4.png")], author: "Mara" },
+    { id: "d", at: 3, text: "RATi, see?", images: [cdn("5.png"), cdn("6.png")], author: "Mara" },
+  );
+  const { messages } = requestBody(room, config, "rati", 10);
+  assert.deepEqual(messages, [
+    { author: "Jun", text: "[shares an image]" },
+    { author: "Jun", text: "old" },
+    { author: "Mara", text: "", images: [cdn("3.png"), cdn("4.png")] },
+    { author: "Mara", text: "RATi, see?", images: [cdn("5.png"), cdn("6.png")] },
+  ]);
+});
