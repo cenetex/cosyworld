@@ -1,0 +1,49 @@
+{
+  "date": "2026-11-14",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2758",
+  "base_commit": "35c9341c17a9676421e05a1bc4b49301b4c2ad26",
+  "batch": 1,
+  "status": "generation-in-progress",
+  "transparent_background": true,
+  "target_size": [
+    1254,
+    1254
+  ],
+  "notes": [
+    "Three independent transparent item illustrations, displayed together as a triptych.",
+    "The current issue specifically requests the palm/city pictograms and lion seal; all other writing areas stay blank.",
+    "Listener deck art is published for future integration; no new deck item or mechanics are invented."
+  ],
+  "assets": [
+    {
+      "id": "listener-deck",
+      "source": "docs/design/assets/listener/listener-deck.png",
+      "runtime": "v2/card-game/assets/listener/listener-deck.webp",
+      "references": [
+        "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/tarot-back.png",
+        "/private/tmp/cosyworld-art-triptych-01/docs/design/assets/listener/listener-offering.png"
+      ],
+      "prompt": "Use case: illustration-story. Create a single transparent item illustration for CosyWorld: THE LISTENER'S DECK. Square 1254 x 1254 PNG with genuine alpha outside the object. Image 1 is the exact approved STAR CARD BACK design to retain. Image 2 is a STYLE REFERENCE ONLY for hand-coloured antique engraving: fine dark cross-hatching, muted watercolour, aged cream paper and dark ink. Do not draw the booth, hand or wheels from image 2.\n\nShow only a short compact stack of about twelve face-down tarot cards, bound together by one thin black ribbon, one card slightly offset. Three-quarter view from slightly above so the top card back reads clearly; cream paper edges visibly form the stack. The TOP CARD precisely follows image 1: rounded warm cream outer border, black inner field, three concentric cream rings around a black disc with exactly TWO cream four-pointed stars, moth at top and bottom, bell flowers and curling leafy vines. No keyhole. The thin ribbon crosses the edge of the stack while leaving the central two stars visible. Subtle wear, fine engraved texture, no bright colours.\n\nOne unified item, complete edges, centred horizontally, occupying about 70 percent of canvas width, placed in the upper-middle of the square with the entire lower 22 percent clear for a card label. Comfortable empty alpha margins on all sides. Clean alpha through the little ribbon loop and between separated cards. No box, people, hands, scenery, table, floor, ground shadow, lettering, title, frame or watermark. Do not flatten the object onto a printed background. Preserve true transparency."
+    },
+    {
+      "id": "helen-accounts",
+      "source": "v2/card-game/assets/greek-drama/helen-accounts.png",
+      "card_id": "greek-helen-accounts",
+      "references": [
+        "/private/tmp/cosyworld-art-triptych-01/v2/card-game/assets/greek-drama/tomb-testimony.png"
+      ],
+      "prompt": "Use case: illustration-story. Create one NEW item for CosyWorld's Greek drama pack: HELEN'S ACCOUNT TABLET. The attached tablet is a reference ONLY for warm aged materials, upper-left amber highlights, deep muted blue-indigo self-shadow and detailed chthonic Greek oil painting; make the new distinctive object described here rather than copying its old writing. A square 1254 x 1254 PNG, genuine alpha everywhere outside the item.\n\nA single thick clay writing tablet, softly rectangular, worn rounded corners and chipped terracotta edges. A vertical carved divider splits its face into TWO clear columns. At the top of the left column a small simple Egyptian PALM TREE pictogram is pressed into the clay; at the top of the right column a small simple WALLED CITY pictogram, with gate and low battlements. Below these two pictograms both clay columns are quiet blank worn material: no letters, no invented script, no tally rows, no additional symbols. A single sailor's knot of short coarse cord passes through a real hole in one corner. The cord is attached to this tablet, not a separate prop. Modest three-quarter angle, broad face visible, tactile ancient clay, soft painterly texture matching Greek burial-earth items.\n\nOnly the complete tablet and its attached knot. Centre horizontally, about 70 percent of canvas width, upper-middle placement, lowest point above 78 percent canvas height, with a completely clear lower 22 percent for the card name and generous margins elsewhere. Genuine alpha in the corner hole and cord loops. No hands, people, table, floor, ground shadow, backdrop, text, border or watermark."
+    },
+    {
+      "id": "atreid-record",
+      "source": "v2/card-game/assets/greek-drama/atreid-record.png",
+      "card_id": "greek-atreid-record",
+      "references": [
+        "/private/tmp/cosyworld-art-triptych-01/v2/card-game/assets/greek-drama/testimony.png",
+        "/private/tmp/cosyworld-art-triptych-01/v2/card-game/assets/greek-drama/tomb-testimony.png"
+      ],
+      "prompt": "Use case: illustration-story. Create one NEW item for CosyWorld's Greek drama pack: RECORD OF THE HOUSE OF ATREUS. Attached old tablets are MATERIAL AND PAINTING STYLE references only: warm upper-left amber light, worn walnut, dark wax, subdued blue-indigo self-shadow, burial-earth colours and matte oil-painted texture. Do not copy their writing, tally marks or shape. Square 1254 x 1254 PNG with genuine alpha outside the object.\n\nA compact folded ancient WAX-AND-WOOD RECORD, a closed but slightly fanned TRIPTYCH of THREE thin wooden tablet leaves hinged by short cords along one edge, each holding recessed dark wax. Three page edges visibly separate near the lower side. Exactly THREE short ribbon page markers emerge, one from each leaf: muted terracotta red, faded teal, olive. The three coloured ribbons are clearly separate, short and frayed, hanging close to the record. Worn wooden front cover has a small round wax seal bearing a simple Mycenaean LION in low relief, recognizably an animal silhouette rather than letters. No other marks or symbols. Show a pleasing slightly elevated three-quarter angle so the cover, three wooden leaf edges and all three ribbons read clearly. The object should feel like a small ancient bound record, not a modern book with paper pages or an open diptych. Detailed hand-painted wood and wax, quiet solemn material presence.\n\nOnly this one complete bound record with attached ribbons and seal, no loose stylus or other props. Centre horizontally in upper-middle, width about 70 percent of the square, lowest ribbon end above 78 percent of height, empty lower 22 percent and comfortable outer alpha margins. Clean transparency between ribbons and hinge cords. No readable or unreadable text, invented script, tally rows, people, hands, table, floor, cast ground shadow, scenery, background, frame or watermark."
+    }
+  ]
+}
