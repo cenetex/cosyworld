@@ -386,17 +386,27 @@ try {
         await settleHand();
         const beforePlay = await handRect();
         // The settled hand follows the dialogue's measured cover exactly.
-        const sameHand = async (label, settled = false) => {
-          const now = await handRect(), field = settled ? "covered" : "rect";
+        const sameHand = async (label, settled = false, captured = null) => {
+          const now = captured ?? await handRect(), field = settled ? "covered" : "rect";
           assert.deepEqual(
             { rect: now[field], scroll: now.scroll },
             { rect: beforePlay[field], scroll: beforePlay.scroll },
             label,
           );
         };
-        await readyActionButton(page, "wait").click();
+        const wait = readyActionButton(page, "wait");
+        await wait.evaluate((button) => button.addEventListener("click", () => {
+          const hand = document.querySelector("#hand");
+          const { left, top, width, height } = hand.getBoundingClientRect();
+          window.holderCommittedHand = {
+            rect: [left, top, width, height].map(Math.round),
+            scroll: Math.round(hand.scrollLeft),
+          };
+        }, { once: true }));
+        await wait.click();
         assert.equal(await action("wait").count(), 0, "the beat rests");
-        await sameHand("committing a play leaves the hand where it is");
+        await sameHand("committing a play leaves the hand where it is", false,
+          await page.evaluate(() => window.holderCommittedHand));
         await settled();
         await settleHand();
         assert.equal(await open(), "true", "a play keeps the hand raised");
