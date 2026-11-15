@@ -459,7 +459,6 @@ const files = [
     "water-jar",
   ].map((id) => `assets/greek-drama/${id}.svg`),
 ];
-// A mounted pack can reuse an image already published by the card table.
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
 for (const { art } of arcana.cards)
   if (art && !files.includes(art)) files.push(art);
