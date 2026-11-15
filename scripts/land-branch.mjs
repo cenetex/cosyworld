@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // Land a ready branch on top of main without hand-resolving generated files.
-//
 // Most prepared branches change the embedded card asset manifest or claim the
 // next shared rules version, and those lines conflict once main moves. This
 // applies only the branch's own work onto main, keeps dependency changes in

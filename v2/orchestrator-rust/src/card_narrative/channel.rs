@@ -2,7 +2,9 @@ use super::{
     bounded, complete_selected, error, profiles, system_one, voice_scenes, Context, TextState,
     VoiceSettings,
 };
-use crate::ai_gateway::AiConfig;
+use crate::ai_gateway::{
+    request_chat_completion, AiConfig, ChatCompletionRequest, ModelCapability,
+};
 use crate::rate_limit::{RateLimit, RateLimiter};
 use axum::{
     extract::{
@@ -958,6 +960,136 @@ fn coordinated(answers: Option<Value>, reason: String) -> Response {
     ([("cache-control", "no-store")], Json(body)).into_response()
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct Notes {
+    topic: String,
+    goal: String,
+    summary: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct NotesRequest {
+    pack: String,
+    messages: Vec<Message>,
+    #[serde(default)]
+    notes: Option<Notes>,
+}
+
+fn sound(notes: &Notes) -> bool {
+    bounded(&notes.topic, 40) && bounded(&notes.goal, 120) && bounded(&notes.summary, 300)
+}
+
+fn notes_model() -> String {
+    std::env::var("COSYWORLD_DISCORD_NOTES_MODEL")
+        .ok()
+        .filter(|model| !model.trim().is_empty())
+        .unwrap_or_else(|| "google/gemma-4-26b-a4b-it".into())
+}
+
+pub(super) async fn notes(
+    State(state): State<TextState>,
+    headers: HeaderMap,
+    request: Result<Json<NotesRequest>, JsonRejection>,
+) -> Response {
+    if let Err(refused) = admitted(&state, &headers, "coordinate") {
+        return refused;
+    }
+    let Ok(Json(request)) = request else {
+        return error(StatusCode::BAD_REQUEST, "unreadable request");
+    };
+    let Some(residents) = cast(&request.pack) else {
+        return error(StatusCode::BAD_REQUEST, "unknown pack");
+    };
+    let fits = (1..=12).contains(&request.messages.len())
+        && request.notes.as_ref().is_none_or(sound)
+        && request
+            .messages
+            .iter()
+            .all(|m| match (&m.author, &m.resident) {
+                (Some(author), None) => bounded(author, 32) && bounded(&m.text, 400),
+                (None, Some(id)) => residents.iter().any(|r| &r.id == id) && bounded(&m.text, 400),
+                _ => false,
+            });
+    if !fits {
+        return error(
+            StatusCode::BAD_REQUEST,
+            "send 1 to 12 messages and bounded notes",
+        );
+    }
+    let Some(config) = state.ai.as_ref().as_ref() else {
+        return noted(None, "not-configured");
+    };
+    let mut cheap = config.clone();
+    cheap
+        .capability_models
+        .insert(ModelCapability::WorldContent, notes_model());
+    if cheap.pin_model(ModelCapability::WorldContent).is_err() {
+        return noted(None, "no-model");
+    }
+    let before = request.notes.as_ref().map_or(String::new(), |n| {
+        format!(
+            "Earlier notes: {} / {} / {}\n\n",
+            n.topic, n.goal, n.summary
+        )
+    });
+    let lines = request
+        .messages
+        .iter()
+        .map(|m| format!("{}: {}", speaker(m, &residents), m.text))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let text = json!({"type": "string"});
+    let format = json!({
+        "type": "json_schema",
+        "json_schema": {
+            "name": "discord_notes",
+            "strict": true,
+            "schema": {
+                "type": "object",
+                "properties": {"topic": text, "goal": text, "summary": text},
+                "required": ["topic", "goal", "summary"],
+                "additionalProperties": false
+            }
+        }
+    });
+    let completion = request_chat_completion(
+        &cheap,
+        ChatCompletionRequest {
+            feature: "discord_notes",
+            prompt_version: "discord-notes-v1",
+            capability: ModelCapability::WorldContent,
+            system: "Keep short notes on a chat: topic in a few words (at most 40 characters), what the people want (at most 120), and a summary (at most 300).",
+            user: &format!("{before}{lines}"),
+            temperature: 0.0,
+            max_tokens: 200,
+            timeout: Duration::from_secs(8),
+            max_attempts: 1,
+            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
+            response_format: Some(&format),
+            room_id: None,
+        },
+    )
+    .await;
+    match completion {
+        Ok(done) => match serde_json::from_str::<Notes>(done.text.trim()) {
+            Ok(notes) if sound(&notes) => noted(Some(notes), "ok"),
+            _ => noted(None, "schema"),
+        },
+        Err(_) => noted(None, "model"),
+    }
+}
+
+fn noted(notes: Option<Notes>, reason: &'static str) -> Response {
+    tracing::info!(feature = "discord", reason, "discord notes");
+    (
+        [("cache-control", "no-store")],
+        Json(json!({"notes": notes, "reason": reason})),
+    )
+        .into_response()
+}
+
 #[cfg(test)]
 mod tests {
     use super::super::conversation::SAY_ALOUD;
@@ -1595,6 +1727,50 @@ mod tests {
         let tokens = system_one::fit(&mut state, &questions);
         assert!(tokens <= system_one::TOKENS_PER_QUESTION);
         assert!(state["history"].as_array().unwrap().len() < 400);
+    }
+
+    #[tokio::test]
+    async fn notes_come_from_the_cheap_model_and_a_bad_shape_is_dropped() {
+        std::env::set_var("COSYWORLD_DISCORD_NOTES_MODEL", "test-entity-model");
+        let post_notes = |answer: &'static str, body: Value| async move {
+            let seen = Arc::new(Mutex::new(Vec::new()));
+            let (address, server) = serve(provider(seen.clone(), answer, None)).await;
+            let app = router_with_models::<()>(
+                Arc::new(Some(intent_config(address))),
+                Ok(BTreeMap::new()),
+                Ok(VoiceSettings::hosted()),
+            );
+            let request = Request::post("/discord/notes")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {TOKEN}"))
+                .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                .unwrap();
+            let (status, body) = read(app.oneshot(request).await.unwrap()).await;
+            server.abort();
+            let requests = seen.lock().unwrap().clone();
+            (status, body, requests)
+        };
+        std::env::set_var("COSYWORLD_BOT_TOKEN", TOKEN);
+        let chat = json!({"pack": "lonely-forest", "messages": [
+            {"author": "Ash", "text": "what about gin"},
+            {"resident": "rati", "text": "Gin is for later."}
+        ]});
+        let good =
+            r#"{"topic":"gin","goal":"get RATi to pour gin","summary":"Ash asks RATi for gin."}"#;
+        let (status, body, requests) = post_notes(good, chat.clone()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["notes"]["topic"], "gin");
+        assert_eq!(requests[0]["model"], "test-entity-model");
+        assert!(turn_of(&requests[0], "user").ends_with("RATi: Gin is for later."));
+        for bad in [r#"{"topic":"","goal":"g","summary":"s"}"#, "not json"] {
+            let (_, body, _) = post_notes(bad, chat.clone()).await;
+            assert_eq!(body, json!({"notes": null, "reason": "schema"}));
+        }
+        let mut long = chat.clone();
+        long["notes"] = json!({"topic": "t", "goal": "g", "summary": "s".repeat(301)});
+        let (status, _, requests) = post_notes(good, long).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(requests.is_empty());
     }
 
     #[tokio::test]

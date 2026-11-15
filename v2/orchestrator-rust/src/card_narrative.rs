@@ -367,6 +367,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
         .route("/discord/cast", axum::routing::get(channel::cast_route))
         .route("/discord/lines", post(channel::lines))
         .route("/discord/coordinate", post(channel::coordinate))
+        .route("/discord/notes", post(channel::notes))
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(TextState {
             ai,
