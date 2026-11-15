@@ -23,13 +23,13 @@ export async function fetchCast(fetch, origin, token, pack) {
   }
 }
 
-export async function channelLines(fetch, origin, token, body) {
+export async function channelLines(fetch, origin, token, body, signal) {
   try {
     const response = await fetch(`${origin}/discord/lines`, {
       method: "POST",
       headers: { ...headers(token), "content-type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]) : AbortSignal.timeout(TIMEOUT_MS),
     });
     if (response.status !== 200) return { lines: [], reason: `http-${response.status}` };
     const parsed = await response.json();
