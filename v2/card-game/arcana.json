@@ -1,6 +1,32 @@
 {
   "schema": 1,
   "calls": 3,
+  "visit": {
+    "match": {
+      "verb": "talk",
+      "actorId": "$traveler",
+      "targetId": "listener"
+    }
+  },
+  "price": {
+    "match": {
+      "verb": "give",
+      "actorId": "$traveler",
+      "targetId": "listener",
+      "accepted": true
+    },
+    "with": ["gone"]
+  },
+  "levels": [
+    {
+      "from": 11,
+      "scale": 2
+    },
+    {
+      "from": 18,
+      "scale": 3
+    }
+  ],
   "cards": [
     {
       "id": "arcanum-0",
@@ -330,14 +356,16 @@
           "target": "$thing",
           "step": {
             "verb": "eat"
-          }
+          },
+          "key": "spent"
         },
         {
           "kind": "item",
           "target": "$thing",
           "step": {
             "verb": "find"
-          }
+          },
+          "key": "found"
         }
       ]
     },

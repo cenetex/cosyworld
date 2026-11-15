@@ -11,27 +11,23 @@ import {
   bindingOf,
   candidates,
   dealable,
+  dealSpread,
   deck,
   holds,
-  nextCard,
+  nextSpread,
   recordOf,
-  settleArcana,
 } from "../v2/card-game/world/arcana.mjs";
 import { boxDefs } from "../v2/card-game/world/boxes.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
-import {
-  createWorld,
-  decodeSave,
-  encodeSave,
-  legalActions,
-  play,
-} from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 
 const only = (id, seed = 7) => {
   deck.cards = data.cards.filter((card) => card.id === id);
   const s = createWorld({ seed });
-  settleArcana(s, "vale");
-  expect(recordOf(s, "vale").dealt).toBe(id);
+  expect(dealSpread(s, "vale")).toBe(true);
+  expect(recordOf(s, "vale").spread).toMatchObject([
+    { card: id, face: "locked" },
+  ]);
   return s;
 };
 const act = (s, test) => {
@@ -203,11 +199,10 @@ describe("the second row, played in a created world", () => {
     s.actors.vale.place = "pond";
     for (const item of Object.values(s.items))
       if (item.holder === "vale") item.holder = "pond";
-    settleArcana(s, "vale");
-    expect(recordOf(s, "vale")).toMatchObject({
-      dealt: "arcanum-16",
-      base: { opened: 0 },
-    });
+    dealSpread(s, "vale");
+    expect(recordOf(s, "vale").spread).toEqual([
+      { card: "arcanum-16", face: "locked", base: { opened: 0 } },
+    ]);
     const route = [
       ["take", id("station-key")],
       ["move", "station"],
@@ -306,40 +301,7 @@ describe("the whole deck", () => {
       did: [],
     };
     expect(arcanaLevel(s, "vale")).toBe(21);
-    expect(nextCard(s, "vale")).toBeNull();
-  });
-
-  it("deals the World only when no other card can be dealt", () => {
-    const s = createWorld({ seed: 7 });
-    const ids = (list) => list.map((card) => card.id).sort();
-    const rest = data.cards.filter((card) => card.number !== 21);
-    s.actors.vale.arcana = {
-      proved: ids(rest.filter((c) => c.number !== 16)),
-      did: [],
-    };
-    expect(nextCard(s, "vale")).toBe("arcanum-16");
-    s.opened = Object.fromEntries(
-      live(s, "resident").map((def) => [def.id, ["vale"]]),
-    );
-    expect(nextCard(s, "vale")).toBe("arcanum-21");
-    s.actors.vale.arcana.proved = ids(rest);
-    delete s.opened;
-    expect(nextCard(s, "vale")).toBe("arcanum-21");
-  });
-
-  it("takes back a World dealt while another card can still be dealt", () => {
-    const s = createWorld({ seed: 7 });
-    s.actors.vale.arcana = {
-      proved: ["arcanum-0", "arcanum-1"],
-      did: [],
-      dealt: "arcanum-21",
-    };
-    const loaded = decodeSave(encodeSave(s));
-    settleArcana(loaded, "vale");
-    const dealt = recordOf(loaded, "vale").dealt;
-    expect(dealt).not.toBe("arcanum-21");
-    expect(dealt).toBe(nextCard(s, "vale"));
-    expect(recordOf(loaded, "vale").proved).toEqual(["arcanum-0", "arcanum-1"]);
+    expect(nextSpread(s, "vale")).toEqual([]);
   });
 });
 
@@ -361,7 +323,11 @@ describe("the words added for these cards", () => {
         ],
       },
     ];
-    settleArcana(s, "vale");
+    s.actors.vale.arcana = {
+      proved: [],
+      did: [],
+      spread: [{ card: "arcanum-0", face: "up" }],
+    };
     let t = act(s, (a) => a.kind === "wait" && !a.sleep);
     expect(recordOf(t, "vale").did).toEqual([]);
     t = untilNight(t);

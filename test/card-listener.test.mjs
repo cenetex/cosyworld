@@ -153,6 +153,22 @@ describe("the Listener", () => {
     expect(validateWorld(reload(world))).toBeTruthy();
   });
 
+  it("deals a spread for the price and leaves once nobody calls it", () => {
+    let world = beside(call(createWorld({ seed: 5 }), { sale: true }));
+    world.items.bell.holder = "vale";
+    world = act(
+      world,
+      (a) => a.kind === "give" && a.item === "bell" && a.target === ID,
+    );
+    const record = world.actors.vale.arcana;
+    expect(record.sale).toBeUndefined();
+    expect(record.spread.length).toBeGreaterThan(0);
+    delete record.calls;
+    world = wait(world);
+    expect(entityActive(world, ID)).toBe(false);
+    expect(validateWorld(reload(world))).toBeTruthy();
+  });
+
   it("offers three fetch quests to empty hands, only of things found", () => {
     let world = beside(call(createWorld({ seed: 5 }), { sale: true }));
     for (const item of Object.values(world.items))

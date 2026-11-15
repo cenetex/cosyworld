@@ -97,7 +97,7 @@ import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
   isQuestId,
-  levelCard,
+  levelCards,
   questCards,
   questVisible,
   questCaption,
@@ -5027,8 +5027,7 @@ function render() {
   for (let i = metWants(world.log, questSeq, currentActor(world)); i > 0; i--)
     count("quest.met");
   questSeq = world.eventSeq;
-  const dealtLevel = levelCard(world);
-  const liveQuests = [...questCards(world), ...(dealtLevel ? [dealtLevel] : [])];
+  const liveQuests = [...questCards(world), ...levelCards(world)];
   const dealtQuest = liveQuests.find(
     (quest) => questVisible(world, quest) && !shownQuests.some((shown) => shown.key === quest.key),
   );

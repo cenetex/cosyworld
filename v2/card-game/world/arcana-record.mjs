@@ -11,17 +11,24 @@ export function recordOf(s, traveler) {
   return {
     proved: record?.proved || [],
     did: record?.did || [],
-    dealt: record?.dealt ?? null,
-    base: record?.base || {},
+    level: record?.level ?? null,
     calls: record?.calls ?? 0,
+    need: record?.need || [],
+    done: record?.done || [],
+    spread: record?.spread || [],
     sale: record?.sale === true,
   };
 }
 
-export const arcanaLevel = (s, id) =>
-  Math.min(LEVEL_CAP, recordOf(s, id).proved.length);
+export const arcanaLevel = (s, id) => {
+  const record = recordOf(s, id);
+  return Math.min(LEVEL_CAP, record.level ?? record.proved.length);
+};
 
 export const tarotsHeld = (actor) => actor?.arcana?.spread?.length ?? 0;
+
+export const unlockedOf = (s, traveler) =>
+  [...new Set((s.actors?.[traveler]?.upgrades || []).filter(isArcanum))].sort();
 
 export function countResidentQuest(actor) {
   const record = (actor.arcana ??= { proved: [], did: [] });
@@ -35,9 +42,7 @@ export function called(s, traveler) {
     record.sale ||
     (record.calls >= CALLS &&
       (arcanaLevel(s, traveler) < LEVEL_CAP ||
-        (s.actors[traveler].arcana?.spread || []).some(
-          (slot) => slot.face === "down",
-        )))
+        record.spread.some((slot) => slot.face === "down")))
   );
 }
 

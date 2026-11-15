@@ -482,10 +482,12 @@ export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
 import { boxIdOpen, creditOpened, validOpened } from "./world/boxes.mjs";
 import {
+  discardTarot,
   dreamCard,
   installArcana,
   sells,
   settleArcana,
+  spreadOf,
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
@@ -1012,7 +1014,9 @@ export function holdChoice(s, actor, choice) {
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
-  settleArcana(s, actor, before.eventSeq ?? before.log.length);
+  settleArcana(s, actor, before.eventSeq ?? before.log.length, (text, detail) =>
+    addLog(s, "World", text, detail),
+  );
   settleSealedItems(s, nameOf, (text, locationId) =>
     addLog(s, "World", text, { kind: "narration", locationId }),
   );
@@ -1684,6 +1688,18 @@ export function legalActions(s, actor = currentActor(s)) {
         [],
       );
       out.push({ ...drop, quest, key: `${drop.key}:${quest}` });
+    });
+  if (actor === currentActor(s) || controlledByHuman(s, actor))
+    spreadOf(s, actor).forEach(({ card, face }, tarot) => {
+      const drop = offer(
+        "drop",
+        actor,
+        null,
+        null,
+        `${nameOf(actor)} sets down ${face === "down" ? "a face-down card" : nameOf(card)}.`,
+        [],
+      );
+      out.push({ ...drop, tarot, key: `${drop.key}:tarot:${tarot}` });
     });
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
@@ -2385,7 +2401,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "drop" && !a.item) {
-    dropQuest(s, a.actor, a.quest ?? 0);
+    if (a.tarot !== undefined) discardTarot(s, a.actor, a.tarot);
+    else dropQuest(s, a.actor, a.quest ?? 0);
     addLog(s, "World", a.text, {
       kind: "action",
       actorId: a.actor,
@@ -3479,7 +3496,9 @@ export function play(
   settleStandoffs(next);
   // A gate whose condition now holds stays open from here on.
   latchRoutes(next);
-  settleArcana(next, actor, s.eventSeq ?? s.log.length);
+  settleArcana(next, actor, s.eventSeq ?? s.log.length, (text, detail) =>
+    addLog(next, "World", text, detail),
+  );
   // A sealed thing whose seal follows its facts goes home when they lapse.
   settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);

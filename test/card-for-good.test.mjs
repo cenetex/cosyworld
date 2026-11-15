@@ -79,7 +79,11 @@ describe("a thing given up for good", () => {
   it("marks the play that loses a thing for good, and proves XIII", () => {
     let world = sewing();
     const xiii = data.cards.find((card) => card.number === 13);
-    world.actors.vale.arcana = { proved: [], did: [], dealt: xiii.id };
+    world.actors.vale.arcana = {
+      proved: [],
+      did: [],
+      spread: [{ card: xiii.id, face: "up" }],
+    };
     const before = new Set(world.usedUp);
     world = act(world, "give", { item: BUTTON, target: "rati" });
     expect(neverBack(world, BUTTON)).toBe(true);

@@ -4,7 +4,7 @@
 import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
 import { conditionWords, wantWords } from "./world/want-words.mjs";
-import { arcanaLevel, arcanumTerms, dealtCard } from "./world/arcana.mjs";
+import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
 import { homeOf } from "./world/home.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
@@ -69,23 +69,21 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
-export function levelCard(world, actor = currentActor(world)) {
-  const card = dealtCard(world, actor)?.card;
-  if (!card) return null;
-  return {
-    key: `level:${card.id}`,
-    index: questsOf(world, actor).length,
+export const levelCards = (world, actor = currentActor(world)) =>
+  spreadOf(world, actor).map(({ index, card, face }) => ({
+    key: face === "down" ? `tarot:down:${index}` : `tarot:${card}`,
+    index,
     actor,
     kind: "arcanum",
-    target: card.id,
+    face,
+    target: face === "down" ? null : card,
     level: Math.min(21, arcanaLevel(world, actor) + 1),
     left: 1,
     step: null,
-    art: arcanumArt(card.id),
-    conditions: arcanumTerms(world, actor, card.id),
+    art: face === "down" ? null : arcanumArt(card),
+    conditions: face === "down" ? null : arcanumTerms(world, actor, index),
     home: homeOf(actor) ?? null,
-  };
-}
+  }));
 // The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;

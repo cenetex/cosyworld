@@ -312,7 +312,8 @@ export function installWants(s) {
       if (kept.length > 1) a.under = kept.slice(1);
       else delete a.under;
     }
-    while (a.under && slotsUsed(a) > MAX_HELD) releaseQuest(a, a.under.at(-1));
+    while (heldOf(a).length && slotsUsed(a) > MAX_HELD)
+      releaseQuest(a, heldOf(a).at(-1));
     // Old saves without an explicit level retain their already earned level.
     if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
     a.visited ??= [a.place];
