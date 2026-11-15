@@ -2134,12 +2134,27 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   thinkingSince = null;
   playQueue.submit(action, revision);
 }
+function worldStuck() {
+  const rest = legalActions(world, currentActor(world)).find(
+    (a) => a.kind === "wait" && !a.sleep,
+  );
+  return Boolean(
+    rest && attemptPlay(() => play(world, rest, world.revision), saveCodec).fault,
+  );
+}
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
   const result = attemptPlay(() => play(world, action, revision), saveCodec);
   if (!result.ok) {
     if (result.fault) reportSaveFault(result.fault, action);
     else count("error.rules_reject");
+    if (result.fault && worldStuck()) {
+      blockSave(
+        "This world cannot take another turn. It is kept until you start a new game.",
+      );
+      render();
+      return;
+    }
     notice(result.error);
     render();
     return;
