@@ -395,11 +395,11 @@ async function wake(page) {
     }, `${actor} uncovers ${id}`);
   await clearSelection(page);
 }
-async function readSharedLine(page, text) {
+async function readSharedLine(page, text, finishEarlier = false) {
   await until(async () => {
     if ((await page.locator("#dialogue-text").textContent())?.trim() === text)
       return true;
-    const next = page.locator('#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]');
+    const next = page.locator(finishEarlier ? "#dialogue-advance" : '#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]');
     if (await next.isVisible()) await next.click();
     return false;
   }, `the reader reaches ${text}`, 80, 250);
@@ -893,6 +893,12 @@ try {
   assert.equal((await snapshot(vale)).world.revision, beforeForgery);
   for (const page of [vale, mara]) {
     await wake(page);
+    const state = await snapshot(page);
+    for (const id of currentScene({ ...state.world, playerActorId: state.actor }).slots.filter(Boolean))
+      await revealCard(page, id);
+    await clearSelection(page);
+    const latest = state.history.find((scene) => scene.room === meet).lines.at(-1);
+    await readSharedLine(page, latest.text, true);
     await catchUpWithStack(page);
     await catchUpWithLive(page);
   }
@@ -1019,7 +1025,6 @@ try {
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara, nell].map(idle));
   await closeSettings(mara);
-  // Continue through each saved line and prove its letters animate in order.
   for (const page of [vale, mara]) {
     const expected = [];
     for (const speaker of speakers)
