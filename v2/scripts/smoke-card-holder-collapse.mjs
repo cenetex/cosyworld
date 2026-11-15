@@ -7,7 +7,7 @@ import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
-import { actionLabel, readyActionButton, smokeWidths } from "./card-browser-helpers.mjs";
+import { actionLabel, clearSelection, readyActionButton, selectCard, smokeWidths } from "./card-browser-helpers.mjs";
 
 const browserName = process.env.CARD_BROWSER || "chromium";
 const browserType = { chromium, webkit }[browserName];
@@ -599,6 +599,18 @@ try {
           localStorage.setItem(key, JSON.stringify(save));
         }, key);
         const newQuest = page.locator('#hand [data-quest-key="level:arcanum-1"]');
+        await clearSelection(page);
+        await selectCard(page, "vale");
+        await page.locator("[data-review-quests]").click();
+        const accept = page.locator('[data-accept-quest]:not([data-revealing="true"])');
+        await accept.waitFor();
+        assert.equal(await newQuest.count(), 0, "a remote deal waits for consent");
+        const turn = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).turn, key);
+        await accept.click();
+        await page.waitForFunction((key) =>
+          JSON.parse(localStorage.getItem(key)).actors.vale.arcana.accepted === "arcanum-1", key);
+        assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).turn, key), turn,
+          "Accept advances no turn");
         await newQuest.waitFor();
         await settleHand();
         const questBox = await newQuest.boundingBox();
