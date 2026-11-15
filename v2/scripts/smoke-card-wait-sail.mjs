@@ -76,8 +76,14 @@ async function check(width, name, world, cards, label, sentence) {
       await selectCard(page, card, { touch: width === 390 });
     const action = page.getByRole("button", { name: label, exact: true });
     await action.waitFor();
-    assert.equal(await page.locator("#card-actions button").count(), 1);
-    assert.equal((await action.textContent()).trim(), sentence);
+    const own = [cards].flat().length === 1 && [cards].flat()[0] === "vale";
+    assert.equal(await page.locator("#card-actions button").count(), own ? 2 : 1);
+    assert.equal(await page.locator("[data-review-quests]").count(), own ? 1 : 0);
+    if (own) {
+      assert.equal((await action.textContent()).trim(), label);
+      await page.waitForFunction((sentence) =>
+        document.querySelector(".action-beat-text")?.textContent === sentence, sentence);
+    } else assert.equal((await action.textContent()).trim(), sentence);
     await page.waitForFunction(
       () =>
         getComputedStyle(document.querySelector("#action-beat")).opacity ===

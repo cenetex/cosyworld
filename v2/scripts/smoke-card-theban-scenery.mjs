@@ -111,6 +111,18 @@ try {
       }
       throw Error("hand remained busy");
     }
+    const unlockSelected = async (id) => {
+      const unlock = page.locator(`[data-unlock-box="${id}"]`);
+      if (!(await unlock.count())) return;
+      assert(await unlock.isEnabled(), `${id} is eligible for Unlock`);
+      const before = await state();
+      await unlock.click();
+      await page.waitForFunction((id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.locked === "false" && !card.dataset.revealing;
+      }, id);
+      assert.deepEqual(await state(), before, "Unlock preserves the whole world");
+    };
     async function use(...ids) {
       await ready();
       if (await endStandoff(page, await state())) await ready();
@@ -129,6 +141,7 @@ try {
       for (const id of ids) {
         await selectCard(page, id);
       }
+      if (ids.length === 1) await unlockSelected(ids[0]);
       await page.locator("#card-actions .card-primary").click();
       await ready();
     }
@@ -297,6 +310,10 @@ try {
           await use("greek-creon-writ", "greek-guard");
           const opened = await state();
           assert.equal(opened.items["greek-creon-writ"].holder, "greek-guard");
+          assert.equal(await card("greek-battlefield").getAttribute("data-locked"), "true");
+          await clearSelection(page);
+          await selectCard(page, "greek-battlefield");
+          await unlockSelected("greek-battlefield");
           assert.equal(await card("greek-battlefield").getAttribute("data-locked"), "false");
           assert(legalActions(opened).some(
             (action) => action.kind === "move" && action.target === "greek-battlefield",

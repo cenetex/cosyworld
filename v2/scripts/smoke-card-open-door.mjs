@@ -20,6 +20,7 @@ import {
 import { greekMoveSteps } from "../../test/helpers/greek-travel.mjs";
 import {
   clearSelection,
+  readyActionButton,
   selectCard,
   smokeWidths,
   unreachableCards,
@@ -187,10 +188,36 @@ export async function checkOpenDoor(browser, origin) {
         await clearSelection(page);
         for (const id of [...new Set(cards)])
           await selectCard(page, id, { touch: width === 390 });
-        await page
-          .locator(`#card-actions [data-action="${kind}"]`)
-          .first()
-          .click();
+        const unlock = page.locator("#card-actions [data-unlock-box]");
+        if (await unlock.count()) {
+          assert(await unlock.isEnabled(), "the chosen destination can be unlocked");
+          const id = await unlock.getAttribute("data-unlock-box");
+          const beforeUnlock = await state();
+          await unlock.click();
+          await page.waitForFunction((id) => {
+            const card = document.querySelector(`#hand [data-card="${id}"]`);
+            return card?.dataset.locked === "false" && !card.dataset.revealing;
+          }, id);
+          assert.deepEqual(await state(), beforeUnlock, "Unlock preserves the world");
+        }
+        for (const id of [...new Set(cards)])
+          if ((await page.locator(`#hand [data-card="${id}"]`).getAttribute("aria-pressed")) !== "true")
+            await selectCard(page, id, { touch: width === 390 });
+        try {
+          await readyActionButton(page, kind).first().click();
+        } catch (error) {
+          console.error("Open Door action failed", JSON.stringify({ kind, fields, cards,
+            ui: await page.evaluate(() => ({
+              selected: [...document.querySelectorAll('#hand .card[aria-pressed="true"]')].map((card) => card.dataset.card),
+              buttons: [...document.querySelectorAll("#card-actions button")].map((button) => ({
+                text: button.textContent, ...button.dataset, disabled: button.disabled,
+              })),
+              caption: document.querySelector(".action-beat-text")?.textContent,
+              dialogue: document.querySelector("#dialogue-text")?.textContent,
+            })),
+          }));
+          throw error;
+        }
         await settle();
         const after = await state();
         const sleptThrough = after.log

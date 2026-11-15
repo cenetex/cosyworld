@@ -54,7 +54,7 @@ for (const match of [
   );
   assert.ok(teller, "someone tells the burial");
   if (!heldOf(fixture.actors.vale).some((w) => w.step?.verb === "lay"))
-    holdQuest(fixture, "vale", questFor(fixture, teller, fixture.actors[teller].want), `quest:from:${teller}`);
+    holdQuest(fixture, "vale", { ...questFor(fixture, teller, fixture.actors[teller].want), accepted: true }, `quest:from:${teller}`);
 }
 const output =
   process.env.COSYWORLD_POLYNICES_EVIDENCE ||
@@ -184,6 +184,16 @@ try {
       await page.reload();
       await settle();
       await selectCard(page, hollow, { touch: width === 390 });
+      assert.equal(await locked.getAttribute("data-locked"), "true");
+      const unlock = page.locator(`[data-unlock-box="${hollow}"]`);
+      assert(await unlock.isEnabled());
+      const beforeUnlock = await state();
+      await unlock.click();
+      await page.waitForFunction((id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.locked === "false" && !card.dataset.revealing;
+      }, hollow);
+      assert.deepEqual(await state(), beforeUnlock);
       assert.equal(await locked.getAttribute("data-locked"), "false");
       // Antigone dwells where she is for a day (rules 133) and then walks home;
       // the rite is played with her already there, as the walk would leave her.
