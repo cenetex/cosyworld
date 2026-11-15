@@ -4831,7 +4831,7 @@ function advanceFront() {
   if (exchange.current || (sharedSession && shownSceneLine)) {
     if (replyPending() || sharedAdvanceRequested) return;
     count("line.skip");
-    characterSpeech.stop();
+    characterSpeech.clear();
     syncSpeechPlayback();
     finishSpokenLine();
     if (sharedSession) {
