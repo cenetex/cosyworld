@@ -70,3 +70,50 @@ it("commits local Accept quietly and rejects a stale second click", () => {
   expect(JSON.stringify(context.world)).toBe(accepted);
   expect(context.notice).toHaveBeenCalled();
 });
+it("rearms a reviewed quest after Wait and after a later line is read", async () => {
+  const { phase } = await import("../v2/card-game/presentation.mjs");
+  const app = readFileSync(new URL("../v2/card-game/app.mjs", import.meta.url), "utf8");
+  const at = app.indexOf("function presentPhase(");
+  const context = { phase, selected: ["vale"], questOpen: false, rowCollapsed: false,
+    questReviewId: null, restedChoice: null, queuedChoice: false, reviewing: false,
+    stackView: {}, ownPlayInFlight: () => null, packPrompt: () => null,
+    reveal: { complete: true }, exchange: { hasNext: false }, inscribing: new Set(),
+    lingeringWords: () => false, queueMicrotask: vi.fn() };
+  vm.createContext(context);
+  vm.runInContext(app.match(/^const choiceKey = .+;$/mu)[0] + "\n" +
+    app.slice(at, app.indexOf("\n}", at) + 2) + "\nglobalThis.choice = choiceKey;", context);
+  context.restedChoice = context.choice();
+  expect(context.presentPhase()).toBe("idle");
+  context.questReviewId = "first-preview";
+  expect(context.presentPhase()).toBe("choosing");
+  context.restedChoice = context.choice();
+  context.questReviewId = "next-preview";
+  context.queuedChoice = true;
+  context.reveal.complete = false;
+  expect(context.presentPhase()).toBe("revealing");
+  context.queuedChoice = false;
+  context.reveal.complete = true;
+  expect(context.presentPhase()).toBe("choosing");
+});
+it("forwards the exact shared Accept and refuses to refresh its stale revision", async () => {
+  const app = readFileSync(new URL("../v2/card-game/app.mjs", import.meta.url), "utf8");
+  const at = app.indexOf("async function submitSharedPlay(");
+  const action = { key: "accept", offer: "preview", revision: 9 };
+  const forwarded = vi.fn(async () => ({})), noop = () => {};
+  const context = { world: { revision: 9, actors: { vale: { place: "attic" } } },
+    sharedSending: false, sharedSession: { state: { queue: [] }, play: forwarded },
+    currentActor: () => "vale", legalActions: () => [{ ...action }], selected: [],
+    notice: vi.fn(), render: vi.fn(), heldSelection: noop, sharedNextLine: () => true,
+    sharedLineSeq: null, crypto: { randomUUID: () => "test-play" }, playLabel: () => "Accept",
+    showSharedPlay: noop, hiddenFor: noop, encountered: new Set(), cardIsCovered: () => false,
+    performance: { now: () => 1000 }, playQueue: {}, keepHeldSelection: noop,
+    trackSharedPlay: noop, restoreHandFocus: noop };
+  vm.createContext(context);
+  vm.runInContext(app.slice(at, app.indexOf("\n}", at) + 2), context);
+  await context.submitSharedPlay(action);
+  expect(forwarded.mock.calls[0][0]).toBe(action);
+  context.world.revision++;
+  await context.submitSharedPlay(action);
+  expect(forwarded).toHaveBeenCalledOnce();
+  expect(context.notice).toHaveBeenCalledWith("The table changed. Choose a current play.");
+});

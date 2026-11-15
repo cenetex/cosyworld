@@ -2964,7 +2964,7 @@ function renderActions() {
     accept.dataset.acceptQuest = "";
     accept.disabled = !preview.action || selectionBlocked();
     if (!preview.action) blockPlay(accept, "quest");
-    accept.title = preview.reason || "Accept this quest";
+    accept.title = visibleText(preview.reason || "Accept this quest");
     const renderedAt = performance.now();
     accept.onclick = () => {
       if (preview.action && performance.now() - heldAt >= TAP_GUARD_MS)
@@ -3070,7 +3070,7 @@ function renderActions() {
       why.setAttribute("aria-label", `Unlock. ${lockShown.text}`);
     }
     row.append(why);
-    cardTapHint(why, openingBox ? "Open" : "Unlock");
+    if (row.childElementCount === 1) cardTapHint(why, openingBox ? "Open" : "Unlock");
   }
   for (const [reason, kind] of [
     [asleep, "asleep"],
@@ -6151,7 +6151,9 @@ async function submitSharedPlay(action) {
     )
   )
     return;
-  const current = legalActions(world).find((entry) => entry.key === action.key);
+  const listed = legalActions(world).find((entry) => entry.key === action.key);
+  const current = action.offer === undefined ? listed
+    : listed && action.revision === world.revision ? action : null;
   if (!current) {
     notice("The table changed. Choose a current play.");
     render();

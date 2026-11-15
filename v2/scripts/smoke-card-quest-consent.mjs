@@ -7,7 +7,7 @@ import { dispatchShared } from "../card-game/shared-world.mjs";
 import { DREAM_FROM, newWant } from "../card-game/want.mjs";
 import { settleArcana } from "../card-game/world/arcana.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { clearSelection, selectCard, readyActionButton } from "./card-browser-helpers.mjs";
+import { clearSelection, selectCard, readyActionButton, smokeWidths } from "./card-browser-helpers.mjs";
 
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -19,7 +19,7 @@ await mkdir(output, { recursive: true });
 let browser;
 try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH });
-  for (const width of [1440, 390]) for (const shared of [false, true]) {
+  for (const width of smokeWidths([1440, 390])) for (const shared of [false, true]) {
     const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
     page.setDefaultTimeout(15000);
     const errors = [];
