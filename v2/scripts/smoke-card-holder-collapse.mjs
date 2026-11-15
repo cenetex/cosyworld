@@ -369,9 +369,11 @@ try {
         // The hand's box and each card's spot, before and after a play.
         const handRect = () =>
           page.locator("#hand").evaluate((hand) => {
-            const { left, top, width, height } = hand.getBoundingClientRect();
+            const { left, top, width, height, bottom } = hand.getBoundingClientRect();
+            const dialogue = document.querySelector(".dialogue").getBoundingClientRect().height;
             return {
               rect: [left, top, width, height].map(Math.round),
+              covered: [left, width, bottom, top + dialogue, height - dialogue].map(Math.round),
               scroll: Math.round(hand.scrollLeft),
             };
           });
@@ -383,14 +385,14 @@ try {
         assert.deepEqual(await selected(), ["vale"]);
         await settleHand();
         const beforePlay = await handRect();
-        // The first beat brings the dialogue, which lies over the raised
-        // hand's foot: the row keeps its place and scroll but grows taller.
-        const quiet = await page.locator(".dialogue").isHidden();
-        const sameHand = async (label) => {
-          const now = await handRect(),
-            kept = ({ rect, scroll }) => [rect[0], rect[2], scroll];
-          if (quiet) assert.deepEqual(kept(now), kept(beforePlay), label);
-          else assert.deepEqual(now, beforePlay, label);
+        // The settled hand follows the dialogue's measured cover exactly.
+        const sameHand = async (label, settled = false) => {
+          const now = await handRect(), field = settled ? "covered" : "rect";
+          assert.deepEqual(
+            { rect: now[field], scroll: now.scroll },
+            { rect: beforePlay[field], scroll: beforePlay.scroll },
+            label,
+          );
         };
         await readyActionButton(page, "wait").click();
         assert.equal(await action("wait").count(), 0, "the beat rests");
@@ -398,7 +400,7 @@ try {
         await settled();
         await settleHand();
         assert.equal(await open(), "true", "a play keeps the hand raised");
-        await sameHand("the played hand stays exactly where it was");
+        await sameHand("the played hand keeps its position relative to the dialogue", true);
         await page.screenshot({
           path: new URL(`${table}-after-play.png`, output).pathname,
         });
