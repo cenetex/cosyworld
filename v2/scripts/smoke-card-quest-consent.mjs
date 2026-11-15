@@ -4,8 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, decodeSave, encodeSave, questPreviews } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { DREAM_FROM, newWant } from "../card-game/want.mjs";
-import { settleArcana } from "../card-game/world/arcana.mjs";
+import { DREAM_FROM, newWant, slotsUsed } from "../card-game/want.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { clearSelection, selectCard, readyActionButton, smokeWidths } from "./card-browser-helpers.mjs";
 
@@ -24,13 +23,14 @@ try {
     page.setDefaultTimeout(15000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    const legacy = settleArcana(createWorld({ seed: 17 }), "vale");
+    const legacy = createWorld({ seed: 17 });
+    assert.deepEqual(legacy.actors.vale.arcana?.spread ?? [], []);
     legacy.actors.vale.place = "greek-gate";
     legacy.actors.vale.heldItem = null;
     legacy.actors.vale.want = { ...newWant("item", "oil", 0), from: "quest:box:greek-piraeus" };
     legacy.actors.vale.under = [{ ...newWant("item", "cloth", 0), from: "quest:box:greek-harbor" },
       { ...newWant("place", "attic", 0), from: DREAM_FROM, step: { verb: "rest" } }];
-    legacy.actors.vale.arcana.proved = ["arcanum-5"];
+    legacy.actors.vale.arcana = { proved: ["arcanum-5"], did: [] };
     delete legacy.actors.vale.pendingQuests;
     const loaded = decodeSave(JSON.stringify(legacy));
     const worldId = `consent-${width}`, table = `${worldId}-${shared}`;
@@ -113,9 +113,9 @@ try {
       captions.add(await page.locator(".action-beat-text").textContent());
       await page.locator("[data-next-quest]").click();
     }
-    assert([...captions].some((text) => /Level II/u.test(text)), "level tracking stays available for review");
+    assert([...captions].every((text) => !/Level /u.test(text)), "no tarot is offered before the Listener deals one");
     assert([...captions].some((text) => /Rest at Mirror attic/u.test(text)), "old Sleep stays available for review");
-    assert.equal(captions.size, 4, "Review contains only old goals and the avatar's own level preview");
+    assert.equal(captions.size, 3, "Review preserves all three old goals");
     const first = await page.locator(".action-beat-text").textContent();
     await page.locator("[data-next-quest]").click();
     assert.notEqual(await page.locator(".action-beat-text").textContent(), first);
@@ -137,6 +137,24 @@ try {
     assert.equal(calls, callsBefore);
     if (!shared) assert.equal(await page.locator("#dialogue-text").textContent(), line);
     if (shared) assert.equal(accepted, 2);
+    await clearSelection(page);
+    await selectCard(page, "vale");
+    await page.locator("[data-review-quests]").click();
+    for (let i = 0; i < 2 && !/Cloth/iu.test(await page.locator("#action-beat .action-beat-text").textContent()); i++)
+      await page.locator("[data-next-quest]").click();
+    assert.match(await page.locator("#action-beat .action-beat-text").textContent(), /Cloth/iu);
+    const beforeThird = await state();
+    await page.locator('[data-accept-quest]:not([data-revealing="true"])').click();
+    await page.waitForFunction(() => window.consentProbe.state().actors.vale.pendingQuests.length === 1);
+    await ready("[data-review-quests]");
+    const full = await state();
+    assert.equal(full.turn, beforeThird.turn);
+    assert.equal(slotsUsed(full.actors.vale), 3);
+    assert.equal(full.actors.vale.pendingQuests[0].from, DREAM_FROM);
+    assert(await page.locator("[data-accept-quest]").isDisabled(), "a fourth goal waits for an active slot");
+    assert.match(await page.locator("[data-accept-quest]").getAttribute("title"), /Finish or discard/u);
+    assert.equal(calls, callsBefore);
+    if (shared) assert.equal(accepted, 3);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: new URL(`${width}-${shared ? "shared" : "local"}.png`, output).pathname });
     assert.deepEqual(errors, []);

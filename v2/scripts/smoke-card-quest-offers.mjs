@@ -9,7 +9,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { decodeSave, encodeSave, legalActions, play } from "../card-game/world.mjs";
-import { holdQuest, newWant } from "../card-game/want.mjs";
+import { newWant } from "../card-game/want.mjs";
 import { recordOf } from "../card-game/world/arcana-record.mjs";
 import { DISSOLVE_MS } from "../card-game/card-travel.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
@@ -192,6 +192,7 @@ try {
       await page.locator('[data-card="lamp"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
+      assert.deepEqual(recordOf(await t.state(), "vale").spread, [], "a fresh avatar starts without a tarot");
       // Accept the ordinary opening quest before inspecting its locked source.
       await selectCard(page, "pond");
       assert.equal((await t.state()).actors.vale.want, null);
@@ -215,6 +216,12 @@ try {
       assert.doesNotMatch(await surfaces(page), /lamp/iu);
       assert.equal(await offerCards(page).count(), 0);
       await t.shot("pond-shut");
+      await openHeld(page, t);
+      await page.waitForFunction(() => {
+        const quest = document.querySelector('#hand .want-frame:not([hidden]) > .want-card');
+        return quest?.dataset.unrevealed === "false" && !quest.dataset.revealing;
+      });
+      assert.doesNotMatch(await surfaces(page), /lamp/iu);
       await putOutOpening(page, { unlock: false });
       await t.ready();
       await page.waitForFunction(
@@ -344,7 +351,13 @@ try {
       assert.equal((await t.state()).actors.vale.arcana.spread[0].accepted, true);
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
+      assert.equal(await label(page), "Reveal");
+      const beforeReveal = await t.state();
+      await page.locator('[data-open-box^="tarot:vale:down:"]').click();
+      await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+      assert.deepEqual(await t.state(), beforeReveal, "revealing the tarot changes no world state");
       assert.equal(await label(page), "Discard");
+      assert.doesNotMatch(await surfaces(page), /The Fool/u);
       const back = page.locator("#hand .want-frame:not([hidden]) > .want-card > .card-back");
       assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
       assert.notEqual(
@@ -370,7 +383,6 @@ try {
       await accept(page, t, "moth");
       await accept(page, t, "vale", true);
       assert.equal((await t.state()).actors.vale.want.target, "cloth");
-      await accept(page, t, "vale", true);
       assert.equal(await page.locator("#hand .want-frame").count(), 1, "only the top quest is shown");
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
