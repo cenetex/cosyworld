@@ -417,7 +417,7 @@ describe("the quest card", () => {
       level: 2,
       left: 1,
       step: null,
-      art: "./assets/lonely-forest/arcanum-0.png",
+      art: "./assets/arcana/full-size/arcanum-0.png",
       home: homeOf("vale"),
     });
     expect(card.index).toBeGreaterThan(0);

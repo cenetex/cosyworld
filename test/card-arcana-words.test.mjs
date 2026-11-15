@@ -187,10 +187,10 @@ describe("the words of a level card", () => {
   it("carries the woodcut into the dream, and the card back for a card with none", () => {
     const glimpse = (id) => ({ level: 2, kind: "arcanum", id, at: "den" });
     expect(arcanumArt("arcanum-2")).toBe(
-      "./assets/lonely-forest/arcanum-2.png",
+      "./assets/arcana/full-size/arcanum-2.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-2")).art).toBe(
-      "./assets/lonely-forest/arcanum-2.png",
+      "./assets/arcana/full-size/arcanum-2.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-21")).art).toBe(
       "./assets/arcana/arcanum-21.png",

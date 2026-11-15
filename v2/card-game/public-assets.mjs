@@ -89,7 +89,9 @@ const files = [
     ),
   ),
   "assets/music/title-attic-lamp.mp3",
-  ...(CUE_TRACKS.ratiradio ? [] : ["assets/music/night-shift-on-ratiradio-remastered.mp3"]),
+  ...(CUE_TRACKS.ratiradio
+    ? []
+    : ["assets/music/night-shift-on-ratiradio-remastered.mp3"]),
   // Settings cards cut from the owner's workbench (settings-cards.mjs).
   ...BENCH.map((name) => `assets/settings/workbench-${name}.png`),
   // The workbench itself is Settings' scene.
@@ -433,6 +435,10 @@ const files = [
     (id) => `assets/${id}.png`,
   ),
   // Keep the art URLs published by earlier Rust releases.
+  ...[0, 1, 2, 4, 5].map(
+    (number) => `assets/lonely-forest/arcanum-${number}.png`,
+  ),
+  "assets/greek-drama/arcanum-3.png",
   ...[
     "antigone",
     "baker",

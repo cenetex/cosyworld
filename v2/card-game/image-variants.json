@@ -143,6 +143,60 @@
       "phone": "assets/optimized/stage/png/arcana/arcanum-9.webp",
       "phoneHash": "16b87d5d1f3fed0e79ce37efabdb1722466d81b4ff557daf592a7710ea0c41eb"
     },
+    "assets/arcana/full-size/arcanum-0.png": {
+      "sourceHash": "3114928b6ceb6727be28ed4d8664f5fff78bbc8d747253e6afb2bdc8fb14fa59",
+      "stage": "assets/optimized/stage/png/arcana/full-size/arcanum-0.webp",
+      "stageHash": "3090f15639941c3471508b39defe32f0690234984106159e111bbbcffdc144b5",
+      "card": "assets/optimized/card/png/arcana/full-size/arcanum-0.webp",
+      "cardHash": "c0e46ffc9c1181a4907eb009721f30977d2cff8d8c0d9edc372fcd2c8bd3647a",
+      "phone": "assets/optimized/phone/png/arcana/full-size/arcanum-0.webp",
+      "phoneHash": "40097929116cd043f2bd5dbec54533a0538e314d6b332a9e1ebaebedafb1b797"
+    },
+    "assets/arcana/full-size/arcanum-1.png": {
+      "sourceHash": "6516a87069cb20eec78dc1a5d68c7f1587abf38ccbce383806d0bdd0e556859e",
+      "stage": "assets/optimized/stage/png/arcana/full-size/arcanum-1.webp",
+      "stageHash": "910341458a3a023efea7cfd7f584493f10bf2aff654b371ae4bf23822cadce7c",
+      "card": "assets/optimized/card/png/arcana/full-size/arcanum-1.webp",
+      "cardHash": "f889bcb0e8482df6f727ea9158f19e7dc4f503065480e20e33e7a3a01f1be340",
+      "phone": "assets/optimized/phone/png/arcana/full-size/arcanum-1.webp",
+      "phoneHash": "136f625974669c7cf62d6bbbd2a54d5536e6e8566bfe02c4b99ee131c219573b"
+    },
+    "assets/arcana/full-size/arcanum-2.png": {
+      "sourceHash": "92bbc6630b3b00b758ad29a1c216c326634e64b3aa0e16cc59adc98f32e16aa2",
+      "stage": "assets/optimized/stage/png/arcana/full-size/arcanum-2.webp",
+      "stageHash": "b989b4b7b6d8edd5a8002666fddec4050a93c622b635206ed80dff3909c18870",
+      "card": "assets/optimized/card/png/arcana/full-size/arcanum-2.webp",
+      "cardHash": "03402bb90bb7a7d6bf52c3f3e16c863204d076ed4d6e788437395b88d5d3ce2c",
+      "phone": "assets/optimized/phone/png/arcana/full-size/arcanum-2.webp",
+      "phoneHash": "296dbaf2d0362d5fa53aa1be856220be7c7c9a06359313a04b9309416d3ea1e3"
+    },
+    "assets/arcana/full-size/arcanum-3.png": {
+      "sourceHash": "98d804a5b6e68e60cced5f2cfa6ed752666818581e115b28dddbdc8b57bd9b85",
+      "stage": "assets/optimized/stage/png/arcana/full-size/arcanum-3.webp",
+      "stageHash": "a57be45b0dee803d2d08fb09796a121ced47169e8246760d9893262a90c5cdde",
+      "card": "assets/optimized/card/png/arcana/full-size/arcanum-3.webp",
+      "cardHash": "53f879888b4e7bc295a742a3d8b0050babc5375dc2e7eb2e9d1553de863e8805",
+      "phone": "assets/optimized/phone/png/arcana/full-size/arcanum-3.webp",
+      "phoneHash": "c337f7276b77f88a214d669546d98fc947934cd54a0ccdacd5115e36df700564"
+    },
+    "assets/arcana/full-size/arcanum-4.png": {
+      "sourceHash": "0e87802632bc93c3d37cd38acd0730f298ef1e958c39e610f430deb03b1eaf62",
+      "stage": "assets/optimized/stage/png/arcana/full-size/arcanum-4.webp",
+      "stageHash": "d9793bcda7ae30433316d5e03013b6ab7fe4014338309cabc0ffcd328fdd5705",
+      "card": "assets/optimized/card/png/arcana/full-size/arcanum-4.webp",
+      "cardHash": "42e378d71591d477e44da326aee0da0b782bc176794070529e93b28ddc4c6eb1",
+      "phone": "assets/optimized/phone/png/arcana/full-size/arcanum-4.webp",
+      "phoneHash": "602ffefd0c5bc989b854602196fdc6e957990e3e67d7542d71d14da3ae637d16"
+    },
+    "assets/arcana/full-size/arcanum-5.png": {
+      "sourceHash": "4fcb7c09a0bc8613e1fbbe7ad790940595bec2f46e223046ac8bbbb033ebabb6",
+      "stage": "assets/optimized/stage/png/arcana/full-size/arcanum-5.webp",
+      "stageHash": "08f25fe313499c4b15ac5e60b4aec9ad627610716332bd85698602a09cf28241",
+      "card": "assets/optimized/card/png/arcana/full-size/arcanum-5.webp",
+      "cardHash": "ec4a9f57da0274dfd06759e6a433a3f27f109ebb4be09b323db5ce07438568cc",
+      "phone": "assets/optimized/phone/png/arcana/full-size/arcanum-5.webp",
+      "phoneHash": "5a85b80f542d14953ea8d3ae6345e784e09137c1c0399da2f520299a3d4ecfa0"
+    },
     "assets/attic.png": {
       "sourceHash": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e",
       "stage": "assets/optimized/stage/png/attic.webp",
