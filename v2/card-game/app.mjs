@@ -620,6 +620,7 @@ function loadPendingLocks(reset = false) {
   const scope = lockScope();
   let ids = [], revision = 0;
   try {
+    if (reset) localStorage.removeItem(`${SEEN_KEY}.locked`);
     const saved = !reset && JSON.parse(localStorage.getItem(`${SEEN_KEY}.locked`));
     if (saved?.scope === scope && Array.isArray(saved.ids)) {
       ids = saved.ids.filter((id) => people[id] || things[id] || places[id]);

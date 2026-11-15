@@ -19,7 +19,7 @@ function view(saved = new Map(), shared = false) {
     coveredCards: new Set(["plain"]), encountered: new Set(), stageReveals: new Set(),
     people: {}, things: { plain: {} }, places: { field: {} },
     selected: ["field"], available: ["field", "plain"], blocked: false,
-    localStorage: { getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v) },
+    localStorage: { getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v), removeItem: (k) => saved.delete(k) },
     availableCards: () => state.available, isLockedBox: (_, id) => locked.has(id),
     lockScope: () => JSON.stringify([state.world.run.seed, state.world.actor]),
     pendingLock: (id) => state.lockedBoxes.boxed(id) || locked.has(id),
@@ -75,7 +75,7 @@ it("scopes pending boxes to the run and avatar and preserves open legacy cards",
   expect(s.lockedBoxes.ids()).toEqual(["field"]);
   s.world.run.seed++; s.loadPendingLocks();
   expect(s.lockedBoxes.ids()).toEqual([]);
-  s.world.run.seed--; s.loadPendingLocks(true);
+  s.world.run.seed--; s.loadPendingLocks(true); s.rememberCards();
   expect(s.lockedBoxes.ids()).toEqual([]);
 });
 it("receives another tab's explicit unlock without revealing ordinary covered cards", () => {
