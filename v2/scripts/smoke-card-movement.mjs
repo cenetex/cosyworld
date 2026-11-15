@@ -37,6 +37,7 @@ function fixture(kind) {
     s = result.state;
   }
   s.actors.moth.place = kind === "resident" ? "pond" : "attic";
+  if (kind === "shared") s.actors.vale.place = s.actors.moth.place = "station";
   s.items.lamp.holder = "vale";
   s.items.lamp.fuel = 8;
   // A doused lamp in the attic keeps the mirror open: hold nothing.
@@ -54,6 +55,7 @@ try {
     ["follow", 1440, "no-preference", 0],
     ["follow", 390, "no-preference", 2500],
     ["shared", 1440, "no-preference", 0],
+    ["shared-locked", 1440, "no-preference", 0],
     ["resident", 390, "no-preference", 0],
     ["follow", 390, "reduce", 0],
     ["reset", 390, "no-preference", 0],
@@ -165,7 +167,7 @@ try {
         }
         requestAnimationFrame(sample);
       });
-      if (kind === "shared") await selectCard(page, "moth");
+      if (kind.startsWith("shared")) await selectCard(page, "moth");
       // The pond arrives as a closed box when the lamp is first put out.
       if (kind === "resident") {
         await revealCard(page, "pond");
@@ -313,7 +315,7 @@ try {
             pip.start + pip.delay >= vale.start + 200,
             "Pip follows in a separate entrance.",
           );
-        if (kind === "shared")
+        if (kind.startsWith("shared"))
           assert(
             Math.abs(pip.start + pip.delay - vale.start - vale.delay) < 100,
             "Agreed companions arrive together.",
@@ -329,7 +331,7 @@ try {
       else
         assert.match(
           caption,
-          kind === "shared"
+          kind.startsWith("shared")
             ? /Pip travelled with Vale/
             : /Pip followed from Mirror attic/,
         );
@@ -341,6 +343,12 @@ try {
           request.outcome.avatars.find((a) => a.id === "moth")?.travel
             ?.companions ?? [],
           kind === "shared" ? ["vale"] : [],
+        );
+      if (kind === "shared-locked")
+        assert.equal(
+          request.outcome.avatars.find((a) => a.id === "moth").travel,
+          null,
+          "A locked attic origin is concealed from generated speech.",
         );
       await page.screenshot({ path: new URL(`${table}.png`, output).pathname });
       assert.deepEqual(report.errors, []);
