@@ -113,12 +113,20 @@ try {
     // A way that is shut lies in the hand as a locked box, never as a card to
     // enter (rules 133).
     const opened = async (id) => {
+      await ready();
+      assert.equal(await card(id).getAttribute("data-locked"), "true");
+      await selectCard(page, id);
+      const unlock = page.locator(`[data-unlock-box="${id}"]`);
+      assert(await unlock.isEnabled());
+      const before = await state();
+      await unlock.click();
       await page.waitForFunction(
         (id) =>
           document.querySelector(`#hand [data-card="${id}"]`)?.dataset
             .locked === "false" && !document.querySelector("#hand [data-revealing]"),
         id,
       );
+      assert.deepEqual(await state(), before, "Unlock changes no world state");
       await ready();
     };
     const assertShut = async (id) => {
@@ -235,17 +243,7 @@ try {
       },
       { key, value: encodeSave(departed) },
     );
-    await page.waitForFunction(
-      () =>
-        document.querySelector('#hand [data-card="attic"]')?.dataset
-          .locked === "false",
-    );
-    // The box turns over once; let its lid settle before choosing it.
-    await page.waitForFunction(
-      () => !document.querySelector("#hand [data-revealing]"),
-    );
-    await ready();
-    await selectCard(page, "attic");
+    await opened("attic");
     await page.locator("#card-actions .card-primary").click();
     await ready();
     // Held lit at the pond, the lamp brought Vale back into its light.
@@ -316,7 +314,6 @@ try {
     await selectCard(page, "lamp");
     await ready();
     await opened("pond");
-    await selectCard(page, "pond");
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).actors.vale.place, "pond");
