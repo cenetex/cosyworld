@@ -633,20 +633,20 @@ function loadPendingLocks(reset = false) {
   lockBaseline = ids;
   lockedBoxes.restore(ids);
 }
-function observeLocks(authoritative = false) {
-  if (!authoritative && world.revision < lockRevision) return false;
+function observeLocks() {
+  if (world.revision < lockRevision) return false;
   return lockedBoxes.observe(availableCards(world).filter((id) => isLockedBox(world, id)));
 }
-function rememberCards() {
+function rememberCards(replaceLocks = false) {
   try {
     let newer;
     const current = lockedBoxes.ids();
     const stored = localStorage.getItem(`${SEEN_KEY}.locked`);
     try { newer = JSON.parse(stored); } catch {}
-    if (newer?.scope === lockScope() && newer.revision > lockRevision) {
+    if (!replaceLocks && newer?.scope === lockScope() && newer.revision > world.revision && newer.revision > lockRevision) {
       loadPendingLocks();
       observeLocks();
-    } else if (newer?.scope === lockScope() && newer.revision === lockRevision && Array.isArray(newer.ids)) {
+    } else if (!replaceLocks && newer?.scope === lockScope() && newer.revision >= lockRevision && Array.isArray(newer.ids)) {
       const removed = lockBaseline.filter((id) => !current.includes(id));
       lockedBoxes.restore([...newer.ids, ...current.filter((id) => !lockBaseline.includes(id))]
         .filter((id) => !removed.includes(id)));
@@ -673,7 +673,9 @@ function loadSeen(reset = false) {
     opening = reset;
   coveredCards.clear();
   loadPendingLocks(reset);
-  observeLocks(!sharedSession);
+  const rewind = !sharedSession && world.revision < lockRevision;
+  if (rewind) lockRevision = world.revision;
+  observeLocks();
   let stored = null;
   try {
     stored = reset ? null : localStorage.getItem(SEEN_KEY);
@@ -713,7 +715,7 @@ function loadSeen(reset = false) {
   shownQuests = [];
   questSeq = null;
   questFresh = false;
-  rememberCards();
+  rememberCards(rewind);
 }
 loadSeen();
 const saveCodec = { encode: encodeSave, read: decodeSave };
