@@ -329,6 +329,15 @@ try {
       assert.equal(await message.getAttribute("data-revealing"), "false");
     }
     assert.equal(await actionLabel(page.locator('#card-actions [data-action="wait"]')), "Wait");
+    await page.waitForFunction(() => {
+      const hand = document.querySelector("#hand"),
+        wait = document.querySelector('#card-actions [data-action="wait"]'),
+        box = JSON.stringify(hand.getBoundingClientRect());
+      window.actionHandFrames = window.actionHandBox === box ? window.actionHandFrames + 1 : 0;
+      window.actionHandBox = box;
+      return window.actionHandFrames >= 2 && !wait.disabled && hand.dataset.cooling === "false" &&
+        !hand.getAnimations({ subtree: true }).length;
+    }, null, { polling: "raf" });
     const played = await measureHand(page, '#card-actions [data-action="wait"]');
     // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
