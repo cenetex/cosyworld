@@ -4,7 +4,7 @@
 // A resident's next want is drawn from the world, deterministically, so a
 // replayed journal makes the same choices. A player's is never drawn or
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
-import { humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
+import { currentActor, heldByHuman, humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
   entityActive,
   isFood,
@@ -114,6 +114,24 @@ export const wantKey = (id, want) =>
 export const MAX_HELD = 9;
 export const heldOf = (a) => (a?.want ? [a.want, ...(a.under || [])] : []);
 export const questsOf = (s, id) => heldOf(s.actors[id]);
+export function installQuestConsent(s) {
+  for (const id of humanAvatarIds) {
+    const a = s.actors[id];
+    if (!a || (id !== currentActor(s) && !heldByHuman(s, id)) || a.pendingQuests !== undefined) continue;
+    a.pendingQuests = heldOf(a);
+    a.want = null;
+    delete a.under;
+    if (a.arcana) a.arcana.dreamed = a.arcana.proved.length;
+  }
+}
+export function claimQuestConsent(s, id) {
+  const a = s.actors[id];
+  if (!a) return;
+  installQuestConsent(s);
+  const autonomous = heldOf(a).filter((w) => !w.accepted);
+  if (autonomous.length) a.residentWant = autonomous[0];
+  for (const w of autonomous) releaseQuest(a, w);
+}
 export const questRewardsOf = () => [];
 export const closedKey = questTerms;
 // A met want with nothing to follow leaves its resident content: no want
@@ -190,7 +208,7 @@ export function sleepQuest(s, actor, api) {
   return holdQuest(
     s,
     actor,
-    { ...newWant("place", home, s.turn), step: { verb: "rest" } },
+    { ...newWant("place", home, s.turn), step: { verb: "rest" }, accepted: true },
     DREAM_FROM,
   );
 }
@@ -206,6 +224,7 @@ export function wake(s, actor, api) {
       q.from === DREAM_FROM && q.step?.verb === "rest" && q.target === a.place,
   );
   if (!w || api.home(actor) !== a.place) return null;
+  if (a.arcana) a.arcana.dreamed = a.arcana.proved.length;
   commitMet(s, actor, api, [], w);
   const id = api.dreamCard?.(actor);
   if (!id) return null;
@@ -828,6 +847,11 @@ export function validWant(s, id) {
     a.xp <= most &&
     (a.metTurn === undefined || whole(a.metTurn)) &&
     validUnder(s, id) &&
+    (a.pendingQuests === undefined || (humanAvatarIds.includes(id) &&
+      Array.isArray(a.pendingQuests) && a.pendingQuests.length <= MAX_HELD &&
+      a.pendingQuests.every((w) => validQuest(s, id, w)) &&
+      new Set(a.pendingQuests.map(closedKey)).size === a.pendingQuests.length)) &&
+    (a.residentWant === undefined || (humanAvatarIds.includes(id) && validQuest(s, id, a.residentWant))) &&
     validClosed(s, a) &&
     a.questRewards === undefined &&
     (a.content === undefined || a.content === true) &&
@@ -894,7 +918,9 @@ function validQuest(s, id, w) {
           (w.step === undefined ? 0 : 1) +
           (w.lit === undefined ? 0 : 1) +
           (w.story === undefined ? 0 : 1) +
+          (w.accepted === undefined ? 0 : 1) +
           (w.from === undefined ? 0 : 1) &&
+      (w.accepted === undefined || w.accepted === true) &&
       (w.from === undefined ||
         (typeof w.from === "string" && OFFER_FROM.test(w.from))) &&
       (w.step === undefined || validStep(s, w, id)) &&
