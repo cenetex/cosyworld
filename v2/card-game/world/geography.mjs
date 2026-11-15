@@ -43,9 +43,7 @@ export const placeText = (s, place) =>
   [
     place === "attic" && reflectionOpen(s, place)
       ? "A tall mirror opens onto a black shore. A path leads through the glass."
-      : s.opening && place === "station"
-        ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
-        : places[place].text,
+      : places[place].text,
     ...crossingScenery(s, place, sensesFor(s),
       place === "station" ? stationCandidates(s).filter((id) =>
         !stationExits(s, stationCandidates(s)).includes(id)) : []),

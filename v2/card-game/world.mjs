@@ -962,8 +962,6 @@ export function holdChoice(s, actor, choice) {
   settleLamp(s);
   // Putting the lamp down or out opens the Black pond: a hold can open a box.
   creditOpened(before, s, actor);
-  if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
-    s.locations.attic.anchored = true;
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
@@ -3301,14 +3299,6 @@ export function play(
     startAttend(next, exact.target);
   // A box this play opened pays one XP, once per avatar per box (rules 133).
   creditOpened(s, next, actor);
-  if (
-    next.opening &&
-    !next.locations.attic.anchored &&
-    ["light", "snuff"].includes(exact.kind) &&
-    next.actors.vale.place === "attic"
-  ) {
-    next.locations.attic.anchored = true;
-  }
   for (const id of residents) {
     if (
       id === respondent ||
