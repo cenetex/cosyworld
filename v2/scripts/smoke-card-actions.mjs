@@ -320,24 +320,16 @@ try {
         "the card passes through an intermediate position",
       );
     }
-    assert.equal(
-      await page.locator("#card-actions [data-wait-sentence]").textContent(),
-      "Vale waits one turn.",
-    );
-    const message = page.locator("#card-actions [data-wait-sentence]");
+    const message = page.locator(".action-beat-text");
+    assert.equal(await message.textContent(), "Vale waits one turn.");
+    assert.deepEqual(await labels(), ["Wait", "Review quests"]);
     if ((await message.getAttribute("data-revealing")) === "true") {
-      assert.equal(
-        await message.getAttribute("data-tap-hint"),
-        "Tap to finish",
-      );
-      assert.equal(await message.getAttribute("aria-label"), "Finish reading");
       await message.click();
       assert.equal((await state()).turn, before.turn);
       assert.equal(await message.getAttribute("data-revealing"), "false");
     }
-    assert.equal(await message.getAttribute("data-tap-hint"), "Tap to wait");
-    assert.equal(await message.getAttribute("aria-label"), "Wait");
-    const played = await measureHand(page, ".action-beat-cards");
+    assert.equal(await actionLabel(page.locator('#card-actions [data-action="wait"]')), "Wait");
+    const played = await measureHand(page, '#card-actions [data-action="wait"]');
     // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
       played.same,
@@ -606,7 +598,7 @@ try {
     assert.deepEqual(await labels(), ["Strike"]);
     await page.keyboard.press("Escape");
     await selectCard(page, "vale");
-    assert.deepEqual(await labels(), ["Brace"]);
+    assert.deepEqual(await labels(), ["Brace", "Review quests"]);
     await shot("standoff");
     await page.getByRole("button", { name: "Brace", exact: true }).click();
     await ready();
