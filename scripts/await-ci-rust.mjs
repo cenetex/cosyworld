@@ -56,8 +56,6 @@ export function decide(checkRuns, { missingIsFinal = false, selfRunId = '' } = {
   const attempted = new Set(eligible.filter((run) => !skipped(run)).map(checkKey));
   const latest = new Map();
   for (const run of eligible) {
-    // A train can skip a gate after another train ran it on this same commit.
-    // Keep that attempt; a skipped-only check still makes this gate run.
     if (skipped(run) && attempted.has(checkKey(run))) continue;
     const name = nameOf(run);
     const seen = latest.get(name);
