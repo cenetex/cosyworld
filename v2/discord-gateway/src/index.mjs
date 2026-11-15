@@ -1,5 +1,3 @@
-// Discord adapter. This file is the only one that imports discord.js; the core
-// modules are testable without it.
 import { Client, GatewayIntentBits } from "discord.js";
 import { loadBindings, saveBindings, bindingFor } from "./bindings.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
