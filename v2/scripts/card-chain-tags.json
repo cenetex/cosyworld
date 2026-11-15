@@ -1,0 +1,18 @@
+{
+  "greek-drama": {
+    "premise": "A city after a war, where bread, water and the dead still need care.",
+    "residents": ["greek-elder", "greek-baker", "greek-ismene", "greek-guard", "greek-shipmaster"],
+    "things": ["greek-household-token", "greek-burial-account", "greek-water-jar", "greek-wine-skin"],
+    "places": ["greek-courtyard", "greek-well", "greek-sanctuary", "greek-gate", "greek-harbor"],
+    "motivations": { "greek-elder": "serenity", "greek-ismene": "protection", "greek-baker": "comfort" },
+    "crossings": ["willows"]
+  },
+  "willows": {
+    "premise": "A flooded river camp where the willows move at night.",
+    "residents": ["willows-swede"],
+    "things": ["willows-map", "willows-pipe", "willows-pot", "willows-spoon"],
+    "places": ["willows-landing", "willows-camp", "willows-thicket", "willows-bank"],
+    "motivations": { "willows-swede": "knowledge" },
+    "crossings": ["greek-drama"]
+  }
+}
