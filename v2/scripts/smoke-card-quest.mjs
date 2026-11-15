@@ -6,11 +6,6 @@ import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { clearSelection, readyActionButton, revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
 
-// The player holds one quest. It folds behind the player's avatar as a face
-// down card; opening the avatar's stack shows it as the one quest card. A
-// chosen quest card gives exactly one button: its next step, or Discard when
-// it has none. A quest the rules meet simply goes on the play that met it,
-// paying a traveler no XP: there is nothing to claim.
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await chromium.launch({ headless: true });

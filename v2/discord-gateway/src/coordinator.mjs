@@ -1,5 +1,5 @@
 import { namedIn } from "./attention.mjs";
-import { awareness } from "./room.mjs";
+import { awareness, pictured } from "./room.mjs";
 
 const PEOPLE_MS = 600000;
 const MOST = 8;
@@ -43,10 +43,11 @@ export function payload(room, config, cast, now = Date.now()) {
   const recent = window(room, config, now);
   const residents = candidates(recent, cast);
   const humans = people(recent, now);
-  const history = recent.map((entry) => {
+  const parts = pictured(recent);
+  const history = recent.map((entry, index) => {
     const line = entry.resident ? { resident: entry.resident } : { person: entry.author };
     const target = entry.replyTo ? room.messages.find((other) => other.id === entry.replyTo) : null;
-    line.text = entry.text;
+    Object.assign(line, parts[index]);
     line.ago = seconds(now, entry.at);
     if (target) line.replyTo = nameOf(target, cast);
     const named = namedIn(entry.text, cast).map((id) => cast.find((r) => r.id === id).name);
@@ -78,9 +79,11 @@ const LIMITS = { topic: 40, goal: 120, summary: 300 };
 export async function refresh(room, { config, notes, log }) {
   if (!notes || room.heard - (room.notedHeard ?? 0) < config.DISCORD_NOTES_EVERY) return;
   room.notedHeard = room.heard;
-  const messages = room.messages
-    .slice(-12)
-    .map((entry) => (entry.resident ? { resident: entry.resident, text: entry.text } : { author: entry.author, text: entry.text }));
+  const recent = room.messages.slice(-12);
+  const parts = pictured(recent);
+  const messages = recent.map((entry, index) =>
+    entry.resident ? { resident: entry.resident, ...parts[index] } : { author: entry.author, ...parts[index] },
+  );
   const body = { pack: config.DISCORD_PACK, messages, ...(room.notes ? { notes: room.notes } : {}) };
   const found = (await notes(body).catch(() => null))?.notes;
   const fits = (key) => typeof found?.[key] === "string" && found[key].trim() && Array.from(found[key]).length <= LIMITS[key];

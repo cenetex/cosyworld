@@ -44,6 +44,10 @@ const ADDRESSED_CALL: Duration = Duration::from_secs(6);
 const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
 const CANDIDATES: usize = 8;
 const HISTORY: usize = 200;
+const SHARES: &str = "[shares an image]";
+const IMAGE_HOSTS: [&str; 2] = ["cdn.discordapp.com", "media.discordapp.net"];
+const IMAGES_PER_MESSAGE: usize = 2;
+const IMAGES_PER_REQUEST: usize = 4;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 struct Resident {
@@ -70,7 +74,10 @@ struct Message {
     author: Option<String>,
     #[serde(default)]
     resident: Option<String>,
+    #[serde(default)]
     text: String,
+    #[serde(default)]
+    images: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -333,6 +340,34 @@ fn cast(pack_id: &str) -> Option<Vec<Resident>> {
     (!residents.is_empty()).then_some(residents)
 }
 
+fn discord_image(url: &str) -> bool {
+    reqwest::Url::parse(url).is_ok_and(|parsed| {
+        url.len() <= 2048
+            && parsed.scheme() == "https"
+            && parsed.username().is_empty()
+            && parsed.password().is_none()
+            && parsed.port().is_none()
+            && parsed
+                .host_str()
+                .is_some_and(|host| IMAGE_HOSTS.contains(&host))
+    })
+}
+
+fn shown(text: &str, images: &[String]) -> Option<String> {
+    if images.len() > IMAGES_PER_MESSAGE || !images.iter().all(|url| discord_image(url)) {
+        return None;
+    }
+    match (images.is_empty(), text.is_empty()) {
+        (true, _) => bounded(text, 400).then(|| text.to_string()),
+        (false, true) => Some(SHARES.into()),
+        (false, false) => bounded(text, 400).then(|| format!("{text} {SHARES}")),
+    }
+}
+
+fn pictures(messages: &[Message]) -> usize {
+    messages.iter().map(|m| m.images.len()).sum()
+}
+
 fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static str> {
     let member = |id: &str| cast.iter().any(|r| r.id == id);
     if !(1..=12).contains(&request.messages.len()) {
@@ -347,9 +382,12 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
         if !speaker {
             return Err("each message needs one author or one resident of the cast");
         }
-        if !bounded(&message.text, 400) {
-            return Err("each text needs 1 to 400 characters");
+        if shown(&message.text, &message.images).is_none() {
+            return Err("each text needs 1 to 400 characters or 1 to 2 Discord images");
         }
+    }
+    if pictures(&request.messages) > IMAGES_PER_REQUEST {
+        return Err("send at most 4 images");
     }
     let channel = &request.channel;
     if channel.active.len() > 12 || !channel.active.iter().all(|name| bounded(name, 32)) {
@@ -510,7 +548,8 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
                 .resident
                 .clone()
                 .unwrap_or_else(|| label(m.author.as_deref().unwrap_or_default()));
-            json!({"witnesses": [&resident.id], "actorId": actor, "text": &m.text})
+            let text = shown(&m.text, &m.images).unwrap_or_default();
+            json!({"witnesses": [&resident.id], "actorId": actor, "text": text})
         })
         .collect();
     let mut context: Context = serde_json::from_value(json!({
@@ -529,6 +568,10 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
     .ok()?;
     context.acting_avatar = Some(resident.id.clone());
     context.present = present(resident, cast, request);
+    context.images = messages[start..]
+        .iter()
+        .flat_map(|m| m.images.iter().cloned())
+        .collect();
     Some(context)
 }
 
@@ -732,11 +775,16 @@ fn arranged(request: &CoordinateRequest, cast: &[Resident]) -> Option<Value> {
         return None;
     }
     let mut history = Vec::with_capacity(lines.len());
+    let mut images = 0;
     for line in lines {
         let mut line = line.as_object()?.clone();
-        if !bounded(line.get("text")?.as_str()?, 400) {
-            return None;
-        }
+        let seen: Vec<String> = match line.remove("images") {
+            Some(value) => serde_json::from_value(value).ok()?,
+            None => Vec::new(),
+        };
+        images += seen.len();
+        let text = shown(line.get("text")?.as_str()?, &seen)?;
+        line.insert("text".into(), json!(text));
         let (speaker, role) = match (line.remove("resident"), line.remove("person")) {
             (Some(Value::String(id)), None) => (member(&id)?.name.clone(), "resident"),
             (None, Some(Value::String(name))) if bounded(&name, 32) => (label(&name), "person"),
@@ -745,6 +793,9 @@ fn arranged(request: &CoordinateRequest, cast: &[Resident]) -> Option<Value> {
         line.insert("speaker".into(), json!(speaker));
         line.insert("role".into(), json!(role));
         history.push(Value::Object(line));
+    }
+    if images > IMAGES_PER_REQUEST {
+        return None;
     }
     let mut state = request.state.clone();
     state.remove("previous");
@@ -896,14 +947,15 @@ pub(super) async fn notes(
     };
     let fits = (1..=12).contains(&request.messages.len())
         && request.notes.as_ref().is_none_or(sound)
-        && request
-            .messages
-            .iter()
-            .all(|m| match (&m.author, &m.resident) {
-                (Some(author), None) => bounded(author, 32) && bounded(&m.text, 400),
-                (None, Some(id)) => residents.iter().any(|r| &r.id == id) && bounded(&m.text, 400),
-                _ => false,
-            });
+        && pictures(&request.messages) <= IMAGES_PER_REQUEST
+        && request.messages.iter().all(|m| {
+            shown(&m.text, &m.images).is_some()
+                && match (&m.author, &m.resident) {
+                    (Some(author), None) => bounded(author, 32),
+                    (None, Some(id)) => residents.iter().any(|r| &r.id == id),
+                    _ => false,
+                }
+        });
     if !fits {
         return error(
             StatusCode::BAD_REQUEST,
@@ -929,7 +981,10 @@ pub(super) async fn notes(
     let lines = request
         .messages
         .iter()
-        .map(|m| format!("{}: {}", speaker(m, &residents), m.text))
+        .map(|m| {
+            let text = shown(&m.text, &m.images).unwrap_or_default();
+            format!("{}: {text}", speaker(m, &residents))
+        })
         .collect::<Vec<_>>()
         .join("\n");
     let text = json!({"type": "string"});
@@ -1145,6 +1200,10 @@ mod tests {
     }
 
     fn intent_config(address: std::net::SocketAddr) -> AiConfig {
+        seeing_config(address, json!(["text"]))
+    }
+
+    fn seeing_config(address: std::net::SocketAddr, inputs: Value) -> AiConfig {
         let mut config = test_config(address);
         config.registry = Some(Arc::new(
             crate::ai_gateway::CapabilityRegistrySnapshot::from_json(
@@ -1153,7 +1212,7 @@ mod tests {
                     "declared": [{
                         "requested_model_id": "test-entity-model", "provider": "openai_compatible",
                         "concrete_model": {"model_id": "test-entity-model"},
-                        "input_modalities": ["text"], "output_modalities": ["text"],
+                        "input_modalities": inputs, "output_modalities": ["text"],
                         "supported_parameters": {"structured_output": true, "json_mode": true},
                         "data_policy": {"retention": "none", "training": "prohibited"},
                         "capabilities": ["world_content", "intent_json"],
@@ -1212,11 +1271,21 @@ mod tests {
         token: &str,
         body: Value,
     ) -> (StatusCode, Value, Vec<Value>) {
+        post_lines_to(json!(["text"]), intent, voice, token, body).await
+    }
+
+    async fn post_lines_to(
+        inputs: Value,
+        intent: &'static str,
+        voice: Option<&'static str>,
+        token: &str,
+        body: Value,
+    ) -> (StatusCode, Value, Vec<Value>) {
         std::env::set_var("COSYWORLD_BOT_TOKEN", TOKEN);
         let seen = Arc::new(Mutex::new(Vec::new()));
         let (address, server) = serve(provider(seen.clone(), intent, voice)).await;
         let app = router_with_models::<()>(
-            Arc::new(Some(intent_config(address))),
+            Arc::new(Some(seeing_config(address, inputs))),
             Ok(BTreeMap::new()),
             Ok(VoiceSettings::hosted()),
         );
@@ -1399,6 +1468,122 @@ mod tests {
         let (_, _, requests) = post_lines("{}", Some(reply), TOKEN, again).await;
         let view = turn_of(&requests[0], "assistant");
         assert!(view.contains("I spoke last here."), "{view}");
+    }
+
+    const PICTURE: &str = "https://cdn.discordapp.com/attachments/1/2/pond.png?ex=1&is=2&hm=3";
+
+    fn shared(text: &str) -> Value {
+        json!({
+            "pack": "lonely-forest",
+            "addressed": "rati",
+            "messages": [
+                {"author": "Mara", "text": "Is anyone in the cottage?"},
+                {"author": "Jun", "text": text, "images": [PICTURE]}
+            ]
+        })
+    }
+
+    #[test]
+    fn images_come_only_from_discord_and_stay_few() {
+        let residents = cast("lonely-forest").unwrap();
+        let check = |messages: Value| validate(&request(messages), &residents);
+        let with = |images: Value| json!([{"author": "Mara", "text": "", "images": images}]);
+        assert!(check(with(json!([PICTURE]))).is_ok());
+        assert!(check(with(json!([
+            "https://media.discordapp.net/attachments/1/2/a.webp"
+        ])))
+        .is_ok());
+        assert!(check(with(json!([PICTURE, PICTURE]))).is_ok());
+        assert!(check(with(json!([PICTURE, PICTURE, PICTURE]))).is_err());
+        assert!(check(with(json!([
+            "http://cdn.discordapp.com/attachments/1/2/a.png"
+        ])))
+        .is_err());
+        assert!(check(with(json!(["https://example.com/a.png"]))).is_err());
+        assert!(check(with(json!(["https://cdn.discordapp.com.evil.net/a.png"]))).is_err());
+        assert!(check(with(json!(["https://cdn.discordapp.com:8443/a.png"]))).is_err());
+        assert!(check(with(json!(["data:image/png;base64,AAAA"]))).is_err());
+        assert!(check(json!([{"author": "Mara", "text": ""}])).is_err());
+        let two = json!({"author": "Mara", "text": "Look.", "images": [PICTURE, PICTURE]});
+        assert!(check(json!([two, two])).is_ok());
+        assert!(
+            check(json!([two, two, {"author": "Jun", "text": "", "images": [PICTURE]}])).is_err()
+        );
+        assert_eq!(shown("", &[PICTURE.into()]).as_deref(), Some(SHARES));
+        assert_eq!(
+            shown("Look.", &[PICTURE.into()]).as_deref(),
+            Some("Look. [shares an image]")
+        );
+    }
+
+    #[tokio::test]
+    async fn a_seeing_model_gets_the_image_in_the_user_turn() {
+        let reply = "That is the pond at dusk.";
+        let (status, body, requests) = post_lines_to(
+            json!(["text", "image"]),
+            "{}",
+            Some(reply),
+            TOKEN,
+            shared(""),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["lines"][0]["text"], reply);
+        let voice = &requests[0];
+        let user = voice["messages"].as_array().unwrap().last().unwrap();
+        assert_eq!(user["role"], "user");
+        assert_eq!(
+            user["content"],
+            json!([
+                {"type": "text", "text": "Jun says, \u{201c}[shares an image]\u{201d}"},
+                {"type": "image_url", "image_url": {"url": PICTURE}}
+            ])
+        );
+        assert!(!turn_of(voice, "system").contains("image"));
+        assert!(!turn_of(voice, "assistant").contains("discordapp"));
+        assert!(!body.to_string().contains("discordapp"));
+    }
+
+    #[tokio::test]
+    async fn a_blind_model_gets_a_placeholder_and_no_link() {
+        let reply = "Oh, what have you brought?";
+        let (status, body, requests) =
+            post_lines("{}", Some(reply), TOKEN, shared("Look at this")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["lines"][0]["text"], reply);
+        let voice = &requests[0];
+        assert_eq!(
+            turn_of(voice, "user"),
+            "Jun says, \u{201c}Look at this [shares an image]\u{201d}"
+        );
+        assert!(!voice.to_string().contains("discordapp"));
+        assert!(!body.to_string().contains("discordapp"));
+    }
+
+    #[tokio::test]
+    async fn jev_reads_a_placeholder_never_the_link() {
+        let answer = r#"{"answers": {"next": {"type": "choice", "choice": "vale",
+            "probabilities": {"vale": 0.8, "none": 0.2}, "confidence": 0.8}}}"#;
+        let mut body = met();
+        body["state"]["history"][1] =
+            json!({"person": "Ash", "text": "", "images": [PICTURE], "ago": 2});
+        let (status, _, asked) = post_coordinate(answer, body.clone()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(asked[0]["state"]["history"][1]["text"], SHARES);
+        assert!(!asked[0].to_string().contains("discordapp"));
+        body["state"]["history"][0] =
+            json!({"person": "Ash", "text": "", "images": [PICTURE, PICTURE, PICTURE]});
+        let (status, _, asked) = post_coordinate(answer, body.clone()).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(asked.is_empty());
+        body["state"]["history"][0] =
+            json!({"person": "Ash", "text": "", "images": [PICTURE, PICTURE]});
+        body["state"]["history"][1]["images"] = json!([PICTURE, PICTURE]);
+        body["state"]["history"].as_array_mut().unwrap().push(
+            json!({"person": "Ash", "text": "", "images": ["http://cdn.discordapp.com/a.png"]}),
+        );
+        let (status, _, _) = post_coordinate(answer, body).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
     }
 
     async fn post_coordinate(answer: &'static str, body: Value) -> (StatusCode, Value, Vec<Value>) {
