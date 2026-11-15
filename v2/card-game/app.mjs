@@ -5680,6 +5680,7 @@ function resetTable(next = freshWorld()) {
   }
   holdMusicForTitle();
   nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
+  render();
   resumeScene();
 }
 window.addEventListener("storage", (event) => {
