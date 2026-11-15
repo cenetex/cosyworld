@@ -559,9 +559,7 @@ for (const [width, motion] of [
   await page.close();
 }
 
-// A spread the Listener deals for a thing comes as its own face-down cards in
-// the same pack: the locked one under the keyhole back from the start, a
-// chosen card turned by its own Reveal, the rest by Reveal all.
+// Accepted tarots share the pack, keeping their star and keyhole backs.
 function spreadWorld() {
   let world = createPipWorld(5);
   const talk = legalActions(world, "vale").find((a) => a.kind === "talk" && a.target === "moth");
@@ -586,7 +584,7 @@ const tarotFaces = (page) =>
   );
 for (const oneByOne of [false, true]) {
   const label = `spread ${oneByOne ? "one by one" : "Reveal all"}`;
-  const { page, errors } = await openTable(390, "no-preference", {
+  const { page, key, errors } = await openTable(390, "no-preference", {
     covered: [],
     tag: `pack-spread-${oneByOne}`,
     world: spreadWorld(),
@@ -596,9 +594,25 @@ for (const oneByOne of [false, true]) {
   await selectCard(page, "bell");
   await selectCard(page, "listener");
   await readyActionButton(page, "give").click();
-  await page.waitForFunction(
-    () => document.querySelectorAll('#hand .want-card[data-quest-key^="tarot:vale:"]').length === 3,
-  );
+  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key)).actors.vale.arcana.spread?.length === 3, key);
+  await settleHand(page);
+  assert.equal((await tarotFaces(page)).length, 0, "a purchased spread waits for Accept");
+  await clearSelection(page);
+  await selectCard(page, "vale");
+  await page.locator("[data-review-quests]").click();
+  for (let index = 0; index < 3; index++) {
+    const before = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+    const accept = page.locator('[data-accept-quest]:not([data-revealing="true"])');
+    assert(await accept.isEnabled());
+    await accept.click();
+    await page.waitForFunction(({ key, index }) =>
+      JSON.parse(localStorage.getItem(key)).actors.vale.arcana.spread[index].accepted === true,
+    { key, index });
+    const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+    assert.equal(after.turn, before.turn, "Accept advances no time");
+    assert.deepEqual(after.actors.vale.arcana.spread.map((slot) => slot.accepted === true),
+      [0, 1, 2].map((slot) => slot <= index), "Accept keeps raw spread indexes");
+  }
   await settleHand(page);
   const dealt = await tarotFaces(page);
   assert.deepEqual(dealt.map((c) => c.unrevealed), ["true", "true", "true"], `${label}: the spread is dealt face down`);

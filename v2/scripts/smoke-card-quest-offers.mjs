@@ -192,6 +192,7 @@ try {
       await page.locator('[data-card="lamp"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
+      assert.deepEqual(recordOf(await t.state(), "vale").spread, [], "a fresh avatar starts without a tarot");
       // Accept the ordinary opening quest before inspecting its locked source.
       await selectCard(page, "pond");
       assert.equal((await t.state()).actors.vale.want, null);
@@ -370,7 +371,6 @@ try {
       await accept(page, t, "moth");
       await accept(page, t, "vale", true);
       assert.equal((await t.state()).actors.vale.want.target, "cloth");
-      await accept(page, t, "vale", true);
       assert.equal(await page.locator("#hand .want-frame").count(), 1, "only the top quest is shown");
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
