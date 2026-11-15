@@ -20,7 +20,7 @@ let browser;
 try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH });
   for (const width of smokeWidths([1440, 390])) for (const shared of [false, true]) {
-    const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+    const page = await browser.newPage({ viewport: { width, height: width === 390 ? 844 : 900 }, reducedMotion: "reduce" });
     page.setDefaultTimeout(15000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -58,9 +58,10 @@ try {
           const command = r.request().postDataJSON();
           if (command.op === "play") {
             const next = dispatchShared({ ...command, world: snapshot.world, actor: "vale", claimed: ["vale"], present: ["vale"] });
+            assert.equal(next.ok, true, next.error);
             snapshot.world = next.world;
             accepted += Number(command.action.offer !== undefined);
-          } else assert.equal(command.op, "heartbeat");
+          } else assert(["heartbeat", "enter"].includes(command.op), command.op);
           snapshot.now = Math.max(Date.now(), snapshot.now + 1);
         }
         return r.fulfill({ json: snapshot });
@@ -68,17 +69,18 @@ try {
     }
     const url = `${origin}/?${shared ? `world=${worldId}` : `table=${table}`}`;
     const state = () => page.evaluate(() => window.consentProbe.state());
-    const ready = () => page.waitForFunction(() => {
+    const ready = (selector = null) => page.waitForFunction((selector) => {
       const next = document.getElementById("dialogue-advance");
       if (next?.checkVisibility() && next.dataset.revealing === "false") next.click();
-      return document.getElementById("hand")?.dataset.cooling === "false";
-    });
+      return document.getElementById("hand")?.dataset.cooling === "false" &&
+        (!selector || document.querySelector(selector)?.checkVisibility());
+    }, selector);
     await page.goto(url);
     await page.waitForFunction(() => Boolean(window.consentProbe));
     await ready();
     assert.equal((await state()).actors.vale.want, null);
     assert.equal((await state()).actors.vale.pendingQuests.length, 3);
-    assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0);
+    assert.equal(await page.locator("#hand .want-card").count(), 0);
     const source = questPreviews(loaded).find((q) => q.kind === "box");
     assert(source?.action);
     await clearSelection(page);
@@ -92,15 +94,19 @@ try {
     assert.equal(calls, beforeCalls, "Accept requests no new narration");
     assert((await state()).actors.vale.want.accepted);
     assert.equal(await page.locator(`[data-card="${source.source}"]`).getAttribute("data-locked"), "true");
-    assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 1);
+    assert.equal(await page.locator("#hand .want-card").count(), 1);
     await page.reload(); await ready();
     assert.equal((await state()).actors.vale.pendingQuests.length, 3);
     await clearSelection(page);
     if (!shared) {
-      const wait = readyActionButton(page, "wait");
-      await wait.click(); await ready();
+      await selectCard(page, "vale");
+      const turn = (await state()).turn;
+      await readyActionButton(page, "wait").click();
+      await page.waitForFunction((turn) => window.consentProbe.state().turn > turn, turn);
+      await ready(); await clearSelection(page);
     }
     await selectCard(page, "vale");
+    await ready("[data-review-quests]");
     await page.locator("[data-review-quests]").click();
     const captions = new Set();
     for (let i = 0; i < 6; i++) {
@@ -108,7 +114,7 @@ try {
       await page.locator("[data-next-quest]").click();
     }
     assert([...captions].some((text) => /Level II/u.test(text)), "level tracking stays available for review");
-    assert([...captions].some((text) => /Rest at home/u.test(text)), "old Sleep stays available for review");
+    assert([...captions].some((text) => /Rest at Mirror attic/u.test(text)), "old Sleep stays available for review");
     const first = await page.locator(".action-beat-text").textContent();
     await page.locator("[data-next-quest]").click();
     assert.notEqual(await page.locator(".action-beat-text").textContent(), first);
@@ -119,6 +125,7 @@ try {
       await page.locator("[data-next-quest]").click();
     }
     assert.match(await page.locator(".action-beat-text").textContent(), /Oil/iu);
+    assert.match(await page.locator("#play-readout").textContent(), /Oil/iu);
     const pendingBefore = (await state()).actors.vale.pendingQuests;
     const line = await page.locator("#dialogue-text").textContent(), callsBefore = calls;
     await page.locator("[data-accept-quest]").click();

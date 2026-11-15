@@ -3166,7 +3166,7 @@ function renderActions() {
       ? `Not played: ${playLabel(a)}. ${refusedPlay(a)}`
       : playLabel(a);
   $("play-readout").textContent = selected.length
-    ? [selectionName, lockShown?.text || actions.map(readout).join(". ") || hint]
+    ? [selectionName, previewCard || reviewQuests ? sentence : lockShown?.text || actions.map(readout).join(". ") || hint]
         .filter(Boolean)
         .join(". ")
     : questOpen && shownQuests[0]
