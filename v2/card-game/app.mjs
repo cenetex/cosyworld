@@ -2578,7 +2578,7 @@ function cardTapHint(button, verb = actionTapVerb(null, button.textContent), lab
   nameActionTap(button, verb, label);
 }
 
-const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
+const choiceKey = () => `${selected.join("+")}:${questOpen}:${rowCollapsed}`;
 let queuedChoice = false;
 function queueChoice() {
   queuedChoice ||= Boolean(shownSceneLine && (

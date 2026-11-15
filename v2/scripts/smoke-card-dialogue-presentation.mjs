@@ -1,7 +1,3 @@
-// The action panel shows only while choosing (presentation.mjs, #2017): never
-// over a typing line, which keeps its full card. A tap anywhere on a typing
-// card finishes it; clicking off deselects. A shared reply under a choice
-// hides the panel until it is read; a shared refusal waits for the line.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
@@ -13,6 +9,7 @@ import {
   readyActionButton,
   selectCard,
   smokeWidths,
+  tapCard,
 } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -129,6 +126,18 @@ async function local(width) {
       }),
     ]),
   );
+  await t.choose("vale");
+  await readyActionButton(t.page, "wait").click();
+  await t.waits(`local ${width} Wait reply`);
+  const fold = t.page.locator("#hand .quest-fold");
+  if (await fold.isVisible()) await t.tap(fold);
+  else await tapCard(t.page.locator('#hand [data-quest-id="quest:0"].want-card'));
+  await t.tap(t.page.locator("#speaker-portrait"));
+  await until(t.page, (s) => !s.typing, "the Wait reply is read");
+  assert.equal(await t.page.locator("#speech-hint").innerText(), "Tap to continue",
+    "choosing a quest after Wait keeps an explicit way to its actions");
+  await t.tap(t.page.locator("#speaker-portrait"));
+  await t.page.locator("#card-actions [data-drop-quest]").waitFor({ state: "visible" });
   await t.choose("moth");
   await readyActionButton(t.page, "talk").click();
   await t.choose("pond");
