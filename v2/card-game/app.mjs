@@ -1,7 +1,8 @@
 import { accountStorage as localStorage, accountStorageKey } from "./account-reset-storage.mjs";
 import { tableHolder, tableType } from "./mystery-view.mjs";
 import { radioAudible } from "./radio-item.mjs";
-import { holdChoice } from "./world.mjs";
+import {
+  questPreviews, holdChoice } from "./world.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
 import { heldItem } from "./held-item.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
@@ -98,6 +99,7 @@ import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
   isQuestId,
   levelCard,
+  questPreviewCard,
   questCards,
   questVisible,
   questCaption,
@@ -535,6 +537,7 @@ let openingHeld = false;
 let shownQuests = [],
   questSeq = null,
   questOpen = false,
+  questReviewId = null,
   questFresh = false,
   // The avatar's fanned stack of things, "items" (#2256).
   avatarFan = null,
@@ -713,6 +716,7 @@ function loadSeen(reset = false) {
   shownLevels.clear();
   shownStageLevels.clear();
   shownQuests = [];
+  questReviewId = null;
   questSeq = null;
   questFresh = false;
   rememberCards(rewind);
@@ -921,7 +925,7 @@ function updateCardCooldown() {
         !availableCards(world).includes(button.dataset.unlockBox);
       continue;
     }
-    button.disabled = selectionBlocked() && !button.dataset.blocked;
+    button.disabled = button.dataset.blocked === "quest" || (selectionBlocked() && !button.dataset.blocked);
     if (button.dataset.card)
       button.draggable =
         !button.disabled && !cardIsCovered(button.dataset.card);
@@ -1793,6 +1797,7 @@ function rememberWait(action, key) {
       : null;
 }
 function selectCards(cards, { keepOpen = false } = {}) {
+  if (cards.join("+") !== selected.join("+")) questReviewId = null;
   for (const id of selected)
     if (people[id] && !cards.includes(id)) expandedHolders.delete(id);
   // A place stays open, and raised, only while it is chosen or holds a
@@ -2131,6 +2136,12 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
   if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
     return;
+  if (action.offer !== undefined && !sharedSession) {
+    playQueue.clear();
+    lastPlayAt = performance.now();
+    performAction(action, revision);
+    return;
+  }
   // The drone falls silent just before a discovery is revealed.
   if (action.choiceId) hum.hush();
   // The same play chosen again keeps it; its Thinking card cancels it.
@@ -2153,7 +2164,7 @@ function performAction(action, revision) {
     return;
   }
   // Taking a quest passes no turn and leaves the scene and its speech be.
-  if (action.kind === "pack") {
+  if (action.kind === "pack" || action.offer !== undefined) {
     world = result.state;
     save();
     render();
@@ -2739,7 +2750,14 @@ function renderActions() {
   // While the opening has a card down, the button only reveals the next.
   const quiet = !rested && opening()?.step === "reveal";
   const closed = selected.some(cardIsClosed);
-  const actions = rested || quiet || closed ? [] : ready;
+  const ownCard = selected.length === 1 && selected[0] === currentActor(world);
+  const reviewQuests = ownCard && questReviewId !== null;
+  const previews = !rested && selected.length === 1
+    ? questPreviews(world).filter((p) => ownCard ? reviewQuests : p.source === selected[0])
+    : [];
+  const preview = previews.find((p) => p.id === questReviewId) ?? previews[0];
+  const previewCard = preview && questPreviewCard(world, preview);
+  const actions = rested || quiet || closed || reviewQuests ? [] : ready;
   // Nothing chosen in an open pack: the pack's one button, the same quiet
   // button the opening uses (pack-opening.mjs).
   const packAsk =
@@ -2797,7 +2815,11 @@ function renderActions() {
           }
         : null,
     // Rule texts can double a name's article ("the The Burial Decree").
-    sentence = lockShown
+    sentence = previewCard
+      ? [questCaption(previewCard, false, null, known), preview.reason && visibleText(preview.reason)].filter(Boolean).join(". ")
+      : reviewQuests
+        ? "No quests to review."
+        : lockShown
       ? lockShown.text
       : questShown
         ? shownQuestCaption(questShown, false)
@@ -2818,7 +2840,9 @@ function renderActions() {
   // waits in.
   const others = selected.filter((id) => id !== actor);
   const here = world.actors[actor].place;
-  const involved = lockShown || packAsk
+  const involved = previewCard
+    ? [actor, previewCard.target].filter((id) => id && !cardIsClosed(id))
+    : lockShown || packAsk
     ? []
     : questShown
       ? [actor, questShown.target].filter((id) => id && !cardIsCovered(id))
@@ -2830,7 +2854,9 @@ function renderActions() {
     here,
     playLabel(actions[0], world),
     lockShown?.recipe,
-    lockShown
+    previewCard
+      ? questView(previewCard)
+      : lockShown
       ? { kind: "place", target: selected.find(cardIsClosed), covered: true }
       : packAsk
         ? // The pack is the carved back, as any unknown card is.
@@ -2917,6 +2943,40 @@ function renderActions() {
       reveal.onclick = () => uncover(opening()?.next);
     }
     row.append(reveal);
+  }
+  if (!rested && ownCard && !closed) {
+    const review = node("button", reviewQuests ? "Close quests" : "Review quests", "card-action");
+    review.type = "button";
+    review.dataset.reviewQuests = "";
+    review.onclick = () => {
+      questReviewId = reviewQuests ? null : "";
+      renderActions();
+    };
+    row.append(review);
+  }
+  if (previewCard) {
+    const accept = node("button", "Accept", "card-primary");
+    accept.type = "button";
+    accept.dataset.acceptQuest = "";
+    accept.disabled = !preview.action || selectionBlocked();
+    if (!preview.action) blockPlay(accept, "quest");
+    accept.title = preview.reason || "Accept this quest";
+    const renderedAt = performance.now();
+    accept.onclick = () => {
+      if (preview.action && performance.now() - heldAt >= TAP_GUARD_MS)
+        commitAction(preview.action, revision, renderedAt);
+    };
+    row.append(accept);
+    if (previews.length > 1) {
+      const next = node("button", "Next quest", "card-action");
+      next.type = "button";
+      next.dataset.nextQuest = "";
+      next.onclick = () => {
+        questReviewId = previews[(previews.indexOf(preview) + 1) % previews.length].id;
+        renderActions();
+      };
+      row.append(next);
+    }
   }
   // The chosen quest card offers one button, Discard. Its step is done as
   // any play is, by choosing the cards (the item and the person, the place).

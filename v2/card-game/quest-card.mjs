@@ -1,10 +1,8 @@
-// The player's one quest, drawn as a quest card in the hand: its target's
-// art with the rules' own words for the want as the caption. Nothing here is
-// authored or decides anything; the rules own the want (want.mjs).
+// Accepted quests use the rules' goal wording and their target's art.
 import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
 import { conditionWords, wantWords } from "./world/want-words.mjs";
-import { arcanaLevel, arcanumTerms, dealtCard } from "./world/arcana.mjs";
+import { arcanaLevel, arcanumTerms, dealtCard, levelAccepted } from "./world/arcana.mjs";
 import { homeOf } from "./world/home.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
@@ -69,7 +67,8 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
-export function levelCard(world, actor = currentActor(world)) {
+export function levelCard(world, actor = currentActor(world), { preview = false } = {}) {
+  if (!preview && !levelAccepted(world, actor)) return null;
   const card = dealtCard(world, actor)?.card;
   if (!card) return null;
   return {
@@ -85,6 +84,11 @@ export function levelCard(world, actor = currentActor(world)) {
     conditions: arcanumTerms(world, actor, card.id),
     home: homeOf(actor) ?? null,
   };
+}
+export function questPreviewCard(world, preview, actor = currentActor(world)) {
+  return preview.kind === "level"
+    ? levelCard(world, actor, { preview: true })
+    : questShape(world, actor, preview.quest, preview.id, -1);
 }
 // The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
