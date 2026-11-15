@@ -151,11 +151,12 @@ describe("the pack's state machine", () => {
     expect(pack.state).toBe("closed");
     expect(pack.ids).toEqual(["p-here", "a-fox", "i-gem", "i-pin"]);
     expect(pack.prompt(t.unturned)).toBeNull();
+    expect(pack.prompt(t.unturned, { lowered: true })).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL, text: PACK_TEXT.reveal });
 
     expect(pack.open()).toBe(true);
     expect(pack.state).toBe("open");
     expect(pack.open()).toBe(false);
-    expect(pack.prompt(t.unturned)).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL, text: PACK_TEXT.reveal });
+    expect(pack.prompt(t.unturned, { lowered: true })).toBeNull();
 
     const done = [];
     pack.revealAll({
@@ -182,19 +183,16 @@ describe("the pack's state machine", () => {
     expect(pack.state).toBe("none");
   });
 
-  it("turns one card at once in an open pack and moves to turned when all are", () => {
+  it("moves an open pack to turned when its cards are turned one by one", () => {
     const { pack } = make();
     const t = table(["a-fox", "i-gem", "i-pin"]);
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
-    expect(pack.turnOne("a-fox", { unturned: t.unturned, turn: t.turn })).toBe(false);
     pack.open();
-    expect(pack.turnOne("a-fox", { unturned: t.unturned, turn: t.turn })).toBe(true);
-    expect(pack.turnOne("a-fox", { unturned: t.unturned, turn: t.turn })).toBe(false);
-    expect(pack.turnOne("zzz", { unturned: t.unturned, turn: t.turn })).toBe(false);
+    t.turn("a-fox");
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
     expect(pack.state).toBe("open");
-    expect(pack.prompt(t.unturned).kind).toBe("reveal");
-    for (const id of ["i-gem", "i-pin"]) pack.turnOne(id, { unturned: t.unturned, turn: t.turn });
+    expect(pack.prompt(t.unturned)).toBeNull();
+    for (const id of ["i-gem", "i-pin"]) t.turn(id);
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
     expect(pack.state).toBe("turned");
     expect(pack.prompt(t.unturned).label).toBe(PACK_DONE);
@@ -375,7 +373,7 @@ describe("the pack's state machine", () => {
     const open = table(["a-fox", "i-gem", "i-pin"]);
     pack.sync(open.cards, { unturned: open.unturned, kindOf });
     pack.open();
-    pack.turnOne("a-fox", { unturned: open.unturned, turn: open.turn });
+    open.turn("a-fox");
     pack.dismiss({ unturned: open.unturned, turnNow: open.turn, tierOf });
     expect([...open.covered].sort()).toEqual(["i-gem", "i-pin"]);
     // Two left face down: no new pack, they turn in place.

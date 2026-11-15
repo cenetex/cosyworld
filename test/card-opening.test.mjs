@@ -148,7 +148,7 @@ describe("dousing the lamp in the attic", () => {
       crossed: false,
       met: { vale: 0 },
     });
-    expect(lit.locations.attic.anchored).toBe(true);
+    expect(lit.locations.attic.anchored).toBe(false);
     expect(isLockedBox(before, "pond")).toBe(true);
     expect(availableCards(lit)).toContain("pond");
     expect(isLockedBox(lit, "pond")).toBe(false);
@@ -233,11 +233,10 @@ describe("dousing the lamp in the attic", () => {
       model: "fixture-model",
       entries: context.entities.map(({ id }) => ({ id, text: spoiler })),
     });
-    // A play that keeps the lamp burning: a Wait here would sleep the night.
     s = act(s, "drop", { item: "lamp" });
     const next = narrativeContext(s);
     expect(JSON.stringify(next)).not.toMatch(
-      /hidden solution|mirror opens|waiting for lamplight|needs a lit|Wake the attic|Reason for the desire/,
+      /hidden solution|waiting for lamplight|needs a lit|Wake the attic|Reason for the desire/,
     );
     expect(next.conversation).toEqual([]);
     expect(
@@ -248,12 +247,12 @@ describe("dousing the lamp in the attic", () => {
     ).toBe(true);
     expect(s.memories.vale.text).toBe(spoiler);
     expect(next.entities.find((e) => e.id === "attic").facts).toContain(
-      "Paths visible now: none.",
+      "An open passage is visible in the reflection.",
     );
-    const lit = selectLamp(act(s, "take", { item: "lamp" }));
+    const lit = act(s, "take", { item: "lamp" });
     expect(
       narrativeContext(lit).entities.find((e) => e.id === "attic").facts,
-    ).toContain("An open passage is visible in the reflection.");
+    ).toContain("Paths visible now: none.");
   });
 
   it("meets the keeper on reaching the station", () => {

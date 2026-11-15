@@ -57,7 +57,8 @@ function attic() {
   const world = enableMotives(createWorld());
   world.actors.vale.place = "attic";
   world.items.cloth.holder = "vale";
-  world.items.lamp.holder = "attic";
+  world.items.lamp.holder = "vale";
+  world.actors.vale.heldItem = "lamp";
   world.items.lamp.lit = true;
   world.items.lamp.fuel = 12;
   return world;
@@ -351,7 +352,8 @@ describe("cosmetic upgrades travel with the traveler (#1873)", () => {
     // Back in the lit attic without the cloth, the scarf she wears opens them.
     world.actors.vale.place = "attic";
     world.items.cloth.holder = "pond";
-    world.items.lamp.holder = "attic";
+    world.items.lamp.holder = "vale";
+    world.actors.vale.heldItem = "lamp";
     world.items.lamp.lit = true;
     expect(exits(world, "attic", "vale")).toEqual([COTTAGE]);
     // A traveler who arrives wearing it climbs down from a fresh attic.
@@ -366,7 +368,8 @@ describe("cosmetic upgrades travel with the traveler (#1873)", () => {
     other.actors.moth.place = "attic";
     other.items[SCARF].holder = "moth";
     other.items.cloth.holder = "pond";
-    other.items.lamp.holder = "attic";
+    other.items.lamp.holder = "vale";
+    other.actors.vale.heldItem = "lamp";
     other.items.lamp.lit = true;
     expect(other.actors.vale.upgrades).toBeUndefined();
     expect(exits(other, "attic", "vale")).toEqual([COTTAGE]);
