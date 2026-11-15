@@ -105,8 +105,7 @@ try {
           path: new URL(`${label}-${width}.png`, output).pathname,
         });
       };
-      // Exactly one button per chosen card, and nothing is clipped or
-      // under the action bar.
+      // A settled quest action has one button above the hand.
       const oneButton = async () => {
         const buttons = await page.locator("#card-actions button").count();
         assert(buttons <= 1, `the action row has ${buttons} buttons`);
@@ -192,7 +191,17 @@ try {
       await page.locator('[data-card="lamp"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
-      // The shut pond has no quest; its one disabled button says why.
+      // Accept the ordinary opening quest before inspecting its locked source.
+      await selectCard(page, "pond");
+      assert.equal((await t.state()).actors.vale.want, null);
+      assert.equal(await page.locator("#card-actions button").count(), 2);
+      assert(await page.locator("[data-accept-quest]").isEnabled());
+      assert(await page.locator('[data-unlock-box="pond"]').isDisabled());
+      assert.doesNotMatch(await surfaces(page), /lamp/iu);
+      await accept(page, t, "pond");
+      assert.equal((await t.state()).actors.vale.want.from, "quest:box:pond");
+      assert.equal((await t.state()).actors.vale.want.accepted, true);
+      await clearSelection(page);
       await selectCard(page, "pond");
       assert.equal(await t.oneButton(), 1);
       const shut = page.locator("#card-actions button").first();
@@ -200,7 +209,7 @@ try {
       assert.equal(await shut.textContent(), "Unlock");
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
-        "Lay something you haven't found in Mirror attic",
+        "Lay something you haven't found somewhere you haven't discovered",
       );
       assert.doesNotMatch(await surfaces(page), /lamp/iu);
       assert.equal(await offerCards(page).count(), 0);
@@ -212,6 +221,7 @@ try {
       );
       assert.equal(await offerCards(page).count(), 0);
       assert.deepEqual((await t.state()).opened, { pond: ["vale"] });
+      assert.equal((await t.state()).actors.vale.want, null, "Put down completes the accepted opening quest");
       // Unlock the eligible pond, then go to Pip.
       await clearSelection(page);
       await selectCard(page, "pond");

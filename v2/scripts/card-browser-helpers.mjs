@@ -447,6 +447,7 @@ export async function putOutOpening(page, { unlock = true } = {}) {
     const pond = document.querySelector('#hand [data-card="pond"]');
     return pond?.dataset.locked === "false" && !pond.dataset.revealing;
   });
+  await clearSelection(page);
 }
 // The beat stack's cards take real pointer hits: the front card under its own
 // centre, and the card behind under its peeking top line (#1538).
