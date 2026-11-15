@@ -345,7 +345,13 @@ try {
       assert.equal((await t.state()).actors.vale.arcana.spread[0].accepted, true);
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
+      assert.equal(await label(page), "Reveal");
+      const beforeReveal = await t.state();
+      await page.locator('[data-open-box^="tarot:vale:down:"]').click();
+      await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+      assert.deepEqual(await t.state(), beforeReveal, "revealing the tarot changes no world state");
       assert.equal(await label(page), "Discard");
+      assert.doesNotMatch(await surfaces(page), /The Fool/u);
       const back = page.locator("#hand .want-frame:not([hidden]) > .want-card > .card-back");
       assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
       assert.notEqual(
