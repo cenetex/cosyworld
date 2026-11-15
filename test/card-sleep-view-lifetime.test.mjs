@@ -191,6 +191,7 @@ function appBoundary(sleepView, world) {
     decodeSave,
     heldItem,
     shownHeld: () => [],
+    titleShowing: () => false,
     enableMotives: (w) => w,
     freshWorld: createWorld,
     currentActor: () => "vale",
