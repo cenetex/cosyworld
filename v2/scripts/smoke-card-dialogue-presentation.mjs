@@ -25,6 +25,8 @@ const state = (page) =>
     return {
       panel: !q("#action-beat").hidden,
       buttons: q("#card-actions").children.length,
+      actionLabels: [...q("#card-actions").children].map((button) => button.textContent),
+      actionText: q("#action-beat").textContent,
       status: q("#play-status").hidden ? null : q("#play-status").textContent,
       strip: q(".beat-stack").dataset.action === "true",
       front: q("#speech-row").hidden ? null : q("#speech-row").dataset.beat,
@@ -40,7 +42,6 @@ const state = (page) =>
       ].map((c) => c.dataset.card),
     };
   });
-// Words that fail are a silent "…" line (#2008's note and Retry are gone).
 async function noFailureUi(page) {
   assert.equal(await page.locator("#story-retry, #story-error").count(), 0);
   assert.equal(await page.locator("[data-retry-words]").count(), 0);
@@ -241,6 +242,14 @@ async function shared(width) {
     history = [],
     notice = null;
   const seat = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+  const prepared = dispatchShared({
+    op: "play", world, ...seat,
+    action: dispatchShared({ op: "view", world, ...seat }).actions.find(
+      (action) => action.kind === "wait" && !action.sleep,
+    ),
+  });
+  assert(prepared.ok, prepared.error);
+  world = prepared.world;
   const view = () => ({
     ...dispatchShared({ op: "view", world, ...seat }),
     id: "present",
