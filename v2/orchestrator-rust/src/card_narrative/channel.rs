@@ -50,7 +50,7 @@ struct Resident {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct CastQuery {
+pub(super) struct CastQuery {
     #[serde(default)]
     pack: Option<String>,
 }
@@ -67,7 +67,7 @@ struct Message {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct LinesRequest {
+pub(super) struct LinesRequest {
     pack: String,
     #[serde(default)]
     addressed: Option<String>,
