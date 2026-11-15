@@ -84,8 +84,50 @@ test("a choice that leaves none at the threshold or above stays silent", async (
 test("the same resident may go on, up to the run cap", async () => {
   const fixed = fixture(Array.from({ length: 9 }, () => next("rati", 0.9)));
   await fixed.hear("m1", "RATi, tell me a story");
-  assert.deepEqual(fixed.sent, ["RATi", "RATi", "RATi", "RATi"]);
+  assert.deepEqual(fixed.sent, ["RATi", "RATi", "RATi"]);
   assert.equal(fixed.stats.skips["resident-run"], 1);
+});
+
+test("a group question gets one decision after every message until none wins", async () => {
+  const fixed = fixture([odds(introductions), odds({ oak: 0.41, rati: 0.2, none: 0.3 }), odds({ none: 0.55, rati: 0.3, vale: 0.15 }), odds({ vale: 0.9 })], { cast: village });
+  await fixed.hear("m1", "Can you each introduce yourselves?");
+  assert.deepEqual(fixed.sent, ["Keeper", "Oak"]);
+  assert.equal(fixed.asks.length, 3);
+  assert.equal(fixed.asks[1].state.history.at(-1).resident, "keeper");
+  assert.equal(fixed.asks[2].state.history.at(-1).resident, "oak");
+  assert.equal(fixed.stats.actions.silent, 1);
+  assert.ok(fixed.logs.includes("next choice=keeper p=0.38 none=0.12 probs=keeper:0.38,oak:0.29,rati:0.08,vale:0.05,whiskerwind:0.04,none:0.12 action=speak guild=g1 channel=c1"));
+});
+
+test("the run limit stops a chain of different residents at three", async () => {
+  const fixed = fixture([odds({ keeper: 0.8, none: 0.1 }), odds({ oak: 0.8, none: 0.1 }), odds({ moth: 0.8, none: 0.1 }), odds({ rati: 0.8, none: 0.1 })], { cast: village });
+  await fixed.hear("m1", "Hello everyone, who lives here?");
+  assert.deepEqual(fixed.sent, ["Keeper", "Oak", "Moth"]);
+  assert.equal(fixed.asks.length, 3);
+  assert.equal(fixed.stats.skips["resident-run"], 1);
+});
+
+test("the run limit is configurable", async () => {
+  const fixed = fixture(Array.from({ length: 4 }, () => next("rati", 0.9)), { config: { ...config, DISCORD_MAX_RESIDENT_RUN: 1 } });
+  await fixed.hear("m1", "RATi, tell me a story");
+  assert.deepEqual(fixed.sent, ["RATi"]);
+  assert.equal(fixed.asks.length, 1);
+});
+
+test("human messages close together lead to one decision for the latest state", async () => {
+  const queued = [];
+  const slow = { setTimeout: (fn) => queued.push(fn), clearTimeout: () => queued.shift() };
+  const fixed = fixture([next("vale", 0.9), next("none", 0.9)]);
+  for (const [id, text] of [["m1", "Vale?"], ["m2", "are you there?"]]) {
+    const entry = record(fixed.room, { id, createdTimestamp: Date.now(), content: text, author: { id: "u1", bot: false }, member: { displayName: "Ash" } }, "hook", cast, fixed.stats);
+    heard(fixed.room, entry, fixed.deps, slow);
+  }
+  assert.equal(queued.length, 1);
+  queued[0]();
+  await fixed.room.turning;
+  assert.deepEqual(fixed.sent, ["Vale"]);
+  assert.equal(fixed.asks.length, 2);
+  assert.equal(fixed.asks[0].state.history.at(-1).text, "are you there?");
 });
 
 test("a human message cancels the queued turn and starts a fresh ask", async () => {
@@ -101,6 +143,9 @@ test("a human message cancels the queued turn and starts a fresh ask", async () 
   await second;
   await fixed.room.turning;
   assert.deepEqual(fixed.sent, ["Vale", "Skull"]);
+  assert.equal(fixed.asks.length, 4);
+  assert.equal(fixed.logs.filter((line) => line.startsWith("next choice=vale")).length, 1);
+  assert.ok(fixed.logs.every((line) => !line.startsWith("next miss")));
 });
 
 test("a Jev miss falls back to the named resident once, otherwise silence", async () => {
@@ -175,25 +220,6 @@ test("a resident speaks when none is under the threshold and stays silent when n
     await fixed.hear("m1", "the fire is warm tonight");
     assert.deepEqual(fixed.sent, spoken);
   }
-});
-
-test("a question to everyone lets more residents follow, up to three replies", async () => {
-  const fixed = fixture(
-    [odds(introductions), odds({ oak: 0.41, rati: 0.2, none: 0.3 }), odds({ rati: 0.32, vale: 0.3, none: 0.2 }), odds({ vale: 0.6, none: 0.1 })],
-    { cast: village },
-  );
-  await fixed.hear("m1", "Can you each introduce yourselves?");
-  assert.deepEqual(fixed.sent, ["Keeper", "Oak", "RATi"]);
-  assert.equal(fixed.asks.length, 3);
-  assert.equal(fixed.stats.skips["group-cap"], 1);
-  assert.ok(fixed.logs.includes("next choice=keeper p=0.38 none=0.12 probs=keeper:0.38,oak:0.29,rati:0.08,vale:0.05,whiskerwind:0.04,none:0.12 action=speak guild=g1 channel=c1"));
-});
-
-test("a group follow-up needs its own probability of at least 0.2", async () => {
-  const fixed = fixture([odds(introductions), odds({ whiskerwind: 0.15, none: 0.1, oak: 0.14, rati: 0.13 })], { cast: village });
-  await fixed.hear("m1", "Hello everyone, who lives here?");
-  assert.deepEqual(fixed.sent, ["Keeper"]);
-  assert.equal(fixed.stats.actions.silent, 1);
 });
 
 test("a reply that only narrates the resident's own action is not posted", async () => {

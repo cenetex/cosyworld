@@ -16,9 +16,7 @@ test("config gives safe defaults and rejects bad numbers", () => {
   assert.equal(config.DISCORD_DAILY_REPLIES, 500);
   assert.equal(config.DISCORD_CONTEXT_MESSAGES, 12);
   assert.equal(config.DISCORD_NONE_THRESHOLD, 0.5);
-  assert.equal(config.DISCORD_FOLLOW_THRESHOLD, 0.2);
-  assert.equal(config.DISCORD_GROUP_REPLIES, 3);
-  assert.equal(config.DISCORD_MAX_RESIDENT_RUN, 4);
+  assert.equal(config.DISCORD_MAX_RESIDENT_RUN, 3);
   assert.equal(config.DISCORD_CHANNEL_NAME, "lonely-forest");
   assert.equal(config.DISCORD_PACK, "lonely-forest");
   assert.equal(config.DISCORD_STATE_FILE, "./discord-state.json");
