@@ -1290,7 +1290,9 @@ mod tests {
         let voice = &requests[0];
         assert_eq!(turn_of(voice, "user"), crate::ai_gateway::SILENCE);
         let view = turn_of(voice, "assistant");
-        let asked = view.find("Jun said: \"RATi, can I come in?\"").expect(&view);
+        let asked = view
+            .find("Jun said: \"RATi, can I come in?\"")
+            .expect(&view);
         let said = view.find(&format!("I said: \"{own}\"")).expect(&view);
         assert!(asked < said, "{view}");
         let (_, _, addressed) = post_lines("{}", Some(reply), TOKEN, talk(Some("rati"))).await;
