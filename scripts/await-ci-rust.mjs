@@ -26,7 +26,6 @@ export const VERSION_FILES = [
   'v2/desktop/src-tauri/Cargo.lock'
 ];
 
-// Whether a compare's files show a version bump and nothing else.
 export function versionOnly(files) {
   return (
     files.length > 0 &&

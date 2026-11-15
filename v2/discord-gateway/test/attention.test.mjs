@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
-import { assess, addressee, addressedResident, decide } from "../src/attention.mjs";
+import { assess, addressee, addressedResident, decide, mentioned } from "../src/attention.mjs";
 
 const config = readConfig({});
 const cast = [
@@ -165,13 +165,29 @@ test("a reply to a resident's webhook message counts as addressed", () => {
   assert.equal(decision.addressed, "skull");
 });
 
-test("a follow-up from the same person keeps the address, another person breaks it", () => {
-  const messages = [human("m1", 0, "RATi, can I"), human("m2", 0, "come in?")];
-  assert.equal(addressee(messages, cast), "rati");
-  assert.equal(decide(room(messages), day, 1500, config, cast).addressed, "rati");
-  const broken = [...messages, { id: "m3", at: 0, author: "Jun", text: "hello all" }];
-  assert.equal(addressee(broken, cast), null);
-  const long = [human("m1", 0, "RATi, hi"), human("m2", 0, "one"), human("m3", 0, "two"), human("m4", 0, "three")];
-  assert.equal(addressee(long, cast), null);
-  assert.equal(addressee([resident("r1", 0, "rati", "Yes?")], cast), null);
+
+test("focus on a person lets a follow-up without a name reach the resident, then decays", () => {
+  const messages = [human("m1", 0, "RATi, can I"), human("m2", 1000, "come in?")];
+  const focus = { rati: { target: "h:Mara", at: 0 } };
+  assert.equal(addressee(messages, cast), null);
+  assert.equal(addressee(messages, cast, 1, focus), "rati");
+  assert.equal(decide(room(messages, { focus }), day, 2500, config, cast).addressed, "rati");
+  const jun = [...messages, { id: "m3", at: 2000, author: "Jun", text: "hello all" }];
+  assert.equal(addressee(jun, cast, 2, focus), null);
+  assert.equal(addressee([human("m9", 179000, "and then?")], cast, 0, focus), "rati");
+  assert.equal(addressee([human("m9", 180000, "and then?")], cast, 0, focus), null);
+  assert.equal(addressee([resident("r1", 0, "rati", "Yes?")], cast, 0, focus), null);
+});
+
+test("the strongest focus wins and a name beats any focus", () => {
+  const focus = { rati: { target: "h:Mara", at: 0 }, skull: { target: "h:Mara", at: 60000 } };
+  assert.equal(addressee([human("m1", 90000, "so what now")], cast, 0, focus), "skull");
+  assert.equal(addressee([human("m1", 90000, "RATi, what now")], cast, 0, focus), "rati");
+  assert.equal(addressee([human("m1", 90000, "so what now", { authorId: "u2" })], cast, 0, focus), null);
+});
+
+test("another resident is mentioned only by a whole name", () => {
+  assert.equal(mentioned("Skull, did you hear that?", cast, "rati"), "skull");
+  assert.equal(mentioned("my skullcap is warm", cast, "rati"), null);
+  assert.equal(mentioned("I am Skull.", cast, "skull"), null);
 });

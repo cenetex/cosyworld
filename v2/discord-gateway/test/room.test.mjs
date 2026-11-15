@@ -473,3 +473,24 @@ test("each request carries the channel as seen in memory", () => {
     quiet: 60,
   });
 });
+
+test("being addressed, answering and naming another resident set focus", async () => {
+  const { room, rooms, state } = fixture();
+  record(room, message("m1", 0, "Is anyone home?", { author: { id: "u1", bot: false } }), "hook", cast);
+  assert.deepEqual(room.focus, {});
+  record(room, message("m2", 1000, "RATi?", { author: { id: "u1", bot: false } }), "hook", cast);
+  assert.deepEqual(room.focus.rati, { target: "h:u1", at: 1000 });
+  const sent = [];
+  const reply = (text) => async () => ({ lines: [{ id: "rati", text }] });
+  const send = async (target, payload) => {
+    sent.push(payload.content);
+    return { id: `s${sent.length}`, createdTimestamp: 5000 * sent.length };
+  };
+  await tick({ rooms, state, now: 9000, config, cast, lines: reply("Yes, come in."), send, save: () => {} });
+  assert.deepEqual(room.focus.rati, { target: "h:u1", at: 5000 });
+  record(room, message("m3", 12000, "thanks, where do I sit?", { author: { id: "u1", bot: false } }), "hook", cast);
+  await tick({ rooms, state, now: 20000, config, cast, lines: reply("Skull, move over."), send, save: () => {} });
+  assert.deepEqual(sent, ["Yes, come in.", "Skull, move over."]);
+  assert.deepEqual(room.focus.rati, { target: "r:skull", at: 10000 });
+  assert.deepEqual(room.focus.skull, { target: "r:rati", at: 10000 });
+});
