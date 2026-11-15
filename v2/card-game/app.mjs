@@ -1779,7 +1779,7 @@ function packSync(cards) {
     unturned: cardIsCovered,
     kindOf: packKind,
     holderOf: (id) => tableHolder(world, id),
-    allowed: !saveBlocked && !pipPrelude(),
+    allowed: !saveBlocked && !pipPrelude() && !titleShowing(),
   });
 }
 const packHand = (cards) =>
@@ -6272,7 +6272,15 @@ nameTitleWaker(pipPrelude() ? "Pip" : nameOf(currentActor(world)), pipPrelude() 
 if (migratedRunSeed || (startingPip && openingTable)) save();
 resumeScene();
 // The title's turn (or Escape past it) is this avatar's reveal.
-onTitleWake(() => uncover(pipPrelude() ? "moth" : currentActor(world), { flip: false }));
+onTitleWake(() => {
+  uncover(pipPrelude() ? "moth" : currentActor(world), { flip: false });
+  const gone = new MutationObserver(() => {
+    if (titleShowing()) return;
+    gone.disconnect();
+    render();
+  });
+  gone.observe(document.documentElement, { childList: true });
+});
 if (pipPrelude() && pipHeard()) leaveToOpening();
 else if (pipPrelude() && openingTable) {
   playTitleIntro({ cardOnly: true, storage: null });

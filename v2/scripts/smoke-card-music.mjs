@@ -284,7 +284,7 @@ try {
   console.log("Pond tracks played");
   await travel("station");
   console.log("Station tracks played");
-  await playCard("moth");
+  await playCard("station");
   await fullVolume();
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   assert(await page.locator("#room-music").evaluate((audio) => !audio.paused));

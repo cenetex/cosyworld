@@ -292,11 +292,14 @@ try {
     const douse = await watched();
     assert.equal(douse.vale, "kept");
     assert.equal(douse.valeFrame, "kept");
-    const pond = await page.evaluate(() => {
-      const card = document.querySelector('#hand [data-card="pond"]');
-      return [card.parentElement.hidden, card.dataset.locked];
-    });
-    assert.deepEqual(pond, [false, "false"], "the pond's lock opens");
+    await page.waitForFunction(
+      () => document.querySelector('#hand [data-card="pond"]')?.dataset.locked === "false",
+    );
+    assert.equal(
+      await page.evaluate(() => document.querySelector('#hand [data-card="pond"]').parentElement.hidden),
+      false,
+      "the pond's lock opens in view",
+    );
     if (!reduced)
       for (const fade of douse.motions.filter((m) => m.ghost))
         assert(fade.at + fade.delay + fade.duration <= SWAP_MS + slack);

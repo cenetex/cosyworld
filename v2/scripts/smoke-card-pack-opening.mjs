@@ -458,6 +458,8 @@ const turnAndChoose = async (page, id) => {
   const card = page.locator(`#hand [data-card="${id}"]`);
   for (let tap = 0; tap < 3 && (await card.getAttribute("aria-pressed")) !== "true"; tap++) {
     await tapCard(card);
+    const reveal = page.locator(`#card-actions [data-open-box="${id}"]:not([data-revealing="true"])`);
+    if ((await card.getAttribute("data-unrevealed")) === "true") await reveal.click();
     await page.waitForFunction(
       (id) => {
         const card = document.querySelector(`#hand [data-card="${id}"]`);
