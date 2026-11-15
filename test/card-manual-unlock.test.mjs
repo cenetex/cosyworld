@@ -132,13 +132,31 @@ it("observes locks after local backup rewind while shared reloads keep their fen
   for (const shared of [false, true]) {
     const record = JSON.stringify({ scope: JSON.stringify([7, "vale"]), revision: 20, ids: [] });
     const { state: s, locked, saved } = view(new Map([["seen.locked", record]]), shared);
+    s.available = ["field"];
     s.loadSeen();
     expect(s.lockedBoxes.ids()).toEqual(shared ? [] : ["field"]);
     locked.clear(); s.world.revision++; s.observeLocks();
     expect(s.lockedBoxes.boxed("field")).toBe(!shared);
-    expect(JSON.parse(saved.get("seen.locked")).revision).toBe(20);
+    expect(JSON.parse(saved.get("seen.locked")).revision).toBe(shared ? 20 : 4);
     s.unlockBox("field");
     expect(s.lockedBoxes.ids()).toEqual([]);
+    s.world.revision++; s.available.push("plain"); locked.add("plain"); s.observeLocks(); s.rememberCards();
+    locked.clear(); s.world.revision++; s.observeLocks();
+    expect(s.lockedBoxes.boxed("plain")).toBe(!shared);
+    s.selected = ["plain"]; s.unlockBox("plain");
+    expect(s.lockedBoxes.ids()).toEqual([]);
+  }
+});
+it("keeps an explicit Unlock when another tab has already saved the current revision", () => {
+  for (const shared of [false, true]) {
+    const { state: a, locked, saved } = view(new Map(), shared);
+    a.observeLocks(); a.rememberCards();
+    const { state: b, locked: other } = view(saved, shared);
+    b.loadPendingLocks(); locked.clear(); other.clear();
+    a.world.revision = b.world.revision = 5; b.rememberCards();
+    a.unlockBox("field");
+    expect(a.lockedBoxes.ids()).toEqual([]);
+    expect(JSON.parse(saved.get("seen.locked"))).toMatchObject({ revision: 5, ids: [] });
   }
 });
 it("merges same-revision unlocks before a stale tab writes its discovery state", () => {
