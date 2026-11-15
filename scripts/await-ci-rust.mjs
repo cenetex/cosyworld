@@ -16,7 +16,6 @@ export const GATE_CHECKS = {
   'Production Rust architecture and lint': CI_RUST_CHECKS[1]
 };
 
-// A release bump changes only these files, and in them only version lines.
 export const VERSION_FILES = [
   'package.json',
   'package-lock.json',
@@ -26,7 +25,6 @@ export const VERSION_FILES = [
   'v2/desktop/src-tauri/Cargo.lock'
 ];
 
-// Whether a compare's files show a version bump and nothing else.
 export function versionOnly(files) {
   return (
     files.length > 0 &&

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
 import { emptyState } from "../src/channel.mjs";
-import { calm, createRoom, createStats, nudge, record, seed, summary, tick } from "../src/room.mjs";
+import { calm, createRoom, createStats, nudge, record, requestBody, seed, summary, tick } from "../src/room.mjs";
 
 const config = readConfig({ ORCHESTRATOR_URL: "https://cosyworld.example" });
 const cast = [
@@ -47,7 +47,12 @@ test("tick sends safe webhook lines with name and portrait", async () => {
     save: () => (saves += 1),
   });
   assert.deepEqual(bodies, [
-    { pack: "lonely-forest", addressed: "rati", messages: [{ author: "Mara", text: "RATi, can I come in?" }] },
+    {
+      pack: "lonely-forest",
+      addressed: "rati",
+      channel: { active: ["Mara"], residents: [] },
+      messages: [{ author: "Mara", text: "RATi, can I come in?" }],
+    },
   ]);
   assert.deepEqual(sent, [
     {
@@ -117,7 +122,7 @@ test("a failing lines call is refunded and retried once", async () => {
     "decision act=reply reason=addressed guild=g1 channel=c1",
     "lines failed reason=busy attempt=2 guild=g1 channel=c1",
   ]);
-  assert.match(summary(stats), /^summary replies=0 skips=none failures=busy:2$/);
+  assert.match(summary(stats), /^summary replies=0 skips=none failures=busy:2 continued=0 exchanges=0 flags=none$/);
 });
 
 test("a throwing lines call or send is refunded and keeps the ambient clock", async () => {
@@ -446,4 +451,46 @@ test("a line overtaken by a message to another resident is dropped as handled", 
   });
   assert.deepEqual(next, ["skull"]);
   assert.deepEqual(sent, ["Here."]);
+});
+
+test("each request carries the channel as seen in memory", () => {
+  const room = createRoom("g1", "c1");
+  room.messages.push(
+    { id: "a", at: 0, text: "Old words.", author: "Jun" },
+    { id: "b", at: 700000, text: "One.", resident: "skull" },
+    { id: "c", at: 710000, text: "Two.", resident: "rati" },
+    { id: "d", at: 720000, text: "Three.", resident: "rati" },
+    { id: "e", at: 730000, text: "Hi Mara.", author: "Mara" },
+    { id: "f", at: 790000, text: "RATi, who else is here?", author: "Mara" },
+  );
+  const body = requestBody(room, config, "rati", 800000);
+  assert.deepEqual(body.channel, {
+    active: ["Mara", "rati", "skull"],
+    residents: [
+      { id: "skull", lines: ["One."], streak: 0, since: 100 },
+      { id: "rati", lines: ["Two.", "Three."], streak: 2, since: 80 },
+    ],
+    quiet: 60,
+  });
+});
+
+test("being addressed, answering and naming another resident set focus", async () => {
+  const { room, rooms, state } = fixture();
+  record(room, message("m1", 0, "Is anyone home?", { author: { id: "u1", bot: false } }), "hook", cast);
+  assert.deepEqual(room.focus, {});
+  record(room, message("m2", 1000, "RATi?", { author: { id: "u1", bot: false } }), "hook", cast);
+  assert.deepEqual(room.focus.rati, { target: "h:u1", at: 1000 });
+  const sent = [];
+  const reply = (text) => async () => ({ lines: [{ id: "rati", text }] });
+  const send = async (target, payload) => {
+    sent.push(payload.content);
+    return { id: `s${sent.length}`, createdTimestamp: 5000 * sent.length };
+  };
+  await tick({ rooms, state, now: 9000, config, cast, lines: reply("Yes, come in."), send, save: () => {} });
+  assert.deepEqual(room.focus.rati, { target: "h:u1", at: 5000 });
+  record(room, message("m3", 12000, "thanks, where do I sit?", { author: { id: "u1", bot: false } }), "hook", cast);
+  await tick({ rooms, state, now: 20000, config, cast, lines: reply("Skull, move over."), send, save: () => {} });
+  assert.deepEqual(sent, ["Yes, come in.", "Skull, move over."]);
+  assert.deepEqual(room.focus.rati, { target: "r:skull", at: 10000 });
+  assert.deepEqual(room.focus.skull, { target: "r:rati", at: 10000 });
 });

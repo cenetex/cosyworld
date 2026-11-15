@@ -34,7 +34,9 @@ const files = publicAssets
   .map(({ file }) => file)
   .filter(
     (file) =>
-      /\.(png|webp)$/.test(file) && !file.startsWith("assets/optimized/"),
+      /\.(png|webp)$/.test(file) &&
+      !file.startsWith("assets/optimized/") &&
+      !file.startsWith("assets/faces/"),
   )
   .sort();
 const pathFor = (source, size) => {

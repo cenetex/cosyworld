@@ -193,7 +193,8 @@
             },
             while: [
               {
-                kind: "company"
+                kind: "company",
+                invited: true
               }
             ]
           }
@@ -206,7 +207,8 @@
             }
           },
           {
-            kind: "company"
+            kind: "company",
+            invited: true
           }
         ]
       },
@@ -288,8 +290,7 @@
             key: "night-walk",
             match: {
               verb: "move",
-              actorId: "$traveler",
-              light: true
+              actorId: "$traveler"
             },
             while: [
               {
@@ -300,6 +301,16 @@
                 kind: "held",
                 item: "$light",
                 actor: "$traveler"
+              },
+              {
+                kind: "lit",
+                item: "$light"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "company"
+                }
               }
             ]
           }
@@ -308,7 +319,8 @@
           {
             kind: "daylight",
             phase: "night",
-            with: "$light"
+            with: "$light",
+            alone: true
           }
         ]
       },
@@ -579,26 +591,24 @@
         name: "The Moon",
         text: "A woodcut card. A moon shines on water where a doorway stands, and a lantern waits on the bank.",
         art: "assets/arcana/arcanum-18.png",
-        roles: [
-          {
-            name: "light",
-            kind: "item",
-            is: "lamp"
-          }
-        ],
         proof: [
           {
             kind: "did",
             key: "dark-walk",
             match: {
               verb: "move",
-              actorId: "$traveler",
-              light: false
+              actorId: "$traveler"
             },
             while: [
               {
                 kind: "daylight",
                 phase: "night"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "lit"
+                }
               }
             ]
           }
@@ -607,7 +617,7 @@
           {
             kind: "daylight",
             phase: "night",
-            without: "$light"
+            dark: true
           }
         ]
       },
@@ -19653,7 +19663,7 @@
     if (home) binding.home = home;
     const taken = [];
     for (const role of card.roles || []) {
-      const free = [...pool(s, role.kind, role.is)].sort().filter((id) => !taken.includes(id));
+      const free = [...pool(s, role.kind, role.is)].sort().filter((id) => !taken.includes(id) && !neverBack(s, id));
       if (!free.length) return null;
       const score = (id) => runHash(s, `arcana-role:${card.id}:${role.name}:${id}`);
       binding[role.name] = free.reduce(
@@ -19728,6 +19738,9 @@
       delete record5.dealt;
       delete record5.base;
       delete record5.accepted;
+      for (const slot of Array.isArray(record5.spread) ? record5.spread : [])
+        if (slot?.card === "arcanum-18" && plainObject(slot.bind) && Object.keys(slot.bind).join() === "light" && typeof slot.bind.light === "string" && slot.bind.light)
+          delete slot.bind;
       const proved = Array.isArray(record5.proved) ? record5.proved.filter(isArcanum) : [];
       if (record5.level === void 0 && proved.length) {
         record5.level = Math.min(LEVEL_CAP, proved.length);
