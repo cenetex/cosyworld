@@ -40,6 +40,7 @@ try {
         document.querySelector('#hand [data-card="vale"]')?.dataset
           .unrevealed === "false",
     );
+    await page.waitForSelector(".title-intro", { state: "detached" });
     assert.equal(
       await page.locator('#hand [data-card="lamp"]').getAttribute("aria-pressed"),
       "false",

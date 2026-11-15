@@ -1571,8 +1571,7 @@ function keepHeldSelection(before, action = null) {
   receivedCard = received ?? null;
   // A standoff locks the room and takes the held things out of the hand
   // (#1775), so a raised item leaves the selection with its card.
-  const shown = availableCards(world);
-  const held = [heldItem(world, actor)].filter((id) => id && shown.includes(id));
+  const held = shownHeld();
   const keepActor = held.length > 0 && selected.includes(actor);
   // The avatar's open stacks stay open after a deed, including a last gift.
   const expanded = expandedHolders.has(actor);
@@ -5971,9 +5970,7 @@ function resumeCurrentSharedPlay() {
   restedChoice = null;
   reviewing = false;
   reviewBeat = null;
-  const shown = availableCards(world);
-  const held = [heldItem(world, currentActor(world))].filter((id) => id && shown.includes(id));
-  selectCards(held, { keepOpen: true });
+  selectCards(shownHeld(), { keepOpen: true });
   notice("");
   lineSeq = sharedLineSeq;
   syncSharedLine();
