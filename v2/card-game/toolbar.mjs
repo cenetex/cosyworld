@@ -11,6 +11,9 @@ const icons = {
   menu: '<path d="M5 6h14M5 12h14M5 18h14"/>',
   settings:
     '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="#141b22"/><circle cx="15" cy="17" r="3" fill="#141b22"/>',
+  discord:
+    '<path d="M9 5.5a14 14 0 0 0-4.5 1.6C2.6 10.2 2 13.3 2.2 16.4A15 15 0 0 0 7 18.8l1.2-2M15 5.5a14 14 0 0 1 4.5 1.6c1.9 3.1 2.5 6.2 2.3 9.3a15 15 0 0 1-4.8 2.4l-1.2-2"/><path d="M7 16.2c3.3 1.4 6.7 1.4 10 0M7.5 7.5c3-1 6-1 9 0"/><circle cx="9" cy="12.5" r="1.2"/><circle cx="15" cy="12.5" r="1.2"/>',
+  x: '<path d="M4 4h4.5L20 20h-4.5Z"/><path d="M20 4l-6.8 7.6M4 20l6.8-7.6"/>',
 };
 
 function element(tag, className, text) {
@@ -20,14 +23,14 @@ function element(tag, className, text) {
   return node;
 }
 
-function decorate(button, icon, label) {
+function decorate(button, icon, label, name = label) {
   const mark = element("span", "toolbar-icon");
   mark.setAttribute("aria-hidden", "true");
   mark.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${icons[icon]}</svg>`;
   button.replaceChildren(mark, element("span", "toolbar-label", label));
-  button.setAttribute("aria-label", label);
-  button.title = label;
-  button.type = "button";
+  button.setAttribute("aria-label", name);
+  button.title = name;
+  if (button.tagName === "BUTTON") button.type = "button";
 }
 
 export function onlinePlayers(state) {
@@ -108,16 +111,6 @@ export function installToolbar({
     decorate(button, icon, label);
     tools.append(button);
   }
-  for (const [label, href] of [
-    ["Discord", "https://discord.gg/Qd4ztZYvmD"],
-    ["X (@lonelyforestAi)", "https://x.com/lonelyforestAi"],
-  ]) {
-    const link = element("a", "", label);
-    link.href = href;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    tools.append(link);
-  }
   const seats = installAvatarMenu({
     menu,
     session,
@@ -127,6 +120,17 @@ export function installToolbar({
     actionBeat,
   });
   document.body.append(menu);
+  for (const [icon, label, name, href] of [
+    ["discord", "Discord", "Discord", "https://discord.gg/Qd4ztZYvmD"],
+    ["x", "X", "X, @lonelyforestAi", "https://x.com/lonelyforestAi"],
+  ]) {
+    const link = element("a");
+    decorate(link, icon, label, name);
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    toolbar.append(link);
+  }
   toolbar.append(menuButton);
 
   // The one toolbar button opens ☰; its face shows the friends online in
