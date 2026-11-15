@@ -816,7 +816,7 @@ const playQueue = createPlayQueue({
   ready: (action) =>
     !cardsCooling &&
     performance.now() >= swapEnd &&
-    !localWordsPending() &&
+    (!localWordsPending() || openingWordsDue()) &&
     !exchange.current &&
     reveal.complete &&
     (!sharedSession ||
