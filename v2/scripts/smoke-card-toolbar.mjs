@@ -180,17 +180,16 @@ try {
     // Each avatar shows once: no avatar list and no Send to….
     assert.equal(await menu.locator(".avatar-row, .avatar-list").count(), 0);
     assert.doesNotMatch(await menu.innerText(), /Send to/);
-    // ☰ has no profile card: a tapped seat shows that avatar, who plays it
-    // and where, as a beat in front of the dialogue, outside ☰, with
-    // its action on the right when it has one.
+    // A tapped seat shows its avatar, player and place outside ☰,
+    // with its action on the right when it has one.
     assert.equal(await menu.locator(".profile-card").count(), 0);
-    const card = page.locator(".dialogue > .action-panel");
-    const actions = page.locator(
-      ".dialogue .action-panel #card-actions button",
-    );
-    const note = page.locator(".dialogue > .action-panel .action-beat-note");
+    const card = page.locator(".dialogue > .action-panel[data-avatar]");
+    const actions = card.locator("#card-actions button");
+    const note = card.locator(".action-beat-note");
+    assert.equal(await card.count(), 0);
     assert.equal(await actions.count(), 0);
     await seats.nth(2).locator("button").click();
+    assert(await card.isVisible());
     assert.equal(await card.getAttribute("data-avatar"), "mara");
     assert.match(
       await card.locator(".action-beat-heading").innerText(),
