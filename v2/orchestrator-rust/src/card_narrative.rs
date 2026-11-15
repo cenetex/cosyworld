@@ -1418,7 +1418,6 @@ struct VoiceSettings {
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
-    /// `COSYWORLD_CARD_FALLBACK_MODELS`, in order (`fallback::models`).
     fallback_models: Vec<String>,
 }
 
