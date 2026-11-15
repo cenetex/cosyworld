@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-14",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2758",
+  "base_commit": "e67de91a35bec68bff625352ac301ed834917a07",
+  "batch": 2,
+  "status": "generation-in-progress",
+  "requested_size": [
+    1254,
+    1254
+  ],
+  "transparent_background": true,
+  "display": "Show the three images separately; the owner no longer wants triptych composites.",
+  "assets": [
+    {
+      "id": "lamp",
+      "file": "v2/card-game/assets/lamp-card.png",
+      "prompt": "Use case: precise-object-edit. Redraw the attached CosyWorld item at high resolution while preserving its recognizable design, pose, proportions, warm amber highlights, deep blue-black self-shadows and uncanny hand-painted storybook mood. The attachment is the exact object identity and painting-style reference. Refine the small source into deliberate textured brushwork, worn tactile materials and clear small-size readability; avoid a faceted mosaic texture or polished 3D rendering. Output one 1254 x 1254 square PNG with genuine transparent alpha outside the complete object. Keep the object centred horizontally, fully visible, at about 75 percent of canvas height, with comfortable empty margins and a quiet lower label area. No floor, scenery, table, ground shadow, text, border or extra props. Preserve the antique oil lantern exactly: rounded worn metal fuel reservoir, filling cap, two curved protective side tubes, soot-darkened rounded glass globe, crossed thin guard wires, ventilated cap and a tall arched carrying handle. A single modest golden flame burns clearly inside the glass, illuminating the glass with warm amber, with dark weathered metal outside the brightest area. Preserve the reference silhouette and front three-quarter view. Complete top handle and bottom base, genuine clean alpha in the large handle opening and all open frame gaps. Glow stays within the lantern; no detached outer glow or smoke.",
+      "reference": {
+        "path": "v2/card-game/assets/lamp-card.png",
+        "role": "identity and painting style reference pinned to base_commit",
+        "sha256": "efb35f0a22872c049ef88e9afabced379fffff42db7f8d2f197ad69fb52a7934"
+      }
+    },
+    {
+      "id": "oil",
+      "file": "v2/card-game/assets/oil-card.png",
+      "prompt": "Use case: precise-object-edit. Redraw the attached CosyWorld item at high resolution while preserving its recognizable design, pose, proportions, warm amber highlights, deep blue-black self-shadows and uncanny hand-painted storybook mood. The attachment is the exact object identity and painting-style reference. Refine the small source into deliberate textured brushwork, worn tactile materials and clear small-size readability; avoid a faceted mosaic texture or polished 3D rendering. Output one 1254 x 1254 square PNG with genuine transparent alpha outside the complete object. Keep the object centred horizontally, fully visible, at about 75 percent of canvas height, with comfortable empty margins and a quiet lower label area. No floor, scenery, table, ground shadow, text, border or extra props. Preserve the small squat ROUND GLASS OIL FLASK exactly: a broad near-spherical transparent glass body with a flat rounded foot, short narrow neck, thick rolled glass lip and natural cork stopper. The flask is partially filled with clear amber lamp oil, roughly the lower third to two-fifths of the body; the horizontal liquid surface is visible. Maintain the current warm golden reflections, dark blue-black shadow accents, slight three-quarter view and simple unlabelled form. Keep the cork, neck and complete base inside the canvas. Glass should read as glass with painted highlights and believable thickness, not solid brass. Only this one stoppered flask, no spout or handle.",
+      "reference": {
+        "path": "v2/card-game/assets/oil-card.png",
+        "role": "identity and painting style reference pinned to base_commit",
+        "sha256": "e6671231f130a8e00fcb9aa3223a8100efc6202fbd5cac185bfec87f947ef65e"
+      }
+    },
+    {
+      "id": "bell",
+      "file": "v2/card-game/assets/bell-card.png",
+      "prompt": "Use case: precise-object-edit. Redraw the attached CosyWorld item at high resolution while preserving its recognizable design, pose, proportions, warm amber highlights, deep blue-black self-shadows and uncanny hand-painted storybook mood. The attachment is the exact object identity and painting-style reference. Refine the small source into deliberate textured brushwork, worn tactile materials and clear small-size readability; avoid a faceted mosaic texture or polished 3D rendering. Output one 1254 x 1254 square PNG with genuine transparent alpha outside the complete object. Keep the object centred horizontally, fully visible, at about 75 percent of canvas height, with comfortable empty margins and a quiet lower label area. No floor, scenery, table, ground shadow, text, border or extra props. Preserve the antique BRASS HAND BELL silhouette and upright pose exactly: a short turned warm brown wooden handle with a round finial and little carved collars, set above the worn domed brass bell body, flaring outward into a broad softly rolled rim with two fine horizontal bands. Warm amber light catches the tarnished brass; deep cool blue-black self-shadows give it weight. Keep the handle weathered dark honey-brown wood with subtle grain and warm highlights, distinct from the brass bell body. Complete finial, handle, bell rim and any visible little clapper. No person holding it, no lettering or decorative emblems.",
+      "reference": {
+        "path": "v2/card-game/assets/bell-card.png",
+        "role": "identity and painting style reference pinned to base_commit",
+        "sha256": "aa5405ab9f6d4ab3e7398e4c5383cdddadaee9dc215784e225475c33fb3ae763"
+      }
+    }
+  ]
+}
