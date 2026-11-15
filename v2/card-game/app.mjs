@@ -883,7 +883,7 @@ const playQueue = createPlayQueue({
     !document.hidden &&
     !document.querySelector("dialog[open], .world-menu:popover-open"),
   play: (action, revision) => {
-    restedChoice = choiceKey();
+    if (action.offer === undefined) restedChoice = choiceKey();
     count(playCounter(action));
     if (sharedSession) void submitSharedPlay(action);
     else performAction(action, revision);
