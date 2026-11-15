@@ -1,5 +1,4 @@
-// A new game wakes Vale knowing nothing (#1575): until its player uncovers a
-// card, the screen and Vale's speech never name it.
+// Names stay hidden until the title turns Vale or a player uncovers a card.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -62,7 +61,8 @@ try {
     const mentions = async (word) => new RegExp(`\\b${word}\\b`, "i").test(await named());
     const uncover = (id) => revealCard(page, id);
     try {
-      await page.goto(`http://127.0.0.1:${server.address().port}/?table=amnesia-${width}`);
+      await page.goto(`http://127.0.0.1:${server.address().port}/?intro=1`);
+      await page.locator('.title-intro[data-phase="ack"]').waitFor();
       await page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
       );
@@ -71,7 +71,8 @@ try {
       assert.equal(await page.locator("#place-title").textContent(), "…");
       assert.equal(requests.length, 0, "Vale spoke before he knew himself");
       await page.screenshot({ path: new URL(`before-${width}.png`, output).pathname });
-      await uncover("vale");
+      await page.keyboard.press("Escape");
+      await page.locator(".title-intro").waitFor({ state: "detached" });
       assert(await mentions(names.vale));
       assert(!(await mentions(names.attic)));
       // Vale may speak once he knows himself (speech-knowledge.mjs words a
