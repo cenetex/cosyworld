@@ -301,20 +301,26 @@ for (const [width, motion] of [
   await page.locator("#card-actions [data-pack='reveal']").click();
   await oneButton(page, "Tap to finish", `${label}: a run asks to be finished`);
   assert.ok(members.includes(await focusedHandCard(page)), `${label}: Reveal all leaves focus on a card`);
-  await page.waitForTimeout(motion === "reduce" ? 500 : 900);
-  await shot("4-mid-run");
-
   // 5. A tap finishes it: every card turned, none half turned, one Done.
-  await page.waitForTimeout(350);
-  const finish = page.locator("#card-actions [data-pack='finish']");
-  // With motion the run is still playing a second in: this tap is the skip.
-  // The unturned cards at that moment all turn at once.
-  const stillDown = (await unturned(page, key)).filter((id) => members.includes(id));
+  // With motion the run still plays once its button shows: past the quarter
+  // second double-tap guard, this tap is the skip of the cards still down.
+  await page.waitForTimeout(300);
+  await shot("4-mid-run");
+  const skipped = await page.evaluate(
+    ({ key, members }) => {
+      const finish = document.querySelector("#card-actions [data-pack='finish']"),
+        down = JSON.parse(localStorage.getItem(`${key}.seen.covered`) || "[]").filter((id) =>
+          members.includes(id),
+        );
+      finish?.click();
+      return { playing: Boolean(finish), down: down.length };
+    },
+    { key, members },
+  );
   if (motion !== "reduce") {
-    assert.equal(await finish.count(), 1, `${label}: the run is still playing`);
-    assert.ok(stillDown.length >= 1, `${label}: some cards are still face down to skip`);
+    assert.ok(skipped.playing, `${label}: the run is still playing`);
+    assert.ok(skipped.down >= 1, `${label}: some cards are still face down to skip`);
   }
-  if (await finish.count()) await finish.click();
   await oneButton(page, "Done", `${label}: every card turned asks for Done`);
   await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
   assert.deepEqual(
