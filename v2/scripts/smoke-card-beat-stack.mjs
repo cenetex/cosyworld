@@ -612,7 +612,9 @@ try {
         return [fade?.effect.getTiming().duration, ghost?.isConnected];
       });
       assert.deepEqual(cleared, [200, false], "the cleared stack fades");
-      assert.equal(await page.locator(".dialogue").isHidden(), true);
+      await page.waitForFunction(
+        () => document.querySelector("#speaker")?.textContent === "Vale",
+      );
       // An NPC action uses the same main type and keeps face-down items unnamed.
       await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
         key,

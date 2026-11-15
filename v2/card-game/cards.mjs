@@ -1,5 +1,5 @@
-import { RADIO_ITEM } from "./radio-item.mjs";
 import { lampRoomFlame } from "./lamp-room-fuel.mjs";
+import { RADIO_ITEM } from "./radio-item.mjs";
 import {
   consumable,
   entityActive,
@@ -310,21 +310,8 @@ export function cardPlay(world, selected) {
       (a) => a.kind === "eat" && a.item === id && !a.target,
     );
     if (meal) return result(meal);
-    if (id === "lamp")
-      return single(
-        null,
-        `${lampRoomFlame(world.items.lamp)}. Pair with this place to put it down, or tap again to put it away.`,
-      );
-    if (id === RADIO_ITEM) return single(use(id));
-    if (id === "bell")
-      return single(
-        use(id),
-        covered(world, id)
-          ? "Play Black cloth to uncover the Bell."
-          : "Ring the Bell.",
-      );
     return single(
-      null,
+      use(id),
       "Pair with a person to give it, or this place to put it down.",
     );
   }
@@ -345,10 +332,7 @@ export function cardPlay(world, selected) {
   if (cards.includes("cloth")) {
     const beneath = cards.find((id) => id !== "cloth");
     if (things[beneath] && world.items.cloth.holder === beneath)
-      return result(
-        find("take", "cloth"),
-        "Put down a carried item to make room for the cloth.",
-      );
+      return result(find("take", "cloth"), TOO_MANY_ITEMS);
   }
   if (avatar && location)
     return result(

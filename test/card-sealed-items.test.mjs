@@ -79,14 +79,8 @@ describe("a sealed item lies shut", () => {
         kind: "item",
         at: gate,
         open: false,
-        want: {
-          kind: "item",
-          target: FIGS,
-          step: { verb: "bring", at: gate },
-        },
-        goals: [
-          { kind: "item", target: FIGS, step: { verb: "bring", at: gate } },
-        ],
+        want: { kind: "place", target: gate, step: { verb: "lay", items: [FIGS] } },
+        goals: [{ kind: "place", target: gate, step: { verb: "lay", items: [FIGS] } }],
       },
     ]);
     expect(availableCards(s)).toContain(SHOVEL);
@@ -97,9 +91,9 @@ describe("a sealed item lies shut", () => {
       false,
     );
     expect(boxWant(s, { kind: "item", at: gate, id: SHOVEL }, "vale")).toEqual({
-      kind: "item",
-      target: FIGS,
-      step: { verb: "bring", at: gate },
+      kind: "place",
+      target: gate,
+      step: { verb: "lay", items: [FIGS] },
     });
     // Elsewhere it is not on the table.
     expect(

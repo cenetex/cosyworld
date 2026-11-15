@@ -1,6 +1,5 @@
 import { packPlaces } from "./pack-registry.mjs";
 import { mediaUrl } from "./media.mjs";
-import { reflectionOpen } from "./world.mjs";
 import streams from "./music-streams.json" with { type: "json" };
 import {
   RETURN_FADE_SECONDS,
@@ -87,24 +86,6 @@ export const roomTracks = {
       .map(([id, place]) => [id, place.music]),
   ),
 };
-
-// In the Vale attic opening, music first plays when the lamp goes out and
-// the mirror shows the Black pond. A world or avatar without that opening,
-// or one that has left the attic, plays music as soon as it has started.
-export function openingRevealed(world, actor) {
-  const opening = world?.opening;
-  if (!opening || opening.crossed || actor !== "vale") return true;
-  if (world.actors?.vale?.place !== "attic") return true;
-  return (
-    world.locations?.attic?.anchored ||
-    reflectionOpen(world, "attic") ||
-    (world.log || []).some(
-      (entry) =>
-        entry?.locationId === "attic" &&
-        entry.text?.startsWith("The attic mirror opens"),
-    )
-  );
-}
 
 // A room starts a song when music is idle. The song follows every journey
 // until its end. The audio clock keeps volume and pause fades smooth.

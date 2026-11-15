@@ -1,10 +1,12 @@
 // The pack opening (pack-opening.mjs). Arriving at a place with three or more
 // cards not yet turned, they lie in the hand as ONE face-down stack. Tapping
 // it raises the hand and the cards rise into the row, still face down, a
-// Rare or better showing only a rim glow. The one button is the whole
-// descriptor (New cards unlocked, Tap to reveal all); a tap on a card turns
-// it at once; Reveal all turns the rest commons first; a tap finishes the
-// run; All cards revealed, Tap to continue settles them back into the hand. A
+// Rare or better showing only a rim glow. With the hand lowered and nothing
+// chosen, the one button is the whole descriptor (New cards unlocked, Tap to
+// reveal all); raising the hand or choosing a card puts it away. A chosen
+// face-down card shows its own Reveal. Reveal all turns the rest commons
+// first; a tap finishes the run; All cards revealed, Tap to continue settles
+// them back into the hand. A
 // locked box in the pack is turned and stays locked. Nothing is named before
 // it is turned. At 390 and 1440 px, and with reduced motion.
 //
@@ -139,6 +141,7 @@ const buttons = (page) =>
       .map((b) => `${b.textContent.trim()} / ${b.dataset.tapHint}`),
   );
 const ASKS = {
+  Reveal: "New card unlocked / Tap to reveal",
   "Reveal all": "New cards unlocked / Tap to reveal all",
   "Tap to finish": "Turning the cards / Tap to finish",
   Done: "All cards revealed / Tap to continue",
@@ -202,7 +205,7 @@ for (const [width, motion] of [
   assert.ok(edges >= 1 && edges <= 3, `${label}: the stack's thickness shows ${edges} edges`);
   const hiddenInStack = await page.locator('#hand [data-pack="closed"][hidden]').count();
   assert.equal(hiddenInStack + 1, await page.locator('#hand [data-pack="closed"]').count());
-  assert.deepEqual(await buttons(page), [], `${label}: a closed stack asks for nothing`);
+  await oneButton(page, "Reveal all", `${label}: a lowered closed stack asks Reveal all`);
   const closedFacts = await page.evaluate(() => ({
     labels: [...document.querySelectorAll("#hand .card")].map((c) => c.getAttribute("aria-label") || ""),
     levels: [...document.querySelectorAll('#hand [data-pack] .card, #hand [data-pack] > .card')].map((c) => c.dataset.level),
@@ -222,8 +225,9 @@ for (const [width, motion] of [
   // 2. Tap the pack: the hand rises, the cards rise face down, one button.
   await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
   await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length > 1);
-  await oneButton(page, "Reveal all", `${label}: an open pack asks one thing`);
   assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "true");
+  await page.waitForTimeout(400);
+  assert.deepEqual(await buttons(page), [], `${label}: a raised hand puts Reveal all away`);
   const shownOpen = await page.evaluate(
     () => [...document.querySelectorAll('#hand [data-pack="open"]')].filter((f) => !f.hidden).length,
   );
@@ -261,21 +265,27 @@ for (const [width, motion] of [
   assert.deepEqual(await unreachableCards(page), [], `${label}: an open pack's cards are reachable`);
   await shot("2-open-face-down");
 
-  // 3. A tap inside a pack turns the card at once and chooses nothing.
+  // 3. A tap inside a pack chooses the card; its own Reveal turns it.
   const first = open.find((card) => card.locked !== "true" && !card.id.startsWith("quest:"));
   const firstCard = page.locator(`#hand [data-card="${first.id}"]`);
   await firstCard.scrollIntoViewIfNeeded();
   await tapCard(firstCard);
+  assert.equal(await firstCard.getAttribute("aria-pressed"), "true", `${label}: the tap chose the card`);
+  await oneButton(page, "Reveal", `${label}: a chosen face-down card asks Reveal`);
+  await page.locator(`#card-actions [data-open-box="${first.id}"]`).click();
   await page.waitForFunction(
     (id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false",
     first.id,
   );
-  assert.equal(await firstCard.getAttribute("aria-pressed"), "false", `${label}: the turn chose nothing`);
   assert.ok(!(await unturned(page, key)).includes(first.id), `${label}: the turned card is remembered`);
-  await oneButton(page, "Reveal all", `${label}: still one button after a turn`);
-  // Outside a pack the first tap still only selects: a turned card is chosen.
   await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
   await shot("3-one-turned");
+
+  // Lowering the hand settles the pack; the rest lie closed and Reveal all returns.
+  await page.keyboard.press("Escape");
+  await page.mouse.move(2, 2);
+  await page.waitForFunction(() => !document.querySelector('#hand [data-pack="open"]'));
+  await oneButton(page, "Reveal all", `${label}: the lowered stack asks Reveal all again`);
 
   // 4. Reveal all: one button, "Tap to finish"; mid-run frames.
   await page.locator("#card-actions [data-pack='reveal']").click();
@@ -448,6 +458,8 @@ const turnAndChoose = async (page, id) => {
   const card = page.locator(`#hand [data-card="${id}"]`);
   for (let tap = 0; tap < 3 && (await card.getAttribute("aria-pressed")) !== "true"; tap++) {
     await tapCard(card);
+    const reveal = page.locator(`#card-actions [data-open-box="${id}"]:not([data-revealing="true"])`);
+    if ((await card.getAttribute("data-unrevealed")) === "true") await reveal.click();
     await page.waitForFunction(
       (id) => {
         const card = document.querySelector(`#hand [data-card="${id}"]`);

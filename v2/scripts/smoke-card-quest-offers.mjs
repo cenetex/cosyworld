@@ -185,7 +185,7 @@ try {
       assert.equal(await shut.textContent(), "Locked");
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
-        "Find something",
+        "Lay something you haven't found in Mirror attic",
       );
       assert.doesNotMatch(await surfaces(page), /lamp/iu);
       assert.equal(await offerCards(page).count(), 0);

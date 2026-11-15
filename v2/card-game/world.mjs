@@ -85,6 +85,7 @@ import {
   dropQuest,
   holdQuest,
   heldOf,
+  releaseQuest,
   sameQuest,
   questsOf,
   levelOf,
@@ -439,7 +440,7 @@ import {
 } from "./world/geography.mjs";
 export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
-import { creditOpened, validOpened } from "./world/boxes.mjs";
+import { boxIdOpen, creditOpened, validOpened } from "./world/boxes.mjs";
 import {
   dreamCard,
   installArcana,
@@ -962,8 +963,7 @@ export function holdChoice(s, actor, choice) {
   settleLamp(s);
   // Putting the lamp down or out opens the Black pond: a hold can open a box.
   creditOpened(before, s, actor);
-  if (s.opening && actor === "vale" && s.actors.vale.place === "attic" && reflectionOpen(s, "attic"))
-    s.locations.attic.anchored = true;
+  dropOpenedBoxQuests(s);
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   latchRoutes(s);
@@ -1870,7 +1870,14 @@ function settleCompanions(s) {
 // A traveler wakes from a long rest: the companion is dismissed unless a
 // quest taken on from them pins the bond.
 // through a long rest while the quest is held (rules 133).
+function dropOpenedBoxQuests(s) {
+  for (const [actor, a] of Object.entries(s.actors))
+    for (const held of heldOf(a))
+      if (held.from?.startsWith("quest:box:") && boxIdOpen(s, held.from.slice(10), actor))
+        releaseQuest(a, held);
+}
 function settleQuests(s, acting) {
+  dropOpenedBoxQuests(s);
   for (const actor of Object.keys(s.actors).sort()) {
     if (
       !(actor === currentActor(s) || controlledByHuman(s, actor)) ||
@@ -3301,14 +3308,6 @@ export function play(
     startAttend(next, exact.target);
   // A box this play opened pays one XP, once per avatar per box (rules 133).
   creditOpened(s, next, actor);
-  if (
-    next.opening &&
-    !next.locations.attic.anchored &&
-    ["light", "snuff"].includes(exact.kind) &&
-    next.actors.vale.place === "attic"
-  ) {
-    next.locations.attic.anchored = true;
-  }
   for (const id of residents) {
     if (
       id === respondent ||

@@ -116,7 +116,7 @@ describe("the Greek pack's locked boxes", () => {
         },
       };
       expect(isLockedBox(w, id), id).toBe(true);
-      expect(lockText(w, id), id).toMatch(/^Bring .+ to .+/u);
+      expect(lockText(w, id), id).toMatch(/^(Bring .+ to|Lay .+ in) .+/u);
     }
     // Marathon's keeper is a rumour in new worlds and keeps no lock.
     expect(pack.avatars["greek-marathon-keeper"].requires).toBeUndefined();

@@ -43,9 +43,7 @@ export const placeText = (s, place) =>
   [
     place === "attic" && reflectionOpen(s, place)
       ? "A tall mirror opens onto a black shore. A path leads through the glass."
-      : s.opening && place === "station"
-        ? "The timetable lists years that have yet to happen. A path leads along the shore to the pond."
-        : places[place].text,
+      : places[place].text,
     ...crossingScenery(s, place, sensesFor(s),
       place === "station" ? stationCandidates(s).filter((id) =>
         !stationExits(s, stationCandidates(s)).includes(id)) : []),
@@ -126,7 +124,10 @@ export function homeRescueExit(s, place, actor = currentActor(s), previous = nul
       (gate.opening && knownActors(s).includes(actor))) &&
     s.actors[actor]?.place === place &&
     !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
-    !homeGateRecoverable(s, place, gate, actor)
+    (!homeGateRecoverable(s, place, gate, actor) ||
+      (controlledByHuman(s, actor) &&
+        rootHolder(s, gate.item) === actor &&
+        Boolean(s.opened?.[gate.rescue]?.includes(actor))))
     ? // With its rescue place asleep, the first pack on takes them in (rules 98).
       entityActive(s, gate.rescue)
       ? gate.rescue
@@ -164,7 +165,7 @@ export function pondRescueExit(s, place, actor, previous) {
   if (
     place !== "pond" ||
     s.actors[actor]?.place !== place ||
-    (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
+    !controlledByHuman(s, actor) ||
     !(atticInterior.has(lamp) || atticInterior.has(oil)) ||
     ordinaryRouteHome(s, place, "attic", actor, previous)
   )
