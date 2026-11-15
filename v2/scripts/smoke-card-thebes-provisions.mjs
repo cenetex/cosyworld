@@ -116,15 +116,20 @@ try {
       }, id);
       assert.deepEqual(await state(), before);
     };
-    const acceptSelected = async () => {
+    const acceptSelected = async (source) => {
       const accept = page.locator("[data-accept-quest]");
       assert(await accept.isEnabled());
       const before = await state();
       await accept.click();
       await page.waitForFunction(({ key, revision }) =>
         JSON.parse(localStorage.getItem(key)).revision > revision, { key, revision: before.revision });
-      assert.equal((await state()).turn, before.turn);
-      assert.deepEqual((await state()).log, before.log);
+      const after = await state();
+      assert.equal(after.turn, before.turn);
+      assert.deepEqual(after.log.slice(0, before.log.length), before.log);
+      assert.equal(after.log.length, before.log.length + 1);
+      const { verb, actorId, targetId, turn } = after.log.at(-1);
+      assert.deepEqual({ verb, actorId, targetId, turn },
+        { verb: "quest", actorId: "vale", targetId: source, turn: before.turn });
       await ready();
     };
     const primary = async (...ids) => {
@@ -189,7 +194,7 @@ try {
     // quest to seek on the card (Talk with him gives his).
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-battlefield");
-    await acceptSelected();
+    await acceptSelected("greek-battlefield");
     await clearSelection(page);
     await selectCard(page, "greek-battlefield");
     const guarded = page.locator('#card-actions [data-blocked="gate"]');
@@ -239,7 +244,7 @@ try {
     assert.equal(await port.getAttribute("data-locked"), "true");
     await page.keyboard.press("Escape");
     await selectCard(page, "greek-piraeus");
-    await acceptSelected();
+    await acceptSelected("greek-piraeus");
     await clearSelection(page);
     await selectCard(page, "greek-piraeus");
     const shut = page.locator('#card-actions [data-blocked="gate"]');
