@@ -209,7 +209,7 @@ try {
       assert.equal(await shut.textContent(), "Unlock");
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
-        "Lay something you haven't found in Mirror attic",
+        "Lay something you haven't found somewhere you haven't discovered",
       );
       assert.doesNotMatch(await surfaces(page), /lamp/iu);
       assert.equal(await offerCards(page).count(), 0);
