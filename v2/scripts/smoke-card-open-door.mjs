@@ -200,6 +200,9 @@ export async function checkOpenDoor(browser, origin) {
           }, id);
           assert.deepEqual(await state(), beforeUnlock, "Unlock preserves the world");
         }
+        for (const id of [...new Set(cards)])
+          if ((await page.locator(`#hand [data-card="${id}"]`).getAttribute("aria-pressed")) !== "true")
+            await selectCard(page, id, { touch: width === 390 });
         try {
           await readyActionButton(page, kind).first().click();
         } catch (error) {
