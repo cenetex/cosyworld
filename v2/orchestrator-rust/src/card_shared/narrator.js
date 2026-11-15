@@ -1550,11 +1550,6 @@
           sore: "A rushed introduction",
           reason: "Bring two human players together."
         },
-        desire: {
-          items: [],
-          location: null,
-          avatars: []
-        },
         want: { kind: "connect", target: "humans" },
         personalQuests: true
       }
@@ -2749,6 +2744,26 @@
     (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
   );
 
+  // v2/card-game/world/rumours.mjs
+  var RUMOURS_HELD = 3;
+  var TELL_FAILS = 2;
+  var KINDS = ["item", "place", "person", "gone"];
+  var FIELDS = "at,day,holder,hops,kind,subject,teller";
+  var dayOf = (s) => Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
+  var keyOf = (kind, target) => `${kind}:${target}`;
+  function rumourWords(s, r, names2) {
+    const name = names2.name(r.subject);
+    const line = r.kind === "gone" ? `${name} is gone for good.` : r.hops === 0 && r.holder ? `${names2.name(r.holder)} has ${name}${r.at && r.at !== r.subject ? ` at ${names2.name(r.at)}` : ""}.` : r.hops <= 1 && r.at && r.at !== r.subject ? `${name} is at ${names2.name(r.at)}.` : r.hops <= 2 && names2.world(r.at ?? r.subject) ? `${name} is somewhere in ${names2.world(r.at ?? r.subject)}.` : names2.legend(r.subject) ?? `People speak of ${name}.`;
+    return r.teller ? `${names2.name(r.teller)} told me: ${line}` : line;
+  }
+  function validRumours(s, id) {
+    const a = s.actors[id], day = dayOf(s), list = a.rumours;
+    const ref = (x) => x === null || typeof x === "string";
+    return (a.heardOn === void 0 || Number.isSafeInteger(a.heardOn) && a.heardOn >= 0 && a.heardOn <= day) && (list === void 0 || Array.isArray(list) && list.length >= 1 && list.length <= RUMOURS_HELD && new Set(list.map((r) => keyOf(r?.kind, r?.subject))).size === list.length && list.every(
+      (r) => r && Object.keys(r).filter((k) => k !== "fails").sort().join() === FIELDS && (r.fails === void 0 || Number.isInteger(r.fails) && r.fails >= 1 && r.fails <= TELL_FAILS) && KINDS.includes(r.kind) && typeof r.subject === "string" && r.subject.length <= 80 && ref(r.at) && ref(r.holder) && ref(r.teller) && [0, 1, 2, 3].includes(r.hops) && Number.isSafeInteger(r.day) && r.day >= 0 && r.day <= day
+    ));
+  }
+
   // v2/card-game/want.mjs
   var WANT_KINDS = ["item", "place", "person", "connect"];
   var STEP_VERBS = {
@@ -2946,7 +2961,7 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validUnder(s, id) {
     const a = s.actors[id];
@@ -4579,6 +4594,9 @@
               likes: "practical help, care for the dead",
               sore: "being told that family grief is an inconvenience",
               reason: "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+            },
+            bonds: {
+              "greek-ismene": 3
             }
           },
           "greek-ismene": {
@@ -4617,6 +4635,9 @@
               likes: "careful plans, a safe place for family",
               sore: "being called indifferent because she is afraid",
               reason: "She has gathered clean cloth under the altar roof and checks the road before speaking. She would ask Theseus of Athens where her father was laid."
+            },
+            bonds: {
+              "greek-antigone": 3
             }
           },
           "greek-creon": {
@@ -5434,6 +5455,9 @@
             },
             sealed: {
               at: "greek-ajax-household"
+            },
+            bonds: {
+              "greek-ajax-teucer": 2
             }
           },
           "greek-ajax-teucer": {
@@ -5459,6 +5483,9 @@
             },
             sealed: {
               at: "greek-greek-camp"
+            },
+            bonds: {
+              "greek-ajax-tecmessa": 2
             }
           },
           "greek-ajax-odysseus": {
@@ -16378,8 +16405,6 @@
         "requires must be a record list"
       ))
         return problems2;
-      if (e.desire !== void 0 && !check(record3(e.desire), "desire must be a record"))
-        return problems2;
     }
     if (pack.continuity !== void 0 && !check(
       record3(pack.continuity) && Array.isArray(pack.continuity.groups) && pack.continuity.groups.length <= 4 && pack.continuity.groups.every(
@@ -16559,7 +16584,7 @@
           "passWhen",
           "appearsWhen",
           "values",
-          "desire",
+          "bonds",
           "want",
           "wants",
           "requires",
@@ -16907,14 +16932,12 @@
           ),
           `avatar ${id} values are invalid`
         );
-      if (a.desire !== void 0) {
-        const d = a.desire;
-        check(
-          keysOk(d, ["items", "location", "avatars", "requires"]) && Array.isArray(d.items) && d.items.length <= 3 && d.items.every((i) => owns3(items2, i)) && Array.isArray(d.avatars) && d.avatars.length <= 2 && d.avatars.every((i) => owns3(avatars, i) || i === hub2.player) && (d.location === null || owns3(places2, d.location)),
-          `avatar ${id} desire is invalid`
-        );
-        requirements(d.requires, `avatar ${id} desire requires`);
-      }
+      check(
+        a.bonds === void 0 || record3(a.bonds) && Object.entries(a.bonds).every(
+          ([other, n]) => other !== id && owns3(avatars, other) && intOk(n, 0, 3)
+        ),
+        `avatar ${id} bonds are invalid`
+      );
       requirements(a.passWhen, `avatar ${id} passage requires`, false);
       requirements(a.stayUntil, `avatar ${id} stayUntil`);
     }
@@ -16937,8 +16960,9 @@
           "sealed",
           "reservedUntil",
           "recoverTo",
-          "scatterOutside"
-        ]) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
+          "scatterOutside",
+          "legend"
+        ]) && (i.legend === void 0 || textOk(i.legend, 120)) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       check(
@@ -17098,7 +17122,6 @@
       ...choices
     ].forEach((e) => {
       verifyRefs(e.requires);
-      if (e.desire) verifyRefs(e.desire.requires);
     });
     if (pack.sections !== void 0) {
       check(
@@ -18259,7 +18282,7 @@
 
   // v2/card-game/learning.mjs
   var kinds = ["ask", "accompany"];
-  var keyOf = (a) => [a.kind, a.target, a.item || "", a.destination || ""].join(":");
+  var keyOf2 = (a) => [a.kind, a.target, a.item || "", a.destination || ""].join(":");
   function learningFacts(world, actor, nameOf2) {
     const facts = trialFacts(world, actor, nameOf2);
     if (facts) return facts;
@@ -18284,7 +18307,7 @@
         destination: l.destination
       };
       const source = world.log.find((e) => e.seq === l.seq);
-      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
+      return (!l.followup || Number.isSafeInteger(l.followup.seq) && l.followup.seq > l.seq && l.followup.seq <= world.eventSeq && Number.isSafeInteger(l.followup.turn) && l.followup.turn >= l.turn && l.followup.turn <= world.turn && ["talk", "trade", "wait"].includes(l.followup.kind)) && Number.isSafeInteger(l.seq) && l.seq > 0 && l.seq <= world.eventSeq && (!i || lessons[i - 1].seq < l.seq) && Number.isSafeInteger(l.turn) && l.turn >= 0 && l.turn <= world.turn && kinds.includes(l.kind) && Boolean(world.actors[l.target]) && l.target !== actor && (l.item === null || Boolean(world.items[l.item])) && (l.destination === null || profiles2[l.destination]?.kind === "location") && (l.kind === "ask" ? l.item !== null && l.destination === null : l.destination !== null && l.item === null) && l.key === keyOf2(action) && typeof l.expected === "boolean" && typeof l.observed === "boolean" && l.strategy === (l.observed ? "continue" : l.kind === "ask" ? "offer_trade" : "give_space") && typeof l.conditions === "string" && l.conditions.length <= 16e3 && typeof l.evidence === "string" && l.evidence.length > 0 && l.evidence.length <= 650 && (!source || !source.generated && source.actorId === actor && source.verb === l.kind && source.targetId === l.target && source.accepted === l.observed && source.text.slice(0, 650) === l.evidence);
     });
     return valid;
   }
@@ -19710,7 +19733,7 @@
     ])
   );
   function installPacks(s) {
-    const added = [];
+    const added = [], mounted = [];
     installTransports(s);
     s.crossings ??= {};
     s.packs ??= {};
@@ -19755,6 +19778,7 @@
       }
       if (s.packs[pack.id]) continue;
       s.packs[pack.id] = newPackRecord(pack);
+      mounted.push(pack);
       for (const [id, a] of Object.entries(pack.avatars)) {
         if (s.actors[id]) throw new Error("A pack resident is already present.");
         s.actors[id] = {
@@ -19782,6 +19806,10 @@
       for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
     }
     for (const pack of packDefinitions) installSpecials(s, pack);
+    for (const pack of mounted)
+      for (const [id, a] of Object.entries(pack.avatars))
+        for (const [other, n] of Object.entries(a.bonds || {}))
+          if (s.actors[id].trust[other] !== void 0) s.actors[id].trust[other] = n;
     installArcana(s);
     installItemCycle(s, added);
     installLife(s, travels);
@@ -21392,12 +21420,18 @@
           return { id, facts: [], desire: null, memories: [], previous: null };
         const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location) : [];
         const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf, currentActor(world)) : null;
+        const cause = want && world.actors[id]?.rumours?.find((r) => r.subject === wantOf2(world, id)?.target);
         const glimpse = world.actors[id]?.glimpse;
         const glimpsed = cast.dream === "glimpse" && id === resting2 && glimpse ? `In a dream, a glimpse: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.` : null;
         const between = beforeFirstLight ? { entries: [], retold: [] } : betweenUs(world, id, speakers, nameOf);
         const facts = [
           ...glimpsed ? [glimpsed] : [],
           ...want ? [want] : [],
+          ...cause ? [rumourWords(world, cause, {
+            name: nameOf,
+            world: (thing) => packOf(thing)?.name,
+            legend: (thing) => packThings[thing]?.legend
+          })] : [],
           ...kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : [],
           ...knowledgeFacts(
             pastDeedsAside(world, id, told(id), between.retold),

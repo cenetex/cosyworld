@@ -1150,6 +1150,9 @@
         "likes": "practical help, care for the dead",
         "sore": "being told that family grief is an inconvenience",
         "reason": "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+      },
+      "bonds": {
+        "greek-ismene": 3
       }
     },
     "greek-ismene": {
@@ -1188,6 +1191,9 @@
         "likes": "careful plans, a safe place for family",
         "sore": "being called indifferent because she is afraid",
         "reason": "She has gathered clean cloth under the altar roof and checks the road before speaking. She would ask Theseus of Athens where her father was laid."
+      },
+      "bonds": {
+        "greek-antigone": 3
       }
     },
     "greek-creon": {
@@ -2005,6 +2011,9 @@
       },
       "sealed": {
         "at": "greek-ajax-household"
+      },
+      "bonds": {
+        "greek-ajax-teucer": 2
       }
     },
     "greek-ajax-teucer": {
@@ -2030,6 +2039,9 @@
       },
       "sealed": {
         "at": "greek-greek-camp"
+      },
+      "bonds": {
+        "greek-ajax-tecmessa": 2
       }
     },
     "greek-ajax-odysseus": {
