@@ -23,6 +23,8 @@ import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import { clearTell, finishCardReveal, revealCard, tellCard } from "./card-reveal.mjs";
 import {
   createPackOpening,
+  PACK_REVEAL_ONE,
+  PACK_TEXT,
   packOrder,
   revealAnnouncement,
   tierRank,
@@ -75,14 +77,12 @@ import {
 } from "./card-entry.mjs";
 import {
   LOCKED_BACK,
-  CLOSED_BOX,
   LOCKED_BOX,
   createLockedBoxes,
   isLockedBox,
   lockedQuest,
 } from "./locked-box.mjs";
 import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
-import { OPENING_REVEAL, openingStep } from "./opening.mjs";
 import {
   actionTapVerb,
   phase,
@@ -181,7 +181,7 @@ import { retiredSave, SAVE_SCHEMA } from "./legacy-saves.mjs";
 import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
 import { packMedia } from "./pack-registry.mjs";
 import { createRadioPlayer } from "./radio-player.mjs";
-import { createRoomMusic, openingRevealed } from "./music.mjs";
+import { createRoomMusic } from "./music.mjs";
 import {
   CUE_TRACKS,
   HUSH,
@@ -524,7 +524,6 @@ const fresh = new Set();
 const shownLevels = new Map();
 const shownStageLevels = new Map();
 const coveredCards = new Set();
-let openingHeld = false;
 // The held quest on show (none or one) and whether its card is chosen. A
 // first quest glows (questFresh); questSeq is the last event seen, to count
 // the wants the rules met.
@@ -604,12 +603,12 @@ const knownName = (id, unknown = "…") =>
   cardIsClosed(id) || hiddenFor(world, currentActor(world))?.id === id
     ? unknown
     : nameOf(id);
-// The waking avatar speaks as soon as its own card is known. Its covered
-// surroundings stay unnamed in the waking request.
-const avatarKnown = () => !coveredCards.has(currentActor(world));
-// A shared viewer follows the room once their avatar and place are known.
 const selfKnown = () =>
-  avatarKnown() && !coveredCards.has(world.actors[currentActor(world)].place);
+  !coveredCards.has(world.actors[currentActor(world)].place);
+const shownHeld = () =>
+  [heldItem(world, currentActor(world))].filter(
+    (id) => id && availableCards(world).includes(id) && !cardIsCovered(id),
+  );
 const readerState = () => sharedReadingState(sharedSession.state, selfKnown());
 function rememberCards() {
   try {
@@ -635,7 +634,8 @@ function loadSeen(reset = false) {
       ? []
       : JSON.parse(localStorage.getItem(`${SEEN_KEY}.covered`) || "[]");
     for (const id of Array.isArray(covered) ? covered : [])
-      if (people[id] || things[id] || places[id]) coveredCards.add(id);
+      if ((people[id] || things[id] || places[id]) && id !== currentActor(world))
+        coveredCards.add(id);
   } catch {}
   encountered = new Set([
     ...(Array.isArray(saved)
@@ -645,9 +645,9 @@ function loadSeen(reset = false) {
       : []),
     ...availableCards(world),
   ]);
-  // The opening hand starts covered, like any newly met card; a known table
-  // keeps the cards its player has already uncovered.
-  if (opening) for (const id of availableCards(world)) coveredCards.add(id);
+  if (opening)
+    for (const id of availableCards(world))
+      if (id !== currentActor(world)) coveredCards.add(id);
   if (startingPip)
     for (const id of pipPrelude() ? PIP_KNOWN : ["moth"]) {
       encountered.add(id);
@@ -663,6 +663,7 @@ function loadSeen(reset = false) {
   shownQuests = [];
   questSeq = null;
   questFresh = false;
+  selected = selected.filter((id) => !cardIsCovered(id));
   rememberCards();
 }
 loadSeen();
@@ -1253,31 +1254,12 @@ $("voice-retry").onclick = () => characterSpeech.retry();
 let musicEnabled = true,
   musicVolume = 0.3;
 function musicPlayed() {
-  return (sharedSession ? sharedSession.state.music_started === true : world.turn > 0) ||
-    Boolean(world.opening && currentActor(world) === "vale" &&
-      world.actors.vale.place === "attic" && openingRevealed(world, "vale"));
+  return sharedSession ? sharedSession.state.music_started === true : world.turn > 0;
 }
-// The opening attic stays silent until the lamp goes out and its mirror
-// first shows the Black pond. This world's id is remembered at that moment,
-// so the music keeps playing after a reload even if the lamp is lit again.
-const MUSIC_REVEAL_KEY = "cosyworld.music-revealed";
 const musicWorldId = () =>
   sharedSession
     ? `shared:${sharedWorldId}:${sharedSession.state.actor}`
     : `local:${SAVE_KEY}:${world.run?.seed ?? ""}`;
-let revealedWorld = null;
-try {
-  revealedWorld = localStorage.getItem(MUSIC_REVEAL_KEY);
-} catch {}
-function musicRevealed() {
-  if (revealedWorld === musicWorldId()) return true;
-  if (!openingRevealed(world, currentActor(world))) return false;
-  revealedWorld = musicWorldId();
-  try {
-    localStorage.setItem(MUSIC_REVEAL_KEY, revealedWorld);
-  } catch {}
-  return true;
-}
 // No room music under the new-world title or while its song fades: the
 // title's own gesture would otherwise start it beneath the song. Then the
 // rules above apply.
@@ -1295,7 +1277,7 @@ function holdMusicForTitle() {
 }
 holdMusicForTitle();
 function musicHasStarted() {
-  return !titleHolding && musicPlayed() && musicRevealed();
+  return !titleHolding && musicPlayed();
 }
 try {
   const saved = JSON.parse(localStorage.getItem("cosyworld.room-music"));
@@ -1313,9 +1295,7 @@ const music = createRoomMusic({
     $("music-status").textContent = !enabled
       ? "Music paused"
       : !started
-        ? musicPlayed()
-          ? "Music waits for the dark."
-          : "Play your first card to start music."
+        ? "Play your first card to start music."
         : failed
           ? radio ? "RatiRadio is off the air." : "Music is taking a moment. Switch it off and on to retry."
           : playing
@@ -1753,8 +1733,7 @@ function selectCards(cards, { keepOpen = false } = {}) {
   // Choosing other cards after a Wait brings back the plain Wait.
   if (lastWait && cards.join("+") !== lastWait.key) lastWait = null;
 }
-// Uncovering a card names it, remembers it, and lets a held first line
-// begin once the avatar is known. The new-world title's
+// Uncovering a card names it and remembers it. The new-world title's
 // turn has already shown the avatar's face, so it uncovers that card without
 // a second flip.
 // `batch` turns it without a redraw, for a pack finishing at once: the
@@ -1764,7 +1743,6 @@ function uncover(
   { flip = true, lid = null, fade = true, batch = false, announce = true } = {},
 ) {
   if (!cardIsCovered(id)) return;
-  const was = opening()?.step;
   encountered.add(id);
   coveredCards.delete(id);
   rememberCards();
@@ -1776,7 +1754,6 @@ function uncover(
   if (shown && flip) turnCard(openingLid(shown, lid));
   if (announce)
     $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
-  if (openingHeld && openingWordsDue() && avatarKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
 }
 // Every card turn plays its reveal and a flip sound, both at its tier: a
@@ -1797,7 +1774,7 @@ function packSync(cards) {
     unturned: cardIsCovered,
     kindOf: packKind,
     holderOf: (id) => tableHolder(world, id),
-    allowed: !saveBlocked && !pipPrelude() && !opening(),
+    allowed: !saveBlocked && !pipPrelude(),
   });
 }
 const packHand = (cards) =>
@@ -1825,8 +1802,8 @@ function applyPackFrame(frame, id) {
 // What the one button asks while the pack owns it: nothing is chosen and
 // the row is raised.
 const packPrompt = () =>
-  !selected.length && !questOpen && !rowCollapsed
-    ? pack.prompt(cardIsCovered)
+  !selected.length && !questOpen
+    ? pack.prompt(cardIsCovered, { lowered: rowCollapsed })
     : null;
 // A face-down card in an open pack shows its tier only as a rim glow, from
 // Rare up: no number, name or art, and no `data-level` (a covered card still
@@ -1904,9 +1881,8 @@ function revealAllPack() {
 function skipPack() {
   pack.skip({ unturned: cardIsCovered, turnNow: packTurnNow });
 }
-// A tap on a pack's card: the stack opens; an open pack's card turns at once
-// (outside a pack the first tap still only selects); during the run a tap
-// finishes it. A turned card in an open pack is chosen as any card is.
+// A tap on a pack's card: the stack opens; during the run a tap finishes it.
+// An open pack's card is chosen as any card is.
 function packTap(id) {
   if (!pack.has(id)) return false;
   if (pack.state === "closed") {
@@ -1917,8 +1893,6 @@ function packTap(id) {
     skipPack();
     return true;
   }
-  if (pack.state === "open" && cardIsCovered(id))
-    return pack.turnOne(id, { unturned: cardIsCovered, turn: (card) => uncover(card) });
   return false;
 }
 // Tapping away, Escape or Done: the pack goes back into the hand, a run
@@ -1927,11 +1901,6 @@ function packDismiss() {
   if (!["open", "running", "turned"].includes(pack.state)) return;
   if (pack.dismiss({ unturned: cardIsCovered, turnNow: packTurnNow, tierOf: packTier }))
     sfx.card("settle", 3);
-}
-// A new local world's opening, while it lasts (opening.mjs).
-function opening() {
-  if (sharedSession) return null;
-  return openingStep(world, currentActor(world), cardIsCovered);
 }
 function sharingMeal(cards) {
   return cards.length === 3 && cardPlay(world, cards).action?.kind === "eat";
@@ -2623,7 +2592,7 @@ function presentPhase() {
       (queuedChoice || !reveal.complete || exchange.hasNext || inscribing.size > 0),
     inFlight,
     lingering: lingeringWords(inFlight),
-    raised: !rowCollapsed,
+    raised: !rowCollapsed || Boolean(packPrompt()),
     chosen: selected.length > 0 || questOpen || Boolean(packPrompt()),
     rested: restedChoice !== null,
   });
@@ -2679,19 +2648,14 @@ function renderActions() {
   );
   // A chosen play leaves the beat: the Thinking card stands for it, and its
   // reply types into the full-size front card.
-  // While the opening has a card down, the button only reveals the next.
-  const quiet = !rested && opening()?.step === "reveal";
   const closed = selected.some(cardIsClosed);
-  const actions = rested || quiet || closed ? [] : ready;
-  // Nothing chosen in an open pack: the pack's one button, the same quiet
-  // button the opening uses (pack-opening.mjs).
+  const actions = rested || closed ? [] : ready;
+  // Nothing chosen in an open pack: the pack's one button (pack-opening.mjs).
   const packAsk =
-    !rested && !quiet && !selected.length && !questOpen && !borrowedBeat
+    !rested && !selected.length && !questOpen && !borrowedBeat
       ? packPrompt()
       : null;
-  const clientText = quiet
-    ? "Turn over the next card."
-    : packAsk
+  const clientText = packAsk
       ? packAsk.text
       : !rested &&
         selected.length === 1 &&
@@ -2712,7 +2676,7 @@ function renderActions() {
   const crowdedWords =
     crowded && `You have too many items to take ${theName(crowded).toLowerCase()}`;
   const noPlay =
-    !rested && !quiet && !closed && !questOpen && !rowCollapsed && !actions.length &&
+    !rested && !closed && !questOpen && !rowCollapsed && !actions.length &&
     !asleep && !crowded && !clientText && selected.length > 0 &&
     visibleText(hint ?? "");
   const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : nameOf(id)).join(" + ");
@@ -2728,14 +2692,10 @@ function renderActions() {
       !selected.length && questOpen && !rested ? shownQuests[0] : null,
     lockShown =
       !rested && closed
-        ? (selected.length === 1 && isLockedBox(world, selected[0])
-            ? lockedQuest(world, selected[0], known)
-            : null) || {
-            text: selected.some((id) => isLockedBox(world, id))
-              ? LOCKED_BOX
-              : CLOSED_BOX,
-            cards: [],
-          }
+        ? selected.some(cardIsCovered)
+          ? { text: PACK_TEXT.reveal, cards: [] }
+          : (selected.length === 1 && lockedQuest(world, selected[0], known)) ||
+            { text: LOCKED_BOX, cards: [] }
         : null,
     // Rule texts can double a name's article ("the The Burial Decree").
     sentence = lockShown
@@ -2803,7 +2763,7 @@ function renderActions() {
   $("action-beat").style.setProperty("--tier-color", rarest.color);
   // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
-    selected.length > 0 && !rowCollapsed,
+    (selected.length > 0 && !rowCollapsed) || Boolean(packPrompt()),
   );
   // Settings' hand of cards stands raised (settings-cards.mjs).
   document.body.dataset.handExpanded = String(
@@ -2839,24 +2799,22 @@ function renderActions() {
       return button;
     }),
   );
-  if ((quiet && !closed) || packAsk) {
-    const reveal = node("button", packAsk?.label ?? OPENING_REVEAL, "card-primary");
+  if (packAsk) {
+    const reveal = node("button", packAsk.label, "card-primary");
     reveal.type = "button";
     reveal.disabled = selectionBlocked();
-    if (packAsk) {
-      reveal.dataset.pack = packAsk.kind;
-      reveal.onclick = () => {
-        // A double tap on Reveal all, or on the last card, must not land on
-        // the button that replaces it.
-        if (packAsk.kind !== "reveal" && performance.now() - packStepAt < 250) return;
-        if (packAsk.kind === "reveal") revealAllPack();
-        else if (packAsk.kind === "finish") skipPack();
-        else foldHand();
-      };
-    } else {
-      reveal.dataset.quiet = "true";
-      reveal.onclick = () => uncover(opening()?.next);
-    }
+    reveal.dataset.pack = packAsk.kind;
+    reveal.onclick = () => {
+      // A double tap on Reveal all, or on the last card, must not land on
+      // the button that replaces it.
+      if (packAsk.kind !== "reveal" && performance.now() - packStepAt < 250) return;
+      if (packAsk.kind === "reveal") {
+        openPack();
+        revealAllPack();
+      }
+      else if (packAsk.kind === "finish") skipPack();
+      else foldHand();
+    };
     row.append(reveal);
   }
   // The chosen quest card offers one button, Discard. Its step is done as
@@ -2920,17 +2878,16 @@ function renderActions() {
   }
   // The context button keeps a closed box's contents concealed.
   const sealed = !rested && closed;
-  const closedCard = selected.find(cardIsClosed);
-  const openingBox = sealed && !isLockedBox(world, closedCard) ? closedCard : null;
+  const openingBox = sealed ? (selected.find(cardIsCovered) ?? null) : null;
   if (sealed) {
-    const why = node("button", openingBox ? "Tap to open" : "Locked", "card-action");
+    const why = node("button", openingBox ? PACK_REVEAL_ONE : "Locked", "card-action");
     why.type = "button";
     why.disabled = Boolean(openingBox) && selectionBlocked();
     why.title = lockShown.text;
     if (openingBox) {
       why.dataset.openBox = openingBox;
       why.onclick = () => {
-        if (!selectionBlocked() && selected.includes(openingBox) && !isLockedBox(world, openingBox)) {
+        if (!selectionBlocked() && selected.includes(openingBox) && cardIsCovered(openingBox)) {
           // The replacement action must not catch a second tap on Open.
           lastPlayAt = performance.now();
           uncover(openingBox);
@@ -2941,7 +2898,7 @@ function renderActions() {
       why.setAttribute("aria-label", `Locked. ${lockShown.text}`);
     }
     row.append(why);
-    cardTapHint(why, openingBox ? "Open" : "Locked");
+    cardTapHint(why, openingBox ? PACK_REVEAL_ONE : "Locked");
   }
   for (const [reason, kind] of [
     [asleep, "asleep"],
@@ -2963,7 +2920,7 @@ function renderActions() {
     row.childElementCount === 1 &&
     !row.firstElementChild.disabled &&
     !row.firstElementChild.dataset.blocked &&
-    (only || quiet || packAsk || openingBox || row.firstElementChild.dataset.look)
+    (only || packAsk || openingBox || row.firstElementChild.dataset.look)
   ) {
     const button = row.firstElementChild;
     panel.setAttribute("data-card-tap", "");
@@ -2972,12 +2929,10 @@ function renderActions() {
     nameActionTap(
       button,
       openingBox
-        ? "Open"
-        : quiet
-          ? "Uncover"
-          : packAsk
-            ? packAsk.label
-            : actionTapVerb(only, button.textContent),
+        ? PACK_REVEAL_ONE
+        : packAsk
+          ? packAsk.label
+          : actionTapVerb(only, button.textContent),
       only?.label === "Wake" ? sentence : button.textContent,
     );
     message = button;
@@ -5611,8 +5566,7 @@ document.addEventListener("click", (e) => {
 });
 function foldHand() {
   packDismiss();
-  const shown = availableCards(world);
-  selected = [heldItem(world, currentActor(world))].filter((id) => id && shown.includes(id));
+  selected = shownHeld();
   questOpen = false;
   rowCollapsed = true;
   expandedHolders.clear();
@@ -5707,7 +5661,7 @@ function resetTable(next = freshWorld()) {
   renderedHand = "";
   renderedHandPlace = null;
   lineSeq = null;
-  selected = [heldItem(world, currentActor(world))].filter(Boolean);
+  selected = shownHeld();
   expandedHolders.clear();
   rowCollapsed = true;
   unblockSave();
@@ -5792,14 +5746,6 @@ function resumeScene({ otherTab = false } = {}) {
   if (sharedSession) {
     render();
     syncSharedLine();
-    return;
-  }
-  openingHeld = openingWordsDue() && !avatarKnown();
-  if (openingHeld) {
-    // Vale's first line starts with his own reveal, while the room is dark.
-    storyStatus = "ready";
-    save();
-    render();
     return;
   }
   const words = wordsOnLoad(), cast = pendingCast();
@@ -6086,7 +6032,6 @@ async function submitSharedPlay(action) {
 function syncSharedLine() {
   renderPlayers();
   if (!sharedSession || reviewing || covering) return;
-  if (!avatarKnown()) return;
   const room = world.actors[currentActor(world)].place;
   // The avatar's waking scene can speak while its surroundings stay covered.
   // Other room scenes wait for that viewer's place reveal.

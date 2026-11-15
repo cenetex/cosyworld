@@ -1,6 +1,6 @@
 // The pack opening: the cards a traveler has not yet turned sit together as
 // one face-down stack in the hand. Tap it and they rise into the raised
-// row, still face down; turn them one by one, or Reveal all and watch them
+// row, still face down; choose them one by one, or Reveal all and watch them
 // turn commons first, the rarest last. Done settles them back into the
 // hand. Every turn gets a sound, and each tier above common adds a longer
 // held breath before it turns.
@@ -20,6 +20,7 @@ export const PACK_MIN = 3;
 // descriptor is the button: `text` is its sentence and the verb makes its
 // corner cue ("Tap to reveal all", "Tap to finish", "Tap to continue").
 export const PACK_REVEAL_ALL = "Reveal all";
+export const PACK_REVEAL_ONE = "Reveal";
 export const PACK_FINISH = "Finish";
 export const PACK_DONE = "Continue";
 export const PACK_TEXT = {
@@ -235,13 +236,6 @@ export function createPackOpening({
       state = "open";
       return true;
     },
-    // Tap a card in an open pack: it turns at once. A turn from outside the
-    // run is welcome: an already turned card is simply skipped.
-    turnOne(id, { unturned, turn }) {
-      if (state !== "open" || !ids.includes(id) || !unturned(id)) return false;
-      turn(id);
-      return true;
-    },
     // Reveal all: one card after another, commons first, each on its own
     // beat. `tierOf` names a card's tier, `turn(id)` turns it, `done()` is
     // called once every card is turned.
@@ -328,10 +322,11 @@ export function createPackOpening({
       return { shown: true, top: false, under: 0 };
     },
     // The one button the pack asks for while nothing is chosen, or null.
-    prompt(unturned) {
+    // Reveal all waits for the hand to lie lowered.
+    prompt(unturned, { lowered = false } = {}) {
       if (state === "running") return ask("finish", PACK_FINISH);
       if (state === "turned") return ask("done", PACK_DONE);
-      if (state === "open" && left(unturned).length)
+      if (state === "closed" && lowered && left(unturned).length)
         return ask("reveal", PACK_REVEAL_ALL);
       return null;
     },
