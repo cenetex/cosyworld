@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
 import { emptyState } from "../src/channel.mjs";
-import { createRoom, createStats, record } from "../src/room.mjs";
+import { createRoom, createStats, record, summary } from "../src/room.mjs";
 import { heard } from "../src/turns.mjs";
 
 const config = readConfig({ ORCHESTRATOR_URL: "https://cosyworld.example", DISCORD_COORDINATE_INLINE_MS: "20" });
@@ -99,6 +99,7 @@ test("a Jev miss falls back to the named resident once, otherwise silence", asyn
   assert.deepEqual(fixed.sent, ["Skull"]);
   assert.ok(fixed.logs.includes("next miss reason=jev-timeout action=fallback guild=g1 channel=c1"));
   assert.ok(fixed.logs.includes("next miss reason=jev-timeout action=silent guild=g1 channel=c1"));
+  assert.match(summary(fixed.stats), /^coordinator all-missing misses=2\nsummary /);
   const quiet = fixture([{ answers: null, reason: "jev-http-500" }]);
   await quiet.hear("m1", "is anyone around");
   assert.deepEqual(quiet.sent, []);

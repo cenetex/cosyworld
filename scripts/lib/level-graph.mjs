@@ -5,7 +5,6 @@
 // set each flag. A gate is any condition that shuts something. For each gate
 // this computes the full transitive set of things that can matter to it, taken
 // over every alternative of every `any`.
-//
 // It reads the compiled pack (`v2/card-game/packs.json`, which is the card
 // pack compiler's own merge of `card-world.json` and `card-bridge.json`), so
 // it never re-parses the sources differently from the game. It never runs the
