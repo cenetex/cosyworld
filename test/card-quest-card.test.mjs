@@ -30,7 +30,6 @@ import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
 
-// An undiscovered card is worded by its kind, never by name.
 const { person: PERSON, place: PLACE } = UNKNOWN;
 
 describe("the quest card", () => {
