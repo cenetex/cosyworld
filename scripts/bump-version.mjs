@@ -5,7 +5,6 @@
 // helper, and Mac shell. Both Cargo manifests and lock files move with it.
 // Usage:
 //   npm run version:bump            # patch bump (1.0.84 -> 1.0.85)
-//   npm run version:bump -- 1.1.0   # explicit version
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -80,7 +79,6 @@ function bumpRustFiles(version) {
   }
   writeFileSync(manifest, updated);
 
-  // Keep Cargo.lock in lockstep without requiring a local toolchain build.
   const lock = path.join(repoRoot, 'v2/orchestrator-rust/Cargo.lock');
   const lockSource = readFileSync(lock, 'utf8');
   const lockUpdated = lockSource.replace(

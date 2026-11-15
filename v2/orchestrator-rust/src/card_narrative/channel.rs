@@ -46,6 +46,8 @@ struct Resident {
     #[serde(skip)]
     place: String,
     portrait: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    avatar: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -87,6 +89,19 @@ fn packs() -> &'static Value {
     })
 }
 
+fn face_avatar(portrait: &str) -> Option<String> {
+    static FACES: OnceLock<Value> = OnceLock::new();
+    let faces = FACES.get_or_init(|| {
+        serde_json::from_str(include_str!("../../../card-game/assets/discord-faces.json"))
+            .expect("embedded discord face boxes")
+    });
+    faces.get(portrait)?;
+    let (dir, file) = portrait.rsplit_once('/')?;
+    let pack_dir = dir.rsplit('/').next()?;
+    let stem = file.rsplit_once('.').map_or(file, |(stem, _)| stem);
+    Some(format!("/card-game/assets/faces/{pack_dir}-{stem}.webp"))
+}
+
 fn pack(pack_id: &str) -> Option<&'static Value> {
     packs()["packs"]
         .as_array()?
@@ -107,6 +122,7 @@ fn cast(pack_id: &str) -> Option<Vec<Resident>> {
                 id: id.clone(),
                 name: avatar["name"].as_str().unwrap_or(id).to_string(),
                 place: avatar["place"].as_str()?.to_string(),
+                avatar: face_avatar(&portrait),
                 portrait: format!("/card-game/{portrait}"),
             })
         })
@@ -517,6 +533,14 @@ mod tests {
         ] {
             assert_eq!(find(id).portrait, portrait);
         }
+        assert_eq!(
+            find("rati").avatar.as_deref(),
+            Some("/card-game/assets/faces/lonely-forest-rati.webp")
+        );
+        assert_eq!(
+            find("oak").avatar.as_deref(),
+            Some("/card-game/assets/faces/lonely-forest-oakheart.webp")
+        );
         assert_eq!(find("oak").name, "Oak");
         assert!(cast("no-such-pack").is_none());
     }
@@ -840,7 +864,8 @@ mod tests {
         assert!(residents.contains(&json!({
             "id": "rati",
             "name": "RATi",
-            "portrait": "/card-game/assets/lonely-forest/rati.png"
+            "portrait": "/card-game/assets/lonely-forest/rati.png",
+            "avatar": "/card-game/assets/faces/lonely-forest-rati.webp"
         })));
         let (status, body) = read(
             app.clone()
