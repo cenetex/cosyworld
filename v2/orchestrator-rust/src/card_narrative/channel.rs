@@ -42,6 +42,7 @@ const SCENE_MESSAGES: usize = 6;
 const ADDRESSED_WAIT: Duration = Duration::from_secs(3);
 const ADDRESSED_CALL: Duration = Duration::from_secs(6);
 const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
+const COORDINATE_CALL: Duration = Duration::from_secs(4);
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 struct Resident {
@@ -511,18 +512,19 @@ fn spend(limits: &mut RateLimiter, now: Instant) -> bool {
         && limits.allow("discord-day".into(), PER_DAY, now)
 }
 
-fn admitted(state: &TextState, headers: &HeaderMap, lines: bool) -> Result<(), Response> {
+fn admitted(state: &TextState, headers: &HeaderMap, kind: &str) -> Result<(), Response> {
     let token = std::env::var("COSYWORLD_BOT_TOKEN").ok();
     if !authorized(headers, token.as_deref()) {
         return Err(error(StatusCode::UNAUTHORIZED, "unauthorized"));
     }
     let now = Instant::now();
-    let allowed = state.limits.lock().is_ok_and(|mut limits| {
-        if lines {
-            spend(&mut limits, now)
-        } else {
-            limits.allow("discord-cast".into(), LIMIT, now)
+    let allowed = state.limits.lock().is_ok_and(|mut limits| match kind {
+        "lines" => spend(&mut limits, now),
+        "coordinate" => {
+            limits.allow("discord-coordinate".into(), LIMIT, now)
+                && limits.allow("discord-coordinate-hour".into(), PER_HOUR, now)
         }
+        _ => limits.allow("discord-cast".into(), LIMIT, now),
     });
     if !allowed {
         return Err(error(StatusCode::TOO_MANY_REQUESTS, "busy"));
@@ -569,7 +571,7 @@ pub(super) async fn cast_route(
     headers: HeaderMap,
     query: Result<Query<CastQuery>, QueryRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, false) {
+    if let Err(refused) = admitted(&state, &headers, "cast") {
         return refused;
     }
     let Ok(Query(query)) = query else {
@@ -591,7 +593,7 @@ pub(super) async fn lines(
     headers: HeaderMap,
     request: Result<Json<LinesRequest>, JsonRejection>,
 ) -> Response {
-    if let Err(refused) = admitted(&state, &headers, true) {
+    if let Err(refused) = admitted(&state, &headers, "lines") {
         return refused;
     }
     let request = match request {
@@ -632,6 +634,162 @@ pub(super) async fn lines(
     spoken(vec![
         json!({"id": &resident.id, "name": &resident.name, "text": text}),
     ])
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct Notes {
+    topic: String,
+    goal: String,
+    summary: String,
+    owed: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct CoordinateRequest {
+    pack: String,
+    #[serde(default)]
+    notes: Option<Notes>,
+    messages: Vec<Message>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct Choice {
+    topic: String,
+    goal: String,
+    summary: String,
+    owed: String,
+    speak: String,
+}
+
+fn sound(notes: &Notes) -> bool {
+    bounded(&notes.topic, 40)
+        && bounded(&notes.goal, 120)
+        && bounded(&notes.summary, 300)
+        && bounded(&notes.owed, 32)
+}
+
+fn chosen(text: &str, cast: &[Resident]) -> Option<Choice> {
+    let choice: Choice = serde_json::from_str(text.trim()).ok()?;
+    let notes = Notes {
+        topic: choice.topic.clone(),
+        goal: choice.goal.clone(),
+        summary: choice.summary.clone(),
+        owed: choice.owed.clone(),
+    };
+    let speaker = choice.speak == "none" || cast.iter().any(|r| r.id == choice.speak);
+    (sound(&notes) && speaker).then_some(choice)
+}
+
+fn noted(request: &CoordinateRequest, cast: &[Resident]) -> String {
+    let before = request.notes.as_ref().map(|n| {
+        format!(
+            "topic: {}\ngoal: {}\nsummary: {}\nowed: {}\n\n",
+            n.topic, n.goal, n.summary, n.owed
+        )
+    });
+    let lines = request
+        .messages
+        .iter()
+        .map(|m| format!("{}: {}", speaker(m, cast), m.text))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!("{}{lines}", before.unwrap_or_default())
+}
+
+pub(super) async fn coordinate(
+    State(state): State<TextState>,
+    headers: HeaderMap,
+    request: Result<Json<CoordinateRequest>, JsonRejection>,
+) -> Response {
+    if let Err(refused) = admitted(&state, &headers, "coordinate") {
+        return refused;
+    }
+    let Ok(Json(request)) = request else {
+        return error(StatusCode::BAD_REQUEST, "unreadable request");
+    };
+    let Some(residents) = cast(&request.pack) else {
+        return error(StatusCode::BAD_REQUEST, "unknown pack");
+    };
+    let fits = (1..=12).contains(&request.messages.len())
+        && request.notes.as_ref().is_none_or(sound)
+        && request
+            .messages
+            .iter()
+            .all(|m| match (&m.author, &m.resident) {
+                (Some(author), None) => bounded(author, 32) && bounded(&m.text, 400),
+                (None, Some(id)) => residents.iter().any(|r| &r.id == id) && bounded(&m.text, 400),
+                _ => false,
+            });
+    if !fits {
+        return error(
+            StatusCode::BAD_REQUEST,
+            "send 1 to 12 messages and bounded notes",
+        );
+    }
+    let Some(config) = state.ai.as_ref().as_ref() else {
+        return coordinated(None, "not-configured");
+    };
+    let Ok(_slot) = state.capacity.clone().try_acquire_owned() else {
+        return coordinated(None, "busy");
+    };
+    let mut choices: Vec<&str> = residents.iter().map(|r| r.id.as_str()).collect();
+    choices.push("none");
+    let text = json!({"type": "string"});
+    let format = json!({
+        "type": "json_schema",
+        "json_schema": {
+            "name": "discord_conversation",
+            "strict": true,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "topic": text, "goal": text, "summary": text, "owed": text,
+                    "speak": {"type": "string", "enum": choices}
+                },
+                "required": ["topic", "goal", "summary", "owed", "speak"],
+                "additionalProperties": false
+            }
+        }
+    });
+    let system = forest(&request.pack, &residents);
+    let user = noted(&request, &residents);
+    let completion = request_chat_completion(
+        config,
+        ChatCompletionRequest {
+            feature: "discord_coordinate",
+            prompt_version: "discord-coordinate-v1",
+            capability: ModelCapability::IntentJson,
+            system: &system,
+            user: &user,
+            temperature: 0.0,
+            max_tokens: 160,
+            timeout: COORDINATE_CALL,
+            max_attempts: 1,
+            referer: crate::ai_gateway::OPENROUTER_APP_REFERER,
+            response_format: Some(&format),
+            room_id: None,
+        },
+    )
+    .await;
+    match completion {
+        Ok(done) => match chosen(&done.text, &residents) {
+            Some(choice) => coordinated(Some(choice), "ok"),
+            None => coordinated(None, "schema"),
+        },
+        Err(_) => coordinated(None, "model"),
+    }
+}
+
+fn coordinated(choice: Option<Choice>, reason: &'static str) -> Response {
+    tracing::info!(feature = "discord", reason, "discord coordinate");
+    let body = match choice {
+        Some(choice) => json!({"choice": choice}),
+        None => json!({"choice": null, "reason": reason}),
+    };
+    ([("cache-control", "no-store")], Json(body)).into_response()
 }
 
 #[cfg(test)]
@@ -1065,6 +1223,83 @@ mod tests {
         assert_eq!(requests.len(), 1);
         let schema = &requests[0]["response_format"]["json_schema"]["schema"];
         assert_eq!(schema["properties"]["who"]["enum"], json!(["rati", "none"]));
+    }
+
+    async fn post_coordinate(answer: &'static str, body: Value) -> (StatusCode, Value, Vec<Value>) {
+        std::env::set_var("COSYWORLD_BOT_TOKEN", TOKEN);
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let (address, server) = serve(provider(seen.clone(), answer, None)).await;
+        let app = router_with_models::<()>(
+            Arc::new(Some(intent_config(address))),
+            Ok(BTreeMap::new()),
+            Ok(VoiceSettings::hosted()),
+        );
+        let request = Request::post("/discord/coordinate")
+            .header("content-type", "application/json")
+            .header("authorization", format!("Bearer {TOKEN}"))
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap();
+        let (status, body) = read(app.oneshot(request).await.unwrap()).await;
+        server.abort();
+        let requests = seen.lock().unwrap().clone();
+        (status, body, requests)
+    }
+
+    fn gin() -> Value {
+        json!({
+            "pack": "lonely-forest",
+            "notes": {"topic": "tea", "goal": "chat with RATi", "summary": "Ash asked RATi about tea.", "owed": "none"},
+            "messages": [
+                {"author": "Ash", "text": "what about gin"},
+                {"resident": "rati", "text": "Gin is for later."},
+                {"author": "Bea", "text": "pour him gin instead"}
+            ]
+        })
+    }
+
+    #[tokio::test]
+    async fn the_coordinator_returns_notes_and_a_choice() {
+        let answer = r#"{"topic":"gin","goal":"get RATi to pour gin","summary":"Bea asks RATi for gin.","owed":"rati","speak":"rati"}"#;
+        let (status, body, requests) = post_coordinate(answer, gin()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["choice"]["owed"], "rati");
+        assert_eq!(body["choice"]["speak"], "rati");
+        let schema = &requests[0]["response_format"]["json_schema"]["schema"];
+        assert_eq!(
+            schema["properties"]["speak"]["enum"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap(),
+            "none"
+        );
+        let user = turn_of(&requests[0], "user");
+        assert!(user.starts_with("topic: tea\ngoal: chat with RATi"));
+        assert!(user.ends_with("RATi: Gin is for later.\nBea: pour him gin instead"));
+        assert!(turn_of(&requests[0], "system").starts_with("I am the Lonely Forest."));
+    }
+
+    #[tokio::test]
+    async fn a_bad_coordinator_answer_is_refused_whole() {
+        for answer in [
+            r#"{"topic":"gin","goal":"g","summary":"s","owed":"rati","speak":"vale"}"#,
+            r#"{"topic":"gin","goal":"g","summary":"s","owed":"rati"}"#,
+            r#"{"topic":"","goal":"g","summary":"s","owed":"rati","speak":"none"}"#,
+            "not json",
+        ] {
+            let (status, body, _) = post_coordinate(answer, gin()).await;
+            assert_eq!(status, StatusCode::OK);
+            assert_eq!(
+                body,
+                json!({"choice": null, "reason": "schema"}),
+                "{answer}"
+            );
+        }
+        let mut long = gin();
+        long["notes"]["summary"] = json!("s".repeat(301));
+        let (status, _, requests) = post_coordinate("{}", long).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(requests.is_empty());
     }
 
     #[tokio::test]
