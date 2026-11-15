@@ -47,7 +47,6 @@ function editor(note) {
   note.addEventListener("blur", () => state.flush(true));
   note.addEventListener("keydown", (event) => {
     if (!state.edit) return;
-    // The editor's arrows, newlines and undo belong to the document.
     event.stopPropagation();
     if (event.key === "Escape" && !state.composing && !event.isComposing)
       note.blur();
