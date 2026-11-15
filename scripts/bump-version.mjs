@@ -18,7 +18,6 @@ function readJson(relative) {
 }
 
 function writeJson(relative, value) {
-  // package-lock.json ships with two-space indentation and a trailing newline.
   writeFileSync(path.join(repoRoot, relative), `${JSON.stringify(value, null, 2)}\n`);
 }
 
