@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { createWorld, encodeSave } from "../card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { clearSelection, readyActionButton, revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
 
@@ -69,11 +69,10 @@ try {
       }
       throw new Error("Quest hand stayed busy");
     };
-    const saved = (storageKey = key) =>
-      page.evaluate((k) => {
-        const s = JSON.parse(localStorage.getItem(k));
-        return { turn: s.turn, xp: s.actors.vale.xp, want: s.actors.vale.want };
-      }, storageKey);
+    const saved = async (storageKey = key) => {
+      const s = decodeSave(await page.evaluate((k) => localStorage.getItem(k), storageKey));
+      return { turn: s.turn, xp: s.actors.vale.xp, want: s.actors.vale.want };
+    };
     const head = () =>
       page
         .locator("#hand .want-frame:not([hidden]) .want-card .quest-head")
@@ -254,7 +253,10 @@ try {
     await page.locator("[data-review-quests]").click();
     const beforeAccept = await saved();
     await page.locator("[data-accept-quest]:not([disabled])").click();
-    await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.target === "station", key);
+    await page.waitForFunction((k) => {
+      const want = JSON.parse(localStorage.getItem(k)).actors.vale.want;
+      return want?.target === "station" && want.accepted === true;
+    }, key);
     assert.equal((await saved()).turn, beforeAccept.turn);
     assert.equal((await saved()).xp, beforeAccept.xp);
     await clearSelection(page);
