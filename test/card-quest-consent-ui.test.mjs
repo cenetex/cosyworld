@@ -8,7 +8,9 @@ import { levelCard, questCards, questCaption, questPreviewCard } from "../v2/car
 
 function pending() {
   const world = createWorld({ seed: 17 });
-  world.actors.vale.pendingQuests = [{ ...newWant("item", "oil", 0), from: "quest:box:greek-gate" }];
+  world.actors.vale.pendingQuests = ["oil", "cloth"].map((id) => ({
+    ...newWant("item", id, 0), from: "quest:box:greek-gate",
+  }));
   return world;
 }
 it("previews a remote old goal without adding a hand card and hides unknown names", () => {
@@ -61,6 +63,9 @@ it("commits local Accept quietly and rejects a stale second click", () => {
   for (const fn of [context.playQueue.submit, context.narrator.changed, context.narrator.invalidate,
     context.reveal.finish, context.speechSounds.stop, context.exchange.cancel]) expect(fn).not.toHaveBeenCalled();
   const accepted = JSON.stringify(context.world);
+  const next = questPreviews(context.world).find((q) => q.kind === "pending").action;
+  context.commitAction(next, context.world.revision, 1000);
+  expect(JSON.stringify(context.world)).toBe(accepted);
   context.commitAction(action, before.revision);
   expect(JSON.stringify(context.world)).toBe(accepted);
   expect(context.notice).toHaveBeenCalled();

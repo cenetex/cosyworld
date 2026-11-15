@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, decodeSave, encodeSave, questPreviews } from "../card-game/world.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { newWant } from "../card-game/want.mjs";
+import { DREAM_FROM, newWant } from "../card-game/want.mjs";
 import { settleArcana } from "../card-game/world/arcana.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { clearSelection, selectCard, readyActionButton } from "./card-browser-helpers.mjs";
@@ -28,7 +28,8 @@ try {
     legacy.actors.vale.place = "greek-gate";
     legacy.actors.vale.heldItem = null;
     legacy.actors.vale.want = { ...newWant("item", "oil", 0), from: "quest:box:greek-piraeus" };
-    legacy.actors.vale.under = [{ ...newWant("item", "cloth", 0), from: "quest:box:greek-harbor" }];
+    legacy.actors.vale.under = [{ ...newWant("item", "cloth", 0), from: "quest:box:greek-harbor" },
+      { ...newWant("place", "attic", 0), from: DREAM_FROM, step: { verb: "rest" } }];
     legacy.actors.vale.arcana.proved = ["arcanum-5"];
     delete legacy.actors.vale.pendingQuests;
     const loaded = decodeSave(JSON.stringify(legacy));
@@ -76,7 +77,7 @@ try {
     await page.waitForFunction(() => Boolean(window.consentProbe));
     await ready();
     assert.equal((await state()).actors.vale.want, null);
-    assert.equal((await state()).actors.vale.pendingQuests.length, 2);
+    assert.equal((await state()).actors.vale.pendingQuests.length, 3);
     assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0);
     const source = questPreviews(loaded).find((q) => q.kind === "box");
     assert(source?.action);
@@ -93,7 +94,7 @@ try {
     assert.equal(await page.locator(`[data-card="${source.source}"]`).getAttribute("data-locked"), "true");
     assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 1);
     await page.reload(); await ready();
-    assert.equal((await state()).actors.vale.pendingQuests.length, 2);
+    assert.equal((await state()).actors.vale.pendingQuests.length, 3);
     await clearSelection(page);
     if (!shared) {
       const wait = readyActionButton(page, "wait");
@@ -101,6 +102,13 @@ try {
     }
     await selectCard(page, "vale");
     await page.locator("[data-review-quests]").click();
+    const captions = new Set();
+    for (let i = 0; i < 6; i++) {
+      captions.add(await page.locator(".action-beat-text").textContent());
+      await page.locator("[data-next-quest]").click();
+    }
+    assert([...captions].some((text) => /Level II/u.test(text)), "level tracking stays available for review");
+    assert([...captions].some((text) => /Rest at home/u.test(text)), "old Sleep stays available for review");
     const first = await page.locator(".action-beat-text").textContent();
     await page.locator("[data-next-quest]").click();
     assert.notEqual(await page.locator(".action-beat-text").textContent(), first);
@@ -114,7 +122,7 @@ try {
     const pendingBefore = (await state()).actors.vale.pendingQuests;
     const line = await page.locator("#dialogue-text").textContent(), callsBefore = calls;
     await page.locator("[data-accept-quest]").click();
-    await page.waitForFunction(() => window.consentProbe.state().actors.vale.pendingQuests.length === 1);
+    await page.waitForFunction(() => window.consentProbe.state().actors.vale.pendingQuests.length === 2);
     assert.equal((await state()).actors.vale.want.target, "oil");
     assert.equal((await state()).actors.vale.want.since, pendingBefore.find((q) => q.target === "oil").since);
     assert.equal(calls, callsBefore);
