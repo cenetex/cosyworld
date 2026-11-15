@@ -1033,6 +1033,10 @@ try {
   // Closing it must reveal Vale, Mara and the third visitor in order, with
   // partial letters.
   const speakers = ["Vale", "Mara", avatarOf(nellId).name];
+  for (const page of [vale, mara]) {
+    const stack = page.locator('#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card');
+    if (await stack.count()) await tapCard(stack.first());
+  }
   await openSettings(mara);
   holdReplies = false;
   for (const resolve of waitingReplies.splice(0)) resolve();
