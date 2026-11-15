@@ -8163,7 +8163,7 @@
     settleHeldItems(s);
     settleLamp(s);
     creditOpened(before, s, actor);
-    dropOpenedBoxQuests(s);
+    dropOpenedBoxQuests(before, s);
     settleCrossingUnlocks(s, sensesFor(s));
     wakeSleepers(s, before, []);
     latchRoutes(s);
@@ -8816,14 +8816,14 @@
       if (!travelerOf(s, id) && s.actors[id]?.place === lifeHome(id, s))
         narrowTickets(s, id);
   }
-  function dropOpenedBoxQuests(s) {
+  function dropOpenedBoxQuests(before, s) {
     for (const [actor, a] of Object.entries(s.actors))
       for (const held of heldOf(a))
-        if (held.from?.startsWith("quest:box:") && boxIdOpen(s, held.from.slice(10), actor))
+        if (held.from?.startsWith("quest:box:") && !boxIdOpen(before, held.from.slice(10), actor) && boxIdOpen(s, held.from.slice(10), actor))
           releaseQuest(a, held);
   }
-  function settleQuests(s, acting) {
-    dropOpenedBoxQuests(s);
+  function settleQuests(s, acting, before) {
+    dropOpenedBoxQuests(before, s);
     for (const actor of Object.keys(s.actors).sort()) {
       if (!(actor === currentActor(s) || controlledByHuman(s, actor)) || !entityActive(s, actor))
         continue;
@@ -9838,7 +9838,7 @@
       settleLamp(next2);
       settleCrossingUnlocks(next2, sensesFor(next2));
       settleStationExits(next2);
-      settleQuests(next2, actor);
+      settleQuests(next2, actor, s);
       validateWorld(next2);
       return { ok: true, state: next2 };
     }
@@ -10010,7 +10010,7 @@
     settleHeldItems(next, handSnapshot(s));
     settleLamp(next);
     settleStationExits(next);
-    settleQuests(next, actor);
+    settleQuests(next, actor, s);
     validateWorld(next);
     let slept = next;
     if (!s.actors[actor].sleeping && !sharedEnabled(next))
