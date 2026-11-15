@@ -524,6 +524,7 @@ const fresh = new Set();
 const shownLevels = new Map();
 const shownStageLevels = new Map();
 const coveredCards = new Set();
+let openingHeld = false;
 // The held quest on show (none or one) and whether its card is chosen. A
 // first quest glows (questFresh); questSeq is the last event seen, to count
 // the wants the rules met.
@@ -603,8 +604,11 @@ const knownName = (id, unknown = "…") =>
   cardIsClosed(id) || hiddenFor(world, currentActor(world))?.id === id
     ? unknown
     : nameOf(id);
+// The avatar lies face down only under the new-world title, which turns it.
+const titleShowing = () => Boolean(document.querySelector(".title-intro"));
+const avatarKnown = () => !coveredCards.has(currentActor(world));
 const selfKnown = () =>
-  !coveredCards.has(world.actors[currentActor(world)].place);
+  avatarKnown() && !coveredCards.has(world.actors[currentActor(world)].place);
 const shownHeld = () =>
   [heldItem(world, currentActor(world))].filter(
     (id) => id && availableCards(world).includes(id) && !cardIsCovered(id),
@@ -634,7 +638,7 @@ function loadSeen(reset = false) {
       ? []
       : JSON.parse(localStorage.getItem(`${SEEN_KEY}.covered`) || "[]");
     for (const id of Array.isArray(covered) ? covered : [])
-      if ((people[id] || things[id] || places[id]) && id !== currentActor(world))
+      if ((people[id] || things[id] || places[id]) && (id !== currentActor(world) || titleShowing()))
         coveredCards.add(id);
   } catch {}
   encountered = new Set([
@@ -647,7 +651,7 @@ function loadSeen(reset = false) {
   ]);
   if (opening)
     for (const id of availableCards(world))
-      if (id !== currentActor(world)) coveredCards.add(id);
+      if (id !== currentActor(world) || titleShowing()) coveredCards.add(id);
   if (startingPip)
     for (const id of pipPrelude() ? PIP_KNOWN : ["moth"]) {
       encountered.add(id);
@@ -1754,6 +1758,7 @@ function uncover(
   if (shown && flip) turnCard(openingLid(shown, lid));
   if (announce)
     $("discovery-announcement").textContent = `New card: ${nameOf(id)}.`;
+  if (openingHeld && openingWordsDue() && avatarKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
 }
 // Every card turn plays its reveal and a flip sound, both at its tier: a
@@ -2004,7 +2009,7 @@ function choose(id) {
       keepOpen: lowering,
     });
   }
-  if (world.items[id]?.holder === actor) {
+  if (world.items[id]?.holder === actor && !cardIsCovered(id)) {
     const current = heldItem(world, actor);
     const item = selected.includes(id) ? id : current === id ? null : current;
     if (item !== current) void persistHeldChoice(item);
@@ -5670,6 +5675,10 @@ function resetTable(next = freshWorld()) {
   save();
   $("reset-dialog").close();
   playNewWorldIntro({ arrival: startingPip && Boolean(world.opening) });
+  if (titleShowing() && !pipPrelude()) {
+    coveredCards.add(currentActor(world));
+    rememberCards();
+  }
   holdMusicForTitle();
   nameTitleWaker(nameOf(currentActor(world)), currentActor(world));
   resumeScene();
@@ -5746,6 +5755,13 @@ function resumeScene({ otherTab = false } = {}) {
   if (sharedSession) {
     render();
     syncSharedLine();
+    return;
+  }
+  openingHeld = openingWordsDue() && !avatarKnown();
+  if (openingHeld) {
+    storyStatus = "ready";
+    save();
+    render();
     return;
   }
   if (openingWordsDue()) save();
@@ -6033,6 +6049,7 @@ async function submitSharedPlay(action) {
 function syncSharedLine() {
   renderPlayers();
   if (!sharedSession || reviewing || covering) return;
+  if (!avatarKnown()) return;
   const room = world.actors[currentActor(world)].place;
   // The avatar's waking scene can speak while its surroundings stay covered.
   // Other room scenes wait for that viewer's place reveal.

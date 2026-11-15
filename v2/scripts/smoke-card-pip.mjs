@@ -37,15 +37,13 @@ async function walkToGivenLamp(browser, base) {
   const carried = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
   assert.equal(carried.actors.vale.place, "attic");
   assert.deepEqual(carried.actors.vale.want?.step, { verb: "give", to: "moth" });
-  // The opening: open the attic, turn over the lamp. Nothing is left chosen
-  // that has no button.
-  await choose("attic");
-  await buttonReads(/closed box/iu);
-  await button.first().click();
-  await buttonReads(/turn over the next card/iu);
-  await button.first().click();
-  await page.waitForFunction(() => document.querySelector('#hand [data-card="attic"]')?.getAttribute("aria-pressed") === "true" && document.querySelector("#card-actions button"));
-  assert.equal(await page.locator('#hand [data-card="lamp"][aria-pressed="true"]').count(), 0, "the lamp is not left chosen");
+  // The opening: each face-down card chosen shows its own Reveal.
+  for (const id of ["attic", "lamp"]) {
+    await choose(id);
+    await buttonReads(/new cards unlocked/iu);
+    await button.first().click();
+    await page.waitForFunction((id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false", id);
+  }
   // Put the lamp out: choose Vale to show it, raise it, lower it.
   await choose("vale");
   await choose("lamp");

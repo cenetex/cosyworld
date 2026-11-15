@@ -376,18 +376,39 @@ export function readyActionButton(page, kind) {
   const action = kind ? `[data-action="${kind}"]` : ".card-primary";
   return page.locator(`#card-actions ${action}:not([data-revealing="true"])`);
 }
-// The opening hand lies lowered as one closed pack: Reveal all turns it.
+// The opening hand lies lowered as one closed pack: Reveal all turns it,
+// and a card left face down is chosen and revealed by its own button.
 export async function revealOpening(page) {
   await settleHand(page);
-  await page.locator('#card-actions [data-pack="reveal"]').click();
-  const done = page.locator('#card-actions [data-pack="done"]');
-  await done.waitFor();
-  await page.waitForTimeout(300);
-  await done.click();
+  for (let step = 0; step < 80; step++) {
+    const ask = page.locator(
+      '#card-actions [data-pack]:not([disabled]):not([data-revealing="true"])',
+    );
+    const advance = page.locator("#dialogue-advance");
+    if (await page.locator("#card-actions [data-pack]").count()) {
+      if ((await ask.count()) && (await ask.first().isVisible()))
+        await ask.first().click();
+      else if (await advance.isVisible()) await advance.click();
+      await page.waitForTimeout(300);
+      continue;
+    }
+    if (await page.locator("#hand [data-revealing]").count()) {
+      await page.waitForTimeout(100);
+      continue;
+    }
+    const down = await page.evaluate(
+      () =>
+        document.querySelector('#hand .card[data-unrevealed="true"]')?.dataset
+          .card,
+    );
+    if (!down) break;
+    await revealCard(page, down);
+  }
   await page.waitForFunction(
     () =>
       !document.querySelector("#hand [data-revealing]") &&
-      !document.querySelector('#hand [data-unrevealed="true"]'),
+      !document.querySelector('#hand [data-unrevealed="true"]') &&
+      !document.querySelector('#hand [data-pack="open"]'),
   );
 }
 // The first puzzle is an ordinary pair: Lamp and Mirror attic, Put down.

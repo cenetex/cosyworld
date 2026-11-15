@@ -93,8 +93,7 @@ try {
   await page.waitForTimeout(500);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await closeSettings(page);
-  // Dousing the lit lamp reveals the pond path and starts the first music.
-  // The opening reveals the lamp and attic first; stowing it opens the mirror.
+  // Putting the lamp down opens the pond path and starts the first music.
   await page.waitForFunction(
     () => document.querySelector("#hand").dataset.cooling === "false",
   );
@@ -277,24 +276,10 @@ try {
     );
     await check();
   }
-  // Current room-fuel lamps light when held and go dark when stowed.
-  // Keep it held through the pond mirror, then stow it for the way back.
-  await clearSelection(page);
-  await selectCard(page, "lamp");
-  await page.waitForFunction(
-    () =>
-      document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
-      "true",
-  );
-  await page.keyboard.press("Escape");
+  // The lamp rests in the attic: a narrow path leads back to it, and the
+  // open mirror leads out again.
   await travel("attic");
   console.log("Attic tracks played");
-  await clearSelection(page);
-  await page.waitForFunction(
-    () =>
-      document.querySelector('#hand [data-card="lamp"]')?.dataset.lit ===
-      "false",
-  );
   await travel("pond");
   console.log("Pond tracks played");
   await travel("station");

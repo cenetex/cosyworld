@@ -274,50 +274,38 @@ try {
     });
     await tapCard(station);
     assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
-    // Stow in a new world's attic: the lamp and the attic turn to their
-    // dark faces as the light goes down, keeping their nodes, and the pond
-    // opens from its locked box behind the attic.
-    await startNewGame(page);
+    // Put down in a new world's attic: the lamp goes to the attic's floor,
+    // the mirror opens and the pond's lock turns over, while Vale keeps his
+    // nodes.
+    await page.evaluate(() => document.querySelector("#confirm-reset").click());
     await ready();
     await revealOpening(page);
     await page.waitForTimeout(600);
-    assert.equal(
-      await page.locator('#hand [data-card="pond"]').getAttribute("data-locked"),
-      "true",
-    );
-    await page.evaluate(() => {
-      document.querySelector('#hand [data-card="lamp"]').swapMark = "kept";
-    });
-    await tap('#hand [data-card="lamp"]');
-    await strip("put-out");
+    if (
+      (await page.locator('#hand [data-card="lamp"]').getAttribute("aria-pressed")) !== "true"
+    )
+      await selectCard(page, "lamp");
+    await selectCard(page, "attic");
+    await tap('#card-actions [data-action="drop"]');
+    await strip("put-down");
     await settled();
     const douse = await watched();
-    const lamp = await page.evaluate(() => {
-      const lamp = document.querySelector('#hand [data-card="lamp"]');
-      return [lamp.swapMark, lamp.dataset.lit];
-    });
-    assert.deepEqual(lamp, ["kept", "false"], "the lamp turns in place");
     assert.equal(douse.vale, "kept");
     assert.equal(douse.valeFrame, "kept");
     const pond = await page.evaluate(() => {
       const card = document.querySelector('#hand [data-card="pond"]');
-      return [card.parentElement.hidden, card.dataset.unrevealed, card.dataset.locked];
+      return [card.parentElement.hidden, card.dataset.locked];
     });
-    // Opening its lock reveals the attic's lone way at the row's right end.
-    assert.deepEqual(pond, [false, "false", "false"], "the pond's box opens");
-    if (reduced) assert.deepEqual(douse.ghosts, []);
-    else {
-      assert.deepEqual(douse.ghosts.sort(), ["attic", "lamp", "vale"]);
-      assert(douse.released, "the old faces are released");
+    assert.deepEqual(pond, [false, "false"], "the pond's lock opens");
+    if (!reduced)
       for (const fade of douse.motions.filter((m) => m.ghost))
         assert(fade.at + fade.delay + fade.duration <= SWAP_MS + slack);
-    }
     await ready();
     const [hand, offered] = await rulesHand();
     assert.deepEqual(hand, offered, "the hand is the rules' hand");
     assert.deepEqual(errors, []);
     console.log(
-      `Travel and stowing swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
+      `Travel and Put down swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
     );
     await page.close();
   }

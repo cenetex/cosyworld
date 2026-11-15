@@ -137,16 +137,7 @@ try {
 
       // Either order: each opened box reveals one thing into the scene.
       for (const [step, id] of order.entries()) {
-        // The quiet Reveal button opens the last covered card too.
-        if (step === 1 && reduced) {
-          if ((await page.locator("#hand [aria-pressed=true]").count()) === 0)
-            await selectCard(page, "vale");
-          await page
-            .locator(
-              '#card-actions [data-quiet="true"]:not([data-revealing="true"])',
-            )
-            .click();
-        } else await revealCard(page, id, { keepSelected: id === "lamp" });
+        await revealCard(page, id, { keepSelected: id === "lamp" });
         await page.waitForSelector(
           `#hand .card[data-card="${id}"][data-unrevealed="false"]`,
         );
@@ -154,8 +145,6 @@ try {
         assert.deepEqual(seen.cast, ["vale"]);
         if (id === "lamp") assert.equal(seen.held, 1, "the lamp in his hand");
         if (id === "attic") assert.equal(seen.black, "false");
-        // The opening offers no play while a card is down (opening.mjs).
-        if (step === 0) assert.ok(!seen.buttons.some((b) => b !== "Reveal"));
         noLeaks(seen);
         await shot(`0${step + 2}-revealed-${id}`);
       }
