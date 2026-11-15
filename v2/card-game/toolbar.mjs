@@ -111,17 +111,6 @@ export function installToolbar({
     decorate(button, icon, label);
     tools.append(button);
   }
-  for (const [icon, label, name, href] of [
-    ["discord", "Discord", "Discord", "https://discord.gg/Qd4ztZYvmD"],
-    ["x", "X", "X, @lonelyforestAi", "https://x.com/lonelyforestAi"],
-  ]) {
-    const link = element("a");
-    decorate(link, icon, label, name);
-    link.href = href;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    tools.append(link);
-  }
   const seats = installAvatarMenu({
     menu,
     session,
@@ -131,6 +120,17 @@ export function installToolbar({
     actionBeat,
   });
   document.body.append(menu);
+  for (const [icon, label, name, href] of [
+    ["discord", "Discord", "Discord", "https://discord.gg/Qd4ztZYvmD"],
+    ["x", "X", "X, @lonelyforestAi", "https://x.com/lonelyforestAi"],
+  ]) {
+    const link = element("a");
+    decorate(link, icon, label, name);
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    toolbar.append(link);
+  }
   toolbar.append(menuButton);
 
   // The one toolbar button opens ☰; its face shows the friends online in
