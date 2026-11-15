@@ -4,6 +4,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { worldName } from "../card-game/world-name.mjs";
+import { availableCards } from "../card-game/cards.mjs";
 
 // ☰'s world slots (#1877, #1891): a world shows the avatars that entered
 // it, in colour only while online, then "+" for an open seat. A tap shows
@@ -70,7 +71,6 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const commands = [];
-    // Screenshots wait for the menu's portraits.
     const shot = async (path) => {
       await page.waitForFunction(() =>
         [...document.querySelectorAll("#world-menu img")].every(
@@ -135,6 +135,9 @@ try {
           json: snapshot(route.request().url().split("/").at(-1), nudgeReady),
         }),
     );
+    await page.addInitScript((seen) => localStorage.setItem(
+      "cosyworld.reflected-shore.v1.shared.here.vale.seen", JSON.stringify(seen),
+    ), availableCards(world));
     await page.goto(`${origin}/?world=here`);
     await page.waitForFunction(() => document.body.inert === false);
     const menu = page.locator("#world-menu");
@@ -156,7 +159,10 @@ try {
     // ☰ has no profile card, and nothing is chosen yet.
     assert.equal(await menu.locator(".profile-card").count(), 0);
     const card = page.locator(".dialogue > .action-panel");
-    assert(await card.isHidden());
+    assert(await card.isHidden(), JSON.stringify(await card.evaluate((panel) => ({
+      avatar: panel.dataset.avatar, text: panel.textContent,
+      buttons: [...panel.querySelectorAll("button")].map((button) => ({ ...button.dataset, text: button.textContent })),
+    }))));
     // The Vale being played: a tap only chooses her (she glows) and offers
     // Leave in front of the dialogue; a second tap keeps her chosen.
     const valeFace = menu.locator(
