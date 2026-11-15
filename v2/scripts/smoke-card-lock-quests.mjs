@@ -7,7 +7,7 @@ import { availableCards } from "../card-game/cards.mjs";
 import { isLockedBox, lockedQuest } from "../card-game/locked-box.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { sleepWindow } from "../card-game/resident-sleep.mjs";
-import { clearSelection, revealCard, tapCard, selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
 const output = new URL(
   process.argv[2]
     ? `file://${process.argv[2].replace(/\/?$/u, "/")}`
@@ -120,7 +120,7 @@ try {
           ),
         };
       }, key);
-      await tapCard(await revealCard(page, id));
+      await selectCard(page, id);
       const text = page.locator(".action-beat-text");
       assert.equal(await text.textContent(), expected.text);
       assert.equal(await text.getAttribute("data-revealing"), "false");
