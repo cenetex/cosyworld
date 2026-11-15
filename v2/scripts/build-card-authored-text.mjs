@@ -1,7 +1,6 @@
 // Collect the authored text a browser scene may quote, per field kind. The
 // story service accepts a scene's rules-built sentences only when they are
 // made of these pieces (card_narrative/authored.rs).
-//
 // Each kind takes the strings and template literals of the code that builds
 // that field (its roots below, and every function, constant and JSON file
 // they reach), so a fact template cannot dress up an event and the reverse.
