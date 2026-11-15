@@ -17,7 +17,6 @@ import { endStandoff } from "./standoff.mjs";
 //   { walk: "courtyard" }                    the moves of a road or voyage
 //   { hold: "cloth" | null }                 the quiet hand selection
 //   { at: "arrival" }                        name the world reached so far
-//
 // A step that is not legal stops the build with the checkpoint it was
 // heading for and the plays that were legal instead.
 export function playJourney(journey) {
