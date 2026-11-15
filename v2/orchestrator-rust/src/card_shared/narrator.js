@@ -3444,7 +3444,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 25,
+        revision: 26,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -4723,6 +4723,9 @@
               step: {
                 verb: "eat"
               }
+            },
+            bonds: {
+              "greek-baker": 2
             }
           },
           "greek-baker": {
@@ -4751,6 +4754,10 @@
               likes: "a returned jar, a fed neighbor",
               sore: "grand speeches that leave the washing to her",
               reason: "Flour covers her forearms. She has kept a place free at the common table."
+            },
+            bonds: {
+              "greek-guard": 2,
+              "greek-elder": 2
             }
           },
           "greek-elder": {
@@ -4768,6 +4775,9 @@
               likes: "named witnesses, a hearing before punishment",
               sore: "rumor repeated as fact",
               reason: "He listens beside the well and repeats each claim with the speaker's name."
+            },
+            bonds: {
+              "greek-baker": 2
             }
           },
           "greek-shipmaster": {
@@ -13653,7 +13663,7 @@
         schemaVersion: 1,
         id: "lonely-forest",
         packId: "cosyworld.lonely-forest",
-        revision: 3,
+        revision: 4,
         name: "Lonely Forest",
         description: "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
         tone: "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
@@ -13741,6 +13751,9 @@
               likes: "Rain beads, a clear path and small surprises",
               sore: "Careless feet on the broad leaves",
               reason: "Whiskerwind follows the rain and the footsteps toward home."
+            },
+            bonds: {
+              oak: 2
             }
           },
           oak: {
@@ -13760,7 +13773,10 @@
               sore: "A claim that outruns the deed",
               reason: "Root, Ring, Leaf and Hollow each attend to a different part of the same journey."
             },
-            presentation: "backdrop"
+            presentation: "backdrop",
+            bonds: {
+              whiskerwind: 2
+            }
           }
         },
         items: {
