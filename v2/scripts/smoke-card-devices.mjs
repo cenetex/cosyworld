@@ -1,6 +1,5 @@
-// Android phones, landscape, tablets and a Chromebook: the hand, the top bar
-// and the dialogue fit the screen, and a WebView that blocks storage still
-// plays a fresh world in the tab.
+// Android phones, tablets and a Chromebook fit the hand, top bar and dialogue.
+// A WebView that blocks storage still plays a fresh world in the tab.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, devices } from "playwright";
@@ -148,7 +147,14 @@ try {
     await page.locator("#speech-row:not([hidden])").waitFor();
     const lamp = await revealCard(page, "lamp");
     await tapCard(lamp);
-    await page.locator("#card-actions button:visible:enabled").first().waitFor();
+    await tapCard(page.locator('#hand [data-card="attic"]'));
+    const drop = page.locator(
+      '#action-beat [data-action="drop"]:visible:enabled:not([data-revealing="true"])',
+    );
+    await drop.waitFor();
+    assert.equal(await drop.getAttribute("data-tap-name"), "Put down");
+    assert.equal(await drop.getAttribute("aria-disabled"), null);
+    assert.equal(await drop.getAttribute("title"), "Vale puts the Lamp in Mirror attic.");
     assert.deepEqual(errors, [], "page errors with storage blocked");
   } finally {
     await context.close();
