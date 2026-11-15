@@ -52,7 +52,7 @@ describe("want data", () => {
           .map(([id, a]) => [id, a.want]),
       ),
     ).toEqual({
-      // Antigone, Ismene and RATi carry staged `wants` (rules 133), not a single want.
+      // Antigone, Ismene, Creon, the Grove Keeper and RATi carry staged `wants` (rules 133).
       "greek-polynices-shade": {
         kind: "place",
         target: "greek-polynices-hollow",
@@ -62,9 +62,7 @@ describe("want data", () => {
           finish: "greek-burial-performed",
         },
       },
-      // Creon wants the decree back; the guard wants to eat the bread
-      // (Greek revision 20).
-      "greek-creon": { kind: "item", target: "greek-decree" },
+      // The guard wants to eat the bread (Greek revision 20).
       "greek-guard": {
         kind: "item",
         target: "greek-bread",
@@ -100,11 +98,6 @@ describe("want data", () => {
       },
       "greek-theseus": { kind: "item", target: "greek-burial-petition" },
       "greek-quay-host": { kind: "person", target: "greek-household-witness" },
-      "greek-colonus-keeper": {
-        kind: "place",
-        target: "greek-colonus",
-        step: { verb: "lay", items: ["greek-oil-flask"] },
-      },
       "greek-household-witness": { kind: "place", target: "greek-piraeus" },
       "willows-swede": { kind: "place", target: "willows-landing" },
       "hoppycat-glim-twice": { kind: "item", target: "hoppycat-loop-token" },

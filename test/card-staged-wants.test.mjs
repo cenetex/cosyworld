@@ -159,7 +159,13 @@ describe("schema", () => {
   });
 });
 
-const STAGED = { "greek-antigone": 1, "greek-ismene": 2, "ratiradio-rati": 3 };
+const STAGED = {
+  "greek-antigone": 1,
+  "greek-ismene": 3,
+  "greek-creon": 2,
+  "greek-colonus-keeper": 2,
+  "ratiradio-rati": 3,
+};
 describe("selection", () => {
   it("installs an eligible entry, and none whose when does not hold", () => {
     stage(item("greek-figs", {}, flag("a")), item("greek-shovel"));
@@ -261,7 +267,7 @@ describe("selection", () => {
   it("leaves a resident with one want exactly as before", () => {
     for (const pack of packDefinitions) {
       for (const [id, person] of Object.entries(pack.avatars)) {
-        // Antigone, Ismene and RATi carry staged wants. Everyone else has one want or none.
+        // The residents in STAGED carry staged wants. Everyone else has one want or none.
         if (STAGED[id]) {
           expect(person.want, id).toBeUndefined();
           expect(person.wants.length, id).toBe(STAGED[id]);
