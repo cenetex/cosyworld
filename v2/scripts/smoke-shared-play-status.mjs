@@ -15,6 +15,7 @@ import {
   revealCard,
   selectCard,
   settleHand,
+  tapCard,
 } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -256,6 +257,8 @@ async function check(width) {
           .opacity,
         live: document.querySelector("#live-line").hidden,
       }));
+    const pack = page.locator('#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card');
+    if (await pack.count()) await tapCard(pack.first());
     const shown = await front();
     assert.notEqual(shown.position, "absolute", "not squashed into a strip");
     assert.deepEqual(
