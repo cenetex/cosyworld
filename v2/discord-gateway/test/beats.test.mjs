@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { beats, pause, repeatsOpening, unfinished } from "../src/beats.mjs";
+import { beats, pause, repeatsOpening } from "../src/beats.mjs";
 
 const LONG =
   "The kettle is on and the cups are by the window. The door sticks in the rain, so lean on it. " +
@@ -20,11 +20,6 @@ test("pauses scale with length and stay between one and four seconds", () => {
   assert.equal(pause("Hi."), 1000);
   assert.equal(pause("a".repeat(60)), 2100);
   assert.equal(pause("a".repeat(500)), 4000);
-});
-
-test("unfinished lines end in an ellipsis, a dash, a comma, or a word", () => {
-  for (const text of ["And then", "Wait…", "Well...", "I mean -", "So—", "First,"]) assert.ok(unfinished(text), text);
-  for (const text of ["Come in.", "Who?", "Go!", "Night 🌙", "“Yes.”"]) assert.ok(!unfinished(text), text);
 });
 
 test("a repeated opening matches the first words of the resident's last five lines", () => {

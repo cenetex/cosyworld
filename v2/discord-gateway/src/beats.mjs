@@ -32,11 +32,6 @@ export function pause(text, { least = 1000, most = 4000, per = 35 } = {}) {
   return Math.min(most, Math.max(least, length(String(text ?? "")) * per));
 }
 
-export function unfinished(text) {
-  const clean = String(text ?? "").trimEnd();
-  return /(\.\.\.|[…,\-—–]|[\p{L}\p{N}])$/u.test(clean);
-}
-
 function opening(text) {
   const words = String(text ?? "")
     .toLowerCase()
