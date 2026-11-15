@@ -5748,6 +5748,7 @@ function resumeScene({ otherTab = false } = {}) {
     syncSharedLine();
     return;
   }
+  if (openingWordsDue()) save();
   const words = wordsOnLoad(), cast = pendingCast();
   if (openingWordsDue() && !otherTab && words !== "silent") {
     // A new game asks the dialogue model for Vale's first line, and a reload
