@@ -2,7 +2,6 @@
 // Keep each branch small: fail when hand-written changes against the merge
 // base exceed the budget in scripts/change-budget.json. The pre-push hook and
 // CI both run this. Assets, lockfiles, and generated outputs never count.
-//
 // Override, rarely: COSYWORLD_LARGE_CHANGE=<reason>, or in CI a
 // `Large-Change: <reason>` line in the pull request body (COSYWORLD_PR_BODY).
 import { execFileSync } from "node:child_process";
