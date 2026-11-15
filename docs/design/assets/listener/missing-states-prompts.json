@@ -1,0 +1,176 @@
+{
+  "date": "2026-11-15",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2758",
+  "scope": "Three confirmed absent Listener states. Existing hub item art and completed sleep source art are excluded from new generation.",
+  "status": "accepted",
+  "transparent_background": true,
+  "requested_size": [
+    1024,
+    1536
+  ],
+  "assets": [
+    {
+      "id": "listener-happy",
+      "file": "docs/design/assets/listener/listener-happy.png",
+      "references": [
+        {
+          "path": "docs/design/assets/listener/listener.png",
+          "sha256": "6aa935810111868d2f779176b7e6daa827f99886ee2c80920c77b23a7af22f26",
+          "role": "identity and style reference",
+          "commit": "275fcc90042218693491d976dd731e5ad4778618"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit. Create a NEW state illustration of THE LISTENER for CosyWorld. Image 1 is the exact character identity and antique-engraving style reference; preserve the same upright wooden confessional box, weathered black paint worn to grey wood, ogee arched brass lattice grille, brass letter-slot plate, mossy shingle roof, four iron-rimmed spoked cart wheels, fine dark cross-hatched ink linework and muted hand-coloured watercolour palette of dull brass, grey-black wood, moss green and iron. Same three-quarter view, grille side toward the viewer, facing RIGHT. No face, eyes or creature may ever be visible behind the grille. Render a complete 1024 x 1536 portrait PNG with genuine transparent background and clean alpha through wheel spokes and under the box. Keep all roof corners and wheels inside generous empty margins, around 60 pixels all sides. No scenery, floor, cast ground shadow, text, border or watermark. HAPPY STATE: a faint restrained amber warmth glows deep behind the grille while the interior stays dark and featureless; no bright yellow lamp, no silhouette, no glowing eyes. A single anatomically clear BLACK-GLOVED hand rests palm-up on the brass slot sill in a small welcoming gesture. Four distinct relaxed fingers curl together over the sill; the thumb is naturally alongside the palm, short and unobtrusive. This is an open inviting hand, not a single long protruding finger. No card or object is held. Convey warmth only through this glove and subtle glow. The rest of the box, roof, grille, paint and wheels remains the same.",
+      "generation_id": "exec-00a7b562-3bb7-4a40-9963-ae6fc89c6fc3",
+      "source_sha256": "ae64e88dcd8e0efd1f98fa910cc14c92aaa482ddc2521119ebcdd0f870ca5cc5",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "alpha_zero_fraction": 0.4254748026529948,
+      "visible_bounds": [
+        78,
+        22,
+        817,
+        1468
+      ],
+      "runtime": "v2/card-game/assets/listener/listener-happy.webp",
+      "runtime_sha256": "d65f3f5af700489029f0e060c092647b0ba20b52e0d240d870d8433e6353f731",
+      "runtime_bytes": 240962,
+      "encoding": "Sharp WebP quality 76, alpha quality 100, effort 6; full canvas preserved",
+      "runtime_alpha_identical": true,
+      "review": "Accepted by lead and independent reviewer."
+    },
+    {
+      "id": "listener-sad",
+      "file": "docs/design/assets/listener/listener-sad.png",
+      "references": [
+        {
+          "path": "docs/design/assets/listener/listener.png",
+          "sha256": "6aa935810111868d2f779176b7e6daa827f99886ee2c80920c77b23a7af22f26",
+          "role": "identity and style reference",
+          "commit": "275fcc90042218693491d976dd731e5ad4778618"
+        },
+        {
+          "path": "v2/card-game/assets/arcana/tarot-back.png",
+          "sha256": "eb922d1178ae093137a750f8eab8fd60fff7492921426a5ea64e59b6d594301b",
+          "role": "card-back design",
+          "commit": "3fc7f2c531d3970205931b54e0a506f9116ce8f2",
+          "source_pr": "https://github.com/cenetex/cosyworld/pull/2787"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit. Create a NEW state illustration of THE LISTENER for CosyWorld. Image 1 is the exact character identity and antique-engraving style reference; preserve the same upright wooden confessional box, weathered black paint worn to grey wood, ogee arched brass lattice grille, brass letter-slot plate, mossy shingle roof, four iron-rimmed spoked cart wheels, fine dark cross-hatched ink linework and muted hand-coloured watercolour palette of dull brass, grey-black wood, moss green and iron. Same three-quarter view, grille side toward the viewer, facing RIGHT. No face, eyes or creature may ever be visible behind the grille. Render a complete 1024 x 1536 portrait PNG with genuine transparent background and clean alpha through wheel spokes and under the box. Keep all roof corners and wheels inside generous empty margins, around 60 pixels all sides. No scenery, floor, cast ground shadow, text, border or watermark. SAD STATE: the wooden shutter BEHIND the brass grille is drawn halfway across, leaving the other half dark and empty. The letter slot is empty, with NO hand or glove visible. One complete small face-down tarot card lies beside a front wheel, within the image's transparent silhouette area; do not draw ground beneath it. Image 2 gives this card's exact back design: black field, cream border, concentric cream rings around TWO cream stars, moths and bell flowers. Keep it small and plausible relative to the box. Quiet withdrawn posture, no damage, tears or symbols. Everything else remains identical to image 1.",
+      "generation_id": "exec-e0d259c7-297f-45d6-a016-675a68f5439b",
+      "source_sha256": "7da4f66e842efbb647f4afecd1395e8400ff4757397d27f943e1fc6131c0a2ea",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "alpha_zero_fraction": 0.5688196818033854,
+      "visible_bounds": [
+        135,
+        144,
+        801,
+        1288
+      ],
+      "runtime": "v2/card-game/assets/listener/listener-sad.webp",
+      "runtime_sha256": "b16f00d387ad4abd4dbabcec77b4b464c5315c1450f2ed10f5358829ab2584e5",
+      "runtime_bytes": 205212,
+      "encoding": "Sharp WebP quality 76, alpha quality 100, effort 6; full canvas preserved",
+      "runtime_alpha_identical": true,
+      "initial_generation": {
+        "generation_id": "exec-fd4955b8-7475-4a40-98e4-efe1352f059d",
+        "source_sha256": "36f0ea5669ff3a8bdd3cebe13b3ab70730844526c0833d8a20640a235e941df8",
+        "runtime_sha256": "e706866cacb6bc32207a6e0d271f5913758ff514840c99b90421ffe9426cfcf9",
+        "review": "Edit required: second star reads as a dot at card scale."
+      },
+      "edits": [
+        {
+          "generation_id": "exec-4f93b589-ec59-47bf-a53a-00df17231204",
+          "prompt": "Use case: precise-object-edit. Make ONE extremely local print-detail correction to Image 1, the completed transparent SAD LISTENER portrait. Image 2 is the approved star card-back pattern. Keep the entire portrait pixel-faithful in design: same box, half-closed shutter, empty slot, paint, engraving, roof, wheel positions, perspective, silhouette, card size and card position. Keep 1024 x 1536 and genuine alpha transparency. Do not alter anything outside the tiny face-down tarot CARD at the bottom right by the wheel.\n\nOn that small card ONLY, correct the centre disc of its back pattern. It must visibly contain TWO separate sharp FOUR-POINTED STARS, one lower-left and one upper-right, like Image 2. The current smaller upper-right mark reads as a dot; replace that dot with a clearly recognizable second four-pointed star. Preserve the existing larger lower-left four-pointed star. Keep the three surrounding cream rings, moths, cream border and bell-flower/leaf pattern, all in cream and black. No added dots or stars elsewhere. No text. Preserve complete transparency outside the same object-and-card silhouette; no painted background, halo, floor or ground shadow.",
+          "decision": "Second star remained a dot; not selected.",
+          "sha256": "a41865396003d17a81bd20399cd05f573a54c3928a3c714a994851b8f3320538"
+        },
+        {
+          "generation_id": "exec-b1851f77-e15a-4c65-a27e-96096991d4cb",
+          "prompt": "Use case: precise-object-edit. Image 1 is the FULL transparent portrait to return at 1024 x 1536. Image 2 is a MAGNIFIED VIEW of the small card in image 1 so you can see the defect. Image 3 is the approved card back design. Correct only the tiny card's centre print in Image 1. Do not change the box, shutter, empty slot, wheel positions, roof, painting, card angle or transparent background.\n\nThe current tiny card shows ONE star and ONE DOT. This is WRONG. ERASE BOTH the existing central star AND the dot from the black centre disc. In that same black disc draw TWO clearly separated, equally prominent cream FOUR-POINTED STARS side by side on a slight diagonal, a lower-left star and an upper-right star. EACH must have FOUR long sharp points, like two small compass stars. BOTH stars must be big enough to recognize at this small scale: about 12 pixels wide each in the 1024px-wide final portrait. There must be NO dot inside the rings. The two stars should be comparable in size. Keep the cream concentric rings, border, moths and leaves around the disc. This edit is ONLY a correction of the small printed card ornament; do not redraw the booth or add any background. Return the complete full-body transparent portrait of Image 1, not the close-up.",
+          "decision": "Second star remained a dot; not selected.",
+          "sha256": "f07b1ef6978093c5eebf69ee54dd950841e07912fb9c2fadc34abccc23d4ede9"
+        },
+        {
+          "generation_id": "exec-0ad67219-4660-414c-b93e-12b552aa5b13",
+          "prompt": "Use case: precise-object-edit. Edit this CLOSE-UP image, not a full portrait. The cream-and-black tarot card has a design error in its black centre disc: it has one big star and a dot. DELETE BOTH that star and that dot. Replace them with EXACTLY TWO equally large cream FOUR-POINTED COMPASS STARS, clearly separated inside the black disc, diagonal upper-right and lower-left. Each of the TWO stars has four long sharp points. Make each star about one third of the centre-disc diameter, so BOTH clearly read as four-pointed stars. No dots anywhere inside the disc. Preserve the three cream rings, cream border, two moths, bell flowers, vines, card perspective, existing cream backdrop, and partial wheel at upper-left. Return the same close-up composition, 720 x 600, fully opaque. Only change the TWO star marks inside the rings.",
+          "decision": "Corrected close-up card print used as a supporting reference.",
+          "sha256": "9d5a2b5c09b4cd48e6831bfb77405e651b95dca6b8f3a0b81385ea8d7161a15c"
+        },
+        {
+          "generation_id": "exec-a109015f-f66a-4a83-852f-af915dbacc39",
+          "prompt": "Use case: compositing. Image 1 is the full approved SAD LISTENER portrait and is the edit target. Image 2 is the corrected close-up of the tarot card that belongs at its lower-right wheel. Return the complete portrait of Image 1, 1024 x 1536 with genuine transparent alpha, changing ONLY its small card.\n\nREPLACE the whole small face-down card beside the lower-right wheel in Image 1 with a small scaled version of the CARD FROM IMAGE 2, keeping the old card's size, position and slanted angle. Use the complete corrected print from Image 2, especially its TWO EQUALLY PROMINENT FOUR-POINTED STARS inside the concentric rings. BOTH stars must remain visible and recognizably pointed in the small placed card. Do not use the old one-star-and-dot print. Discard Image 2's cream backdrop and partial wheel; import ONLY its card. Keep the rest of Image 1's wooden box, half-shutter, empty slot, wheels, roof, cross-hatching and silhouette unchanged. No background, ground, cast shadow, new props, text or extra cards.",
+          "decision": "Tiny card print remained incorrect; not selected.",
+          "sha256": "24fda400aa0b70b6d713725397214a03923e342dc9fb200edf69244fbb17c69c"
+        },
+        {
+          "generation_id": "exec-53545e83-0194-4813-944f-ce8aebe4ed69",
+          "prompt": "Use case: compositing. Edit Image 1, the full transparent sad Listener. Keep the wooden booth exactly as-is. The only change is the tarot card at bottom right. Its pattern is too tiny to read. Replace that entire tiny card with a SLIGHTLY LARGER face-down card in the foreground by the same wheel. Use the corrected card from Image 2, including its TWO CLEAR FOUR-POINTED STARS of equal size. Make the card about 230 pixels wide and 180 pixels high on the final 1024 x 1536 canvas, in the lower-right corner with its right edge near x=980 and bottom near y=1490. This larger card shows the print clearly: two large separated cream four-pointed stars side by side diagonally inside three cream rings, with moths, bell flowers and leafy vines in cream on black. BOTH stars must be visibly four-pointed. No dot in the disc. Keep a little transparent space between the card and image edge. Perspective is the same slanted face-up-back view, lying flat beside the wheel. Do not include the cream background or wheel fragment from Image 2. Keep all the box, half shutter, empty slot, roof, wheels and style unchanged. Output full portrait 1024 x 1536, genuine transparent background, no ground, shadow or extra objects.",
+          "decision": "Correct two-star card; selected as placement reference.",
+          "sha256": "250dd7e98f381afa4d70ec6e8f37cd716d6e7ecddc37cb978db87e8a6010ef56"
+        },
+        {
+          "generation_id": "exec-e0d259c7-297f-45d6-a016-675a68f5439b",
+          "prompt": "Use case: precise-object-edit. ONLY correct canvas placement in this completed transparent portrait. Keep the exact same sad Listener, half shutter, empty slot, engraving, colours, wheels and the complete TWO-STAR tarot card at bottom-right. Preserve the card's two equally clear cream FOUR-POINTED STARS, rings, moths and leaves exactly. Do not redesign or redraw any detail.\n\nThe card is too close to the bottom and right image edges. Uniformly scale the ENTIRE booth-plus-card assembly to 90 percent of its current size, then centre the entire assembly on the SAME 1024 x 1536 transparent canvas. Ensure at least 60 pixels of fully transparent margin at TOP, BOTTOM, LEFT and RIGHT, including around the card. The complete assembly should fit approximately within x=80 to940 and y=80 to1450. Keep the exact relative placement and size of card to booth, keeping both stars clearly visible. No scenery, ground, cast shadow or painted background; genuine alpha outside the same smaller complete assembly and through wheel openings. Output the full 1024 x1536 portrait.",
+          "decision": "Accepted final: correct two-star card with clear outer margins.",
+          "sha256": "7da4f66e842efbb647f4afecd1395e8400ff4757397d27f943e1fc6131c0a2ea"
+        }
+      ],
+      "edit_notes": "The final two-star print is slightly larger for legibility. The whole cutout was reduced to preserve outer margins. Close-up reference originated from a 180x150 crop at x790,y1370, magnified for the image edit.",
+      "review": "Accepted after two-star card correction and margin adjustment; lead review."
+    },
+    {
+      "id": "listener-brace",
+      "file": "docs/design/assets/listener/listener-brace.png",
+      "references": [
+        {
+          "path": "docs/design/assets/listener/listener-sleeping.png",
+          "sha256": "3c1b016eb76bc581357658bfd81d53ed7b97a876aaa035674d10a9945da0cbc2",
+          "role": "identity and style reference",
+          "commit": "275fcc90042218693491d976dd731e5ad4778618"
+        }
+      ],
+      "prompt": "Use case: precise-object-edit. Create a NEW state illustration of THE LISTENER for CosyWorld. Image 1 is the exact character identity and antique-engraving style reference; preserve the same upright wooden confessional box, weathered black paint worn to grey wood, ogee arched brass lattice grille, brass letter-slot plate, mossy shingle roof, four iron-rimmed spoked cart wheels, fine dark cross-hatched ink linework and muted hand-coloured watercolour palette of dull brass, grey-black wood, moss green and iron. Same three-quarter view, grille side toward the viewer, facing RIGHT. No face, eyes or creature may ever be visible behind the grille. Render a complete 1024 x 1536 portrait PNG with genuine transparent background and clean alpha through wheel spokes and under the box. Keep all roof corners and wheels inside generous empty margins, around 60 pixels all sides. No scenery, floor, cast ground shadow, text, border or watermark. BRACED / GUARD STATE: the wooden shutter behind the grille is firmly slammed SHUT, and the brass letter-slot flap is completely DOWN, both exactly like the closure details in image 1. No hand or card. The closed box rocks slightly backward on its wheels, weight shifting defensively, front wheels just slightly lifted and rear wheels carrying its weight. Only a small believable tilt of the same solid box, no flexible bending, no new parts. All four attached wheels remain visible and mechanically coherent. No damage, splinters, impact effects, movement lines, opponent or attack. Convey the guard state solely through its closed shutter, closed slot and slight backward braced lean.",
+      "generation_id": "exec-e85095f8-ca91-4947-b3f0-d6c1d5816593",
+      "source_sha256": "54d7a97ba0bf23cbdd4475b304a6b6e0bbe14479fb01ed60ede30086811027f0",
+      "dimensions": [
+        1024,
+        1536
+      ],
+      "alpha_range": [
+        0,
+        254
+      ],
+      "alpha_zero_fraction": 0.432952880859375,
+      "visible_bounds": [
+        50,
+        76,
+        904,
+        1407
+      ],
+      "runtime": "v2/card-game/assets/listener/listener-brace.webp",
+      "runtime_sha256": "380cb32bc659e58270d251950285a6e7b88278c85be5b554293bca6ee54760b7",
+      "runtime_bytes": 240188,
+      "encoding": "Sharp WebP quality 76, alpha quality 100, effort 6; full canvas preserved",
+      "runtime_alpha_identical": true,
+      "review": "Accepted by lead and independent reviewer."
+    }
+  ],
+  "base_commit": "275fcc90042218693491d976dd731e5ad4778618",
+  "publication": "Source and runtime art only; mood and guard selection are not changed."
+}
