@@ -7,7 +7,7 @@
 import {
   createRevealPainter,
   createTextReveal,
-  letterDelay,
+  lineDelay,
   letterSpans,
   splitLetters,
 } from "./dialogue.mjs";
@@ -62,7 +62,8 @@ export function playLoss({
   // cards' quicker one (300 to 900 ms a caption).
   const spans = [...layer.querySelectorAll(".speech-letter")];
   const painter = createRevealPainter(layer);
-  const first = splitLetters(title).length;
+  const titleLetters = splitLetters(title),
+    first = titleLetters.length;
   const paces = changes.flatMap(({ text }) => {
     const ms = Math.min(900, Math.max(300, text.length * 20));
     const letters = splitLetters(text).length;
@@ -70,7 +71,8 @@ export function playLoss({
   });
   const pen = createTextReveal({
     reduced: () => reduced,
-    delay: (letter, i) => (i < first ? letterDelay(letter) : paces[i - first]),
+    delay: (letter, i) =>
+      i < first ? lineDelay(titleLetters, i) : paces[i - first],
     frame(value) {
       painter.paint(value);
       if (value.complete) queueMicrotask(() => advance("written"));
