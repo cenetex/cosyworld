@@ -3,8 +3,7 @@
 // else new lie face down in the hand and nowhere in the scene, and no
 // unrevealed name shows. Opening a selected box reveals it: the lamp fades into
 // Vale's hand and the attic comes up out of the black, in either order.
-// Then quietly stowing the lamp darkens the room and the pond
-// arrives face down (opening.mjs).
+// Quiet stowing darkens the room; the eligible pond awaits explicit Unlock.
 //
 //   node v2/scripts/smoke-card-stage-reveal.mjs [screenshot-dir]
 import assert from "node:assert/strict";
@@ -218,15 +217,6 @@ try {
       await page.waitForFunction(
         () => document.body.dataset.lamplit === "false",
       );
-      // The pond, the attic's one way on, lay in the row's right end as a
-      // locked box; putting the lamp out turns it over (rules 133).
-      await page.waitForSelector(
-        '#hand > .card-frame:last-child > .card[data-card="pond"][data-locked="false"]',
-      );
-      seen = await view();
-      assert.deepEqual(seen.cast, ["vale"]);
-      assert.equal(seen.floor, 0);
-      noLeaks(seen);
       // Quiet stowing does not wait for the opening's pending narration.
       await page.waitForFunction(() =>
         JSON.parse(
@@ -247,6 +237,29 @@ try {
         1,
       );
       assert.equal(openings.length, reduced ? 2 : 1);
+      const pond = page.locator('#hand [data-card="pond"]');
+      assert.equal(await pond.getAttribute("data-locked"), "true");
+      await selectCard(page, "pond");
+      const unlock = page.locator('[data-unlock-box="pond"]');
+      assert(await unlock.isEnabled());
+      const beforeUnlock = await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1")),
+      );
+      await unlock.click();
+      await page.waitForFunction(() => {
+        const pond = document.querySelector('#hand [data-card="pond"]');
+        return pond?.dataset.locked === "false" && !pond.dataset.revealing;
+      });
+      assert.deepEqual(await page.evaluate(() =>
+        JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1")),
+      ), beforeUnlock);
+      await page.waitForSelector(
+        '#hand > .card-frame:last-child > .card[data-card="pond"][data-locked="false"]',
+      );
+      seen = await view();
+      assert.deepEqual(seen.cast, ["vale"]);
+      assert.equal(seen.floor, 0);
+      noLeaks(seen);
       await shot("05-room-dark-new-card");
       await page.reload();
       await page.waitForSelector("#hand .card");
