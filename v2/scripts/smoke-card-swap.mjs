@@ -4,11 +4,12 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { SWAP_MS } from "../card-game/card-swap.mjs";
-import { readyActionButton, revealOpening, selectCard, tapCard } from "./card-browser-helpers.mjs";
+import { EXIT_MS } from "../card-game/card-exit.mjs";
+import { readyActionButton, revealOpening, selectCard, startNewGame, tapCard } from "./card-browser-helpers.mjs";
 
 // A scene change swaps the hand in beats, not one cut (card-swap.mjs).
 // Travel: the cards left behind fall as ghosts, nearest Vale first, as the
-// veil comes down; the new place's cards rise after a beat. Put out: the
+// veil comes down; the new place's cards rise after a beat. Stowing: the
 // lamp's and the attic's faces fade to their dark ones as the light goes
 // down. Vale keeps his nodes, the hand drawn is the rules' hand, every
 // ghost is released, and reduced motion only fades the hand. Node counts
@@ -206,13 +207,13 @@ try {
         "the station becomes the way back",
       );
       assert(!away.ghosts.includes("vale"), "Vale goes along");
-      const atTap = away.motions.filter((m) => m.ghost && m.at < 100);
+      const falls = away.motions.filter((m) => m.ghost && m.duration === EXIT_MS);
       assert.deepEqual(
-        atTap.map((m) => m.card),
+        falls.map((m) => m.card),
         ["keeper"],
         "nearest first",
       );
-      atTap.forEach((m, i) => assert.equal(m.delay, i * 50, "50 ms apart"));
+      falls.forEach((m, i) => assert.equal(m.delay, i * 50, "50 ms apart"));
     }
     // Coming back: the station's cards rise after the falls and a beat, and
     // the whole swap ends in time.
@@ -273,17 +274,21 @@ try {
     });
     await tapCard(station);
     assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
-    // Put out in a new world's attic: the lamp and the attic turn to their
+    // Stow in a new world's attic: the lamp and the attic turn to their
     // dark faces as the light goes down, keeping their nodes, and the pond
-    // is dealt face down behind the attic.
-    await page.evaluate(() => document.querySelector("#confirm-reset").click());
+    // opens from its locked box behind the attic.
+    await startNewGame(page);
     await ready();
     await revealOpening(page);
     await page.waitForTimeout(600);
+    assert.equal(
+      await page.locator('#hand [data-card="pond"]').getAttribute("data-locked"),
+      "true",
+    );
     await page.evaluate(() => {
       document.querySelector('#hand [data-card="lamp"]').swapMark = "kept";
     });
-    await tap("#card-actions .card-primary");
+    await tap('#hand [data-card="lamp"]');
     await strip("put-out");
     await settled();
     const douse = await watched();
@@ -296,13 +301,13 @@ try {
     assert.equal(douse.valeFrame, "kept");
     const pond = await page.evaluate(() => {
       const card = document.querySelector('#hand [data-card="pond"]');
-      return [card.parentElement.hidden, card.dataset.unrevealed];
+      return [card.parentElement.hidden, card.dataset.unrevealed, card.dataset.locked];
     });
-    // The attic's lone way on is dealt face down at the row's right end.
-    assert.deepEqual(pond, [false, "true"], "the pond is dealt face down");
+    // Opening its lock reveals the attic's lone way at the row's right end.
+    assert.deepEqual(pond, [false, "false", "false"], "the pond's box opens");
     if (reduced) assert.deepEqual(douse.ghosts, []);
     else {
-      assert.deepEqual(douse.ghosts.sort(), ["attic", "lamp"]);
+      assert.deepEqual(douse.ghosts.sort(), ["attic", "lamp", "vale"]);
       assert(douse.released, "the old faces are released");
       for (const fade of douse.motions.filter((m) => m.ghost))
         assert(fade.at + fade.delay + fade.duration <= SWAP_MS + slack);
@@ -312,7 +317,7 @@ try {
     assert.deepEqual(hand, offered, "the hand is the rules' hand");
     assert.deepEqual(errors, []);
     console.log(
-      `Travel and Put out swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
+      `Travel and stowing swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
     );
     await page.close();
   }
