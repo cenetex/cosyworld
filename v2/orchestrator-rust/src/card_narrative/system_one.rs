@@ -4,16 +4,7 @@ use std::time::{Duration, Instant};
 
 const DEFAULT_MODEL: &str = "typesafe/jev-1.14";
 const CALL: Duration = Duration::from_secs(2);
-const DEFAULT_THRESHOLD: f64 = 0.6;
 pub(super) const TOKENS_PER_QUESTION: usize = 28_000;
-
-pub(super) fn threshold() -> f64 {
-    std::env::var("COSYWORLD_JEV_THRESHOLD")
-        .ok()
-        .and_then(|value| value.trim().parse::<f64>().ok())
-        .filter(|value| (0.0..=1.0).contains(value))
-        .unwrap_or(DEFAULT_THRESHOLD)
-}
 
 fn model() -> String {
     std::env::var("COSYWORLD_JEV_MODEL")
@@ -107,14 +98,6 @@ async fn call(
         Some(Value::Object(answers)) => Ok((answers.clone(), cost)),
         _ => Err("jev-shape".into()),
     }
-}
-
-pub(super) fn noul(answers: &Map<String, Value>, id: &str) -> Option<f64> {
-    answers
-        .get(id)?
-        .get("noul")?
-        .as_f64()
-        .filter(|p| (0.0..=1.0).contains(p))
 }
 
 pub(super) fn choice<'a>(answers: &'a Map<String, Value>, id: &str) -> Option<(&'a str, f64)> {

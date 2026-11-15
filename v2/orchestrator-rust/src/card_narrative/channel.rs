@@ -79,8 +79,6 @@ pub(super) struct LinesRequest {
     pack: String,
     #[serde(default)]
     addressed: Option<String>,
-    #[serde(default)]
-    continuing: Option<String>,
     messages: Vec<Message>,
     #[serde(default)]
     channel: Channel,
@@ -363,19 +361,9 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
     {
         return Err("residents must be the cast, each with at most 3 lines");
     }
-    if request.addressed.as_deref().is_some_and(|id| !member(id)) {
-        return Err("addressed must be a resident of the cast");
-    }
-    let last = request.messages.last().and_then(|m| m.resident.as_deref());
-    match request.continuing.as_deref() {
-        Some(_) if request.addressed.is_some() => Err("continuing cannot be addressed"),
-        Some(id) if last != Some(id) => Err("the last message must be the continuing resident's"),
-        None if last.is_some()
-            && (request.addressed.is_none() || request.addressed.as_deref() == last) =>
-        {
-            Err("the last message must be from a person or another resident")
-        }
-        _ => Ok(()),
+    match request.addressed.as_deref() {
+        Some(id) if member(id) => Ok(()),
+        _ => Err("addressed must be a resident of the cast"),
     }
 }
 
@@ -448,73 +436,6 @@ fn profile(resident: &Resident) -> Value {
         }
     }
     view
-}
-
-fn heard(request: &LinesRequest, cast: &[Resident]) -> Value {
-    let residents: Map<String, Value> = cast.iter().map(|r| (r.id.clone(), profile(r))).collect();
-    let history: Vec<Value> = request
-        .messages
-        .iter()
-        .map(|m| {
-            let role = if m.resident.is_some() {
-                "resident"
-            } else {
-                "person"
-            };
-            json!({"speaker": speaker(m, cast), "role": role, "text": &m.text})
-        })
-        .collect();
-    json!({"world": world(&request.pack, cast), "residents": residents, "history": history})
-}
-
-async fn pick(config: &AiConfig, cast: &[Resident], request: &LinesRequest) -> Option<String> {
-    if let Some(id) = request.addressed.as_ref() {
-        return cast.iter().any(|r| &r.id == id).then(|| id.clone());
-    }
-    let continuing = request.continuing.as_deref();
-    if continuing.is_some() && request.messages.last().is_some_and(|m| unfinished(&m.text)) {
-        return continuing.map(str::to_string);
-    }
-    let mut state = heard(request, cast);
-    let questions = match continuing.and_then(|id| cast.iter().find(|r| r.id == id)) {
-        Some(resident) => json!({"goes_on": {
-            "type": "noul",
-            "instructions": format!("Does {} have more to say right now, before anyone else speaks?", resident.name)
-        }}),
-        None => {
-            let mut criteria: Map<String, Value> = cast
-                .iter()
-                .map(|r| (r.id.clone(), json!(format!("{} speaks next", r.name))))
-                .collect();
-            criteria.insert("none".into(), json!("No resident speaks next"));
-            json!({"speak": {
-                "type": "choice",
-                "instructions": "Which resident, if any, would naturally speak next in this conversation?",
-                "criteria": criteria
-            }})
-        }
-    };
-    system_one::fit(&mut state, &questions);
-    let answers = match system_one::ask(config, "discord_intent", &state, questions).await {
-        Ok(answers) => answers,
-        Err(failure) => {
-            tracing::info!(feature = "discord", reason = "intent", failure = %failure, "discord line silent");
-            return None;
-        }
-    };
-    let bar = system_one::threshold();
-    if let Some(id) = continuing {
-        return (system_one::noul(&answers, "goes_on")? >= bar).then(|| id.to_string());
-    }
-    let (who, confidence) = system_one::choice(&answers, "speak")?;
-    (confidence >= bar && cast.iter().any(|r| r.id == who)).then(|| who.to_string())
-}
-
-fn unfinished(text: &str) -> bool {
-    let text = text.trim_end();
-    text.ends_with(['\u{2026}', '-', '\u{2014}', '\u{2013}', ','])
-        || text.ends_with("...")
-        || text.chars().last().is_some_and(char::is_alphanumeric)
 }
 
 fn minutes(seconds: u64) -> String {
@@ -768,22 +689,16 @@ pub(super) async fn lines(
     let Some(config) = state.ai.as_ref().as_ref() else {
         return silent("not-configured");
     };
-    let addressed = request.addressed.is_some();
-    let wait = if addressed {
-        ADDRESSED_WAIT
-    } else {
-        Duration::ZERO
-    };
-    let Some(_permits) = enter(&state, wait).await else {
+    let Some(_permits) = enter(&state, ADDRESSED_WAIT).await else {
         return silent("busy");
     };
-    let Some(id) = pick(config, &residents, &request).await else {
+    let Some(resident) = residents
+        .iter()
+        .find(|r| request.addressed.as_ref() == Some(&r.id))
+    else {
         return silent("no-speaker");
     };
-    let Some(resident) = residents.iter().find(|r| r.id == id) else {
-        return silent("no-speaker");
-    };
-    let text = match speak(&state, config, resident, &residents, &request, addressed).await {
+    let text = match speak(&state, config, resident, &residents, &request, true).await {
         Ok(text) => text,
         Err(reason) => return silent(reason),
     };
@@ -845,13 +760,21 @@ fn asked(request: &CoordinateRequest, cast: &[Resident]) -> Value {
     let mut criteria: Map<String, Value> = cast
         .iter()
         .filter(|r| request.residents.contains(&r.id))
-        .map(|r| (r.id.clone(), json!(format!("{} speaks next", r.name))))
+        .map(|r| {
+            (
+                r.id.clone(),
+                json!(format!(
+                    "{} speaks next: addressed, asked, or has a natural reply",
+                    r.name
+                )),
+            )
+        })
         .collect();
     criteria.insert(
         "none".into(),
-        json!("Nobody; the people talk or the moment rests"),
+        json!("No resident speaks next: the people talk among themselves, or nothing waits for an answer"),
     );
-    json!({"next": {"type": "choice", "instructions": "Who speaks next?", "criteria": criteria}})
+    json!({"next": {"type": "choice", "instructions": "Who speaks next in this chat?", "criteria": criteria}})
 }
 
 fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Option<Value> {
@@ -1147,7 +1070,10 @@ mod tests {
     }
 
     fn request(messages: Value) -> LinesRequest {
-        serde_json::from_value(json!({"pack": "lonely-forest", "messages": messages})).unwrap()
+        serde_json::from_value(
+            json!({"pack": "lonely-forest", "addressed": "rati", "messages": messages}),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -1168,28 +1094,12 @@ mod tests {
         assert!(check(json!([{"author": "Mara", "text": "a".repeat(401)}])).is_err());
         assert!(check(json!([{"author": "Mara", "text": "a".repeat(400)}])).is_ok());
         assert!(check(json!([{"resident": "mara", "text": "Hi."}, human])).is_err());
-        assert!(check(json!([human, rati])).is_err());
-        let mut turned = request(json!([human, rati]));
-        turned.addressed = Some("skull".into());
-        assert!(validate(&turned, &residents).is_ok());
-        turned.addressed = Some("rati".into());
-        assert!(validate(&turned, &residents).is_err());
+        assert!(check(json!([human, rati])).is_ok());
         let mut addressed = request(json!([human]));
         addressed.addressed = Some("mara".into());
         assert!(validate(&addressed, &residents).is_err());
-        addressed.addressed = Some("rati".into());
-        assert!(validate(&addressed, &residents).is_ok());
-        let mut going = request(json!([human, rati]));
-        going.continuing = Some("rati".into());
-        assert!(validate(&going, &residents).is_ok());
-        going.continuing = Some("skull".into());
-        assert!(validate(&going, &residents).is_err());
-        going.continuing = Some("rati".into());
-        going.addressed = Some("rati".into());
-        assert!(validate(&going, &residents).is_err());
-        let mut going = request(json!([rati, human]));
-        going.continuing = Some("rati".into());
-        assert!(validate(&going, &residents).is_err());
+        addressed.addressed = None;
+        assert!(validate(&addressed, &residents).is_err());
         assert!(serde_json::from_value::<LinesRequest>(
             json!({"pack": "lonely-forest", "messages": [human], "user": "1"})
         )
@@ -1268,14 +1178,6 @@ mod tests {
             )
     }
 
-    fn speak_answer(who: &str, confidence: f64) -> &'static str {
-        Box::leak(
-            json!({"answers": {"speak": {"type": "choice", "choice": who, "confidence": confidence}}})
-                .to_string()
-                .into_boxed_str(),
-        )
-    }
-
     async fn post_lines(
         intent: &'static str,
         voice: Option<&'static str>,
@@ -1343,55 +1245,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn the_intent_may_choose_nobody() {
-        let (status, body, requests) =
-            post_lines(speak_answer("none", 0.9), Some("Hello."), TOKEN, talk(None)).await;
-        assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
-        assert_eq!(requests.len(), 1);
-        let asked = &requests[0];
-        assert_eq!(asked["model"], "typesafe/jev-1.14");
-        assert_eq!(asked["questions"]["speak"]["type"], "choice");
-        assert!(asked["questions"]["speak"]["criteria"]
-            .get("none")
-            .is_some());
-        assert_eq!(asked["state"]["world"]["homes"]["RATi"], "Cosy Cottage");
-        assert_eq!(
-            asked["state"]["residents"]["rati"]["seed"],
-            "RATi, host of the cottage."
-        );
-        assert_eq!(
-            asked["state"]["history"][2],
-            json!({"speaker": "Jun", "role": "person", "text": "RATi, can I come in?"})
-        );
-    }
-
-    #[tokio::test]
-    async fn an_intent_outside_the_cast_or_below_the_bar_is_silence() {
-        for answer in [
-            speak_answer("mara", 0.9),
-            speak_answer("skull", 0.3),
-            "not json",
-        ] {
-            let (status, body, requests) =
-                post_lines(answer, Some("Hello."), TOKEN, talk(None)).await;
-            assert_eq!(status, StatusCode::OK);
-            assert_eq!(
-                body,
-                json!({"lines": [], "reason": "no-speaker"}),
-                "{answer}"
-            );
-            assert_eq!(requests.len(), 1);
-        }
-    }
-
-    #[tokio::test]
     async fn a_failed_voice_is_silence() {
-        let (status, body, requests) =
-            post_lines(speak_answer("skull", 0.9), None, TOKEN, talk(None)).await;
+        let (status, body, requests) = post_lines("{}", None, TOKEN, talk(Some("skull"))).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, json!({"lines": [], "reason": "no-line"}));
-        assert!(requests.len() >= 2);
+        assert!(!requests.is_empty());
     }
 
     #[tokio::test]
@@ -1441,6 +1299,7 @@ mod tests {
         let with = |residents: Value| {
             serde_json::from_value::<LinesRequest>(json!({
                 "pack": "lonely-forest",
+                "addressed": "rati",
                 "messages": [{"author": "Mara", "text": "Hi."}],
                 "channel": {"residents": residents}
             }))
@@ -1473,69 +1332,6 @@ mod tests {
             turn_of(&requests[0], "user"),
             "Skull says, \u{201c}RATi, did you hear that?\u{201d}"
         );
-    }
-
-    #[test]
-    fn a_line_without_an_ending_is_unfinished() {
-        for text in [
-            "And then",
-            "Wait\u{2026}",
-            "Well...",
-            "I mean -",
-            "So\u{2014}",
-            "First,",
-        ] {
-            assert!(unfinished(text), "{text}");
-        }
-        for text in [
-            "Come in.",
-            "Who?",
-            "Go!",
-            "Night \u{1f319}",
-            "\u{201c}Yes.\u{201d}",
-        ] {
-            assert!(!unfinished(text), "{text}");
-        }
-    }
-
-    fn going(last: &str) -> Value {
-        json!({
-            "pack": "lonely-forest",
-            "continuing": "rati",
-            "messages": [
-                {"author": "Jun", "text": "RATi, can I come in?"},
-                {"resident": "rati", "text": last}
-            ]
-        })
-    }
-
-    #[tokio::test]
-    async fn an_unfinished_line_continues_without_an_intent_call() {
-        let reply = "the kettle is still warm.";
-        let (status, body, requests) =
-            post_lines("{}", Some(reply), TOKEN, going("The door sticks, but")).await;
-        assert_eq!(status, StatusCode::OK);
-        assert_eq!(body["lines"][0]["text"], reply);
-        assert!(requests.iter().all(|r| r.get("questions").is_none()));
-        assert_eq!(
-            turn_of(&requests[0], "user"),
-            "Jun says, \u{201c}RATi, can I come in?\u{201d}"
-        );
-        assert!(prompt_of(&requests[0]).contains("I said: \"The door sticks, but\""));
-    }
-
-    #[tokio::test]
-    async fn a_finished_line_asks_whether_the_same_resident_goes_on() {
-        let no = r#"{"answers": {"goes_on": {"type": "noul", "noul": 0.2}}}"#;
-        let (status, body, requests) =
-            post_lines(no, Some("More."), TOKEN, going("Come in.")).await;
-        assert_eq!(status, StatusCode::OK);
-        assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
-        assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0]["questions"]["goes_on"]["type"], "noul");
-        let yes = r#"{"answers": {"goes_on": {"type": "noul", "noul": 0.8}}}"#;
-        let (_, body, _) = post_lines(yes, Some("More."), TOKEN, going("Come in.")).await;
-        assert_eq!(body["lines"][0]["id"], "rati");
     }
 
     async fn post_coordinate(answer: &'static str, body: Value) -> (StatusCode, Value, Vec<Value>) {
@@ -1726,13 +1522,8 @@ mod tests {
 
     #[tokio::test]
     async fn a_bad_token_reaches_no_model() {
-        let (status, body, requests) = post_lines(
-            speak_answer("rati", 0.9),
-            Some("Hello."),
-            WRONG,
-            talk(Some("rati")),
-        )
-        .await;
+        let (status, body, requests) =
+            post_lines("{}", Some("Hello."), WRONG, talk(Some("rati"))).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(body, json!({"error": "unauthorized"}));
         assert!(requests.is_empty());
@@ -1774,7 +1565,7 @@ mod tests {
             Ok(BTreeMap::new()),
             Ok(VoiceSettings::hosted()),
         );
-        let body = serde_json::to_vec(&talk(None)).unwrap();
+        let body = serde_json::to_vec(&talk(Some("rati"))).unwrap();
         let post = || {
             Request::post("/discord/lines")
                 .header("content-type", "application/json")
