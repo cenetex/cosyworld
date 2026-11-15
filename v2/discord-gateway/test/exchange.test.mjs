@@ -87,6 +87,17 @@ test("a line that names nobody starts no exchange", async () => {
   assert.equal(stats.exchanges, 0);
 });
 
+test("another resident named by the person may follow the one addressed", async () => {
+  const { done, bodies, sent } = run(fixture("Skull have you met RATi?"), [
+    ["skull", "I have not."],
+    ["rati", "We met at the gate."],
+  ]);
+  await done;
+  assert.equal(bodies[0].addressed, "skull");
+  assert.equal(bodies[1].addressed, "rati");
+  assert.deepEqual(sent, ["Skull: I have not.", "RATi: We met at the gate."]);
+});
+
 test("a human message ends the exchange and wins the floor", async () => {
   const fixed = fixture();
   let poke = null;

@@ -1,4 +1,4 @@
-import { addressee, attend, decide, focusOn, join, mentioned, speaker, spoke, strength } from "./attention.mjs";
+import { addressee, attend, decide, focusOn, join, mentioned, namedIn, speaker, spoke, strength } from "./attention.mjs";
 import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
 import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
@@ -252,9 +252,10 @@ function echoes(text, said) {
   });
 }
 
-function partner(room, line, cast, first) {
+function partner(room, line, cast, first, invited = []) {
   const named = mentioned(line.text, cast, line.resident.id);
-  if (named || first) return named;
+  if (named) return named;
+  if (first) return invited.find((id) => id !== line.resident.id) ?? null;
   const held = room.focus[line.resident.id];
   return held?.target.startsWith("r:") && strength(held, Date.now()) > 0 ? held.target.slice(2) : null;
 }
@@ -271,12 +272,12 @@ function opened(room, pair, config) {
 }
 
 async function exchange(room, guild, deps) {
-  const { config, cast, lines, typing, sleep, random, stats, save, heard } = deps;
+  const { config, cast, lines, typing, sleep, random, stats, save, heard, invited } = deps;
   let line = room.lastLine;
   const said = line ? [line.text] : [];
   let pair = null;
   for (let step = 0; line && step < config.DISCORD_EXCHANGE_LINES; step += 1) {
-    const target = partner(room, line, cast, step === 0);
+    const target = partner(room, line, cast, step === 0, invited);
     const other = cast.find((resident) => resident.id === target);
     if (!other || random() >= (EXCHANGE_ODDS[step] ?? 0)) return;
     if (room.heard !== heard || guild.replies >= config.DISCORD_DAILY_REPLIES) return;
@@ -469,7 +470,8 @@ export function tick({
       return send(target, payload);
     };
     room.sending = false;
-    const deps = { heard: room.heard, config, cast, lines, send: send_, typing, sleep, random, stats, log, save: () => save(state) };
+    const invited = namedIn(room.messages.find((entry) => entry.id === messageId)?.text, cast);
+    const deps = { heard: room.heard, invited, config, cast, lines, send: send_, typing, sleep, random, stats, log, save: () => save(state) };
     return (
       answer(room, requestBody(room, config, decision.addressed, now), messageId, deps).then(({ posted, reason, stale, spoken }) => {
         const refund = () => {

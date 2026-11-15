@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
-import { assess, addressee, addressedResident, decide, mentioned } from "../src/attention.mjs";
+import { assess, addressee, addressedResident, decide, mentioned, namedIn } from "../src/attention.mjs";
 
 const config = readConfig({});
 const cast = [
@@ -99,6 +99,21 @@ test("a common-word name needs its capital", () => {
 test("a name inside another word is not a mention", () => {
   assert.equal(addressedResident({ text: "my skullcap is warm" }, cast, []), null);
   assert.equal(addressedResident({ text: "Hi SKULL!" }, cast, []), "skull");
+});
+
+test("the vocative wins over cast order, otherwise the first name in the text", () => {
+  const both = [
+    { id: "rati", name: "RATi" },
+    { id: "vale", name: "Vale" },
+    { id: "skull", name: "Skull" },
+  ];
+  const to = (text) => addressedResident({ text }, both, []);
+  assert.equal(to("Vale have you met RATi?"), "vale");
+  assert.equal(to("hey Vale, is RATi home?"), "vale");
+  assert.equal(to("did RATi see the moon, Vale?"), "vale");
+  assert.equal(to("I think RATi likes it. Skull: what about you?"), "skull");
+  assert.equal(to("I told Vale that RATi was here"), "vale");
+  assert.deepEqual(namedIn("Vale have you met RATi?", both), ["vale", "rati"]);
 });
 
 test("addressed messages use a 5 s reply gap, others keep the 60 s gap", () => {

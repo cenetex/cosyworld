@@ -28,10 +28,32 @@ function escape(text) {
 
 const WORDS = new Set(["keeper"]);
 
-function names(text, name) {
-  if (!name) return false;
+function place(text, name) {
+  if (!name) return null;
   const flags = WORDS.has(name.toLowerCase()) ? "u" : "iu";
-  return new RegExp(`(^|[^\\p{L}\\p{N}])${escape(name)}($|[^\\p{L}\\p{N}])`, flags).test(text);
+  const found = new RegExp(`(^|[^\\p{L}\\p{N}])${escape(name)}($|[^\\p{L}\\p{N}])`, flags).exec(text);
+  return found ? found.index + found[1].length : null;
+}
+
+const GREETINGS = new Set(["hey", "hi", "hello", "hiya", "yo", "oh", "dear", "ok", "okay", "morning", "evening", "gm", "gn"]);
+
+function rank(text, at, name) {
+  const before = text.slice(0, at).replace(/[^\p{L}\p{N}\s]/gu, "").trim().toLowerCase();
+  const after = text.slice(at + name.length);
+  if (!before || GREETINGS.has(before)) return 0;
+  if (/,\s*$/.test(text.slice(0, at)) && /^[\s\p{P}]*$/u.test(after)) return 1;
+  if (/^\s*[,:]/.test(after)) return 2;
+  return 3;
+}
+
+export function namedIn(text, cast) {
+  const clean = String(text ?? "");
+  return cast
+    .map((resident) => ({ id: resident.id, name: resident.name, at: place(clean, resident.name) }))
+    .filter((found) => found.at !== null)
+    .map((found) => ({ ...found, rank: rank(clean, found.at, found.name) }))
+    .sort((a, b) => a.rank - b.rank || a.at - b.at)
+    .map((found) => found.id);
 }
 
 export function addressedResident(message, cast, ring = []) {
@@ -42,8 +64,7 @@ export function addressedResident(message, cast, ring = []) {
       return target.resident;
     }
   }
-  const found = cast.find((resident) => names(message.text ?? "", resident.name));
-  return found?.id ?? null;
+  return namedIn(message.text, cast)[0] ?? null;
 }
 
 export const FOCUS_MS = 180000;
@@ -62,7 +83,7 @@ export function focusOn(room, residentId, target, at) {
 }
 
 export function mentioned(text, cast, self) {
-  return cast.find((resident) => resident.id !== self && names(text ?? "", resident.name))?.id ?? null;
+  return namedIn(text, cast).find((id) => id !== self) ?? null;
 }
 
 export const TALK_MS = 300000;
