@@ -70,7 +70,6 @@ export function payload(room, config, cast, now = Date.now()) {
     history,
   };
   if (room.notes) state.notes = room.notes;
-  if (room.jev) state.previous = room.jev.answers;
   return { pack: config.DISCORD_PACK, residents, state };
 }
 

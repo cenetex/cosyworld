@@ -50,6 +50,25 @@ export function repeatsOpening(messages, residentId, text) {
     .some((entry) => opening(entry.text) === head);
 }
 
+function tokens(text) {
+  return (
+    String(text ?? "")
+      .toLowerCase()
+      .replace(/['’\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, "")
+      .match(/\p{Extended_Pictographic}|[\p{L}\p{N}]+/gu) ?? []
+  );
+}
+
+export function repeatsLine(lines, text, most = 0.8) {
+  const mine = new Set(tokens(text));
+  if (!mine.size) return false;
+  return lines.some((line) => {
+    const theirs = new Set(tokens(line));
+    const shared = [...mine].filter((token) => theirs.has(token)).length;
+    return shared / (mine.size + theirs.size - shared) >= most;
+  });
+}
+
 export function wait(ms, signal) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve();
