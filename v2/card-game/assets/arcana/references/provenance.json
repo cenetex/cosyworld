@@ -1,0 +1,31 @@
+{
+  "source_file": "cosyworld-tarot-six-scarves.pdf",
+  "source_sha256": "eace2788b0f249d21273bfa527996fe5dc0f5d10341ce45b7c1617b131aa171d",
+  "pdf_page": 1,
+  "embedded_image_index": 0,
+  "embedded_image_size": [1254, 1254],
+  "extraction": "pdfimages -f 1 -l 1 -png; exact existing Listener-loop crop bytes verified against zero-based pixel regions of the first embedded image. These three cards are unaffected by the PDF page overlays.",
+  "crops": [
+    {
+      "file": "arcanum-13.png",
+      "left": 209,
+      "top": 629,
+      "width": 209,
+      "height": 311
+    },
+    {
+      "file": "tarot-back-locked.png",
+      "left": 837,
+      "top": 955,
+      "width": 202,
+      "height": 291
+    },
+    {
+      "file": "tarot-back.png",
+      "left": 1045,
+      "top": 955,
+      "width": 200,
+      "height": 291
+    }
+  ]
+}

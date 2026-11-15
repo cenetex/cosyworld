@@ -1,0 +1,28 @@
+{
+  "tool": "built-in image_gen",
+  "date": "2026-11-14",
+  "shared_prompt_file": "remaining-deck-prompts.json",
+  "attempts": [
+    {
+      "id": "arcanum-12",
+      "rejected_prompt": "XII THE HANGED MAN. Preserve the calm curly-haired clothed figure suspended upside down by one ankle from the broad tree branch across the top. The free leg bends across the attached straight leg, arms rest quietly behind the torso, face above the still water rather than touching it. Ripples below reflect a small dark standing person upright in a pale band of reflected light. No violent distress. Four bell corner emblems and upper foliage. Top plate exact text: XII. Bottom plate exact two-line text: THE HANGED on the first line, MAN on the second. Convert teal water and bells to cream; black and cream only, no scarf or red.",
+      "error_request_id": "47e58021-cb8c-432d-9b70-12963b46a4b0",
+      "error_category": "self-harm",
+      "retry_change": "Safe adult acrobatic pose made explicit; no neck contact or distress."
+    },
+    {
+      "id": "arcanum-15",
+      "rejected_prompt": "XV THE DEVIL. Preserve the mythic horned, winged adult figure standing with both feet ON the closed rectangular wooden box in the lower center. The torso is bare in the neutral antique-art manner, hips covered by a draped cloth, broad feathered wings spreading behind, arms open with palms outward. At lower left and right, two smaller adult people hold loose ropes tied to the box; the loops are visibly loose enough to slip free. A circular lock is centered on the box front. The box stays closed and remains the pedestal. Four round four-hole button emblems and leaf sprigs. Top plate exact text: XV. Bottom plate exact text: THE DEVIL. Black and cream only, no scarf or red.",
+      "error_request_id": "f3f1d38d-d201-4c42-9c78-9f476b2a879e",
+      "error_category": "sexual",
+      "retry_change": "Modest opaque clothing added to adult figure."
+    },
+    {
+      "id": "arcanum-17",
+      "rejected_prompt": "XVII THE STAR. Preserve the adult woman kneeling with her back three-quarters to the viewer, calmly pouring from two round jars: the left stream into a small pool, the right onto the ground. Neutral classical-art figure, source pose and body proportions. One large eight-pointed star dominates above, surrounded by four small stars, with upper leaf sprigs and four moth corner emblems. Top plate exact text: XVII. Bottom plate exact text: THE STAR. Water, moths and all other marks are cream and black only; remove the source's blue ink. No scarf, red or additional people.",
+      "error_request_id": "795f13ae-f254-4bbf-a291-31c0b6fe4bdd",
+      "error_category": "sexual",
+      "retry_change": "Modest opaque clothing added to adult figure."
+    }
+  ]
+}

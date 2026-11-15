@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-14",
+  "reason": "Owner requested the original suit colors.",
+  "prior_sources": [
+    {
+      "id": "arcanum-6",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-aa1ef080-f189-43e1-98ec-8070ec705ae2.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/full-size/arcanum-6.png"
+    },
+    {
+      "id": "arcanum-7",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-5423d5d6-fa2a-4593-98cf-02f069401192.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/full-size/arcanum-7.png"
+    },
+    {
+      "id": "arcanum-8",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-47100b49-d8ff-4c1e-96e0-9265b3e0591e.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/full-size/arcanum-8.png"
+    },
+    {
+      "id": "arcanum-9",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-66aac54f-0e10-4c3b-a56e-9da1b84982ef.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/full-size/arcanum-9.png"
+    },
+    {
+      "id": "arcanum-10",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-2851d9d2-40a6-41e6-b773-62783ac7e5bc.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/full-size/arcanum-10.png"
+    },
+    {
+      "id": "arcanum-11",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-11842d7c-7813-4fa6-aa9c-3a04db877719.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/full-size/arcanum-11.png"
+    },
+    {
+      "id": "arcanum-13",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-c1082a1f-3388-4bfd-9378-fe77b95e42d8.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/arcanum-13.png"
+    },
+    {
+      "id": "arcanum-14",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-43b21853-e020-4b6c-acf6-a782d68362be.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/full-size/arcanum-14.png"
+    },
+    {
+      "id": "arcanum-16",
+      "source": "/Users/ratimics/.codex/generated_images/01a1dcc9-1abf-7940-aa4b-05de355d6422/exec-3d5a5f17-87f2-441e-8e74-8614d6ef4942.png",
+      "target": "/private/tmp/cosyworld-full-size-tarot-six/v2/card-game/assets/arcana/full-size/arcanum-16.png"
+    }
+  ]
+}
