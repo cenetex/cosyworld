@@ -9,13 +9,13 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
+import { availableCards } from "../card-game/cards.mjs";
 import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
 import {
   readyActionButton,
   revealCard,
   selectCard,
   settleHand,
-  tapCard as tapHandCard,
 } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -76,11 +76,23 @@ async function check(width) {
     isMobile: width === 390,
     hasTouch: width === 390,
   });
-  await page.addInitScript(() =>
+  const known = new Set(availableCards(world));
+  let forecast = world;
+  for (let turn = 0; turn < 2; turn++) {
+    const seat = { actor: "vale", claimed: ["vale"], present: ["vale"] };
+    const action = dispatchShared({ op: "view", world: forecast, ...seat }).actions.find(
+      (action) => action.kind === "wait" && !action.sleep,
+    );
+    const next = dispatchShared({ op: "play", world: forecast, ...seat, action });
+    assert(next.ok, next.error);
+    forecast = next.world;
+    for (const id of availableCards(forecast)) known.add(id);
+  }
+  await page.addInitScript((seen) =>
     localStorage.setItem(
       "cosyworld.reflected-shore.v1.shared.status.vale.seen",
-      JSON.stringify(["vale", "station"]),
-    ),
+      JSON.stringify(seen),
+    ), [...known],
   );
   page.on("pageerror", (error) => errors.push(error.message));
   await page.route("**/auth/account", (route) =>
@@ -257,8 +269,6 @@ async function check(width) {
           .opacity,
         live: document.querySelector("#live-line").hidden,
       }));
-    const pack = page.locator('#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card');
-    if (await pack.count()) await tapHandCard(pack.first());
     const shown = await front();
     assert.notEqual(shown.position, "absolute", "not squashed into a strip");
     assert.deepEqual(
