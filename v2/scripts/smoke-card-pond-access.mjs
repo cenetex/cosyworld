@@ -117,7 +117,8 @@ try {
       await page.waitForFunction(
         (id) =>
           document.querySelector(`#hand [data-card="${id}"]`)?.dataset
-            .locked === "false" && !document.querySelector("#hand [data-revealing]"),
+            .locked === "false" &&
+          !document.querySelector("#hand [data-revealing]"),
         id,
       );
       await ready();
@@ -249,8 +250,8 @@ try {
     );
     await page.waitForFunction(
       () =>
-        document.querySelector('#hand [data-card="attic"]')?.dataset
-          .locked === "false",
+        document.querySelector('#hand [data-card="attic"]')?.dataset.locked ===
+        "false",
     );
     // The box turns over once; let its lid settle before choosing it.
     await page.waitForFunction(
