@@ -13,7 +13,6 @@ import { endStandoff } from "./standoff.mjs";
 
 // A test journey is a named list of steps played through the real rules API:
 // legalActions, choose one, play it. See test/journeys/README.md.
-//
 //   { kind: "take", item: "greek-bread" }   a play; every field must match
 //   { walk: "courtyard" }                    the moves of a road or voyage
 //   { hold: "cloth" | null }                 the quiet hand selection
