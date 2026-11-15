@@ -2578,7 +2578,7 @@ function cardTapHint(button, verb = actionTapVerb(null, button.textContent), lab
   nameActionTap(button, verb, label);
 }
 
-const choiceKey = () => `${selected.join("+")}:${rowCollapsed}`;
+const choiceKey = () => `${selected.join("+")}:${questOpen}:${rowCollapsed}`;
 let queuedChoice = false;
 function queueChoice() {
   queuedChoice ||= Boolean(shownSceneLine && (
@@ -5732,9 +5732,13 @@ window.addEventListener("storage", (event) => {
   speechKey = null;
   speechSounds.stop();
   try {
+    const previous = world, previousQuests = shownQuests;
     world = enableMotives(decodeSave(event.newValue));
     sleepView.reset(world, currentActor(world));
     loadSeen();
+    if (world.run && world.run.seed === previous.run?.seed &&
+        currentActor(world) === currentActor(previous))
+      shownQuests = previousQuests;
     renderedHand = "";
     quietExits = true;
     lineSeq = null;

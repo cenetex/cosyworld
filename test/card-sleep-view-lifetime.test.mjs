@@ -198,6 +198,7 @@ function appBoundary(sleepView, world) {
     sharedSession: null,
     startingPip: false,
     selected: [],
+    shownQuests: [],
     expandedHolders: new Set(),
     completedSpeech: new Set(),
     seenCaptions: new Set(),

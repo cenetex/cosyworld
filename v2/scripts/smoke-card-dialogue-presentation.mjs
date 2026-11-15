@@ -1,18 +1,16 @@
-// The action panel shows only while choosing (presentation.mjs, #2017): never
-// over a typing line, which keeps its full card. A tap anywhere on a typing
-// card finishes it; clicking off deselects. A shared reply under a choice
-// hides the panel until it is read; a shared refusal waits for the line.
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import * as W from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
+import { newWant } from "../card-game/want.mjs";
 import {
   clearSelection,
   readyActionButton,
   selectCard,
   smokeWidths,
+  tapCard,
 } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -99,10 +97,11 @@ async function open(width, path, route) {
   return { page, tap, shot, choose, waits, readAll, clickOff };
 }
 
-async function local(width) {
+async function local(width, questAfterWait = false) {
   const world = W.createWorld();
   world.actors.vale.place = world.actors.moth.place = "pond";
   world.actors.moth.want = null;
+  if (questAfterWait) world.actors.vale.want = newWant("item", "oil", world.turn);
   world.items.lamp.holder = "vale";
   const key = "cosyworld.reflected-shore.v1.present";
   let mode = "reply";
@@ -129,6 +128,23 @@ async function local(width) {
       }),
     ]),
   );
+  if (questAfterWait) {
+    await t.choose("vale");
+    await readyActionButton(t.page, "wait").click();
+    await t.waits(`local ${width} Wait reply`);
+    const fold = t.page.locator("#hand .quest-fold");
+    if (await fold.isVisible()) await t.tap(fold);
+    else await tapCard(t.page.locator('#hand [data-quest-id="quest:0"].want-card'));
+    await t.tap(t.page.locator("#speaker-portrait"));
+    await until(t.page, (s) => !s.typing, "the Wait reply is read");
+    assert.equal(await t.page.locator("#speech-hint").innerText(), "Tap to continue",
+      "choosing a quest after Wait keeps an explicit way to its actions");
+    await t.tap(t.page.locator("#speaker-portrait"));
+    await t.page.locator("#card-actions [data-drop-quest]").waitFor({ state: "visible" });
+    assert.deepEqual(t.page.errors, []);
+    await t.page.close();
+    return;
+  }
   await t.choose("moth");
   await readyActionButton(t.page, "talk").click();
   await t.choose("pond");
@@ -381,6 +397,7 @@ async function reloads(width) {
 try {
   for (const width of smokeWidths([1440, 390])) {
     await reloads(width);
+    await local(width, true);
     await local(width);
     await shared(width);
     console.log(`Dialogue presentation passed at ${width}px.`);

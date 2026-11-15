@@ -4,11 +4,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
 import { spawn } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
 import { orchestratorBinary } from "./cargo-target.mjs";
 import { chromium } from "playwright";
 import { encodeSave } from "../card-game/world.mjs";
+import { humanAvatarIds } from "../card-game/human-cast.mjs";
 import { courseToward } from "../card-game/pack-transport.mjs";
 import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
+import { stowProvisions } from "../../test/helpers/provisions.mjs";
 import {
   agoraVisitors,
   agoraView,
@@ -177,18 +180,18 @@ try {
     await page.evaluate(async () =>
       (await import("/card-game/shared-auth.mjs")).passkey(true),
     );
+    if (avatar !== "vale") {
+      const store = new DatabaseSync(join(dir, "events.sqlite"));
+      store.exec("PRAGMA busy_timeout = 5000");
+      store.prepare("INSERT OR IGNORE INTO card_unlocks(user, actor) SELECT id, ? FROM auth_users")
+        .run(humanAvatarIds.indexOf(avatar));
+      store.close();
+    }
     pages.push(page);
     if (avatar === "vale") {
       const saved = crowdedAgoraWorld();
       saved.actors.vale.place = "greek-road-athens-piraeus";
-      // The herald's truce has opened the Long Walls from Piraeus too.
-      saved.openedRoutes = [
-        ...new Set([
-          ...(saved.openedRoutes || []),
-          "greek-athens>greek-road-athens-piraeus",
-          "greek-piraeus>greek-road-athens-piraeus",
-        ]),
-      ].sort();
+      stowProvisions(saved, "greek-ship");
       const result = await request(
         page,
         { save: encodeSave(saved) },
@@ -206,7 +209,7 @@ try {
     const action = state.actions.find(
       (a) => a.kind === kind && (!target || a.target === target),
     );
-    assert.ok(action, `${kind} ${target || "at the port"} is offered`);
+    assert.ok(action, `${kind} ${target || "at the port"} is offered: ${JSON.stringify({ place: state.world.actors.vale.place, ship: state.world.transports["greek-ship"], actions: state.actions.map((a) => a.key) })}`);
     await command(vale, { op: "play", key: crypto.randomUUID(), action });
     await until(
       async () => !(await view(vale)).queue.length,
