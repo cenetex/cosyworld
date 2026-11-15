@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   clearSelection,
+  tapCard,
   holdItem,
   revealCard,
   readyActionButton,
@@ -84,10 +85,14 @@ const provider = createServer(async (req, res) => {
     );
     return;
   }
-  // The last conversation message is the line answered or "X is here.".
-  // Other parts keep "Current scene:" and a cue.
   const prompt = input.messages.map((message) => message.content).join("\n");
   const direction = input.messages[0].content;
+  const waking = direction === "…" && input.messages[1]?.content.startsWith("I'm waking up.");
+  if (waking) assert.deepEqual(input.messages, [
+    { role: "user", content: "…" },
+    { role: "assistant", content: "I'm waking up. My name is Vale." },
+    { role: "user", content: "…" },
+  ]);
   const reflection = input.messages.map(({ role }) => role).join(",") === "system,user,assistant,user" &&
     direction.startsWith("You are ") && !speakerOf(input) &&
     input.messages[1].content === "…" && input.messages[3].content === "…" &&
@@ -96,8 +101,8 @@ const provider = createServer(async (req, res) => {
   const expression = direction.startsWith("My next reply contains two to five of these symbols only:")
     ? "👋✨" : movement ? `${movement} tilts their head.` : null;
   assert.equal(typeof input.messages.at(-1).content, "string");
-  if (!expression && !reflection) assert.match(prompt, /Current scene:|^You are .+ Reply with only what you say aloud\./mu);
-  if (!speakerOf(input) && !expression && !reflection)
+  if (!expression && !reflection && !waking) assert.match(prompt, /Current scene:|^You are .+ Reply with only what you say aloud\./mu);
+  if (!speakerOf(input) && !expression && !reflection && !waking)
     assert.match(input.messages.at(-1).content.trim(), /:$/u);
   timing.replied = Date.now();
   // A recorded fact the speaker may mention (for example, telling a resident
@@ -894,13 +899,19 @@ try {
   for (const page of [vale, mara]) {
     await wake(page);
     const state = await snapshot(page);
-    for (const id of currentScene({ ...state.world, playerActorId: state.actor }).slots.filter(Boolean))
-      await revealCard(page, id);
-    await clearSelection(page);
+    const stack = page.locator('#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card');
+    if (await stack.count()) await tapCard(stack.first());
     const latest = state.history.find((scene) => scene.room === meet).lines.at(-1);
     await readSharedLine(page, latest.text, true);
     await catchUpWithStack(page);
     await catchUpWithLive(page);
+    const reading = page.locator('#dialogue-advance[data-revealing="true"]');
+    if (await reading.count()) await reading.click();
+    assert.equal(await page.locator("#dialogue-advance").getAttribute("data-revealing"), "false");
+    for (const id of currentScene({ ...state.world, playerActorId: state.actor }).slots.filter(Boolean))
+      await revealCard(page, id);
+    await clearSelection(page);
+    await readSharedLine(page, latest.text, true);
   }
   const clipsBefore = await Promise.all(
     [vale, mara].map((page) => page.evaluate(() => window.sharedVoiceClips)),
