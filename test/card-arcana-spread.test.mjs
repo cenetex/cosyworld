@@ -62,8 +62,9 @@ const errand = (s, from = "keeper") => {
   );
   return wait(s);
 };
+const askers = ["keeper", "pip", "moth"];
 const errands = (s, n) => {
-  for (let i = 0; i < n; i++) s = errand(s);
+  for (let i = 0; i < n; i++) s = errand(s, askers[i % askers.length]);
   return s;
 };
 const faces = (s) => spreadOf(s, "vale").map((slot) => slot.face);
@@ -118,6 +119,31 @@ describe("the Listener's first visit", () => {
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
+  it("waits for three different residents, not three quests from one", () => {
+    let s = createPipWorld(5);
+    for (let i = 0; i < 3; i++) s = errand(s, "keeper");
+    expect(recordOf(s, "vale")).toMatchObject({ calls: 1, callers: ["keeper"] });
+    expect(entityActive(s, "listener")).toBe(false);
+    expect(validateWorld(reload(s))).toBeTruthy();
+    s = errand(errand(s, "moth"), "pip");
+    expect(recordOf(s, "vale")).toMatchObject({
+      calls: 3,
+      callers: ["keeper", "moth", "pip"],
+    });
+    expect(entityActive(s, "listener")).toBe(true);
+    s = talk(s);
+    expect(recordOf(s, "vale")).toMatchObject({ calls: 0, callers: [] });
+    expect(s.actors.vale.arcana.callers).toBeUndefined();
+  });
+
+  it("loads a record saved before callers were kept", () => {
+    const s = createPipWorld(5);
+    s.actors.vale.arcana = { proved: [], did: [], calls: 2 };
+    const back = errand(reload(s), "keeper");
+    expect(recordOf(back, "vale")).toMatchObject({ calls: 3, callers: ["keeper"] });
+    expect(entityActive(back, "listener")).toBe(true);
+  });
+
   it("makes room for the Fool by letting the bottom quest go", () => {
     let s = createPipWorld(5);
     for (const place of ["attic", "station", "forest-cottage"])
@@ -152,7 +178,8 @@ describe("the visits after", () => {
       expect(entry.witnesses).toEqual(["listener", "vale"]);
     }
     expect(told[0].text).toContain("turns over The Fool");
-    expect(told[1].text).toBe("Vale is now level 1.");
+    expect(told[1].text).toBe("Vale rises a level.");
+    expect(told[1].text).not.toMatch(/\d/u);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 

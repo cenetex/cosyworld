@@ -1,10 +1,8 @@
 import { levelOf } from "./want.mjs";
 import { things } from "./world.mjs";
 import { levelTier } from "./level-tiers.mjs";
+import { humanAvatarIds } from "./human-cast.mjs";
 
-// An item keeps the level its pack or the hub authors (startLevel, as for
-// avatars); items do not gain levels yet (#1583). Everyone else shows the
-// level their experience gives.
 export const itemLevel = (id) => things[id]?.startLevel || 1;
 export const cardLevel = (world, id) =>
   Object.hasOwn(things, id) ? itemLevel(id) : levelOf(world, id);
@@ -38,3 +36,7 @@ export function romanLevel(level) {
     })
     .join("");
 }
+export const blankLevel = (id, level) =>
+  level === 0 && humanAvatarIds.includes(id);
+export const shownLevel = (id, level) =>
+  blankLevel(id, level) ? "" : romanLevel(level);

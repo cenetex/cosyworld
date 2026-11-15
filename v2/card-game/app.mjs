@@ -19,7 +19,7 @@ import coreLocations from "./assets/staging/core.json" with { type: "json" };
 import greekLocations from "./assets/staging/greek.json" with { type: "json" };
 import worldLocations from "./assets/staging/worlds.json" with { type: "json" };
 import { createPreferredLocationsView } from "./preferred-locations-view.mjs";
-import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
+import { blankLevel, cardLevel, levelTier, romanLevel, shownLevel } from "./rarity.mjs";
 import { clearTell, finishCardReveal, revealCard, tellCard } from "./card-reveal.mjs";
 import {
   createPackOpening,
@@ -3288,7 +3288,8 @@ function card(id) {
   const chosen = raised ? cardPlay(world, selected) : null;
   const el = node("button", undefined, `card ${type}`);
   const level = hidden ? 1 : cardLevel(world, id),
-    tier = levelTier(level);
+    tier = levelTier(level),
+    levelWords = blankLevel(id, level) ? "" : `, level ${level}`;
   el.dataset.level = String(level);
   el.dataset.tier = tier.id;
   const tell = packTell(id);
@@ -3304,7 +3305,7 @@ function card(id) {
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute(
     "aria-label",
-    `${def.name}, ${type}, ${tier.label}, level ${level}`,
+    `${def.name}, ${type}, ${tier.label}${levelWords}`,
   );
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   const graphic = node("span", undefined, "art");
@@ -3372,7 +3373,7 @@ function card(id) {
   // One faint numeral shows a selected person's or thing's level. Places
   // have no level of their own, so they carry none.
   if (type !== "location") {
-    const numeral = node("span", romanLevel(level), "card-level");
+    const numeral = node("span", shownLevel(id, level), "card-level");
     numeral.setAttribute("aria-hidden", "true");
     el.append(numeral);
   }
@@ -3440,7 +3441,7 @@ function card(id) {
       : !raised && !expandedHolders.has(holder);
     el.setAttribute(
       "aria-label",
-      `${def.name}, ${places[holder] ? "at" : "carried by"} ${knownName(holder, "someone")}, ${tier.label}, level ${level}`,
+      `${def.name}, ${places[holder] ? "at" : "carried by"} ${knownName(holder, "someone")}, ${tier.label}${levelWords}`,
     );
   }
   if (!locked && (people[id] || places[id])) {

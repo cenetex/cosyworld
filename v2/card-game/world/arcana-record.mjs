@@ -26,6 +26,7 @@ export function recordOf(s, traveler) {
     did: record?.did || [],
     level: record?.level ?? null,
     calls: record?.calls ?? 0,
+    callers: record?.callers || [],
     need: record?.need || [],
     done: record?.done || [],
     spread: record?.spread || [],
@@ -43,9 +44,13 @@ export const tarotsHeld = (actor) => actor?.arcana?.spread?.length ?? 0;
 export const unlockedOf = (s, traveler) =>
   [...new Set((s.actors?.[traveler]?.upgrades || []).filter(isArcanum))].sort();
 
-export function countResidentQuest(actor) {
+export function countResidentQuest(actor, resident) {
   const record = (actor.arcana ??= { proved: [], did: [] });
-  record.calls = Math.min(CALLS, (record.calls ?? 0) + 1);
+  const callers = record.callers || [];
+  if (!resident || callers.includes(resident) || (record.calls ?? 0) >= CALLS)
+    return;
+  record.callers = [...callers, resident].sort();
+  record.calls = (record.calls ?? 0) + 1;
 }
 
 export function called(s, traveler) {

@@ -134,6 +134,7 @@ describe("did conditions", () => {
       did: [],
       level: null,
       calls: 0,
+      callers: [],
       need: [],
       done: [],
       spread: [],

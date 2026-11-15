@@ -637,7 +637,8 @@ function commitMet(s, id, api, met, held = null) {
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
   api.log(id, want);
-  if (traveler && want.from?.startsWith("quest:from:")) countResidentQuest(a);
+  if (traveler && want.from?.startsWith("quest:from:"))
+    countResidentQuest(a, want.from.slice("quest:from:".length));
   if (!traveler && !api.player(id) && !packPeople[id]?.levelAtHome)
     a.level = Math.max(a.level, levelFor(a.xp));
   if (api.player(id)) closeQuest(a, want, s.turn);
