@@ -3,8 +3,18 @@ import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
 import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
 import { consult, steer } from "./coordinator.mjs";
+import { readFileSync } from "node:fs";
+
+const REACTIONS = JSON.parse(readFileSync(new URL("./reactions.json", import.meta.url), "utf8"));
+
+export function reaction(residentId, messageId) {
+  const set = REACTIONS[residentId] ?? ["🌲"];
+  const seed = Array.from(String(messageId)).reduce((sum, char) => sum + char.codePointAt(0), 0);
+  return set[seed % set.length];
+}
 
 export const RING = 20;
+const IGNORED_MS = 300000;
 const EXCHANGE_ODDS = [0.85, 0.6, 0.4, 0.25];
 
 export function createRoom(guildId, channelId) {
@@ -23,6 +33,7 @@ export function createRoom(guildId, channelId) {
     heard: 0,
     halt: null,
     focus: {},
+    awaiting: null,
   };
 }
 
@@ -80,7 +91,7 @@ function clean(text, limit) {
   return Array.from(collapsed).slice(0, limit).join("").trim();
 }
 
-export function record(room, message, webhookId, cast) {
+export function record(room, message, webhookId, cast, stats = null) {
   const text = clean(message.content, 400);
   if (!text) return null;
   const entry = {
@@ -104,6 +115,11 @@ export function record(room, message, webhookId, cast) {
       clean(message.member?.displayName ?? message.author?.globalName ?? message.author?.username, 32) ||
       "Someone";
     room.heard += 1;
+    if (room.awaiting !== null && room.awaiting !== undefined && stats) {
+      if (entry.at - room.awaiting <= IGNORED_MS) stats.answered += 1;
+      else stats.ignored += 1;
+    }
+    room.awaiting = null;
     room.halt?.abort();
     join(room, entry, cast);
   }
@@ -168,7 +184,7 @@ export function requestBody(room, config, addressed, now = Date.now()) {
 }
 
 export function createStats() {
-  return { replies: 0, continued: 0, exchanges: 0, skips: {}, failures: {}, flags: {}, conversation: {}, coordinator: {} };
+  return { replies: 0, exchanges: 0, answered: 0, ignored: 0, actions: {}, skips: {}, failures: {}, flags: {}, conversation: {}, coordinator: {} };
 }
 
 function count(table, key) {
@@ -180,8 +196,20 @@ function counts(table) {
   return entries.length ? entries.map(([key, n]) => `${key}:${n}`).join(",") : "none";
 }
 
+function rate(part, whole) {
+  return whole ? (part / whole).toFixed(2) : "0.00";
+}
+
 export function summary(stats) {
-  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)} continued=${stats.continued} exchanges=${stats.exchanges} flags=${counts(stats.flags)} conversation=${counts(stats.conversation)} coordinator=${counts(stats.coordinator)}`;
+  const actions = stats.actions;
+  const beats = Object.values(actions).reduce((sum, n) => sum + n, 0);
+  return [
+    `summary replies=${stats.replies} actions=${counts(actions)}`,
+    `continuation=${rate(actions.continue ?? 0, actions.speak ?? 0)} reactions=${rate(actions.react ?? 0, beats)}`,
+    `exchanges=${stats.exchanges} ignored=${rate(stats.ignored, stats.ignored + stats.answered)}`,
+    `flags=${counts(stats.flags)} conversation=${counts(stats.conversation)} coordinator=${counts(stats.coordinator)}`,
+    `skips=${counts(stats.skips)} failures=${counts(stats.failures)}`,
+  ].join(" ");
 }
 
 function turn(room, resident, text, toward, at, cast) {
@@ -219,6 +247,7 @@ async function post(room, resident, text, { config, cast, send, sleep, stats, lo
   }
   turn(room, resident, text, toward, at, cast);
   room.lastLine = { resident, text };
+  room.awaiting ??= at;
 }
 
 function plain(text) {
@@ -285,6 +314,7 @@ async function exchange(room, guild, deps) {
       }
       await post(room, other, next.text.trim(), deps, `r:${line.resident.id}`);
       guild.replies += 1;
+      count(stats.actions, "turn-to");
       room.pairs[pair] = Date.now();
       said.push(next.text);
       line = room.lastLine;
@@ -327,7 +357,7 @@ async function goOn(room, guild, first, deps) {
       await sleep(pause(next.text), halt.signal);
       if (halt.signal.aborted) return;
       await post(room, line.resident, next.text.trim(), deps);
-      stats.continued += 1;
+      count(stats.actions, "continue");
       try {
         save();
       } catch {}
@@ -390,12 +420,17 @@ export function tick({
   log = () => {},
   stats = createStats(),
   sleep = async () => {},
+  react = null,
   random = () => 1,
   coordinate = null,
 }) {
   const running = [];
   if (!cast?.length) return Promise.all(running);
   for (const room of rooms.values()) {
+    if (room.awaiting !== null && room.awaiting !== undefined && now - room.awaiting > IGNORED_MS) {
+      stats.ignored += 1;
+      room.awaiting = null;
+    }
     if (room.busy) continue;
     const guild = guildState(state, room.guildId);
     const day = today(now);
@@ -429,7 +464,17 @@ export function tick({
     room.handledGap = messageId;
     if (decision.act === "skip") {
       count(stats.skips, decision.reason);
+      count(stats.actions, "silent");
       return undefined;
+    }
+    if (decision.act === "react") {
+      room.reactions = [...(room.reactions ?? []).filter((at) => now - at < 60000), now];
+      count(stats.actions, "react");
+      spoke(room, decision.addressed, speaker(room.messages.at(-1)), now);
+      const emoji = reaction(decision.addressed, messageId);
+      return Promise.resolve()
+        .then(() => react?.(room, messageId, emoji))
+        .catch(() => count(stats.failures, "react"));
     }
     const attempt = room.attempt?.id === messageId ? room.attempt.count + 1 : 1;
     room.attempt = { id: messageId, count: attempt };
@@ -463,6 +508,7 @@ export function tick({
         }
         if (posted || !reason) {
           stats.replies += 1;
+          count(stats.actions, "speak");
           if (!spoken) return undefined;
           return goOn(room, guild, spoken, deps).then(() =>
             decision.ambient && !config.DISCORD_SELF_EXCHANGES ? undefined : exchange(room, guild, deps),

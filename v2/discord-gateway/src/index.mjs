@@ -89,6 +89,7 @@ function run(targets, now = Date.now()) {
     log,
     stats,
     sleep: wait,
+    react: (room, messageId, emoji) => channels.get(room.channelId)?.messages.react(messageId, emoji),
     random: Math.random,
     coordinate: ask,
   });
@@ -153,7 +154,7 @@ client.on(Events.ChannelDelete, (channel) => {
 client.on(Events.MessageCreate, (message) => {
   const room = rooms.get(message.channelId);
   if (!room) return;
-  const entry = record(room, message, room.webhookId, cast);
+  const entry = record(room, message, room.webhookId, cast, stats);
   nudge(room, entry, cast, { delay: config.DISCORD_ADDRESSED_DEBOUNCE_MS, run: answerNow });
   noteSoon(room, { config, cast, coordinate: ask, stats, log });
 });

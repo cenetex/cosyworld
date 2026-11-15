@@ -110,7 +110,7 @@ test("an unfinished line goes on at most twice, as the same resident", async () 
   assert.deepEqual(bodies.slice(1).map((body) => body.continuing), ["rati", "rati"]);
   assert.deepEqual(bodies[1].messages.at(-1), { resident: "rati", text: "Come in, but" });
   assert.equal(bodies[1].addressed, null);
-  assert.equal(stats.continued, 2);
+  assert.equal(stats.actions.continue, 2);
   assert.equal(state.guilds.g1.replies, 1);
   assert.equal(room.busy, false);
 });
@@ -125,7 +125,7 @@ test("a finished line goes on only at the low rate, and a silent answer ends the
   await asked.done;
   assert.equal(asked.bodies.length, 2);
   assert.deepEqual(asked.sent, ["Come in."]);
-  assert.equal(asked.stats.continued, 0);
+  assert.equal(asked.stats.actions.continue, undefined);
 });
 
 test("a new human message cancels a pending continuation", async () => {
