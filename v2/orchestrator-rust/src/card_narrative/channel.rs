@@ -145,6 +145,21 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
     Ok(())
 }
 
+fn travelers() -> &'static std::collections::BTreeSet<String> {
+    static TRAVELERS: std::sync::OnceLock<std::collections::BTreeSet<String>> =
+        std::sync::OnceLock::new();
+    TRAVELERS.get_or_init(|| {
+        let cast: Value = serde_json::from_str(include_str!("../../../card-game/shared-cast.json"))
+            .expect("shared cast");
+        cast["avatars"]
+            .as_array()
+            .expect("human avatars")
+            .iter()
+            .filter_map(|human| human["id"].as_str().map(str::to_string))
+            .collect()
+    })
+}
+
 fn label(author: &str) -> String {
     let spaced: String = author
         .chars()
@@ -158,10 +173,12 @@ fn label(author: &str) -> String {
         .trim()
         .to_string();
     let lower = clean.to_lowercase();
+    let travelers = travelers();
     let taken = profiles()
         .as_object()
         .expect("profiles")
         .iter()
+        .filter(|(id, _)| !travelers.contains(id.as_str()))
         .any(|(id, profile)| {
             id.to_lowercase() == lower
                 || profile["name"]
