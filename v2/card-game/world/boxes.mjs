@@ -236,6 +236,8 @@ function present(s, def) {
 }
 
 /** Whether the box stands open to this actor now, as the hand shows it. */
+export const boxIdOpen = (s, id, actor) =>
+  boxDefs().some((def) => def.id === id && boxOpen(s, def, actor));
 export function boxOpen(s, box, actor = currentActor(s)) {
   const def = defOf(box);
   if (!def) return true;
