@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   clearSelection,
+  holdItem,
   revealCard,
   selectCard,
   openSettings,
@@ -278,17 +279,13 @@ function meetingPlan(world) {
   return { ...best, routes };
 }
 let seed = enableMotives(createWorld({ opening: true }));
-// The opening starts lit (#1653): douse the lamp to open the mirror, cross to
-// the pond, then relight it there so the progressed save carries a lit lamp.
-for (const kind of ["snuff", "move", "light"]) {
-  const action = legalActions(seed).find(
-    (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
-  );
-  assert(action, `the attic opening can ${kind} on its way to the pond`);
-  const result = play(seed, action);
-  assert(result.ok);
-  seed = result.state;
-}
+// Stow to open the mirror, cross, then hold the lamp at the pond.
+seed = holdItem(seed, null);
+const crossing = legalActions(seed).find((a) => a.kind === "move" && a.target === "pond");
+assert(crossing, "the dark attic opens the way to the pond");
+const crossed = play(seed, crossing);
+assert(crossed.ok);
+seed = holdItem(crossed.state, "lamp");
 const initialSave = encodeSave(seed);
 const seen = [
   ...Object.keys(seed.actors),
@@ -320,6 +317,14 @@ const snapshot = async (page) => {
   assert.equal(response.status, 200, JSON.stringify(response.body));
   return response.body;
 };
+async function hold(page, item) {
+  const { actor, world } = await snapshot(page);
+  const response = await api(page, { op: "hold", action: { item, revision: world.revision } });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.world.turn, world.turn, "holding takes no turn");
+  assert.equal(response.body.world.actors[actor].heldItem, item);
+  return response.body;
+}
 const idle = (page) =>
   until(
     async () =>
@@ -655,7 +660,7 @@ try {
     (await snapshot(vale)).history[0].lines.map((line) => line.actorId),
     ["vale", "moth"],
   );
-  await perform(vale, "snuff", undefined, "lamp");
+  assert.equal((await hold(vale, null)).world.items.lamp.lit, false);
   for (let i = 1; i < 8; i++) {
     // A friend's link opens ☰ on the person's own table with this world as
     // a slot; each tap of its "+" offers the next avatar that may go there,
@@ -825,15 +830,7 @@ try {
   await walk("vale");
   await walk("mara");
   await ownAvatarFirst(mara);
-  // Anyone at the pond may light the lamp Vale carries. On a slow run the
-  // keeper can arrive and light it first, so light it only while it is dark.
-  await until(async () => {
-    const light = await actionFor(vale, "light", undefined, "lamp");
-    if (light)
-      await api(vale, { op: "play", key: crypto.randomUUID(), action: light });
-    await idle(vale);
-    return (await snapshot(vale)).world.items.lamp.lit;
-  }, "the lamp is lit for the mirror route");
+  assert.equal((await hold(vale, "lamp")).world.items.lamp.lit, true);
   await perform(mara, "move", "attic");
   assert.equal(
     (await snapshot(mara)).world.actors.mara.place,
