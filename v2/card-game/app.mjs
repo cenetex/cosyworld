@@ -526,7 +526,7 @@ const shownStageLevels = new Map();
 const coveredCards = new Set();
 const lockedBoxes = createLockedBoxes();
 const lockScope = () => JSON.stringify([world.run?.seed, currentActor(world)]);
-let lockedScope = lockScope();
+let lockedScope = lockScope(), lockRevision = 0;
 const pendingLock = (id) => lockedBoxes.boxed(id) || isLockedBox(world, id);
 let openingHeld = false;
 // The held quest on show (none or one) and whether its card is chosen. A
@@ -560,9 +560,9 @@ const pipPrelude = () => startingPip && !world.opening;
 // The printed card says "Wants Lamp": a visitor with it in hand already knows
 // Pip and the Lamp, so both are known cards from the first look.
 const PIP_KNOWN = ["moth", "lamp"];
-const cardIsCovered = (id) => lockedBoxes.boxed(id) || (pipPrelude()
+const cardIsCovered = (id) => pipPrelude()
   ? !PIP_KNOWN.includes(id) || coveredCards.has(id)
-  : !encountered.has(id) || coveredCards.has(id));
+  : !encountered.has(id) || coveredCards.has(id);
 const canRevealCard = (id) => cardIsCovered(id) && !pendingLock(id);
 const unseenCards = () =>
   availableCards(world).filter((id) => !encountered.has(id));
@@ -617,23 +617,35 @@ const selfKnown = () =>
   avatarKnown() && !coveredCards.has(world.actors[currentActor(world)].place);
 const readerState = () => sharedReadingState(sharedSession.state, selfKnown());
 function loadPendingLocks(reset = false) {
-  lockedScope = lockScope();
-  let ids = [];
+  const scope = lockScope();
+  let ids = [], revision = 0;
   try {
     const saved = !reset && JSON.parse(localStorage.getItem(`${SEEN_KEY}.locked`));
-    if (saved?.scope === lockScope() && Array.isArray(saved.ids))
+    if (saved?.scope === scope && Array.isArray(saved.ids)) {
       ids = saved.ids.filter((id) => people[id] || things[id] || places[id]);
+      if (Number.isSafeInteger(saved.revision) && saved.revision >= 0) revision = saved.revision;
+    }
   } catch {}
+  if (!reset && scope === lockedScope && revision < lockRevision) return;
+  lockedScope = scope;
+  lockRevision = revision;
   lockedBoxes.restore(ids);
 }
 function observeLocks() {
+  if (world.revision < lockRevision) return false;
   return lockedBoxes.observe(availableCards(world).filter((id) => isLockedBox(world, id)));
 }
 function rememberCards() {
   try {
+    const newer = JSON.parse(localStorage.getItem(`${SEEN_KEY}.locked`));
+    if (newer?.scope === lockScope() && newer.revision > lockRevision) {
+      loadPendingLocks();
+      observeLocks();
+    }
+    lockRevision = Math.max(lockRevision, world.revision);
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
     localStorage.setItem(`${SEEN_KEY}.locked`, JSON.stringify({
-      scope: lockScope(), ids: lockedBoxes.ids(),
+      scope: lockScope(), revision: lockRevision, ids: lockedBoxes.ids(),
     }));
     localStorage.setItem(
       `${SEEN_KEY}.covered`,
@@ -887,6 +899,11 @@ function updateCardCooldown() {
     "#hand button, #card-actions button",
   )) {
     if (freshStart && button.dataset.keepMenu) continue;
+    if (button.dataset.unlockBox) {
+      button.disabled = selectionBlocked() || isLockedBox(world, button.dataset.unlockBox) ||
+        !availableCards(world).includes(button.dataset.unlockBox);
+      continue;
+    }
     button.disabled = selectionBlocked() && !button.dataset.blocked;
     if (button.dataset.card)
       button.draggable =
@@ -5743,7 +5760,7 @@ window.addEventListener("storage", (event) => {
     const pending = lockedBoxes.ids();
     loadPendingLocks();
     for (const id of pending)
-      if (!lockedBoxes.boxed(id) && !isLockedBox(world, id)) {
+      if (!lockedBoxes.boxed(id)) {
         encountered.add(id);
         coveredCards.delete(id);
       }
