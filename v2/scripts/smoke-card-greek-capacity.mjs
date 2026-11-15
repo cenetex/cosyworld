@@ -181,14 +181,6 @@ try {
     if (avatar === "vale") {
       const saved = crowdedAgoraWorld();
       saved.actors.vale.place = "greek-road-athens-piraeus";
-      // The herald's truce has opened the Long Walls from Piraeus too.
-      saved.openedRoutes = [
-        ...new Set([
-          ...(saved.openedRoutes || []),
-          "greek-athens>greek-road-athens-piraeus",
-          "greek-piraeus>greek-road-athens-piraeus",
-        ]),
-      ].sort();
       const result = await request(
         page,
         { save: encodeSave(saved) },
