@@ -3,6 +3,7 @@ import {
   clearSelection,
   holdItem,
   revealCard,
+  readyActionButton,
   selectCard,
   openSettings,
   closeSettings,
@@ -176,7 +177,7 @@ function serverDiagnostics() {
     .join("\n");
   return [warnings, processLog.slice(-3000)].filter(Boolean).join("\n");
 }
-async function until(test, label, rounds = 200, interval = 250) {
+async function until(test, label, rounds = 40, interval = 1250) {
   let last = "";
   for (let n = 0; n < rounds; n++) {
     try {
@@ -301,8 +302,12 @@ const seen = [
   "station",
 ];
 let worldId;
-const api = (page, body) =>
-  page.evaluate(
+const apiAt = new WeakMap();
+async function api(page, body) {
+  const at = Math.max(apiAt.get(page) || 0, Date.now());
+  apiAt.set(page, at + 1500);
+  await delay(Math.max(0, at - Date.now()));
+  return page.evaluate(
     async ({ worldId, body }) => {
       const response = await fetch(
         `/card-game/shared/worlds/${worldId}${body ? "/command" : ""}`,
@@ -318,6 +323,7 @@ const api = (page, body) =>
     },
     { worldId, body },
   );
+}
 const snapshot = async (page) => {
   const response = await api(page);
   assert.equal(response.status, 200, JSON.stringify(response.body));
@@ -386,6 +392,7 @@ async function perform(page, kind, target = undefined, item = undefined) {
 // and the place it stands in (#1575), so a new visitor taps both first.
 async function wake(page) {
   const { actor, world } = await snapshot(page);
+  await page.locator(`#hand [data-card="${actor}"]`).waitFor({ state: "attached" });
   for (const id of [actor, world.actors[actor].place])
     await until(async () => {
       const card = page.locator(`#hand [data-card="${id}"]`);
@@ -631,7 +638,7 @@ try {
   await wake(vale);
   const requestStart = requests.length;
   await selectCard(vale, "moth");
-  await vale.getByRole("button", { name: "Talk", exact: true }).click();
+  await readyActionButton(vale, "talk").click();
   // Read Vale's line, then continue to Pip's answer in the same play.
   await expectSharedReveal(vale, requestStart, "Vale");
   await vale.locator('#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]').click();
@@ -683,10 +690,10 @@ try {
       return false;
     }, `"+" offers ${names[i]}`);
     await pages[i].locator("#avatar-bring").click();
-    await until(
-      async () => (await snapshot(pages[i])).actor === names[i],
-      "avatar claim finishes",
-    );
+    await Promise.all([
+      pages[i].waitForURL(`${origin}/?world=${worldId}`),
+      pages[i].locator('#avatar-bring[data-revealing="false"]').click(),
+    ]);
     await pages[i].locator("#shared-lobby").waitFor({ state: "hidden" });
     await pages[i].locator("#stage").waitFor({ state: "visible" });
     const home = await snapshot(pages[i]);
@@ -697,17 +704,18 @@ try {
       !home.exits.includes(home.world.doors[avatar.home.id]),
       "new avatars start with a closed home door",
     );
+    await wake(pages[i]);
   }
   assert.equal((await snapshot(vale)).claimed.filter(Boolean).length, 8);
   const ownAvatarFirst = async (page) => {
     const state = await snapshot(page);
     const ids = await page
-      .locator("#hand .card")
+      .locator("#hand > .card-frame:not([data-pack]) > .card.avatar[data-card]")
       .evaluateAll((cards) => cards.map((card) => card.dataset.card));
     assert.equal(
-      ids.find((id) => state.world.actors[id]),
+      ids[0],
       state.actor,
-      "the player's own avatar leads the avatar groups",
+      "the player's own avatar leads the groups outside the discovery pack",
     );
   };
   // Rue's carriage door opens at the station, its one authored door
@@ -766,7 +774,7 @@ try {
     fullPage: true,
   });
   await selectCard(mara, "mask");
-  await mara.getByRole("button", { name: "Take", exact: true }).click();
+  await readyActionButton(mara, "take").click();
   await until(
     async () => (await snapshot(mara)).world.items.mask.holder === "mara",
     "pickup commits",
@@ -777,9 +785,10 @@ try {
     .locator(`#hand [data-card="${door}"]`)
     .waitFor({ state: "attached" });
   const earlierTravel = await actionFor(mara, "move", door);
+  await clearSelection(mara);
   await selectCard(mara, "mask");
   await selectCard(mara, "theatre");
-  await mara.getByRole("button", { name: "Put down", exact: true }).click();
+  await readyActionButton(mara, "drop").click();
   await until(
     async () => (await snapshot(mara)).world.items.mask.holder === "theatre",
     "put down commits",
