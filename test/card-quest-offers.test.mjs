@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { journeyWorlds } from "./helpers/journey.mjs";
 import { questCards as journey } from "./journeys/quest-cards.mjs";
-import { decodeSave, encodeSave, homeOf, legalActions } from "../v2/card-game/world.mjs";
+import { decodeSave, encodeSave, homeOf, legalActions, questPreviews } from "../v2/card-game/world.mjs";
 import { heldOf, sleepQuest } from "../v2/card-game/want.mjs";
 import {
   availableCards,
@@ -38,15 +38,15 @@ it("keeps the held quest's card with the hand and drops only a stale one", () =>
   expect(held.indexOf(questId())).toBeGreaterThan(held.indexOf("vale"));
 });
 
-it("lays no offer on the table: a standing offer is already held", () => {
+it("lays no offer in the hand before Accept", () => {
   const world = worlds.told;
-  expect(heldOf(world.actors.vale).map((w) => w.from)).toEqual([OFFER]);
+  expect(heldOf(world.actors.vale)).toEqual([]);
   expect(availableCards(world).some((id) => id.startsWith("quest:"))).toBe(false);
-  expect(legalActions(world).some((a) => a.kind === "take" && a.offer)).toBe(false);
+  expect(questPreviews(world).find((q) => q.source === "moth").action).toBeTruthy();
 });
 
 it("draws the held quest's face from its want, in the rules' own words", () => {
-  const world = worlds.told;
+  const world = worlds.accepted;
   const [quest] = questCards(world);
   expect(quest).toMatchObject({ kind: "item", target: "lamp", level: null });
   const verb = questVerb(world, quest, false);
@@ -54,7 +54,7 @@ it("draws the held quest's face from its want, in the rules' own words", () => {
 });
 
 it("keeps a name the player has not uncovered hidden on the face", () => {
-  const world = worlds.told;
+  const world = worlds.accepted;
   const [quest] = questCards(world);
   const covered = questCaption(quest, true, questVerb(world, quest, true), (id) => id !== "lamp");
   expect(covered).not.toMatch(/lamp/iu);
@@ -64,7 +64,7 @@ it("keeps a name the player has not uncovered hidden on the face", () => {
 });
 
 it("gives a chosen card no accept play: the held quest's one button is Discard", () => {
-  const world = worlds.told;
+  const world = worlds.accepted;
   expect(cardActions(world, [OFFER]).actions).toEqual([]);
   const drop = legalActions(world).filter((a) => a.kind === "drop" && !a.item);
   expect(drop).toHaveLength(1);

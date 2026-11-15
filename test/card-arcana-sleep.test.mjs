@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import data from "../v2/card-game/arcana.json" with { type: "json" };
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
+import { reflectionContext } from "../v2/card-game/reflections.mjs";
 import {
   DREAM_FROM,
   heldOf,
@@ -24,6 +25,7 @@ import {
   legalActions,
   places,
   play,
+  questPreviews,
   validateWorld,
   wantAPI,
 } from "../v2/card-game/world.mjs";
@@ -45,6 +47,10 @@ function act(s, pick, who = "vale") {
   return result.state;
 }
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
+const accept = (s, kind) => {
+  const q = questPreviews(s).find((p) => p.kind === kind);
+  return act(s, (a) => a.key === q?.action?.key);
+};
 function quiet(s) {
   for (const id of ["moth", "keeper"])
     Object.assign(s.actors[id], { want: null, content: true, metTurn: s.turn });
@@ -78,7 +84,7 @@ function provedFool(cards) {
   settleArcana(s, "vale");
   expect(recordOf(s, "vale").proved).toEqual([FOOL]);
   s.actors.vale.place = homeOf("vale");
-  return quiet(s);
+  return accept(quiet(s), "sleep");
 }
 
 afterEach(() => {
@@ -101,6 +107,8 @@ describe("travelers level by cards", () => {
     expect(recordOf(s, "vale").proved).toEqual([FOOL]);
     expect(levelOf(s, "vale")).toBe(1);
     expect(recordOf(s, "vale").dealt).not.toBeNull();
+    expect(dreams(s)).toEqual([]);
+    s = accept(s, "sleep");
     expect(dreams(s)).toEqual([
       expect.objectContaining({
         kind: "place",
@@ -128,6 +136,19 @@ describe("travelers level by cards", () => {
 });
 
 describe("the sleep quest and the dream", () => {
+  it("offers a later Sleep cycle after a discarded one, without holding it automatically", () => {
+    let s = provedFool([[0], [1], [2], [21]]);
+    s = accept(s, "level");
+    s = act(s, (a) => a.kind === "drop" && !a.item);
+    expect(questPreviews(s).some((q) => q.kind === "sleep")).toBe(false);
+    s.actors.vale.place = deck.cards[0].proof[0].place;
+    settleArcana(s, "vale");
+    expect(s.actors.vale.arcana.accepted).toBeUndefined();
+    expect(dreams(s)).toEqual([]);
+    expect(questPreviews(s).some((q) => q.kind === "sleep" && q.action)).toBe(true);
+    s = accept(s, "sleep");
+    expect(dreams(s)).toHaveLength(1);
+  });
   it("is met by a long rest at home, which dreams the card after the dealt one", () => {
     let s = provedFool([[0], [1], [2], [21]]);
     const dealt = recordOf(s, "vale").dealt;
@@ -148,6 +169,7 @@ describe("the sleep quest and the dream", () => {
     expect(woke).toMatchObject({ rest: "long", dream: "glimpse" });
     expect(recordOf(s, "vale").dealt).toBe(dealt);
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
+    expect(reflectionContext(accept(s, "level")).resting).toBeNull();
   });
 
   it("is not met by a long rest away from home", () => {
@@ -189,6 +211,7 @@ describe("experience", () => {
   it("never pays a traveler for a met want, a help or a box", () => {
     let s = createPipWorld(5);
     s = act(s, (a) => a.kind === "talk" && a.target === "moth");
+    s = accept(s, "resident");
     s.items.lamp.holder = "vale";
     const xp = s.actors.vale.xp;
     s = act(s, (a) => a.kind === "give" && a.target === "moth");

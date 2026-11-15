@@ -989,9 +989,10 @@ function offer(kind, actor, item, target, text, cards) {
 }
 export function questPreviews(s, actor = currentActor(s)) {
   const legal = legalActions(s, actor);
-  return questCandidates(s, actor).map((p) => ({
-    ...p, action: legal.find((a) => a.offer === p.id) ?? null,
-  }));
+  return questCandidates(s, actor).map((p) => {
+    const action = legal.find((a) => a.offer === p.id) ?? null;
+    return { ...p, action, reason: p.reason || (action ? null : "Finish your current play first.") };
+  });
 }
 // A battle holds its whole room. Its combatants are the keys of `resolve`,
 // in the order they joined; rules 84 keeps no sides.

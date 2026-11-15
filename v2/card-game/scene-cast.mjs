@@ -205,6 +205,7 @@ export function dialogueCast(world, action = null) {
   // Waking from a long rest at a sanctuary brings a dream, in the waking
   // play or the sleeper's own next one.
   const rested =
+    played?.verb !== "quest" &&
     speakers[0] === currentActor(world) &&
     restingWake(world.log, currentActor(world), world.turn)?.rest === "long";
   const resting = waited || rested ? currentActor(world) : null;

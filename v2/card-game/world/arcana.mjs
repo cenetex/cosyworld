@@ -384,6 +384,7 @@ export function installArcana(s) {
     if (record.dealt === undefined || !validDeal(record)) {
       delete record.dealt;
       delete record.base;
+      delete record.accepted;
     }
   }
   return s;

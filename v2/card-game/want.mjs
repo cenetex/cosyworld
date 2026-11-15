@@ -118,6 +118,7 @@ export function installQuestConsent(s) {
   for (const id of humanAvatarIds) {
     const a = s.actors[id];
     if (!a || (id !== currentActor(s) && !heldByHuman(s, id)) || a.pendingQuests !== undefined) continue;
+    if (!validWant(s, id)) throw new Error("Invalid saved quests.");
     a.pendingQuests = heldOf(a);
     a.want = null;
     delete a.under;
@@ -140,6 +141,7 @@ export const closedKey = questTerms;
 export const contentOf = (s, id) =>
   Boolean(s.actors[id]?.content && !s.actors[id].want);
 export function setWant(a, want) {
+  if (!want?.accepted) delete a.residentWant;
   a.want = want ?? null;
   if (a.want) delete a.content;
   return a.want;

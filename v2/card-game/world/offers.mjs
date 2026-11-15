@@ -42,7 +42,6 @@ const boxQuest = (s, { kind, target, step }) => ({
   ...(step ? { step: { ...step } } : {}),
 });
 
-// An escort or meeting offered by a resident who is already another
 function withAnother(s, actor, kind, source, want) {
   const traveler = travelerOf(s, source);
   return Boolean(
@@ -65,7 +64,7 @@ const isPlayer = (s, actor) =>
  */
 export function questOffers(s, actor = currentActor(s)) {
   const a = s.actors[actor];
-  if (!a || !isPlayer(s, actor) || heldOf(a).length >= MAX_HELD) return [];
+  if (!a || !isPlayer(s, actor)) return [];
   const here = a.place,
     out = [];
   const add = (kind, source, want) => {
