@@ -6,6 +6,7 @@ import {
   legalActions,
   play,
   questOffers,
+  residentOffer,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import {
@@ -26,7 +27,8 @@ const act = (s, pick) => {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 };
-const talk = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
+const tell = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
+const talk = (s) => act(tell(s), (a) => a.kind === "accept" && a.target === "moth");
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
 const give = (s) =>
   act(s, (a) => a.kind === "give" && a.item === "lamp" && a.target === "moth");
@@ -55,18 +57,20 @@ const ready = () => {
 };
 
 describe("three quest slots", () => {
-  it("holds three quests and leaves a fourth standing offer unheld", () => {
+  it("holds three quests and leaves a fourth offer unaccepted", () => {
     expect(MAX_HELD).toBe(3);
     const s = fill(createPipWorld(5), 3);
     expect(slotsUsed(s.actors.vale)).toBe(3);
-    const after = talk(s);
+    const after = tell(s);
+    expect(residentOffer(after)).toMatchObject({ source: "moth", full: true });
+    expect(legalActions(after).some((a) => a.kind === "accept")).toBe(false);
     expect(sources(after)).not.toContain(FROM);
     expect(heldOf(after.actors.vale)).toHaveLength(3);
     expect(questOffers(after)).toEqual([]);
     expect(validateWorld(reload(after))).toBeTruthy();
   });
 
-  it("loads a save with five held quests as three, and the released ones stand again", () => {
+  it("loads a save with five held quests as three, and a released one is offered again on Talk", () => {
     const s = talk(createPipWorld(5));
     const pip = s.actors.vale.want;
     const extra = boxQuests(s, 4);
@@ -78,6 +82,8 @@ describe("three quest slots", () => {
     expect(sources(loaded)).toEqual(extra.slice(0, 3).map((w) => w.from));
     expect(loaded.actors.vale.closed?.[FROM]).toBeUndefined();
     loaded = act(loaded, (a) => a.kind === "drop" && !a.item && a.quest === 0);
+    expect(sources(loaded)).not.toContain(FROM);
+    loaded = talk(loaded);
     expect(sources(loaded)).toContain(FROM);
     expect(heldOf(loaded.actors.vale)).toHaveLength(3);
   });

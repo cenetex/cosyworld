@@ -1,7 +1,5 @@
 //
 //   box       a shut box lying here
-//   resident  someone here who told you their want, and
-//             offers it this visit (offer-chance.mjs)
 //   home      your own home's door, shut
 //
 import { entityActive, neverBack, packOf } from "../pack-registry.mjs";
@@ -22,7 +20,7 @@ import {
 } from "../want.mjs";
 import { questFor, toldWant } from "../talk-quest.mjs";
 import { revealed } from "../want-talk.mjs";
-import { offerUnlocked } from "../offer-chance.mjs";
+import { offerFrom } from "../offer-chance.mjs";
 import { boxWant, shutBoxesAt } from "./boxes.mjs";
 import { nameOf, people } from "./catalog.mjs";
 import { travelerOf } from "./company.mjs";
@@ -101,18 +99,6 @@ export function questOffers(s, actor = currentActor(s)) {
       );
     else if (goal) add("box", box.id, boxQuest(s, goal));
   }
-  for (const them of Object.keys(people)) {
-    if (them === actor || s.actors[them]?.place !== here || !entityActive(s, them))
-      continue;
-    const want = s.actors[them].want;
-    if (
-      !toldWant(s, actor, them) ||
-      !offerUnlocked(s, actor, them) ||
-      !revealed(s, them, want, actor)
-    )
-      continue;
-    add("resident", them, questFor(s, them, want));
-  }
   if (
     (recordOf(s, actor).sale || owesGiving(s, actor)) &&
     s.actors[LISTENER]?.place === here &&
@@ -126,6 +112,34 @@ export function questOffers(s, actor = currentActor(s)) {
         step: { verb: "give", to: LISTENER },
       });
   return out;
+}
+
+export function residentOffer(s, actor = currentActor(s)) {
+  const a = s.actors[actor],
+    them = offerFrom(s, actor);
+  if (
+    !a ||
+    !them ||
+    !isPlayer(s, actor) ||
+    !people[them] ||
+    s.actors[them]?.place !== a.place ||
+    !entityActive(s, them) ||
+    !toldWant(s, actor, them) ||
+    !revealed(s, them, s.actors[them].want, actor)
+  )
+    return null;
+  const id = offerId("resident", them),
+    want = questFor(s, them, s.actors[them].want);
+  if (
+    !want ||
+    lostOf(s, want) ||
+    closedBy(a, id, want) ||
+    closedAny(a, want) ||
+    heldOf(a).some((held) => sameQuest(held, want)) ||
+    withAnother(s, actor, "resident", them, want)
+  )
+    return null;
+  return { id, kind: "resident", source: them, want, full: slotsUsed(a) >= MAX_HELD };
 }
 
 function fetchPool(s, actor) {

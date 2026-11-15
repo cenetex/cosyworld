@@ -179,6 +179,7 @@ describe("experience", () => {
   it("never pays a traveler for a met want, a help or a box", () => {
     let s = createPipWorld(5);
     s = act(s, (a) => a.kind === "talk" && a.target === "moth");
+    s = act(s, (a) => a.kind === "accept" && a.target === "moth");
     s.items.lamp.holder = "vale";
     const xp = s.actors.vale.xp;
     s = act(s, (a) => a.kind === "give" && a.target === "moth");

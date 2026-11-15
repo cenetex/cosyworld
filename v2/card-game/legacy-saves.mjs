@@ -89,6 +89,8 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
       .map((p) => p.id),
   );
   upgradeSightings(s);
+  for (const a of Object.values(s.actors || {}))
+    if (a?.offered && !Object.hasOwn(a.offered, "from")) delete a.offered;
   installPacks(s);
   reconcileContent(s);
   reconcilePackProgress(s, reworked);

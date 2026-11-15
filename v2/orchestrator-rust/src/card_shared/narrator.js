@@ -2641,27 +2641,12 @@
   }
 
   // v2/card-game/offer-chance.mjs
-  var DAY_TURNS = DAYLIGHT_TURNS * 2;
-  var offerDay = (turn) => Math.floor(turn / DAY_TURNS);
-  function starterWant(s, them) {
-    const authored = forest_default.people[them]?.want, want = s.actors[them]?.want;
-    return Boolean(
-      authored && want && authored.kind === want.kind && authored.target === want.target
-    );
-  }
-  var trusts = (s, actor, them) => (s.actors[them]?.trust?.[actor] || 0) >= 1;
-  function live(s, actor, them) {
-    const rec = s.actors[actor]?.offered?.[them];
-    return rec && s.actors[actor].place === rec.at && s.actors[them]?.place === rec.at && offerDay(s.turn) === rec.day ? rec : null;
-  }
-  var offerUnlocked = (s, actor, them) => trusts(s, actor, them) || starterWant(s, them) || Boolean(live(s, actor, them)?.open);
+  var offerFrom = (s, actor) => s.actors[actor]?.offered?.from ?? null;
   function validOffered(s, id) {
     const offered = s.actors[id].offered;
     if (offered === void 0) return true;
     return Boolean(
-      offered && typeof offered === "object" && !Array.isArray(offered) && Object.keys(offered).length > 0 && Object.entries(offered).every(
-        ([them, rec]) => them !== id && Object.hasOwn(s.actors, them) && rec && Object.keys(rec).sort().join() === "at,day,open" && typeof rec.at === "string" && typeof rec.open === "boolean" && Number.isSafeInteger(rec.day) && rec.day >= 0 && rec.day <= offerDay(s.turn)
-      )
+      offered && typeof offered === "object" && Object.keys(offered).sort().join() === "from,turn" && offered.from !== id && Object.hasOwn(s.actors, offered.from) && Number.isSafeInteger(offered.turn) && offered.turn >= 0 && offered.turn <= s.turn
     );
   }
 
@@ -2728,7 +2713,7 @@
     }
     if (!revealed(world, id, want, listener)) return null;
     const name = nameOf2(want.target);
-    const help = listener && offerUnlocked(world, listener, id) ? " I would be glad of your help." : "";
+    const help = listener && offerFrom(world, listener) === id ? " I would be glad of your help." : "";
     if (want.step?.verb === "lay")
       return `I want ${want.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.${help}`;
     return (want.kind === "item" ? want.step?.verb === "eat" ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf2(want.step.at)}` : ""}.` : `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
@@ -18813,7 +18798,7 @@
   };
 
   // v2/card-game/resident-home.mjs
-  var DAY_TURNS2 = DAYLIGHT_TURNS * 2;
+  var DAY_TURNS = DAYLIGHT_TURNS * 2;
   var own = (o, k) => Boolean(o) && Object.hasOwn(o, k);
   var sleepOk = (z) => z === null || Boolean(z) && Object.keys(z).sort().join() === "from,to" && [z.from, z.to].every((n) => Number.isInteger(n) && n >= 0 && n < 48) && z.from !== z.to;
   var recordOk = (r, keys) => Boolean(r) && typeof r === "object" && Object.keys(r).every((k) => keys.includes(k)) && (r.range === void 0 || Number.isInteger(r.range) && r.range >= 0 && r.range <= 8) && (r.sails === void 0 || typeof r.sails === "boolean") && (r.sleep === void 0 || sleepOk(r.sleep));
@@ -19300,6 +19285,8 @@
       }).map((p) => p.id)
     );
     upgradeSightings(s);
+    for (const a of Object.values(s.actors || {}))
+      if (a?.offered && !Object.hasOwn(a.offered, "from")) delete a.offered;
     installPacks2(s);
     reconcileContent(s);
     reconcilePackProgress(s, reworked);
@@ -19555,7 +19542,7 @@
         return false;
       const z = a.sleeping;
       if (z?.until !== void 0) {
-        if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS2 || !Object.hasOwn(places2, z.place))
+        if (Object.keys(z).sort().join() !== "place,since,until" || !whole5(z.since) || z.since > s.turn || !whole5(z.until) || z.until <= z.since || z.until - z.since > DAY_TURNS || !Object.hasOwn(places2, z.place))
           return false;
       }
     }

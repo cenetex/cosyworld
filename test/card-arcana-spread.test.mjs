@@ -80,8 +80,8 @@ const foolDone = (s) => {
 };
 const firstVisit = () => {
   let s = act(
-    createPipWorld(5),
-    (a) => a.kind === "talk" && a.target === "moth",
+    act(createPipWorld(5), (a) => a.kind === "talk" && a.target === "moth"),
+    (a) => a.kind === "accept" && a.target === "moth",
   );
   s.items.lamp.holder = "vale";
   s = act(
@@ -234,8 +234,8 @@ describe("the Listener's words", () => {
 describe("a spread bought for a thing", () => {
   const bought = (unlocked) => {
     let s = act(
-      createPipWorld(5),
-      (a) => a.kind === "talk" && a.target === "moth",
+      act(createPipWorld(5), (a) => a.kind === "talk" && a.target === "moth"),
+      (a) => a.kind === "accept" && a.target === "moth",
     );
     level(s, 1, unlocked, { sale: true });
     s.items.bell.holder = "vale";
@@ -267,6 +267,9 @@ describe("a spread bought for a thing", () => {
     expect(cards(s)[0]).toBe("arcanum-12");
     expect(faces(s)).toEqual(["up", "locked"]);
     s = wait(s);
+    expect(heldOf(s.actors.vale)).toEqual([]);
+    s.actors.moth.place = s.actors.vale.place;
+    s = act(act(s, (a) => a.kind === "talk" && a.target === "moth"), (a) => a.kind === "accept");
     expect(heldOf(s.actors.vale).map((w) => w.from)).toEqual([
       "quest:from:moth",
     ]);
@@ -438,8 +441,8 @@ describe("what the Listener deals", () => {
   it("pins the Devil's thing at the deal and moves it only when it is gone for good", () => {
     deck.cards = data.cards.filter((c) => c.id === "arcanum-15");
     let s = act(
-      createPipWorld(5),
-      (a) => a.kind === "talk" && a.target === "moth",
+      act(createPipWorld(5), (a) => a.kind === "talk" && a.target === "moth"),
+      (a) => a.kind === "accept" && a.target === "moth",
     );
     level(s, 1, [], { sale: true });
     s.items.bell.holder = "vale";
