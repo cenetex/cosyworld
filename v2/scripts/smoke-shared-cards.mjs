@@ -953,7 +953,9 @@ try {
       0,
     );
     assert.equal(await page.locator("#live-line").isVisible(), false);
-    await page.locator("#beat-behind").click({ position: { x: 80, y: 6 } });
+    await page.locator(
+      '.beat-stack[data-action="true"] > #speech-row, .beat-stack:not([data-action="true"]) > #beat-behind',
+    ).click({ position: { x: 80, y: 6 } });
     const returnLive = page.getByRole("button", {
       name: /^Return to live dialogue/,
     });
