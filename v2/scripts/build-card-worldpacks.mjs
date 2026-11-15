@@ -1,6 +1,5 @@
 // Compile the card table's world packs and their bridges into one runtime file.
 //   node v2/scripts/build-card-worldpacks.mjs          # write card-game/packs.json
-//   node v2/scripts/build-card-worldpacks.mjs --check  # fail if it is stale or invalid
 // Sources: v2/worlds/card-table.json lists the hub and the mounted packs.
 // Each pack reads v2/content/<id>/card-world.json (the reusable world) and
 // v2/worlds/<id>/card-bridge.json (how it joins the hub). The browser and the
