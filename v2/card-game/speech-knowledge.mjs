@@ -2,7 +2,6 @@
 import {
   entityActive,
   observableStates,
-  packOf,
   packThings,
 } from "./pack-registry.mjs";
 import {
@@ -14,6 +13,7 @@ import {
   rootHolder,
 } from "./world.mjs";
 import { questsOf } from "./want.mjs";
+import { found } from "./world/found.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
 
 // A covered thing reaches the speaker as something sensed but unnamed. The
@@ -68,20 +68,6 @@ function questTargets(world, id) {
     goal?.item,
     goal?.destination,
   ].filter((t) => t !== id && (world.items[t] || world.actors[t] || places[t]));
-}
-
-// Whether the rules record that `speaker` has found `id`: a place it has
-// visited, a person it has talked with or met. Items have no such record.
-function found(world, speaker, id) {
-  const a = world.actors[speaker];
-  if (world.actors[id])
-    return (
-      !a?.talked ||
-      a.talked.includes(id) ||
-      world.opening?.met?.[id] !== undefined ||
-      world.packs?.[packOf(id)?.id]?.met?.[id] !== undefined
-    );
-  return world.items[id] || !a?.visited || a.visited.includes(id);
 }
 
 // Blurs, in an avatar's own words, the targets it has not found yet.

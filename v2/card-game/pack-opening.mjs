@@ -34,7 +34,7 @@ const ask = (kind, label) => ({ kind, label, text: PACK_TEXT[kind] });
 
 // The pack's order: the place's own card first, then residents, items, ways,
 // locked boxes, and offered quests (closed boxes too).
-export const PACK_KINDS = ["place", "avatar", "item", "way", "box", "offer"];
+export const PACK_KINDS = ["place", "avatar", "item", "way", "box", "offer", "tarot"];
 const kindRank = (kind) => {
   const rank = PACK_KINDS.indexOf(kind);
   return rank < 0 ? PACK_KINDS.length : rank;

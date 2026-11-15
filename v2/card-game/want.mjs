@@ -16,14 +16,18 @@ import {
   packPeople,
   packPlaces,
 } from "./pack-registry.mjs";
+import forest from "./forest.json" with { type: "json" };
 import { DAYLIGHT_TURNS, packDiscovered, runHash } from "./pack-rules.mjs";
 import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
-import { arcanaLevel } from "./world/arcana-record.mjs";
-import forest from "./forest.json" with { type: "json" };
+import {
+  arcanaLevel,
+  countResidentQuest,
+  tarotsHeld,
+} from "./world/arcana-record.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A want may name a verb beyond the kind's own (hold, be at, talk). State
@@ -66,8 +70,9 @@ export const knownActors = (s) =>
         s.packs?.[packOf(id).id]?.met?.[id] !== undefined),
   );
 // Pack residents keep to their own scene unless their data lets them travel.
+export const wantless = (id) => forest.people[id]?.wants === false;
 export const travels = (id, s = null) =>
-  !isPackActor(id) ||
+  (!isPackActor(id) && forest.people[id]?.travels !== false) ||
   freed(s, id) ||
   id === BOARDY ||
   humanAvatarIds.includes(id) ||
@@ -113,8 +118,16 @@ export const sameQuest = (left, right) =>
   questTerms(left) === questTerms(right);
 export const wantKey = (id, want) =>
   `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
-export const MAX_HELD = 9;
+export const MAX_HELD = 3;
+export const MAX_PENDING = 9;
 export const heldOf = (a) => (a?.want ? [a.want, ...(a.under || [])] : []);
+export const LISTENER_FROM = "quest:listener:";
+const fetching = (w) => w.from?.startsWith(LISTENER_FROM) === true;
+export const slotsUsed = (a) => {
+  const held = heldOf(a);
+  const fetches = held.filter(fetching).length;
+  return held.length - fetches + (fetches ? 1 : 0) + tarotsHeld(a);
+};
 export const questsOf = (s, id) => heldOf(s.actors[id]);
 export function installQuestConsent(s) {
   for (const id of humanAvatarIds) {
@@ -124,7 +137,7 @@ export function installQuestConsent(s) {
     a.pendingQuests = heldOf(a);
     a.want = null;
     delete a.under;
-    if (a.arcana) a.arcana.dreamed = a.arcana.proved.length;
+    if (a.arcana) a.arcana.dreamed = arcanaLevel(s, id);
   }
 }
 export function claimQuestConsent(s, id) {
@@ -150,11 +163,18 @@ export function setWant(a, want) {
 }
 export function holdQuest(s, actor, want, from) {
   const a = s.actors[actor];
-  if (!a || heldOf(a).length >= MAX_HELD) return null;
+  if (!canHoldQuest(a, from)) return null;
   if (a.want) a.under = [a.want, ...(a.under || [])];
   a.want = { ...want, ...(from ? { from } : {}) };
   delete a.content;
   return a.want;
+}
+export function canHoldQuest(a, from) {
+  if (!a) return false;
+  const choice = from?.startsWith(LISTENER_FROM) === true;
+  const fetches = heldOf(a).filter(fetching).length;
+  return !(choice && fetches >= 3) &&
+    (slotsUsed(a) < MAX_HELD || Boolean(choice && fetches));
 }
 export function releaseQuest(a, want) {
   const held = heldOf(a).filter((w) => w !== want);
@@ -181,9 +201,9 @@ export const closedAny = (a, want) =>
   Object.values(a.closed || {}).some(([, terms]) => terms === closedKey(want));
 // A player sets the held quest down. Its target stays out
 // of mind a while and nothing is drawn in its place.
-export function dropQuest(s, actor) {
+export function dropQuest(s, actor, index = 0) {
   const a = s.actors[actor],
-    want = a?.want;
+    want = heldOf(a)[index];
   if (!want) return;
   a.gaveUp = { target: want.target, turn: s.turn };
   closeQuest(a, want, s.turn);
@@ -228,7 +248,7 @@ export function wake(s, actor, api) {
       q.from === DREAM_FROM && q.step?.verb === "rest" && q.target === a.place,
   );
   if (!w || api.home(actor) !== a.place) return null;
-  if (a.arcana) a.arcana.dreamed = a.arcana.proved.length;
+  if (a.arcana) a.arcana.dreamed = arcanaLevel(s, actor);
   commitMet(s, actor, api, [], w);
   const id = api.dreamCard?.(actor);
   if (!id) return null;
@@ -307,7 +327,8 @@ export function stagedNext(s, id, previous = null) {
 // Every actor carries a want record, experience and what it has seen.
 export function installWants(s) {
   for (const [id, a] of Object.entries(s.actors)) {
-    if (!("want" in a)) {
+    if (wantless(id)) a.want = null;
+    else if (!("want" in a)) {
       // A player has no authored want: it takes its quests by a tap. A
       // resident with staged wants takes one of them, else its authored want.
       const w = humanAvatarIds.includes(id) ? null : authoredWant(id);
@@ -327,6 +348,8 @@ export function installWants(s) {
       if (kept.length > 1) a.under = kept.slice(1);
       else delete a.under;
     }
+    while (!humanAvatarIds.includes(id) && heldOf(a).length && slotsUsed(a) > MAX_HELD)
+      releaseQuest(a, heldOf(a).at(-1));
     // Old saves without an explicit level retain their already earned level.
     if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
     a.visited ??= [a.place];
@@ -413,6 +436,7 @@ export function wantCandidates(
 // all of it seen, curiosity starts over from here; then anything known, and
 // at last even the want just met, again. A player is never drawn a want.
 export function nextWant(s, actor, api, previous = null) {
+  if (wantless(actor)) return null;
   const staged = stagedNext(s, actor, previous);
   if (staged) return staged;
   const roll = runHash(s, `want:${actor}:${s.turn}`);
@@ -610,6 +634,13 @@ function helped(s, owner, api, action) {
     h.level ??= levelFor(h.xp);
     h.xp += 1;
   }
+  const o = s.actors[owner];
+  if (humanAvatarIds.includes(helper) && !humanAvatarIds.includes(owner)) {
+    const rank = levelFor(Math.max(0, o.xp - 1));
+    if (rank < rankOf(LEVEL_CAP)) o.xp = Math.max(o.xp, rankXp(rank + 1));
+    if (!packPeople[owner]?.levelAtHome)
+      o.level = Math.max(o.level ?? 1, levelFor(o.xp));
+  }
   const trust = s.actors[owner].trust;
   if (action.kind !== "give" && trust)
     trust[helper] = Math.min(3, (trust[helper] || 0) + 1);
@@ -625,6 +656,8 @@ function commitMet(s, id, api, met, held = null) {
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
   api.log(id, want);
+  if (traveler && want.from?.startsWith("quest:from:"))
+    countResidentQuest(a, want.from.slice("quest:from:".length));
   if (!traveler && !api.player(id) && !packPeople[id]?.levelAtHome)
     a.level = Math.max(a.level, levelFor(a.xp));
   if (api.player(id)) closeQuest(a, want, s.turn);
@@ -729,7 +762,7 @@ function sawLost(s, id, lost, action, api) {
 export function fillWants(s, api, now = false) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (a.want) delete a.content;
-    if (api.player(id)) continue;
+    if (api.player(id) || wantless(id)) continue;
     if (
       !a.want &&
       entityActive(s, id) &&
@@ -838,6 +871,7 @@ export function validWant(s, id) {
     startXp(id) +
     (a.carried ?? 0) +
     s.turn * 8 +
+    (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) +
     Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
   return (
     Number.isSafeInteger(a.xp) &&
@@ -852,7 +886,7 @@ export function validWant(s, id) {
     (a.metTurn === undefined || whole(a.metTurn)) &&
     validUnder(s, id) &&
     (a.pendingQuests === undefined || (humanAvatarIds.includes(id) &&
-      Array.isArray(a.pendingQuests) && a.pendingQuests.length <= MAX_HELD &&
+      Array.isArray(a.pendingQuests) && a.pendingQuests.length <= MAX_PENDING &&
       a.pendingQuests.every((w) => validQuest(s, id, w)) &&
       new Set(a.pendingQuests.map(closedKey)).size === a.pendingQuests.length)) &&
     (a.residentWant === undefined || (humanAvatarIds.includes(id) && validQuest(s, id, a.residentWant))) &&
@@ -876,6 +910,8 @@ export function validWant(s, id) {
 }
 function validUnder(s, id) {
   const a = s.actors[id];
+  const limit = a.pendingQuests === undefined ? MAX_PENDING : MAX_HELD;
+  if (slotsUsed(a) > limit) return false;
   if (a.under === undefined) return true;
   const held = heldOf(a);
   return Boolean(
@@ -883,7 +919,6 @@ function validUnder(s, id) {
       Array.isArray(a.under) &&
       a.want &&
       a.under.length >= 1 &&
-      held.length <= MAX_HELD &&
       a.under.every((w) => validQuest(s, id, w)) &&
       new Set(held.map(closedKey)).size === held.length,
   );

@@ -100,7 +100,7 @@ describe("quest offers require Accept", () => {
     expect(validateWorld(decodeSave(encodeSave(s)))).toBeTruthy();
   });
 
-  it("stacks quests, discards only the top, and keeps a discarded one closed", () => {
+  it("stacks quests, discards any one, and keeps a discarded one closed", () => {
     let s = accept(greekErrands().decree, "greek-battlefield");
     s.actors[GUARD].trust.vale = 1;
     s = talk(s, GUARD);
@@ -108,7 +108,7 @@ describe("quest offers require Accept", () => {
     const before = sources(s);
     expect(before.length).toBeGreaterThan(1);
     const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
-    expect(drops).toHaveLength(1);
+    expect(drops.map((a) => a.quest)).toEqual(before.map((_, i) => i));
     s = play(s, drops[0], s.revision).state;
     expect(sources(s)).toEqual(before.slice(1));
     expect(questOffers(s).every((o) => o.id !== before[0])).toBe(true);

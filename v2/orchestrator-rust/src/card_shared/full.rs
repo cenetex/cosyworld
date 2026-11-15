@@ -636,10 +636,23 @@ fn leave_elsewhere(c: &rusqlite::Connection, id: &str, u: &str, a: usize, time: 
     Ok(())
 }
 // The claim command, with the passkey's cosmetic upgrades (#2713).
-fn claim_command(c: &rusqlite::Connection, w: &World, u: &str, a: usize) -> Result<Value> {
+pub(super) fn claim_command(
+    c: &rusqlite::Connection,
+    w: &World,
+    u: &str,
+    a: usize,
+) -> Result<Value> {
     let mut command = json!({"op":"claim","actor":actor_id(a)});
     if bindings::carries_upgrades(&w.version) {
-        let upgrades = bindings::upgrades(c, u, a)?;
+        let mut upgrades: Vec<String> = bindings::upgrades(c, u, a)?
+            .into_iter()
+            .filter(|u| !u.starts_with("arcanum-"))
+            .collect();
+        if bindings::carries_arcana(&w.version) {
+            upgrades.extend(bindings::deck(c, u)?);
+            upgrades.sort();
+            upgrades.dedup();
+        }
         if !upgrades.is_empty() {
             command["progress"] = json!({ "upgrades": upgrades });
         }

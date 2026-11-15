@@ -13,6 +13,14 @@ describe("card level-up", () => {
     });
   });
 
+  it("rises from a blank plate for a traveler with no cards", () => {
+    expect(levelUpPlan(0, 1, { id: "vale" })).toMatchObject({
+      from: { numeral: "" },
+      to: { numeral: "I" },
+    });
+    expect(levelUpPlan(0, 1, { id: "keeper" }).from.numeral).toBe("N");
+  });
+
   it("shifts the glow from the old tier colour to the new one", () => {
     const plan = levelUpPlan(5, 6);
     expect(plan.from.color).toBe(levelTier(5).color);

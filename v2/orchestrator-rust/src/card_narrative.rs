@@ -1418,7 +1418,6 @@ struct VoiceSettings {
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
-    /// `COSYWORLD_CARD_FALLBACK_MODELS`, in order (`fallback::models`).
     fallback_models: Vec<String>,
 }
 
@@ -4606,6 +4605,7 @@ pub(crate) mod tests {
             ("moth", "moth-model"),
             ("keeper", "keeper-model"),
             ("badger", "badger-model"),
+            ("listener", "listener-model"),
         ]
         .into_iter()
         .map(|(id, m)| (id.into(), m.into()))
@@ -4871,23 +4871,23 @@ pub(crate) mod tests {
             }
             maps.push(models);
         }
-        let cast = |models: [&str; 4]| {
-            let ids = ["vale", "moth", "keeper", "badger"].map(String::from);
+        let cast = |models: [&str; 5]| {
+            let ids = ["vale", "moth", "keeper", "badger", "listener"].map(String::from);
             let models = models.map(String::from);
             ids.into_iter().zip(models).collect::<BTreeMap<_, _>>()
         };
         let (gemma, luna) = ("google/gemma-4-26b-a4b-it", "openai/gpt-6-luna");
         let haiku = "anthropic/claude-haiku-5.5";
         let mistral = "mistralai/mistral-small-3.2-24b-instruct";
-        assert_eq!(maps[0], cast([gemma, gemma, haiku, gemma]));
-        assert_eq!(maps[1], cast([luna, luna, haiku, mistral]));
+        assert_eq!(maps[0], cast([gemma, gemma, haiku, gemma, gemma]));
+        assert_eq!(maps[1], cast([luna, luna, haiku, mistral, luna]));
     }
 
     #[test]
     fn character_model_config_covers_every_avatar_with_exact_ids() {
         assert!(parse_character_models(r#"{"vale":"one"}"#).is_err());
         assert!(parse_character_models(
-            r#"{"vale":"one","moth":"two","keeper":"three","badger":"four"}"#
+            r#"{"vale":"one","moth":"two","keeper":"three","badger":"four","listener":"five"}"#
         )
         .is_ok());
     }
@@ -5718,7 +5718,7 @@ pub(crate) mod tests {
         let server = tokio::spawn(async move {
             axum::serve(listener, provider).await.unwrap();
         });
-        let mut models = parse_character_models(r#"{"vale":"vale-model","moth":"moth-model","keeper":"keeper-model","badger":"badger-model"}"#).unwrap();
+        let mut models = parse_character_models(r#"{"vale":"vale-model","moth":"moth-model","keeper":"keeper-model","badger":"badger-model","listener":"listener-model"}"#).unwrap();
         for model in models.values_mut() {
             *model = "test-entity-model".into();
         }
@@ -5784,6 +5784,7 @@ pub(crate) mod tests {
             ("moth", "moth-model"),
             ("keeper", "keeper-model"),
             ("badger", "badger-model"),
+            ("listener", "listener-model"),
         ]
         .into_iter()
         .map(|(id, m)| (id.into(), m.into()))

@@ -54,6 +54,7 @@ const NO_INVITE = {
     "Patroclus starts aboard the Charybdis, where the only plays are the ship's course; the quay invites him once the ship has docked (card-greek-patroclus).",
   "willows-swede": "The Swede stays at camp until the kit is back (stayUntil).",
   boardyai: "Boardy's parlour has no way out; he visits by his own calls.",
+  listener: "The Listener never leaves its box; it rolls between its stops alone.",
 };
 // Residents who do not join a standoff.
 const NO_STANDOFF = {
@@ -63,6 +64,7 @@ const NO_STANDOFF = {
   "greek-polynices-shade": "The Shade (night apparition).",
   "willows-swede": "The Swede (stayUntil).",
   boardyai: "Boardy, the shared-world connector.",
+  listener: "The Listener only talks (standoffs: false).",
 };
 // The Hoppy Cat pack is paused by the owner: left exactly as it was.
 const paused = (id) => id.startsWith("hoppycat-");
@@ -83,6 +85,7 @@ function beside(id, open = true) {
   }
   const pack = packPeople[id]?.packId;
   if (pack && s.packs[pack].met) s.packs[pack].met[id] = 0;
+  if (id === "listener") s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
   s.actors.vale.place = s.actors[id].place;
   return s;
 }

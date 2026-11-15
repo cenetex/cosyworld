@@ -13,6 +13,8 @@ export function lockedQuest(world, id, known = () => false) {
 
 // The locked carved lid has a recessed iron keyhole (assets/README.md).
 export const LOCKED_BACK = "./assets/card-back-locked.webp";
+export const TAROT_BACK = "./assets/arcana/tarot-back.png";
+export const TAROT_LOCKED_BACK = "./assets/arcana/tarot-back-locked.png";
 
 // Whether the card is still locked behind its quest for this player.
 export const isLockedBox = (world, id) => sealedReason(world, id) !== null;

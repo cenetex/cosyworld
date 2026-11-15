@@ -3,8 +3,7 @@ import vm from "node:vm";
 import { expect, it, vi } from "vitest";
 import { createWorld, play, questPreviews } from "../v2/card-game/world.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
-import { settleArcana } from "../v2/card-game/world/arcana.mjs";
-import { levelCard, questCards, questCaption, questPreviewCard } from "../v2/card-game/quest-card.mjs";
+import { levelCards, questCards, questCaption, questPreviewCard } from "../v2/card-game/quest-card.mjs";
 
 function pending() {
   const world = createWorld({ seed: 17 });
@@ -26,14 +25,15 @@ it("previews a remote old goal without adding a hand card and hides unknown name
   expect(questCards(next)).toHaveLength(1);
 });
 it("keeps an unaccepted level tracker in previews until explicit Accept", () => {
-  const world = settleArcana(createWorld({ seed: 17 }), "vale");
+  const world = createWorld({ seed: 17 });
+  world.actors.vale.arcana = { proved: [], did: [], spread: [{ card: "arcanum-21", face: "up" }] };
   const preview = questPreviews(world).find((q) => q.kind === "level");
   const before = structuredClone(world.actors.vale.arcana);
-  expect(levelCard(world)).toBeNull();
-  expect(questPreviewCard(world, preview)).toMatchObject({ kind: "arcanum", target: before.dealt });
+  expect(levelCards(world)).toEqual([]);
+  expect(questPreviewCard(world, preview)).toMatchObject({ kind: "arcanum", target: before.spread[0].card });
   expect(world.actors.vale.arcana).toEqual(before);
   const next = play(world, preview.action, world.revision).state;
-  expect(levelCard(next)).toMatchObject({ target: before.dealt });
+  expect(levelCards(next)[0]).toMatchObject({ target: before.spread[0].card });
 });
 it("commits local Accept quietly and rejects a stale second click", () => {
   const app = readFileSync(new URL("../v2/card-game/app.mjs", import.meta.url), "utf8");

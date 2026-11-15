@@ -1,4 +1,4 @@
-import { decide } from "./attention.mjs";
+import { addressee, decide } from "./attention.mjs";
 import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
 
@@ -14,7 +14,56 @@ export function createRoom(guildId, channelId) {
     lastReplyAt: 0,
     lastAmbientAt: 0,
     busy: false,
+    attempt: null,
+    sending: false,
+    nudge: null,
   };
+}
+
+export function nudge(room, entry, cast, { delay, run, timers = globalThis }) {
+  if (!entry || entry.resident) return false;
+  calm(room, timers);
+  if (room.messages.at(-1) !== entry || !addressee(room.messages, cast)) return false;
+  const fire = () => {
+    if (room.nudge !== armed) return;
+    if (room.busy) {
+      armed.timer = timers.setTimeout(fire, delay);
+      return;
+    }
+    room.nudge = null;
+    run(room);
+  };
+  const armed = { timer: null };
+  armed.timer = timers.setTimeout(fire, delay);
+  room.nudge = armed;
+  return true;
+}
+
+export function calm(room, timers = globalThis) {
+  if (room.nudge) timers.clearTimeout(room.nudge.timer);
+  room.nudge = null;
+}
+
+function overtaken(room, messageId, residentId, cast) {
+  const index = room.messages.findIndex((entry) => entry.id === messageId);
+  if (index < 0) return false;
+  for (let at = index + 1; at < room.messages.length; at += 1) {
+    const other = addressee(room.messages, cast, at);
+    if (other && other !== residentId) return true;
+  }
+  return false;
+}
+
+function typist(room, typing, every) {
+  if (!typing) return () => {};
+  const pulse = () => {
+    try {
+      Promise.resolve(typing(room)).catch(() => {});
+    } catch {}
+  };
+  pulse();
+  const timer = setInterval(pulse, Math.max(1, every));
+  return () => clearInterval(timer);
 }
 
 function clean(text, limit) {
@@ -70,13 +119,40 @@ export function requestBody(room, config, addressed) {
   };
 }
 
-async function answer(room, body, { config, cast, lines, send }) {
+export function createStats() {
+  return { replies: 0, skips: {}, failures: {} };
+}
+
+function count(table, key) {
+  table[key] = (table[key] ?? 0) + 1;
+}
+
+function counts(table) {
+  const entries = Object.entries(table).sort(([a], [b]) => a.localeCompare(b));
+  return entries.length ? entries.map(([key, n]) => `${key}:${n}`).join(",") : "none";
+}
+
+export function summary(stats) {
+  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)}`;
+}
+
+async function answer(room, body, messageId, { config, cast, lines, send, typing }) {
   room.busy = true;
+  let posted = 0;
+  let reason = null;
+  let stale = false;
+  const stop = typist(room, typing, config.DISCORD_TYPING_MS);
   try {
     const returned = await lines(body);
-    for (const line of Array.isArray(returned) ? returned : []) {
+    const found = Array.isArray(returned?.lines) ? returned.lines : [];
+    reason = found.length ? null : (returned?.reason ?? "empty");
+    for (const line of found) {
       const resident = cast.find((candidate) => candidate.id === line?.id);
       if (!resident || typeof line.text !== "string" || !line.text.trim()) continue;
+      if (!posted && overtaken(room, messageId, resident.id, cast)) {
+        stale = true;
+        break;
+      }
       const identity = residentIdentity(resident, config.ORCHESTRATOR_URL);
       await send(room, {
         content: line.text,
@@ -84,15 +160,32 @@ async function answer(room, body, { config, cast, lines, send }) {
         avatarURL: identity.avatarUrl ?? undefined,
         allowedMentions: { parse: [] },
       });
+      posted += 1;
     }
-  } catch {
-    return;
+    if (stale) reason = null;
+    else if (!posted && !reason) reason = "no-resident";
+  } catch (error) {
+    reason = posted ? null : room.sending ? "send" : "error";
   } finally {
+    stop();
     room.busy = false;
   }
+  return { posted, reason, stale };
 }
 
-export function tick({ rooms, state, now, config, cast, lines, send, save }) {
+export function tick({
+  rooms,
+  state,
+  now,
+  config,
+  cast,
+  lines,
+  send,
+  typing,
+  save,
+  log = () => {},
+  stats = createStats(),
+}) {
   const running = [];
   if (!cast?.length) return Promise.all(running);
   for (const room of rooms.values()) {
@@ -105,15 +198,62 @@ export function tick({ rooms, state, now, config, cast, lines, send, save }) {
     }
     const decision = decide(room, guild, now, config, cast);
     if (decision.act === "wait") continue;
-    room.handledGap = room.messages.at(-1).id;
-    if (decision.act === "skip") continue;
+    log(`decision act=${decision.act} reason=${decision.reason} guild=${room.guildId} channel=${room.channelId}`);
+    const messageId = room.messages.at(-1).id;
+    const before = { gap: room.handledGap, reply: room.lastReplyAt, ambient: room.lastAmbientAt };
+    room.handledGap = messageId;
+    if (decision.act === "skip") {
+      count(stats.skips, decision.reason);
+      continue;
+    }
+    const attempt = room.attempt?.id === messageId ? room.attempt.count + 1 : 1;
+    room.attempt = { id: messageId, count: attempt };
     room.lastReplyAt = now;
     if (decision.ambient) room.lastAmbientAt = now;
     guild.replies += 1;
     try {
       save(state);
     } catch {}
-    running.push(answer(room, requestBody(room, config, decision.addressed), { config, cast, lines, send }));
+    const send_ = (target, payload) => {
+      room.sending = true;
+      return send(target, payload);
+    };
+    room.sending = false;
+    running.push(
+      answer(room, requestBody(room, config, decision.addressed), messageId, {
+        config,
+        cast,
+        lines,
+        send: send_,
+        typing,
+      }).then(({ posted, reason, stale }) => {
+        const refund = () => {
+          if (guild.day === day && guild.replies > 0) guild.replies -= 1;
+          room.lastReplyAt = before.reply;
+          room.lastAmbientAt = before.ambient;
+        };
+        if (stale) {
+          count(stats.skips, "stale");
+          log(`lines dropped reason=stale guild=${room.guildId} channel=${room.channelId}`);
+          refund();
+          try {
+            save(state);
+          } catch {}
+          return;
+        }
+        if (posted || !reason) {
+          stats.replies += 1;
+          return;
+        }
+        count(stats.failures, reason);
+        log(`lines failed reason=${reason} attempt=${attempt} guild=${room.guildId} channel=${room.channelId}`);
+        refund();
+        if (attempt < 2) room.handledGap = before.gap;
+        try {
+          save(state);
+        } catch {}
+      }),
+    );
   }
   return Promise.all(running);
 }

@@ -43,12 +43,8 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
   world.actors.vale.place = "attic";
   world.turn = halfway ? 30 : 5;
   world.revision = Math.max(world.revision, world.turn);
-  world.actors.vale.arcana = {
-    proved: [],
-    did: [],
-    dealt: "arcanum-0",
-    base: { visited: world.actors.vale.visited.length },
-  };
+  world.actors.vale.upgrades = ["arcanum-0"];
+  world.actors.vale.arcana = { proved: ["arcanum-0"], did: [], level: 1 };
   world.actors.vale.want = halfway
     ? {
         kind: "place",
@@ -331,7 +327,11 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
       );
       assert.notEqual(vale.want?.from, DREAM_FROM, "the sleep quest is met");
       assert.equal(vale.glimpse?.kind, "arcanum");
-      assert.notEqual(vale.glimpse.id, vale.arcana.dealt);
+      assert.equal(
+        (vale.arcana.spread || []).some((slot) => slot.card === vale.glimpse.id),
+        false,
+      );
+      assert.notEqual(vale.glimpse.id, "arcanum-0");
       assert.equal(vale.arcana.proved.includes(vale.glimpse.id), false);
     } else {
       assert.match(period, /night/, "a dusk wake opens on night");

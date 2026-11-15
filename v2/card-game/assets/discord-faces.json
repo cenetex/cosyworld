@@ -1,0 +1,267 @@
+{
+ "assets/badger-forest/badger-grumpy.png": {
+  "x": 0.183,
+  "y": 0.0,
+  "size": 0.633
+ },
+ "assets/greek-drama/chthonic-antigone.png": {
+  "x": 0.258,
+  "y": 0,
+  "size": 0.333
+ },
+ "assets/greek-drama/chthonic-ismene.png": {
+  "x": 0.248,
+  "y": 0.0,
+  "size": 0.317
+ },
+ "assets/greek-drama/chthonic-creon.png": {
+  "x": 0.333,
+  "y": 0,
+  "size": 0.3
+ },
+ "assets/greek-drama/chthonic-guard.png": {
+  "x": 0.283,
+  "y": 0.022,
+  "size": 0.3
+ },
+ "assets/greek-drama/chthonic-baker.png": {
+  "x": 0.292,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/chthonic-elder.png": {
+  "x": 0.265,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/chthonic-shipmaster.png": {
+  "x": 0.258,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/chthonic-singer.png": {
+  "x": 0.31,
+  "y": 0,
+  "size": 0.3
+ },
+ "assets/greek-drama/chthonic-neighbor.png": {
+  "x": 0.342,
+  "y": 0.0,
+  "size": 0.317
+ },
+ "assets/greek-drama/chthonic-attendant.png": {
+  "x": 0.327,
+  "y": 0.0,
+  "size": 0.267
+ },
+ "assets/greek-drama/chthonic-ferryman.png": {
+  "x": 0.335,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/chthonic-helen.png": {
+  "x": 0.308,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/chthonic-menelaus.png": {
+  "x": 0.308,
+  "y": 0.0,
+  "size": 0.317
+ },
+ "assets/greek-drama/chthonic-electra.png": {
+  "x": 0.318,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/chthonic-orestes.png": {
+  "x": 0.323,
+  "y": 0.0,
+  "size": 0.3
+ },
+ "assets/greek-drama/open-door-aethra.webp": {
+  "x": 0.325,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/open-door-adrastus.webp": {
+  "x": 0.275,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/open-door-mother.webp": {
+  "x": 0.318,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/open-door-iphis.webp": {
+  "x": 0.308,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/open-door-theseus.webp": {
+  "x": 0.292,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/open-door-quay-host.webp": {
+  "x": 0.267,
+  "y": 0.0,
+  "size": 0.3
+ },
+ "assets/greek-drama/open-door-grove-keeper.webp": {
+  "x": 0.265,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/open-door-altar-keeper.webp": {
+  "x": 0.292,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/myrine.webp": {
+  "x": 0.292,
+  "y": 0.0,
+  "size": 0.317
+ },
+ "assets/greek-drama/ajax-tecmessa.png": {
+  "x": 0.308,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/ajax-teucer.png": {
+  "x": 0.317,
+  "y": 0.0,
+  "size": 0.3
+ },
+ "assets/greek-drama/ajax-odysseus.png": {
+  "x": 0.292,
+  "y": 0.0,
+  "size": 0.283
+ },
+ "assets/greek-drama/polynices-shade.webp": {
+  "x": 0.383,
+  "y": 0.011,
+  "size": 0.267
+ },
+ "assets/greek-drama/patroclus.png": {
+  "x": 0.283,
+  "y": 0.0,
+  "size": 0.3
+ },
+ "assets/hoppycat-archive/hoppycat-tapi-lilt-cutout.png": {
+  "x": 0.267,
+  "y": 0.0,
+  "size": 0.433
+ },
+ "assets/hoppycat-archive/hoppycat-penny-vellum-cutout.png": {
+  "x": 0.3,
+  "y": 0.027,
+  "size": 0.333
+ },
+ "assets/hoppycat-archive/hoppycat-rill-current-cutout.png": {
+  "x": 0.483,
+  "y": 0.011,
+  "size": 0.4
+ },
+ "assets/hoppycat-archive/hoppycat-patch-fern-cutout.png": {
+  "x": 0.45,
+  "y": 0.111,
+  "size": 0.3
+ },
+ "assets/hoppycat-archive/hoppycat-lumen-facet-cutout.png": {
+  "x": 0.31,
+  "y": 0.0,
+  "size": 0.367
+ },
+ "assets/hoppycat-archive/hoppycat-mira-meraki-cutout.png": {
+  "x": 0.342,
+  "y": 0.0,
+  "size": 0.417
+ },
+ "assets/hoppycat-archive/hoppycat-glim-twice-cutout.png": {
+  "x": 0.267,
+  "y": 0.179,
+  "size": 0.567
+ },
+ "assets/hoppycat-archive/hoppycat-nix-fermata-cutout.png": {
+  "x": 0.35,
+  "y": 0.056,
+  "size": 0.333
+ },
+ "assets/hoppycat-archive/hoppycat-hoppy-cat-cutout.png": {
+  "x": 0.3,
+  "y": 0.0,
+  "size": 0.467
+ },
+ "assets/hoppycat-archive/hoppycat-fable-cutout.png": {
+  "x": 0.35,
+  "y": 0.0,
+  "size": 0.3
+ },
+ "assets/hoppycat-archive/hoppycat-phase-two-cutout.png": {
+  "x": 0.342,
+  "y": 0.0,
+  "size": 0.317
+ },
+ "assets/hoppycat-archive/hoppycat-arc-cutout.png": {
+  "x": 0.367,
+  "y": 0.022,
+  "size": 0.267
+ },
+ "assets/hoppycat-archive/hoppycat-staticwashere-cutout.png": {
+  "x": 0.325,
+  "y": 0.006,
+  "size": 0.317
+ },
+ "assets/hoppycat-archive/hoppycat-solwashere-cutout.png": {
+  "x": 0.325,
+  "y": 0.028,
+  "size": 0.283
+ },
+ "assets/hoppycat-archive/hoppycat-ledger-opus-cutout.png": {
+  "x": 0.325,
+  "y": 0.006,
+  "size": 0.283
+ },
+ "assets/hoppycat-archive/hoppycat-ledger-sonnet-cutout.png": {
+  "x": 0.335,
+  "y": 0.017,
+  "size": 0.25
+ },
+ "assets/willows/swede.webp": {
+  "x": 0.367,
+  "y": 0.0,
+  "size": 0.233
+ },
+ "assets/lonely-forest/rati.png": {
+  "x": 0.292,
+  "y": 0.006,
+  "size": 0.383
+ },
+ "assets/lonely-forest/skull.png": {
+  "x": 0.533,
+  "y": 0.044,
+  "size": 0.433
+ },
+ "assets/lonely-forest/whiskerwind.png": {
+  "x": 0.332,
+  "y": 0.12,
+  "size": 0.483
+ },
+ "assets/lonely-forest/oakheart.webp": {
+  "x": 0.1,
+  "y": 0.1,
+  "size": 0.833
+ },
+ "assets/ratiradio/rati.webp": {
+  "x": 0.383,
+  "y": 0.0,
+  "size": 0.233
+ },
+ "assets/ratiradio/raven.webp": {
+  "x": 0.55,
+  "y": 0.014,
+  "size": 0.267
+ }
+}

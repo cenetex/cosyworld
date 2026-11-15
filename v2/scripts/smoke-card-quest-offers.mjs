@@ -9,7 +9,8 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { decodeSave, encodeSave, legalActions, play } from "../card-game/world.mjs";
-import { newWant } from "../card-game/want.mjs";
+import { holdQuest, newWant } from "../card-game/want.mjs";
+import { recordOf } from "../card-game/world/arcana-record.mjs";
 import { DISSOLVE_MS } from "../card-game/card-travel.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { journeyWorlds } from "../../test/helpers/journey.mjs";
@@ -179,7 +180,7 @@ try {
       await selectCard(page, "vale");
       const fold = page.locator("#hand .quest-fold");
       if (await fold.isVisible()) await fold.click();
-      else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
+      else await tapCard(page.locator("#hand .want-frame > .want-card").first());
       await page.locator("#hand .want-frame:not([hidden]) > .want-card").waitFor();
       await t.ready();
     };
@@ -316,7 +317,17 @@ try {
     }
 
     {
-      const t = await open("quest-offers-level", decodeSave(encodeSave(journey.met)));
+      let called = decodeSave(encodeSave(journey.met));
+      called.actors.vale.arcana = { proved: [], did: [], calls: 3 };
+      called = play(
+        called,
+        legalActions(called).find((a) => a.kind === "wait" && !a.sleep && !a.guards),
+      ).state;
+      called = play(
+        called,
+        legalActions(called).find((a) => a.kind === "talk" && a.target === "listener"),
+      ).state;
+      const t = await open("quest-offers-level", called);
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-level-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
@@ -324,11 +335,23 @@ try {
       assert.equal(await offerCards(page).count(), 0);
       const level = await t.state();
       assert.equal(level.actors.vale.want?.quest, undefined);
-      assert.ok(level.actors.vale.arcana.dealt, "a level card is dealt");
+      assert.deepEqual(
+        recordOf(level, "vale").spread.map((slot) => slot.face),
+        ["down"],
+        "the Fool is given face down",
+      );
       await accept(page, t, "vale", true);
-      assert.equal((await t.state()).actors.vale.arcana.accepted, level.actors.vale.arcana.dealt);
+      assert.equal((await t.state()).actors.vale.arcana.spread[0].accepted, true);
       await openHeld(page, t);
-      assert.ok(await t.oneButton() <= 1);
+      assert.equal(await t.oneButton(), 1);
+      assert.equal(await label(page), "Discard");
+      const back = page.locator("#hand .want-frame:not([hidden]) > .want-card > .card-back");
+      assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
+      assert.notEqual(
+        await back.evaluate((el) => getComputedStyle(el).display),
+        "none",
+        "the face-down tarot shows the star back",
+      );
       await t.layout();
       await t.shot("level-up");
       assert.deepEqual(t.errors, []);
@@ -354,8 +377,8 @@ try {
       assert.equal(await label(page), "Discard");
       assert.equal(
         await page.locator("#hand .want-frame > .place-edge").count(),
-        2,
-        "the quest beneath and the level card lie as stack edges",
+        1,
+        "the quest beneath lies as a stack edge",
       );
       await t.layout();
       await t.shot("stacked");
@@ -377,7 +400,7 @@ try {
       assert.equal(next.actors.vale.under, undefined);
       assert.equal(next.actors.vale.closed["quest:box:test"][1].includes("cloth"), true);
       await openHeld(page, t);
-      assert.equal(await page.locator("#hand .want-frame > .place-edge").count(), 1);
+      assert.equal(await page.locator("#hand .want-frame > .place-edge").count(), 0);
       assert.equal(await label(page), "Discard");
       assert.deepEqual(t.errors, []);
       await page.close();

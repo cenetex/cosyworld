@@ -50,7 +50,7 @@ export function carryLocalProgress(world, old) {
       );
       to.upgrades = [...new Set([...(to.upgrades || []), ...kept])]
         .sort()
-        .slice(0, 16);
+        .slice(0, 40);
     }
     if (
       !count(from.xp) ||

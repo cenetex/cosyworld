@@ -35,6 +35,15 @@
       "phone": "assets/optimized/stage/png/arcana/arcanum-12.webp",
       "phoneHash": "3fc4f04950cefb0177b0f921a247d65d907e3b4fc16831d39b1de29bcca2566c"
     },
+    "assets/arcana/arcanum-13.png": {
+      "sourceHash": "e680ce6ad9ec3a87d23105b7cedc2ec1a77903358af80d15b705215313a91ee9",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-13.webp",
+      "stageHash": "0d90f378e24e42e5c5daa02206c933f7d3d34ff57cc36768fba6092c5fed95ae",
+      "card": "assets/optimized/stage/png/arcana/arcanum-13.webp",
+      "cardHash": "0d90f378e24e42e5c5daa02206c933f7d3d34ff57cc36768fba6092c5fed95ae",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-13.webp",
+      "phoneHash": "0d90f378e24e42e5c5daa02206c933f7d3d34ff57cc36768fba6092c5fed95ae"
+    },
     "assets/arcana/arcanum-14.png": {
       "sourceHash": "7cd165cfbbcf3d676b9f88742de034a582aa5fdd5994797dbaf3f8b044412c54",
       "stage": "assets/optimized/stage/png/arcana/arcanum-14.webp",
@@ -142,6 +151,24 @@
       "cardHash": "16b87d5d1f3fed0e79ce37efabdb1722466d81b4ff557daf592a7710ea0c41eb",
       "phone": "assets/optimized/stage/png/arcana/arcanum-9.webp",
       "phoneHash": "16b87d5d1f3fed0e79ce37efabdb1722466d81b4ff557daf592a7710ea0c41eb"
+    },
+    "assets/arcana/tarot-back-locked.png": {
+      "sourceHash": "6844bb4d06eb569eccf8653783ac895759d8af86675f7ebe3958090a8fa4efe2",
+      "stage": "assets/optimized/stage/png/arcana/tarot-back-locked.webp",
+      "stageHash": "bbfb2cd61198a0d2e942eb59a88756245a0657f653483a5c579ac39db5d7725d",
+      "card": "assets/optimized/stage/png/arcana/tarot-back-locked.webp",
+      "cardHash": "bbfb2cd61198a0d2e942eb59a88756245a0657f653483a5c579ac39db5d7725d",
+      "phone": "assets/optimized/stage/png/arcana/tarot-back-locked.webp",
+      "phoneHash": "bbfb2cd61198a0d2e942eb59a88756245a0657f653483a5c579ac39db5d7725d"
+    },
+    "assets/arcana/tarot-back.png": {
+      "sourceHash": "28106f34c90a649722a501413b1c063a4e6f1379bd7617cad9203e8a7a2f82ac",
+      "stage": "assets/optimized/stage/png/arcana/tarot-back.webp",
+      "stageHash": "9ae906e09444abf91ed40d7db020b42f47a98eafd864ad3cd04fec1f92f1dddd",
+      "card": "assets/optimized/stage/png/arcana/tarot-back.webp",
+      "cardHash": "9ae906e09444abf91ed40d7db020b42f47a98eafd864ad3cd04fec1f92f1dddd",
+      "phone": "assets/optimized/stage/png/arcana/tarot-back.webp",
+      "phoneHash": "9ae906e09444abf91ed40d7db020b42f47a98eafd864ad3cd04fec1f92f1dddd"
     },
     "assets/attic.png": {
       "sourceHash": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e",
@@ -4300,6 +4327,33 @@
       "cardHash": "c19054288874cbc2ec546d609e8255f71164cf7cb0eebf6c550b16f105eeb849",
       "phone": "assets/optimized/stage/png/lamp-card.webp",
       "phoneHash": "2948748c10d7fd740f566debc6d57d83058d18b952f705db969192249603d47d"
+    },
+    "assets/listener/listener-offering.webp": {
+      "sourceHash": "3803f98b15184bb8e8c65ccde2042e968f25604a407f9d57703a4ed0cfd9a09a",
+      "stage": "assets/listener/listener-offering.webp",
+      "stageHash": "3803f98b15184bb8e8c65ccde2042e968f25604a407f9d57703a4ed0cfd9a09a",
+      "card": "assets/optimized/card/webp/listener/listener-offering.webp",
+      "cardHash": "a5ae8251ed561ccffad76913e11f31ad0b7915a6c437f6ee960bb812a331eb7f",
+      "phone": "assets/optimized/phone/webp/listener/listener-offering.webp",
+      "phoneHash": "2e3ff448b23868f2a9dac209aba76708b822ea6a90448e389909c95d1561feae"
+    },
+    "assets/listener/listener-sleeping.webp": {
+      "sourceHash": "025a1208082919c233f1afa11e7ed60814975679a1a6b9dac3e81a2539215e04",
+      "stage": "assets/listener/listener-sleeping.webp",
+      "stageHash": "025a1208082919c233f1afa11e7ed60814975679a1a6b9dac3e81a2539215e04",
+      "card": "assets/optimized/card/webp/listener/listener-sleeping.webp",
+      "cardHash": "f52478ab35e1d176abe80c9076c4544d3cc94976295deb7a03428cf9dfb6cde5",
+      "phone": "assets/optimized/phone/webp/listener/listener-sleeping.webp",
+      "phoneHash": "d9c40a1cc63cc6f8ecfdaa4b835b8b47b6835a816752a53931bd9f597b5025a7"
+    },
+    "assets/listener/listener.webp": {
+      "sourceHash": "5e570ca4a0ddc3c77689fb7455cf4ee24ce9b8595dffb8406490892beedd4ac8",
+      "stage": "assets/listener/listener.webp",
+      "stageHash": "5e570ca4a0ddc3c77689fb7455cf4ee24ce9b8595dffb8406490892beedd4ac8",
+      "card": "assets/optimized/card/webp/listener/listener.webp",
+      "cardHash": "765b583f3395bcdf6357a2982516a81dd45eff0b9f06796062dd7b80191ea11d",
+      "phone": "assets/optimized/phone/webp/listener/listener.webp",
+      "phoneHash": "f637ba089f654433474e855004714c77046c0c064f9357688d4d4c2abcb4c638"
     },
     "assets/lonely-forest/arcanum-0.png": {
       "sourceHash": "4d437b2f496f71b0448031eddc4f5e5a705d5f08f993438bab7e188290955853",

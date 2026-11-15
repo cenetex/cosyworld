@@ -26,6 +26,7 @@ import { revealed } from "../v2/card-game/want-talk.mjs";
 import {
   heldOf,
   holdQuest,
+  levelFor,
   installWants,
   newWant,
   travels,
@@ -103,7 +104,7 @@ describe("a want on a thing that can never come back", () => {
           e.wantMet.target === BUTTON,
       ),
     ).toBe(true);
-    expect(world.actors.rati.xp).toBe(xp + 1);
+    expect(levelFor(world.actors.rati.xp)).toBe(levelFor(xp) + 1);
     expect(world.actors.rati.trust.vale).toBeGreaterThanOrEqual(trust);
     expect(losses(world, "rati")).toEqual([]);
     validateWorld(reload(world));

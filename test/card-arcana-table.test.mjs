@@ -4,6 +4,7 @@ import {
   arcanumTerms,
   bindingOf,
   dealable,
+  dealSpread,
   deck,
   recordOf,
   settleArcana,
@@ -20,6 +21,14 @@ const conditions = (list) =>
     ...conditions(c.conditions || (c.condition ? [c.condition] : [])),
   ]);
 const all = (card) => conditions(card.proof);
+const shown = (s, id) => {
+  s.actors.vale.arcana = {
+    proved: [],
+    did: [],
+    spread: [{ card: id, face: "up" }],
+  };
+  return arcanumTerms(s, "vale", 0);
+};
 const counts = (card) => all(card).filter((c) => c.kind === "count");
 
 afterEach(() => {
@@ -36,10 +45,18 @@ describe("the table of cards", () => {
         expect(dealable(s, card, "vale"), `${card.id} seed ${seed}`).toBe(true);
         deck.cards = [card];
         const t = createWorld({ seed });
+        if ([0, 21].includes(card.number))
+          t.actors.vale.arcana = {
+            proved: [],
+            did: [],
+            spread: [{ card: card.id, face: "up" }],
+          };
+        else expect(dealSpread(t, "vale"), card.id).toBe(true);
+        for (const slot of t.actors.vale.arcana.spread) slot.accepted = true;
         settleArcana(t, "vale");
         settleArcana(t, "vale");
         expect(recordOf(t, "vale"), `${card.id} seed ${seed}`).toMatchObject({
-          dealt: card.id,
+          spread: [{ card: card.id }],
           proved: [],
         });
       }
@@ -95,13 +112,9 @@ describe("the table of cards", () => {
     for (const seed of [3, 7, 11]) {
       const s = createWorld({ seed });
       for (const card of data.cards) {
-        const words = conditionWords(
-          arcanumTerms(s, "vale", card.id),
-          () => false,
-          {
-            home: homeOf("vale"),
-          },
-        );
+        const words = conditionWords(shown(s, card.id), () => false, {
+          home: homeOf("vale"),
+        });
         expect(words, `${card.id} seed ${seed}`).toBeTypeOf("string");
         expect(words.length, `${card.id} seed ${seed}`).toBeGreaterThan(0);
       }
@@ -111,7 +124,7 @@ describe("the table of cards", () => {
   it("fails a card whose condition has no words", () => {
     const s = createWorld({ seed: 3 });
     deck.cards = [{ id: "arcanum-9", number: 9, proof: [{ kind: "riddle" }] }];
-    expect(arcanumTerms(s, "vale", "arcanum-9")).toEqual([{ kind: "riddle" }]);
-    expect(conditionWords(arcanumTerms(s, "vale", "arcanum-9"))).toBeNull();
+    expect(shown(s, "arcanum-9")).toEqual([{ kind: "riddle" }]);
+    expect(conditionWords(shown(s, "arcanum-9"))).toBeNull();
   });
 });
