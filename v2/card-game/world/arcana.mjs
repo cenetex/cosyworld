@@ -32,6 +32,7 @@ import {
 } from "./arcana-record.mjs";
 import { boxDefs } from "./boxes.mjs";
 import { companionOf } from "./company.mjs";
+import { found } from "./found.mjs";
 import { homeOf } from "./home.mjs";
 import { rootHolder } from "./items.mjs";
 import { conditionWords } from "./want-words.mjs";
@@ -475,37 +476,45 @@ function leave(record, slot) {
 function visit(s, traveler, say) {
   const record = recordFor(s, traveler);
   delete record.calls;
+  const tell = (text) =>
+    say?.(text, {
+      kind: "narration",
+      actorId: LISTENER,
+      cast: [LISTENER, traveler],
+      witnesses: [LISTENER, traveler],
+      consequence: true,
+    });
+  const deedOf = (slot) => {
+    const binding = slotBinding(s, slot, traveler);
+    return (
+      binding &&
+      conditionWords(
+        resolve(termsOf(slotCard(slot)), binding),
+        (id) => found(s, traveler, id),
+        { home: homeOf(traveler) },
+      )
+    );
+  };
   const fool = numbered(FOOL);
   if (
     arcanaLevel(s, traveler) === 0 &&
     !(record.spread || []).some((slot) => slot.card === fool) &&
     !(record.done || []).includes(fool)
-  )
+  ) {
     giveFool(s, traveler);
-  else
+    if ((record.spread || []).some((slot) => slot.card === fool))
+      tell(`${nameOf(LISTENER)} gives ${nameOf(traveler)} a face-down card.`);
+  } else
     for (const slot of [...(record.spread || [])]) {
       if (slot.face !== "down") continue;
+      const name = cardOf(slot.card).name,
+        deed = deedOf(slot);
       if (!slot.done) {
         slot.face = "up";
+        tell(`${nameOf(LISTENER)} turns over ${name}${deed ? `, still to do: ${deed}` : ""}.`);
         continue;
       }
-      const card = cardOf(slot.card);
-      const binding = slotBinding(s, slot, traveler);
-      const deed =
-        binding &&
-        conditionWords(resolve(termsOf(slotCard(slot)), binding), undefined, {
-          home: homeOf(traveler),
-        });
-      say?.(
-        `${nameOf(LISTENER)} turns over ${card.name}${deed ? `: ${deed}` : ""}.`,
-        {
-          kind: "narration",
-          actorId: LISTENER,
-          cast: [LISTENER, traveler],
-          witnesses: [LISTENER, traveler],
-          consequence: true,
-        },
-      );
+      tell(`${nameOf(LISTENER)} turns over ${name}${deed ? `: ${deed}` : ""}.`);
       unlock(s, traveler, slot.card);
       leave(record, slot);
     }
@@ -517,7 +526,10 @@ function visit(s, traveler, say) {
       !world ||
       need.includes(world) ||
       unlockedOf(s, traveler).includes(world);
-    if (rises) record.level = Math.min(LEVEL_CAP, arcanaLevel(s, traveler) + 1);
+    if (rises) {
+      record.level = Math.min(LEVEL_CAP, arcanaLevel(s, traveler) + 1);
+      tell(`${nameOf(traveler)} is now level ${record.level}.`);
+    }
     delete record.need;
     delete record.done;
     if (rises && slotsUsed(s.actors[traveler]) < MAX_HELD)

@@ -19560,6 +19560,14 @@
     return true;
   }
 
+  // v2/card-game/world/found.mjs
+  function found(world, speaker, id) {
+    const a = world.actors[speaker];
+    if (world.actors[id])
+      return !a?.talked || a.talked.includes(id) || world.opening?.met?.[id] !== void 0 || world.packs?.[packOf(id)?.id]?.met?.[id] !== void 0;
+    return Boolean(world.items[id]) || !a?.visited || a.visited.includes(id);
+  }
+
   // v2/card-game/world/home.mjs
   var homeOf2 = (id) => packPeople[id]?.levelAtHome && packPeople[id].home || tastes[id]?.home || humanAvatar(id)?.home?.id || null;
 
@@ -20609,12 +20617,6 @@
       goal?.item,
       goal?.destination
     ].filter((t) => t !== id && (world.items[t] || world.actors[t] || places[t]));
-  }
-  function found(world, speaker, id) {
-    const a = world.actors[speaker];
-    if (world.actors[id])
-      return !a?.talked || a.talked.includes(id) || world.opening?.met?.[id] !== void 0 || world.packs?.[packOf(id)?.id]?.met?.[id] !== void 0;
-    return world.items[id] || !a?.visited || a.visited.includes(id);
   }
   function unfoundBlur(world, id, scene = [], isCovered = () => false) {
     const hidden = questTargets(world, id).filter(

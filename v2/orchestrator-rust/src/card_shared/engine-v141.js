@@ -1067,9 +1067,9 @@
     return gate ? empty || conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
   });
   function shutLanes(s, place2) {
-    const found = shipAt(place2);
-    if (!found) return [];
-    const [id, t] = found, state = read(s, id);
+    const found2 = shipAt(place2);
+    if (!found2) return [];
+    const [id, t] = found2, state = read(s, id);
     if (!["docked", "arrived"].includes(state.phase)) return [];
     return (t.lanes || []).filter(
       (lane) => lane.sealed && lane.from === state.dock && entityShown(s, lane.to) && !conditionsMet(s, t.packId, lane.opensWith)
@@ -1191,36 +1191,36 @@
     return openLanes(s, t, state.dock, actor, residentVoyage(s, t, actor));
   }
   function isCourse(s, from, to, actor = null) {
-    const found = shipAt(from);
-    if (!found) return false;
-    const [id] = found;
+    const found2 = shipAt(from);
+    if (!found2) return false;
+    const [id] = found2;
     return to !== read(s, id).dock && openLanes(
       s,
-      found[1],
+      found2[1],
       read(s, id).dock,
       null,
-      residentVoyage(s, found[1], actor)
+      residentVoyage(s, found2[1], actor)
     ).includes(to);
   }
   function setCourse(s, from, to) {
-    const found = shipAt(from);
-    if (!found) return null;
-    const state = own(s, found[0]);
+    const found2 = shipAt(from);
+    if (!found2) return null;
+    const state = own(s, found2[0]);
     Object.assign(state, {
       phase: "course",
       destination: to,
       riders: [],
       since: s.turn
     });
-    return found[0];
+    return found2[0];
   }
   function courseToward(s, place2, target, actor = null) {
-    const found = shipAt(place2);
-    if (!found) return null;
-    const dock = read(s, found[0]).dock, free = residentVoyage(s, found[1], actor);
+    const found2 = shipAt(place2);
+    if (!found2) return null;
+    const dock = read(s, found2[0]).dock, free = residentVoyage(s, found2[1], actor);
     if (dock === target)
-      return free ? null : openLanes(s, found[1], dock, actor)[0] ?? null;
-    return lanePath(s, found[0], dock, target, actor, free)?.[1] ?? null;
+      return free ? null : openLanes(s, found2[1], dock, actor)[0] ?? null;
+    return lanePath(s, found2[0], dock, target, actor, free)?.[1] ?? null;
   }
   function waitForTransport(s, place2, actor) {
     if (controlledByHuman(s, actor)) callTransport(s, place2);
@@ -1239,11 +1239,11 @@
   }
   function transportArrival(s, actor) {
     if (controlledByHuman(s, actor)) return null;
-    const found = Object.entries(transports).find(
+    const found2 = Object.entries(transports).find(
       ([, t]) => t.place === s.actors[actor]?.place
     );
-    if (!found) return null;
-    return canDisembark(s, found[0], actor) ? read(s, found[0]).dock : null;
+    if (!found2) return null;
+    return canDisembark(s, found2[0], actor) ? read(s, found2[0]).dock : null;
   }
   var pruneRiders = (s, id) => {
     const aboard = new Set(passengerIds(s, id));
@@ -1353,9 +1353,9 @@
     return events;
   }
   function transportExits(s, place2, previous = null, actor = null) {
-    const found = shipAt(place2);
-    if (!found) return [];
-    const [id, t] = found, state = read(s, id);
+    const found2 = shipAt(place2);
+    if (!found2) return [];
+    const [id, t] = found2, state = read(s, id);
     const aboard = actor && s.actors[actor]?.place === t.place;
     if (previous !== null && previous !== void 0 || !aboard) {
       if (t.docks.includes(previous)) return laneReach(s, id, previous, actor);
@@ -5934,18 +5934,18 @@
         adjacency.get(a).add(b);
       }
     }
-    let found = hopTables.get(from);
-    if (found) return found;
-    found = /* @__PURE__ */ new Map([[from, 0]]);
+    let found2 = hopTables.get(from);
+    if (found2) return found2;
+    found2 = /* @__PURE__ */ new Map([[from, 0]]);
     const queue = [from];
     for (let i = 0; i < queue.length; i++)
       for (const next of adjacency.get(queue[i]) || [])
-        if (!found.has(next)) {
-          found.set(next, found.get(queue[i]) + 1);
+        if (!found2.has(next)) {
+          found2.set(next, found2.get(queue[i]) + 1);
           queue.push(next);
         }
-    hopTables.set(from, found);
-    return found;
+    hopTables.set(from, found2);
+    return found2;
   }
   var hops = (from, to) => hopsFrom(from).get(to) ?? Infinity;
   function rangeTest(s, id) {
@@ -6812,13 +6812,13 @@
     );
   }
   var shutBoxesAt = (s, place2, actor = currentActor(s)) => boxesAt(s, place2, actor).filter((box) => !box.open);
-  var placesOf = (conditions, kind, found = []) => {
+  var placesOf = (conditions, kind, found2 = []) => {
     for (const c of conditions || []) {
-      if (c.kind === kind) found.push(c.place);
-      placesOf(c.conditions, kind, found);
-      if (c.condition) placesOf([c.condition], kind, found);
+      if (c.kind === kind) found2.push(c.place);
+      placesOf(c.conditions, kind, found2);
+      if (c.condition) placesOf([c.condition], kind, found2);
     }
-    return found;
+    return found2;
   };
   var lockConditions = (def) => [
     ...def.route?.requires || [],
@@ -6997,9 +6997,9 @@
       }
       if (c.kind === "any")
         for (const option of c.conditions) {
-          const found = cargo(s, t, [option]);
-          if (found.length) {
-            out.push(...found);
+          const found2 = cargo(s, t, [option]);
+          if (found2.length) {
+            out.push(...found2);
             break;
           }
         }
@@ -7516,6 +7516,14 @@
     return s;
   }
 
+  // v2/card-game/world/found.mjs
+  function found(world, speaker, id) {
+    const a = world.actors[speaker];
+    if (world.actors[id])
+      return !a?.talked || a.talked.includes(id) || world.opening?.met?.[id] !== void 0 || world.packs?.[packOf(id)?.id]?.met?.[id] !== void 0;
+    return Boolean(world.items[id]) || !a?.visited || a.visited.includes(id);
+  }
+
   // v2/card-game/world/home.mjs
   var homeOf2 = (id) => packPeople[id]?.levelAtHome && packPeople[id].home || tastes[id]?.home || humanAvatar(id)?.home?.id || null;
   var restsAt = (actor, place2) => sanctuaries.includes(place2) || Boolean(place2) && humanAvatarIds.includes(actor) && homeOf2(actor) === place2;
@@ -7819,31 +7827,36 @@
   function visit(s, traveler, say) {
     const record5 = recordFor(s, traveler);
     delete record5.calls;
+    const tell = (text2) => say?.(text2, {
+      kind: "narration",
+      actorId: LISTENER,
+      cast: [LISTENER, traveler],
+      witnesses: [LISTENER, traveler],
+      consequence: true
+    });
+    const deedOf = (slot) => {
+      const binding = slotBinding(s, slot, traveler);
+      return binding && conditionWords(
+        resolve(termsOf(slotCard(slot)), binding),
+        (id) => found(s, traveler, id),
+        { home: homeOf2(traveler) }
+      );
+    };
     const fool = numbered(FOOL);
-    if (arcanaLevel(s, traveler) === 0 && !(record5.spread || []).some((slot) => slot.card === fool) && !(record5.done || []).includes(fool))
+    if (arcanaLevel(s, traveler) === 0 && !(record5.spread || []).some((slot) => slot.card === fool) && !(record5.done || []).includes(fool)) {
       giveFool(s, traveler);
-    else
+      if ((record5.spread || []).some((slot) => slot.card === fool))
+        tell(`${nameOf(LISTENER)} gives ${nameOf(traveler)} a face-down card.`);
+    } else
       for (const slot of [...record5.spread || []]) {
         if (slot.face !== "down") continue;
+        const name = cardOf(slot.card).name, deed = deedOf(slot);
         if (!slot.done) {
           slot.face = "up";
+          tell(`${nameOf(LISTENER)} turns over ${name}${deed ? `, still to do: ${deed}` : ""}.`);
           continue;
         }
-        const card = cardOf(slot.card);
-        const binding = slotBinding(s, slot, traveler);
-        const deed = binding && conditionWords(resolve(termsOf(slotCard(slot)), binding), void 0, {
-          home: homeOf2(traveler)
-        });
-        say?.(
-          `${nameOf(LISTENER)} turns over ${card.name}${deed ? `: ${deed}` : ""}.`,
-          {
-            kind: "narration",
-            actorId: LISTENER,
-            cast: [LISTENER, traveler],
-            witnesses: [LISTENER, traveler],
-            consequence: true
-          }
-        );
+        tell(`${nameOf(LISTENER)} turns over ${name}${deed ? `: ${deed}` : ""}.`);
         unlock(s, traveler, slot.card);
         leave(record5, slot);
       }
@@ -7851,7 +7864,10 @@
     if (need.length && need.every((id) => (record5.done || []).includes(id))) {
       const world = numbered(WORLD);
       const rises = arcanaLevel(s, traveler) + 1 < LEVEL_CAP || !world || need.includes(world) || unlockedOf(s, traveler).includes(world);
-      if (rises) record5.level = Math.min(LEVEL_CAP, arcanaLevel(s, traveler) + 1);
+      if (rises) {
+        record5.level = Math.min(LEVEL_CAP, arcanaLevel(s, traveler) + 1);
+        tell(`${nameOf(traveler)} is now level ${record5.level}.`);
+      }
       delete record5.need;
       delete record5.done;
       if (rises && slotsUsed(s.actors[traveler]) < MAX_HELD)
@@ -8159,7 +8175,7 @@
   if (lifeProblems.length)
     throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
   var atticInterior = (() => {
-    const found = /* @__PURE__ */ new Set(["attic"]), queue = ["attic"];
+    const found2 = /* @__PURE__ */ new Set(["attic"]), queue = ["attic"];
     const routes = packDefinitions.flatMap((pack) => pack.routes || []);
     for (let i = 0; i < queue.length && i < Object.keys(places).length; i++) {
       const from = queue[i];
@@ -8168,12 +8184,12 @@
         ...crossings.filter((c) => c.from === from && !c.transport).map((c) => c.to),
         ...routes.filter((r) => r.from === from).map((r) => r.to)
       ]) {
-        if (to === "pond" || found.has(to)) continue;
-        found.add(to);
+        if (to === "pond" || found2.has(to)) continue;
+        found2.add(to);
         queue.push(to);
       }
     }
-    return found;
+    return found2;
   })();
   var ids = Object.keys(things);
   var actorIds = [...Object.keys(forest_default.people), ...packActorIds];

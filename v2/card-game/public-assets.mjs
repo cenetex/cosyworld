@@ -327,6 +327,7 @@ const files = [
   "world/home.mjs",
   "world/offers.mjs",
   "world/for-good.mjs",
+  "world/found.mjs",
   "world/items.mjs",
   "world/lanes.mjs",
   "world/senses.mjs",
