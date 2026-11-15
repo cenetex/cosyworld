@@ -597,6 +597,20 @@ mod tests {
         assert!(cast("no-such-pack").is_none());
     }
 
+    #[test]
+    fn every_face_avatar_is_a_public_asset() {
+        let faces: Value =
+            serde_json::from_str(include_str!("../../../card-game/assets/discord-faces.json"))
+                .unwrap();
+        for portrait in faces.as_object().unwrap().keys() {
+            let avatar = face_avatar(portrait).unwrap();
+            let path = avatar.strip_prefix("/card-game/").unwrap();
+            let (content_type, _) = cosyworld_orchestrator::card_assets::get(path)
+                .unwrap_or_else(|| panic!("{avatar} is not a public card asset"));
+            assert_eq!(content_type, "image/webp");
+        }
+    }
+
     fn request(messages: Value) -> LinesRequest {
         serde_json::from_value(json!({"pack": "lonely-forest", "messages": messages})).unwrap()
     }
