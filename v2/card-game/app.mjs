@@ -1791,6 +1791,10 @@ function chosenFirst(cards) {
 // after it: the same cards chosen again offer Sleep.
 let lastWait = null;
 function rememberWait(action, key) {
+  if (action.offer !== undefined) {
+    if (lastWait?.revision === action.revision) lastWait.revision = world.revision;
+    return;
+  }
   lastWait =
     action.kind === "wait" && !action.sleep
       ? { key, revision: world.revision }
@@ -2166,6 +2170,7 @@ function performAction(action, revision) {
   // Taking a quest passes no turn and leaves the scene and its speech be.
   if (action.kind === "pack" || action.offer !== undefined) {
     world = result.state;
+    if (action.offer !== undefined) rememberWait(action, selected.join("+"));
     save();
     render();
     return;
@@ -2756,7 +2761,7 @@ function renderActions() {
   const previewSource = selected.length === 1 ? selected[0]
     : closedSources.length === 1 ? closedSources[0] : null;
   const previews = !rested && previewSource
-    ? questPreviews(world).filter((p) => ownCard ? reviewQuests : p.source === previewSource)
+    ? questPreviews(world).filter((p) => p.source === previewSource && (!ownCard || reviewQuests))
     : [];
   const preview = previews.find((p) => p.id === questReviewId) ?? previews[0];
   const previewCard = preview && questPreviewCard(world, preview);
@@ -6162,6 +6167,7 @@ async function submitSharedPlay(action) {
   const selection = JSON.stringify(selected);
   const heldBefore = heldSelection();
   if (
+    current.offer === undefined &&
     !sharedNextLine(
       sharedSession.state,
       world.actors[currentActor(world)].place,
@@ -6192,7 +6198,7 @@ async function submitSharedPlay(action) {
       return;
     }
     lastPlayAt = performance.now();
-    if (!playQueue.pending && JSON.stringify(selected) === selection) {
+    if (current.offer === undefined && !playQueue.pending && JSON.stringify(selected) === selection) {
       keepHeldSelection(heldBefore, current);
       reviewing = false;
       reviewBeat = null;

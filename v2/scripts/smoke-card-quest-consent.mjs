@@ -115,6 +115,7 @@ try {
     }
     assert([...captions].some((text) => /Level II/u.test(text)), "level tracking stays available for review");
     assert([...captions].some((text) => /Rest at Mirror attic/u.test(text)), "old Sleep stays available for review");
+    assert.equal(captions.size, 4, "Review contains only old goals and the avatar's own level preview");
     const first = await page.locator(".action-beat-text").textContent();
     await page.locator("[data-next-quest]").click();
     assert.notEqual(await page.locator(".action-beat-text").textContent(), first);

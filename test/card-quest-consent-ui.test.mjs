@@ -44,7 +44,8 @@ it("commits local Accept quietly and rejects a stale second click", () => {
   const world = pending(), before = structuredClone(world);
   const action = questPreviews(world).find((q) => q.kind === "pending").action;
   const context = {
-    world, play, selectionBlocked: () => false, lastPlayAt: -Infinity, SETTLE_MS: 400,
+    world, play, selected: ["vale"], lastWait: { key: "vale", revision: world.revision },
+    selectionBlocked: () => false, lastPlayAt: -Infinity, SETTLE_MS: 400,
     performance: { now: () => 1000 }, sharedSession: null, saveBlocked: false,
     saveCodec: {}, attemptPlay: (fn) => fn(), save: vi.fn(), render: vi.fn(),
     playQueue: { clear: vi.fn(), submit: vi.fn() },
@@ -54,9 +55,10 @@ it("commits local Accept quietly and rejects a stale second click", () => {
     shownSceneLine: { text: "Keep this line." },
   };
   vm.createContext(context);
-  vm.runInContext([body("commitAction"), body("performAction")].join("\n"), context);
+  vm.runInContext([body("rememberWait"), body("commitAction"), body("performAction")].join("\n"), context);
   context.commitAction(action, before.revision);
   expect(context.world.turn).toBe(before.turn);
+  expect(context.lastWait).toMatchObject({ key: "vale", revision: context.world.revision });
   expect(context.world.items).toEqual(before.items);
   expect(context.shownSceneLine.text).toBe("Keep this line.");
   expect(context.save).toHaveBeenCalledOnce();
@@ -103,15 +105,20 @@ it("forwards the exact shared Accept and refuses to refresh its stale revision",
   const context = { world: { revision: 9, actors: { vale: { place: "attic" } } },
     sharedSending: false, sharedSession: { state: { queue: [] }, play: forwarded },
     currentActor: () => "vale", legalActions: () => [{ ...action }], selected: [],
-    notice: vi.fn(), render: vi.fn(), heldSelection: noop, sharedNextLine: () => true,
+    notice: vi.fn(), render: vi.fn(), heldSelection: noop, sharedNextLine: () => false,
     sharedLineSeq: null, crypto: { randomUUID: () => "test-play" }, playLabel: () => "Accept",
+    reviewing: true, reviewBeat: { seq: 5 }, sharedAdvanceRequested: false,
     showSharedPlay: noop, hiddenFor: noop, encountered: new Set(), cardIsCovered: () => false,
-    performance: { now: () => 1000 }, playQueue: {}, keepHeldSelection: noop,
+    performance: { now: () => 1000 }, playQueue: {}, keepHeldSelection: vi.fn(),
     trackSharedPlay: noop, restoreHandFocus: noop };
   vm.createContext(context);
   vm.runInContext(app.slice(at, app.indexOf("\n}", at) + 2), context);
   await context.submitSharedPlay(action);
   expect(forwarded.mock.calls[0][0]).toBe(action);
+  expect(context.keepHeldSelection).not.toHaveBeenCalled();
+  expect(context.reviewing).toBe(true);
+  expect(context.reviewBeat).toEqual({ seq: 5 });
+  expect(context.sharedAdvanceRequested).toBe(false);
   context.world.revision++;
   await context.submitSharedPlay(action);
   expect(forwarded).toHaveBeenCalledOnce();
