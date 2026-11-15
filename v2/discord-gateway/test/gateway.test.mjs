@@ -67,10 +67,17 @@ function recorder(response) {
 test("the orchestrator calls send only the Bearer token", async () => {
   const cast = recorder({
     status: 200,
-    json: async () => ({ pack: "lonely-forest", residents: [{ id: "rati", name: "RATi", portrait: "/p.png" }] }),
+    json: async () => ({
+      pack: "lonely-forest",
+      residents: [
+        { id: "rati", name: "RATi", portrait: "/p.png", avatar: "/f.webp" },
+        { id: "oak", name: "Oak", portrait: "/o.png" },
+      ],
+    }),
   });
   assert.deepEqual(await fetchCast(cast.fetch, "https://x", "t", "lonely-forest"), [
-    { id: "rati", name: "RATi", portrait: "/p.png" },
+    { id: "rati", name: "RATi", portrait: "/p.png", avatar: "/f.webp" },
+    { id: "oak", name: "Oak", portrait: "/o.png", avatar: null },
   ]);
   assert.equal(cast.calls[0].url, "https://x/discord/cast?pack=lonely-forest");
   assert.deepEqual(cast.calls[0].options.headers, { authorization: "Bearer t" });
