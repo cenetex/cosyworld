@@ -4876,11 +4876,10 @@ pub(crate) mod tests {
             let models = models.map(String::from);
             ids.into_iter().zip(models).collect::<BTreeMap<_, _>>()
         };
-        let (gemma, luna) = ("google/gemma-4-26b-a4b-it", "openai/gpt-6-luna");
+        let gemma = "google/gemma-4-26b-a4b-it";
         let haiku = "anthropic/claude-haiku-5.5";
-        let mistral = "mistralai/mistral-small-3.2-24b-instruct";
         assert_eq!(maps[0], cast([gemma, gemma, haiku, gemma, gemma]));
-        assert_eq!(maps[1], cast([luna, luna, haiku, mistral, luna]));
+        assert_eq!(maps[1], cast([gemma, gemma, haiku, gemma, gemma]));
     }
 
     #[test]

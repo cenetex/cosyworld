@@ -231,8 +231,12 @@ mod tests {
         assert_eq!(models("keeper"), keeper);
         let production = include_str!("../../../../fly.lonelyforest.toml");
         let text = field(production, "COSYWORLD_CARD_TEXT_MODEL");
-        assert_eq!(text.as_deref(), Some("openai/gpt-6-luna"));
-        assert_eq!(field(production, LIST), None);
+        assert_eq!(text.as_deref(), Some(default.as_str()));
+        assert_eq!(field(production, LIST), field(dev, LIST));
+        assert_eq!(
+            field(production, "COSYWORLD_CARD_CHARACTER_MODELS_JSON"),
+            field(dev, "COSYWORLD_CARD_CHARACTER_MODELS_JSON")
+        );
     }
 
     #[tokio::test]
@@ -308,7 +312,6 @@ mod tests {
             fallback_models: chain.map(String::from).to_vec(),
             ..VoiceSettings::hosted()
         };
-        // Vale talks to Pip, who answers the line Vale says this turn.
         let mut c = context();
         (c.scenery, c.focus) = (false, None);
         let mut outcome = solo_departure();
