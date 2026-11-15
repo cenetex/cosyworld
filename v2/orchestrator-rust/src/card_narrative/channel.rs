@@ -143,11 +143,7 @@ fn pack(pack_id: &str) -> Option<&'static Value> {
 const CORE: [(&str, &str); 3] = [("vale", "Vale"), ("moth", "Pip"), ("keeper", "Keeper")];
 
 fn core() -> Vec<Resident> {
-    static FOREST: OnceLock<Value> = OnceLock::new();
-    let forest = FOREST.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/forest.json"))
-            .expect("embedded forest")
-    });
+    let forest = forest_data();
     CORE.iter()
         .filter_map(|(id, name)| {
             let portrait = format!("assets/{id}.png");
@@ -160,6 +156,155 @@ fn core() -> Vec<Resident> {
             })
         })
         .collect()
+}
+
+fn forest_data() -> &'static Value {
+    static FOREST: OnceLock<Value> = OnceLock::new();
+    FOREST.get_or_init(|| {
+        serde_json::from_str(include_str!("../../../card-game/forest.json"))
+            .expect("embedded forest")
+    })
+}
+
+struct Atlas {
+    places: Map<String, Value>,
+    items: Vec<(String, String)>,
+}
+
+fn atlas(pack_id: &str) -> Atlas {
+    let forest = forest_data();
+    let world = pack(pack_id);
+    let mut places = Map::new();
+    for list in [Some(&forest["places"]), world.map(|p| &p["places"])]
+        .into_iter()
+        .flatten()
+    {
+        for (id, place) in list.as_object().into_iter().flatten() {
+            let paths = place["exits"].as_array().cloned().unwrap_or_default();
+            places.insert(
+                id.clone(),
+                json!({"name": place["name"], "text": place["text"], "paths": paths}),
+            );
+        }
+    }
+    let routes = world
+        .and_then(|p| p["routes"].as_array())
+        .into_iter()
+        .flatten();
+    for (from, to) in routes.filter_map(|r| Some((r["from"].as_str()?, r["to"].as_str()?))) {
+        if let Some(paths) = places.get_mut(from).and_then(|p| p["paths"].as_array_mut()) {
+            if !paths.contains(&json!(to)) {
+                paths.push(json!(to));
+            }
+        }
+    }
+    let mut items: Vec<(String, String)> = world
+        .and_then(|p| p["items"].as_object())
+        .into_iter()
+        .flatten()
+        .filter_map(|(_, item)| {
+            Some((
+                item["name"].as_str()?.to_string(),
+                item["holder"].as_str()?.to_string(),
+            ))
+        })
+        .collect();
+    for (id, thing) in forest["things"].as_object().into_iter().flatten() {
+        let holder = forest["initialState"]["items"][id]["holder"].as_str();
+        if let (Some(name), Some(holder)) = (thing["name"].as_str(), holder) {
+            items.push((name.to_string(), holder.to_string()));
+        }
+    }
+    Atlas { places, items }
+}
+
+impl Atlas {
+    fn name(&self, id: &str) -> String {
+        let place = self.places.get(id).and_then(|p| p["name"].as_str());
+        place.unwrap_or(id).to_string()
+    }
+
+    fn paths(&self, id: &str) -> Vec<String> {
+        let paths = self.places.get(id).and_then(|p| p["paths"].as_array());
+        paths
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(|to| self.name(to))
+            .collect()
+    }
+
+    fn held(&self, id: &str) -> Vec<String> {
+        self.items
+            .iter()
+            .filter(|(_, holder)| holder == id)
+            .map(|(name, _)| name.clone())
+            .collect()
+    }
+}
+
+fn listed(label: &str, names: &[String]) -> Option<String> {
+    let mut line = String::new();
+    for name in names {
+        let next = if line.is_empty() {
+            name.clone()
+        } else {
+            format!("{line}, {name}")
+        };
+        if label.len() + next.len() + 3 > 240 {
+            break;
+        }
+        line = next;
+    }
+    (!line.is_empty()).then(|| format!("{label}: {line}."))
+}
+
+fn knowledge(resident: &Resident, pack_id: &str) -> (Vec<String>, Vec<String>) {
+    let world = atlas(pack_id);
+    let card = pack(pack_id)
+        .and_then(|p| p["avatars"].get(&resident.id))
+        .or_else(|| forest_data()["people"].get(&resident.id))
+        .cloned()
+        .unwrap_or_default();
+    let home = &resident.place;
+    let mut own: Vec<String> = card["text"]
+        .as_str()
+        .map(str::to_string)
+        .into_iter()
+        .collect();
+    own.push(format!("Home: {}.", world.name(home)));
+    for (key, label) in [("likes", "Likes"), ("sore", "Sore")] {
+        if let Some(taste) = card["tastes"][key].as_str() {
+            own.push(format!("{label}: {}.", taste.trim_end_matches('.')));
+        }
+    }
+    own.extend(listed("Paths from home", &world.paths(home)));
+    let mut place: Vec<String> = world
+        .places
+        .get(home)
+        .and_then(|p| p["text"].as_str())
+        .map(str::to_string)
+        .into_iter()
+        .collect();
+    place.extend(listed("Items here", &world.held(home)));
+    let keep = |facts: Vec<String>| -> Vec<String> {
+        facts.into_iter().filter(|f| bounded(f, 240)).collect()
+    };
+    (keep(own), keep(place))
+}
+
+fn world(pack_id: &str, cast: &[Resident]) -> Value {
+    let world = atlas(pack_id);
+    let places: Vec<Value> = world
+        .places
+        .iter()
+        .map(|(id, place)| json!({"name": place["name"], "text": place["text"], "paths": world.paths(id), "items": world.held(id)}))
+        .collect();
+    let homes: Map<String, Value> = cast
+        .iter()
+        .map(|r| (r.name.clone(), json!(world.name(&r.place))))
+        .collect();
+    json!({"places": places, "homes": homes})
 }
 
 fn cast(pack_id: &str) -> Option<Vec<Resident>> {
@@ -317,7 +462,7 @@ fn heard(request: &LinesRequest, cast: &[Resident]) -> Value {
             json!({"speaker": speaker(m, cast), "role": role, "text": &m.text})
         })
         .collect();
-    json!({"residents": residents, "history": history})
+    json!({"world": world(&request.pack, cast), "residents": residents, "history": history})
 }
 
 async fn pick(config: &AiConfig, cast: &[Resident], request: &LinesRequest) -> Option<String> {
@@ -424,7 +569,9 @@ fn present(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Ve
 fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Option<Context> {
     let messages = &request.messages;
     let start = messages.len().saturating_sub(SCENE_MESSAGES);
-    let (facts, memories) = awareness(resident, &request.channel);
+    let (mut facts, memories) = awareness(resident, &request.channel);
+    let (own, place) = knowledge(resident, &request.pack);
+    facts.extend(own);
     let conversation: Vec<Value> = messages[start..]
         .iter()
         .map(|m| {
@@ -444,7 +591,7 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
         "speakers": [&resident.id],
         "entities": [
             {"id": &resident.id, "facts": facts, "desire": null, "memories": memories, "previous": null},
-            {"id": &resident.place, "facts": [], "desire": null, "memories": [], "previous": null}
+            {"id": &resident.place, "facts": place, "desire": null, "memories": [], "previous": null}
         ],
         "conversation": conversation
     }))
@@ -692,6 +839,7 @@ fn arranged(request: &CoordinateRequest, cast: &[Resident]) -> Option<Value> {
     }
     state.insert("residents".into(), Value::Object(residents));
     state.insert("history".into(), Value::Array(history));
+    state.insert("world".into(), world(&request.pack, cast));
     Some(Value::Object(state))
 }
 
@@ -1125,6 +1273,7 @@ mod tests {
         assert!(asked["questions"]["speak"]["criteria"]
             .get("none")
             .is_some());
+        assert_eq!(asked["state"]["world"]["homes"]["RATi"], "Cosy Cottage");
         assert_eq!(
             asked["state"]["residents"]["rati"]["seed"],
             "RATi, host of the cottage."
@@ -1193,6 +1342,9 @@ mod tests {
         assert!(view.contains("I have spoken 2 times in a row here."));
         assert!(view.contains("I last spoke here 2 minutes ago."));
         assert!(view.contains("It was quiet here for 5 minutes before this."));
+        assert!(view.contains("Home: Cosy Cottage."), "{view}");
+        assert!(view.contains("Likes: A traveler's own button sewn into a warm scarf."));
+        assert!(view.contains("Sore: Muddy boots on the wool."));
         assert_eq!(view.matches("Reply with").count(), 0);
     }
 
@@ -1404,6 +1556,35 @@ mod tests {
             assert_eq!(status, StatusCode::BAD_REQUEST);
             assert!(requests.is_empty());
         }
+    }
+
+    #[test]
+    fn residents_know_their_home_paths_and_the_items_there() {
+        let residents = cast("lonely-forest").unwrap();
+        let rati = residents.iter().find(|r| r.id == "rati").unwrap();
+        let (own, place) = knowledge(rati, "lonely-forest");
+        assert!(
+            own.contains(&"Paths from home: Rain-Soft Garden.".to_string()),
+            "{own:?}"
+        );
+        assert!(place[1].starts_with("Items here: "), "{place:?}");
+        assert!(place[1].contains("Vale's Black Button"));
+        assert!(own.iter().chain(&place).all(|f| bounded(f, 240)));
+        let vale = residents.iter().find(|r| r.id == "vale").unwrap();
+        assert!(knowledge(vale, "lonely-forest")
+            .0
+            .contains(&"Home: Mirror attic.".to_string()));
+        let garden = &world("lonely-forest", &residents)["places"];
+        let garden = garden
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "Rain-Soft Garden")
+            .unwrap();
+        assert_eq!(
+            garden["paths"],
+            json!(["Cosy Cottage", "Old Oak Tree", "Moonlit Trail"])
+        );
     }
 
     #[test]
