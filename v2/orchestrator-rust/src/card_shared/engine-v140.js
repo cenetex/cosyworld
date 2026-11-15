@@ -6466,6 +6466,7 @@
         return true;
     }
   }
+  var boxIdOpen = (s, id, actor) => boxDefs().some((def) => def.id === id && boxOpen(s, def, actor));
   function boxOpen(s, box, actor = currentActor(s)) {
     const def = defOf(box);
     if (!def) return true;
@@ -8116,6 +8117,7 @@
     settleHeldItems(s);
     settleLamp(s);
     creditOpened(before, s, actor);
+    dropOpenedBoxQuests(s);
     settleCrossingUnlocks(s, sensesFor(s));
     wakeSleepers(s, before, []);
     latchRoutes(s);
@@ -8763,7 +8765,14 @@
       if (!travelerOf(s, id) && s.actors[id]?.place === lifeHome(id, s))
         narrowTickets(s, id);
   }
+  function dropOpenedBoxQuests(s) {
+    for (const [actor, a] of Object.entries(s.actors))
+      for (const held of heldOf(a))
+        if (held.from?.startsWith("quest:box:") && boxIdOpen(s, held.from.slice(10), actor))
+          releaseQuest(a, held);
+  }
   function settleQuests(s, acting) {
+    dropOpenedBoxQuests(s);
     for (const actor of Object.keys(s.actors).sort()) {
       if (!(actor === currentActor(s) || controlledByHuman(s, actor)) || !entityActive(s, actor))
         continue;
