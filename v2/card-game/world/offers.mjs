@@ -12,6 +12,7 @@ import {
   closedBy,
   heldOf,
   lostOf,
+  slotsUsed,
   newWant,
   sameQuest,
 } from "../want.mjs";
@@ -61,7 +62,7 @@ const isPlayer = (s, actor) =>
  */
 export function questOffers(s, actor = currentActor(s)) {
   const a = s.actors[actor];
-  if (!a || !isPlayer(s, actor) || heldOf(a).length >= MAX_HELD) return [];
+  if (!a || !isPlayer(s, actor) || slotsUsed(a) >= MAX_HELD) return [];
   const here = a.place,
     out = [];
   const add = (kind, source, want) => {

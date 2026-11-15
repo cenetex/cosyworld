@@ -1,5 +1,6 @@
 {
   "schema": 1,
+  "calls": 3,
   "cards": [
     {
       "id": "arcanum-0",
@@ -395,6 +396,31 @@
           "kind": "quest",
           "step": {
             "verb": "let go of"
+          }
+        }
+      ]
+    },
+    {
+      "id": "arcanum-13",
+      "number": 13,
+      "name": "The Nameless Card",
+      "text": "A woodcut card. A hooded skeleton cuts a red scarf with a scythe while a steamer waits on dark water.",
+      "art": "assets/arcana/arcanum-13.png",
+      "proof": [
+        {
+          "kind": "did",
+          "key": "given-up",
+          "match": {
+            "actorId": "$traveler"
+          },
+          "with": ["gone"]
+        }
+      ],
+      "desire": [
+        {
+          "kind": "item",
+          "step": {
+            "verb": "give up"
           }
         }
       ]

@@ -449,6 +449,7 @@ import {
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
 import { questOffers } from "./world/offers.mjs";
+import { goneSince } from "./world/for-good.mjs";
 export { questOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
@@ -1625,7 +1626,7 @@ export function legalActions(s, actor = currentActor(s)) {
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
   if (actor === currentActor(s) || controlledByHuman(s, actor))
-    questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
+    questsOf(s, actor).forEach((w, quest) => {
       const goal =
         w.kind === "person" && !w.step
           ? `meet ${nameOf(w.target)}`
@@ -1867,9 +1868,6 @@ function settleCompanions(s) {
     if (!travelerOf(s, id) && s.actors[id]?.place === lifeHome(id, s))
       narrowTickets(s, id);
 }
-// A traveler wakes from a long rest: the companion is dismissed unless a
-// quest taken on from them pins the bond.
-// through a long rest while the quest is held (rules 133).
 function dropOpenedBoxQuests(s) {
   for (const [actor, a] of Object.entries(s.actors))
     for (const held of heldOf(a))
@@ -2334,6 +2332,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     ),
     ...ids.filter((id) => entityActive(s, id) && itemPlace(s, id) === here),
   ];
+  const usedBefore = new Set(s.usedUp);
   const conflict = standoffFor(s, a.actor);
   if (conflict) {
     conflict.guarding[a.actor] = false;
@@ -2342,7 +2341,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
     if (a.actor === conflict.defender) conflict.answered = true;
   }
   if (a.kind === "drop" && !a.item) {
-    dropQuest(s, a.actor);
+    dropQuest(s, a.actor, a.quest ?? 0);
     addLog(s, "World", a.text, {
       kind: "action",
       actorId: a.actor,
@@ -2661,6 +2660,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
       : {}),
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
     ...(handover ? { handover } : {}),
+    ...(goneSince(s, usedBefore).length
+      ? { gone: goneSince(s, usedBefore) }
+      : {}),
   });
   const sourceSeq = s.log.at(-1).seq;
   if (a.kind === "threaten")

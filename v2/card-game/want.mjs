@@ -21,7 +21,11 @@ import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
-import { arcanaLevel } from "./world/arcana-record.mjs";
+import {
+  arcanaLevel,
+  countResidentQuest,
+  tarotsHeld,
+} from "./world/arcana-record.mjs";
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A want may name a verb beyond the kind's own (hold, be at, talk). State
@@ -111,8 +115,9 @@ export const sameQuest = (left, right) =>
   questTerms(left) === questTerms(right);
 export const wantKey = (id, want) =>
   `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
-export const MAX_HELD = 9;
+export const MAX_HELD = 3;
 export const heldOf = (a) => (a?.want ? [a.want, ...(a.under || [])] : []);
+export const slotsUsed = (a) => heldOf(a).length + tarotsHeld(a);
 export const questsOf = (s, id) => heldOf(s.actors[id]);
 export const questRewardsOf = () => [];
 export const closedKey = questTerms;
@@ -128,7 +133,7 @@ export function setWant(a, want) {
 }
 export function holdQuest(s, actor, want, from) {
   const a = s.actors[actor];
-  if (!a || heldOf(a).length >= MAX_HELD) return null;
+  if (!a || slotsUsed(a) >= MAX_HELD) return null;
   if (a.want) a.under = [a.want, ...(a.under || [])];
   a.want = { ...want, ...(from ? { from } : {}) };
   delete a.content;
@@ -159,9 +164,9 @@ export const closedAny = (a, want) =>
   Object.values(a.closed || {}).some(([, terms]) => terms === closedKey(want));
 // A player sets the held quest down. Its target stays out
 // of mind a while and nothing is drawn in its place.
-export function dropQuest(s, actor) {
+export function dropQuest(s, actor, index = 0) {
   const a = s.actors[actor],
-    want = a?.want;
+    want = heldOf(a)[index];
   if (!want) return;
   a.gaveUp = { target: want.target, turn: s.turn };
   closeQuest(a, want, s.turn);
@@ -304,6 +309,7 @@ export function installWants(s) {
       if (kept.length > 1) a.under = kept.slice(1);
       else delete a.under;
     }
+    while (a.under && slotsUsed(a) > MAX_HELD) releaseQuest(a, a.under.at(-1));
     // Old saves without an explicit level retain their already earned level.
     if (packPeople[id]?.levelAtHome) a.level ??= levelFor(a.xp);
     a.visited ??= [a.place];
@@ -587,6 +593,13 @@ function helped(s, owner, api, action) {
     h.level ??= levelFor(h.xp);
     h.xp += 1;
   }
+  const o = s.actors[owner];
+  if (humanAvatarIds.includes(helper) && !humanAvatarIds.includes(owner)) {
+    const rank = levelFor(Math.max(0, o.xp - 1));
+    if (rank < rankOf(LEVEL_CAP)) o.xp = Math.max(o.xp, rankXp(rank + 1));
+    if (!packPeople[owner]?.levelAtHome)
+      o.level = Math.max(o.level ?? 1, levelFor(o.xp));
+  }
   const trust = s.actors[owner].trust;
   if (action.kind !== "give" && trust)
     trust[helper] = Math.min(3, (trust[helper] || 0) + 1);
@@ -602,6 +615,7 @@ function commitMet(s, id, api, met, held = null) {
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
   api.log(id, want);
+  if (traveler && want.from?.startsWith("quest:from:")) countResidentQuest(a);
   if (!traveler && !api.player(id) && !packPeople[id]?.levelAtHome)
     a.level = Math.max(a.level, levelFor(a.xp));
   if (api.player(id)) closeQuest(a, want, s.turn);
@@ -815,6 +829,7 @@ export function validWant(s, id) {
     startXp(id) +
     (a.carried ?? 0) +
     s.turn * 8 +
+    (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) +
     Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
   return (
     Number.isSafeInteger(a.xp) &&
@@ -855,7 +870,7 @@ function validUnder(s, id) {
       Array.isArray(a.under) &&
       a.want &&
       a.under.length >= 1 &&
-      held.length <= MAX_HELD &&
+      slotsUsed(a) <= MAX_HELD &&
       a.under.every((w) => validQuest(s, id, w)) &&
       new Set(held.map(closedKey)).size === held.length,
   );

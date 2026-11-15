@@ -20,7 +20,7 @@ import {
 import { conditionMet, runHash } from "../pack-rules.mjs";
 import { specialsAllow } from "../pack-specials.mjs";
 import { places, sanctuaries } from "./catalog.mjs";
-import { arcanaLevel, isArcanum, recordOf } from "./arcana-record.mjs";
+import { arcanaLevel, CALLS, isArcanum, recordOf } from "./arcana-record.mjs";
 import { boxDefs } from "./boxes.mjs";
 import { companionOf } from "./company.mjs";
 import { homeOf } from "./home.mjs";
@@ -421,7 +421,13 @@ export function validArcana(s) {
       Boolean(humanAvatar(id)) &&
       keys.includes("did") &&
       keys.includes("proved") &&
-      keys.every((key) => ["base", "dealt", "did", "proved"].includes(key)) &&
+      keys.every((key) =>
+        ["base", "calls", "dealt", "did", "proved"].includes(key),
+      ) &&
+      (record.calls === undefined ||
+        (Number.isSafeInteger(record.calls) &&
+          record.calls >= 1 &&
+          record.calls <= CALLS)) &&
       validList(record.did) &&
       validList(record.proved) &&
       (record.dealt === undefined

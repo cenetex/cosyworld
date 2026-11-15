@@ -74,6 +74,7 @@ const RULES = [
   "world/lanes.mjs",
   "world/lock-goals.mjs",
   "world/offers.mjs",
+  "world/for-good.mjs",
   "world/senses.mjs",
   "world/station.mjs",
   "world/want-words.mjs",

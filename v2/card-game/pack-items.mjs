@@ -17,7 +17,7 @@
 //                   them to listed places, seeded by the run, the kit's count
 //                   and the turn.
 import { humanAvatar, humanPresent } from "./human-cast.mjs";
-import { bringBack, sendHome, usedUp, useUp } from "./item-use.mjs";
+import { bringBack, gone, sendHome, usedUp, useUp } from "./item-use.mjs";
 import { DAYLIGHT_TURNS, conditionMet, runHash } from "./pack-rules.mjs";
 import {
   conditionsMet,
@@ -32,6 +32,7 @@ import {
   transports,
 } from "./pack-registry.mjs";
 import { laneBetween } from "./pack-transport.mjs";
+import { restForGood } from "./world/for-good.mjs";
 
 export const REGROW_EVENTS = ["dawn", "dusk", "rest"];
 const homed = Object.keys(packThings)
@@ -68,6 +69,7 @@ const note = (s, id, text) => {
 // A thing back in play only where its own conditions let it be seen;
 // otherwise it stays used up.
 function tryBack(s, id, holder) {
+  if (gone(s, id)) return false;
   bringBack(s, id, holder);
   // A sealed item comes home shut, which is still in play (rules 133).
   if (entityEnabled(s, id) || (packThings[id].sealed && entityShown(s, id)))
@@ -398,6 +400,12 @@ export function installItemCycle(s, added = []) {
   s.usedUp = [
     ...new Set([...(s.usedUp || []), ...fresh.filter(starts)]),
   ].sort();
+  if (s.gone !== undefined) {
+    s.gone = Array.isArray(s.gone)
+      ? [...new Set(s.gone)].filter((id) => s.usedUp.includes(id)).sort()
+      : [];
+    if (!s.gone.length) delete s.gone;
+  }
   scatterOutside(s);
 }
 
@@ -406,9 +414,10 @@ export const validItemCycle = (s) =>
   Array.isArray(s.usedUp) &&
   s.usedUp.every(
     (id, i) =>
-      Boolean(packThings[id]) &&
       (!i || s.usedUp[i - 1] < id) &&
-      [packThings[id].holder, restOf(id)].includes(s.items[id]?.holder) &&
+      (packThings[id]
+        ? [packThings[id].holder, restOf(id)].includes(s.items[id]?.holder)
+        : gone(s, id) && s.items[id]?.holder === restForGood(id)) &&
       s.items[id].history.length === 0,
   ) &&
   (s.astray === undefined ||
@@ -425,4 +434,10 @@ export const validItemCycle = (s) =>
       !Array.isArray(s.scatters) &&
       Object.entries(s.scatters).every(
         ([id, n]) => packKits.some((kit) => kit.id === id) && whole(n),
+      ))) &&
+  (s.gone === undefined ||
+    (Array.isArray(s.gone) &&
+      s.gone.length > 0 &&
+      s.gone.every(
+        (id, i) => s.usedUp.includes(id) && (!i || s.gone[i - 1] < id),
       )));

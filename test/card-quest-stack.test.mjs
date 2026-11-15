@@ -51,7 +51,7 @@ describe("an offer is held without an accept play", () => {
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
-  it("offers the discard of the top quest only", () => {
+  it("offers a discard for each held quest", () => {
     let s = talk(createPipWorld(5));
     const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
     expect(drops).toHaveLength(1);

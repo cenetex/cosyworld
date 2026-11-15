@@ -297,10 +297,9 @@ describe("the second row, played in a created world", () => {
 });
 
 describe("the whole deck", () => {
-  it("holds twenty-one cards, no XIII, and reaches level twenty-one", () => {
+  it("holds twenty-two cards, 0 to XXI, and reaches level twenty-one", () => {
     const numbers = data.cards.map((card) => card.number);
-    expect(numbers).toHaveLength(21);
-    expect(numbers).not.toContain(13);
+    expect(numbers).toEqual([...Array(22).keys()]);
     const s = createWorld({ seed: 7 });
     s.actors.vale.arcana = {
       proved: data.cards.map((card) => card.id).sort(),

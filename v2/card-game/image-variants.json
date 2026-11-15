@@ -35,6 +35,15 @@
       "phone": "assets/optimized/stage/png/arcana/arcanum-12.webp",
       "phoneHash": "3fc4f04950cefb0177b0f921a247d65d907e3b4fc16831d39b1de29bcca2566c"
     },
+    "assets/arcana/arcanum-13.png": {
+      "sourceHash": "e680ce6ad9ec3a87d23105b7cedc2ec1a77903358af80d15b705215313a91ee9",
+      "stage": "assets/optimized/stage/png/arcana/arcanum-13.webp",
+      "stageHash": "0d90f378e24e42e5c5daa02206c933f7d3d34ff57cc36768fba6092c5fed95ae",
+      "card": "assets/optimized/stage/png/arcana/arcanum-13.webp",
+      "cardHash": "0d90f378e24e42e5c5daa02206c933f7d3d34ff57cc36768fba6092c5fed95ae",
+      "phone": "assets/optimized/stage/png/arcana/arcanum-13.webp",
+      "phoneHash": "0d90f378e24e42e5c5daa02206c933f7d3d34ff57cc36768fba6092c5fed95ae"
+    },
     "assets/arcana/arcanum-14.png": {
       "sourceHash": "7cd165cfbbcf3d676b9f88742de034a582aa5fdd5994797dbaf3f8b044412c54",
       "stage": "assets/optimized/stage/png/arcana/arcanum-14.webp",

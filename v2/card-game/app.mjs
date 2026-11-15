@@ -2826,7 +2826,7 @@ function renderActions() {
   const picked = questOpen && !rested ? shownQuests[0] : null;
   const legal = picked ? legalActions(world) : [];
   const drop =
-    picked && legal.find((a) => a.kind === "drop" && !a.item && a.quest === 0);
+    picked && legal.find((a) => a.kind === "drop" && !a.item && a.quest === picked.index);
   const confirmKey = drop ? `${revision}:${picked.key}` : null;
   if (abandonQuest !== confirmKey) abandonQuest = null;
   const dropLabel = drop && playLabel(drop, world);

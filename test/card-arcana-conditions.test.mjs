@@ -134,6 +134,7 @@ describe("did conditions", () => {
       did: [],
       dealt: null,
       base: {},
+      calls: 0,
     });
     expect(s.actors.walker.arcana).toBeUndefined();
   });
