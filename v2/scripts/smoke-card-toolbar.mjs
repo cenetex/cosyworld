@@ -170,23 +170,51 @@ try {
       await menu
         .locator(".menu-tools a")
         .evaluateAll((links) =>
-          links.map((a) => [a.textContent, a.href, a.target, a.rel]),
+          links.map((a) => [
+            a.textContent,
+            a.getAttribute("aria-label"),
+            a.href,
+            a.target,
+            a.rel,
+          ]),
         ),
       [
         [
+          "Discord",
           "Discord",
           "https://discord.gg/Qd4ztZYvmD",
           "_blank",
           "noopener noreferrer",
         ],
         [
-          "X (@lonelyforestAi)",
+          "X",
+          "X, @lonelyforestAi",
           "https://x.com/lonelyforestAi",
           "_blank",
           "noopener noreferrer",
         ],
       ],
     );
+    const items = await menu.locator(".menu-tools > *").evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const row = node.parentElement.getBoundingClientRect();
+        const box = node.getBoundingClientRect();
+        const label = node.querySelector(".toolbar-label");
+        return {
+          text: node.textContent,
+          icon: !!node.querySelector(".toolbar-icon svg path"),
+          inside: box.left >= row.left - 0.5 && box.right <= row.right + 0.5,
+          fits: label.scrollWidth <= label.clientWidth + 0.5,
+          wide: node.parentElement.scrollWidth <= row.width + 0.5,
+        };
+      }),
+    );
+    assert.equal(items.length, 5);
+    for (const item of items)
+      assert(
+        item.icon && item.inside && item.fits && item.wide,
+        `${item.text} fits with its icon at ${width}`,
+      );
     // ☰ lists world slots; the world played now shows, on one line, the
     // avatars that entered it and "+" for its open seats (#1877).
     const current = menu.locator('.world-slot[data-current="true"]');
@@ -213,7 +241,7 @@ try {
     assert.equal(await menu.locator(".profile-card").count(), 0);
     const card = page.locator(".dialogue > .action-panel");
     const actions = page.locator(
-      ".dialogue .action-panel #card-actions button",
+      ".dialogue .action-panel[data-avatar] #card-actions button",
     );
     const note = page.locator(".dialogue > .action-panel .action-beat-note");
     assert.equal(await actions.count(), 0);

@@ -91,7 +91,6 @@ body.local-app #shared-worlds-button {
 .world-menu button:focus-visible {
   outline-offset: -2px;
 }
-/* ☰'s face: the friends online in this world now. */
 .friend-chips {
   display: flex;
 }
@@ -304,10 +303,13 @@ body.local-app #shared-worlds-button {
   border-top: 1px solid #ffffff1a;
   background: #141b22;
 }
-.world-menu .menu-tools button {
+.world-menu .menu-tools :is(button, a) {
+  flex: 1 1 0;
   flex-direction: column;
   justify-content: center;
   gap: 2px;
+  min-width: 0;
+  padding-inline: 2px;
   font-size: 12px;
 }
 /* The world's Lonely Forest logo in place of the COSYWORLD wordmark
