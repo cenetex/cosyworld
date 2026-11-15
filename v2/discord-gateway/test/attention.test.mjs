@@ -88,6 +88,14 @@ test("addressed replies after 1.5 s while unaddressed waits until 45 s", () => {
   assert.equal(decide(plain, day, 45000, config, cast).act, "reply");
 });
 
+test("a common-word name needs its capital", () => {
+  const keeper = [{ id: "keeper", name: "Keeper" }];
+  assert.equal(addressedResident({ text: "Keeper, what time is it?" }, keeper, []), "keeper");
+  assert.equal(addressedResident({ text: "ask The Keeper" }, keeper, []), "keeper");
+  assert.equal(addressedResident({ text: "the keeper said it was late" }, keeper, []), null);
+  assert.equal(addressedResident({ text: "pip, are you there?" }, [{ id: "moth", name: "Pip" }], []), "moth");
+});
+
 test("a name inside another word is not a mention", () => {
   assert.equal(addressedResident({ text: "my skullcap is warm" }, cast, []), null);
   assert.equal(addressedResident({ text: "Hi SKULL!" }, cast, []), "skull");

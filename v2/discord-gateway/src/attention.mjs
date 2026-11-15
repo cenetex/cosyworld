@@ -26,9 +26,12 @@ function escape(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const WORDS = new Set(["keeper"]);
+
 function names(text, name) {
   if (!name) return false;
-  return new RegExp(`(^|[^\\p{L}\\p{N}])${escape(name)}($|[^\\p{L}\\p{N}])`, "iu").test(text);
+  const flags = WORDS.has(name.toLowerCase()) ? "u" : "iu";
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escape(name)}($|[^\\p{L}\\p{N}])`, flags).test(text);
 }
 
 export function addressedResident(message, cast, ring = []) {

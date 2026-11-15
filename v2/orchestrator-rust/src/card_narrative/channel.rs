@@ -141,8 +141,30 @@ fn pack(pack_id: &str) -> Option<&'static Value> {
         .find(|p| p["id"] == pack_id)
 }
 
+const CORE: [(&str, &str); 3] = [("vale", "Vale"), ("moth", "Pip"), ("keeper", "Keeper")];
+
+fn core() -> Vec<Resident> {
+    static FOREST: OnceLock<Value> = OnceLock::new();
+    let forest = FOREST.get_or_init(|| {
+        serde_json::from_str(include_str!("../../../card-game/forest.json"))
+            .expect("embedded forest")
+    });
+    CORE.iter()
+        .filter_map(|(id, name)| {
+            let portrait = format!("assets/{id}.png");
+            Some(Resident {
+                id: (*id).to_string(),
+                name: (*name).to_string(),
+                place: forest["people"][*id]["home"].as_str()?.to_string(),
+                avatar: face_avatar(&portrait),
+                portrait: format!("/card-game/{portrait}"),
+            })
+        })
+        .collect()
+}
+
 fn cast(pack_id: &str) -> Option<Vec<Resident>> {
-    let residents: Vec<Resident> = pack(pack_id)?["avatars"]
+    let mut residents: Vec<Resident> = pack(pack_id)?["avatars"]
         .as_object()?
         .iter()
         .filter_map(|(id, avatar)| {
@@ -159,6 +181,9 @@ fn cast(pack_id: &str) -> Option<Vec<Resident>> {
             })
         })
         .collect();
+    if pack_id == DEFAULT_PACK {
+        residents.extend(core());
+    }
     (!residents.is_empty()).then_some(residents)
 }
 
@@ -248,7 +273,10 @@ fn label(author: &str) -> String {
                     .as_str()
                     .is_some_and(|name| name.to_lowercase() == lower)
         });
-    if clean.is_empty() || taken {
+    let core = CORE
+        .iter()
+        .any(|(id, name)| *id == lower || name.to_lowercase() == lower);
+    if clean.is_empty() || taken || core {
         "Someone".into()
     } else {
         clean
@@ -841,7 +869,24 @@ mod tests {
     fn the_cast_comes_from_the_pack_catalog() {
         let residents = cast("lonely-forest").unwrap();
         let find = |id: &str| residents.iter().find(|r| r.id == id).unwrap().clone();
-        assert_eq!(residents.len(), 4);
+        assert_eq!(residents.len(), 7);
+        let names: std::collections::BTreeSet<_> =
+            residents.iter().map(|r| r.name.to_lowercase()).collect();
+        assert_eq!(names.len(), residents.len());
+        for (id, name, place) in [
+            ("vale", "Vale", "attic"),
+            ("moth", "Pip", "pond"),
+            ("keeper", "Keeper", "station"),
+        ] {
+            assert_eq!(
+                (find(id).name.as_str(), find(id).place.as_str()),
+                (name, place)
+            );
+            assert_eq!(
+                find(id).avatar,
+                Some(format!("/card-game/assets/faces/assets-{id}.webp"))
+            );
+        }
         assert_eq!(find("rati").name, "RATi");
         assert_eq!(find("rati").place, "forest-cottage");
         for (id, portrait) in [
@@ -902,7 +947,7 @@ mod tests {
         assert!(check(json!([{"author": "Ma\nra", "text": "Hi."}])).is_err());
         assert!(check(json!([{"author": "Mara", "text": "a".repeat(401)}])).is_err());
         assert!(check(json!([{"author": "Mara", "text": "a".repeat(400)}])).is_ok());
-        assert!(check(json!([{"resident": "vale", "text": "Hi."}, human])).is_err());
+        assert!(check(json!([{"resident": "mara", "text": "Hi."}, human])).is_err());
         assert!(check(json!([human, rati])).is_err());
         let mut turned = request(json!([human, rati]));
         turned.addressed = Some("skull".into());
@@ -910,7 +955,7 @@ mod tests {
         turned.addressed = Some("rati".into());
         assert!(validate(&turned, &residents).is_err());
         let mut addressed = request(json!([human]));
-        addressed.addressed = Some("vale".into());
+        addressed.addressed = Some("mara".into());
         assert!(validate(&addressed, &residents).is_err());
         addressed.addressed = Some("rati".into());
         assert!(validate(&addressed, &residents).is_ok());
@@ -933,7 +978,7 @@ mod tests {
 
     #[test]
     fn people_cannot_speak_as_residents() {
-        for name in ["rati", "RATi", "Skull", "  skull "] {
+        for name in ["rati", "RATi", "Skull", "  skull ", "Vale", "pip", "Keeper"] {
             assert_eq!(label(name), "Someone");
         }
         assert_eq!(label("Ma\nra  Jun"), "Ma ra Jun");
@@ -1072,7 +1117,7 @@ mod tests {
     #[tokio::test]
     async fn an_intent_outside_the_cast_is_silence() {
         let (status, body, requests) =
-            post_lines(r#"{"who":"vale"}"#, Some("Hello."), TOKEN, talk(None)).await;
+            post_lines(r#"{"who":"mara"}"#, Some("Hello."), TOKEN, talk(None)).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, json!({"lines": [], "reason": "no-speaker"}));
         assert_eq!(requests.len(), 1);
@@ -1139,7 +1184,7 @@ mod tests {
         assert!(validate(&ok, &residents).is_ok());
         let long = with(json!([{"id": "rati", "lines": ["a", "b", "c", "d"]}])).unwrap();
         assert!(validate(&long, &residents).is_err());
-        let stranger = with(json!([{"id": "vale"}])).unwrap();
+        let stranger = with(json!([{"id": "mara"}])).unwrap();
         assert!(validate(&stranger, &residents).is_err());
         assert!(with(json!([{"id": "rati", "text": "x"}])).is_err());
     }
@@ -1282,7 +1327,7 @@ mod tests {
     #[tokio::test]
     async fn a_bad_coordinator_answer_is_refused_whole() {
         for answer in [
-            r#"{"topic":"gin","goal":"g","summary":"s","owed":"rati","speak":"vale"}"#,
+            r#"{"topic":"gin","goal":"g","summary":"s","owed":"rati","speak":"mara"}"#,
             r#"{"topic":"gin","goal":"g","summary":"s","owed":"rati"}"#,
             r#"{"topic":"","goal":"g","summary":"s","owed":"rati","speak":"none"}"#,
             "not json",
@@ -1458,7 +1503,7 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["pack"], "lonely-forest");
         let residents = body["residents"].as_array().unwrap();
-        assert_eq!(residents.len(), 4);
+        assert_eq!(residents.len(), 7);
         assert!(residents.contains(&json!({
             "id": "rati",
             "name": "RATi",
