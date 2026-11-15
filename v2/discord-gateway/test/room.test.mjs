@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
 import { emptyState } from "../src/channel.mjs";
-import { calm, createRoom, createStats, nudge, record, seed, summary, tick } from "../src/room.mjs";
+import { calm, createRoom, createStats, nudge, record, requestBody, seed, summary, tick } from "../src/room.mjs";
 
 const config = readConfig({ ORCHESTRATOR_URL: "https://cosyworld.example" });
 const cast = [
@@ -47,7 +47,12 @@ test("tick sends safe webhook lines with name and portrait", async () => {
     save: () => (saves += 1),
   });
   assert.deepEqual(bodies, [
-    { pack: "lonely-forest", addressed: "rati", messages: [{ author: "Mara", text: "RATi, can I come in?" }] },
+    {
+      pack: "lonely-forest",
+      addressed: "rati",
+      channel: { active: ["Mara"], residents: [] },
+      messages: [{ author: "Mara", text: "RATi, can I come in?" }],
+    },
   ]);
   assert.deepEqual(sent, [
     {
@@ -446,4 +451,25 @@ test("a line overtaken by a message to another resident is dropped as handled", 
   });
   assert.deepEqual(next, ["skull"]);
   assert.deepEqual(sent, ["Here."]);
+});
+
+test("each request carries the channel as seen in memory", () => {
+  const room = createRoom("g1", "c1");
+  room.messages.push(
+    { id: "a", at: 0, text: "Old words.", author: "Jun" },
+    { id: "b", at: 700000, text: "One.", resident: "skull" },
+    { id: "c", at: 710000, text: "Two.", resident: "rati" },
+    { id: "d", at: 720000, text: "Three.", resident: "rati" },
+    { id: "e", at: 730000, text: "Hi Mara.", author: "Mara" },
+    { id: "f", at: 790000, text: "RATi, who else is here?", author: "Mara" },
+  );
+  const body = requestBody(room, config, "rati", 800000);
+  assert.deepEqual(body.channel, {
+    active: ["Mara", "rati", "skull"],
+    residents: [
+      { id: "skull", lines: ["One."], streak: 0, since: 100 },
+      { id: "rati", lines: ["Two.", "Three."], streak: 2, since: 80 },
+    ],
+    quiet: 60,
+  });
 });

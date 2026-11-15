@@ -32,8 +32,6 @@ export function classify(file, config) {
   return null;
 }
 
-// Parse `git diff --numstat -z`: "added\tdeleted\tpath\0", or for a rename
-// "added\tdeleted\t\0from\0to\0". Binary files report "-".
 export function parseNumstat(text) {
   const fields = text.split("\0");
   const entries = [];
