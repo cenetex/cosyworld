@@ -16,7 +16,12 @@ export async function fetchCast(fetch, origin, token, pack) {
       (resident) => typeof resident?.id === "string" && typeof resident?.name === "string",
     );
     return residents.length
-      ? residents.map(({ id, name, portrait }) => ({ id, name, portrait: portrait ?? null }))
+      ? residents.map(({ id, name, portrait, avatar }) => ({
+          id,
+          name,
+          portrait: portrait ?? null,
+          avatar: avatar ?? null,
+        }))
       : null;
   } catch {
     return null;
