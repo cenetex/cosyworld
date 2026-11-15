@@ -73,6 +73,8 @@ pub(crate) use reflections::shared as shared_reflections;
 mod instruction;
 #[path = "card_narrative/speech.rs"]
 mod speech;
+#[path = "card_narrative/system_one.rs"]
+mod system_one;
 #[path = "card_narrative/untrusted.rs"]
 mod untrusted;
 #[cfg(test)]
