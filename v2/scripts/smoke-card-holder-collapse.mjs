@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { addLog, createWorld, encodeSave } from "../card-game/world.mjs";
+import { addLog, createWorld, encodeSave, holdChoice } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { humanAvatarIds } from "../card-game/human-cast.mjs";
-import { readyActionButton } from "./card-browser-helpers.mjs";
+import { actionLabel, readyActionButton, smokeWidths } from "./card-browser-helpers.mjs";
 
 const browserName = process.env.CARD_BROWSER || "chromium";
 const browserType = { chromium, webkit }[browserName];
@@ -21,7 +21,7 @@ const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const browser = await browserType.launch({ headless: true });
 try {
-  for (const width of [1440, 1900, 390]) {
+  for (const width of smokeWidths([1440, 1900, 390])) {
     for (const reducedMotion of ["no-preference", "reduce"]) {
       const world = enableMotives(createWorld());
       world.actors.vale.place = "pond";
@@ -30,9 +30,12 @@ try {
       world.items.lamp.holder = "vale";
       world.items.bell.holder = "moth";
       world.items.oil.holder = "pond";
+      world.opened = { attic: ["vale"] };
       // Pip stays content at the pond, so the hand under test holds still.
       world.actors.moth.want = null;
       world.actors.keeper.want = null;
+      holdChoice(world, "vale", { item: "lamp", revision: world.revision });
+      holdChoice(world, "vale", { item: null, revision: world.revision });
       const table = `holder-${width}-${reducedMotion}`;
       const key = `cosyworld.reflected-shore.v1.${table}`;
       // A context, so a second tab can share this page's storage.
@@ -88,9 +91,9 @@ try {
         );
         if (await top.count()) await tap(await top.getAttribute("data-card"));
       };
-      const chooseLamp = async () => {
+      const chooseItem = async (id = "lamp") => {
         await fanVale();
-        if ((await card("lamp").getAttribute("aria-pressed")) !== "true") await tap("lamp");
+        if ((await card(id).getAttribute("aria-pressed")) !== "true") await tap(id);
         if ((await card("vale").getAttribute("aria-pressed")) === "true") await tap("vale");
       };
       const selected = () =>
@@ -112,16 +115,17 @@ try {
         });
       }
       // Where each shown card sits, and how far the hand is scrolled.
-      const handLayout = () =>
-        page.locator("#hand").evaluate((hand) => ({
+      const handLayout = (relative = false) =>
+        page.locator("#hand").evaluate((hand, relative) => ({
           scroll: Math.round(hand.scrollLeft),
           cards: [
             ...hand.querySelectorAll(".card-frame:not([hidden]) .card"),
           ].map((card) => {
             const rect = card.getBoundingClientRect();
-            return `${card.dataset.card}@${Math.round(rect.left)},${Math.round(rect.top)}`;
+            const origin = relative ? hand.getBoundingClientRect() : { left: 0, top: 0 };
+            return `${card.dataset.card}@${Math.round(rect.left - origin.left)},${Math.round(rect.top - origin.top)}`;
           }),
-        }));
+        }), relative);
       async function collapsed() {
         assert.equal(await card("vale").getAttribute("aria-expanded"), "false");
         assert.equal(await frame("cloth").getAttribute("hidden"), "");
@@ -255,7 +259,7 @@ try {
           path: new URL(`${table}-stack.png`, output).pathname,
         });
         await tap("vale");
-        await chooseLamp();
+        await chooseItem();
         assert.equal(await frame("lamp").getAttribute("hidden"), null);
         assert.deepEqual(await selected(), ["lamp"]);
         assert.equal(await card("lamp").getAttribute("data-lit"), "true");
@@ -264,8 +268,9 @@ try {
         await tap("bell");
         assert.deepEqual(await selected(), ["bell", "lamp"]);
         assert.equal(await card("moth").getAttribute("aria-expanded"), "false");
+        await readyActionButton(page, "trade").waitFor();
         assert.equal(
-          await page.locator(".card-primary").innerText(),
+          await actionLabel(page.locator(".card-primary")),
           "Trade Lamp for Bell",
         );
         await tap("pond");
@@ -371,7 +376,7 @@ try {
             };
           });
         await tap("vale");
-        await chooseLamp();
+        await chooseItem();
         assert.deepEqual(await selected(), ["lamp"]);
         assert.equal(await card("lamp").getAttribute("data-lit"), "true");
         await tap("vale");
@@ -409,7 +414,8 @@ try {
         await tap("lamp");
         assert.deepEqual(await selected(), []);
         assert.equal(await card("lamp").getAttribute("data-lit"), "false");
-        await tap("lamp");
+        await tap("vale");
+        await chooseItem();
         const relit = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
         assert.equal(relit.actors.vale.heldItem, "lamp");
         assert.equal(relit.items.lamp.lit, true);
@@ -446,9 +452,8 @@ try {
         await raise();
         assert.equal(await handExpanded(), "true");
         assert.deepEqual(await selected(), ["lamp"]);
-        // A tap on the dialogue (the ready play's beat) leaves the raised
-        // hand, its cards and its scroll where they were (#1883).
-        const actionBeat = page.locator(".action-beat-heading");
+        // Tapping the lamp's descriptor keeps the hand and its scroll still.
+        const actionBeat = page.locator("#action-beat");
         // The pointer leaves the cards it chose, so no hover moves them.
         if (width !== 390) await actionBeat.hover();
         await page.waitForTimeout(600);
@@ -479,7 +484,7 @@ try {
         await page.keyboard.press("Escape");
         assert.deepEqual(await selected(), []);
         await tap("vale");
-        await chooseLamp();
+        await chooseItem();
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         await page.keyboard.press("Escape");
         assert.deepEqual(await selected(), ["lamp"]);
@@ -507,8 +512,7 @@ try {
         );
         await page.keyboard.press("Escape");
         await tap("vale");
-        await fanVale();
-        await tap("cloth");
+        await chooseItem("cloth");
         await tap("pond");
         assert.deepEqual(await selected(), ["cloth", "pond"]);
         await page.waitForTimeout(600);
@@ -535,8 +539,9 @@ try {
         await tap("moth");
         await tap("bell");
         assert.deepEqual(await selected(), ["bell", "oil"]);
+        await readyActionButton(page, "trade").waitFor();
         assert.equal(
-          await page.locator(".card-primary").innerText(),
+          await actionLabel(page.locator(".card-primary")),
           "Trade Oil flask for Bell",
         );
         await page.waitForTimeout(600);
@@ -561,8 +566,11 @@ try {
         // which leaves the hand be.
         if (width === 390) await page.locator("#dialogue-advance").tap();
         else await page.mouse.move(1, 1);
+        for (let beats = 0; beats < 6 && !(await action("ring").isVisible()); beats++)
+          await page.locator("#dialogue-advance").click();
+        await readyActionButton(page, "ring").waitFor();
         await settleHand();
-        const layout = await handLayout();
+        const layout = await handLayout(true);
         const other = await context.newPage();
         await other.goto(`http://127.0.0.1:${server.address().port}/missing`);
         await other.evaluate((key) => {
@@ -570,18 +578,30 @@ try {
           save.revision++;
           localStorage.setItem(key, JSON.stringify(save));
         }, key);
-        await other.close();
         await page
           .locator("#play-status", { hasText: "updated in another tab" })
           .waitFor();
         assert.equal(await handExpanded(), "true", "another tab keeps it up");
         assert.deepEqual(await selected(), choice);
+        await readyActionButton(page, "ring").waitFor();
         await settleHand();
         assert.deepEqual(
-          await handLayout(),
+          await handLayout(true),
           layout,
           `${table}: another tab moves nothing`,
         );
+        await other.evaluate((key) => {
+          const save = JSON.parse(localStorage.getItem(key));
+          Object.assign(save.actors.vale.arcana, { dealt: "arcanum-1", base: { opened: 1 } });
+          save.revision++;
+          localStorage.setItem(key, JSON.stringify(save));
+        }, key);
+        const newQuest = page.locator('#hand [data-quest-key="level:arcanum-1"]');
+        await newQuest.waitFor();
+        await settleHand();
+        const questBox = await newQuest.boundingBox();
+        assert(questBox.x >= 0 && questBox.x + questBox.width <= width, "a new quest is brought into view");
+        await other.close();
         assert.deepEqual(errors, []);
         console.log(
           `${table}: avatar stack, chosen child, cross-holder pair, quest-free stacks, quiet lamp holding, folded held choice, Wait, Give, Put down, Take and Trade passed`,
