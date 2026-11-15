@@ -38,8 +38,7 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   page.setDefaultTimeout(20000);
-  // Vale sleeps in the attic: from 31 to dawn (48) holding the sleep quest
-  // the Fool's deal gave, or from 6 to dusk (24) with none.
+  // An accepted Sleep reaches dawn; an ordinary rest ends at dusk.
   const world = createWorld();
   world.actors.vale.place = "attic";
   world.turn = halfway ? 30 : 5;
