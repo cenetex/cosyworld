@@ -947,7 +947,6 @@ try {
   // the stage while the later Waits are still queued.
   for (const page of [vale, mara]) {
     await expectStage(page, ["vale", nellId, ashId, "mara"]);
-    // Waiting plays have no chips (owner, 2026-11-01).
     assert.equal(
       await page.locator("#shared-queue, .shared-play-avatar").count(),
       0,
