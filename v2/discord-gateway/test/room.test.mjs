@@ -314,8 +314,8 @@ test("an addressed message ticks its room after the debounce, without the poll",
   assert.equal(nudge(room, more, cast, { delay: 1500, run, timers }), true);
   assert.equal(timers.pending.size, 1);
   const other = record(room, message("m3", 0, "the river is loud", { member: { displayName: "Jun" } }), "hook", cast);
-  assert.equal(nudge(room, other, cast, { delay: 1500, run, timers }), false);
-  assert.equal(timers.pending.size, 0);
+  assert.equal(nudge(room, other, cast, { delay: 1500, run, timers }), true);
+  assert.equal(timers.pending.size, 1);
   const again = record(room, message("m4", 0, "RATi, can I come in?"), "hook", cast);
   nudge(room, again, cast, { delay: 1500, run, timers });
   assert.equal(timers.pending.size, 1);

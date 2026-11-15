@@ -74,7 +74,8 @@ export function join(room, entry, cast) {
   const named = addressedResident(entry, cast, room.messages);
   const who = speaker(entry);
   const target = entry.replyTo ? room.messages.find((other) => other.id === entry.replyTo) : null;
-  const before = room.messages[room.messages.indexOf(entry) - 1];
+  const place = room.messages.indexOf(entry);
+  const before = place < 0 ? room.messages.at(-1) : room.messages[place - 1];
   for (const resident of cast) {
     const talk = room.talks[resident.id];
     const inside = (other) => Boolean(other) && (other.resident === resident.id || talk.members.includes(speaker(other)));
@@ -82,8 +83,10 @@ export function join(room, entry, cast) {
       resident.id === named ||
       (active(talk, entry.at, span) && (talk.members.includes(who) || inside(target) || (!target && inside(before))));
     if (!joins) continue;
+    const open = active(talk, entry.at, span);
     room.talks[resident.id] = {
-      members: [...new Set([...(talk?.members ?? []), who])],
+      ...(open ? talk : { startedAt: entry.at }),
+      members: [...new Set([...(open ? talk.members : []), who])],
       last: entry.at,
       spoke: talk?.spoke ?? 0,
     };
@@ -94,7 +97,7 @@ export function spoke(room, residentId, toward, at) {
   room.talks ??= {};
   const talk = room.talks[residentId] ?? { members: [], last: at, spoke: at };
   const members = toward?.startsWith("h:") ? [...new Set([...talk.members, toward])] : talk.members;
-  room.talks[residentId] = { members, last: at, spoke: at };
+  room.talks[residentId] = { ...talk, members, last: at, spoke: at };
 }
 
 function humansTalking(messages, index) {
