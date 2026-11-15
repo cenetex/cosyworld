@@ -43,18 +43,42 @@ export function addressedResident(message, cast, ring = []) {
   return found?.id ?? null;
 }
 
-const BURST = 3;
+export const FOCUS_MS = 180000;
 
-export function addressee(messages, cast, index = messages.length - 1) {
+export function speaker(entry) {
+  return entry.resident ? `r:${entry.resident}` : `h:${entry.authorId ?? entry.author}`;
+}
+
+export function strength(focus, at) {
+  return focus ? Math.max(0, 1 - (at - focus.at) / FOCUS_MS) : 0;
+}
+
+export function focusOn(room, residentId, target, at) {
+  room.focus ??= {};
+  room.focus[residentId] = { target, at };
+}
+
+export function mentioned(text, cast, self) {
+  return cast.find((resident) => resident.id !== self && names(text ?? "", resident.name))?.id ?? null;
+}
+
+export function addressee(messages, cast, index = messages.length - 1, focus = {}) {
   const last = messages[index];
   if (!last || last.resident) return null;
-  for (let at = index; at >= 0 && at > index - BURST; at -= 1) {
-    const entry = messages[at];
-    if (entry.resident || entry.author !== last.author) break;
-    const found = addressedResident(entry, cast, messages);
-    if (found) return found;
+  const named = addressedResident(last, cast, messages);
+  if (named) return named;
+  const who = speaker(last);
+  let best = null;
+  let top = 0;
+  for (const resident of cast) {
+    const held = focus?.[resident.id];
+    const power = held?.target === who ? strength(held, last.at) : 0;
+    if (power > top) {
+      top = power;
+      best = resident.id;
+    }
   }
-  return null;
+  return best;
 }
 
 function humansSinceResident(messages) {
@@ -75,7 +99,7 @@ export function decide(room, guildDay, now, config, cast) {
   if (last.id === room.handledGap) return result("wait", "handled");
   const { risks, question } = assess(last.text);
   if (risks.length) return result("skip", risks[0]);
-  const addressed = addressee(messages, cast);
+  const addressed = addressee(messages, cast, messages.length - 1, room.focus);
   const quiet = now - last.at;
   const threshold = addressed ? config.DISCORD_ADDRESSED_QUIET_MS : config.DISCORD_QUIET_MS;
   if (quiet < threshold) return result("wait", "not-quiet", { addressed });
