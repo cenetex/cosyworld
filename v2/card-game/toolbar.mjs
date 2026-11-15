@@ -108,6 +108,16 @@ export function installToolbar({
     decorate(button, icon, label);
     tools.append(button);
   }
+  for (const [label, href] of [
+    ["Discord", "https://discord.gg/Qd4ztZYvmD"],
+    ["X (@lonelyforestAi)", "https://x.com/lonelyforestAi"],
+  ]) {
+    const link = element("a", "", label);
+    link.href = href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    tools.append(link);
+  }
   const seats = installAvatarMenu({
     menu,
     session,

@@ -86,7 +86,13 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
+      route.fulfill({
+        json: {
+          authenticated: true,
+          user_id: "smoke-user",
+          account_revision: 0,
+        },
+      }),
     );
     await page.route(
       /\/card-game\/shared\/worlds\/toolbar(?:\/command)?$/,
@@ -159,6 +165,27 @@ try {
     assert.deepEqual(
       await menu.locator(".menu-tools button").allTextContents(),
       ["Memory", "Invite", "Settings"],
+    );
+    assert.deepEqual(
+      await menu
+        .locator(".menu-tools a")
+        .evaluateAll((links) =>
+          links.map((a) => [a.textContent, a.href, a.target, a.rel]),
+        ),
+      [
+        [
+          "Discord",
+          "https://discord.gg/Qd4ztZYvmD",
+          "_blank",
+          "noopener noreferrer",
+        ],
+        [
+          "X (@lonelyforestAi)",
+          "https://x.com/lonelyforestAi",
+          "_blank",
+          "noopener noreferrer",
+        ],
+      ],
     );
     // ☰ lists world slots; the world played now shows, on one line, the
     // avatars that entered it and "+" for its open seats (#1877).
