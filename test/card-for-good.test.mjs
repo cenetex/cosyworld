@@ -82,7 +82,7 @@ describe("a thing given up for good", () => {
     world.actors.vale.arcana = {
       proved: [],
       did: [],
-      spread: [{ card: xiii.id, face: "up" }],
+      spread: [{ card: xiii.id, face: "up", accepted: true }],
     };
     const before = new Set(world.usedUp);
     world = act(world, "give", { item: BUTTON, target: "rati" });
