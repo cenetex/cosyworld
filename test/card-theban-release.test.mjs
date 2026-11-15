@@ -73,7 +73,6 @@ const atticaOnFoot = [
 const ajaxPlaces = pack.sections.find(
   (section) => section.id === "greek-ajax",
 ).places;
-// Retired roads keep their IDs in the release for saved history only.
 const retired = (id) => pack.places[id]?.retired === true;
 const rumours = ["greek-marathon", ...ajaxPlaces];
 const openDoorReleasedPlaces = pack.release.places.filter(
@@ -122,7 +121,7 @@ describe("the Theban release and its ship", () => {
       ].sort(),
     );
     expect(reachable(s)).toHaveLength(16);
-    expect(pack.release.places).toHaveLength(25);
+    expect(pack.release.places.filter(retired)).toEqual([]);
     for (const id of rumours) expect(pack.release.places).not.toContain(id);
     expect(
       pack.release.places

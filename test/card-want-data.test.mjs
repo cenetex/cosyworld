@@ -70,7 +70,11 @@ describe("want data", () => {
         target: "greek-bread",
         step: { verb: "eat" },
       },
-      "greek-baker": { kind: "place", target: "greek-courtyard" },
+      "greek-baker": {
+        kind: "place",
+        target: "greek-courtyard",
+        step: { verb: "lay", items: ["greek-water-jar"] },
+      },
       // Myrto makes the provisions and wants to eat them at Piraeus.
       "greek-shipmaster": {
         kind: "item",

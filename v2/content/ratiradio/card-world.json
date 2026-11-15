@@ -184,7 +184,7 @@
     "ratiradio-raven-figurine": {
       "name": "Raven Figurine",
       "text": "A small ceramic raven, lost beyond the station. Hold it and talk with RATi to open the Broadcast Booth, then leave it in the Listening Room.",
-      "persona": "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. It must rest directly in the Listening Room with the glass and beanie.",
+      "persona": "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. Its place is in the Listening Room, beside the glass and the beanie.",
       "holder": "ratiradio-listening-room",
       "art": "assets/ratiradio/raven-figurine.webp",
       "reservedUntil": [

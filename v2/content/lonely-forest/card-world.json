@@ -310,7 +310,7 @@
       "name": "Ash's Blue Scarf",
       "tags": ["scarf"],
       "startLevel": 11,
-      "text": "A soft blue knitted scarf fastened with a orange button.",
+      "text": "A soft blue knitted scarf fastened with an orange button.",
       "persona": "A soft blue knitted scarf RATi sewed for Ash. Ash's own orange button fastens it.",
       "holder": "forest-cottage",
       "requires": [
@@ -392,7 +392,7 @@
     "forest-scarf-orin": {
       "name": "Cass's Amber Scarf",
       "tags": ["scarf"],
-      "text": "A soft amber knitted scarf fastened with a indigo button.",
+      "text": "A soft amber knitted scarf fastened with an indigo button.",
       "persona": "A soft amber knitted scarf RATi sewed for Cass. Cass's own indigo button fastens it.",
       "holder": "forest-cottage",
       "requires": [
@@ -764,7 +764,7 @@
       "on": "meet",
       "for": "ash",
       "label": "Ash meets RATi",
-      "text": "RATi looks at Ash's coat and finds a thread where a orange button should be. Somewhere in the world, the button has gone.",
+      "text": "RATi looks at Ash's coat and finds a thread where an orange button should be. Somewhere in the world, the button has gone.",
       "requires": [
         {
           "kind": "not",
@@ -884,7 +884,7 @@
       "on": "meet",
       "for": "orin",
       "label": "Cass meets RATi",
-      "text": "RATi looks at Cass's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
+      "text": "RATi looks at Cass's coat and finds a thread where an indigo button should be. Somewhere in the world, the button has gone.",
       "requires": [
         {
           "kind": "not",

@@ -3433,7 +3433,7 @@
         packId: "cosyworld.greek-drama",
         revision: 25,
         name: "The Wine-Dark Sea",
-        description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor, Athens Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
+        description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
         entry: "greek-harbor",
         continuity: {
@@ -3580,7 +3580,7 @@
               "greek-eleusis"
             ],
             backdrop: "assets/greek-drama/bacchae-cithaeron-day.webp",
-            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. The left end always leads to The Exposed Battlefield. The right end always leads to Eleusinian Sanctuary. It stays open both ways. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. It stays open both ways. Travelers meet, talk, rest and carry their belongings here.",
             road: [
               "greek-battlefield",
               "greek-eleusis"
@@ -3730,14 +3730,14 @@
           },
           "greek-argolid-road": {
             name: "The Argolid Crossroads",
-            text: "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey.",
+            text: "Three roads leave a shaded meeting place.",
             exits: [
               "greek-harbor",
               "greek-argos-sanctuary",
               "greek-corinth"
             ],
             backdrop: "assets/greek-drama/grove.svg",
-            persona: "Three roads leave a shaded meeting place. A singer asks which household's testimony should guide the journey."
+            persona: "Three roads leave a shaded meeting place."
           },
           "greek-argos-sanctuary": {
             name: "Argive Shore Sanctuary",
@@ -4163,7 +4163,7 @@
           "greek-road-thebes": {
             name: "Theban Harbor Road",
             text: "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
-            persona: "A shared road between The Wine-Dark Harbor and Theban Courtyard. The left end always leads to The Wine-Dark Harbor. The right end always leads to Theban Courtyard. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road over the olive hills between The Wine-Dark Harbor and Theban Courtyard. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-harbor",
               "greek-courtyard"
@@ -4192,7 +4192,7 @@
           "greek-road-athens-piraeus": {
             name: "The Long Walls",
             text: "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
-            persona: "A shared road between Piraeus Quays and Athenian Agora. The left end always leads to Piraeus Quays. The right end always leads to Athenian Agora. It is open from either end. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road between the long walls, joining Piraeus Quays and Athenian Agora. It is open from either end. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-piraeus",
               "greek-athens"
@@ -4221,7 +4221,7 @@
           "greek-road-athens-eleusis": {
             name: "The Sacred Way",
             text: "A paved road runs from Demeter\u2019s sanctuary to the Dipylon, the double gate of Athens. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. Small shrines stand along the verge.",
-            persona: "A shared road between Athenian Agora and Eleusinian Sanctuary. The left end always leads to Athenian Agora. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
+            persona: "A shared road between Athenian Agora and Eleusinian Sanctuary, with small shrines along the verge. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-athens",
               "greek-eleusis"
@@ -4636,11 +4636,6 @@
               kind: "item",
               target: "greek-decree"
             },
-            desire: {
-              items: [],
-              location: "greek-palace",
-              avatars: []
-            },
             tastes: {
               likes: "public procedure, named witnesses",
               sore: "private defiance presented as settled law",
@@ -4688,12 +4683,13 @@
             portrait: "assets/greek-drama/chthonic-baker.png",
             want: {
               kind: "place",
-              target: "greek-courtyard"
-            },
-            desire: {
-              items: [],
-              location: "greek-courtyard",
-              avatars: []
+              target: "greek-courtyard",
+              step: {
+                verb: "lay",
+                items: [
+                  "greek-water-jar"
+                ]
+              }
             },
             tastes: {
               likes: "a returned jar, a fed neighbor",
@@ -5611,7 +5607,7 @@
             name: "Water Jar",
             text: "A filled clay jar with a repaired handle. Dione needs it back at the common table.",
             holder: "greek-well",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A filled clay jar with a repaired handle, drawn at the well. Dione needs it back at the common table, where her bread is made.",
             art: "assets/greek-drama/water-jar.png",
             home: "greek-well",
             absentReturn: true
@@ -5620,7 +5616,7 @@
             name: "Courtyard Bread",
             text: "A round loaf from Dione's oven, baked from well water and wheat.",
             holder: "greek-courtyard",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A round loaf from Dione's oven, baked from well water and wheat in the Theban courtyard.",
             art: "assets/greek-drama/bread.png",
             home: "greek-courtyard",
             tags: [
@@ -5640,7 +5636,7 @@
             name: "Sack of Wheat",
             text: "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus.",
             holder: "greek-baker",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus for Dione's oven.",
             art: "assets/greek-drama/wheat.png",
             home: "greek-piraeus",
             absentReturn: true
@@ -5649,7 +5645,7 @@
             name: "Dried Figs",
             text: "Dried figs from the trees beside the sanctuary altar, strung for a journey.",
             holder: "greek-sanctuary",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Dried figs from the trees beside the sanctuary altar, strung for a journey.",
             art: "assets/greek-drama/figs.png",
             home: "greek-sanctuary",
             tags: [
@@ -5661,7 +5657,7 @@
             name: "Wine Skin",
             text: "A stoppered leather skin of wine from the gate's ration, for a crew at sea.",
             holder: "greek-gate",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A stoppered leather skin of wine from the gate's ration, for a crew at sea.",
             art: "assets/greek-drama/wine-skin.png",
             home: "greek-gate",
             tags: [
@@ -5673,7 +5669,7 @@
             name: "Funeral Cloth",
             text: "Clean linen from the looms at Eleusis, folded for a burial.",
             holder: "greek-sanctuary",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Clean linen from the looms at Eleusis, folded for a burial.",
             art: "assets/greek-drama/funeral-cloth.png",
             home: "greek-eleusis",
             absentReturn: true
@@ -5682,7 +5678,7 @@
             name: "Funeral Oil",
             text: "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
             holder: "greek-courtyard",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
             art: "assets/greek-drama/oil-lekythos.png",
             home: "greek-colonus",
             absentReturn: true
@@ -5692,7 +5688,7 @@
             startLevel: 6,
             text: "A short iron shovel with soil caught beneath the blade.",
             holder: "greek-gate",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A short iron shovel with soil caught beneath the blade.",
             art: "assets/greek-drama/shovel.png",
             home: "greek-gate"
           },
@@ -5701,21 +5697,21 @@
             startLevel: 19,
             text: "A public copy forbids burial of the brother left outside the city.",
             holder: "greek-guard",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A public copy of Creon's decree. It forbids burial of the brother left outside the city.",
             art: "assets/greek-drama/decree.png"
           },
           "greek-household-token": {
             name: "Household Token",
             text: "A small marked seal identifies the bereaved household for a public petition.",
             holder: "greek-sanctuary",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A small marked seal that names the bereaved household for a public petition.",
             art: "assets/greek-drama/household-token.png"
           },
           "greek-provisions": {
             name: "Travel Provisions",
             text: "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
             holder: "greek-harbor",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
             art: "assets/greek-drama/provisions.png",
             home: "greek-harbor",
             startsUsed: true,
@@ -5738,7 +5734,7 @@
             text: "An olive branch bound with white wool carries the herald\u2019s burial truce: Thebes gives up the Argive dead under witness. Its place is Dione\u2019s table in the Theban courtyard.",
             holder: "greek-theseus",
             art: "assets/greek-drama/olive-branch.webp",
-            persona: "Describe the truce, its actual holder and its recorded use.",
+            persona: "An olive branch bound with white wool: the herald's burial truce. Thebes gives up the Argive dead under witness.",
             requires: [
               {
                 kind: "any",
@@ -5763,7 +5759,7 @@
             startLevel: 6,
             text: "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
             holder: "greek-egypt-tomb",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. It records Helen's stay in Egypt and tells her apart from the phantom sent to Troy.",
             art: "assets/greek-drama/testimony.png",
             requires: [
               {
@@ -5777,7 +5773,7 @@
             name: "The Trojan Witness Tablet",
             text: "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
             holder: "greek-troy-beach",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. It records Helen's journey from Troy and makes no claim that a phantom took her place.",
             art: "assets/greek-drama/troy-testimony.png",
             requires: [
               {
@@ -5791,7 +5787,7 @@
             name: "The Tomb Witness Tablet",
             text: "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
             holder: "greek-argos-tomb",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. Its account begins with offerings and a meeting at Agamemnon's tomb.",
             art: "assets/greek-drama/tomb-testimony.png",
             requires: [
               {
@@ -5805,7 +5801,7 @@
             name: "The Palace Witness Tablet",
             text: "The testimony begins with Electra waiting outside the Mycenaean palace.",
             holder: "greek-mycenae-palace",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. Its account begins with Electra waiting outside the Mycenaean palace.",
             art: "assets/greek-drama/palace-testimony.png",
             requires: [
               {
@@ -5819,7 +5815,7 @@
             name: "The Farmer's Witness Tablet",
             text: "The testimony begins in a poor household in the Argive countryside.",
             holder: "greek-argive-farm",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A witness tablet. Its account begins in a poor household in the Argive countryside.",
             art: "assets/greek-drama/farm-testimony.png",
             requires: [
               {
@@ -5835,7 +5831,7 @@
             text: "An olive branch lies across a tablet bearing the mothers\u2019 request. It is addressed to the Agora of Athens, and Aethra has left room for the city\u2019s answer.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/burial-petition.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
+            persona: "An olive branch across a tablet that bears the mothers' request to the Agora of Athens. Room is left for the city's answer.",
             home: "greek-eleusis",
             absentReturn: true
           },
@@ -5845,7 +5841,7 @@
             text: "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from linen, oil and the herald\u2019s truce.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/ash-urn.png",
-            persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds.",
+            persona: "A covered clay urn for the Argive ashes, made at Aethra's altar from linen, oil and the herald's truce.",
             home: "greek-eleusis",
             startsUsed: true,
             locked: {
@@ -5930,7 +5926,7 @@
           "greek-burial-account": {
             name: "Burial Account",
             text: "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
             holder: "greek-battlefield",
             art: "assets/greek-drama/burial-account.webp",
             requires: [
@@ -5944,7 +5940,7 @@
           "greek-creon-writ": {
             name: "Creon's Writ",
             text: "A sealed writ from the palace. With it, Creon permits the household to bury the brother, and the gate guard to stand aside.",
-            persona: "Describe the object, its actual holder, and recorded use. Do not disclose unobserved events or invent a hidden power.",
+            persona: "A sealed writ from the palace. With it Creon lets the household bury the brother, and the gate guard stands aside.",
             holder: "greek-creon",
             art: "assets/greek-drama/creon-writ.webp"
           },
@@ -9737,16 +9733,8 @@
             "greek-colonus",
             "greek-eleusis",
             "greek-road-thebes",
-            "greek-road-athens-harbor",
             "greek-road-athens-piraeus",
-            "greek-road-coast",
-            "greek-road-athens-colonus",
             "greek-road-athens-eleusis",
-            "greek-road-athens-marathon",
-            "greek-road-piraeus-eleusis",
-            "greek-road-colonus-eleusis",
-            "greek-road-colonus-marathon",
-            "greek-athens-harbor",
             "greek-cithaeron",
             "greek-polynices-hollow"
           ],
@@ -10685,7 +10673,7 @@
             },
             name: "Signal Jetty",
             text: "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home.",
-            persona: "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home. Use the saved story facts for completed deeds.",
+            persona: "Static watches the boats from the Observatory terrace. An invitation lies beside a small route drawing. The next guest should know the way here and the way home.",
             exits: [
               "hoppycat-halfway-tea-garden",
               "hoppycat-goldfish-tank",
@@ -12817,7 +12805,7 @@
               "willows-camp"
             ],
             backdrop: "assets/willows/landing.webp",
-            voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: "Wind in the reeds. Only \u2014 the reeds are not moving. Wind, then." "An otter. Its eyes were yellow because the sun was low." "The paddle lies nearer the water than I left it. The wind." "The boatman crossed himself. Boatmen do."`,
+            voice: 'I am the landing, and I speak in the first person, in one to three very short sentences. I notice one small change and find an ordinary reason for it. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "Wind in the reeds. Only \u2014 the reeds are not moving. Wind, then." "An otter. Its eyes were yellow because the sun was low." "The paddle lies nearer the water than I left it. The wind." "The boatman crossed himself. Boatmen do."',
             backdrops: [
               {
                 backdrop: "assets/willows/landing-boatman.webp",
@@ -12860,7 +12848,7 @@
               "willows-thicket"
             ],
             backdrop: "assets/willows/camp.webp",
-            voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Use only paces named in the facts. Examples: "The fire leans away from the willows. A draught off the river." "The island is smaller tonight. The river takes sand. It takes. That is all rivers do." "I paced it at supper. Eleven paces to the nearest willow. Nine now." "Count the willows if it helps. I counted them at supper and there were \u2014"`,
+            voice: 'I am the camp, and I speak in the first person, in one to three very short sentences. I measure, count and explain, and I count in the paces I have walked. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "The fire leans away from the willows. A draught off the river." "The island is smaller tonight. The river takes sand. It takes. That is all rivers do." "I paced it at supper. Eleven paces to the nearest willow. Nine now." "Count the willows if it helps. I counted them at supper and there were \u2014"',
             stage: {
               focus: {
                 x: 82,
@@ -12946,7 +12934,7 @@
                 ]
               }
             ],
-            voice: 'Speak as the willows, many together: one to three very short sentences. Use we, us and our, never I. Rustle, lean, chatter and count: count the travellers, the paces, the leaves. Never explain and never give a reason. Never name what moves above us. Never address anyone. Examples: "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."',
+            voice: 'We are the willows, many together, and we speak as we, us and our, in one to three very short sentences. We rustle, lean, chatter and count: the travellers, the paces, the leaves. We give no reasons. "Two of them. Two. We lean to count again." "We are nearer than at supper. We did not move. We are nearer." "Our leaves turn silver side up. Two. Still two."',
             road: [
               "willows-camp",
               "willows-bank"
@@ -13013,7 +13001,7 @@
                 ]
               }
             ],
-            voice: `Use the first person: one to three very short sentences. Notice one concrete change from the facts, then give it an ordinary reason. Read the line 'Discoveries recorded so far'. At 0 to 2, give a calm reason. At 3 to 5, give a short reason that does not quite hold. At 6 or more, give no reason; break off. Never name what is out there. Never address anyone. Examples: "A humming across the water. A steamer, far off. There are no steamers here." "Something turns below the roots. A log. It is a log." "The current turns him over. The marks are \u2014"`
+            voice: 'I am the bank, and I speak in the first person, in one to three very short sentences. I listen, and I explain what I hear. The more the discoveries recorded so far, the thinner my reasons wear: calm at first, then not quite holding, and at last none at all. "A humming across the water. A steamer, far off. There are no steamers here." "Something turns below the roots. A log. It is a log." "The current turns him over. The marks are \u2014"'
           }
         },
         avatars: {
@@ -13072,11 +13060,6 @@
               kind: "place",
               target: "willows-landing"
             },
-            desire: {
-              items: [],
-              location: null,
-              avatars: []
-            },
             stayUntil: [
               {
                 kind: "item_near",
@@ -13112,7 +13095,7 @@
           "willows-paddle": {
             name: "Worn Paddle",
             startLevel: 11,
-            text: "One wooden paddle remains beside the canoe. Its blade has been scraped strangely thin.",
+            text: "One wooden paddle lies on the bank. Its blade has been scraped strangely thin.",
             persona: "A long wooden canoe paddle with a blade scraped strangely thin. Part of the Swede's kit; it belongs at the camp.",
             holder: "willows-bank",
             art: "assets/willows/paddle.png"
@@ -13914,7 +13897,7 @@
               "scarf"
             ],
             startLevel: 11,
-            text: "A soft blue knitted scarf fastened with a orange button.",
+            text: "A soft blue knitted scarf fastened with an orange button.",
             persona: "A soft blue knitted scarf RATi sewed for Ash. Ash's own orange button fastens it.",
             holder: "forest-cottage",
             requires: [
@@ -14004,7 +13987,7 @@
             tags: [
               "scarf"
             ],
-            text: "A soft amber knitted scarf fastened with a indigo button.",
+            text: "A soft amber knitted scarf fastened with an indigo button.",
             persona: "A soft amber knitted scarf RATi sewed for Cass. Cass's own indigo button fastens it.",
             holder: "forest-cottage",
             requires: [
@@ -14381,7 +14364,7 @@
             on: "meet",
             for: "ash",
             label: "Ash meets RATi",
-            text: "RATi looks at Ash's coat and finds a thread where a orange button should be. Somewhere in the world, the button has gone.",
+            text: "RATi looks at Ash's coat and finds a thread where an orange button should be. Somewhere in the world, the button has gone.",
             requires: [
               {
                 kind: "not",
@@ -14501,7 +14484,7 @@
             on: "meet",
             for: "orin",
             label: "Cass meets RATi",
-            text: "RATi looks at Cass's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
+            text: "RATi looks at Cass's coat and finds a thread where an indigo button should be. Somewhere in the world, the button has gone.",
             requires: [
               {
                 kind: "not",
@@ -15545,7 +15528,7 @@
           "ratiradio-raven-figurine": {
             name: "Raven Figurine",
             text: "A small ceramic raven, lost beyond the station. Hold it and talk with RATi to open the Broadcast Booth, then leave it in the Listening Room.",
-            persona: "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. It must rest directly in the Listening Room with the glass and beanie.",
+            persona: "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. Its place is in the Listening Room, beside the glass and the beanie.",
             holder: "ratiradio-listening-room",
             art: "assets/ratiradio/raven-figurine.webp",
             reservedUntil: [

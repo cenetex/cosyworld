@@ -272,7 +272,9 @@ describe("selection", () => {
       }
     }
     const s = world();
-    const one = "greek-baker";
+    const one = Object.keys(packPeople).find(
+      (id) => packPeople[id].want?.kind === "place" && !packPeople[id].want.step,
+    );
     expect(termsOf(s.actors[one].want)).toEqual(termsOf(authoredWant(one)));
     s.actors[one].place = authoredWant(one).target;
     if (authoredWant(one).kind === "place") {

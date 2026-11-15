@@ -8047,7 +8047,9 @@
         "avatar": "greek-baker",
         "kind": "place",
         "target": "greek-courtyard",
-        "items": []
+        "items": [
+          "greek-water-jar"
+        ]
       },
       {
         "avatar": "greek-shipmaster",
@@ -10572,6 +10574,7 @@
         "resident:greek-argive-mother"
       ],
       "want:greek-baker": [
+        "item:greek-water-jar",
         "place:greek-courtyard",
         "resident:greek-baker"
       ],
