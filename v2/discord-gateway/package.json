@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CosyWorld's Discord companion bot: renders the world into assigned channels.",
+  "description": "Lonely Forest's Discord bot: residents talk in #lonely-forest.",
   "scripts": {
     "start": "node src/index.mjs",
     "test": "node --test test/*.test.mjs"

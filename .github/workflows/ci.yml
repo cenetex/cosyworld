@@ -63,6 +63,7 @@ jobs:
       - name: Test and validate content
         run: |
           npm test
+          node --test v2/discord-gateway/test/*.test.mjs
           npm run v2:worldpack
           npm run v2:syntax
 

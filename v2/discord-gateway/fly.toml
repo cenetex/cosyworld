@@ -6,7 +6,7 @@ primary_region = "sjc"
 
 [env]
   ORCHESTRATOR_URL = "https://cosyworld.fly.dev"
-  DISCORD_BINDINGS_FILE = "/data/bindings.json"
+  DISCORD_STATE_FILE = "/data/discord.json"
 
 [mounts]
   source = "discord_data"
