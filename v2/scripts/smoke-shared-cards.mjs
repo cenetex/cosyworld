@@ -1195,7 +1195,6 @@ try {
       fullPage: true,
     });
   }
-  // The journal's ops after a sequence number, read and closed at once.
   const journalOps = (after) => {
     const db = new DatabaseSync(join(dir, "events.sqlite"), { readOnly: true });
     try {
@@ -1210,6 +1209,8 @@ try {
   };
   for (const width of [1440, 390]) {
     await vale.setViewportSize({ width, height: 900 });
+    const stack = vale.locator('#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card');
+    if (await stack.count()) await tapCard(stack.first());
     failReplies = true;
     // A Talk always voices Vale; a Wait may pass in silence.
     const action = await actionFor(vale, "talk");
