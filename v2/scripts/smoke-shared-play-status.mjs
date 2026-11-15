@@ -1,8 +1,7 @@
-// The player's own shared play is one Thinking card while it waits, which
-// cancels in two taps. Once it commits the reply types into the full-size
-// front card. A refused play says why on its own button while its cards stay
-// chosen (#2026), or briefly on the status line once they are not, and the
-// action beat fits a phone at 390x844, 320x568 and 200% text.
+// A shared play waits as one Thinking card, cancelled in two taps.
+// Its reply becomes the full-size front card without another interaction.
+// Refusals keep chosen cards, or briefly use the status line (#2026).
+// The action beat fits 390x844, 320x568 and 200% text.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
