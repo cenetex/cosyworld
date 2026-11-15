@@ -77,7 +77,7 @@ async function check(width) {
     hasTouch: width === 390,
   });
   const known = new Set(availableCards(world));
-  let forecast = world;
+  let forecast = structuredClone(world);
   for (let turn = 0; turn < 2; turn++) {
     const seat = { actor: "vale", claimed: ["vale"], present: ["vale"] };
     const action = dispatchShared({ op: "view", world: forecast, ...seat }).actions.find(
