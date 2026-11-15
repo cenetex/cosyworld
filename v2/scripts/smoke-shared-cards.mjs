@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   clearSelection,
+  tapCard,
   holdItem,
   revealCard,
   readyActionButton,
@@ -898,13 +899,19 @@ try {
   for (const page of [vale, mara]) {
     await wake(page);
     const state = await snapshot(page);
-    for (const id of currentScene({ ...state.world, playerActorId: state.actor }).slots.filter(Boolean))
-      await revealCard(page, id);
-    await clearSelection(page);
+    const stack = page.locator('#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card');
+    if (await stack.count()) await tapCard(stack.first());
     const latest = state.history.find((scene) => scene.room === meet).lines.at(-1);
     await readSharedLine(page, latest.text, true);
     await catchUpWithStack(page);
     await catchUpWithLive(page);
+    const reading = page.locator('#dialogue-advance[data-revealing="true"]');
+    if (await reading.count()) await reading.click();
+    assert.equal(await page.locator("#dialogue-advance").getAttribute("data-revealing"), "false");
+    for (const id of currentScene({ ...state.world, playerActorId: state.actor }).slots.filter(Boolean))
+      await revealCard(page, id);
+    await clearSelection(page);
+    await readSharedLine(page, latest.text, true);
   }
   const clipsBefore = await Promise.all(
     [vale, mara].map((page) => page.evaluate(() => window.sharedVoiceClips)),
