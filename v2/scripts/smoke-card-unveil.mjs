@@ -232,7 +232,7 @@ try {
       assert.deepEqual(await covered(), ["attic"]);
       // Putting the lamp out enables Unlock and pays a traveler no XP.
       assert.equal((await state()).actors.vale.xp, 0);
-      await putOutOpening(page);
+      await putOutOpening(page, { unlock: false });
       await turnOverPond();
       await unveil("pond");
       await finish();
@@ -547,7 +547,7 @@ try {
       assert.deepEqual(await covered(), opening);
       await finish();
       assert.equal((await state()).turn, 0);
-      await putOutOpening(page);
+      await putOutOpening(page, { unlock: false });
       await turnOverPond();
       await unveil("pond");
       await page.evaluate(
