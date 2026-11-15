@@ -22,6 +22,7 @@ import {
   exits,
   legalActions,
   play,
+  seedRun,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { humanAvatars } from "../card-game/human-cast.mjs";
@@ -283,6 +284,7 @@ assert(crossing, "the dark attic opens the way to the pond");
 const crossed = play(seed, crossing);
 assert(crossed.ok);
 seed = holdItem(crossed.state, "lamp");
+seedRun(seed, 3160098175);
 const initialSave = encodeSave(seed);
 const seen = [
   ...Object.keys(seed.actors),
@@ -866,10 +868,7 @@ try {
     !(await actionFor(tavi, "move", meet)),
     "full room hides the route while NPCs still fit",
   );
-  await until(
-    async () => !(await tavi.locator(`#hand [data-card="${meet}"]`).count()),
-    "full meeting card disappears",
-  );
+  await tavi.locator(`#hand [data-card="${meet}"][data-locked="true"]`).waitFor({ state: "attached" });
   assert(
     (await snapshot(vale)).world.actors.moth,
     "original NPC remains part of shared world",
