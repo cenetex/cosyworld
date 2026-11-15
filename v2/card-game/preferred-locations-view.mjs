@@ -4,6 +4,7 @@ export function createPreferredLocationsView(stage, art, cast) {
   let spots = new Map();
   let frame = 0;
   let originalFocus = "0.5";
+  const dialogue = document.querySelector(".dialogue");
   function draw() {
     frame = 0;
     const stageBox = stage.getBoundingClientRect();
@@ -28,7 +29,8 @@ export function createPreferredLocationsView(stage, art, cast) {
     }
     const castBox = cast.getBoundingClientRect();
     const floor = stageBox.bottom - 12;
-    const dock = document.querySelector(".play-dock").getBoundingClientRect();
+    const obstructions = [document.querySelector(".play-dock"), dialogue]
+      .filter(Boolean).map((el) => el.getBoundingClientRect());
     const placed = [];
     for (const figure of cast.children) {
       const spot = spots.get(figure.dataset.avatar);
@@ -85,11 +87,12 @@ export function createPreferredLocationsView(stage, art, cast) {
     }
     for (const { figure, point, left, width, height } of placed) {
       const center = castBox.left + left;
-      if (center + width / 2 > dock.left && center - width / 2 < dock.right)
-        point.bottom = Math.max(
-          point.bottom,
-          castBox.bottom - dock.top + 12 - height * (closeUp ? 0.25 : 0.7),
-        );
+      for (const obstruction of obstructions)
+        if (center + width / 2 > obstruction.left && center - width / 2 < obstruction.right)
+          point.bottom = Math.max(
+            point.bottom,
+            castBox.bottom - obstruction.top + 12 - height * (closeUp ? 0.25 : 0.7),
+          );
       point.bottom = Math.min(
         point.bottom,
         castBox.bottom - stageBox.top - height,
@@ -107,10 +110,9 @@ export function createPreferredLocationsView(stage, art, cast) {
   observer.observe(art);
   observer.observe(cast);
   observer.observe(document.querySelector(".play-dock"));
+  if (dialogue) observer.observe(dialogue);
   return (actors) => {
-    // Pose/framing and cast-rank changes animate each figure's height.
-    // Re-clamp its painted floor as that height settles, not only when
-    // the surrounding stage changes size.
+    // Re-clamp portraits as their animated height changes.
     for (const figure of watched) {
       if (figure.parentElement === cast) continue;
       observer.unobserve(figure);

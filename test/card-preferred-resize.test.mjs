@@ -38,8 +38,12 @@ it("reclamps an expanding awake portrait and releases departed figures", () => {
   const stage = element(box),
     art = element(box),
     cast = element(box);
-  const dock = element({ top: 800, left: 0, right: 1000 });
-  vi.stubGlobal("document", { querySelector: () => dock });
+  const dockBox = { top: 800, left: 0, right: 1000 };
+  const dialogueBox = { top: 750, left: 0, right: 1000 };
+  const dock = element(dockBox), dialogue = element(dialogueBox);
+  vi.stubGlobal("document", {
+    querySelector: (selector) => selector === ".dialogue" ? dialogue : dock,
+  });
   let height = 200;
   const figure = {
     parentElement: cast,
@@ -75,6 +79,31 @@ it("reclamps an expanding awake portrait and releases departed figures", () => {
     expect(left - height / 3).toBeGreaterThanOrEqual(0);
     expect(left + height / 3).toBeLessThanOrEqual(box.width);
   }
+  box.height = box.bottom = 640;
+  dockBox.top = 500;
+  dialogueBox.top = 416;
+  height = 195;
+  const crowd = ["vale", "nell", "mara", "ash", "keeper", "boardyai"].map((avatar) => ({
+    ...figure, dataset: { avatar }, style: {},
+  }));
+  cast.children = crowd;
+  show(crowd.map((el, i) => ({
+    id: el.dataset.avatar, paintedSpot: [10 + i * 16, 98, 1],
+  })));
+  pending();
+  const headsClear = () => {
+    for (const el of crowd) {
+      const top = box.bottom - parseFloat(el.style.bottom) - height;
+      expect(top).toBeGreaterThanOrEqual(box.top);
+      expect(top + height * 0.25).toBeLessThan(dialogueBox.top);
+    }
+  };
+  headsClear();
+  expect(observed.has(dialogue)).toBe(true);
+  dialogueBox.top = 340;
+  resize();
+  pending();
+  headsClear();
   figure.parentElement = null;
   cast.children = [];
   show([]);
