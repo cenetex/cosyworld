@@ -113,6 +113,8 @@ try {
         return buttons;
       };
       const layout = async () => {
+        assert(await page.locator('#hand .want-frame:not([hidden]) > .want-card[data-quest-id]').isVisible(),
+          "measure a visible held quest");
         const problems = await page.evaluate(() => {
           const bar = document.getElementById("action-beat").getBoundingClientRect();
           const out = [];
@@ -214,8 +216,12 @@ try {
       await clearSelection(page);
       await selectCard(page, "pond");
       await page.locator('[data-unlock-box="pond"]:not([data-revealing="true"])').click();
+      await page.waitForFunction(() =>
+        !document.querySelector('#hand [data-card="pond"]').dataset.revealing);
       await revealCard(page, "pond", { keepSelected: true });
       await readyActionButton(page, "move").click();
+      await page.waitForFunction((key) =>
+        JSON.parse(localStorage.getItem(key)).actors.vale.place === "pond", t.key);
       await t.ready();
       assert.equal((await t.state()).actors.vale.place, "pond");
       assert.equal(await offerCards(page).count(), 0, "no offer before Pip is heard");
