@@ -637,7 +637,8 @@ function observeLocks() {
 }
 function rememberCards() {
   try {
-    const newer = JSON.parse(localStorage.getItem(`${SEEN_KEY}.locked`));
+    let newer;
+    try { newer = JSON.parse(localStorage.getItem(`${SEEN_KEY}.locked`)); } catch {}
     if (newer?.scope === lockScope() && newer.revision > lockRevision) {
       loadPendingLocks();
       observeLocks();

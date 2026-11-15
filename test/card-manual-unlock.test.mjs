@@ -126,3 +126,9 @@ it("excludes pending lids from Reveal all and its skip path", () => {
   expect(s.lockedBoxes.boxed("field")).toBe(true);
   expect(s.coveredCards.size).toBe(0);
 });
+it("repairs malformed browser lock storage while preserving discovery writes", () => {
+  const { state: s, saved } = view(new Map([["seen.locked", "broken"]]));
+  s.loadPendingLocks(); s.observeLocks(); s.rememberCards();
+  expect(JSON.parse(saved.get("seen.locked")).ids).toEqual(["field"]);
+  expect(JSON.parse(saved.get("seen.covered"))).toEqual(["plain"]);
+});
