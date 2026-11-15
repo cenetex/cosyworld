@@ -3,15 +3,6 @@ import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
 import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
 import { consult, steer } from "./coordinator.mjs";
-import { readFileSync } from "node:fs";
-
-const REACTIONS = JSON.parse(readFileSync(new URL("./reactions.json", import.meta.url), "utf8"));
-
-export function reaction(residentId, messageId) {
-  const set = REACTIONS[residentId] ?? ["🌲"];
-  const seed = Array.from(String(messageId)).reduce((sum, char) => sum + char.codePointAt(0), 0);
-  return set[seed % set.length];
-}
 
 export const RING = 20;
 const IGNORED_MS = 300000;
@@ -202,10 +193,9 @@ function rate(part, whole) {
 
 export function summary(stats) {
   const actions = stats.actions;
-  const beats = Object.values(actions).reduce((sum, n) => sum + n, 0);
   return [
     `summary replies=${stats.replies} actions=${counts(actions)}`,
-    `continuation=${rate(actions.continue ?? 0, actions.speak ?? 0)} reactions=${rate(actions.react ?? 0, beats)}`,
+    `continuation=${rate(actions.continue ?? 0, actions.speak ?? 0)}`,
     `exchanges=${stats.exchanges} ignored=${rate(stats.ignored, stats.ignored + stats.answered)}`,
     `flags=${counts(stats.flags)} conversation=${counts(stats.conversation)} coordinator=${counts(stats.coordinator)}`,
     `skips=${counts(stats.skips)} failures=${counts(stats.failures)}`,
@@ -420,7 +410,6 @@ export function tick({
   log = () => {},
   stats = createStats(),
   sleep = async () => {},
-  react = null,
   random = () => 1,
   coordinate = null,
 }) {
@@ -466,15 +455,6 @@ export function tick({
       count(stats.skips, decision.reason);
       count(stats.actions, "silent");
       return undefined;
-    }
-    if (decision.act === "react") {
-      room.reactions = [...(room.reactions ?? []).filter((at) => now - at < 60000), now];
-      count(stats.actions, "react");
-      spoke(room, decision.addressed, speaker(room.messages.at(-1)), now);
-      const emoji = reaction(decision.addressed, messageId);
-      return Promise.resolve()
-        .then(() => react?.(room, messageId, emoji))
-        .catch(() => count(stats.failures, "react"));
     }
     const attempt = room.attempt?.id === messageId ? room.attempt.count + 1 : 1;
     room.attempt = { id: messageId, count: attempt };

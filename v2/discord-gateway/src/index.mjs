@@ -89,7 +89,6 @@ function run(targets, now = Date.now()) {
     log,
     stats,
     sleep: wait,
-    react: (room, messageId, emoji) => channels.get(room.channelId)?.messages.react(messageId, emoji),
     random: Math.random,
     coordinate: ask,
   });

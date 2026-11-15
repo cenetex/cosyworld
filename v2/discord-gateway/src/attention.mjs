@@ -159,14 +159,6 @@ export function decide(room, guildDay, now, config, cast) {
   if (last.resident) return result("wait", "resident-last");
   if (last.id === room.handledGap) return result("wait", "handled");
   const { risks, question } = assess(last.text);
-  if (risks[0] === "low-signal") {
-    const focused = addressee(messages, cast, messages.length - 1, room);
-    if (!focused) return result("skip", "low-signal");
-    if (now - last.at < config.DISCORD_ADDRESSED_QUIET_MS) return result("wait", "not-quiet", { addressed: focused });
-    const recent = (room.reactions ?? []).filter((at) => now - at < 60000);
-    if (recent.length >= config.DISCORD_REACTIONS_PER_MINUTE) return result("skip", "reaction-cap");
-    return result("react", "low-signal", { addressed: focused });
-  }
   if (risks.length) return result("skip", risks[0]);
   const attended = attend(messages, cast, messages.length - 1, room);
   if (attended.reason === "conversation-skip-humans-talking") return result("skip", attended.reason);

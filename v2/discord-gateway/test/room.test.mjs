@@ -122,7 +122,7 @@ test("a failing lines call is refunded and retried once", async () => {
     "decision act=reply reason=addressed guild=g1 channel=c1",
     "lines failed reason=busy attempt=2 guild=g1 channel=c1",
   ]);
-  assert.match(summary(stats), /^summary replies=0 actions=none continuation=0.00 reactions=0.00 exchanges=0 ignored=0.00 flags=none conversation=none coordinator=none skips=none failures=busy:2$/);
+  assert.match(summary(stats), /^summary replies=0 actions=none continuation=0.00 exchanges=0 ignored=0.00 flags=none conversation=none coordinator=none skips=none failures=busy:2$/);
 });
 
 test("a throwing lines call or send is refunded and keeps the ambient clock", async () => {
