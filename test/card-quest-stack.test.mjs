@@ -26,19 +26,24 @@ const act = (s, pick) => {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 };
-const talk = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
+const tell = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
+const accept = (s) => act(s, (a) => a.kind === "accept" && a.target === "moth");
+const talk = (s) => accept(tell(s));
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
 const discard = (s) => act(s, (a) => a.kind === "drop" && !a.item);
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const FROM = "quest:from:moth";
 const reload = (s) => decodeSave(encodeSave(s));
 
-describe("an offer is held without an accept play", () => {
-  it("holds Pip's quest as his Talk ends, with nothing to accept", () => {
+describe("an offer is held only once accepted", () => {
+  it("offers Pip's quest as his Talk ends and holds it on Accept", () => {
     const before = createPipWorld(5);
     expect(heldOf(before.actors.vale)).toEqual([]);
-    const s = talk(before);
-    expect(s.turn).toBe(before.turn + 1);
+    const told = tell(before);
+    expect(told.turn).toBe(before.turn + 1);
+    expect(heldOf(told.actors.vale)).toEqual([]);
+    const s = accept(told);
+    expect(s.turn).toBe(told.turn);
     expect(s.actors.vale.want).toMatchObject({
       kind: "item",
       target: "lamp",
@@ -46,8 +51,7 @@ describe("an offer is held without an accept play", () => {
       from: FROM,
     });
     expect(questOffers(s)).toEqual([]);
-    expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
-    expect(s.log.some((e) => e.verb === "quest")).toBe(false);
+    expect(legalActions(s).some((a) => a.kind === "accept")).toBe(false);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
@@ -133,7 +137,8 @@ describe("a closed quest stays closed", () => {
       s = wait(staying(s));
       expect(sources(s)).not.toContain(FROM);
     }
-    s = talk(staying(s));
+    s = tell(staying(s));
+    expect(legalActions(s).some((a) => a.kind === "accept")).toBe(false);
     expect(sources(s)).not.toContain(FROM);
     expect(validateWorld(reload(s))).toBeTruthy();
   });

@@ -58,6 +58,7 @@ describe("after the mirror first opens", () => {
 
   it("carries the lit lamp back to Pip by ordinary plays", () => {
     let s = go(opened(), (a) => a.kind === "talk" && a.target === "moth");
+    s = go(s, (a) => a.kind === "accept" && a.target === "moth");
     expect(s.actors.vale.want).toMatchObject({ target: "lamp", step: { verb: "give", to: "moth" } });
     s = go(s, (a) => a.kind === "move" && a.target === "attic");
     s = go(s, (a) => a.kind === "take" && a.item === "lamp");

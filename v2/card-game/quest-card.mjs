@@ -3,7 +3,7 @@
 // authored or decides anything; the rules own the want (want.mjs).
 import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
-import { conditionWords, wantWords } from "./world/want-words.mjs";
+import { UNKNOWN, conditionWords, wantWords } from "./world/want-words.mjs";
 import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
 import { homeOf } from "./world/home.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
@@ -15,6 +15,7 @@ import {
   movesTo,
   nameOf,
   places,
+  residentOffer,
   rootHolder,
 } from "./world.mjs";
 
@@ -70,6 +71,40 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
+export function offerCard(world, actor = currentActor(world)) {
+  const asked = residentOffer(world, actor);
+  if (!asked) return null;
+  const turn = world.actors[actor].offered.turn;
+  return {
+    ...questShape(world, actor, asked.want, `offer:${actor}:${asked.source}:${turn}`, -1),
+    offer: asked.source,
+    full: asked.full,
+  };
+}
+export function offerLapse() {
+  let seen = null,
+    lapsed = null;
+  return {
+    sync(offer, open) {
+      if (!offer) return false;
+      if (offer.key !== seen) {
+        seen = offer.key;
+        return true;
+      }
+      if (!open) lapsed = offer.key;
+      return false;
+    },
+    standing: (offer) => (offer && offer.key !== lapsed ? offer : null),
+  };
+}
+const the = (name) => (/^(the|an?) /iu.test(name) ? name : `the ${name}`);
+export function offerWords(quest, known = () => true) {
+  const who = nameOf(quest.offer);
+  if (quest.kind === "item" && quest.step?.verb === "give")
+    return `${who} asks for ${known(quest.target) ? the(nameOf(quest.target)) : UNKNOWN.item}`;
+  const words = questCaption(quest, false, null, known);
+  return `${who} asks you to ${words[0].toLowerCase()}${words.slice(1)}`;
+}
 export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
 export const levelCards = (world, actor = currentActor(world)) =>
   spreadOf(world, actor).map(({ index, card, face }, _, all) => ({

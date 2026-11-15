@@ -501,11 +501,12 @@ import {
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
-import { questOffers } from "./world/offers.mjs";
+import { questOffers, residentOffer } from "./world/offers.mjs";
+import { lapseOffer } from "./offer-chance.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
 import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
-export { questOffers };
+export { questOffers, residentOffer };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
@@ -1688,6 +1689,18 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
+  const asked = residentOffer(s, actor);
+  if (asked && !asked.full)
+    out.push(
+      offer(
+        "accept",
+        actor,
+        null,
+        asked.source,
+        `${nameOf(actor)} accepts ${nameOf(asked.source)}'s quest.`,
+        [],
+      ),
+    );
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
       const goal =
@@ -1739,6 +1752,7 @@ export function legalActions(s, actor = currentActor(s)) {
 // it ends. Arrivals are locked in too. Wait and the battle's own plays stay,
 // and the threatened side may still hand over the demanded item.
 const ROOM_LOCKED = new Set([
+  "accept",
   "eat",
   "talk",
   "threaten",
@@ -3331,6 +3345,16 @@ export function play(
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  if (exact.kind === "accept") {
+    const asked = residentOffer(next, actor);
+    const quest = holdQuest(next, actor, asked.want, asked.id);
+    lapseOffer(next, actor);
+    bindAsker(next, actor, quest, true);
+    next.revision += 1;
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
+  lapseOffer(next, actor);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
   // resident sleep becomes its returning player's own.

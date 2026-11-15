@@ -101,6 +101,9 @@ import {
   isQuestId,
   isTarotKey,
   levelCards,
+  offerCard,
+  offerLapse,
+  offerWords,
   questCards,
   questVisible,
   questCaption,
@@ -544,12 +547,26 @@ const visibleQuests = () =>
   shownQuests.filter((quest) => questVisible(world, quest));
 const foldQuest = () => visibleQuests()[0] ?? null;
 const entryIdOf = (quest) => (quest.kind === "arcanum" ? quest.key : questId());
+const OFFER_CARD = "offer:0";
+const offers = offerLapse();
+const standingOffer = () => offers.standing(!pipPrelude() && offerCard(world));
+function syncOffer() {
+  if (!offers.sync(!pipPrelude() && offerCard(world), questOpen === OFFER_CARD)) return;
+  questOpen = OFFER_CARD;
+  selected = [];
+  rowCollapsed = false;
+  expandedHolders.add(currentActor(world));
+}
 const questEntries = () => {
   const shown = visibleQuests(),
-    quest = shown.find((q) => q.kind !== "arcanum");
-  return [...shown.filter((q) => q.kind === "arcanum"), ...(quest ? [quest] : [])].map(
-    (q) => ({ id: entryIdOf(q), quest: q }),
-  );
+    quest = shown.find((q) => q.kind !== "arcanum"),
+    offer = standingOffer();
+  return [
+    ...[...shown.filter((q) => q.kind === "arcanum"), ...(quest ? [quest] : [])].map(
+      (q) => ({ id: entryIdOf(q), quest: q }),
+    ),
+    ...(offer ? [{ id: OFFER_CARD, quest: offer }] : []),
+  ];
 };
 const questEntry = (id) => questEntries().find((entry) => entry.id === id);
 const pickedQuest = () => (questOpen && questEntry(questOpen)?.quest) || null;
@@ -2128,7 +2145,13 @@ function performAction(action, revision) {
     return;
   }
   // Taking a quest passes no turn and leaves the scene and its speech be.
-  if (action.kind === "pack") {
+  if (action.kind === "pack" || action.kind === "accept") {
+    const offered = action.kind === "accept" && offerCard(world);
+    if (offered) {
+      questsInView.seen(questEntryKey(offered));
+      revealedQuests.add(questEntryKey(offered));
+      questOpen = false;
+    }
     world = result.state;
     save();
     render();
@@ -2768,7 +2791,9 @@ function renderActions() {
     sentence = lockShown
       ? lockShown.text
       : questShown
-        ? shownQuestCaption(questShown, false)
+        ? questShown.offer
+          ? offerWords(questShown, known)
+          : shownQuestCaption(questShown, false)
         : (
             (actions[0] && playText(actions[0])) ||
             clientText ||
@@ -2899,11 +2924,18 @@ function renderActions() {
   const confirmKey = drop ? `${revision}:${picked.key}` : null;
   if (abandonQuest !== confirmKey) abandonQuest = null;
   const dropLabel = drop && playLabel(drop, world);
+  const accept =
+    picked?.offer &&
+    legal.find((a) => a.kind === "accept" && a.target === picked.offer);
   const questButtons = abandonQuest
     ? [{ action: drop, label: "Confirm?" }]
     : drop
       ? [{ action: drop, label: dropLabel }]
-      : [];
+      : accept
+        ? [{ action: accept, label: playLabel(accept, world) }]
+        : picked?.full
+          ? [{ action: null, label: "Your quest slots are full" }]
+          : [];
   for (const { action, label } of questButtons) {
     const discard = action?.kind === "drop" && !action.item,
       button = node(
@@ -2912,22 +2944,26 @@ function renderActions() {
         action && !discard ? "card-primary" : "card-action",
       );
     button.type = "button";
-    button.dataset.dropQuest = String(picked.index);
-    button.dataset.destructive = "";
-    button.title = "Discard this quest";
-    button.disabled = selectionBlocked();
-    button.onclick = () => {
-      if (performance.now() - heldAt < TAP_GUARD_MS) return;
-      if (discard && !abandonQuest) {
-        abandonQuest = confirmKey;
-        renderActions();
-        row.lastElementChild?.focus();
-        return;
-      }
-      abandonQuest = null;
-      questOpen = false;
-      commitAction(action, revision);
-    };
+    if (discard) {
+      button.dataset.dropQuest = String(picked.index);
+      button.dataset.destructive = "";
+      button.title = "Discard this quest";
+    } else button.dataset.action = "accept";
+    button.disabled = Boolean(action) && selectionBlocked();
+    if (!action) blockPlay(button, "full");
+    else
+      button.onclick = () => {
+        if (performance.now() - heldAt < TAP_GUARD_MS) return;
+        if (discard && !abandonQuest) {
+          abandonQuest = confirmKey;
+          renderActions();
+          row.lastElementChild?.focus();
+          return;
+        }
+        abandonQuest = null;
+        if (discard) questOpen = false;
+        commitAction(action, revision);
+      };
     row.append(button);
   }
   // An item with its own view offers a client-only Look; it plays nothing.
@@ -3017,7 +3053,7 @@ function renderActions() {
   } else if (questShown && row.childElementCount === 1) {
     cardTapHint(
       row.firstElementChild,
-      abandonQuest ? "Confirm" : "Discard",
+      abandonQuest ? "Confirm" : questShown.offer ? "Accept" : "Discard",
     );
   } else if (
     sentence &&
@@ -3567,6 +3603,7 @@ function questView(quest) {
 }
 const questLabel = (quest, near) => {
   if (quest.face === "down") return "A face-down card";
+  if (quest.offer) return offerWords(quest, known);
   const caption = quest.level
     ? `Level Up ${romanLevel(quest.level)}: ${shownQuestCaption(quest, false)}`
     : shownQuestCaption(quest);
@@ -3603,7 +3640,7 @@ function questFrame({ id, quest }) {
   el.disabled = selectionBlocked();
   el.dataset.questId = id;
   el.dataset.questKey = quest.key;
-  el.dataset.questEntry = questEntryKey(quest);
+  el.dataset.questEntry = `${quest.offer ? "offer:" : ""}${questEntryKey(quest)}`;
   if (quest.face) el.dataset.face = quest.face;
   el.dataset.unrevealed = String(
     covered || quest.face === "down" || questsInView.down(questEntryKey(quest)),
@@ -5081,6 +5118,7 @@ for (const id of ["hand", "settings-hand"]) {
   });
 }
 function render() {
+  syncOffer();
   if (questOpen && !questEntry(questOpen)) questOpen = false;
   for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
     delete card.dataset.hovered;
@@ -5264,7 +5302,9 @@ function render() {
         { frames, changed, faces } = keepFrames(
           row,
           handCards.map((id) =>
-            isQuestId(id) || isTarotKey(id) ? questFrame(questEntry(id)) : card(id),
+            isQuestId(id) || isTarotKey(id) || id === OFFER_CARD
+              ? questFrame(questEntry(id))
+              : card(id),
           ),
         ),
         leaving = exits

@@ -13,8 +13,16 @@ const wait = (s, actor) => {
 };
 const sources = (s, who) => heldOf(s.actors[who]).map((w) => w.from);
 
+const act = (s, actor, pick) => {
+  const action = legalActions(s, actor).find(pick);
+  expect(action).toBeTruthy();
+  const result = play(s, action, s.revision, actor);
+  expect(result.ok, result.error).toBe(true);
+  return result.state;
+};
+
 describe("companions in a shared world", () => {
-  it("holds another traveler's quest in this play but binds only the acting one", () => {
+  it("holds a traveler's quest only on their own Accept, and binds only them", () => {
     let w = dispatchShared({ op: "create", seed: 9 }).world;
     const seats = ["mara", "ash"];
     Object.assign(w, { controlledActors: seats, presentActors: seats });
@@ -22,14 +30,14 @@ describe("companions in a shared world", () => {
     w.actors.moth.trust.mara = 2;
     w.actors.moth.trust.ash = 2;
     w.actors.moth.want = newWant("place", "greek-courtyard", w.turn);
-    w.actors.ash.heard = { moth: "place:greek-courtyard" };
     for (const id of seats) w.actors[id].want = null;
+    w = act(w, "ash", (a) => a.kind === "talk" && a.target === "moth");
     w = wait(w, "mara");
-    expect(sources(w, "ash")).toEqual(["quest:from:moth"]);
-    expect(w.actors.ash.companion).toBeUndefined();
-    expect(w.actors.mara.companion).toBeUndefined();
+    expect(sources(w, "ash")).toEqual([]);
+    expect(legalActions(w, "mara").some((a) => a.kind === "accept")).toBe(false);
     w.actors.moth.place = "pond";
-    w = wait(w, "ash");
+    w = act(w, "ash", (a) => a.kind === "accept" && a.target === "moth");
+    expect(sources(w, "ash")).toEqual(["quest:from:moth"]);
     expect(w.actors.ash.companion).toBe("moth");
     expect(w.actors.mara.companion).toBeUndefined();
   });
