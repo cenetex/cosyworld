@@ -286,6 +286,7 @@ try {
     )
       await selectCard(page, "lamp");
     await selectCard(page, "attic");
+    await readyActionButton(page, "drop").waitFor();
     await tap('#card-actions [data-action="drop"]');
     await strip("put-down");
     await settled();

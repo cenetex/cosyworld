@@ -255,9 +255,9 @@ try {
         "the pond waits at the row's right end",
       );
       assert.equal(await pond.getAttribute("data-unrevealed"), "true");
-      // Stowing is quiet: no turn, reply, or retired lamp action is offered.
-      assert.equal((await state()).turn, 0);
-      assert.equal((await state()).actors.vale.heldItem, null);
+      // Put down is one ordinary turn; no retired lamp action is offered.
+      assert.equal((await state()).turn, 1);
+      assert.equal((await state()).items.lamp.holder, "attic");
       assert.equal((await state()).items.lamp.fuelRooms, 3);
       assert.equal(
         await page
@@ -273,7 +273,7 @@ try {
             ...document.querySelectorAll('#hand .card[aria-pressed="true"]'),
           ].map((card) => card.dataset.card),
         );
-      assert(!(await pressed()).includes("lamp"), "the stowed lamp stays lowered");
+      assert(!(await pressed()).includes("lamp"), "the lamp put down is not chosen");
       // Raise a real known partner before testing closed-pair drag suppression.
       await selectCard(page, "vale");
       const held = await pressed();

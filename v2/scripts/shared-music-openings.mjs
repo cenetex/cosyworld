@@ -119,13 +119,14 @@ export async function checkSharedMusicOpenings(browser, origin) {
       await closeSettings(page);
       await selectCard(page, avatar.item.id);
       if (actor === "vale") {
-        // Vale's quiet lamp stow reveals the pond before any accepted play.
+        // Vale's first play puts the lamp down in the attic.
+        await selectCard(page, "attic");
+        await page.locator('#card-actions [data-action="drop"]').click();
         await page.waitForFunction(() => {
           const a = document.querySelector("#room-music");
           return !a.paused && a.currentTime > 0;
         });
-        assert(!started.has(actor), "The opening reveal is not a turn");
-        assert.equal(world.turn, 0);
+        assert(started.has(actor));
       } else {
         assert(
           await page.locator("#room-music").evaluate((a) => a.paused),
@@ -148,7 +149,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
       });
       assert.deepEqual(errors, []);
       console.log(
-        `${avatar.name}: silent arrival, ${actor === "vale" ? "quiet pond reveal" : "first item play"} starts music, reload resumes`,
+        `${avatar.name}: silent arrival, ${actor === "vale" ? "Put down" : "first item play"} starts music, reload resumes`,
       );
     } catch (error) {
       console.error(
