@@ -74,6 +74,8 @@ test("each request carries the channel as seen in memory", () => {
     { id: "f", at: 790000, text: "RATi, who else is here?", author: "Mara" },
   );
   const body = requestBody(room, config, "rati", 800000);
+  assert.equal(body.addressed, "rati");
+  assert.equal(body.continuing, undefined);
   assert.deepEqual(body.channel, {
     active: ["Mara", "rati", "skull"],
     residents: [
@@ -84,3 +86,12 @@ test("each request carries the channel as seen in memory", () => {
   });
 });
 
+
+test("a resident who spoke last goes on with continuing", () => {
+  const room = createRoom("g1", "c1");
+  room.messages.push({ id: "a", at: 0, text: "Pip?", author: "Jun" }, { id: "b", at: 1000, text: "Yes, Jun.", resident: "moth" });
+  const going = requestBody(room, config, "moth", 2000);
+  assert.equal(going.continuing, "moth");
+  assert.equal(going.addressed, undefined);
+  assert.equal(requestBody(room, config, "rati", 2000).addressed, "rati");
+});

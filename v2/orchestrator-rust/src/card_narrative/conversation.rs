@@ -23,8 +23,7 @@ pub(super) fn applies(context: &Context, entity: &Entity, part: Part) -> bool {
         && !waking::applies(context, &entity.id, part)
 }
 
-/// The line this speaker answers: in a Talk, the actor's line for its
-/// target; otherwise the latest line someone else said here that it heard.
+/// The line this speaker answers: in a Talk, the actor's; otherwise the latest heard here, if not mine.
 pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a SpokenLine> {
     // Exchange contexts contain prior-turn speech only; fresh line chaining
     // belongs to Talk. Keep old promises in chat(), not as this play's result.
@@ -36,7 +35,8 @@ pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a Spo
             .conversation
             .iter()
             .rev()
-            .find(|line| line.actor_id != entity.id && witnessed(entity, line))
+            .find(|line| witnessed(entity, line))
+            .filter(|line| line.actor_id != entity.id)
     })
 }
 

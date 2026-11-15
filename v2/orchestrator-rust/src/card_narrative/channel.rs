@@ -79,6 +79,8 @@ pub(super) struct LinesRequest {
     pack: String,
     #[serde(default)]
     addressed: Option<String>,
+    #[serde(default)]
+    continuing: Option<String>,
     messages: Vec<Message>,
     #[serde(default)]
     channel: Channel,
@@ -361,9 +363,12 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
     {
         return Err("residents must be the cast, each with at most 3 lines");
     }
-    match request.addressed.as_deref() {
-        Some(id) if member(id) => Ok(()),
-        _ => Err("addressed must be a resident of the cast"),
+    let last = request.messages.last().and_then(|m| m.resident.as_deref());
+    match (request.addressed.as_deref(), request.continuing.as_deref()) {
+        (Some(id), None) if member(id) => Ok(()),
+        (None, Some(id)) if last == Some(id) => Ok(()),
+        (None, Some(_)) => Err("the last message must be the continuing resident's"),
+        _ => Err("addressed or continuing must be one resident of the cast"),
     }
 }
 
@@ -697,7 +702,7 @@ pub(super) async fn lines(
     };
     let Some(resident) = residents
         .iter()
-        .find(|r| request.addressed.as_ref() == Some(&r.id))
+        .find(|r| request.addressed.as_ref().or(request.continuing.as_ref()) == Some(&r.id))
     else {
         return silent("no-speaker");
     };
@@ -1114,6 +1119,15 @@ mod tests {
         assert!(validate(&addressed, &residents).is_err());
         addressed.addressed = None;
         assert!(validate(&addressed, &residents).is_err());
+        let mut going = request(json!([human, rati]));
+        going.addressed = None;
+        going.continuing = Some("rati".into());
+        assert!(validate(&going, &residents).is_ok());
+        going.continuing = Some("skull".into());
+        assert!(validate(&going, &residents).is_err());
+        going.continuing = Some("rati".into());
+        going.addressed = Some("rati".into());
+        assert!(validate(&going, &residents).is_err());
         assert!(serde_json::from_value::<LinesRequest>(
             json!({"pack": "lonely-forest", "messages": [human], "user": "1"})
         )
@@ -1256,6 +1270,31 @@ mod tests {
         assert!(prompt.contains("RATi, host of the cottage"));
         assert_eq!(prompt.matches("Reply with").count(), 1);
         assert!(prompt.contains("Mara said: \"Is anyone in the cottage?\""));
+    }
+
+    #[tokio::test]
+    async fn a_continuing_resident_goes_on_from_its_own_line() {
+        let reply = "Mind the step, it creaks.";
+        let own = "Come in, the door sticks.";
+        let mut body = json!({
+            "pack": "lonely-forest",
+            "messages": [
+                {"author": "Jun", "text": "RATi, can I come in?"},
+                {"resident": "rati", "text": own}
+            ]
+        });
+        body["continuing"] = json!("rati");
+        let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(answer["lines"][0]["id"], "rati");
+        let voice = &requests[0];
+        assert_eq!(turn_of(voice, "user"), crate::ai_gateway::SILENCE);
+        let view = turn_of(voice, "assistant");
+        let asked = view.find("Jun said: \"RATi, can I come in?\"").expect(&view);
+        let said = view.find(&format!("I said: \"{own}\"")).expect(&view);
+        assert!(asked < said, "{view}");
+        let (_, _, addressed) = post_lines("{}", Some(reply), TOKEN, talk(Some("rati"))).await;
+        assert_ne!(turn_of(&addressed[0], "user"), crate::ai_gateway::SILENCE);
     }
 
     #[tokio::test]
