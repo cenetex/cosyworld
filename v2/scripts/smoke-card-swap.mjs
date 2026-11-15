@@ -274,9 +274,7 @@ try {
     });
     await tapCard(station);
     assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
-    // Put down in a new world's attic: the lamp goes to the attic's floor,
-    // the mirror opens and the pond's lock turns over, while Vale keeps his
-    // nodes.
+    // Put down moves the lamp to the attic floor while Vale keeps his nodes.
     await page.evaluate(() => document.querySelector("#confirm-reset").click());
     await ready();
     await revealOpening(page);
@@ -293,8 +291,16 @@ try {
     const douse = await watched();
     assert.equal(douse.vale, "kept");
     assert.equal(douse.valeFrame, "kept");
+    assert.equal(await page.locator('#hand [data-card="pond"]').getAttribute("data-locked"), "true");
+    await selectCard(page, "pond");
+    const unlock = page.locator('[data-unlock-box="pond"]');
+    assert(await unlock.isEnabled());
+    await unlock.click();
     await page.waitForFunction(
-      () => document.querySelector('#hand [data-card="pond"]')?.dataset.locked === "false",
+      () => {
+        const pond = document.querySelector('#hand [data-card="pond"]');
+        return pond?.dataset.locked === "false" && !pond.dataset.revealing;
+      },
     );
     assert.equal(
       await page.evaluate(() => document.querySelector('#hand [data-card="pond"]').parentElement.hidden),
