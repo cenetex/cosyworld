@@ -47,8 +47,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      # Pull requests do not bump the version; only its files' agreement is
-      # checked. A release bumps it once (docs/release.md).
+      # Pull requests do not bump the version; only its files' agreement is checked.
       - name: Check version alignment
         run: npm run check:version
 
