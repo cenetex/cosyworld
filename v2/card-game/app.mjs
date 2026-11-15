@@ -526,7 +526,7 @@ const shownStageLevels = new Map();
 const coveredCards = new Set();
 const lockedBoxes = createLockedBoxes();
 const lockScope = () => JSON.stringify([world.run?.seed, currentActor(world)]);
-let lockedScope = lockScope(), lockRevision = 0;
+let lockedScope = lockScope(), lockRevision = 0, lockBaseline = [];
 const pendingLock = (id) => lockedBoxes.boxed(id) || isLockedBox(world, id);
 let openingHeld = false;
 // The held quest on show (none or one) and whether its card is chosen. A
@@ -630,25 +630,38 @@ function loadPendingLocks(reset = false) {
   if (!reset && scope === lockedScope && revision < lockRevision) return;
   lockedScope = scope;
   lockRevision = revision;
+  lockBaseline = ids;
   lockedBoxes.restore(ids);
 }
-function observeLocks() {
-  if (world.revision < lockRevision) return false;
+function observeLocks(authoritative = false) {
+  if (!authoritative && world.revision < lockRevision) return false;
   return lockedBoxes.observe(availableCards(world).filter((id) => isLockedBox(world, id)));
 }
 function rememberCards() {
   try {
     let newer;
-    try { newer = JSON.parse(localStorage.getItem(`${SEEN_KEY}.locked`)); } catch {}
+    const current = lockedBoxes.ids();
+    const stored = localStorage.getItem(`${SEEN_KEY}.locked`);
+    try { newer = JSON.parse(stored); } catch {}
     if (newer?.scope === lockScope() && newer.revision > lockRevision) {
       loadPendingLocks();
       observeLocks();
+    } else if (newer?.scope === lockScope() && newer.revision === lockRevision && Array.isArray(newer.ids)) {
+      const removed = lockBaseline.filter((id) => !current.includes(id));
+      lockedBoxes.restore([...newer.ids, ...current.filter((id) => !lockBaseline.includes(id))]
+        .filter((id) => !removed.includes(id)));
+    }
+    for (const id of current) if (!lockedBoxes.boxed(id)) {
+      encountered.add(id);
+      coveredCards.delete(id);
     }
     lockRevision = Math.max(lockRevision, world.revision);
     localStorage.setItem(SEEN_KEY, JSON.stringify([...encountered]));
-    localStorage.setItem(`${SEEN_KEY}.locked`, JSON.stringify({
+    lockBaseline = lockedBoxes.ids();
+    const record = JSON.stringify({
       scope: lockScope(), revision: lockRevision, ids: lockedBoxes.ids(),
-    }));
+    });
+    if (record !== stored) localStorage.setItem(`${SEEN_KEY}.locked`, record);
     localStorage.setItem(
       `${SEEN_KEY}.covered`,
       JSON.stringify([...coveredCards]),
@@ -660,7 +673,7 @@ function loadSeen(reset = false) {
     opening = reset;
   coveredCards.clear();
   loadPendingLocks(reset);
-  observeLocks();
+  observeLocks(!sharedSession);
   let stored = null;
   try {
     stored = reset ? null : localStorage.getItem(SEEN_KEY);
