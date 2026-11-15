@@ -237,7 +237,6 @@ try {
       // Escape preserves the held writ; inspect the box alone first.
       await clearSelection(page);
       const beforeBox = await questState();
-      // Selecting the box keeps its contents concealed. Talk gives the guard's quest.
       await selectCard(page, FIELD);
       const lock = page.locator('#card-actions [data-blocked="gate"]');
       assert.match(await lock.textContent(), /Unlock/iu);
@@ -283,10 +282,16 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
+      const offered = await state();
+      assert.equal(offered.actors.vale.want, null, "Talk leaves the box quest unheld");
+      await clearSelection(page);
+      await selectCard(page, FIELD);
+      await page.locator('[data-accept-quest]:not([data-revealing="true"])').click();
       await page.waitForFunction(
         (key) => Boolean(JSON.parse(localStorage.getItem(key)).actors.vale.want),
         key,
       );
+      assert.equal((await state()).turn, offered.turn, "Accept advances no time");
       const vale = (await state()).actors.vale;
       assert(
         [vale.want, ...(vale.under || [])].some(

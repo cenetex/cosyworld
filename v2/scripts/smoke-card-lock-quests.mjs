@@ -1,4 +1,3 @@
-// Closed boxes show their authored quest requirement in the existing action beat.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -8,7 +7,7 @@ import { availableCards } from "../card-game/cards.mjs";
 import { isLockedBox, lockedQuest } from "../card-game/locked-box.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { sleepWindow } from "../card-game/resident-sleep.mjs";
-import { revealCard, tapCard, selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, revealCard, tapCard, selectCard } from "./card-browser-helpers.mjs";
 const output = new URL(
   process.argv[2]
     ? `file://${process.argv[2].replace(/\/?$/u, "/")}`
@@ -93,6 +92,13 @@ try {
       await page
         .locator(`#hand [data-card="${id}"]`)
         .waitFor({ state: "attached" });
+      await selectCard(page, id);
+      await page.locator('[data-accept-quest]:not([data-revealing="true"])').click();
+      await page.waitForFunction((key) =>
+        JSON.parse(localStorage.getItem(key)).actors.vale.want?.accepted === true, key);
+      assert.equal(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).turn, key), world.turn,
+        "Accept holds the box quest without advancing time");
+      await clearSelection(page);
       const before = await page.evaluate((key) => {
         const state = JSON.parse(localStorage.getItem(key));
         return {
@@ -137,11 +143,11 @@ try {
       const button = page.locator('#card-actions [data-blocked="gate"]');
       {
         assert.equal(await button.count(), 1);
-        assert.equal(await button.textContent(), "Locked");
+        assert.equal(await button.textContent(), "Unlock");
         assert(await button.isDisabled());
         assert.equal(
           await button.getAttribute("aria-label"),
-          `Locked. ${expected.text}`,
+          `Unlock. ${expected.text}`,
         );
         assert.equal(await button.getAttribute("data-tap-verb"), null);
         assert.equal(
@@ -176,7 +182,7 @@ try {
         await page.locator(`#hand [data-card="${id}"]`).focus();
         await page.keyboard.press("Enter");
         await page.keyboard.press("Enter");
-        assert.equal(await button.textContent(), "Locked");
+        assert.equal(await button.textContent(), "Unlock");
         assert.equal(
           await page.locator('#card-actions [data-action="gate"]').count(),
           0,
@@ -212,7 +218,7 @@ try {
         await selectCard(page, "greek-antigone");
         await selectCard(page, id);
         assert.equal(await page.locator("#card-actions button").count(), 1);
-        assert.equal(await button.textContent(), "Locked");
+        assert.equal(await button.textContent(), "Unlock");
         assert.equal(
           await page.locator('#card-actions [data-blocked="asleep"]').count(),
           0,
