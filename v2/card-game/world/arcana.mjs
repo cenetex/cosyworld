@@ -26,6 +26,7 @@ import {
   called,
   CALLS,
   isArcanum,
+  owesGiving,
   recordOf,
   unlockedOf,
 } from "./arcana-record.mjs";
@@ -383,7 +384,12 @@ export function nextSpread(s, traveler) {
   const known = middle.filter((id) => unlocked.includes(id));
   const unknown = middle.filter((id) => !unlocked.includes(id));
   const used = new Set();
-  const pick = (ids, face, at) => {
+  const tried = recordOf(s, traveler).need;
+  const pick = (all, face, at) => {
+    const ids = [
+      ...all.filter((card) => !tried.includes(card)),
+      ...all.filter((card) => tried.includes(card)),
+    ];
     const id = ids.find(
       (card) =>
         !used.has(card) && dealable(s, scaled(cardOf(card), at), traveler),
@@ -505,10 +511,16 @@ function visit(s, traveler, say) {
     }
   const need = record.need || [];
   if (need.length && need.every((id) => (record.done || []).includes(id))) {
-    record.level = Math.min(LEVEL_CAP, arcanaLevel(s, traveler) + 1);
+    const world = numbered(WORLD);
+    const rises =
+      arcanaLevel(s, traveler) + 1 < LEVEL_CAP ||
+      !world ||
+      need.includes(world) ||
+      unlockedOf(s, traveler).includes(world);
+    if (rises) record.level = Math.min(LEVEL_CAP, arcanaLevel(s, traveler) + 1);
     delete record.need;
     delete record.done;
-    if (slotsUsed(s.actors[traveler]) < MAX_HELD)
+    if (rises && slotsUsed(s.actors[traveler]) < MAX_HELD)
       sleepQuest(s, traveler, { home: homeOf });
   }
   const held = (record.spread || []).map((slot) => slot.card);
@@ -524,6 +536,9 @@ function visit(s, traveler, say) {
 
 export const sells = (s, traveler) =>
   recordOf(s, traveler).sale && nextSpread(s, traveler).length > 0;
+
+export const takes = (s, traveler) =>
+  sells(s, traveler) || owesGiving(s, traveler);
 
 export const spreadOf = (s, traveler) =>
   recordOf(s, traveler).spread.map((slot, index) => ({
@@ -703,12 +718,12 @@ export function installArcana(s) {
     const proved = Array.isArray(record.proved)
       ? record.proved.filter(isArcanum)
       : [];
-    if (record.level === undefined && proved.length)
+    if (record.level === undefined && proved.length) {
       record.level = Math.min(LEVEL_CAP, proved.length);
+      actor.upgrades = sorted([...(actor.upgrades || []), ...proved]);
+    }
     if (record.level !== undefined && !validLevel(record.level))
       delete record.level;
-    if (proved.length)
-      actor.upgrades = sorted([...(actor.upgrades || []), ...proved]);
     if (record.spread !== undefined && !validSpread(record.spread))
       delete record.spread;
     if (record.need !== undefined && !validNeed(record.need))

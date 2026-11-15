@@ -5,6 +5,19 @@ import { humanPresent } from "../human-cast.mjs";
 const cardIds = new Set(data.cards.map((card) => card.id));
 export const isArcanum = (id) => cardIds.has(id);
 export const CALLS = data.calls;
+const didsOf = (c) =>
+  c.kind === "did"
+    ? [c]
+    : [...(c.conditions || []), ...(c.condition ? [c.condition] : [])].flatMap(
+        didsOf,
+      );
+const givingUp = new Set(
+  data.cards
+    .filter((card) =>
+      card.proof.flatMap(didsOf).some((c) => (c.with || []).includes("gone")),
+    )
+    .map((card) => card.id),
+);
 
 export function recordOf(s, traveler) {
   const record = s.actors?.[traveler]?.arcana;
@@ -53,3 +66,8 @@ export const calledTravelers = (s) =>
 
 export const selling = (s, traveler) =>
   humanPresent(s, traveler) && recordOf(s, traveler).sale;
+
+export const owesGiving = (s, traveler) =>
+  recordOf(s, traveler).spread.some(
+    (slot) => slot.face !== "down" && givingUp.has(slot.card),
+  );

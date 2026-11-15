@@ -7,7 +7,7 @@
 import { entityActive, neverBack, packOf } from "../pack-registry.mjs";
 import { packDiscovered, runHash } from "../pack-rules.mjs";
 import { usedUp } from "../item-use.mjs";
-import { arcanaLevel, recordOf } from "./arcana-record.mjs";
+import { arcanaLevel, owesGiving, recordOf } from "./arcana-record.mjs";
 import { rootHolder } from "./items.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
@@ -67,13 +67,15 @@ const isPlayer = (s, actor) =>
  */
 export function questOffers(s, actor = currentActor(s)) {
   const a = s.actors[actor];
-  if (!a || !isPlayer(s, actor) || slotsUsed(a) >= MAX_HELD) return [];
+  if (!a || !isPlayer(s, actor)) return [];
+  const full = slotsUsed(a) >= MAX_HELD;
   const here = a.place,
     out = [];
   const add = (kind, source, want) => {
     const id = offerId(kind, source);
     if (
       !want ||
+      (full && kind !== "listener") ||
       lostOf(s, want) ||
       closedBy(a, id, want) ||
       closedAny(a, want) ||
@@ -112,7 +114,7 @@ export function questOffers(s, actor = currentActor(s)) {
     add("resident", them, questFor(s, them, want));
   }
   if (
-    recordOf(s, actor).sale &&
+    (recordOf(s, actor).sale || owesGiving(s, actor)) &&
     s.actors[LISTENER]?.place === here &&
     entityActive(s, LISTENER) &&
     !Object.values(s.items).some((item) => item.holder === actor)

@@ -21,6 +21,9 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 
+import { journeyWorlds } from "./helpers/journey.mjs";
+import { questCards } from "./journeys/quest-cards.mjs";
+
 const ID = "listener";
 const reload = (world) => decodeSave(encodeSave(world));
 const call = (world, extra = {}) => {
@@ -55,6 +58,16 @@ describe("the Listener", () => {
     for (const other of Object.keys(loaded.actors))
       if (other !== ID) expect(loaded.actors[other].trust[ID]).toBe(0);
     expect(validateWorld(loaded)).toBe(loaded);
+  });
+
+  it("is met where it appears in a world still keeping its opening ledger", () => {
+    let world = call(reload(journeyWorlds(questCards).met));
+    expect(world.opening.met[ID]).toBeUndefined();
+    world = wait(world);
+    expect(world.actors[ID].place).toBe(world.actors.vale.place);
+    expect(world.opening.met[ID]).toBeDefined();
+    world = act(world, (a) => a.kind === "talk" && a.target === ID);
+    expect(world.actors.vale.arcana.spread?.[0]).toMatchObject({ face: "down" });
   });
 
   it("stays away while nobody is called", () => {

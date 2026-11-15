@@ -119,7 +119,13 @@ export const wantKey = (id, want) =>
   `${id}:${want.kind}:${want.target}:${want.since}:${want.quest?.left ?? ""}:${questTerms(want)}`;
 export const MAX_HELD = 3;
 export const heldOf = (a) => (a?.want ? [a.want, ...(a.under || [])] : []);
-export const slotsUsed = (a) => heldOf(a).length + tarotsHeld(a);
+export const LISTENER_FROM = "quest:listener:";
+const fetching = (w) => w.from?.startsWith(LISTENER_FROM) === true;
+export const slotsUsed = (a) => {
+  const held = heldOf(a);
+  const fetches = held.filter(fetching).length;
+  return held.length - fetches + (fetches ? 1 : 0) + tarotsHeld(a);
+};
 export const questsOf = (s, id) => heldOf(s.actors[id]);
 export const questRewardsOf = () => [];
 export const closedKey = questTerms;
@@ -135,7 +141,18 @@ export function setWant(a, want) {
 }
 export function holdQuest(s, actor, want, from) {
   const a = s.actors[actor];
-  if (!a || slotsUsed(a) >= MAX_HELD) return null;
+  if (!a) return null;
+  const choice = from?.startsWith(LISTENER_FROM) === true;
+  const fetches = heldOf(a).filter(fetching).length;
+  if (choice && fetches >= 3) return null;
+  if (choice && !fetches)
+    while (slotsUsed(a) >= MAX_HELD && heldOf(a).some((w) => !fetching(w)))
+      releaseQuest(
+        a,
+        heldOf(a).findLast((w) => !fetching(w) && w.from !== DREAM_FROM) ??
+          heldOf(a).findLast((w) => !fetching(w)),
+      );
+  if (slotsUsed(a) >= MAX_HELD && !(choice && fetches)) return null;
   if (a.want) a.under = [a.want, ...(a.under || [])];
   a.want = { ...want, ...(from ? { from } : {}) };
   delete a.content;

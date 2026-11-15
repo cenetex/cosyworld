@@ -485,7 +485,7 @@ import {
   discardTarot,
   dreamCard,
   installArcana,
-  sells,
+  takes,
   settleArcana,
   spreadOf,
   validArcana,
@@ -493,7 +493,7 @@ import {
 import { homeOf, restsAt } from "./world/home.mjs";
 import { questOffers } from "./world/offers.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
-import { settleStops } from "./world/stops.mjs";
+import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
 export { questOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
@@ -665,7 +665,7 @@ function refusalReason(s, a) {
 // What the other side will say to a Give or Trade. The residents' planner
 // reads this to avoid some offers it expects to be refused.
 export function expects(s, a) {
-  if (a.kind === "give" && keepsForGood(a.target)) return sells(s, a.actor);
+  if (a.kind === "give" && keepsForGood(a.target)) return takes(s, a.actor);
   if (a.kind === "give")
     return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
   if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
@@ -3423,6 +3423,18 @@ export function play(
         locationId: to,
       }),
   });
+  const by = next.actors[currentActor(next)]?.place;
+  if (
+    next.opening &&
+    Object.keys(forest.people).some(
+      (id) =>
+        stopsOf(id) &&
+        next.actors[id]?.place === by &&
+        next.opening.met?.[id] === undefined &&
+        entityActive(next, id),
+    )
+  )
+    meetCast(next);
   companionRound(
     next,
     [actor, respondent, ...residents].filter(Boolean),

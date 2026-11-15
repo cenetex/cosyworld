@@ -3,6 +3,7 @@ import data from "../v2/card-game/arcana.json" with { type: "json" };
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import { entityActive, neverBack } from "../v2/card-game/pack-registry.mjs";
 import {
+  DREAM_FROM,
   heldOf,
   holdQuest,
   newWant,
@@ -17,6 +18,7 @@ import {
   spreadOf,
 } from "../v2/card-game/world/arcana.mjs";
 import { giveUpForGood } from "../v2/card-game/world/for-good.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   createWorld,
   decodeSave,
@@ -228,6 +230,88 @@ describe("a spread bought for a thing", () => {
   });
 });
 
+describe("a redraw and a card given up", () => {
+  it("deals a different locked card after the last one was discarded", () => {
+    let s = createPipWorld(5);
+    level(s, 1, [FOOL, "arcanum-12"], { sale: true });
+    s.items.bell.holder = "vale";
+    s = pay(s, "bell");
+    const first = s.actors.vale.arcana.spread.find((slot) => slot.face === "locked");
+    s = discard(s, cards(s).indexOf(first.card));
+    s = talk(errands(s, 3));
+    expect(recordOf(s, "vale").sale).toBe(true);
+    s.items.lamp.holder = "vale";
+    s = pay(s, "lamp");
+    const again = s.actors.vale.arcana.spread.find((slot) => slot.face === "locked");
+    expect(again.card).not.toBe(first.card);
+    expect(validateWorld(reload(s))).toBeTruthy();
+  });
+
+  it("takes a thing for good while the Nameless Card is owed, and that proves it", () => {
+    let s = createPipWorld(5);
+    level(s, 12, [FOOL, "arcanum-12"], {
+      calls: 3,
+      need: ["arcanum-13"],
+      spread: [{ card: "arcanum-13", face: "locked" }],
+    });
+    s.items.bell.holder = "vale";
+    expect(sells(s, "vale")).toBe(false);
+    s = pay(s, "bell");
+    expect(neverBack(s, "bell")).toBe(true);
+    expect(s.actors.vale.upgrades).toContain("arcanum-13");
+    expect(cards(s)).toEqual([]);
+    s = talk(s);
+    expect(arcanaLevel(s, "vale")).toBe(13);
+    expect(recordOf(s, "vale").sale).toBe(true);
+    expect(validateWorld(reload(s))).toBeTruthy();
+  });
+
+  it("leaves no keeper's hands holding a hub thing given up for good", () => {
+    for (const item of ["oil", "cloth"]) {
+      let s = createPipWorld(5);
+      level(s, 1, [FOOL], { sale: true });
+      s.items[item].holder = "vale";
+      s = wait(pay(s, item));
+      expect(neverBack(s, item)).toBe(true);
+      expect(s.items[item].history).toEqual([]);
+      expect(s.actors[s.items[item].holder]).toBeUndefined();
+      expect(validateWorld(reload(s))).toBeTruthy();
+    }
+  });
+});
+
+describe("the Listener's fetch quests", () => {
+  const emptyHanded = (s) => {
+    for (const item of Object.values(s.items))
+      if (item.holder === "vale") item.holder = "pond";
+    return s;
+  };
+  const fetches = (s) =>
+    heldOf(s.actors.vale).filter((w) => w.from?.startsWith("quest:listener:"));
+
+  it("offers three, sharing one slot, beside a dream quest", () => {
+    let s = emptyHanded(createPipWorld(5));
+    level(s, 1, [FOOL], { sale: true });
+    holdQuest(s, "vale", newWant("place", "attic", s.turn), DREAM_FROM);
+    s = wait(s);
+    expect(fetches(s)).toHaveLength(3);
+    expect(heldOf(s.actors.vale).some((w) => w.from === DREAM_FROM)).toBe(true);
+    expect(slotsUsed(s.actors.vale)).toBeLessThanOrEqual(3);
+    expect(validateWorld(reload(s))).toBeTruthy();
+  });
+
+  it("makes room among full slots by letting the bottom quest go", () => {
+    let s = emptyHanded(createPipWorld(5));
+    level(s, 1, [FOOL], { sale: true });
+    for (const place of ["attic", "station", "forest-cottage"])
+      holdQuest(s, "vale", newWant("place", place, s.turn), `quest:box:${place}`);
+    s = wait(s);
+    expect(fetches(s)).toHaveLength(3);
+    expect(slotsUsed(s.actors.vale)).toBe(3);
+    expect(validateWorld(reload(s))).toBeTruthy();
+  });
+});
+
 describe("what the Listener deals", () => {
   it("never takes a price when nothing would be dealt", () => {
     let s = createPipWorld(5);
@@ -272,6 +356,25 @@ describe("what the Listener deals", () => {
     expect(entityActive(s, "listener")).toBe(false);
   });
 
+  it("reaches the World on the straight path", () => {
+    let s = level(createPipWorld(5), 1, [FOOL]);
+    const dealt = new Set();
+    for (let i = 0; i < 30 && arcanaLevel(s, "vale") < 21; i++) {
+      const spread = nextSpread(s, "vale");
+      expect(spread.length).toBeGreaterThan(0);
+      const shown = spread.filter((slot) => slot.face !== "down");
+      const need = (shown.length ? shown : spread).map((slot) => slot.card).sort();
+      for (const id of need) dealt.add(id);
+      s.actors.vale.upgrades = [...new Set([...s.actors.vale.upgrades, ...need])].sort();
+      Object.assign(s.actors.vale.arcana, { calls: 3, need, done: need });
+      delete s.actors.vale.arcana.sale;
+      s = talk(s);
+    }
+    expect(dealt.has(WORLD)).toBe(true);
+    expect(arcanaLevel(s, "vale")).toBe(21);
+    expect(s.actors.vale.upgrades.filter((id) => id.startsWith("arcanum-"))).toHaveLength(22);
+  });
+
   it("pins the Devil's thing at the deal and moves it only when it is gone for good", () => {
     deck.cards = data.cards.filter((c) => c.id === "arcanum-15");
     let s = act(
@@ -292,6 +395,21 @@ describe("what the Listener deals", () => {
     const moved = s.actors.vale.arcana.spread?.[0]?.bind.thing;
     expect(moved).not.toBe(pinned);
     expect(validateWorld(reload(s))).toBeTruthy();
+  });
+});
+
+describe("an imported local save", () => {
+  it("brings no cards into the passkey's deck", () => {
+    const s = createWorld({ seed: 5 });
+    s.actors.vale.upgrades = ["scarf"];
+    s.actors.vale.arcana = {
+      proved: data.cards.map((card) => card.id).sort(),
+      did: [],
+    };
+    const { world } = dispatchShared({ op: "create", save: encodeSave(s) });
+    expect(
+      (world.actors.vale.upgrades || []).filter((id) => id.startsWith("arcanum-")),
+    ).toEqual([]);
   });
 });
 

@@ -416,7 +416,11 @@ export const validItemCycle = (s) =>
     (id, i) =>
       (!i || s.usedUp[i - 1] < id) &&
       (packThings[id]
-        ? [packThings[id].holder, restOf(id)].includes(s.items[id]?.holder)
+        ? [
+            packThings[id].holder,
+            restOf(id),
+            ...(gone(s, id) ? [restForGood(id)] : []),
+          ].includes(s.items[id]?.holder)
         : gone(s, id) && s.items[id]?.holder === restForGood(id)) &&
       s.items[id].history.length === 0,
   ) &&

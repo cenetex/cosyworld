@@ -78,6 +78,7 @@ import {
 import {
   LOCKED_BACK,
   TAROT_BACK,
+  TAROT_LOCKED_BACK,
   LOCKED_BOX,
   createLockedBoxes,
   isLockedBox,
@@ -3199,7 +3200,7 @@ function showQuests(opening) {
   if (!down && seen) revealedQuests.add(key);
 }
 function setQuestClosed(card, closed) {
-  card.dataset.unrevealed = String(closed);
+  card.dataset.unrevealed = String(closed || card.dataset.face === "down");
   card.dataset.locked = "false";
   const entry = questEntry(card.dataset.questId);
   if (entry) {
@@ -3533,14 +3534,23 @@ function questFrame({ id, quest }) {
   el.dataset.questKey = quest.key;
   el.dataset.questEntry = questEntryKey(quest);
   if (quest.face) el.dataset.face = quest.face;
-  el.dataset.unrevealed = String(questsInView.down(questEntryKey(quest)));
+  el.dataset.unrevealed = String(
+    quest.face === "down" || questsInView.down(questEntryKey(quest)),
+  );
   el.dataset.picked = String(picked);
   el.setAttribute("aria-pressed", String(picked));
   el.setAttribute("aria-label", questLabel(quest, near));
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
-      src: imageUrl(quest.kind === "arcanum" ? TAROT_BACK : CARD_BACK, "card"),
+      src: imageUrl(
+        quest.kind !== "arcanum"
+          ? CARD_BACK
+          : quest.face === "locked"
+            ? TAROT_LOCKED_BACK
+            : TAROT_BACK,
+        "card",
+      ),
       alt: "",
       draggable: false,
     }),
@@ -5039,7 +5049,12 @@ function render() {
   for (let i = metWants(world.log, questSeq, currentActor(world)); i > 0; i--)
     count("quest.met");
   questSeq = world.eventSeq;
-  const liveQuests = [...questCards(world), ...levelCards(world)];
+  const tarots = levelCards(world);
+  const liveQuests = [
+    ...tarots.filter((card) => card.face !== "down"),
+    ...tarots.filter((card) => card.face === "down"),
+    ...questCards(world),
+  ];
   const dealtQuest = liveQuests.find(
     (quest) => questVisible(world, quest) && !shownQuests.some((shown) => shown.key === quest.key),
   );
