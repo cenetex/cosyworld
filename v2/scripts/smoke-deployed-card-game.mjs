@@ -18,7 +18,10 @@ for (const target of targets) {
   assert.equal(meta.version, version, `${base.origin}: metadata release`);
   // Between releases main keeps the release version; the commit names the build.
   if (meta.commit && process.env.GITHUB_SHA) {
-    assert(process.env.GITHUB_SHA.startsWith(meta.commit), `${base.origin}: commit ${meta.commit}`);
+    assert(
+      process.env.GITHUB_SHA.startsWith(meta.commit),
+      `${base.origin}: commit ${meta.commit}`,
+    );
   }
   assert.equal(
     meta.primary_game,
@@ -50,8 +53,6 @@ for (const target of targets) {
   console.log(
     `${base.origin}: ${meta.primary_game} ${meta.version}${meta.commit ? `+${meta.commit}` : ""}, rules ${meta.card_game.shared_rules_version}`,
   );
-  // Check a few files at a time: the release has hundreds of files and
-  // about 500 MB, which took two minutes one by one.
   const checkAsset = async ({ file, contentType, source, offset = 0 }) => {
     const url = new URL(
       file === "index.html" ? "/" : `/card-game/${file}`,
@@ -71,7 +72,13 @@ for (const target of targets) {
     const expected = (
       await readFile(new URL(`../card-game/${source || file}`, import.meta.url))
     ).subarray(offset);
-    const actual = Buffer.from(await response.arrayBuffer());
+    let actual = Buffer.from(await response.arrayBuffer());
+    if (file === "index.html")
+      actual = Buffer.from(
+        actual
+          .toString()
+          .replaceAll(`${url.origin}/`, "https://lonelyforest.com/"),
+      );
     assert(actual.equals(expected), `${url}: differs from this release`);
     if (file.endsWith(".mp3")) {
       const range = await fetch(url, {

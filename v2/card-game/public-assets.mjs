@@ -276,6 +276,7 @@ const files = [
   "assets/shared/places/loft.png",
   "assets/shared/items/shears.png",
   "index.html",
+  "assets/share/lonely-forest.jpg",
   // The Privacy page (#2052), served at /privacy.
   "privacy.html",
   "privacy.css",
