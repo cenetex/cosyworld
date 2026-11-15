@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-// Usage:
-//   npm run version:bump            # patch bump (1.0.84 -> 1.0.85)
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
