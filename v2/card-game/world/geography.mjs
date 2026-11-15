@@ -124,7 +124,10 @@ export function homeRescueExit(s, place, actor = currentActor(s), previous = nul
       (gate.opening && knownActors(s).includes(actor))) &&
     s.actors[actor]?.place === place &&
     !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&
-    !homeGateRecoverable(s, place, gate, actor)
+    (!homeGateRecoverable(s, place, gate, actor) ||
+      (controlledByHuman(s, actor) &&
+        rootHolder(s, gate.item) === actor &&
+        Boolean(s.opened?.[gate.rescue]?.includes(actor))))
     ? // With its rescue place asleep, the first pack on takes them in (rules 98).
       entityActive(s, gate.rescue)
       ? gate.rescue
@@ -162,7 +165,7 @@ export function pondRescueExit(s, place, actor, previous) {
   if (
     place !== "pond" ||
     s.actors[actor]?.place !== place ||
-    (!controlledByHuman(s, actor) && !knownActors(s).includes(actor)) ||
+    !controlledByHuman(s, actor) ||
     !(atticInterior.has(lamp) || atticInterior.has(oil)) ||
     ordinaryRouteHome(s, place, "attic", actor, previous)
   )

@@ -102,13 +102,13 @@ describe("the hub's boxes", () => {
     expect(validOpened(out)).toBe(true);
     expect(decodeSave(encodeSave(out)).opened).toEqual({ pond: ["vale"] });
   });
-  it("pays once: a box that locks again pays nothing more", () => {
+  it("pays once, and stays open to the avatar who opened it", () => {
     let world = opening();
     holdChoice(world, "vale", { item: null, revision: world.revision });
     const paid = world.actors.vale.xp;
     holdChoice(world, "vale", { item: "lamp", revision: world.revision });
     expect(world.items.lamp.lit).toBe(true);
-    expect(boxesAt(world, "attic")[0].open).toBe(false);
+    expect(boxesAt(world, "attic")[0].open).toBe(true);
     holdChoice(world, "vale", { item: null, revision: world.revision });
     expect(boxesAt(world, "attic")[0].open).toBe(true);
     expect(world.actors.vale.xp).toBe(paid);

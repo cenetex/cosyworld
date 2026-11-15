@@ -252,7 +252,7 @@ describe("dousing the lamp in the attic", () => {
     const lit = act(s, "take", { item: "lamp" });
     expect(
       narrativeContext(lit).entities.find((e) => e.id === "attic").facts,
-    ).toContain("Paths visible now: none.");
+    ).toContain("Paths visible now: Black pond.");
   });
 
   it("meets the keeper on reaching the station", () => {

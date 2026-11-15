@@ -160,7 +160,8 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
       }
       if (condition === "at the station") s.items.lamp.holder = "station";
       const before = encodeSave(s);
-      const rescue = condition === "at the station";
+      const rescue =
+        condition === "at the station" || Boolean(s.opened?.pond?.includes("vale"));
       expect(exits(s, "attic").includes("pond")).toBe(rescue);
       expect(entered(s, "pond")).toBe(rescue);
       const move = cardPlay(s, ["pond"]).action;

@@ -55,13 +55,11 @@ describe("an oil flask trapped behind the attic gate", () => {
       locationId: "attic",
       returnLocationId: "station",
     });
-    // Refilling a held lamp lights it; stowing quietly reopens the mirror.
+    // Refilling a held lamp lights it; the opened pond keeps a narrow path.
     expect(next.items.lamp.lit).toBe(true);
-    expect(exits(next, "attic", "vale")).not.toContain("pond");
+    expect(exits(next, "attic", "vale")).toContain("pond");
     holdChoice(next, "vale", { item: null, revision: next.revision });
     expect(exits(next, "attic", "vale")).toContain("pond");
-    holdChoice(next, "vale", { item: "lamp", revision: next.revision });
-    expect(exits(next, "attic", "vale")).not.toContain("pond");
   });
 
   it.each(["fuel", "reachable oil", "helper inside"])("keeps ordinary %s recovery in use", (kind) => {
