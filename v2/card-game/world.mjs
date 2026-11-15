@@ -95,6 +95,7 @@ import {
   travels,
   resting,
   settleWants,
+  settleLost,
   meetsItemWant,
   refuseWant,
   reviseStalledWants,
@@ -692,6 +693,22 @@ export function wantAPI(s) {
           wantKey: wantKey(actor, want),
           ...(want.kind === "item" ? { itemId: want.target } : {}),
           ...(want.kind === "person" ? { targetId: want.target } : {}),
+        },
+      ),
+    lost: (actor, card, by) =>
+      addLog(
+        s,
+        "World",
+        by
+          ? `${nameOf(actor)} wanted ${nameOf(card)}, and ${nameOf(by)} lost it for good.`
+          : `${nameOf(actor)} wanted ${nameOf(card)}, and it is gone for good.`,
+        {
+          kind: "narration",
+          actorId: actor,
+          entityId: card,
+          cast: [actor],
+          witnesses: [actor],
+          consequence: true,
         },
       ),
   };
@@ -2272,6 +2289,7 @@ function perform(s, a, round = null, settle = []) {
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);
   const result = performPlay(s, a, round, settle, hands);
+  settleLost(s, wantAPI(s), a);
   if (companionOf(s, a.actor) && controlledByHuman(s, a.actor))
     s.actors[a.actor].actedAt = s.turn;
   settleCompanions(s);
@@ -3398,6 +3416,7 @@ export function play(
     ),
     wantAPI(next),
   );
+  settleLost(next, wantAPI(next));
   pruneTalkQuests(next, wantAPI(next));
   fillWants(next, wantAPI(next));
   settleHomeLevels(next);

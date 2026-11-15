@@ -10,6 +10,8 @@ import {
   isFood,
   freed,
   isPackActor,
+  neverBack,
+  packDefinition,
   packOf,
   packPeople,
 } from "./pack-registry.mjs";
@@ -229,6 +231,11 @@ const validTarget = (s, kind, target) =>
       : kind === "connect"
         ? target === CONNECT_TARGET
         : true;
+export const lostOf = (s, w) =>
+  w
+    ? [w.target, w.step?.to, w.step?.with, w.step?.at, ...(w.step?.items || [])]
+        .find((id) => typeof id === "string" && neverBack(s, id))
+    : undefined;
 
 // An authored want as the actor holds it: its kind, target, light and step.
 // `minTrust` stays in pack data and is read there (want-talk.mjs).
@@ -262,6 +269,7 @@ export function stagedNext(s, id, previous = null) {
       ({ open, want }) =>
         open &&
         validTarget(s, want.kind, want.target) &&
+        !lostOf(s, want) &&
         !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) &&
         !questMet(s, id, heldWant(s, want), null, null),
     )
@@ -283,7 +291,9 @@ export function installWants(s) {
       a.want = humanAvatarIds.includes(id)
         ? null
         : (stagedNext(s, id) ??
-          (w && validTarget(s, w.kind, w.target) ? heldWant(s, w) : null));
+          (w && validTarget(s, w.kind, w.target) && !lostOf(s, w)
+            ? heldWant(s, w)
+            : null));
     }
     a.xp ??= startXp(id);
     delete a.halfwayIssued;
@@ -367,6 +377,7 @@ export function wantCandidates(
   ]
     .filter(
       ([kind, target]) =>
+        !neverBack(s, target) &&
         (kind !== previous?.kind || target !== previous.target) &&
         !(
           a.gaveUp?.target === target && s.turn - a.gaveUp.turn < CONTENT_TURNS
@@ -474,7 +485,15 @@ function questMet(s, actor, want, talk, action) {
   if (!want) return false;
   if (want.step) return stepMet(s, actor, want, action);
   if (want.kind === "connect") return introduced(s, actor, talk);
-  if (want.kind === "item") return holdsAsWanted(s, actor, want);
+  if (want.kind === "item")
+    return (
+      holdsAsWanted(s, actor, want) ||
+      (want.lit === undefined &&
+        action?.kind === "give" &&
+        action.accepted === true &&
+        action.target === actor &&
+        action.item === want.target)
+    );
   if (want.kind === "place") return s.actors[actor].place === want.target;
   return Boolean(
     talk &&
@@ -588,8 +607,6 @@ function commitMet(s, id, api, met, held = null) {
   if (api.player(id)) closeQuest(a, want, s.turn);
   if (api.player(id) || a.under) releaseQuest(a, want);
   else a.want = null;
-  // A resident met takes its next staged want at once, if one can be taken
-  // (rules 133). Otherwise it is content for a while; a player simply holds
   if (!api.player(id) && !a.want) {
     const staged = stagedNext(s, id, want);
     if (staged) setWant(a, staged);
@@ -651,6 +668,38 @@ export function reviseStalledWants(s, actors, api) {
     )
       giveUp(s, id, api);
   }
+}
+export function settleLost(s, api, action = null) {
+  for (const id of Object.keys(s.actors).sort()) {
+    const a = s.actors[id];
+    if (humanAvatarIds.includes(id) || api.player(id)) {
+      for (const w of heldOf(a)) if (lostOf(s, w)) releaseQuest(a, w);
+      continue;
+    }
+    const lost = lostOf(s, a.want);
+    if (!lost || !entityActive(s, id)) continue;
+    const by = sawLost(s, id, lost, action, api);
+    if (by && a.trust) a.trust[by] = Math.max(0, (a.trust[by] || 0) - 1);
+    api.lost(id, lost, by);
+    setWant(a, nextWant(s, id, api, a.want));
+  }
+}
+function sawLost(s, id, lost, action, api) {
+  const by = action?.actor;
+  const named =
+    [action?.item, action?.receive].includes(lost) ||
+    Boolean(
+      packDefinition(action?.packId)
+        ?.choices?.find((c) => c.id === action.choiceId)
+        ?.effects.some((e) => e.item === lost),
+    );
+  return by &&
+    by !== id &&
+    api.player(by) &&
+    s.actors[by]?.place === s.actors[id].place &&
+    named
+    ? by
+    : null;
 }
 // A resident's want left empty is drawn after a short rest. A player is never
 // drawn one: it takes its quests by a tap.

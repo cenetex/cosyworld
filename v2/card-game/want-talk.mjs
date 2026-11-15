@@ -1,7 +1,7 @@
 // Talk reveals what a person wants: one first-person line from their want.
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
-import { layMet, questTerms } from "./want.mjs";
+import { layMet, lostOf, questTerms } from "./want.mjs";
 import { offerUnlocked } from "./offer-chance.mjs";
 import forest from "./forest.json" with { type: "json" };
 import {
@@ -99,6 +99,7 @@ export function revealed(world, id, want, listener) {
         Boolean(packThings[want.target]?.sealed)) &&
       !(want.kind === "item" && !world.items[want.target]) &&
       !(want.kind === "person" && !world.actors[want.target]) &&
+      !lostOf(world, want) &&
       !met(world, id, want) &&
       trustedEnough(world, id, want, listener),
   );

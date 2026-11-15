@@ -3423,6 +3423,8 @@
 [[""," waits no longer and goes on alone."],31,"n"],
 [[""," waits one turn."],31,"n"],
 [[""," wakes."],31,"n"],
+[[""," wanted ",", and "," lost it for good."],31,"nnn"],
+[[""," wanted ",", and it is gone for good."],31,"nn"],
 [[""," was beaten by "," and came to at ","."],4,"nnn"],
 [[""," was sent home to ","."],4,"nn"],
 [[""," was"],4,"n"],
