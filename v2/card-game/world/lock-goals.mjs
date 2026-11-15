@@ -80,8 +80,14 @@ export function goalsFrom(world, conditions, depth = 0, seen = []) {
         else if (condition.role === "actor")
           push({ kind: "item", target: condition.item });
         break;
-      case "item_near":
       case "item_at":
+        push({
+          kind: "place",
+          target: condition.place,
+          step: { verb: "lay", items: [condition.item] },
+        });
+        break;
+      case "item_near":
       case "item_present":
         push({
           kind: "item",

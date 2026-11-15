@@ -220,7 +220,7 @@ describe("locked boxes", () => {
     world.actors.vale.place = "greek-ship";
     world.transports["greek-ship"].dock = "greek-harbor";
     expect(lockedQuest(world, "greek-piraeus", () => true)).toEqual({
-      text: "Bring Travel Provisions to The Charybdis",
+      text: "Lay Travel Provisions in The Charybdis",
       cards: [],
     });
   });
