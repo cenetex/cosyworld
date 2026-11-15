@@ -7,7 +7,7 @@ import {
   openSettings,
   closeSettings,
 } from "./card-browser-helpers.mjs";
-import { mkdtemp, mkdir } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
@@ -30,6 +30,7 @@ import { packFixtures, transports } from "../card-game/pack-registry.mjs";
 const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
 await mkdir(output, { recursive: true });
+const voiceClip = await readFile(new URL("../card-game/assets/voices/vale.mp3", import.meta.url));
 const requests = [];
 const syncReplies = [];
 const replies = new Map();
@@ -37,20 +38,26 @@ const providerTiming = new Map();
 let holdReplies = false;
 let failReplies = false;
 const waitingReplies = [];
-// The avatar voicing a conversation turn, from its system message's first
-// line ("I am Vale, the Lamplighter."). Null for other prompt shapes, which
-// have no "Here: " scene line.
+// Conversation prompts name the speaker and ask for its spoken words.
 function speakerOf(input) {
   const system = input.messages?.find((message) => message.role === "system");
-  if (!/^Here: /mu.test(system?.content ?? "")) return null;
+  if (!system?.content.includes("Reply with only what you say aloud.")) return null;
   return (
-    system.content.match(/^I am (?:the |a |an )?([^,.\n]+)/iu)?.[1] ?? null
+    system.content.match(/^You are (?:the |a |an )?([^,.\n]+)/iu)?.[1] ?? null
   );
 }
 const provider = createServer(async (req, res) => {
   let body = "";
   for await (const chunk of req) body += chunk;
   const input = JSON.parse(body || "{}");
+  if (req.url === "/v1/audio/speech") {
+    assert.equal(typeof input.input, "string");
+    assert.equal(input.response_format, "mp3");
+    res.writeHead(200, { "Content-Type": "audio/mpeg" });
+    res.end(voiceClip);
+    return;
+  }
+  assert.equal(req.url, "/v1/chat/completions");
   requests.push(input);
   const timing = {
     speaker: speakerOf(input),
@@ -73,12 +80,11 @@ const provider = createServer(async (req, res) => {
     );
     return;
   }
-  // Since #2057 an avatar's line is a conversation turn: the system message
-  // holds the scene ("Here: ..."), and the last message is only the line it
-  // answers or "X is here.". Other parts keep "Current scene:" and a cue.
+  // The last conversation message is the line answered or "X is here.".
+  // Other parts keep "Current scene:" and a cue.
   const prompt = input.messages.map((message) => message.content).join("\n");
   assert.equal(typeof input.messages.at(-1).content, "string");
-  assert.match(prompt, /Current scene:|^Here: /mu);
+  assert.match(prompt, /Current scene:|^You are .+ Reply with only what you say aloud\./mu);
   if (!speakerOf(input))
     assert.match(input.messages.at(-1).content.trim(), /:$/u);
   timing.replied = Date.now();
@@ -467,7 +473,8 @@ try {
         i === 1 ? { width: 390, height: 844 } : { width: 1440, height: 900 },
     });
     await context.addInitScript(() => {
-      window.sharedSpeechNotes = 0;
+      localStorage.setItem("cosyworld.room-music", JSON.stringify({ enabled: false }));
+      window.sharedVoiceClips = 0;
       window.sharedReveals = [];
       window.addEventListener("DOMContentLoaded", () => {
         const text = document.getElementById("dialogue-text");
@@ -499,10 +506,9 @@ try {
           attributeFilter: ["class"],
         });
       });
-      const audio = window.AudioContext || window.webkitAudioContext;
-      const original = audio.prototype.createOscillator;
-      audio.prototype.createOscillator = function (...args) {
-        window.sharedSpeechNotes++;
+      const original = AudioBufferSourceNode.prototype.start;
+      AudioBufferSourceNode.prototype.start = function (...args) {
+        if (this.buffer?.duration > 3) window.sharedVoiceClips++;
         return original.apply(this, args);
       };
     });
@@ -626,15 +632,15 @@ try {
   const requestStart = requests.length;
   await selectCard(vale, "moth");
   await vale.getByRole("button", { name: "Talk", exact: true }).click();
-  // Since #2057 a Talk's target answers the actor's line in the same play,
-  // so the newest beat that types in is Pip's answer.
+  // Read Vale's line, then continue to Pip's answer in the same play.
+  await expectSharedReveal(vale, requestStart, "Vale");
+  await vale.locator('#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]').click();
   await expectSharedReveal(vale, requestStart, "Pip");
   await vale.screenshot({
     path: join(output, "shared-dialogue-reveal.png"),
     fullPage: true,
   });
-  // Tapping the front card finishes the line; the room clock owns what
-  // comes next, so the reader never skips ahead of the table.
+  // Finishing the latest line leaves the reader on that beat.
   await vale.locator("#dialogue-advance").click();
   const finishedText = await vale.locator("#dialogue-text").textContent();
   await delay(500);
@@ -649,8 +655,8 @@ try {
   );
   await idle(vale);
   assert(
-    (await vale.evaluate(() => window.sharedSpeechNotes)) > 0,
-    "shared speech plays voice syllables as its letters appear",
+    (await vale.evaluate(() => window.sharedVoiceClips)) > 0,
+    "shared speech plays a hosted voice clip as its letters appear",
   );
   assert(
     requests.length > requestStart,
@@ -882,8 +888,8 @@ try {
     await catchUpWithStack(page);
     await catchUpWithLive(page);
   }
-  const notesBefore = await Promise.all(
-    [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
+  const clipsBefore = await Promise.all(
+    [vale, mara].map((page) => page.evaluate(() => window.sharedVoiceClips)),
   );
   const slow = Number(process.env.COSYWORLD_SHARED_CPU_SLOWDOWN || 1);
   const latency = Number(process.env.COSYWORLD_SHARED_NETWORK_LATENCY || 0);
@@ -1005,13 +1011,14 @@ try {
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara, nell].map(idle));
   await closeSettings(mara);
-  // Check after playback ends: a busy driver still proves each line animated in order.
+  // Continue through each saved line and prove its letters animate in order.
   for (const page of [vale, mara]) {
-    const expected = await Promise.all(
-      speakers.map((speaker) =>
-        expectSharedReveal(page, queueRequestStart, speaker),
-      ),
-    );
+    const expected = [];
+    for (const speaker of speakers) {
+      if (expected.length)
+        await page.locator('#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]').click();
+      expected.push(await expectSharedReveal(page, queueRequestStart, speaker));
+    }
     const order = await page.evaluate(
       (expected) => [
         ...new Set(
@@ -1045,8 +1052,8 @@ try {
   }
   for (const [index, page] of [vale, mara].entries())
     assert(
-      (await page.evaluate(() => window.sharedSpeechNotes)) >
-        notesBefore[index],
+      (await page.evaluate(() => window.sharedVoiceClips)) >
+        clipsBefore[index],
       "the next shared exchange animates and sounds after arrow-only catch-up",
     );
   const first = await snapshot(vale),
