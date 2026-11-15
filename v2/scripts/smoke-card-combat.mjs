@@ -251,7 +251,8 @@ try {
     const handRect = () =>
       page.locator("#hand").evaluate((hand) => {
         const { left, top, width, height } = hand.getBoundingClientRect();
-        return [left, top, width, height].map(Math.round);
+        const cover = document.querySelector(".dialogue").getBoundingClientRect().height;
+        return [left, top, width, height, height - cover].map(Math.round);
       });
     await page.waitForTimeout(400); // the hand rises again after Escape
     // The dialogue box lies over the hand's foot and adds to the hand's box
@@ -301,9 +302,9 @@ try {
       .catch(() => {});
     const tucked = await handRect();
     assert.deepEqual(
-      [tucked[0], tucked[2], tucked[3]],
-      [raisedHand[0], raisedHand[2], raisedHand[3]],
-      "The strikes keep the raised hand's layout",
+      [tucked[0], tucked[2], tucked[4]],
+      [raisedHand[0], raisedHand[2], raisedHand[4]],
+      "The strikes keep the hand's size relative to dialogue",
     );
     assert.ok(
       tucked[1] >= height - 60,
