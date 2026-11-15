@@ -97,6 +97,7 @@ it("revalidates stale, duplicate and full-stack acceptance atomically", () => {
   settleArcana(s, "vale");
   s.actors.vale.pendingQuests = [goal(s)];
   const action = questPreviews(s)[0].action;
+  expect(play(s, { key: action.key }, s.revision).ok).toBe(true);
   const next = accept(s);
   expect(play(next, action, s.revision).ok).toBe(false);
   expect(play(next, action, next.revision).ok).toBe(false);

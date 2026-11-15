@@ -219,6 +219,20 @@ describe("settling after a play", () => {
 });
 
 describe("the saved record", () => {
+  it.each([
+    { dealt: "retired-arcanum" },
+    { dealt: WAITED, base: { carried: 0 } },
+  ])("clears consent with an invalid deal while preserving earned progress: %o", (deal) => {
+    const s = createWorld({ seed: 3 });
+    const progress = { proved: [HERE], did: ["waited"], dreamed: 1 };
+    s.actors.vale.arcana = { ...progress, ...deal, accepted: deal.dealt };
+    const loaded = decodeSave(JSON.stringify(s));
+    expect(loaded.actors.vale.arcana).toEqual(progress);
+    expect(decodeSave(encodeSave(loaded)).actors.vale.arcana).toEqual(progress);
+    settleArcana(loaded, "vale");
+    expect(loaded.actors.vale.arcana).toEqual({ ...progress, did: [], dealt: WAITED });
+  });
+
   it("is absent in a new world, and a saved one comes back the same", () => {
     const fresh = createWorld({ seed: 3 });
     expect(() => validateWorld(fresh)).not.toThrow();

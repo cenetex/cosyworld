@@ -8632,15 +8632,11 @@
         out.push(action);
       }
     out.push(...fixtureOffers(s, actor, sensesFor(s)));
-    for (const q of questCandidates(s, actor))
-      if (!q.reason) out.push({ ...offer(
-        "take",
-        actor,
-        null,
-        q.id,
-        `${nameOf(actor)} accepts a quest.`,
-        [q.id]
-      ), offer: q.id, label: "Accept", revision: s.revision });
+    for (const q of questCandidates(s, actor)) {
+      if (q.reason) continue;
+      const action = offer("take", actor, null, q.id, `${nameOf(actor)} accepts a quest.`, [q.id]);
+      out.push({ ...action, key: `${action.key}:${s.revision}`, offer: q.id, label: "Accept", revision: s.revision });
+    }
     if (actor === currentActor(s) || controlledByHuman(s, actor))
       questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
         const goal = w.kind === "person" && !w.step ? `meet ${nameOf(w.target)}` : wantText(w);
@@ -9828,7 +9824,7 @@
       return { ok: true, state: next2 };
     }
     const exact = legalActions(s, actor).find((a) => a.key === action?.key);
-    if (!exact || exact.offer !== void 0 && action.revision !== s.revision)
+    if (!exact)
       return {
         ok: false,
         state: s,

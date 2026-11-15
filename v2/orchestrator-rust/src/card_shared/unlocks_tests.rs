@@ -214,13 +214,21 @@ fn importing_a_save_does_not_start_the_homecoming_again() {
     saved["actors"]["mara"]["place"] = json!("clearing");
     saved["items"]["mask"]["holder"] = json!("mara");
     let want = saved["actors"]["mara"]["want"].clone();
+    saved["actors"]["mara"]
+        .as_object_mut()
+        .unwrap()
+        .remove("pendingQuests");
     let tx = c.transaction().unwrap();
     let id = full::found(&tx, "ann", mara, Some(&saved.to_string()), now()).unwrap();
     tx.commit().unwrap();
     let imported = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(imported.game["actors"]["mara"]["place"], "clearing");
     assert_eq!(imported.game["items"]["mask"]["holder"], "mara");
-    assert_eq!(imported.game["actors"]["mara"]["want"], want);
+    assert!(imported.game["actors"]["mara"]["want"].is_null());
+    assert_eq!(
+        imported.game["actors"]["mara"]["pendingQuests"],
+        json!([want])
+    );
 }
 
 #[test]

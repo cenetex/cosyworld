@@ -1633,9 +1633,11 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
-  for (const q of questCandidates(s, actor))
-    if (!q.reason) out.push({ ...offer("take", actor, null, q.id,
-      `${nameOf(actor)} accepts a quest.`, [q.id]), offer: q.id, label: "Accept", revision: s.revision });
+  for (const q of questCandidates(s, actor)) {
+    if (q.reason) continue;
+    const action = offer("take", actor, null, q.id, `${nameOf(actor)} accepts a quest.`, [q.id]);
+    out.push({ ...action, key: `${action.key}:${s.revision}`, offer: q.id, label: "Accept", revision: s.revision });
+  }
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).slice(0, 1).forEach((w, quest) => {
       const goal =
@@ -3241,7 +3243,7 @@ export function play(
     return { ok: true, state: next };
   }
   const exact = legalActions(s, actor).find((a) => a.key === action?.key);
-  if (!exact || (exact.offer !== undefined && action.revision !== s.revision))
+  if (!exact)
     return {
       ok: false,
       state: s,
