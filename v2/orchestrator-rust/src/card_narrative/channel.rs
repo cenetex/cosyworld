@@ -198,7 +198,11 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
     match request.continuing.as_deref() {
         Some(_) if request.addressed.is_some() => Err("continuing cannot be addressed"),
         Some(id) if last != Some(id) => Err("the last message must be the continuing resident's"),
-        None if last.is_some() => Err("the last message must be from a person"),
+        None if last.is_some()
+            && (request.addressed.is_none() || request.addressed.as_deref() == last) =>
+        {
+            Err("the last message must be from a person or another resident")
+        }
         _ => Ok(()),
     }
 }
@@ -728,6 +732,11 @@ mod tests {
         assert!(check(json!([{"author": "Mara", "text": "a".repeat(400)}])).is_ok());
         assert!(check(json!([{"resident": "vale", "text": "Hi."}, human])).is_err());
         assert!(check(json!([human, rati])).is_err());
+        let mut turned = request(json!([human, rati]));
+        turned.addressed = Some("skull".into());
+        assert!(validate(&turned, &residents).is_ok());
+        turned.addressed = Some("rati".into());
+        assert!(validate(&turned, &residents).is_err());
         let mut addressed = request(json!([human]));
         addressed.addressed = Some("vale".into());
         assert!(validate(&addressed, &residents).is_err());
@@ -961,6 +970,27 @@ mod tests {
         let stranger = with(json!([{"id": "vale"}])).unwrap();
         assert!(validate(&stranger, &residents).is_err());
         assert!(with(json!([{"id": "rati", "text": "x"}])).is_err());
+    }
+
+    #[tokio::test]
+    async fn a_resident_answers_another_resident_who_named_it() {
+        let reply = "Only the wind, RATi.";
+        let body = json!({
+            "pack": "lonely-forest",
+            "addressed": "skull",
+            "messages": [
+                {"author": "Jun", "text": "Is anyone awake?"},
+                {"resident": "rati", "text": "Skull, did you hear that?"}
+            ]
+        });
+        let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(answer["lines"][0]["id"], "skull");
+        assert!(requests.iter().all(|r| r.get("response_format").is_none()));
+        assert_eq!(
+            turn_of(&requests[0], "user"),
+            "RATi says, \u{201c}Skull, did you hear that?\u{201d}"
+        );
     }
 
     #[test]
