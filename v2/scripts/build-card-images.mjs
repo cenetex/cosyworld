@@ -86,9 +86,6 @@ if (
     "Image sources or settings changed. Run npm run v2:card:images:build.",
   );
 
-// A title artwork too wide to read at toolbar height names its lettering
-// (`toolbar` in title-logos.json). With a `crop`, the toolbar image is that
-// region of the artwork at the stated size; without one it is a supplied file.
 const toolbarCrops = {};
 for (const { src, toolbar } of titleLogos.logos) {
   if (!toolbar?.crop) continue;
