@@ -5,7 +5,7 @@ primary_region = "sjc"
   dockerfile = "Dockerfile"
 
 [env]
-  ORCHESTRATOR_URL = "https://cosyworld.fly.dev"
+  ORCHESTRATOR_URL = "https://lonelyforest.com"
   DISCORD_STATE_FILE = "/data/discord.json"
 
 [mounts]

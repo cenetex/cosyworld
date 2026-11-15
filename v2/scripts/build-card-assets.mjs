@@ -1,6 +1,3 @@
-// Builds the media hash map and the Rust module that embeds every public
-// card-game file. Cargo runs `--rust-out <file>` from build.rs, so the Rust
-// module is never committed and two branches that add assets cannot conflict.
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { publicAssets } from "../card-game/public-assets.mjs";
