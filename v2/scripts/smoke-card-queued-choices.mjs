@@ -33,7 +33,7 @@ function fixture() {
     s,
     legalActions(s).find((a) => a.kind === "wait"),
   ).state;
-  s.actors.vale.want = newWant("item", "oil", 0);
+  s.actors.vale.want = { ...newWant("item", "oil", 0), accepted: true };
   return s;
 }
 function streamFixture() {

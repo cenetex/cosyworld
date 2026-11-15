@@ -61,7 +61,7 @@ try {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
       vale.visited = [...new Set([...vale.visited, "pond"])];
-      vale.want = { kind: "item", target: "lamp", since: s.turn, refusals: 0 };
+      vale.want = { kind: "item", target: "lamp", since: s.turn, refusals: 0, accepted: true };
       for (const id of ["moth", "keeper"]) s.actors[id].want = null;
       localStorage.setItem(key, JSON.stringify(s));
     }, key);

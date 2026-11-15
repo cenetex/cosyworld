@@ -29,6 +29,7 @@ world.actors.vale.visited.push("pond");
 world.actors.vale.want = {
   kind: "item",
   target: "bell",
+  accepted: true,
   since: 0,
   refusals: 0,
 };

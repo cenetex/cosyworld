@@ -58,6 +58,7 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
         refusals: 0,
         step: { verb: "rest" },
         from: DREAM_FROM,
+        accepted: true,
       }
     : null;
   world.actors.moth.want = null;

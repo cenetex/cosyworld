@@ -40,6 +40,7 @@ function fixture(kind) {
     world.actors.vale.want = {
       kind: "item",
       target: "cloth",
+      accepted: true,
       since: world.turn,
       refusals: 0,
     };

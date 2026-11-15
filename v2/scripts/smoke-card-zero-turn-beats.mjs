@@ -29,7 +29,7 @@ function fixture() {
   s.actors.keeper.place = "pond";
   s.actors.moth.want = s.actors.keeper.want = null;
   s.items.cloth.holder = "station";
-  s.actors.vale.want = newWant("item", "oil", 0);
+  s.actors.vale.want = { ...newWant("item", "oil", 0), accepted: true };
   return s;
 }
 const saved = (page, key) =>
