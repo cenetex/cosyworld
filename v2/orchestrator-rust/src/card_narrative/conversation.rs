@@ -52,6 +52,11 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
         .collect();
     if context.outcome.is_none() {
         here.extend(super::listener(context, id));
+        for other in &context.present {
+            if other != id && !here.contains(other) {
+                here.push(other.clone());
+            }
+        }
     }
     match here.len() {
         0 => "I'm alone here.".into(),
