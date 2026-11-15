@@ -3,6 +3,7 @@ import vm from "node:vm";
 import { expect, it } from "vitest";
 import { createLockedBoxes } from "../v2/card-game/locked-box.mjs";
 import { createPackOpening, revealAnnouncement, tierRank } from "../v2/card-game/pack-opening.mjs";
+import { isTarotKey, levelCards } from "../v2/card-game/quest-card.mjs";
 
 const source = readFileSync(new URL("../v2/card-game/app.mjs", import.meta.url), "utf8");
 const body = (name) => {
@@ -21,6 +22,7 @@ function view(saved = new Map(), shared = false) {
     selected: ["field"], available: ["field", "plain"], blocked: false,
     localStorage: { getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v), removeItem: (k) => saved.delete(k) },
     availableCards: () => state.available, isLockedBox: (_, id) => locked.has(id),
+    isTarotKey, levelCards, handCard: () => null,
     lockScope: () => JSON.stringify([state.world.run.seed, state.world.actor]),
     pendingLock: (id) => state.lockedBoxes.boxed(id) || locked.has(id),
     cardIsCovered: (id) => state.coveredCards.has(id) || state.lockedBoxes.boxed(id),
@@ -121,7 +123,7 @@ it("groups pending lids with ordinary covers but excludes them from Reveal all a
   const unturned = vm.runInContext(`${declaration} canRevealCard;`, s);
   const pack = createPackOpening({ reduced: () => true });
   Object.assign(s, { pack, cardIsClosed: (id) => s.cardIsCovered(id) || s.pendingLock(id),
-    packKind: (id) => id === "field" ? "box" : "item", tableHolder: () => null, saveBlocked: false });
+    packKind: (id) => id === "field" ? "box" : "item", packHolder: () => null, saveBlocked: false });
   vm.runInContext(body("packSync"), s);
   s.packSync(["field", "plain", "second"]);
   expect(pack.ids).toEqual(["plain", "second", "field"]);
