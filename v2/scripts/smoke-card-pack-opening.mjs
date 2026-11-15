@@ -597,10 +597,10 @@ for (const oneByOne of [false, true]) {
   await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key)).actors.vale.arcana.spread?.length === 3, key);
   await settleHand(page);
   assert.equal((await tarotFaces(page)).length, 0, "a purchased spread waits for Accept");
-  await clearSelection(page);
-  await selectCard(page, "vale");
-  await page.locator("[data-review-quests]").click();
   for (let index = 0; index < 3; index++) {
+    await clearSelection(page);
+    await selectCard(page, "vale");
+    await page.locator("[data-review-quests]").click();
     const before = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     const accept = page.locator('[data-accept-quest]:not([data-revealing="true"])');
     assert(await accept.isEnabled());
@@ -615,6 +615,8 @@ for (const oneByOne of [false, true]) {
   }
   await settleHand(page);
   const dealt = await tarotFaces(page);
+  const spreadState = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+  const locked = availableCards(spreadState).filter((id) => isLockedBox(spreadState, id));
   assert.deepEqual(dealt.map((c) => c.unrevealed), ["true", "true", "true"], `${label}: the spread is dealt face down`);
   assert.deepEqual(dealt.map((c) => c.pack), ["closed", "closed", "closed"], `${label}: the spread is one pack`);
   for (const card of dealt) {
@@ -629,7 +631,7 @@ for (const oneByOne of [false, true]) {
   await page.mouse.move(2, 2);
   await oneButton(page, "Reveal all", `${label}: a lowered spread asks Reveal all`);
   assert.equal(
-    (await tarotFaces(page)).filter((c) => c.shown).length,
+    await page.locator('#hand [data-pack="closed"]:not([hidden])').count(),
     1,
     `${label}: the lowered spread shows one stack`,
   );
@@ -657,7 +659,7 @@ for (const oneByOne of [false, true]) {
     const finish = page.locator("#card-actions [data-pack='finish']");
     await page.waitForTimeout(400);
     if (await finish.count()) await finish.click();
-    await oneButton(page, "Done", `${label}: the turned spread asks for Done`);
+    await oneButton(page, locked.length ? "Done locked" : "Done", `${label}: the turned spread asks for Done`);
     await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
     const turned = await tarotFaces(page);
     for (const card of turned) {
