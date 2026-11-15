@@ -80,7 +80,7 @@ export function payload(room, config, cast, now = Date.now()) {
   };
   if (room.notes) state.notes = room.notes;
   if (room.jev) state.previous = room.jev.answers;
-  return { pack: config.DISCORD_PACK, residents, people: humans.map((h) => h.name), state };
+  return { pack: config.DISCORD_PACK, residents, state };
 }
 
 function rounded(table) {

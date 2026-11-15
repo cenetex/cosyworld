@@ -62,7 +62,7 @@ function overtaken(room, messageId, residentId, cast) {
   return false;
 }
 
-function typist(room, typing, every) {
+export function typist(room, typing, every) {
   if (!typing) return () => {};
   const pulse = () => {
     try {
@@ -217,7 +217,7 @@ function turn(room, resident, text, toward, at, cast) {
   spoke(room, resident.id, toward, at);
 }
 
-async function post(room, resident, text, { config, cast, send, sleep, stats, log }, toward = room.focus[resident.id]?.target) {
+export async function post(room, resident, text, { config, cast, send, sleep, stats, log }, toward = room.focus[resident.id]?.target) {
   if (repeatsOpening(room.messages, resident.id, text)) {
     count(stats.flags, "repeated-opening");
     log(`flag repeated-opening resident=${resident.id} guild=${room.guildId} channel=${room.channelId}`);
