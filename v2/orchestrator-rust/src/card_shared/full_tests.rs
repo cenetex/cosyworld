@@ -619,6 +619,125 @@ fn quiet_hold_handler_uses_the_authenticated_actor_and_replays() {
     assert_eq!(full_store::world(&reopened, &id, time).unwrap(), saved);
 }
 
+#[tokio::test]
+async fn quest_accept_command_is_quiet_and_replays_after_queue_revalidation() {
+    let (path, mut c, id) = fixture();
+    let mut w = full_store::world(&c, &id, now()).unwrap();
+    let goal = json!({"kind":"item","target":"lamp","since":0,"refusals":2,
+        "from":"quest:box:greek-gate"});
+    w.game["actors"]["vale"]["pendingQuests"] = json!([goal]);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    c.execute("DELETE FROM card_full_log WHERE world=?", [&id])
+        .unwrap();
+    full_store::seed(&c, &id, &w, "pending-quest", now()).unwrap();
+    claim(&mut c, &id, 0);
+    w = full_store::world(&c, &id, now()).unwrap();
+    let accept = |w: &World| {
+        w.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| {
+                a["offer"]
+                    .as_str()
+                    .is_some_and(|id| id.starts_with("quest:pending:"))
+            })
+            .unwrap()
+            .clone()
+    };
+    let app = crate::test_app_state(Some(path.clone()));
+    let mut command = body("play", None);
+    command.key = "quest-accept-stale-0001".into();
+    command.action = accept(&w);
+    full::command_as(&app, &id, "user0", &command, None).unwrap();
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    // The queued offer must still match after an intervening same-seat play.
+    let wait = home_action(&w, 0, "wait");
+    full_store::commit(
+        &c,
+        &id,
+        &mut w,
+        json!({"op":"play","actor":"vale","action":wait}),
+        now(),
+    )
+    .unwrap();
+    assert!(full::take_work(&app, &id).unwrap().is_none());
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
+    let failed: String = c
+        .query_row(
+            "SELECT status FROM card_full_plays WHERE id=?",
+            [&command.key],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(failed, "failed");
+    command.key = "quest-accept-current-0001".into();
+    command.action = accept(&w);
+    let queued = full::command_as(&app, &id, "user0", &command, None).unwrap();
+    assert_eq!(queued["queue"].as_array().unwrap().len(), 1);
+    full::command_as(&app, &id, "user0", &command, None).unwrap();
+    let work = full::take_work(&app, &id).unwrap().unwrap();
+    assert_eq!(work.context["context"]["speakers"], json!([]));
+    assert_eq!(work.context["context"]["scenery"], false);
+    assert!(work.context["context"]["resting"].is_null());
+    let saved = full_store::world(&c, &id, now()).unwrap();
+    let mut accepted = goal;
+    accepted["accepted"] = json!(true);
+    let mut actors = w.game["actors"].clone();
+    actors["vale"]["want"] = accepted;
+    actors["vale"]["pendingQuests"] = json!([]);
+    assert_eq!(saved.game["actors"], actors);
+    for field in ["turn", "items", "packs", "opened"] {
+        assert_eq!(saved.game[field], w.game[field], "quiet {field}");
+    }
+    for (id, memory) in w.game["memories"].as_object().unwrap() {
+        for field in ["text", "turn", "landmarks", "seen"] {
+            assert_eq!(
+                saved.game["memories"][id][field], memory[field],
+                "{id} {field}"
+            );
+        }
+    }
+    assert_eq!(
+        saved.game["revision"].as_u64().unwrap(),
+        w.game["revision"].as_u64().unwrap() + 1
+    );
+    assert_eq!(saved.game["speechVoices"]["vale"], json!([]));
+    let events = work.context["events"].as_array().unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0]["verb"], "quest");
+    let lines = super::full_speech::generate(&app, work.actor, &work.context)
+        .await
+        .unwrap();
+    assert_eq!(lines, json!([]));
+    let reflection = full::reflect::command(
+        &work,
+        vec![json!({"id":"vale","reflection":{"thought":"unexpected"}})],
+    );
+    assert!(full::publish(&app, &id, work, Ok(lines)).unwrap());
+    let revision = crate::account_revision::Revision {
+        user: "user0".into(),
+        epoch: crate::account_revision::current(&c, "user0").unwrap(),
+    };
+    assert!(!full::reflect::commit(&app, &id, &revision, reflection).unwrap());
+    assert!(full::take_work(&app, &id).unwrap().is_none());
+    full::command_as(&app, &id, "user0", &command, None).unwrap();
+    command.key = "quest-accept-duplicate-0001".into();
+    assert!(full::command_as(&app, &id, "user0", &command, None).is_err());
+    let effects: i64 = c.query_row(
+        "SELECT count(*) FROM card_full_log WHERE world=? AND json_extract(command,'$.op') IN ('speech','reflect')",
+        [&id], |r| r.get(0)).unwrap();
+    assert_eq!(effects, 0);
+    assert_eq!(full_store::world(&c, &id, now()).unwrap(), saved);
+    c.execute("DELETE FROM card_full_checkpoints WHERE world=?", [&id])
+        .unwrap();
+    drop(c);
+    drop(app);
+    let reopened = store::open(&path).unwrap();
+    assert_eq!(full_store::world(&reopened, &id, now()).unwrap(), saved);
+}
+
 #[test]
 fn a_reveal_snapshot_stays_with_the_first_queued_play_and_out_of_the_journal() {
     let (path, mut c, id) = fixture();
