@@ -9,7 +9,7 @@ import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { decodeSave, encodeSave, legalActions, play } from "../card-game/world.mjs";
-import { holdQuest, newWant } from "../card-game/want.mjs";
+import { newWant } from "../card-game/want.mjs";
 import { recordOf } from "../card-game/world/arcana-record.mjs";
 import { DISSOLVE_MS } from "../card-game/card-travel.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";

@@ -24,13 +24,13 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     const legacy = createWorld({ seed: 17 });
-    assert.deepEqual(legacy.actors.vale.arcana.spread ?? [], []);
+    assert.deepEqual(legacy.actors.vale.arcana?.spread ?? [], []);
     legacy.actors.vale.place = "greek-gate";
     legacy.actors.vale.heldItem = null;
     legacy.actors.vale.want = { ...newWant("item", "oil", 0), from: "quest:box:greek-piraeus" };
     legacy.actors.vale.under = [{ ...newWant("item", "cloth", 0), from: "quest:box:greek-harbor" },
       { ...newWant("place", "attic", 0), from: DREAM_FROM, step: { verb: "rest" } }];
-    legacy.actors.vale.arcana.proved = ["arcanum-5"];
+    legacy.actors.vale.arcana = { proved: ["arcanum-5"], did: [] };
     delete legacy.actors.vale.pendingQuests;
     const loaded = decodeSave(JSON.stringify(legacy));
     const worldId = `consent-${width}`, table = `${worldId}-${shared}`;
@@ -140,9 +140,9 @@ try {
     await clearSelection(page);
     await selectCard(page, "vale");
     await page.locator("[data-review-quests]").click();
-    for (let i = 0; i < 2 && !/Cloth/iu.test(await page.locator(".action-beat-text").textContent()); i++)
+    for (let i = 0; i < 2 && !/Cloth/iu.test(await page.locator("#action-beat .action-beat-text").textContent()); i++)
       await page.locator("[data-next-quest]").click();
-    assert.match(await page.locator(".action-beat-text").textContent(), /Cloth/iu);
+    assert.match(await page.locator("#action-beat .action-beat-text").textContent(), /Cloth/iu);
     const beforeThird = await state();
     await page.locator('[data-accept-quest]:not([data-revealing="true"])').click();
     await page.waitForFunction(() => window.consentProbe.state().actors.vale.pendingQuests.length === 1);
