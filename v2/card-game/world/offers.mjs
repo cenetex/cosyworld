@@ -11,6 +11,7 @@ import {
   closedAny,
   closedBy,
   heldOf,
+  lostOf,
   newWant,
   sameQuest,
 } from "../want.mjs";
@@ -67,6 +68,7 @@ export function questOffers(s, actor = currentActor(s)) {
     const id = offerId(kind, source);
     if (
       !want ||
+      lostOf(s, want) ||
       closedBy(a, id, want) ||
       closedAny(a, want) ||
       heldOf(a).some((held) => sameQuest(held, want)) ||
