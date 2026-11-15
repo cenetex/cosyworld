@@ -216,6 +216,12 @@ try {
       assert.doesNotMatch(await surfaces(page), /lamp/iu);
       assert.equal(await offerCards(page).count(), 0);
       await t.shot("pond-shut");
+      await openHeld(page, t);
+      await page.waitForFunction(() => {
+        const quest = document.querySelector('#hand .want-frame:not([hidden]) > .want-card');
+        return quest?.dataset.unrevealed === "false" && !quest.dataset.revealing;
+      });
+      assert.doesNotMatch(await surfaces(page), /lamp/iu);
       await putOutOpening(page, { unlock: false });
       await t.ready();
       await page.waitForFunction(
