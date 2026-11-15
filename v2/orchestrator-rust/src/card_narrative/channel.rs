@@ -760,13 +760,21 @@ fn asked(request: &CoordinateRequest, cast: &[Resident]) -> Value {
     let mut criteria: Map<String, Value> = cast
         .iter()
         .filter(|r| request.residents.contains(&r.id))
-        .map(|r| (r.id.clone(), json!(format!("{} speaks next", r.name))))
+        .map(|r| {
+            (
+                r.id.clone(),
+                json!(format!(
+                    "{} speaks next: addressed, asked, or has a natural reply",
+                    r.name
+                )),
+            )
+        })
         .collect();
     criteria.insert(
         "none".into(),
-        json!("Nobody; the people talk or the moment rests"),
+        json!("No resident speaks next: the people talk among themselves, or nothing waits for an answer"),
     );
-    json!({"next": {"type": "choice", "instructions": "Who speaks next?", "criteria": criteria}})
+    json!({"next": {"type": "choice", "instructions": "Who speaks next in this chat?", "criteria": criteria}})
 }
 
 fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Option<Value> {
