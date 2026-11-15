@@ -25,7 +25,9 @@ import {
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { humanAvatars } from "../card-game/human-cast.mjs";
-import { currentScene } from "../card-game/scene.mjs";
+import { currentScene, backdrop } from "../card-game/scene.mjs";
+import { preferredLocations } from "../card-game/preferred-locations.mjs";
+import coreLocations from "../card-game/assets/staging/core.json" with { type: "json" };
 import { packFixtures, transports } from "../card-game/pack-registry.mjs";
 
 const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
@@ -84,9 +86,17 @@ const provider = createServer(async (req, res) => {
   // The last conversation message is the line answered or "X is here.".
   // Other parts keep "Current scene:" and a cue.
   const prompt = input.messages.map((message) => message.content).join("\n");
+  const direction = input.messages[0].content;
+  const reflection = input.messages.map(({ role }) => role).join(",") === "system,user,assistant,user" &&
+    direction.startsWith("You are ") && !speakerOf(input) &&
+    input.messages[1].content === "…" && input.messages[3].content === "…" &&
+    /(?:I think to myself:|Who I am now:)$/u.test(input.messages[2].content);
+  const movement = direction.match(/^My next reply is one short description of (.+?)'s observable body language,/u)?.[1];
+  const expression = direction.startsWith("My next reply contains two to five of these symbols only:")
+    ? "👋✨" : movement ? `${movement} tilts their head.` : null;
   assert.equal(typeof input.messages.at(-1).content, "string");
-  assert.match(prompt, /Current scene:|^You are .+ Reply with only what you say aloud\./mu);
-  if (!speakerOf(input))
+  if (!expression && !reflection) assert.match(prompt, /Current scene:|^You are .+ Reply with only what you say aloud\./mu);
+  if (!speakerOf(input) && !expression && !reflection)
     assert.match(input.messages.at(-1).content.trim(), /:$/u);
   timing.replied = Date.now();
   // A recorded fact the speaker may mention (for example, telling a resident
@@ -96,9 +106,9 @@ const provider = createServer(async (req, res) => {
   )?.[1];
   // A place's caption is impersonal: the validator refuses "I" there.
   const caption = /^An atmospheric caption/u.test(input.messages[0].content);
-  const content = caption
+  const content = expression || (reflection ? "I remember this quiet moment." : caption
     ? `The air holds still for ${requests.length} quiet breaths.`
-    : `${fact ? `${fact} ` : ""}I pause for ${requests.length} quiet breaths.`;
+    : `${fact ? `${fact} ` : ""}I pause for ${requests.length} quiet breaths.`);
   replies.set(input, content);
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
@@ -203,46 +213,26 @@ async function expectStage(page, recent) {
     new Set(cast),
     "the expected players share the stage with its current residents",
   );
-  await page.waitForFunction((ids) => {
-    const cast = document.getElementById("cast");
-    const figures = [
-      ...cast.querySelectorAll('.portrait[aria-hidden="false"]'),
-    ];
-    const height = cast.getBoundingClientRect().height;
-    return (
-      figures.length === ids.length &&
-      ids.every((id) =>
-        figures.some((figure) => figure.dataset.avatar === id),
-      ) &&
+  const place = state.world.actors[state.actor].place;
+  const spots = preferredLocations(place, backdrop(place, state.world), cast, coreLocations.places);
+  const scales = recent.map((id, rank) => Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13) * (spots[id]?.[2] ?? 1));
+  await page.waitForFunction(({ ids, scales }) => {
+    const stage = document.getElementById("stage").getBoundingClientRect();
+    const figures = [...document.querySelectorAll('#cast .portrait[aria-hidden="false"]')];
+    return figures.length === ids.length && ids.every((id) => figures.some((figure) => figure.dataset.avatar === id)) &&
       figures.every((figure) => {
         const rank = ids.indexOf(figure.dataset.avatar);
-        let scale = Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13);
-        // Phones shrink wide-framed figures (Moth, Keeper) to 74% of their
-        // depth, capped at 93vw, so their arms stay inside the scene.
-        if (figure.dataset.framing === "wide" && innerWidth <= 700)
-          scale = Math.min(scale * 0.74, (innerWidth * 0.93) / height);
-        return (
-          Math.abs(figure.getBoundingClientRect().height / height - scale) <
-          0.01
-        );
-      })
-    );
-  }, recent);
-  if (page.viewportSize().width < 700) {
-    const rows = await page
-      .locator('#cast .portrait[aria-hidden="false"]')
-      .evaluateAll((figures) =>
-        figures.map((figure) => ({
-          front: figure.dataset.depth === "foreground",
-          top: figure.getBoundingClientRect().top,
-        })),
-      );
-    assert(
-      Math.min(...rows.filter((row) => row.front).map((row) => row.top)) >
-        Math.max(...rows.filter((row) => !row.front).map((row) => row.top)),
-      "the larger busts sit below the smaller figures on phones",
-    );
-  }
+        const size = parseFloat(figure.style.getPropertyValue("--stage-size")) / 100;
+        const rect = figure.getBoundingClientRect();
+        const style = getComputedStyle(figure);
+        return Math.abs(size - scales[rank]) < 0.01 &&
+          figure.dataset.depth === (rank < 2 ? "foreground" : "back") &&
+          style.visibility === "visible" && Number(style.opacity) >= 0.99 &&
+          rect.width > 0 && rect.height > 0 &&
+          rect.left >= stage.left - 1 && rect.right <= stage.right + 1 &&
+          rect.top >= stage.top - 1 && rect.bottom <= stage.bottom + 1;
+      });
+  }, { ids: recent, scales });
 }
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 const avatarOf = (id) => humanAvatars.find((a) => a.id === id);
