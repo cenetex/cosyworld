@@ -192,12 +192,13 @@ export async function checkOpenDoor(browser, origin) {
         if (await unlock.count()) {
           assert(await unlock.isEnabled(), "the chosen destination can be unlocked");
           const id = await unlock.getAttribute("data-unlock-box");
+          const beforeUnlock = await state();
           await unlock.click();
           await page.waitForFunction((id) => {
             const card = document.querySelector(`#hand [data-card="${id}"]`);
             return card?.dataset.locked === "false" && !card.dataset.revealing;
           }, id);
-          assert.deepEqual(await state(), before, "Unlock preserves the world");
+          assert.deepEqual(await state(), beforeUnlock, "Unlock preserves the world");
         }
         await readyActionButton(page, kind).first().click();
         await settle();
