@@ -8,6 +8,7 @@ import {
   holdChoice,
   legalActions,
   play,
+  reflectionOpen,
 } from "../card-game/world.mjs";
 import { fillLampFuel, settleLamp } from "../card-game/lamp-state.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
@@ -124,6 +125,17 @@ try {
     const assertShut = async (id) => {
       assert.equal(await card(id).count(), 1);
       assert.equal(await card(id).getAttribute("data-locked"), "true");
+    };
+    const assertNarrowPath = async () => {
+      const s = await state();
+      assert.equal(reflectionOpen(s, "attic"), false);
+      assert.equal(await card("pond").getAttribute("data-locked"), "false");
+      assert.deepEqual(
+        legalActions(s)
+          .filter((a) => a.kind === "move" && a.target === "pond")
+          .map((a) => a.text.endsWith("along a narrow path.")),
+        [true, true],
+      );
     };
     await card("attic").waitFor({ state: "attached" });
     await ready();
@@ -254,7 +266,7 @@ try {
       await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
-    await assertShut("pond");
+    await assertNarrowPath();
     await painted("attic-lit");
     // Daylight remains undimmed, independently of a portable lamp glow.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
@@ -280,10 +292,9 @@ try {
     // Holding shuts the mirror again; stowing reopens it.
     await selectCard(page, "lamp");
     await ready();
-    await assertShut("pond");
+    await assertNarrowPath();
     await painted("attic-lit");
-    // Lit with the cloth here, the stack holds only the cottage stairs and
-    // the mirror still shows only the room.
+    // Lit with the cloth here, the mirror still shows only the room.
     const clothed = await state();
     clothed.items.cloth.holder = "attic";
     await page.evaluate(
@@ -297,7 +308,7 @@ try {
     );
     await card("forest-cottage").waitFor({ state: "attached" });
     await ready();
-    await assertShut("pond");
+    await assertNarrowPath();
     // The one way on waits at the row's right end (#2272).
     assert.equal(
       await page
@@ -310,7 +321,7 @@ try {
     await page.reload();
     await ready();
     await painted("attic-lit-cottage");
-    await assertShut("pond");
+    await assertNarrowPath();
     await page.reload();
     await ready();
     await selectCard(page, "lamp");
