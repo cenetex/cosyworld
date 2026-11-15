@@ -6,9 +6,8 @@
 // reveal all); raising the hand or choosing a card puts it away. A chosen
 // face-down card shows its own Reveal. Reveal all turns the rest commons
 // first; a tap finishes the run; All cards revealed, Tap to continue settles
-// them back into the hand. A
-// locked box in the pack is turned and stays locked. Nothing is named before
-// it is turned. At 390 and 1440 px, and with reduced motion.
+// them back into the hand. Locked boxes await explicit Unlock and stay
+// concealed. At 390 and 1440 px, and with reduced motion.
 //
 // The place is chosen at run time by counting the cards each place deals;
 // the unturned set is seeded into the save's seen list.
@@ -60,13 +59,15 @@ function chooseScenario() {
       continue;
     }
     const boxes = here.filter((id) => isLockedBox(world, id)).length,
-      rare = here.filter(
+      revealable = here.filter((id) => !isLockedBox(world, id)),
+      rare = revealable.filter(
         (id) => !id.startsWith("quest:") && levelTier(cardLevel(world, id)).rank >= 2,
       ).length;
-    const score = here.length + (boxes ? 3 : 0) + (rare ? 3 : 0);
+    const score = revealable.length + (boxes ? 3 : 0) + (rare ? 3 : 0);
     if (!best || score > best.score) best = { place, score, here, world, boxes, rare };
   }
   assert.ok(best && best.here.length >= 4, "a place deals four or more cards");
+  assert.ok(best.boxes && best.rare, "the pack includes a real lock and a rare reveal");
   return best;
 }
 const scenario = chooseScenario();
@@ -145,6 +146,7 @@ const ASKS = {
   "Reveal all": "New cards unlocked / Tap to reveal all",
   "Tap to finish": "Turning the cards / Tap to finish",
   Done: "All cards revealed / Tap to continue",
+  "Done locked": "Locked cards await Unlock / Tap to continue",
 };
 const oneButton = async (page, ask, step) => {
   const text = ASKS[ask];
@@ -189,6 +191,7 @@ for (const [width, motion] of [
   const label = `${width}px ${motion}`;
   const tag = `pack-${width}-${motion}`;
   const members = scenario.here;
+  const locked = members.filter((id) => isLockedBox(scenario.world, id));
   const names = members.map((id) => nameOf(id)).filter(Boolean);
   const { page, key, errors } = await openTable(width, motion, { covered: members, tag });
   const shot = async (name) => {
@@ -299,18 +302,18 @@ for (const [width, motion] of [
   const finish = page.locator("#card-actions [data-pack='finish']");
   // With motion the run is still playing a second in: this tap is the skip.
   // The unturned cards at that moment all turn at once.
-  const stillDown = (await unturned(page, key)).filter((id) => members.includes(id));
+  const stillDown = (await unturned(page, key)).filter((id) => members.includes(id) && !locked.includes(id));
   if (motion !== "reduce") {
     assert.equal(await finish.count(), 1, `${label}: the run is still playing`);
     assert.ok(stillDown.length >= 1, `${label}: some cards are still face down to skip`);
   }
   if (await finish.count()) await finish.click();
-  await oneButton(page, "Done", `${label}: every card turned asks for Done`);
+  await oneButton(page, locked.length ? "Done locked" : "Done", `${label}: the completed run offers Continue`);
   await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
   assert.deepEqual(
-    (await unturned(page, key)).filter((id) => members.includes(id)),
-    [],
-    `${label}: nothing is left face down`,
+    (await unturned(page, key)).filter((id) => members.includes(id)).sort(),
+    [...locked].sort(),
+    `${label}: only locked cards remain concealed`,
   );
   const turned = await page.evaluate(() =>
     [...document.querySelectorAll('#hand [data-pack="open"] > .card')].map((c) => ({
@@ -329,12 +332,15 @@ for (const [width, motion] of [
     assert.equal(card.tell, "", `${label}: ${card.id} keeps no tell once turned`);
     assert.equal(card.glow, 0, `${label}: ${card.id} keeps no glow once turned`);
   }
-  // A locked box in the pack is turned and still locked.
-  for (const id of members.filter((id) => isLockedBox(scenario.world, id))) {
+  for (const id of locked) {
     const box = turned.find((card) => card.id === id);
     assert.ok(box, `${label}: the locked box ${id} was in the pack`);
     assert.equal(box.locked, "true", `${label}: ${id} is still locked`);
-    assert.ok(!(await unturned(page, key)).includes(id), `${label}: ${id} was turned`);
+    assert.ok((await unturned(page, key)).includes(id), `${label}: ${id} was not revealed`);
+    const card = page.locator(`#hand [data-card="${id}"]`);
+    assert.equal(await card.locator(".name").textContent(), "");
+    assert.equal(await card.getAttribute("aria-label"), "Locked box");
+    assert.equal(await card.locator(".art img").first().isVisible(), false);
   }
   assert.match(
     await page.locator("#discovery-announcement").textContent(),
@@ -369,10 +375,11 @@ for (const [width, motion] of [
 
 // Fewer than three unturned cards are no pack: they turn in place as before.
 {
-  const pair = scenario.here.filter((id) => !id.startsWith("quest:")).slice(0, 2);
+  const pair = ["station", "bell"];
   const { page, key, errors } = await openTable(390, "no-preference", {
     covered: pair,
     tag: "pack-pair",
+    place: "station",
   });
   await page.waitForTimeout(800);
   assert.equal(await page.locator("#hand [data-pack]").count(), 0, "two cards form no pack");

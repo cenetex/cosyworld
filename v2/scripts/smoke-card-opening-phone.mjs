@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { readyActionButton, selectCard, visibleSpot } from "./card-browser-helpers.mjs";
+import { clearSelection, readyActionButton, selectCard, visibleSpot } from "./card-browser-helpers.mjs";
 
+const output = new URL("../../output/opening-phone/", import.meta.url);
+await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -80,6 +83,12 @@ try {
     await page.waitForFunction(
       () => !document.querySelector('#hand [data-unrevealed="true"]'),
     );
+    const pond = page.locator('#hand [data-card="pond"]');
+    assert.equal(await pond.getAttribute("data-locked"), "true", "Reveal all leaves the Pond locked");
+    await selectCard(page, "pond", { touch: true });
+    assert(await page.locator('[data-unlock-box="pond"]').isDisabled());
+    assert.equal(await page.locator('[data-open-box="pond"]').count(), 0);
+    await clearSelection(page);
     if (
       (await page.locator('#hand [data-card="lamp"]').getAttribute("aria-pressed")) !== "true"
     )
@@ -94,6 +103,21 @@ try {
     const world = await saved(page);
     assert.deepEqual(world.opened, { pond: ["vale"] });
     assert.equal(world.turn, 1);
+    assert.equal(await pond.getAttribute("data-locked"), "true", "eligibility waits for Unlock");
+    await clearSelection(page);
+    await selectCard(page, "pond", { touch: true });
+    await page.waitForFunction(() => {
+      const unlock = document.querySelector('[data-unlock-box="pond"]');
+      return unlock && !unlock.disabled;
+    });
+    await page.locator('[data-unlock-box="pond"]').tap();
+    await page.waitForFunction(() => {
+      const pond = document.querySelector('#hand [data-card="pond"]');
+      return pond?.dataset.locked === "false" && !pond.dataset.revealing;
+    });
+    assert.equal((await saved(page)).turn, world.turn, "Unlock takes no turn");
+    assert.equal((await saved(page)).revision, world.revision);
+    await page.screenshot({ path: new URL(`${voice}.png`, output).pathname });
     assert.deepEqual(errors, []);
     console.log(`Opening plays on a phone with the voice ${voice}.`);
     await context.close();
