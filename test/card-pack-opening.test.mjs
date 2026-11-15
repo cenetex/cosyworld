@@ -143,6 +143,28 @@ describe("where the pack lies in the hand", () => {
 });
 
 describe("the pack's state machine", () => {
+  it.each(["complete", "skip", "dismiss"])("keeps a locked box closed when a mixed pack finishes by %s", (end) => {
+    const { pack, timers } = make();
+    const t = table(["p-here", "i-lamp", "b-gate"]);
+    const locked = (id) => id === "b-gate";
+    const ready = (id) => t.unturned(id) && !locked(id);
+    pack.sync(t.cards, { unturned: t.unturned, kindOf });
+    expect(pack.ids).toHaveLength(3);
+    expect(pack.prompt(ready, { lowered: true }).kind).toBe("reveal");
+    pack.open();
+    pack.revealAll({ unturned: ready, tierOf, turn: t.turn });
+    if (end === "complete") timers.advance(20000);
+    else if (end === "skip") pack.skip({ unturned: ready, turnNow: t.turn });
+    else pack.dismiss({ unturned: ready, turnNow: t.turn });
+    expect([...t.covered]).toEqual(["b-gate"]);
+    if (end !== "dismiss") {
+      expect(pack.prompt(ready, { locked })).toMatchObject({ kind: "done", text: PACK_TEXT.locked });
+      pack.finish();
+    }
+    pack.sync(t.cards, { unturned: t.unturned, kindOf });
+    expect(pack.prompt(ready, { lowered: true })).toBeNull();
+  });
+
   it("runs closed, open, running, turned, done", () => {
     const { pack, timers } = make();
     const t = table(["p-here", "a-fox", "i-gem", "i-pin"]);
@@ -392,12 +414,13 @@ describe("the pack's state machine", () => {
     expect(pack.frameFor("a-fox")).toEqual({ shown: true, top: false, under: 0 });
   });
 
-  it("uses only four sentences and their tap cues", () => {
+  it("uses fixed sentences and their tap cues", () => {
     expect(PACK_TEXT).toEqual({
       reveal: "New cards unlocked",
       one: "New card unlocked",
       finish: "Turning the cards",
       done: "All cards revealed",
+      locked: "Locked cards await Unlock",
     });
     expect(
       [PACK_REVEAL_ALL, PACK_FINISH, PACK_DONE].map((verb) => tapPrompt(verb, true).hint),
