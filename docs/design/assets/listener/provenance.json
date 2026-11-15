@@ -7,44 +7,29 @@
     {
       "file": "listener.png",
       "role": "Listening: the slot is empty, the grille dark, black gloved fingertips resting just inside the slot.",
-      "size": [
-        1024,
-        1536
-      ],
+      "size": [1024, 1536],
       "sha256": "6aa935810111868d2f779176b7e6daa827f99886ee2c80920c77b23a7af22f26",
-      "alpha_range": [
-        0,
-        254
-      ],
+      "alpha_range": [0, 254],
       "visible_bounds": "1004x1516+0+20"
     },
     {
       "file": "listener-sleeping.png",
       "role": "Shuttered: a wooden shutter behind the grille, the slot closed by its brass flap, no hand.",
-      "size": [
-        1024,
-        1536
-      ],
+      "size": [1024, 1536],
       "sha256": "3c1b016eb76bc581357658bfd81d53ed7b97a876aaa035674d10a9945da0cbc2",
-      "alpha_range": [
-        0,
-        254
-      ],
+      "alpha_range": [0, 254],
       "visible_bounds": "1002x1516+0+20"
     },
     {
       "file": "listener-offering.png",
-      "role": "Offering: a black gloved hand pushes one face-down tarot card out through the slot; the back is the star back from the deck sheet.",
-      "size": [
-        1024,
-        1536
-      ],
-      "sha256": "408beb72b841642680274b6a2ebcebdf63700c143324690a2c9266d83ff122d0",
-      "alpha_range": [
-        0,
-        254
-      ],
-      "visible_bounds": "1010x1536+0+0"
+      "role": "Offering: four black-gloved fingers curl over the top edge of a face-down star-back tarot card; the thumb is concealed.",
+      "size": [1024, 1536],
+      "sha256": "c3c50cbe277e5cdecbf611fbf918b9768a3ac644a8d9d126978a81bd9902d116",
+      "alpha_range": [0, 254],
+      "visible_bounds": "823x1474+76+17",
+      "previous_sha256": "408beb72b841642680274b6a2ebcebdf63700c143324690a2c9266d83ff122d0",
+      "edit_receipt": "offering-hand-edit.json",
+      "edited": "2026-11-14"
     }
   ]
 }

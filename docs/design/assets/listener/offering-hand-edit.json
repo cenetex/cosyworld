@@ -5,5 +5,20 @@
   "reference": "User attached codex-clipboard-84f2b6ca-8c6d-4bdf-b6a1-cdc260944ef0.png",
   "intended_output": "listener-offering.png",
   "transparent_background": true,
-  "prompt": "Use case: precise-object-edit. Image 1 is the edit target: the Listener offering a tarot card. Make ONE narrow hand-anatomy correction only. Replace the single long protruding gloved thumb over the card with FOUR clearly distinct short black-leather gloved fingers, naturally curled side by side OVER THE CARD'S TOP EDGE. Show the index, middle, ring and little fingers with natural different lengths, visible knuckle creases and small gaps separating their curved tips. The back of the hand emerges only slightly from the brass letter slot; most of the palm stays concealed inside. The thumb stays hidden behind the card, with no thumb projecting toward the viewer. The four fingers gently hook over the top of the card to hold it, like a natural overhand grip. Keep the same face-down tarot card, exact star-back design, angle, location and size. Keep every other part of the image unchanged: weathered wooden confessional box, black worn paint, mossy roof, brass arched grille and slot plate, complete darkness behind grille, wood grain, wheels, perspective, engraving linework, colors and lighting. Preserve the EXACT original 1024x1536 canvas and original framing, with the original genuinely transparent background and clean alpha through the wheel spokes and underneath the box. Do not enlarge, move or crop the figure or wheels. No additional hand, fingers beyond the four requested, arm, face, text, new objects, scenery, ground or shadow."
+  "prompt": "Use case: precise-object-edit. Image 1 is the edit target: the Listener offering a tarot card. Make ONE narrow hand-anatomy correction only. Replace the single long protruding gloved thumb over the card with FOUR clearly distinct short black-leather gloved fingers, naturally curled side by side OVER THE CARD'S TOP EDGE. Show the index, middle, ring and little fingers with natural different lengths, visible knuckle creases and small gaps separating their curved tips. The back of the hand emerges only slightly from the brass letter slot; most of the palm stays concealed inside. The thumb stays hidden behind the card, with no thumb projecting toward the viewer. The four fingers gently hook over the top of the card to hold it, like a natural overhand grip. Keep the same face-down tarot card, exact star-back design, angle, location and size. Keep every other part of the image unchanged: weathered wooden confessional box, black worn paint, mossy roof, brass arched grille and slot plate, complete darkness behind grille, wood grain, wheels, perspective, engraving linework, colors and lighting. Preserve the EXACT original 1024x1536 canvas and original framing, with the original genuinely transparent background and clean alpha through the wheel spokes and underneath the box. Do not enlarge, move or crop the figure or wheels. No additional hand, fingers beyond the four requested, arm, face, text, new objects, scenery, ground or shadow.",
+  "reference_commit": "35c9341c17a9676421e05a1bc4b49301b4c2ad26",
+  "repository_reference": "docs/design/assets/listener/listener-offering.png",
+  "repository_reference_sha256": "408beb72b841642680274b6a2ebcebdf63700c143324690a2c9266d83ff122d0",
+  "attachment_sha256": "3cfc07a67b8e1c94bf9dcf148c2ddd742ad7a67b73aa5a311a1013df3ef6a6a6",
+  "attachment_pixels_identical_to_repository_reference": false,
+  "selected_source_filename": "exec-e9ba5560-4573-4556-b0d9-b1a65ec961d6.png",
+  "selected_source_sha256": "c3c50cbe277e5cdecbf611fbf918b9768a3ac644a8d9d126978a81bd9902d116",
+  "saved_png_sha256": "c3c50cbe277e5cdecbf611fbf918b9768a3ac644a8d9d126978a81bd9902d116",
+  "size": [1024, 1536],
+  "alpha_range": [0, 254],
+  "visible_bounds": "823x1474+76+17",
+  "runtime_file": "v2/card-game/assets/listener/listener-offering.webp",
+  "runtime_sha256": "f1c123649f9e06d9ebbfda89c1bd44af2d4a96cf0b3dfba67c1d5e260d3fb5b7",
+  "runtime_alpha_identical": true,
+  "processing": "Selected generated PNG copied unchanged; runtime encoded with Sharp WebP quality90, alphaQuality100, effort6 without resizing or cropping."
 }
