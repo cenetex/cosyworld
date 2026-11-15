@@ -19,7 +19,7 @@ import {
 } from "../v2/card-game/world/arcana.mjs";
 import { boxDefs } from "../v2/card-game/world/boxes.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
-import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, play, questPreviews } from "../v2/card-game/world.mjs";
 
 const only = (id, seed = 7) => {
   deck.cards = data.cards.filter((card) => card.id === id);
@@ -28,7 +28,9 @@ const only = (id, seed = 7) => {
   expect(recordOf(s, "vale").spread).toMatchObject([
     { card: id, face: "locked" },
   ]);
-  return s;
+  const accepted = play(s, questPreviews(s).find((q) => q.kind === "level").action);
+  expect(accepted.ok, accepted.error).toBe(true);
+  return accepted.state;
 };
 const act = (s, test) => {
   const action = legalActions(s, "vale").find(test);
@@ -203,6 +205,7 @@ describe("the second row, played in a created world", () => {
     expect(recordOf(s, "vale").spread).toEqual([
       { card: "arcanum-16", face: "locked", base: { opened: 0 } },
     ]);
+    s = play(s, questPreviews(s).find((q) => q.kind === "level").action).state;
     const route = [
       ["take", id("station-key")],
       ["move", "station"],
@@ -326,7 +329,7 @@ describe("the words added for these cards", () => {
     s.actors.vale.arcana = {
       proved: [],
       did: [],
-      spread: [{ card: "arcanum-0", face: "up" }],
+      spread: [{ card: "arcanum-0", face: "up", accepted: true }],
     };
     let t = act(s, (a) => a.kind === "wait" && !a.sleep);
     expect(recordOf(t, "vale").did).toEqual([]);

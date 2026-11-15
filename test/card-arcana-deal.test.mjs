@@ -140,7 +140,7 @@ describe("the deal", () => {
     s.actors.vale.arcana = {
       proved: [],
       did: [],
-      spread: [{ card: "arcanum-4", face: "up" }],
+      spread: [{ card: "arcanum-4", face: "up", accepted: true }],
     };
     settleArcana(s, "vale");
     const before = spreadOf(s, "vale")[0].binding.place;
@@ -173,14 +173,14 @@ describe("the deal", () => {
       s.actors[who].arcana = {
         proved: [],
         did: [],
-        spread: [{ card: "arcanum-1", face: "up" }],
+        spread: [{ card: "arcanum-1", face: "up", accepted: true }],
       };
     s.actors[other].place = "nowhere-near";
     settleArcana(s, "vale");
     expect(recordOf(s, "vale").proved).toEqual(["arcanum-1"]);
     expect(recordOf(s, other)).toMatchObject({
       proved: [],
-      spread: [{ card: "arcanum-1", face: "up" }],
+      spread: [{ card: "arcanum-1", face: "up", accepted: true }],
     });
   });
 
@@ -232,7 +232,7 @@ describe("a world saved with the cards on the table", () => {
     expect(validateWorld(loaded)).toBe(loaded);
   });
 
-  it("puts a dealt card back in the deck", () => {
+  it("keeps a legacy dealt card recoverable without accepting it", () => {
     const s = createWorld({ seed: 5 });
     s.actors.vale.arcana = { proved: [FOOL], did: [], dealt: FOOL };
     expect(() => validateWorld(s)).toThrow();
@@ -241,6 +241,8 @@ describe("a world saved with the cards on the table", () => {
       proved: [FOOL],
       did: [],
       level: 1,
+      spread: [{ card: FOOL, face: "up", base: { visited: s.actors.vale.visited.length } }],
+      need: [FOOL],
     });
   });
 });

@@ -52,6 +52,7 @@ describe("the table of cards", () => {
             spread: [{ card: card.id, face: "up" }],
           };
         else expect(dealSpread(t, "vale"), card.id).toBe(true);
+        for (const slot of t.actors.vale.arcana.spread) slot.accepted = true;
         settleArcana(t, "vale");
         settleArcana(t, "vale");
         expect(recordOf(t, "vale"), `${card.id} seed ${seed}`).toMatchObject({

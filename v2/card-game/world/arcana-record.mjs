@@ -75,5 +75,5 @@ export const selling = (s, traveler) =>
 
 export const owesGiving = (s, traveler) =>
   recordOf(s, traveler).spread.some(
-    (slot) => slot.face !== "down" && givingUp.has(slot.card),
+    (slot) => slot.accepted && slot.face !== "down" && givingUp.has(slot.card),
   );

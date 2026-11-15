@@ -217,7 +217,7 @@
   var calledTravelers = (s) => Object.keys(s.actors || {}).sort().filter((id) => called(s, id));
   var selling = (s, traveler) => humanPresent(s, traveler) && recordOf(s, traveler).sale;
   var owesGiving = (s, traveler) => recordOf(s, traveler).spread.some(
-    (slot) => slot.face !== "down" && givingUp.has(slot.card)
+    (slot) => slot.accepted && slot.face !== "down" && givingUp.has(slot.card)
   );
 
   // card-content:v2/card-game/forest.json
@@ -7886,7 +7886,7 @@
       delete record5.need;
       delete record5.done;
     }
-    const held = (record5.spread || []).map((slot) => slot.card);
+    const held = (record5.spread || []).filter((slot) => slot.accepted).map((slot) => slot.card);
     if (arcanaLevel(s, traveler) >= 1 && !(record5.need || []).some(
       (id) => held.includes(id) && !(record5.done || []).includes(id)
     ) && nextSpread(s, traveler).length)
@@ -7964,7 +7964,7 @@
     ])) {
       settleSlots(s, traveler);
       const events = seen.get(traveler);
-      if (events?.price && recordOf(s, traveler).sale) {
+      if (events?.price && sells(s, traveler)) {
         dealSpread(s, traveler);
         delete s.actors[traveler].arcana.sale;
       } else if (events?.visit && called(s, traveler)) visit(s, traveler, say);

@@ -35,7 +35,7 @@ function shared(s, other) {
   return s;
 }
 
-const up = (card) => ({ card, face: "up" });
+const up = (card) => ({ card, face: "up", accepted: true });
 const holding = (s, who, card, extra = {}) => {
   s.actors[who].arcana = { proved: [], did: [], spread: [up(card)], ...extra };
   return s;
@@ -100,12 +100,12 @@ describe("settling after a play", () => {
     s.actors.vale.arcana = {
       proved: [],
       did: [],
-      spread: [{ card: WAITED, face: "down" }],
+      spread: [{ card: WAITED, face: "down", accepted: true }],
     };
     s.log.push({ seq: 1, verb: "wait", actorId: "vale" });
     settleArcana(s, "vale");
     expect(s.actors.vale.arcana.spread).toEqual([
-      { card: WAITED, face: "down", done: true },
+      { card: WAITED, face: "down", done: true, accepted: true },
     ]);
     expect(recordOf(s, "vale").proved).toEqual([]);
   });
@@ -239,17 +239,18 @@ describe("settling after a play", () => {
 
 describe("the saved record", () => {
   it.each([
-    { dealt: "retired-arcanum" },
-    { dealt: WAITED, base: { carried: 0 } },
-  ])("clears consent with an invalid deal while preserving earned progress: %o", (deal) => {
+    { spread: [{ card: "retired-arcanum", face: "up", accepted: true }] },
+    { spread: [{ card: WAITED, face: "up", base: { carried: 0 }, accepted: true }] },
+    { dealt: "retired-arcanum", accepted: "retired-arcanum" },
+  ])("clears an invalid accepted slot while preserving earned progress: %o", (deal) => {
     const s = createWorld({ seed: 3 });
-    const progress = { proved: [HERE], did: ["waited"], dreamed: 1 };
-    s.actors.vale.arcana = { ...progress, ...deal, accepted: deal.dealt };
+    const progress = { proved: [HERE], did: ["waited"], dreamed: 1, level: 1 };
+    s.actors.vale.arcana = { ...progress, ...deal };
     const loaded = decodeSave(JSON.stringify(s));
     expect(loaded.actors.vale.arcana).toEqual(progress);
     expect(decodeSave(encodeSave(loaded)).actors.vale.arcana).toEqual(progress);
     settleArcana(loaded, "vale");
-    expect(loaded.actors.vale.arcana).toEqual({ ...progress, did: [], dealt: WAITED });
+    expect(loaded.actors.vale.arcana).toEqual(progress);
   });
 
   it("is absent in a new world, and a saved one comes back the same", () => {

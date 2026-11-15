@@ -3,7 +3,7 @@ import { createWorld, decodeSave, encodeSave, legalActions, play, questPreviews 
 import { heldOf, holdQuest, newWant, slotsUsed } from "../v2/card-game/want.mjs";
 import { neverBack } from "../v2/card-game/pack-registry.mjs";
 import { levelCards } from "../v2/card-game/quest-card.mjs";
-import { sells } from "../v2/card-game/world/arcana.mjs";
+import { sells, takes } from "../v2/card-game/world/arcana.mjs";
 
 const sale = () => {
   const s = createWorld({ seed: 5 });
@@ -73,4 +73,69 @@ it("preserves nine old goals and exact unaccepted spread progress through migrat
   expect(levelCards(loaded)).toEqual([]);
   expect(slotsUsed(loaded.actors.vale)).toBe(0);
   expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
+});
+
+it("does not request or take a permanent gift for an unaccepted Nameless card", () => {
+  let s = sale();
+  s.actors.vale.arcana = { proved: [], did: [], level: 1, calls: 3,
+    spread: [{ card: "arcanum-13", face: "locked" }], need: ["arcanum-13"] };
+  expect(takes(s, "vale")).toBe(false);
+  const refused = pay(s);
+  expect(neverBack(refused, "bell")).toBe(false);
+  expect(refused.items.bell.holder).toBe("vale");
+  expect(refused.actors.vale.arcana.did).toEqual([]);
+  const empty = structuredClone(s);
+  for (const item of Object.values(empty.items))
+    if (item.holder === "vale") item.holder = "pond";
+  expect(questPreviews(empty).filter((q) => q.kind === "listener")).toEqual([]);
+  const preview = questPreviews(s).find((q) => q.kind === "level");
+  s = play(s, preview.action).state;
+  expect(takes(s, "vale")).toBe(true);
+  s = pay(s);
+  expect(neverBack(s, "bell")).toBe(true);
+  expect(s.actors.vale.arcana.proved).toContain("arcanum-13");
+});
+
+it("offers a deliberate paid reroll after a qualified visit without losing old pending goals", () => {
+  let s = sale();
+  s.actors.vale.pendingQuests = [{ ...newWant("item", "oil", s.turn), from: "quest:box:remote" }];
+  const pending = structuredClone(s.actors.vale.pendingQuests);
+  s = pay(s);
+  const old = structuredClone(s.actors.vale.arcana.spread);
+  expect(old.every((slot) => !slot.accepted)).toBe(true);
+  s.actors.vale.arcana.calls = 3;
+  s = apply(s, (a) => a.kind === "talk" && a.target === "listener");
+  expect(sells(s, "vale")).toBe(true);
+  expect(s.actors.vale.arcana.spread).toEqual(old);
+  s.items.lamp.holder = "vale";
+  const before = structuredClone(s);
+  s = apply(s, (a) => a.kind === "give" && a.item === "lamp" && a.target === "listener");
+  expect(s.turn).toBe(before.turn + 1);
+  expect(neverBack(s, "lamp")).toBe(true);
+  expect(neverBack(s, "bell")).toBe(true);
+  expect(s.actors.vale.pendingQuests).toEqual(pending);
+  expect(s.actors.vale.arcana.proved).toEqual(before.actors.vale.arcana.proved);
+  expect(s.actors.vale.upgrades).toEqual(before.actors.vale.upgrades);
+  expect(s.actors.vale.arcana.spread).not.toEqual(old);
+  expect(s.actors.vale.arcana.spread.every((slot) => !slot.accepted)).toBe(true);
+  expect(s.log.filter((e) => e.gone?.length).map((e) => e.gone)).toEqual([["bell"], ["lamp"]]);
+  expect(decodeSave(encodeSave(s))).toEqual(s);
+});
+
+it("lets the Listener credit a completed face-down card before allowing a replacement", () => {
+  let s = sale();
+  s.actors.vale.upgrades = [];
+  s.actors.vale.arcana = { proved: [], did: [], calls: 3, sale: true,
+    spread: [{ card: "arcanum-0", face: "down", accepted: true, done: true, base: { visited: 0 } }],
+    need: ["arcanum-0"] };
+  expect(sells(s, "vale")).toBe(false);
+  s = pay(s);
+  expect(neverBack(s, "bell")).toBe(false);
+  expect(s.actors.vale.arcana.spread[0].done).toBe(true);
+  s = apply(s, (a) => a.kind === "talk" && a.target === "listener");
+  expect(s.actors.vale.upgrades).toContain("arcanum-0");
+  expect(s.actors.vale.arcana.proved).toContain("arcanum-0");
+  expect(s.actors.vale.arcana.level).toBe(1);
+  expect(sells(s, "vale")).toBe(true);
+  expect(decodeSave(encodeSave(s))).toEqual(s);
 });

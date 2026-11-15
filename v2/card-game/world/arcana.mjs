@@ -524,7 +524,7 @@ function visit(s, traveler, say) {
     delete record.need;
     delete record.done;
   }
-  const held = (record.spread || []).map((slot) => slot.card);
+  const held = (record.spread || []).filter((slot) => slot.accepted).map((slot) => slot.card);
   if (
     arcanaLevel(s, traveler) >= 1 &&
     !(record.need || []).some(
@@ -649,7 +649,7 @@ export function settleArcana(s, actor = null, since = 0, say = null) {
   ])) {
     settleSlots(s, traveler);
     const events = seen.get(traveler);
-    if (events?.price && recordOf(s, traveler).sale) {
+    if (events?.price && sells(s, traveler)) {
       dealSpread(s, traveler);
       delete s.actors[traveler].arcana.sale;
     } else if (events?.visit && called(s, traveler)) visit(s, traveler, say);
