@@ -172,7 +172,6 @@ describe("deploy workflow", () => {
     expect(rustGate).not.toContain("uses: actions/cache@v6");
     expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustGate).toContain("bash v2/scripts/check-rust.sh test");
-    // Lint runs in its own job beside the tests, with the same CI reuse.
     expect(rustGate).not.toContain("check-rust-lint.sh");
     expect(rustLint).toContain("node scripts/await-ci-rust.mjs");
     expect(rustLint).toContain("checks: read");
