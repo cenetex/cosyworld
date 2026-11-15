@@ -222,7 +222,7 @@ pub(super) fn carries_upgrades(version: &str) -> bool {
     rules_from(version, 81)
 }
 pub(super) fn carries_arcana(version: &str) -> bool {
-    rules_from(version, 140)
+    rules_from(version, 141)
 }
 fn rules_from(version: &str, first: u32) -> bool {
     version

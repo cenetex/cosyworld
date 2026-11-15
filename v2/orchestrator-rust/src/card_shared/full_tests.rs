@@ -1780,13 +1780,13 @@ fn the_deck_follows_the_passkey_into_new_rules_only() {
         .unwrap();
     }
     let mut w = World::create(None).unwrap();
-    w.version = "full-card-world/140".into();
+    w.version = "full-card-world/141".into();
     let command = full::claim_command(&tx, &w, "u", mara).unwrap();
     assert_eq!(
         command["progress"]["upgrades"],
         json!(["arcanum-0", "arcanum-5", "scarf"])
     );
-    w.version = "full-card-world/139".into();
+    w.version = "full-card-world/140".into();
     let command = full::claim_command(&tx, &w, "u", mara).unwrap();
     assert_eq!(command["progress"]["upgrades"], json!(["scarf"]));
     full::run(&tx, &id, "u", &body("claim", Some("mara")), now()).unwrap();

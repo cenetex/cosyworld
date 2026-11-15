@@ -413,7 +413,7 @@ describe("an imported local save", () => {
   });
 });
 
-describe("a world saved by rules 139", () => {
+describe("a world saved by rules 140", () => {
   it("loads with its dealt card back in the deck, its level kept and its cards unlocked", () => {
     const s = createWorld({ seed: 5 });
     const saved = JSON.parse(encodeSave(s));
