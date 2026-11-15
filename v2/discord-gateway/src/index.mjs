@@ -7,6 +7,7 @@ import { startHealth } from "./health.mjs";
 import { wait } from "./beats.mjs";
 import { channelLines, conversationNotes, coordinate, fetchCast } from "./orchestrator.mjs";
 import { noteSoon } from "./coordinator.mjs";
+import { heard, hush } from "./turns.mjs";
 
 const config = readConfig(process.env);
 
@@ -49,6 +50,7 @@ function forget(guildId) {
   for (const [channelId, room] of rooms) {
     if (room.guildId !== guildId) continue;
     calm(room);
+    hush(room);
     rooms.delete(channelId);
     webhooks.delete(channelId);
     channels.delete(channelId);
@@ -103,7 +105,25 @@ function ask(body, signal) {
 }
 
 function poll() {
-  run(rooms);
+  if (config.DISCORD_NEXT_LOOP) lastTickAt = Date.now();
+  else run(rooms);
+}
+
+function turnDeps() {
+  return {
+    config,
+    cast,
+    state,
+    lines: (body, signal) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal),
+    send: (room, payload) => webhooks.get(room.channelId)?.send(payload),
+    typing: (room) => channels.get(room.channelId)?.sendTyping(),
+    save,
+    log,
+    stats,
+    sleep: wait,
+    coordinate: ask,
+    notes: jot,
+  };
 }
 
 function answerNow(room) {
@@ -144,6 +164,7 @@ client.on(Events.ChannelDelete, (channel) => {
   const room = rooms.get(channel.id);
   if (!room) return;
   calm(room);
+  hush(room);
   rooms.delete(channel.id);
   webhooks.delete(channel.id);
   channels.delete(channel.id);
@@ -158,6 +179,10 @@ client.on(Events.MessageCreate, (message) => {
   const room = rooms.get(message.channelId);
   if (!room) return;
   const entry = record(room, message, room.webhookId, cast, stats);
+  if (config.DISCORD_NEXT_LOOP) {
+    heard(room, entry, turnDeps());
+    return;
+  }
   nudge(room, entry, cast, { delay: config.DISCORD_ADDRESSED_DEBOUNCE_MS, run: answerNow });
   noteSoon(room, { config, cast, coordinate: ask, notes: jot, stats, log });
 });

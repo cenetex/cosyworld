@@ -5,7 +5,6 @@
 // applies only the branch's own work onto main, keeps dependency changes in
 // the version files at main's release version (branches never bump it; a
 // release does, see docs/release.md), then regenerates the outputs:
-//
 //   node scripts/land-branch.mjs claude/prep-dark-attic
 //   npm run land -- claude/prep-dark-attic [--base origin/main] [--name claude/land-dark-attic]
 // It stops on any conflict in the branch's real work. It never pushes.
