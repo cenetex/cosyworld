@@ -1,9 +1,10 @@
-import { addressedResident, addressee, decide, focusOn, mentioned, speaker } from "./attention.mjs";
+import { addressedResident, addressee, decide, focusOn, mentioned, speaker, strength } from "./attention.mjs";
 import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
 import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
 
 export const RING = 20;
+const EXCHANGE_ODDS = [0.85, 0.6, 0.4, 0.25];
 
 export function createRoom(guildId, channelId) {
   return {
@@ -167,7 +168,7 @@ export function requestBody(room, config, addressed, now = Date.now()) {
 }
 
 export function createStats() {
-  return { replies: 0, continued: 0, skips: {}, failures: {}, flags: {} };
+  return { replies: 0, continued: 0, exchanges: 0, skips: {}, failures: {}, flags: {} };
 }
 
 function count(table, key) {
@@ -180,7 +181,7 @@ function counts(table) {
 }
 
 export function summary(stats) {
-  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)} continued=${stats.continued} flags=${counts(stats.flags)}`;
+  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)} continued=${stats.continued} exchanges=${stats.exchanges} flags=${counts(stats.flags)}`;
 }
 
 function turn(room, resident, text, toward, at, cast) {
@@ -216,11 +217,92 @@ async function post(room, resident, text, { config, cast, send, sleep, stats, lo
     }
   }
   turn(room, resident, text, toward, at, cast);
+  room.lastLine = { resident, text };
+}
+
+function plain(text) {
+  return String(text ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function echoes(text, said) {
+  const next = plain(text);
+  return said.some((line) => {
+    const old = plain(line);
+    return old === next || (Math.min(old.length, next.length) >= 12 && (old.includes(next) || next.includes(old)));
+  });
+}
+
+function partner(room, line, cast, first) {
+  const named = mentioned(line.text, cast, line.resident.id);
+  if (named || first) return named;
+  const held = room.focus[line.resident.id];
+  return held?.target.startsWith("r:") && strength(held, Date.now()) > 0 ? held.target.slice(2) : null;
+}
+
+function opened(room, pair, config) {
+  const now = Date.now();
+  room.pairs ??= {};
+  room.exchanges = (room.exchanges ?? []).filter((at) => now - at < 3600000);
+  if (now - (room.pairs[pair] ?? -Infinity) < config.DISCORD_PAIR_COOLDOWN_MS) return false;
+  if (room.exchanges.length >= config.DISCORD_EXCHANGES_PER_HOUR) return false;
+  room.exchanges.push(now);
+  room.pairs[pair] = now;
+  return true;
+}
+
+async function exchange(room, guild, deps) {
+  const { config, cast, lines, typing, sleep, random, stats, save, heard } = deps;
+  let line = room.lastLine;
+  const said = line ? [line.text] : [];
+  let pair = null;
+  for (let step = 0; line && step < config.DISCORD_EXCHANGE_LINES; step += 1) {
+    const target = partner(room, line, cast, step === 0);
+    const other = cast.find((resident) => resident.id === target);
+    if (!other || random() >= (EXCHANGE_ODDS[step] ?? 0)) return;
+    if (room.heard !== heard || guild.replies >= config.DISCORD_DAILY_REPLIES) return;
+    if (!pair) {
+      pair = [line.resident.id, other.id].sort().join("|");
+      if (!opened(room, pair, config)) return;
+      stats.exchanges += 1;
+    }
+    const halt = new AbortController();
+    room.halt = halt;
+    room.busy = true;
+    const stop = typist(room, typing, config.DISCORD_TYPING_MS);
+    try {
+      const span = Math.max(0, config.DISCORD_EXCHANGE_MAX_MS - config.DISCORD_EXCHANGE_MIN_MS);
+      await sleep(config.DISCORD_EXCHANGE_MIN_MS + random() * span, halt.signal);
+      if (halt.signal.aborted) return;
+      const body = requestBody(room, config, other.id);
+      if (body.messages.at(-1)?.resident !== line.resident.id) return;
+      const returned = await lines(body, halt.signal);
+      const next = (returned?.lines ?? []).find((found) => found?.id === other.id && typeof found.text === "string" && found.text.trim());
+      if (!next || halt.signal.aborted) return;
+      if (echoes(next.text, said)) {
+        count(stats.flags, "exchange-echo");
+        return;
+      }
+      await post(room, other, next.text.trim(), deps, `r:${line.resident.id}`);
+      guild.replies += 1;
+      room.pairs[pair] = Date.now();
+      said.push(next.text);
+      line = room.lastLine;
+      try {
+        save();
+      } catch {}
+    } catch {
+      return;
+    } finally {
+      stop();
+      if (room.halt === halt) room.halt = null;
+      room.busy = false;
+    }
+  }
 }
 
 async function goOn(room, guild, first, deps) {
   const { config, lines, typing, sleep, random, stats, save } = deps;
-  const heard = room.heard;
+  const { heard } = deps;
   let line = first;
   for (let extra = 0; extra < config.DISCORD_CONTINUE_MAX; extra += 1) {
     const open = unfinished(line.text);
@@ -343,7 +425,7 @@ export function tick({
       return send(target, payload);
     };
     room.sending = false;
-    const deps = { config, cast, lines, send: send_, typing, sleep, random, stats, log, save: () => save(state) };
+    const deps = { heard: room.heard, config, cast, lines, send: send_, typing, sleep, random, stats, log, save: () => save(state) };
     running.push(
       answer(room, requestBody(room, config, decision.addressed, now), messageId, deps).then(({ posted, reason, stale, spoken }) => {
         const refund = () => {
@@ -362,7 +444,10 @@ export function tick({
         }
         if (posted || !reason) {
           stats.replies += 1;
-          return spoken ? goOn(room, guild, spoken, deps) : undefined;
+          if (!spoken) return undefined;
+          return goOn(room, guild, spoken, deps).then(() =>
+            decision.ambient && !config.DISCORD_SELF_EXCHANGES ? undefined : exchange(room, guild, deps),
+          );
         }
         count(stats.failures, reason);
         log(`lines failed reason=${reason} attempt=${attempt} guild=${room.guildId} channel=${room.channelId}`);
