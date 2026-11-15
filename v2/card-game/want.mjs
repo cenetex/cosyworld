@@ -14,6 +14,7 @@ import {
   packDefinition,
   packOf,
   packPeople,
+  packPlaces,
 } from "./pack-registry.mjs";
 import { DAYLIGHT_TURNS, packDiscovered, runHash } from "./pack-rules.mjs";
 import { validGlimpse } from "./glimpse.mjs";
@@ -22,6 +23,7 @@ import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
 import { arcanaLevel } from "./world/arcana-record.mjs";
+import forest from "./forest.json" with { type: "json" };
 
 export const WANT_KINDS = ["item", "place", "person", "connect"];
 // A want may name a verb beyond the kind's own (hold, be at, talk). State
@@ -251,7 +253,7 @@ const validTarget = (s, kind, target) =>
       ? Object.hasOwn(s.actors, target)
       : kind === "connect"
         ? target === CONNECT_TARGET
-        : true;
+        : Object.hasOwn(forest.places, target) || Object.hasOwn(packPlaces, target);
 export const lostOf = (s, w) =>
   w
     ? [w.target, w.step?.to, w.step?.with, w.step?.at, ...(w.step?.items || [])]

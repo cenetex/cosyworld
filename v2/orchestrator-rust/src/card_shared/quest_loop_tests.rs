@@ -1,4 +1,4 @@
-use super::{content, engine, full_store, full_world::World, now, store};
+use super::{content, engine, full_store, full_world::World, narrator, now, store};
 use serde_json::{json, Value};
 
 fn fixture(name: &str, world: &World) -> (std::path::PathBuf, rusqlite::Connection, String) {
@@ -77,12 +77,8 @@ fn woke(world: &World) -> Option<Value> {
         .cloned()
 }
 
-// Rules 133 in the C QuickJS host: one want per avatar. A Talk records the
-// want told and hands the player nothing; giving the item the keeper wants
-// pays the traveler no XP and raises the keeper's trust, and a long rest with
-// no sleep quest dreams nothing. The journal replays every record exactly.
 #[test]
-fn rules_133_one_want_commits_and_replays_in_the_c_host() {
+fn explicit_quest_acceptance_commits_and_replays_in_the_c_host() {
     let mut world = created(engine::VERSION);
     let game = &mut world.game;
     game.as_object_mut().unwrap().remove("opening");
@@ -116,6 +112,30 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
         .expect("direct Talk has durable participants");
     assert_eq!(conversation["turn"], world.game["turn"]);
     assert!(conversation["seq"].as_u64().unwrap() > 0);
+    assert!(quests(&world).is_empty());
+    let before = world.clone();
+    let accept = play(&world, |a| {
+        a["offer"]
+            .as_str()
+            .is_some_and(|id| id.starts_with("quest:from:keeper:"))
+    });
+    commit(&mut world, accept.clone());
+    assert_eq!(world.game["turn"], before.game["turn"]);
+    assert_eq!(
+        world.game["revision"].as_u64(),
+        before.game["revision"].as_u64().map(|n| n + 1)
+    );
+    assert_eq!(
+        world.game["actors"]["keeper"],
+        before.game["actors"]["keeper"]
+    );
+    assert_eq!(world.game["speechVoices"]["vale"], json!([]));
+    let mut request = world.request("view", 0);
+    request["action"] = accept["action"].clone();
+    assert_eq!(narrator::context(&request).unwrap()["speakers"], json!([]));
+    let accepted = world.clone();
+    assert!(full_store::commit(&c, &id, &mut world, accept, now()).is_err());
+    assert_eq!(world, accepted);
     let held = quests(&world);
     assert_eq!(held.len(), 1);
     assert_eq!(held[0]["from"], "quest:from:keeper");

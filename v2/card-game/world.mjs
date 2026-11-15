@@ -1264,6 +1264,7 @@ export function legalActions(s, actor = currentActor(s)) {
       (e) =>
         e.kind === "action" &&
         e.actorId === actor &&
+        e.verb !== "quest" &&
         !e.generated,
     )?.verb === "wait"
   )

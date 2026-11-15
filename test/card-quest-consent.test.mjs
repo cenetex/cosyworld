@@ -31,6 +31,7 @@ it("keeps old goals pending without changing earned world progress or closing th
   for (const field of ["items", "packs", "log", "opened", "revision", "turn"])
     expect(loaded[field]).toEqual(saved[field]);
   expect(loaded.actors.vale.closed).toEqual(saved.actors.vale.closed);
+  expect(loaded.actors.vale.xp).toBe(saved.actors.vale.xp);
   expect(loaded.actors.vale.gaveUp).toBeUndefined();
   expect(decodeSave(encodeSave(loaded))).toEqual(loaded);
   const next = accept(loaded);
@@ -38,6 +39,32 @@ it("keeps old goals pending without changing earned world progress or closing th
   expect(next.actors.vale.pendingQuests).toEqual(saved.actors.vale.under);
   expect(next.turn).toBe(loaded.turn);
   expect(next.revision).toBe(loaded.revision + 1);
+});
+
+it("migrates every claimed avatar while preserving unclaimed resident wants", () => {
+  const old = dispatchShared({ op: "create", seed: 17 }).world;
+  old.actors.vale.want = goal(old);
+  old.actors.ash.want = goal(old, "cloth");
+  delete old.actors.vale.pendingQuests;
+  const npc = structuredClone(old.actors.mara.want);
+  const loaded = load({ world: old, actor: "vale", claimed: ["vale", "ash"], present: ["vale"] });
+  for (const id of ["vale", "ash"]) {
+    expect(loaded.actors[id].want).toBeNull();
+    expect(loaded.actors[id].pendingQuests).toEqual([old.actors[id].want]);
+  }
+  expect(loaded.actors.mara.want).toEqual(npc);
+  expect(loaded.actors.mara.pendingQuests).toBeUndefined();
+});
+
+it("rejects malformed or oversized pending saves without silently repairing quests", () => {
+  const s = createWorld({ seed: 17 });
+  s.actors.vale.pendingQuests = Object.keys(s.items).slice(0, 10).map((id) => goal(s, id));
+  expect(() => decodeSave(JSON.stringify(s))).toThrow();
+  s.actors.vale.pendingQuests = [{ ...goal(s), kind: "place", target: "missing-place" }];
+  expect(() => decodeSave(JSON.stringify(s))).toThrow();
+  delete s.actors.vale.pendingQuests;
+  s.actors.vale.under = [goal(s)];
+  expect(() => decodeSave(JSON.stringify(s))).toThrow();
 });
 
 it("does not accept nearby source quests on arrival or Wait", () => {
@@ -54,12 +81,15 @@ it("accepts a current source using its exact saved pending goal", () => {
   s.actors.vale.place = "greek-harbor";
   const q = questPreviews(s).find((p) => p.kind === "box" && p.action);
   s.actors.vale.pendingQuests = [structuredClone(q.quest)];
+  s.actors.vale.residentWant = structuredClone(q.quest);
+  expect(questPreviews(s).filter((p) => p.kind === "pending")).toHaveLength(1);
   s.turn = s.revision = 2;
   const current = questPreviews(s).find((p) => p.source === q.source && p.action);
   expect(current.quest).toEqual(q.quest);
   const next = play(s, current.action).state;
   expect(next.actors.vale.want).toEqual({ ...q.quest, accepted: true });
   expect(next.actors.vale.pendingQuests).toEqual([]);
+  expect(next.actors.vale.residentWant).toBeUndefined();
 });
 
 it("revalidates stale, duplicate and full-stack acceptance atomically", () => {
@@ -152,6 +182,7 @@ it("keeps shared Accept silent after an earlier same-turn Wait", () => {
   expect(result.world.turn).toBe(s.turn);
   expect(result.world.actors.moth).toEqual(s.actors.moth);
   expect(result.world.speechVoices.vale).toEqual([]);
+  expect(legalActions(result.world).some((a) => a.sleep)).toBe(true);
   expect(speechOccasions(result.world, dialogueCast(result.world)))
     .toEqual({ occasion: null, speakers: [], scenery: false });
   expect(reflectionContext(result.world).resting).toBeNull();

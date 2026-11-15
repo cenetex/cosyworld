@@ -125,7 +125,9 @@ export function questCandidates(s, actor = currentActor(s)) {
       : want && talkQuestFrom(want) && !askerOf(s, want) ? "This person no longer asks for this."
         : want && withAnother(s, actor, "resident", askerOf(s, want), want) ? "This person is with another traveler."
           : kind !== "level" && held.length >= MAX_HELD ? "Finish or discard a quest first." : null;
-    out.push({ id: `${id}:${want ? identity(want) : recordOf(s, actor).dealt}`, source, kind, quest: want, reason });
+    const key = `${id}:${want ? identity(want) : recordOf(s, actor).dealt}`;
+    if (!out.some((q) => q.id === key))
+      out.push({ id: key, source, kind, quest: want, reason });
   };
   for (const offered of questOffers(s, actor))
     add(offered.kind, offered.source, { ...offered.want, from: offered.id }, offered.id);
