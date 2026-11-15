@@ -65,10 +65,15 @@ export function rememberLocalUpgrades(world, storage) {
 // A local world's travelers wear the local passkey's upgrades.
 export function wearLocalUpgrades(world, storage) {
   const saved = readLocal(storage ? () => storage : browserStorage);
+  const own = (id) => (Array.isArray(saved[id]) ? saved[id] : []);
+  const deck = merged(...humanAvatarIds.map(own)).filter((u) =>
+    u.startsWith("arcanum-"),
+  );
   for (const id of humanAvatarIds) {
     const actor = world?.actors?.[id];
-    if (!actor || !Array.isArray(saved[id]) || !saved[id].length) continue;
-    actor.upgrades = merged(actor.upgrades || [], saved[id]);
+    const worn = merged(own(id), deck);
+    if (!actor || !worn.length) continue;
+    actor.upgrades = merged(actor.upgrades || [], worn);
   }
   return world;
 }

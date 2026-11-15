@@ -7,6 +7,7 @@ import { conditionWords, wantWords } from "./world/want-words.mjs";
 import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
 import { homeOf } from "./world/home.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
+import { TAROT_BACK, TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   currentActor,
@@ -80,7 +81,7 @@ export const levelCards = (world, actor = currentActor(world)) =>
     level: Math.min(21, arcanaLevel(world, actor) + 1),
     left: 1,
     step: null,
-    art: face === "down" ? null : arcanumArt(card),
+    art: face === "down" ? TAROT_BACK : face === "locked" ? TAROT_LOCKED_BACK : arcanumArt(card),
     conditions: face === "down" ? null : arcanumTerms(world, actor, index),
     home: homeOf(actor) ?? null,
   }));
@@ -114,6 +115,7 @@ export function questCaption(
         ...(quest.lit === undefined ? {} : { lit: quest.lit }),
         ...(quest.story ? { story: true } : {}),
       };
+  if (quest.kind === "arcanum" && quest.face === "down") return "";
   const words =
     quest.kind === "arcanum"
       ? (conditionWords(quest.conditions, known, { home: quest.home }) ?? "…")

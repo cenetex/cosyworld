@@ -458,6 +458,8 @@ const files = [
 for (const file of packMediaFiles) if (!files.includes(file)) files.push(file);
 for (const { art } of arcana.cards)
   if (art && !files.includes(art)) files.push(art);
+for (const back of ["assets/arcana/tarot-back.png", "assets/arcana/tarot-back-locked.png"])
+  if (!files.includes(back)) files.push(back);
 for (const { stage, card, phone } of Object.values(imageVariants.images))
   for (const file of [stage, card, phone])
     if (file && !files.includes(file)) files.push(file);

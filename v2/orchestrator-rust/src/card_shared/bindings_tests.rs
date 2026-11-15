@@ -255,3 +255,9 @@ fn a_claim_carries_the_avatars_level() {
         .unwrap_err();
     assert!(refused.contains("Choose the avatar's level."), "{refused}");
 }
+#[test]
+fn only_rules_140_and_later_carry_the_deck() {
+    assert!(!super::bindings::carries_arcana("full-card-world/139"));
+    assert!(super::bindings::carries_arcana("full-card-world/140"));
+    assert!(super::bindings::carries_upgrades("full-card-world/139"));
+}

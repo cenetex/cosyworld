@@ -152,6 +152,24 @@
       "phone": "assets/optimized/stage/png/arcana/arcanum-9.webp",
       "phoneHash": "16b87d5d1f3fed0e79ce37efabdb1722466d81b4ff557daf592a7710ea0c41eb"
     },
+    "assets/arcana/tarot-back-locked.png": {
+      "sourceHash": "6844bb4d06eb569eccf8653783ac895759d8af86675f7ebe3958090a8fa4efe2",
+      "stage": "assets/optimized/stage/png/arcana/tarot-back-locked.webp",
+      "stageHash": "bbfb2cd61198a0d2e942eb59a88756245a0657f653483a5c579ac39db5d7725d",
+      "card": "assets/optimized/stage/png/arcana/tarot-back-locked.webp",
+      "cardHash": "bbfb2cd61198a0d2e942eb59a88756245a0657f653483a5c579ac39db5d7725d",
+      "phone": "assets/optimized/stage/png/arcana/tarot-back-locked.webp",
+      "phoneHash": "bbfb2cd61198a0d2e942eb59a88756245a0657f653483a5c579ac39db5d7725d"
+    },
+    "assets/arcana/tarot-back.png": {
+      "sourceHash": "28106f34c90a649722a501413b1c063a4e6f1379bd7617cad9203e8a7a2f82ac",
+      "stage": "assets/optimized/stage/png/arcana/tarot-back.webp",
+      "stageHash": "9ae906e09444abf91ed40d7db020b42f47a98eafd864ad3cd04fec1f92f1dddd",
+      "card": "assets/optimized/stage/png/arcana/tarot-back.webp",
+      "cardHash": "9ae906e09444abf91ed40d7db020b42f47a98eafd864ad3cd04fec1f92f1dddd",
+      "phone": "assets/optimized/stage/png/arcana/tarot-back.webp",
+      "phoneHash": "9ae906e09444abf91ed40d7db020b42f47a98eafd864ad3cd04fec1f92f1dddd"
+    },
     "assets/attic.png": {
       "sourceHash": "24ecf6100097986d8b72578a991d30f14a4b96070e320c78ddf2f83d41dcf18e",
       "stage": "assets/optimized/stage/png/attic.webp",

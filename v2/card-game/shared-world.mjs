@@ -100,7 +100,7 @@ function carryProgress(actor, progress) {
   if (upgrades !== undefined) {
     if (
       !Array.isArray(upgrades) ||
-      upgrades.length > 16 ||
+      upgrades.length > 40 ||
       upgrades.some(
         (u) => typeof u !== "string" || !/^[a-z][a-z0-9-]{0,39}$/.test(u),
       )

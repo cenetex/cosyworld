@@ -77,6 +77,7 @@ import {
 } from "./card-entry.mjs";
 import {
   LOCKED_BACK,
+  TAROT_BACK,
   LOCKED_BOX,
   createLockedBoxes,
   isLockedBox,
@@ -2826,7 +2827,13 @@ function renderActions() {
   const picked = questOpen && !rested ? shownQuests[0] : null;
   const legal = picked ? legalActions(world) : [];
   const drop =
-    picked && legal.find((a) => a.kind === "drop" && !a.item && a.quest === picked.index);
+    picked &&
+    legal.find(
+      (a) =>
+        a.kind === "drop" &&
+        !a.item &&
+        (picked.kind === "arcanum" ? a.tarot : a.quest) === picked.index,
+    );
   const confirmKey = drop ? `${revision}:${picked.key}` : null;
   if (abandonQuest !== confirmKey) abandonQuest = null;
   const dropLabel = drop && playLabel(drop, world);
@@ -2966,7 +2973,7 @@ function renderActions() {
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
-    noteText = `${shownQuestCaption(picked, false)}.`;
+    noteText = picked.face === "down" ? "" : `${shownQuestCaption(picked, false)}.`;
   }
   showActionBeatNote(note, { note: noteText });
   const text = abandonQuest ? "Discard this quest?" : sentence;
@@ -3176,6 +3183,10 @@ function showQuests(opening) {
   }
   const key = card.dataset.questEntry,
     seen = !card.closest(".want-frame").hidden;
+  if (card.dataset.face === "down") {
+    questsInView.show(key, seen, { stack: visibleQuests().map(questEntryKey) });
+    questsInView.turned(key);
+  }
   if (
     questsInView.show(key, seen, {
       opening,
@@ -3484,6 +3495,7 @@ function questView(quest) {
   };
 }
 const questLabel = (quest, near) => {
+  if (quest.face === "down") return "A face-down card";
   const caption = quest.level
     ? `Level Up ${romanLevel(quest.level)}: ${shownQuestCaption(quest, false)}`
     : shownQuestCaption(quest);
@@ -3491,19 +3503,18 @@ const questLabel = (quest, near) => {
 };
 // The face every quest card shares, held or offered: the scene and its head.
 function questFace(quest, verb) {
+  const screen = questScreen(
+    quest.art ? { ...questView(quest), actor: null } : questView(quest),
+    quest.art ? { ...questArt, place: () => quest.art } : questArt,
+  );
+  if (quest.face === "down") return [screen];
   const head = node("span", undefined, "quest-head");
   // A level quest keeps its title through each step.
   head.append(
     setCardLabel(node("span", undefined, "quest-verb"), quest.level ? "Level Up" : verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
   );
-  return [
-    questScreen(
-      quest.art ? { ...questView(quest), actor: null } : questView(quest),
-      quest.art ? { ...questArt, place: () => quest.art } : questArt,
-    ),
-    head,
-  ];
+  return [screen, head];
 }
 function questFrame({ id, quest }) {
   const picked = questOpen;
@@ -3521,6 +3532,7 @@ function questFrame({ id, quest }) {
   el.dataset.questId = id;
   el.dataset.questKey = quest.key;
   el.dataset.questEntry = questEntryKey(quest);
+  if (quest.face) el.dataset.face = quest.face;
   el.dataset.unrevealed = String(questsInView.down(questEntryKey(quest)));
   el.dataset.picked = String(picked);
   el.setAttribute("aria-pressed", String(picked));
@@ -3528,7 +3540,7 @@ function questFrame({ id, quest }) {
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
-      src: imageUrl(CARD_BACK, "card"),
+      src: imageUrl(quest.kind === "arcanum" ? TAROT_BACK : CARD_BACK, "card"),
       alt: "",
       draggable: false,
     }),

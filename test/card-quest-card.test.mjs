@@ -444,7 +444,20 @@ describe("the quest card", () => {
       conditions: null,
     });
     expect(JSON.stringify(down)).not.toContain("arcanum-2");
-    expect(questCaption(down)).toBe("Level II: …");
+    expect(down.art).toBe("./assets/arcana/tarot-back.png");
+    expect(questCaption(down)).toBe("");
+  });
+
+  it("draws a locked tarot with the keyhole back and keeps its words", () => {
+    const s = createWorld({ seed: 7 });
+    s.actors.vale.arcana = {
+      proved: [],
+      did: [],
+      spread: [{ card: "arcanum-21", face: "locked" }],
+    };
+    const [locked] = levelCards(s, "vale");
+    expect(locked).toMatchObject({ face: "locked", target: "arcanum-21", art: "./assets/arcana/tarot-back-locked.png" });
+    expect(questCaption({ ...locked, level: null })).toBe("Rest at home");
   });
 
   it("draws the World with its woodcut", () => {
@@ -452,7 +465,7 @@ describe("the quest card", () => {
     s.actors.vale.arcana = {
       proved: [],
       did: [],
-      spread: [{ card: "arcanum-21", face: "locked" }],
+      spread: [{ card: "arcanum-21", face: "up" }],
     };
     expect(levelCards(s, "vale")[0]).toMatchObject({ target: "arcanum-21", art: "./assets/arcana/arcanum-21.png", level: 1 });
     expect(questCaption({ ...levelCards(s, "vale")[0], level: null })).toBe("Rest at home");

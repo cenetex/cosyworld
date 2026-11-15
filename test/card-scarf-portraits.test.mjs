@@ -94,3 +94,26 @@ describe("scarf portraits follow the scarf", () => {
     }
   });
 });
+
+describe("the deck follows the passkey", () => {
+  const memory = () => {
+    const kept = new Map();
+    return {
+      getItem: (key) => kept.get(key) ?? null,
+      setItem: (key, value) => kept.set(key, String(value)),
+    };
+  };
+
+  it("gives every local traveler the cards one of them unlocked, and keeps the scarf their own", () => {
+    const storage = memory();
+    const first = createWorld();
+    first.actors.vale.upgrades = ["arcanum-0", "arcanum-5", "scarf"];
+    rememberLocalUpgrades(first, storage);
+    const next = wearLocalUpgrades(createWorld(), storage);
+    expect(next.actors.vale.upgrades).toEqual(["arcanum-0", "arcanum-5", "scarf"]);
+    expect(next.actors.mara.upgrades).toEqual(["arcanum-0", "arcanum-5"]);
+    expect(avatarImage(next, "mara")).not.toBe(
+      "assets/shared/characters/mara-scarf.png",
+    );
+  });
+});
