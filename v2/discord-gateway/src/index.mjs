@@ -2,7 +2,7 @@ import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import { readConfig } from "./config.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
 import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
-import { createRoom, createStats, record, seed, summary, tick } from "./room.mjs";
+import { calm, createRoom, createStats, nudge, record, seed, summary, tick } from "./room.mjs";
 import { startHealth } from "./health.mjs";
 import { channelLines, fetchCast } from "./orchestrator.mjs";
 
@@ -19,6 +19,7 @@ const client = new Client({
 const state = loadState(config.DISCORD_STATE_FILE);
 const rooms = new Map();
 const webhooks = new Map();
+const channels = new Map();
 let cast = [];
 const stats = createStats();
 const startedAt = Date.now();
@@ -45,8 +46,10 @@ async function refreshCast() {
 function forget(guildId) {
   for (const [channelId, room] of rooms) {
     if (room.guildId !== guildId) continue;
+    calm(room);
     rooms.delete(channelId);
     webhooks.delete(channelId);
+    channels.delete(channelId);
   }
 }
 
@@ -64,23 +67,36 @@ async function watch(guild) {
     log(`history unavailable in guild ${guild.id}: ${error?.code ?? "error"}`);
   }
   webhooks.set(found.channel.id, found.webhook);
+  channels.set(found.channel.id, found.channel);
   rooms.set(found.channel.id, room);
 }
 
-function poll() {
+function run(targets, now = Date.now()) {
   lastTickAt = Date.now();
   void tick({
-    rooms,
+    rooms: targets,
     state,
-    now: Date.now(),
+    now,
     config,
     cast,
     lines: (body) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body),
     send: (room, payload) => webhooks.get(room.channelId)?.send(payload),
+    typing: (room) => channels.get(room.channelId)?.sendTyping(),
     save,
     log,
     stats,
   });
+}
+
+function poll() {
+  run(rooms);
+}
+
+function answerNow(room) {
+  if (rooms.get(room.channelId) !== room) return;
+  const last = room.messages.at(-1);
+  const quiet = (last?.at ?? 0) + config.DISCORD_ADDRESSED_QUIET_MS;
+  run(new Map([[room.channelId, room]]), Math.max(Date.now(), quiet));
 }
 
 client.once(Events.ClientReady, async () => {
@@ -113,8 +129,10 @@ client.on(Events.GuildDelete, (guild) => {
 client.on(Events.ChannelDelete, (channel) => {
   const room = rooms.get(channel.id);
   if (!room) return;
+  calm(room);
   rooms.delete(channel.id);
   webhooks.delete(channel.id);
+  channels.delete(channel.id);
   const entry = guildState(state, room.guildId);
   entry.off = true;
   entry.channelId = null;
@@ -125,7 +143,8 @@ client.on(Events.ChannelDelete, (channel) => {
 client.on(Events.MessageCreate, (message) => {
   const room = rooms.get(message.channelId);
   if (!room) return;
-  record(room, message, room.webhookId, cast);
+  const entry = record(room, message, room.webhookId, cast);
+  nudge(room, entry, cast, { delay: config.DISCORD_ADDRESSED_DEBOUNCE_MS, run: answerNow });
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

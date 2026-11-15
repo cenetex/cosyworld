@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
-import { assess, addressedResident, decide } from "../src/attention.mjs";
+import { assess, addressee, addressedResident, decide } from "../src/attention.mjs";
 
 const config = readConfig({});
 const cast = [
@@ -27,7 +27,10 @@ const day = { replies: 0 };
 test("config gives safe defaults and rejects bad numbers", () => {
   assert.equal(config.DISCORD_POLL_MS, 10000);
   assert.equal(config.DISCORD_QUIET_MS, 45000);
-  assert.equal(config.DISCORD_ADDRESSED_QUIET_MS, 8000);
+  assert.equal(config.DISCORD_ADDRESSED_QUIET_MS, 1500);
+  assert.equal(config.DISCORD_ADDRESSED_DEBOUNCE_MS, 1500);
+  assert.equal(config.DISCORD_ADDRESSED_REPLY_GAP_MS, 5000);
+  assert.equal(config.DISCORD_TYPING_MS, 8000);
   assert.equal(config.DISCORD_AMBIENT_MESSAGES, 6);
   assert.equal(config.DISCORD_AMBIENT_QUIET_MS, 120000);
   assert.equal(config.DISCORD_AMBIENT_COOLDOWN_MS, 1800000);
@@ -76,10 +79,10 @@ test("residents in 2 of the last 6 skip unaddressed, addressed still replies", (
   assert.equal(decision.addressed, "skull");
 });
 
-test("addressed replies after 8 s while unaddressed waits until 45 s", () => {
+test("addressed replies after 1.5 s while unaddressed waits until 45 s", () => {
   const named = room([human("m1", 0, "rati where are you")]);
-  assert.equal(decide(named, day, 7000, config, cast).act, "wait");
-  assert.equal(decide(named, day, 9000, config, cast).act, "reply");
+  assert.equal(decide(named, day, 1000, config, cast).act, "wait");
+  assert.equal(decide(named, day, 1500, config, cast).act, "reply");
   const plain = room([human("m1", 0, "Where is the cottage?")]);
   assert.equal(decide(plain, day, 9000, config, cast).act, "wait");
   assert.equal(decide(plain, day, 45000, config, cast).act, "reply");
@@ -90,12 +93,15 @@ test("a name inside another word is not a mention", () => {
   assert.equal(addressedResident({ text: "Hi SKULL!" }, cast, []), "skull");
 });
 
-test("the per-channel limit waits, then replies", () => {
-  const messages = [human("m1", 100 * MIN, "RATi, can I come in?")];
-  const limited = room(messages, { lastReplyAt: 100 * MIN });
-  assert.equal(decide(limited, day, 100 * MIN + 30000, config, cast).act, "wait");
-  assert.equal(decide(limited, day, 100 * MIN + 30000, config, cast).reason, "reply-gap");
-  assert.equal(decide(limited, day, 101 * MIN, config, cast).act, "reply");
+test("addressed messages use a 5 s reply gap, others keep the 60 s gap", () => {
+  const start = 100 * MIN;
+  const named = room([human("m1", start, "RATi, can I come in?")], { lastReplyAt: start });
+  assert.equal(decide(named, day, start + 3000, config, cast).reason, "reply-gap");
+  assert.equal(decide(named, day, start + 5000, config, cast).act, "reply");
+  const plain = room([human("m1", start - MIN, "Is the path open?")], { lastReplyAt: start });
+  assert.equal(decide(plain, day, start + 30000, config, cast).act, "wait");
+  assert.equal(decide(plain, day, start + 30000, config, cast).reason, "reply-gap");
+  assert.equal(decide(plain, day, start + MIN, config, cast).act, "reply");
 });
 
 test("the daily cap skips", () => {
@@ -157,4 +163,15 @@ test("a reply to a resident's webhook message counts as addressed", () => {
   const decision = decide(room(messages), day, 9000, config, cast);
   assert.equal(decision.act, "reply");
   assert.equal(decision.addressed, "skull");
+});
+
+test("a follow-up from the same person keeps the address, another person breaks it", () => {
+  const messages = [human("m1", 0, "RATi, can I"), human("m2", 0, "come in?")];
+  assert.equal(addressee(messages, cast), "rati");
+  assert.equal(decide(room(messages), day, 1500, config, cast).addressed, "rati");
+  const broken = [...messages, { id: "m3", at: 0, author: "Jun", text: "hello all" }];
+  assert.equal(addressee(broken, cast), null);
+  const long = [human("m1", 0, "RATi, hi"), human("m2", 0, "one"), human("m3", 0, "two"), human("m4", 0, "three")];
+  assert.equal(addressee(long, cast), null);
+  assert.equal(addressee([resident("r1", 0, "rati", "Yes?")], cast), null);
 });
