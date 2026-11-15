@@ -64,7 +64,10 @@ test("the orchestrator calls send only the Bearer token", async () => {
 
   const lines = recorder({ status: 200, json: async () => ({ lines: [{ id: "rati", name: "RATi", text: "Hi." }] }) });
   const body = { pack: "lonely-forest", addressed: null, messages: [{ author: "Mara", text: "Hello?" }] };
-  assert.deepEqual(await channelLines(lines.fetch, "https://x", "t", body), [{ id: "rati", name: "RATi", text: "Hi." }]);
+  assert.deepEqual(await channelLines(lines.fetch, "https://x", "t", body), {
+    lines: [{ id: "rati", name: "RATi", text: "Hi." }],
+    reason: null,
+  });
   assert.equal(lines.calls[0].url, "https://x/discord/lines");
   assert.equal(lines.calls[0].options.method, "POST");
   assert.deepEqual(lines.calls[0].options.headers, {
@@ -74,15 +77,24 @@ test("the orchestrator calls send only the Bearer token", async () => {
   assert.deepEqual(JSON.parse(lines.calls[0].options.body), body);
 });
 
-test("orchestrator errors become silence", async () => {
+test("orchestrator errors become silence with a reason", async () => {
   const body = { pack: "lonely-forest", messages: [] };
-  assert.deepEqual(await channelLines(recorder({ status: 500, json: async () => ({}) }).fetch, "https://x", "t", body), []);
-  assert.deepEqual(await channelLines(recorder({ status: 429, json: async () => ({}) }).fetch, "https://x", "t", body), []);
-  assert.deepEqual(
-    await channelLines(recorder({ status: 200, json: async () => { throw new SyntaxError("bad"); } }).fetch, "https://x", "t", body),
-    [],
-  );
-  assert.deepEqual(await channelLines(recorder(new Error("offline")).fetch, "https://x", "t", body), []);
+  const ask = (reply) => channelLines(recorder(reply).fetch, "https://x", "t", body);
+  assert.deepEqual(await ask({ status: 500, json: async () => ({}) }), { lines: [], reason: "http-500" });
+  assert.deepEqual(await ask({ status: 429, json: async () => ({}) }), { lines: [], reason: "http-429" });
+  assert.deepEqual(await ask({ status: 200, json: async () => { throw new SyntaxError("bad"); } }), {
+    lines: [],
+    reason: "error",
+  });
+  assert.deepEqual(await ask(new Error("offline")), { lines: [], reason: "error" });
+  const timeout = new Error("slow");
+  timeout.name = "TimeoutError";
+  assert.deepEqual(await ask(timeout), { lines: [], reason: "timeout" });
+  assert.deepEqual(await ask({ status: 200, json: async () => ({ lines: [], reason: "busy" }) }), {
+    lines: [],
+    reason: "busy",
+  });
+  assert.deepEqual(await ask({ status: 200, json: async () => ({ lines: [] }) }), { lines: [], reason: "empty" });
   assert.equal(await fetchCast(recorder({ status: 404, json: async () => ({}) }).fetch, "https://x", "t", "nope"), null);
   assert.equal(await fetchCast(recorder(new Error("offline")).fetch, "https://x", "t", "p"), null);
   assert.equal(

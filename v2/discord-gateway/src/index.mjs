@@ -2,7 +2,8 @@ import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import { readConfig } from "./config.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
 import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
-import { createRoom, record, seed, tick } from "./room.mjs";
+import { createRoom, createStats, record, seed, summary, tick } from "./room.mjs";
+import { startHealth } from "./health.mjs";
 import { channelLines, fetchCast } from "./orchestrator.mjs";
 
 const config = readConfig(process.env);
@@ -19,6 +20,9 @@ const state = loadState(config.DISCORD_STATE_FILE);
 const rooms = new Map();
 const webhooks = new Map();
 let cast = [];
+const stats = createStats();
+const startedAt = Date.now();
+let lastTickAt = null;
 
 function log(line) {
   console.log(line);
@@ -64,6 +68,7 @@ async function watch(guild) {
 }
 
 function poll() {
+  lastTickAt = Date.now();
   void tick({
     rooms,
     state,
@@ -73,6 +78,8 @@ function poll() {
     lines: (body) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body),
     send: (room, payload) => webhooks.get(room.channelId)?.send(payload),
     save,
+    log,
+    stats,
   });
 }
 
@@ -87,6 +94,7 @@ client.once(Events.ClientReady, async () => {
     await watch(guild).catch(() => log(`watch failed in guild ${guild.id}`));
   }
   setInterval(poll, Math.max(1000, config.DISCORD_POLL_MS));
+  setInterval(() => log(summary(stats)), 600000);
   setInterval(() => void refreshCast(), Math.max(60000, config.DISCORD_CAST_REFRESH_MS));
   log("Lonely Forest gateway ready");
 });
@@ -137,5 +145,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     log(`reply failed: ${error?.code ?? "error"}`);
   }
 });
+
+startHealth(8080, () => ({
+  ready: client.isReady(),
+  rooms: rooms.size,
+  cast: cast.length,
+  lastTickAt,
+  startedAt,
+}));
 
 client.login(config.DISCORD_TOKEN);
