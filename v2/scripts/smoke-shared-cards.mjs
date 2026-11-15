@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import {
   clearSelection,
+  holdItem,
   revealCard,
+  readyActionButton,
   selectCard,
   openSettings,
   closeSettings,
 } from "./card-browser-helpers.mjs";
-import { mkdtemp, mkdir } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
@@ -20,15 +22,19 @@ import {
   exits,
   legalActions,
   play,
+  seedRun,
 } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { humanAvatars } from "../card-game/human-cast.mjs";
-import { currentScene } from "../card-game/scene.mjs";
+import { currentScene, backdrop } from "../card-game/scene.mjs";
+import { preferredLocations } from "../card-game/preferred-locations.mjs";
+import coreLocations from "../card-game/assets/staging/core.json" with { type: "json" };
 import { packFixtures, transports } from "../card-game/pack-registry.mjs";
 
 const dir = await mkdtemp(join(tmpdir(), "shared-full-world-smoke-"));
 const output = resolve("output/shared-cards");
 await mkdir(output, { recursive: true });
+const voiceClip = await readFile(new URL("../card-game/assets/voices/vale.mp3", import.meta.url));
 const requests = [];
 const syncReplies = [];
 const replies = new Map();
@@ -36,20 +42,26 @@ const providerTiming = new Map();
 let holdReplies = false;
 let failReplies = false;
 const waitingReplies = [];
-// The avatar voicing a conversation turn, from its system message's first
-// line ("I am Vale, the Lamplighter."). Null for other prompt shapes, which
-// have no "Here: " scene line.
+// Conversation prompts name the speaker and ask for its spoken words.
 function speakerOf(input) {
   const system = input.messages?.find((message) => message.role === "system");
-  if (!/^Here: /mu.test(system?.content ?? "")) return null;
+  if (!system?.content.includes("Reply with only what you say aloud.")) return null;
   return (
-    system.content.match(/^I am (?:the |a |an )?([^,.\n]+)/iu)?.[1] ?? null
+    system.content.match(/^You are (?:the |a |an )?([^,.\n]+)/iu)?.[1] ?? null
   );
 }
 const provider = createServer(async (req, res) => {
   let body = "";
   for await (const chunk of req) body += chunk;
   const input = JSON.parse(body || "{}");
+  if (req.url === "/v1/audio/speech") {
+    assert.equal(typeof input.input, "string");
+    assert.equal(input.response_format, "mp3");
+    res.writeHead(200, { "Content-Type": "audio/mpeg" });
+    res.end(voiceClip);
+    return;
+  }
+  assert.equal(req.url, "/v1/chat/completions");
   requests.push(input);
   const timing = {
     speaker: speakerOf(input),
@@ -72,13 +84,20 @@ const provider = createServer(async (req, res) => {
     );
     return;
   }
-  // Since #2057 an avatar's line is a conversation turn: the system message
-  // holds the scene ("Here: ..."), and the last message is only the line it
-  // answers or "X is here.". Other parts keep "Current scene:" and a cue.
+  // The last conversation message is the line answered or "X is here.".
+  // Other parts keep "Current scene:" and a cue.
   const prompt = input.messages.map((message) => message.content).join("\n");
+  const direction = input.messages[0].content;
+  const reflection = input.messages.map(({ role }) => role).join(",") === "system,user,assistant,user" &&
+    direction.startsWith("You are ") && !speakerOf(input) &&
+    input.messages[1].content === "…" && input.messages[3].content === "…" &&
+    /(?:I think to myself:|Who I am now:)$/u.test(input.messages[2].content);
+  const movement = direction.match(/^My next reply is one short description of (.+?)'s observable body language,/u)?.[1];
+  const expression = direction.startsWith("My next reply contains two to five of these symbols only:")
+    ? "👋✨" : movement ? `${movement} tilts their head.` : null;
   assert.equal(typeof input.messages.at(-1).content, "string");
-  assert.match(prompt, /Current scene:|^Here: /mu);
-  if (!speakerOf(input))
+  if (!expression && !reflection) assert.match(prompt, /Current scene:|^You are .+ Reply with only what you say aloud\./mu);
+  if (!speakerOf(input) && !expression && !reflection)
     assert.match(input.messages.at(-1).content.trim(), /:$/u);
   timing.replied = Date.now();
   // A recorded fact the speaker may mention (for example, telling a resident
@@ -88,9 +107,9 @@ const provider = createServer(async (req, res) => {
   )?.[1];
   // A place's caption is impersonal: the validator refuses "I" there.
   const caption = /^An atmospheric caption/u.test(input.messages[0].content);
-  const content = caption
+  const content = expression || (reflection ? "I remember this quiet moment." : caption
     ? `The air holds still for ${requests.length} quiet breaths.`
-    : `${fact ? `${fact} ` : ""}I pause for ${requests.length} quiet breaths.`;
+    : `${fact ? `${fact} ` : ""}I pause for ${requests.length} quiet breaths.`);
   replies.set(input, content);
   res.writeHead(200, { "Content-Type": "application/json" });
   res.end(
@@ -169,7 +188,7 @@ function serverDiagnostics() {
     .join("\n");
   return [warnings, processLog.slice(-3000)].filter(Boolean).join("\n");
 }
-async function until(test, label, rounds = 200, interval = 250) {
+async function until(test, label, rounds = 40, interval = 1250) {
   let last = "";
   for (let n = 0; n < rounds; n++) {
     try {
@@ -195,46 +214,26 @@ async function expectStage(page, recent) {
     new Set(cast),
     "the expected players share the stage with its current residents",
   );
-  await page.waitForFunction((ids) => {
-    const cast = document.getElementById("cast");
-    const figures = [
-      ...cast.querySelectorAll('.portrait[aria-hidden="false"]'),
-    ];
-    const height = cast.getBoundingClientRect().height;
-    return (
-      figures.length === ids.length &&
-      ids.every((id) =>
-        figures.some((figure) => figure.dataset.avatar === id),
-      ) &&
+  const place = state.world.actors[state.actor].place;
+  const spots = preferredLocations(place, backdrop(place, state.world), cast, coreLocations.places);
+  const scales = recent.map((id, rank) => Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13) * (spots[id]?.[2] ?? 1));
+  await page.waitForFunction(({ ids, scales }) => {
+    const stage = document.getElementById("stage").getBoundingClientRect();
+    const figures = [...document.querySelectorAll('#cast .portrait[aria-hidden="false"]')];
+    return figures.length === ids.length && ids.every((id) => figures.some((figure) => figure.dataset.avatar === id)) &&
       figures.every((figure) => {
         const rank = ids.indexOf(figure.dataset.avatar);
-        let scale = Math.sqrt([13, 8, 5, 3, 2, 1][rank] / 13);
-        // Phones shrink wide-framed figures (Moth, Keeper) to 74% of their
-        // depth, capped at 93vw, so their arms stay inside the scene.
-        if (figure.dataset.framing === "wide" && innerWidth <= 700)
-          scale = Math.min(scale * 0.74, (innerWidth * 0.93) / height);
-        return (
-          Math.abs(figure.getBoundingClientRect().height / height - scale) <
-          0.01
-        );
-      })
-    );
-  }, recent);
-  if (page.viewportSize().width < 700) {
-    const rows = await page
-      .locator('#cast .portrait[aria-hidden="false"]')
-      .evaluateAll((figures) =>
-        figures.map((figure) => ({
-          front: figure.dataset.depth === "foreground",
-          top: figure.getBoundingClientRect().top,
-        })),
-      );
-    assert(
-      Math.min(...rows.filter((row) => row.front).map((row) => row.top)) >
-        Math.max(...rows.filter((row) => !row.front).map((row) => row.top)),
-      "the larger busts sit below the smaller figures on phones",
-    );
-  }
+        const size = parseFloat(figure.style.getPropertyValue("--stage-size")) / 100;
+        const rect = figure.getBoundingClientRect();
+        const style = getComputedStyle(figure);
+        return Math.abs(size - scales[rank]) < 0.01 &&
+          figure.dataset.depth === (rank < 2 ? "foreground" : "back") &&
+          style.visibility === "visible" && Number(style.opacity) >= 0.99 &&
+          rect.width > 0 && rect.height > 0 &&
+          rect.left >= stage.left - 1 && rect.right <= stage.right + 1 &&
+          rect.top >= stage.top - 1 && rect.bottom <= stage.bottom + 1;
+      });
+  }, { ids: recent, scales });
 }
 const names = ["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"];
 const avatarOf = (id) => humanAvatars.find((a) => a.id === id);
@@ -278,17 +277,14 @@ function meetingPlan(world) {
   return { ...best, routes };
 }
 let seed = enableMotives(createWorld({ opening: true }));
-// The opening starts lit (#1653): douse the lamp to open the mirror, cross to
-// the pond, then relight it there so the progressed save carries a lit lamp.
-for (const kind of ["snuff", "move", "light"]) {
-  const action = legalActions(seed).find(
-    (a) => a.kind === kind && (kind !== "move" || a.target === "pond"),
-  );
-  assert(action, `the attic opening can ${kind} on its way to the pond`);
-  const result = play(seed, action);
-  assert(result.ok);
-  seed = result.state;
-}
+// Stow to open the mirror, cross, then hold the lamp at the pond.
+seed = holdItem(seed, null);
+const crossing = legalActions(seed).find((a) => a.kind === "move" && a.target === "pond");
+assert(crossing, "the dark attic opens the way to the pond");
+const crossed = play(seed, crossing);
+assert(crossed.ok);
+seed = holdItem(crossed.state, "lamp");
+seedRun(seed, 3160098175);
 const initialSave = encodeSave(seed);
 const seen = [
   ...Object.keys(seed.actors),
@@ -298,8 +294,12 @@ const seen = [
   "station",
 ];
 let worldId;
-const api = (page, body) =>
-  page.evaluate(
+const apiAt = new WeakMap();
+async function api(page, body) {
+  const at = Math.max(apiAt.get(page) || 0, Date.now());
+  apiAt.set(page, at + 1500);
+  await delay(Math.max(0, at - Date.now()));
+  return page.evaluate(
     async ({ worldId, body }) => {
       const response = await fetch(
         `/card-game/shared/worlds/${worldId}${body ? "/command" : ""}`,
@@ -315,11 +315,20 @@ const api = (page, body) =>
     },
     { worldId, body },
   );
+}
 const snapshot = async (page) => {
   const response = await api(page);
   assert.equal(response.status, 200, JSON.stringify(response.body));
   return response.body;
 };
+async function hold(page, item) {
+  const { actor, world } = await snapshot(page);
+  const response = await api(page, { op: "hold", action: { item, revision: world.revision } });
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.world.turn, world.turn, "holding takes no turn");
+  assert.equal(response.body.world.actors[actor].heldItem, item);
+  return response.body;
+}
 const idle = (page) =>
   until(
     async () =>
@@ -375,6 +384,7 @@ async function perform(page, kind, target = undefined, item = undefined) {
 // and the place it stands in (#1575), so a new visitor taps both first.
 async function wake(page) {
   const { actor, world } = await snapshot(page);
+  await page.locator(`#hand [data-card="${actor}"]`).waitFor({ state: "attached" });
   for (const id of [actor, world.actors[actor].place])
     await until(async () => {
       const card = page.locator(`#hand [data-card="${id}"]`);
@@ -384,6 +394,15 @@ async function wake(page) {
       return false;
     }, `${actor} uncovers ${id}`);
   await clearSelection(page);
+}
+async function readSharedLine(page, text) {
+  await until(async () => {
+    if ((await page.locator("#dialogue-text").textContent())?.trim() === text)
+      return true;
+    const next = page.locator('#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]');
+    if (await next.isVisible()) await next.click();
+    return false;
+  }, `the reader reaches ${text}`, 80, 250);
 }
 async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   let expected;
@@ -396,6 +415,7 @@ async function expectSharedReveal(page, requestStart, speaker = "Vale") {
   }, "the selected human receives its plain fixture reply");
   // Observe the actual letter transitions in-page, even when the driver checks later.
   try {
+    await readSharedLine(page, expected);
     await page.waitForFunction(
       ({ expected, speaker }) => {
         const samples = window.sharedReveals.filter(
@@ -462,7 +482,8 @@ try {
         i === 1 ? { width: 390, height: 844 } : { width: 1440, height: 900 },
     });
     await context.addInitScript(() => {
-      window.sharedSpeechNotes = 0;
+      localStorage.setItem("cosyworld.room-music", JSON.stringify({ enabled: false }));
+      window.sharedVoiceClips = 0;
       window.sharedReveals = [];
       window.addEventListener("DOMContentLoaded", () => {
         const text = document.getElementById("dialogue-text");
@@ -494,10 +515,9 @@ try {
           attributeFilter: ["class"],
         });
       });
-      const audio = window.AudioContext || window.webkitAudioContext;
-      const original = audio.prototype.createOscillator;
-      audio.prototype.createOscillator = function (...args) {
-        window.sharedSpeechNotes++;
+      const original = AudioBufferSourceNode.prototype.start;
+      AudioBufferSourceNode.prototype.start = function (...args) {
+        if (this.buffer?.duration > 3) window.sharedVoiceClips++;
         return original.apply(this, args);
       };
     });
@@ -620,16 +640,16 @@ try {
   await wake(vale);
   const requestStart = requests.length;
   await selectCard(vale, "moth");
-  await vale.getByRole("button", { name: "Talk", exact: true }).click();
-  // Since #2057 a Talk's target answers the actor's line in the same play,
-  // so the newest beat that types in is Pip's answer.
+  await readyActionButton(vale, "talk").click();
+  // Read Vale's line, then continue to Pip's answer in the same play.
+  await expectSharedReveal(vale, requestStart, "Vale");
+  await vale.locator('#dialogue-advance[data-revealing="false"][aria-label="Continue to the next beat"]').click();
   await expectSharedReveal(vale, requestStart, "Pip");
   await vale.screenshot({
     path: join(output, "shared-dialogue-reveal.png"),
     fullPage: true,
   });
-  // Tapping the front card finishes the line; the room clock owns what
-  // comes next, so the reader never skips ahead of the table.
+  // Finishing the latest line leaves the reader on that beat.
   await vale.locator("#dialogue-advance").click();
   const finishedText = await vale.locator("#dialogue-text").textContent();
   await delay(500);
@@ -644,8 +664,8 @@ try {
   );
   await idle(vale);
   assert(
-    (await vale.evaluate(() => window.sharedSpeechNotes)) > 0,
-    "shared speech plays voice syllables as its letters appear",
+    (await vale.evaluate(() => window.sharedVoiceClips)) > 0,
+    "shared speech plays a hosted voice clip as its letters appear",
   );
   assert(
     requests.length > requestStart,
@@ -655,7 +675,7 @@ try {
     (await snapshot(vale)).history[0].lines.map((line) => line.actorId),
     ["vale", "moth"],
   );
-  await perform(vale, "snuff", undefined, "lamp");
+  assert.equal((await hold(vale, null)).world.items.lamp.lit, false);
   for (let i = 1; i < 8; i++) {
     // A friend's link opens ☰ on the person's own table with this world as
     // a slot; each tap of its "+" offers the next avatar that may go there,
@@ -672,10 +692,10 @@ try {
       return false;
     }, `"+" offers ${names[i]}`);
     await pages[i].locator("#avatar-bring").click();
-    await until(
-      async () => (await snapshot(pages[i])).actor === names[i],
-      "avatar claim finishes",
-    );
+    await Promise.all([
+      pages[i].waitForURL(`${origin}/?world=${worldId}`),
+      pages[i].locator('#avatar-bring[data-revealing="false"]').click(),
+    ]);
     await pages[i].locator("#shared-lobby").waitFor({ state: "hidden" });
     await pages[i].locator("#stage").waitFor({ state: "visible" });
     const home = await snapshot(pages[i]);
@@ -686,17 +706,18 @@ try {
       !home.exits.includes(home.world.doors[avatar.home.id]),
       "new avatars start with a closed home door",
     );
+    await wake(pages[i]);
   }
   assert.equal((await snapshot(vale)).claimed.filter(Boolean).length, 8);
   const ownAvatarFirst = async (page) => {
     const state = await snapshot(page);
     const ids = await page
-      .locator("#hand .card")
+      .locator("#hand > .card-frame:not([data-pack]) > .card.avatar[data-card]")
       .evaluateAll((cards) => cards.map((card) => card.dataset.card));
     assert.equal(
-      ids.find((id) => state.world.actors[id]),
+      ids[0],
       state.actor,
-      "the player's own avatar leads the avatar groups",
+      "the player's own avatar leads the groups outside the discovery pack",
     );
   };
   // Rue's carriage door opens at the station, its one authored door
@@ -755,7 +776,7 @@ try {
     fullPage: true,
   });
   await selectCard(mara, "mask");
-  await mara.getByRole("button", { name: "Take", exact: true }).click();
+  await readyActionButton(mara, "take").click();
   await until(
     async () => (await snapshot(mara)).world.items.mask.holder === "mara",
     "pickup commits",
@@ -766,9 +787,10 @@ try {
     .locator(`#hand [data-card="${door}"]`)
     .waitFor({ state: "attached" });
   const earlierTravel = await actionFor(mara, "move", door);
+  await clearSelection(mara);
   await selectCard(mara, "mask");
   await selectCard(mara, "theatre");
-  await mara.getByRole("button", { name: "Put down", exact: true }).click();
+  await readyActionButton(mara, "drop").click();
   await until(
     async () => (await snapshot(mara)).world.items.mask.holder === "theatre",
     "put down commits",
@@ -825,15 +847,7 @@ try {
   await walk("vale");
   await walk("mara");
   await ownAvatarFirst(mara);
-  // Anyone at the pond may light the lamp Vale carries. On a slow run the
-  // keeper can arrive and light it first, so light it only while it is dark.
-  await until(async () => {
-    const light = await actionFor(vale, "light", undefined, "lamp");
-    if (light)
-      await api(vale, { op: "play", key: crypto.randomUUID(), action: light });
-    await idle(vale);
-    return (await snapshot(vale)).world.items.lamp.lit;
-  }, "the lamp is lit for the mirror route");
+  assert.equal((await hold(vale, "lamp")).world.items.lamp.lit, true);
   await perform(mara, "move", "attic");
   assert.equal(
     (await snapshot(mara)).world.actors.mara.place,
@@ -864,10 +878,7 @@ try {
     !(await actionFor(tavi, "move", meet)),
     "full room hides the route while NPCs still fit",
   );
-  await until(
-    async () => !(await tavi.locator(`#hand [data-card="${meet}"]`).count()),
-    "full meeting card disappears",
-  );
+  await tavi.locator(`#hand [data-card="${meet}"][data-locked="true"]`).waitFor({ state: "attached" });
   assert(
     (await snapshot(vale)).world.actors.moth,
     "original NPC remains part of shared world",
@@ -885,8 +896,8 @@ try {
     await catchUpWithStack(page);
     await catchUpWithLive(page);
   }
-  const notesBefore = await Promise.all(
-    [vale, mara].map((page) => page.evaluate(() => window.sharedSpeechNotes)),
+  const clipsBefore = await Promise.all(
+    [vale, mara].map((page) => page.evaluate(() => window.sharedVoiceClips)),
   );
   const slow = Number(process.env.COSYWORLD_SHARED_CPU_SLOWDOWN || 1);
   const latency = Number(process.env.COSYWORLD_SHARED_NETWORK_LATENCY || 0);
@@ -1008,13 +1019,11 @@ try {
   for (const resolve of waitingReplies.splice(0)) resolve();
   await Promise.all([vale, mara, nell].map(idle));
   await closeSettings(mara);
-  // Check after playback ends: a busy driver still proves each line animated in order.
+  // Continue through each saved line and prove its letters animate in order.
   for (const page of [vale, mara]) {
-    const expected = await Promise.all(
-      speakers.map((speaker) =>
-        expectSharedReveal(page, queueRequestStart, speaker),
-      ),
-    );
+    const expected = [];
+    for (const speaker of speakers)
+      expected.push(await expectSharedReveal(page, queueRequestStart, speaker));
     const order = await page.evaluate(
       (expected) => [
         ...new Set(
@@ -1048,8 +1057,8 @@ try {
   }
   for (const [index, page] of [vale, mara].entries())
     assert(
-      (await page.evaluate(() => window.sharedSpeechNotes)) >
-        notesBefore[index],
+      (await page.evaluate(() => window.sharedVoiceClips)) >
+        clipsBefore[index],
       "the next shared exchange animates and sounds after arrow-only catch-up",
     );
   const first = await snapshot(vale),
@@ -1211,11 +1220,7 @@ try {
       !journalOps(seq).some((row) => row.op === "speech"),
       "no speech is journaled for words that failed",
     );
-    await until(
-      async () =>
-        (await vale.locator("#dialogue-text").textContent())?.trim() === "…",
-      "Vale's beat shows …",
-    );
+    await readSharedLine(vale, "…");
     assert.equal(await vale.locator("#story-status").isVisible(), false);
     assert.equal(await vale.locator("#story-retry, #story-error").count(), 0);
     assert.doesNotMatch(
@@ -1225,6 +1230,7 @@ try {
     const before = failedView.world;
     const settled = journalOps(0).at(-1).seq;
     failReplies = false;
+    const recoveryRequestStart = requests.length;
     // The next play is taken at once and speaks: one play, one speech, and
     // perhaps the speaker's private reflection (shared-worlds.md).
     const next = {
@@ -1267,6 +1273,7 @@ try {
       new Set(["play"]),
     );
     assert(after.turn > before.turn, "the next play ran");
+    await expectSharedReveal(vale, recoveryRequestStart);
     assert.equal(await vale.locator("#story-retry, #story-error").count(), 0);
   }
   assert.deepEqual(errors, []);
