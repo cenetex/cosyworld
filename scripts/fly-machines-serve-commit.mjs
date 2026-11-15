@@ -7,7 +7,6 @@
 // machine config before the rollout updates it, waits for the machine lease,
 // and then writes that older config back, restoring the previous image. On
 // 2026-11-02 that left .dev on 0456b60d9 after two trains.
-//
 // Usage: node scripts/fly-machines-serve-commit.mjs <app> <commit>
 
 import { execFileSync } from "node:child_process";
