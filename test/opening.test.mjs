@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, exits, legalActions, play, placeText } from "../v2/card-game/world.mjs";
+import { createWorld, exits, legalActions, play, placeText, questPreviews } from "../v2/card-game/world.mjs";
 import { cardPlay, lockWords } from "../v2/card-game/cards.mjs";
 import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { backdrop } from "../v2/card-game/scene.mjs";
@@ -58,6 +58,10 @@ describe("after the mirror first opens", () => {
 
   it("carries the lit lamp back to Pip by ordinary plays", () => {
     let s = go(opened(), (a) => a.kind === "talk" && a.target === "moth");
+    expect(s.actors.vale.want).toBeNull();
+    const offered = questPreviews(s).find((q) => q.source === "moth");
+    expect(offered?.action).toBeTruthy();
+    s = go(s, (a) => a.key === offered.action.key);
     expect(s.actors.vale.want).toMatchObject({ target: "lamp", step: { verb: "give", to: "moth" } });
     s = go(s, (a) => a.kind === "move" && a.target === "attic");
     s = go(s, (a) => a.kind === "take" && a.item === "lamp");

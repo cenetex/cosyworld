@@ -1,7 +1,8 @@
 import { expect, it } from "vitest";
 import {
-  createWorld, decodeSave, encodeSave, fillSeatWants, legalActions, play, questPreviews,
+  createWorld, decodeSave, encodeSave, fillSeatWants, holdChoice, legalActions, play, questPreviews,
 } from "../v2/card-game/world.mjs";
+import { boxIdOpen } from "../v2/card-game/world/boxes.mjs";
 import { heldOf, newWant } from "../v2/card-game/want.mjs";
 import { levelAccepted, settleArcana } from "../v2/card-game/world/arcana.mjs";
 import { dispatchShared, load } from "../v2/card-game/shared-world.mjs";
@@ -39,6 +40,51 @@ it("keeps old goals pending without changing earned world progress or closing th
   expect(next.actors.vale.pendingQuests).toEqual(saved.actors.vale.under);
   expect(next.turn).toBe(loaded.turn);
   expect(next.revision).toBe(loaded.revision + 1);
+});
+
+for (const shared of [false, true]) it.each(["wait", "hold"])(
+  `keeps an unmet recovered goal from an already-open box after %s (shared=${shared})`,
+  (operation) => {
+    const old = createWorld({ opening: true, seed: 17 });
+    holdChoice(old, "vale", { item: null, revision: old.revision });
+    const original = { ...newWant("item", "oil", old.turn), refusals: 2, from: "quest:box:pond" };
+    old.actors.vale.want = original;
+    delete old.actors.vale.pendingQuests;
+    let s = decodeSave(JSON.stringify(old));
+    expect(boxIdOpen(s, "pond", "vale")).toBe(true);
+    s = accept(s);
+    const accepted = { ...original, accepted: true };
+    const closed = s.actors.vale.closed;
+    const action = legalActions(s).find((a) => a.kind === "wait" && !a.sleep);
+    const choice = { item: "lamp", revision: s.revision };
+    if (shared) {
+      const result = dispatchShared({ op: operation === "hold" ? "hold" : "play", world: s,
+        actor: "vale", claimed: ["vale"], present: ["vale"], action, choice });
+      expect(result.ok, result.error).toBe(true);
+      s = result.world;
+    } else if (operation === "hold") holdChoice(s, "vale", choice);
+    else s = play(s, action).state;
+    expect(boxIdOpen(s, "pond", "vale")).toBe(true);
+    expect(s.actors.vale.want).toEqual(accepted);
+    expect(s.actors.vale.closed).toEqual(closed);
+    expect(decodeSave(encodeSave(s)).actors.vale.want).toEqual(accepted);
+  },
+);
+
+it.each(["drop", "hold"])("ends a live box goal when %s opens its source without consuming pending goals", (operation) => {
+  let s = createWorld({ opening: true, seed: 17 });
+  const pending = { ...goal(s), from: "quest:box:pond" };
+  s.actors.vale.pendingQuests = [pending];
+  expect(s.actors.vale.want).toBeNull();
+  s = accept(s, "box");
+  expect(s.actors.vale.want).toMatchObject({ kind: "place", target: "attic",
+    step: { verb: "lay", items: ["lamp"] }, from: "quest:box:pond", accepted: true });
+  expect(boxIdOpen(s, "pond", "vale")).toBe(false);
+  if (operation === "hold") holdChoice(s, "vale", { item: null, revision: s.revision });
+  else s = play(s, legalActions(s).find((a) => a.kind === "drop" && a.item === "lamp")).state;
+  expect(boxIdOpen(s, "pond", "vale")).toBe(true);
+  expect(s.actors.vale.want).toBeNull();
+  expect(s.actors.vale.pendingQuests).toEqual([pending]);
 });
 
 it("migrates every claimed avatar while preserving unclaimed resident wants", () => {
