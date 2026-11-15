@@ -1,6 +1,5 @@
-// Sleep after a Wait (#2028): the same cards chosen again offer Sleep, its
-// wake reads as a past-tense caption, and a sleeper's Thinking card shows
-// the sleeping art.
+// Sleep after Wait (#2028): choosing the same cards offers Sleep.
+// Waking has a past-tense caption; a sleeper's Thinking card has sleeping art.
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -61,18 +60,18 @@ async function local(width) {
     await page.goto(`${origin}/?table=sleep`);
     await page.waitForFunction(() => document.body.inert === false);
     await selectCard(page, "vale", { touch });
-    assert.deepEqual(await labels(page), ["Wait"]);
-    if (touch) await page.locator(".action-beat-cards").tap();
+    assert.deepEqual(await labels(page), ["Wait", "Review quests"]);
+    if (touch) await play.tap();
     else await play.press("Enter");
     await settled();
     // The same card chosen again offers Sleep in place of Wait.
     await selectCard(page, "vale", { touch });
-    assert.deepEqual(await labels(page), ["Sleep"]);
+    assert.deepEqual(await labels(page), ["Sleep", "Review quests"]);
     await page.screenshot({ path: resolve(output, `offer-${width}.png`) });
     // Letting go of the card brings back the plain Wait.
     await selectCard(page, "vale", { touch });
     await selectCard(page, "vale", { touch });
-    assert.deepEqual(await labels(page), ["Wait"]);
+    assert.deepEqual(await labels(page), ["Wait", "Review quests"]);
     await play.click();
     await settled();
     await selectCard(page, "vale", { touch });
@@ -95,7 +94,7 @@ async function local(width) {
     await page.screenshot({ path: resolve(output, `woke-${width}.png`) });
     // A Sleep is not a Wait: choosing Vale again offers Wait.
     await selectCard(page, "vale", { touch });
-    assert.deepEqual(await labels(page), ["Wait"]);
+    assert.deepEqual(await labels(page), ["Wait", "Review quests"]);
     assert.deepEqual(errors, []);
   } finally {
     await page.close();
@@ -148,11 +147,12 @@ async function shared(width) {
     await page.waitForFunction(() => document.body.inert === false);
     const touch = width === 390;
     await selectCard(page, "vale", { touch });
-    assert.deepEqual(await labels(page), ["Wake Vale"]);
+    assert.deepEqual(await labels(page), ["Wake", "Review quests"]);
     assert.equal(
-      await page.locator("#card-actions button").textContent(),
-      "Wake Vale",
+      await page.locator('#card-actions [data-action="wait"]').textContent(),
+      "Wake",
     );
+    assert.equal(await page.locator('#card-actions [data-action="wait"]').getAttribute("title"), "Wake Vale");
     assert.equal(await page.locator("#action-beat .quest-ground").count(), 0);
     await clearSelection(page);
     await selectCard(page, world.actors.vale.place, { touch });
