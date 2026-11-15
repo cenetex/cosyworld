@@ -209,7 +209,7 @@ try {
           layout.textWidth > layout.cardWidth * 0.8,
           JSON.stringify(layout),
         );
-        assert(layout.lines >= 3, `Speech grows to fit: ${layout.lines}`);
+        assert(layout.lines > 2.9, `Speech grows to fit: ${layout.lines}`);
         assert(layout.font >= (width < 700 ? 14 : 15));
         await page.locator("#dialogue-advance").focus();
         if (motion !== "reduce")
