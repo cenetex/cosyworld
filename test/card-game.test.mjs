@@ -62,7 +62,6 @@ describe("the reflected shore card game", () => {
     expect(s.actors.moth.place).toBe("station");
     s = act(s, "wait");
     expect(s.items.lamp.holder).toBe("moth");
-    // A moth wants the flame: Pip holds the lamp he took.
     s = act(s, "wait");
     expect(s.items.lamp.lit).toBe(true);
     expect(
@@ -294,15 +293,15 @@ describe("the reflected shore card game", () => {
 
   describe.sequential("one 4000-turn world journey", () => {
     let checkpoint;
-    it.each(Array.from({ length: 40 }, (_, i) => (i + 1) * 100))(
-      "preserves unique objects and valid state through turn %i",
-      async (end) => {
-        expect(checkpoint?.end ?? 0).toBe(end - 100);
-        let { seed, picks, world: s } = checkpoint
-          ? structuredClone(checkpoint)
-          : { seed: 109, picks: 0, world: createWorld() };
+    const steps = 50;
+    for (let end = steps; end <= 4000; end += steps) {
+      let startCheckpoint;
+      it(`preserves unique objects and valid state through turn ${end}`, async () => {
+        startCheckpoint ??= checkpoint ?? { seed: 109, picks: 0, world: createWorld(), end: 0 };
+        expect(startCheckpoint.end).toBe(end - steps);
+        let { seed, picks, world: s } = structuredClone(startCheckpoint);
         const itemIds = Object.keys(s.items).sort();
-        for (let i = end - 100; i < end; i++) {
+        for (let i = end - steps; i < end; i++) {
           if (i % 100 === 0) await yieldToRunner();
           seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
           const actions = legalActions(s);
@@ -318,8 +317,8 @@ describe("the reflected shore card game", () => {
         }
         expect(s.turn).toBeGreaterThanOrEqual(end - picks);
         checkpoint = { seed, picks, world: s, end };
-      },
-    );
+      });
+    }
   });
 
   it("scopes import permissions to the authoring page aliases", async () => {
