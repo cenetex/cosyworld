@@ -193,7 +193,8 @@
             },
             while: [
               {
-                kind: "company"
+                kind: "company",
+                invited: true
               }
             ]
           }
@@ -206,7 +207,8 @@
             }
           },
           {
-            kind: "company"
+            kind: "company",
+            invited: true
           }
         ]
       },
@@ -288,8 +290,7 @@
             key: "night-walk",
             match: {
               verb: "move",
-              actorId: "$traveler",
-              light: true
+              actorId: "$traveler"
             },
             while: [
               {
@@ -300,6 +301,16 @@
                 kind: "held",
                 item: "$light",
                 actor: "$traveler"
+              },
+              {
+                kind: "lit",
+                item: "$light"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "company"
+                }
               }
             ]
           }
@@ -308,7 +319,8 @@
           {
             kind: "daylight",
             phase: "night",
-            with: "$light"
+            with: "$light",
+            alone: true
           }
         ]
       },
@@ -579,26 +591,24 @@
         name: "The Moon",
         text: "A woodcut card. A moon shines on water where a doorway stands, and a lantern waits on the bank.",
         art: "assets/arcana/arcanum-18.png",
-        roles: [
-          {
-            name: "light",
-            kind: "item",
-            is: "lamp"
-          }
-        ],
         proof: [
           {
             kind: "did",
             key: "dark-walk",
             match: {
               verb: "move",
-              actorId: "$traveler",
-              light: false
+              actorId: "$traveler"
             },
             while: [
               {
                 kind: "daylight",
                 phase: "night"
+              },
+              {
+                kind: "not",
+                condition: {
+                  kind: "lit"
+                }
               }
             ]
           }
@@ -607,7 +617,7 @@
           {
             kind: "daylight",
             phase: "night",
-            without: "$light"
+            dark: true
           }
         ]
       },
