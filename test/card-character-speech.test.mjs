@@ -474,14 +474,10 @@ describe("the six card character voices", () => {
     await tick();
     for (const key of ["a", "b", "c", "d", "e"])
       f.speech.show(key, "mara", `Line ${key}.`);
-    f.sources[0].onended();
-    await tick();
-    f.sources[1].onended();
-    await tick();
-    f.sources[2].onended();
-    await tick();
-    f.sources[3].onended();
-    await tick();
+    for (let i = 0; i < 4; i++) {
+      f.sources[i].onended();
+      await tick();
+    }
     expect(f.sources).toHaveLength(4);
     expect(spoken()).toEqual(["First.", "Line c.", "Line d.", "Line e."]);
     f.speech.show("hold", "keeper", "Hold.");
@@ -490,10 +486,10 @@ describe("the six card character voices", () => {
     await tick();
     expect(spoken()).not.toContain("x".repeat(300));
     expect(spoken()).toContain("y".repeat(300));
-    f.sources.at(-1).onended();
-    await tick();
-    f.sources.at(-1).onended();
-    await tick();
+    for (const _ of [1, 2]) {
+      f.sources.at(-1).onended();
+      await tick();
+    }
     f.speech.pause(true);
     f.speech.show("late", "mara", "Late.");
     time += 61_000;
