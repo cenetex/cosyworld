@@ -11,7 +11,7 @@ export const PRIVACY = [
   "**Lonely Forest on Discord**",
   "• The bot reads only #lonely-forest, the channel it made.",
   "• Messages in #lonely-forest are sent to AI models to write residents' replies, with the names people show there.",
-  "• It keeps the last few messages in memory to decide when to reply. It saves no messages and links no accounts.",
+  "• It keeps up to the last hour of messages in memory to decide who replies. It saves no messages to disk and links no accounts.",
   "• Nothing said here changes a game world.",
   "• It never pings anyone or sends DMs.",
 ].join("\n");

@@ -64,7 +64,7 @@ async function watch(guild) {
   room.webhookId = found.webhook.id;
   room.talkMs = config.DISCORD_TALK_MS;
   try {
-    const recent = await found.channel.messages.fetch({ limit: 20 });
+    const recent = await found.channel.messages.fetch({ limit: 100 });
     seed(room, recent.values(), cast);
   } catch (error) {
     log(`history unavailable in guild ${guild.id}: ${error?.code ?? "error"}`);

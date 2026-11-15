@@ -253,13 +253,13 @@ test("the bot's own webhook messages count as resident lines", () => {
   assert.deepEqual(entry, { id: "w1", at: 5, text: "The kettle is on.", replyTo: null, resident: "rati" });
 });
 
-test("the ring keeps 20 messages and seeding marks the newest gap handled", () => {
+test("the ring keeps 150 messages and seeding marks the newest gap handled", () => {
   const { room } = fixture();
-  const history = Array.from({ length: 25 }, (_, n) => message(`m${n}`, n, `line ${n}`)).reverse();
+  const history = Array.from({ length: 155 }, (_, n) => message(`m${n}`, n, `line ${n}`)).reverse();
   seed(room, history, cast);
-  assert.equal(room.messages.length, 20);
+  assert.equal(room.messages.length, 150);
   assert.equal(room.messages[0].id, "m5");
-  assert.equal(room.handledGap, "m24");
+  assert.equal(room.handledGap, "m154");
   assert.equal(room.messages[0].author, "Mara");
   assert.equal(record(room, message("x", 30, "hi", { member: null, author: { username: "a\u0007b" } }), "hook", cast).author, "a b");
   const long = record(room, message("y", 31, "🌲".repeat(500), { member: { displayName: "🦊".repeat(40) } }), "hook", cast);
