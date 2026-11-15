@@ -1,8 +1,5 @@
-import { addressee, attend, decide, focusOn, join, mentioned, namedIn, speaker, spoke, strength } from "./attention.mjs";
-import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
-import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
-import { consult, responders, steer } from "./coordinator.mjs";
+import { beats, pause, repeatsOpening } from "./beats.mjs";
 
 export const RING = 150;
 const IGNORED_MS = 300000;
@@ -14,15 +11,7 @@ export function createRoom(guildId, channelId) {
     webhookId: null,
     messages: [],
     handledGap: null,
-    lastReplyAt: 0,
-    lastAmbientAt: 0,
-    busy: false,
-    attempt: null,
-    sending: false,
-    nudge: null,
     heard: 0,
-    halt: null,
-    focus: {},
     awaiting: null,
   };
 }
@@ -76,8 +65,6 @@ export function record(room, message, webhookId, cast, stats = null) {
       else stats.ignored += 1;
     }
     room.awaiting = null;
-    room.halt?.abort();
-    join(room, entry, cast);
   }
   room.messages.push(entry);
   if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
@@ -140,7 +127,7 @@ export function requestBody(room, config, addressed, now = Date.now()) {
 }
 
 export function createStats() {
-  return { replies: 0, exchanges: 0, answered: 0, ignored: 0, actions: {}, skips: {}, failures: {}, flags: {}, conversation: {}, coordinator: {} };
+  return { replies: 0, answered: 0, ignored: 0, actions: {}, skips: {}, failures: {}, flags: {}, coordinator: {} };
 }
 
 function count(table, key) {
@@ -164,25 +151,13 @@ export function summary(stats) {
   stats.seen = { misses, updates };
   return warning + [
     `summary replies=${stats.replies} actions=${counts(actions)}`,
-    `continuation=${rate(actions.continue ?? 0, actions.speak ?? 0)}`,
-    `exchanges=${stats.exchanges} ignored=${rate(stats.ignored, stats.ignored + stats.answered)}`,
-    `flags=${counts(stats.flags)} conversation=${counts(stats.conversation)} coordinator=${counts(stats.coordinator)}`,
+    `ignored=${rate(stats.ignored, stats.ignored + stats.answered)}`,
+    `flags=${counts(stats.flags)} coordinator=${counts(stats.coordinator)}`,
     `skips=${counts(stats.skips)} failures=${counts(stats.failures)}`,
   ].join(" ");
 }
 
-function turn(room, resident, text, toward, at, cast) {
-  const other = mentioned(text, cast, resident.id);
-  if (other) {
-    focusOn(room, resident.id, `r:${other}`, at);
-    focusOn(room, other, `r:${resident.id}`, at);
-  } else if (toward) {
-    focusOn(room, resident.id, toward, at);
-  }
-  spoke(room, resident.id, toward, at);
-}
-
-export async function post(room, resident, text, { config, cast, send, sleep, stats, log }, toward = room.focus[resident.id]?.target) {
+export async function post(room, resident, text, { config, send, sleep, stats, log }) {
   if (repeatsOpening(room.messages, resident.id, text)) {
     count(stats.flags, "repeated-opening");
     log(`flag repeated-opening resident=${resident.id} guild=${room.guildId} channel=${room.channelId}`);
@@ -204,7 +179,5 @@ export async function post(room, resident, text, { config, cast, send, sleep, st
       if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
     }
   }
-  turn(room, resident, text, toward, at, cast);
-  room.lastLine = { resident, text };
   room.awaiting ??= at;
 }
