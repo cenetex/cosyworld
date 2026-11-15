@@ -7,7 +7,6 @@ export function createPreferredLocationsView(stage, art, cast) {
   function draw() {
     frame = 0;
     const stageBox = stage.getBoundingClientRect();
-    // Small phone casts use close portraits; their authored scale still applies.
     const closeUp = stageBox.width < 701 && spots.size <= 3;
     let artBox = art.getBoundingClientRect();
     if (spots.size && stageBox.width < 701 && artBox.width > stageBox.width) {

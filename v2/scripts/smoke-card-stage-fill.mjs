@@ -20,7 +20,6 @@ await mkdir(output, { recursive: true });
 const seeds = Object.keys(places).flatMap((place) => {
   const world = openDoorStart();
   world.actors.vale.place = place;
-  // Keep the ship's no-cargo rescue from putting this staged passenger ashore.
   if (place === "greek-ship") stowProvisions(world, place);
   try {
     // encodeSave trusts a world the rules just validated, so check the moved
