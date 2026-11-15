@@ -974,22 +974,22 @@ mod tests {
 
     #[tokio::test]
     async fn a_resident_answers_another_resident_who_named_it() {
-        let reply = "Only the wind, RATi.";
+        let reply = "Only the wind.";
         let body = json!({
             "pack": "lonely-forest",
-            "addressed": "skull",
+            "addressed": "rati",
             "messages": [
                 {"author": "Jun", "text": "Is anyone awake?"},
-                {"resident": "rati", "text": "Skull, did you hear that?"}
+                {"resident": "skull", "text": "RATi, did you hear that?"}
             ]
         });
         let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(answer["lines"][0]["id"], "skull");
+        assert_eq!(answer["lines"][0]["id"], "rati");
         assert!(requests.iter().all(|r| r.get("response_format").is_none()));
         assert_eq!(
             turn_of(&requests[0], "user"),
-            "RATi says, \u{201c}Skull, did you hear that?\u{201d}"
+            "Skull says, \u{201c}RATi, did you hear that?\u{201d}"
         );
     }
 
