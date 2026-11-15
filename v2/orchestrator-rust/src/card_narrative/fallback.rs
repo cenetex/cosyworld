@@ -231,8 +231,12 @@ mod tests {
         assert_eq!(models("keeper"), keeper);
         let production = include_str!("../../../../fly.lonelyforest.toml");
         let text = field(production, "COSYWORLD_CARD_TEXT_MODEL");
-        assert_eq!(text.as_deref(), Some("openai/gpt-6-luna"));
-        assert_eq!(field(production, LIST), None);
+        assert_eq!(text.as_deref(), Some(default.as_str()));
+        assert_eq!(field(production, LIST), field(dev, LIST));
+        assert_eq!(
+            field(production, "COSYWORLD_CARD_CHARACTER_MODELS_JSON"),
+            field(dev, "COSYWORLD_CARD_CHARACTER_MODELS_JSON")
+        );
     }
 
     #[tokio::test]
