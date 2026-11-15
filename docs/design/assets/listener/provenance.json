@@ -45,6 +45,69 @@
         254
       ],
       "visible_bounds": "1010x1536+0+0"
+    },
+    {
+      "file": "listener-happy.png",
+      "source": "Generated with built-in image_gen",
+      "role": "happy state",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "ae64e88dcd8e0efd1f98fa910cc14c92aaa482ddc2521119ebcdd0f870ca5cc5",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "visible_bounds": [
+        78,
+        22,
+        817,
+        1468
+      ],
+      "receipt": "docs/design/assets/listener/missing-states-prompts.json"
+    },
+    {
+      "file": "listener-sad.png",
+      "source": "Generated with built-in image_gen",
+      "role": "sad state",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "7da4f66e842efbb647f4afecd1395e8400ff4757397d27f943e1fc6131c0a2ea",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "visible_bounds": [
+        135,
+        144,
+        801,
+        1288
+      ],
+      "receipt": "docs/design/assets/listener/missing-states-prompts.json"
+    },
+    {
+      "file": "listener-brace.png",
+      "source": "Generated with built-in image_gen",
+      "role": "brace state",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "54d7a97ba0bf23cbdd4475b304a6b6e0bbe14479fb01ed60ede30086811027f0",
+      "alpha_range": [
+        0,
+        254
+      ],
+      "visible_bounds": [
+        50,
+        76,
+        904,
+        1407
+      ],
+      "receipt": "docs/design/assets/listener/missing-states-prompts.json"
     }
   ]
 }

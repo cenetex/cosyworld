@@ -119,7 +119,6 @@ const files = [
     "jab-left",
     "jab-right",
   ].map((id) => `assets/combat/effects/${id}.png`),
-  // Combat pose art, chosen by combat-portraits.mjs.
   ...["vale", "mara", "ash", "nell", "tavi", "rue", "orin", "ada"].flatMap(
     (id) =>
       ["", "-scarf"].flatMap((wardrobe) =>
@@ -434,7 +433,9 @@ const files = [
   ...["station", "attic", "pond", "vale", "moth", "keeper", "keeper-right"].map(
     (id) => `assets/${id}.png`,
   ),
-  ...["", "-offering"].map((pose) => `assets/listener/listener${pose}.webp`),
+  ...["", "-offering", "-happy", "-sad", "-brace"].map(
+    (pose) => `assets/listener/listener${pose}.webp`,
+  ),
   // Keep the art URLs published by earlier Rust releases.
   ...[
     "antigone",

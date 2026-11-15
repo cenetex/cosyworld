@@ -41,6 +41,54 @@
       ],
       "bytes": 260920,
       "sha256": "3803f98b15184bb8e8c65ccde2042e968f25604a407f9d57703a4ed0cfd9a09a"
+    },
+    {
+      "file": "listener-happy.webp",
+      "source": "Generated with built-in image_gen",
+      "role": "happy state",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "d65f3f5af700489029f0e060c092647b0ba20b52e0d240d870d8433e6353f731",
+      "source_file": "docs/design/assets/listener/listener-happy.png",
+      "source_sha256": "ae64e88dcd8e0efd1f98fa910cc14c92aaa482ddc2521119ebcdd0f870ca5cc5",
+      "bytes": 240962,
+      "encoding": "Sharp WebP quality 76, alpha quality 100, effort 6; full canvas preserved",
+      "alpha_identical_to_source": true,
+      "receipt": "docs/design/assets/listener/missing-states-prompts.json"
+    },
+    {
+      "file": "listener-sad.webp",
+      "source": "Generated with built-in image_gen",
+      "role": "sad state",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "b16f00d387ad4abd4dbabcec77b4b464c5315c1450f2ed10f5358829ab2584e5",
+      "source_file": "docs/design/assets/listener/listener-sad.png",
+      "source_sha256": "7da4f66e842efbb647f4afecd1395e8400ff4757397d27f943e1fc6131c0a2ea",
+      "bytes": 205212,
+      "encoding": "Sharp WebP quality 76, alpha quality 100, effort 6; full canvas preserved",
+      "alpha_identical_to_source": true,
+      "receipt": "docs/design/assets/listener/missing-states-prompts.json"
+    },
+    {
+      "file": "listener-brace.webp",
+      "source": "Generated with built-in image_gen",
+      "role": "brace state",
+      "size": [
+        1024,
+        1536
+      ],
+      "sha256": "380cb32bc659e58270d251950285a6e7b88278c85be5b554293bca6ee54760b7",
+      "source_file": "docs/design/assets/listener/listener-brace.png",
+      "source_sha256": "54d7a97ba0bf23cbdd4475b304a6b6e0bbe14479fb01ed60ede30086811027f0",
+      "bytes": 240188,
+      "encoding": "Sharp WebP quality 76, alpha quality 100, effort 6; full canvas preserved",
+      "alpha_identical_to_source": true,
+      "receipt": "docs/design/assets/listener/missing-states-prompts.json"
     }
   ]
 }
