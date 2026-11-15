@@ -2,11 +2,10 @@ import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import { readConfig } from "./config.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
 import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
-import { calm, createRoom, createStats, nudge, record, seed, summary, tick } from "./room.mjs";
+import { createRoom, createStats, record, seed, summary } from "./room.mjs";
 import { startHealth } from "./health.mjs";
 import { wait } from "./beats.mjs";
 import { channelLines, conversationNotes, coordinate, fetchCast } from "./orchestrator.mjs";
-import { noteSoon } from "./coordinator.mjs";
 import { heard, hush } from "./turns.mjs";
 
 const config = readConfig(process.env);
@@ -49,7 +48,6 @@ async function refreshCast() {
 function forget(guildId) {
   for (const [channelId, room] of rooms) {
     if (room.guildId !== guildId) continue;
-    calm(room);
     hush(room);
     rooms.delete(channelId);
     webhooks.delete(channelId);
@@ -64,7 +62,6 @@ async function watch(guild) {
   if (!found) return;
   const room = createRoom(guild.id, found.channel.id);
   room.webhookId = found.webhook.id;
-  room.talkMs = config.DISCORD_TALK_MS;
   try {
     const recent = await found.channel.messages.fetch({ limit: 100 });
     seed(room, recent.values(), cast);
@@ -76,26 +73,6 @@ async function watch(guild) {
   rooms.set(found.channel.id, room);
 }
 
-function run(targets, now = Date.now()) {
-  lastTickAt = Date.now();
-  void tick({
-    rooms: targets,
-    state,
-    now,
-    config,
-    cast,
-    lines: (body, signal) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal),
-    send: (room, payload) => webhooks.get(room.channelId)?.send(payload),
-    typing: (room) => channels.get(room.channelId)?.sendTyping(),
-    save,
-    log,
-    stats,
-    sleep: wait,
-    random: Math.random,
-    coordinate: ask,
-  });
-}
-
 function jot(body) {
   return conversationNotes(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body);
 }
@@ -105,8 +82,7 @@ function ask(body, signal) {
 }
 
 function poll() {
-  if (config.DISCORD_NEXT_LOOP) lastTickAt = Date.now();
-  else run(rooms);
+  lastTickAt = Date.now();
 }
 
 function turnDeps() {
@@ -124,13 +100,6 @@ function turnDeps() {
     coordinate: ask,
     notes: jot,
   };
-}
-
-function answerNow(room) {
-  if (rooms.get(room.channelId) !== room) return;
-  const last = room.messages.at(-1);
-  const quiet = (last?.at ?? 0) + config.DISCORD_ADDRESSED_QUIET_MS;
-  run(new Map([[room.channelId, room]]), Math.max(Date.now(), quiet));
 }
 
 client.once(Events.ClientReady, async () => {
@@ -163,7 +132,6 @@ client.on(Events.GuildDelete, (guild) => {
 client.on(Events.ChannelDelete, (channel) => {
   const room = rooms.get(channel.id);
   if (!room) return;
-  calm(room);
   hush(room);
   rooms.delete(channel.id);
   webhooks.delete(channel.id);
@@ -179,12 +147,7 @@ client.on(Events.MessageCreate, (message) => {
   const room = rooms.get(message.channelId);
   if (!room) return;
   const entry = record(room, message, room.webhookId, cast, stats);
-  if (config.DISCORD_NEXT_LOOP) {
-    heard(room, entry, turnDeps());
-    return;
-  }
-  nudge(room, entry, cast, { delay: config.DISCORD_ADDRESSED_DEBOUNCE_MS, run: answerNow });
-  noteSoon(room, { config, cast, coordinate: ask, notes: jot, stats, log });
+  heard(room, entry, turnDeps());
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
