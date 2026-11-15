@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { SWAP_MS } from "../card-game/card-swap.mjs";
+import { EXIT_MS } from "../card-game/card-exit.mjs";
 import { readyActionButton, revealOpening, selectCard, startNewGame, tapCard } from "./card-browser-helpers.mjs";
 
 // A scene change swaps the hand in beats, not one cut (card-swap.mjs).
@@ -206,13 +207,13 @@ try {
         "the station becomes the way back",
       );
       assert(!away.ghosts.includes("vale"), "Vale goes along");
-      const atTap = away.motions.filter((m) => m.ghost && m.at < 100);
+      const falls = away.motions.filter((m) => m.ghost && m.duration === EXIT_MS);
       assert.deepEqual(
-        atTap.map((m) => m.card),
+        falls.map((m) => m.card),
         ["keeper"],
         "nearest first",
       );
-      atTap.forEach((m, i) => assert.equal(m.delay, i * 50, "50 ms apart"));
+      falls.forEach((m, i) => assert.equal(m.delay, i * 50, "50 ms apart"));
     }
     // Coming back: the station's cards rise after the falls and a beat, and
     // the whole swap ends in time.
