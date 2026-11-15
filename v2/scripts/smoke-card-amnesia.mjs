@@ -61,7 +61,7 @@ try {
     const mentions = async (word) => new RegExp(`\\b${word}\\b`, "i").test(await named());
     const uncover = (id) => revealCard(page, id);
     try {
-      await page.goto(`http://127.0.0.1:${server.address().port}/?intro=1&table=amnesia-${width}`);
+      await page.goto(`http://127.0.0.1:${server.address().port}/?intro=1`);
       await page.locator('.title-intro[data-phase="ack"]').waitFor();
       await page.waitForFunction(
         () => document.querySelector("#hand").dataset.cooling === "false",
