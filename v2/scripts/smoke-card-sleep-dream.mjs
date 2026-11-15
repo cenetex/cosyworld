@@ -197,7 +197,7 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
     await shot("before");
     await selectCard(page, "vale", { touch });
     await play.waitFor();
-    assert.equal(await play.getAttribute("aria-label"), "Sleep");
+    assert.equal((await play.innerText()).trim(), "Sleep");
     await play.click();
     if (!reduced) {
       await page.waitForTimeout(450);

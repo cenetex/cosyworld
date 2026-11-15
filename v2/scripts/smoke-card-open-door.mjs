@@ -20,6 +20,7 @@ import {
 import { greekMoveSteps } from "../../test/helpers/greek-travel.mjs";
 import {
   clearSelection,
+  readyActionButton,
   selectCard,
   smokeWidths,
   unreachableCards,
@@ -187,10 +188,18 @@ export async function checkOpenDoor(browser, origin) {
         await clearSelection(page);
         for (const id of [...new Set(cards)])
           await selectCard(page, id, { touch: width === 390 });
-        await page
-          .locator(`#card-actions [data-action="${kind}"]`)
-          .first()
-          .click();
+        const unlock = page.locator("#card-actions [data-unlock-box]");
+        if (await unlock.count()) {
+          assert(await unlock.isEnabled(), "the chosen destination can be unlocked");
+          const id = await unlock.getAttribute("data-unlock-box");
+          await unlock.click();
+          await page.waitForFunction((id) => {
+            const card = document.querySelector(`#hand [data-card="${id}"]`);
+            return card?.dataset.locked === "false" && !card.dataset.revealing;
+          }, id);
+          assert.deepEqual(await state(), before, "Unlock preserves the world");
+        }
+        await readyActionButton(page, kind).first().click();
         await settle();
         const after = await state();
         const sleptThrough = after.log
