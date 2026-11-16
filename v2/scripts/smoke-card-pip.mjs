@@ -51,27 +51,15 @@ async function walkToGivenLamp(browser, base) {
     await buttonReads(new RegExp(`(goes|carries the Lamp) to ${name}`, "iu"));
     await press(() => page.waitForFunction((name) => document.getElementById("place-title")?.textContent === name, name, { timeout: 2500 }));
   };
-  // Put the lamp down in the attic: the mirror opens onto the pond.
-  await choose("vale");
-  await choose("lamp");
-  await choose("attic");
-  await buttonReads(/puts the Lamp in Mirror attic/iu);
-  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).items.lamp.holder === "attic", key, { timeout: 2500 }));
+  await page.keyboard.press("Escape");
+  for (let tries = 0; tries < 6; tries++) {
+    if (!decodeSave(await page.evaluate((key) => localStorage.getItem(key), key)).items.lamp.lit) break;
+    await page.locator('#hand [data-card="lamp"]').click();
+    await page.waitForTimeout(400);
+  }
+  assert.equal(decodeSave(await page.evaluate((key) => localStorage.getItem(key), key)).items.lamp.lit, false);
   await travel("pond", "Black pond");
   assert.equal(await page.locator('#hand .want-frame').count(), 0, "no offer before Pip is asked again");
-  // Back along the narrow path for the lamp, and through the open mirror with it lit.
-  await travel("attic", "Mirror attic");
-  await page.keyboard.press("Escape");
-  await page.locator('#hand [data-card="attic"]').click();
-  await page.locator('#hand [data-card="lamp"]').waitFor({ state: "visible" });
-  await choose("lamp");
-  await buttonReads(/takes the Lamp/iu);
-  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).items.lamp.holder === "vale", key, { timeout: 2500 }));
-  await travel("pond", "Black pond");
-  assert.equal(decodeSave(await page.evaluate((key) => localStorage.getItem(key), key)).items.lamp.lit, true);
-  await page.keyboard.press("Escape");
-  await page.locator('#hand [data-card="lamp"]').click();
-  await page.waitForFunction(() => document.querySelector('#hand [data-card="lamp"]')?.getAttribute("aria-pressed") !== "true");
   await choose("moth");
   await page.locator('#card-actions [data-action="talk"]').waitFor();
   await press(() => page.locator('#card-actions [data-action="accept"]').waitFor({ timeout: 8000 }));

@@ -160,12 +160,11 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
       }
       if (condition === "at the station") s.items.lamp.holder = "station";
       const before = encodeSave(s);
-      const rescue =
-        condition === "at the station" || Boolean(s.opened?.pond?.includes("vale"));
-      expect(exits(s, "attic").includes("pond")).toBe(rescue);
-      expect(entered(s, "pond")).toBe(rescue);
+      const open = condition === "at the station";
+      expect(exits(s, "attic").includes("pond")).toBe(open);
+      expect(entered(s, "pond")).toBe(open);
       const move = cardPlay(s, ["pond"]).action;
-      if (rescue) {
+      if (open) {
         expect(move.kind).toBe("move");
         expect(play(s, move).state.actors.vale.place).toBe("pond");
       } else {
@@ -178,9 +177,10 @@ describe.each([true, false])("attic access (opening: %s)", (opening) => {
       }
       expect(encodeSave(s)).toBe(before);
       const restored = decodeSave(before);
-      expect(entered(restored, "pond")).toBe(rescue);
-      expect(exits(restored, "attic")).toEqual(rescue ? ["pond"] : []);
-      if (opening)
+      expect(entered(restored, "pond")).toBe(open);
+      expect(exits(restored, "attic")).toEqual(open ? ["pond"] : []);
+      expect(isLockedBox(restored, "pond")).toBe(!open);
+      if (opening && !open)
         expect(placeText(restored, "attic")).toContain("Dust gathers");
     },
   );
@@ -200,29 +200,30 @@ describe.each([true, false])(
       settleLamp(restored);
       expect(reflectionOpen(restored, "attic")).toBe(true);
     });
-    it("opens the attic mirror while the lamp rests in the attic", () => {
+    it("keeps the attic mirror shut while the lit lamp rests in the attic", () => {
       const s = pond(opening);
       s.items.lamp.holder = "attic";
       const restored = decodeSave(encodeSave(s));
       expect(restored.items.lamp.lit).toBe(true);
-      expect(reflectionOpen(restored, "attic")).toBe(true);
+      expect(reflectionOpen(restored, "attic")).toBe(false);
       expect(reflectionOpen(restored, "pond")).toBe(false);
+      setFuel(restored, 0);
+      expect(reflectionOpen(restored, "attic")).toBe(true);
     });
     it.each(["pond", "moth"])(
-      "keeps the attic mirror dark when a distant lamp is held by %s",
+      "opens the attic mirror when a distant lamp is held by %s",
       (holder) => {
         const s = pond(opening);
         s.actors.vale.place = "attic";
         s.items.lamp.holder = holder;
         expect(itemPlace(s, "lamp")).toBe("pond");
         const restored = decodeSave(encodeSave(s));
-        expect(reflectionOpen(restored, "attic")).toBe(false);
+        expect(reflectionOpen(restored, "attic")).toBe(true);
         expect(reflectionOpen(restored, "pond")).toBe(true);
-        expect(placeText(restored, "attic")).toContain("Dust gathers");
-        // Losing the local lamp keeps the existing emergency escape, not a mirror gate.
-        const rescue = cardPlay(restored, ["pond"]).action;
-        expect(rescue?.text).toContain("along a narrow path");
-        const result = play(restored, rescue);
+        expect(placeText(restored, "attic")).toContain("black shore");
+        const move = cardPlay(restored, ["pond"]).action;
+        expect(move?.text).toContain("through the reflection");
+        const result = play(restored, move);
         expect(result.ok).toBe(true);
         expect(result.state.actors.vale.place).toBe("pond");
       },

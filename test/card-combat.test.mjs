@@ -21,7 +21,7 @@ import { levelOf, newWant, travels } from "../v2/card-game/want.mjs";
 import forest from "../v2/card-game/forest.json" with { type: "json" };
 import { homeOf } from "../v2/card-game/world/home.mjs";
 import { homeOf as residentHome } from "../v2/card-game/resident-home.mjs";
-import { humanAvatar, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import { humanAvatar, humanAvatarIds, humanAvatars } from "../v2/card-game/human-cast.mjs";
 import {
   entityActive,
   packDefinitions,
@@ -771,7 +771,7 @@ describe("repeated defeats", () => {
       expect(() => validateWorld(s)).toThrow();
     }
   });
-  it("leaves every home open to its avatar with empty hands", () => {
+  it("leaves a home open to its avatar with empty hands, but not a visitor's own door", () => {
     const scopes = Object.fromEntries(
       packDefinitions.filter((p) => p.release).map((p) => [p.id, "full"]),
     );
@@ -792,7 +792,9 @@ describe("repeated defeats", () => {
           if (item.holder === id) item.holder = "station";
         if (!exits(s, home, id).length) stranded.push(`${id}@${home}`);
       }
-      expect(stranded, shared ? "shared" : "local").toEqual([]);
+      expect(stranded, shared ? "shared" : "local").toEqual(
+        shared ? humanAvatars.slice(1).map((a) => `${a.id}@${a.home.id}`) : [],
+      );
     }
   });
 });

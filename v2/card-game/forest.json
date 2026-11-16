@@ -1,28 +1,13 @@
 {
   "homeGates": {
-    "attic": {
-      "item": "lamp",
-      "light": true,
-      "fuel": "oil",
-      "rescue": "pond",
-      "opening": true
-    }
+    "attic": { "opening": true }
   },
   "reflectionRoutes": [
     {
       "from": "attic",
       "to": "pond",
       "sealed": {},
-      "requires": [
-        { "kind": "item_present", "item": "lamp", "place": "attic" },
-        {
-          "kind": "any",
-          "conditions": [
-            { "kind": "item_at", "item": "lamp", "place": "attic" },
-            { "kind": "not", "condition": { "kind": "light", "item": "lamp", "at": ["attic"], "uncovered": true } }
-          ]
-        }
-      ]
+      "requires": [{ "kind": "not", "condition": { "kind": "light", "item": "lamp", "at": ["attic"], "uncovered": true } }]
     },
     {
       "from": "pond",
@@ -46,7 +31,6 @@
       "exits": [],
       "backdrop": "assets/shared/places/attic-dark.webp",
       "backdrops": [
-        { "backdrop": "assets/attic/attic-doused.webp", "requires": [{ "kind": "item_at", "item": "lamp", "place": "attic" }] },
         { "backdrop": "assets/attic/attic-lit.webp", "requires": [{ "kind": "light", "item": "lamp", "at": ["attic"], "uncovered": true }] },
         { "backdrop": "assets/attic/attic-doused.webp", "requires": [{ "kind": "item_present", "item": "lamp", "place": "attic" }] }
       ],

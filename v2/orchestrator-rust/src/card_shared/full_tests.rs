@@ -1516,42 +1516,6 @@ fn embedded_selected_cards_match_with_no_quest_plays() {
     assert_eq!(w.game["items"]["cloth"]["holder"], place);
 }
 
-#[test]
-fn each_shared_home_rescue_commits_through_c_and_replays() {
-    for (a, item) in [
-        (1, "mask"),
-        (2, "float"),
-        (3, "can"),
-        (4, "kite"),
-        (5, "routes"),
-        (6, "board"),
-        (7, "shears"),
-    ] {
-        let (_file, c, id) = fixture();
-        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-        c.execute("DELETE FROM card_full_log", []).unwrap();
-        let mut w = World::create(None).unwrap();
-        w.claimed = [1; 8];
-        w.present = [1; 8];
-        w.game["items"][item]["holder"] = json!("station");
-        full_store::seed(&c, &id, &w, "stranded-home", now()).unwrap();
-        // A stranded home rescues to the station; the pond stays Vale's.
-        assert_eq!(w.project(a).unwrap()["exits"], json!(["station"]));
-        let action = home_action(&w, a, "move");
-        full_store::commit(
-            &c,
-            &id,
-            &mut w,
-            json!({"op":"play","actor":actor_id(a),"action":action}),
-            now(),
-        )
-        .unwrap();
-        assert_eq!(w.game["actors"][actor_id(a)]["place"], "station");
-        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
-        assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);
-    }
-}
-
 #[path = "learning_tests.rs"]
 mod learning_tests;
 #[path = "reflect_tests.rs"]

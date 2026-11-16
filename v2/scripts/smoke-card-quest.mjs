@@ -216,10 +216,7 @@ try {
     );
     const after = await saved();
     assert.equal(after.xp, before.xp, "a traveler earns no XP");
-    assert.equal(
-      await page.locator("#hand .want-frame .quest-verb", { hasText: "Hold" }).count(),
-      0,
-    );
+    assert.equal(after.want.lit, false);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.equal(
       await page.locator("#card-actions [data-claim]").count(),

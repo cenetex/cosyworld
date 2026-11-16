@@ -525,7 +525,7 @@ it("connects Rue's carriage to the station through pickup, drop, travel and relo
   expect(ask(world, "view", "rue").exits).toContain("train");
   act("drop", "station", "routes");
   act("move", "train");
-  expect(ask(world, "view", "rue").exits).toContain("station");
+  expect(ask(world, "view", "rue").exits).toEqual([]);
   expect(Object.keys(world.crossings)).toEqual(
     expect.arrayContaining(["station-train", "train-station"]),
   );

@@ -80,16 +80,25 @@ try {
     await page.waitForFunction(
       () => !document.querySelector('#hand [data-unrevealed="true"]'),
     );
-    if (
-      (await page.locator('#hand [data-card="lamp"]').getAttribute("aria-pressed")) !== "true"
-    )
+    const pond = page.locator('#hand [data-card="pond"]');
+    assert.equal(await pond.getAttribute("data-locked"), "true");
+    for (let tries = 0; tries < 4; tries++) {
+      if ((await saved(page)).items.lamp.lit === false) break;
       await selectCard(page, "lamp", { touch: true });
-    await selectCard(page, "attic", { touch: true });
-    await readyActionButton(page, "drop").tap();
+      await page.waitForTimeout(300);
+    }
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#hand [data-card="pond"]')?.dataset.locked ===
+          "false" && !document.querySelector("#hand [data-revealing]"),
+    );
+    assert.equal((await saved(page)).items.lamp.lit, false);
+    await selectCard(page, "pond", { touch: true });
+    await readyActionButton(page, "move").tap();
     await page.waitForFunction(
       () =>
         JSON.parse(localStorage.getItem("cosyworld.reflected-shore.v1"))
-          .items.lamp.holder === "attic",
+          .actors.vale.place === "pond",
     );
     const world = await saved(page);
     assert.deepEqual(world.opened, { pond: ["vale"] });

@@ -1,47 +1,70 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, exits, legalActions, play, placeText } from "../v2/card-game/world.mjs";
+import { createWorld, exits, holdChoice, legalActions, play, placeText } from "../v2/card-game/world.mjs";
 import { cardPlay, lockWords } from "../v2/card-game/cards.mjs";
 import { isLockedBox } from "../v2/card-game/locked-box.mjs";
 import { backdrop } from "../v2/card-game/scene.mjs";
 
+const hold = (world, item) => {
+  const next = structuredClone(world);
+  holdChoice(next, "vale", { item, revision: next.revision });
+  return next;
+};
+
 describe("a new world's opening", () => {
   const world = createWorld({ opening: true });
+  const shut = (s) => {
+    expect(s.items.lamp.lit).toBe(true);
+    expect(isLockedBox(s, "pond")).toBe(true);
+    expect(lockWords(s, "pond", () => true)).toBe("Hold the dark Lamp");
+    expect(exits(s, "attic")).toEqual([]);
+    expect(placeText(s, "attic")).not.toContain("black shore");
+    expect(backdrop("attic", s)).toContain("attic-lit");
+  };
 
-  it("shows the Black pond as a locked box whose words name the pair", () => {
-    expect(isLockedBox(world, "pond")).toBe(true);
-    expect(lockWords(world, "pond", () => true)).toBe("Lay Lamp in Mirror attic");
-    expect(exits(world, "attic")).toEqual([]);
-    expect(cardPlay(world, ["lamp"]).action).toBeFalsy();
-    expect(cardPlay(world, ["lamp"]).hint).toBe(
-      "Pair with a person to give it, or this place to put it down.",
-    );
+  it("shows the Black pond as a locked box while the lamp is lit", () => {
+    shut(world);
+    expect(cardPlay(world, ["pond"]).action).toBeFalsy();
   });
 
-  it("opens the mirror with the ordinary Put down play, which pays like any box", () => {
-    const { action } = cardPlay(world, ["lamp", "attic"]);
-    expect(action).toMatchObject({ kind: "drop", item: "lamp", target: "attic" });
-    const result = play(world, action, world.revision);
-    expect(result.ok).toBe(true);
-    const next = result.state;
-    expect(next.turn).toBe(1);
-    expect(next.items.lamp.holder).toBe("attic");
-    expect(next.opened).toEqual({ pond: ["vale"] });
-    expect(isLockedBox(next, "pond")).toBe(false);
-    expect(exits(next, "attic")).toEqual(["pond"]);
-    expect(placeText(next, "attic")).toContain("opens onto a black shore");
-    expect(backdrop("attic", world)).toContain("attic-lit");
-    expect(backdrop("attic", next)).toContain("attic-doused");
-    expect(next.log.map((e) => e.text)).toContain(
-      "The attic mirror opens a path to the pond. A dark shore waits through the glass.",
-    );
-    expect(cardPlay(next, ["pond"]).action).toMatchObject({ kind: "move", target: "pond" });
+  it("opens the mirror when the lamp is put away, and shuts it when raised", () => {
+    const dark = hold(world, null);
+    expect(dark.items.lamp).toMatchObject({ holder: "vale", lit: false });
+    expect(isLockedBox(dark, "pond")).toBe(false);
+    expect(exits(dark, "attic")).toEqual(["pond"]);
+    expect(placeText(dark, "attic")).toContain("opens onto a black shore");
+    expect(backdrop("attic", dark)).toContain("attic-doused");
+    expect(cardPlay(dark, ["pond"]).action).toMatchObject({ kind: "move", target: "pond" });
+    shut(hold(dark, "lamp"));
   });
 
-  it("keeps the opened mirror open when the lamp is taken up lit", () => {
+  it("keeps the pond locked while the lit lamp lies in the attic", () => {
     const down = play(world, cardPlay(world, ["lamp", "attic"]).action, world.revision).state;
+    expect(down.items.lamp.holder).toBe("attic");
+    expect(down.opened).toBeUndefined();
+    shut(down);
     const taken = play(down, cardPlay(down, ["lamp"]).action, down.revision).state;
-    expect(taken.items.lamp).toMatchObject({ holder: "vale", lit: true });
-    expect(exits(taken, "attic")).toEqual(["pond"]);
+    shut(taken);
+    expect(exits(hold(taken, null), "attic")).toEqual(["pond"]);
+  });
+
+  it("locks the pond again each time the lamp is lit after a visit", () => {
+    let s = hold(world, null);
+    s = play(s, cardPlay(s, ["pond"]).action, s.revision).state;
+    s = hold(s, "lamp");
+    expect(exits(s, "pond")).toContain("attic");
+    s = play(s, cardPlay(s, ["attic"]).action, s.revision).state;
+    expect(s.actors.vale.place).toBe("attic");
+    shut(s);
+    expect(isLockedBox(hold(s, null), "pond")).toBe(false);
+  });
+
+  it("opens the way with a dry lamp or with no lamp in the attic", () => {
+    const dry = structuredClone(world);
+    Object.assign(dry.items.lamp, { fuel: 0, fuelRooms: 0, lit: false });
+    expect(exits(dry, "attic")).toEqual(["pond"]);
+    const gone = structuredClone(world);
+    gone.items.lamp.holder = "pond";
+    expect(exits(gone, "attic")).toEqual(["pond"]);
   });
 });
 
@@ -53,32 +76,16 @@ describe("after the mirror first opens", () => {
     expect(result.ok).toBe(true);
     return result.state;
   };
-  const opened = () =>
-    go(go(createWorld({ opening: true }), (a) => a.kind === "drop" && a.item === "lamp"), (a) => a.kind === "move" && a.target === "pond");
 
-  it("carries the lit lamp back to Pip by ordinary plays", () => {
-    let s = go(opened(), (a) => a.kind === "talk" && a.target === "moth");
+  it("carries the lamp to Pip and lights it there by ordinary plays", () => {
+    let s = go(hold(createWorld({ opening: true }), null), (a) => a.kind === "move" && a.target === "pond");
+    s = go(s, (a) => a.kind === "talk" && a.target === "moth");
     s = go(s, (a) => a.kind === "accept" && a.target === "moth");
     expect(s.actors.vale.want).toMatchObject({ target: "lamp", step: { verb: "give", to: "moth" } });
-    s = go(s, (a) => a.kind === "move" && a.target === "attic");
-    s = go(s, (a) => a.kind === "take" && a.item === "lamp");
-    expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true });
-    expect(exits(s, "attic")).toEqual(["pond"]);
-    s = go(s, (a) => a.kind === "move" && a.target === "pond");
+    s = hold(s, "lamp");
     expect(s.items.lamp.lit).toBe(true);
     s = go(s, (a) => a.kind === "give" && a.item === "lamp" && a.target === "moth");
     expect(s.items.lamp.holder).toBe("moth");
     expect(s.actors.vale.want).toBeNull();
-  });
-
-  it("leaves the lamp for Vale: Pip stays on the shore and no one is shut in", () => {
-    let s = opened();
-    for (let i = 0; i < 30; i++) {
-      s = go(s, (a) => a.kind === "wait" && !a.sleep);
-      expect(s.actors.moth.place).toBe("pond");
-      expect(s.items.lamp.holder).toBe("attic");
-      expect(exits(s, "pond")).toContain("attic");
-    }
-    expect(exits(s, "attic")).toContain("pond");
   });
 });

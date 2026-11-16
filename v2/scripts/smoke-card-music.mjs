@@ -93,7 +93,6 @@ try {
   await page.waitForTimeout(500);
   assert(await page.locator("#room-music").evaluate((audio) => audio.paused));
   await closeSettings(page);
-  // Putting the lamp down opens the pond path and starts the first music.
   await page.waitForFunction(
     () => document.querySelector("#hand").dataset.cooling === "false",
   );
@@ -104,25 +103,16 @@ try {
       document.querySelector('#hand [data-card="pond"]')?.dataset.locked ===
         "false" && !document.querySelector("#hand [data-revealing]"),
   );
-  await page.waitForFunction((file) => {
-    const audio = document.querySelector("#room-music");
-    return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
-  }, roomTracks.attic[0].file);
   await playCard("pond");
-  // The attic song follows the player to the pond until it ends.
   await page.waitForFunction(() => document.body.dataset.place === "pond");
-  assert(
-    new URL(
-      await page.locator("#room-music").evaluate((audio) => audio.src),
-    ).pathname.endsWith(roomTracks.attic[0].file),
-  );
-  await page.locator("#room-music").evaluate((audio) => {
-    audio.currentTime = audio.duration - 1.25;
-  });
-  await page.waitForFunction((file) => {
+  await page.waitForFunction((tracks) => {
     const audio = document.querySelector("#room-music");
-    return new URL(audio.src).pathname.endsWith(file) && audio.currentTime > 0;
-  }, roomTracks.pond[0].file);
+    return (
+      audio.src &&
+      audio.currentTime > 0 &&
+      tracks.some(({ file }) => new URL(audio.src).pathname.endsWith(file))
+    );
+  }, [...roomTracks.attic, ...roomTracks.pond]);
   // Settings holds the song (below), so the playlist plays with it closed.
   let volume = 0.3;
   const fullVolume = () =>
@@ -276,10 +266,10 @@ try {
     );
     await check();
   }
-  // The lamp rests in the attic: a narrow path leads back to it, and the
-  // open mirror leads out again.
+  await selectCard(page, "lamp");
   await travel("attic");
   console.log("Attic tracks played");
+  await selectCard(page, "lamp");
   await travel("pond");
   console.log("Pond tracks played");
   await travel("station");

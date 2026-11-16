@@ -1125,7 +1125,7 @@ describe("speech grounding in resolved card plays", () => {
   it("keeps independent trips on the same route separate", () => {
     const start = together();
     start.actors.vale.place = start.actors.moth.place = "attic";
-    start.items.lamp.holder = "moth";
+    start.items.lamp.holder = "station";
     const outcome = turnOutcome(act(start, "move", null, "pond"));
     for (const id of ["vale", "moth"])
       expect(avatar(outcome, id).travel).toEqual({

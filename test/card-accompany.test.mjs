@@ -121,9 +121,8 @@ describe("accompany card requests", () => {
   it("joins a trip toward a distant wanted item", () => {
     const start = wantsLamp(together());
     start.actors.vale.place = start.actors.moth.place = "pond";
-    start.items.lamp.lit = true;
-    start.items.lamp.holder = "attic";
-    const world = request(start, "moth", "attic");
+    start.items.lamp.holder = "station";
+    const world = request(start, "moth", "station");
     expect(reply(world).accepted).toBe(true);
     expect(wait(world).items.lamp.holder).toBe("moth");
   });

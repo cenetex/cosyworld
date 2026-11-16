@@ -272,7 +272,7 @@ describe("the reflected shore card game", () => {
             i % 5 === 0 ? plan(s).action : actions[seed % actions.length];
           const result = play(s, action);
           expect(result.ok).toBe(true);
-          if (action.kind === "focus") picks += 1;
+          if (["focus", "accept"].includes(action.kind)) picks += 1;
           s = result.state;
           expect(() => validateWorld(s)).not.toThrow();
           expect(Object.keys(s.items).sort()).toEqual(itemIds);

@@ -358,8 +358,7 @@ describe("Tea beneath the oak", () => {
       const before = encodeSave(world);
       const restored = reload(world);
       const dark = ["unlit", "empty", "covered"].includes(condition);
-      expect(reflectionOpen(restored, "attic")).toBe(dark);
-      // Dark (doused here, or the lamp gone): only the pond.
+      expect(reflectionOpen(restored, "attic")).toBe(true);
       expect(exits(restored, "attic", "vale")).toEqual(["pond"]);
       expect(availableCards(restored)).not.toContain(COTTAGE);
       expect(availableCards(restored)).toContain("pond");
@@ -371,7 +370,7 @@ describe("Tea beneath the oak", () => {
       expect(locationVariant(restored, "attic")).toBe(
         dark ? "attic-doused" : "attic-dark",
       );
-      expect(placeText(restored, "attic").includes("black shore")).toBe(dark);
+      expect(placeText(restored, "attic")).toContain("black shore");
       const result = play(world, stale);
       expect(result.ok).toBe(false);
       expect(result.state).toBe(world);

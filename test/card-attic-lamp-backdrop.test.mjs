@@ -30,10 +30,10 @@ describe("attic backdrop follows the lamp in the attic", () => {
     expect(lampLitHere(world, "attic")).toBe(true);
     expect(backdrop("attic", world)).toBe(LIT);
   });
-  it("is doused while the lamp is put down in the attic, its mirror open", () => {
+  it("is lit while the lit lamp is put down in the attic", () => {
     const world = attic({ lit: true, holder: "attic" });
     expect(lampLitHere(world, "attic")).toBe(true);
-    expect(backdrop("attic", world)).toBe(DOUSED);
+    expect(backdrop("attic", world)).toBe(LIT);
   });
   it("is dark while the lit lamp is at the pond", () => {
     const world = attic({ lit: true, holder: "pond" });

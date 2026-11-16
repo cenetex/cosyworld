@@ -233,7 +233,7 @@ describe("dousing the lamp in the attic", () => {
       model: "fixture-model",
       entries: context.entities.map(({ id }) => ({ id, text: spoiler })),
     });
-    s = act(s, "drop", { item: "lamp" });
+    s = selectLamp(s);
     const next = narrativeContext(s);
     expect(JSON.stringify(next)).not.toMatch(
       /hidden solution|waiting for lamplight|needs a lit|Wake the attic|Reason for the desire/,
@@ -249,10 +249,12 @@ describe("dousing the lamp in the attic", () => {
     expect(next.entities.find((e) => e.id === "attic").facts).toContain(
       "An open passage is visible in the reflection.",
     );
-    const lit = act(s, "take", { item: "lamp" });
+    expect(next.entities.find((e) => e.id === "attic").facts).toContain(
+      "Paths visible now: Black pond.",
+    );
     expect(
-      narrativeContext(lit).entities.find((e) => e.id === "attic").facts,
-    ).toContain("Paths visible now: Black pond.");
+      narrativeContext(selectLamp(s, "lamp")).entities.find((e) => e.id === "attic").facts,
+    ).not.toContain("Paths visible now: Black pond.");
   });
 
   it("meets the keeper on reaching the station", () => {
@@ -355,7 +357,7 @@ describe("dousing the lamp in the attic", () => {
     const restored = decodeSave(encodeSave(old));
     expect(restored).toEqual(old);
     expect(restored.opening).toBeUndefined();
-    expect(exits(restored, "attic")).toEqual([]);
+    expect(exits(restored, "attic")).toEqual(["pond"]);
     expect(restored.actors.keeper.want).toMatchObject({
       kind: "item",
       target: "bell",

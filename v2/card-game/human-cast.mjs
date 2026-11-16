@@ -49,7 +49,7 @@ export const humanRoomAvailable = (world, actor, place, count = 1) =>
 // definitions and behavior.
 export const visitors = humanAvatars.filter((a) => a.id !== "vale");
 export const humanHomeGates = Object.fromEntries(
-  visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }]),
+  visitors.map((a) => [a.home.id, true]),
 );
 export const humanHomePack = {
   schemaVersion: 1,

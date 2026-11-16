@@ -127,16 +127,27 @@ try {
       assert.equal(await card(id).count(), 1);
       assert.equal(await card(id).getAttribute("data-locked"), "true");
     };
-    const assertNarrowPath = async () => {
+    const assertLitShut = async () => {
       const s = await state();
+      assert.equal(s.items.lamp.lit, true);
       assert.equal(reflectionOpen(s, "attic"), false);
-      assert.equal(await card("pond").getAttribute("data-locked"), "false");
       assert.deepEqual(
-        legalActions(s)
-          .filter((a) => a.kind === "move" && a.target === "pond")
-          .map((a) => a.text.endsWith("along a narrow path.")),
-        [true, true],
+        legalActions(s).filter((a) => a.kind === "move" && a.target === "pond"),
+        [],
       );
+      await assertShut("pond");
+      assert.match(
+        await card("pond").locator("img").first().getAttribute("src"),
+        /card-back-locked/,
+      );
+      await selectCard(page, "pond");
+      assert.match(
+        await page
+          .locator("#card-actions button", { hasText: "Locked" })
+          .getAttribute("aria-label"),
+        /^Locked\. /,
+      );
+      await selectCard(page, "pond");
     };
     await card("attic").waitFor({ state: "attached" });
     await ready();
@@ -267,7 +278,7 @@ try {
       await card("attic").locator(".name").textContent(),
       "Mirror attic",
     );
-    await assertNarrowPath();
+    await assertLitShut();
     await painted("attic-lit");
     // Daylight remains undimmed, independently of a portable lamp glow.
     assert.equal(await page.locator("body").getAttribute("data-dim"), "false");
@@ -293,7 +304,7 @@ try {
     // Holding shuts the mirror again; stowing reopens it.
     await selectCard(page, "lamp");
     await ready();
-    await assertNarrowPath();
+    await assertLitShut();
     await painted("attic-lit");
     // Lit with the cloth here, the mirror still shows only the room.
     const clothed = await state();
@@ -309,7 +320,7 @@ try {
     );
     await card("forest-cottage").waitFor({ state: "attached" });
     await ready();
-    await assertNarrowPath();
+    await assertLitShut();
     // The one way on waits at the row's right end (#2272).
     assert.equal(
       await page
@@ -322,7 +333,7 @@ try {
     await page.reload();
     await ready();
     await painted("attic-lit-cottage");
-    await assertNarrowPath();
+    await assertLitShut();
     await page.reload();
     await ready();
     await selectCard(page, "lamp");

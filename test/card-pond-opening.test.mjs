@@ -88,7 +88,7 @@ describe("the attic opening and saved pond journeys", () => {
   it("keeps the attic reflection and its dry-lamp recovery on the pond", () => {
     let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
-    expect(exits(world, "attic")).toEqual(["pond"]);
+    expect(exits(world, "attic")).toEqual([]);
     expect(reflectionOpen(world, "attic")).toBe(false);
     setFuel(world, 0);
     world.items.lamp.lit = false;
@@ -100,17 +100,19 @@ describe("the attic opening and saved pond journeys", () => {
     expect(world.actors.vale.place).toBe("station");
   });
 
-  it("takes the narrow path with the lit lamp once the pond is opened", () => {
+  it("has no way to the pond with the lit lamp, opened before or not", () => {
     const world = fresh();
     world.actors.vale.place = "attic";
     world.actors.vale.want = wantPlace("pond");
     world.actors.vale.heldItem = "lamp";
+    world.opened = { pond: ["vale"] };
     settleLamp(world);
-    expect(plan(world).action).toMatchObject({ kind: "move", target: "pond" });
+    expect(exits(world, "attic", "vale")).toEqual([]);
+    expect(plan(world).action?.kind).not.toBe("move");
     const dark = selectLamp(world);
     expect(plan(dark).action).toMatchObject({ kind: "move", target: "pond" });
   });
-  it("keeps the cottage return and pond rescue after the attic light goes out", () => {
+  it("keeps the cottage return and the open mirror after the attic light goes out", () => {
     let world = selectLamp(fresh(), "lamp");
     world = act(world, "move", "attic");
     world.items.cloth.holder = "attic";
@@ -138,7 +140,7 @@ describe("the attic opening and saved pond journeys", () => {
     world = act(world, "move", "pond");
     expect(world.actors.vale.place).toBe("pond");
   });
-  it("lets a stranded resident return from the attic through the pond", () => {
+  it("lets a resident with a dry lamp leave the attic through the mirror", () => {
     const world = fresh();
     world.actors.moth.place = "attic";
     world.items.lamp.holder = "moth";
@@ -195,14 +197,11 @@ describe("the attic opening and saved pond journeys", () => {
       if (place === "station") expect(roads).toEqual(["pond"]);
       if (roads.includes("station")) neighbors.push(place);
     }
-    // A home whose belonging lies elsewhere rescues to the station.
-    const homes = humanAvatars.slice(1).map((a) => a.home.id);
-    expect(neighbors.filter((p) => !homes.includes(p))).toEqual([
+    expect(neighbors).toEqual([
       "pond",
       ...(places["ratiradio-staff-kitchen"] ? ["ratiradio-staff-kitchen"] : []),
       ...(doorway === "station" ? ["boardyai-parlour"] : []),
     ]);
-    expect(homes.every((home) => neighbors.includes(home))).toBe(true);
     world.items["boardyai-calling-card"].holder = "station";
     expect(exits(world, "station", "vale")).toEqual(
       doorway === "station" ? ["pond", "boardyai-parlour"] : ["pond"],
