@@ -148,6 +148,7 @@ const files = [
   "card-reveal.mjs",
   "pack-opening.mjs",
   "card-sfx.mjs",
+  "voice-tone.mjs",
   "card-entry.mjs",
   "account-revision.mjs",
   "card-exit.mjs",
