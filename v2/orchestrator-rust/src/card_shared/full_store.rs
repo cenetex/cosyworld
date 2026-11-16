@@ -125,10 +125,8 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
             let from = w.version.clone();
             let mut upgrade =
                 json!({"op":"upgrade", "from":from, "to":engine::VERSION, "seed":run_seed(id)});
-            if engine::takes_content(engine::VERSION) {
-                content::save(c)?;
-                upgrade["pack"] = json!(content::current());
-            }
+            content::save(c)?;
+            upgrade["pack"] = json!(content::current());
             commit(c, id, &mut w, upgrade, now)?;
             return Ok(w);
         }
@@ -138,7 +136,7 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         if w.version != engine::VERSION {
             return Err("This world's rules need a saved migration.".into());
         }
-        if engine::takes_content(&w.version) && w.pack.as_deref() != Some(content::current()) {
+        if w.pack.as_deref() != Some(content::current()) {
             content::save(c)?;
             let repack = json!({"op":"repack", "from":w.pack, "to":content::current(), "revision":content::REVISION});
             commit(c, id, &mut w, repack, now)?;
