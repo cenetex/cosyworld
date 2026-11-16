@@ -23,7 +23,6 @@ export function fakeJobs({ auto, polls = 1 } = {}) {
     posts,
     waits,
     assets,
-    // A refusal for the next create (no job is made).
     refuseNext: (status, body) => refuse.push({ status, body }),
     dropNextReply: () => drop++,
     offline: (value) => {
