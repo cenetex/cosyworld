@@ -301,8 +301,7 @@ pub(super) struct Command {
     pub key: String,
     #[serde(default)]
     pub revealed: Option<Vec<String>>,
-    // Accepted from older clients; every claim now leaves the avatar's other
-    // worlds (#1846).
+    // Accepted from older clients; a claim leaves other worlds (#1846).
     #[serde(default, rename = "move")]
     #[allow(dead_code)]
     pub moving: bool,
