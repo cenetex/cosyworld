@@ -720,11 +720,6 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
         .transaction_with_behavior(TransactionBehavior::Immediate)
         .map_err(sql_error)?;
     let time = now();
-    // Resume an older browser-funded scene through the server. Fence its old reply.
-    tx.execute(
-        "UPDATE card_full_plays SET status='retry',retries=retries+1,narrative=json_set(narrative,'$.browser_chat',json('false')) WHERE world=? AND status='working' AND json_extract(narrative,'$.browser_chat')=1",
-        [id],
-    ).map_err(sql_error)?;
     let mut w = store::world(&tx, id, time)?;
     store::expire(&tx, id, &mut w, time)?;
     // The authored world advances NPCs across rooms each turn. Serialize the
@@ -786,12 +781,11 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             }
         };
         let destination = w.room(a)?.to_string();
-        let mut context = if retry {
+        let context = if retry {
             continuation::context(&tx, &w, &key, a, &prior)?
         } else {
-            json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null,"browser_chat":false})
+            json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null})
         };
-        context["browser_chat"] = json!(false);
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
             params![destination, time + 60_000, context.to_string(), context.to_string(), key],

@@ -698,35 +698,6 @@ fn full_world_npc_turn_and_speech_survive_worker_restart() {
     assert!(counts["scenes"]["shared_plays"]["expired"].as_u64() >= Some(1));
 }
 #[test]
-fn server_dialogue_resumes_a_working_browser_scene_and_fences_its_old_reply() {
-    let (path, mut c, id) = fixture();
-    claim(&mut c, &id, 0);
-    let w = full_store::world(&c, &id, now()).unwrap();
-    let mut b = body("play", None);
-    b.key = "legacy-browser-working-0001".into();
-    b.action = home_action(&w, 0, "wait");
-    full::run(&c, &id, "user0", &b, now()).unwrap();
-    let state = crate::test_app_state(Some(path));
-    let old = full::take_work(&state, &id).unwrap().unwrap();
-    let saved = old.context["context"].clone();
-    let committed = full_store::world(&c, &id, now()).unwrap();
-    c.execute(
-        "UPDATE card_full_plays SET narrative=json_set(narrative,'$.browser_chat',json('true')) WHERE id=?",
-        [&b.key],
-    ).unwrap();
-    let resumed = full::take_work(&state, &id).unwrap().unwrap();
-    assert_eq!(resumed.id, old.id);
-    assert_eq!(resumed.context["context"], saved);
-    assert_eq!(resumed.context["browser_chat"], false);
-    assert_eq!(full_store::world(&c, &id, now()).unwrap(), committed);
-    full::finish_work(&state, &id, old, Err("Old browser reply".into())).unwrap();
-    let view = full_store::snapshot(&c, &id, "user0", now()).unwrap();
-    assert_eq!(view["queue"][0]["status"], "working");
-    assert_eq!(view["queue"][0]["attempt"], 1);
-    assert!(view["history"].as_array().unwrap().is_empty());
-    assert!(full::take_work(&state, &id).unwrap().is_none());
-}
-#[test]
 fn imported_save_cannot_supply_server_claims_or_authority() {
     let result = engine::reduce(
         json!({"op":"create","save":"{\"claimed\":[1,1,1,1,1,1,1,1],\"present\":[1]}"}),

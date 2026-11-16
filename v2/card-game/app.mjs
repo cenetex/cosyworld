@@ -5918,7 +5918,6 @@ function hasCurrentWords() {
   return world.log.some(
     (entry) =>
       entry.generated &&
-      !entry.fallback &&
       isSceneText(entry) &&
       entry.turn === world.turn &&
       entry.locationId === world.actors[currentActor(world)].place,
