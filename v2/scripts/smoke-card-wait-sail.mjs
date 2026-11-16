@@ -118,7 +118,6 @@ try {
       "Vale waits one turn.",
     );
     await rest.close();
-    // Docked, a wait moves nothing: every selection reads Wait.
     for (const [name, cards] of [
       ["docked-vale", "vale"],
       ["docked-ship", "greek-ship"],
