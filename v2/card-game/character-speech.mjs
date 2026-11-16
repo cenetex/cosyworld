@@ -19,7 +19,6 @@ export const characterVoices = Object.freeze(
   ),
 );
 
-// Cache only generated audio; the voice client makes each clip.
 export function createVoiceClips({
   client = voiceClient(),
   storage = globalThis.caches,
