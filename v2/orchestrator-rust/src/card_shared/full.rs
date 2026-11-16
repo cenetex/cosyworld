@@ -372,8 +372,7 @@ fn logged(id: &str, f: impl FnOnce() -> Result<Value>) -> Result<Value> {
     }
     result
 }
-// The signed-in viewer's snapshot. Expiry and the sync chain write, so the
-// view takes the world's write turn.
+// The signed-in viewer's snapshot. It writes, so it takes the write turn.
 pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>) -> Result<Value> {
     let mut c = db(state)?;
     store::schema(&c)?;
@@ -386,6 +385,7 @@ pub(super) fn view_as(state: &AppState, id: &str, u: &str, cursor: Option<&str>)
     retire::open(&tx, id)?;
     let mut w = store::world(&tx, id, time)?;
     store::expire(&tx, id, &mut w, time)?;
+    guild::free_idle(&tx, id, &mut w, u, time)?;
     let value = store::snapshot(&tx, id, u, time)?;
     let value = super::sync::response(&tx, id, u, value, cursor)?;
     tx.commit().map_err(sql_error)?;
@@ -547,9 +547,14 @@ fn leave(
         )
         .map_err(sql_error)?;
     } else {
+        let seen = if guild::owned(c, id)? {
+            time - 60_001
+        } else {
+            0
+        };
         c.execute(
-            "UPDATE card_members SET seen=0 WHERE world=? AND actor=?",
-            params![id, a],
+            "UPDATE card_members SET seen=? WHERE world=? AND actor=?",
+            params![seen, id, a],
         )
         .map_err(sql_error)?;
     }
@@ -674,6 +679,7 @@ pub(super) fn run(
     retire::open(c, id)?;
     let mut w = store::world(c, id, time)?;
     store::expire(c, id, &mut w, time)?;
+    guild::free_idle(c, id, &mut w, u, time)?;
     let member = super::store::member(c, id, u)?;
     if b.op == "reset" {
         return reset(c, id, u, &mut w, b, time);
@@ -728,7 +734,7 @@ pub(super) fn run(
             "release" => {
                 leave(c, id, &mut w, a, &b.op, time)?;
                 if guild::owned(c, id)? {
-                    vacate(c, id, &mut w, a, time)?;
+                    guild::unbind(c, id, &w, a)?;
                 }
                 retire::if_empty(c, id, u, time)?;
             }
