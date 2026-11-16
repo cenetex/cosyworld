@@ -3683,7 +3683,7 @@ function questFrame({ id, quest }) {
   );
   el.addEventListener("click", () => {
     if (finishCardReveal(id) || selectionBlocked() || packTap(id)) return;
-    if (questOpen === id) {
+    if (questOpen === id && id !== OFFER_CARD && shownPhase === "choosing") {
       questOpen = false;
       render();
     } else openQuest(id);
@@ -3708,6 +3708,7 @@ function openQuest(id = entryIdOf(foldQuest())) {
   playQueue.clear();
   questFresh = false;
   questOpen = id;
+  restedChoice = null;
   selected = [];
   expandedHolders.add(currentActor(world));
   rowCollapsed = false;

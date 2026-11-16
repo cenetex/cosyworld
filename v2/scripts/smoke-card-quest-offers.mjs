@@ -105,8 +105,6 @@ try {
           path: new URL(`${label}-${width}.png`, output).pathname,
         });
       };
-      // Exactly one button per chosen card, and nothing is clipped or
-      // under the action bar.
       const oneButton = async () => {
         const buttons = await page.locator("#card-actions button").count();
         assert(buttons <= 1, `the action row has ${buttons} buttons`);
@@ -221,6 +219,10 @@ try {
       await talkToPip();
       await t.shot("offer-after-talk");
       await tapCard(offer);
+      await t.ready();
+      assert.equal(await offer.getAttribute("aria-pressed"), "true", "a tapped offer stays chosen");
+      assert.equal(await label(page), "Accept");
+      await clearSelection(page);
       await t.ready();
       assert.equal(await offer.count(), 0, "a deselected offer lapses");
       assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
