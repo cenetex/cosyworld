@@ -48,11 +48,7 @@ pub(super) fn if_empty(c: &Connection, id: &str, by: &str, time: i64) -> Result<
     if let Some(a) = bindings::mine(c, id, by)? {
         let mut w = store::world(c, id, time)?;
         if vacate(c, id, &mut w, a, time).is_err() {
-            // Rules that cannot reset a seat carry no level; free the binding.
-            if bindings::carries_progress(&w.version) {
-                return Ok(false);
-            }
-            bindings::free(c, id, a)?;
+            return Ok(false);
         }
     }
     c.execute(

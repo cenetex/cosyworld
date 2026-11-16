@@ -24,7 +24,6 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
     claim(&mut c, &id, 0);
     claim(&mut c, &id, 1);
     let mut w = full_store::world(&c, &id, now()).unwrap();
-    assert!(full::reflect::takes_reflect(&w.version));
     hold(&c, &id, &mut w, 0, Value::Null);
     let mut queued = body("play", None);
     queued.key = "reflect-after-speech".into();

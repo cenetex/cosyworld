@@ -356,14 +356,8 @@ impl World {
             }
             _ => return Err("Choose an available play.".into()),
         };
-        // Rules126 journals Station admission with presence, not with a later GET.
-        // Earlier engines do not implement the authored presence operation.
-        let station_slots = self
-            .version
-            .strip_prefix("full-card-world/")
-            .and_then(|v| v.parse::<u32>().ok())
-            .is_some_and(|v| v >= 126);
-        if station_slots && matches!(op, "enter" | "leave" | "release" | "reset") {
+        // Station admission is journaled with presence, not with a later GET.
+        if matches!(op, "enter" | "leave" | "release" | "reset") {
             let settled = engine::reduce_pack(
                 &next.version,
                 next.pack.as_deref(),
