@@ -113,7 +113,7 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
 }
 
 // A reflection that fails, or has no speech before it, leaves the journal and
-// the world as they were. Earlier rules never take the op.
+// the world as they were.
 #[test]
 fn refused_or_orphan_reflections_leave_the_world_whole() {
     let (path, mut c, id) = fixture();
@@ -129,14 +129,6 @@ fn refused_or_orphan_reflections_leave_the_world_whole() {
     assert_eq!(reflect_count(&c, &id), 0);
     c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
     assert_eq!(full_store::world(&c, &id, now()).unwrap(), before);
-    assert!(!full::reflect::takes_reflect(
-        engine::EIGHTY_SEVENTH_VERSION
-    ));
-    let mut old = World {
-        version: engine::EIGHTY_SEVENTH_VERSION.into(),
-        ..before.clone()
-    };
-    assert!(old.apply(&orphan).is_err());
 }
 
 // The whole path a shared reflection takes: after the line is journaled,

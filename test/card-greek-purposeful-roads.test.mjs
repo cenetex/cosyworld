@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { createWorld, exits } from "../v2/card-game/world.mjs";
 import {
@@ -143,24 +141,3 @@ describe("purposeful Greek roads", () => {
     }
   });
 });
-
-const context = vm.createContext({});
-vm.runInContext(
-  readFileSync(
-    new URL(
-      "../v2/orchestrator-rust/src/card_shared/engine-v25.js",
-      import.meta.url,
-    ),
-    "utf8",
-  ),
-  context,
-);
-function releasedWorld() {
-  const world = JSON.parse(
-    context.cardShared(JSON.stringify({ op: "create" })),
-  ).world;
-  delete world.opening;
-  world.packs["greek-drama"].scope = "full";
-  expect(world.packs["greek-drama"].revision).toBe(7);
-  return world;
-}

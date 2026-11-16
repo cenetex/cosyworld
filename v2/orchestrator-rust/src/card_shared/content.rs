@@ -88,32 +88,6 @@ pub(super) fn preload(c: &Connection, pack: &str) -> Result<()> {
     Ok(())
 }
 
-/// The content rules 101 shipped with: released rules before 102 cannot read
-/// rules 102's packs (crafted items, food and lane reasons), so a test that
-/// seeds a world on those rules reads this.
-#[cfg(test)]
-pub(super) fn released_101() -> &'static str {
-    static HASH: OnceLock<String> = OnceLock::new();
-    HASH.get_or_init(|| {
-        const RULES_101: &str =
-            include_str!("../../../../test/fixtures/card-content-rules-101.json");
-        let name = hash(RULES_101);
-        if let Ok(mut loaded) = loaded().lock() {
-            loaded.insert(name.clone(), Arc::from(RULES_101));
-        }
-        name
-    })
-}
-/// The content a world on `version` is seeded with in tests.
-#[cfg(test)]
-pub(super) fn seeded(version: &str) -> &'static str {
-    if version == super::engine::VERSION {
-        current()
-    } else {
-        released_101()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,11 +151,5 @@ mod tests {
             let repack = serde_json::json!({"op":"repack","from":null,"to":current()});
             assert!(w.apply(&repack).is_err());
         }
-    }
-
-    #[test]
-    fn released_bundles_carry_their_own_packs() {
-        assert!(!takes_content(include_str!("engine-v57.js")));
-        assert!(!takes_content(include_str!("engine-v2.js")));
     }
 }

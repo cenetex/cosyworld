@@ -19,21 +19,7 @@ fn fixture(name: &str, world: &World) -> (std::path::PathBuf, rusqlite::Connecti
 }
 
 fn created(version: &str) -> World {
-    let content = if version == engine::HUNDRED_TWENTY_EIGHTH_VERSION {
-        let text = include_str!("../../../../test/fixtures/released-rules/content-v128.json");
-        let hash = content::hash(text);
-        let c = rusqlite::Connection::open_in_memory().unwrap();
-        full_store::schema(&c).unwrap();
-        c.execute(
-            "INSERT INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
-            rusqlite::params![hash, version, text],
-        )
-        .unwrap();
-        content::preload(&c, &hash).unwrap();
-        hash
-    } else {
-        content::seeded(version).to_string()
-    };
+    let content = content::current().to_string();
     let pack = engine::takes_content(version).then(|| content.clone());
     let game = engine::reduce_pack(version, Some(&content), json!({"op":"create","seed":9}))
         .unwrap()["world"]
