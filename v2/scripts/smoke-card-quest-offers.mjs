@@ -208,8 +208,8 @@ try {
         await clearSelection(page);
         await selectCard(page, "moth");
         await page.locator('#card-actions [data-action="talk"]').click();
-        await t.ready();
         await offer.waitFor();
+        await page.locator('#card-actions [data-action="accept"]').waitFor();
         assert.equal(await offer.getAttribute("aria-pressed"), "true");
         assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
         assert.equal(await t.oneButton(), 1);
@@ -219,10 +219,17 @@ try {
       await talkToPip();
       await t.shot("offer-after-talk");
       await tapCard(offer);
-      await t.ready();
       assert.equal(await offer.getAttribute("aria-pressed"), "true", "a tapped offer stays chosen");
       assert.equal(await label(page), "Accept");
       await clearSelection(page);
+      for (let i = 0; i < 20; i++) {
+        const packAsk = page
+          .locator("#card-actions button")
+          .filter({ hasText: /^(New cards? unlocked|Turning the cards|All cards revealed)/u });
+        if (!(await packAsk.count())) break;
+        await packAsk.first().click();
+        await page.waitForTimeout(400);
+      }
       await t.ready();
       assert.equal(await offer.count(), 0, "a deselected offer lapses");
       assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);

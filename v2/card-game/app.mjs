@@ -549,6 +549,7 @@ const entryIdOf = (quest) => (quest.kind === "arcanum" ? quest.key : questId());
 const OFFER_CARD = "offer:0";
 const offers = offerLapse();
 const standingOffer = () => offers.standing(!pipPrelude() && offerCard(world));
+const offerFront = () => questOpen === OFFER_CARD && Boolean(standingOffer());
 function syncOffer() {
   if (!offers.sync(!pipPrelude() && offerCard(world), questOpen === OFFER_CARD)) return;
   questOpen = OFFER_CARD;
@@ -854,11 +855,12 @@ function ownSharedEntry() {
 const localWordsPending = () => !sharedSession && storyStatus === "pending";
 const playQueue = createPlayQueue({
   ready: (action) =>
-    !cardsCooling &&
-    performance.now() >= swapEnd &&
-    (!localWordsPending() || openingWordsDue()) &&
-    !exchange.current &&
-    reveal.complete &&
+    (action.kind === "accept" ||
+      (!cardsCooling &&
+        performance.now() >= swapEnd &&
+        (!localWordsPending() || openingWordsDue()) &&
+        !exchange.current &&
+        reveal.complete)) &&
     (!sharedSession ||
       (!sharedSending &&
         !sharedSession.state.queue?.some(
@@ -2679,7 +2681,7 @@ function lingeringWords(inFlight) {
 }
 function presentPhase() {
   if (restedChoice !== choiceKey()) restedChoice = null;
-  if (queuedChoice && (rowCollapsed || (!selected.length && !questOpen) || restedChoice !== null)) {
+  if (queuedChoice && (rowCollapsed || (!selected.length && !questOpen) || restedChoice !== null || offerFront())) {
     queuedChoice = false;
     queueMicrotask(() => exchange.settleLast());
   }
@@ -2690,6 +2692,7 @@ function presentPhase() {
     // is opened first, and the line carries on after Done.
     revealing:
       !packPrompt() &&
+      !offerFront() &&
       (queuedChoice || !reveal.complete || exchange.hasNext || inscribing.size > 0),
     inFlight,
     lingering: lingeringWords(inFlight),
@@ -2870,7 +2873,7 @@ function renderActions() {
   $("action-beat").style.setProperty("--tier-color", rarest.color);
   // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
-    (selected.length > 0 && !rowCollapsed) || Boolean(packPrompt()),
+    (selected.length > 0 && !rowCollapsed) || Boolean(packPrompt()) || offerFront(),
   );
   // Settings' hand of cards stands raised (settings-cards.mjs).
   document.body.dataset.handExpanded = String(
@@ -4694,7 +4697,8 @@ function choiceInStack() {
     !borrowedBeat &&
     shownPhase === "choosing" &&
     ($("card-actions").childElementCount > 0 ||
-      !document.querySelector(".action-beat-heading").hidden)
+      !document.querySelector(".action-beat-heading").hidden) &&
+    !offerFront()
   );
 }
 function choiceInFront() {
