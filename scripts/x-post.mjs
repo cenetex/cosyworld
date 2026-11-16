@@ -152,7 +152,7 @@ async function main(argv, env) {
   console.log(`[x-post] ${today} is day ${number ?? "unset (no start date)"}; ${posts.length} approved post(s) due.`);
   const out = mkdtempSync(path.join(tmpdir(), "x-post-"));
   for (const post of posts) {
-    const ready = post.video && path.resolve(root, env.X_MEDIA_DIR ?? "output/x-campaign", post.video);
+    const ready = post.video && path.resolve(root, env.X_MEDIA_DIR ?? "v2/social/media", post.video);
     if (ready && !existsSync(ready)) {
       console.log(`[x-post] skipped ${post.id}: ${post.video} is not on this machine. Run it by hand where the file is.`);
       continue;
