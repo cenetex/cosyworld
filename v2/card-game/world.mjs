@@ -93,6 +93,7 @@ import {
   settleHomeLevels,
   wantOf,
   wantKey,
+  wantMet,
   travels,
   resting,
   settleWants,
@@ -162,7 +163,7 @@ import {
   packOf,
   packStatesFault,
 } from "./pack-registry.mjs";
-import { authoredWant } from "./want-talk.mjs";
+import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { dailyRumours, dayOf, noteRumours, talkRumours } from "./world/rumours.mjs";
 import {
   newCrossingState,
@@ -2354,10 +2355,11 @@ function residentRound(s, acted) {
 // starts the round again; an arrival must play before it can complete.
 function perform(s, a, round = null, settle = []) {
   const hands = handSnapshot(s);
+  const stale = actorIds.filter((id) => wantMet(s, id));
   settleCrossingUnlocks(s, sensesFor(s));
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);
-  const result = performPlay(s, a, round, settle, hands);
+  const result = performPlay(s, a, round, settle, hands, stale);
   settleLost(s, wantAPI(s), a);
   if (companionOf(s, a.actor) && controlledByHuman(s, a.actor))
     s.actors[a.actor].actedAt = s.turn;
@@ -2367,7 +2369,7 @@ function perform(s, a, round = null, settle = []) {
   refuelCarried(s);
   settleLamp(s);
   if (a.kind === "wait")
-    settleWants(s, wantActors(s, [a.actor, ...settle]), wantAPI(s), a);
+    settleWants(s, wantActors(s, [a.actor, ...settle]), wantAPI(s), a, stale);
   if (conflict && s.standoffs.includes(conflict)) {
     const calm = conflict.steppedBack;
     if (a.kind === "attack") for (const id in calm) calm[id] = false;
@@ -2383,7 +2385,7 @@ function perform(s, a, round = null, settle = []) {
   }
   return result;
 }
-function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
+function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), stale = []) {
   const who = nameOf(a.actor);
   const firstCrossing = actorIds.every((id) => s.actors[id].crossed === 0);
   const here = s.actors[a.actor].place;
@@ -2453,7 +2455,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
   let affected = null,
     arrival = null,
     combat = null,
-    invitation = null;
+    invitation = null,
+    led = [];
   switch (a.kind) {
     case "radio":
       s.items[RADIO_ITEM].radioOn = a.radioOn;
@@ -2484,6 +2487,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
         const earlier = bonded ? bind(s, a.actor, a.target) : null;
         if (earlier) narrowTickets(s, earlier);
         joinTrip(s, a.target, here, a.destination);
+        led = [a.target];
         const through = travelParty(s, [a.actor, a.target], a.destination);
         text += ` ${nameOf(a.target)} agrees. They travel together.`;
         if (earlier) text += ` ${nameOf(earlier)} stays behind.`;
@@ -2575,10 +2579,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
         text += ` ${nameOf(guard)} lets ${who} through.`;
         affected = guard;
       }
-      if (
-        travelParty(s, partyFor(s, a.actor, a.target), a.target) &&
-        firstCrossing
-      )
+      const party = partyFor(s, a.actor, a.target);
+      led = party.slice(1);
+      if (travelParty(s, party, a.target) && firstCrossing)
         text += " Something on the far shore turns its head.";
       break;
     }
@@ -2800,7 +2803,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
           accepted: !a.target || requestAccepted,
           ...(handover ? { pressured: true } : {}),
         }
-      : a,
+      : { ...a, led },
+    stale,
   );
   // A player's Talk that reveals a want new to them records what was said, so
   // Accept quest can offer it while it is still the want told (#2605).
@@ -3131,7 +3135,11 @@ function wantPlan(s, actor) {
   const settled = dwelling(s, actor);
   const drift = () =>
     ranged && worldLife.on && !settled ? homeStep() : idle();
-  if (walksHome(s, actor)) return settled ? idle() : homeStep();
+  const met =
+    want?.kind === "person" &&
+    s.actors[want.target]?.place === here &&
+    find("talk", (a) => a.target === want.target);
+  if (!met && walksHome(s, actor)) return settled ? idle() : homeStep();
   // A resident eats what it holds when a quest of its wants it eaten, there
   // and with that companion if named.
   const meal = acts.find(
@@ -3202,7 +3210,6 @@ function wantPlan(s, actor) {
   }
   const item = want.target,
     owner = rootHolder(s, item);
-  // Coverings are physical items; active-hand light is settled before NPC planning.
   if (owner === actor) {
     if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)
       return go(want.step.at);
@@ -3225,6 +3232,7 @@ function wantPlan(s, actor) {
           x.item.localeCompare(y.item),
       );
   if (!actorIds.includes(owner)) {
+    if (stagedWants(s, actor).some((entry) => entry.want.minTrust)) return idle();
     const take =
       find("take", (a) => a.item === top) ||
       find("take", (a) => a.item === item);
