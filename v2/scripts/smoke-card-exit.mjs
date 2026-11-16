@@ -229,7 +229,6 @@ try {
     await ready();
     assert.deepEqual(await seen(), [], "reduced motion shows no exit");
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    // A new game opens on a hand already dealt.
     await watch();
     await page.evaluate(() => document.querySelector("#confirm-reset").click());
     assert.deepEqual(await seen(), [], "a new game shows no exit");

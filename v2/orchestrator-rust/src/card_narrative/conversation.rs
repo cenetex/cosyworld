@@ -341,7 +341,7 @@ pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
             true => super::system_voice(entity, Part::Line),
             false => system(entity),
         },
-        lead: lone.then(|| place(context)).unwrap_or_default(),
+        lead: if lone { place(context) } else { String::new() },
         assistant,
         user: user(context, entity),
     }
