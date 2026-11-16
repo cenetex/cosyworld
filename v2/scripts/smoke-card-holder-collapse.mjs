@@ -473,7 +473,6 @@ try {
           handBefore,
           "the hand holds still",
         );
-        // Empty table space lowers it.
         await page.locator("#stage").click({ position: { x: 20, y: 200 } });
         assert.equal(await handExpanded(), "false", "the table lowers it");
         await raise();
