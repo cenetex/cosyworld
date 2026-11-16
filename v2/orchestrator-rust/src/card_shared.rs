@@ -31,7 +31,6 @@ mod guild_view;
 pub(crate) use guild_view::guild_view;
 #[cfg(test)]
 mod import_tests;
-mod kernel;
 #[cfg(test)]
 mod meet_on_arrival_tests;
 mod narrator;

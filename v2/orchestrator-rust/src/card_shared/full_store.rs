@@ -149,51 +149,7 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         }
         return Ok(w);
     }
-    // Keep the old command interpreter intact. Migration is one explicit seed
-    // record, preserving the invite and account claims while extending the map.
-    let old = store::world(c, id)?;
-    let mut q = c.prepare("SELECT room,play,content FROM (SELECT seq,room,play,content FROM card_scenes WHERE world=? AND length(content)<=32768 ORDER BY seq DESC LIMIT 80) ORDER BY seq").map_err(sql_error)?;
-    let legacy_scenes = q
-        .query_map([id], |r| {
-            Ok((
-                r.get::<_, i32>(0)?,
-                r.get::<_, String>(1)?,
-                r.get::<_, String>(2)?,
-            ))
-        })
-        .map_err(sql_error)?
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(sql_error)?;
-    let legacy_scenes: Vec<Value> = legacy_scenes.into_iter().filter_map(|(room,play,text)| {
-        let scene: Value = serde_json::from_str(&text).ok()?;
-        Some(json!({"play":play,"room":room,"actor":scene["actor"],"turn":scene["turn"],"action":scene["action"],"lines":scene["lines"],"starts_at":scene["starts_at"],"until_at":scene["until_at"],"error":scene["error"]}))
-    }).collect();
-    let result = engine::reduce(
-        json!({"op":"migrate","legacy":old,"legacyScenes":legacy_scenes,"seed":run_seed(id)}),
-    )?;
-    let w = World {
-        version: engine::VERSION.into(),
-        game: result["world"].clone(),
-        claimed: old.claimed,
-        present: [0; 8],
-        pack: engine::takes_content(engine::VERSION).then(|| content::current().into()),
-    };
-    seed(c, id, &w, "legacy-nine-room-to-full-world", now)?;
-    for scene in result["legacyScenes"].as_array().into_iter().flatten() {
-        let room = scene["room"]
-            .as_str()
-            .ok_or("The remembered scene needs a place.")?;
-        let play = scene["play"]
-            .as_str()
-            .ok_or("The remembered scene needs its record.")?;
-        c.execute(
-            "INSERT OR IGNORE INTO card_full_scenes(world,room,play,content) VALUES(?,?,?,?)",
-            params![id, room, play, scene.to_string()],
-        )
-        .map_err(sql_error)?;
-    }
-    c.execute("UPDATE card_plays SET status='cancelled' WHERE world=? AND status IN ('waiting','working','playing')",[id]).map_err(sql_error)?;
-    Ok(w)
+    Err(floor::CLOSED.into())
 }
 pub(super) fn commit(
     c: &Connection,
