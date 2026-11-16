@@ -3247,7 +3247,10 @@ pub(crate) mod tests {
             "I hear you."
         );
         assert!(browser::complete(&scene, None, answers("As an AI, I can help.")).is_err());
-        assert!(browser::complete(&scene, None, answers("I hear you,")).is_err());
+        assert_eq!(
+            browser::complete(&scene, None, answers("I hear you,")).unwrap()["entries"][0]["text"],
+            "I hear you,"
+        );
     }
 
     #[test]
@@ -3540,8 +3543,7 @@ pub(crate) mod tests {
         // third-person narration of oneself, and read-backs of the brief.
         for (raw, reason) in [
             ("It seems like you're creating a short story.", "assistant"),
-            // The unfinished colon is rejected before its assistant wording.
-            ("Here is the completion for Pip's dialogue:", "shape"),
+            ("Here is the completion for Pip's dialogue:", "assistant"),
             (
                 "Okay, let's break down what Pip might say next.",
                 "assistant",
