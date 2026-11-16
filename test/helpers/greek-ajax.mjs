@@ -73,8 +73,6 @@ export function ajaxTalk(
 export function ajaxCamp() {
   let world = ajaxMove(ajaxStart(), "greek-harbor");
   world = ajaxChoice(world, "invitation");
-  // The Northern Road walks from the harbor to the Trojan landing: the
-  // Charybdis never sails to Troy (rules 94).
   return ajaxMove(world, "greek-ajax-landing", "greek-greek-camp");
 }
 
