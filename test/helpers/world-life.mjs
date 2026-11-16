@@ -25,7 +25,6 @@ export function lifeWorld({ seed = 7, turn = DAY_TURNS, place } = {}) {
       s.packs["greek-drama"].met[id] = 0;
   return reload(s);
 }
-// One legal play of `kind` (never a Guard, never a Sleep for "wait").
 export function act(s, kind, fields = {}) {
   const action = legalActions(s).find(
     (a) =>
