@@ -2,7 +2,7 @@
 
 import { createHmac, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -70,7 +70,9 @@ export function problems(queue) {
     if (!Number.isInteger(post.day) || post.day < 1) found.push(`${post.id}: day must be 1 or more`);
     if (!post.text || Array.from(post.text).length > LIMIT) found.push(`${post.id}: text must be 1 to ${LIMIT} characters`);
     if (typeof post.approved !== "boolean") found.push(`${post.id}: approved must be true or false`);
-    if (Boolean(post.portrait) !== Boolean(post.voice)) found.push(`${post.id}: a video post needs both portrait and voice`);
+    if (Boolean(post.portrait) !== Boolean(post.voice)) found.push(`${post.id}: a voice post needs both portrait and voice`);
+    if (post.video && post.portrait) found.push(`${post.id}: a post has a ready video or a portrait, not both`);
+    if (post.video && path.basename(post.video) !== post.video) found.push(`${post.id}: video must be a file name`);
   }
   return found;
 }
@@ -150,7 +152,12 @@ async function main(argv, env) {
   console.log(`[x-post] ${today} is day ${number ?? "unset (no start date)"}; ${posts.length} approved post(s) due.`);
   const out = mkdtempSync(path.join(tmpdir(), "x-post-"));
   for (const post of posts) {
-    const file = post.portrait ? video(post, out) : null;
+    const ready = post.video && path.resolve(root, env.X_MEDIA_DIR ?? "output/x-campaign", post.video);
+    if (ready && !existsSync(ready)) {
+      console.log(`[x-post] skipped ${post.id}: ${post.video} is not on this machine. Run it by hand where the file is.`);
+      continue;
+    }
+    const file = ready || (post.portrait ? video(post, out) : null);
     if (!flag("--post")) {
       console.log(`[x-post] dry run ${post.id}${file ? ` with ${path.basename(file)}` : ""}:\n${post.text}\n`);
       continue;

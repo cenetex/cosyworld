@@ -1,5 +1,3 @@
-// Rules 100, world life: the Gate Guard's standing Wait bars the battlefield,
-// and a player may stand guard at a guardable way.
 import { describe, expect, it } from "vitest";
 import { lockText } from "./helpers/lock-text.mjs";
 import { encodeSave, exits, legalActions, play, questOffers, sealedWays } from "../v2/card-game/world.mjs";
