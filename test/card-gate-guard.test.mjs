@@ -42,8 +42,6 @@ describe("the Gate Guard", () => {
     expect(
       questOffers(s).find((o) => o.id === `quest:box:${FIELD}`),
     ).toBeTruthy();
-    // He bars the gate from the battlefield side too: there it is the
-    // locked box with the same reason, and only he may pass.
     const far = structuredClone(s);
     far.actors.vale.place = FIELD;
     far.actors.vale.visited.push(GATE);
