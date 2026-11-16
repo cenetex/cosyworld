@@ -43,6 +43,7 @@ const ADDRESSED_WAIT: Duration = Duration::from_secs(3);
 const ADDRESSED_CALL: Duration = Duration::from_secs(6);
 const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
 const CANDIDATES: usize = 8;
+const PEOPLE: usize = 6;
 const HISTORY: usize = 200;
 const SHARES: &str = "[shares an image]";
 const IMAGE_HOSTS: [&str; 2] = ["cdn.discordapp.com", "media.discordapp.net"];
@@ -850,6 +851,21 @@ fn arranged(request: &CoordinateRequest, cast: &[Resident]) -> Option<Value> {
     Some(Value::Object(state))
 }
 
+fn people(request: &CoordinateRequest) -> Vec<String> {
+    let lines = request.state.get("history").and_then(Value::as_array);
+    let mut seen: Vec<String> = Vec::new();
+    for line in lines.into_iter().flatten().rev() {
+        let Some(name) = line.get("person").and_then(Value::as_str) else {
+            continue;
+        };
+        let name = label(name);
+        if seen.len() < PEOPLE && !seen.contains(&name) {
+            seen.push(name);
+        }
+    }
+    seen
+}
+
 fn asked(request: &CoordinateRequest, cast: &[Resident]) -> Value {
     let mut criteria: Map<String, Value> = cast
         .iter()
@@ -864,9 +880,17 @@ fn asked(request: &CoordinateRequest, cast: &[Resident]) -> Value {
             )
         })
         .collect();
+    for name in people(request) {
+        criteria.insert(
+            format!("person:{name}"),
+            json!(format!(
+                "{name}, a person, speaks next: they are mid-thought, were asked something, or the talk is between people"
+            )),
+        );
+    }
     criteria.insert(
         "none".into(),
-        json!("No resident speaks next: the people talk among themselves, or nothing waits for an answer"),
+        json!("Nobody speaks next: nothing waits for an answer"),
     );
     json!({"next": {"type": "choice", "instructions": "Who speaks next in this chat?", "criteria": criteria}})
 }
@@ -874,14 +898,35 @@ fn asked(request: &CoordinateRequest, cast: &[Resident]) -> Value {
 fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Option<Value> {
     let rounded = |p: f64| (p * 100.0).round() / 100.0;
     let (choice, confidence) = system_one::choice(answers, "next")?;
-    let known = |id: &str| id == "none" || request.residents.iter().any(|r| r == id);
-    let probabilities: Map<String, Value> = answers["next"]["probabilities"]
-        .as_object()?
+    let people: Vec<String> = people(request)
         .iter()
-        .filter(|(id, _)| known(id))
+        .map(|name| format!("person:{name}"))
+        .collect();
+    let person = |id: &str| people.iter().any(|p| p == id);
+    let resident = |id: &str| request.residents.iter().any(|r| r == id);
+    let quiet = |id: &str| id == "none" || person(id);
+    let odds = answers["next"]["probabilities"].as_object()?;
+    let mut probabilities: Map<String, Value> = odds
+        .iter()
+        .filter(|(id, _)| resident(id.as_str()))
         .filter_map(|(id, p)| Some((id.clone(), json!(rounded(p.as_f64()?)))))
         .collect();
-    known(choice).then(|| {
+    let silence: f64 = odds
+        .iter()
+        .filter(|(id, _)| quiet(id.as_str()))
+        .filter_map(|(_, p)| p.as_f64())
+        .sum::<f64>()
+        .min(1.0);
+    let folded = odds.keys().any(|id| quiet(id.as_str()));
+    if folded {
+        probabilities.insert("none".into(), json!(rounded(silence)));
+    }
+    let (choice, confidence) = match (person(choice), folded) {
+        (true, true) => ("none", silence),
+        (true, false) => ("none", confidence),
+        (false, _) => (choice, confidence),
+    };
+    (choice == "none" || resident(choice)).then(|| {
         json!({"next": {"choice": choice, "confidence": rounded(confidence), "probabilities": probabilities}})
     })
 }
@@ -1674,7 +1719,15 @@ mod tests {
         let criteria = asked["questions"]["next"]["criteria"].as_object().unwrap();
         assert_eq!(
             criteria.keys().collect::<Vec<_>>(),
-            ["none", "rati", "vale"]
+            ["none", "person:Ash", "rati", "vale"]
+        );
+        assert_eq!(
+            criteria["person:Ash"],
+            "Ash, a person, speaks next: they are mid-thought, were asked something, or the talk is between people"
+        );
+        assert_eq!(
+            criteria["none"],
+            "Nobody speaks next: nothing waits for an answer"
         );
         let state = &asked["state"];
         assert_eq!(state["notes"]["topic"], "meeting");
@@ -1710,6 +1763,53 @@ mod tests {
         )
         .await;
         assert_eq!(body, json!({"answers": null, "reason": "jev-shape"}));
+    }
+
+    #[tokio::test]
+    async fn a_person_who_speaks_next_comes_back_as_none() {
+        let answer = r#"{"answers": {"next": {"type": "choice", "choice": "person:ratimics",
+            "probabilities": {"person:ratimics": 0.55, "person:Ash": 0.13, "rati": 0.2, "vale": 0.02,
+            "none": 0.1, "person:Nobody": 0.4}, "confidence": 0.55}}}"#;
+        let mut body = met();
+        let history = body["state"]["history"].as_array_mut().unwrap();
+        history.push(json!({"resident": "rati", "text": "Hello.", "ago": 1}));
+        history.push(json!({"person": "ratimics", "text": "hold on, let me think", "ago": 0}));
+        let (_, body, asked) = post_coordinate(answer, body).await;
+        let criteria = asked[0]["questions"]["next"]["criteria"]
+            .as_object()
+            .unwrap();
+        assert_eq!(
+            criteria.keys().collect::<Vec<_>>(),
+            ["none", "person:Ash", "person:ratimics", "rati", "vale"]
+        );
+        assert!(criteria["rati"].as_str().unwrap().starts_with("RATi "));
+        assert!(criteria["person:ratimics"]
+            .as_str()
+            .unwrap()
+            .starts_with("ratimics, a person, "));
+        assert_eq!(asked[0]["state"]["history"][3]["speaker"], "ratimics");
+        assert_eq!(
+            body,
+            json!({"reason": "ok", "answers": {"next": {"choice": "none", "confidence": 0.78,
+                "probabilities": {"rati": 0.2, "vale": 0.02, "none": 0.78}}}})
+        );
+    }
+
+    #[test]
+    fn people_are_recent_first_distinct_and_few() {
+        let mut body = met();
+        let names = ["Bo", "Cy", "Di", "Ed", "Flo", "Gus", "Hal", "Hal", "RATi"];
+        body["state"]["history"] = names
+            .iter()
+            .map(|name| json!({"person": name, "text": "hi"}))
+            .collect();
+        let request: CoordinateRequest = serde_json::from_value(body).unwrap();
+        assert_eq!(
+            people(&request),
+            ["Someone", "Hal", "Gus", "Flo", "Ed", "Di"]
+        );
+        let criteria = asked(&request, &cast("lonely-forest").unwrap());
+        assert_eq!(criteria["next"]["criteria"].as_object().unwrap().len(), 9);
     }
 
     #[tokio::test]
