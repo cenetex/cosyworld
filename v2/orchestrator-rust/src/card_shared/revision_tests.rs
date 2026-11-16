@@ -189,7 +189,6 @@ async fn stale_shared_http_commands_keep_the_reload_code() {
     for route in [
         "/card-game/shared/worlds".to_string(),
         format!("/card-game/shared/worlds/{}/command", "a".repeat(48)),
-        format!("/card-game/shared/worlds/{}/browser-chat", "a".repeat(48)),
         format!("/card-game/shared/worlds/{}/talk", "a".repeat(48)),
     ] {
         for supplied in [None, Some(("ann", "0")), Some(("other", "1"))] {
@@ -208,9 +207,6 @@ async fn stale_shared_http_commands_keep_the_reload_code() {
                 .unwrap();
             if route.ends_with("worlds") {
                 *request.body_mut() = Body::from("{}");
-            }
-            if route.ends_with("browser-chat") {
-                *request.body_mut() = Body::from(r#"{"key":"stale","failure":true}"#);
             }
             if route.ends_with("talk") {
                 *request.body_mut() = Body::from(r#"{"target":"moth"}"#);

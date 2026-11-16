@@ -26,8 +26,6 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, Weak},
     time::{Duration, Instant},
 };
-#[path = "full_browser.rs"]
-mod browser;
 #[path = "full_continue.rs"]
 mod continuation;
 #[path = "full_dedupe.rs"]
@@ -53,10 +51,6 @@ pub(super) fn router() -> Router<AppState> {
                 .layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
         .route("/card-game/shared/worlds/{id}", get(view))
-        .route(
-            "/card-game/shared/worlds/{id}/browser-chat",
-            post(browser::chat).layer(DefaultBodyLimit::max(64 * 1024)),
-        )
         .route(
             "/card-game/shared/worlds/{id}/command",
             post(command).layer(DefaultBodyLimit::max(8192)),
