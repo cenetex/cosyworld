@@ -181,7 +181,6 @@ export function assistantRoleScenes() {
   // Theban City Gate".
   const gate = playCard(road, "move", null, "greek-courtyard");
   const antigone = playCard(gate, "move", null, "greek-gate");
-  // The reflected shore: Vale at Black pond with Pip, holding the unlit Lamp.
   const shore = enableMotives(createWorld());
   shore.items.cloth.holder = "vale";
   shore.items.lamp.holder = "vale";
