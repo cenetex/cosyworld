@@ -139,7 +139,6 @@ describe("the guard and the decree", () => {
     expect(s.items["greek-creon-writ"].holder).toBe(GUARD);
     expect(out(s)).toBe(true);
     expect(sealedReason(s, FIELD)).toBe(null);
-    expect(s.openedRoutes ?? []).not.toContain(`${GATE}>${FIELD}`);
     // He keeps the writ when asked.
     expect(
       act(s, "ask", { item: "greek-creon-writ", target: GUARD }).items[

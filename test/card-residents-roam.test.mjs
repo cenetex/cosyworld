@@ -74,15 +74,10 @@ const scopes = Object.fromEntries(
 );
 
 const restore = [];
-const routeKeys =packDefinitions.flatMap((p) =>
-  (p.routes || []).filter((r) => r.requires?.length).map((r) => `${r.from}>${r.to}`),
-);
 function beside(id, open = true) {
   const s = createWorld({ seed: 7, packScopes: scopes });
-  if (open) {
+  if (open)
     for (const key of Object.keys(s.crossings)) s.crossings[key].discovered = true;
-    s.openedRoutes = routeKeys;
-  }
   const pack = packPeople[id]?.packId;
   if (pack && s.packs[pack].met) s.packs[pack].met[id] = 0;
   if (id === "listener") s.actors.vale.arcana = { proved: [], did: [], calls: 3 };

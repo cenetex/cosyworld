@@ -147,7 +147,7 @@ function callable(world, dock) {
 // call the empty ship to, wherever it lies.
 // Every key not `pinned` that lies in a place already reached can be carried
 // to any reached place, set down there, laid on deck, or handed to a
-// resident there; each hand-over that opens a gate latches it, as play does.
+// resident there; each hand-over opens a gate only while it holds, as play does.
 // Keys come by trade and by making too (rules 102): a resident in a reached
 // place who wants a thing the traveler can bring hands over what it holds,
 // and a maker at home with each of its makings to hand makes its locked
@@ -270,22 +270,18 @@ function reach(
   return seen;
 }
 
-// The worst case for a walker: every key is somewhere out of reach and no
-// gate has ever opened, or only the given gates. What is still walkable then
-// is walkable always.
-const CITY_GATE = "greek-gate>greek-battlefield";
-function worstCase(world, opened = []) {
+// The worst case for a walker: every key is somewhere out of reach. What is
+// still walkable then is walkable always.
+function worstCase(world) {
   const s = structuredClone(world);
-  delete s.openedRoutes;
-  if (opened.length) s.openedRoutes = opened;
   for (const id of KEYS) if (s.items[id]) s.items[id].holder = "greek-ship";
   return s;
 }
 const start = (dock) =>
   packDefinitions.find((p) => p.places[dock])?.entry ?? "station";
 
-function shipOnly(world, opened = []) {
-  const bare = worstCase(world, opened);
+function shipOnly(world) {
+  const bare = worstCase(world);
   return Object.values(transports)
     .flatMap((t) => t.docks)
     .filter((dock) => entityActive(world, dock))
@@ -303,7 +299,6 @@ const OUTSIDE_WALLS = ["greek-piraeus"];
 describe("ports reachable on foot or by a free leg home", () => {
   for (const [stage, make] of Object.entries(stages))
     it(`strands no dock, with the City Gate open or shut: ${stage}`, () => {
-      expect(shipOnly(make(), [CITY_GATE])).toEqual([]);
       expect(shipOnly(make())).toEqual([]);
       expect(transports["greek-ship"].docks).toEqual([
         "pond",
@@ -442,9 +437,6 @@ describe("ports reachable on foot or by a free leg home", () => {
     // With the truce the Long Walls open, and the guard holding Creon's
     // writ opens the City Gate, so the land route leads home.
     let s = openDoorStart();
-    // The defiant burial went through the guard; the live gate never
-    // latches (rules 102), so it opens only while he holds the writ.
-    expect(s.openedRoutes || []).not.toContain(CITY_GATE);
     s = holding(s, "greek-creon-writ", "greek-guard");
     // Roaming residents aboard go ashore: the ship is empty.
     for (const a of Object.values(s.actors))
@@ -462,7 +454,7 @@ describe("ports reachable on foot or by a free leg home", () => {
     callTransport(s, "greek-harbor");
     stowProvisions(s, "greek-harbor");
     expect(s.transports["greek-ship"].dock).toBe("greek-harbor");
-    // The Long Walls are open from the start; no truce latches them.
+    // The Long Walls are open from the start; no truce opens them.
     expect(exits(s, "greek-piraeus", "vale")).toEqual([
       "greek-road-athens-piraeus",
     ]);
@@ -631,7 +623,6 @@ describe("the City Gate shut", () => {
     const shut = openDoorStart();
     shut.items["greek-creon-writ"].holder = "greek-palace";
     const s = stowProvisions(shut, "greek-harbor");
-    expect(s.openedRoutes || []).not.toContain(CITY_GATE);
     const reached = reach(s, "greek-harbor", {
       pinned: ["greek-creon-writ", "greek-decree"],
       ship: true,
