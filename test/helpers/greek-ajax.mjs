@@ -42,7 +42,6 @@ export function ajaxStart() {
   return structuredClone(start);
 }
 
-// Publish the reserved source words through the same path as recorded Talk.
 export function ajaxTalk(
   world,
   topicId,
