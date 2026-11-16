@@ -2155,6 +2155,7 @@ function performAction(action, revision) {
       render();
       return;
     }
+    restedChoice = null;
     notice(result.error);
     render();
     return;
