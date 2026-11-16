@@ -54,8 +54,9 @@ export async function next(room, { config, cast, coordinate, stats, log }, signa
   const p = top ? chance(top) : 0;
   const none = "none" in odds || answer.choice === "none" ? chance("none") : Math.max(0, 1 - ranked.reduce((sum, id) => sum + chance(id), 0));
   const spoke = speakers(room.messages);
-  const fresh = ranked.find((id) => !spoke.has(id) && chance(id) >= config.DISCORD_TURN_FLOOR);
-  const who = top && none < config.DISCORD_NONE_THRESHOLD ? (fresh ?? top) : null;
+  const beats = (id) => chance(id) >= none - config.DISCORD_NONE_MARGIN;
+  const fresh = ranked.find((id) => !spoke.has(id) && beats(id) && chance(id) >= p * config.DISCORD_FRESH_SHARE);
+  const who = top && beats(top) ? (fresh ?? top) : null;
   const shown = Object.entries(odds).map(([id, q]) => `${id}:${Number(q).toFixed(2)}`).join(",") || "none";
   log(`next choice=${top ?? answer.choice} p=${p.toFixed(2)} none=${none.toFixed(2)} probs=${shown} action=${who ? "speak" : "silent"}${who && who !== top ? ` turn=${who}` : ""} ${where(room)}`);
   return who;

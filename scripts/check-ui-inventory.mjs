@@ -85,7 +85,6 @@ const squash = (t) =>
     .trim();
 const unquote = (t) => t.replace(/"[^"]*"|'[^']*'/g, blank);
 
-// Style rules (not at-rules or keyframes) with their at-rule context.
 function cssRules(source) {
   const text = source.replace(/\/\*[\s\S]*?\*\//g, blank);
   const rules = [];
