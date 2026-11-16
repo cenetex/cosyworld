@@ -764,8 +764,8 @@ fn reduce_source(
             if interrupted.load(Ordering::Relaxed) {
                 return deadline_error(version);
             }
-            tracing::warn!(error=%error, exception=?ctx.catch(), "shared rules rejected a request");
-            "The scene changed. Choose from the current cards.".to_string()
+            tracing::error!(error=%error, exception=?ctx.catch(), "shared rules crashed on a request");
+            RULES_FAULT.to_string()
         })
     })?;
     if output.len() > MAX_BYTES {
@@ -789,6 +789,7 @@ fn reduce_source(
     Ok(value)
 }
 const DEADLINE_ERROR: &str = "The shared world is taking a moment. Try again.";
+const RULES_FAULT: &str = "The shared-world rules hit an error. Nothing changed.";
 fn deadline_error(version: &str) -> String {
     tracing::warn!(version, "shared rules reached the interpreter deadline");
     DEADLINE_ERROR.into()

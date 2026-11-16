@@ -396,8 +396,6 @@ let thinkingGrace = null;
 // play, an unsaved world, a lost connection, a nudge) reads on the action
 // beat's status line; a pending play reads on its own button.
 function notice(text, playStatus = "") {
-  // Saved speech failures use the small dialogue retry control.
-  if (/^(The|Your) play is saved\./.test(text)) return;
   const line = $("play-status");
   line.textContent = text;
   line.hidden = !text;
