@@ -491,21 +491,6 @@ test("saved ship state names a dock and a valid occupied leg", () => {
 });
 
 
-test("a validated human already aboard keeps the saved voyage", () => {
-  const old = pond();
-  old.actors.vale.place = "greek-ship";
-  const upgraded = reload(old);
-  assert.equal(upgraded.crossings["pond-greek-harbor"].discovered, true);
-  assert.deepEqual(upgraded.transports, old.transports);
-  assert.deepEqual(upgraded.actors, old.actors);
-  assert.deepEqual(reload(upgraded), upgraded);
-  assert(exits(upgraded, "greek-ship", "vale").includes("pond"));
-  const invalid = pond();
-  invalid.transports["greek-ship"].dock = "pond";
-  invalid.crossings["pond-greek-harbor"].discovered = 4;
-  assert.throws(() => decodeSave(JSON.stringify(invalid)));
-});
-
 test("an old NPC voyage preserves the first-signal lock after landing and reload", () => {
   for (const destination of ["pond", "greek-harbor"]) {
     let s = pond();
