@@ -301,17 +301,26 @@ describe("entity memories and model text", () => {
     expect(() => decodeSave(JSON.stringify(restored))).toThrow();
   });
 
-  it("rejects partial output and discards replies for older turns", () => {
-    const world = act(createWorld(), "wait"),
+  it("leaves one bad line silent, publishes the rest and discards replies for older turns", () => {
+    const world = act(act(createWorld(), "take", "lamp"), "talk", null, "keeper"),
       context = narrativeContext(world);
-    const bad = response(context);
-    bad.entries.pop();
-    expect(() => applyGeneratedText(world, context, bad)).toThrow();
+    const spoke = (next, id) =>
+      next.log.some((e) => e.generated && e.turn === world.turn && e.entityId === id);
+    const [first, second] = context.speakers;
+    for (const spoil of [
+      (entry) => (entry.text = " "),
+      (entry) => (entry.text = "x".repeat(401)),
+      (entry) => (entry.id = second),
+    ]) {
+      const bad = response(context);
+      spoil(bad.entries.find((entry) => entry.id === first));
+      const next = applyGeneratedText(world, context, bad);
+      expect(spoke(next, first)).toBe(false);
+      expect(spoke(next, second)).toBe(true);
+      expect(silentSpeakers(context, next)).toEqual([first]);
+    }
     const later = act(world, "wait");
     expect(applyGeneratedText(later, context, response(context))).toBeNull();
-    const duplicate = response(context);
-    duplicate.entries[0].id = duplicate.entries[1].id;
-    expect(() => applyGeneratedText(world, context, duplicate)).toThrow();
   });
 
   it("keeps omitted cards unchanged and publishes only supplied speakers", () => {
@@ -330,7 +339,7 @@ describe("entity memories and model text", () => {
         .some((e) => e.generated && e.entityId === silent),
     ).toBe(false);
     // The quiet speaker is shown as "…" without saving or a memory change.
-    const quiet = silentSpeakers(context, reply, next);
+    const quiet = silentSpeakers(context, next);
     expect(quiet).toEqual(
       profiles[silent].kind === "avatar" ? [silent] : [],
     );
@@ -340,12 +349,9 @@ describe("entity memories and model text", () => {
     );
     expect(shown.every((line) => line.seq > next.eventSeq)).toBe(true);
     expect(next.log.some((entry) => entry.silent)).toBe(false);
-    expect(silentSpeakers(context, response(context), next)).toEqual([]);
-    const empty = response(context);
-    empty.omitted = [...context.speakers];
-    empty.entries = empty.entries.filter(
-      (entry) => !empty.omitted.includes(entry.id),
-    );
+    const all = applyGeneratedText(world, context, response(context));
+    expect(silentSpeakers(context, all)).toEqual([]);
+    const empty = { ...response(context), entries: [] };
     expect(() => applyGeneratedText(world, context, empty)).toThrow();
   });
 
@@ -1308,7 +1314,11 @@ describe("saved character inner lives", () => {
       thought: "I felt welcome.",
       persona: "I am learning to share.",
     };
-    expect(() => applyGeneratedText(busy, busyContext, early)).toThrow();
+    const kept = (before, scene, reply, id = "vale") =>
+      expect(applyGeneratedText(before, scene, reply).memories[id].innerLife).toEqual(
+        before.memories[id].innerLife,
+      );
+    kept(busy, busyContext, early);
     const first = rest(busy);
     const firstContext = narrativeContext(first);
     const dreamy = response(firstContext);
@@ -1316,7 +1326,7 @@ describe("saved character inner lives", () => {
       ...early.entries.find((e) => e.id === "vale").reflection,
       dream: "A lamp floated above the pond.",
     };
-    expect(() => applyGeneratedText(first, firstContext, dreamy)).toThrow();
+    kept(first, firstContext, dreamy);
     let world = rest(busy, { dream: true });
     let context = narrativeContext(world);
     let generated = response(context);
@@ -1325,16 +1335,12 @@ describe("saved character inner lives", () => {
       persona: "I am learning to share.",
       dream: "A lamp floated above the pond.",
     };
+    const place = generated.entries.find((e) => profiles[e.id].kind !== "avatar");
+    place.reflection = reflection;
+    kept(world, context, generated, place.id);
+    generated = response(context);
     generated.entries.find((e) => e.id === "vale").reflection = reflection;
     world = applyGeneratedText(world, context, generated);
-    context = narrativeContext(world);
-    generated = response(context);
-    generated.entries.find((e) => e.id === "vale").reflection = reflection;
-    expect(() => applyGeneratedText(world, context, generated)).toThrow();
-    generated = response(context);
-    generated.entries.find((e) => profiles[e.id].kind !== "avatar").reflection =
-      reflection;
-    expect(() => applyGeneratedText(world, context, generated)).toThrow();
     const corrupt = structuredClone(world);
     corrupt.memories.vale.innerLife.dreams[0].turn = world.turn + 1;
     expect(() => decodeSave(JSON.stringify(corrupt))).toThrow();

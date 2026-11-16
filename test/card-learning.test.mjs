@@ -145,7 +145,9 @@ describe("avatar learning", () => {
     response.entries.find((e) => e.id === "vale").reflection.evidence = [
       999999,
     ];
-    expect(() => applyGeneratedText(world, context, response)).toThrow();
+    expect(
+      applyGeneratedText(world, context, response).memories.vale.innerLife,
+    ).toEqual(world.memories.vale.innerLife);
   });
   it("commits shared growth and keeps another player's inner life private", () => {
     let world = dispatchShared({

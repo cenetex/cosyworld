@@ -38,14 +38,8 @@ fn shared_line_commits_before_its_reflection_and_the_reflect_op_replays() {
         .iter()
         .map(|id| json!({"id":id,"text":if id=="vale" {"I can see the shore."} else {"Mist gathers."}}))
         .collect();
-    let lines = full_speech::parse(
-        &json!({"entries":entries}).to_string(),
-        "stop",
-        &work.context,
-        0,
-        &ids,
-    )
-    .unwrap();
+    let lines =
+        full_speech::parse(&json!({"entries":entries}).to_string(), &work.context, &ids).unwrap();
     full::finish_work(&app, &id, work.clone(), Ok(lines)).unwrap();
     // The line is journaled and valid on its own, naming its play.
     let spoken = full_store::world(&c, &id, now()).unwrap();

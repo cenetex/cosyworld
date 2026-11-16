@@ -40,7 +40,7 @@ pub(super) async fn chat(
             // sees it (#2068). A refused answer fails the play at once.
             let work = Work { id: body.key, room, actor, context, attempt, revision };
             let lines = voices::complete_shared(&payload["scene"], actor_id(actor), &ids, answers)
-                .and_then(|checked| super::super::full_speech::parse(&checked.to_string(), "stop", &work.context, actor, &ids));
+                .and_then(|checked| super::super::full_speech::parse(&checked.to_string(), &work.context, &ids));
             let refused = lines.as_ref().err().cloned();
             publish(&state, &id, work, lines.map_err(|_| "The play is saved. Its words need another moment.".into()))?;
             match refused {

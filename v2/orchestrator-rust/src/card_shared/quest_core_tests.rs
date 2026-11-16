@@ -94,9 +94,7 @@ fn quest_core_talk_disclosure_waits_for_published_speech_and_replays_accepted_le
         .collect();
     let lines = full_speech::parse(
         &json!({"entries":entries}).to_string(),
-        "stop",
         &retry.context,
-        0,
         &ids,
     )
     .unwrap();
