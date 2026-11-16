@@ -23,7 +23,7 @@ const pack = "greek-drama";
 const hollow = "greek-polynices-hollow";
 const antigone = "greek-antigone";
 const oil = "greek-oil-flask";
-const cloth = "greek-funeral-cloth";
+const cloth = "cloth";
 const shovel = "greek-shovel";
 // The burial is the quest that has a rite (an art stage) to show.
 const burialCard = (world) => questCards(world).find((quest) => quest.art) ?? null;
@@ -119,7 +119,7 @@ it.each(["opening", "full"])(
     }
     expect(burialCard(world)?.target).not.toBe(hollow);
     expect(world.items[oil].holder).toBe("greek-colonus");
-    expect(world.items[cloth].holder).toBe("greek-eleusis");
+    expect(world.gone).toEqual([cloth]);
     expect(world.items[shovel].holder).toBe(hollow);
     const saved = decodeSave(encodeSave(world)).packs[pack].flags;
     expect(saved).toMatchObject({ "greek-burial-performed": true });

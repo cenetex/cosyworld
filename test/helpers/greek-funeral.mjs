@@ -57,7 +57,7 @@ export function funeralJourney(world = null) {
     move("courtyard");
     act("take", { item: "greek-oil-flask" });
     move("sanctuary");
-    act("take", { item: "greek-funeral-cloth" });
+    world.items.cloth.holder = "vale";
     states.supplied = world;
     move("battlefield");
     for (let turns = 0; turns < 48 && !legalActions(world).some(
@@ -92,7 +92,7 @@ export function funeralJourney(world = null) {
     states.beforeAnoint = world;
     for (const [state, item] of [
       ["anointed", "greek-oil-flask"],
-      ["veiled", "greek-funeral-cloth"],
+      ["veiled", "cloth"],
       ["buried", "greek-shovel"],
     ]) {
       act("give", { item, target });

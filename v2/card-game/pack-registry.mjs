@@ -11,7 +11,13 @@ import {
 } from "./pack-journeys.mjs";
 import { newWant, setWant } from "./want.mjs";
 import { partyOf } from "./world/company.mjs";
-import { gone, usedUp, useUp, bringBack } from "./item-use.mjs";
+import {
+  gone,
+  usedUp,
+  useUp,
+  useUpForGood,
+  bringBack,
+} from "./item-use.mjs";
 import { restForGood } from "./world/for-good.mjs";
 // The compiled world packs mounted on the card table, indexed for the engine.
 // Packs supply data only; pack-rules.mjs applies the general rules they name.
@@ -791,6 +797,14 @@ export const departed = (pack, state, id) =>
   (pack.choices || []).some(
     (c) => c.on === "depart" && c.subject === id && owns(state.receipts, c.id),
   );
+export const spentByChoice = (world, id) =>
+  packDefinitions.some((pack) =>
+    (pack.choices || []).some(
+      (c) =>
+        owns(packState(world, pack.id)?.receipts, c.id) &&
+        c.effects.some((e) => e.kind === "retire_item" && e.item === id),
+    ),
+  );
 export function neverBack(world, id) {
   if (gone(world, id)) return true;
   if (world.actors?.[id]) {
@@ -856,8 +870,6 @@ export function applyPackChoice(
     world.items[id].history = world.items[id].history.slice(-12);
   };
   for (const e of choice.effects) {
-    // A retired item is used up: it leaves play and waits, unseen, at its
-    // authored holder until it regrows or a choice drops it again.
     // An alternative a set slot did not use stays where it is. Only the
     // actor's own things or things lying at the place are used, never what
     // another person holds (rules 98).
@@ -867,7 +879,10 @@ export function applyPackChoice(
     if (e.kind === "retire_item") {
       const root = rootOf(world, e.item),
         thing = pack.items[e.item];
-      if (root === action.actor || root === choice.at) {
+      if (!thing) {
+        if (root === action.actor || root === choice.at)
+          useUpForGood(world, e.item, restForGood(e.item));
+      } else if (root === action.actor || root === choice.at) {
         useUp(world, e.item, thing.holder);
         if (thing.home && !thing.regrow && !thing.locked) {
           bringBack(

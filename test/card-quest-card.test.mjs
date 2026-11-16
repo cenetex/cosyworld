@@ -311,14 +311,14 @@ describe("the quest card", () => {
   it("places the quest card after the player's avatar and belongings (#2295)", () => {
     const s = createWorld();
     s.items.lamp.holder = "vale";
-    s.items["greek-funeral-cloth"].holder = "vale";
+    s.items.cloth.holder = "vale";
     const ids = [questId()];
     expect(ids).toEqual(["quest:0"]);
     const hand = handWithQuest(availableCards(s), s, ids);
     expect(hand.filter(isQuestId)).toEqual(ids);
     const at = hand.indexOf("vale");
     expect(hand.slice(at + 1, at + 3).sort()).toEqual([
-      "greek-funeral-cloth",
+      "cloth",
       "lamp",
     ]);
     expect(hand[at + 3]).toBe(ids[0]);

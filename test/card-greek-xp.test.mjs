@@ -30,9 +30,8 @@ describe("boxes the Greek and RatiRadio content credits", () => {
       ["veil", j.anointed, j.veiled],
       ["bury", j.veiled, j.buried],
     ].map(([name, a, b]) => [name, xp(b) - xp(a)]);
-    expect(Object.fromEntries(gains)).toEqual({ anoint: 1, veil: 1, bury: 0 });
+    expect(Object.fromEntries(gains)).toEqual({ anoint: 1, veil: 0, bury: 0 });
     expect(j.anointed.opened["greek-colonus-keeper"]).toEqual(["vale"]);
-    expect(j.veiled.opened["greek-aethra"]).toEqual(["vale"]);
     expect(
       j.buried.log.some(
         (e) => e.verb === "want_met" && e.actorId === "vale" && e.seq > j.veiled.eventSeq,

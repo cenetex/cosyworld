@@ -343,11 +343,7 @@ describe("Greek choices and their receipts", () => {
     const hollow = "greek-polynices-hollow";
     world.actors.vale.place = hollow;
     world.actors["greek-antigone"].place = hollow;
-    for (const item of [
-      "greek-oil-flask",
-      "greek-funeral-cloth",
-      "greek-shovel",
-    ])
+    for (const item of ["greek-oil-flask", "greek-shovel"])
       world.items[item].holder = hollow;
     expect(stateOf(world).flags["greek-burial-performed"]).toBe(true);
     expect(
@@ -426,11 +422,7 @@ describe("Before the Burial", () => {
   it("carries the supplies to Antigone and opens the door through three Hollow rites", () => {
     const journey = funeralJourney(courtyard("opening"));
     const { supplied, beforeAnoint, anointed, veiled, buried } = journey;
-    for (const item of [
-      "greek-oil-flask",
-      "greek-funeral-cloth",
-      "greek-shovel",
-    ])
+    for (const item of ["greek-oil-flask", "cloth", "greek-shovel"])
       expect(supplied.items[item].holder).toBe("vale");
     expect(beforeAnoint.actors["greek-antigone"].place).toBe(
       "greek-polynices-hollow",
@@ -450,16 +442,11 @@ describe("Before the Burial", () => {
       beforeAnoint.turn + 3,
     ]);
     expect(anointed.items["greek-oil-flask"].holder).toBe("greek-colonus");
-    expect(veiled.items["greek-funeral-cloth"].holder).toBe("greek-eleusis");
+    expect(veiled.gone).toEqual(["cloth"]);
     expect(entityActive(buried, "greek-colonus")).toBe(true);
     expect(entityActive(buried, "greek-eleusis")).toBe(true);
-    const clothAgain = take(
-      move(buried, "greek-eleusis"),
-      "greek-funeral-cloth",
-    );
-    const oilAgain = take(move(clothAgain, "greek-colonus"), "greek-oil-flask");
+    const oilAgain = take(move(buried, "greek-colonus"), "greek-oil-flask");
     expect(oilAgain.items["greek-oil-flask"].holder).toBe("vale");
-    expect(oilAgain.items["greek-funeral-cloth"].holder).toBe("vale");
     expect(buried.items["greek-shovel"].holder).toBe("greek-polynices-hollow");
     expect(stateOf(buried).flags).toMatchObject({
       "greek-burial-performed": true,
@@ -530,7 +517,6 @@ describe("incompatible histories become playable branches", () => {
         state.receipts["greek-perform-burial"] = world.turn;
         state.choices["greek-theban-response"] = "burial";
         state.flags["greek-burial-performed"] = true;
-        world.items["greek-funeral-cloth"].holder = BATTLEFIELD;
         world.items["greek-oil-flask"].holder = BATTLEFIELD;
       },
     ],

@@ -492,6 +492,7 @@ catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
 // open-door-import.mjs verifies each ID/name against that original catalog.
 const retiredNames = [
   ["greek-return-cloths", "Clean Burial Cloths"],
+  ["greek-funeral-cloth", "Funeral Cloth"],
   ["greek-provision-basket", "The Quay Basket"],
   ["greek-return-list", "The Return List"],
   ["greek-grove-cup", "The Grove Cup"],

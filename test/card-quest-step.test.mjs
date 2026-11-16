@@ -71,7 +71,7 @@ describe("a chosen quest's completion action", () => {
     const { beforeAnoint, anointed, veiled } = funeralJourney();
     for (const [world, item] of [
       [beforeAnoint, "greek-oil-flask"],
-      [anointed, "greek-funeral-cloth"],
+      [anointed, "cloth"],
       [veiled, "greek-shovel"],
     ]) {
       expect(shown(questStep(world, questCard(world), false))).toEqual([
@@ -168,9 +168,9 @@ describe("a chosen quest's completion action", () => {
 
   it("holds the Hollow quest action until its supplies and Antigone are there", () => {
     const { beforeAnoint: world } = funeralJourney();
-    world.items["greek-funeral-cloth"].holder = "greek-sanctuary";
+    world.items.cloth.holder = "pond";
     expect(questStep(world, questCard(world), false)).toBe(null);
-    world.items["greek-funeral-cloth"].holder = "vale";
+    world.items.cloth.holder = "vale";
     world.actors["greek-antigone"].place = "greek-gate";
     expect(questStep(world, questCard(world), false)).toBe(null);
   });

@@ -36,7 +36,7 @@ describe("Attica is simply there", () => {
       "greek-road-athens-eleusis",
     ])
       expect(entityActive(world, id), id).toBe(true);
-    for (const id of ["greek-burial-petition", "greek-funeral-cloth", "greek-oil-flask"])
+    for (const id of ["greek-burial-petition", "greek-oil-flask"])
       expect(entityActive(world, id), id).toBe(true);
     // Marathon stays a rumour in a new world.
     expect(entityActive(world, "greek-marathon")).toBe(false);

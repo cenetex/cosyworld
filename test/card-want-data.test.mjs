@@ -58,7 +58,7 @@ describe("want data", () => {
         target: "greek-polynices-hollow",
         step: {
           verb: "lay",
-          items: ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"],
+          items: ["greek-oil-flask", "cloth", "greek-shovel"],
           finish: "greek-burial-performed",
         },
       },

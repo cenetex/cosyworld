@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 27,
+  "revision": 28,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -1468,7 +1468,7 @@
             "greek-polynices-veiled"
           ],
           "item": [
-            "greek-funeral-cloth",
+            "cloth",
             "greek-oil-flask",
             "greek-shovel"
           ],
@@ -2141,7 +2141,7 @@
               "of": [
                 {
                   "op": "atom",
-                  "atom": "item_near(item=greek-funeral-cloth,place=greek-eleusis)"
+                  "atom": "item_near(item=greek-oil-flask,place=greek-eleusis)"
                 },
                 {
                   "op": "atom",
@@ -2151,17 +2151,17 @@
             }
           ]
         },
-        "words": "(Funeral Cloth is in Eleusinian Sanctuary or Aethra has been met)",
-        "ids": "(greek-funeral-cloth is in greek-eleusis or greek-aethra has been met)",
+        "words": "(Funeral Oil is in Eleusinian Sanctuary or Aethra has been met)",
+        "ids": "(greek-oil-flask is in greek-eleusis or greek-aethra has been met)",
         "latch": [
           "met(actor=greek-aethra)"
         ],
         "live": [
-          "item_near(item=greek-funeral-cloth,place=greek-eleusis)"
+          "item_near(item=greek-oil-flask,place=greek-eleusis)"
         ],
         "prerequisites": {
           "item": [
-            "greek-funeral-cloth"
+            "greek-oil-flask"
           ]
         }
       },
@@ -2239,7 +2239,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch"
           ],
@@ -2283,7 +2282,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch"
           ],
@@ -2435,7 +2433,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch"
           ],
@@ -2619,9 +2616,9 @@
             "greek-polynices-veiled"
           ],
           "item": [
+            "cloth",
             "greek-bread",
             "greek-figs",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-provisions",
             "greek-shovel",
@@ -2903,7 +2900,6 @@
         "recipe": {
           "by": "greek-aethra",
           "consumes": [
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch"
           ]
@@ -2911,7 +2907,6 @@
         "prerequisites": {
           "item": [
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch"
           ],
@@ -3092,7 +3087,7 @@
             "greek-polynices-veiled"
           ],
           "item": [
-            "greek-funeral-cloth",
+            "cloth",
             "greek-oil-flask",
             "greek-shovel"
           ],
@@ -6277,7 +6272,7 @@
             },
             {
               "op": "atom",
-              "atom": "item_near(item=greek-funeral-cloth,place=greek-polynices-hollow)"
+              "atom": "item_present(item=cloth,place=greek-polynices-hollow)"
             },
             {
               "op": "atom",
@@ -6289,20 +6284,20 @@
             }
           ]
         },
-        "words": "greek-burial-performed is not set and the traveler holds Funeral Oil and Funeral Cloth is in Polynices' Hollow and Burial Shovel is in Polynices' Hollow and greek-polynices-anointed is not set",
-        "ids": "greek-burial-performed is not set and the traveler holds greek-oil-flask and greek-funeral-cloth is in greek-polynices-hollow and greek-shovel is in greek-polynices-hollow and greek-polynices-anointed is not set",
+        "words": "greek-burial-performed is not set and the traveler holds Funeral Oil and Black cloth is in Polynices' Hollow and Burial Shovel is in Polynices' Hollow and greek-polynices-anointed is not set",
+        "ids": "greek-burial-performed is not set and the traveler holds greek-oil-flask and cloth is in greek-polynices-hollow and greek-shovel is in greek-polynices-hollow and greek-polynices-anointed is not set",
         "latch": [
           "flag(key=greek-burial-performed,value=false)",
           "flag(key=greek-polynices-anointed,value=false)"
         ],
         "live": [
           "holding(item=greek-oil-flask,role=actor)",
-          "item_near(item=greek-funeral-cloth,place=greek-polynices-hollow)",
-          "item_near(item=greek-shovel,place=greek-polynices-hollow)"
+          "item_near(item=greek-shovel,place=greek-polynices-hollow)",
+          "item_present(item=cloth,place=greek-polynices-hollow)"
         ],
         "prerequisites": {
           "item": [
-            "greek-funeral-cloth",
+            "cloth",
             "greek-oil-flask",
             "greek-shovel"
           ]
@@ -6333,7 +6328,7 @@
             },
             {
               "op": "atom",
-              "atom": "holding(item=greek-funeral-cloth,role=actor)"
+              "atom": "holding(item=cloth,role=actor)"
             },
             {
               "op": "atom",
@@ -6345,14 +6340,14 @@
             }
           ]
         },
-        "words": "greek-polynices-anointed is set and the traveler holds Funeral Cloth and Burial Shovel is in Polynices' Hollow and greek-polynices-veiled is not set",
-        "ids": "greek-polynices-anointed is set and the traveler holds greek-funeral-cloth and greek-shovel is in greek-polynices-hollow and greek-polynices-veiled is not set",
+        "words": "greek-polynices-anointed is set and the traveler holds Black cloth and Burial Shovel is in Polynices' Hollow and greek-polynices-veiled is not set",
+        "ids": "greek-polynices-anointed is set and the traveler holds cloth and greek-shovel is in greek-polynices-hollow and greek-polynices-veiled is not set",
         "latch": [
           "flag(key=greek-polynices-anointed,value=true)",
           "flag(key=greek-polynices-veiled,value=false)"
         ],
         "live": [
-          "holding(item=greek-funeral-cloth,role=actor)",
+          "holding(item=cloth,role=actor)",
           "item_near(item=greek-shovel,place=greek-polynices-hollow)"
         ],
         "prerequisites": {
@@ -6363,7 +6358,7 @@
             "greek-polynices-anointed"
           ],
           "item": [
-            "greek-funeral-cloth",
+            "cloth",
             "greek-oil-flask",
             "greek-shovel"
           ]
@@ -6378,7 +6373,7 @@
         "chooses": [],
         "gives": [],
         "retires": [
-          "greek-funeral-cloth"
+          "cloth"
         ]
       },
       {
@@ -6421,7 +6416,7 @@
             "greek-polynices-veiled"
           ],
           "item": [
-            "greek-funeral-cloth",
+            "cloth",
             "greek-oil-flask",
             "greek-shovel"
           ]
@@ -6497,9 +6492,9 @@
             "greek-polynices-veiled"
           ],
           "item": [
+            "cloth",
             "greek-bread",
             "greek-figs",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-provisions",
             "greek-shovel",
@@ -6541,7 +6536,7 @@
         "live": [],
         "prerequisites": {
           "item": [
-            "greek-funeral-cloth"
+            "greek-oil-flask"
           ],
           "resident": [
             "greek-aethra"
@@ -6585,7 +6580,7 @@
           ],
           "item": [
             "greek-burial-petition",
-            "greek-funeral-cloth",
+            "greek-oil-flask",
             "greek-olive-branch"
           ],
           "resident": [
@@ -6634,7 +6629,7 @@
           ],
           "item": [
             "greek-burial-petition",
-            "greek-funeral-cloth",
+            "greek-oil-flask",
             "greek-olive-branch"
           ],
           "resident": [
@@ -6689,7 +6684,7 @@
           ],
           "item": [
             "greek-burial-petition",
-            "greek-funeral-cloth",
+            "greek-oil-flask",
             "greek-olive-branch"
           ],
           "resident": [
@@ -6817,7 +6812,7 @@
           ],
           "item": [
             "greek-burial-petition",
-            "greek-funeral-cloth",
+            "greek-oil-flask",
             "greek-olive-branch"
           ],
           "resident": [
@@ -6875,7 +6870,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch"
           ],
@@ -6938,7 +6932,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch"
           ],
@@ -7014,7 +7007,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch",
             "greek-wheat"
@@ -7504,7 +7496,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch",
             "greek-wheat"
@@ -7569,7 +7560,7 @@
           ],
           "item": [
             "greek-burial-petition",
-            "greek-funeral-cloth",
+            "greek-oil-flask",
             "greek-olive-branch"
           ],
           "resident": [
@@ -7634,7 +7625,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch"
           ],
@@ -7718,7 +7708,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch",
             "greek-wheat"
@@ -7896,7 +7885,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch",
             "greek-wheat"
@@ -7980,7 +7968,6 @@
           "item": [
             "greek-ash-urn",
             "greek-burial-petition",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-olive-branch",
             "greek-wheat"
@@ -8014,7 +8001,7 @@
         "target": "greek-polynices-hollow",
         "items": [
           "greek-oil-flask",
-          "greek-funeral-cloth",
+          "cloth",
           "greek-shovel"
         ],
         "finish": "greek-burial-performed"
@@ -8151,7 +8138,7 @@
         "target": "greek-polynices-hollow",
         "items": [
           "greek-oil-flask",
-          "greek-funeral-cloth",
+          "cloth",
           "greek-shovel"
         ],
         "finish": "greek-burial-performed"
@@ -9284,20 +9271,6 @@
         "readBy": []
       },
       {
-        "id": "greek-funeral-cloth",
-        "name": "Funeral Cloth",
-        "holder": "greek-sanctuary",
-        "home": "greek-eleusis",
-        "consumedBy": [
-          "greek-shroud-polynices"
-        ],
-        "readBy": [
-          "act:greek-anoint-polynices",
-          "act:greek-shroud-polynices",
-          "resident:greek-aethra"
-        ]
-      },
-      {
         "id": "greek-oil-flask",
         "name": "Funeral Oil",
         "holder": "greek-courtyard",
@@ -9307,6 +9280,7 @@
         ],
         "readBy": [
           "act:greek-anoint-polynices",
+          "resident:greek-aethra",
           "resident:greek-colonus-keeper"
         ]
       },
@@ -9700,7 +9674,7 @@
         "topic:greek-ajax-plea"
       ],
       "act:greek-anoint-polynices": [
-        "item:greek-funeral-cloth",
+        "item:cloth",
         "item:greek-oil-flask",
         "item:greek-shovel",
         "place:greek-polynices-hollow",
@@ -9999,7 +9973,7 @@
       ],
       "act:greek-shroud-polynices": [
         "flag:greek-polynices-anointed",
-        "item:greek-funeral-cloth",
+        "item:cloth",
         "item:greek-shovel",
         "place:greek-polynices-hollow",
         "resident:greek-antigone"
@@ -10288,7 +10262,6 @@
         "flag:greek-ajax-open"
       ],
       "item:greek-ash-urn": [
-        "item:greek-funeral-cloth",
         "item:greek-oil-flask",
         "item:greek-olive-branch",
         "resident:greek-aethra"
@@ -10368,7 +10341,7 @@
         "resident:greek-adrastus"
       ],
       "resident:greek-aethra": [
-        "item:greek-funeral-cloth",
+        "item:greek-oil-flask",
         "place:greek-eleusis",
         "resident:greek-aethra"
       ],
@@ -10588,7 +10561,7 @@
         "resident:greek-aethra"
       ],
       "want:greek-antigone": [
-        "item:greek-funeral-cloth",
+        "item:cloth",
         "item:greek-oil-flask",
         "item:greek-shovel",
         "place:greek-polynices-hollow",
@@ -10637,7 +10610,7 @@
         "resident:greek-patroclus"
       ],
       "want:greek-polynices-shade": [
-        "item:greek-funeral-cloth",
+        "item:cloth",
         "item:greek-oil-flask",
         "item:greek-shovel",
         "place:greek-polynices-hollow",
@@ -11068,6 +11041,11 @@
       "class": "live",
       "words": "greek-guard holds greek-olive-branch"
     },
+    "holding(item=cloth,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds cloth"
+    },
     "holding(item=greek-ajax-plea,role=actor)": {
       "kind": "holding",
       "class": "live",
@@ -11092,11 +11070,6 @@
       "kind": "holding",
       "class": "live",
       "words": "the traveler holds greek-farm-testimony"
-    },
-    "holding(item=greek-funeral-cloth,role=actor)": {
-      "kind": "holding",
-      "class": "live",
-      "words": "the traveler holds greek-funeral-cloth"
     },
     "holding(item=greek-helen-accounts,role=actor)": {
       "kind": "holding",
@@ -11178,20 +11151,15 @@
       "class": "live",
       "words": "greek-burial-petition is in greek-athens"
     },
-    "item_near(item=greek-funeral-cloth,place=greek-eleusis)": {
-      "kind": "item_near",
-      "class": "live",
-      "words": "greek-funeral-cloth is in greek-eleusis"
-    },
-    "item_near(item=greek-funeral-cloth,place=greek-polynices-hollow)": {
-      "kind": "item_near",
-      "class": "live",
-      "words": "greek-funeral-cloth is in greek-polynices-hollow"
-    },
     "item_near(item=greek-oil-flask,place=greek-colonus)": {
       "kind": "item_near",
       "class": "live",
       "words": "greek-oil-flask is in greek-colonus"
+    },
+    "item_near(item=greek-oil-flask,place=greek-eleusis)": {
+      "kind": "item_near",
+      "class": "live",
+      "words": "greek-oil-flask is in greek-eleusis"
     },
     "item_near(item=greek-olive-branch,place=greek-eleusis)": {
       "kind": "item_near",
@@ -11202,6 +11170,11 @@
       "kind": "item_near",
       "class": "live",
       "words": "greek-shovel is in greek-polynices-hollow"
+    },
+    "item_present(item=cloth,place=greek-polynices-hollow)": {
+      "kind": "item_present",
+      "class": "live",
+      "words": "cloth is in greek-polynices-hollow"
     },
     "item_present(item=greek-provisions,place=greek-ship)": {
       "kind": "item_present",

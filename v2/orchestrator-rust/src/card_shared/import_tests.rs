@@ -423,7 +423,7 @@ fn played_released_and_upgraded_open_door_saves_can_be_shared() {
         let mut invalid = world.clone();
         invalid["actors"]["vale"]["heldItem"] = json!("greek-return-list");
         assert!(World::create(Some(&trusted_save(&invalid.to_string(), &[]).unwrap())).is_err());
-        assert_eq!(world["packs"]["greek-drama"]["revision"], 27);
+        assert_eq!(world["packs"]["greek-drama"]["revision"], 28);
     }
 }
 

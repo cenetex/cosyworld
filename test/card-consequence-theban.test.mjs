@@ -42,14 +42,12 @@ const errands = [
   ["take", { item: g("shovel") }],
   ["walk", g("courtyard")],
   ["take", { item: g("oil-flask") }],
-  ["walk", g("sanctuary")],
-  ["take", { item: g("funeral-cloth") }],
   ["walk", field],
   ["talk", { target: shade }],
 ];
 const rites = [
   [g("oil-flask"), "greek-anoint-polynices", "greek-polynices-anointed"],
-  [g("funeral-cloth"), "greek-shroud-polynices", "greek-polynices-veiled"],
+  ["cloth", "greek-shroud-polynices", "greek-polynices-veiled"],
   [g("shovel"), "greek-bury-polynices", "greek-burial-performed"],
 ];
 const secondRoad = [
@@ -233,7 +231,9 @@ const journeys = {};
 function journey(name) {
   if (journeys[name]) return journeys[name];
   const engine = name === "shared" ? shared() : local();
-  const t = traveler(engine, engine.start(greekStart()));
+  const start = greekStart();
+  start.items.cloth.holder = "vale";
+  const t = traveler(engine, engine.start(start));
   const at = {},
     riteAction = {};
   const mark = (checkpoint) => (at[checkpoint] = structuredClone(t.world));

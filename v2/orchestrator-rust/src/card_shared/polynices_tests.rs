@@ -21,7 +21,7 @@ fn polynices_rites_match_the_source_model_and_replay_from_the_journal() {
         s.actors.vale.place = s.actors['greek-antigone'].place = hollow;
         s.actors.vale.visited.push('pond', hollow);
         s.items['greek-creon-writ'].holder = 'greek-guard';
-        const kit = ['greek-oil-flask', 'greek-funeral-cloth', 'greek-shovel'];
+        const kit = ['greek-oil-flask', 'cloth', 'greek-shovel'];
         s.items.lamp.holder = 'attic';
         for (const id of kit) s.items[id].holder = 'vale';
         const save = encodeSave(s);
@@ -93,10 +93,7 @@ fn polynices_rites_match_the_source_model_and_replay_from_the_journal() {
         world.game["items"]["greek-oil-flask"]["holder"],
         "greek-colonus"
     );
-    assert_eq!(
-        world.game["items"]["greek-funeral-cloth"]["holder"],
-        "greek-eleusis"
-    );
+    assert_eq!(world.game["gone"], json!(["cloth"]));
     assert_eq!(
         world.game["items"]["greek-shovel"]["holder"],
         "greek-polynices-hollow"

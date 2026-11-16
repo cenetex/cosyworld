@@ -147,6 +147,7 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
     for (const e of (c.effects || []).filter((e) => e.kind === "retire_item"))
       check(
         renews(e.item) ||
+          !items[e.item] ||
           !needs.some((n) => n.by !== c.id && n.items.includes(e.item)),
         `item ${e.item} is used up by ${c.id} but still needed, so it must renew`,
       );

@@ -15,7 +15,7 @@ export const g = (id) =>
   id === "vale" || id.startsWith("greek-") ? id : `greek-${id}`;
 
 export const OPEN_DOOR_LOCKS = {
-  "greek-aethra": { item: "greek-funeral-cloth", at: "greek-eleusis" },
+  "greek-aethra": { item: "greek-oil-flask", at: "greek-eleusis" },
   "greek-theseus": { item: "greek-burial-petition", at: "greek-athens" },
   "greek-adrastus": { item: "greek-olive-branch", at: "greek-eleusis" },
   "greek-argive-mother": { item: "greek-ash-urn", at: "greek-eleusis" },
@@ -27,7 +27,6 @@ export const OPEN_DOOR_LOCKS = {
 export const OPEN_DOOR_KEYS = [
   "greek-burial-petition",
   "greek-olive-branch",
-  "greek-funeral-cloth",
   "greek-oil-flask",
   "greek-ash-urn",
   "greek-wheat",
@@ -148,7 +147,7 @@ export function landRoad(t = traveler()) {
   t.move("gate").waitFor("guard").give("creon-writ", "guard");
   t.take("shovel");
   t.move("courtyard").take("oil-flask");
-  t.move("sanctuary").take("funeral-cloth");
+  t.s.items.cloth.holder = "vale";
   return t;
 }
 
@@ -160,7 +159,7 @@ export function seaRoad(t = traveler()) {
   t.move("courtyard", "harbor").give("bread", "shipmaster");
   t.give("wine-skin", "shipmaster");
   t.move("road-thebes", "courtyard", "well", "palace", "sanctuary");
-  t.take("figs").take("funeral-cloth");
+  t.take("figs");
   t.move("palace", "well", "courtyard", "road-thebes", "harbor");
   t.give("figs", "shipmaster").take("provisions");
   t.move("ship").drop("provisions");
@@ -179,17 +178,17 @@ export function burial(t) {
   )
     t.act("wait");
   t.talk("polynices-shade").move("polynices-hollow");
-  for (const item of ["oil-flask", "funeral-cloth", "shovel"]) {
+  for (const item of ["greek-oil-flask", "cloth", "greek-shovel"]) {
     for (
       let i = 0;
       i < 48 &&
       !legalActions(t.s).some(
-        (a) => a.kind === "give" && a.target === "greek-antigone" && a.item === g(item),
+        (a) => a.kind === "give" && a.target === "greek-antigone" && a.item === item,
       );
       i++
     )
       t.act("wait");
-    t.give(item, "antigone");
+    t.act("give", { item, target: "greek-antigone" });
   }
   return t;
 }

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 27,
+  "revision": 28,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1138,7 +1138,7 @@
               "verb": "lay",
               "items": [
                 "greek-oil-flask",
-                "greek-funeral-cloth",
+                "cloth",
                 "greek-shovel"
               ],
               "finish": "greek-burial-performed"
@@ -1708,11 +1708,10 @@
     },
     "greek-aethra": {
       "name": "Aethra",
-      "text": "Olive branches rest across her knees at Demeter’s altar. She will not rise until clean Eleusis linen is here for the dead, and she has sent for her son Theseus.",
+      "text": "Olive branches rest across her knees at Demeter’s altar. She will not rise until funeral oil is here for the dead, and she has sent for her son Theseus.",
       "place": "greek-eleusis",
       "home": "greek-eleusis",
       "values": {
-        "greek-funeral-cloth": 3,
         "greek-oil-flask": 3,
         "greek-olive-branch": 3
       },
@@ -1721,7 +1720,7 @@
       "tastes": {
         "likes": "careful listening and help that reaches its owner",
         "sore": "promises treated as finished deeds",
-        "reason": "Olive branches rest across her knees at Demeter’s altar. She will not rise until clean Eleusis linen is here for the dead, and she has sent for her son Theseus."
+        "reason": "Olive branches rest across her knees at Demeter’s altar. She will not rise until funeral oil is here for the dead, and she has sent for her son Theseus."
       },
       "requires": [
         {
@@ -1729,7 +1728,7 @@
           "conditions": [
             {
               "kind": "item_near",
-              "item": "greek-funeral-cloth",
+              "item": "greek-oil-flask",
               "place": "greek-eleusis"
             },
             {
@@ -2170,7 +2169,7 @@
           "verb": "lay",
           "items": [
             "greek-oil-flask",
-            "greek-funeral-cloth",
+            "cloth",
             "greek-shovel"
           ],
           "finish": "greek-burial-performed"
@@ -2319,15 +2318,6 @@
       "tags": [
         "drink"
       ],
-      "absentReturn": true
-    },
-    "greek-funeral-cloth": {
-      "name": "Funeral Cloth",
-      "text": "Clean linen from the looms at Eleusis, folded for a burial.",
-      "holder": "greek-sanctuary",
-      "persona": "Clean linen from the looms at Eleusis, folded for a burial.",
-      "art": "assets/greek-drama/funeral-cloth.png",
-      "home": "greek-eleusis",
       "absentReturn": true
     },
     "greek-oil-flask": {
@@ -2494,16 +2484,15 @@
     "greek-ash-urn": {
       "name": "The Funeral Urn",
       "startLevel": 6,
-      "text": "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from linen, oil and the herald’s truce.",
+      "text": "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from oil and the herald’s truce.",
       "holder": "greek-eleusis",
       "art": "assets/greek-drama/ash-urn.png",
-      "persona": "A covered clay urn for the Argive ashes, made at Aethra's altar from linen, oil and the herald's truce.",
+      "persona": "A covered clay urn for the Argive ashes, made at Aethra's altar from oil and the herald's truce.",
       "home": "greek-eleusis",
       "startsUsed": true,
       "locked": {
         "by": "greek-aethra",
         "consumes": [
-          "greek-funeral-cloth",
           "greek-oil-flask",
           "greek-olive-branch"
         ]
@@ -4612,8 +4601,8 @@
           "role": "actor"
         },
         {
-          "kind": "item_near",
-          "item": "greek-funeral-cloth",
+          "kind": "item_present",
+          "item": "cloth",
           "place": "greek-polynices-hollow"
         },
         {
@@ -4646,7 +4635,7 @@
       "at": "greek-polynices-hollow",
       "subject": "greek-antigone",
       "label": "Hand Antigone the cloth",
-      "text": "Antigone draws the linen over her brother and lays a raven feather on it.",
+      "text": "Antigone draws the black cloth over her brother and lays a raven feather on it.",
       "requires": [
         {
           "kind": "flag",
@@ -4655,7 +4644,7 @@
         },
         {
           "kind": "holding",
-          "item": "greek-funeral-cloth",
+          "item": "cloth",
           "role": "actor"
         },
         {
@@ -4672,8 +4661,7 @@
       "effects": [
         {
           "kind": "retire_item",
-          "item": "greek-funeral-cloth",
-          "waitAtHome": true
+          "item": "cloth"
         },
         {
           "kind": "set_flag",
@@ -6418,7 +6406,6 @@
     "items": [
       "greek-water-jar",
       "greek-bread",
-      "greek-funeral-cloth",
       "greek-oil-flask",
       "greek-shovel",
       "greek-decree",

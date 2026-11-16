@@ -28,11 +28,7 @@ describe("5. three hands, one loaf: the first crossing", () => {
   it("(a) by land: the loaf buys the decree, the decree the writ, and the gate opens", () => {
     const t = landRoad();
     expect(gateOpen(t.s)).toBe(true);
-    expect(t.hands()).toEqual([
-      "greek-funeral-cloth",
-      "greek-oil-flask",
-      "greek-shovel",
-    ]);
+    expect(t.hands()).toEqual(["cloth", "greek-oil-flask", "greek-shovel"]);
     expect(t.s.usedUp).toContain("greek-bread");
     expect(whereIs(t.s, "greek-wheat")).toBe("greek-piraeus");
     t.move("battlefield", "cithaeron", "eleusis");
@@ -43,7 +39,7 @@ describe("5. three hands, one loaf: the first crossing", () => {
   it("(b) by sea: the loaf goes into the provisions and the gate stays shut", () => {
     const t = seaRoad();
     expect(t.s.actors.vale.place).toBe("greek-piraeus");
-    expect(t.hands()).toEqual(["greek-funeral-cloth", "greek-oil-flask"]);
+    expect(t.hands()).toEqual(["greek-oil-flask"]);
     expect(t.s.usedUp).toContain("greek-bread");
     expect(gateOpen(t.s)).toBe(false);
     t.move("athens", "eleusis");
@@ -55,7 +51,7 @@ describe("5. three hands, one loaf: the first crossing", () => {
 describe("1. the king and the altar", () => {
   it("(a) trades the petition for the truce in the Agora; Aethra still waits", () => {
     const t = fromEleusis();
-    t.give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.give("oil-flask", "aethra");
     const start = t.s.turn;
     t.move("road-athens-eleusis", "athens");
     expect(entityActive(t.s, "greek-theseus")).toBe(true);
@@ -71,7 +67,7 @@ describe("1. the king and the altar", () => {
 
   it("(b) keeps the petition and walks Theseus to the altar: both are met", () => {
     const t = fromEleusis();
-    t.give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.give("oil-flask", "aethra");
     t.move("road-athens-eleusis", "athens");
     expect(t.s.actors["greek-theseus"].trust.vale).toBe(0);
     t.walkWith("theseus", "eleusis");
@@ -88,9 +84,9 @@ describe("2. two dead, one kit", () => {
   it("(a) buries first: the rites send the kit home and open Aethra and the keeper", () => {
     const t = burial(landRoad());
     expect(t.s.packs["greek-drama"].flags["greek-burial-performed"]).toBe(true);
-    expect(whereIs(t.s, "greek-funeral-cloth")).toBe("greek-eleusis");
+    expect(t.s.gone).toContain("cloth");
     expect(whereIs(t.s, "greek-oil-flask")).toBe("greek-colonus");
-    expect(entityActive(t.s, "greek-aethra")).toBe(true);
+    expect(entityActive(t.s, "greek-aethra")).toBe(false);
     expect(entityActive(t.s, "greek-colonus-keeper")).toBe(true);
     t.move("battlefield", "cithaeron", "eleusis", "colonus").talk("colonus-keeper");
     expect(satisfied(t.s, "colonus-keeper")).toBe(true);
@@ -99,14 +95,13 @@ describe("2. two dead, one kit", () => {
 
   it("(b) makes the urn first, then borrows the cloth and oil back for the Hollow", () => {
     const t = fromEleusis();
-    t.give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.give("oil-flask", "aethra");
     t.move("road-athens-eleusis", "athens").trade("burial-petition", "theseus", "olive-branch");
     t.move("road-athens-eleusis", "eleusis").give("olive-branch", "aethra");
     expect(urnMade(t.s)).toBe(true);
-    expect(whereIs(t.s, "greek-funeral-cloth")).toBe("greek-eleusis");
     expect(whereIs(t.s, "greek-oil-flask")).toBe("greek-colonus");
     expect(whereIs(t.s, "greek-olive-branch")).toBe("greek-courtyard");
-    t.take("funeral-cloth").move("colonus").take("oil-flask");
+    t.move("colonus").take("oil-flask");
     t.move("eleusis", "cithaeron", "battlefield", "gate").take("shovel");
     burial(t);
     expect(t.s.packs["greek-drama"].flags["greek-burial-performed"]).toBe(true);
@@ -119,7 +114,7 @@ describe("3. one truce, three hands", () => {
   const withTruce = () => {
     const t = seaRoad();
     t.move("athens");
-    t.move("eleusis").give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.move("eleusis").give("oil-flask", "aethra");
     t.take("burial-petition").move("athens");
     t.trade("burial-petition", "theseus", "olive-branch");
     return t.move("eleusis");
@@ -150,7 +145,7 @@ describe("3. one truce, three hands", () => {
 describe("4. one urn, two mourners", () => {
   const withUrn = () => {
     const t = fromEleusis();
-    t.give("funeral-cloth", "aethra").give("oil-flask", "aethra");
+    t.give("oil-flask", "aethra");
     t.move("road-athens-eleusis", "athens").trade("burial-petition", "theseus", "olive-branch");
     t.move("road-athens-eleusis", "eleusis").give("olive-branch", "aethra");
     return t.take("ash-urn");
