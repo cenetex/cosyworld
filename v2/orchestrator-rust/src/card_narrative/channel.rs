@@ -1776,7 +1776,7 @@ mod tests {
         let history = body["state"]["history"].as_array_mut().unwrap();
         history.push(json!({"resident": "rati", "text": "Hello.", "ago": 1}));
         history.push(json!({"person": "ratimics", "text": "hold on, let me think", "ago": 0}));
-        let (_, body, asked) = post_coordinate(answer, body.clone()).await;
+        let (_, folded, asked) = post_coordinate(answer, body.clone()).await;
         let criteria = asked[0]["questions"]["next"]["criteria"]
             .as_object()
             .unwrap();
@@ -1798,7 +1798,7 @@ mod tests {
             .starts_with("ratimics, a person, "));
         assert_eq!(asked[0]["state"]["history"][3]["speaker"], "ratimics");
         assert_eq!(
-            body,
+            folded,
             json!({"reason": "ok", "answers": {"next": {"choice": "none", "confidence": 0.78,
                 "probabilities": {"rati": 0.2, "vale": 0.02, "none": 0.78}}}})
         );
