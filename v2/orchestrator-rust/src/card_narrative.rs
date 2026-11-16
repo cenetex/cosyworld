@@ -2763,8 +2763,6 @@ impl<'a> Check<'a> {
             '"', '\'', '\u{201c}', '\u{201d}', '\u{2018}', '\u{2019}', ' ',
         ];
         let text = text.trim().trim_matches(quotes);
-        // Every complete sentence. A reply cut off at the token cap keeps
-        // those it finished.
         let mut said = Vec::new();
         let mut chars = text.char_indices().peekable();
         let mut start = 0;
@@ -2817,10 +2815,12 @@ impl<'a> Check<'a> {
         }
         let mut kept = String::new();
         let mut kept_said = Vec::new();
+        let mut cut = false;
         for sentence in said {
             if kept_said.len() == self.sentences
                 || kept.chars().count() + sentence.chars().count() + 1 > self.limit
             {
+                cut = true;
                 break;
             }
             if !kept.is_empty() {
@@ -2828,6 +2828,11 @@ impl<'a> Check<'a> {
             }
             kept.push_str(sentence);
             kept_said.push(sentence);
+        }
+        let trails = kept.ends_with("...") || kept.ends_with('\u{2026}');
+        if cut && trails && kept_said.len() > 1 {
+            kept_said.pop();
+            kept = kept_said.join(" ");
         }
         // A finished, single-line imperative can stand without punctuation.
         let broken = text.ends_with(['-', '–', '—', '‐', '‑', ',', ':', ';']);
@@ -3416,6 +3421,27 @@ pub(crate) mod tests {
             clean(&format!("{three} And on. And on.")).as_deref(),
             Ok(three.as_str())
         );
+        for (raw, said) in [
+            (
+                "I'm right here, Pip. I wouldn't leave you to face the heavy dark alone. The shadows... they only look hungry. Stay by me.",
+                "I'm right here, Pip. I wouldn't leave you to face the heavy dark alone.",
+            ),
+            (
+                "I see you, Pip. I see it. That glow\u{2026} It keeps the dark off.",
+                "I see you, Pip. I see it.",
+            ),
+            (
+                "I see you, Pip. I see it. That glow...",
+                "I see you, Pip. I see it. That glow...",
+            ),
+            (
+                "It does, Pip. That amber pulse... it stays. It does.",
+                "It does, Pip. That amber pulse... it stays.",
+            ),
+        ] {
+            let kept = check.verdict(raw, true, true).map(|(text, _)| text);
+            assert_eq!(kept.as_deref(), Ok(said), "{raw}");
+        }
         let thought_raw = "My sleeves are dry. I hold it higher. And on.";
         assert_eq!(
             Check::new(&c, pip, Part::Thought)
