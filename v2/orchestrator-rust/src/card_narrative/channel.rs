@@ -38,7 +38,7 @@ const PER_DAY: RateLimit = RateLimit {
 pub(super) const CONCURRENCY: usize = 1;
 const DEFAULT_PACK: &str = "lonely-forest";
 const LINE_LIMIT: usize = 240;
-const SCENE_MESSAGES: usize = 6;
+const SCENE_MESSAGES: usize = 12;
 const ADDRESSED_WAIT: Duration = Duration::from_secs(3);
 const ADDRESSED_CALL: Duration = Duration::from_secs(6);
 const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
@@ -91,6 +91,8 @@ pub(super) struct LinesRequest {
     messages: Vec<Message>,
     #[serde(default)]
     channel: Channel,
+    #[serde(default)]
+    notes: Option<Notes>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -389,6 +391,9 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
     if pictures(&request.messages) > IMAGES_PER_REQUEST {
         return Err("send at most 4 images");
     }
+    if request.notes.as_ref().is_some_and(|notes| !sound(notes)) {
+        return Err("notes must be bounded");
+    }
     let channel = &request.channel;
     if channel.active.len() > 12 || !channel.active.iter().all(|name| bounded(name, 32)) {
         return Err("active needs at most 12 names of 1 to 32 characters");
@@ -512,6 +517,17 @@ fn awareness(resident: &Resident, channel: &Channel) -> (Vec<String>, Vec<Value>
     (facts, memories)
 }
 
+fn thread(notes: &Notes) -> Vec<String> {
+    let cut = |text: String| text.chars().take(240).collect::<String>();
+    vec![
+        format!(
+            "We have been talking about {}.",
+            notes.topic.trim().trim_end_matches('.')
+        ),
+        cut(format!("So far here: {}", notes.summary.trim())),
+    ]
+}
+
 fn present(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Vec<String> {
     let resident_of = |name: &str| cast.iter().find(|r| r.id == name).map(|r| r.id.clone());
     let mut here: Vec<String> = Vec::new();
@@ -535,9 +551,18 @@ fn present(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Ve
 fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Option<Context> {
     let messages = &request.messages;
     let start = messages.len().saturating_sub(SCENE_MESSAGES);
-    let (mut facts, memories) = awareness(resident, &request.channel);
+    let (mut facts, mut memories) = awareness(resident, &request.channel);
+    memories.retain(|memory| {
+        !messages[start..].iter().any(|m| {
+            m.resident.as_ref() == Some(&resident.id)
+                && memory["text"].as_str() == Some(&format!("{}: {}", resident.name, m.text))
+        })
+    });
     if messages.last().and_then(|m| m.resident.as_ref()) == Some(&resident.id) {
         facts.push("I spoke last here.".into());
+    }
+    if let Some(notes) = &request.notes {
+        facts.extend(thread(notes));
     }
     let (own, place) = knowledge(resident, &request.pack);
     facts.extend(own);
@@ -1353,6 +1378,7 @@ mod tests {
             ]
         });
         body["continuing"] = json!("rati");
+        body["channel"] = json!({"residents": [{"id": "rati", "lines": [own]}]});
         let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["id"], "rati");
@@ -1364,6 +1390,7 @@ mod tests {
             .expect(&view);
         let said = view.find(&format!("I said: \"{own}\"")).expect(&view);
         assert!(asked < said, "{view}");
+        assert_eq!(view.matches(own).count(), 1, "{view}");
         let (_, _, addressed) = post_lines("{}", Some(reply), TOKEN, talk(Some("rati"))).await;
         assert_ne!(turn_of(&addressed[0], "user"), crate::ai_gateway::SILENCE);
     }
@@ -1385,6 +1412,7 @@ mod tests {
             "active": ["skull", "Mara", "RATi"],
             "residents": [{"id": "rati", "lines": ["The kettle is on."], "streak": 2, "since": 120}]
         });
+        body["notes"] = json!({"topic": "the corridor.", "goal": "Jun wants in.", "summary": "Jun asked about the corridor."});
         let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["text"], reply);
@@ -1406,6 +1434,14 @@ mod tests {
         assert!(view.contains("I have spoken 2 times in a row here."));
         assert!(view.contains("I last spoke here 2 minutes ago."));
         assert!(view.contains("It was quiet here for 5 minutes before this."));
+        assert!(
+            view.contains("We have been talking about the corridor."),
+            "{view}"
+        );
+        assert!(
+            view.contains("So far here: Jun asked about the corridor."),
+            "{view}"
+        );
         assert!(view.contains("Home: Cosy Cottage."), "{view}");
         assert!(view.contains("Likes: A traveler's own button sewn into a warm scarf."));
         assert!(view.contains("Sore: Muddy boots on the wool."));

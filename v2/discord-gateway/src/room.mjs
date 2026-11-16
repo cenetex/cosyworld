@@ -167,6 +167,7 @@ export function requestBody(room, config, addressed, now = Date.now()) {
     pack: config.DISCORD_PACK,
     ...speaker,
     channel: awareness(room, now),
+    ...(config.DISCORD_LINE_NOTES && room.notes ? { notes: room.notes } : {}),
     messages: recent.map((entry, index) =>
       entry.resident ? { resident: entry.resident, ...parts[index] } : { author: entry.author, ...parts[index] },
     ),
