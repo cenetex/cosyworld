@@ -1,14 +1,15 @@
 use super::{
     super::store::{create, sql_error, Result},
-    admit, blocking, db, floor, now, reply, store, turn, writer, World,
+    actor_id, admit, bindings, blocking, db, floor, leave, now, reply, store, turn, writer, World,
 };
 use crate::AppState;
 use axum::{extract::State, http::HeaderMap, response::Response, Json};
-use rusqlite::{Connection, TransactionBehavior};
+use rusqlite::{params, Connection, TransactionBehavior};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
 const OWNER: &str = "discord-guild:";
+pub(super) const IDLE_MS: i64 = 30 * 60_000;
 
 fn owner(guild: &str) -> Result<String> {
     if (15..=20).contains(&guild.len()) && guild.bytes().all(|b| b.is_ascii_digit()) {
@@ -25,6 +26,49 @@ pub(super) fn owned(c: &Connection, id: &str) -> Result<bool> {
         |r| r.get(0),
     )
     .map_err(sql_error)
+}
+
+pub(super) fn unbind(c: &Connection, id: &str, w: &World, a: usize) -> Result<()> {
+    if let Some(holder) = bindings::holder(c, id, a)? {
+        let progress = bindings::progress_of(&w.game, actor_id(a));
+        bindings::save_progress(c, &holder, a, &progress)?;
+    }
+    bindings::free(c, id, a)
+}
+
+pub(super) fn free_idle(
+    c: &Connection,
+    id: &str,
+    w: &mut World,
+    but: &str,
+    time: i64,
+) -> Result<()> {
+    if !owned(c, id)? {
+        return Ok(());
+    }
+    let idle = {
+        let mut q = c
+            .prepare("SELECT actor FROM card_members WHERE world=? AND user<>? AND seen<?")
+            .map_err(sql_error)?;
+        let seats = q
+            .query_map(params![id, but, time - IDLE_MS], |r| r.get::<_, usize>(0))
+            .map_err(sql_error)?
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(sql_error)?;
+        seats
+    };
+    for a in idle.into_iter().filter(|a| *a < 8) {
+        if w.claimed[a] == 1 && leave(c, id, w, a, "release", time).is_err() {
+            continue;
+        }
+        c.execute(
+            "DELETE FROM card_members WHERE world=? AND actor=?",
+            params![id, a],
+        )
+        .map_err(sql_error)?;
+        unbind(c, id, w, a)?;
+    }
+    Ok(())
 }
 
 pub(super) fn ensure(c: &Connection, guild: &str, time: i64) -> Result<String> {
@@ -156,6 +200,52 @@ mod tests {
         play(&c, &id, "bob", &op("claim", Some("mara")), T + 3).unwrap();
         assert_eq!(ensure(&c, GUILD, T + 4).unwrap(), id);
         assert!(!owned(&c, "none").unwrap());
+    }
+
+    fn seat(c: &Connection, id: &str, user: &str) -> Option<usize> {
+        bindings::mine(c, id, user).unwrap()
+    }
+    fn kept(c: &Connection, id: &str, time: i64) -> (Value, Vec<String>, Value) {
+        let game = store::world(c, id, time).unwrap().game;
+        let items = game["items"].as_object().unwrap().iter();
+        let held = items.filter(|(_, item)| item["holder"] == "mara");
+        (
+            game["actors"]["mara"]["place"].clone(),
+            held.map(|(id, _)| id.clone()).collect(),
+            game["turn"].clone(),
+        )
+    }
+
+    #[test]
+    fn an_idle_seat_in_a_server_world_frees_itself_and_nothing_else_moves() {
+        let (_, c) = open();
+        let id = ensure(&c, GUILD, T).unwrap();
+        play(&c, &id, "ann", &op("claim", Some("mara")), T).unwrap();
+        play(&c, &id, "ann", &op("leave", None), T + 1).unwrap();
+        play(&c, &id, "bob", &op("claim", Some("ash")), T + 1000).unwrap();
+        assert!(seat(&c, &id, "ann").is_some());
+        let before = kept(&c, &id, T + 1000);
+        play(&c, &id, "bob", &op("heartbeat", None), T + IDLE_MS).unwrap();
+        assert_eq!(seat(&c, &id, "ann"), None);
+        assert_eq!(tables::member(&c, &id, "ann").unwrap(), None);
+        let after = T + 3 * IDLE_MS;
+        assert_eq!(kept(&c, &id, after), before);
+        let alone = play(&c, &id, "bob", &op("heartbeat", None), after).unwrap();
+        assert_eq!(alone["actor"], "ash");
+        play(&c, &id, "ann", &op("claim", Some("mara")), after + 1).unwrap();
+        assert!(seat(&c, &id, "ann").is_some() && seat(&c, &id, "bob").is_some());
+    }
+
+    #[test]
+    fn an_idle_seat_in_a_persons_own_world_stays() {
+        let (_, c) = open();
+        let id = "a".repeat(48);
+        create(&c, &id, "ann", T).unwrap();
+        store::seed(&c, &id, &World::create(None).unwrap(), "test-create", T).unwrap();
+        play(&c, &id, "bob", &op("claim", Some("ash")), T).unwrap();
+        play(&c, &id, "ann", &op("claim", Some("mara")), T + 3 * IDLE_MS).unwrap();
+        assert!(seat(&c, &id, "bob").is_some());
+        assert!(tables::member(&c, &id, "bob").unwrap().is_some());
     }
 
     #[test]
