@@ -27,7 +27,6 @@ const answer = (world, verb) => world.log.findLast((e) => e.verb === verb).accep
 it("knows Ismene's refusal before the request and retains the real custody afterward", () => {
   let world = encounter("greek-ismene");
   const token = "greek-household-token";
-  // Recreate the custody shown by the refused request.
   world.items[token].holder = "greek-ismene";
   expect(world.items[token].holder).toBe("greek-ismene");
   expect(knowledge(world, "greek-ismene")).toContain(
