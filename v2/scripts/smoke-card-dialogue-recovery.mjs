@@ -36,8 +36,7 @@ try {
     const errors = [],
       requests = [],
       abandoned = [];
-    let mode = "unavailable",
-      stalledRequest = 0;
+    let mode = "unavailable";
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("requestfailed", (request) => {
       if (request.url().endsWith("/card-game/text"))
@@ -69,19 +68,8 @@ try {
     await page.route("**/card-game/text", async (route) => {
       const input = route.request().postDataJSON();
       requests.push(input);
-      // Slow words: the request stays open until a later play replaces it.
-      if (
-        mode === "hang" ||
-        (mode === "stall-once" && requests.length === stalledRequest)
-      )
-        return;
-      // Late words: they come after the grace that frees the next choice.
+      if (mode === "hang") return;
       if (mode === "slow") await new Promise((r) => setTimeout(r, 8000));
-      if (mode === "stall-once")
-        assert(
-          abandoned.includes(input.revision),
-          "the old transport closes before retry",
-        );
       await route.fulfill(
         mode === "unavailable"
           ? {
@@ -95,12 +83,13 @@ try {
               body: JSON.stringify({
                 revision: input.revision,
                 model: "browser-fixture",
-                entries: input.entities
-                  .slice(mode === "invalid" ? 1 : 0)
-                  .map(({ id }) => ({
-                    id,
-                    text: `${id} speaks on turn ${input.turn}.`,
-                  })),
+                entries: input.entities.map(({ id }) => ({
+                  id,
+                  text:
+                    mode === "invalid"
+                      ? " "
+                      : `${id} speaks on turn ${input.turn}.`,
+                })),
               }),
             },
       );
@@ -153,7 +142,7 @@ try {
       null,
       { timeout: 6000 },
     );
-    assert.equal(requests.length, 2, "one quiet automatic attempt, no more");
+    assert.equal(requests.length, 1, "one request, no second try");
     assert.equal(await page.locator(".dialogue").isVisible(), true);
     assert.equal(await page.locator("#story-status").isVisible(), false);
     // The "…" is the speaker's own beat, named like any line.
@@ -167,9 +156,8 @@ try {
       path: `output/dialogue-recovery/silent-${width}.png`,
     });
     const before = await state();
-    // Nothing asks again on its own.
     await page.waitForTimeout(1500);
-    assert.equal(requests.length, 2);
+    assert.equal(requests.length, 1);
     // The next play is available at once. Invalid content is "…" too, and
     // nothing is saved for it.
     mode = "invalid";
@@ -228,16 +216,16 @@ try {
       (await state()).log.some((e) => e.turn === hung && e.kind === "action"),
       true,
     );
-    // A reload while the words were on the way asks again (#2017).
     const pendingRequests = requests.length;
     mode = "ready";
     await page.reload();
     await ready();
-    assert.equal(requests.length, pendingRequests + 1, "reload asks again");
+    await page.waitForTimeout(1000);
+    assert.equal(requests.length, pendingRequests, "no re-ask on reload");
     await noFailureUi();
-    assert.match(
-      await page.textContent("#dialogue-text"),
-      new RegExp(`speaks on turn ${hung}`),
+    assert.equal(
+      (await state()).log.some((e) => e.turn === hung && e.generated),
+      false,
     );
     await pond.click();
     await page.locator("#card-actions .card-primary").click();
@@ -253,26 +241,6 @@ try {
       await page.textContent("#dialogue-text"),
       new RegExp(`speaks on turn ${hung + 1}`),
     );
-    // A stalled transport leaves time for one automatic same-turn recovery.
-    mode = "stall-once";
-    stalledRequest = requests.length + 1;
-    await pond.click();
-    await page.locator("#card-actions .card-primary").click();
-    const committed = await state();
-    await page.waitForFunction(
-      (turn) =>
-        document
-          .querySelector("#dialogue-text")
-          .textContent.includes(`speaks on turn ${turn}`),
-      committed.turn,
-      { timeout: 30_000 },
-    );
-    assert.equal(requests.length, stalledRequest + 1);
-    assert.equal((await state()).turn, committed.turn);
-    assert.deepEqual((await state()).actors, committed.actors);
-    assert.deepEqual((await state()).items, committed.items);
-    await noFailureUi();
-    await ready();
     // Slow words keep the Thinking card but not the hand: after a short
     // grace the next choice is offered, and the late line still types in.
     mode = "slow";

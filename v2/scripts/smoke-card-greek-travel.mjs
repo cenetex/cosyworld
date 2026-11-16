@@ -10,6 +10,7 @@ import {
 } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
+import { learnLane } from "../card-game/pack-transport.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
 import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
@@ -75,9 +76,12 @@ try {
     "greek-road-thebes",
     "greek-harbor",
   ];
-  // With the gate shut and no cargo aboard, the Charybdis still sails Mara
-  // home from Piraeus: every way back toward Black Pond is free (rules 94).
-  const free = ["greek-ship", "greek-harbor", "greek-ship", "pond"];
+  const lanes = [
+    ["greek-harbor", "greek-piraeus"],
+    ["greek-piraeus", "greek-harbor"],
+    ["greek-piraeus", "hoppycat-signal-jetty"],
+    ["hoppycat-signal-jetty", "greek-piraeus"],
+  ];
   // The Black Pond route with the Travel Provisions aboard: out to Piraeus
   // and the Hoppy Cat jetty, then back.
   const charybdis = [
@@ -109,7 +113,7 @@ try {
     {
       name: "land",
       start: "greek-piraeus",
-      route: [...land, ...back, ...free],
+      route: [...land, ...back],
       make: gateShut,
       shut: true,
       cargo: false,
@@ -133,10 +137,7 @@ try {
       fixture.controlledActors = ["vale", "mara"];
       fixture.presentActors = ["mara"];
       fixture.actors.mara.place = journey.start;
-      // Black Pond sails only to the Wine-Dark Harbor. The Travel Provisions
-      // on deck open the lane between Piraeus and the Wine-Dark Harbor:
-      // Myrto has packed a load (rules 102). The free leg home carries no
-      // cargo: the provisions stay ashore.
+      for (const [from, to] of lanes) learnLane(fixture, "mara", from, to);
       fixture.usedUp = (fixture.usedUp || []).filter(
         (id) => id !== "greek-provisions",
       );
@@ -329,7 +330,6 @@ try {
             "greek-harbor",
             "greek-piraeus",
             "hoppycat-signal-jetty",
-            "pond",
           ].includes(target)
         ) {
           const at = (await state()).transports["greek-ship"].dock;
@@ -402,6 +402,18 @@ try {
           );
           await page.keyboard.press("Escape");
         }
+      }
+      if (journey.cargo === false) {
+        await step("wait");
+        const stranded = await state();
+        assert.equal(stranded.transports["greek-ship"].dock, "greek-harbor");
+        assert.ok(
+          !legalActions(stranded, "mara").some((a) => a.target === "greek-ship"),
+        );
+        assert.equal(
+          await page.locator('#hand [data-card="greek-ship"]').count(),
+          0,
+        );
       }
       assert.deepEqual(errors, []);
       console.log(

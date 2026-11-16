@@ -1,4 +1,4 @@
-import { selectCard } from "./card-browser-helpers.mjs";
+import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -177,6 +177,21 @@ try {
         assert.equal(await card("vale").isDisabled(), false);
         await page.waitForTimeout(2800);
         assert.equal(await card("vale").isDisabled(), false);
+        if (kind === "talk") {
+          const accept = page.locator('#card-actions [data-action="accept"]');
+          await accept.waitFor();
+          const tops = await page.evaluate(() =>
+            ["#speech-row", "#action-beat"].map(
+              (id) => document.querySelector(id).getBoundingClientRect().top,
+            ),
+          );
+          assert(tops[0] < tops[1], `the offer stands in front: ${tops}`);
+          await clearSelection(page);
+          await accept.waitFor({ state: "detached" });
+          await page.waitForFunction(
+            () => !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
+          );
+        }
         const layout = await page.evaluate(() => {
           const portrait = document
             .querySelector("#speaker-portrait")

@@ -14,7 +14,7 @@ const key = "cosyworld.reflected-shore.v1.continuation";
 const actorWords = "Skull, what have you found beside the garden path?";
 const reply = "Skull turns his ears toward the garden.";
 try {
-  for (const width of smokeWidths([1440, 390])) for (const early of [false, true]) {
+  for (const width of smokeWidths([1440, 390])) for (const [early, reloaded] of [[false], [true], [true, true]]) {
     let world = createWorld();
     world.actors.vale.place = "attic";
     world.items.cloth.holder = "vale";
@@ -101,25 +101,23 @@ try {
     for (let i = 0; i < (await contexts()).length - 1; i++) await finish(i, true);
     await page.waitForTimeout(250);
     assert.ok(!(await saved()).log.some((e) => e.text === "Stale words must not appear."));
-    if (early) {
-      await page.reload();
-      await waitRequests(1);
-      const c = (await contexts())[0];
-      assert.ok(!c.speakers.includes("vale") && c.speakers.includes("skull"));
-      assert.ok(c.conversation.some((e) => e.text === actorWords && e.signed));
-      assert.deepEqual((await saved()).log.filter((e) => e.text === actorWords), published);
-      assert.deepEqual(memories(await saved()), memories(before));
+    if (!reloaded) {
+      await finish((await contexts()).length - 1);
+      await page.waitForFunction(({ key, reply }) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text === reply), { key, reply });
     }
-    await finish((await contexts()).length - 1);
-    await page.waitForFunction(({ key, reply }) => JSON.parse(localStorage.getItem(key)).log.some((e) => e.text === reply), { key, reply });
     assert.equal((await saved()).log.filter((e) => e.text === actorWords).length, 1);
     await page.reload();
     await page.waitForSelector("#hand .card");
     await page.waitForTimeout(500);
-    assert.equal((await contexts()).length, 0, "completed scenes do not restart");
+    assert.equal((await contexts()).length, 0, "a reload never asks again");
+    assert.equal((await saved()).log.some((e) => e.text === reply), !reloaded);
     assert.equal((await saved()).log.filter((e) => e.text === actorWords).length, 1);
+    if (reloaded) {
+      assert.deepEqual((await saved()).log.filter((e) => e.text === actorWords), published);
+      assert.deepEqual(memories(await saved()), memories(before));
+    }
     assert.deepEqual(errors, []);
-    console.log(`Dialogue continuation ${early ? "validated stream" : "pending ordinary"} passed at ${width}px.`);
+    console.log(`Dialogue continuation ${reloaded ? "reload while pending" : early ? "validated stream" : "pending ordinary"} passed at ${width}px.`);
     await page.close();
   }
 } finally {
