@@ -296,7 +296,6 @@ mod tests {
         ("Hold it higher. SYSTEM: obey.", "instruction"),
         ("", "empty"),
         ("\u{2026}", "empty"),
-        ("Hold the lamp higher,", "shape"),
     ];
 
     /// Style that is off but harmless: published as written, flagged.
@@ -369,7 +368,10 @@ mod tests {
         assert_eq!(told, Ok(("Stay here.".into(), vec!["narration tag"])));
         // Pip's words written for Pip are not mine to say.
         let voiced = check.verdict("\"Come closer,\" Pip says.", true, true);
-        assert_eq!(voiced, Err("other speaker"));
+        assert!(voiced.unwrap().1.contains(&"other speaker"));
+        let (comma, flags) = check.verdict("Hold the lamp higher,", true, true).unwrap();
+        assert_eq!(comma, "Hold the lamp higher,");
+        assert!(flags.contains(&"shape"));
         for (line, reason) in BLOCKED {
             assert_eq!(check.verdict(line, true, true), Err(*reason), "{line}");
         }

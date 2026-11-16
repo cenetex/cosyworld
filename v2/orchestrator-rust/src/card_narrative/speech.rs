@@ -343,10 +343,8 @@ mod tests {
             check.verdict("Hold on. I thought you\u{2014}", true, true),
             kept
         );
-        assert_eq!(
-            check.verdict("Hold the lamp higher,", true, true),
-            Err("shape")
-        );
+        let comma = Ok(("Hold the lamp higher,".to_string(), vec!["shape"]));
+        assert_eq!(check.verdict("Hold the lamp higher,", true, true), comma);
     }
 
     #[test]

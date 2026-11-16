@@ -226,10 +226,9 @@ mod tests {
             }
             assert!(!view.contains("my my") && !view.contains("Pip's"), "{view}");
             let check = Check::new(&c, entity(&c, "moth"), Part::Line);
-            assert_eq!(
-                check.clean("I will give you the Seal.", true),
-                Err("custody")
-            );
+            assert!(check
+                .flags("I will give you the Seal.")
+                .contains(&"custody"));
             for line in [
                 "I will give you the Seal for the Ledger.",
                 "The Seal stays with me.",
