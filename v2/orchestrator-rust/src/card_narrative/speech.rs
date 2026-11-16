@@ -1,5 +1,4 @@
 //! A reply that speaks in quotes, reduced to its speaker's own words.
-//!
 //! After a heard line the local model continues an opening quote, and a
 //! small model often goes on as the one it heard: `It wants quiet,” Pip
 //! repeats. “Mostly it wants quiet.”` Those spans are Pip's, not mine.
@@ -14,6 +13,20 @@ pub(super) struct Speech {
     pub(super) other: bool,
     /// A dialogue tag followed a span ("…,” I say): the reply is prose.
     pub(super) tagged: bool,
+}
+
+pub(super) fn unlabelled(line: &str) -> &str {
+    let Some((head, rest)) = line.split_once(" said:") else {
+        return line;
+    };
+    let who = head.trim_start_matches(['"', '\u{201c}', '*', '_']);
+    let named = (1..=3).contains(&who.split_whitespace().count())
+        && !who.contains(['.', '!', '?', ',', ':', '"', '\u{201c}', '\u{201d}']);
+    if named {
+        rest.trim()
+    } else {
+        line
+    }
 }
 
 pub(super) fn aloud(raw: &str) -> &str {
@@ -258,6 +271,37 @@ mod tests {
             aloud("I think, therefore I wait."),
             "I think, therefore I wait."
         );
+    }
+
+    #[test]
+    fn a_remembered_talk_label_read_back_is_never_published() {
+        let c = super::super::tests::context();
+        let check = super::super::Check::new(&c, &c.entities[0], super::super::Part::Line);
+        let trick = "Perhaps. Or perhaps the light itself is the trick\u{2026}";
+        let shadows = "\"The shadows do seem to stretch\u{2026} ";
+        let corners = "\"Or perhaps they're just trying to find their way out of the corners.";
+        assert_eq!(unlabelled(&format!("ratimics said: {trick}")), trick);
+        assert_eq!(unlabelled("I said: \"Hold on.\""), "\"Hold on.\"");
+        assert_eq!(
+            unlabelled("Keep it lit, my mother said: always."),
+            "Keep it lit, my mother said: always."
+        );
+        for raw in [
+            format!("ratimics said: {trick}"),
+            format!("ratimics said: {shadows}\nratimics said: {corners}"),
+            format!("I said: {shadows}"),
+        ] {
+            let (text, _) = check.verdict(&raw, true, true).expect(&raw);
+            assert!(
+                !text.contains("said:") && !text.contains("ratimics"),
+                "{text}"
+            );
+            assert!(
+                text.starts_with("Perhaps.") || text.starts_with("The shadows"),
+                "{text}"
+            );
+        }
+        assert_eq!(check.verdict("ratimics said:", true, true), Err("empty"));
     }
 
     #[test]

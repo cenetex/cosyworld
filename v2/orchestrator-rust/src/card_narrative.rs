@@ -2665,7 +2665,7 @@ impl<'a> Check<'a> {
         let staged: Vec<(&str, String, bool)> = raw
             .trim()
             .lines()
-            .map(str::trim)
+            .map(|l| speech::unlabelled(l.trim()))
             .filter(|l| !l.is_empty())
             .map(|l| {
                 let (text, directed) = unstage(l);
