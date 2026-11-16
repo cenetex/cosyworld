@@ -188,34 +188,6 @@ fn home_action(w: &World, actor: usize, kind: &str) -> Value {
 }
 
 #[test]
-fn talk_as_requires_a_claimed_avatar_and_a_present_resident() {
-    let (path, mut c, id) = fixture();
-    let state = crate::test_app_state(Some(path));
-    let talk = full::Talk {
-        avatar: None,
-        target: "moth".to_string(),
-    };
-    assert_eq!(
-        full::talk_as(&state, &id, "user0", &talk).unwrap_err(),
-        "Claim an avatar first."
-    );
-    claim(&mut c, &id, 0);
-    assert_eq!(
-        full::talk_as(&state, &id, "user0", &talk).unwrap_err(),
-        "Choose someone here to talk to."
-    );
-    claim(&mut c, &id, 1);
-    let other = full::Talk {
-        avatar: Some(actor_id(1).to_string()),
-        target: "moth".to_string(),
-    };
-    assert_eq!(
-        full::talk_as(&state, &id, "user0", &other).unwrap_err(),
-        "Choose your own avatar."
-    );
-}
-
-#[test]
 fn a_journaled_surface_never_reaches_the_rules_on_replay() {
     let (_path, mut c, id) = fixture();
     claim(&mut c, &id, 0);

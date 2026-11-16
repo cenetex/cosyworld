@@ -56,10 +56,6 @@ pub(super) fn router() -> Router<AppState> {
             post(command).layer(DefaultBodyLimit::max(8192)),
         )
         .route(
-            "/card-game/shared/worlds/{id}/talk",
-            post(talk).layer(DefaultBodyLimit::max(8192)),
-        )
-        .route(
             "/discord/world",
             post(guild::route).layer(DefaultBodyLimit::max(1024)),
         )
@@ -318,13 +314,6 @@ fn default_surface() -> String {
     "browser".to_string()
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct Talk {
-    #[serde(default)]
-    pub(super) avatar: Option<String>,
-    pub(super) target: String,
-}
 async fn command(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -422,98 +411,6 @@ fn command_with_revision(
     Ok(value)
 }
 
-async fn talk(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-    h: HeaderMap,
-    Json(body): Json<Talk>,
-) -> Response {
-    let h2 = h.clone();
-    let worker = state.clone();
-    let wid = id.clone();
-    let committed = blocking(move || {
-        let state = worker;
-        let id = wid;
-        valid_id(&id)?;
-        let revision = super::revision(&state, &h, true)?;
-        admit(&revision.user)?;
-        logged(&id, || talk_with_revision(&state, &id, &revision, &body))
-    })
-    .await;
-    if committed.is_err() {
-        return reply(committed);
-    }
-    let wait = std::time::Duration::from_secs(20);
-    if let Ok(Ok(_permit)) = tokio::time::timeout(wait, capacity().clone().acquire_owned()).await {
-        for _ in 0..4 {
-            if !voice_once(&state, &id).await.unwrap_or(false) {
-                break;
-            }
-        }
-    }
-    kick(state.clone(), id.clone());
-    let worker = state.clone();
-    let wid = id.clone();
-    let view = blocking(move || {
-        let state = worker;
-        let id = wid;
-        let u = user(&state, &h2, false)?;
-        view_as(&state, &id, &u, None)
-    })
-    .await;
-    reply(view)
-}
-
-#[cfg(test)]
-pub(super) fn talk_as(state: &AppState, id: &str, u: &str, body: &Talk) -> Result<Value> {
-    let c = db(state)?;
-    let revision = crate::account_revision::Revision {
-        user: u.into(),
-        epoch: crate::account_revision::current(&c, u).map_err(sql_error)?,
-    };
-    talk_with_revision(state, id, &revision, body)
-}
-fn talk_with_revision(
-    state: &AppState,
-    id: &str,
-    revision: &crate::account_revision::Revision,
-    body: &Talk,
-) -> Result<Value> {
-    let u = &revision.user;
-    let c = db(state)?;
-    store::schema(&c)?;
-    let actor = bindings::mine(&c, id, u)?.ok_or("Claim an avatar first.")?;
-    if let Some(avatar) = body.avatar.as_deref() {
-        if actor_index(avatar)? != actor {
-            return Err("Choose your own avatar.".into());
-        }
-    }
-    if body.target.trim().is_empty() {
-        return Err("Choose someone to talk to.".into());
-    }
-    let world = store::world(&c, id, now())?;
-    let view = world.project(actor)?;
-    let action = view["actions"]
-        .as_array()
-        .and_then(|actions| {
-            actions
-                .iter()
-                .find(|action| action["kind"] == "talk" && action["target"] == body.target)
-                .cloned()
-        })
-        .ok_or("Choose someone here to talk to.")?;
-    let command = Command {
-        op: "play".to_string(),
-        avatar: Some(actor_id(actor).to_string()),
-        action,
-        target: Some(body.target.clone()),
-        key: format!("talk-{}", crate::random_hex(24)),
-        revealed: None,
-        moving: false,
-        surface: "discord".to_string(),
-    };
-    command_with_revision(state, id, revision, &command, None)
-}
 fn leave(
     c: &rusqlite::Connection,
     id: &str,
