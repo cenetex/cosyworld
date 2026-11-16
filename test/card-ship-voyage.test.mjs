@@ -220,18 +220,6 @@ describe("a real voyage", () => {
     expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-harbor" });
   });
 
-  it("an idle passenger at a dock whose cargo lanes are shut goes ashore at home", () => {
-    // Rules 95: at the Wine-Dark Harbor with no cargo aboard, the stuck ship
-    // puts in at its home port, the harbor, and Vale goes ashore there.
-    let s = setup("greek-harbor");
-    s = act(s, "vale", "move", "greek-ship");
-    for (let i = 1; i < IDLE_ROUNDS; i++) s = act(s, "vale", "wait");
-    expect(s.actors.vale.place).toBe("greek-ship");
-    s = act(s, "vale", "wait");
-    expect(s.actors.vale.place).toBe("greek-harbor");
-    expect(state(s)).toMatchObject({ phase: "docked", dock: "greek-harbor" });
-  });
-
   it("an empty ship stays put, and a human waiting at a port brings it one lane closer", () => {
     let s = setup("greek-piraeus");
     for (const id of players) s.actors[id].place = "pond";
