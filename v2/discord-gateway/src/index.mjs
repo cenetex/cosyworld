@@ -5,7 +5,7 @@ import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
 import { createRoom, createStats, record, seed, summary } from "./room.mjs";
 import { startHealth } from "./health.mjs";
 import { wait } from "./beats.mjs";
-import { channelLines, conversationNotes, coordinate, fetchCast } from "./orchestrator.mjs";
+import { channelLines, conversationNotes, coordinate, ensureWorld, fetchCast } from "./orchestrator.mjs";
 import { heard, hush } from "./turns.mjs";
 
 const config = readConfig(process.env);
@@ -45,6 +45,13 @@ async function refreshCast() {
   else log("cast unavailable");
 }
 
+async function findWorld(room) {
+  room.soughtAt = Date.now();
+  const world = await ensureWorld(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, room.guildId);
+  if (world) room.world = world;
+  else log(`world unavailable in guild ${room.guildId}`);
+}
+
 function forget(guildId) {
   for (const [channelId, room] of rooms) {
     if (room.guildId !== guildId) continue;
@@ -71,6 +78,7 @@ async function watch(guild) {
   webhooks.set(found.channel.id, found.webhook);
   channels.set(found.channel.id, found.channel);
   rooms.set(found.channel.id, room);
+  await findWorld(room);
 }
 
 function jot(body) {
@@ -114,7 +122,10 @@ client.once(Events.ClientReady, async () => {
   }
   setInterval(poll, Math.max(1000, config.DISCORD_POLL_MS));
   setInterval(() => log(summary(stats)), 600000);
-  setInterval(() => void refreshCast(), Math.max(60000, config.DISCORD_CAST_REFRESH_MS));
+  setInterval(() => {
+    void refreshCast();
+    for (const room of rooms.values()) void findWorld(room);
+  }, Math.max(60000, config.DISCORD_CAST_REFRESH_MS));
   log("Lonely Forest gateway ready");
 });
 
@@ -146,6 +157,7 @@ client.on(Events.ChannelDelete, (channel) => {
 client.on(Events.MessageCreate, (message) => {
   const room = rooms.get(message.channelId);
   if (!room) return;
+  if (!room.world && Date.now() - (room.soughtAt ?? 0) > 60000) void findWorld(room);
   const entry = record(room, message, room.webhookId, cast, stats);
   heard(room, entry, turnDeps());
 });
@@ -156,6 +168,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     cast: () => cast,
     pack: config.DISCORD_PACK,
     assetBase: config.ORCHESTRATOR_URL,
+    world: [...rooms.values()].find((room) => room.guildId === interaction.guildId)?.world,
   });
   try {
     await interaction.reply({

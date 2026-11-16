@@ -28,6 +28,22 @@ export async function fetchCast(fetch, origin, token, pack) {
   }
 }
 
+export async function ensureWorld(fetch, origin, token, guild) {
+  try {
+    const response = await fetch(`${origin}/discord/world`, {
+      method: "POST",
+      headers: { ...headers(token), "content-type": "application/json" },
+      body: JSON.stringify({ guild }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (response.status !== 200) return null;
+    const id = (await response.json())?.id;
+    return typeof id === "string" && /^[0-9a-f]{48}$/.test(id) ? `${origin}/?world=${id}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function coordinate(fetch, origin, token, body, signal) {
   try {
     const response = await fetch(`${origin}/discord/coordinate`, {

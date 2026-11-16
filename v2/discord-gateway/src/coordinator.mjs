@@ -71,7 +71,7 @@ export function payload(room, config, cast, now = Date.now()) {
     history,
   };
   if (room.notes) state.notes = room.notes;
-  return { pack: config.DISCORD_PACK, residents, state };
+  return { pack: config.DISCORD_PACK, ...(room.world ? { guild: room.guildId } : {}), residents, state };
 }
 
 const LIMITS = { topic: 40, goal: 120, summary: 300 };
