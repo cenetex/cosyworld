@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { authorization, baseString, day, due, problems } from "../scripts/x-post.mjs";
 
@@ -52,5 +53,12 @@ describe("X post schedule", () => {
     expect(problems(queue)).toEqual([]);
     const bad = { posts: [{ id: "a", day: 0, text: "x".repeat(281), approved: "yes", portrait: "p.png" }, { id: "a", day: 1, text: "ok", approved: true }] };
     expect(problems(bad)).toHaveLength(5);
+    expect(problems({ posts: [{ id: "v", day: 1, text: "ok", approved: true, video: "../x.mp4" }] })).toHaveLength(1);
+  });
+
+  it("ships a valid queue of one post a day", () => {
+    const shipped = JSON.parse(readFileSync(new URL("../v2/social/x-posts.json", import.meta.url), "utf8"));
+    expect(problems(shipped)).toEqual([]);
+    expect(shipped.posts.map((post) => post.day)).toEqual(shipped.posts.map((_, index) => index + 1));
   });
 });
