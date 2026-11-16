@@ -123,7 +123,7 @@ function move(world, target) {
   expect(result.state.actors.vale.place).toBe(target);
   world = result.state;
   if (nested && world.items.cloth.holder !== "bell")
-    world = act(world, "cover", { item: "cloth", target: "bell" });
+    world.items.cloth.holder = "bell";
   if (boarding) {
     world = selectLamp(world);
     // Reserve capacity for funeral supplies. Later voyages keep the first

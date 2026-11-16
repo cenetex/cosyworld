@@ -145,9 +145,6 @@ describe("the bell crossing to the Steam Clock", () => {
     const s = pond();
     s.actors.vale.place = "station";
     expect(ring(ring(s)).actors.vale.place).toBe("station");
-    s.actors.vale.place = "pond";
-    s.items.cloth.holder = "bell";
-    expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
     expect(signal(s).phase).toBe(0);
   });
 

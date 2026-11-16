@@ -55,7 +55,6 @@ export function hearFirstEcho() {
 // also sent through the Rust HTTP route by the contract smoke.
 export function narrativeContractCases() {
   const echoed = hearFirstEcho();
-  const covered = playCard(echoed, "cover", "cloth", "bell");
   const secondRing = playCard(echoed, "ring", "bell");
   const clearing = playCard(secondRing, "move", null, "clearing");
   const opening = enableMotives(atticOpening());
@@ -95,13 +94,10 @@ export function narrativeContractCases() {
     ["first dousing", doused],
     ["arrival at pond", pond],
     ["first ring", echoed],
-    ["cover bell after echo", covered],
-    ["reload covered bell", decodeSave(encodeSave(covered))],
     ["wait after echo", playCard(echoed, "wait")],
     ["second ring after echo", secondRing],
     ["enter clearing", clearing],
     ["return to echo's location", playCard(clearing, "move", null, "pond")],
-    ["uncover bell", playCard(covered, "take", "cloth")],
     ["lamp placed on shore", placedLamp],
     ["ship summoned", ship],
     ["reload summoned ship", decodeSave(encodeSave(ship))],

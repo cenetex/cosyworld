@@ -55,7 +55,7 @@ describe("playing the world through cards", () => {
     expect(encodeSave(s)).toBe(before);
     expect(cards(s, "lamp").items.lamp.holder).toBe("vale");
   });
-  it("plays a route using light, oil, a reflected path, and a cloth", () => {
+  it("plays a route using light, oil and a reflected path", () => {
     const start = createWorld();
     start.items.oil.holder = "vale";
     start.items.cloth.holder = "vale";
@@ -75,14 +75,7 @@ describe("playing the world through cards", () => {
     expect(reflectionOpen(s)).toBe(true);
     expect(s.items.lamp.fuelRooms).toBe(3);
     expect(s.items.oil.holder).toBe("station");
-    s = cards(s, "cloth", "lamp");
-    expect(s.items.cloth.holder).toBe("lamp");
-    expect(reflectionOpen(s)).toBe(false);
-    s = cards(s, "cloth");
-    expect(s.items.cloth.holder).toBe("vale");
-    expect(reflectionOpen(s)).toBe(false);
-    s = selectLamp(s, "lamp");
-    expect(reflectionOpen(s)).toBe(true);
+    expect(cardPlay(s, ["cloth", "lamp"]).action).toBeFalsy();
     s = selectLamp(s);
     expect(s.items.lamp.lit).toBe(false);
     expect(decodeSave(encodeSave(s))).toEqual(s);
@@ -123,7 +116,7 @@ describe("playing the world through cards", () => {
     expect(cardPlay(s, ["lamp", "station"]).action).toBeFalsy();
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("take");
   });
-  it("rings a carried bell and covers it with a cloth", () => {
+  it("rings a carried bell and offers no cloth cover", () => {
     const start = createWorld();
     start.items.cloth.holder = "pond";
     let s = cards(start, "bell");
@@ -131,10 +124,7 @@ describe("playing the world through cards", () => {
     expect(s.items.bell.ringing).toBe(3);
     expect(s.actors.keeper.place).toBe("station");
     s = cards(s, "pond");
-    s = cards(s, "bell", "cloth");
-    expect(s.items.bell.ringing).toBe(0);
-    expect(s.items.cloth.holder).toBe("bell");
-    expect(cardPlay(s, ["bell"]).action).toBeFalsy();
+    expect(cardPlay(s, ["bell", "cloth"]).action).toBeFalsy();
   });
   it("honors the owner's answer and carrying space for card handovers", () => {
     let s = createWorld();

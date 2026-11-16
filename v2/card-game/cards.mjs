@@ -22,7 +22,6 @@ import {
   itemPlace,
   rootHolder,
   exits,
-  covered,
   shutBoxesAt,
 } from "./world.mjs";
 import {
@@ -376,12 +375,6 @@ export function cardPlay(world, selected) {
     (a) => a.kind === "trade" && cards.every((id) => a.cards.includes(id)),
   );
   if (trade) return result(trade);
-  const action = actions.find(
-    (a) =>
-      a.kind === "cover" &&
-      a.cards.length === cards.length &&
-      cards.every((id) => a.cards.includes(id)),
-  );
   const heldByOther = cards.find(
     (id) =>
       things[id] &&
@@ -389,7 +382,7 @@ export function cardPlay(world, selected) {
       rootHolder(world, id) !== currentActor(world),
   );
   // Another person's quest is learned by talking with them, not from a card.
-  if (!action && heldByOther) {
+  if (heldByOther) {
     const give = cards.find(
       (id) => things[id] && world.items[id].holder === currentActor(world),
     );
@@ -398,7 +391,7 @@ export function cardPlay(world, selected) {
     if (give) return result(null, "Make room for both sides of the exchange.");
     return result(null, `Talk with ${nameOf(other)} to learn their quest.`);
   }
-  return result(action, "");
+  return result(null, "");
 }
 // A card tapped while a held thing is raised pairs with it only when the
 // pair plays. Otherwise a card that is taken or travelled to alone puts the
@@ -567,7 +560,7 @@ export function cardObservation(world, id) {
       );
     if (typeof item.ringing === "number")
       observations.push(
-        item.ringing > 0 && !covered(world, id) ? "Ringing" : "Silent",
+        item.ringing > 0 ? "Ringing" : "Silent",
       );
     const cover = Object.keys(world.items).find(
       (other) => world.items[other].holder === id,

@@ -15,7 +15,6 @@ import {
   itemPlace,
   rootHolder,
   carried,
-  covered,
   validateWorld,
   encodeSave,
   decodeSave,
@@ -78,19 +77,13 @@ describe("the reflected shore card game", () => {
     expect(s.items.lamp.holder).toBe("moth");
   });
 
-  it("opens a real route with light and closes it when covered", () => {
+  it("opens a real route with light", () => {
     let s = createWorld();
     s.items.cloth.holder = "pond";
     s = act(s, "take", "lamp");
     s = act(s, "move", null, "pond");
     expect(exits(s, "pond")).toContain("attic");
-    s = act(s, "cover", "cloth", "lamp");
-    expect(covered(s, "lamp")).toBe(true);
-    expect(exits(s, "pond")).toEqual(["station"]);
-    s = endStandoff(s);
     const fuel = s.items.lamp.fuelRooms;
-    s = act(s, "take", "cloth");
-    expect(s.items.lamp.lit).toBe(false);
     s = selectLamp(s, "lamp");
     expect(reflectionOpen(s)).toBe(true);
     expect(s.items.lamp.fuelRooms).toBe(fuel);
@@ -102,24 +95,6 @@ describe("the reflected shore card game", () => {
     expect(s.actors.vale.place).toBe("pond");
     expect(s.actors.vale.crossed).toBe(2);
     expect(exits(s, "pond")).toEqual(["station"]);
-  });
-
-  it("moves a cover with its object when a different avatar takes it", () => {
-    let s = createWorld();
-    s.actors.vale.place = "pond";
-    s.items.cloth.holder = "pond";
-    s.actors.moth.place = "attic";
-    s.items.lamp.holder = "vale";
-    s = act(s, "cover", "cloth", "lamp");
-    expect(carried(s, "vale")).toEqual(["lamp", "cloth"]);
-    s = act(s, "move", null, "station");
-    expect(itemPlace(s, "cloth")).toBe("station");
-    s = act(s, "drop", "lamp");
-    expect(s.items.lamp.holder).toBe("moth");
-    expect(rootHolder(s, "cloth")).toBe("moth");
-    expect(s.items.lamp.history.some((e) => e.includes("Pip takes"))).toBe(
-      true,
-    );
   });
 
   it("offers no pour play while the lamp still burns", () => {
@@ -213,18 +188,6 @@ describe("the reflected shore card game", () => {
     expect(s.actors.keeper.xp).toBe(1);
   });
 
-  it("uses the same cloth to stop sound", () => {
-    let s = createWorld();
-    s.actors.vale.place = "pond";
-    s.actors.keeper.place = "station";
-    s.items.bell.holder = "pond";
-    s.items.cloth.holder = "pond";
-    s.items.bell.ringing = 2;
-    s = act(s, "cover", "cloth", "bell");
-    expect(s.items.bell.ringing).toBe(0);
-    expect(legalActions(s).some((a) => a.kind === "ring")).toBe(false);
-  });
-
   it("keeps possession with an unwilling owner and accepts a willing handover", () => {
     let s = createWorld();
     s.actors.moth.place = "station";
@@ -251,7 +214,6 @@ describe("the reflected shore card game", () => {
     expect(
       legalActions(s).some((a) => a.kind === "take" && a.item === "cloth"),
     ).toBe(false);
-    expect(legalActions(s).some((a) => a.kind === "cover")).toBe(false);
   });
 
   it("supports card pairs for giving, using, and carrying", () => {

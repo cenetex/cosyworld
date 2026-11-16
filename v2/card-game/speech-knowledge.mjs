@@ -5,7 +5,6 @@ import {
   packThings,
 } from "./pack-registry.mjs";
 import {
-  covered,
   currentActor,
   itemPlace,
   nameOf,
@@ -126,7 +125,7 @@ function coveredCards(world, isCovered) {
     ...Object.keys(places),
     ...Object.keys(world.items),
   ];
-  const faceDown = (id) => isCovered(id) || (world.items[id] && covered(world, id));
+  const faceDown = (id) => isCovered(id);
   const hidden = new Set(cards.filter(faceDown));
   const shown = new Set(cards.filter((id) => !hidden.has(id)).map(lowerName));
   return {
@@ -191,7 +190,7 @@ export function forgetCovered(world, context, isCovered) {
   const keepEntity = (id) =>
     id === actor || id === context.location || kept(id);
   const [unknown, short] = nameKeys(unnamedIds, shown, (id) =>
-    world.items[id]?.lit && !covered(world, id)
+    world.items[id]?.lit
       ? UNKNOWN_LIGHT
       : unnamed(world, id),
   );

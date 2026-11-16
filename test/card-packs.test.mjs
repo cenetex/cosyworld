@@ -311,9 +311,6 @@ describe("the Steam Clock's own bell", () => {
     const distant = clearing();
     distant.items.bell.ringing = 2;
     expect(availableCards(distant)).not.toContain("pond");
-    distant.items.bell.holder = "clearing";
-    distant.items.cloth.holder = "bell";
-    expect(availableCards(distant)).not.toContain("pond");
   });
 
   it("is a play on the clearing card that reopens the way and wakes Badger", () => {

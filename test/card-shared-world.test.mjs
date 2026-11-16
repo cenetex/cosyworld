@@ -47,15 +47,15 @@ describe("the full world shared by human avatars", () => {
     const actions = ask(world, "view").actions;
     for (const kind of ["pursue", "share-quest", "join-quest", "drop-quest"])
       expect(actions.some((a) => a.kind === kind)).toBe(false);
-    const cover = actions.find((a) => a.kind === "cover");
-    expect(cover).toBeDefined();
+    const drop = actions.find((a) => a.kind === "drop" && a.item === "cloth");
+    expect(drop).toBeDefined();
     const selected = ask(world, "play", "vale", {
-      selectedIds: ["vale", "cloth", "lamp", "cloth"],
+      selectedIds: ["vale", ...drop.cards],
     });
-    const explicit = ask(world, "play", "vale", { action: cover });
+    const explicit = ask(world, "play", "vale", { action: drop });
     expect(selected.ok).toBe(true);
     expect(selected.world).toEqual(explicit.world);
-    expect(selected.world.items.cloth.holder).toBe("lamp");
+    expect(selected.world.items.cloth.holder).toBe("pond");
     const invalid = ask(world, "play", "vale", {
       selectedIds: ["cloth", "lamp", "pond"],
     });

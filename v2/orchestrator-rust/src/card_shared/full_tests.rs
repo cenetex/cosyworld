@@ -1498,19 +1498,22 @@ fn embedded_selected_cards_match_with_no_quest_plays() {
     for kind in ["pursue", "share-quest", "join-quest", "drop-quest"] {
         assert!(!actions.iter().any(|a| a["kind"] == kind));
     }
-    let cover = actions
+    let drop = actions
         .iter()
-        .find(|a| a["kind"] == "cover")
+        .find(|a| a["kind"] == "drop" && a["item"] == "cloth")
         .unwrap()
         .clone();
+    let mut ids = vec![json!("vale")];
+    ids.extend(drop["cards"].as_array().unwrap().iter().cloned());
     let mut selected = w.request("play", 0);
-    selected["selectedIds"] = json!(["vale", "cloth", "lamp", "cloth"]);
+    selected["selectedIds"] = json!(ids);
     let actual = engine::reduce(selected).unwrap();
     assert_eq!(actual["ok"], true);
-    w.apply(&json!({"op":"play","actor":"vale","action":cover}))
+    w.apply(&json!({"op":"play","actor":"vale","action":drop}))
         .unwrap();
     assert_eq!(actual["world"], w.game);
-    assert_eq!(w.game["items"]["cloth"]["holder"], "lamp");
+    let place = w.game["actors"]["vale"]["place"].clone();
+    assert_eq!(w.game["items"]["cloth"]["holder"], place);
 }
 
 #[test]

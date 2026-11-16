@@ -91,17 +91,12 @@ describe("observable card descriptions", () => {
     world.items.lamp.lit = false;
     expect(cardObservation(world, "lamp")).toMatch(/^Unlit\./);
   });
-  it("describes sound and the cloth without counting down", () => {
+  it("describes sound without counting down", () => {
     const world = createWorld();
     world.items.bell.ringing = 3;
     expect(cardObservation(world, "bell")).toMatch(/^Ringing\./);
     world.items.bell.ringing = 1;
     expect(cardObservation(world, "bell")).not.toMatch(/\d|left|again/);
-    world.items.cloth.holder = "bell";
-    expect(cardObservation(world, "bell")).toMatch(
-      /^Silent\. Covered by Black cloth/,
-    );
-    expect(cardObservation(world, "cloth")).toBe("On Bell.");
   });
   it("does not disclose hidden ritual phases", () => {
     const world = createWorld();

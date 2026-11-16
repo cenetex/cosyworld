@@ -154,7 +154,6 @@ export function speechOccasions(world, cast) {
         "drop",
         "eat",
         "use",
-        "cover",
         "ring",
         "give",
         "trade",

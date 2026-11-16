@@ -1,7 +1,7 @@
 // Senses and reflections, split out of world.mjs (#1390).
 import { conditionMet } from "../pack-rules.mjs";
 import { entityActive } from "../pack-registry.mjs";
-import { itemPlace, covered } from "./items.mjs";
+import { itemPlace } from "./items.mjs";
 import { nameOf } from "./catalog.mjs";
 import { currentActor } from "../human-cast.mjs";
 import forest from "../forest.json" with { type: "json" };
@@ -16,12 +16,10 @@ export const reflectionsFrom = (s, from) =>
     .map((r) => r.to);
 export const reflectionOpen = (s, from = itemPlace(s, "lamp")) =>
   reflectionsFrom(s, from).length > 0;
-// The bell is the shore's sound source: heard where it rests while it rings
-// uncovered. Packs add their own sounding fixtures through pack-rules.mjs.
+// The bell is heard where it rests while it rings; packs add their own fixtures.
 const baseSoundAt = (s, place) =>
   entityActive(s, "bell") &&
   s.items.bell.ringing > 0 &&
-  !covered(s, "bell") &&
   itemPlace(s, "bell") === place;
 export const senses = { player: "vale", baseSoundAt, nameOf };
 export const sensesFor = (s) => ({

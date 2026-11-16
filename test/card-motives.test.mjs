@@ -119,7 +119,7 @@ describe("shore wants and grievances", () => {
     expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(true);
     s.items.cloth.holder = "vale";
     s.actors.vale.heldItem = "lamp";
-    s = act(s, "cover", { item: "cloth", target: "lamp" });
+    slight(s, { kind: "snuff", actor: "vale", item: "lamp" }, ["moth"]);
     expect(resentment(s, "moth", "vale")).toBe(1);
     s.actors.moth.place = s.actors.vale.place;
     expect(accompanyDecision(s, "vale", "moth", "pond").accepted).toBe(false);
@@ -160,7 +160,7 @@ describe("shore wants and grievances", () => {
     s.items.lamp.lit = true;
     s.items.cloth.holder = "vale";
     s.actors.vale.heldItem = "lamp";
-    s = act(s, "cover", { item: "cloth", target: "lamp" });
+    slight(s, { kind: "snuff", actor: "vale", item: "lamp" }, ["moth"]);
     expect(s.motives.grievances.moth[0]).toMatchObject({
       kind: "light",
       item: "lamp",

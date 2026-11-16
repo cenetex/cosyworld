@@ -49,7 +49,7 @@ describe("browser dialogue history contract", () => {
 
   it("keeps the authored echo in the save, without treating it as an avatar", () => {
     for (const { name, world, context } of narrativeContractCases().filter(
-      ({ name }) => name.includes("echo") || name === "reload covered bell",
+      ({ name }) => name.includes("echo"),
     )) {
       expect(
         world.log.find((entry) => entry.speaker === "echo"),

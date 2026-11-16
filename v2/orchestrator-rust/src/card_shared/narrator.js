@@ -1231,7 +1231,7 @@
         values: { lamp: 12, oil: 3, bell: 1, cloth: 6 },
         want: { kind: "item", target: "lamp", lit: true },
         grievances: [
-          { kind: "light", on: [{ kind: "snuff" }, { kind: "cover", target: "lamp" }], reason: "{actor} spoiled Pip's light." }
+          { kind: "light", on: [{ kind: "snuff" }], reason: "{actor} spoiled Pip's light." }
         ]
       },
       keeper: {
@@ -3114,34 +3114,6 @@
                 "is extinguished",
                 "burns out",
                 "has gone out"
-              ]
-            }
-          }
-        },
-        {
-          id: "lamp-cover",
-          entity: "lamp",
-          subjects: [
-            "lamp"
-          ],
-          source: {
-            kind: "covered"
-          },
-          values: {
-            true: {
-              fact: "The Lamp is covered. Its flame state is recorded separately.",
-              legacyToken: "covered",
-              claims: [
-                "is covered"
-              ]
-            },
-            false: {
-              fact: "The Lamp is uncovered.",
-              legacyToken: "uncovered",
-              claims: [
-                "is uncovered",
-                "is not covered",
-                "isn't covered"
               ]
             }
           }
@@ -16234,7 +16206,6 @@
   }
   var SIGNAL_VERBS = [
     "ring",
-    "cover",
     "take",
     "drop",
     "give",
@@ -16356,9 +16327,7 @@
       const collection = source?.kind === "actor_flag" ? "avatars" : "items";
       const valid = keysOk(d, ["id", "entity", "subjects", "source", "values", "note"]) && idOk2(d.id) && !seen.has(d.id) && catalog[collection]?.includes(d.entity) && Array.isArray(d.subjects) && d.subjects.length > 0 && d.subjects.length <= 4 && d.subjects.every(
         (s) => typeof s === "string" && /^[a-z]+(?: [a-z]+)*$/.test(s) && s.length <= 80
-      ) && keysOk(source, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag", "covered"].includes(
-        source.kind
-      ) && (source.kind === "covered" ? source.field === void 0 : idOk2(source.field)) && keysOk(d.values, ["true", "false"]) && ["true", "false"].every((key2) => {
+      ) && keysOk(source, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag"].includes(source.kind) && idOk2(source.field) && keysOk(d.values, ["true", "false"]) && ["true", "false"].every((key2) => {
         const v = d.values[key2];
         return keysOk(v, ["fact", "claims", "legacyToken"]) && textOk(v.fact, 240) && Array.isArray(v.claims) && v.claims.length > 0 && v.claims.length <= 16 && v.claims.every(
           (s) => typeof s === "string" && /^[a-z']+(?: [a-z']+)*$/.test(s) && s.length <= 80
@@ -17593,7 +17562,7 @@
       const entity = source.kind === "actor_flag" ? world.actors[d.entity] : world.items[d.entity];
       if (!entity) return [];
       const raw = Object.hasOwn(entity, source.field) ? entity[source.field] : void 0;
-      const value = source.kind === "covered" ? Object.values(world.items).some((item) => item.holder === d.entity) : source.kind === "item_positive" ? typeof raw === "number" ? raw > 0 : null : typeof raw === "boolean" ? raw : null;
+      const value = source.kind === "item_positive" ? typeof raw === "number" ? raw > 0 : null : typeof raw === "boolean" ? raw : null;
       return value === null ? [] : [{ id: d.id, value }];
     }).slice(0, 32);
   }
@@ -19018,7 +18987,7 @@
     (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
   ).map((r) => r.to);
   var reflectionOpen = (s, from = itemPlace(s, "lamp")) => reflectionsFrom(s, from).length > 0;
-  var baseSoundAt = (s, place) => entityActive(s, "bell") && s.items.bell.ringing > 0 && !covered(s, "bell") && itemPlace(s, "bell") === place;
+  var baseSoundAt = (s, place) => entityActive(s, "bell") && s.items.bell.ringing > 0 && itemPlace(s, "bell") === place;
   var senses = { player: "vale", baseSoundAt, nameOf };
   var sensesFor = (s) => ({
     ...senses,
@@ -20103,7 +20072,7 @@
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
     if (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4 || !Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > LAMP_FUEL || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
       fail("lamp");
-    if (Object.hasOwn(oil, "doses") || !Number.isInteger(bell.ringing) || bell.ringing < 0 || bell.ringing > 3 || covered(s, "bell") && bell.ringing > 0)
+    if (Object.hasOwn(oil, "doses") || !Number.isInteger(bell.ringing) || bell.ringing < 0 || bell.ringing > 3)
       fail("oil-bell");
     const signal = s.locations.pond.shipSignal;
     if (signal !== void 0 && (!Number.isInteger(signal) || signal < 0 || signal > 4))
@@ -20262,7 +20231,6 @@
   }
   var itemPlace = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
-  var covered = (s, id) => s.items.cloth.holder === id;
 
   // v2/card-game/lamp-state.mjs
   function installLampFuel(world) {
@@ -20521,7 +20489,6 @@
         "drop",
         "eat",
         "use",
-        "cover",
         "ring",
         "give",
         "trade",
@@ -20749,7 +20716,7 @@
       ...Object.keys(places),
       ...Object.keys(world.items)
     ];
-    const faceDown = (id) => isCovered(id) || world.items[id] && covered(world, id);
+    const faceDown = (id) => isCovered(id);
     const hidden = new Set(cards.filter(faceDown));
     const shown = new Set(cards.filter((id) => !hidden.has(id)).map(lowerName));
     return {
@@ -20792,7 +20759,7 @@
     const [unknown, short] = nameKeys(
       unnamedIds,
       shown,
-      (id) => world.items[id]?.lit && !covered(world, id) ? UNKNOWN_LIGHT : unnamed(world, id)
+      (id) => world.items[id]?.lit ? UNKNOWN_LIGHT : unnamed(world, id)
     );
     const blur = blurrer(unknown, shown, short);
     const keptLine = ({ text: text2 }) => blur(text2) === text2;
@@ -21493,7 +21460,7 @@
     const bellRang = world.log.some(
       (entry) => entry.turn === world.turn && !entry.generated && entry.verb === "ring" && entry.itemId === "bell"
     );
-    const quietFact = bellHandled && !bellRang && !world.items.bell.ringing ? `The Bell made no sound this turn: it is ${covered(world, "bell") ? "wrapped in the Black cloth and " : ""}silent. Nobody rang it.` : null;
+    const quietFact = bellHandled && !bellRang && !world.items.bell.ringing ? `The Bell made no sound this turn: it is silent. Nobody rang it.` : null;
     const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
     const ways2 = wayFacts(world, location);
     const conversation = beforeFirstLight ? [] : world.log.filter(
@@ -21641,7 +21608,7 @@
           facts.push(`Held by or resting at: ${nameOf(rootHolder(world, id))}.`);
           if (id === "lamp")
             facts.push(
-              `${item.fuel === 0 ? "Empty" : item.fuelRooms === 1 || item.fuelRooms === void 0 && item.fuel <= 3 ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`
+              `${item.fuel === 0 ? "Empty" : item.fuelRooms === 1 || item.fuelRooms === void 0 && item.fuel <= 3 ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}.`
             );
           if (things[id]?.refuels)
             facts.push(
@@ -21649,7 +21616,7 @@
             );
           if (id === "bell")
             facts.push(
-              `${item.ringing ? "Ringing" : "Silent"}; ${covered(world, id) ? "covered" : "uncovered"}.`
+              `${item.ringing ? "Ringing" : "Silent"}.`
             );
           if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
         } else {
