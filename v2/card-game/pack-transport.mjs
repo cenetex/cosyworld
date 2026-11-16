@@ -12,6 +12,7 @@ import {
   packPeople,
   conditionsMet,
 } from "./pack-registry.mjs";
+import { travelerOf } from "./world/company.mjs";
 
 // A ship is docked, has a course set, is at sea, or has arrived. It sails
 // authored lanes between its docks. A voyage takes one world round.
@@ -99,6 +100,15 @@ export function knowsLane(s, actor, from, to) {
     return true;
   return storyDock(s, from) || storyDock(s, to);
 }
+export const knowsLaneFrom = (s, id, dock, actor) =>
+  !actor ||
+  [actor, travelerOf(s, actor)].some(
+    (who) =>
+      who &&
+      lanesFrom(transports[id], dock).some(
+        (to) => entityActive(s, to) && knowsLane(s, who, dock, to),
+      ),
+  );
 // Sailing a lane, or hearing it, saves it both ways when it is two-way.
 export function learnLane(s, actor, from, to) {
   const t = Object.values(transports).find((t) =>

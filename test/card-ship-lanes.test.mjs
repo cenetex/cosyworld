@@ -95,8 +95,6 @@ describe("knowing a lane is personal", () => {
       expect(knowsLane(s, "greek-shipmaster", from, to)).toBe(true);
   });
 
-  // Every lane past the Wine-Dark Harbor now opens with a thing aboard or a
-  // story dock, so knowing one changes what Myrto tells, not the course cards.
   it("everyone who sails a lane learns it, both ways", () => {
     let s = dispatchShared({
       op: "create",
@@ -108,12 +106,13 @@ describe("knowing a lane is personal", () => {
       if (a.place === "greek-ship") a.place = s.transports["greek-ship"].dock;
     s.transports["greek-ship"].riders = [];
     summonTransport(s, "greek-ship", "greek-piraeus");
+    // Vale has sailed home from Piraeus before; Mara knows only the jetty
+    // lane, which is enough to board.
+    learnLane(s, "vale", "greek-piraeus", "greek-harbor");
+    learnLane(s, "mara", "greek-piraeus", "hoppycat-signal-jetty");
     s = reload(s);
     s = act(s, "vale", "move", "greek-ship");
     s = act(s, "mara", "move", "greek-ship");
-    // Vale has sailed home from Piraeus before; Mara has not. The ship
-    // always sails home from Piraeus, for both, known or not.
-    learnLane(s, "vale", "greek-piraeus", "greek-harbor");
     expect(courses(s, "vale")).toContain("greek-harbor");
     expect(knowsLane(s, "mara", "greek-piraeus", "greek-harbor")).toBe(false);
     s = act(s, "vale", "course", "greek-harbor");

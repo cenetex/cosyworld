@@ -133,9 +133,9 @@ describe("following", () => {
   });
   it("rides a ship voyage and steps ashore with the traveler", () => {
     let s = invite(world({ at: "co-c" }), CY, "co-dock");
+    learnLane(s, "vale", "co-dock", "co-far-pier");
     s = go(s, "co-ship");
     expect(at(s, CY)).toBe("co-ship");
-    learnLane(s, "vale", "co-dock", "co-far-pier");
     s = sailTo(s, "co-far-pier");
     expect(at(s, "vale")).toBe("co-far-pier");
     expect(at(s, CY)).toBe("co-far-pier");
@@ -174,8 +174,8 @@ describe("holding", () => {
   });
   it("stays aboard through docking until the traveler steps ashore", () => {
     let s = invite(world({ at: "co-c" }), CY, "co-dock");
-    s = go(s, "co-ship");
     learnLane(s, "vale", "co-dock", "co-far-pier");
+    s = go(s, "co-ship");
     s = sailTo(s, "co-far-pier");
     s = wait(s, 2);
     expect(at(s, CY)).toBe("co-far-pier");

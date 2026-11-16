@@ -2155,6 +2155,35 @@
   var usedUp = (world, id) => Array.isArray(world.usedUp) && world.usedUp.includes(id);
   var gone = (world, id) => Array.isArray(world.gone) && world.gone.includes(id);
 
+  // v2/card-game/world/company.mjs
+  var companionOf = (s, who) => s.actors?.[who]?.companion ?? null;
+  function travelerOf(s, resident) {
+    for (const id of Object.keys(s.actors || {}).sort())
+      if (s.actors[id].companion === resident) return id;
+    return null;
+  }
+  function partyOf(s, who) {
+    const here2 = s.actors?.[who]?.place;
+    if (here2 === void 0) return [who];
+    const party = [who];
+    const mine = companionOf(s, who);
+    if (mine && s.actors[mine]?.place === here2) party.push(mine);
+    const traveler = travelerOf(s, who);
+    if (traveler && s.actors[traveler]?.place === here2) party.push(traveler);
+    return party;
+  }
+  function validCompanions(s, actorIds2) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const [id, a] of Object.entries(s.actors || {})) {
+      if (a.actedAt !== void 0 && (a.companion === void 0 || !Number.isSafeInteger(a.actedAt) || a.actedAt < 0 || a.actedAt > s.turn)) return false;
+      if (a.companion === void 0) continue;
+      if (typeof a.companion !== "string" || a.companion === id || !actorIds2.includes(a.companion) || seen.has(a.companion))
+        return false;
+      seen.add(a.companion);
+    }
+    return true;
+  }
+
   // v2/card-game/pack-transport.mjs
   var TRANSPORT_VERSION = 3;
   var PHASES = ["docked", "course", "sea", "arrived"];
@@ -2206,6 +2235,11 @@
       return true;
     return storyDock(s, from) || storyDock(s, to);
   }
+  var knowsLaneFrom = (s, id, dock, actor) => !actor || [actor, travelerOf(s, actor)].some(
+    (who) => who && lanesFrom(transports[id], dock).some(
+      (to) => entityActive(s, to) && knowsLane(s, who, dock, to)
+    )
+  );
   var laneGate = (t, from, to) => (t.lanes || []).find(
     (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
   )?.opensWith ?? null;
@@ -2502,7 +2536,7 @@
     (c) => c.from === place && (mayCross(c, actor, senses2) || // A resident taken along walks home by the same way: from a
     // ticketed place into its own part of the world, or on to
     // another ticketed place on that way (rules 133).
-    s.invitedPlaces?.[actor]?.includes(c.from) && ((packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null) || s.invitedPlaces[actor].includes(c.to))) && crossingOpen(s, c, senses2, actor)
+    s.invitedPlaces?.[actor]?.includes(c.from) && ((packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null) || s.invitedPlaces[actor].includes(c.to))) && crossingOpen(s, c, senses2, actor) && (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor))
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
   var packDiscovered = (s, packId) => crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
@@ -2947,35 +2981,6 @@
     return Boolean(
       w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
     );
-  }
-
-  // v2/card-game/world/company.mjs
-  var companionOf = (s, who) => s.actors?.[who]?.companion ?? null;
-  function travelerOf(s, resident) {
-    for (const id of Object.keys(s.actors || {}).sort())
-      if (s.actors[id].companion === resident) return id;
-    return null;
-  }
-  function partyOf(s, who) {
-    const here2 = s.actors?.[who]?.place;
-    if (here2 === void 0) return [who];
-    const party = [who];
-    const mine = companionOf(s, who);
-    if (mine && s.actors[mine]?.place === here2) party.push(mine);
-    const traveler = travelerOf(s, who);
-    if (traveler && s.actors[traveler]?.place === here2) party.push(traveler);
-    return party;
-  }
-  function validCompanions(s, actorIds2) {
-    const seen = /* @__PURE__ */ new Set();
-    for (const [id, a] of Object.entries(s.actors || {})) {
-      if (a.actedAt !== void 0 && (a.companion === void 0 || !Number.isSafeInteger(a.actedAt) || a.actedAt < 0 || a.actedAt > s.turn)) return false;
-      if (a.companion === void 0) continue;
-      if (typeof a.companion !== "string" || a.companion === id || !actorIds2.includes(a.companion) || seen.has(a.companion))
-        return false;
-      seen.add(a.companion);
-    }
-    return true;
   }
 
   // v2/card-game/world/for-good.mjs
@@ -19039,6 +19044,9 @@
       }))
     );
   }
+  var shipDefs = () => Object.entries(transports).flatMap(
+    ([transport, t]) => t.docks.map((at) => ({ kind: "ship", at, id: t.place, transport }))
+  );
   var crossingDefs = () => crossings.filter((c) => c.sealed && !c.transport && !c.retired).map((c) => ({
     kind: "crossing",
     at: c.from,
@@ -19056,7 +19064,8 @@
     ...residentDefs(),
     ...laneDefs(),
     ...crossingDefs(),
-    ...hubDefs()
+    ...hubDefs(),
+    ...shipDefs()
   ];
   function validOpened(s) {
     if (s.opened === void 0) return true;

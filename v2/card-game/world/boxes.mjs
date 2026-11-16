@@ -32,7 +32,14 @@ import {
   transports,
 } from "../pack-registry.mjs";
 import { conditionMet } from "../pack-rules.mjs";
-import { shipDock, shutLanes } from "../pack-transport.mjs";
+import {
+  knowsLane,
+  knowsLaneFrom,
+  lanesFrom,
+  shipDock,
+  shutLanes,
+  transportUnlocked,
+} from "../pack-transport.mjs";
 import { usedUp } from "../item-use.mjs";
 import {
   currentActor,
@@ -49,7 +56,15 @@ import { rootHolder } from "./items.mjs";
 import { exits } from "./geography.mjs";
 import { sensesFor } from "./senses.mjs";
 
-export const BOX_KINDS = ["way", "item", "resident", "lane", "crossing", "hub"];
+export const BOX_KINDS = [
+  "way",
+  "item",
+  "resident",
+  "lane",
+  "crossing",
+  "hub",
+  "ship",
+];
 
 // --- Definitions: what can be a box ----------------------------------------
 
@@ -121,6 +136,10 @@ function laneDefs() {
       })),
   );
 }
+const shipDefs = () =>
+  Object.entries(transports).flatMap(([transport, t]) =>
+    t.docks.map((at) => ({ kind: "ship", at, id: t.place, transport })),
+  );
 const crossingDefs = () =>
   crossings
     .filter((c) => c.sealed && !c.transport && !c.retired)
@@ -152,6 +171,7 @@ export const boxDefs = () => [
   ...laneDefs(),
   ...crossingDefs(),
   ...hubDefs(),
+  ...shipDefs(),
 ];
 const defOf = (box) =>
   boxDefs().find(
@@ -213,6 +233,8 @@ export function boxMet(s, def, actor = currentActor(s)) {
       );
     case "hub":
       return def.route.requires.every((c) => conditionMet(s, c, null));
+    case "ship":
+      return knowsLaneFrom(s, def.transport, def.at, actor);
     default:
       return false;
   }
@@ -229,6 +251,11 @@ function present(s, def) {
     case "lane": {
       return shipDock(s, def.transport) === def.lane.from;
     }
+    case "ship":
+      return (
+        shipDock(s, def.transport) === def.at &&
+        transportUnlocked(s, def.transport)
+      );
     default:
       return true;
   }
@@ -251,6 +278,7 @@ export function boxOpen(s, box, actor = currentActor(s)) {
     case "item":
       return def.sealed ? entityActive(s, def.id) : !usedUp(s, def.id);
     case "lane":
+    case "ship":
       return boxMet(s, def, actor);
     default:
       return true;
@@ -392,6 +420,20 @@ export function goalsFor(s, def, actor) {
       return goalsOf(s, def.pack, def.crossing.requires, actor);
     case "hub":
       return goalsOf(s, null, def.route.requires, actor);
+    case "ship":
+      return Object.keys(s.actors)
+        .sort()
+        .filter(
+          (id) =>
+            id !== actor &&
+            !controlledByHuman(s, id) &&
+            s.actors[id].place === def.at &&
+            entityActive(s, id) &&
+            lanesFrom(transports[def.transport], def.at).some(
+              (to) => entityActive(s, to) && knowsLane(s, id, def.at, to),
+            ),
+        )
+        .map((target) => ({ kind: "person", target }));
     default:
       return [];
   }
@@ -468,6 +510,9 @@ export function boxesAt(s, place, actor = currentActor(s)) {
       case "hub":
         if (entityShown(s, def.id)) add(def, boxOpen(s, def, actor));
         break;
+      case "ship":
+        if (entityShown(s, def.id) && !boxMet(s, def, actor)) add(def, false);
+        break;
     }
   }
   return out.sort(
@@ -499,7 +544,7 @@ const lockConditions = (def) => [
 
 // Whether the avatar has already stood in the place this box leads to.
 const stood = (world, id, def) =>
-  ["way", "crossing", "hub", "lane"].includes(def.kind) &&
+  ["way", "crossing", "hub", "lane", "ship"].includes(def.kind) &&
   Boolean(world.actors[id]?.visited?.includes(def.id));
 
 /**
