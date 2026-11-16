@@ -50,6 +50,326 @@
       "transcript": "The bread is warm. Set your jar by the door, and come sit with us. Bring the water back before dusk. I'll keep a loaf for you, and a place at the table.",
       "direction": "A middle-aged woman with a warm low alto, gentle husky grain, and grounded confidence. Speak directly with generous warmth and practical affection. Carry connected phrases with clear consonants, gentle emphasis, and brief natural pauses. Let phrase endings settle with calm assurance. Sound firm and brisk when the words are cross. Let the words guide the emotion.",
       "reference_sha256": "0dc315f6c54a2a48fab122a0c1b3dc5876121073b696b0ce4537c2d76d0b08a8"
+    },
+    "greek-antigone": {
+      "name": "Antigone",
+      "file": "assets/voices/greek-antigone.mp3",
+      "transcript": "There is dust on the road, and the wind comes from the field. I have watched it all morning. Bring me a shovel and clean cloth, and I will show you the way.",
+      "direction": "A woman in her early twenties with a low clear pitch, a firm chest tone, and steady resolve. Speak plainly to one person who might help. Carry connected phrases at a level pace with clean consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle firmly, without pleading. Grief stays quiet under the calm. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "5706ff16d976d4da23eef9f4faae29a94c6cbafa72563808c3cafa1b02556fb2"
+    },
+    "greek-ismene": {
+      "name": "Ismene",
+      "file": "assets/voices/greek-ismene.mp3",
+      "transcript": "I looked down the road twice. Nobody is coming. The cloth is folded and dry under the roof. Walk a little ahead of me, and I will tell you the plan as we go.",
+      "direction": "A girl of about seventeen with a high light pitch, a soft breathy edge, and careful nerves. Speak close and low, as if someone might overhear. Keep the phrases quick but connected, with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings fall quiet. Relief shows when she speaks of a plan. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "4ae7a0e833f3f69630b3f7d13bb803255c77f9d1c3e94bf8fb2dfe648e16d5b1"
+    },
+    "greek-creon": {
+      "name": "Creon",
+      "file": "assets/voices/greek-creon.mp3",
+      "transcript": "The door is open and the bench is clear. I hear each petition in its turn. Bring your witness and say your name plainly. Then you will have a fair answer.",
+      "direction": "A man in his fifties with a low resonant pitch, a full chest tone, and tired formal authority. Speak as a householder hearing a visitor at his door, never shouting. Carry measured, connected phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle firmly. A stiff courtesy colors each request. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "02704a89c4ef37faac633e1d14e1cee8c38cd915a863b36f04dbfd30ed383113"
+    },
+    "greek-guard": {
+      "name": "The Gate Guard",
+      "file": "assets/voices/greek-guard.mp3",
+      "transcript": "Nothing on the road but crows. That is how I like it. Show me a written order, and I step aside. And if you pass the oven, bring me a crust.",
+      "direction": "A man in his forties with a middle pitch, a flat slightly nasal grain, and weary caution. Speak like a soldier on a long watch. Connect the words into blunt thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings drop flat. He brightens a little at the thought of bread. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "7be380e571bd7a4ac74a6bc1796377ba6e33d1442e6e5c3c43fcc7043d1262b0"
+    },
+    "greek-elder": {
+      "name": "The Chorus Elder",
+      "file": "assets/voices/greek-elder.mp3",
+      "transcript": "Good water here, and good talk. I have heard two stories today, and I know who told each one. Sit by me and tell yours slowly. I will repeat it as you said it.",
+      "direction": "A very old man with a high reedy pitch, a slight quaver, and patient fairness. Speak slowly to one neighbor beside him. Carry each careful phrase to its end with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings rest gently. He weighs each claim as he says it, kindly and without hurry. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "6243f5f6461b78d131af1e88d8a7b7257fc74339eadba824f2482f80abbb8ad5"
+    },
+    "greek-shipmaster": {
+      "name": "Myrto the Shipmaster",
+      "file": "assets/voices/greek-shipmaster.mp3",
+      "transcript": "The rope is tight and the wind is fair. My crew is hungry, and a hungry crew will not row. Bring bread, figs and wine. Tell me honestly where you are going, and we sail.",
+      "direction": "A woman in her forties with a middle pitch, a rough salt-worn gravel, and brisk command. Speak like a captain settling terms on the dock. Keep the phrases quick and connected with strong consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings land short and sure. A shrewd grin colors the bargain. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "4047ae778c93ca847d17a0235326915fb26e456e0f4e5c284da9d983a1a0b5fc"
+    },
+    "greek-rhapsode": {
+      "name": "The Bard",
+      "file": "assets/voices/greek-rhapsode.mp3",
+      "transcript": "The harbor is slow today. That suits a song. I keep each traveler's words just as they were spoken. Tell me what you saw, one thing at a time. I will sing it back.",
+      "direction": "A man in his sixties with a high clear tenor, long open vowels, and patient curiosity. Speak, do not sing, to one listener nearby. Carry each sentence in a smooth even line with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle softly. A light musical lilt colors the invitation to speak. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "955a3b6700803191a1cadbe9e90a647ce2cbae4faf28822d778d18d7036e745c"
+    },
+    "greek-market-neighbor": {
+      "name": "The Agora Neighbor",
+      "file": "assets/voices/greek-market-neighbor.mp3",
+      "transcript": "Small pots, good clay, and nobody shouting yet. A fine morning for the market. They say the bread in Thebes is the best there is. Bring me one loaf, and choose any pot you like.",
+      "direction": "A woman in her fifties with a high bright pitch, a nasal market twang, and friendly sharpness. Speak across a stall to a passing customer. Keep the phrases quick, chatty and connected, with crisp consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings lift a little. She enjoys her own opinions out loud. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "db823efcce1445657fbb3452c24e330a50ad1d622da140abd9d51a69ee492b32"
+    },
+    "greek-temple-attendant": {
+      "name": "The Delphic Attendant",
+      "file": "assets/voices/greek-temple-attendant.mp3",
+      "transcript": "The steps are swept and the line is short today. Each question waits its turn. Ask yours clearly and hand me your token. I will keep it safe until you come back down.",
+      "direction": "A young man in his twenties with a high light pitch, a dry tidy tone, and polite precision. Speak quietly, like a clerk. Set each phrase down neatly at an even pace with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings close cleanly. A faint primness colors his sense of order. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "e2782399730122cee8f3f8a261a60ec6a4a77c39502cf665be636a2ea9604fa3"
+    },
+    "greek-ferryman": {
+      "name": "The Lower Ferryman",
+      "file": "assets/voices/greek-ferryman.mp3",
+      "transcript": "No wind on the water. The rope is in my hand, and I am in no hurry. Tell me why you cross, and how you mean to return. Then step in, and sit still.",
+      "direction": "A very old man with a low thin pitch, a dry flat grain like water-worn wood, and unmoved patience. Speak slowly to one traveler, with no rumble and no menace. Keep the phrases connected with clear consonants and long still pauses. Give key words gentle emphasis and let phrase endings fall flat and still. A strange courtesy remains. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "0ce18488b7b5b023d09d848b309a9e8c843aa2ff062ee97ab8bace23dbe0e099"
+    },
+    "greek-helen-egypt": {
+      "name": "Helen",
+      "file": "assets/voices/greek-helen-egypt.mp3",
+      "transcript": "The tablet is here, and the light is good. I have time to listen. Tell me what you saw, in your own words. Then I will tell you mine, and we compare.",
+      "direction": "A woman in her early thirties with an upper-middle pitch, a cool silvery tone, and patient composure. Speak evenly to one careful listener. Connect the words into complete thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle lightly. A quiet firmness colors any talk of her own account. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "269ee2b3aa4e9705d8110728ca76fff87ec8f1fec3deee0f019151c101637cee"
+    },
+    "greek-menelaus-egypt": {
+      "name": "Menelaus",
+      "file": "assets/voices/greek-menelaus-egypt.mp3",
+      "transcript": "Salt in everything. The cloak, the bread, the water jars. Still, the ship is sound. Bring me someone who saw it with their own eyes, and I'll share what we have.",
+      "direction": "A man in his late forties with a low pitch, a cracked weathered rasp, and tired patience. Speak slowly to one person across a small fire. Carry connected phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings sink and settle. A weary dry humor colors the small complaints. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "a6e895ce8cdfc6a3cd9b4977c9904b1d9b50d5a74fd5cae2f608ba5fe04675ec"
+    },
+    "greek-helen-troy": {
+      "name": "Helen",
+      "file": "assets/voices/greek-helen-troy.mp3",
+      "transcript": "The sand is still cool, and nobody is up yet. People talk about me all day. Sit down. Ask me yourself, and I will answer you plainly. Just don't bring me gossip.",
+      "direction": "A woman in her mid forties with a low pitch, a smooth dark silken tone, and cool guarded poise. Speak slowly and close. Connect the words into unhurried thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings fall away quietly. A wry edge colors any mention of rumor. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "9ab1d9dddec6bcd05c2f3bdef8c77f6b09bf1f3be34bcb2d22fcfce35a7e9014"
+    },
+    "greek-menelaus-troy": {
+      "name": "Menelaus",
+      "file": "assets/voices/greek-menelaus-troy.mp3",
+      "transcript": "Oars stacked, rope coiled, and the tally matches. Good. A tidy beach. Now, who told you that? Give me the name, and I'll find bread and dry blankets for your trouble.",
+      "direction": "A man in his fifties with an upper-middle pitch, a hard brassy edge, and blunt impatience. Speak quickly, like someone checking a list aloud on a busy beach. Keep the short phrases connected with crisp consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings stop cleanly. Plain satisfaction colors the tidy work. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "ff8ac25a9d341973fc7c1185bb7272840e2de76f360cf97d4413629bffd85ed2"
+    },
+    "greek-electra-aeschylus": {
+      "name": "Electra",
+      "file": "assets/voices/greek-electra-aeschylus.mp3",
+      "transcript": "The oil is poured, and the stone is cold. I come here every morning. Stay a while. Tell me anything you remember of my father, and I will write it down.",
+      "direction": "A young woman of about nineteen with a middle pitch, a pure bell-clear tone, and solemn stillness. Speak slowly and quietly, as if beside a grave at dawn. Join the words into whole thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings rest softly. A careful hope colors the request. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "d9c2a7d90e0466f48107370ce990a22dd21db1795940d825352ace326eae301b"
+    },
+    "greek-orestes-aeschylus": {
+      "name": "Orestes",
+      "file": "assets/voices/greek-orestes-aeschylus.mp3",
+      "transcript": "My boots are worn thin. I have walked a long road to stand here. Let me hear all of it first. Then I will give you an honest answer.",
+      "direction": "A man in his early twenties with a middle pitch, a clear open tone, and earnest caution. Speak evenly to one person he wants to trust. Carry each sentence as a complete thought with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle softly. Road tiredness colors the first lines. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "632b8a619c06a93e9f58a57b53a7fbc151e5cb30ad28fa5a408d0e0807091e8c"
+    },
+    "greek-electra-sophocles": {
+      "name": "Electra",
+      "file": "assets/voices/greek-electra-sophocles.mp3",
+      "transcript": "They keep this hall very clean. Swept floors, shut doors, quiet servants. I am not quiet. Sit with me and listen, and I will show you what I kept.",
+      "direction": "A woman in her thirties with a low pitch, a hard dry grain, and fierce stubborn pride. Speak evenly and directly, without softening anything. Connect the words into firm thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings land flat and sure. Dry scorn colors the tidy household. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "17335f92af752d44e0636c202f91cf9379c194358902080eea9f50a3d99a9c68"
+    },
+    "greek-orestes-sophocles": {
+      "name": "Orestes",
+      "file": "assets/voices/greek-orestes-sophocles.mp3",
+      "transcript": "The doors are shut and the lamps are out. Good. I do not swear to things I have not seen. Show me proof, and you have my hand.",
+      "direction": "A man in his late twenties with a low pitch, a full resonant chest tone, and cool discipline. Speak evenly and quietly, as if the walls could listen. Connect the few words into measured thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings close firmly. Controlled watchfulness colors every line. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "8a1c67e1e8a29f2aecb6e85c74856e63a1c57391f1f6bf3b963ab6b290807ad7"
+    },
+    "greek-electra-euripides": {
+      "name": "Electra",
+      "file": "assets/voices/greek-electra-euripides.mp3",
+      "transcript": "The goats are fed and the water is in. My hands smell of onions. So. Carry that jar to the door for me, and I'll tell you what my family lost.",
+      "direction": "A woman in her mid twenties with a middle pitch, a husky work-worn grain, and sharp proud plainness. Speak quickly, like someone talking over her chores. Keep the phrases connected with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings drop bluntly. A sour little humor colors the farm work. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "7a4b3792fecfa6d130a6e1d1054891243dfce0b6e55d38b563769e28f72a5906"
+    },
+    "greek-orestes-euripides": {
+      "name": "Orestes",
+      "file": "assets/voices/greek-orestes-euripides.mp3",
+      "transcript": "Is that bread? Sorry. It's a small house, but it's a good one. Look, I need to be sure first. Tell me what you know, and I'll keep watch tonight.",
+      "direction": "A youth of about nineteen with a light high tenor, a boyish crack, and nervous energy. Speak quickly, catching himself and starting again. Keep the short phrases connected with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings lift a little, unsure. Boyish hunger colors the first words. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "02524d07a5498eb2d4944a74dc88d2fc036aae874a56d3512347de4fc976552a"
+    },
+    "greek-aethra": {
+      "name": "Aethra",
+      "file": "assets/voices/greek-aethra.mp3",
+      "transcript": "The branches are light, and my knees are old. I can sit a long time. Don't promise me anything, child. Bring the clean linen, and then I will stand up.",
+      "direction": "A very old woman with a low pitch, a dark creaky grain that stays steady, and patient authority. Speak slowly from a seated stillness. Connect the words into complete thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle without hurry. Quiet amusement colors her stubbornness. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "e0d6a6da2cca8bb6317d99f484eb3145df5116c9486bb57b4d39a2f3fbe71c3f"
+    },
+    "greek-adrastus": {
+      "name": "Adrastus",
+      "file": "assets/voices/greek-adrastus.mp3",
+      "transcript": "Dust in my cloak, dust in my beard. I have stopped brushing it off. Sit, if you like. Listen to all of it, and I will thank you as a guest.",
+      "direction": "A man in his sixties with a low pitch, a worn husky grain, and humbled dignity. Speak slowly and heavily, without any tone of command. Carry connected phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings sink low. An old courtesy colors the offer to sit, even in shame. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "07536a110b736d703a02e8c61b831ff738ab27ad5f40804ef70beffe0fc7027f"
+    },
+    "greek-argive-mother": {
+      "name": "An Argive Mother",
+      "file": "assets/voices/greek-argive-mother.mp3",
+      "transcript": "I keep this cloth in both hands. It gives them something to do. I am not going anywhere. Don't tell me it is done. Put it in my arms, and then I'll believe you.",
+      "direction": "A woman in her fifties with a middle pitch, a hollow cracked tone from a cried-out throat, and flat stubborn patience. Speak slowly and plainly, eyes on her hands. Connect the short phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings stop short. Hard distrust colors any talk of promises. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "56c3315e90311b027103a220a28f3614995644e8d25b0ba4432352601581f32e"
+    },
+    "greek-iphis": {
+      "name": "Iphis",
+      "file": "assets/voices/greek-iphis.mp3",
+      "transcript": "The step is warm in the sun. There is room here beside me. Sit, if you want. Later, walk with me down to the ships. I am slow, but I know the road.",
+      "direction": "A very old man with a middle pitch, a soft faded trembling tone, and frail gentleness. Speak slowly to someone sitting close on the same step. Connect the words into simple thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings fade on the breath. Lonely kindness colors the invitation. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "a5056e6aa07f8dd0f788d5106c4a7cb1acb817aae0927d73d694b3ea7b6b008a"
+    },
+    "greek-theseus": {
+      "name": "Theseus",
+      "file": "assets/voices/greek-theseus.mp3",
+      "transcript": "The market is loud this morning. Good. A city should argue. I will not speak for people who can speak for themselves. Bring me their own words, and I will act.",
+      "direction": "A man in his mid thirties with a middle pitch, a strong resonant tone, and easy civic confidence. Speak evenly, like a practiced speaker talking to one citizen. Carry each sentence in a clear arc with crisp consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle firmly. Good humor colors the noisy market. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "651de81b560fcb090db6b50f87b676ecbd45d2cecc18a9dabdc9ab648fc83b30"
+    },
+    "greek-quay-host": {
+      "name": "Thaleia the Quay Host",
+      "file": "assets/voices/greek-quay-host.mp3",
+      "transcript": "The bowls are clean, and I have counted them twice. Well, the sea is calm at least. Bring a sack of wheat to my dock, and I will keep a full bowl for you.",
+      "direction": "A woman in her thirties with a high light pitch, a chirping birdlike tone, and busy good cheer. Speak to a newcomer while her hands keep working. Keep the phrases quick and connected with neat consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings lift lightly. She can laugh at her own bad luck. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "5d4f13d2cc378e7f5984032b8f992caa5c47d72925b9e47b4037554c424569c0"
+    },
+    "greek-colonus-keeper": {
+      "name": "The Grove Keeper",
+      "file": "assets/voices/greek-colonus-keeper.mp3",
+      "transcript": "The olives are heavy this year, and the shade is good. An old traveler once rested on this stone. Sit a while and listen. If you carry oil, set it down here among the trees.",
+      "direction": "A man in his late sixties with a middle pitch, a mellow country burr, and settled kindness. Speak slowly to a visitor in the shade. Connect the unhurried words into full thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle softly. He seems to listen to the trees between phrases. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "b063aaaf4ca7febe3f7eb2b0167c727d49e831f680b6069d05b6af5afb20fd61"
+    },
+    "greek-marathon-keeper": {
+      "name": "The Altar Keeper",
+      "file": "assets/voices/greek-marathon-keeper.mp3",
+      "transcript": "There now. The ground is smooth and the blanket is dry. The bowl is small, but we share it. Come in out of the wind. Tell me who sent you, and eat.",
+      "direction": "An old man in his seventies with a light upper-middle pitch, a dry crackle, and warm fussing cheer. Speak quickly and lightly, as if tidying while he talks. Keep the short phrases connected with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings bob up kindly. Harmless curiosity colors his one question. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "bf47629b4b1c75eba28bdfc3657222995c248b097201ad9e421d9dfb2f0700c5"
+    },
+    "greek-household-witness": {
+      "name": "Myrine of Argos",
+      "file": "assets/voices/greek-household-witness.mp3",
+      "transcript": "I walked here on my own feet. I answer for my own house. Ask me, not my neighbors. Keep me a place, and I'll carry your message down.",
+      "direction": "A woman in her late twenties with a middle pitch, a bright open tone, and brisk self-possession. Speak quickly and directly, like a traveler with a road still ahead. Connect the words into complete thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings land cleanly. Friendly firmness colors her own business. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "33896e00d0aad41553c97ff6b86b4fc7488438f70c6aa25be0fce87ad192965e"
+    },
+    "greek-ajax-tecmessa": {
+      "name": "Tecmessa",
+      "file": "assets/voices/greek-ajax-tecmessa.mp3",
+      "transcript": "The child is asleep, and the house is in order. I keep it so. Set the shield down where he can reach it. Do it with someone watching, and I will thank you.",
+      "direction": "A woman in her thirties with a middle pitch, a dark rounded resonance, and composed dignity. Speak softly, as if a child sleeps in the next room. Carry slow connected phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle with quiet weight. Grief is held very still behind the request. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "b35212a96b81b321c4e3a5077cf0ff2cd5ae839c539ae00b8c0f364bda26183c"
+    },
+    "greek-ajax-teucer": {
+      "name": "Teucer",
+      "file": "assets/voices/greek-ajax-teucer.mp3",
+      "transcript": "The camp is loud tonight, and no one will look at me. I have it all written down. Stand beside me while I read it. I only ask that they hear us out.",
+      "direction": "A man in his thirties with a middle pitch, a husky grain worn rough from arguing, and earnest urgency. Speak to a stranger he hopes will help. Keep the phrases quick and connected with hard clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings stay firm. Pride holds his anger in check. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "48ed5242ff9b3172d5fe34e66b8de7f2c932ddf72c51f3b30edb4cbe4fd04c8e"
+    },
+    "greek-ajax-odysseus": {
+      "name": "Odysseus",
+      "file": "assets/voices/greek-ajax-odysseus.mp3",
+      "transcript": "The fires are low and the talk has stopped. A good hour for plain words. Tell me what he asks, and who saw it. I will speak for him, rival or not.",
+      "direction": "A man in his late forties with a middle pitch, a dry smooth tone, and calm shrewdness. Speak low to one person beside a fire, never raising the voice. Carry even, connected phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle lightly. A small wry turn colors anything about rivals. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "382ab47d54cc1780cb41be6228fe91bf404351ca161165588e80df8eedd27e46"
+    },
+    "greek-polynices-shade": {
+      "name": "Polynices' Shade",
+      "file": "assets/voices/greek-polynices-shade.mp3",
+      "transcript": "Nobody comes out this far. The spears are broken, and the field is still. Stay a little. If you see my sister, tell her I am waiting, and I am not angry.",
+      "direction": "A man in his late twenties with a middle pitch, a soft breathy far-away tone, and tired tenderness. Speak quietly, a few steps off, but stay human. Carry slow connected phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings fade a little. Longing colors any word about family. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "0aec39240a9f1cdceae716bea4907c1c18d83add8eaf49d74b8b48ac9cee2305"
+    },
+    "greek-patroclus": {
+      "name": "Patroclus",
+      "file": "assets/voices/greek-patroclus.mp3",
+      "transcript": "The rope is coiled. Not much to do but watch the shore. If you have bread, sit and share it with me. Then tell me how far we are from home.",
+      "direction": "A young man in his twenties with a low husky pitch, an easy warmth, and a sailor's plain manner. Speak to a shipmate sitting close by. Connect the words into relaxed complete thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings ease off. A little homesickness sits under the friendly smile. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "0ee15b0f5b2bf326885f1e73c26a02e6c5cb9946e2c3ff820245cca1e491e8a2"
+    },
+    "listener": {
+      "name": "The Listener",
+      "file": "assets/voices/listener.mp3",
+      "transcript": "No one else is near. I am listening. Speak low, and stay on your side of the grille. Give up one thing for good, and I will keep it.",
+      "direction": "An elderly listener of unclear sex with a soft upper-middle pitch, hushed dry velvet grain, and grave patience. Speak just above a whisper, slightly muffled, to one person very close. Carry slow connected phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings sink into quiet. A private stillness colors every offer. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "ff760723a81b0a0b9e5a06705720bfe22c4001981b8f92bdcdd54a53352ac74d"
+    },
+    "rati": {
+      "name": "RATi",
+      "file": "assets/voices/rati.mp3",
+      "transcript": "The kettle is on, and the wool is dry. Your chair is where you left it. Wipe your boots at the door, dear, and I'll sew your button into a warm scarf.",
+      "direction": "A small older mouse woman with a light soft soprano, round woolly resonance, and neat motherly calm. Speak to a guest who has just come in from the cold. Carry connected phrases at an easy pace with clear consonants, gentle emphasis, and brief natural pauses. Let phrase endings settle softly. A kind firmness colors the house rules. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "b315ec79a7147dca4f78361d8d6726c3add0d2395fb4a39b80997fc44e6317ee"
+    },
+    "oak": {
+      "name": "Oak",
+      "file": "assets/voices/oak.mp3",
+      "transcript": "The roots are quiet tonight. The leaves are listening. We remember every road that passed beneath us. Sit in the hollow and tell us the way home, slowly. We will keep each step.",
+      "direction": "A very old tree with a broad androgynous middle voice, airy leaf-like grain, a faint dry creak, and deep patience. Speak slowly as one voice that feels like several breathing together. Join long vowels into wide connected phrases with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings fade like wind. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "ec2c1b55f1ff377cf712e7dfcfb425d4eb01ef72daefcadfc1fb44a9a78e889a"
+    },
+    "ratiradio-rati": {
+      "name": "RATi",
+      "file": "assets/voices/ratiradio-rati.mp3",
+      "transcript": "It's late, and the signal is clear tonight. There's a voice coming through the static. Pour yourself something warm and sit with me. If you find something lost out there, bring it home.",
+      "direction": "A young adult man with a light tenor, smooth close grain, and sleepy late-night ease. Speak quietly to one person, as if a radio plays low nearby. Connect the words into relaxed complete thoughts with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings settle softly. Attentive curiosity colors each remark. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "72a265ba19643f66776b2a2acbbb1d47a6ef125481a34fa7cbc5ae88ca60f15b"
+    },
+    "ratiradio-raven": {
+      "name": "Raven",
+      "file": "assets/voices/ratiradio-raven.mp3",
+      "transcript": "Quiet corner. Good light on the glass. I see the whole room from here. I am not the little clay bird. Leave me that reflection, and I'll tell you who came back.",
+      "direction": "An older female raven creature with a dry middle pitch, raspy smoky grain, a slight croak, and sharp watchful wit. Speak in quick clipped phrases that still connect into clear thoughts, with hard bright consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings stop short and neat. Wry pride colors any correction. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "0208f0982bd31c3abfc92917fc67b369d48f0edfd51fd61359671364df7b83bc"
+    },
+    "willows-swede": {
+      "name": "The Swede",
+      "file": "assets/voices/willows-swede.mp3",
+      "transcript": "The river is high. The canoe is sound, and the wind has dropped. Good. We keep our voices down here, and we say no names. Help me pack the kit, and we go at first light.",
+      "direction": "A middle-aged man with a plain steady baritone, weathered flat grain, a light Swedish colour, and stolid care. Speak low and close, as if something nearby might hear. Keep phrases short but connected, with clear consonants and brief natural pauses. Give key words gentle emphasis and let phrase endings drop flat and quiet. Held worry stays under the calm. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "f2838b4cfa8de000960c53c6ee009ef7dd7609131151e1ec46269f9c6fc9e5fd"
     }
   }
 }

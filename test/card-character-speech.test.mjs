@@ -9,6 +9,7 @@ import {
   voiceLineIdentity,
 } from "../v2/card-game/character-speech.mjs";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
+import cast from "../v2/card-game/voices.json" with { type: "json" };
 
 const tick = async () => {
   for (let i = 0; i < 12; i++)
@@ -68,7 +69,7 @@ function fixture(options = {}) {
   return { speech, context, sources, events, load, client };
 }
 
-describe("the six card character voices", () => {
+describe("the card character voices", () => {
   it("keeps prepared speech through a waiting screen and shares it with playback", async () => {
     let finish;
     const client = {
@@ -138,8 +139,8 @@ describe("the six card character voices", () => {
     finish();
     await expect(second).resolves.toBeInstanceOf(Blob);
   });
-  it("ships the exact six audition references with their transcripts", async () => {
-    expect(Object.keys(characterVoices)).toEqual([
+  it("ships every audition reference with its transcript", async () => {
+    expect(Object.keys(characterVoices).slice(0, 6)).toEqual([
       "vale",
       "mara",
       "moth",
@@ -147,6 +148,11 @@ describe("the six card character voices", () => {
       "badger",
       "greek-baker",
     ]);
+    expect(Object.keys(characterVoices)).toEqual(Object.keys(cast.voices));
+    const hashes = Object.values(characterVoices).map(
+      (voice) => voice.reference_sha256,
+    );
+    expect(new Set(hashes).size).toBe(hashes.length);
     for (const voice of Object.values(characterVoices)) {
       expect(
         publicAssets.find((asset) => asset.file === voice.file)?.contentType,
@@ -180,7 +186,7 @@ describe("the six card character voices", () => {
     const options = { client, storage, crypto: webcrypto };
     const signal = new AbortController().signal;
     const load = createVoiceClips(options);
-    for (const speaker of Object.keys(characterVoices))
+    for (const speaker of Object.keys(characterVoices).slice(0, 6))
       await load(speaker, "A fair trade.", signal);
     expect(client.clip).toHaveBeenCalledTimes(6);
     expect(client.clip.mock.calls[0].slice(0, 2)).toEqual([
