@@ -9,7 +9,7 @@ import {
 import { companionOf } from "../v2/card-game/world/company.mjs";
 import { act, lifeWorld, wait } from "./helpers/world-life.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
-import { lifeHome } from "../v2/card-game/resident-home.mjs";
+import { homeOf } from "../v2/card-game/resident-home.mjs";
 import { openGreekGate } from "./helpers/greek-gate.mjs";
 
 // A few checks on the shipping content, by real play. The rules are tested on
@@ -118,7 +118,7 @@ describe("sticky companions in the shipping content", () => {
     // Her home is the Hollow (rules 133). Its way is shut until Polynices is
     // buried, so the ordinary leash keeps her where she was released; she
     // walks home on her own when the way opens.
-    expect(lifeHome("greek-antigone", s)).toBe("greek-polynices-hollow");
+    expect(homeOf("greek-antigone", s)).toBe("greek-polynices-hollow");
     expect(s.actors["greek-antigone"].place).toBe("greek-battlefield");
   });
 

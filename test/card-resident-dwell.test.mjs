@@ -11,7 +11,7 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { cardPlay } from "../v2/card-game/cards.mjs";
-import { lifeHome } from "../v2/card-game/resident-home.mjs";
+import { homeOf } from "../v2/card-game/resident-home.mjs";
 import {
   ATTEND_CAP,
   startAttend,
@@ -183,7 +183,7 @@ describe("walking home is held like any other move", () => {
       expect(s.actors.moth.place).toBe("station");
     }
     for (let i = 0; i < 4; i++) s = wait(s);
-    expect(lifeHome("moth", s)).toBe("pond");
+    expect(homeOf("moth", s)).toBe("pond");
     expect(s.actors.moth.place).toBe("pond");
     expect(s.actors.moth.homeward).toBeUndefined();
   });

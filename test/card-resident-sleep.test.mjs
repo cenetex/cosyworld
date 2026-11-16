@@ -2,7 +2,7 @@
 // at home, and wake for a Talk, a threat or a ring.
 import { describe, expect, it } from "vitest";
 import { legalActions } from "../v2/card-game/world.mjs";
-import { DAY_TURNS, lifeHome } from "../v2/card-game/resident-home.mjs";
+import { DAY_TURNS, homeOf } from "../v2/card-game/resident-home.mjs";
 import { sleepSchedule, sleepWindow } from "../v2/card-game/resident-sleep.mjs";
 import { asleepReason } from "../v2/card-game/cards.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
@@ -57,7 +57,7 @@ describe("resident sleep", () => {
     // Day two, 04:00: the diurnal cast sleeps, nocturnal Pip is awake.
     s = waitUntil(s, DAY_TURNS + 44);
     for (const id of ["greek-creon", "greek-ismene", "greek-baker"]) {
-      expect(s.actors[id].sleeping, id).toMatchObject({ place: lifeHome(id) });
+      expect(s.actors[id].sleeping, id).toMatchObject({ place: homeOf(id) });
       expect(s.actors[id].sleeping.until).toBe(sleepWindow(s, id, 1).end);
     }
     expect(s.actors.moth.sleeping).toBeUndefined();

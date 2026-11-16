@@ -23,7 +23,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import {
   hops,
-  lifeHome,
+  homeOf,
   rangeOf,
   worldLife,
 } from "../v2/card-game/resident-home.mjs";
@@ -192,7 +192,7 @@ describe("freed residents walk on their wants and sleep at home", () => {
   for (const [id, scenario] of Object.entries(FREED))
     it(`${id} errands out and home again`, () => {
       let s = worlds[scenario]();
-      const home = lifeHome(id, s);
+      const home = homeOf(id, s);
       s.actors.vale.place = "station";
       if (!entityActive(s, id)) {
         // Sealed until its story opens: shown the way the story would. An

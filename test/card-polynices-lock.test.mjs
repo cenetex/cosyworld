@@ -11,7 +11,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
-import { lifeHome } from "../v2/card-game/resident-home.mjs";
+import { homeOf } from "../v2/card-game/resident-home.mjs";
 import { packTalkChoice } from "../v2/card-game/pack-registry.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
@@ -100,7 +100,7 @@ it.each([
     act("wait");
     expect(world.turn).toBe(turnOfNight);
     expect(plan(world, antigone).action?.target).not.toBe(hollow);
-    expect(lifeHome(antigone, world)).toBe(hollow);
+    expect(homeOf(antigone, world)).toBe(hollow);
     expect(isLockedBox(world, hollow)).toBe(true);
     expect(lockedQuest(world, hollow).cards).toEqual([]);
     expect(world.actors.vale.want).toMatchObject({
@@ -111,7 +111,7 @@ it.each([
     act("talk", shade);
     expect(world.packs[pack].flags[heard]).toBe(true);
     expect(world.packs[pack].receipts["greek-hear-polynices"]).toBe(world.turn);
-    expect(lifeHome(antigone, world)).toBe(hollow);
+    expect(homeOf(antigone, world)).toBe(hollow);
     for (const actor of ["vale", antigone])
       expect(exits(world, field, actor)).toContain(hollow);
     expect(world.actors[antigone].place).toBe(hollow);
