@@ -14,7 +14,7 @@ fn messages(context: &Context, id: &str, part: Part, model: &str) -> Value {
     let prompt = super::messages(context, entity(context, id), part);
     // The browser sends these itself and keeps no closing-quote trim.
     let _ = model;
-    let view = super::prose(&prompt.assistant);
+    let view = crate::ai_gateway::led(&prompt.lead, &super::prose(&prompt.assistant));
     crate::ai_gateway::chat_messages(&prompt.system, &view, prompt.user.into(), false)
 }
 fn parts(context: &Context, id: &str, shared: bool) -> Vec<(&'static str, Part)> {

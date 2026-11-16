@@ -1375,6 +1375,16 @@ fn readable_reasoning_trace(message: &Value) -> Option<String> {
 /// instruction.
 pub(crate) const SILENCE: &str = "…";
 
+const LEAD_END: char = '\u{0}';
+
+pub(crate) fn led(lead: &str, view: &str) -> String {
+    if lead.is_empty() {
+        view.to_string()
+    } else {
+        format!("{lead}{LEAD_END}{view}")
+    }
+}
+
 /// Whether a user turn is a line someone said (`Pip says, “…”`), which a
 /// prefilled reply answers; silence or a presence ("Pip is here.") is not.
 pub(crate) fn heard_line(user: &str) -> bool {
@@ -1401,8 +1411,11 @@ pub(crate) fn chat_messages(system: &str, assistant: &str, user: Value, quote: b
         turns.push(json!({ "role": "system", "content": system }));
     }
     if !assistant.is_empty() {
-        turns.push(json!({ "role": "user", "content": SILENCE }));
-        turns.push(json!({ "role": "assistant", "content": assistant }));
+        let (lead, view) = assistant
+            .split_once(LEAD_END)
+            .unwrap_or((SILENCE, assistant));
+        turns.push(json!({ "role": "user", "content": lead }));
+        turns.push(json!({ "role": "assistant", "content": view }));
     }
     turns.push(json!({ "role": "user", "content": user }));
     if quote {
@@ -2192,6 +2205,9 @@ mod tests {
             false,
         );
         assert_eq!(view[0]["content"], SILENCE);
+        let led = chat_messages("", &led("You are here.", "I am Pip."), "Now?".into(), false);
+        assert_eq!(led[0], json!({"role": "user", "content": "You are here."}));
+        assert_eq!(led[1], json!({"role": "assistant", "content": "I am Pip."}));
         assert_eq!(roles(view), ["user", "assistant", "user"]);
         let quoted = chat_messages(
             "",

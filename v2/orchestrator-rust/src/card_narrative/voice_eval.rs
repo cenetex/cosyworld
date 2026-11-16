@@ -604,13 +604,17 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
         check.verdict(reply, true, false),
         Ok(("Bread for the rites, Vale.".into(), vec![]))
     );
-    // Vale, with nobody heard, answers silence; who is with him is his view.
+    // Vale, with nobody heard or faced, is asked what he thinks.
     let (_, wait, _) = cases
         .iter()
         .find(|(name, ..)| name == "Black pond wait")
         .unwrap();
     let vale = messages(wait, entity(wait, "vale"), Part::Line);
-    assert_eq!(vale.user, crate::ai_gateway::SILENCE);
+    let asked = format!("You wait a moment. {}", super::conversation::THINK);
+    assert_eq!(vale.user, asked);
+    assert!(vale.system.starts_with("You are Vale"));
+    assert!(!vale.system.contains(super::conversation::SAY_ALOUD));
+    assert!(vale.lead.starts_with("You are standing in Black pond."));
     assert!(vale.assistant.contains("Pip is here with me."));
 }
 
