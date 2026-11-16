@@ -97,21 +97,6 @@ describe("shared ship boarding", () => {
     );
   });
 
-  it("uses authenticated passenger claims for an older shared voyage", () => {
-    const old = ask(setup("greek-harbor"), "vale").world;
-    old.crossings["pond-greek-harbor"].discovered = false;
-    old.actors.mara.place = "greek-ship";
-    const npcOnly = ask(old, "vale", "view", {
-      claimed: ["vale"],
-      present: ["vale"],
-    }).world;
-    expect(npcOnly.crossings["pond-greek-harbor"].discovered).toBe(false);
-    const humanVoyage = ask(old, "mara").world;
-    expect(humanVoyage.crossings["pond-greek-harbor"].discovered).toBe(true);
-    expect(humanVoyage.actors).toEqual(old.actors);
-    expect(humanVoyage.transports).toEqual(old.transports);
-  });
-
   it.each(["pond", "greek-harbor"])(
     "waits at %s for companions, sails one round and stays where the first passenger lands",
     (origin) => {

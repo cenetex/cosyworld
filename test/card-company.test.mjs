@@ -17,6 +17,7 @@ const { companionOf, travelerOf, partyOf } = await import(
   "../v2/card-game/world/company.mjs"
 );
 const { sailTo } = await import("./helpers/voyage.mjs");
+const { learnLane } = await import("../v2/card-game/pack-transport.mjs");
 const { cardPlay, asleepReason } = await import("../v2/card-game/cards.mjs");
 const { runHash } = await import("../v2/card-game/pack-rules.mjs");
 const { life } = await import("../v2/card-game/resident-home.mjs");
@@ -134,6 +135,7 @@ describe("following", () => {
     let s = invite(world({ at: "co-c" }), CY, "co-dock");
     s = go(s, "co-ship");
     expect(at(s, CY)).toBe("co-ship");
+    learnLane(s, "vale", "co-dock", "co-far-pier");
     s = sailTo(s, "co-far-pier");
     expect(at(s, "vale")).toBe("co-far-pier");
     expect(at(s, CY)).toBe("co-far-pier");
@@ -173,6 +175,7 @@ describe("holding", () => {
   it("stays aboard through docking until the traveler steps ashore", () => {
     let s = invite(world({ at: "co-c" }), CY, "co-dock");
     s = go(s, "co-ship");
+    learnLane(s, "vale", "co-dock", "co-far-pier");
     s = sailTo(s, "co-far-pier");
     s = wait(s, 2);
     expect(at(s, CY)).toBe("co-far-pier");

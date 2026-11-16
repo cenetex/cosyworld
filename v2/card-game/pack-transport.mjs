@@ -16,7 +16,6 @@ import {
 // A ship is docked, has a course set, is at sea, or has arrived. It sails
 // authored lanes between its docks. A voyage takes one world round.
 export const TRANSPORT_VERSION = 3;
-export const IDLE_ROUNDS = 3;
 // Route search from aboard a ship plans the whole voyage, not only the
 // course cards in the current hand.
 export const VOYAGE = "@voyage";
@@ -144,14 +143,12 @@ export const laneConditions = (from, to) =>
   Object.values(transports)
     .map((t) => laneGate(t, from, to))
     .find(Boolean) ?? null;
-// A gated lane's cargo rule binds a voyage with riders. An empty ship
-// answering a call sails any lane between active docks (`empty`).
-const openLanes = (s, t, dock, actor = null, empty = false) =>
+const openLanes = (s, t, dock, actor = null) =>
   lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;
     const gate = laneGate(t, dock, to);
     return gate
-      ? empty || conditionsMet(s, t.packId, gate)
+      ? conditionsMet(s, t.packId, gate)
       : knowsLane(s, actor, dock, to);
   });
 // A gated lane marked `sealed`, shut from the dock where the ship lies, shows
@@ -193,14 +190,14 @@ export function berthOpen(s, place) {
 }
 
 // Shortest open lane path between two docks, or null.
-export function lanePath(s, id, from, to, actor = null, empty = false) {
+export function lanePath(s, id, from, to, actor = null) {
   const t = transports[id];
   const queue = [[from]],
     seen = new Set([from]);
   for (let i = 0; i < queue.length; i++) {
     const path = queue[i];
     if (path.at(-1) === to) return path;
-    for (const next of openLanes(s, t, path.at(-1), actor, empty)) {
+    for (const next of openLanes(s, t, path.at(-1), actor)) {
       if (seen.has(next)) continue;
       seen.add(next);
       queue.push([...path, next]);
@@ -209,12 +206,11 @@ export function lanePath(s, id, from, to, actor = null, empty = false) {
   return null;
 }
 function laneReach(s, id, from, actor = null) {
-  const t = transports[id],
-    free = residentVoyage(s, t, actor);
+  const t = transports[id];
   const seen = new Set([from]),
     queue = [from];
   for (let i = 0; i < queue.length; i++)
-    for (const next of openLanes(s, t, queue[i], actor, free))
+    for (const next of openLanes(s, t, queue[i], actor))
       if (!seen.has(next)) {
         seen.add(next);
         queue.push(next);
@@ -259,25 +255,6 @@ export const shipDock = (s, id) =>
   read(s, id)?.phase === "sea" ? null : (read(s, id)?.dock ?? null);
 export const shipAtSea = (s, id) => read(s, id)?.phase === "sea";
 
-// Called after save validation: a human already aboard keeps their voyage.
-export function preserveTransportAccess(s) {
-  for (const id of Object.keys(transports)) {
-    if (transportUnlocked(s, id)) continue;
-    if (
-      Object.entries(s.actors).some(
-        ([actor, state]) =>
-          state.place === transports[id].place && controlledByHuman(s, actor),
-      )
-    ) {
-      const signal = crossings.find(
-        (c) => c.transport === id && (c.signal || c.unlockWhen),
-      );
-      if (signal) s.crossings[signal.id].discovered = true;
-    }
-  }
-  return s;
-}
-
 function settleEmpty(state, turn) {
   Object.assign(state, {
     phase: "docked",
@@ -304,20 +281,8 @@ const humanAboard = (s, t) =>
   Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who),
   );
-// Residents embark to their own destination (rules 96). With no player's
-// avatar aboard, a resident's course is the ship's, along any lane between
-// active docks: the cargo rule binds every voyage a player's avatar rides,
-// held, away or unheld, so no traveler is carried past a cargo gate, and
-// every dock keeps its free way home.
 const playerAvatar = (s, who) =>
   controlledByHuman(s, who) || Boolean(humanAvatar(who));
-const residentVoyage = (s, t, actor) =>
-  Boolean(actor) &&
-  s.actors[actor]?.place === t.place &&
-  !playerAvatar(s, actor) &&
-  !Object.entries(s.actors).some(
-    ([who, a]) => a.place === t.place && playerAvatar(s, who),
-  );
 
 // Riders sailed in on the last voyage. Only they can step ashore, and only
 // at the arrival port. A person who boarded here cannot step straight back.
@@ -332,14 +297,14 @@ export function canDisembark(s, id, actor) {
 }
 
 // Course cards are the docked port's open lanes. A resident leaves the choice
-// to a human aboard; the idle rule still sails the ship.
+// to a human aboard.
 export function courseOptions(s, id, actor = null) {
   const t = transports[id],
     state = read(s, id);
   if (!["docked", "arrived"].includes(state.phase)) return [];
   if (actor && s.actors[actor]?.place !== t.place) return [];
   if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
-  return openLanes(s, t, state.dock, actor, residentVoyage(s, t, actor));
+  return openLanes(s, t, state.dock, actor);
 }
 
 export function isCourse(s, from, to, actor = null) {
@@ -348,13 +313,7 @@ export function isCourse(s, from, to, actor = null) {
   const [id] = found;
   return (
     to !== read(s, id).dock &&
-    openLanes(
-      s,
-      found[1],
-      read(s, id).dock,
-      null,
-      residentVoyage(s, found[1], actor),
-    ).includes(to)
+    openLanes(s, found[1], read(s, id).dock).includes(to)
   );
 }
 
@@ -375,13 +334,14 @@ export function setCourse(s, from, to) {
 export function courseToward(s, place, target, actor = null) {
   const found = shipAt(place);
   if (!found) return null;
-  const dock = read(s, found[0]).dock,
-    free = residentVoyage(s, found[1], actor);
+  const dock = read(s, found[0]).dock;
   // Back to the port it left: sail out on the first lane and return. A
   // resident sails nowhere for its own dock; it waits to go ashore.
   if (dock === target)
-    return free ? null : (openLanes(s, found[1], dock, actor)[0] ?? null);
-  return lanePath(s, found[0], dock, target, actor, free)?.[1] ?? null;
+    return actor && !playerAvatar(s, actor)
+      ? null
+      : (openLanes(s, found[1], dock, actor)[0] ?? null);
+  return lanePath(s, found[0], dock, target, actor)?.[1] ?? null;
 }
 
 // An empty docked ship comes one lane closer to a human waiting at a port.
@@ -392,8 +352,6 @@ export function waitForTransport(s, place, actor) {
 // A traveller waiting to board brings the empty ship one lane closer. The
 // ship moves at most one lane in a world round, however many people wait.
 // A resident's call never takes the ship away from a human at its dock.
-// With nobody aboard there is no voyage, so no cargo rule: called away from
-// a port it can only reach with cargo, the ship still comes back.
 export function callTransport(s, place, resident = false) {
   for (const [id, t] of Object.entries(transports)) {
     if (!t.docks.includes(place)) continue;
@@ -410,7 +368,7 @@ export function callTransport(s, place, resident = false) {
       passengers(s, id).length
     )
       continue;
-    const path = lanePath(s, id, state.dock, place, null, true);
+    const path = lanePath(s, id, state.dock, place);
     if (path) Object.assign(state, { dock: path[1], since: s.turn });
   }
 }
@@ -448,34 +406,8 @@ export function moveTransport(s, from, to) {
   }
 }
 
-// A ship out of cargo with nobody able to sail on goes home (rules 95). It
-// is stuck when it lies at a dock with someone aboard, idle for IDLE_ROUNDS
-// (nobody set a course), and every cargo lane from that dock is shut. Its
-// home port is the dock it starts at (`at`). Where the idle sail would reach
-// home anyway, the ship sails it, so the voyage is still sailed and learned;
-// and a standoff aboard holds the ship until it ends.
-export function stuckShip(s, id) {
-  const t = transports[id],
-    state = read(s, id);
-  if (!state || !["docked", "arrived"].includes(state.phase)) return false;
-  if (!passengers(s, id).length || s.turn - state.since < IDLE_ROUNDS)
-    return false;
-  if ((s.standoffs || []).some((c) => c?.location === t.place)) return false;
-  if (openLanes(s, t, state.dock)[0] === t.at) return false;
-  const gated = lanesFrom(t, state.dock).filter(
-    (to) => laneGate(t, state.dock, to) && entityActive(s, to),
-  );
-  return (
-    gated.length > 0 &&
-    !gated.some((to) =>
-      conditionsMet(s, t.packId, laneGate(t, state.dock, to)),
-    ) &&
-    entityActive(s, t.at)
-  );
-}
-// The stuck ship puts in at its home port and everyone aboard goes ashore
-// there; things aboard stay aboard. Empty, it answers the next call, and a
-// lamp summon made while it was occupied is answered at once.
+// A ship whose dock leaves the world puts in at its home port and everyone
+// aboard goes ashore there; things aboard stay aboard.
 export function sendShipHome(s, id) {
   const t = transports[id],
     state = own(s, id),
@@ -498,12 +430,10 @@ export function sendShipHome(s, id) {
   return { id, kind: "home", from, dock: t.at, ashore };
 }
 
-// End of a world round: a set course casts off, a ship at sea arrives, a
-// stuck ship goes home, and a ship left idle with passengers sails its first
-// lane.
+// End of a world round: a set course casts off and a ship at sea arrives.
 export function sailTransports(s) {
   const events = [];
-  for (const [id, t] of Object.entries(transports)) {
+  for (const id of Object.keys(transports)) {
     const state = own(s, id);
     pruneRiders(s, id);
     const aboard = passengerIds(s, id);
@@ -545,17 +475,6 @@ export function sailTransports(s) {
           to: state.destination,
         });
       }
-    } else if (stuckShip(s, id)) events.push(sendShipHome(s, id));
-    else if (aboard.length && s.turn - state.since >= IDLE_ROUNDS) {
-      const lane = openLanes(s, t, state.dock)[0];
-      if (!lane) continue;
-      Object.assign(state, {
-        phase: "sea",
-        destination: lane,
-        riders: [],
-        since: s.turn,
-      });
-      events.push({ id, kind: "sail", from: state.dock, to: lane, idle: true });
     } else if (state.phase === "arrived" && !state.riders.length)
       state.phase = "docked";
   }
