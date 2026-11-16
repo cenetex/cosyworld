@@ -81,10 +81,19 @@ pub(super) fn open_sqlite(path: &Path, busy_timeout: Duration) -> rusqlite::Resu
     super::unlocks::schema(&c)?;
     Ok(c)
 }
+pub(super) const STORAGE_BUSY: &str = "The shared world is taking a moment. Try again.";
+pub(super) const STORAGE_FAULT: &str =
+    "The shared world could not be read or saved. This is a storage fault.";
 fn err(e: impl std::fmt::Display) -> String {
-    {
-        tracing::warn!(error=%e, "shared world storage error");
-        "The shared world is taking a moment. Try again.".into()
+    storage_error(&e.to_string()).into()
+}
+fn storage_error(text: &str) -> &'static str {
+    if text.to_lowercase().contains("is locked") {
+        tracing::warn!(error = text, "shared world storage busy");
+        STORAGE_BUSY
+    } else {
+        tracing::error!(error = text, "shared world storage fault");
+        STORAGE_FAULT
     }
 }
 pub(super) fn exists(c: &Connection, id: &str) -> Result<()> {

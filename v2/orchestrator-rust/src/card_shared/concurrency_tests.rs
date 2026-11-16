@@ -14,9 +14,16 @@ use std::{
 
 const PLAYERS: usize = 4;
 const ROUNDS: usize = 6;
-// `sql_error` turns every SQLite failure, including "database is locked",
-// into this reply. It is the 409 the browser smoke saw.
-const STORAGE_ERROR: &str = "The shared world is taking a moment. Try again.";
+
+#[test]
+fn only_a_locked_database_reads_as_a_wait() {
+    for busy in ["database is locked", "The database file is locked"] {
+        assert_eq!(store::sql_error(busy), store::STORAGE_BUSY);
+    }
+    for fault in ["no such table: card_tables", "disk I/O error"] {
+        assert_eq!(store::sql_error(fault), store::STORAGE_FAULT);
+    }
+}
 
 fn play(a: usize, view: &Value, round: usize) -> Option<full::Command> {
     let action = view["actions"]
@@ -98,7 +105,7 @@ fn concurrent_writes_to_one_world_never_hit_the_lock_and_keep_each_play_once() {
                         match full::command_as(&app, &id, &u, &command, None) {
                             Ok(_) => accepted.lock().unwrap().push(command.key),
                             // Queue limits and moved scenes are ordinary refusals.
-                            Err(e) if e != STORAGE_ERROR => {}
+                            Err(e) if e != store::STORAGE_BUSY && e != store::STORAGE_FAULT => {}
                             Err(e) => errors.lock().unwrap().push(format!("play {a}: {e}")),
                         }
                     }
