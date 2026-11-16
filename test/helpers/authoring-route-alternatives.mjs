@@ -1,4 +1,3 @@
-// Three authored approaches give the editor a stable alternative-route case.
 export function routeAlternativesFixture(input) {
   const source = structuredClone(input),
     base = source.pack.routes.find((route) => route.sealed);

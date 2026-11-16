@@ -96,6 +96,17 @@ test("a resident who spoke last goes on with continuing", () => {
   assert.equal(requestBody(room, config, "rati", 2000).addressed, "rati");
 });
 
+test("the channel notes ride with a line request only when switched on", () => {
+  const room = createRoom("g1", "c1");
+  room.messages.push({ id: "a", at: 0, text: "RATi?", author: "Jun" });
+  room.notes = { topic: "tea", goal: "share tea", summary: "Jun asks RATi for tea." };
+  assert.equal(requestBody(room, config, "rati", 1000).notes, undefined);
+  const on = { ...config, DISCORD_LINE_NOTES: 1 };
+  assert.deepEqual(requestBody(room, on, "rati", 1000).notes, room.notes);
+  room.notes = null;
+  assert.equal("notes" in requestBody(room, on, "rati", 1000), false);
+});
+
 const cdn = (name) => `https://cdn.discordapp.com/attachments/1/2/${name}?ex=1&is=2&hm=3`;
 const picture = (name, extra = {}) => ({ url: cdn(name), name, contentType: "image/png", size: 1000, ...extra });
 const attached = (...files) => new Map(files.map((file, index) => [String(index), file]));
