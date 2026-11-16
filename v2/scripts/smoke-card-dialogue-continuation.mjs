@@ -91,7 +91,7 @@ try {
       assert.equal(c.outcome.avatars.find((a) => a.id === "vale").heldItem, current.actors.vale.heldItem);
       assert.equal(current.items.lamp.lit, current.actors.vale.heldItem === "lamp");
       assert.equal(current.items.lamp.fuelRooms, before.items.lamp.fuelRooms);
-      assert.ok(c.entities.find((e) => e.id === "lamp").facts.some((fact) => fact.includes(`; ${current.items.lamp.lit ? "lit" : "unlit"};`)));
+      assert.ok(c.entities.find((e) => e.id === "lamp").facts.some((fact) => fact.includes(`; ${current.items.lamp.lit ? "lit" : "unlit"}.`)));
       if (early) {
         assert.deepEqual(c.speakers, original.speakers.filter((id) => id !== "vale"));
         assert.ok(c.speakers.includes("skull"));
