@@ -43,6 +43,7 @@ const ADDRESSED_WAIT: Duration = Duration::from_secs(3);
 const ADDRESSED_CALL: Duration = Duration::from_secs(6);
 const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
 const CANDIDATES: usize = 8;
+const PEOPLE: usize = 12;
 const HISTORY: usize = 200;
 const SHARES: &str = "[shares an image]";
 const IMAGE_HOSTS: [&str; 2] = ["cdn.discordapp.com", "media.discordapp.net"];
@@ -858,7 +859,7 @@ fn people(request: &CoordinateRequest) -> Vec<String> {
             continue;
         };
         let name = label(name);
-        if !seen.contains(&name) {
+        if seen.len() < PEOPLE && !seen.contains(&name) {
             seen.push(name);
         }
     }
@@ -1812,20 +1813,21 @@ mod tests {
     }
 
     #[test]
-    fn every_person_in_the_history_is_a_choice_once() {
+    fn the_twelve_most_recent_people_are_choices_once() {
         let mut body = met();
-        let names = ["Bo", "Cy", "Di", "Ed", "Flo", "Gus", "Hal", "Hal", "RATi"];
+        let mut names: Vec<String> = (1..=13).map(|n| format!("Guest {n}")).collect();
+        names.extend(["Guest 13".to_string(), "RATi".to_string()]);
         body["state"]["history"] = names
             .iter()
             .map(|name| json!({"person": name, "text": "hi"}))
             .collect();
         let request: CoordinateRequest = serde_json::from_value(body).unwrap();
-        assert_eq!(
-            people(&request),
-            ["Someone", "Hal", "Gus", "Flo", "Ed", "Di", "Cy", "Bo"]
-        );
+        let named = people(&request);
+        assert_eq!(named.len(), 12);
+        assert_eq!(named[..3], ["Someone", "Guest 13", "Guest 12"]);
+        assert_eq!(named[11], "Guest 3");
         let criteria = asked(&request, &cast("lonely-forest").unwrap());
-        assert_eq!(criteria["next"]["criteria"].as_object().unwrap().len(), 12);
+        assert_eq!(criteria["next"]["criteria"].as_object().unwrap().len(), 16);
     }
 
     #[tokio::test]
