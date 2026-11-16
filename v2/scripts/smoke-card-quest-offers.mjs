@@ -8,7 +8,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { decodeSave, encodeSave, legalActions, play } from "../card-game/world.mjs";
+import { createWorld, decodeSave, encodeSave, legalActions, play } from "../card-game/world.mjs";
+import { questing } from "../../test/helpers/first-quest.mjs";
 import { holdQuest, newWant } from "../card-game/want.mjs";
 import { recordOf } from "../card-game/world/arcana-record.mjs";
 import { DISSOLVE_MS } from "../card-game/card-travel.mjs";
@@ -254,6 +255,32 @@ try {
       assert.equal(await label(page), "Discard");
       await t.layout();
       await t.shot("held-step");
+      assert.deepEqual(t.errors, []);
+      await page.close();
+    }
+
+    {
+      let world = questing(createWorld());
+      for (const id of ["vale", "moth", "keeper"]) world.actors[id].place = "station";
+      world.items.lamp.holder = "vale";
+      world.actors.vale.want = null;
+      const step = (kind, target) =>
+        play(world, legalActions(world).find((a) => a.kind === kind && a.target === target)).state;
+      world = step("talk", "moth");
+      const offered = world.actors.vale.offered;
+      world = step("threaten", "keeper");
+      world.actors.vale.offered = offered;
+      const t = await open("quest-offers-fight", world);
+      const { page } = t;
+      await page.goto(`${origin}/?table=quest-offers-fight-${width}`);
+      const offer = page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card');
+      await offer.waitFor();
+      await t.ready();
+      if ((await offer.getAttribute("aria-pressed")) !== "true") await tapCard(offer);
+      assert.equal(await t.oneButton(), 1, "an offer in a fight keeps one button");
+      const only = page.locator("#card-actions button").first();
+      assert.equal(await only.getAttribute("data-blocked"), "fight");
+      assert.equal(await only.textContent(), "Not while fighting");
       assert.deepEqual(t.errors, []);
       await page.close();
     }
