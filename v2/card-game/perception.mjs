@@ -3,6 +3,7 @@
 // toward its want. Ids and indices only; the server words them. Derived from
 // existing state, outside the rules engine.
 import { exits, itemPlace } from "./world.mjs";
+import { entityActive } from "./pack-registry.mjs";
 
 // The play itself is the conversation, or nothing happened.
 const QUIET = new Set(["wait", "talk"]);
@@ -78,7 +79,7 @@ function arrival(world, id, present, here) {
   const now = [
     ...present,
     ...Object.keys(world.items).filter(
-      (item) => world.items[item].holder === here,
+      (item) => world.items[item].holder === here && entityActive(world, item),
     ),
   ];
   const others = (ids) => ids.filter((other) => other !== id);
