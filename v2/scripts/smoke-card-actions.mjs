@@ -176,7 +176,8 @@ try {
           return;
         if (
           (await page.locator("#dialogue-advance").isVisible()) &&
-          !(await page.locator("#action-beat").isVisible())
+          (!(await page.locator("#action-beat").isVisible()) ||
+            (await page.locator('#card-actions [data-action="accept"]').count()) > 0)
         )
           await page.locator("#dialogue-advance").click();
         await page.waitForTimeout(40);
@@ -278,7 +279,6 @@ try {
     );
     await card("vale").waitFor();
     await ready();
-    // The page deals its hand; measure once it has landed.
     await page.waitForFunction(
       () =>
         !document.querySelector("#hand").getAnimations({ subtree: true })

@@ -103,7 +103,7 @@ try {
     const ready = async () => {
       for (let attempt = 0; attempt < 300; attempt++) {
         if ((await page.locator("#hand").getAttribute("data-cooling")) === "false") return;
-        if (await page.locator("#dialogue-advance").isVisible() && !await page.locator("#action-beat").isVisible()) await page.locator("#dialogue-advance").click();
+        if (await page.locator("#dialogue-advance").isVisible() && (!await page.locator("#action-beat").isVisible() || await page.locator('#card-actions [data-action="accept"]').count() > 0)) await page.locator("#dialogue-advance").click();
         await page.waitForTimeout(40);
       }
       throw new Error("Dialogue kept the hand busy");
