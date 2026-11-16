@@ -39,6 +39,7 @@ import {
 import {
   summonTransport,
   transportUnlocked,
+  knowsLaneFrom,
   validTransports,
   transportCrossing,
   shipDock,
@@ -327,7 +328,8 @@ export const crossingExits = (s, place, actor, senses) =>
             ((packPeople[actor]?.packId ?? null) ===
               (packPlaces[c.to]?.packId ?? null) ||
               s.invitedPlaces[actor].includes(c.to)))) &&
-        crossingOpen(s, c, senses, actor),
+        crossingOpen(s, c, senses, actor) &&
+        (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor)),
     )
     .map((c) => (c.transport ? transports[c.transport].place : c.to));
 

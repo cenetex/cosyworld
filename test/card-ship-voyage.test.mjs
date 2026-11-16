@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   createWorld,
+  exits,
   encodeSave,
   decodeSave,
   legalActions,
@@ -9,13 +10,19 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   callTransport,
+  learnLane,
   lanesFrom,
   summonTransport,
   transportExits,
 } from "../v2/card-game/pack-transport.mjs";
 import { laneProblems, MAX_LANES } from "../v2/card-game/pack-schema.mjs";
 import { transports } from "../v2/card-game/pack-registry.mjs";
-import { availableCards, cardPlay, playLabel } from "../v2/card-game/cards.mjs";
+import {
+  availableCards,
+  cardPlay,
+  lockWords,
+  playLabel,
+} from "../v2/card-game/cards.mjs";
 import bridge from "../v2/worlds/greek-drama/card-bridge.json" with { type: "json" };
 import { stowProvisions } from "./helpers/provisions.mjs";
 
@@ -317,6 +324,54 @@ describe("calling the empty ship", () => {
     stowProvisions(s, "greek-ship");
     callTransport(s, "greek-piraeus");
     expect(state(s).dock).toBe("greek-harbor");
+  });
+});
+
+describe("a ship at a dock nobody showed you", () => {
+  const SHIP = "greek-ship",
+    DOCK = "greek-piraeus";
+  const boards = (s, actor) => exits(s, DOCK, actor).includes(SHIP);
+
+  it("is a locked box until the actor learns a lane from that dock", () => {
+    let s = setup(DOCK);
+    expect(targets(s, "vale", "move")).not.toContain(SHIP);
+    const seen = ask(s, "vale").world;
+    expect(availableCards(seen)).toContain(SHIP);
+    expect(lockWords(seen, SHIP)).not.toBe(null);
+    for (let i = 0; i < 4; i++) s = act(s, "vale", "wait");
+    expect(targets(s, "vale", "move")).not.toContain(SHIP);
+    learnLane(s, "vale", DOCK, "greek-harbor");
+    s = reload(s);
+    expect(lockWords(ask(s, "vale").world, SHIP)).toBe(null);
+    expect(lockWords(ask(s, "mara").world, SHIP)).not.toBe(null);
+    s = act(s, "vale", "move", SHIP);
+    expect(s.actors.vale.place).toBe(SHIP);
+  });
+
+  it("names someone at the dock who knows a lane from it", () => {
+    const s = setup(DOCK);
+    s.actors["greek-rhapsode"].place = DOCK;
+    expect(lockWords(ask(s, "vale").world, SHIP, () => true)).toMatch(
+      /^Talk with /u,
+    );
+  });
+
+  it("holds residents to the same rule, and lets a companion follow", () => {
+    const s = setup(DOCK);
+    expect(boards(s, "greek-rhapsode")).toBe(true);
+    expect(boards(s, "moth")).toBe(false);
+    s.actors.moth.place = DOCK;
+    s.actors.vale.companion = "moth";
+    expect(boards(s, "moth")).toBe(false);
+    learnLane(s, "vale", DOCK, "greek-harbor");
+    expect(boards(s, "moth")).toBe(true);
+  });
+
+  it("leaves the first boarding at Black Pond open", () => {
+    const s = setup("pond");
+    for (const id of players)
+      expect(targets(s, id, "move"), id).toContain(SHIP);
+    expect(lockWords(ask(s, "vale").world, SHIP)).toBe(null);
   });
 });
 

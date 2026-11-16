@@ -6,6 +6,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   courseOptions,
   courseToward,
+  learnLane,
 } from "../v2/card-game/pack-transport.mjs";
 import { openSeas } from "./helpers/open-door.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
@@ -28,6 +29,7 @@ function start(cargo) {
     if (a.place === SHIP) a.place = HARBOR;
   s.actors.vale.place = "greek-courtyard";
   s.actors.mara.place = PIRAEUS;
+  learnLane(s, "mara", PIRAEUS, HARBOR);
   s.actors[BARD].place = SHIP;
   delete s.actors[BARD].under;
   // Set aboard by hand, he is not still staying where he last arrived.

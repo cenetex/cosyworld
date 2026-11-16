@@ -90,6 +90,7 @@ describe("the Signal Jetty lane", () => {
     // which stay ashore.
     // Mara knows the jetty lane too; knowledge alone leaves it closed.
     learnLane(s, "mara", "greek-piraeus", JETTY);
+    learnLane(s, "vale", "greek-piraeus", JETTY);
     // Vale waits ashore with a Hoppy Cat thing in hand.
     s.items[CUP].holder = "vale";
     s = reload(s);
@@ -179,6 +180,7 @@ describe("the way in", () => {
     const s = setup("pond");
     s.items[SPOOL].holder = "vale";
     for (const who of players) s.actors[who].place = "greek-piraeus";
+    learnLane(s, "vale", "greek-piraeus", JETTY);
     summonTransport(s, "greek-ship", "greek-piraeus");
     const aboard = act(reload(s), "vale", "move", "greek-ship");
     expect(courses(aboard, "vale")).toContain(JETTY);

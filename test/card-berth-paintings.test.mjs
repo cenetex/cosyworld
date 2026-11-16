@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { summonTransport } from "../v2/card-game/pack-transport.mjs";
+import { learnLane, summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { backdrop, stageOf, travelCard } from "../v2/card-game/scene.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/daylight.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
@@ -37,6 +37,7 @@ function setup(berth, night) {
       actor.place = berth.origin;
   world.transports[ship].riders = [];
   world.actors.vale.place = world.actors.mara.place = berth.origin;
+  for (const id of ["vale", "mara"]) learnLane(world, id, berth.origin, berth.place);
   world.actors.ash.place = berth.place;
   stowProvisions(world, "vale");
   world.items["hoppycat-halfway-cup"].holder = "vale";
