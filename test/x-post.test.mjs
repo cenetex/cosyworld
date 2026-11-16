@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { authorization, baseString, day, due, problems } from "../scripts/x-post.mjs";
 
@@ -60,5 +60,7 @@ describe("X post schedule", () => {
     const shipped = JSON.parse(readFileSync(new URL("../v2/social/x-posts.json", import.meta.url), "utf8"));
     expect(problems(shipped)).toEqual([]);
     expect(shipped.posts.map((post) => post.day)).toEqual(shipped.posts.map((_, index) => index + 1));
+    for (const post of shipped.posts.filter((post) => post.video))
+      expect(existsSync(new URL(`../v2/social/media/${post.video}`, import.meta.url)), post.video).toBe(true);
   });
 });

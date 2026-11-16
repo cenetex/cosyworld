@@ -52,7 +52,6 @@ export function sailTo(
   throw new Error(`The ship never reached ${dock}`);
 }
 
-// The next card play of a voyage, for browser journeys that click each play.
 export function nextVoyagePlay(world, actor, dock, actions = legalActions) {
   const legal = actions(world, actor);
   if (legal.some((a) => a.kind === "move" && a.target === dock))
