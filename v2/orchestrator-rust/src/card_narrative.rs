@@ -1765,7 +1765,6 @@ fn transcript(context: &Context, entity: &Entity, part: Part) -> String {
         .join("\n")
 }
 
-/// "the Lamp is here." as a sentence: "The Lamp is here."
 fn sentence(text: String) -> String {
     let mut chars = text.chars();
     chars
