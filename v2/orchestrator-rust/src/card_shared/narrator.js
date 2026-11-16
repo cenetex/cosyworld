@@ -15987,6 +15987,26 @@
     }
     return out;
   }
+  function custodyNeeds(pack) {
+    const choices = Array.isArray(pack.choices) ? pack.choices : [];
+    return [
+      ...choices.map((c) => ({ by: c.id, items: custodyItems(c.requires) })),
+      ...(pack.routes || []).map((r) => ({
+        by: `${r.from}>${r.to}`,
+        items: custodyItems(r.requires)
+      })),
+      ...Object.values(pack.transports || {}).flatMap(
+        (t) => (t.lanes || []).map((l) => ({
+          by: `${l.from}>${l.to}`,
+          items: custodyItems(l.opensWith)
+        }))
+      ),
+      ...Object.entries(pack.avatars || {}).map(([id, a]) => ({
+        by: id,
+        items: custodyItems(a.stayUntil)
+      }))
+    ];
+  }
   function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
     const problems2 = [];
     const check = (ok, message) => {
@@ -16046,27 +16066,11 @@
           `choice ${c.id} repeats, so its ${e.item} must renew or the loop stops`
         );
     }
-    const needs = [
-      ...choices.map((c) => ({ by: c.id, items: custodyItems(c.requires) })),
-      ...(pack.routes || []).map((r) => ({
-        by: `${r.from}>${r.to}`,
-        items: custodyItems(r.requires)
-      })),
-      ...Object.values(pack.transports || {}).flatMap(
-        (t) => (t.lanes || []).map((l) => ({
-          by: `${l.from}>${l.to}`,
-          items: custodyItems(l.opensWith)
-        }))
-      ),
-      ...Object.entries(pack.avatars || {}).map(([id, a]) => ({
-        by: id,
-        items: custodyItems(a.stayUntil)
-      }))
-    ];
+    const needs = custodyNeeds(pack);
     for (const c of choices)
       for (const e of (c.effects || []).filter((e2) => e2.kind === "retire_item"))
         check(
-          renews(e.item) || !items2[e.item] || !needs.some((n) => n.by !== c.id && n.items.includes(e.item)),
+          e.forGood || renews(e.item) || !items2[e.item] || !needs.some((n) => n.by !== c.id && n.items.includes(e.item)),
           `item ${e.item} is used up by ${c.id} but still needed, so it must renew`
         );
     for (const [id, t] of Object.entries(pack.transports || {}))
@@ -17052,7 +17056,7 @@
         if (e.kind === "upgrade")
           valid = keysOk(e, ["kind", "upgrade"]) && idOk2(e.upgrade) && c.for !== void 0;
         if (e.kind === "retire_item")
-          valid = keysOk(e, ["kind", "item", "waitAtHome"]) && (owns3(items2, e.item) || hub2.items.includes(e.item)) && (e.waitAtHome === void 0 || e.waitAtHome === true && items2[e.item]?.home && !items2[e.item].regrow && !items2[e.item].locked) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
+          valid = keysOk(e, ["kind", "item", "waitAtHome", "forGood"]) && (owns3(items2, e.item) || hub2.items.includes(e.item)) && (e.forGood === void 0 || e.forGood === true && e.waitAtHome === void 0 && owns3(items2, e.item)) && (e.waitAtHome === void 0 || e.waitAtHome === true && items2[e.item]?.home && !items2[e.item].regrow && !items2[e.item].locked) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
             (r) => r.item === e.item && (r.kind === "holding" && r.role === "actor" || ["item_near", "item_at"].includes(r.kind) && r.place === c.at)
           );
         if (e.kind === "drop_item")

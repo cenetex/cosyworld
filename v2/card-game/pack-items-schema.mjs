@@ -20,6 +20,42 @@ export function custodyItems(conditions = []) {
   return out;
 }
 
+function custodyNeeds(pack) {
+  const choices = Array.isArray(pack.choices) ? pack.choices : [];
+  return [
+    ...choices.map((c) => ({ by: c.id, items: custodyItems(c.requires) })),
+    ...(pack.routes || []).map((r) => ({
+      by: `${r.from}>${r.to}`,
+      items: custodyItems(r.requires),
+    })),
+    ...Object.values(pack.transports || {}).flatMap((t) =>
+      (t.lanes || []).map((l) => ({
+        by: `${l.from}>${l.to}`,
+        items: custodyItems(l.opensWith),
+      })),
+    ),
+    ...Object.entries(pack.avatars || {}).map(([id, a]) => ({
+      by: id,
+      items: custodyItems(a.stayUntil),
+    })),
+  ];
+}
+export function forGoodWarnings(pack) {
+  const needs = custodyNeeds(pack);
+  return (Array.isArray(pack.choices) ? pack.choices : []).flatMap((c) =>
+    (c.effects || [])
+      .filter((e) => e.kind === "retire_item" && e.forGood)
+      .flatMap((e) =>
+        needs
+          .filter((n) => n.by !== c.id && n.items.includes(e.item))
+          .map(
+            (n) =>
+              `${pack.id}: choice ${c.id} uses up ${e.item} for good, which closes ${n.by}`,
+          ),
+      ),
+  );
+}
+
 export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
   const problems = [];
   const check = (ok, message) => {
@@ -124,29 +160,12 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
       );
   }
 
-  // A used-up thing still needed by another choice, a route, a lane or a
-  // resident must come back.
-  const needs = [
-    ...choices.map((c) => ({ by: c.id, items: custodyItems(c.requires) })),
-    ...(pack.routes || []).map((r) => ({
-      by: `${r.from}>${r.to}`,
-      items: custodyItems(r.requires),
-    })),
-    ...Object.values(pack.transports || {}).flatMap((t) =>
-      (t.lanes || []).map((l) => ({
-        by: `${l.from}>${l.to}`,
-        items: custodyItems(l.opensWith),
-      })),
-    ),
-    ...Object.entries(pack.avatars || {}).map(([id, a]) => ({
-      by: id,
-      items: custodyItems(a.stayUntil),
-    })),
-  ];
+  const needs = custodyNeeds(pack);
   for (const c of choices)
     for (const e of (c.effects || []).filter((e) => e.kind === "retire_item"))
       check(
-        renews(e.item) ||
+        e.forGood ||
+          renews(e.item) ||
           !items[e.item] ||
           !needs.some((n) => n.by !== c.id && n.items.includes(e.item)),
         `item ${e.item} is used up by ${c.id} but still needed, so it must renew`,
