@@ -216,7 +216,6 @@ try {
     );
     await ready();
     assert.deepEqual(await seen(), [], "another tab's world shows no exit");
-    // A reload deals the hand already there.
     await page.reload();
     await ready();
     assert.equal(await page.locator(".card-exits > *").count(), 0);
