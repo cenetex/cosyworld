@@ -19,7 +19,6 @@ import {
   things,
   nameOf,
   legalActions,
-  wayHome,
   itemPlace,
   rootHolder,
   exits,
@@ -27,7 +26,6 @@ import {
 } from "./world.mjs";
 import {
   companionOf,
-  cannotFollowLabel,
   staysLabel,
   travelerOf,
   withLabel,
@@ -214,18 +212,8 @@ function companyReason(world, selected) {
   const other = travelerOf(world, who);
   if (other && other !== player)
     return withLabel(nameOf(who), nameOf(other));
-  if (staysByRole(world, who)) return staysLabel(nameOf(who));
-  // A way the resident could not walk home from: it is not taken, and the
-  // pair says so before the move. Moving alone is still the place card.
-  return !cannotFollow(world, who, place) ? null : cannotFollowLabel(nameOf(who));
+  return staysByRole(world, who) ? staysLabel(nameOf(who)) : null;
 }
-const cannotFollow = (world, who, place) => {
-  const player = currentActor(world);
-  return (
-    legalActions(world).some((a) => a.kind === "move" && a.target === place) &&
-    !wayHome(world, player, world.actors[player].place, place, who)
-  );
-};
 
 // Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {
@@ -344,9 +332,7 @@ export function cardPlay(world, selected) {
             find("move", null, location)
         : // Already with you, a resident comes along on any move.
           avatar === companionOf(world, player)
-          ? cannotFollow(world, avatar, location)
-            ? null
-            : find("move", null, location) || find("course", null, location)
+          ? find("move", null, location) || find("course", null, location)
           : actions.find(
               (a) =>
                 a.kind === "accompany" &&

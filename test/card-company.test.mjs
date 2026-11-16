@@ -151,13 +151,10 @@ describe("following", () => {
     s = go(s, "co-a");
     expect(at(s, ANN)).toBe("co-a");
   });
-  it("takes the resident along a way back it could walk, with a ticket for it", () => {
+  it("holds a place for the resident only where the two now stand", () => {
     const s = invite(world(), ANN, "station");
-    expect(s.invitedPlaces[ANN]).toEqual(expect.arrayContaining(["station"]));
-    const far = go(s, "co-far");
-    expect(far.invitedPlaces[ANN]).toEqual(
-      expect.arrayContaining(["co-far", "station"]),
-    );
+    expect(s.invitedPlaces[ANN]).toEqual(["station"]);
+    expect(go(s, "co-far").invitedPlaces[ANN]).toEqual(["co-far"]);
   });
 });
 
@@ -250,20 +247,41 @@ describe("left behind and catching up", () => {
     expect(at(s, ANN)).toBe("co-c");
     expect(s.actors[ANN].sleeping).toBeUndefined();
   });
-  it("a place with no way home is not offered, and the pair says she cannot follow", () => {
+  it("a trusting resident is asked down a one-way route and arrives", () => {
     const s = world({ at: "co-c" });
-    expect(offered(s, ANN, "co-pit")).toBe(false);
-    expect(asleepReason(s, [ANN, "co-pit"])).toBe("Ann cannot follow");
-    // Moving alone stays the place card's play.
-    expect(cardPlay(s, ["co-pit"]).action?.kind).toBe("move");
+    expect(offered(s, ANN, "co-pit")).toBe(true);
+    expect(asleepReason(s, [ANN, "co-pit"])).toBeNull();
+    const down = invite(s, ANN, "co-pit");
+    expect(at(down, "vale")).toBe("co-pit");
+    expect(at(down, ANN)).toBe("co-pit");
+    expect(companionOf(down, "vale")).toBe(ANN);
   });
-  it("a bound companion is left at the pit's mouth, and the pair says so before the move", () => {
+  it("a bound companion is not left at the pit's mouth, and stays below when company ends", () => {
     let s = invite(world({ at: "co-b" }), ANN, "co-c");
-    expect(asleepReason(s, [ANN, "co-pit"])).toBe("Ann cannot follow");
-    expect(cardPlay(s, [ANN, "co-pit"]).action).toBeFalsy();
+    expect(cardPlay(s, [ANN, "co-pit"]).action?.kind).toBe("move");
     s = go(s, "co-pit");
-    expect(at(s, ANN)).toBe("co-c");
-    expect(companionOf(s, "vale")).toBe(ANN);
+    expect(at(s, ANN)).toBe("co-pit");
+    s.actors[ANN].trust.vale = 0;
+    s = wait(s, 60);
+    expect(companionOf(s, "vale")).toBeNull();
+    expect(at(s, ANN)).toBe("co-pit");
+    expect(legalActions(s, ANN).some((a) => a.kind === "wait")).toBe(true);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
+  });
+  it("crosses a player-only way beside the traveler, and never back alone", () => {
+    let s = world({ at: "pond" });
+    expect(legalActions(s, ANN).some((a) => a.target === "co-loft")).toBe(false);
+    s = invite(s, ANN, "co-loft");
+    expect(at(s, ANN)).toBe("co-loft");
+    s = go(s, "pond");
+    expect(at(s, ANN)).toBe("pond");
+    s = go(s, "co-loft");
+    s.actors[ANN].trust.vale = 0;
+    s = go(wait(s), "pond");
+    s = wait(s, 60);
+    expect(travelerOf(s, ANN)).toBeNull();
+    expect(at(s, ANN)).toBe("co-loft");
+    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
   it("a below-threshold trip that serves her want is a joint trip with no bond", () => {
     const s = world();
@@ -284,8 +302,7 @@ describe("walking home when released", () => {
     s.actors[ANN].trust.vale = 0;
     s = wait(s);
     expect(companionOf(s, "vale")).toBeNull();
-    // Her tickets now only cover the way home.
-    expect(s.invitedPlaces?.[ANN]).toEqual(expect.arrayContaining(["co-far"]));
+    expect(s.invitedPlaces?.[ANN]).toEqual(["co-far"]);
     s = waitUntil(s, (w) => at(w, ANN) === "co-a");
     expect(at(s, ANN)).toBe("co-a");
     s = wait(s);

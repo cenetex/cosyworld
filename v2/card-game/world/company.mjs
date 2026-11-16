@@ -104,4 +104,3 @@ export function validCompanions(s, actorIds) {
 // traveler. One wording for every card that never travels.
 export const staysLabel = (name) => `${name} stays here`;
 export const withLabel = (name, traveler) => `${name} is with ${traveler}`;
-export const cannotFollowLabel = (name) => `${name} cannot follow`;

@@ -39,7 +39,7 @@ describe("sticky companions in the shipping content", () => {
     expect(decodeSave(encodeSave(s)).actors.vale.companion).toBe("whiskerwind");
   });
 
-  it("she goes with Vale through the Mirror attic and back, and is not stranded there", () => {
+  it("she goes with Vale through the Mirror attic, and stays there when released", () => {
     let s = createWorld({ seed: 3 });
     s.turn = s.revision = 60;
     s.actors.vale.place = s.actors.whiskerwind.place = "forest-cottage";
@@ -48,21 +48,16 @@ describe("sticky companions in the shipping content", () => {
     s = invite(s, "whiskerwind", "attic");
     expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
     expect(s.actors.whiskerwind.place).toBe("attic");
-    expect(s.invitedPlaces.whiskerwind).toContain("attic");
-    // Released in the attic, she walks home through the same door.
+    expect(s.invitedPlaces.whiskerwind).toEqual(["attic"]);
     s.actors.whiskerwind.trust.vale = 0;
     s = wait(s);
     expect(companionOf(s, "vale")).toBeNull();
-    // The door home needs the lit lamp and the cloth in the attic: she waits,
-    // alive, until it opens, and then goes home by herself.
-    for (let i = 0; i < 6; i++) s = wait(s);
-    expect(s.actors.whiskerwind.place).toBe("attic");
-    expect(legalActions(s, "whiskerwind").some((a) => a.kind === "wait")).toBe(true);
     Object.assign(s.items.lamp, { holder: "attic", lit: true, fuel: 12, fuelRooms: 3, fuelPlace: "attic" });
     s.items.cloth.holder = "attic";
-    for (let i = 0; i < 150 && !/^forest-/u.test(s.actors.whiskerwind.place); i++)
-      s = wait(s);
-    expect(s.actors.whiskerwind.place).toMatch(/^forest-/u);
+    for (let i = 0; i < 60; i++) s = wait(s);
+    expect(s.actors.whiskerwind.place).toBe("attic");
+    expect(legalActions(s, "whiskerwind").some((a) => a.kind === "wait")).toBe(true);
+    expect(decodeSave(encodeSave(s))).toEqual(s);
   });
 
   it("a companion whose pack is switched off stays bound, and is back when it returns", () => {

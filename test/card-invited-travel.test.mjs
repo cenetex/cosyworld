@@ -41,7 +41,6 @@ describe("invited companion travel", () => {
     expect(s.log.filter((e) => e.verb === "accompany")).toHaveLength(1);
     expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
     expect(decodeSave(encodeSave(s))).toEqual(s);
-    // Pip is now Rue's companion (rules 133), with a way home through the door.
     expect(s.actors.rue.companion).toBe("moth");
     expect(start.invitedPlaces).toBeUndefined();
     expect(exits(s, "station", "moth")).not.toContain("train");
@@ -113,7 +112,7 @@ describe("invited companion travel", () => {
     });
     expect(s.actors.rue.crossed).toBe(2);
     expect(s.actors.moth.crossed).toBe(2);
-    expect(s.invitedPlaces.moth).toEqual(["greek-harbor", "greek-ship"]);
+    expect(s.invitedPlaces.moth).toEqual(["greek-harbor"]);
   });
   it("requires the current token route, room capacity and human authority", () => {
     const start = carriage(),

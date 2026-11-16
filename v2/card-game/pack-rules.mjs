@@ -23,7 +23,6 @@ import { calledTravelers, selling } from "./world/arcana-record.mjs";
 import {
   packDefinitions,
   packPeople,
-  packPlaces,
   packFixtures,
   packThings,
   crossings,
@@ -314,20 +313,13 @@ export const mayCross = (c, actor, senses) =>
   packPeople[actor]?.personalQuests ||
   senses.humanActors?.includes(actor);
 
-/** Places reachable by crossing from `place` now, including an invited return home. */
+/** Places reachable by crossing from `place` now. */
 export const crossingExits = (s, place, actor, senses) =>
   crossings
     .filter(
       (c) =>
         c.from === place &&
-        (mayCross(c, actor, senses) ||
-          // A resident taken along walks home by the same way: from a
-          // ticketed place into its own part of the world, or on to
-          // another ticketed place on that way (rules 133).
-          (s.invitedPlaces?.[actor]?.includes(c.from) &&
-            ((packPeople[actor]?.packId ?? null) ===
-              (packPlaces[c.to]?.packId ?? null) ||
-              s.invitedPlaces[actor].includes(c.to)))) &&
+        mayCross(c, actor, senses) &&
         crossingOpen(s, c, senses, actor) &&
         (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor)),
     )
