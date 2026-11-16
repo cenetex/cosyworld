@@ -1,6 +1,7 @@
 import "./helpers/no-dwell.mjs";
 import { expect, it } from "vitest";
-import { createWorld } from "../v2/card-game/world.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
+import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { perception, listenerOf } from "../v2/card-game/perception.mjs";
 import {
   assistantRoleScenes,
@@ -55,4 +56,36 @@ it("pulls only toward a wanted place one path away", () => {
   expect(view("greek-harbor").pull).toBeUndefined();
   expect(listenerOf(["vale", "moth"], "moth", "vale")).toBe("vale");
   expect(listenerOf(["vale", "moth"], "vale", "vale")).toBe("moth");
+});
+
+it("does not count a thing that is out of play as newly come", () => {
+  const act = (s, kind, target) =>
+    play(
+      s,
+      legalActions(s).find(
+        (a) =>
+          a.kind === kind &&
+          !a.sleep &&
+          !a.guards &&
+          (!target || a.target === target),
+      ),
+    ).state;
+  const world = createWorld();
+  world.actors.moth.place = world.actors.keeper.place = "pond";
+  world.actors.moth.want = world.actors.keeper.want = null;
+  const home = world.actors.vale.place;
+  const hidden = Object.keys(world.items).find(
+    (id) => world.items[id].holder === home && !entityActive(world, id),
+  );
+  expect(hidden).toBeTruthy();
+  const back = act(act(act(act(world, "move"), "move", home), "move"), "move", home);
+  const view = perception(back, "vale", {
+    speakers: ["vale"],
+    entries: [],
+    actor: "vale",
+    present: ["vale"],
+    desire: null,
+    location: home,
+  });
+  expect(view.arrival?.came).not.toBe(hidden);
 });

@@ -21007,7 +21007,7 @@
     const now = [
       ...present,
       ...Object.keys(world.items).filter(
-        (item) => world.items[item].holder === here2
+        (item) => world.items[item].holder === here2 && entityActive(world, item)
       )
     ];
     const others = (ids3) => ids3.filter((other) => other !== id);

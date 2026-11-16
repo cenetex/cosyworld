@@ -11,8 +11,6 @@ const localPlay = (world, action) => {
   return result.state;
 };
 
-// Aboard a ship, "go to that dock" is a voyage of real plays: set a course
-// along the lanes, wait out each round at sea, then disembark on arrival.
 export function sailTo(
   world,
   dock,
