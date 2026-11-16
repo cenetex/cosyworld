@@ -323,11 +323,10 @@ export function createPackOpening({
       return { shown: true, top: false, under: 0 };
     },
     // The one button the pack asks for while nothing is chosen, or null.
-    // Reveal all waits for the hand to lie lowered.
-    prompt(unturned, { lowered = false } = {}) {
+    prompt(unturned) {
       if (state === "running") return ask("finish", PACK_FINISH);
       if (state === "turned") return ask("done", PACK_DONE);
-      if (state === "closed" && lowered && left(unturned).length)
+      if (state === "closed" && left(unturned).length)
         return ask("reveal", PACK_REVEAL_ALL);
       return null;
     },

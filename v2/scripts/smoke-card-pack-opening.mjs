@@ -1,9 +1,9 @@
 // The pack opening (pack-opening.mjs). Arriving at a place with three or more
 // cards not yet turned, they lie in the hand as ONE face-down stack. Tapping
 // it raises the hand and the cards rise into the row, still face down, a
-// Rare or better showing only a rim glow. With the hand lowered and nothing
-// chosen, the one button is the whole descriptor (New cards unlocked, Tap to
-// reveal all); raising the hand or choosing a card puts it away. A chosen
+// Rare or better showing only a rim glow. With nothing chosen but the held
+// item, the one button is the whole descriptor (New cards unlocked, Tap to
+// reveal all), on arrival too; choosing a card puts it away. A chosen
 // face-down card shows its own Reveal. Reveal all turns the rest commons
 // first; a tap finishes the run; All cards revealed, Tap to continue settles
 // them back into the hand. A
@@ -18,7 +18,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { availableCards } from "../card-game/cards.mjs";
+import { availableCards, cardPlay } from "../card-game/cards.mjs";
+import { heldItem } from "../card-game/held-item.mjs";
 import { isLockedBox } from "../card-game/locked-box.mjs";
 import { levelTier } from "../card-game/level-tiers.mjs";
 import { cardLevel } from "../card-game/rarity.mjs";
@@ -37,6 +38,7 @@ import { deck } from "../card-game/world/arcana.mjs";
 import {
   clearSelection,
   focusedHandCard,
+  holdItem,
   readyActionButton,
   selectCard,
   settleHand,
@@ -391,6 +393,73 @@ for (const [width, motion] of [
   assert.deepEqual(errors, [], `${label}: no page errors`);
   await page.close();
 }
+
+function chooseArrival(held) {
+  for (const from of Object.keys(places)) {
+    try {
+      let world = createWorld({ opening: false, seed: 7 });
+      world.actors.vale.place = from;
+      const item = held
+        ? Object.keys(world.items).find((id) => {
+            try {
+              const tried = structuredClone(world);
+              tried.items[id].holder = "vale";
+              return heldItem(holdItem(tried, id), "vale") === id;
+            } catch {
+              return false;
+            }
+          })
+        : null;
+      if (held && !item) continue;
+      if (item) world.items[item].holder = "vale";
+      world = holdItem(world, item);
+      const before = availableCards(world);
+      for (const move of legalActions(world).filter((a) => a.kind === "move" && !a.item)) {
+        const moved = play(world, move);
+        if (!moved.ok || heldItem(moved.state, "vale") !== item) continue;
+        if (item && cardPlay(moved.state, [item]).action) continue;
+        const fresh = availableCards(moved.state).filter(
+          (id) => id !== "vale" && !id.startsWith("quest:") && !before.includes(id),
+        );
+        if (fresh.length >= 3) return { world, to: move.target, fresh, item };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+for (const width of [390, 1440])
+  for (const held of [false, true]) {
+    const arrival = chooseArrival(held);
+    assert.ok(arrival, "a move leads to a place that deals a pack");
+    const label = `${width}px arrival ${held ? "holding a thing" : "empty handed"}`;
+    const { page, errors } = await openTable(width, "no-preference", {
+      covered: arrival.fresh,
+      tag: `pack-arrival-${width}-${held}`,
+      world: arrival.world,
+    });
+    const chosen = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('#hand .card[aria-pressed="true"]')].map((c) => c.dataset.card),
+      );
+    await selectCard(page, arrival.to);
+    await readyActionButton(page, "move").click();
+    await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="closed"]').length > 1);
+    await oneButton(page, "Reveal all", `${label}: the new place asks Reveal all with no tap`);
+    assert.deepEqual(await chosen(), held ? [arrival.item] : [], `${label}: only the held thing is chosen`);
+    assert.equal(await page.locator("#play-readout").textContent(), "", `${label}: the readout names no other play`);
+    if (shots) await page.screenshot({ path: new URL(`pack-arrival-${width}-${held}.png`, shots).pathname });
+    await tapCard(page.locator('#hand [data-card="vale"]'));
+    assert.ok((await chosen()).includes("vale"), `${label}: Vale is chosen`);
+    assert.equal(
+      await page.locator("#card-actions [data-pack]").count(),
+      0,
+      `${label}: another chosen card puts Reveal all away`,
+    );
+    assert.deepEqual(errors, [], `${label}: no page errors`);
+    await page.close();
+  }
 
 // Fewer than three unturned cards are no pack: they turn in place as before.
 {

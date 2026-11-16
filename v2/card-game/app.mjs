@@ -880,6 +880,11 @@ const playQueue = createPlayQueue({
     if (renderedHand === handBefore) renderActions();
   },
 });
+function dropQueuedPlay() {
+  const dropped = playQueue.pending?.action;
+  playQueue.clear();
+  if (dropped) notice(`Not played: ${playText(dropped)}`, "dropped");
+}
 // Strikes and journeys have the screen. The hand is locked through them but
 // stays exactly where the player left it: only the player lowers it. The
 // dialogue steps aside, so the fighters stay in view, and returns for the
@@ -1878,11 +1883,15 @@ function applyPackFrame(frame, id) {
     button.setAttribute("aria-label", `${part.under + 1} closed boxes. Select to open.`);
   } else if (pack.state === "closed") button.removeAttribute("aria-expanded");
 }
-// What the one button asks while the pack owns it: nothing is chosen and
-// the row is raised.
+// What the one button asks while the pack owns it: nothing is chosen, or
+// only a held item with no play of its own beside a closed pack.
 const packPrompt = () =>
-  !selected.length && !questOpen
-    ? pack.prompt(cardIsCovered, { lowered: rowCollapsed })
+  !questOpen &&
+  (!selected.length ||
+    (pack.state === "closed" &&
+      selected.join() === shownHeld().join() &&
+      !cardPlay(world, selected).action))
+    ? pack.prompt(cardIsCovered)
     : null;
 // A face-down card in an open pack shows its tier only as a rim glow, from
 // Rare up: no number, name or art, and no `data-level` (a covered card still
@@ -1921,10 +1930,11 @@ function packTurned() {
 }
 const packTurnNow = (id) => uncover(id, { flip: false, batch: true });
 // When the pack last changed what its one button does.
-let packStepAt = -Infinity;
+let packStepAt = -Infinity,
+  packPlace = null;
 function openPack() {
   if (!pack.open()) return;
-  playQueue.clear();
+  dropQueuedPlay();
   lastPlayAt = -Infinity;
   selectCards([]);
   // A play that just rested the beat does not hold the pack's button back.
@@ -1996,7 +2006,7 @@ function choose(id) {
     render();
     return;
   }
-  playQueue.clear();
+  dropQueuedPlay();
   lastPlayAt = -Infinity;
   fresh.delete(id);
   const questChosen = questOpen;
@@ -2131,6 +2141,7 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   restedChoice = choiceKey();
   // A new play earns its own grace before the hand returns.
   thinkingSince = null;
+  if ($("play-status").dataset.playStatus === "dropped") notice("");
   playQueue.submit(action, revision);
 }
 function worldStuck() {
@@ -2739,13 +2750,15 @@ function renderActions() {
     sharedRefusal = null;
   shownPhase = presentPhase();
   const rested = shownPhase !== "choosing";
-  const { actions: offered, hint } = cardActions(world, selected);
+  const packAsk = !rested && !borrowedBeat ? packPrompt() : null;
+  const chosen = packAsk ? [] : selected;
+  const { actions: offered, hint } = cardActions(world, chosen);
   const ready = restPlays(
     world,
     offered,
-    lastWait?.key === selected.join("+") &&
+    lastWait?.key === chosen.join("+") &&
       lastWait.revision === world.revision,
-    selected,
+    chosen,
   );
   // A chosen play leaves the beat: the Thinking card stands for it, and its
   // reply types into the full-size front card.
@@ -2753,13 +2766,8 @@ function renderActions() {
     !rested && !selected.length && isTarotKey(questOpen) && cardIsCovered(questOpen)
       ? questOpen
       : null;
-  const closed = selected.some(cardIsClosed) || Boolean(coveredPick);
+  const closed = chosen.some(cardIsClosed) || Boolean(coveredPick);
   const actions = rested || closed ? [] : ready;
-  // Nothing chosen in an open pack: the pack's one button (pack-opening.mjs).
-  const packAsk =
-    !rested && !selected.length && !questOpen && !borrowedBeat
-      ? packPrompt()
-      : null;
   const clientText = packAsk
       ? packAsk.text
       : !rested &&
@@ -2772,7 +2780,7 @@ function renderActions() {
   // Its names go through the same discovery screen as every other word: a
   // card the traveler has not found is not named (rules 133).
   const asleepWords =
-    !rested && !closed && !actions.length && asleepReason(world, selected);
+    !rested && !closed && !actions.length && asleepReason(world, chosen);
   const asleep = asleepWords && visibleText(asleepWords);
   // A Take refused for space says why in the context button (#2018). It
   // plays nothing; the cards stay as they are.
@@ -3119,8 +3127,8 @@ function renderActions() {
     refusedPlay(a)
       ? `Not played: ${playLabel(a)}. ${refusedPlay(a)}`
       : playLabel(a);
-  $("play-readout").textContent = selected.length
-    ? [selectionName, lockShown?.text || actions.map(readout).join(". ") || hint]
+  $("play-readout").textContent = chosen.length
+    ? [selectionName, lockShown?.text || actions.map(readout).join(". ") || crowdedWords || hint]
         .filter(Boolean)
         .join(". ")
     : picked
@@ -3501,7 +3509,7 @@ function card(id) {
       dragging.length &&
       !dragging.includes(id)
     ) {
-      playQueue.clear();
+      dropQueuedPlay();
       rowCollapsed = false;
       const withCard = [...dragging, id];
       selectCards(
@@ -3705,7 +3713,7 @@ function openQuest(id = entryIdOf(foldQuest())) {
   if (selectionBlocked()) return;
   if (reviewing) returnToLive();
   queueChoice();
-  playQueue.clear();
+  dropQueuedPlay();
   questFresh = false;
   questOpen = id;
   restedChoice = null;
@@ -5215,6 +5223,8 @@ function render() {
     if (id.startsWith(`tarot:${currentActor(world)}:`) && !tarotKeys().includes(id))
       encountered.delete(id);
   packSync([...availableCards(world), ...tarotKeys()]);
+  if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
+  packPlace = placeHere();
   const handCards = packHand(
     chosenFirst(
       handWithQuest(
@@ -5695,7 +5705,7 @@ document.addEventListener("keydown", (e) => {
     !document.querySelector("dialog[open], .world-menu:popover-open") &&
     (selected.length || expandedHolders.size || !rowCollapsed || questOpen)
   ) {
-    playQueue.clear();
+    dropQueuedPlay();
     foldHand();
   }
 });
