@@ -247,13 +247,7 @@ pub(super) fn report() -> Value {
         let context = heard.as_ref().unwrap_or(context);
         let speaker = entity(context, &reply.speaker);
         let check = Check::new(context, speaker, Part::Line);
-        // What would be published: a reply that only missed its fact is
-        // spoken untold, with no retry.
-        let outcome = match check.clean(&reply.reply, true) {
-            Ok(_) => "ok",
-            Err("knowledge_fact") if check.untold(&reply.reply, true).is_ok() => "untold",
-            Err(reason) => reason,
-        };
+        let outcome = check.clean(&reply.reply, true).err().unwrap_or("ok");
         *reasons.entry(outcome.to_string()).or_default() += 1;
         let claims = false_claims(context, &reply.speaker, &reply.reply);
         if !claims.is_empty() {
@@ -589,16 +583,16 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     // view read back across its facts is an echo.
     let check = Check::new(&heard, dione, Part::Line);
     for claim in ["I'm holding the Funeral Oil.", "The Funeral Oil is mine."] {
-        let (text, flags) = check.verdict(claim, true, false).unwrap();
+        let (text, flags) = check.verdict(claim, true).unwrap();
         assert_eq!(text, claim);
         assert!(flags.contains(&"custody"), "{claim}");
     }
     let echo = "I'm carrying the Sack of Wheat I'm holding the Sack of Wheat.";
-    assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
+    assert_eq!(check.verdict(echo, true), Err("echoed brief"));
     // The heard line said back first is dropped; her own words stay.
     let reply = "Good evening, Dione! What are you baking? Bread for the rites, Vale.";
     assert_eq!(
-        check.verdict(reply, true, false),
+        check.verdict(reply, true),
         Ok(("Bread for the rites, Vale.".into(), vec![]))
     );
     // Vale, with nobody heard or faced, is asked what he thinks.

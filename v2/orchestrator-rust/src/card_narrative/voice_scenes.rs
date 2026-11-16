@@ -132,10 +132,7 @@ impl Drop for Scene {
                     .map_or("unvoiced", |voice| voice.outcome.label())
             })
             .collect();
-        let voiced = ends
-            .iter()
-            .filter(|end| matches!(**end, "spoken" | "untold"))
-            .count();
+        let voiced = ends.iter().filter(|end| **end == "spoken").count();
         let outcome = match self.ended {
             None => "closed",
             Some(false) => "failed",

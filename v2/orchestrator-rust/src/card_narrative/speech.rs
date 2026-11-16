@@ -269,7 +269,7 @@ mod tests {
     fn a_thinking_block_is_never_spoken() {
         let c = super::super::tests::context();
         let check = super::super::Check::new(&c, &c.entities[0], super::super::Part::Line);
-        let said = |raw: &str| check.verdict(raw, true, true);
+        let said = |raw: &str| check.verdict(raw, true);
         let line = Ok(("Hold the lamp, Pip.".to_string(), vec![]));
         for raw in [
             "<think>\nPip asked about the lamp. I answer warmly.\n</think>\n\nHold the lamp, Pip.",
@@ -308,7 +308,7 @@ mod tests {
             format!("I said: {shadows}"),
             format!("{trick}\nratimics said: \"Perceptive.\""),
         ] {
-            let (text, _) = check.verdict(&raw, true, true).expect(&raw);
+            let (text, _) = check.verdict(&raw, true).expect(&raw);
             assert!(
                 !text.contains("said:") && !text.contains("ratimics"),
                 "{text}"
@@ -322,7 +322,7 @@ mod tests {
                 "{text}"
             );
         }
-        assert_eq!(check.verdict("ratimics said:", true, true), Err("empty"));
+        assert_eq!(check.verdict("ratimics said:", true), Err("empty"));
     }
 
     #[test]
@@ -335,16 +335,13 @@ mod tests {
             "I thought you had-",
         ] {
             let spoken = Ok((raw.to_string(), vec!["shape"]));
-            assert_eq!(check.verdict(raw, true, true), spoken, "{raw}");
-            assert_eq!(check.verdict(raw, false, true), Err("shape"), "{raw}");
+            assert_eq!(check.verdict(raw, true), spoken, "{raw}");
+            assert_eq!(check.verdict(raw, false), Err("shape"), "{raw}");
         }
         let kept = Ok(("Hold on.".to_string(), vec![]));
-        assert_eq!(
-            check.verdict("Hold on. I thought you\u{2014}", true, true),
-            kept
-        );
+        assert_eq!(check.verdict("Hold on. I thought you\u{2014}", true), kept);
         let comma = Ok(("Hold the lamp higher,".to_string(), vec!["shape"]));
-        assert_eq!(check.verdict("Hold the lamp higher,", true, true), comma);
+        assert_eq!(check.verdict("Hold the lamp higher,", true), comma);
     }
 
     #[test]

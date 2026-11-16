@@ -330,7 +330,7 @@ mod tests {
         let lines: Vec<_> = system.lines().filter(|l| !l.is_empty()).collect();
         let at = lines.iter().position(|l| *l == clock).unwrap();
         let dump = format!("{} {}", lines[at - 1], clock);
-        assert_eq!(persona.verdict(&dump, true, true), Err("echoed brief"));
+        assert_eq!(persona.verdict(&dump, true), Err("echoed brief"));
     }
 
     /// Good lines publish unflagged, off-style lines publish as written
@@ -346,10 +346,10 @@ mod tests {
         // A quotation inside speech loses only its marks.
         for line in GOOD {
             let want = (line.replace('"', ""), vec![]);
-            assert_eq!(check.verdict(line, true, true), Ok(want), "{line}");
+            assert_eq!(check.verdict(line, true), Ok(want), "{line}");
         }
         for (line, reason) in FLAGGED {
-            let (text, flags) = check.verdict(line, true, true).expect(line);
+            let (text, flags) = check.verdict(line, true).expect(line);
             assert!(flags.contains(reason), "{line}: {flags:?}");
             assert_eq!(text, line.trim_matches('"'), "{line}");
         }
@@ -362,21 +362,21 @@ mod tests {
             ),
         ] {
             let want = Ok((said.into(), vec!["narration tag"]));
-            assert_eq!(check.verdict(line, true, true), want, "{line}");
+            assert_eq!(check.verdict(line, true), want, "{line}");
         }
-        let told = check.verdict("\"Stay here,\" I tell Pip.", true, true);
+        let told = check.verdict("\"Stay here,\" I tell Pip.", true);
         assert_eq!(told, Ok(("Stay here.".into(), vec!["narration tag"])));
         // Pip's words written for Pip are not mine to say.
-        let voiced = check.verdict("\"Come closer,\" Pip says.", true, true);
+        let voiced = check.verdict("\"Come closer,\" Pip says.", true);
         assert!(voiced.unwrap().1.contains(&"other speaker"));
-        let (comma, flags) = check.verdict("Hold the lamp higher,", true, true).unwrap();
+        let (comma, flags) = check.verdict("Hold the lamp higher,", true).unwrap();
         assert_eq!(comma, "Hold the lamp higher,");
         assert!(flags.contains(&"shape"));
         for (line, reason) in BLOCKED {
-            assert_eq!(check.verdict(line, true, true), Err(*reason), "{line}");
+            assert_eq!(check.verdict(line, true), Err(*reason), "{line}");
         }
         let long = format!("{}.", "a".repeat(400));
-        assert_eq!(check.verdict(&long, true, true), Err("shape"));
+        assert_eq!(check.verdict(&long, true), Err("shape"));
     }
 
     /// A reply cut at the token cap keeps its complete sentences; a stage
@@ -386,7 +386,7 @@ mod tests {
     fn a_cut_or_narrated_reply_keeps_what_it_says() {
         let c = context();
         let check = Check::new(&c, &c.entities[0], Part::Line);
-        let said = |raw: &str, finished: bool| check.verdict(raw, finished, true);
+        let said = |raw: &str, finished: bool| check.verdict(raw, finished);
         let cut = "Hold the lamp higher, Pip. I can't see your fa";
         assert_eq!(
             said(cut, false),
