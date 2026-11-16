@@ -1,5 +1,6 @@
 import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
 import { wantWords } from "./world/want-words.mjs";
+import { stepGoal } from "./world/lock-goals.mjs";
 import { validLampRoomFuel } from "./lamp-room-fuel.mjs";
 import { fillLampFuel, settleLamp } from "./lamp-state.mjs";
 import { validStationExitOrder } from "./station-exits.mjs";
@@ -1677,7 +1678,7 @@ export function legalActions(s, actor = currentActor(s)) {
       const goal =
         w.kind === "person" && !w.step
           ? `meet ${nameOf(w.target)}`
-          : wantText(w);
+          : wantText(stepGoal(s, w, actor));
       const drop = offer(
         "drop",
         actor,

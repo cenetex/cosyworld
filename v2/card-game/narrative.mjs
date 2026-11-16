@@ -45,6 +45,7 @@ import {
 } from "./world.mjs";
 import { controlledByHuman, residentAvatar } from "./human-cast.mjs";
 import { knownActors, wantOf } from "./want.mjs";
+import { stepGoal } from "./world/lock-goals.mjs";
 import { guardedFrom } from "./resident-guard.mjs";
 import {
   forgetCovered,
@@ -560,7 +561,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
               )}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Brace, guard, strike or wait are available.`,
           );
         const want = wantHeard(world, played, id, currentActor(world))
-          ? wantOf(world, id)
+          ? stepGoal(world, wantOf(world, id), currentActor(world))
           : null;
         desire = {
           items: want?.kind === "item" ? [want.target] : [],

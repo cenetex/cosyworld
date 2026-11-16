@@ -3,6 +3,7 @@
 // player only through a Talk play with that avatar.
 import { layMet, lostOf, questTerms } from "./want.mjs";
 import { offerFrom } from "./offer-chance.mjs";
+import { stepGoal } from "./world/lock-goals.mjs";
 import forest from "./forest.json" with { type: "json" };
 import {
   consumable,
@@ -119,19 +120,24 @@ export function wantFact(world, id, nameOf, listener) {
     return `I want ${article(nameOf(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
   }
   if (!revealed(world, id, want, listener)) return null;
-  const name = nameOf(want.target);
+  const said = stepGoal(world, want, listener ?? id);
+  const name = nameOf(said.target);
   const help =
     listener && offerFrom(world, listener) === id
       ? " I would be glad of your help."
       : "";
-  if (want.step?.verb === "lay")
-    return `I want ${want.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.${help}`;
+  if (said.step?.verb === "lay")
+    return `I want ${said.step.items.map((item) => article(nameOf(item))).join(", ")} laid in ${name}.${help}`;
   return (
-    (want.kind === "item"
-      ? want.step?.verb === "eat"
-        ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf(want.step.at)}` : ""}.`
-        : `I want ${article(name)}.`
-      : want.kind === "place"
+    (said.kind === "item"
+      ? said.step?.verb === "eat"
+        ? `I want to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${article(name)}${said.step.at ? ` at ${nameOf(said.step.at)}` : ""}.`
+        : said.step?.verb === "bring" && said.step.at
+          ? `I want ${article(name)} brought to ${nameOf(said.step.at)}.`
+          : said.step?.verb === "give" && said.step.to !== id
+            ? `I want ${article(name)} given to ${nameOf(said.step.to)}.`
+            : `I want ${article(name)}.`
+      : said.kind === "place"
         ? `I want to be at ${name}.`
         : `I want to see ${name}.`) + help
   );

@@ -115,6 +115,21 @@ describe("Talk tells a want", () => {
     expect(s.actors.vale.questRewards).toBeUndefined();
   });
 
+  it("meets a give quest by a Trade that hands the item over, as a Give does", () => {
+    let s = talk(station(), "moth");
+    s = heldFrom(s, "moth");
+    s.items.cloth.holder = "moth";
+    s = act(
+      s,
+      (a) => a.kind === "trade" && a.target === "moth" && a.item === "lamp",
+    );
+    expect(s.items.lamp.holder).toBe("moth");
+    expect(s.actors.vale.want).toBeNull();
+    expect(s.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
+    expect(s.actors.vale.arcana).toMatchObject({ calls: 1, callers: ["moth"] });
+    expect(s.actors.moth.trust.vale).toBe(1);
+  });
+
   it("leaves a held Talk quest when their want changes first, without a refusal", () => {
     let s = talk(station(), "moth");
     s = heldFrom(s, "moth");
