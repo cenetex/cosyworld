@@ -89,15 +89,13 @@ export function observableStates(world, entityIds, definitions = observations) {
         ? entity[source.field]
         : undefined;
       const value =
-        source.kind === "covered"
-          ? Object.values(world.items).some((item) => item.holder === d.entity)
-          : source.kind === "item_positive"
-            ? typeof raw === "number"
-              ? raw > 0
-              : null
-            : typeof raw === "boolean"
-              ? raw
-              : null;
+        source.kind === "item_positive"
+          ? typeof raw === "number"
+            ? raw > 0
+            : null
+          : typeof raw === "boolean"
+            ? raw
+            : null;
       return value === null ? [] : [{ id: d.id, value }];
     })
     .slice(0, 32);

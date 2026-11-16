@@ -106,7 +106,7 @@ describe("the temporary ringing path to Forest Clearing", () => {
     expect(visible(ring(s))).toBe(false);
   });
 
-  it("uses current ground or carrier location and closes if the bell leaves or is covered", () => {
+  it("uses current ground or carrier location and closes if the bell leaves", () => {
     const s = open();
     for (const holder of ["pond", "vale", "moth"]) {
       s.items.bell.holder = holder;
@@ -117,10 +117,6 @@ describe("the temporary ringing path to Forest Clearing", () => {
     s.actors.moth.place = "station";
     expect(visible(s)).toBe(false);
     expect(play(s, stale, s.revision).ok).toBe(false);
-    s.actors.moth.place = "pond";
-    s.items.cloth.holder = "bell";
-    expect(visible(s)).toBe(false);
-    expect(availableCards(s)).not.toContain("clearing");
   });
 
   it("keeps independent NPC crossing gated while a player can invite company", () => {

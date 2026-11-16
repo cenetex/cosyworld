@@ -99,34 +99,6 @@
             ]
           }
         }
-      },
-      {
-        "id": "lamp-cover",
-        "entity": "lamp",
-        "subjects": [
-          "lamp"
-        ],
-        "source": {
-          "kind": "covered"
-        },
-        "values": {
-          "true": {
-            "fact": "The Lamp is covered. Its flame state is recorded separately.",
-            "legacyToken": "covered",
-            "claims": [
-              "is covered"
-            ]
-          },
-          "false": {
-            "fact": "The Lamp is uncovered.",
-            "legacyToken": "uncovered",
-            "claims": [
-              "is uncovered",
-              "is not covered",
-              "isn't covered"
-            ]
-          }
-        }
       }
     ],
     "packEntries": {

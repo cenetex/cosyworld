@@ -3019,9 +3019,7 @@
       const collection = source?.kind === "actor_flag" ? "avatars" : "items";
       const valid = keysOk(d, ["id", "entity", "subjects", "source", "values", "note"]) && idOk2(d.id) && !seen.has(d.id) && catalog[collection]?.includes(d.entity) && Array.isArray(d.subjects) && d.subjects.length > 0 && d.subjects.length <= 4 && d.subjects.every(
         (s) => typeof s === "string" && /^[a-z]+(?: [a-z]+)*$/.test(s) && s.length <= 80
-      ) && keysOk(source, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag", "covered"].includes(
-        source.kind
-      ) && (source.kind === "covered" ? source.field === void 0 : idOk2(source.field)) && keysOk(d.values, ["true", "false"]) && ["true", "false"].every((key3) => {
+      ) && keysOk(source, ["kind", "field"]) && ["item_flag", "item_positive", "actor_flag"].includes(source.kind) && idOk2(source.field) && keysOk(d.values, ["true", "false"]) && ["true", "false"].every((key3) => {
         const v = d.values[key3];
         return keysOk(v, ["fact", "claims", "legacyToken"]) && textOk(v.fact, 240) && Array.isArray(v.claims) && v.claims.length > 0 && v.claims.length <= 16 && v.claims.every(
           (s) => typeof s === "string" && /^[a-z']+(?: [a-z']+)*$/.test(s) && s.length <= 80
@@ -6559,7 +6557,7 @@
     (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
   ).map((r) => r.to);
   var reflectionOpen = (s, from = itemPlace(s, "lamp")) => reflectionsFrom(s, from).length > 0;
-  var baseSoundAt = (s, place2) => entityActive(s, "bell") && s.items.bell.ringing > 0 && !covered(s, "bell") && itemPlace(s, "bell") === place2;
+  var baseSoundAt = (s, place2) => entityActive(s, "bell") && s.items.bell.ringing > 0 && itemPlace(s, "bell") === place2;
   var senses = { player: "vale", baseSoundAt, nameOf };
   var sensesFor = (s) => ({
     ...senses,
@@ -9298,7 +9296,7 @@
         use.label = belonging.item.verb;
         out.push(use);
       }
-      if (id === "bell" && !covered(s, id))
+      if (id === "bell")
         out.push(
           offer(
             "ring",
@@ -10305,8 +10303,7 @@
       const sound = getActions().find(
         (a) => a.kind === "ring" && a.item === "bell"
       );
-      if (sound)
-        return covered(s, "bell") ? getActions().find((a) => a.kind === "take" && a.item === "cloth") : sound;
+      if (sound) return sound;
     }
   }
   function prepareResidentLamp(s, actor, target = null) {
@@ -10892,7 +10889,7 @@
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
     if (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4 || !Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > LAMP_FUEL || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
       fail("lamp");
-    if (Object.hasOwn(oil, "doses") || !Number.isInteger(bell.ringing) || bell.ringing < 0 || bell.ringing > 3 || covered(s, "bell") && bell.ringing > 0)
+    if (Object.hasOwn(oil, "doses") || !Number.isInteger(bell.ringing) || bell.ringing < 0 || bell.ringing > 3)
       fail("oil-bell");
     const signal = s.locations.pond.shipSignal;
     if (signal !== void 0 && (!Number.isInteger(signal) || signal < 0 || signal > 4))
@@ -11051,8 +11048,7 @@
   }
   var itemPlace = (s, id) => s.actors[rootHolder(s, id)]?.place || rootHolder(s, id);
   var carried = (s, actor) => ids.filter((id) => rootHolder(s, id) === actor);
-  var covered = (s, id) => s.items.cloth.holder === id;
-  var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0 && !covered(s, "lamp");
+  var shining = (s) => entityActive(s, "lamp") && s.items.lamp.lit && s.items.lamp.fuel > 0;
 
   // v2/card-game/lamp-state.mjs
   function installLampFuel(world) {

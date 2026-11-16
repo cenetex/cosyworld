@@ -22,7 +22,6 @@ import {
   itemPlace,
   rootHolder,
   exits,
-  covered,
   shutBoxesAt,
 } from "./world.mjs";
 import {
@@ -561,7 +560,7 @@ export function cardObservation(world, id) {
       );
     if (typeof item.ringing === "number")
       observations.push(
-        item.ringing > 0 && !covered(world, id) ? "Ringing" : "Silent",
+        item.ringing > 0 ? "Ringing" : "Silent",
       );
     const cover = Object.keys(world.items).find(
       (other) => world.items[other].holder === id,

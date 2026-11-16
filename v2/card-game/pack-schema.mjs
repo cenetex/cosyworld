@@ -254,12 +254,8 @@ export function observationProblems(definitions, catalog) {
           s.length <= 80,
       ) &&
       keysOk(source, ["kind", "field"]) &&
-      ["item_flag", "item_positive", "actor_flag", "covered"].includes(
-        source.kind,
-      ) &&
-      (source.kind === "covered"
-        ? source.field === undefined
-        : idOk(source.field)) &&
+      ["item_flag", "item_positive", "actor_flag"].includes(source.kind) &&
+      idOk(source.field) &&
       keysOk(d.values, ["true", "false"]) &&
       ["true", "false"].every((key) => {
         const v = d.values[key];

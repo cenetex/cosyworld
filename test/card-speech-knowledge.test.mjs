@@ -42,19 +42,6 @@ describe("speech knows only uncovered cards (#1575)", () => {
     expect(limited.events[0]).toMatch(/holding something shining I can't/);
   });
 
-  it("blurs a cloth-covered lamp without calling it a light", () => {
-    const s = fresh();
-    s.items.cloth.holder = "lamp";
-    const limited = forgetCovered(
-      s,
-      narrativeContext(s),
-      (id) => id !== "vale",
-    );
-    const vale = limited.entities.find(({ id }) => id === "vale");
-    expect(vale.facts[0]).toMatch(/^Holding: something I can't make out/);
-    expect(visible(limited)).not.toMatch(/shining|lamp|cloth/i);
-  });
-
   it("blurs a covered place by its full name and leaves its common last word (#2740)", () => {
     const s = fresh(), covered = (id) => id === "attic";
     const full = nameOf("attic");

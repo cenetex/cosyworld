@@ -102,7 +102,7 @@ describe("entity memories and model text", () => {
     );
   });
 
-  it("sends the final lamp state after refueling, holding, covering and running dry", () => {
+  it("sends the final lamp state after refueling, holding and running dry", () => {
     let world = createWorld();
     world.actors.vale.place = "pond";
     world.items.lamp.holder = "vale";
@@ -120,24 +120,16 @@ describe("entity memories and model text", () => {
     expect(world.items.lamp.fuel).toBe(12);
     expect(lamp(world)).toMatchObject({
       "lamp-flame": false,
-      "lamp-cover": false,
     });
     world = selectLamp(world, "lamp");
     expect(lamp(world)).toMatchObject({
       "lamp-flame": true,
-      "lamp-cover": false,
-    });
-    world.items.cloth.holder = "lamp";
-    expect(lamp(world)).toMatchObject({
-      "lamp-flame": true,
-      "lamp-cover": true,
     });
     world = endStandoff(world);
     Object.assign(world.items.lamp, { fuel: 4, fuelRooms: 1 });
     world = act(world, "move", null, "station");
     expect(lamp(world)).toMatchObject({
       "lamp-flame": false,
-      "lamp-cover": true,
     });
     expect(narrativeContext(world).outcome.card.kind).toBe("move");
     expect(world.items.lamp.fuelRooms).toBe(0);

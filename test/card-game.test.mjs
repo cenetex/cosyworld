@@ -15,7 +15,6 @@ import {
   itemPlace,
   rootHolder,
   carried,
-  covered,
   validateWorld,
   encodeSave,
   decodeSave,
@@ -78,19 +77,13 @@ describe("the reflected shore card game", () => {
     expect(s.items.lamp.holder).toBe("moth");
   });
 
-  it("opens a real route with light and closes it when covered", () => {
+  it("opens a real route with light", () => {
     let s = createWorld();
     s.items.cloth.holder = "pond";
     s = act(s, "take", "lamp");
     s = act(s, "move", null, "pond");
     expect(exits(s, "pond")).toContain("attic");
-    s.items.cloth.holder = "lamp";
-    expect(covered(s, "lamp")).toBe(true);
-    expect(exits(s, "pond")).toEqual(["station"]);
-    s = endStandoff(s);
     const fuel = s.items.lamp.fuelRooms;
-    s = act(s, "take", "cloth");
-    expect(s.items.lamp.lit).toBe(false);
     s = selectLamp(s, "lamp");
     expect(reflectionOpen(s)).toBe(true);
     expect(s.items.lamp.fuelRooms).toBe(fuel);

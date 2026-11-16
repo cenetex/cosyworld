@@ -232,7 +232,6 @@ import {
   people,
   things,
   nameOf,
-  covered,
   itemPlace,
   rootHolder,
   play,
@@ -3430,7 +3429,7 @@ function card(id) {
     // Observable physical states, never fuel arithmetic or puzzle progress.
     if (typeof item.lit === "boolean") el.dataset.lit = String(item.lit);
     if (typeof item.ringing === "number")
-      el.dataset.ringing = String(item.ringing > 0 && !covered(world, id));
+      el.dataset.ringing = String(item.ringing > 0);
     const covering = Object.keys(world.items).find(
       (other) => world.items[other].holder === id,
     );
@@ -4391,8 +4390,7 @@ function renderScene() {
       ownAction,
       (id) =>
         id !== hiddenActor &&
-        !cardIsCovered(id) &&
-        !(things[id] && covered(world, id)),
+        !cardIsCovered(id),
     );
   const portraitId = (ownAction ? actionView?.actor : front?.speakerId) || null;
   const portraitBox = $("speaker-portrait");
@@ -4629,7 +4627,7 @@ function fillPortrait(face, id) {
   face.append(image);
 }
 function beatPortrait(id) {
-  if (!id || cardIsCovered(id) || (things[id] && covered(world, id))) return "";
+  if (!id || cardIsCovered(id)) return "";
   return imageUrl(
     people[id]
       ? portrait(id, null, asleepWorld(world))

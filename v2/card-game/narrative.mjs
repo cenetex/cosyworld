@@ -28,7 +28,6 @@ import {
   carried,
   itemPlace,
   rootHolder,
-  covered,
   exits,
   nameOf,
   validateWorld,
@@ -380,7 +379,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
   );
   const quietFact =
     bellHandled && !bellRang && !world.items.bell.ringing
-      ? `The Bell made no sound this turn: it is ${covered(world, "bell") ? "wrapped in the Black cloth and " : ""}silent. Nobody rang it.`
+      ? `The Bell made no sound this turn: it is silent. Nobody rang it.`
       : null;
   const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
   const ways = wayFacts(world, location);
@@ -609,7 +608,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         facts.push(`Held by or resting at: ${nameOf(rootHolder(world, id))}.`);
         if (id === "lamp")
           facts.push(
-            `${item.fuel === 0 ? "Empty" : (item.fuelRooms === 1 || (item.fuelRooms === undefined && item.fuel <= 3)) ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
+            `${item.fuel === 0 ? "Empty" : (item.fuelRooms === 1 || (item.fuelRooms === undefined && item.fuel <= 3)) ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}.`,
           );
         if (things[id]?.refuels)
           facts.push(
@@ -617,7 +616,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           );
         if (id === "bell")
           facts.push(
-            `${item.ringing ? "Ringing" : "Silent"}; ${covered(world, id) ? "covered" : "uncovered"}.`,
+            `${item.ringing ? "Ringing" : "Silent"}.`,
           );
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
