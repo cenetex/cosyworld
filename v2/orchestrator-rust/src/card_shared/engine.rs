@@ -39,34 +39,6 @@ pub(super) const HUNDRED_THIRTY_SIXTH_VERSION: &str = "full-card-world/136";
 pub(super) const HUNDRED_THIRTY_FIFTH_VERSION: &str = "full-card-world/135";
 pub(super) const HUNDRED_THIRTY_FOURTH_VERSION: &str = "full-card-world/134";
 pub(super) const HUNDRED_THIRTY_THIRD_VERSION: &str = "full-card-world/133";
-pub(super) const HUNDRED_THIRTY_SECOND_VERSION: &str = "full-card-world/132";
-pub(super) const HUNDRED_THIRTY_FIRST_VERSION: &str = "full-card-world/131";
-pub(super) const HUNDRED_THIRTIETH_VERSION: &str = "full-card-world/130";
-pub(super) const HUNDRED_TWENTY_EIGHTH_VERSION: &str = "full-card-world/128";
-pub(super) const HUNDRED_TWENTY_FIFTH_VERSION: &str = "full-card-world/125";
-pub(super) const HUNDRED_TENTH_VERSION: &str = "full-card-world/110";
-pub(super) const HUNDREDTH_VERSION: &str = "full-card-world/100";
-pub(super) const NINETY_NINTH_VERSION: &str = "full-card-world/99";
-pub(super) const NINETY_EIGHTH_VERSION: &str = "full-card-world/98";
-pub(super) const NINETY_SEVENTH_VERSION: &str = "full-card-world/97";
-pub(super) const NINETY_SIXTH_VERSION: &str = "full-card-world/96";
-pub(super) const NINETY_FIFTH_VERSION: &str = "full-card-world/95";
-pub(super) const NINETY_FOURTH_VERSION: &str = "full-card-world/94";
-pub(super) const NINETY_THIRD_VERSION: &str = "full-card-world/93";
-pub(super) const NINETY_SECOND_VERSION: &str = "full-card-world/92";
-pub(super) const NINETY_FIRST_VERSION: &str = "full-card-world/91";
-pub(super) const NINETIETH_VERSION: &str = "full-card-world/90";
-pub(super) const EIGHTY_NINTH_VERSION: &str = "full-card-world/89";
-pub(super) const EIGHTY_EIGHTH_VERSION: &str = "full-card-world/88";
-pub(super) const EIGHTY_SEVENTH_VERSION: &str = "full-card-world/87";
-pub(super) const FIFTY_SEVENTH_VERSION: &str = "full-card-world/57";
-pub(super) const TWENTY_NINTH_VERSION: &str = "full-card-world/29";
-pub(super) const TWENTY_EIGHTH_VERSION: &str = "full-card-world/28";
-pub(super) const TWENTY_FIFTH_VERSION: &str = "full-card-world/25";
-pub(super) const SEVENTEENTH_VERSION: &str = "full-card-world/17";
-pub(super) const ELEVENTH_VERSION: &str = "full-card-world/11";
-pub(super) const NINTH_VERSION: &str = "full-card-world/9";
-pub(super) const LEGACY_VERSION: &str = "full-card-world/2";
 pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
 const SOURCE: &str = include_str!("engine-v158.js");
 const HUNDRED_FIFTY_SEVENTH_SOURCE: &str = include_str!("engine-v157.js");
@@ -94,39 +66,11 @@ const HUNDRED_THIRTY_SIXTH_SOURCE: &str = include_str!("engine-v136.js");
 const HUNDRED_THIRTY_FIFTH_SOURCE: &str = include_str!("engine-v135.js");
 const HUNDRED_THIRTY_FOURTH_SOURCE: &str = include_str!("engine-v134.js");
 const HUNDRED_THIRTY_THIRD_SOURCE: &str = include_str!("engine-v133.js");
-const HUNDRED_THIRTY_SECOND_SOURCE: &str = include_str!("engine-v132.js");
-const HUNDRED_THIRTY_FIRST_SOURCE: &str = include_str!("engine-v131.js");
-const HUNDRED_THIRTIETH_SOURCE: &str = include_str!("engine-v130.js");
-const HUNDRED_TWENTY_EIGHTH_SOURCE: &str = include_str!("engine-v128.js");
-const HUNDRED_TWENTY_FIFTH_SOURCE: &str = include_str!("engine-v125.js");
-const HUNDRED_TENTH_SOURCE: &str = include_str!("engine-v110.js");
-const HUNDREDTH_SOURCE: &str = include_str!("engine-v100.js");
-const NINETY_NINTH_SOURCE: &str = include_str!("engine-v99.js");
-const NINETY_EIGHTH_SOURCE: &str = include_str!("engine-v98.js");
-const NINETY_SEVENTH_SOURCE: &str = include_str!("engine-v97.js");
-const NINETY_SIXTH_SOURCE: &str = include_str!("engine-v96.js");
-const NINETY_FIFTH_SOURCE: &str = include_str!("engine-v95.js");
-const NINETY_FOURTH_SOURCE: &str = include_str!("engine-v94.js");
-const NINETY_THIRD_SOURCE: &str = include_str!("engine-v93.js");
 /// The current rules' source, whose words an imported save may use.
 pub(super) fn current_source() -> &'static str {
     SOURCE
 }
-const NINETY_SECOND_SOURCE: &str = include_str!("engine-v92.js");
-const NINETY_FIRST_SOURCE: &str = include_str!("engine-v91.js");
-const NINETIETH_SOURCE: &str = include_str!("engine-v90.js");
-const EIGHTY_NINTH_SOURCE: &str = include_str!("engine-v89.js");
-const EIGHTY_EIGHTH_SOURCE: &str = include_str!("engine-v88.js");
-const EIGHTY_SEVENTH_SOURCE: &str = include_str!("engine-v87.js");
-const FIFTY_SEVENTH_SOURCE: &str = include_str!("engine-v57.js");
-const TWENTY_NINTH_SOURCE: &str = include_str!("engine-v29.js");
-const TWENTY_EIGHTH_SOURCE: &str = include_str!("engine-v28.js");
-const TWENTY_FIFTH_SOURCE: &str = include_str!("engine-v25.js");
-const SEVENTEENTH_SOURCE: &str = include_str!("engine-v17.js");
-const ELEVENTH_SOURCE: &str = include_str!("engine-v11.js");
-const NINTH_SOURCE: &str = include_str!("engine-v9.js");
 const FOURTH_SOURCE: &str = include_str!("engine-v4.js");
-const LEGACY_SOURCE: &str = include_str!("engine-v2.js");
 // A world saved by rules newer than this server's: a release swap briefly
 // runs the older build (docs/release.md), so the world waits, unchanged.
 pub(super) const UPDATING: &str = "This world is updating. Back in a moment.";
@@ -139,35 +83,7 @@ pub(super) fn newer(version: &str) -> bool {
 pub(super) fn historical(version: &str) -> bool {
     matches!(
         version,
-        LEGACY_VERSION
-            | FOURTH_VERSION
-            | NINTH_VERSION
-            | ELEVENTH_VERSION
-            | SEVENTEENTH_VERSION
-            | TWENTY_FIFTH_VERSION
-            | TWENTY_EIGHTH_VERSION
-            | TWENTY_NINTH_VERSION
-            | FIFTY_SEVENTH_VERSION
-            | EIGHTY_SEVENTH_VERSION
-            | EIGHTY_EIGHTH_VERSION
-            | EIGHTY_NINTH_VERSION
-            | NINETIETH_VERSION
-            | NINETY_FIRST_VERSION
-            | NINETY_SECOND_VERSION
-            | NINETY_THIRD_VERSION
-            | NINETY_FOURTH_VERSION
-            | NINETY_FIFTH_VERSION
-            | NINETY_SIXTH_VERSION
-            | NINETY_SEVENTH_VERSION
-            | NINETY_EIGHTH_VERSION
-            | NINETY_NINTH_VERSION
-            | HUNDREDTH_VERSION
-            | HUNDRED_TENTH_VERSION
-            | HUNDRED_TWENTY_FIFTH_VERSION
-            | HUNDRED_TWENTY_EIGHTH_VERSION
-            | HUNDRED_THIRTIETH_VERSION
-            | HUNDRED_THIRTY_FIRST_VERSION
-            | HUNDRED_THIRTY_SECOND_VERSION
+        FOURTH_VERSION
             | HUNDRED_THIRTY_THIRD_VERSION
             | HUNDRED_THIRTY_FOURTH_VERSION
             | HUNDRED_THIRTY_FIFTH_VERSION
@@ -291,35 +207,7 @@ fn source(version: &str) -> Option<&'static str> {
         HUNDRED_THIRTY_FIFTH_VERSION => HUNDRED_THIRTY_FIFTH_SOURCE,
         HUNDRED_THIRTY_FOURTH_VERSION => HUNDRED_THIRTY_FOURTH_SOURCE,
         HUNDRED_THIRTY_THIRD_VERSION => HUNDRED_THIRTY_THIRD_SOURCE,
-        HUNDRED_THIRTY_SECOND_VERSION => HUNDRED_THIRTY_SECOND_SOURCE,
-        HUNDRED_THIRTY_FIRST_VERSION => HUNDRED_THIRTY_FIRST_SOURCE,
-        HUNDRED_THIRTIETH_VERSION => HUNDRED_THIRTIETH_SOURCE,
-        HUNDRED_TWENTY_EIGHTH_VERSION => HUNDRED_TWENTY_EIGHTH_SOURCE,
-        HUNDRED_TWENTY_FIFTH_VERSION => HUNDRED_TWENTY_FIFTH_SOURCE,
-        HUNDRED_TENTH_VERSION => HUNDRED_TENTH_SOURCE,
-        HUNDREDTH_VERSION => HUNDREDTH_SOURCE,
-        NINETY_NINTH_VERSION => NINETY_NINTH_SOURCE,
-        NINETY_EIGHTH_VERSION => NINETY_EIGHTH_SOURCE,
-        NINETY_SEVENTH_VERSION => NINETY_SEVENTH_SOURCE,
-        NINETY_SIXTH_VERSION => NINETY_SIXTH_SOURCE,
-        NINETY_FIFTH_VERSION => NINETY_FIFTH_SOURCE,
-        NINETY_FOURTH_VERSION => NINETY_FOURTH_SOURCE,
-        NINETY_THIRD_VERSION => NINETY_THIRD_SOURCE,
-        NINETY_SECOND_VERSION => NINETY_SECOND_SOURCE,
-        NINETY_FIRST_VERSION => NINETY_FIRST_SOURCE,
-        NINETIETH_VERSION => NINETIETH_SOURCE,
-        EIGHTY_NINTH_VERSION => EIGHTY_NINTH_SOURCE,
-        EIGHTY_EIGHTH_VERSION => EIGHTY_EIGHTH_SOURCE,
-        EIGHTY_SEVENTH_VERSION => EIGHTY_SEVENTH_SOURCE,
-        FIFTY_SEVENTH_VERSION => FIFTY_SEVENTH_SOURCE,
-        TWENTY_NINTH_VERSION => TWENTY_NINTH_SOURCE,
-        TWENTY_EIGHTH_VERSION => TWENTY_EIGHTH_SOURCE,
-        TWENTY_FIFTH_VERSION => TWENTY_FIFTH_SOURCE,
         FOURTH_VERSION => FOURTH_SOURCE,
-        NINTH_VERSION => NINTH_SOURCE,
-        ELEVENTH_VERSION => ELEVENTH_SOURCE,
-        SEVENTEENTH_VERSION => SEVENTEENTH_SOURCE,
-        LEGACY_VERSION => LEGACY_SOURCE,
         _ => return None,
     })
 }
