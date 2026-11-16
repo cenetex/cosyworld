@@ -12,6 +12,7 @@ import { existsSync } from "node:fs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
+import { acceptBox } from "./helpers/accept-quest.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
 
 import { questsOf } from "../v2/card-game/want.mjs";
@@ -110,9 +111,7 @@ describe("locked boxes", () => {
       text: "Give Creon's Writ to The Gate Guard",
       cards: [],
     });
-    expect(questsOf(s, "vale").map((w) => w.from)).toContain(
-      "quest:box:greek-battlefield",
-    );
+    s = acceptBox(s, "greek-battlefield");
     s = act(act(s, "talk", { target: "greek-guard" }), "accept", { target: "greek-guard" });
     expect(questsOf(s, "vale")[0].from).toBe("quest:from:greek-guard");
     expect(questsOf(s, "vale").map((w) => w.from)).toContain(

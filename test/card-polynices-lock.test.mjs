@@ -14,6 +14,7 @@ import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { homeOf } from "../v2/card-game/resident-home.mjs";
 import { packTalkChoice } from "../v2/card-game/pack-registry.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { acceptBox } from "./helpers/accept-quest.mjs";
 
 const pack = "greek-drama",
   field = "greek-battlefield",
@@ -36,7 +37,7 @@ function start(shared = false) {
   return world;
 }
 
-it("holds the box's quest at once, on top of one already held (rules 134)", () => {
+it("holds the box's quest on Accept, on top of one already held", () => {
   const free = start();
   const stands = (w) =>
     questOffers(w).find((o) => o.id === `quest:box:${hollow}`);
@@ -51,10 +52,12 @@ it("holds the box's quest at once, on top of one already held (rules 134)", () =
   expect(stands(held)).toBeTruthy();
   const wait = (w) =>
     play(w, legalActions(w).find((a) => a.kind === "wait" && !a.sleep)).state;
-  const next = wait(free);
+  expect(wait(free).actors.vale.want).toBeNull();
+  expect(stands(wait(free))).toBeTruthy();
+  const next = acceptBox(free, hollow);
   expect(next.actors.vale.want).toMatchObject({ target: shade });
   expect(stands(next)).toBeUndefined();
-  const stacked = wait(held);
+  const stacked = acceptBox(wait(held), hollow);
   expect(stacked.actors.vale.want).toMatchObject({ target: shade });
   expect(stacked.actors.vale.under[0]).toMatchObject({ target: "pond" });
 });
@@ -86,7 +89,7 @@ it.each([
       const action = actions.find(
         (a) =>
           a.kind === kind &&
-          (a.target === target || (kind === "wait" && !a.sleep)),
+          (a.target === target || a.box === target || (kind === "wait" && !a.sleep)),
       );
       expect(action, kind).toBeTruthy();
       const result = shared
@@ -103,6 +106,8 @@ it.each([
     expect(homeOf(antigone, world)).toBe(hollow);
     expect(isLockedBox(world, hollow)).toBe(true);
     expect(lockedQuest(world, hollow).cards).toEqual([]);
+    expect(world.actors.vale.want).toBeNull();
+    act("accept", hollow);
     expect(world.actors.vale.want).toMatchObject({
       kind: "person",
       target: shade,

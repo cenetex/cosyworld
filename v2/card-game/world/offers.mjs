@@ -58,12 +58,31 @@ function withAnother(s, actor, kind, source, want) {
 const isPlayer = (s, actor) =>
   actor === currentActor(s) || controlledByHuman(s, actor);
 
-/**
- * The quest offers standing for the actor at its place, as
- * `{ id, kind, source, want }`, in the order they are held (the last is held
- * on top). `want` is the quest holding the offer sets (valid as it stands).
- * An offer already held, or closed at these terms, does not stand.
- */
+const stands = (s, actor, kind, source, want) => {
+  const a = s.actors[actor],
+    id = offerId(kind, source);
+  return Boolean(
+    want &&
+      !lostOf(s, want) &&
+      !closedBy(a, id, want) &&
+      !closedAny(a, want) &&
+      !heldOf(a).some((held) => sameQuest(held, want)) &&
+      !withAnother(s, actor, kind, source, want),
+  );
+};
+const ownDoor = (box, actor) =>
+  box.kind === "crossing" && actor !== "vale" && box.id === humanAvatar(actor)?.home?.id;
+
+export function boxOffer(s, source, actor = currentActor(s)) {
+  const a = s.actors[actor];
+  if (!a || !isPlayer(s, actor)) return null;
+  const box = shutBoxesAt(s, a.place, actor).find((shut) => shut.id === source);
+  const goal = box && !ownDoor(box, actor) && boxWant(s, box, actor);
+  const want = goal && boxQuest(s, goal);
+  if (!stands(s, actor, "box", source, want)) return null;
+  return { id: offerId("box", source), kind: "box", source, want, full: slotsUsed(a) >= MAX_HELD };
+}
+
 export function questOffers(s, actor = currentActor(s)) {
   const a = s.actors[actor];
   if (!a || !isPlayer(s, actor)) return [];
@@ -71,24 +90,12 @@ export function questOffers(s, actor = currentActor(s)) {
   const here = a.place,
     out = [];
   const add = (kind, source, want) => {
-    const id = offerId(kind, source);
-    if (
-      !want ||
-      (full && kind !== "listener") ||
-      lostOf(s, want) ||
-      closedBy(a, id, want) ||
-      closedAny(a, want) ||
-      heldOf(a).some((held) => sameQuest(held, want)) ||
-      withAnother(s, actor, kind, source, want)
-    )
-      return;
-    out.push({ id, kind, source, want });
+    if ((full && kind !== "listener") || !stands(s, actor, kind, source, want)) return;
+    out.push({ id: offerId(kind, source), kind, source, want });
   };
   const home = humanAvatar(actor)?.home;
   for (const box of shutBoxesAt(s, here, actor)) {
-    const goal = boxWant(s, box, actor);
-    // Your own home's door asks for your belonging brought inside.
-    if (box.kind === "crossing" && actor !== "vale" && box.id === home?.id)
+    if (ownDoor(box, actor))
       add(
         "home",
         box.id,
@@ -98,7 +105,10 @@ export function questOffers(s, actor = currentActor(s)) {
           step: { verb: "bring", at: home.id },
         },
       );
-    else if (goal) add("box", box.id, boxQuest(s, goal));
+    else {
+      const goal = boxWant(s, box, actor);
+      if (goal) add("box", box.id, boxQuest(s, goal));
+    }
   }
   if (
     (recordOf(s, actor).sale || owesGiving(s, actor)) &&
@@ -131,15 +141,7 @@ export function residentOffer(s, actor = currentActor(s)) {
     return null;
   const id = offerId("resident", them),
     want = questFor(s, them, s.actors[them].want);
-  if (
-    !want ||
-    lostOf(s, want) ||
-    closedBy(a, id, want) ||
-    closedAny(a, want) ||
-    heldOf(a).some((held) => sameQuest(held, want)) ||
-    withAnother(s, actor, "resident", them, want)
-  )
-    return null;
+  if (!stands(s, actor, "resident", them, want)) return null;
   return { id, kind: "resident", source: them, want, full: slotsUsed(a) >= MAX_HELD };
 }
 

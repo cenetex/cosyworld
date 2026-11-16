@@ -98,6 +98,8 @@ it("opens the garden after delivery to the keeper and keeps the return free", ()
   act("take", { item: "sample-bell" });
   act("move", { target: "sample-station" });
   expect(gardenOpen()).toBe(false);
+  expect(questsOf(world, actor)).toEqual([]);
+  act("accept", { box: "sample-garden" });
   expect(questsOf(world, actor)[0]).toMatchObject({
     kind: "item",
     target: "sample-bell",

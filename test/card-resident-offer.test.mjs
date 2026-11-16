@@ -25,7 +25,7 @@ const act = (s, pick, actor = "vale") => {
 const talk = (s, who = "moth") => act(s, (a) => a.kind === "talk" && a.target === who);
 const accept = (s, who = "moth") => act(s, (a) => a.kind === "accept" && a.target === who);
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
-const accepts = (s) => legalActions(s).filter((a) => a.kind === "accept");
+const accepts = (s) => legalActions(s).filter((a) => a.kind === "accept" && !a.box);
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 
 function station(turn = 0) {

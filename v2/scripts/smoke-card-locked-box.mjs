@@ -18,6 +18,7 @@ import {
   revealCard,
   selectCard,
   smokeWidths,
+  tapCard,
 } from "./card-browser-helpers.mjs";
 
 const FIELD = "greek-battlefield";
@@ -285,6 +286,9 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
+      await selectCard(page, FIELD);
+      await tapCard(page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card'));
+      await readyActionButton(page, "accept").click();
       await page.waitForFunction(
         (key) => Boolean(JSON.parse(localStorage.getItem(key)).actors.vale.want),
         key,

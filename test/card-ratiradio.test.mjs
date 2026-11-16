@@ -12,6 +12,7 @@ import {
 import { availableCards, sealedReason } from "../v2/card-game/cards.mjs";
 import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import { lockText } from "./helpers/lock-text.mjs";
+import { acceptBox } from "./helpers/accept-quest.mjs";
 import {
   entityActive,
   packPeople,
@@ -524,6 +525,8 @@ it("does not complete the Thermos door's quest by carrying the Thermos", () => {
   let s = steps(fixture(), upTo("move", id("dispatch-window")));
   const open = () =>
     questsOf(s, "vale").some((q) => q.target === home);
+  expect(open()).toBe(false);
+  s = acceptBox(s, home);
   expect(open()).toBe(true);
   s = act(s);
   expect(open()).toBe(true);

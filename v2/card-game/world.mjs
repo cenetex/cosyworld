@@ -498,12 +498,12 @@ import {
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
-import { questOffers, residentOffer } from "./world/offers.mjs";
+import { boxOffer, questOffers, residentOffer } from "./world/offers.mjs";
 import { lapseOffer } from "./offer-chance.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
 import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
-export { questOffers, residentOffer };
+export { boxOffer, questOffers, residentOffer };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
@@ -1673,6 +1673,11 @@ export function legalActions(s, actor = currentActor(s)) {
         [],
       ),
     );
+  for (const shut of questOffers(s, actor)) {
+    if (shut.kind !== "box") continue;
+    const take = offer("accept", actor, null, null, `${nameOf(actor)} accepts the closed box's quest.`, []);
+    out.push({ ...take, box: shut.source, key: `${take.key}box:${shut.source}` });
+  }
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
       const goal =
@@ -1938,6 +1943,7 @@ function settleQuests(s, acting) {
     )
       continue;
     for (const offer of questOffers(s, actor)) {
+      if (offer.kind === "box") continue;
       if (heldOf(s.actors[actor]).some((held) => sameQuest(held, offer.want)))
         continue;
       const quest = holdQuest(s, actor, offer.want, offer.id);
@@ -3297,9 +3303,11 @@ export function play(
     };
   const next = structuredClone(s);
   if (exact.kind === "accept") {
-    const asked = residentOffer(next, actor);
+    const asked = exact.box
+      ? boxOffer(next, exact.box, actor)
+      : residentOffer(next, actor);
     const quest = holdQuest(next, actor, asked.want, asked.id);
-    lapseOffer(next, actor);
+    if (!exact.box) lapseOffer(next, actor);
     bindAsker(next, actor, quest, true);
     next.revision += 1;
     validateWorld(next);

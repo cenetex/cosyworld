@@ -114,6 +114,8 @@ describe("rules 95 item cycle on the server", () => {
     // garden's way to the trail.
     world.actors.mara.place = "forest-garden";
     doing("mara", "wait");
+    expect(world.actors.mara.want).toBeNull();
+    doing("mara", "accept", (a) => a.box);
     expect(world.actors.mara.want.step).toEqual({
       verb: "give",
       to: "oak",

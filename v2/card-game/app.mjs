@@ -546,14 +546,26 @@ const foldQuest = () => visibleQuests()[0] ?? null;
 const entryIdOf = (quest) => (quest.kind === "arcanum" ? quest.key : questId());
 const OFFER_CARD = "offer:0";
 const offers = offerLapse();
-const standingOffer = () => offers.standing(!pipPrelude() && offerCard(world));
+let boxAsk = null;
+const standingOffer = () =>
+  (!pipPrelude() && boxAsk && offerCard(world, currentActor(world), boxAsk)) ||
+  offers.standing(!pipPrelude() && offerCard(world));
 const offerFront = () => questOpen === OFFER_CARD && Boolean(standingOffer());
 function syncOffer() {
+  const shut = selected.filter((id) => !cardIsCovered(id) && isLockedBox(world, id));
+  if (shut.length === 1) boxAsk = shut[0];
+  else if (questOpen !== OFFER_CARD) boxAsk = null;
   if (!offers.sync(!pipPrelude() && offerCard(world), questOpen === OFFER_CARD)) return;
   questOpen = OFFER_CARD;
   selected = [];
   rowCollapsed = false;
   expandedHolders.add(currentActor(world));
+}
+function besideBox(cards) {
+  if (!cards.includes(boxAsk) || !cards.includes(OFFER_CARD)) return cards;
+  const hand = cards.filter((id) => id !== OFFER_CARD);
+  hand.splice(hand.indexOf(boxAsk) + 1, 0, OFFER_CARD);
+  return hand;
 }
 const questEntries = () => {
   const shown = visibleQuests(),
@@ -2105,7 +2117,9 @@ function choose(id) {
   const firstItem =
     id === placeHere()
       ? hand.querySelector(`.card-frame[data-holder="${id}"]:not([hidden])`)
-      : null;
+      : id === boxAsk
+        ? hand.querySelector(`.card-frame[data-quest-id="${OFFER_CARD}"]`)
+        : null;
   revealHandCard(id, { nextFrame: firstItem });
 }
 function dragPlay(cards) {
@@ -2172,7 +2186,7 @@ function performAction(action, revision) {
   }
   // Taking a quest passes no turn and leaves the scene and its speech be.
   if (action.kind === "pack" || action.kind === "accept") {
-    const offered = action.kind === "accept" && offerCard(world);
+    const offered = action.kind === "accept" && standingOffer();
     if (offered) {
       questsInView.seen(questEntryKey(offered));
       revealedQuests.add(questEntryKey(offered));
@@ -2815,7 +2829,7 @@ function renderActions() {
     sentence = lockShown
       ? lockShown.text
       : questShown
-        ? questShown.offer
+        ? questShown.offer && !questShown.box
           ? offerWords(questShown, known)
           : shownQuestCaption(questShown, false)
         : (
@@ -2948,7 +2962,11 @@ function renderActions() {
   const dropLabel = drop && playLabel(drop, world);
   const accept =
     picked?.offer &&
-    legal.find((a) => a.kind === "accept" && a.target === picked.offer);
+    legal.find(
+      (a) =>
+        a.kind === "accept" &&
+        (picked.box ? a.box : a.target) === picked.offer,
+    );
   const questButtons = abandonQuest
     ? [{ action: drop, label: "Confirm?" }]
     : drop
@@ -3627,7 +3645,7 @@ function questView(quest) {
 }
 const questLabel = (quest, near) => {
   if (quest.face === "down") return "A face-down card";
-  if (quest.offer) return offerWords(quest, known);
+  if (quest.offer && !quest.box) return offerWords(quest, known);
   const caption = quest.level
     ? `Level Up ${romanLevel(quest.level)}: ${shownQuestCaption(quest, false)}`
     : shownQuestCaption(quest);
@@ -5228,13 +5246,15 @@ function render() {
   if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
   packPlace = placeHere();
   const handCards = packHand(
-    chosenFirst(
-      handWithQuest(
-        pipPrelude()
-          ? ["moth"]
-          : stackPlaces(availableCards(world)),
-        world,
-        questEntries().map((entry) => entry.id),
+    besideBox(
+      chosenFirst(
+        handWithQuest(
+          pipPrelude()
+            ? ["moth"]
+            : stackPlaces(availableCards(world)),
+          world,
+          questEntries().map((entry) => entry.id),
+        ),
       ),
     ),
   );
