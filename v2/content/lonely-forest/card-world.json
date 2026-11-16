@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "lonely-forest",
   "packId": "cosyworld.lonely-forest",
-  "revision": 3,
+  "revision": 4,
   "name": "Lonely Forest",
   "description": "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
   "tone": "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
@@ -80,6 +80,9 @@
         "likes": "Rain beads, a clear path and small surprises",
         "sore": "Careless feet on the broad leaves",
         "reason": "Whiskerwind follows the rain and the footsteps toward home."
+      },
+      "bonds": {
+        "oak": 2
       }
     },
     "oak": {
@@ -99,7 +102,10 @@
         "sore": "A claim that outruns the deed",
         "reason": "Root, Ring, Leaf and Hollow each attend to a different part of the same journey."
       },
-      "presentation": "backdrop"
+      "presentation": "backdrop",
+      "bonds": {
+        "whiskerwind": 2
+      }
     }
   },
   "items": {
@@ -310,7 +316,7 @@
       "name": "Ash's Blue Scarf",
       "tags": ["scarf"],
       "startLevel": 11,
-      "text": "A soft blue knitted scarf fastened with a orange button.",
+      "text": "A soft blue knitted scarf fastened with an orange button.",
       "persona": "A soft blue knitted scarf RATi sewed for Ash. Ash's own orange button fastens it.",
       "holder": "forest-cottage",
       "requires": [
@@ -392,7 +398,7 @@
     "forest-scarf-orin": {
       "name": "Cass's Amber Scarf",
       "tags": ["scarf"],
-      "text": "A soft amber knitted scarf fastened with a indigo button.",
+      "text": "A soft amber knitted scarf fastened with an indigo button.",
       "persona": "A soft amber knitted scarf RATi sewed for Cass. Cass's own indigo button fastens it.",
       "holder": "forest-cottage",
       "requires": [
@@ -764,7 +770,7 @@
       "on": "meet",
       "for": "ash",
       "label": "Ash meets RATi",
-      "text": "RATi looks at Ash's coat and finds a thread where a orange button should be. Somewhere in the world, the button has gone.",
+      "text": "RATi looks at Ash's coat and finds a thread where an orange button should be. Somewhere in the world, the button has gone.",
       "requires": [
         {
           "kind": "not",
@@ -884,7 +890,7 @@
       "on": "meet",
       "for": "orin",
       "label": "Cass meets RATi",
-      "text": "RATi looks at Cass's coat and finds a thread where a indigo button should be. Somewhere in the world, the button has gone.",
+      "text": "RATi looks at Cass's coat and finds a thread where an indigo button should be. Somewhere in the world, the button has gone.",
       "requires": [
         {
           "kind": "not",

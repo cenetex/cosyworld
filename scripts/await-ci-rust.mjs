@@ -1,22 +1,14 @@
 #!/usr/bin/env node
 
-// The production Rust gate reruns the checks CI already runs on the same
-// commit. This reads CI's check runs for the commit and lets the gate reuse
-// them: it waits while they run, and falls back to running the checks itself
-// when CI did not run them, was cancelled, or failed.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const CI_RUST_CHECKS = ['Rust build and tests', 'Rust architecture and lint'];
-// The Deploy workflow's own gate jobs run the same commands. A .dev train
-// runs them after its rollout, so a tag that only bumps its version reuses
-// them.
 export const GATE_CHECKS = {
   'Production Rust gate': CI_RUST_CHECKS[0],
   'Production Rust architecture and lint': CI_RUST_CHECKS[1]
 };
 
-// A release bump changes only these files, and in them only version lines.
 export const VERSION_FILES = [
   'package.json',
   'package-lock.json',
@@ -42,8 +34,6 @@ export function versionOnly(files) {
   );
 }
 
-// One of 'reuse', 'wait', or 'run', with the reason. Checks from the
-// current run (`selfRunId`) never count: they are this gate itself.
 export function decide(checkRuns, { missingIsFinal = false, selfRunId = '' } = {}) {
   const nameOf = (run) => GATE_CHECKS[run.name] ?? run.name;
   const eligible = checkRuns.filter((run) =>
@@ -56,8 +46,6 @@ export function decide(checkRuns, { missingIsFinal = false, selfRunId = '' } = {
   const attempted = new Set(eligible.filter((run) => !skipped(run)).map(checkKey));
   const latest = new Map();
   for (const run of eligible) {
-    // A train can skip a gate after another train ran it on this same commit.
-    // Keep that attempt; a skipped-only check still makes this gate run.
     if (skipped(run) && attempted.has(checkKey(run))) continue;
     const name = nameOf(run);
     const seen = latest.get(name);

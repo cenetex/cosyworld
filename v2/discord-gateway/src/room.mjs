@@ -1,9 +1,14 @@
-import { addressedResident, addressee, decide, focusOn, mentioned, speaker } from "./attention.mjs";
-import { today, guildState } from "./channel.mjs";
 import { residentIdentity } from "./identity.mjs";
-import { beats, pause, repeatsOpening, unfinished } from "./beats.mjs";
+import { beats, pause, repeatsOpening } from "./beats.mjs";
 
-export const RING = 20;
+export const RING = 150;
+const IGNORED_MS = 300000;
+const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const IMAGE_HOSTS = new Set(["cdn.discordapp.com", "media.discordapp.net"]);
+const IMAGE_BYTES = 8 * 1024 * 1024;
+const IMAGES_PER_MESSAGE = 2;
+const IMAGES_PER_REQUEST = 4;
+const SHARES = "[shares an image]";
 
 export function createRoom(guildId, channelId) {
   return {
@@ -12,53 +17,13 @@ export function createRoom(guildId, channelId) {
     webhookId: null,
     messages: [],
     handledGap: null,
-    lastReplyAt: 0,
-    lastAmbientAt: 0,
-    busy: false,
-    attempt: null,
-    sending: false,
-    nudge: null,
     heard: 0,
-    halt: null,
-    focus: {},
+    awaiting: null,
+    said: {},
   };
 }
 
-export function nudge(room, entry, cast, { delay, run, timers = globalThis }) {
-  if (!entry || entry.resident) return false;
-  calm(room, timers);
-  if (room.messages.at(-1) !== entry || !addressee(room.messages, cast, undefined, room.focus)) return false;
-  const fire = () => {
-    if (room.nudge !== armed) return;
-    if (room.busy) {
-      armed.timer = timers.setTimeout(fire, delay);
-      return;
-    }
-    room.nudge = null;
-    run(room);
-  };
-  const armed = { timer: null };
-  armed.timer = timers.setTimeout(fire, delay);
-  room.nudge = armed;
-  return true;
-}
-
-export function calm(room, timers = globalThis) {
-  if (room.nudge) timers.clearTimeout(room.nudge.timer);
-  room.nudge = null;
-}
-
-function overtaken(room, messageId, residentId, cast) {
-  const index = room.messages.findIndex((entry) => entry.id === messageId);
-  if (index < 0) return false;
-  for (let at = index + 1; at < room.messages.length; at += 1) {
-    const other = addressee(room.messages, cast, at, room.focus);
-    if (other && other !== residentId) return true;
-  }
-  return false;
-}
-
-function typist(room, typing, every) {
+export function typist(room, typing, every) {
   if (!typing) return () => {};
   const pulse = () => {
     try {
@@ -78,15 +43,54 @@ function clean(text, limit) {
   return Array.from(collapsed).slice(0, limit).join("").trim();
 }
 
-export function record(room, message, webhookId, cast) {
+function kind(attachment) {
+  const declared = String(attachment?.contentType ?? "").split(";")[0].trim().toLowerCase();
+  if (declared) return declared;
+  const ending = /\.(png|jpe?g|webp|gif)$/i.exec(String(attachment?.name ?? ""))?.[1]?.toLowerCase();
+  return ending ? `image/${ending === "jpg" ? "jpeg" : ending}` : "";
+}
+
+function discordCdn(url) {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && IMAGE_HOSTS.has(parsed.hostname) && !parsed.port && !parsed.username && url.length <= 2048;
+  } catch {
+    return false;
+  }
+}
+
+export function images(message) {
+  const found = [];
+  for (const attachment of message.attachments?.values?.() ?? []) {
+    if (found.length >= IMAGES_PER_MESSAGE) break;
+    const size = Number(attachment?.size);
+    if (IMAGE_TYPES.has(kind(attachment)) && size > 0 && size <= IMAGE_BYTES && discordCdn(attachment.url)) found.push(attachment.url);
+  }
+  return found;
+}
+
+export function pictured(entries) {
+  let left = IMAGES_PER_REQUEST;
+  const parts = [];
+  for (const entry of [...entries].reverse()) {
+    const kept = (entry.images ?? []).slice(0, left);
+    left -= kept.length;
+    parts.unshift(kept.length ? { text: entry.text, images: kept } : { text: entry.text || (entry.images?.length ? SHARES : "") });
+  }
+  return parts;
+}
+
+export function record(room, message, webhookId, cast, stats = null) {
   const text = clean(message.content, 400);
-  if (!text) return null;
+  const seen = message.webhookId ? [] : images(message);
+  if (!text && !seen.length) return null;
   const entry = {
     id: message.id,
     at: message.createdTimestamp ?? 0,
     text,
     replyTo: message.reference?.messageId ?? null,
   };
+  if (seen.length) entry.images = seen;
   if (room.messages.some((known) => known.id === entry.id)) return null;
   if (message.webhookId) {
     if (!webhookId || message.webhookId !== webhookId) return null;
@@ -102,9 +106,11 @@ export function record(room, message, webhookId, cast) {
       clean(message.member?.displayName ?? message.author?.globalName ?? message.author?.username, 32) ||
       "Someone";
     room.heard += 1;
-    room.halt?.abort();
-    const named = addressedResident(entry, cast, room.messages);
-    if (named) focusOn(room, named, speaker(entry), entry.at);
+    if (room.awaiting !== null && room.awaiting !== undefined && stats) {
+      if (entry.at - room.awaiting <= IGNORED_MS) stats.answered += 1;
+      else stats.ignored += 1;
+    }
+    room.awaiting = null;
   }
   room.messages.push(entry);
   if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
@@ -154,20 +160,22 @@ export function awareness(room, now) {
 }
 
 export function requestBody(room, config, addressed, now = Date.now()) {
+  const speaker = addressed && room.messages.at(-1)?.resident === addressed ? { continuing: addressed } : { addressed: addressed ?? null };
+  const recent = room.messages.slice(-Math.max(1, config.DISCORD_CONTEXT_MESSAGES));
+  const parts = pictured(recent);
   return {
     pack: config.DISCORD_PACK,
-    addressed: addressed ?? null,
+    ...speaker,
     channel: awareness(room, now),
-    messages: room.messages
-      .slice(-Math.max(1, config.DISCORD_CONTEXT_MESSAGES))
-      .map((entry) =>
-        entry.resident ? { resident: entry.resident, text: entry.text } : { author: entry.author, text: entry.text },
-      ),
+    ...(config.DISCORD_LINE_NOTES && room.notes ? { notes: room.notes } : {}),
+    messages: recent.map((entry, index) =>
+      entry.resident ? { resident: entry.resident, ...parts[index] } : { author: entry.author, ...parts[index] },
+    ),
   };
 }
 
 export function createStats() {
-  return { replies: 0, continued: 0, skips: {}, failures: {}, flags: {} };
+  return { replies: 0, answered: 0, ignored: 0, actions: {}, skips: {}, failures: {}, flags: {}, coordinator: {} };
 }
 
 function count(table, key) {
@@ -179,21 +187,30 @@ function counts(table) {
   return entries.length ? entries.map(([key, n]) => `${key}:${n}`).join(",") : "none";
 }
 
+function rate(part, whole) {
+  return whole ? (part / whole).toFixed(2) : "0.00";
+}
+
 export function summary(stats) {
-  return `summary replies=${stats.replies} skips=${counts(stats.skips)} failures=${counts(stats.failures)} continued=${stats.continued} flags=${counts(stats.flags)}`;
+  const actions = stats.actions;
+  const { misses = 0, updates = 0 } = stats.coordinator;
+  const missed = misses - (stats.seen?.misses ?? 0);
+  const warning = missed > 0 && updates === (stats.seen?.updates ?? 0) ? `coordinator all-missing misses=${missed}\n` : "";
+  stats.seen = { misses, updates };
+  return warning + [
+    `summary replies=${stats.replies} actions=${counts(actions)}`,
+    `ignored=${rate(stats.ignored, stats.ignored + stats.answered)}`,
+    `flags=${counts(stats.flags)} coordinator=${counts(stats.coordinator)}`,
+    `skips=${counts(stats.skips)} failures=${counts(stats.failures)}`,
+  ].join(" ");
 }
 
-function turn(room, resident, text, toward, at, cast) {
-  const other = mentioned(text, cast, resident.id);
-  if (other) {
-    focusOn(room, resident.id, `r:${other}`, at);
-    focusOn(room, other, `r:${resident.id}`, at);
-  } else if (toward) {
-    focusOn(room, resident.id, toward, at);
-  }
+export function ownLines(room, id) {
+  const posted = room.messages.filter((entry) => entry.resident === id).slice(-3).map((entry) => entry.text);
+  return [...posted, ...(room.said?.[id] ?? [])];
 }
 
-async function post(room, resident, text, { config, cast, send, sleep, stats, log }, toward = room.focus[resident.id]?.target) {
+export async function post(room, resident, text, { config, send, sleep, stats, log }) {
   if (repeatsOpening(room.messages, resident.id, text)) {
     count(stats.flags, "repeated-opening");
     log(`flag repeated-opening resident=${resident.id} guild=${room.guildId} channel=${room.channelId}`);
@@ -215,164 +232,7 @@ async function post(room, resident, text, { config, cast, send, sleep, stats, lo
       if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
     }
   }
-  turn(room, resident, text, toward, at, cast);
-}
-
-async function goOn(room, guild, first, deps) {
-  const { config, lines, typing, sleep, random, stats, save } = deps;
-  const heard = room.heard;
-  let line = first;
-  for (let extra = 0; extra < config.DISCORD_CONTINUE_MAX; extra += 1) {
-    const open = unfinished(line.text);
-    if (!open && random() >= config.DISCORD_CONTINUE_RATE) return;
-    if (room.heard !== heard || guild.replies >= config.DISCORD_DAILY_REPLIES) return;
-    const halt = new AbortController();
-    room.halt = halt;
-    room.busy = true;
-    let stop = open ? typist(room, typing, config.DISCORD_TYPING_MS) : () => {};
-    try {
-      const body = requestBody(room, config, null);
-      if (body.messages.at(-1)?.resident !== line.resident.id) {
-        body.messages.push({ resident: line.resident.id, text: line.text });
-        body.messages.splice(0, body.messages.length - Math.max(1, config.DISCORD_CONTEXT_MESSAGES));
-      }
-      const returned = await lines({ ...body, continuing: line.resident.id }, halt.signal);
-      const next = (returned?.lines ?? []).find((found) => found?.id === line.resident.id && typeof found.text === "string" && found.text.trim());
-      if (!next || halt.signal.aborted) return;
-      stop();
-      stop = typist(room, typing, config.DISCORD_TYPING_MS);
-      await sleep(pause(next.text), halt.signal);
-      if (halt.signal.aborted) return;
-      await post(room, line.resident, next.text.trim(), deps);
-      guild.replies += 1;
-      stats.continued += 1;
-      try {
-        save();
-      } catch {}
-      line = { resident: line.resident, text: next.text.trim() };
-    } catch {
-      return;
-    } finally {
-      stop();
-      if (room.halt === halt) room.halt = null;
-      room.busy = false;
-    }
-  }
-}
-
-async function answer(room, body, messageId, deps) {
-  const { cast, lines, config, typing } = deps;
-  room.busy = true;
-  let posted = 0;
-  let spoken = null;
-  let reason = null;
-  let stale = false;
-  const stop = typist(room, typing, config.DISCORD_TYPING_MS);
-  try {
-    const returned = await lines(body);
-    const found = Array.isArray(returned?.lines) ? returned.lines : [];
-    reason = found.length ? null : (returned?.reason ?? "empty");
-    for (const line of found) {
-      const resident = cast.find((candidate) => candidate.id === line?.id);
-      if (!resident || typeof line.text !== "string" || !line.text.trim()) continue;
-      if (!posted && overtaken(room, messageId, resident.id, cast)) {
-        stale = true;
-        break;
-      }
-      const asked = room.messages.find((entry) => entry.id === messageId);
-      await post(room, resident, line.text.trim(), deps, asked ? speaker(asked) : undefined);
-      posted += 1;
-      spoken = { resident, text: line.text.trim() };
-    }
-    if (stale) reason = null;
-    else if (!posted && !reason) reason = "no-resident";
-  } catch (error) {
-    reason = posted ? null : room.sending ? "send" : "error";
-  } finally {
-    stop();
-    room.busy = false;
-  }
-  return { posted, reason, stale, spoken };
-}
-
-export function tick({
-  rooms,
-  state,
-  now,
-  config,
-  cast,
-  lines,
-  send,
-  typing,
-  save,
-  log = () => {},
-  stats = createStats(),
-  sleep = async () => {},
-  random = () => 1,
-}) {
-  const running = [];
-  if (!cast?.length) return Promise.all(running);
-  for (const room of rooms.values()) {
-    if (room.busy) continue;
-    const guild = guildState(state, room.guildId);
-    const day = today(now);
-    if (guild.day !== day) {
-      guild.day = day;
-      guild.replies = 0;
-    }
-    const decision = decide(room, guild, now, config, cast);
-    if (decision.act === "wait") continue;
-    log(`decision act=${decision.act} reason=${decision.reason} guild=${room.guildId} channel=${room.channelId}`);
-    const messageId = room.messages.at(-1).id;
-    const before = { gap: room.handledGap, reply: room.lastReplyAt, ambient: room.lastAmbientAt };
-    room.handledGap = messageId;
-    if (decision.act === "skip") {
-      count(stats.skips, decision.reason);
-      continue;
-    }
-    const attempt = room.attempt?.id === messageId ? room.attempt.count + 1 : 1;
-    room.attempt = { id: messageId, count: attempt };
-    room.lastReplyAt = now;
-    if (decision.ambient) room.lastAmbientAt = now;
-    guild.replies += 1;
-    try {
-      save(state);
-    } catch {}
-    const send_ = (target, payload) => {
-      room.sending = true;
-      return send(target, payload);
-    };
-    room.sending = false;
-    const deps = { config, cast, lines, send: send_, typing, sleep, random, stats, log, save: () => save(state) };
-    running.push(
-      answer(room, requestBody(room, config, decision.addressed, now), messageId, deps).then(({ posted, reason, stale, spoken }) => {
-        const refund = () => {
-          if (guild.day === day && guild.replies > 0) guild.replies -= 1;
-          room.lastReplyAt = before.reply;
-          room.lastAmbientAt = before.ambient;
-        };
-        if (stale) {
-          count(stats.skips, "stale");
-          log(`lines dropped reason=stale guild=${room.guildId} channel=${room.channelId}`);
-          refund();
-          try {
-            save(state);
-          } catch {}
-          return;
-        }
-        if (posted || !reason) {
-          stats.replies += 1;
-          return spoken ? goOn(room, guild, spoken, deps) : undefined;
-        }
-        count(stats.failures, reason);
-        log(`lines failed reason=${reason} attempt=${attempt} guild=${room.guildId} channel=${room.channelId}`);
-        refund();
-        if (attempt < 2) room.handledGap = before.gap;
-        try {
-          save(state);
-        } catch {}
-      }),
-    );
-  }
-  return Promise.all(running);
+  room.said ??= {};
+  room.said[resident.id] = [...(room.said[resident.id] ?? []), text].slice(-3);
+  room.awaiting ??= at;
 }

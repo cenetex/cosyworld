@@ -745,29 +745,40 @@ pub(crate) async fn request_chat_completion(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
 ) -> Result<AiCompletion, AiGatewayError> {
-    request_chat_completion_progress(config, request, "", None).await
+    request_chat_completion_progress(config, request, "", &[], None).await
 }
 
-/// A character's line: `assistant` is its own first-person view, sent as
-/// its own turn before what it heard (`request.user`); see `chat_messages`.
 pub(crate) async fn request_voice_completion(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
     assistant: &str,
+    images: &[String],
 ) -> Result<AiCompletion, AiGatewayError> {
-    request_chat_completion_progress(config, request, assistant, None).await
+    request_chat_completion_progress(config, request, assistant, images, None).await
 }
 
 async fn request_chat_completion_progress(
     config: &AiConfig,
     request: ChatCompletionRequest<'_>,
     assistant: &str,
+    images: &[String],
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<AiCompletion, AiGatewayError> {
     let selection = config
         .pin_model(request.capability)
         .map_err(|error| AiGatewayError::registry(request.feature, error))?;
     let raw_mode = selection.uses_raw_prompt_adapter();
+    let user = if images.is_empty() || raw_mode || !selection.candidate().accepts_image_input() {
+        Value::String(request.user.to_string())
+    } else {
+        let mut parts = vec![json!({"type": "text", "text": request.user})];
+        parts.extend(
+            images
+                .iter()
+                .map(|url| json!({"type": "image_url", "image_url": {"url": url}})),
+        );
+        Value::Array(parts)
+    };
     #[cfg(feature = "embedded-llama")]
     if config.base_url == "embedded://llama" {
         return llama::complete(request, assistant, selection.requested_model_id()).await;
@@ -778,7 +789,7 @@ async fn request_chat_completion_progress(
         request.prompt_version,
         request.system,
         assistant,
-        Value::String(request.user.to_string()),
+        user,
         (!raw_mode).then_some(request.temperature),
         request.max_tokens,
         request.timeout,

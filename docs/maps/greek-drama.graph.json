@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 25,
+  "revision": 27,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -8021,14 +8021,32 @@
       },
       {
         "avatar": "greek-ismene",
+        "kind": "item",
+        "target": "greek-household-token",
+        "items": []
+      },
+      {
+        "avatar": "greek-ismene",
         "kind": "person",
         "target": "greek-theseus",
+        "items": []
+      },
+      {
+        "avatar": "greek-ismene",
+        "kind": "place",
+        "target": "greek-polynices-hollow",
         "items": []
       },
       {
         "avatar": "greek-creon",
         "kind": "item",
         "target": "greek-decree",
+        "items": []
+      },
+      {
+        "avatar": "greek-creon",
+        "kind": "person",
+        "target": "greek-elder",
         "items": []
       },
       {
@@ -8041,6 +8059,14 @@
         "avatar": "greek-baker",
         "kind": "place",
         "target": "greek-courtyard",
+        "items": [
+          "greek-water-jar"
+        ]
+      },
+      {
+        "avatar": "greek-elder",
+        "kind": "place",
+        "target": "greek-well",
         "items": []
       },
       {
@@ -8106,6 +8132,12 @@
         "items": [
           "greek-oil-flask"
         ]
+      },
+      {
+        "avatar": "greek-colonus-keeper",
+        "kind": "person",
+        "target": "greek-ismene",
+        "items": []
       },
       {
         "avatar": "greek-household-witness",
@@ -10566,6 +10598,7 @@
         "resident:greek-argive-mother"
       ],
       "want:greek-baker": [
+        "item:greek-water-jar",
         "place:greek-courtyard",
         "resident:greek-baker"
       ],
@@ -10576,6 +10609,10 @@
       ],
       "want:greek-creon": [
         "resident:greek-creon"
+      ],
+      "want:greek-elder": [
+        "place:greek-well",
+        "resident:greek-elder"
       ],
       "want:greek-guard": [
         "resident:greek-guard"
@@ -10590,6 +10627,7 @@
         "resident:greek-iphis"
       ],
       "want:greek-ismene": [
+        "place:greek-polynices-hollow",
         "resident:greek-ismene"
       ],
       "want:greek-market-neighbor": [

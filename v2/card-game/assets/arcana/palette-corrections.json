@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-14",
+  "reason": "Owner requested the original suit colors.",
+  "prior_sources": [
+    {
+      "id": "arcanum-6",
+      "source_filename": "exec-aa1ef080-f189-43e1-98ec-8070ec705ae2.png",
+      "source_sha256": "ad8249d50e9fcf7362da43c42a4d529afd8ddbb9eafe666760ce54257fc2c231",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    },
+    {
+      "id": "arcanum-7",
+      "source_filename": "exec-5423d5d6-fa2a-4593-98cf-02f069401192.png",
+      "source_sha256": "3a741c61c6f7e945efc1752bc6f3b98b92cfa64fe5daf5edec7fe50d81773791",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    },
+    {
+      "id": "arcanum-8",
+      "source_filename": "exec-47100b49-d8ff-4c1e-96e0-9265b3e0591e.png",
+      "source_sha256": "f63c1f53b32b4220e15a396e27b897d64df8ceca030dc1ca753685fadb1a4285",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    },
+    {
+      "id": "arcanum-9",
+      "source_filename": "exec-66aac54f-0e10-4c3b-a56e-9da1b84982ef.png",
+      "source_sha256": "4ae58799b0e8af14c37f9b0f6684048857a171511f8fa55a8968af22f48ff5cd",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    },
+    {
+      "id": "arcanum-10",
+      "source_filename": "exec-2851d9d2-40a6-41e6-b773-62783ac7e5bc.png",
+      "source_sha256": "32db825afc87d22e1d40f3c50e7f432b8c2ecfee9b31e0d6337b2025f673636d",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    },
+    {
+      "id": "arcanum-11",
+      "source_filename": "exec-11842d7c-7813-4fa6-aa9c-3a04db877719.png",
+      "source_sha256": "cadca25f285cfbeec92b42836021bb36560cf9c2988bf6e39bd5d81b0c819bbe",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    },
+    {
+      "id": "arcanum-13",
+      "source_filename": "exec-c1082a1f-3388-4bfd-9378-fe77b95e42d8.png",
+      "source_sha256": "5f53c69b63505ad1afc54908fded00e33d55d35d0717be7842a22ffa6b2c2947",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    },
+    {
+      "id": "arcanum-14",
+      "source_filename": "exec-43b21853-e020-4b6c-acf6-a782d68362be.png",
+      "source_sha256": "da18630e08a3b8f432ee3f890a520b9461945075ca2e8f7451c16dec280c06d6",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    },
+    {
+      "id": "arcanum-16",
+      "source_filename": "exec-3d5a5f17-87f2-441e-8e74-8614d6ef4942.png",
+      "source_sha256": "80be7d1ce74af527b6498589be6a3c90fa6b8a363748095bf4c269e92a818056",
+      "prompt_file": "superseded-monochrome-prompts.json",
+      "status": "Superseded by the selected suit-color edit."
+    }
+  ]
+}

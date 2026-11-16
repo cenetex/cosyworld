@@ -32,11 +32,6 @@ export function pause(text, { least = 1000, most = 4000, per = 35 } = {}) {
   return Math.min(most, Math.max(least, length(String(text ?? "")) * per));
 }
 
-export function unfinished(text) {
-  const clean = String(text ?? "").trimEnd();
-  return /(\.\.\.|[…,\-—–]|[\p{L}\p{N}])$/u.test(clean);
-}
-
 function opening(text) {
   const words = String(text ?? "")
     .toLowerCase()
@@ -53,6 +48,33 @@ export function repeatsOpening(messages, residentId, text) {
     .filter((entry) => entry.resident === residentId)
     .slice(-5)
     .some((entry) => opening(entry.text) === head);
+}
+
+function tokens(text) {
+  return (
+    String(text ?? "")
+      .toLowerCase()
+      .replace(/['’\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]/gu, "")
+      .match(/\p{Extended_Pictographic}|[\p{L}\p{N}]+/gu) ?? []
+  );
+}
+
+export function repeatsLine(lines, text, most = 0.8) {
+  const mine = new Set(tokens(text));
+  if (!mine.size) return false;
+  return lines.some((line) => {
+    const theirs = new Set(tokens(line));
+    const shared = [...mine].filter((token) => theirs.has(token)).length;
+    return shared / (mine.size + theirs.size - shared) >= most;
+  });
+}
+
+const SPEECH = /["“”«»?]|\b(i|i'm|me|my|we|us|our|you|your|you're)\b/iu;
+
+export function narrates(text, name) {
+  const clean = String(text ?? "").trim().replace(/^[*_]+|[*_]+$/g, "").trim().replace(/’/g, "'");
+  const first = String(name ?? "").split(/\s+/)[0].toLowerCase();
+  return Boolean(first) && clean.toLowerCase().startsWith(`${first} `) && !SPEECH.test(clean);
 }
 
 export function wait(ms, signal) {

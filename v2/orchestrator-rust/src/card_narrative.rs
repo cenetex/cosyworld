@@ -73,6 +73,8 @@ pub(crate) use reflections::shared as shared_reflections;
 mod instruction;
 #[path = "card_narrative/speech.rs"]
 mod speech;
+#[path = "card_narrative/system_one.rs"]
+mod system_one;
 #[path = "card_narrative/untrusted.rs"]
 mod untrusted;
 #[cfg(test)]
@@ -364,6 +366,8 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
         )
         .route("/discord/cast", axum::routing::get(channel::cast_route))
         .route("/discord/lines", post(channel::lines))
+        .route("/discord/coordinate", post(channel::coordinate))
+        .route("/discord/notes", post(channel::notes))
         .layer(DefaultBodyLimit::max(64 * 1024))
         .with_state(TextState {
             ai,
@@ -579,6 +583,8 @@ struct Context {
     occasion: Option<String>,
     #[serde(skip)]
     present: Vec<String>,
+    #[serde(skip)]
+    images: Vec<String>,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -2228,6 +2234,7 @@ async fn speak(
             // A retry resamples the same prompt; code, not words, shapes it.
             let prompt = messages(context, entity, part);
             let view = prose(&prompt.assistant);
+            let images = context.images.as_slice();
             let check = &check;
             let call = &call;
             let tier = &tiers[n];
@@ -2251,7 +2258,7 @@ async fn speak(
                     response_format: None,
                     room_id: None,
                 };
-                let completion = request_voice_completion(&link.config, request, &view)
+                let completion = request_voice_completion(&link.config, request, &view, images)
                     .await
                     .map_err(|error| {
                         if error.code() == "inference_invalid_response" {

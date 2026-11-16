@@ -58,7 +58,7 @@ describe("Talk tells a want", () => {
       s.actors.vale.heard,
     );
     expect(validateWorld(reload(s))).toBeTruthy();
-    heldFrom(s, "moth");
+    s = heldFrom(s, "moth");
     expect(s.actors.vale.want).toMatchObject({
       kind: "item",
       target: "lamp",
@@ -101,7 +101,7 @@ describe("Talk tells a want", () => {
 
   it("meets the taken quest for both: the helper's trust, and Pip's own XP", () => {
     let s = talk(station(), "moth");
-    heldFrom(s, "moth");
+    s = heldFrom(s, "moth");
     const [vale, pip] = [s.actors.vale.xp, s.actors.moth.xp];
     s = act(
       s,
@@ -117,7 +117,7 @@ describe("Talk tells a want", () => {
 
   it("leaves a held Talk quest when their want changes first, without a refusal", () => {
     let s = talk(station(), "moth");
-    heldFrom(s, "moth");
+    s = heldFrom(s, "moth");
     const xp = s.actors.vale.xp;
     s.actors.moth.want = newWant("place", "pond", s.turn);
     s = wait(s);

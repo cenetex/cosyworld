@@ -15,6 +15,7 @@ import {
   encodeSave,
   legalActions,
   play,
+  validateWorld,
 } from "../v2/card-game/world.mjs";
 
 const codec = { encode: encodeSave, read: decodeSave };
@@ -206,6 +207,7 @@ describe("each save failure has its own kind", () => {
     });
     expect(report).toEqual({
       code: "save.transition.play",
+      check: null,
       schema: SAVE_SCHEMA,
       turn: world.turn,
       revision: world.revision,
@@ -213,5 +215,17 @@ describe("each save failure has its own kind", () => {
       build: "v0 · rules 0",
     });
     expect(JSON.stringify(report)).not.toMatch(/secret/i);
+  });
+
+  it("names the world check that refused a play", () => {
+    const world = played();
+    const fault = attemptPlay(() => {
+      const next = structuredClone(world);
+      next.actors.vale.trust = {};
+      validateWorld(next);
+    }, codec).fault;
+    expect(saveDiagnostic(fault, { world }).check).toBe("actor:vale:trust");
+    const crash = attemptPlay(() => world.missing.place, codec).fault;
+    expect(saveDiagnostic(crash, { world }).check).toMatch(/^TypeError: /);
   });
 });

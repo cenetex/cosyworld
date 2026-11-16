@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 // Rebuild every committed generated output, in dependency order, with one
 // command. Also settles a merge or rebase whose only conflicts are generated.
-//
 //   npm run regen              rebuild all outputs from their sources
 //   npm run regen:check        fail if any output is stale (no writes)
 //   npm run regen -- --base origin/main --radio   (--radio also redoes the radio catalog)
-//
 // A branch that changes rule modules, pack data, authored text or a public
 // file regenerates large files, so two such branches conflict in them. Those
 // files are never hand-merged. After `git merge origin/main` (or a rebase that

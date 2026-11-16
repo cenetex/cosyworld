@@ -1,7 +1,7 @@
 {
   "pack": "ratiradio",
   "name": "Night Shift at RatiRadio",
-  "revision": 3,
+  "revision": 4,
   "entry": "ratiradio-staff-kitchen",
   "entries": [
     {
@@ -374,6 +374,34 @@
             "ratiradio-red-beanie"
           ]
         }
+      },
+      {
+        "id": "item:ratiradio-request-slip",
+        "kind": "item",
+        "title": "Request Slip appears",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "flag(key=rati-awake,value=true)"
+            }
+          ]
+        },
+        "words": "rati-awake is set",
+        "ids": "rati-awake is set",
+        "latch": [
+          "flag(key=rati-awake,value=true)"
+        ],
+        "live": [],
+        "prerequisites": {
+          "act": [
+            "ratiradio-wake-rati"
+          ],
+          "flag": [
+            "rati-awake"
+          ]
+        }
       }
     ],
     "acts": [
@@ -637,11 +665,13 @@
         ],
         "clearedBy": [],
         "readBy": [
+          "item:ratiradio-request-slip",
           "resident:ratiradio-rati"
         ],
         "gates": [
           "route:ratiradio-listening-room>ratiradio-broadcast-booth",
-          "resident:ratiradio-rati"
+          "resident:ratiradio-rati",
+          "item:ratiradio-request-slip"
         ],
         "acts": [
           "act:ratiradio-open-broadcast-booth",
@@ -719,7 +749,7 @@
       {
         "id": "ratiradio-request-slip",
         "name": "Request Slip",
-        "holder": "station",
+        "holder": "ratiradio-rati",
         "consumedBy": [],
         "readBy": []
       },
@@ -775,6 +805,9 @@
       ],
       "flag:raven-awake": [
         "act:ratiradio-return-things"
+      ],
+      "item:ratiradio-request-slip": [
+        "flag:rati-awake"
       ],
       "resident:ratiradio-rati": [
         "flag:rati-awake"

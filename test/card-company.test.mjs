@@ -506,7 +506,8 @@ describe("a shared quest pins the bond", () => {
     let s = world();
     s.actors[ANN].want = { kind: "place", target: "co-c", since: s.turn, refusals: 0 };
     s = step(s, "talk", { target: ANN });
-    expect(legalActions(s, "vale").some((a) => a.kind === "take" && a.offer)).toBe(false);
+    expect(s.actors.vale.want).toBeFalsy();
+    s = step(s, "accept", { target: ANN });
     expect(s.actors.vale.want).toMatchObject({ from: `quest:from:${ANN}` });
     expect(companionOf(s, "vale")).toBe(ANN);
   });
@@ -520,7 +521,7 @@ describe("the pin survives a long rest", () => {
   const vow = () => {
     let s = world({ at: "co-a", turn: 48 });
     s.actors[ANN].want = { kind: "place", target: "co-c", since: s.turn, refusals: 0 };
-    s = step(s, "talk", { target: ANN });
+    s = step(step(s, "talk", { target: ANN }), "accept", { target: ANN });
     s.actors[BO].place = "co-b";
     s.actors[CY].place = "co-c";
     return hush(go(s, "co-b"));

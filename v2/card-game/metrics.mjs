@@ -28,6 +28,7 @@ const DAY_MS = 86_400_000;
 
 export function playCounter(action) {
   if (action?.kind === "drop" && !action.item) return "quest.abandon";
+  if (action?.kind === "accept") return "quest.accept";
   if (action?.kind === "wait" && action.sleep) return "play.sleep";
   const name = `play.${action?.kind}`;
   return COUNTERS.has(name) ? name : "play.other";

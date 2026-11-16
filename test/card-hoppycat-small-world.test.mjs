@@ -26,7 +26,6 @@ describe("Hoppy Cat as a small world", () => {
     (firstSeed) => {
       const pool = new Set(pack.specials.pool.map((e) => e.id));
       expect(pool.has(garden) || pool.has(jetty)).toBe(false);
-      // The spool starts at the empty station and is never drawn.
       expect(pool.has("hoppycat-red-thread-spool")).toBe(false);
       for (let seed = firstSeed; seed < firstSeed + 100; seed++) {
         const world = createWorld({ seed });

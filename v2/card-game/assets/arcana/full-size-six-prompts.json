@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-14",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2758",
+  "mode": "reference-based regeneration",
+  "shared_prompt": "Use case: stylized-concept. Asset type: one final full-size portrait tarot card for CosyWorld. The supplied image is the owner's existing card and is the sole design and composition reference. Recreate it as a crisp, detailed original hand-carved woodcut print at a portrait 2:3 aspect ratio and at least 1024 pixels wide. Preserve the depicted subject, pose, main objects, corner emblems, foliage, framed layout, lettering, and deliberately restricted colors. Draw the fine carved contours and hatching cleanly at the new resolution; do not merely blur or enlarge the tiny reference. Flat dense near-black ink, warm aged ivory paper, irregular ink edges and restrained paper grain, modest flat spot colors exactly as the source. One complete card fills the image with every outer rounded paper corner visible and a narrow black inner frame. The background of the card is opaque. Match the source's calm folk woodcut character, strong graphic silhouette and hand-printed letterpress lettering. No new symbols, characters, objects, extra text, gradients, photorealism, watercolor, embossed 3D decoration, collage, mockup, or watermark.",
+  "assets": [
+    {
+      "number": 0,
+      "name": "The Fool",
+      "reference": "assets/lonely-forest/arcanum-0.png",
+      "output": "assets/arcana/full-size/arcanum-0.png",
+      "prompt": "THE FOOL. Keep the young curly-haired traveler in profile walking toward the right on a broad exposed tree root. Cream tunic, striped leggings, boots, a small hanging oil lantern held ahead in the right hand, long vermilion-red scarf blowing to the left, tiny distant cottage at lower left, ivory leaf sprigs high at both sides. The rounded top number plate is completely BLANK. Do not put a zero, numeral, dot, symbol, or corner emblems anywhere on the top plate or corners. Bottom plate exact text: THE FOOL. Only the scarf has red ink; the rest is ivory and black. Preserve the source's expressive walking silhouette and the whole root, feet, scarf and lamp within the frame."
+    },
+    {
+      "number": 1,
+      "name": "The Magician",
+      "reference": "assets/lonely-forest/arcanum-1.png",
+      "output": "assets/arcana/full-size/arcanum-1.png",
+      "prompt": "I THE MAGICIAN. Keep the curly-haired young adult in profile facing right, shown from the waist up. A fine sewing needle held upright in one hand draws ivory thread through a large round four-hole button that the other hand holds against a vermilion-red scarf. The scarf falls across the lower part of the card. Ivory leaf sprigs down the upper sides, exactly four small periwinkle-blue moths in the four corners. Top plate exact text: I. Bottom plate exact text: THE MAGICIAN. Make the needle, thread, button and separate fingers legible and deliberate. The scarf is red, the four moths blue; all other print is ivory and black."
+    },
+    {
+      "number": 2,
+      "name": "The High Priestess",
+      "reference": "assets/lonely-forest/arcanum-2.png",
+      "output": "assets/arcana/full-size/arcanum-2.png",
+      "prompt": "II THE HIGH PRIESTESS. Preserve the tall oval standing mirror beneath a triangular attic roof of pale rafters, wide converging floorboards below. Inside the mirror only, a calm pale woman's face in profile faces left, wrapped in a deep teal-blue hood and veil; her torso and draped veil fill the oval. Preserve the small ornamental mirror finial and curled feet. Ivory foliage at the top sides, exactly four small teal bell emblems in the corners. No scarf. Top plate exact text: II. Bottom plate exact two-line text: THE HIGH / PRIESTESS, with THE HIGH on the first line and PRIESTESS on the second; do not render the slash. Use teal only for the veil and corner bells, ivory and black elsewhere."
+    },
+    {
+      "number": 3,
+      "name": "The Empress",
+      "reference": "assets/greek-drama/arcanum-3.png",
+      "output": "assets/arcana/full-size/arcanum-3.png",
+      "prompt": "III THE EMPRESS. A woman with pinned-up wavy hair stands in profile facing right behind her kitchen table, one hand resting on a folded vermilion-red scarf. To the left on the table is an ivory bowl holding olive-green fruit; at right behind her a small brick oven glows with a simple ivory flame and curling pale smoke. A cream cat sleeps curled along the bottom beneath the table. Four olive-green four-hole button emblems sit at the four corners, ivory leaf sprigs flank the upper plate. Top plate exact text: III. Bottom plate exact text: THE EMPRESS. The scarf is red, fruit and button emblems olive green; remaining woodcut is ivory and black. Keep the complete cat and all four emblems within the card."
+    },
+    {
+      "number": 4,
+      "name": "The Emperor",
+      "reference": "assets/lonely-forest/arcanum-4.png",
+      "output": "assets/arcana/full-size/arcanum-4.png",
+      "prompt": "IV THE EMPEROR. Preserve the immense old oak's face in profile looking left: expressive dark eye, long wooden nose, branched crown, a spiral tree-ring whorl at the right temple, long beard made of roots spreading down the card. A tiny warm orange-red cottage with two glowing ivory windows and a central door rests protected inside the arch of roots low in the center. Four small terracotta-orange oil-lantern emblems occupy the corners. Ivory leaf sprigs flank the upper plate. No human body, no scarf. Top plate exact text: IV. Bottom plate exact text: THE EMPEROR. Orange appears only on the house and lantern emblems; ivory and black elsewhere."
+    },
+    {
+      "number": 5,
+      "name": "The Hierophant",
+      "reference": "assets/lonely-forest/arcanum-5.png",
+      "output": "assets/arcana/full-size/arcanum-5.png",
+      "prompt": "V THE HIEROPHANT. Keep the bearded elder at the right in profile facing left, one open hand raised palm up as he addresses two short-haired listeners seen from behind at the lower left and lower right. Above them, an arched window encloses the ivory silhouette of a bare branching tree and three round shapes across its sill. Four olive-green four-hole button emblems occupy the corners, ivory leaves flank the upper plate. No scarf. Top plate exact text: V. Bottom plate exact text: THE HIEROPHANT. Olive-green appears only in the four button emblems, all other ink is ivory and black. Keep both listeners, the elder's separate fingers, the tree and all emblems readable."
+    }
+  ]
+}

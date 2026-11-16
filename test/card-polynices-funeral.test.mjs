@@ -91,10 +91,13 @@ it.each(["opening", "full"])(
       world = result.state;
     };
     act({ kind: "talk", target: antigone });
+    if (actions().some((a) => a.kind === "accept")) act({ kind: "accept", target: antigone });
     expect(burialCard(world)?.art).toContain("polynices-fallen");
     act({ kind: "move", target: "greek-battlefield" });
     world.turn = world.revision = 36;
     act({ kind: "talk", target: "greek-polynices-shade" });
+    if (actions().some((a) => a.kind === "accept"))
+      act({ kind: "accept", target: "greek-polynices-shade" });
     act({ kind: "move", target: hollow });
     expect(world.actors[antigone].place).toBe(hollow);
     expect(actions().filter((a) => a.kind === "choose")).toEqual([]);
@@ -139,8 +142,13 @@ it("keeps a meeting with the shade after dawn", () => {
   world.actors[shade].trust.vale = 1;
   const result = play(world, talk(world));
   expect(result.ok, result.error).toBe(true);
-  result.state.turn = result.state.revision = 48;
-  const dawn = decodeSave(encodeSave(result.state));
+  const accepted = play(
+    result.state,
+    legalActions(result.state).find((a) => a.kind === "accept" && a.target === shade),
+  );
+  expect(accepted.ok, accepted.error).toBe(true);
+  accepted.state.turn = accepted.state.revision = 48;
+  const dawn = decodeSave(encodeSave(accepted.state));
   expect(talk(dawn)).toBeUndefined();
   expect(burialCard(dawn)?.target).toBe(hollow);
 });

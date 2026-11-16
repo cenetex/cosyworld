@@ -18,7 +18,10 @@ import {
   packNarration,
   packSceneFacts,
   observableStates,
+  packOf,
+  packThings,
 } from "./pack-registry.mjs";
+import { rumourWords } from "./world/rumours.mjs";
 import {
   currentActor,
   addLog,
@@ -408,6 +411,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         kind === "avatar" && wantHeard(world, played, id, currentActor(world))
           ? wantFact(world, id, nameOf, currentActor(world))
           : null;
+      const cause = want && world.actors[id]?.rumours?.find((r) => r.subject === wantOf(world, id)?.target);
       // Halfway there, the dream shows one part of the coming quest.
       const glimpse = world.actors[id]?.glimpse;
       const glimpsed =
@@ -420,6 +424,13 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       const facts = [
         ...(glimpsed ? [glimpsed] : []),
         ...(want ? [want] : []),
+        ...(cause
+          ? [rumourWords(world, cause, {
+              name: nameOf,
+              world: (thing) => packOf(thing)?.name,
+              legend: (thing) => packThings[thing]?.legend,
+            })]
+          : []),
         ...(kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : []),
         ...knowledgeFacts(
           pastDeedsAside(world, id, told(id), between.retold),

@@ -113,7 +113,7 @@ describe("locked boxes", () => {
     expect(questsOf(s, "vale").map((w) => w.from)).toContain(
       "quest:box:greek-battlefield",
     );
-    s = act(s, "talk", { target: "greek-guard" });
+    s = act(act(s, "talk", { target: "greek-guard" }), "accept", { target: "greek-guard" });
     expect(questsOf(s, "vale")[0].from).toBe("quest:from:greek-guard");
     expect(questsOf(s, "vale").map((w) => w.from)).toContain(
       "quest:box:greek-battlefield",

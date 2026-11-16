@@ -246,7 +246,6 @@ describe("deploy workflow", () => {
         "(needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true')",
       );
     }
-    // A train skips the gate job rather than spend a runner on it.
     expect(gate).toContain(`if: \${{ always() && ${fullRelease} }}`);
     expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
     expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
@@ -1178,13 +1177,13 @@ describe("deploy workflow", () => {
   });
 
   it("uses the card voice model for unbound and player-avatar voice", () => {
-    const voiceDefault =
-      'COSYWORLD_AI_CAPABILITY_MODELS_JSON = \'{"voice":"openai/gpt-6-luna"';
+    const capabilities =
+      'COSYWORLD_AI_CAPABILITY_MODELS_JSON = \'{"voice":"google/gemma-4-26b-a4b-it","intent_json":"openai/gpt-6-luna","world_content":"google/gemini-4-hydrogen"}\'';
     const voiceDeclaration =
       '"requested_model_id":"openai/gpt-6-luna","provider":"openrouter"';
 
     for (const config of [primaryFlyConfig, lonelyForestFlyConfig]) {
-      expect(config).toContain(voiceDefault);
+      expect(config).toContain(capabilities);
       expect(config).toContain(voiceDeclaration);
       expect(config).not.toContain('"voice":"mistralai/mistral-nemo"');
     }

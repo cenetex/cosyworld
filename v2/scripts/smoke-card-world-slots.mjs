@@ -69,6 +69,21 @@ try {
     page.setDefaultTimeout(10000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    await page.addInitScript(
+      (seen) => {
+        for (const id of ["here", "spare", "friend", "fresh"])
+          for (const actor of ["vale", "tavi", "mara"])
+            localStorage.setItem(
+              `cosyworld.reflected-shore.v1.shared.${id}.${actor}.seen`,
+              JSON.stringify(seen),
+            );
+      },
+      [
+        ...Object.keys(world.actors),
+        ...Object.keys(world.items),
+        ...Object.keys(world.locations),
+      ],
+    );
     const commands = [];
     // Screenshots wait for the menu's portraits.
     const shot = async (path) => {

@@ -1,8 +1,3 @@
-// A small made-up world for the companion rules (rules 133): two packs of
-// invented places and people, a gate that opens for whoever carries a key, a
-// ship lane between a home dock and a pier in the other pack, and a crossing
-// between the packs. The tests mount it with vi.mock on packs.json, so story
-// edits to the real packs never touch them.
 const person = (name, place, extra = {}) => ({
   name,
   text: `${name} stands about.`,
@@ -57,7 +52,6 @@ export const home = {
     },
   },
   routes: [
-    // The way out of the yard is open only while the key lies in the yard.
     {
       from: "co-yard",
       to: "co-b",

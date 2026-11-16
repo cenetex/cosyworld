@@ -2,7 +2,7 @@
 // It reads the world and never changes it. Another avatar's want reaches the
 // player only through a Talk play with that avatar.
 import { layMet, lostOf, questTerms } from "./want.mjs";
-import { offerUnlocked } from "./offer-chance.mjs";
+import { offerFrom } from "./offer-chance.mjs";
 import forest from "./forest.json" with { type: "json" };
 import {
   consumable,
@@ -121,7 +121,7 @@ export function wantFact(world, id, nameOf, listener) {
   if (!revealed(world, id, want, listener)) return null;
   const name = nameOf(want.target);
   const help =
-    listener && offerUnlocked(world, listener, id)
+    listener && offerFrom(world, listener) === id
       ? " I would be glad of your help."
       : "";
   if (want.step?.verb === "lay")

@@ -67,6 +67,8 @@ export function funeralJourney(world = null) {
     ); turns++) act("wait");
     world.actors["greek-polynices-shade"].trust.vale = 1;
     act("talk", { target: "greek-polynices-shade" });
+    if (legalActions(world).some((a) => a.kind === "accept"))
+      act("accept", { target: "greek-polynices-shade" });
     move("polynices-hollow");
     const target = "greek-antigone";
     const canOfferOil = () =>

@@ -23,9 +23,7 @@ export function fakeJobs({ auto, polls = 1 } = {}) {
     posts,
     waits,
     assets,
-    // A refusal for the next create (no job is made).
     refuseNext: (status, body) => refuse.push({ status, body }),
-    // The next create makes its job but the reply never arrives.
     dropNextReply: () => drop++,
     offline: (value) => {
       offline = value;
@@ -150,7 +148,6 @@ export function fakeJobs({ auto, polls = 1 } = {}) {
       wait: async (ms, signal) => {
         signal?.throwIfAborted();
         waits.push(ms);
-        // Time moves only when a test says so (server.advance).
         clock += 1;
         await new Promise((resolve) => setTimeout(resolve, 1));
         signal?.throwIfAborted();

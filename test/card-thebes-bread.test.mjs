@@ -119,7 +119,7 @@ describe("the guard and the decree", () => {
     expect(
       questsOf(s, "vale").find((w) => w.from === `quest:box:${FIELD}`),
     ).toBeTruthy();
-    const talked = act(s, "talk", { target: GUARD });
+    const talked = act(act(s, "talk", { target: GUARD }), "accept", { target: GUARD });
     expect(questsOf(talked, "vale")[0].from).toBe(`quest:from:${GUARD}`);
     expect(questsOf(talked, "vale")).toContainEqual(
       expect.objectContaining({

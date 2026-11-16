@@ -22,8 +22,16 @@ export function saveDiagnostic(fault, { world, action, build } = {}) {
   const ids = Object.values(action || {}).filter(
     (value) => typeof value === "string" && SAFE_ID.test(value),
   );
+  const cause = fault.cause;
+  const check =
+    typeof cause?.check === "string"
+      ? cause.check
+      : cause instanceof TypeError || cause instanceof RangeError
+        ? `${cause.name}: ${cause.message}`
+        : null;
   return {
     code: fault.code,
+    check: check && check.slice(0, 160),
     schema: whole(world?.schema),
     turn: whole(world?.turn),
     revision: whole(world?.revision),

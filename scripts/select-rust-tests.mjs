@@ -3,7 +3,6 @@
 // `rust` section of scripts/fast-smokes.json. Prints the filters on one line;
 // an empty line means no Rust input changed. `--inputs` lists the inputs.
 // Usage: node scripts/select-rust-tests.mjs (changed-files.txt | --inputs)
-//
 // The inputs come from the crate itself: every quoted relative path in its
 // sources (include_str!, include_bytes!, files the tests read, modules they
 // import through Node) that names a real file or directory, owned by the

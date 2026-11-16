@@ -517,6 +517,7 @@ export function playLabel(action, world = null) {
   if (action?.kind === "move" && action.item)
     return `Carry to ${nameOf(action.target)}`;
   return {
+    accept: "Accept",
     accompany: "Accompany",
     threaten: "Threaten",
     guard: "Brace",

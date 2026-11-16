@@ -11,7 +11,6 @@
 // size in bytes. A new match fails; a listed file that grew by more than 5% (or
 // 2 KB) fails; a listed entry whose file is gone or no longer matches fails
 // (delete the entry in the same PR). The list can only shrink.
-//
 //   node scripts/check-recorded-saves.mjs [--ref <git-ref>] [--root <dir>] [--list] [--allowlist <file>]
 import { readFileSync } from "node:fs";
 import path from "node:path";

@@ -205,18 +205,41 @@ try {
       await t.ready();
       assert.equal((await t.state()).actors.vale.place, "pond");
       assert.equal(await offerCards(page).count(), 0, "no offer before Pip is heard");
-      await clearSelection(page);
-      await selectCard(page, "moth");
-      await page.locator('#card-actions [data-action="talk"]').click();
+      const offer = page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card');
+      const talkToPip = async () => {
+        await clearSelection(page);
+        await selectCard(page, "moth");
+        await page.locator('#card-actions [data-action="talk"]').click();
+        await t.ready();
+        await offer.waitFor();
+        assert.equal(await offer.getAttribute("aria-pressed"), "true");
+        assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
+        assert.equal(await t.oneButton(), 1);
+        assert.equal(await label(page), "Accept");
+        assert.equal((await t.state()).actors.vale.want, null);
+      };
+      await talkToPip();
+      await t.shot("offer-after-talk");
+      await tapCard(offer);
       await t.ready();
+      assert.equal(await offer.count(), 0, "a deselected offer lapses");
+      assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
+      await selectCard(page, "moth");
+      assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
+      await talkToPip();
+      await page.locator('#card-actions [data-action="accept"]').click();
+      await t.ready();
+      assert.equal(await offer.count(), 0, "an accepted offer leaves");
       const held = await t.state();
       assert.deepEqual(
         { kind: held.actors.vale.want.kind, target: held.actors.vale.want.target, from: held.actors.vale.want.from },
         { kind: "item", target: "lamp", from: "quest:from:moth" },
       );
       assert.equal(await offerCards(page).count(), 0, "nothing lies to accept");
+      const heldCard = page.locator('#hand .want-frame[data-quest-id="quest:0"] > .want-card');
+      await heldCard.waitFor({ state: "attached" });
+      assert.equal(await heldCard.getAttribute("data-unrevealed"), "false", "the accepted quest lies face up");
       assert.equal(await page.locator("#hand .want-frame").count(), 1, "the held quest card");
-      assert.equal(await page.getByText(/accept quest/iu).count(), 0);
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
       assert.equal(await label(page), "Discard");
@@ -231,7 +254,7 @@ try {
     {
       const t = await open(
         "quest-offers-covered",
-        decodeSave(encodeSave(journey.told)),
+        decodeSave(encodeSave(journey.accepted)),
         ["lamp"],
       );
       const { page } = t;
@@ -323,7 +346,7 @@ try {
     }
 
     {
-      const world = decodeSave(encodeSave(journey.told));
+      const world = decodeSave(encodeSave(journey.accepted));
       holdQuest(world, "vale", newWant("item", "cloth", world.turn), "quest:box:test");
       const t = await open("quest-offers-stack", world);
       const { page } = t;

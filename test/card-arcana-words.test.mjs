@@ -157,10 +157,10 @@ describe("the words of a level card", () => {
   it("words the second row from its desires, hidden until found", () => {
     const s = createWorld({ seed: 7 });
     const hidden = {
-      6: "invite someone and travel with a companion",
+      6: "invite someone and travel with them",
       7: `sail ${UNKNOWN.place}`,
       8: "trade something for something",
-      9: "walk at night holding a light",
+      9: "walk alone at night holding a light",
       10: `eat ${UNKNOWN.item} and find something`,
       11: "brace against someone",
       12: "let go of a quest",
@@ -168,17 +168,17 @@ describe("the words of a level card", () => {
       15: `keep ${UNKNOWN.item}`,
       16: "free someone shut away",
       17: "give something to someone",
-      18: "walk at night without a light",
+      18: "walk at night with no light",
       19: "travel with a companion and go home",
       20: "be trusted by five more",
     };
     const shown = {
       7: "sail The Charybdis",
-      9: "walk at night holding the lit Lamp",
+      9: "walk alone at night holding the lit Lamp",
       10: "eat Dried Figs and find Dried Figs",
       14: "drink Wine Skin with someone",
       15: "keep Lamp",
-      18: "walk at night without the lit Lamp",
+      18: "walk at night with no light",
     };
     for (const [n, text] of Object.entries(hidden))
       expect(words(s, `arcanum-${n}`), n).toBe(text);
@@ -224,13 +224,13 @@ describe("the words of a level card", () => {
   it("carries the woodcut into the dream, and the card back for a card with none", () => {
     const glimpse = (id) => ({ level: 2, kind: "arcanum", id, at: "den" });
     expect(arcanumArt("arcanum-2")).toBe(
-      "./assets/lonely-forest/arcanum-2.png",
+      "./assets/arcana/full-size/arcanum-2.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-2")).art).toBe(
-      "./assets/lonely-forest/arcanum-2.png",
+      "./assets/arcana/full-size/arcanum-2.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-21")).art).toBe(
-      "./assets/arcana/arcanum-21.png",
+      "./assets/arcana/full-size/arcanum-21.png",
     );
     expect(glimpseCompanion(glimpse("arcanum-13")).art).toBe(
       "./assets/arcana/arcanum-13.png",

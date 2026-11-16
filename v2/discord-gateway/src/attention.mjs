@@ -26,9 +26,34 @@ function escape(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function names(text, name) {
-  if (!name) return false;
-  return new RegExp(`(^|[^\\p{L}\\p{N}])${escape(name)}($|[^\\p{L}\\p{N}])`, "iu").test(text);
+const WORDS = new Set(["keeper"]);
+
+function place(text, name) {
+  if (!name) return null;
+  const flags = WORDS.has(name.toLowerCase()) ? "u" : "iu";
+  const found = new RegExp(`(^|[^\\p{L}\\p{N}])${escape(name)}($|[^\\p{L}\\p{N}])`, flags).exec(text);
+  return found ? found.index + found[1].length : null;
+}
+
+const GREETINGS = new Set(["hey", "hi", "hello", "hiya", "yo", "oh", "dear", "ok", "okay", "morning", "evening", "gm", "gn"]);
+
+function rank(text, at, name) {
+  const before = text.slice(0, at).replace(/[^\p{L}\p{N}\s]/gu, "").trim().toLowerCase();
+  const after = text.slice(at + name.length);
+  if (!before || GREETINGS.has(before)) return 0;
+  if (/,\s*$/.test(text.slice(0, at)) && /^[\s\p{P}]*$/u.test(after)) return 1;
+  if (/^\s*[,:]/.test(after)) return 2;
+  return 3;
+}
+
+export function namedIn(text, cast) {
+  const clean = String(text ?? "");
+  return cast
+    .map((resident) => ({ id: resident.id, name: resident.name, at: place(clean, resident.name) }))
+    .filter((found) => found.at !== null)
+    .map((found) => ({ ...found, rank: rank(clean, found.at, found.name) }))
+    .sort((a, b) => a.rank - b.rank || a.at - b.at)
+    .map((found) => found.id);
 }
 
 export function addressedResident(message, cast, ring = []) {
@@ -39,89 +64,5 @@ export function addressedResident(message, cast, ring = []) {
       return target.resident;
     }
   }
-  const found = cast.find((resident) => names(message.text ?? "", resident.name));
-  return found?.id ?? null;
-}
-
-export const FOCUS_MS = 180000;
-
-export function speaker(entry) {
-  return entry.resident ? `r:${entry.resident}` : `h:${entry.authorId ?? entry.author}`;
-}
-
-export function strength(focus, at) {
-  return focus ? Math.max(0, 1 - (at - focus.at) / FOCUS_MS) : 0;
-}
-
-export function focusOn(room, residentId, target, at) {
-  room.focus ??= {};
-  room.focus[residentId] = { target, at };
-}
-
-export function mentioned(text, cast, self) {
-  return cast.find((resident) => resident.id !== self && names(text ?? "", resident.name))?.id ?? null;
-}
-
-export function addressee(messages, cast, index = messages.length - 1, focus = {}) {
-  const last = messages[index];
-  if (!last || last.resident) return null;
-  const named = addressedResident(last, cast, messages);
-  if (named) return named;
-  const who = speaker(last);
-  let best = null;
-  let top = 0;
-  for (const resident of cast) {
-    const held = focus?.[resident.id];
-    const power = held?.target === who ? strength(held, last.at) : 0;
-    if (power > top) {
-      top = power;
-      best = resident.id;
-    }
-  }
-  return best;
-}
-
-function humansSinceResident(messages) {
-  let count = 0;
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index].resident) break;
-    count += 1;
-  }
-  return count;
-}
-
-export function decide(room, guildDay, now, config, cast) {
-  const messages = room.messages ?? [];
-  const last = messages[messages.length - 1];
-  const result = (act, reason, extra = {}) => ({ act, reason, addressed: null, ambient: false, ...extra });
-  if (!last) return result("wait", "empty");
-  if (last.resident) return result("wait", "resident-last");
-  if (last.id === room.handledGap) return result("wait", "handled");
-  const { risks, question } = assess(last.text);
-  if (risks.length) return result("skip", risks[0]);
-  const addressed = addressee(messages, cast, messages.length - 1, room.focus);
-  const quiet = now - last.at;
-  const threshold = addressed ? config.DISCORD_ADDRESSED_QUIET_MS : config.DISCORD_QUIET_MS;
-  if (quiet < threshold) return result("wait", "not-quiet", { addressed });
-  const gap = addressed ? config.DISCORD_ADDRESSED_REPLY_GAP_MS : config.DISCORD_MIN_REPLY_GAP_MS;
-  if (room.lastReplyAt && now - room.lastReplyAt < gap) {
-    return result("wait", "reply-gap", { addressed });
-  }
-  if ((guildDay?.replies ?? 0) >= config.DISCORD_DAILY_REPLIES) {
-    return result("skip", "daily-cap", { addressed });
-  }
-  if (addressed) return result("reply", "addressed", { addressed });
-  const window = messages.slice(-config.DISCORD_DENSITY_WINDOW);
-  if (window.filter((entry) => entry.resident).length >= config.DISCORD_DENSITY_MAX) {
-    return result("skip", "density");
-  }
-  if (question) return result("reply", "question");
-  if (humansSinceResident(messages) < config.DISCORD_AMBIENT_MESSAGES) {
-    return result("skip", "ambient-motion");
-  }
-  if (room.lastAmbientAt && now - room.lastAmbientAt < config.DISCORD_AMBIENT_COOLDOWN_MS) {
-    return result("skip", "ambient-cooldown");
-  }
-  if (quiet < config.DISCORD_AMBIENT_QUIET_MS) return result("wait", "ambient-quiet");
-  return result("reply", "ambient", { ambient: true });
+  return namedIn(message.text, cast)[0] ?? null;
 }

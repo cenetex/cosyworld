@@ -10,7 +10,7 @@
 // refusal. Met, it is a want met like any other.
 import { heldOf, releaseQuest } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
-import { pruneOffers, rollOffer } from "./offer-chance.mjs";
+import { askOffer, pruneOffers } from "./offer-chance.mjs";
 import { staysByRole } from "./resident-guard.mjs";
 
 // A resident who cannot leave its place (the Oak, Badger, a guard at his
@@ -124,12 +124,10 @@ export function talkQuest(s, actor, them, api) {
   const quest = revealed(s, them, want, actor) && questFor(s, them, want);
   if (!quest) return null;
   a.heard = { ...a.heard, [them]: key(want) };
-  // Whether they offer the quest this visit is rolled once, here (offer-chance).
-  rollOffer(s, actor, them);
+  askOffer(s, actor, them);
   return quest;
 }
-// Whether the player was told this avatar's want and it is still theirs: the
-// visit's roll, offer-chance.mjs).
+// Whether the player was told this avatar's want and it is still theirs.
 export function toldWant(s, actor, them) {
   const want = s.actors[them]?.want;
   return Boolean(want && s.actors[actor]?.heard?.[them] === key(want));

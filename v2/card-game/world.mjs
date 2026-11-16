@@ -158,7 +158,12 @@ import {
   avoidsStandoffs,
   transports,
   consumable,
+  neverBack,
+  packOf,
+  packStatesFault,
 } from "./pack-registry.mjs";
+import { authoredWant } from "./want-talk.mjs";
+import { dailyRumours, dayOf, noteRumours, talkRumours } from "./world/rumours.mjs";
 import {
   newCrossingState,
   newPackRecord,
@@ -343,7 +348,8 @@ export { createWorld, seedRun };
 // Mount every pack missing from this save: its crossings, its state, and its
 // residents with fresh relationships. Earlier saves keep their own history.
 export function installPacks(s) {
-  const added = [];
+  const added = [],
+    mounted = [];
   installTransports(s);
   s.crossings ??= {};
   s.packs ??= {};
@@ -392,6 +398,7 @@ export function installPacks(s) {
     }
     if (s.packs[pack.id]) continue;
     s.packs[pack.id] = newPackRecord(pack);
+    mounted.push(pack);
     for (const [id, a] of Object.entries(pack.avatars)) {
       if (s.actors[id]) throw new Error("A pack resident is already present.");
       s.actors[id] = {
@@ -419,6 +426,10 @@ export function installPacks(s) {
     for (const id of Object.keys(pack.places)) s.memories[id] ??= fresh[id];
   }
   for (const pack of packDefinitions) installSpecials(s, pack);
+  for (const pack of mounted)
+    for (const [id, a] of Object.entries(pack.avatars))
+      for (const [other, n] of Object.entries(a.bonds || {}))
+        if (s.actors[id].trust[other] !== undefined) s.actors[id].trust[other] = n;
   installArcana(s);
   installItemCycle(s, added);
   installLife(s, travels);
@@ -491,11 +502,12 @@ import {
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
-import { questOffers } from "./world/offers.mjs";
+import { questOffers, residentOffer } from "./world/offers.mjs";
+import { lapseOffer } from "./offer-chance.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
 import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
-export { questOffers };
+export { questOffers, residentOffer };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
@@ -720,6 +732,11 @@ export function wantAPI(s) {
     active: (id) => entityActive(s, id),
     sanctuaries,
     restsAt,
+    worldOf: (id) => packOf(id)?.id ?? "hub",
+    gone: (id) => neverBack(s, id),
+    kindOf: (id) =>
+      Object.hasOwn(s.items, id) ? "item" : Object.hasOwn(s.actors, id) ? "person" : Object.hasOwn(places, id) ? "place" : null,
+    thick: authoredWant,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
     dreamCard: (actor) => dreamCard(s, actor),
     log: (actor, want) =>
@@ -1673,6 +1690,18 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
+  const asked = residentOffer(s, actor);
+  if (asked && !asked.full)
+    out.push(
+      offer(
+        "accept",
+        actor,
+        null,
+        asked.source,
+        `${nameOf(actor)} accepts ${nameOf(asked.source)}'s quest.`,
+        [],
+      ),
+    );
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
       const goal =
@@ -1724,6 +1753,7 @@ export function legalActions(s, actor = currentActor(s)) {
 // it ends. Arrivals are locked in too. Wait and the battle's own plays stay,
 // and the threatened side may still hand over the demanded item.
 const ROOM_LOCKED = new Set([
+  "accept",
   "eat",
   "talk",
   "threaten",
@@ -2806,6 +2836,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
   // A player's Talk that reveals a want new to them records what was said, so
   // Accept quest can offer it while it is still the want told (#2605).
   if (a.kind === "talk") talkQuest(s, a.actor, a.target, wantAPI(s));
+  if (a.kind === "talk" && s.actors[a.target] && controlledByHuman(s, a.actor))
+    talkRumours(s, a.actor, a.target);
   // Resolved plays, and only those, can advance a crossing's signal.
   if (round)
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
@@ -3314,6 +3346,16 @@ export function play(
       error: "That play has changed. Check the cards and choose again.",
     };
   const next = structuredClone(s);
+  if (exact.kind === "accept") {
+    const asked = residentOffer(next, actor);
+    const quest = holdQuest(next, actor, asked.want, asked.id);
+    lapseOffer(next, actor);
+    bindAsker(next, actor, quest, true);
+    next.revision += 1;
+    validateWorld(next);
+    return { ok: true, state: next };
+  }
+  lapseOffer(next, actor);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
   // resident sleep becomes its returning player's own.
@@ -3527,6 +3569,8 @@ export function play(
   settleLamp(next);
   settleStationExits(next);
   settleQuests(next, actor);
+  noteRumours(s, next, wantAPI(next), wantAPI(s));
+  if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));
   validateWorld(next);
   // Alone, the world runs on around a sleeper until something wakes it.
   // It stops at the first refused play, and the sleep cap bounds it.
@@ -3545,9 +3589,12 @@ export function play(
   return { ok: true, state: slept };
 }
 export function validateWorld(s) {
-  const fail = () => {
-    throw new Error(
-      "This save needs a fresh start. Your previous save is kept until you choose New game.",
+  const fail = (check) => {
+    throw Object.assign(
+      new Error(
+        "This save needs a fresh start. Your previous save is kept until you choose New game.",
+      ),
+      { check },
     );
   };
   if (
@@ -3558,8 +3605,8 @@ export function validateWorld(s) {
     !Number.isSafeInteger(s.revision) ||
     s.revision < s.turn
   )
-    fail();
-  if (!validStationExitOrder(s, stationTargets)) fail();
+    fail("turn");
+  if (!validStationExitOrder(s, stationTargets)) fail("station-exits");
   if (
     !validKnowledge(
       s,
@@ -3569,7 +3616,7 @@ export function validateWorld(s) {
       laneFactText,
     )
   )
-    fail();
+    fail("knowledge");
   if (s.sharedMigration !== undefined) {
     const m = s.sharedMigration;
     if (
@@ -3597,9 +3644,9 @@ export function validateWorld(s) {
               !humanAvatar(id) || !Number.isInteger(n) || n < 4 || n > 8,
           )))
     )
-      fail();
+      fail("shared-migration");
   }
-  if (s.playerActorId !== undefined && !humanAvatar(s.playerActorId)) fail();
+  if (s.playerActorId !== undefined && !humanAvatar(s.playerActorId)) fail("player");
   for (const field of ["controlledActors", "presentActors", "heldActors"]) {
     if (
       s[field] !== undefined &&
@@ -3608,14 +3655,14 @@ export function validateWorld(s) {
         new Set(s[field]).size !== s[field].length ||
         s[field].some((id) => !humanAvatar(id)))
     )
-      fail();
+      fail(field);
   }
   if (
     s.presentActors &&
     (!s.controlledActors ||
       s.presentActors.some((id) => !s.controlledActors.includes(id)))
   )
-    fail();
+    fail("present-actors");
   if (s.opening !== undefined) {
     const o = s.opening;
     if (
@@ -3642,7 +3689,7 @@ export function validateWorld(s) {
       (o.crossed && o.met.moth === undefined && !leftHome(s)) ||
       (o.version === 2 && !o.crossed)
     )
-      fail();
+      fail("opening");
   }
   if (
     Object.keys(s.actors || {})
@@ -3652,7 +3699,7 @@ export function validateWorld(s) {
       .sort()
       .join() !== sortedItemKeys
   )
-    fail();
+    fail("cast");
   if (
     s.invitedPlaces !== undefined &&
     (!s.invitedPlaces ||
@@ -3667,42 +3714,41 @@ export function validateWorld(s) {
           visits.some((place) => !Object.hasOwn(places, place)),
       ))
   )
-    fail();
+    fail("invited-places");
   if (
     s.run !== undefined &&
     (Object.keys(s.run || {}).join() !== "seed" || !validSeed(s.run.seed))
   )
-    fail();
-  if (!validPackState(s, sensesFor(s)) || !validItemCycle(s)) fail();
-  if (
-    !validConversations(s) ||
-    !validHeldItems(s) ||
-    !validOpenedRoutes(s.openedRoutes) ||
-    !validOpened(s) ||
-    !validArcana(s) ||
-    !validHidden(s) ||
-    !validDoors(s) ||
-    (s.hidden && !Object.hasOwn(places, s.hidden.place))
-  )
-    fail();
-  if (
-    !validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]) ||
-    !validMemories(s) ||
-    !validMotives(s) ||
-    !validLife(s, Object.keys(places)) ||
-    !validHome(s) ||
-    !validCompanions(s, actorIds) ||
-    !validDwell(s) ||
-    !validSleep(s, places) ||
-    !validGuard(s, places)
-  )
-    fail();
+    fail("run");
+  if (!validPackState(s, sensesFor(s))) fail(packStatesFault(s) ?? "packs");
+  const parts = {
+    "item-cycle": () => validItemCycle(s),
+    conversations: () => validConversations(s),
+    "held-items": () => validHeldItems(s),
+    "opened-routes": () => validOpenedRoutes(s.openedRoutes),
+    opened: () => validOpened(s),
+    arcana: () => validArcana(s),
+    hidden: () =>
+      validHidden(s) && !(s.hidden && !Object.hasOwn(places, s.hidden.place)),
+    doors: () => validDoors(s),
+    routes: () =>
+      validRouteKnowledge(s, [...authoredRouteEdges(), ...laneEdges()]),
+    memories: () => validMemories(s),
+    motives: () => validMotives(s),
+    life: () => validLife(s, Object.keys(places)),
+    home: () => validHome(s),
+    companions: () => validCompanions(s, actorIds),
+    dwell: () => validDwell(s),
+    sleep: () => validSleep(s, places),
+    guard: () => validGuard(s, places),
+  };
+  for (const [check, ok] of Object.entries(parts)) if (!ok()) fail(check);
   if (
     !s.locations ||
     typeof s.locations.attic?.anchored !== "boolean" ||
     ![null, "hush"].includes(s.locations.pond?.answer)
   )
-    fail();
+    fail("locations");
   if (
     !s.peaceUntil ||
     Object.keys(s.peaceUntil).sort().join() !== sortedActorKeys ||
@@ -3712,7 +3758,7 @@ export function validateWorld(s) {
     !Array.isArray(s.standoffs) ||
     s.standoffs.length > Math.floor(actorIds.length / 2)
   )
-    fail();
+    fail("peace");
   if (
     s.defeats !== undefined &&
     (!s.defeats ||
@@ -3726,7 +3772,7 @@ export function validateWorld(s) {
           count >= DEFEATS_TO_SEND_HOME,
       ))
   )
-    fail();
+    fail("defeats");
   const fighting = new Set();
   for (const c of s.standoffs) {
     if (
@@ -3742,14 +3788,14 @@ export function validateWorld(s) {
       c.opened > s.turn ||
       !validThreatSource(s, c)
     )
-      fail();
+      fail("standoff");
     const pair =
       c.resolve && typeof c.resolve === "object" ? fightersOf(c) : [];
     if (
       pair.length < 2 ||
       pair.some((id) => !actorIds.includes(id) || fighting.has(id))
     )
-      fail();
+      fail("standoff");
     for (const id of pair) fighting.add(id);
     if (
       pair.some(
@@ -3757,13 +3803,13 @@ export function validateWorld(s) {
       ) ||
       (c.item && rootHolder(s, c.item) !== c.defender)
     )
-      fail();
+      fail("standoff");
     for (const field of ["resolve", "guarding", "struck", "steppedBack"])
       if (
         !c[field] ||
         Object.keys(c[field]).sort().join() !== pair.slice().sort().join()
       )
-        fail();
+        fail("standoff");
     // Guard and last-hit maps name combatants (absent before rules 84).
     for (const map of [c.covering, c.hitBy])
       if (
@@ -3775,7 +3821,7 @@ export function validateWorld(s) {
               !pair.includes(id) || !pair.includes(other) || id === other,
           ))
       )
-        fail();
+        fail("standoff");
     if (
       pair.some(
         (id) =>
@@ -3787,16 +3833,16 @@ export function validateWorld(s) {
           typeof c.steppedBack[id] !== "boolean",
       )
     )
-      fail();
+      fail("standoff");
   }
   for (const [id, a] of Object.entries(s.actors)) {
-    if (!validVisitSpeech(a, s.turn)) fail();
+    if (!validVisitSpeech(a, s.turn)) fail(`actor:${id}:speech`);
     if (
       !a.trust ||
       Object.keys(a.trust).sort().join() !== expectedTrustKeys[id] ||
       Object.values(a.trust).some((n) => !Number.isInteger(n) || n < 0 || n > 3)
     )
-      fail();
+      fail(`actor:${id}:trust`);
     if (
       !Object.hasOwn(places, a.place) ||
       !actorCanVisit(id, a.place, s) ||
@@ -3820,14 +3866,14 @@ export function validateWorld(s) {
             (x, i, all) => !actorIds.includes(x) || (i && all[i - 1] >= x),
           )))
     )
-      fail();
+      fail(`actor:${id}:place`);
+    if (!validWant(s, id)) fail(`actor:${id}:want`);
     if (
-      !validWant(s, id) ||
       a.visited.length > Object.keys(places).length ||
       a.visited.some((place) => !Object.hasOwn(places, place)) ||
       (a.want?.kind === "place" && !Object.hasOwn(places, a.want.target))
     )
-      fail();
+      fail(`actor:${id}:visited`);
   }
 
   for (const [id, item] of Object.entries(s.items)) {
@@ -3835,25 +3881,25 @@ export function validateWorld(s) {
       !holderIds.has(item.holder) &&
       !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell"))
     )
-      fail();
+      fail(`item:${id}:holder`);
     if (
       entityActive(s, id) &&
       (!entityActive(s, item.holder) || !entityActive(s, itemPlace(s, id)))
     )
-      fail();
+      fail(`item:${id}:active`);
     if (
       !Array.isArray(item.history) ||
       item.history.length > 12 ||
       item.history.some((t) => typeof t !== "string" || t.length > 400)
     )
-      fail();
+      fail(`item:${id}:history`);
   }
   for (const actor of actorIds) {
     const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
     const count = carried(s, actor).length;
-    if (count > (allowance || 3) || (allowance && allowance !== count)) fail();
+    if (count > (allowance || 3) || (allowance && allowance !== count)) fail(`actor:${actor}:carried`);
   }
-  if (!validRadioItem(s)) fail();
+  if (!validRadioItem(s)) fail("radio");
   const lamp = s.items.lamp,
     oil = s.items.oil,
     bell = s.items.bell;
@@ -3867,7 +3913,7 @@ export function validateWorld(s) {
     typeof lamp.lit !== "boolean" ||
     (lamp.lit && lamp.fuel === 0)
   )
-    fail();
+    fail("lamp");
   if (
     Object.hasOwn(oil, "doses") ||
     !Number.isInteger(bell.ringing) ||
@@ -3875,13 +3921,13 @@ export function validateWorld(s) {
     bell.ringing > 3 ||
     (covered(s, "bell") && bell.ringing > 0)
   )
-    fail();
+    fail("oil-bell");
   const signal = s.locations.pond.shipSignal;
   if (
     signal !== undefined &&
     (!Number.isInteger(signal) || signal < 0 || signal > 4)
   )
-    fail();
+    fail("signal");
   if (
     !Array.isArray(s.log) ||
     s.log.filter((e) => !e?.generated).length > LOG_LIMIT ||
@@ -3897,12 +3943,12 @@ export function validateWorld(s) {
         e.speaker.length > 40,
     )
   )
-    fail();
+    fail("log");
   if (
     s.eventSeq !== undefined &&
     (!Number.isSafeInteger(s.eventSeq) || s.eventSeq < s.log.length)
   )
-    fail();
+    fail("event-seq");
   if (
     s.arrival !== undefined &&
     (!s.arrival ||
@@ -3913,8 +3959,8 @@ export function validateWorld(s) {
       !Object.hasOwn(places, s.arrival.locationId) ||
       s.arrival.fromLocationId === s.arrival.locationId)
   )
-    fail();
-  if (!validDisabledPacks(s.disabledPacks)) fail();
+    fail("arrival");
+  if (!validDisabledPacks(s.disabledPacks)) fail("disabled-packs");
   let seq = 0;
   const verbs = [
     "radio",
@@ -3952,24 +3998,24 @@ export function validateWorld(s) {
   const cast = castIds,
     entities = entityIds;
   for (const e of s.log) {
-    if (!validHandover(s, e)) fail();
+    if (!validHandover(s, e)) fail(`log:${e.seq}:handover`);
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
-        fail();
+        fail(`log:${e.seq}:seq`);
       seq = e.seq;
     }
-    if (e.kind !== undefined && !LOG_KINDS.includes(e.kind)) fail();
+    if (e.kind !== undefined && !LOG_KINDS.includes(e.kind)) fail(`log:${e.seq}:kind`);
     if (
       e.witnesses !== undefined &&
       (!Array.isArray(e.witnesses) ||
         e.witnesses.length > actorIds.length + ids.length ||
         e.witnesses.some((id) => !cast.has(id)))
     )
-      fail();
-    if (e.entityId != null && !entities.has(e.entityId)) fail();
+      fail(`log:${e.seq}:witnesses`);
+    if (e.entityId != null && !entities.has(e.entityId)) fail(`log:${e.seq}:entity`);
     if (e.fromLocationId != null && !Object.hasOwn(places, e.fromLocationId))
-      fail();
-    if (e.generated !== undefined && e.generated !== true) fail();
+      fail(`log:${e.seq}:from`);
+    if (e.generated !== undefined && e.generated !== true) fail(`log:${e.seq}:generated`);
     for (const field of ["departureTo", "arrivalFrom"])
       if (
         e[field] !== undefined &&
@@ -3979,26 +4025,26 @@ export function validateWorld(s) {
           !Object.hasOwn(places, e[field]) ||
           e[field] === e.locationId)
       )
-        fail();
-    if (e.departureTo && e.arrivalFrom) fail();
-    if (e.actorId != null && !actorIds.includes(e.actorId)) fail();
-    if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail();
-    if (e.verb != null && !verbs.includes(e.verb)) fail();
-    if (!validCraftEvent(s, e)) fail();
+        fail(`log:${e.seq}:speech-move`);
+    if (e.departureTo && e.arrivalFrom) fail(`log:${e.seq}:speech-move`);
+    if (e.actorId != null && !actorIds.includes(e.actorId)) fail(`log:${e.seq}:actor`);
+    if (e.locationId != null && !Object.hasOwn(places, e.locationId)) fail(`log:${e.seq}:location`);
+    if (e.verb != null && !verbs.includes(e.verb)) fail(`log:${e.seq}:verb`);
+    if (!validCraftEvent(s, e)) fail(`log:${e.seq}:craft`);
     if (
       e.verb === "craft" &&
       (!places[e.locationId] ||
         (!holderIds.has(e.holderId) && !ids.includes(e.holderId)))
     )
-      fail();
-    if (e.receipt !== undefined) fail();
+      fail(`log:${e.seq}:craft`);
+    if (e.receipt !== undefined) fail(`log:${e.seq}:receipt`);
     if (
       (e.outcome !== undefined && !OUTCOMES.includes(e.outcome)) ||
       (e.droppedItemIds !== undefined &&
         (!Array.isArray(e.droppedItemIds) ||
           e.droppedItemIds.some((id) => !ids.includes(id))))
     )
-      fail();
+      fail(`log:${e.seq}:outcome`);
     if (e.verb === "choose") {
       const pack = packDefinition(e.packId),
         choice = pack?.choices.find((c) => c.id === e.choiceId);
@@ -4009,11 +4055,11 @@ export function validateWorld(s) {
         e.locationId !== choice.at ||
         s.packs[e.packId].receipts[e.choiceId] !== e.turn
       )
-        fail();
-    } else if (e.packId !== undefined || e.choiceId !== undefined) fail();
+        fail(`log:${e.seq}:choose`);
+    } else if (e.packId !== undefined || e.choiceId !== undefined) fail(`log:${e.seq}:choose`);
     if (e.destinationId != null && !Object.hasOwn(places, e.destinationId))
-      fail();
-    if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail();
+      fail(`log:${e.seq}:destination`);
+    if (e.accepted !== undefined && typeof e.accepted !== "boolean") fail(`log:${e.seq}:accepted`);
     if (
       (e.rest !== undefined && (e.rest !== "long" || e.verb !== "wait")) ||
       (e.sleep !== undefined && (e.sleep !== true || e.verb !== "wait")) ||
@@ -4024,14 +4070,14 @@ export function validateWorld(s) {
       (e.guards !== undefined &&
         (e.verb !== "wait" || !Object.hasOwn(places, e.guards)))
     )
-      fail();
+      fail(`log:${e.seq}:rest`);
     if (
       e.reason !== undefined &&
       (!REFUSED_VERBS.includes(e.verb) ||
         e.accepted !== false ||
         !REFUSAL_REASONS.includes(e.reason))
     )
-      fail();
+      fail(`log:${e.seq}:reason`);
     if (
       e.verb === "accompany" &&
       (!actorIds.includes(e.actorId) ||
@@ -4043,9 +4089,9 @@ export function validateWorld(s) {
         typeof e.accepted !== "boolean" ||
         e.locationId !== (e.accepted ? e.destinationId : e.fromLocationId))
     )
-      fail();
-    if (e.itemId != null && !ids.includes(e.itemId)) fail();
-    if (e.receiveId != null && !ids.includes(e.receiveId)) fail();
+      fail(`log:${e.seq}:accompany`);
+    if (e.itemId != null && !ids.includes(e.itemId)) fail(`log:${e.seq}:item`);
+    if (e.receiveId != null && !ids.includes(e.receiveId)) fail(`log:${e.seq}:receive`);
     if (
       (e.verb === "want_met") !== (e.wantMet !== undefined) ||
       (e.wantKey !== undefined &&
@@ -4069,9 +4115,9 @@ export function validateWorld(s) {
             ? e.wantMet.target !== CONNECT_TARGET
             : !entities.has(e.wantMet.target))))
     )
-      fail();
-    if (e.targetId != null && !entities.has(e.targetId)) fail();
-    if (e.light !== undefined && typeof e.light !== "boolean") fail();
+      fail(`log:${e.seq}:want-met`);
+    if (e.targetId != null && !entities.has(e.targetId)) fail(`log:${e.seq}:target`);
+    if (e.light !== undefined && typeof e.light !== "boolean") fail(`log:${e.seq}:light`);
     if (
       e.cast !== undefined &&
       (!Array.isArray(e.cast) ||
@@ -4079,7 +4125,7 @@ export function validateWorld(s) {
         new Set(e.cast).size !== e.cast.length ||
         e.cast.some((id) => !actorIds.includes(id)))
     )
-      fail();
+      fail(`log:${e.seq}:cast`);
     if (
       e.items !== undefined &&
       (!Array.isArray(e.items) ||
@@ -4089,7 +4135,7 @@ export function validateWorld(s) {
             !item || !ids.includes(item.id) || !entities.has(item.holder),
         ))
     )
-      fail();
+      fail(`log:${e.seq}:items`);
   }
   return s;
 }
