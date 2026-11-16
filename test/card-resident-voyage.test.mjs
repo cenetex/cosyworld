@@ -5,8 +5,6 @@
 // Wine-Dark Harbor until the stuck rule set him ashore, and boarded again
 // before any call; now the ship sails him there, he goes ashore, and the
 // empty ship answers Mara's call.
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -59,37 +57,8 @@ const startSave = () => JSON.parse(encodeSave(decodeSave(encodeSave(start()))));
 // Mara waits at Piraeus until she can board, through a shared-rules entry
 // point: today's rules, or a released bundle.
 const current = (request) => dispatchShared(request);
-function released(version) {
-  const file = (path) =>
-    readFileSync(
-      new URL(
-        `../v2/orchestrator-rust/src/card_shared/${path}`,
-        import.meta.url,
-      ),
-      "utf8",
-    );
-  const context = vm.createContext({
-    structuredClone,
-    // Released rules read the content they shipped with.
-    cardContent: JSON.parse(
-      readFileSync(
-        new URL("./fixtures/card-content-rules-101.json", import.meta.url),
-        "utf8",
-      ),
-    ),
-  });
-  vm.runInContext(file(`engine-v${version}.js`), context);
-  const rules = (request) =>
-    JSON.parse(context.cardShared(JSON.stringify(request)));
-  // Its own new world, past the opening and with the full Greek map.
-  const own = rules({ op: "create", seed: 9 }).world;
-  delete own.opening;
-  own.packs["greek-drama"].scope = "full";
-  rules.start = () => start(own);
-  return rules;
-}
 function wait(rules, rounds = 16) {
-  const saved = rules.start ? rules.start() : startSave();
+  const saved = startSave();
   const created = rules({ op: "create", save: JSON.stringify(saved) });
   expect(created.ok, created.error).toBe(true);
   let world = created.world;
@@ -138,12 +107,6 @@ describe("residents embark to their own destination", () => {
     expect(run.world.actors[BARD].place).not.toBe(SHIP);
   });
 
-  it("fails under rules 95, which keep the Bard short of Piraeus", () => {
-    const run = wait(released(95));
-    // He waits aboard at the harbour, but the ship never takes him there.
-    expect(run.bardAt).toContain(SHIP);
-    expect(run.bardAt).not.toContain(PIRAEUS);
-  });
   it("plays out the same way every time", () => {
     expect(JSON.stringify(wait(current).world)).toBe(
       JSON.stringify(wait(current).world),

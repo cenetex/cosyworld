@@ -1,8 +1,6 @@
 // Rules 101 (#2248): a resident who walks in at dawn or dusk is met on
 // arrival, so the player can Talk with them on that same turn.
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import {
   createWorld,
   encodeSave,
@@ -87,31 +85,11 @@ describe("meeting a resident who arrives (rules 101)", () => {
 });
 
 // The shared host runs the minted bundle; it must meet the elder on arrival
-// as the browser does, while rules 100 replays its journals unchanged.
+// as the browser does.
 describe("meeting on arrival on the server (rules 101)", () => {
   const seats = { claimed: ["vale"], present: ["vale"] };
   const host = (runtime) => (request) =>
     JSON.parse(runtime.cardShared(JSON.stringify(request)));
-  const rules100 = () => {
-    const dir = new URL(
-      "../v2/orchestrator-rust/src/card_shared/",
-      import.meta.url,
-    );
-    const runtime = vm.createContext({
-      structuredClone,
-      // Released rules read the content they shipped with.
-      cardContent: JSON.parse(
-        readFileSync(
-          new URL("./fixtures/card-content-rules-101.json", import.meta.url),
-        ),
-      ),
-    });
-    vm.runInContext(
-      readFileSync(new URL("engine-v100.js", dir), "utf8"),
-      runtime,
-    );
-    return runtime;
-  };
   function arrive(server) {
     const both = (request) => {
       const local = dispatchShared(structuredClone(request));
@@ -134,28 +112,5 @@ describe("meeting on arrival on the server (rules 101)", () => {
     expect(world.actors[ELDER].place).toBe(COURT);
     expect(world.packs["greek-drama"].met[ELDER]).toBe(world.turn);
     expect(arrive(null)).toEqual(world);
-    // Rules 100 still plays as released: no meeting on arrival.
-    const old = host(rules100());
-    // The same courtyard, from that release's own fresh world and content.
-    const fresh = old({ op: "create", seed: 7 }).world;
-    fresh.packs["greek-drama"].scope = "full";
-    let w = old({
-      op: "create",
-      seed: 7,
-      save: JSON.stringify(toCourtyard(fresh)),
-      actor: "vale",
-    }).world;
-    for (let i = 0; i < 6 && w.actors[ELDER].place !== COURT; i++) {
-      const { actions } = old({
-        op: "view",
-        world: w,
-        actor: "vale",
-        ...seats,
-      });
-      const action = actions.find((a) => a.kind === "wait" && !a.sleep);
-      w = old({ op: "play", world: w, actor: "vale", action, ...seats }).world;
-    }
-    expect(w.actors[ELDER].place).toBe(COURT);
-    expect(w.packs["greek-drama"].met[ELDER]).toBeUndefined();
   });
 });

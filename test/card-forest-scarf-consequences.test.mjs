@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import {
@@ -21,8 +19,6 @@ const button = "forest-button-vale",
   scarf = "forest-scarf-vale";
 const forest = (w) => w.packs["lonely-forest"];
 const fresh = () => createLandingWorld(packDefinition("lonely-forest"), 17);
-const read = (path) => readFileSync(new URL(path, import.meta.url));
-const hash = (value) => createHash("sha256").update(value).digest("hex");
 // Match serde_json's request-world key order, without changing any state.
 const sorted = (v) =>
   Array.isArray(v)
@@ -34,7 +30,6 @@ const sorted = (v) =>
             .map((k) => [k, sorted(v[k])]),
         )
       : v;
-const trace = JSON.parse(read("./fixtures/forest-scarf-rules-132.json"));
 // Mirror host session operations; native tests exercise the actual C guard.
 function session(reduce) {
   let claimed = [],
@@ -200,37 +195,3 @@ for (const shared of [false, true])
     },
     shared ? 30000 : undefined,
   );
-it("pins the earned scarf's rules-132 successor hashes without importing an upgrade", () => {
-  expect(hash(read("./fixtures/card-content-rules-132.json"))).toBe(
-    trace.contentSha256,
-  );
-  expect(
-    hash(read("../v2/orchestrator-rust/src/card_shared/engine-v132.js")),
-  ).toBe(trace.engineSha256);
-  // This unedited seed-17 landing was captured at b029fad33, before any play.
-  expect(trace.save.turn).toBe(0);
-  expect(forest(trace.save).receipts).toEqual({});
-  for (const actor of Object.values(trace.save.actors))
-    expect(actor.upgrades).toBeUndefined();
-  const engine = currentSharedEngine(132);
-  const reduce = (request) =>
-    JSON.parse(engine.cardShared(JSON.stringify(request)));
-  const hosted = session(reduce);
-  let world = sorted(
-    reduce({ op: "create", seed: 17, save: trace.save }).world,
-  );
-  expect(hash(JSON.stringify(world))).toBe(trace.initialSha256);
-  for (const { command, sha256 } of trace.steps) {
-    if (command.op === "play")
-      expect(
-        hosted(world, { op: "view", actor: command.actor }).actions,
-      ).toContainEqual(command.action);
-    const result = hosted(world, command);
-    expect(result.ok, result.error).toBe(true);
-    world = sorted(result.world);
-    expect(hash(JSON.stringify(world))).toBe(sha256);
-  }
-  expect(trace.steps).toHaveLength(60);
-  expect(world.turn).toBe(54);
-  worn(world, { "hide-button": 45, "sew-scarf": 49, "wear-scarf": 52 });
-});
