@@ -269,7 +269,7 @@ try {
         for (const lowered of ids) {
           for (const id of ids) await tapCard(id);
           await assertHeldItem(ids.at(-1));
-          assert.equal(await page.locator(".card-primary").count(), 1);
+          assert.equal(await page.locator(".card-primary").count(), 0);
           // Folding the hand clears targets but preserves the actual held lamp.
           const scene = page.locator("#stage");
           const outside = { position: { x: 20, y: 80 } };
@@ -319,7 +319,7 @@ try {
           .locator("#card-actions")
           .getByRole("button", { name: "Cover", exact: true })
           .count(),
-        1,
+        0,
       );
       assert.equal((await state()).turn, old.turn, "selection costs no turn");
       await assertHeldItem("lamp");
@@ -363,24 +363,19 @@ try {
       }));
       assert(geometry.art / geometry.card > 0.9, JSON.stringify(geometry));
       await page.keyboard.press("Escape");
-      await cards("cloth", "lamp");
-      // Covering keeps both items in hand, so the covered lamp stays raised.
       assert.equal(
         (await state()).crossings["pond-greek-harbor"].discovered,
         false,
       );
-      assert.equal(await card("lamp").getAttribute("data-covered"), "true");
-      await assertHeldItem("lamp");
-      assert.equal(await heldPreview.getAttribute("data-covered"), "true");
-      assert.equal(await heldPreview.locator(".object-cover").count(), 1);
       await page.keyboard.press("Escape");
       assert.equal(
         await card("greek-ship").count(),
         (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
       );
-      await cards("cloth");
-      // A covered or carried lamp does not summon the ship. Set it on the
-      // shore while holding the cloth, then pick it up for the journey.
+      await clearSelection(page);
+      await selectCard(page, "cloth");
+      // A carried lamp does not summon the ship. Set it on the shore while
+      // holding the cloth, then pick it up for the journey.
       assert.equal(
         (await state()).crossings["pond-greek-harbor"].discovered,
         false,
@@ -524,10 +519,10 @@ try {
       await assertHeldItem("lamp");
       assert.equal(
         (await state()).items.cloth.holder,
-        "lamp",
-        "dragged pair resolves once",
+        "vale",
+        "a dragged pair with no play changes nothing",
       );
-      assert.equal((await state()).turn, beforeDrag.turn + 1);
+      assert.equal((await state()).turn, beforeDrag.turn);
       assert.deepEqual(errors, []);
       assert.deepEqual(failed, []);
       report.push({
