@@ -263,16 +263,10 @@ describe("Earth Beside the Ships", () => {
       context,
       response("The tide is turning."),
     );
-    expect(knowsFact(missed, "vale", "greek-ajax-plea")).toBe(false);
-    expect(ajaxState(missed).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
-    const turn = world.turn;
-    world = applyGeneratedText(
-      reload(world),
-      context,
-      response(context.disclosures[0].text),
-    );
     expect(knowsFact(world, "vale", "greek-ajax-plea")).toBe(true);
-    expect(ajaxState(world).receipts["greek-ajax-hear-plea"]).toBe(turn);
+    expect(missed.knowledge).toEqual(world.knowledge);
+    expect(ajaxState(missed).receipts["greek-ajax-hear-plea"]).toBe(world.turn);
+    expect(reload(world).knowledge).toEqual(world.knowledge);
   });
   it("uses local paths inside the camp and a ship stop between its shores", () => {
     const world = ajaxPlea();

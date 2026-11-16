@@ -1771,7 +1771,7 @@
   var GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
   function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
     const pending = (world.knowledge?.pending || []).filter(
-      (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && (!knowsFact(world, p.listener, p.factId) || p.commitChoice)
+      (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && p.turn === world.turn
     );
     pending.sort(
       (a, b) => Number(b.eventSeq === eventSeq) - Number(a.eventSeq === eventSeq) || b.eventSeq - a.eventSeq || a.factId.localeCompare(b.factId)

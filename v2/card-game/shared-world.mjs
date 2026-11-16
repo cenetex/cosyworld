@@ -20,7 +20,6 @@ import {
   places,
   people,
   carried,
-  publishKnowledgeSpeech,
   seedRun,
   fillSeatWants,
 } from "./world.mjs";
@@ -365,7 +364,6 @@ export function dispatchShared(request) {
         locationId: room,
       });
       lines.push(world.log.at(-1));
-      publishKnowledgeSpeech(world, lines.at(-1), request.disclosures || []);
     }
     world.revision += 1;
     validateTransition(world);

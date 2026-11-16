@@ -289,13 +289,11 @@ describe.each(["local", "shared"])("voice truth in %s play", (mode) => {
     const kept = recalls(snaps.away, CAST.near, fact.text);
     expect(kept.map((f) => SHAPE.witnessed.test(f))).toEqual([true]);
   });
-  it("keeps an unseen event unknown until its words are heard", () => {
+  it("keeps an unseen event unknown until a Talk tells it", () => {
     const fact = eventFact(snaps.exchange);
-    for (const step of ["back", "told"]) {
-      expect(snaps[step].world.knowledge.known[CAST.far]).toBeUndefined();
-      expect(recalls(snaps[step], CAST.far, fact.text)).toEqual([]);
-      expect(facts(snaps[step], CAST.far).filter(provenance)).toEqual([]);
-    }
+    expect(snaps.back.world.knowledge.known[CAST.far]).toBeUndefined();
+    expect(recalls(snaps.back, CAST.far, fact.text)).toEqual([]);
+    expect(facts(snaps.back, CAST.far).filter(provenance)).toEqual([]);
     const told = snaps.told;
     expect(told.context.disclosures).toEqual([
       {
@@ -306,9 +304,9 @@ describe.each(["local", "shared"])("voice truth in %s play", (mode) => {
         text: fact.text,
       },
     ]);
-    expect(told.unheard.knowledge.known[CAST.far]).toBeUndefined();
-    expect(told.unheard.knowledge.pending).toEqual(told.world.knowledge.pending);
-    expect(told.spoken.knowledge.pending).toEqual([]);
+    expect(told.world.knowledge.known[CAST.far][fact.id].kind).toBe("heard");
+    expect(told.unheard.knowledge).toEqual(told.world.knowledge);
+    expect(told.spoken.knowledge).toEqual(told.world.knowledge);
   });
   it("marks a story heard secondhand as told by its teller, never witnessed", () => {
     const fact = eventFact(snaps.exchange);

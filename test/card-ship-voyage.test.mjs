@@ -6,6 +6,7 @@ import {
   decodeSave,
   legalActions,
   plan,
+  play,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
@@ -346,6 +347,29 @@ describe("a ship at a dock nobody showed you", () => {
     expect(lockWords(ask(s, "mara").world, SHIP)).not.toBe(null);
     s = act(s, "vale", "move", SHIP);
     expect(s.actors.vale.place).toBe(SHIP);
+  });
+
+  it("opens on the shared Talk that tells a lane, with no speech", () => {
+    let s = setup(DOCK);
+    s.actors["greek-rhapsode"].place = DOCK;
+    s = act(reload(s), "vale", "talk", "greek-rhapsode");
+    expect(lockWords(ask(s, "vale").world, SHIP)).toBe(null);
+    expect(lockWords(ask(s, "mara").world, SHIP)).not.toBe(null);
+    s = act(s, "vale", "move", SHIP);
+    expect(targets(s, "vale", "course")).not.toEqual([]);
+  });
+
+  it("opens on the local Talk that tells a lane, with no speech", () => {
+    const s = setup(DOCK);
+    s.actors["greek-rhapsode"].place = DOCK;
+    const seen = ask(reload(s), "vale");
+    const talk = seen.actions.find(
+      (a) => a.kind === "talk" && a.target === "greek-rhapsode",
+    );
+    expect(lockWords(seen.world, SHIP)).not.toBe(null);
+    const told = play(seen.world, talk, s.revision, "vale").state;
+    expect(lockWords(told, SHIP)).toBe(null);
+    expect(exits(told, DOCK, "vale")).toContain(SHIP);
   });
 
   it("names someone at the dock who knows a lane from it", () => {

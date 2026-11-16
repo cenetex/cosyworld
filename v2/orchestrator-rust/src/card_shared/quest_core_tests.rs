@@ -47,7 +47,7 @@ fn command(op: &str, key: &str) -> full::Command {
 }
 
 #[test]
-fn quest_core_talk_disclosure_waits_for_published_speech_and_replays_accepted_learning() {
+fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
     let (path, c, id, _) = fixture(engine::VERSION);
     full::run(&c, &id, "user0", &command("claim", ""), now()).unwrap();
     let before = full_store::world(&c, &id, now()).unwrap();
@@ -67,9 +67,7 @@ fn quest_core_talk_disclosure_waits_for_published_speech_and_replays_accepted_le
     let interrupted = full_store::world(&c, &id, now()).unwrap();
     assert!(interrupted.game["knowledge"]["known"]["vale"]
         .get("greek-hear-decree")
-        .is_none());
-    // Meeting the guard tells the decree as the Talk is played (Greek
-    // revision 11); only the heard fact waits for the published speech.
+        .is_some());
     assert_eq!(
         interrupted.game["packs"]["greek-drama"]["receipts"]["greek-hear-decree"],
         played_turn

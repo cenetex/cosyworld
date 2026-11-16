@@ -1,12 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
-  addLog,
   createWorld,
   encodeSave,
   decodeSave,
   play,
   laneTalkFacts,
-  publishKnowledgeSpeech,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -145,7 +143,7 @@ describe("knowing a lane is personal", () => {
     expect(courses(s, "vale")).toEqual(["greek-piraeus", "pond"]);
     // After it, Mara carries the provisions aboard. Carried, they open
     // nothing (rules 102); laid on deck they open the lane for both, though
-    // neither has heard it.
+    // Mara has not heard it.
     s = fresh("greek-harbor", openDoorStart());
     stowProvisions(s, "mara");
     s = act(reload(s), "vale", "move", "greek-ship");
@@ -157,7 +155,7 @@ describe("knowing a lane is personal", () => {
     expect(s.items["greek-provisions"].holder).toBe("greek-ship");
     expect(courses(s, "vale")).toEqual(["greek-piraeus", "pond"]);
     expect(courses(s, "mara")).toEqual(["greek-piraeus", "pond"]);
-    expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(false);
+    expect(knowsLane(s, "mara", "greek-harbor", "greek-piraeus")).toBe(false);
     s = act(s, "vale", "course", "greek-piraeus");
     s = act(s, "mara", "wait");
     s = act(s, "vale", "move", "greek-piraeus");
@@ -176,7 +174,7 @@ describe("knowing a lane is personal", () => {
     expect(courses(s, "mara")).toEqual(["greek-harbor"]);
   });
 
-  it("Myrto tells a lane through Talk; only published speech puts it on the chart", () => {
+  it("Myrto tells a lane through Talk, and the Talk puts it on the chart", () => {
     let s = setup("greek-harbor");
     s.actors["greek-shipmaster"].place = "greek-harbor";
     s = reload(s);
@@ -204,22 +202,6 @@ describe("knowing a lane is personal", () => {
       true,
     );
     const [from, to] = disclosure.factId.slice(5).split(">");
-    expect(knowsLane(world, "vale", from, to)).toBe(false);
-    // Speech without the fact teaches nothing.
-    addLog(world, "Myrto the Shipmaster", "The sea is wide tonight.", {
-      kind: "dialogue",
-      generated: true,
-      actorId: "greek-shipmaster",
-      locationId: "greek-harbor",
-      cast: ["vale", "greek-shipmaster"],
-    });
-    expect(
-      publishKnowledgeSpeech(world, world.log.at(-1), [disclosure]),
-    ).toEqual([]);
-    world.log.at(-1).text = `Listen. ${disclosure.text} Go well.`;
-    expect(
-      publishKnowledgeSpeech(world, world.log.at(-1), [disclosure]),
-    ).toHaveLength(1);
     expect(knowsLane(world, "vale", from, to)).toBe(true);
     expect(knowsFact(world, "vale", disclosure.factId)).toBe(true);
     expect(reload(world).routeKnowledge.vale).toContainEqual([

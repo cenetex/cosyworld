@@ -1,11 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  addLog,
   createWorld,
   encodeSave,
   decodeSave,
   play,
-  publishKnowledgeSpeech,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
@@ -151,16 +149,6 @@ describe("the Signal Jetty lane", () => {
       "Ships for Signal Jetty leave from Piraeus Quays only with Travel Provisions or something from Hoppy Cat aboard.",
     );
     const world = result.state;
-    addLog(world, "Myrto the Shipmaster", `Listen. ${disclosure.text}`, {
-      kind: "dialogue",
-      generated: true,
-      actorId: "greek-shipmaster",
-      locationId: "greek-piraeus",
-      cast: ["vale", "greek-shipmaster"],
-    });
-    expect(
-      publishKnowledgeSpeech(world, world.log.at(-1), [disclosure]),
-    ).toHaveLength(1);
     expect(knowsLane(world, "vale", "greek-piraeus", JETTY)).toBe(true);
     let s2 = reload(world);
     s2 = act(s2, "vale", "move", "greek-ship");
