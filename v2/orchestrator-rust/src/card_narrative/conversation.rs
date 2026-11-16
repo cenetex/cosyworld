@@ -64,13 +64,55 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
     }
 }
 
+/// The lone questions (owner, 2026-11-16): a "…" turn read as a silent
+/// person, and the avatar spoke to them.
+pub(super) const THINK: &str = "What do you think to yourself? One short sentence.";
+pub(super) const NOTICE: &str = "In one short sentence, what do you notice here?";
+
+/// The one I face when nobody has spoken yet.
+fn facing(context: &Context, entity: &Entity) -> Option<String> {
+    super::listener(context, &entity.id)
+        .filter(|_| entity.perception.is_some() || custody::exchange(context, &entity.id))
+}
+
+/// A speaking voice after a play, with no line to answer and nobody to
+/// face. A Discord channel has no play and keeps its own turns.
+fn lone(context: &Context, entity: &Entity) -> bool {
+    context.outcome.is_some()
+        && heard(context, entity).is_none()
+        && facing(context, entity).is_none()
+        && super::system_voice(entity, Part::Line).starts_with("You are ")
+}
+
+/// Where a lone voice stands, as its opening user turn.
+fn place(context: &Context) -> String {
+    let sense = super::perception::anchor(&context.location)
+        .filter(|_| !context.concealed.contains(&context.location));
+    let here = format!("You are standing in {}.", name(&context.location));
+    [here]
+        .into_iter()
+        .chain(sense)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// What a lone voice just did, then its question.
+fn alone(context: &Context, entity: &Entity) -> String {
+    let mine = context.outcome.iter().flat_map(|o| &o.avatars);
+    let came = mine
+        .filter(|a| a.id == entity.id)
+        .filter_map(|a| a.travel.as_ref())
+        .find(|t| t.to == context.location && t.from != context.location);
+    match came {
+        Some(t) => format!("You arrive from {}. {NOTICE}", name(&t.from)),
+        None => format!("You wait a moment. {THINK}"),
+    }
+}
+
 /// The user turn: what I just heard, verbatim, as `Pip says, "…"`. When
-/// nobody has spoken (a Wait, or the first words of a Talk) it is the person
-/// I'm talking with, there ("Pip is here."), and silence when I face nobody:
-/// on gemma-3-4b, silence drew scene narration ("The rain is coming down
-/// harder now…") where the listener's presence drew speech (P3 eval). My own
-/// view is my assistant turn, so no "I" reaches the user turn. A bare line
-/// or `Pip: …` drew `Vale: …` back.
+/// nobody has spoken (the first words of a Talk) it is the person I'm
+/// talking with, there ("Pip is here."). A lone speaking voice is asked its
+/// question; a gesture or emoji voice alone keeps silence.
 pub(super) fn user(context: &Context, entity: &Entity) -> String {
     match heard(context, entity) {
         Some(line) => format!(
@@ -78,12 +120,11 @@ pub(super) fn user(context: &Context, entity: &Entity) -> String {
             name(&line.actor_id),
             line.text
         ),
-        None => super::listener(context, &entity.id)
-            .filter(|_| entity.perception.is_some() || custody::exchange(context, &entity.id))
-            .map_or_else(
-                || crate::ai_gateway::SILENCE.into(),
-                |l| format!("{} is here.", name(&l)),
-            ),
+        None if lone(context, entity) => alone(context, entity),
+        None => facing(context, entity).map_or_else(
+            || crate::ai_gateway::SILENCE.into(),
+            |l| format!("{} is here.", name(&l)),
+        ),
     }
 }
 
@@ -239,8 +280,13 @@ pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
         super::transcript(context, entity, Part::Line),
     ]
     .join("\n\n");
+    let lone = lone(context, entity);
     super::Prompt {
-        system: system(entity),
+        system: match lone {
+            true => super::system_voice(entity, Part::Line),
+            false => system(entity),
+        },
+        lead: lone.then(|| place(context)).unwrap_or_default(),
         assistant,
         user: user(context, entity),
     }

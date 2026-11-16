@@ -2233,7 +2233,7 @@ async fn speak(
             let link = &links[n];
             // A retry resamples the same prompt; code, not words, shapes it.
             let prompt = messages(context, entity, part);
-            let view = prose(&prompt.assistant);
+            let view = crate::ai_gateway::led(&prompt.lead, &prose(&prompt.assistant));
             let images = context.images.as_slice();
             let check = &check;
             let call = &call;
@@ -2378,6 +2378,7 @@ async fn speak(
 #[derive(Debug, PartialEq)]
 pub(super) struct Prompt {
     pub(super) system: String,
+    pub(super) lead: String,
     pub(super) assistant: String,
     pub(super) user: String,
 }
@@ -2402,7 +2403,13 @@ fn messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     let mut prompt = scene_messages(context, entity, part);
     if !context.concealed.is_empty() {
         // Profiles and held cards add words after the scene reaches Rust.
-        for text in [&mut prompt.system, &mut prompt.assistant, &mut prompt.user] {
+        let Prompt {
+            system,
+            lead,
+            assistant,
+            user,
+        } = &mut prompt;
+        for text in [system, lead, assistant, user] {
             for (span, id) in named_spans(text).into_iter().rev() {
                 if context.concealed.contains(id) {
                     text.replace_range(span, "something unnamed");
@@ -2417,6 +2424,7 @@ fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     if kind(&entity.id, "location") {
         return Prompt {
             system: idiolect(entity, part),
+            lead: String::new(),
             assistant: String::new(),
             user: transcript(context, entity, part),
         };
@@ -2438,6 +2446,7 @@ fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     }
     Prompt {
         system: own.map(|_| system_voice(entity, part)).unwrap_or_default(),
+        lead: String::new(),
         assistant,
         user: crate::ai_gateway::SILENCE.into(),
     }
@@ -3339,13 +3348,12 @@ pub(crate) mod tests {
         assert_eq!(c.speakers, ["vale"]);
         assert!(valid(&c));
         let vale = c.entities.iter().find(|e| e.id == "vale").unwrap();
-        // A conversation turn has no cue; with nobody to answer, the user
-        // message is who is with me, in my own words.
         assert!(!transcript(&c, vale, Part::Line).contains("Vale"));
-        assert_eq!(
-            conversation::messages(&c, vale).user,
-            crate::ai_gateway::SILENCE
-        );
+        let prompt = conversation::messages(&c, vale);
+        assert_eq!(prompt.system, system_voice(vale, Part::Line));
+        assert!(prompt.lead.starts_with("You are standing in Mirror attic."));
+        let asked = format!("You wait a moment. {}", conversation::THINK);
+        assert_eq!(prompt.user, asked);
     }
     #[test]
     fn farewell_speakers_do_not_require_a_vale_reply() {
