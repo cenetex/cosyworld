@@ -1378,11 +1378,15 @@ pub(crate) const SILENCE: &str = "…";
 const LEAD_END: char = '\u{0}';
 
 pub(crate) fn led(lead: &str, view: &str) -> String {
-    if lead.is_empty() {
-        view.to_string()
+    if lead.is_empty() || view.is_empty() {
+        format!("{lead}{view}")
     } else {
         format!("{lead}{LEAD_END}{view}")
     }
+}
+
+pub(crate) fn earlier_turns(turns: &[String]) -> String {
+    turns.join(&LEAD_END.to_string())
 }
 
 /// Whether a user turn is a line someone said (`Pip says, “…”`), which a
@@ -1401,21 +1405,23 @@ pub(crate) const SHAPE: &str = "My next reply";
 /// OpenAI starts a new turn instead.
 const OPEN_QUOTE: &str = "\u{201c}";
 
-/// The chat turns for a call (owner, 2026-11-03). An empty system voice is
-/// left out. A character's own view (`assistant`) is its own earlier turn
-/// after silence, and the call ends on what it heard, or, where the route
-/// continues it, on the opening quote of its reply.
+/// The chat turns for a call. An empty system voice is left out. `assistant`
+/// holds the earlier turns: one view after silence, or user and assistant
+/// turns in order. The call ends on the user turn, or on an opening quote.
 pub(crate) fn chat_messages(system: &str, assistant: &str, user: Value, quote: bool) -> Value {
     let mut turns = Vec::new();
     if !system.trim().is_empty() {
         turns.push(json!({ "role": "system", "content": system }));
     }
     if !assistant.is_empty() {
-        let (lead, view) = assistant
-            .split_once(LEAD_END)
-            .unwrap_or((SILENCE, assistant));
-        turns.push(json!({ "role": "user", "content": lead }));
-        turns.push(json!({ "role": "assistant", "content": view }));
+        let mut earlier: Vec<&str> = assistant.split(LEAD_END).collect();
+        if earlier.len() % 2 == 1 {
+            earlier.insert(0, SILENCE);
+        }
+        for (at, content) in earlier.into_iter().enumerate() {
+            let role = if at % 2 == 0 { "user" } else { "assistant" };
+            turns.push(json!({ "role": role, "content": content }));
+        }
     }
     turns.push(json!({ "role": "user", "content": user }));
     if quote {
@@ -2208,6 +2214,9 @@ mod tests {
         let led = chat_messages("", &led("You are here.", "I am Pip."), "Now?".into(), false);
         assert_eq!(led[0], json!({"role": "user", "content": "You are here."}));
         assert_eq!(led[1], json!({"role": "assistant", "content": "I am Pip."}));
+        let earlier = earlier_turns(&["Jun: Hi.".into(), "Come in.".into()]);
+        let talk = chat_messages("You are Pip.", &earlier, "Jun: Thanks.".into(), false);
+        assert_eq!(roles(talk), ["system", "user", "assistant", "user"]);
         assert_eq!(roles(view), ["user", "assistant", "user"]);
         let quoted = chat_messages(
             "",

@@ -559,9 +559,6 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
                 && memory["text"].as_str() == Some(&format!("{}: {}", resident.name, m.text))
         })
     });
-    if messages.last().and_then(|m| m.resident.as_ref()) == Some(&resident.id) {
-        facts.push("I spoke last here.".into());
-    }
     if let Some(notes) = &request.notes {
         facts.extend(thread(notes));
     }
@@ -593,6 +590,7 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
     }))
     .ok()?;
     context.acting_avatar = Some(resident.id.clone());
+    context.channel = true;
     context.present = present(resident, cast, request);
     context.images = messages[start..]
         .iter()
@@ -623,6 +621,9 @@ async fn speak(
     settings.line_limit = LINE_LIMIT;
     if addressed {
         settings = brisk(settings);
+    }
+    if request.messages.last().and_then(|m| m.resident.as_ref()) == Some(&resident.id) {
+        return Err("no-line");
     }
     let context = scene(resident, cast, request).ok_or("no-line")?;
     let voiced = vec![resident.id.clone()];
@@ -1394,22 +1395,24 @@ mod tests {
         assert!(!requests.is_empty());
         assert!(requests.iter().all(|r| r.get("questions").is_none()));
         let voice = &requests[0];
+        let turns: Vec<_> = voice["messages"].as_array().unwrap().iter().collect();
+        let said = |at: usize| (turns[at]["role"].as_str(), turns[at]["content"].as_str());
+        let opening = format!("You are RATi, host of the cottage. {SAY_ALOUD}\n\n");
+        assert!(turn_of(voice, "system").starts_with(&opening));
         assert_eq!(
-            turn_of(voice, "user"),
-            "Jun says, \u{201c}RATi, can I come in?\u{201d}"
+            said(1),
+            (Some("user"), Some("Mara: Is anyone in the cottage?"))
         );
-        assert_eq!(
-            turn_of(voice, "system"),
-            format!("You are RATi, host of the cottage. {SAY_ALOUD}")
-        );
+        assert_eq!(said(2), (Some("assistant"), Some("The kettle is on.")));
+        assert_eq!(said(3), (Some("user"), Some("Jun: RATi, can I come in?")));
+        assert_eq!(turns.len(), 4);
         let prompt = prompt_of(voice);
-        assert!(prompt.contains("RATi, host of the cottage"));
         assert_eq!(prompt.matches("Reply with").count(), 1);
-        assert!(prompt.contains("Mara said: \"Is anyone in the cottage?\""));
+        assert!(!prompt.contains(" said:"));
     }
 
     #[tokio::test]
-    async fn a_continuing_resident_goes_on_from_its_own_line() {
+    async fn a_resident_whose_own_line_is_newest_is_not_asked() {
         let reply = "Mind the step, it creaks.";
         let own = "Come in, the door sticks.";
         let mut body = json!({
@@ -1423,18 +1426,8 @@ mod tests {
         body["channel"] = json!({"residents": [{"id": "rati", "lines": [own]}]});
         let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(answer["lines"][0]["id"], "rati");
-        let voice = &requests[0];
-        assert_eq!(turn_of(voice, "user"), crate::ai_gateway::SILENCE);
-        let view = turn_of(voice, "assistant");
-        let asked = view
-            .find("Jun said: \"RATi, can I come in?\"")
-            .expect(&view);
-        let said = view.find(&format!("I said: \"{own}\"")).expect(&view);
-        assert!(asked < said, "{view}");
-        assert_eq!(view.matches(own).count(), 1, "{view}");
-        let (_, _, addressed) = post_lines("{}", Some(reply), TOKEN, talk(Some("rati"))).await;
-        assert_ne!(turn_of(&addressed[0], "user"), crate::ai_gateway::SILENCE);
+        assert_eq!(answer, json!({"lines": [], "reason": "no-line"}));
+        assert!(requests.is_empty());
     }
 
     #[tokio::test]
@@ -1459,15 +1452,10 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["text"], reply);
         let voice = &requests[0];
-        assert_eq!(
-            turn_of(voice, "system"),
-            format!("You are RATi, host of the cottage. {SAY_ALOUD}")
-        );
-        assert_eq!(
-            turn_of(voice, "user"),
-            "Jun says, \u{201c}RATi, can I come in?\u{201d}"
-        );
-        let view = turn_of(voice, "assistant");
+        assert_eq!(turn_of(voice, "user"), "Jun: RATi, can I come in?");
+        let view = turn_of(voice, "system");
+        let opening = format!("You are RATi, host of the cottage. {SAY_ALOUD}\n\n");
+        assert!(view.starts_with(&opening), "{view}");
         assert!(
             view.contains("Jun and Mara and Skull are here with me."),
             "{view}"
@@ -1487,7 +1475,7 @@ mod tests {
         assert!(view.contains("Home: Cosy Cottage."), "{view}");
         assert!(view.contains("Likes: A traveler's own button sewn into a warm scarf."));
         assert!(view.contains("Sore: Muddy boots on the wool."));
-        assert_eq!(view.matches("Reply with").count(), 0);
+        assert_eq!(view.matches("Reply with").count(), 1);
     }
 
     #[test]
@@ -1530,11 +1518,8 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["id"], "rati");
         assert!(requests.iter().all(|r| r.get("questions").is_none()));
-        assert_eq!(
-            turn_of(&requests[0], "user"),
-            "Skull says, \u{201c}RATi, did you hear that?\u{201d}"
-        );
-        assert!(!turn_of(&requests[0], "assistant").contains("I spoke last here."));
+        let heard = "Jun: Is anyone awake?\nSkull: RATi, did you hear that?";
+        assert_eq!(turn_of(&requests[0], "user"), heard);
         let again = json!({
             "pack": "lonely-forest",
             "addressed": "skull",
@@ -1543,9 +1528,9 @@ mod tests {
                 {"resident": "skull", "text": "Skull tilts his head."}
             ]
         });
-        let (_, _, requests) = post_lines("{}", Some(reply), TOKEN, again).await;
-        let view = turn_of(&requests[0], "assistant");
-        assert!(view.contains("I spoke last here."), "{view}");
+        let (_, answer, requests) = post_lines("{}", Some(reply), TOKEN, again).await;
+        assert_eq!(answer, json!({"lines": [], "reason": "no-line"}));
+        assert!(requests.is_empty());
     }
 
     const PICTURE: &str = "https://cdn.discordapp.com/attachments/1/2/pond.png?ex=1&is=2&hm=3";
@@ -1613,7 +1598,7 @@ mod tests {
         assert_eq!(
             user["content"],
             json!([
-                {"type": "text", "text": "Jun says, \u{201c}[shares an image]\u{201d}"},
+                {"type": "text", "text": "Mara: Is anyone in the cottage?\nJun: [shares an image]"},
                 {"type": "image_url", "image_url": {"url": PICTURE}}
             ])
         );
@@ -1630,10 +1615,8 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["lines"][0]["text"], reply);
         let voice = &requests[0];
-        assert_eq!(
-            turn_of(voice, "user"),
-            "Jun says, \u{201c}Look at this [shares an image]\u{201d}"
-        );
+        let heard = "Mara: Is anyone in the cottage?\nJun: Look at this [shares an image]";
+        assert_eq!(turn_of(voice, "user"), heard);
         assert!(!voice.to_string().contains("discordapp"));
         assert!(!body.to_string().contains("discordapp"));
     }
