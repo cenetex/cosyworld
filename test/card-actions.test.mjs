@@ -227,6 +227,7 @@ describe("named card actions", () => {
     expect(actions).toContain(
       "`You have too many items to take ${theName(crowded).toLowerCase()}`",
     );
+    expect(actions).toContain('actions.map(readout).join(". ") || crowdedWords || hint]');
     expect(actions).toContain("blockPlay(blocked, kind);");
     expect(body("blockPlay")).toContain('"aria-disabled", "true"');
     expect(body("updateCardCooldown")).toContain(

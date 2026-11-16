@@ -161,13 +161,12 @@ describe("the pack's state machine", () => {
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
     expect(pack.state).toBe("closed");
     expect(pack.ids).toEqual(["p-here", "a-fox", "i-gem", "i-pin"]);
-    expect(pack.prompt(t.unturned)).toBeNull();
-    expect(pack.prompt(t.unturned, { lowered: true })).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL, text: PACK_TEXT.reveal });
+    expect(pack.prompt(t.unturned)).toEqual({ kind: "reveal", label: PACK_REVEAL_ALL, text: PACK_TEXT.reveal });
 
     expect(pack.open()).toBe(true);
     expect(pack.state).toBe("open");
     expect(pack.open()).toBe(false);
-    expect(pack.prompt(t.unturned, { lowered: true })).toBeNull();
+    expect(pack.prompt(t.unturned)).toBeNull();
 
     const done = [];
     pack.revealAll({

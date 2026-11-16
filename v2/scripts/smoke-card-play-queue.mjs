@@ -221,11 +221,20 @@ try {
         assert.equal(plays.length, 0);
         await play.click();
         assert.equal(await page.locator("#card-actions button").count(), 0);
+        const status = () => page.locator("#play-status").textContent();
+        assert.equal(await status(), "");
         await clearSelection(page);
+        assert.match(await status(), /^Not played: \S.*\.$/u);
+        assert.equal(await page.locator("#play-status").isVisible(), true);
+        await page.screenshot({
+          path: new URL(`dropped-${width}-${stale}.png`, output).pathname,
+        });
+        assert.equal(plays.length, 0);
         const move = legalActions(world, "vale").find((action) => action.kind === "move");
         assert(move);
         await selectCard(page, move.target);
         await readyActionButton(page, "move").click();
+        assert.equal(await status(), "");
         await thinkingIs("Thinking…");
         if (stale) {
           const moved = dispatchShared({
@@ -242,9 +251,12 @@ try {
           );
           assert.equal(plays.length, 0);
         } else {
+          await selectCard(page, "vale");
+          assert.equal(await status(), `Not played: ${move.text}`);
           await clearSelection(page);
           await selectCard(page, "vale");
-          await play.click();
+          await readyActionButton(page, "wait").click();
+          assert.equal(await status(), "");
           await thinkingIs("Thinking…");
           await page.screenshot({
             path: new URL(`queued-${width}.png`, output).pathname,
