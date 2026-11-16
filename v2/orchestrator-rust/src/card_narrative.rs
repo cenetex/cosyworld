@@ -2589,14 +2589,20 @@ impl<'a> Check<'a> {
     }
 
     #[cfg(test)]
+    fn flags(&self, raw: &str) -> Vec<&'static str> {
+        let published = self.verdict(raw, true, true);
+        published.map_or_else(|_| Vec::new(), |(_, flags)| flags)
+    }
+
+    #[cfg(test)]
     fn strict(&self, raw: &str, finished: bool, tell: bool) -> Result<String, &'static str> {
         let (text, flags) = self.verdict(raw, finished, tell)?;
         flags.first().map_or(Ok(text), |flag| Err(*flag))
     }
 
-    /// Flag by default (owner, 2026-11-03): system talk, leaks, broken
-    /// shape and false world claims block a reply. Style reasons publish
-    /// it as written and come back beside the text for the log, unretried.
+    /// Flag by default: only system talk, leaks and an empty or oversize
+    /// reply are blocked. Every other reason, a false world claim among
+    /// them, publishes the reply and comes back beside the text for the log.
     fn verdict(
         &self,
         raw: &str,
@@ -2642,14 +2648,15 @@ impl<'a> Check<'a> {
             if instructs(&text) {
                 return Err("instruction");
             }
-            if !observations::consistent(&text, self.context) {
-                return Err("observable_state");
-            }
-            if !custody::consistent(&text, self.context, &self.entity.id)
-                || !promise::kept(&text, self.context, &self.entity.id)
-            {
-                return Err("custody");
-            }
+            flag(
+                !observations::consistent(&text, self.context),
+                "observable_state",
+            );
+            flag(
+                !custody::consistent(&text, self.context, &self.entity.id)
+                    || !promise::kept(&text, self.context, &self.entity.id),
+                "custody",
+            );
             flag(
                 self.entity.previous.as_deref() == Some(text.as_str()),
                 "repeat",
@@ -2724,9 +2731,6 @@ impl<'a> Check<'a> {
         if let Some(said) = said.filter(|s| self.answered.is_some() || s.tagged) {
             flag(self.answered.is_none(), "narration tag");
             flag(said.other, "other speaker");
-            if said.text.trim().is_empty() && said.other {
-                return Err("other speaker");
-            }
             if !said.text.trim().is_empty() {
                 text = said.text;
                 cut_line = false;
@@ -2829,10 +2833,8 @@ impl<'a> Check<'a> {
             kept_said.push(sentence);
         }
         // A finished, single-line imperative can stand without punctuation.
-        // A continuation mark or a cut line needs a fresh complete reply.
-        let broken = text.ends_with(['-', '–', '—', '‐', '‑']);
-        let continuation = text.ends_with([',', ':', ';']);
-        if kept.is_empty() && finished && !continuation && bounded(text, self.limit) {
+        let broken = text.ends_with(['-', '–', '—', '‐', '‑', ',', ':', ';']);
+        if kept.is_empty() && finished && bounded(text, self.limit) {
             flag(
                 broken || cut_line || text.split_whitespace().count() < 2,
                 "shape",
@@ -2852,17 +2854,19 @@ impl<'a> Check<'a> {
         {
             return Err("knowledge_fact");
         }
-        if !observations::consistent(&kept, self.context) {
-            return Err("observable_state");
-        }
-        if !custody::consistent(&kept, self.context, &self.entity.id)
-            || !promise::kept(&kept, self.context, &self.entity.id)
-        {
-            return Err("custody");
-        }
-        if !recital::consistent(&kept, &self.entity.id, self.entity.poem.as_ref()) {
-            return Err("story_outcome");
-        }
+        flag(
+            !observations::consistent(&kept, self.context),
+            "observable_state",
+        );
+        flag(
+            !custody::consistent(&kept, self.context, &self.entity.id)
+                || !promise::kept(&kept, self.context, &self.entity.id),
+            "custody",
+        );
+        flag(
+            !recital::consistent(&kept, &self.entity.id, self.entity.poem.as_ref()),
+            "story_outcome",
+        );
         let lower = kept.to_lowercase();
         if framing::assistant(&kept) {
             return Err("assistant");
@@ -3646,7 +3650,7 @@ pub(crate) mod tests {
             "I want the story,\nand a patient ear.",
             "Hold it higher\nVale: I will.",
         ] {
-            assert_eq!(check.clean(raw, true), Err("shape"), "{raw:?}");
+            assert!(check.flags(raw).contains(&"shape"), "{raw:?}");
         }
         for raw in [
             "Hold it higher",
@@ -3663,19 +3667,30 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn provider_fragments_stay_silent_in_local_and_shared_publication() {
-        for (raw, finish, shared, silent) in [
-            ("I want the story,", Some("stop"), false, true),
+    async fn finished_fragments_publish_and_cut_ones_stay_silent() {
+        let comma = "I want the story,";
+        for (raw, finish, shared, said) in [
+            (comma, Some("stop"), false, Some(comma)),
             (
                 "I want the story,\nand a patient ear.",
                 Some("stop"),
                 true,
-                true,
+                Some(comma),
             ),
-            ("Hold it higher", None, false, true),
-            ("Hold it higher", Some("unknown"), true, true),
-            ("Hold it higher", Some("stop"), false, false),
-            ("Hold it higher", Some("end_turn"), true, false),
+            ("Hold it higher", None, false, None),
+            ("Hold it higher", Some("unknown"), true, None),
+            (
+                "Hold it higher",
+                Some("stop"),
+                false,
+                Some("Hold it higher"),
+            ),
+            (
+                "Hold it higher",
+                Some("end_turn"),
+                true,
+                Some("Hold it higher"),
+            ),
         ] {
             let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
             let count = tries.clone();
@@ -3724,11 +3739,11 @@ pub(crate) mod tests {
                 .ok()
             };
             let text = result.map(|value| value["entries"][0]["text"].clone());
-            assert_eq!(text, (!silent).then(|| json!(raw)), "{raw:?} {finish:?}");
+            assert_eq!(text, said.map(|text| json!(text)), "{raw:?} {finish:?}");
             assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
             if !shared {
                 let output = published.lock().unwrap().join(" ");
-                assert_eq!(output.contains(raw), !silent);
+                assert_eq!(output.contains(raw), said.is_some());
             }
             server.abort();
         }
@@ -3909,13 +3924,8 @@ pub(crate) mod tests {
         ] {
             assert_eq!(check.clean(words, true), Ok(words.into()));
         }
-        assert_eq!(
-            check.clean(
-                "I laid her brother in the earth. The king's words crossed the wind.",
-                true
-            ),
-            Err("story_outcome")
-        );
+        let invented = "I laid her brother in the earth. The king's words crossed the wind.";
+        assert!(check.flags(invented).contains(&"story_outcome"));
         let prompt = transcript(&c, &c.entities[3], Part::Line);
         assert!(prompt.contains(POEM_FACT));
         assert!(!prompt.contains("Her brother waited by the wall."));
@@ -4215,7 +4225,7 @@ pub(crate) mod tests {
         let mut c = bell_context();
         let words = "The bell is yours to keep now, Vale.";
         let keeper = Check::new(&c, &c.entities[3], Part::Line);
-        assert_eq!(keeper.clean(words, true), Err("custody"));
+        assert!(keeper.flags(words).contains(&"custody"));
         assert_eq!(
             keeper.clean("The bell is mine now.", true),
             Ok("The bell is mine now.".into())
@@ -4241,10 +4251,9 @@ pub(crate) mod tests {
         // Custody is checked against the resolved world, not prompt words.
         assert!(!vale.contains("Final custody"));
         let check = Check::new(&c, &c.entities[0], Part::Line);
-        assert_eq!(
-            check.clean("The oil flask is mine now.", true),
-            Err("custody")
-        );
+        assert!(check
+            .flags("The oil flask is mine now.")
+            .contains(&"custody"));
         assert!(prompt.contains("I'm leaving Empty station for Mirror attic"));
         let outcome = c.outcome.as_mut().unwrap();
         outcome
@@ -4271,7 +4280,7 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn reversed_gift_perspective_stays_silent_in_local_and_shared_publication() {
+    async fn reversed_gift_perspective_is_flagged_and_published_locally_and_shared() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count = tries.clone();
@@ -4306,12 +4315,9 @@ pub(crate) mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(local["entries"].as_array().unwrap().len(), 1);
-        assert!(!published
-            .lock()
-            .unwrap()
-            .join(" ")
-            .contains("yours to keep"));
+        let reversed = "The bell is yours to keep now, Vale.";
+        assert_eq!(local["entries"][1]["text"], reversed);
+        assert!(published.lock().unwrap().join(" ").contains(reversed));
         let shared = shared_lines(
             &test_config(address),
             &serde_json::to_value(&c).unwrap(),
@@ -4321,7 +4327,7 @@ pub(crate) mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(shared["entries"].as_array().unwrap().len(), 1);
+        assert_eq!(shared["entries"][1]["text"], reversed);
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
         let own_custody = "I'm carrying the Oil flask and the Bell.";
         let requests = seen.lock().unwrap();
@@ -5626,7 +5632,7 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn observable_claims_are_checked_as_plain_speech() {
+    async fn observable_claims_are_flagged_and_published() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count = tries.clone();
@@ -5646,10 +5652,9 @@ pub(crate) mod tests {
         let mut c = context();
         c.entities[2].facts = vec!["Has oil; unlit.".into()];
         let check = Check::new(&c, &c.entities[0], Part::Line);
-        assert_eq!(
-            check.clean("The lamp burns now.", true),
-            Err("observable_state")
-        );
+        assert!(check
+            .flags("The lamp burns now.")
+            .contains(&"observable_state"));
         let result = complete(
             &test_config(address),
             &c,
@@ -5660,7 +5665,7 @@ pub(crate) mod tests {
         .await
         .unwrap();
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
-        assert_eq!(result["entries"][0]["id"], "moth");
+        assert_eq!(result["entries"][0]["text"], "The lamp burns now.");
         assert!(transcript(&c, &c.entities[0], Part::Line).contains("unlit"));
         let requests = seen.lock().unwrap();
         let vale: Vec<_> = requests

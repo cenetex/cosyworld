@@ -585,17 +585,14 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
         prompt.user,
         "Vale says, \u{201c}Good evening, Dione. What are you baking?\u{201d}"
     );
-    // A wrong custody claim about Vale's oil is still blocked; the view
-    // read back across its facts is an echo.
+    // A wrong custody claim about Vale's oil is flagged and published; the
+    // view read back across its facts is an echo.
     let check = Check::new(&heard, dione, Part::Line);
-    assert_eq!(
-        check.verdict("I'm holding the Funeral Oil.", true, false),
-        Err("custody")
-    );
-    assert_eq!(
-        check.verdict("The Funeral Oil is mine.", true, false),
-        Err("custody")
-    );
+    for claim in ["I'm holding the Funeral Oil.", "The Funeral Oil is mine."] {
+        let (text, flags) = check.verdict(claim, true, false).unwrap();
+        assert_eq!(text, claim);
+        assert!(flags.contains(&"custody"), "{claim}");
+    }
     let echo = "I'm carrying the Sack of Wheat I'm holding the Sack of Wheat.";
     assert_eq!(check.verdict(echo, true, false), Err("echoed brief"));
     // The heard line said back first is dropped; her own words stay.

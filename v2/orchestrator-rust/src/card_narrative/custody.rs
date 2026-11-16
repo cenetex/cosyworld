@@ -559,10 +559,9 @@ mod tests {
             .replace("greek-household-token", "greek-wheat");
         let c: Context = serde_json::from_str(&json).unwrap();
         let check = Check::new(&c, entity(&c, "greek-baker"), Part::Line);
-        assert_eq!(
-            check.clean("I place the Sack of Wheat in Vale’s hands.", true),
-            Err("custody")
-        );
+        assert!(check
+            .flags("I place the Sack of Wheat in Vale’s hands.")
+            .contains(&"custody"));
         assert!(consistent(
             "I'd give you the Sack of Wheat if you asked.",
             &c,
@@ -582,7 +581,7 @@ mod tests {
                 "I give the Household Token to you.",
                 "I pass the Household Token to Vale.",
             ] {
-                assert_eq!(check.clean(line, true), Err("custody"), "{kind}: {line}");
+                assert!(check.flags(line).contains(&"custody"), "{kind}: {line}");
             }
             for line in [
                 "I'd give you the Household Token if you asked.",
@@ -627,7 +626,7 @@ mod tests {
             "I'll return it if you give me a moment.",
             "I'll return it if you let me know.",
         ] {
-            assert_eq!(check.clean(line, true), Err("custody"), "{line}");
+            assert!(check.flags(line).contains(&"custody"), "{line}");
         }
         for line in [
             "Thank you for explaining.",
@@ -667,10 +666,9 @@ mod tests {
             assert!(check
                 .clean(&format!("I'll keep the {retained} safe."), true)
                 .is_ok());
-            assert_eq!(
-                check.clean(&format!("I'll keep the {incoming} safe."), true),
-                Err("custody")
-            );
+            assert!(check
+                .flags(&format!("I'll keep the {incoming} safe."))
+                .contains(&"custody"));
             assert!(check
                 .clean(
                     &format!("I'll keep the {incoming} safe if you lend it to me."),
