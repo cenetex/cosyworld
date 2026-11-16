@@ -14,8 +14,6 @@ export function greekTravelTargets(from, to) {
   // From Piraeus an idle ship sails its first lane, to the Wine-Dark Harbor.
   if (from === "greek-piraeus" && to === "greek-harbor")
     return ["greek-ship", to];
-  // Athens is walked by the land route through the City Gate: the Long
-  // Walls from Piraeus open only with the herald's truce (rules 94).
   return walk(from, to) || [to];
 }
 
