@@ -274,21 +274,20 @@ try {
     });
     await tapCard(station);
     assert.deepEqual(await placeItems(), ["pond", "station", "vale"]);
-    // Put down in a new world's attic: the lamp goes to the attic's floor,
-    // the mirror opens and the pond's lock turns over, while Vale keeps his
-    // nodes.
+    // Put away in a new world's attic: the lamp goes dark, the mirror opens
+    // and the pond's lock turns over, while Vale keeps his nodes.
     await page.evaluate(() => document.querySelector("#confirm-reset").click());
     await ready();
     await revealOpening(page);
     await page.waitForTimeout(600);
-    if (
-      (await page.locator('#hand [data-card="lamp"]').getAttribute("aria-pressed")) !== "true"
-    )
+    const lamp = '#hand [data-card="lamp"]';
+    if ((await page.locator(lamp).getAttribute("aria-pressed")) !== "true")
       await selectCard(page, "lamp");
-    await selectCard(page, "attic");
-    await readyActionButton(page, "drop").waitFor();
-    await tap('#card-actions [data-action="drop"]');
-    await strip("put-down");
+    await tap(lamp);
+    await page.waitForTimeout(300);
+    if ((await page.locator(lamp).getAttribute("aria-pressed")) === "true")
+      await page.locator(lamp).click();
+    await strip("put-away");
     await settled();
     const douse = await watched();
     assert.equal(douse.vale, "kept");
@@ -309,7 +308,7 @@ try {
     assert.deepEqual(hand, offered, "the hand is the rules' hand");
     assert.deepEqual(errors, []);
     console.log(
-      `Travel and Put down swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
+      `Travel and Put away swapped the hand ${reduced ? "with a quick fade" : "in beats (exits, a beat, entries)"} at ${tag}; Vale kept his nodes.`,
     );
     await page.close();
   }

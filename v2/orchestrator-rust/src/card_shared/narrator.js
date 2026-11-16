@@ -992,7 +992,7 @@
   var humanRoomAvailable = (world, actor, place, count = 1) => !sharedEnabled(world) || !controlledByHuman(world, actor) || world.actors[actor]?.place === place || roomHumanCount(world, place) + count <= 4;
   var visitors = humanAvatars.filter((a) => a.id !== "vale");
   var humanHomeGates = Object.fromEntries(
-    visitors.map((a) => [a.home.id, { item: a.item.id, rescue: "station" }])
+    visitors.map((a) => [a.home.id, true])
   );
   var humanHomePack = {
     schemaVersion: 1,
@@ -1139,29 +1139,14 @@
   // v2/card-game/forest.json
   var forest_default = {
     homeGates: {
-      attic: {
-        item: "lamp",
-        light: true,
-        fuel: "oil",
-        rescue: "pond",
-        opening: true
-      }
+      attic: { opening: true }
     },
     reflectionRoutes: [
       {
         from: "attic",
         to: "pond",
         sealed: {},
-        requires: [
-          { kind: "item_present", item: "lamp", place: "attic" },
-          {
-            kind: "any",
-            conditions: [
-              { kind: "item_at", item: "lamp", place: "attic" },
-              { kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }
-            ]
-          }
-        ]
+        requires: [{ kind: "not", condition: { kind: "light", item: "lamp", at: ["attic"], uncovered: true } }]
       },
       {
         from: "pond",
@@ -1185,7 +1170,6 @@
         exits: [],
         backdrop: "assets/shared/places/attic-dark.webp",
         backdrops: [
-          { backdrop: "assets/attic/attic-doused.webp", requires: [{ kind: "item_at", item: "lamp", place: "attic" }] },
           { backdrop: "assets/attic/attic-lit.webp", requires: [{ kind: "light", item: "lamp", at: ["attic"], uncovered: true }] },
           { backdrop: "assets/attic/attic-doused.webp", requires: [{ kind: "item_present", item: "lamp", place: "attic" }] }
         ],
@@ -18964,28 +18948,6 @@
     return true;
   }
 
-  // v2/card-game/pack-toggle.mjs
-  var ORDER = Object.keys(GROUPS);
-  var rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
-  var sides = Object.entries(hub.packEntries);
-  var mirror = sides.flatMap(
-    ([id, list]) => list.filter((e) => e.joins === "hub").map((e) => ({ joins: id, at: e.arrive }))
-  );
-  var ENTRIES = Object.fromEntries(
-    [...sides, ["hub", mirror]].map(([id, list]) => [
-      id,
-      [...list].sort((a, b) => rank(a.joins) - rank(b.joins))
-    ])
-  );
-  var startOf2 = (packId) => packId === "hub" ? hub.start : packDefinition(packId).entry;
-  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && ORDER.some((g) => groupAwake(list, g)) && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
-  function firstStart(s) {
-    for (const g of ORDER)
-      for (const p of GROUPS[g].packs)
-        if (packOn(s, p) && entityActive(s, startOf2(p))) return startOf2(p);
-    return null;
-  }
-
   // v2/card-game/world/senses.mjs
   var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
     (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
@@ -19047,25 +19009,8 @@
       sensesFor(s),
       place === "station" ? stationCandidates(s).filter((id) => !stationExits(s, stationCandidates(s)).includes(id)) : []
     ),
-    ...transportScenery(s, place, nameOf),
-    ...homeRescueExit(s, place) || pondRescueExit(s, place) ? [
-      `A narrow path leads to ${nameOf(homeRescueExit(s, place) || pondRescueExit(s, place))}.`
-    ] : []
+    ...transportScenery(s, place, nameOf)
   ].join(" ");
-  function localGateResource(s, place, item, actor) {
-    return Boolean(
-      s.items[item] && entityActive(s, item) && itemPlace(s, item) === place && (canUse(s, actor, item) || controlledByHuman(s, rootHolder(s, item)) && humanPresent(s, rootHolder(s, item)) || // An away traveler's lamp still lights here, though no one may
-      // take it from them (rules 98).
-      residentAvatar(s, rootHolder(s, item)) || knownActors2(s).includes(rootHolder(s, item)) && (willingToGive(s, rootHolder(s, item), item, actor) || carried(s, actor).some(
-        (payment) => canTrade(s, actor, payment, item)
-      )))
-    );
-  }
-  function homeGateRecoverable(s, place, gate, actor) {
-    if (!localGateResource(s, place, gate.item, actor)) return false;
-    if (!gate.light || s.items[gate.item].fuel > 0) return true;
-    return Boolean(gate.fuel && localGateResource(s, place, gate.fuel, actor));
-  }
   function rawOrdinaryExits(s, place, actor, previous) {
     return [
       .../* @__PURE__ */ new Set([
@@ -19080,59 +19025,8 @@
   function ordinaryExits(s, place, actor, previous) {
     return limitedExits(s, place, rawOrdinaryExits(s, place, actor, previous));
   }
-  function ordinaryRouteHome(s, place, destination, actor, previous) {
-    const queue = [[place, previous]], visited = /* @__PURE__ */ new Set([place]);
-    for (let i = 0; i < queue.length; i++) {
-      const [from, before] = queue[i];
-      if (from === destination) return true;
-      for (const to of ordinaryExits(s, from, actor, before)) {
-        if (visited.has(to) || !entityActive(s, to) || !actorCanVisit(actor, to, s))
-          continue;
-        visited.add(to);
-        queue.push([to, from]);
-      }
-    }
-    return false;
-  }
-  function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
-    const gate = homeGates[place];
-    actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor, s) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && (!homeGateRecoverable(s, place, gate, actor) || controlledByHuman(s, actor) && rootHolder(s, gate.item) === actor && Boolean(s.opened?.[gate.rescue]?.includes(actor))) ? (
-      // With its rescue place asleep, the first pack on takes them in (rules 98).
-      entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
-    ) : null;
-  }
-  function insideLampRemedy(s, actor) {
-    const here2 = s.actors[actor].place, lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
-    if (!atticInterior.has(here2) || !ordinaryRouteHome(s, here2, lamp, actor) || !ordinaryRouteHome(s, lamp, "attic", actor))
-      return false;
-    const at = (place) => ({
-      ...s,
-      actors: { ...s.actors, [actor]: { ...s.actors[actor], place } }
-    });
-    if (!localGateResource(at(lamp), lamp, "lamp", actor)) return false;
-    return s.items.lamp.fuel > 0 || ordinaryRouteHome(s, here2, oil, actor) && ordinaryRouteHome(s, oil, lamp, actor) && localGateResource(at(oil), oil, "oil", actor);
-  }
-  function pondRescueExit(s, place, actor, previous) {
-    actor ||= currentActor(s);
-    const lamp = itemPlace(s, "lamp"), oil = itemPlace(s, "oil");
-    if (place !== "pond" || s.actors[actor]?.place !== place || !controlledByHuman(s, actor) || !(atticInterior.has(lamp) || atticInterior.has(oil)) || ordinaryRouteHome(s, place, "attic", actor, previous))
-      return null;
-    if (ordinaryRouteHome(s, place, lamp, actor, previous) && (s.items.lamp.fuel > 0 || ordinaryRouteHome(s, place, oil, actor, previous)))
-      return null;
-    if (knownActors2(s).some(
-      (id) => (!controlledByHuman(s, id) || humanPresent(s, id)) && (insideLampRemedy(s, id) || !atticInterior.has(lamp) && s.actors[id].place === "attic" && homeRescueExit(s, "attic", id) && localGateResource(s, "attic", "oil", id))
-    ))
-      return null;
-    return "attic";
-  }
   function exits(s, place, actor = null, previous = null) {
-    const rescue = homeRescueExit(s, place, actor, previous), returnPath = pondRescueExit(s, place, actor, previous);
-    const ways2 = [
-      ...ordinaryExits(s, place, actor, previous),
-      ...rescue ? [rescue] : [],
-      ...returnPath ? [returnPath] : []
-    ];
+    const ways2 = [...ordinaryExits(s, place, actor, previous)];
     for (const to of guardedExits(s, place))
       if (!ways2.includes(to)) ways2.push(to);
     return limitedExits(s, place, ways2.filter(
@@ -19589,6 +19483,21 @@
     return typeof saved.place === "string" && saved.place.length <= 128 && validTurn;
   }
 
+  // v2/card-game/pack-toggle.mjs
+  var ORDER = Object.keys(GROUPS);
+  var rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
+  var sides = Object.entries(hub.packEntries);
+  var mirror = sides.flatMap(
+    ([id, list]) => list.filter((e) => e.joins === "hub").map((e) => ({ joins: id, at: e.arrive }))
+  );
+  var ENTRIES = Object.fromEntries(
+    [...sides, ["hub", mirror]].map(([id, list]) => [
+      id,
+      [...list].sort((a, b) => rank(a.joins) - rank(b.joins))
+    ])
+  );
+  var validDisabledPacks = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && ORDER.some((g) => groupAwake(list, g)) && list.every((g, i) => ORDER.includes(g) && (!i || list[i - 1] < g));
+
   // v2/card-game/resident-sleep.mjs
   var whole5 = (n) => Number.isSafeInteger(n);
   function validSleep(s, places2) {
@@ -19719,7 +19628,7 @@
   };
 
   // v2/card-game/world.mjs
-  var homeGates = { ...forest_default.homeGates, ...humanHomeGates };
+  var homeGates = forest_default.homeGates;
   var lifeProblems = lifeDataProblems(places, people);
   if (lifeProblems.length)
     throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
@@ -19863,14 +19772,10 @@
         rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
       }
   }
-  var openingPlace = (place) => Object.entries(homeGates).some(
-    ([home, gate]) => gate.opening && [home, gate.rescue, "station"].includes(place)
-  );
+  var openingPlace = (place) => Boolean(homeGates[place]?.opening) || ["pond", "station"].includes(place);
   var leftHome = (s) => s.opening?.leftHome === true || crossings.some(
     (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered
   );
-  var canReach = (s, actor, item) => itemPlace(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
-  var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
   var bundle = (s, item) => [
     item,

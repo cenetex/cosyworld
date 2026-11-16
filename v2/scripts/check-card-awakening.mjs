@@ -103,8 +103,9 @@ try {
   await page.waitForFunction(
     () => !document.querySelector("#hand [data-revealing]"),
   );
-  assert.equal((await state()).items.lamp.holder, "attic");
-  assert.equal((await state()).turn, 1);
+  assert.equal((await state()).items.lamp.holder, "vale");
+  assert.equal((await state()).items.lamp.lit, false);
+  assert.equal((await state()).turn, 0);
   assert.equal((await state()).items.lamp.fuelRooms, 3);
   assert.equal((await state()).actors.vale.place, "attic");
   assert.ok(await page.locator('[data-card="pond"]').count());

@@ -6,6 +6,7 @@ import {
   pressSetting,
   putOutOpening,
   revealOpening,
+  walkToPond,
 } from "./card-browser-helpers.mjs";
 import { roomTracks } from "../card-game/music.mjs";
 
@@ -64,17 +65,20 @@ export async function checkMusicReveal(browser, origin) {
   }
   try {
     await page.goto(`${origin}/?table=music-reveal`);
-    // A new world is silent until its first play, Put down in the attic.
+    // A new world is silent until its first play, the walk to the pond.
     await revealOpening(page);
     await page.waitForTimeout(1200);
     assert(await audio((a) => a.paused), "The new world waits for a play");
     assert.deepEqual(await page.evaluate(() => window.musicPlays), []);
     assert.equal(await menuStatus(), "Play your first card to start music.");
     await putOutOpening(page);
+    assert(await audio((a) => a.paused), "Putting the lamp away is no play");
+    await walkToPond(page);
     await playing();
+    const song = new URL(await audio((a) => a.src)).pathname;
     assert(
-      new URL(await audio((a) => a.src)).pathname.endsWith(
-        roomTracks.attic[0].file,
+      [...roomTracks.attic, ...roomTracks.pond].some(({ file }) =>
+        song.endsWith(file),
       ),
     );
     await page.waitForFunction(() => window.musicRamps.some((r) => r.to > 0));
@@ -105,6 +109,7 @@ export async function checkMusicReveal(browser, origin) {
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
     await putOutOpening(page);
+    await walkToPond(page);
     await page.waitForTimeout(1200);
     assert(await audio((a) => a.paused), "Music off stays off");
     assert.deepEqual(await page.evaluate(() => window.musicPlays), []);

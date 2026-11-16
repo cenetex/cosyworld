@@ -242,8 +242,7 @@ export function boxOpen(s, box, actor = currentActor(s)) {
   const def = defOf(box);
   if (!def) return true;
   switch (def.kind) {
-    // A way is open when the traveller can walk it: a gate, a door or the
-    // mirror, or a rescue path to the same card.
+    // A way is open when the traveller can walk it: a gate, a door or the mirror.
     case "way":
     case "crossing":
     case "hub":
@@ -273,6 +272,8 @@ function conditionGoal(s, packId, conditions, actor) {
       const goal = conditionGoal(s, packId, condition.conditions, actor);
       if (goal) return goal;
     }
+    if (condition.kind === "not" && condition.condition.kind === "light")
+      return { kind: "item", target: condition.condition.item, lit: false };
     if (condition.kind === "talked")
       return { kind: "person", target: condition.person };
     if (condition.kind === "holding" && condition.actor)

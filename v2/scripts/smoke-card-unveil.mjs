@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import {
   putOutOpening,
+  revealOpening,
   readyActionButton,
   revealCard,
   selectCard,
@@ -255,9 +256,9 @@ try {
         "the pond waits at the row's right end",
       );
       assert.equal(await pond.getAttribute("data-unrevealed"), "true");
-      // Put down is one ordinary turn; no retired lamp action is offered.
-      assert.equal((await state()).turn, 1);
-      assert.equal((await state()).items.lamp.holder, "attic");
+      assert.equal((await state()).turn, 0);
+      assert.equal((await state()).items.lamp.holder, "vale");
+      assert.equal((await state()).items.lamp.lit, false);
       assert.equal((await state()).items.lamp.fuelRooms, 3);
       assert.equal(
         await page
@@ -493,8 +494,8 @@ try {
       );
       await selectCard(page, "keeper");
       await revealCard(page, "oil");
-      // Lowering the keeper takes his Talk beat away, so the dialogue is the
-      // stack's front card again.
+      // Pip follows the lamp Vale carries; his cards turn over too.
+      await revealOpening(page);
       await page.keyboard.press("Escape");
       await page.locator(".action-panel").waitFor({ state: "hidden" });
       await finish();

@@ -280,7 +280,7 @@ import {
   nameOf,
 } from "./world/catalog.mjs";
 export { places, sanctuaries, people, things, nameOf };
-export const homeGates = { ...forest.homeGates, ...humanHomeGates };
+const homeGates = forest.homeGates;
 const lifeProblems = lifeDataProblems(places, people);
 if (lifeProblems.length)
   throw new Error(`Invalid world life data: ${lifeProblems.join("; ")}`);
@@ -485,8 +485,6 @@ import {
   placeText,
   exits,
   sealedWays,
-  homeRescueExit,
-  pondRescueExit,
 } from "./world/geography.mjs";
 export { placeText, exits, sealedWays };
 // Boxes live in world/boxes.mjs (rules 133).
@@ -517,12 +515,8 @@ import {
   stationTargets,
 } from "./world/station.mjs";
 export { settleStationExits };
-// Before the pond, Vale stays in an opening home, its rescue or the station.
 const openingPlace = (place) =>
-  Object.entries(homeGates).some(
-    ([home, gate]) =>
-      gate.opening && [home, gate.rescue, "station"].includes(place),
-  );
+  Boolean(homeGates[place]?.opening) || ["pond", "station"].includes(place);
 // A crossing out of an opening home taken (a scarf's attic stair) crosses
 // the opening without the pond, so Moth may be still unmet (rules 97).
 const leftHome = (s) =>
@@ -1024,7 +1018,7 @@ export function holdChoice(s, actor, choice) {
   refuelCarried(s);
   settleHeldItems(s);
   settleLamp(s);
-  // Putting the lamp down or out opens the Black pond: a hold can open a box.
+  // Putting the lamp out opens the Black pond: a hold can open a box.
   creditOpened(before, s, actor);
   dropOpenedBoxQuests(s);
   settleCrossingUnlocks(s, sensesFor(s));
@@ -1368,7 +1362,7 @@ export function legalActions(s, actor = currentActor(s)) {
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
     const way = through
-      ? ` ${homeRescueExit(s, here, actor) === to || pondRescueExit(s, here, actor) === to ? "along a narrow path" : crossing?.travel || "through the reflection"}`
+      ? ` ${crossing?.travel || "through the reflection"}`
       : "";
     // A human can invite a willing resident along their open route. The
     // way is the party's: if it is open for the traveler it is open for the
@@ -1772,12 +1766,7 @@ function travelParty(s, actors, destination) {
   const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
   // The legal action approves the whole party before any carried key moves.
-  // Leaving the opening home anchors it, by its rescue path or through a
-  // mirror the doused lamp opened (#1600).
-  if (
-    homeGates[from]?.opening &&
-    (s.opening || homeRescueExit(s, from, actors[0]) === destination)
-  )
+  if (homeGates[from]?.opening && s.opening)
     s.locations[from].anchored = true;
   markCrossed(s, from, destination);
   for (const actor of actors) applyDeparture(s, actor, destination);
@@ -2915,16 +2904,12 @@ function toward(s, actor, target) {
     !atticInterior.has(here)
   )
     return toward(s, actor, "attic");
-  // Reach a home threshold before tending its gate or taking its rescue path.
-  const rescueRoutes = new Map();
-  const rescueRoute = (from) => {
-    if (!rescueRoutes.has(from))
-      rescueRoutes.set(from, routeBetween(s, from, target, actor));
-    return rescueRoutes.get(from);
-  };
-  for (const [home, gate] of Object.entries(homeGates)) {
-    if (here === home || !rescueRoute(gate.rescue)) continue;
-    const approach = routeBetween(s, here, home, actor);
+  if (
+    here !== "attic" &&
+    atticInterior.has(here) &&
+    routeBetween(s, "pond", target, actor)
+  ) {
+    const approach = routeBetween(s, here, "attic", actor);
     if (approach?.length > 1)
       return getActions().find(
         (a) => a.kind === "move" && a.target === approach[1],

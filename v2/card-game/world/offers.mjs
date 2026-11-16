@@ -33,13 +33,14 @@ export const isOfferId = (id) => typeof id === "string" && id.startsWith("quest:
 
 // The quest a shut box gives: the thing to hold or bring, the place to reach
 // or the person to see (the sealed card's own quest, or read from its lock).
-const boxQuest = (s, { kind, target, step }) => ({
+const boxQuest = (s, { kind, target, step, lit }) => ({
   kind,
   target,
   since: s.turn,
   refusals: 0,
   story: true,
   ...(step ? { step: { ...step } } : {}),
+  ...(lit === undefined ? {} : { lit }),
 });
 
 // An escort or meeting offered by a resident who is already another

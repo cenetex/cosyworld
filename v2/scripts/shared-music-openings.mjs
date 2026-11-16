@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   selectCard,
+  walkToPond,
   openSettings,
   closeSettings,
   pressSetting,
@@ -119,8 +120,8 @@ export async function checkSharedMusicOpenings(browser, origin) {
       );
       await closeSettings(page);
       if (actor === "vale") {
-        // Vale's first play puts the lamp down in the attic.
         await putOutOpening(page);
+        await walkToPond(page);
         await page.waitForFunction(() => {
           const a = document.querySelector("#room-music");
           return !a.paused && a.currentTime > 0;
@@ -149,7 +150,7 @@ export async function checkSharedMusicOpenings(browser, origin) {
       });
       assert.deepEqual(errors, []);
       console.log(
-        `${avatar.name}: silent arrival, ${actor === "vale" ? "Put down" : "first item play"} starts music, reload resumes`,
+        `${avatar.name}: silent arrival, ${actor === "vale" ? "the walk to the pond" : "first item play"} starts music, reload resumes`,
       );
     } catch (error) {
       console.error(

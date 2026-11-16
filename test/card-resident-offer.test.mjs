@@ -97,7 +97,7 @@ describe("a resident's offer after Talk", () => {
 
   it("stands with the slots full, but Accept waits for a free slot", () => {
     const s = station();
-    for (const [kind, target] of [["place", "attic"], ["place", "pond"], ["item", "bell"]].slice(0, MAX_HELD))
+    for (const [kind, target] of [["place", "attic"], ["item", "cloth"], ["item", "bell"]].slice(0, MAX_HELD))
       holdQuest(s, "vale", newWant(kind, target, s.turn), `quest:box:${target}`);
     const told = talk(s);
     expect(residentOffer(told)).toMatchObject({ source: "moth", full: true });

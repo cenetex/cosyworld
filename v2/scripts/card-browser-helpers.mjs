@@ -411,27 +411,30 @@ export async function revealOpening(page) {
       !document.querySelector('#hand [data-pack="open"]'),
   );
 }
-// The first puzzle is an ordinary pair: Lamp and Mirror attic, Put down.
+export async function walkToPond(page) {
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#hand").dataset.cooling === "false" &&
+      !document.querySelector("#hand [data-revealing]"),
+  );
+  await selectCard(page, "pond");
+  await readyActionButton(page, "move").click();
+  await page.waitForFunction(() => document.body.dataset.place === "pond");
+}
 export async function putOutOpening(page) {
   await revealOpening(page);
   await page.keyboard.press("Escape");
   await page.mouse.move(2, 2);
-  if (
-    (await page.locator('#hand [data-card="lamp"]').getAttribute("aria-pressed")) !== "true"
-  )
+  const open = () =>
+    page.evaluate(
+      () =>
+        document.querySelector('#hand [data-card="pond"]')?.dataset.locked ===
+        "false",
+    );
+  for (let tries = 0; tries < 4 && !(await open()); tries++) {
     await selectCard(page, "lamp");
-  const attic = page.locator('#hand [data-card="attic"]');
-  for (let tries = 0; tries < 3; tries++) {
-    if ((await attic.getAttribute("aria-pressed")) === "true") break;
-    await selectCard(page, "attic");
+    await page.waitForTimeout(300);
   }
-  const drop = readyActionButton(page, "drop");
-  for (let step = 0; step < 100 && !(await drop.isVisible()); step++) {
-    const advance = page.locator("#dialogue-advance");
-    if (await advance.isVisible()) await advance.click();
-    await page.waitForTimeout(200);
-  }
-  await drop.click();
   await page.waitForFunction(
     () =>
       document.querySelector('#hand [data-card="pond"]')?.dataset.locked ===
