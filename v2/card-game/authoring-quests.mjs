@@ -40,14 +40,14 @@ const removeWalk = (source, from, to) => {
 // The direct walk and the new gate change together; the return path stays as authored.
 export function addItemOpening(
   source,
-  { from, to, item, carried = true, live = false },
+  { from, to, item, carried = true },
 ) {
   const a = place(source, from),
     b = place(source, to);
   need(from !== to, "Choose two different locations.");
   need(own(source.pack?.items, item), "Choose an item in this pack.");
   need(
-    typeof carried === "boolean" && typeof live === "boolean",
+    typeof carried === "boolean",
     "Choose how this quest opens.",
   );
   const routes = source.pack.routes || [];
@@ -61,7 +61,6 @@ export function addItemOpening(
     requires: [
       { kind: carried ? "item_present" : "item_at", item, place: from },
     ],
-    ...(live ? { live: true } : {}),
   };
   return sourceEdit(source, `Open ${b.name || to} from ${a.name || from}`, [
     ...removeWalk(source, from, to),

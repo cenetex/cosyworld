@@ -49,13 +49,12 @@ test("a new world, and each site's landing world, is Common", () => {
 
 test("the level is the same for the same world, local or shared", () => {
   const world = raise(createWorld({ seed: 11 }), "moth", 6);
-  world.openedRoutes = ["forest-garden>forest-trail"];
   assert.deepEqual(worldLevel(world), worldLevel(structuredClone(world)));
   const shared = dispatchShared({
     op: "create",
     save: encodeSave(createWorld()),
   }).world;
-  raise(shared, "moth", 6).openedRoutes = world.openedRoutes;
+  raise(shared, "moth", 6);
   const view = dispatchShared({
     op: "view",
     world: shared,
@@ -64,7 +63,7 @@ test("the level is the same for the same world, local or shared", () => {
     present: ["vale"],
   }).world;
   assert.equal(worldPoints(view), worldPoints(world));
-  assert.equal(worldPoints(view), 6);
+  assert.equal(worldPoints(view), 5);
 });
 
 test("resident levels gained and ways opened count; players do not", () => {
@@ -74,11 +73,9 @@ test("resident levels gained and ways opened count; players do not", () => {
   world.actors.vale.xp = 500;
   world.actors.vale.level = 30;
   assert.equal(worldPoints(world), 3, "a player's level is left out");
-  world.openedRoutes = ["a>b", "c>d"];
-  assert.equal(worldPoints(world), 5);
   const [crossing] = Object.keys(world.crossings);
   world.crossings[crossing].discovered = true;
-  assert.equal(worldPoints(world), 6);
+  assert.equal(worldPoints(world), 4);
 });
 
 test("thresholds follow the game's level tiers", () => {

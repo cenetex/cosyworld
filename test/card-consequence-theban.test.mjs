@@ -103,7 +103,6 @@ const deed = (world) =>
       rites.map((rite) => rite[2]),
     ),
     credits: world.opened,
-    latched: world.openedRoutes,
   });
 const own = (world, actor) =>
   structuredClone({
@@ -133,8 +132,6 @@ function keeps(before, next) {
     expect(next.opened[box]).toEqual(expect.arrayContaining(avatars));
   for (const avatars of Object.values(next.opened ?? {}))
     expect(new Set(avatars).size).toBe(avatars.length);
-  for (const route of before.openedRoutes ?? [])
-    expect(next.openedRoutes).toContain(route);
   for (const id of travelers) {
     const was = before.actors[id],
       now = next.actors[id];
@@ -308,9 +305,6 @@ for (const name of ["local", "shared"])
       for (const action of Object.values(riteAction))
         expect(traveler(engine, world).retried(action)).toBe(false);
     }
-    const latched = at.returned.openedRoutes;
-    expect(latched).toContain(`${field}>${grave}`);
-    expect(latched.some((route) => route.endsWith(`>${field}`))).toBe(false);
     const away = traveler(engine, structuredClone(at.leaving)).walk(gate);
     expect(away.world.items[writ].holder).toBe(guard);
     expect(away.find("move", { target: field })).toBeTruthy();
@@ -358,7 +352,7 @@ it("shows a second traveler the public deed and none of the first one's own reco
   }
   const world = m.world,
     second = own(world, "mara"),
-    publicDeed = ["receipts", "flags", "latched"];
+    publicDeed = ["receipts", "flags"];
   expect(pick(deed(world), publicDeed)).toEqual(pick(done, publicDeed));
   for (const [box, avatars] of Object.entries(done.credits))
     expect(world.opened[box]).toEqual(avatars);

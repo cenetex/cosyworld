@@ -70,7 +70,7 @@ const fixture = (name) =>
 describe("a button in each traveler's own colour", () => {
   it("authors eight buttons and their complementary scarves", () => {
     const pack = packDefinition(PACK);
-    expect(pack.revision).toBe(4);
+    expect(pack.revision).toBe(5);
     const cast = JSON.parse(
       readFileSync(
         new URL("../v2/card-game/shared-cast.json", import.meta.url),

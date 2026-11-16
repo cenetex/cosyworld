@@ -328,9 +328,9 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
       title: `${nameOf(r.from)} to ${nameOf(r.to)}`,
       requires,
       seal: sealOf(r.sealed),
-      follows: requires.length ? (r.live ? "live" : "latches") : undefined,
+      follows: requires.length ? "live" : undefined,
     });
-    edge({ from: r.from, to: r.to, kind: "route", gate, ...(r.live ? { live: true } : {}) });
+    edge({ from: r.from, to: r.to, kind: "route", gate });
   }
   for (const c of list(pack.crossings)) {
     if (c.retired) {

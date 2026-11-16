@@ -90,14 +90,17 @@ it("toggles the ship lane's locked card while preserving cargo alternatives and 
     assert.equal(authoringField(greek, cardAt(greek, path, role)), null);
 });
 
-it("uses result-state labels and expected values for a live gate switch", () => {
-  const path = ["pack", "routes", 0, "live"],
+it("uses result-state labels and expected values for a switch", () => {
+  const effects = (c) => c.effects.findIndex((e) => e.waitAtHome),
+    choice = greek.pack.choices.findIndex((c) => effects(c) >= 0),
+    spot = ["choices", choice, "effects", effects(greek.pack.choices[choice])],
+    path = ["pack", ...spot, "waitAtHome"],
     field = fieldAt(greek, path);
-  assert.equal(field.action, "Disable live conditions");
+  assert.equal(field.action, "Disable return to authored home");
   const result = apply(greek, field);
-  assert.equal(result.source.pack.routes[0].live, false);
+  assert.equal(fieldAt(result.source, path).value, false);
   const next = fieldAt(result.source, path);
-  assert.equal(next.action, "Enable live conditions");
+  assert.equal(next.action, "Enable return to authored home");
   assert.deepEqual(apply(result.source, next).source, greek);
   assert.throws(() => authoringFieldEdit(result.source, field), /changed/);
   assert.throws(

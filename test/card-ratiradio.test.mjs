@@ -321,19 +321,15 @@ it("uses three different lock kinds, one per door, in the pack data", () => {
   const door = (flag) =>
     pack.choices.filter((c) => c.effects.some((e) => e.key === flag));
   const route = (to) => pack.routes.find((r) => r.to === id(to));
-  // Held and placed are live: the way follows the item. Heard is a latch.
   expect(route("dispatch-window")).toMatchObject({
-    live: true,
     requires: [
       { kind: "any" },
       { kind: "not", condition: { kind: "item_at", item: id("red-beanie") } },
     ],
   });
   expect(route("listening-room")).toMatchObject({
-    live: true,
     requires: [{ kind: "any" }],
   });
-  expect(route("broadcast-booth").live).toBeUndefined();
   expect(door("booth-open").every((c) => c.on === "talk")).toBe(true);
   for (const flag of ["station-open", "dispatch-open", "listening-open"])
     expect(door(flag)).toEqual([]);

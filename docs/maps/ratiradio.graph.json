@@ -1,7 +1,7 @@
 {
   "pack": "ratiradio",
   "name": "Night Shift at RatiRadio",
-  "revision": 4,
+  "revision": 5,
   "entry": "ratiradio-staff-kitchen",
   "entries": [
     {
@@ -66,8 +66,7 @@
         "from": "ratiradio-dispatch-window",
         "to": "ratiradio-listening-room",
         "kind": "route",
-        "gate": "route:ratiradio-dispatch-window>ratiradio-listening-room",
-        "live": true
+        "gate": "route:ratiradio-dispatch-window>ratiradio-listening-room"
       },
       {
         "from": "ratiradio-dispatch-window",
@@ -91,8 +90,7 @@
         "from": "ratiradio-staff-kitchen",
         "to": "ratiradio-dispatch-window",
         "kind": "route",
-        "gate": "route:ratiradio-staff-kitchen>ratiradio-dispatch-window",
-        "live": true
+        "gate": "route:ratiradio-staff-kitchen>ratiradio-dispatch-window"
       },
       {
         "from": "ratiradio-staff-kitchen",
@@ -235,7 +233,7 @@
           "flag(key=booth-open,value=true)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "place",
           "target": "ratiradio-broadcast-booth"

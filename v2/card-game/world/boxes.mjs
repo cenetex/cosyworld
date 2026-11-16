@@ -185,8 +185,7 @@ const guardMet = (s, def, actor) =>
 
 /**
  * Whether the facts that lock this box hold for the actor now. The rules read
- * conditions directly, never the latched route, so a play is judged by what it
- * made true. A guard is met only by him letting the traveller by (the Writ),
+ * conditions directly, so a play is judged by what it made true. A guard is met only by him letting the traveller by (the Writ),
  * not by the guard being gone.
  */
 export function boxMet(s, def, actor = currentActor(s)) {

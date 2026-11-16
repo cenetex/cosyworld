@@ -65,9 +65,8 @@ it("remembers direct participants after quest history clears, log trimming and r
     conditionMet(s, { kind: "talked", person: shade }, null, pack.id, antigone),
   ).toBe(false);
 });
-it("migrates retained direct Talk events and keeps an old latch separate from personal access", () => {
+it("migrates retained direct Talk events on load", () => {
   let s = start();
-  s.openedRoutes = [`${field}>${hollow}`];
   s.actors.vale.talked = [shade];
   delete s.conversations;
   s = decodeSave(encodeSave(s));
@@ -115,13 +114,12 @@ it("uses an open physical alternative and preserves an ordinary crossing", () =>
   const alternative = {
     from: field,
     to: hollow,
-    live: true,
     requires: [{ kind: "flag", key: "test-path", value: true }],
   };
   pack.routes.push(alternative);
   try {
     const s = start();
-    s.openedRoutes = [`${field}>${hollow}`];
+    s.packs[pack.id].flags["greek-polynices-heard"] = true;
     expect(personalRouteOpen(s, field, hollow, "vale")).toBe(false);
     expect(exits(s, field, "vale")).not.toContain(hollow);
     s.packs[pack.id].flags["test-path"] = true;

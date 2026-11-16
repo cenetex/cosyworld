@@ -3410,7 +3410,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 28,
+        revision: 29,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -6016,7 +6016,6 @@
           {
             from: "greek-gate",
             to: "greek-battlefield",
-            live: true,
             requires: [
               {
                 kind: "any",
@@ -6040,29 +6039,9 @@
             to: "greek-polynices-hollow",
             requires: [
               {
-                kind: "any",
-                conditions: [
-                  {
-                    kind: "flag",
-                    key: "greek-polynices-heard",
-                    value: true
-                  },
-                  {
-                    kind: "flag",
-                    key: "greek-polynices-anointed",
-                    value: true
-                  },
-                  {
-                    kind: "flag",
-                    key: "greek-polynices-veiled",
-                    value: true
-                  },
-                  {
-                    kind: "flag",
-                    key: "greek-burial-performed",
-                    value: true
-                  }
-                ]
+                kind: "flag",
+                key: "greek-polynices-heard",
+                value: true
               }
             ],
             sealed: {
@@ -13624,7 +13603,7 @@
         schemaVersion: 1,
         id: "lonely-forest",
         packId: "cosyworld.lonely-forest",
-        revision: 4,
+        revision: 5,
         name: "Lonely Forest",
         description: "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
         tone: "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
@@ -14087,7 +14066,6 @@
         routes: [
           {
             from: "forest-oak",
-            live: true,
             to: "forest-trail",
             requires: [
               {
@@ -15403,7 +15381,7 @@
         schemaVersion: 1,
         id: "ratiradio",
         packId: "cosyworld.ratiradio",
-        revision: 4,
+        revision: 5,
         name: "Night Shift at RatiRadio",
         description: "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
         entry: "ratiradio-staff-kitchen",
@@ -15640,7 +15618,6 @@
           {
             from: "ratiradio-staff-kitchen",
             to: "ratiradio-dispatch-window",
-            live: true,
             requires: [
               {
                 kind: "any",
@@ -15686,7 +15663,6 @@
           {
             from: "ratiradio-dispatch-window",
             to: "ratiradio-listening-room",
-            live: true,
             requires: [
               {
                 kind: "any",
@@ -17001,7 +16977,7 @@
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);
       check(
-        i.sealed === void 0 || keysOk(i.sealed, ["live"]) && (i.sealed.live === void 0 || i.sealed.live === true) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
+        i.sealed === void 0 || keysOk(i.sealed, []) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
         `item ${id} sealed needs requires and a place of the pack where it lies (home, if any, the same place)`
       );
       requirements(i.reservedUntil, `item ${id} reservedUntil`);
@@ -17026,9 +17002,8 @@
           "to",
           "requires",
           "travelerRequires",
-          "live",
           "sealed"
-        ]) && (r.live === void 0 || r.live === true) && owns3(places2, r.from) && owns3(places2, r.to) && r.from !== r.to,
+        ]) && owns3(places2, r.from) && owns3(places2, r.to) && r.from !== r.to,
         "routes must stay within their pack"
       );
       const q = r.sealed?.quest;
@@ -17760,7 +17735,7 @@
     if (waitingAtHome(world, id) && !entityEnabled(world, e.home, saved, lockView))
       return false;
     const pack = packDefinition(e.packId), state = packState(world, e.packId);
-    const requires = sealedLatched(world, id, e) ? [] : e.requires;
+    const requires = e.requires;
     if (!state || !lockView && (!conditionsMet(
       world,
       e.packId,
@@ -17775,17 +17750,7 @@
       return (roamingQuestActor(id) || !!recitalVisit(world, pack)) && entityEnabled(world, world.actors[id].place, saved, lockView);
     return pack.release.places.includes(id) || pack.release.avatars.includes(id) || pack.release.items.includes(id);
   }
-  var routeKey = (r) => `${r.from}>${r.to}`;
-  var latching = packDefinitions.flatMap(
-    (pack) => (pack.routes || []).filter((r) => r.requires?.length && !r.live).map((route) => ({ pack: pack.id, route }))
-  );
-  var itemKey = (id) => `item:${id}`;
-  var latchingItems = () => Object.entries(packThings).filter(([, thing]) => thing.sealed && !thing.sealed.live).map(([id, thing]) => ({ pack: thing.packId, id, thing }));
-  var sealedLatched = (world, id, e) => Boolean(
-    e.sealed && !e.sealed.live && world.openedRoutes?.includes(itemKey(id))
-  );
-  var latchKeys = new Set(latching.map(({ route }) => routeKey(route)));
-  var routeOpen = (world, packId, r) => !r.live && Boolean(world.openedRoutes?.includes(routeKey(r))) || conditionsMet(world, packId, r.requires);
+  var routeOpen = (world, packId, r) => conditionsMet(world, packId, r.requires);
   var packRouteOpen = (world, from, to) => packDefinitions.some(
     (pack) => (pack.routes || []).some(
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
@@ -17802,24 +17767,6 @@
       ({ pack, route }) => routeOpen(world, pack, route) && partyMet(world, pack, route.travelerRequires, actor)
     );
   }
-  function latchRoutes(world) {
-    for (const { pack, route } of latching) {
-      const key2 = routeKey(route);
-      if (route.live || world.openedRoutes?.includes(key2)) continue;
-      if (!conditionsMet(world, pack, route.requires)) continue;
-      world.openedRoutes = [...world.openedRoutes || [], key2].sort();
-    }
-    for (const { pack, id, thing } of latchingItems()) {
-      const key2 = itemKey(id);
-      if (!world.items?.[id] || world.openedRoutes?.includes(key2)) continue;
-      if (!conditionsMet(world, pack, thing.requires)) continue;
-      world.openedRoutes = [...world.openedRoutes || [], key2].sort();
-    }
-    return world;
-  }
-  var latchesItem = (key2) => latchingItems().some(({ id }) => itemKey(id) === key2);
-  var latchingRoute = (key2) => latchKeys.has(key2) || latchesItem(key2);
-  var validOpenedRoutes = (list) => list === void 0 || Array.isArray(list) && list.length > 0 && list.every((key2, i) => latchingRoute(key2) && (!i || list[i - 1] < key2));
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
@@ -19292,10 +19239,7 @@
       if (s.memories) delete s.memories[id];
     }
     forgetRetiredThings(s, new Set(gone2));
-    if (Array.isArray(s.openedRoutes)) {
-      s.openedRoutes = s.openedRoutes.filter(latchingRoute);
-      if (!s.openedRoutes.length) delete s.openedRoutes;
-    }
+    delete s.openedRoutes;
     if (s.opened && typeof s.opened === "object" && !Array.isArray(s.opened)) {
       const boxes = new Set(boxDefs().map((d) => d.id));
       for (const id of Object.keys(s.opened))
@@ -19898,7 +19842,6 @@
       "item-cycle": () => validItemCycle(s),
       conversations: () => validConversations(s),
       "held-items": () => validHeldItems(s),
-      "opened-routes": () => validOpenedRoutes(s.openedRoutes),
       opened: () => validOpened(s),
       arcana: () => validArcana(s),
       hidden: () => validHidden(s) && !(s.hidden && !Object.hasOwn(places, s.hidden.place)),
@@ -20103,7 +20046,6 @@
       });
       installJourneyProgress(s, packDefinitions);
       installConversations(s);
-      latchRoutes(s);
       settleGuards(s);
       settleHeldItems(s);
       settleLamp(s);

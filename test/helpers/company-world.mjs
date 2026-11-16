@@ -55,13 +55,11 @@ export const home = {
     {
       from: "co-yard",
       to: "co-b",
-      live: true,
       requires: [{ kind: "item_near", item: "co-key", place: "co-yard" }],
     },
     {
       from: "co-b",
       to: "co-yard",
-      live: true,
       requires: [],
       travelerRequires: [{ kind: "holding", item: "co-key", role: "actor" }],
     },

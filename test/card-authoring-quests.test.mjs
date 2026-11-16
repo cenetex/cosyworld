@@ -86,7 +86,6 @@ describe("authored opening and voyage quests", () => {
       {
         from: "a",
         to: "b",
-        live: true,
         sealed: { quest: { kind: "item", target: "oil" } },
       },
     ];
