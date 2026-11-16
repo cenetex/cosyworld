@@ -159,6 +159,7 @@
 "Fable",
 "Food Sack",
 "Forest Clearing",
+"Funeral Cloth",
 "Funeral Oil",
 "Game board",
 "Game-tile bridge",
@@ -404,6 +405,7 @@
 "vessel"
 ],
 "retired_names": [
+["greek-funeral-cloth","Funeral Cloth"],
 ["greek-grove-cup","The Grove Cup"],
 ["greek-grove-honey","Honey for the Grove"],
 ["greek-marathon-record","The Marathon Record"],
