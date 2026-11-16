@@ -86,7 +86,6 @@ try {
             }),
           ),
         );
-        // Until the cast is still again.
         const moving = [...document.querySelectorAll("#cast *")].some(
           (el) => el.getAnimations().length,
         );
