@@ -176,9 +176,6 @@ describe("the Theban release and its ship", () => {
       trip.transports["greek-ship"].dock = "greek-piraeus";
       // Vale sailed in, so she knows the lane home from Piraeus.
       learnLane(trip, "vale", "greek-harbor", "greek-piraeus");
-      // The land route home enters Thebes by the City Gate, open once the
-      // guard has held the decree there.
-      trip.openedRoutes = ["greek-gate>greek-battlefield"];
       // The Long Walls and the Sacred Way lead home from the city.
       const seen = new Set([start]);
       for (const id of seen)

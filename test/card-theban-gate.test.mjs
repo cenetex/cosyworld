@@ -28,7 +28,6 @@ const told = (s) =>
     .filter((f) => !/^(Paths visible|At the dialogue scene)/.test(f))
     .join(" ");
 const pack = packDefinition("greek-drama");
-const OPENED = ["greek-gate>greek-battlefield"];
 const route = pack.routes.find(
   (r) => r.from === "greek-gate" && r.to === "greek-battlefield",
 );
@@ -81,8 +80,6 @@ describe("the Theban City Gate", () => {
     expect(told(s)).not.toMatch(/\b(shut|barred|bar sits)\b/i);
     s = act(s, "move", { target: "greek-battlefield" });
     expect(exits(s, "greek-battlefield", "vale")).toContain("greek-gate");
-    // A live gate is never recorded as opened.
-    expect(s.openedRoutes ?? []).not.toContain(OPENED[0]);
   });
 
   it("keeps a live route a toggle", () => {
@@ -97,6 +94,5 @@ describe("the Theban City Gate", () => {
     s.items["greek-decree"].holder = "greek-creon";
     const open = reload(s);
     expect(out(open)).toBe(true);
-    expect(open.openedRoutes ?? []).not.toContain(OPENED[0]);
   });
 });
