@@ -29,8 +29,6 @@ mod atmosphere;
 mod authored;
 #[path = "card_narrative/between.rs"]
 mod between;
-#[path = "card_narrative/browser.rs"]
-pub(crate) mod browser;
 #[path = "card_narrative/channel.rs"]
 mod channel;
 #[path = "card_narrative/conversation.rs"]
