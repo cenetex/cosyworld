@@ -188,7 +188,11 @@ export function assistantRoleScenes() {
   shore.items.lamp.lit = false;
   const pond = step(shore, "move", "pond", 0).world;
   return [
-    { name: "Black pond wait", context: step(pond, "wait", null, 0).context },
+    {
+      name: "Black pond wait",
+      context: step(playCard(shore, "move", null, "pond"), "wait", null, 0)
+        .context,
+    },
     {
       name: "Black pond talk",
       context: step(pond, "talk", "moth", 0).context,

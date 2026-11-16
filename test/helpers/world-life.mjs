@@ -15,7 +15,6 @@ import {
 } from "../../v2/card-game/pack-registry.mjs";
 
 export const reload = (s) => decodeSave(encodeSave(s));
-// A full Greek world on its second day, Vale at `place`, the cast met.
 export function lifeWorld({ seed = 7, turn = DAY_TURNS, place } = {}) {
   const s = createWorld({ seed, packScopes: { "greek-drama": "full" } });
   s.turn = s.revision = turn;
