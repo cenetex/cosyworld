@@ -8,7 +8,6 @@ import {
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
-  IDLE_ROUNDS,
   callTransport,
   lanesFrom,
   summonTransport,
@@ -199,25 +198,13 @@ describe("a real voyage", () => {
     expect(targets(s, "ash", "move")).toEqual(["greek-piraeus"]);
   });
 
-  it("an idle passenger cannot hold the ship: it sails its first lane after three rounds", () => {
-    let s = setup("pond");
+  it("a ship with riders, a shut cargo lane and no course stays where it is", () => {
+    let s = setup("greek-harbor");
     s = act(s, "vale", "move", "greek-ship");
-    for (let i = 1; i < IDLE_ROUNDS; i++) {
-      s = act(s, "vale", "wait");
-      expect(state(s).phase).toBe("docked");
-    }
-    s = act(s, "vale", "wait");
-    expect(state(s)).toMatchObject({
-      phase: "sea",
-      destination: "greek-harbor",
-    });
-    expect(
-      s.log.some((e) =>
-        /sails on its own for the Wine-Dark Harbor/i.test(e.text),
-      ),
-    ).toBe(true);
-    s = act(s, "vale", "wait");
-    expect(state(s)).toMatchObject({ phase: "arrived", dock: "greek-harbor" });
+    expect(targets(s, "vale", "course")).toEqual(["pond"]);
+    for (let i = 0; i < 6; i++) s = act(s, "vale", "wait");
+    expect(state(s)).toMatchObject({ phase: "docked", dock: "greek-harbor" });
+    expect(s.actors.vale.place).toBe("greek-ship");
   });
 
   it("an empty ship stays put, and a human waiting at a port brings it one lane closer", () => {
@@ -296,8 +283,7 @@ describe("residents at sea", () => {
     expect(courses(s, "vale")).toEqual(["pond"]);
     s.actors.vale.place = "greek-harbor";
     s = reload(s);
-    // Alone aboard, a resident's course needs no cargo (rules 96).
-    expect(courses(s, "moth")).toEqual(["pond", "greek-piraeus"]);
+    expect(courses(s, "moth")).toEqual(["pond"]);
     // Pip, alone aboard and bound for the pond, sets the course himself.
     let world = ask(s, "vale").world;
     world.actors.moth.place = "greek-ship";
@@ -322,12 +308,19 @@ describe("calling the empty ship", () => {
     callTransport(s, "pond");
     expect(state(s).dock).toBe("greek-harbor");
   });
+
+  it("a called empty ship does not cross a shut cargo lane", () => {
+    const s = setup("pond");
+    for (const id of players) s.actors[id].place = "greek-piraeus";
+    for (s.turn = 1; s.turn < 5; s.turn++) callTransport(s, "greek-piraeus");
+    expect(state(s).dock).toBe("pond");
+    stowProvisions(s, "greek-ship");
+    callTransport(s, "greek-piraeus");
+    expect(state(s).dock).toBe("greek-harbor");
+  });
 });
 
 describe("transport state version 3", () => {
-
-
-
   it("rejects invalid version 3 records", () => {
     const bad = [
       (t) => (t.phase = "flying"),

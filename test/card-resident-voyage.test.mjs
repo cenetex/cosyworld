@@ -1,10 +1,5 @@
-// Residents embark to their own destination (rules 96). With no human
-// aboard, a resident's course is the ship's, along any lane between active
-// docks: the cargo rule binds only a voyage a human rides. The Bard, bound
-// for Piraeus with no cargo aboard, used to wait aboard the Charybdis at the
-// Wine-Dark Harbor until the stuck rule set him ashore, and boarded again
-// before any call; now the ship sails him there, he goes ashore, and the
-// empty ship answers Mara's call.
+// Residents embark to their own destination. Alone aboard, a resident sets
+// the course himself, under the same cargo rule as a player.
 import { describe, expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -13,6 +8,7 @@ import {
   courseToward,
 } from "../v2/card-game/pack-transport.mjs";
 import { openSeas } from "./helpers/open-door.mjs";
+import { stowProvisions } from "./helpers/provisions.mjs";
 
 const SHIP = "greek-ship",
   BARD = "greek-rhapsode",
@@ -20,14 +16,14 @@ const SHIP = "greek-ship",
   PIRAEUS = "greek-piraeus";
 const players = ["vale", "mara"];
 
-// After the plea: no cargo aboard, the ship empty at the harbor with the
-// Bard just aboard and bound for Piraeus, Mara waiting at Piraeus. A released
-// bundle reads only saves of its own rules and content, so it starts from a
-// world it made itself, shaped the same way.
-function start(
-  s = dispatchShared({ op: "create", save: encodeSave(openSeas()) }).world,
-) {
-  s.items["greek-provisions"].holder = HARBOR;
+// After the plea: the ship empty at the harbor with the Bard just aboard and
+// bound for Piraeus, Mara waiting at Piraeus.
+function start(cargo) {
+  const s = dispatchShared({
+    op: "create",
+    save: encodeSave(openSeas()),
+  }).world;
+  stowProvisions(s, cargo);
   for (const a of Object.values(s.actors))
     if (a.place === SHIP) a.place = HARBOR;
   s.actors.vale.place = "greek-courtyard";
@@ -52,13 +48,12 @@ function start(
   });
   return s;
 }
-const startSave = () => JSON.parse(encodeSave(decodeSave(encodeSave(start()))));
+const startSave = (cargo = SHIP) =>
+  JSON.parse(encodeSave(decodeSave(encodeSave(start(cargo)))));
 
-// Mara waits at Piraeus until she can board, through a shared-rules entry
-// point: today's rules, or a released bundle.
 const current = (request) => dispatchShared(request);
-function wait(rules, rounds = 16) {
-  const saved = startSave();
+function wait(rules, cargo, rounds = 16) {
+  const saved = startSave(cargo);
   const created = rules({ op: "create", save: JSON.stringify(saved) });
   expect(created.ok, created.error).toBe(true);
   let world = created.world;
@@ -93,7 +88,7 @@ function wait(rules, rounds = 16) {
 }
 
 describe("residents embark to their own destination", () => {
-  it("sails the Bard to Piraeus, sets him ashore, and answers Mara's call", () => {
+  it("sails the Bard to Piraeus with cargo aboard and sets him ashore", () => {
     const run = wait(current);
     expect(run.bardAt).toContain(SHIP);
     expect(run.bardAt).toContain(PIRAEUS);
@@ -107,6 +102,11 @@ describe("residents embark to their own destination", () => {
     expect(run.world.actors[BARD].place).not.toBe(SHIP);
   });
 
+  it("leaves the Bard aboard at the harbor with no cargo", () => {
+    const run = wait(current, HARBOR);
+    expect(new Set(run.bardAt)).toEqual(new Set([SHIP]));
+    expect(run.world.transports[SHIP].dock).toBe(HARBOR);
+  });
   it("plays out the same way every time", () => {
     expect(JSON.stringify(wait(current).world)).toBe(
       JSON.stringify(wait(current).world),
@@ -117,7 +117,8 @@ describe("residents embark to their own destination", () => {
     expect(courseOptions(s, SHIP, BARD)).toContain(PIRAEUS);
     s.actors.vale.place = SHIP;
     expect(courseOptions(s, SHIP, BARD)).toEqual([]);
-    expect(courseOptions(s, SHIP, "vale")).not.toContain(PIRAEUS);
+    const bare = decodeSave(JSON.stringify(startSave(HARBOR)));
+    expect(courseOptions(bare, SHIP, BARD)).not.toContain(PIRAEUS);
   });
   it("sets a resident bound for its own dock ashore instead of sailing", () => {
     const s = decodeSave(JSON.stringify(startSave()));

@@ -327,7 +327,7 @@ function voyageTurns(entries) {
       continue;
     const ship = fullName(entry.locationId);
     if (
-      !["casts off for", "sails on its own for", "docks at"].some((verb) =>
+      !["casts off for", "docks at"].some((verb) =>
         entry.text?.startsWith(`${ship} ${verb} `),
       )
     )

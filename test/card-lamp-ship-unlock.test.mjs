@@ -68,12 +68,3 @@ it("a resident's selected cloth also reveals the ship during an authoritative pl
   expect(result.ok).toBe(true);
   expect(result.state.crossings[gate].discovered).toBe(true);
 });
-it("keeps an already occupied voyage accessible during save migration", () => {
-  const s = arranged();
-  s.actors.vale.place = "greek-ship";
-  const restored = decodeSave(encodeSave(s));
-  expect(restored.crossings[gate].discovered).toBe(true);
-  expect(restored.actors.vale.place).toBe("greek-ship");
-  expect(restored.transports).toEqual(s.transports);
-  expect(restored.log).toEqual(s.log);
-});

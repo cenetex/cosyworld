@@ -101,7 +101,6 @@ import {
   meetsItemWant,
   refuseWant,
   reviseStalledWants,
-  setAsideWant,
   fillWants,
   renewWant,
   validWant,
@@ -190,7 +189,6 @@ import {
   moveTransport,
   waitForTransport,
   transportArrival,
-  preserveTransportAccess,
   isCourse,
   setCourse,
   sailTransports,
@@ -1302,12 +1300,10 @@ export function legalActions(s, actor = currentActor(s)) {
     out.push(
       offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor]),
     );
-  // A player's Wait after a Wait may become Sleep, never aboard, mid-fight,
-  // or beside a lamp about to burn its last oil.
+  // A player's Wait after a Wait may become Sleep, never aboard or mid-fight.
   else if (
     !asleep &&
     !transportPlace(here) &&
-    !lampGuttering(s, here) &&
     (actor === currentActor(s) || controlledByHuman(s, actor)) &&
     s.log.findLast(
       (e) =>
@@ -2051,9 +2047,6 @@ const witnessesAt = (s, place) =>
   knownActors(s)
     .filter((id) => entityActive(s, id) && bodiesAt(s, place).includes(id))
     .sort();
-// A lit lamp here about to burn its last oil: Sleep would sleep through it.
-const lampGuttering = (s, place) =>
-  s.items.lamp.lit && s.items.lamp.fuel <= 1 && itemPlace(s, "lamp") === place;
 const WAKE_REASONS = [
   "chose",
   "moved",
@@ -2114,11 +2107,6 @@ function wakeSleepers(s, before, voyages) {
       came = first(now.filter((x) => !z.present.includes(x))),
       left = first(z.present.filter((x) => x !== id && !now.includes(x))),
       dock = voyages.find((v) => v.kind === "arrive" && v.dock === z.place),
-      dry =
-        before.items.lamp.lit &&
-        !s.items.lamp.lit &&
-        s.items.lamp.fuel === 0 &&
-        itemPlace(s, "lamp") === z.place,
       was = exits(before, z.place, id),
       ways = exits(s, z.place, id);
     const light = s.turn > z.since && s.turn % DAYLIGHT_TURNS === 0,
@@ -2126,8 +2114,6 @@ function wakeSleepers(s, before, voyages) {
     const [, woke, text] =
       [
         [here !== z.place, "moved", `wakes in ${nameOf(here)}`],
-        [lampGuttering(s, z.place), "lamp", "wakes as the lamp gutters"],
-        [dry, "dry", "wakes as the lamp runs dry"],
         [came, "arrival", `wakes as ${came && nameOf(came)} arrives`],
         [left, "departure", `wakes as ${left && nameOf(left)} leaves`],
         [
@@ -3448,18 +3434,9 @@ export function play(
       "World",
       voyage.kind === "arrive"
         ? `${nameOf(ship)} docks at ${nameOf(voyage.dock)}.`
-        : voyage.kind === "home"
-          ? `With no cargo to sail on, ${nameOf(ship)} puts in at ${nameOf(voyage.dock)}, and everyone aboard goes ashore.`
-          : `${nameOf(ship)} ${voyage.idle ? "sails on its own" : "casts off"} for ${nameOf(voyage.to)}.`,
-      { locationId: voyage.kind === "home" ? voyage.dock : ship },
+        : `${nameOf(ship)} casts off for ${nameOf(voyage.to)}.`,
+      { locationId: ship },
     );
-    // Residents put ashore set that pursuit aside.
-    if (voyage.kind === "home")
-      for (const id of voyage.ashore)
-        if (!humanHeld(next, id)) {
-          setAsideWant(next, id, wantAPI(next));
-          startDwell(next, id);
-        }
   }
   const worldLine = (text, locationId) =>
     addLog(next, "World", text, { kind: "narration", locationId });
@@ -4124,7 +4101,6 @@ export function decodeSave(text) {
     settleLamp(s);
     if (s.stationExitOrder === undefined) settleStationExits(s);
     validateWorld(s);
-    preserveTransportAccess(s);
   } catch (error) {
     // A save that cannot be read starts fresh; it never surfaces a crash.
     if (error instanceof TypeError) return validateWorld(null);

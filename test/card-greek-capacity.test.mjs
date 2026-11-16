@@ -38,6 +38,7 @@ import {
   crowdedAgoraWorld,
 } from "./helpers/greek-capacity.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
+import { learnLane } from "../v2/card-game/pack-transport.mjs";
 
 // The countryside reaches the harbour only through the city, so only Piraeus
 // reaches the harbor without passing through the Agora.
@@ -49,6 +50,8 @@ describe("roads around a full Agora", () => {
     (_place, path) => {
       let world = crowdedAgoraWorld();
       world.actors.vale.place = `greek-${path[0]}`;
+      learnLane(world, "vale", "greek-piraeus", "greek-harbor");
+      stowProvisions(world, "greek-ship");
       const expanded = [];
       let from = world.actors.vale.place;
       for (const next of path.slice(1)) {
@@ -79,8 +82,6 @@ describe("roads around a full Agora", () => {
           expect(result.ok).toBe(true);
           world = result.world;
         }
-        // Vale knows no lane from Piraeus, so she waits aboard until the idle
-        // ship sails its first lane, to the Wine-Dark Harbor.
         for (
           let n = 0;
           n < 8 &&

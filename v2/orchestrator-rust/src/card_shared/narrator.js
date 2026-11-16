@@ -2210,16 +2210,16 @@
     (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
   )?.opensWith ?? null;
   var laneConditions = (from, to) => Object.values(transports).map((t) => laneGate(t, from, to)).find(Boolean) ?? null;
-  var openLanes = (s, t, dock, actor = null, empty = false) => lanesFrom(t, dock).filter((to) => {
+  var openLanes = (s, t, dock, actor = null) => lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;
     const gate = laneGate(t, dock, to);
-    return gate ? empty || conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
+    return gate ? conditionsMet(s, t.packId, gate) : knowsLane(s, actor, dock, to);
   });
   function laneReach(s, id, from, actor = null) {
-    const t = transports[id], free = residentVoyage(s, t, actor);
+    const t = transports[id];
     const seen = /* @__PURE__ */ new Set([from]), queue = [from];
     for (let i = 0; i < queue.length; i++)
-      for (const next of openLanes(s, t, queue[i], actor, free))
+      for (const next of openLanes(s, t, queue[i], actor))
         if (!seen.has(next)) {
           seen.add(next);
           queue.push(next);
@@ -2252,26 +2252,8 @@
   }
   var shipDock = (s, id) => read(s, id)?.phase === "sea" ? null : read(s, id)?.dock ?? null;
   var shipAtSea = (s, id) => read(s, id)?.phase === "sea";
-  function preserveTransportAccess(s) {
-    for (const id of Object.keys(transports)) {
-      if (transportUnlocked(s, id)) continue;
-      if (Object.entries(s.actors).some(
-        ([actor, state]) => state.place === transports[id].place && controlledByHuman(s, actor)
-      )) {
-        const signal = crossings.find(
-          (c) => c.transport === id && (c.signal || c.unlockWhen)
-        );
-        if (signal) s.crossings[signal.id].discovered = true;
-      }
-    }
-    return s;
-  }
   var humanAboard = (s, t) => Object.entries(s.actors).some(
     ([who, a]) => a.place === t.place && controlledByHuman(s, who)
-  );
-  var playerAvatar = (s, who) => controlledByHuman(s, who) || Boolean(humanAvatar(who));
-  var residentVoyage = (s, t, actor) => Boolean(actor) && s.actors[actor]?.place === t.place && !playerAvatar(s, actor) && !Object.entries(s.actors).some(
-    ([who, a]) => a.place === t.place && playerAvatar(s, who)
   );
   function canDisembark(s, id, actor) {
     const state = read(s, id);
@@ -2284,7 +2266,7 @@
     if (!["docked", "arrived"].includes(state.phase)) return [];
     if (actor && s.actors[actor]?.place !== t.place) return [];
     if (actor && !controlledByHuman(s, actor) && humanAboard(s, t)) return [];
-    return openLanes(s, t, state.dock, actor, residentVoyage(s, t, actor));
+    return openLanes(s, t, state.dock, actor);
   }
   function transportExits(s, place, previous = null, actor = null) {
     const found2 = shipAt(place);
@@ -20051,7 +20033,6 @@
       settleLamp(s);
       if (s.stationExitOrder === void 0) settleStationExits(s);
       validateWorld(s);
-      preserveTransportAccess(s);
     } catch (error) {
       if (error instanceof TypeError) return validateWorld(null);
       throw error;
