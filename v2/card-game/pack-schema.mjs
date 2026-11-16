@@ -49,7 +49,6 @@ export const topicCompositionProblems = packCompositionProblems;
 // Resolved plays a signal step can match. Each is a verb the engine logs.
 export const SIGNAL_VERBS = [
   "ring",
-  "cover",
   "take",
   "drop",
   "give",

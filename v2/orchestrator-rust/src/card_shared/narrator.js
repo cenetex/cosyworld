@@ -1231,7 +1231,7 @@
         values: { lamp: 12, oil: 3, bell: 1, cloth: 6 },
         want: { kind: "item", target: "lamp", lit: true },
         grievances: [
-          { kind: "light", on: [{ kind: "snuff" }, { kind: "cover", target: "lamp" }], reason: "{actor} spoiled Pip's light." }
+          { kind: "light", on: [{ kind: "snuff" }], reason: "{actor} spoiled Pip's light." }
         ]
       },
       keeper: {
@@ -16234,7 +16234,6 @@
   }
   var SIGNAL_VERBS = [
     "ring",
-    "cover",
     "take",
     "drop",
     "give",
@@ -20521,7 +20520,6 @@
         "drop",
         "eat",
         "use",
-        "cover",
         "ring",
         "give",
         "trade",

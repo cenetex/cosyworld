@@ -127,7 +127,7 @@ describe("entity memories and model text", () => {
       "lamp-flame": true,
       "lamp-cover": false,
     });
-    world = act(world, "cover", "cloth", "lamp");
+    world.items.cloth.holder = "lamp";
     expect(lamp(world)).toMatchObject({
       "lamp-flame": true,
       "lamp-cover": true,
@@ -862,7 +862,6 @@ describe("witnessed departures and conversation continuity", () => {
       "wait",
       "take",
       "drop",
-      "cover",
       "ring",
       "talk",
       "move",

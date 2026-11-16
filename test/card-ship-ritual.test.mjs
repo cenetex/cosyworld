@@ -66,8 +66,6 @@ function act(s, kind, item, target) {
   assert(r.ok, r.error);
   return r.state;
 }
-const cover = (s) => act(s, "cover", "cloth", "lamp");
-const uncover = (s) => act(s, "take", "cloth");
 // The grounded lamp and actively held cloth are the current arrangement.
 const summon = (s) => {
   if (s.items.cloth.holder !== "vale") s = act(s, "take", "cloth");
@@ -147,11 +145,6 @@ test("a repeated drop cannot replay the discovery", () => {
   assert.equal(encodeSave(arrived), before);
   visible(arrived, true);
 });
-test("the retired cover and uncover sequence cannot summon a carried lamp", () => {
-  const s = uncover(cover(pond()));
-  visible(s, false);
-  assert.equal(shipSignalPhase(s), undefined);
-});
 test("an empty grounded lamp cannot complete the arrangement", () => {
   const s = summon(pond({ fuel: 0 }));
   assert.equal(s.items.lamp.lit, false);
@@ -180,7 +173,7 @@ test("unfulfilled arrangement and permanent discovery both survive reload", () =
   }
 });
 test("inspection never changes discovery or spends room fuel", () => {
-  const s = cover(pond()),
+  const s = pond(),
     before = encodeSave(s);
   for (let i = 0; i < 20; i++) {
     availableCards(s);
@@ -202,7 +195,7 @@ test("a stale quiet cloth choice cannot unlock a saved arrangement", () => {
   visible(s, false);
 });
 test("generated dialogue cannot invent discovery", () => {
-  const s = cover(pond()),
+  const s = pond(),
     ctx = narrativeContext(s);
   const written = applyGeneratedText(s, ctx, {
     revision: ctx.revision,
@@ -293,15 +286,6 @@ test("reselecting the cloth leaves the discovered ship available", () => {
   assert.equal(shipSignalPhase(s), undefined);
   visible(s, true);
 });
-test("covering and uncovering the bell is not a lamp signal", () => {
-  let s = pond();
-  for (let i = 0; i < 2; i++) {
-    s = act(s, "cover", "cloth", "bell");
-    s = act(s, "take", "cloth");
-  }
-  assert.equal(shipSignalPhase(s), undefined);
-  visible(s, false);
-});
 test("earlier saves get an unsummoned pond and keep their history and belongings", () => {
   const old = pond();
   delete old.locations.pond.shipSignal;
@@ -321,7 +305,7 @@ test("invalid saved discovery values fail validation", () => {
   }
 });
 test("the narration does not expose a partial ritual or claim a ship is present", () => {
-  const s = cover(pond()),
+  const s = pond(),
     ctx = narrativeContext(s),
     facts = ctx.entities.find((e) => e.id === "pond").facts;
   assert(

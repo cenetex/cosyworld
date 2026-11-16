@@ -1636,30 +1636,6 @@ export function legalActions(s, actor = currentActor(s)) {
           [id],
         ),
       );
-    if (
-      id === "cloth" &&
-      canReach(s, actor, id) &&
-      item.holder !== "lamp" &&
-      item.holder !== "bell"
-    ) {
-      for (const target of ["lamp", "bell"].filter(
-        (t) =>
-          itemPlace(s, t) === here &&
-          canReach(s, actor, t) &&
-          (rootHolder(s, t) !== actor || hasSpace(s, actor, id)),
-      )) {
-        out.push(
-          offer(
-            "cover",
-            actor,
-            id,
-            target,
-            `${nameOf(actor)} covers the ${nameOf(target)} with the Black cloth.`,
-            [id, target],
-          ),
-        );
-      }
-    }
   }
   const payments = ids.filter((id) => s.items[id].holder === actor);
   const tradePartners = new Set(
@@ -1766,7 +1742,6 @@ const ROOM_LOCKED = new Set([
   "give",
   "trade",
   "ask",
-  "cover",
 ]);
 function roomLocked(s, here, actor, actions) {
   if (!s.standoffs.some((c) => c.location === here)) return actions;
@@ -2672,11 +2647,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s)) {
       s.items.bell.ringing = 3;
       remember(s, "bell", a.text);
       break;
-    case "cover":
-      transfer(s, "cloth", a.target, a.text);
-      remember(s, a.target, a.text);
-      if (a.target === "bell") s.items.bell.ringing = 0;
-      break;
     case "talk": {
       // Keep a committed Talk valid when its turn crosses the subject's clock.
       const turn = s.turn - 1,
@@ -3434,8 +3404,7 @@ export function play(
       entry.itemId === "bell" &&
       !entry.generated,
   );
-  // A fresh ring lasts for three following plays. Covering the bell can still
-  // silence it during this round. Other bells keep their own time.
+  // A fresh ring lasts three plays. Other bells keep their own time.
   if (!rings.length)
     next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
   // Travellers who learn the roads act every round, wherever they are.
