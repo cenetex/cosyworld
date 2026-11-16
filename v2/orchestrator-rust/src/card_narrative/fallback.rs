@@ -1,7 +1,6 @@
 //! The voice's fallback chain (owner, 2026-11-04: characters can be any
-//! model, with fallbacks). A part tries its own model, then each fallback in
-//! order, inside its one scene deadline. Each attempt goes through its own
-//! model's route, so it gets that provider's layout (`chat_messages`).
+//! model, with fallbacks). A part asks its own model once, then each fallback
+//! once, in order, inside its one scene deadline.
 use super::{bounded, tier_config, VoiceSettings};
 use crate::ai_gateway::{AiConfig, ConcreteModelIdentity, ModelCapability};
 use std::time::Duration;
@@ -80,7 +79,6 @@ pub(super) fn chain(config: &AiConfig, own: AiConfig, fallbacks: &[String]) -> O
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Miss {
-    /// The validator blocked the reply; the model may try again.
     Blocked,
     /// A provider error (a 5xx among them) or an empty reply.
     Failed,
@@ -95,11 +93,9 @@ impl Miss {
     }
 }
 
-/// Run a chain of `links` models inside the scene deadline. Each model's
-/// share is the time that remains over the models still to try. A failure or
-/// a timeout moves on at once, and blocked replies after the voice's
-/// attempts. A lone model keeps every attempt, as it did before the chain.
-/// `request` gets the link, the part's attempt number and its time budget.
+/// Run a chain of `links` models inside the scene deadline. Each model is
+/// asked once, with the time that remains shared over the models still to
+/// try. `request` gets the link, the part's attempt number and its budget.
 pub(super) async fn run<T, F, Fut>(
     settings: &VoiceSettings,
     deadline: tokio::time::Instant,
@@ -111,35 +107,18 @@ where
     F: FnMut(usize, u8, Duration) -> Fut,
     Fut: std::future::Future<Output = Result<T, Miss>>,
 {
-    let mut attempt = 0u8;
     for link in 0..links {
-        let start = tokio::time::Instant::now();
-        let share = deadline.saturating_duration_since(start) / (links - link) as u32;
-        let until = if link + 1 == links {
-            deadline
-        } else {
-            start + share
-        };
-        for _ in 0..settings.attempts.max(1) {
-            let now = tokio::time::Instant::now();
-            let budget = until
-                .saturating_duration_since(now)
-                .min(settings.call_timeout);
-            if budget.is_zero() {
-                break;
-            }
-            let result =
-                tokio::time::timeout_at(now + budget, request(link, attempt, budget)).await;
-            if result.is_err() {
-                timed_out(link, attempt);
-            }
-            attempt = attempt.saturating_add(1);
-            match result {
-                Ok(Ok(spoken)) => return Ok(spoken),
-                Ok(Err(Miss::Blocked)) => {}
-                _ if links == 1 => {}
-                _ => break,
-            }
+        let now = tokio::time::Instant::now();
+        let share = deadline.saturating_duration_since(now) / (links - link) as u32;
+        let budget = share.min(settings.call_timeout);
+        if budget.is_zero() {
+            break;
+        }
+        let attempt = link as u8;
+        match tokio::time::timeout_at(now + budget, request(link, attempt, budget)).await {
+            Ok(Ok(spoken)) => return Ok(spoken),
+            Ok(Err(_)) => {}
+            Err(_) => timed_out(link, attempt),
         }
     }
     Err(())
@@ -262,7 +241,7 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn each_failure_moves_on_and_blocked_replies_move_on_after_the_attempts() {
+    async fn each_model_is_asked_once_and_every_miss_moves_on() {
         let settings = VoiceSettings::hosted();
         let deadline = tokio::time::Instant::now() + settings.scene_timeout;
         let mut seen = Vec::new();
@@ -281,13 +260,10 @@ mod tests {
         let timed_out = |link, attempt| late.lock().unwrap().push((link, attempt));
         let result = run(&settings, deadline, 4, request, timed_out).await;
         assert_eq!(result, Ok(3));
-        assert_eq!(seen, [(0, 0), (1, 1), (2, 2), (2, 3), (3, 4)]);
+        assert_eq!(seen, [(0, 0), (1, 1), (2, 2), (3, 3)]);
         assert_eq!(*late.lock().unwrap(), [(1, 1)]);
     }
 
-    /// Pip's line walks the chain: an empty reply, a 5xx, a reply blocked
-    /// twice, then a line. Each attempt has its own provider's layout, and the
-    /// line and the metrics name the model that spoke.
     #[tokio::test]
     async fn a_failing_line_walks_the_chain_in_each_models_own_layout() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
@@ -331,7 +307,7 @@ mod tests {
         let result = result.await.unwrap();
         assert_eq!(result["entries"][1]["model"], "openai/d");
         let requests = seen.lock().unwrap();
-        let tried = "test-entity-model mistralai/m anthropic/c anthropic/c openai/d";
+        let tried = "test-entity-model mistralai/m anthropic/c openai/d";
         assert_eq!(models_for(&requests, "Pip:").join(" "), tried);
         for body in requests.iter().filter(|body| stem_of(body) == "Pip:") {
             let last = body["messages"].as_array().unwrap().last().unwrap();
@@ -344,7 +320,7 @@ mod tests {
         assert!(metrics["by_model"]["openai/d"]["fallbacks"].as_u64() >= Some(1));
         let blocked =
             |model: &str, reason: &str| metrics["by_model"][model]["rejections"][reason].as_u64();
-        assert!(blocked("anthropic/c", "assistant") >= Some(2));
+        assert!(blocked("anthropic/c", "assistant") >= Some(1));
         assert!(blocked("mistralai/m", "provider") >= Some(1));
         assert_eq!(blocked("openai/d", "assistant"), None);
         server.abort();

@@ -84,7 +84,7 @@ fn new_shared_avatars_open_once_and_keep_their_words_through_replay() {
 }
 
 #[test]
-fn reentering_resumes_an_interrupted_opening_and_fences_its_old_worker() {
+fn reentering_never_asks_again_for_an_opening_that_failed() {
     let (app, c, id) = fresh(0);
     let old = full::take_work(&app, &id).unwrap().unwrap();
     c.execute("UPDATE card_full_plays SET until_at=0 WHERE world=?", [&id])
@@ -95,17 +95,12 @@ fn reentering_resumes_an_interrupted_opening_and_fences_its_old_worker() {
     assert_eq!(expired["history"][0]["after"], w.game["eventSeq"]);
     assert!(expired["history"][0]["after"].is_number());
     full::command_as(&app, &id, "owner", &command("enter"), None).unwrap();
-    let next = full::take_work(&app, &id).unwrap().unwrap();
-    assert_eq!(next.id, old.id);
+    assert!(full::take_work(&app, &id).unwrap().is_none());
     full::publish(&app, &id, old, Ok(words(0))).unwrap();
-    assert_eq!(
-        full_store::snapshot(&c, &id, "owner", now()).unwrap()["history"][0]["failed"],
-        true
-    );
-    full::publish(&app, &id, next, Ok(words(0))).unwrap();
     let snapshot = full_store::snapshot(&c, &id, "owner", now()).unwrap();
     assert_eq!(snapshot["history"].as_array().unwrap().len(), 1);
-    assert_eq!(snapshot["history"][0]["lines"].as_array().unwrap().len(), 1);
+    assert_eq!(snapshot["history"][0]["failed"], true);
+    assert_eq!(snapshot["history"][0]["lines"], json!([]));
     assert_eq!(snapshot["world"]["turn"], 0);
 }
 
@@ -201,13 +196,11 @@ fn queued_opening_reads_the_latest_hand_and_keeps_its_reveal_limits() {
         .as_array()
         .unwrap()
         .contains(&json!(w.room(0).unwrap())));
-    // Refresh survives a database reopen and has no extra gameplay turn.
+    // A hand change keeps the words already written.
     let mut choose = command("hold");
     choose.action = json!({"item":"lamp","revision":w.game["revision"]});
     full::run(&c, &id, "owner", &choose, now()).unwrap();
-    assert!(!full::publish(&app, &id, work, Ok(words(0))).unwrap());
+    assert!(full::publish(&app, &id, work, Ok(words(0))).unwrap());
     drop(c);
-    let next = full::take_work(&app, &id).unwrap().unwrap();
-    assert_eq!(next.context["turn"], 0);
-    assert!(full::publish(&app, &id, next, Ok(words(0))).unwrap());
+    assert!(full::take_work(&app, &id).unwrap().is_none());
 }

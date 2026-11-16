@@ -56,9 +56,8 @@ pub(super) fn resume(c: &Connection, id: &str, w: &World, a: usize) -> Result<()
     if !due(w, a) {
         return Ok(());
     }
-    // Re-entering revives an interrupted opener. The attempt counter fences
-    // its old worker, and completed words remain in the journal and history.
-    c.execute("UPDATE card_full_plays SET status='retry',until_at=0,retries=retries+1,result=narrative WHERE id=? AND (status='cancelled' OR (status='done' AND json_extract(result,'$.failed')=1))", [key(id,a)]).map_err(sql_error)?;
+    // Re-entering asks for an opener that was cancelled before its one ask.
+    c.execute("UPDATE card_full_plays SET status='retry',until_at=0,retries=retries+1,result=narrative WHERE id=? AND status='cancelled'", [key(id,a)]).map_err(sql_error)?;
     Ok(())
 }
 
