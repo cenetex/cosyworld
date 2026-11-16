@@ -196,7 +196,6 @@ try {
         await page.waitForFunction(
           () => document.querySelector("#hand").scrollLeft > 0,
         );
-        // Only the edges that hide more cards fade.
         await hand.evaluate((h) => (h.scrollLeft = h.scrollWidth));
         await page.waitForFunction(
           () => document.querySelector("#hand").dataset.fade === "start",
