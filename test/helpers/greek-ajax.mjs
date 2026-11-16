@@ -34,8 +34,6 @@ export const ajaxMove = (world, ...places) =>
     world,
   );
 
-// Troy is a rumour in new worlds (rules 94); old full-scope worlds keep it,
-// and there Myrto's invitation waits on nothing else.
 let start;
 export function ajaxStart() {
   start ||= greekStart({ full: true });

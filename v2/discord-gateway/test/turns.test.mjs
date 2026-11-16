@@ -87,12 +87,26 @@ test("a choice that leaves none at the threshold or above stays silent", async (
 test("the same resident may go on, up to the run cap", async () => {
   const fixed = fixture(Array.from({ length: 9 }, () => next("rati", 0.9)));
   await fixed.hear("m1", "RATi, tell me a story");
-  assert.deepEqual(fixed.sent, ["RATi", "RATi", "RATi"]);
+  assert.deepEqual(fixed.sent, ["RATi", "RATi", "RATi", "RATi", "RATi", "RATi"]);
   assert.equal(fixed.stats.skips["resident-run"], 1);
 });
 
+test("a resident who has spoken yields to another who also wants to speak", async () => {
+  const eager = { rati: 0.5, vale: 0.25, keeper: 0.15, oak: 0.04, none: 0.06 };
+  const fixed = fixture([odds(eager), odds(eager), odds(eager), odds(eager), next("none", 0.9)], { cast: village });
+  await fixed.hear("m1", "Everyone introduce yourselves, one by one.");
+  assert.deepEqual(fixed.sent, ["RATi", "Vale", "Keeper", "RATi"]);
+  assert.ok(fixed.logs.some((line) => line.includes("action=speak turn=vale ")));
+});
+
+test("residents who split the vote still speak while none is under the threshold", async () => {
+  const fixed = fixture([odds({ none: 0.43, keeper: 0.32, whiskerwind: 0.24 }), next("none", 0.9)], { cast: village });
+  await fixed.hear("m1", "the fire is warm tonight");
+  assert.deepEqual(fixed.sent, ["Keeper"]);
+});
+
 test("a group question gets one decision after every message until none wins", async () => {
-  const fixed = fixture([odds(introductions), odds({ oak: 0.41, rati: 0.2, none: 0.3 }), odds({ none: 0.55, rati: 0.3, vale: 0.15 }), odds({ vale: 0.9 })], { cast: village });
+  const fixed = fixture([odds(introductions), odds({ oak: 0.41, rati: 0.2, none: 0.3 }), odds({ none: 0.65, rati: 0.2, vale: 0.15 }), odds({ vale: 0.9 })], { cast: village });
   await fixed.hear("m1", "Can you each introduce yourselves?");
   assert.deepEqual(fixed.sent, ["Keeper", "Oak"]);
   assert.equal(fixed.asks.length, 3);
@@ -102,11 +116,12 @@ test("a group question gets one decision after every message until none wins", a
   assert.ok(fixed.logs.includes("next choice=keeper p=0.38 none=0.12 probs=keeper:0.38,oak:0.29,rati:0.08,vale:0.05,whiskerwind:0.04,none:0.12 action=speak guild=g1 channel=c1"));
 });
 
-test("the run limit stops a chain of different residents at three", async () => {
-  const fixed = fixture([odds({ keeper: 0.8, none: 0.1 }), odds({ oak: 0.8, none: 0.1 }), odds({ moth: 0.8, none: 0.1 }), odds({ rati: 0.8, none: 0.1 })], { cast: village });
+test("the run limit stops a chain of different residents at six", async () => {
+  const chain = ["keeper", "oak", "moth", "rati", "vale", "skull", "whiskerwind"].map((id) => odds({ [id]: 0.8, none: 0.1 }));
+  const fixed = fixture(chain, { cast: village });
   await fixed.hear("m1", "Hello everyone, who lives here?");
-  assert.deepEqual(fixed.sent, ["Keeper", "Oak", "Moth"]);
-  assert.equal(fixed.asks.length, 3);
+  assert.deepEqual(fixed.sent, ["Keeper", "Oak", "Moth", "RATi", "Vale", "Skull"]);
+  assert.equal(fixed.asks.length, 6);
   assert.equal(fixed.stats.skips["resident-run"], 1);
 });
 
@@ -224,10 +239,11 @@ test("after a repeat, Jev's next pick still speaks", async () => {
   assert.equal(fixed.stats.skips.repeat, 1);
 });
 
-test("a resident speaks when none is under the threshold and stays silent when none leads", async () => {
+test("a resident speaks when none is under the threshold and stays silent at or above it", async () => {
   const cases = [
     [{ skull: 0.43, none: 0.31, rati: 0.26 }, ["Skull"]],
-    [{ none: 0.44, skull: 0.3, rati: 0.26 }, []],
+    [{ none: 0.44, skull: 0.3, rati: 0.26 }, ["Skull"]],
+    [{ none: 0.6, skull: 0.4 }, []],
     [{ keeper: 0.44, moth: 0.31, none: 0.19, oak: 0.06 }, ["Keeper"]],
     [{ none: 0.74, skull: 0.26 }, []],
   ];
