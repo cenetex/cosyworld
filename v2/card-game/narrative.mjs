@@ -678,7 +678,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
     // Published lines are immutable: ask only voices that have not spoken.
     // Current-turn conversation above lets a Talk answer the original words.
     const spoken = new Set(world.log.filter((entry) => entry.generated &&
-      !entry.fallback && entry.turn === world.turn && entry.entityId &&
+      entry.turn === world.turn && entry.entityId &&
       ["dialogue", "narration"].includes(entry.kind)).map((entry) => entry.entityId));
     context.speakers = context.speakers.filter((id) => !spoken.has(id));
     if (spoken.has(context.location)) context.scenery = false;
@@ -768,31 +768,24 @@ export function applyGeneratedText(
   )
     return null;
   const ids = context.entities.map((entity) => entity.id);
-  const entries = response.entries;
-  const omitted = response.omitted ?? [];
-  const spoke = (id) => entries.some((entry) => entry?.id === id);
+  // One bad line is left out and stays "…"; the good lines are published.
+  const entries = (Array.isArray(response.entries) ? response.entries : []).filter(
+    (entry, index, all) =>
+      ids.includes(entry?.id) &&
+      all.findIndex((other) => other?.id === entry.id) === index &&
+      typeof entry.text === "string" &&
+      entry.text.trim() &&
+      entry.text.length <= 400 &&
+      !/[\u0000-\u001f\u007f]/u.test(entry.text) &&
+      validExpression(profiles[entry.id], entry.text) &&
+      (entry.model === undefined ||
+        (typeof entry.model === "string" &&
+          entry.model.trim() &&
+          entry.model.length <= 160)),
+  );
+  const omitted = ids.filter((id) => !entries.some((entry) => entry.id === id));
   if (
-    !Array.isArray(entries) ||
-    !Array.isArray(omitted) ||
-    entries.length + omitted.length !== ids.length ||
-    new Set([...entries.map((entry) => entry?.id), ...omitted]).size !==
-      ids.length ||
-    omitted.some((id) => !ids.includes(id)) ||
-    (context.speakers.length > 0 && !context.speakers.some(spoke)) ||
-    entries.some(
-      (entry) =>
-        !ids.includes(entry?.id) ||
-        typeof entry.text !== "string" ||
-        !entry.text.trim() ||
-        entry.text.length > 400 ||
-        /[\u0000-\u001f\u007f]/u.test(entry.text) ||
-        !validExpression(profiles[entry.id], entry.text) ||
-        (entry.model !== undefined &&
-          (typeof entry.model !== "string" ||
-            !entry.model.trim() ||
-            entry.model.length > 160)) ||
-        !validReflection(entry, world, context),
-    ) ||
+    !entries.length ||
     typeof response.model !== "string" ||
     response.model.length > 160
   )
@@ -800,14 +793,14 @@ export function applyGeneratedText(
   const next = structuredClone(world);
   for (const entry of entries) {
     if (preservePublished && world.log.some((line) => line.generated &&
-      !line.fallback && line.turn === world.turn && line.entityId === entry.id)) continue;
+      line.turn === world.turn && line.entityId === entry.id)) continue;
     if (entry.id === context.location && context.scenery === false) continue;
     Object.assign(next.memories[entry.id], {
       text: entry.text.trim(),
       turn: next.turn,
       model: entry.model || response.model,
     });
-    if (entry.reflection)
+    if (entry.reflection && validReflection(entry, world, context))
       saveReflection(next, context, entry, entry.model || response.model);
   }
   if (writeEcho(next, context)) return validateWorld(next);
@@ -858,17 +851,17 @@ export function applyGeneratedText(
 // A speaker whose words did not come stays visibly quiet with "…". These
 // lines are shown, never voiced or saved. A crossing echo replaces the scene.
 export const SILENT_TEXT = "…";
-export function silentSpeakers(context, response, world) {
+export function silentSpeakers(context, world) {
   if (
     context.outcome?.card &&
     signalEcho(world, context.location, context.outcome.card)
   )
     return [];
-  const entries = response?.entries ?? [];
   return context.speakers.filter(
     (id) =>
       profiles[id]?.kind === "avatar" &&
-      !entries.some((entry) => entry?.id === id),
+      !world.log.some((line) => line.generated &&
+        line.turn === world.turn && line.entityId === id),
   );
 }
 export function silentLines(world, ids) {
@@ -1167,7 +1160,7 @@ export function createNarrator({
             { code: "mismatch" },
           );
         preview(null);
-        apply(next, { silent: silentSpeakers(context, response, next) });
+        apply(next, { silent: silentSpeakers(context, next) });
         status("ready");
         reflectScene(context, version);
         return;

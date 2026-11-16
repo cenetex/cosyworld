@@ -121,9 +121,13 @@ describe("authored character expression", () => {
     expect(loaded.log.find((entry) => entry.seq === line.seq)).toEqual(line);
     response.entries.find((entry) => entry.id === "moth").text =
       "I will tell you.";
-    expect(() => applyGeneratedText(world, context, response)).toThrow(
-      "incomplete",
-    );
+    const quiet = applyGeneratedText(world, context, response);
+    expect(
+      quiet.log.some((entry) => entry.generated && entry.actorId === "moth"),
+    ).toBe(false);
+    expect(
+      quiet.log.some((entry) => entry.generated && entry.actorId === "vale"),
+    ).toBe(true);
   });
 
   it("checks shared replies against the trusted profile and preserves their form", () => {

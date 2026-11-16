@@ -21666,7 +21666,7 @@
       })
     };
     if (remaining) {
-      const spoken = new Set(world.log.filter((entry) => entry.generated && !entry.fallback && entry.turn === world.turn && entry.entityId && ["dialogue", "narration"].includes(entry.kind)).map((entry) => entry.entityId));
+      const spoken = new Set(world.log.filter((entry) => entry.generated && entry.turn === world.turn && entry.entityId && ["dialogue", "narration"].includes(entry.kind)).map((entry) => entry.entityId));
       context.speakers = context.speakers.filter((id) => !spoken.has(id));
       if (spoken.has(context.location)) context.scenery = false;
       if (spoken.has(context.focus)) context.focus = null;

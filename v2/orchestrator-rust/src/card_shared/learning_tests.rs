@@ -86,14 +86,8 @@ fn publication_keeps_reflection_private_after_disconnect_and_duplicate_finish() 
     let entries: Vec<_> = ids.iter().map(|id| if id=="vale" {
         json!({"id":id,"text":"I can see the shore.","model":"voice-model","reflection":{"thought":"I will care for what I carry.","persona":"A private revised persona.","evidence":evidence,"models":{"thought":"thought-model","persona":"persona-model"}}})
     } else {json!({"id":id,"text":"Mist gathers by the water."})}).collect();
-    let lines = full_speech::parse(
-        &json!({"entries":entries}).to_string(),
-        "stop",
-        &work.context,
-        0,
-        &ids,
-    )
-    .unwrap();
+    let lines =
+        full_speech::parse(&json!({"entries":entries}).to_string(), &work.context, &ids).unwrap();
     let mut w = full_store::world(&c, &id, now()).unwrap();
     full_store::commit(&c, &id, &mut w, json!({"op":"leave","actor":"vale"}), now()).unwrap();
     full::finish_work(&app, &id, work, Ok(lines)).unwrap();

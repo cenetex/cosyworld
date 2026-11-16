@@ -1373,20 +1373,9 @@ pub(crate) async fn shared_lines(
     let (context, settings) = shared_scene(scene, actor, ids)?;
     // Reflections follow in their own journal op (reflections::shared).
     let scene = complete_selected(config, &context, models, &settings, ids, false, None);
-    let value = voice_scenes::run("shared", &context, ids, false, scene)
+    voice_scenes::run("shared", &context, ids, false, scene)
         .await
-        .map_err(|_| "The play is saved. Its words need another moment.")?;
-    // A shared scene that voices the acting avatar requires its line. A
-    // replying avatar whose words do not come stays silent ("…" on the table),
-    // as atmosphere may.
-    if ids.iter().any(|id| id == actor)
-        && !value["entries"]
-            .as_array()
-            .is_some_and(|entries| entries.iter().any(|e| e["id"] == actor))
-    {
-        return Err("The play is saved. Its words need another moment.".into());
-    }
-    Ok(value)
+        .map_err(|_| "The play is saved. Its words need another moment.".into())
 }
 
 /// What one call asks an entity to say or keep privately.

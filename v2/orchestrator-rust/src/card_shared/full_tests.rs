@@ -798,7 +798,7 @@ async fn server_dialogue_keeps_a_legacy_browser_scene_through_replay() {
     assert!(browser::complete_shared(scene, "vale", &ids, thought).is_err());
     let checked =
         browser::complete_shared(scene, "vale", &ids, answer("vale", "I hear you.")).unwrap();
-    let lines = full_speech::parse(&checked.to_string(), "stop", &work.context, 0, &ids).unwrap();
+    let lines = full_speech::parse(&checked.to_string(), &work.context, &ids).unwrap();
     full::finish_work(&state, &id, work, Ok(lines)).unwrap();
     let expected = full_store::world(&c, &id, now()).unwrap();
     // The journal marks the line as the player's, not a hosted model's.
