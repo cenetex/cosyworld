@@ -1,5 +1,5 @@
 use super::{
-    bounded, complete_selected, error, kind, profiles, system_one, voice_scenes, Context,
+    bounded, complete_selected, error, kind, name, profiles, system_one, voice_scenes, Context,
     TextState, VoiceSettings,
 };
 use crate::ai_gateway::{
@@ -287,6 +287,11 @@ fn standing<'a>(resident: &'a Resident, view: Option<&'a Value>) -> &'a str {
         .unwrap_or(&resident.place)
 }
 
+fn mounted(id: &str) -> Option<&'static Value> {
+    let all = packs()["packs"].as_array()?;
+    all.iter().find_map(|p| p["places"].get(id))
+}
+
 fn named(ids: &Value) -> Vec<String> {
     let ids = ids.as_array().into_iter().flatten();
     ids.filter_map(|id| profiles()[id.as_str()?]["name"].as_str())
@@ -319,9 +324,13 @@ fn knowledge(
     }
     own.extend(listed("Paths from home", &world.paths(home)));
     let at = standing(resident, view);
+    if view.is_some_and(|seen| seen["place"] == at) {
+        own.insert(0, format!("Location now: {}.", name(at)));
+    }
     let mut place: Vec<String> = world
         .places
         .get(at)
+        .or_else(|| mounted(at))
         .and_then(|p| p["text"].as_str())
         .map(str::to_string)
         .into_iter()
@@ -823,7 +832,7 @@ pub(super) async fn lines(
         return silent("no-speaker");
     };
     let seen = live(request.guild.clone(), vec![resident.id.clone()]).await;
-    request.view = seen.map(|mut all| all[&resident.id].take());
+    request.view = seen.and_then(|mut all| all.get_mut(&resident.id).map(Value::take));
     let text = match speak(&state, config, resident, &residents, &request, true).await {
         Ok(text) => text,
         Err(reason) => return silent(reason),
@@ -1933,6 +1942,33 @@ mod tests {
         assert!(!serde_json::to_string(&context)
             .unwrap()
             .contains("a thought"));
+    }
+
+    #[test]
+    fn a_resident_in_another_packs_place_names_that_place_and_not_home() {
+        let residents = cast("lonely-forest").unwrap();
+        let vale = residents.iter().find(|r| r.id == "vale").unwrap();
+        let seen = json!({"place": "greek-courtyard", "here": ["moth"], "holds": ["lamp"],
+            "items": [], "lines": []});
+        let (own, place) = knowledge(vale, "lonely-forest", Some(&seen));
+        assert_eq!(own[0], "Location now: Theban Courtyard.");
+        assert!(
+            place[0].starts_with("Bread cools beneath a cloth."),
+            "{place:?}"
+        );
+        let mut asked = request(json!([{"author": "Mara", "text": "Where are you now, Vale?"}]));
+        assert!(!knowledge(vale, "lonely-forest", None)
+            .0
+            .iter()
+            .any(|fact| fact.starts_with("Location now")));
+        asked.view = Some(seen);
+        let context = scene(vale, &residents, &asked).unwrap();
+        assert_eq!(context.location, "greek-courtyard");
+        let told =
+            super::super::transcript(&context, &context.entities[0], super::super::Part::Line);
+        let at = told.find("I'm at Theban Courtyard.").expect(&told);
+        assert!(at < told.find("Home: Mirror attic.").expect(&told));
+        assert!(!told.contains("I'm at Mirror attic."), "{told}");
     }
 
     #[test]
