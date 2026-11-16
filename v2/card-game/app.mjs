@@ -5939,10 +5939,13 @@ function resumeScene({ otherTab = false } = {}) {
     return;
   }
   if (openingWordsDue()) save();
-  const words = wordsOnLoad(), cast = pendingCast();
-  if (openingWordsDue() && !otherTab && words !== "silent") {
-    // A new game asks the dialogue model for Vale's first line, and a reload
-    // that interrupted it asks again. Words that failed stay "…".
+  let words = wordsOnLoad();
+  if (words === "pending" && !otherTab) {
+    rememberWords(world.revision);
+    words = "silent";
+  }
+  if (openingWordsDue() && !otherTab && !words) {
+    // A new game asks the dialogue model for Vale's first line, once.
     lineSeq = null;
     storyStatus = "pending";
     exchange.begin();
@@ -5950,37 +5953,8 @@ function resumeScene({ otherTab = false } = {}) {
     narrator.changed();
     return;
   }
-  if (!saveBlocked && words === "pending" && !otherTab) {
-    // This turn's words were on the way before the reload: ask again,
-    // quietly, under the Thinking card. Another tab that is asking keeps
-    // its request; this one shows the caption alone.
-    const played = world.log.findLast(
-      (entry) =>
-        entry.turn === world.turn &&
-        entry.kind === "action" &&
-        entry.actorId === currentActor(world),
-    );
-    lineSeq = null;
-    if (hasCurrentWords()) {
-      // A reload keeps the visible line whole while its remaining voices resume.
-      const lines = shownWorld().log.filter((entry) => entry.generated &&
-        isSceneText(entry) && entry.turn === world.turn &&
-        entry.locationId === world.actors[currentActor(world)].place);
-      const saved = readingPosition();
-      const line = lines.find((entry) => saved && entry.seq >= saved.seq) || lines.at(-1);
-      if (line) completedSpeech.add(lineKey(line, line.locationId));
-      exchange.begin();
-      exchange.load(line ? lines.filter((entry) => entry.seq >= line.seq) : [], { pending: true });
-    }
-    render();
-    narrator.changed(
-      played ? { item: played.itemId, target: played.targetId } : null,
-      { remaining: cast || true },
-    );
-    return;
-  }
   if (words === "silent" && openingWordsDue()) {
-    // Vale's first words failed before the reload: he stays "…".
+    // Vale's first words failed, or a reload cut them off: he stays "…".
     render();
     showOpeningSilence();
     return;

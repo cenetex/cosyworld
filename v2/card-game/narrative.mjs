@@ -946,13 +946,12 @@ export async function requestNarrative(
     signal,
   });
   if (!response.ok) {
-    // A 429 carries its Retry-After: the narrator retries a short one inside
+    // A 429 carries its Retry-After: the narrator waits out a short one inside
     // the dialogue grace, and the next request waits out a long one.
     const wait = Number(response.headers.get("retry-after"));
     throw Object.assign(
       new Error(`Story service returned ${response.status}.`),
       {
-        retryable: response.status >= 500,
         ...(response.status === 429
           ? { retryAfter: Number.isFinite(wait) && wait > 0 ? wait * 1000 : 0 }
           : {}),
@@ -1044,17 +1043,13 @@ async function boundedRequest(request, context, signal, progress, timeout) {
     attempt.abort();
   }
 }
-const RETRY_DELAY = 750;
-// A busy 429 (the server's scene slots are full) is asked again at most
-// twice, after its Retry-After plus jitter, while the play is still inside
-// THINKING_GRACE_MS (presentation.mjs). A later or longer wait ends in "…".
+// A busy 429 means the server never started the scene. The one request
+// waits its Retry-After plus jitter, at most twice, while the play is still
+// inside THINKING_GRACE_MS (presentation.mjs). Any other failure is "…".
 const BUSY_RETRIES = 2;
 const BUSY_GRACE = 5_000;
 const BUSY_JITTER = 400;
-// The service budgets each scene plus eight seconds for transport and recovery.
-// Leave its whole scene window and one second to deliver the first reply.
-const RETRY_RESERVE = 7_000;
-function retryPause(signal, delay = RETRY_DELAY) {
+function retryPause(signal, delay) {
   return new Promise((resolve, reject) => {
     const finish = () => {
       clearTimeout(timer);
@@ -1123,7 +1118,7 @@ export function createNarrator({
     let deadline = Date.now() + Math.max(30_000, Math.min(budget, 1_900_000));
     let busy = 0;
     const published = new Map();
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (;;) {
       try {
         const response = await boundedRequest(
           request,
@@ -1153,9 +1148,7 @@ export function createNarrator({
               }
             }
           },
-          // Abort a stalled first transport before it consumes the retry's
-          // share. Both attempts still end at the original scene deadline.
-          Math.max(0, deadline - Date.now() - (attempt ? 0 : RETRY_RESERVE)),
+          Math.max(0, deadline - Date.now()),
         );
         if (version !== ticket) return;
         if (early)
@@ -1186,25 +1179,14 @@ export function createNarrator({
         const wait =
           (error?.retryAfter || 0) + Math.floor(random() * BUSY_JITTER);
         if (
-          error?.retryAfter !== undefined &&
-          busy < BUSY_RETRIES &&
-          Date.now() + wait <= graceEnd
-        ) {
-          // The server turned the scene away before starting it, so the
-          // pause extends the scene's deadline instead of spending it.
-          busy++;
-          attempt--;
-          deadline += wait;
-          await retryPause(signal, wait);
-          continue;
-        }
-        if (
-          attempt === 1 ||
-          error?.retryable === false ||
-          deadline - Date.now() <= RETRY_DELAY
+          error?.retryAfter === undefined ||
+          busy >= BUSY_RETRIES ||
+          Date.now() + wait > graceEnd
         )
           throw error;
-        await retryPause(signal);
+        busy++;
+        deadline += wait;
+        await retryPause(signal, wait);
       }
     }
   }

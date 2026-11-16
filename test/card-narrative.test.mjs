@@ -388,7 +388,7 @@ describe("entity memories and model text", () => {
     expect(world.turn).toBe(0);
   });
 
-  it("retries a temporary provider failure on the same turn", async () => {
+  it("asks once and leaves a provider failure silent", async () => {
     vi.useFakeTimers();
     let world = act(createWorld(), "wait");
     const before = encodeSave(world);
@@ -406,15 +406,10 @@ describe("entity memories and model text", () => {
       request,
     });
     narrator.changed();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(status).toHaveBeenLastCalledWith("pending");
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(status).toHaveBeenLastCalledWith("failed", expect.any(Error));
     expect(encodeSave(world)).toBe(before);
-    await vi.advanceTimersByTimeAsync(750);
-    expect(request).toHaveBeenCalledTimes(2);
-    expect(request.mock.calls.map(([context]) => context.turn)).toEqual([1, 1]);
-    expect(status).toHaveBeenLastCalledWith("ready");
-    expect(world.turn).toBe(1);
-    expect(world.memories.vale.turn).toBe(1);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -444,95 +439,6 @@ describe("entity memories and model text", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it.each([22_000, 23_000])(
-    "reserves a same-turn retry after failure or timeout at %ims",
-    async (failedAt) => {
-      vi.useFakeTimers();
-      let world = act(createWorld(), "take", "lamp");
-      const before = structuredClone(world);
-      const error = new Error("Late transport failure.");
-      const status = vi.fn();
-      const request = vi
-        .fn()
-        .mockImplementationOnce(
-          () =>
-            new Promise((_, reject) =>
-              setTimeout(() => reject(error), failedAt),
-            ),
-        )
-        .mockImplementationOnce(
-          (context) =>
-            new Promise((resolve) =>
-              setTimeout(() => resolve(response(context)), 4_000),
-            ),
-        );
-      const narrator = createNarrator({
-        getWorld: () => world,
-        apply: (next) => {
-          world = next;
-        },
-        status,
-        request,
-      });
-      narrator.changed({ kind: "take", item: "lamp" });
-      await vi.advanceTimersByTimeAsync(failedAt);
-      expect(status).toHaveBeenLastCalledWith("pending");
-      expect(request).toHaveBeenCalledTimes(1);
-      expect(request.mock.calls[0][1].aborted).toBe(true);
-      expect(world).toEqual(before);
-      await vi.advanceTimersByTimeAsync(4_750);
-      expect(request).toHaveBeenCalledTimes(2);
-      expect(
-        request.mock.calls.map(([context]) => [context.turn, context.occasion]),
-      ).toEqual([
-        [1, "want_met"],
-        [1, "want_met"],
-      ]);
-      expect(world.actors).toEqual(before.actors);
-      expect(world.items).toEqual(before.items);
-      expect(world.revision).toBe(before.revision);
-      expect(status).toHaveBeenLastCalledWith("ready");
-      expect(vi.getTimerCount()).toBe(0);
-    },
-  );
-
-  it("does not start a transport when its retry pause resumes past the deadline", async () => {
-    vi.useFakeTimers();
-    let world = act(createWorld(), "wait");
-    const before = structuredClone(world);
-    const status = vi.fn();
-    const request = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("Offline."))
-      .mockImplementationOnce(async (context) => response(context));
-    const narrator = createNarrator({
-      getWorld: () => world,
-      apply: (next) => {
-        world = next;
-      },
-      status,
-      request,
-    });
-    narrator.changed();
-    await vi.advanceTimersByTimeAsync(0);
-    expect(status).toHaveBeenLastCalledWith("pending");
-    expect(vi.getTimerCount()).toBe(1);
-
-    // The browser can suspend while a still-affordable retry pause is pending.
-    vi.setSystemTime(Date.now() + 30_000);
-    await vi.advanceTimersByTimeAsync(750);
-    expect(request).toHaveBeenCalledTimes(1);
-    expect(status).toHaveBeenLastCalledWith(
-      "failed",
-      expect.objectContaining({ message: "Story request timed out." }),
-    );
-    expect(world).toEqual(before);
-    expect(vi.getTimerCount()).toBe(0);
-    // Nothing asks again: the scene's speakers stay "…".
-    await vi.advanceTimersByTimeAsync(60_000);
-    expect(request).toHaveBeenCalledTimes(1);
-  });
-
   it("releases the hand when a request is rejected by its input or access rules", async () => {
     vi.useFakeTimers();
     const status = vi.fn();
@@ -557,7 +463,7 @@ describe("entity memories and model text", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("reports a 429 as not retryable with its Retry-After", async () => {
+  it("reports a 429 with its Retry-After", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -566,7 +472,6 @@ describe("entity memories and model text", () => {
       ),
     );
     await expect(requestNarrative({ speakers: [] })).rejects.toMatchObject({
-      retryable: false,
       retryAfter: 10_000,
     });
     vi.unstubAllGlobals();
@@ -717,7 +622,7 @@ describe("entity memories and model text", () => {
       expect.objectContaining({ message: "Story request timed out." }),
     );
     expect(apply).not.toHaveBeenCalled();
-    expect(requests).toHaveLength(2);
+    expect(requests).toHaveLength(1);
     for (const request of requests) {
       expect(request.signal.aborted).toBe(true);
       request.progress([{ id: "vale", text: "Old words" }]);
@@ -728,7 +633,7 @@ describe("entity memories and model text", () => {
     expect(vi.getTimerCount()).toBe(0);
     world = act(world, "wait");
     narrator.changed();
-    requests[2].resolve(response(requests[2].context));
+    requests[1].resolve(response(requests[1].context));
     await vi.advanceTimersByTimeAsync(0);
     expect(status).toHaveBeenLastCalledWith("ready");
     expect(world.memories.vale.turn).toBe(1);
@@ -773,8 +678,7 @@ describe("entity memories and model text", () => {
     });
     narrator.changed({ kind: "take", item: "lamp" });
     await vi.advanceTimersByTimeAsync(750);
-    // One automatic attempt after a short pause, then "…": never "retry".
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(1);
     expect(status).toHaveBeenLastCalledWith("failed", expect.any(Error));
     expect(status).not.toHaveBeenCalledWith("retry", expect.anything());
     expect(apply).not.toHaveBeenCalled();
@@ -782,11 +686,11 @@ describe("entity memories and model text", () => {
     expect(narrator.retry).toBeUndefined();
     expect(narrator.resume).toBeUndefined();
     await vi.advanceTimersByTimeAsync(60_000);
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("cancels a retry pause when a saved world is replaced", async () => {
+  it("asks for a replaced saved world after a failed request", async () => {
     vi.useFakeTimers();
     let world = act(createWorld(), "wait");
     const request = vi
