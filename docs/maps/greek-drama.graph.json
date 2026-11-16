@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 26,
+  "revision": 27,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -8064,6 +8064,12 @@
         ]
       },
       {
+        "avatar": "greek-elder",
+        "kind": "place",
+        "target": "greek-well",
+        "items": []
+      },
+      {
         "avatar": "greek-shipmaster",
         "kind": "item",
         "target": "greek-provisions",
@@ -10603,6 +10609,10 @@
       ],
       "want:greek-creon": [
         "resident:greek-creon"
+      ],
+      "want:greek-elder": [
+        "place:greek-well",
+        "resident:greek-elder"
       ],
       "want:greek-guard": [
         "resident:greek-guard"

@@ -163,6 +163,7 @@ const STAGED = {
   "greek-antigone": 1,
   "greek-ismene": 3,
   "greek-creon": 2,
+  "greek-elder": 1,
   "greek-colonus-keeper": 2,
   "ratiradio-rati": 3,
 };
