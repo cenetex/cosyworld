@@ -2,7 +2,6 @@
 // The `.dev` agent test passkey. `.dev` runs members-only
 // (`COSYWORLD_PASSKEYS=members`), so agents and CI smokes sign in as the
 // dedicated `agent-test` account through a Chrome virtual authenticator.
-//
 //   node v2/scripts/dev-test-passkey.mjs generate [--force]
 //     Writes a new key pair to ~/.config/cosyworld/dev-test-passkey.json
 //     (mode 600) and prints the owner's fly and gh commands.
