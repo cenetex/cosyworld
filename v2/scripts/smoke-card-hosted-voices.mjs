@@ -158,6 +158,11 @@ async function checkSharedVoice(width) {
   await checkAccountRefresh(page);
   await page.reload();
   await page.waitForFunction(() => document.body.inert === false);
+  for (const id of await page.$$eval(
+    '#hand [data-card][data-unrevealed="true"]',
+    (cards) => cards.map((card) => card.dataset.card),
+  ))
+    await revealCard(page, id);
   await page.locator("#speaker").click();
   await page.waitForFunction(
     () =>
