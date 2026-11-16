@@ -1969,6 +1969,8 @@ mod tests {
         let at = told.find("I'm at Theban Courtyard.").expect(&told);
         assert!(at < told.find("Home: Mirror attic.").expect(&told));
         assert!(!told.contains("I'm at Mirror attic."), "{told}");
+        assert!(told.contains("I hold: Lamp."), "{told}");
+        assert!(!told.contains("Station Key"), "{told}");
     }
 
     #[test]

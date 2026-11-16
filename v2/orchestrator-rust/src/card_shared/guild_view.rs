@@ -146,6 +146,29 @@ mod tests {
     }
 
     #[test]
+    fn the_view_follows_the_latest_saved_state() {
+        let (path, _) = saved(&format!("discord-guild:{GUILD}"));
+        let c = store::open(&path).unwrap();
+        c.execute(
+            "UPDATE card_full_checkpoints SET state=json_set(state,\
+             '$.game.items.cloth.holder','vale','$.game.actors.vale.place','greek-courtyard')",
+            [],
+        )
+        .unwrap();
+        drop(c);
+        let all = view(&path, GUILD, &["moth".into(), "vale".into()]).unwrap();
+        assert_eq!(all["vale"]["place"], "greek-courtyard");
+        assert_eq!(all["vale"]["lines"], json!([]));
+        let holds = |id: &str| {
+            all[id]["holds"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("cloth"))
+        };
+        assert!(holds("vale") && !holds("moth"), "{all}");
+    }
+
+    #[test]
     fn private_thoughts_and_unknown_facts_never_leave_the_world() {
         let (path, _) = saved(&format!("discord-guild:{GUILD}"));
         let ids: Vec<String> = ["moth", "vale", "keeper"].map(String::from).into();
