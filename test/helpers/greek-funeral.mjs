@@ -3,8 +3,6 @@ import { worldLife } from "../../v2/card-game/resident-home.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { endStandoff } from "./standoff.mjs";
 
-// Start at Dione's courtyard, then earn the writ and carry every supply by
-// ordinary card plays. The crossing has its own journey tests.
 export function funeralJourney(world = null) {
   if (!world) {
     world = createWorld();
