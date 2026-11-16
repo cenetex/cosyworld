@@ -661,8 +661,8 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     // P2 and P4: a return compared with the visit before it.
     assert!(view("P2 back at the pond", "vale").contains("The Bell wasn't here last time I came."));
     assert!(view("P4 alone at the pond", "vale").ends_with(
-        "Pip was here last time I came. The water lies black and still; something breathes \
-         under it. My Lamp is unlit. I'm alone here."
+        "Pip was here last time I came. Wet reeds brush my legs; water laps at cold stones, \
+         and moth wings tick past. My Lamp is unlit. I'm alone here."
     ));
     // An older tab sends no perception: the earlier view, unchanged.
     let (_, harbor, _) = cases

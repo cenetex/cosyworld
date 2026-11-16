@@ -633,16 +633,16 @@ try {
       await load(meal);
       await selectCard(page, "greek-wine-skin");
       await selectCard(page, "greek-guard");
-      assert.deepEqual(await labels(), ["Give to The Gate Guard"]);
+      assert.deepEqual(await labels(), ["Give to the Gate Guard"]);
       await selectCard(page, "vale");
       assert.deepEqual(await chosen(), [
         "greek-guard",
         "greek-wine-skin",
         "vale",
       ]);
-      assert.deepEqual(await labels(), ["Drink with The Gate Guard"]);
+      assert.deepEqual(await labels(), ["Drink with the Gate Guard"]);
       await selectCard(page, "vale");
-      assert.deepEqual(await labels(), ["Give to The Gate Guard"]);
+      assert.deepEqual(await labels(), ["Give to the Gate Guard"]);
       if (width === 1440) {
         const dataTransfer = await page.evaluateHandle(
           () => new DataTransfer(),
@@ -650,7 +650,7 @@ try {
         await card("greek-guard").dispatchEvent("dragstart", { dataTransfer });
         await card("vale").dispatchEvent("drop", { dataTransfer });
       } else await selectCard(page, "vale");
-      assert.deepEqual(await labels(), ["Drink with The Gate Guard"]);
+      assert.deepEqual(await labels(), ["Drink with the Gate Guard"]);
       await page.locator('#card-actions [data-action="eat"]').click();
       await ready();
       assert(

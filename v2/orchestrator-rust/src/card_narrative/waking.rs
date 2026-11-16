@@ -28,7 +28,7 @@ pub(super) fn lead(context: &Context) -> String {
     if context.covered.contains(&context.location) {
         String::new()
     } else {
-        conversation::place(context)
+        conversation::place(context, "")
     }
 }
 

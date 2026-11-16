@@ -1,7 +1,7 @@
 {
   "about": "First-person place anchors and avatar pronouns, read only by the server's voice context (P3); not rules data.",
   "places": {
-    "attic": "Dust tickles my nose; a tall mirror shows a black shore.",
+    "attic": "I smell warm lamp oil and old wood; the mirror's glass is cold to my hand.",
     "clearing": "Warm moss gives under my feet; a clock ticks and hisses in the trees.",
     "forest-cottage": "The kettle ticks as it warms; rain taps the window by the hearth.",
     "forest-garden": "Rain drips from broad leaves; wet stepping stones under my feet.",
@@ -65,8 +65,8 @@
     "hoppycat-red-thread-belfry": "A great bell hangs silent over me; red thread rasps on its wheel.",
     "hoppycat-settled-light-theatre": "Disco light scatters over my skin; the stage boards creak.",
     "hoppycat-signal-jetty": "Cool air on the terrace; the sky opens wide and starry above me.",
-    "pond": "The water lies black and still; something breathes under it.",
-    "station": "My footsteps echo on the bare platform; dust hangs in the light.",
+    "pond": "Wet reeds brush my legs; water laps at cold stones, and moth wings tick past.",
+    "station": "Rust flakes under my hand on the rail; a clock face ticks over old timetable paper.",
     "willows-bank": "Bare roots hang over me; loose sand slides away into the flood.",
     "willows-camp": "Fire smoke drifts past the tent; the willow tops hiss in the wind.",
     "willows-landing": "Sand gives under my boots; the flooded river roars past the willows.",

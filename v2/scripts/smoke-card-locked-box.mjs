@@ -246,12 +246,12 @@ try {
       assert.equal(await lock.textContent(), "Locked");
       assert.equal(
         await page.locator(".action-beat-text").textContent(),
-        "Give Creon's Writ to The Gate Guard",
+        "Give Creon's Writ to the Gate Guard",
       );
       assert.equal(await lock.isDisabled(), true);
       assert.equal(await lock.getAttribute("title"), await page.locator(".action-beat-text").textContent());
       assert.equal(await page.locator("#selection-name").textContent(), "Closed box");
-      assert.match(await page.locator("#play-readout").textContent(), /Give Creon's Writ to The Gate Guard/u);
+      assert.match(await page.locator("#play-readout").textContent(), /Give Creon's Writ to the Gate Guard/u);
       assert.doesNotMatch(await page.locator("#play-readout").textContent(), /Battlefield/u);
       assert.deepEqual(await questState(), beforeBox, "box preview adds no quest or outcome");
       await clearSelection(page);

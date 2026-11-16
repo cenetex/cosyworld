@@ -97,7 +97,7 @@ describe("the quest card", () => {
     // The label is the verb; the caption is the card's accessible name.
     expect(questVerb(s, quest)).toBe("Give");
     expect(questCaption(quest)).toBe(
-      `Give ${nameOf("greek-decree")} to The Gate Guard`,
+      "Give the Burial Decree to the Gate Guard",
     );
     const top = Math.max(
       cardLevel(s, "greek-decree"),
@@ -298,13 +298,13 @@ describe("the quest card", () => {
     };
     expect(questVerb(s, rest)).toBe("Rest");
     expect(questCaption(rest, false, questVerb(s, rest))).toBe(
-      "Rest at The Hillside Sanctuary",
+      "Rest at the Hillside Sanctuary",
     );
     // Away from it, the card still shows the way there.
     s.actors.vale.place = "greek-palace";
     expect(questVerb(s, rest)).toBe("Go to");
     expect(questCaption(rest, false, questVerb(s, rest))).toBe(
-      "Go to The Hillside Sanctuary and rest there",
+      "Go to the Hillside Sanctuary and rest there",
     );
   });
 

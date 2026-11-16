@@ -99,9 +99,10 @@ fn lone(context: &Context, entity: &Entity) -> bool {
         && super::system_voice(entity, Part::Line).starts_with("You are ")
 }
 
-pub(super) fn place(context: &Context) -> String {
-    let sense = super::perception::anchor(&context.location)
-        .filter(|_| !context.concealed.contains(&context.location));
+pub(super) fn place(context: &Context, seen: &str) -> String {
+    let sense = super::perception::anchor(&context.location).filter(|sense| {
+        !context.concealed.contains(&context.location) && !seen.contains(sense.as_str())
+    });
     let here = format!("You are standing in {}.", name(&context.location));
     [here]
         .into_iter()
@@ -341,7 +342,10 @@ pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
             true => super::system_voice(entity, Part::Line),
             false => system(entity),
         },
-        lead: if lone { place(context) } else { String::new() },
+        lead: match lone {
+            true => place(context, &assistant),
+            false => String::new(),
+        },
         assistant,
         user: user(context, entity),
     }

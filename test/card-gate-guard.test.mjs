@@ -38,7 +38,7 @@ describe("the Gate Guard", () => {
     expect(exits(s, GATE, "vale")).not.toContain(FIELD);
     expect(exits(s, GATE, "greek-antigone")).not.toContain(FIELD);
     expect(exits(s, GATE, GUARD)).toContain(FIELD);
-    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
+    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to the Gate Guard");
     expect(
       questOffers(s).find((o) => o.id === `quest:box:${FIELD}`),
     ).toBeTruthy();
@@ -47,7 +47,7 @@ describe("the Gate Guard", () => {
     far.actors.vale.visited.push(GATE);
     const field = reload(far);
     expect(exits(field, FIELD, "vale")).not.toContain(GATE);
-    expect(lockText(field, GATE)).toBe("Give Creon's Writ to The Gate Guard");
+    expect(lockText(field, GATE)).toBe("Give Creon's Writ to the Gate Guard");
     expect(exits(field, FIELD, GUARD)).toContain(GATE);
   });
 
@@ -68,7 +68,7 @@ describe("the Gate Guard", () => {
     let s = lifeWorld({ place: GATE });
     s = act(s, "talk", { target: GUARD });
     expect(s.actors[GUARD].guarding).toBe(FIELD);
-    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
+    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to the Gate Guard");
   });
 
   it("is knocked through on defeat, holds a grudge, walks back and bars again", () => {
@@ -89,7 +89,7 @@ describe("the Gate Guard", () => {
     expect(s.actors[GUARD].guarding).toBe(FIELD);
     s = act(s, "move", { target: GATE });
     expect(exits(s, GATE, "vale")).not.toContain(FIELD);
-    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
+    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to the Gate Guard");
   });
 
   it("stands aside while he holds Creon's writ, wherever he stands", () => {
@@ -205,7 +205,7 @@ describe("the Exposed Battlefield", () => {
   it("keeps the road open while the City Gate and Hollow keep their gates", () => {
     let s = lifeWorld({ place: FIELD });
     expect(waysOut(s)).toEqual([ROAD, GATE, "greek-polynices-hollow"]);
-    expect(lockText(s, GATE)).toBe("Give Creon's Writ to The Gate Guard");
+    expect(lockText(s, GATE)).toBe("Give Creon's Writ to the Gate Guard");
     expect(sealedReason(s, ROAD)).toBe(null);
     // The writ lifts the City Gate bar on both sides; the road stays open.
     s.items["greek-creon-writ"].holder = GUARD;

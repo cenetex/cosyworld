@@ -3,7 +3,8 @@
 // authored or decides anything; the rules own the want (want.mjs).
 import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable } from "./pack-registry.mjs";
-import { UNKNOWN, conditionWords, wantWords } from "./world/want-words.mjs";
+import { UNKNOWN, conditionWords, kindOf, wantWords } from "./world/want-words.mjs";
+import { inSentence, theName } from "./combat-beats.mjs";
 import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
 import { homeOf } from "./world/home.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
@@ -103,7 +104,11 @@ export function offerLapse() {
     standing: (offer) => (offer && offer.key !== lapsed ? offer : null),
   };
 }
-const the = (name) => (/^(the|an?) /iu.test(name) ? name : `the ${name}`);
+const SPOKEN = {
+  name: inSentence,
+  kind: kindOf,
+  drink: (id) => consumable(id) === "drink",
+};
 export function offerWords(quest, known = () => true) {
   const who = nameOf(quest.offer),
     said = quest.goal ?? quest;
@@ -112,7 +117,7 @@ export function offerWords(quest, known = () => true) {
     said.step?.verb === "give" &&
     (said === quest || said.step.to === quest.offer)
   )
-    return `${who} asks for ${known(said.target) ? the(nameOf(said.target)) : UNKNOWN.item}`;
+    return `${who} asks for ${known(said.target) ? theName(said.target) : UNKNOWN.item}`;
   const words = questCaption(quest, false, null, known);
   return `${who} asks you to ${words[0].toLowerCase()}${words.slice(1)}`;
 }
@@ -162,8 +167,9 @@ export function questCaption(
   if (quest.kind === "arcanum" && quest.face === "down") return "";
   const words =
     quest.kind === "arcanum"
-      ? (conditionWords(quest.conditions, known, { home: quest.home }) ?? "…")
+      ? (conditionWords(quest.conditions, known, { home: quest.home, cards: SPOKEN }) ?? "…")
       : wantWords(want, shown, {
+          cards: SPOKEN,
           // The accessible goal names the same verb as the place card, including
           // places whose name is known but which this avatar has not visited yet.
           approach:

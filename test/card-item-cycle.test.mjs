@@ -382,7 +382,7 @@ describe("rules 95 item cycle", () => {
     expect(exits(s, "greek-gate", "vale")).not.toContain("greek-battlefield");
     expect(availableCards(s)).toContain("greek-battlefield");
     expect(lockText(s, "greek-battlefield")).toBe(
-      "Give Creon's Writ to The Gate Guard",
+      "Give Creon's Writ to the Gate Guard",
     );
     // The locked card only says what it waits on (rules 102); Talk gives his
     // quest.
