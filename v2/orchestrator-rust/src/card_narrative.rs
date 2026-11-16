@@ -2662,10 +2662,9 @@ impl<'a> Check<'a> {
         // whose reply opens in narration speaks from its first line that
         // talks to someone.
         let avatar = kind(&self.entity.id, "avatar");
-        let staged: Vec<(&str, String, bool)> = raw
-            .trim()
+        let staged: Vec<(&str, String, bool)> = speech::unlabelled(raw)
             .lines()
-            .map(|l| speech::unlabelled(l.trim()))
+            .map(str::trim)
             .filter(|l| !l.is_empty())
             .map(|l| {
                 let (text, directed) = unstage(l);
