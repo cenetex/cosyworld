@@ -1375,10 +1375,8 @@ fn readable_reasoning_trace(message: &Value) -> Option<String> {
 /// instruction.
 pub(crate) const SILENCE: &str = "…";
 
-/// Ends an opening user turn carried ahead of a view (`led`).
 const LEAD_END: char = '\u{0}';
 
-/// A view with its own opening user turn in place of silence.
 pub(crate) fn led(lead: &str, view: &str) -> String {
     if lead.is_empty() {
         view.to_string()

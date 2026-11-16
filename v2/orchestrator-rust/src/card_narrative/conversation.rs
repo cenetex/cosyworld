@@ -64,12 +64,9 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
     }
 }
 
-/// The lone questions (owner, 2026-11-16): a "…" turn read as a silent
-/// person, and the avatar spoke to them.
 pub(super) const THINK: &str = "What do you think to yourself? One short sentence.";
 pub(super) const NOTICE: &str = "In one short sentence, what do you notice here?";
 
-/// The one I face when nobody has spoken yet.
 fn facing(context: &Context, entity: &Entity) -> Option<String> {
     super::listener(context, &entity.id)
         .filter(|_| entity.perception.is_some() || custody::exchange(context, &entity.id))
@@ -84,7 +81,6 @@ fn lone(context: &Context, entity: &Entity) -> bool {
         && super::system_voice(entity, Part::Line).starts_with("You are ")
 }
 
-/// Where a lone voice stands, as its opening user turn.
 fn place(context: &Context) -> String {
     let sense = super::perception::anchor(&context.location)
         .filter(|_| !context.concealed.contains(&context.location));
@@ -96,7 +92,6 @@ fn place(context: &Context) -> String {
         .join(" ")
 }
 
-/// What a lone voice just did, then its question.
 fn alone(context: &Context, entity: &Entity) -> String {
     let mine = context.outcome.iter().flat_map(|o| &o.avatars);
     let came = mine
