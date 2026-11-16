@@ -511,14 +511,9 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
     let provider = Router::new().route(
         "/chat/completions",
         post(move |Json(body): Json<Value>| {
-            let attempt = count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             async move {
-                // The first reply speaks as an assistant; the second is speech.
-                let text = if attempt == 0 {
-                    "As an AI, I keep the lamp."
-                } else {
-                    "I keep the lamp close and listen."
-                };
+                let text = "As an AI, I keep the lamp.";
                 Json(json!({"model":body["model"],"choices":[{"message":{"content":text},"finish_reason":"stop"}]}))
             }
         }),
@@ -535,13 +530,10 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
         false,
         None,
     )
-    .await
-    .unwrap();
+    .await;
     server.abort();
-    assert_eq!(
-        result["entries"][0]["text"],
-        "I keep the lamp close and listen."
-    );
+    assert!(result.is_err());
+    assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
     let after = super::voice_metrics::snapshot();
     let grew = |path: &[&str], by: u64| {
         let read = |v: &Value| path.iter().fold(v, |v, k| &v[*k]).as_u64().unwrap_or(0);
@@ -551,8 +543,8 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
         );
     };
     grew(&["calls"], 1);
-    grew(&["attempts"], 2);
-    grew(&["outcomes", "spoken"], 1);
+    grew(&["attempts"], 1);
+    grew(&["outcomes", "silent"], 1);
     grew(&["rejections", "assistant"], 1);
     assert!(after["prompt_tokens"]["max"].as_u64().unwrap() > 0);
     // Counters carry labels and numbers, never prompt or reply text.

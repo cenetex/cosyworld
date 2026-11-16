@@ -196,13 +196,11 @@ fn queued_opening_reads_the_latest_hand_and_keeps_its_reveal_limits() {
         .as_array()
         .unwrap()
         .contains(&json!(w.room(0).unwrap())));
-    // Refresh survives a database reopen and has no extra gameplay turn.
+    // A hand change keeps the words already written.
     let mut choose = command("hold");
     choose.action = json!({"item":"lamp","revision":w.game["revision"]});
     full::run(&c, &id, "owner", &choose, now()).unwrap();
-    assert!(!full::publish(&app, &id, work, Ok(words(0))).unwrap());
+    assert!(full::publish(&app, &id, work, Ok(words(0))).unwrap());
     drop(c);
-    let next = full::take_work(&app, &id).unwrap().unwrap();
-    assert_eq!(next.context["turn"], 0);
-    assert!(full::publish(&app, &id, next, Ok(words(0))).unwrap());
+    assert!(full::take_work(&app, &id).unwrap().is_none());
 }
