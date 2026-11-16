@@ -39,7 +39,6 @@ pub(super) const HUNDRED_THIRTY_SIXTH_VERSION: &str = "full-card-world/136";
 pub(super) const HUNDRED_THIRTY_FIFTH_VERSION: &str = "full-card-world/135";
 pub(super) const HUNDRED_THIRTY_FOURTH_VERSION: &str = "full-card-world/134";
 pub(super) const HUNDRED_THIRTY_THIRD_VERSION: &str = "full-card-world/133";
-pub(super) const FOURTH_VERSION: &str = "full-card-world/4";
 const SOURCE: &str = include_str!("engine-v158.js");
 const HUNDRED_FIFTY_SEVENTH_SOURCE: &str = include_str!("engine-v157.js");
 const HUNDRED_FIFTY_SIXTH_SOURCE: &str = include_str!("engine-v156.js");
@@ -70,7 +69,6 @@ const HUNDRED_THIRTY_THIRD_SOURCE: &str = include_str!("engine-v133.js");
 pub(super) fn current_source() -> &'static str {
     SOURCE
 }
-const FOURTH_SOURCE: &str = include_str!("engine-v4.js");
 // A world saved by rules newer than this server's: a release swap briefly
 // runs the older build (docs/release.md), so the world waits, unchanged.
 pub(super) const UPDATING: &str = "This world is updating. Back in a moment.";
@@ -83,8 +81,7 @@ pub(super) fn newer(version: &str) -> bool {
 pub(super) fn historical(version: &str) -> bool {
     matches!(
         version,
-        FOURTH_VERSION
-            | HUNDRED_THIRTY_THIRD_VERSION
+        HUNDRED_THIRTY_THIRD_VERSION
             | HUNDRED_THIRTY_FOURTH_VERSION
             | HUNDRED_THIRTY_FIFTH_VERSION
             | HUNDRED_THIRTY_SIXTH_VERSION
@@ -207,7 +204,6 @@ fn source(version: &str) -> Option<&'static str> {
         HUNDRED_THIRTY_FIFTH_VERSION => HUNDRED_THIRTY_FIFTH_SOURCE,
         HUNDRED_THIRTY_FOURTH_VERSION => HUNDRED_THIRTY_FOURTH_SOURCE,
         HUNDRED_THIRTY_THIRD_VERSION => HUNDRED_THIRTY_THIRD_SOURCE,
-        FOURTH_VERSION => FOURTH_SOURCE,
         _ => return None,
     })
 }

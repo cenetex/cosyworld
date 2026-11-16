@@ -1,11 +1,10 @@
 //! Pack content revisions for shared rules that take content as input.
 //!
-//! Rules bundles from v58 on read packs, forest, weather and cast data from
-//! `globalThis.cardContent` instead of carrying them. A revision is named by
-//! the SHA-256 of its exact bytes. The server stores every revision a journal
-//! names in `card_full_packs` before that journal row, never changes a row,
-//! and replays only from verified bytes. Bundles v2 to v57 carry their own
-//! packs and never see this. See docs/design/pack-content-outside-the-engine.md.
+//! Rules bundles read packs, forest, weather and cast data from
+//! `globalThis.cardContent`. A revision is named by the SHA-256 of its exact
+//! bytes. The server stores every revision a journal names in
+//! `card_full_packs` before that journal row, never changes a row, and
+//! replays only from verified bytes.
 use super::store::{sql_error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use sha2::{Digest, Sha256};

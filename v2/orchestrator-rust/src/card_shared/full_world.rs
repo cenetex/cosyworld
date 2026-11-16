@@ -117,7 +117,6 @@ impl World {
                 .as_str()
                 .ok_or("Choose a saved rules upgrade.")?;
             let versions = [
-                engine::FOURTH_VERSION,
                 engine::HUNDRED_THIRTY_THIRD_VERSION,
                 engine::HUNDRED_THIRTY_FOURTH_VERSION,
                 engine::HUNDRED_THIRTY_FIFTH_VERSION,
@@ -180,7 +179,6 @@ impl World {
         }
         if ![
             engine::VERSION,
-            engine::FOURTH_VERSION,
             engine::HUNDRED_THIRTY_THIRD_VERSION,
             engine::HUNDRED_THIRTY_FOURTH_VERSION,
             engine::HUNDRED_THIRTY_FIFTH_VERSION,
