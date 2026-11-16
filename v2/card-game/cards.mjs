@@ -296,7 +296,7 @@ export function cardPlay(world, selected) {
         find("ask", id),
         things[holder]
           ? `Play ${nameOf(holder)} to ask for the covered pair.`
-          : `Make room to ask for the ${nameOf(id)}.`,
+          : `Make room to ask for ${theName(id)}.`,
       );
     if (holder !== currentActor(world))
       return single(
@@ -305,7 +305,6 @@ export function cardPlay(world, selected) {
           ? TOO_MANY_ITEMS
           : "Pair a carried item with this place to make room.",
       );
-    // Food and drink held alone are eaten or drunk (rules 102).
     const meal = actions.find(
       (a) => a.kind === "eat" && a.item === id && !a.target,
     );
@@ -370,9 +369,11 @@ export function cardPlay(world, selected) {
   if (item && avatar)
     return result(
       find("give", item, avatar) || find("ask", item, avatar),
-      [currentActor(world), avatar].includes(rootHolder(world, item))
-        ? `${nameOf(avatar)} needs carrying space for that.`
-        : `Take ${theName(item)} first.`,
+      rootHolder(world, item) === avatar
+        ? cardPlay(world, [item]).hint
+        : rootHolder(world, item) === currentActor(world)
+          ? `${nameOf(avatar)} needs carrying space for that.`
+          : `Take ${theName(item)} first.`,
     );
   const trade = actions.find(
     (a) => a.kind === "trade" && cards.every((id) => a.cards.includes(id)),
