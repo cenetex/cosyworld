@@ -20,6 +20,7 @@ export function createRoom(guildId, channelId) {
     heard: 0,
     awaiting: null,
     said: {},
+    world: null,
   };
 }
 
@@ -165,6 +166,7 @@ export function requestBody(room, config, addressed, now = Date.now()) {
   const parts = pictured(recent);
   return {
     pack: config.DISCORD_PACK,
+    ...(room.world ? { guild: room.guildId } : {}),
     ...speaker,
     channel: awareness(room, now),
     ...(config.DISCORD_LINE_NOTES && room.notes ? { notes: room.notes } : {}),

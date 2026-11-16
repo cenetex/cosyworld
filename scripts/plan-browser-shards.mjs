@@ -10,7 +10,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = new URL("../", import.meta.url);
 const CONFIG = fileURLToPath(new URL("./browser-shards.json", import.meta.url));
 
-// Name the file a check runs.
 export function checkSource(check) {
   const journey = check.match(/^((?:smoke|check)-[\w-]+)(?:@(\d+))?$/);
   if (!journey) throw new Error(`Unknown browser check: ${check}`);

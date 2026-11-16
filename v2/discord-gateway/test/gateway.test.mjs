@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { avatarUrl, residentIdentity } from "../src/identity.mjs";
 import { commandDefinitions, dispatch } from "../src/commands.mjs";
-import { channelLines, fetchCast } from "../src/orchestrator.mjs";
+import { channelLines, ensureWorld, fetchCast } from "../src/orchestrator.mjs";
+import { createRoom, requestBody } from "../src/room.mjs";
+import { payload } from "../src/coordinator.mjs";
+import { readConfig } from "../src/config.mjs";
 
 const deps = {
   cast: () => [
@@ -45,6 +48,13 @@ test("only who and privacy are commands", () => {
   );
   assert.match(dispatch("who", deps).content, /RATi, Skull/);
   assert.equal(dispatch("nope", deps).content, "Unknown command.");
+});
+
+test("who gives the link to the server's world once there is one", () => {
+  assert.doesNotMatch(dispatch("who", deps).content, /world/);
+  const content = dispatch("who", { ...deps, world: "https://x/?world=abc" }).content;
+  assert.match(content, /RATi, Skull\nJoin this server's world: https:\/\/x\/\?world=abc$/);
+  assert.match(dispatch("privacy", deps).content, /sends the server's id/);
 });
 
 test("privacy says messages go to AI models", () => {
@@ -95,6 +105,26 @@ test("the orchestrator calls send only the Bearer token", async () => {
     "content-type": "application/json",
   });
   assert.deepEqual(JSON.parse(lines.calls[0].options.body), body);
+});
+
+test("the gateway asks for its server's world and names the server only then", async () => {
+  const id = "ab".repeat(24);
+  const made = recorder({ status: 200, json: async () => ({ id, path: `/?world=${id}` }) });
+  assert.equal(await ensureWorld(made.fetch, "https://x", "t", "100000000000000001"), `https://x/?world=${id}`);
+  assert.equal(made.calls[0].url, "https://x/discord/world");
+  assert.equal(made.calls[0].options.headers.authorization, "Bearer t");
+  assert.deepEqual(JSON.parse(made.calls[0].options.body), { guild: "100000000000000001" });
+  for (const reply of [{ status: 404, json: async () => ({}) }, { status: 200, json: async () => ({ id: "x" }) }, new Error("offline")]) {
+    assert.equal(await ensureWorld(recorder(reply).fetch, "https://x", "t", "100000000000000001"), null);
+  }
+  const config = readConfig({});
+  const room = createRoom("100000000000000001", "c1");
+  room.messages.push({ id: "a", at: 0, text: "Hello?", author: "Mara" });
+  assert.equal("guild" in requestBody(room, config, "rati", 10), false);
+  assert.equal("guild" in payload(room, config, deps.cast(), 10), false);
+  room.world = `https://x/?world=${id}`;
+  assert.equal(requestBody(room, config, "rati", 10).guild, "100000000000000001");
+  assert.equal(payload(room, config, deps.cast(), 10).guild, "100000000000000001");
 });
 
 test("orchestrator errors become silence with a reason", async () => {
