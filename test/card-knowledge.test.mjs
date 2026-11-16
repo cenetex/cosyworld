@@ -6,8 +6,6 @@ import {
   reserveKnowledge,
   knowledgeDisclosures,
   knowsFact,
-  factDelivered,
-  factWords,
   validKnowledge,
   validFactText,
   KNOWLEDGE_FACT_LIMIT,
@@ -174,71 +172,6 @@ describe("saved public knowledge", () => {
     expect(
       validFactText("The Argive mothers seek burial for their sons."),
     ).toBe(true);
-    expect(
-      factDelivered(
-        "The Argive mothers seek burial for their sons!",
-        "The Argive mothers seek burial for their sons.",
-      ),
-    ).toBe(true);
-  });
-
-  it("lets the actor tell their own deed in the first person or another tense", () => {
-    const fact = "Vale takes the Lamp.";
-    for (const told of [
-      "I take the Lamp.",
-      "I took the lamp. It was warm.",
-      "Well. Vale takes the Lamp!",
-    ])
-      expect(factDelivered(told, fact, "Vale", "Pip"), told).toBe(true);
-    for (const wrong of [
-      "I took the bell.",
-      "I took the lamp from Pip.",
-      "I never took the lamp.",
-      "I took",
-      "Pip took the lamp.",
-    ])
-      expect(factDelivered(wrong, fact, "Vale", "Pip"), wrong).toBe(false);
-    expect(
-      factDelivered(
-        "You gave the lamp to me.",
-        "Pip gives the Lamp to Vale.",
-        "Vale",
-        "Pip",
-      ),
-    ).toBe(true);
-    expect(
-      factDelivered(
-        "You gave the cloth to me.",
-        "Pip gives the Lamp to Vale.",
-        "Vale",
-        "Pip",
-      ),
-    ).toBe(false);
-    expect(
-      factDelivered("I had my lamp.", "Vale has Pip's Lamp.", "Vale", "Pip"),
-    ).toBe(false);
-    expect(
-      factDelivered(
-        "I was beside the pond.",
-        "Vale is beside the pond.",
-        "Vale",
-        "Pip",
-      ),
-    ).toBe(true);
-    // Without names the old third-person rule still holds.
-    expect(factDelivered("I took the lamp.", fact)).toBe(false);
-  });
-
-  it("folds fact words exactly as the Rust speech check does", () => {
-    // The same vectors run against fact_words in card_narrative/knowledge.rs.
-    for (const [sentence, folded] of [
-      ["Vale takes the Lamp.", "i tak lamp"],
-      ["I took the lamp", "i tak lamp"],
-      ["Pip gives the Lamp to Vale.", "you giv lamp to i"],
-      ["Vale's dropped shells were mossy.", "i drop shel be mossi"],
-      ["The Argive mothers seek burial.", "argiv mother seek burial"],
-    ])
-      expect(factWords(sentence, "Vale", "Pip"), sentence).toBe(folded);
   });
 
   it("keeps authored knowledge through bounded news churn", () => {
@@ -561,6 +494,48 @@ describe("Talk publication and learned facts", () => {
   });
 });
 
+describe("learned facts in the avatar's own view", () => {
+  const seen = (w, text) =>
+    addLog(w, "World", text, {
+      kind: "action",
+      verb: "give",
+      actorId: "moth",
+      locationId: "station",
+      cast: ["moth", "vale"],
+      witnesses: ["moth", "vale"],
+    });
+  const view = (w) => {
+    const action = legalActions(w).find((a) => a.kind === "wait");
+    const next = play(w, action).state;
+    return narrativeContext(next, action).entities.find((e) => e.id === "vale")
+      .facts;
+  };
+  it("keeps a told fact in view on later turns", () => {
+    let { world } = localTalk(worldWithNews());
+    for (let i = 0; i < 3; i++)
+      world = play(
+        world,
+        legalActions(world).find((a) => a.kind === "wait"),
+      ).state;
+    expect(view(world).filter((f) => f.endsWith(clause))).toEqual([
+      `Pip told me this a little while ago at Empty station: ${clause}`,
+    ]);
+  });
+  it("fills the sixteen facts newest first and drops the oldest", () => {
+    const world = worldWithNews();
+    for (let i = 0; i < 20; i++)
+      seen(world, `Pip carried shell number ${i} to the pond.`);
+    const facts = view(world);
+    const shells = facts.filter((f) => f.includes("shell number"));
+    expect(facts).toHaveLength(16);
+    expect(shells.length).toBeGreaterThan(2);
+    expect(shells[0]).toContain("shell number 19 ");
+    expect(shells.join()).not.toContain("shell number 0 ");
+    for (const kept of ["Holding: ", "Location now: ", "At the dialogue scene: "])
+      expect(facts.some((f) => f.startsWith(kept))).toBe(true);
+  });
+});
+
 describe("authored topics keep their saved deed identity", () => {
   const pack = packDefinition("greek-drama");
   const originalTopics = pack.topics;
@@ -709,6 +684,10 @@ describe("told facts by age", () => {
     expect(knowledgeFacts(w, "moth", nameOf)).toEqual([
       `I witnessed this just now at the Station: ${clause}`,
     ]);
+    for (let i = 0; i < 4; i++) source(w, { text: `Pip saw shell ${i} here.` });
+    expect(knowledgeFacts(w, "moth", nameOf)).toHaveLength(2);
+    expect(knowledgeFacts(w, "moth", nameOf, [], 9)).toHaveLength(5);
+    w.knowledge.known.moth = { "event:2": w.knowledge.known.moth["event:2"] };
     w.turn = 4;
     expect(knowledgeFacts(w, "moth", nameOf)[0]).toMatch(
       /^I witnessed this a little while ago at the Station: /u,

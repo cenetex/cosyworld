@@ -36,73 +36,6 @@ export const validFactText = (v) =>
   /[.!?。！？]["'’”]?$/u.test(v.trim()) &&
   sentences(v).length === 1 &&
   sentences(v)[0].split(" ").length >= 3;
-// A told fact keeps its words and their order. The speaker may say I or my
-// for their own name and you for the listener's, change simple tense or
-// person (takes/took, has/had, is/was), and drop articles. Every other
-// word, so every item, place and other avatar, must still be there.
-// Keep this in step with the speech check in card_narrative/knowledge.rs.
-const ARTICLES = new Set(["a", "an", "the", "s"]);
-export const FACT_FORMS = Object.fromEntries(
-  [
-    "me:i my:i mine:i myself:i your:you yours:you yourself:you is:be was:be ",
-    "am:be are:be were:be been:be m:be re:be has:have had:have ve:have ",
-    "does:do did:do goes:go went:go took:take gave:give chose:choose ",
-    "brought:bring threw:throw made:make saw:see found:find held:hold ",
-    "kept:keep told:tell sold:sell bought:buy caught:catch led:lead ",
-    "fought:fight rang:ring ran:run came:come said:say stole:steal hid:hide ",
-    "wrote:write drew:draw knew:know fell:fall sat:sit stood:stand ",
-    "sent:send lost:lose met:meet paid:pay struck:strike won:win woke:wake ",
-    "broke:break spoke:speak ate:eat drank:drink sang:sing swore:swear ",
-    "wore:wear tore:tear left:leave",
-  ]
-    .join("")
-    .split(" ")
-    .map((pair) => pair.split(":")),
-);
-const VOWELS = new Set([..."aeiou"]);
-export function stem(word) {
-  let w = Object.hasOwn(FACT_FORMS, word) ? FACT_FORMS[word] : word;
-  if ([...w].length <= 3) return w;
-  if (/(ies|ied)$/u.test(w)) w = `${w.slice(0, -3)}i`;
-  else if (/(es|ed)$/u.test(w)) w = w.slice(0, -2);
-  else if (/[^s]s$/u.test(w)) w = w.slice(0, -1);
-  else if (w.endsWith("y")) w = `${w.slice(0, -1)}i`;
-  if (w.endsWith("e")) w = w.slice(0, -1);
-  const chars = [...w];
-  const [a, b] = chars.slice(-2);
-  return a && a === b && !VOWELS.has(a) ? chars.slice(0, -1).join("") : w;
-}
-const nameWords = (name) =>
-  typeof name === "string" ? tokens(name).split(" ").filter(Boolean) : [];
-export function factWords(sentence, speaker, listener) {
-  const words = tokens(sentence).split(" ").filter(Boolean);
-  const people = [
-    [nameWords(speaker), "i"],
-    [nameWords(listener), "you"],
-  ].filter(([name]) => name.length);
-  const out = [];
-  for (let i = 0; i < words.length; ) {
-    const person = people.find(([name]) =>
-      name.every((w, j) => words[i + j] === w),
-    );
-    if (person) {
-      out.push(person[1]);
-      i += person[0].length;
-      continue;
-    }
-    if (!ARTICLES.has(words[i])) out.push(stem(words[i]));
-    i += 1;
-  }
-  return out.join(" ");
-}
-export const factDelivered = (line, fact, speaker, listener) => {
-  if (typeof line !== "string" || !validFactText(fact)) return false;
-  const told = factWords(fact, speaker, listener);
-  return line
-    .split(/[.!?。！？]+/u)
-    .slice(0, -1)
-    .some((sentence) => factWords(sentence, speaker, listener) === told);
-};
 
 export const newKnowledge = () => ({
   version: KNOWLEDGE_VERSION,
@@ -472,17 +405,20 @@ export function knowledgeFacts(
   actor,
   nameOf = (id) => id,
   priority = [],
-  relevant = [],
+  limit = 2,
 ) {
-  // Facts about to be told lead, then facts the listener asks about.
-  const rank = (id) =>
-    priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
   const known = world.knowledge?.known?.[actor] || {};
+  const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
   return Object.keys(known)
     .map((id) => world.knowledge.facts[id])
     .filter(Boolean)
-    .sort((a, b) => rank(b.id) - rank(a.id) || compareFacts(a, b))
-    .slice(0, 2)
+    .sort(
+      (a, b) =>
+        priority.includes(b.id) - priority.includes(a.id) ||
+        learned(b) - learned(a) ||
+        compareFacts(a, b),
+    )
+    .slice(0, limit)
     .map((fact) => {
       const memory = known[fact.id];
       const origin =
