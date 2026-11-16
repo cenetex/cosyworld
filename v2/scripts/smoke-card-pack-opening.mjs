@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { availableCards } from "../card-game/cards.mjs";
+import { availableCards, cardPlay } from "../card-game/cards.mjs";
 import { heldItem } from "../card-game/held-item.mjs";
 import { isLockedBox } from "../card-game/locked-box.mjs";
 import { levelTier } from "../card-game/level-tiers.mjs";
@@ -417,6 +417,7 @@ function chooseArrival(held) {
       for (const move of legalActions(world).filter((a) => a.kind === "move" && !a.item)) {
         const moved = play(world, move);
         if (!moved.ok || heldItem(moved.state, "vale") !== item) continue;
+        if (item && cardPlay(moved.state, [item]).action) continue;
         const fresh = availableCards(moved.state).filter(
           (id) => id !== "vale" && !id.startsWith("quest:") && !before.includes(id),
         );

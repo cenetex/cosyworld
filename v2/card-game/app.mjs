@@ -1884,11 +1884,13 @@ function applyPackFrame(frame, id) {
   } else if (pack.state === "closed") button.removeAttribute("aria-expanded");
 }
 // What the one button asks while the pack owns it: nothing is chosen, or
-// only the held item beside a closed pack.
+// only a held item with no play of its own beside a closed pack.
 const packPrompt = () =>
   !questOpen &&
   (!selected.length ||
-    (pack.state === "closed" && selected.join() === shownHeld().join()))
+    (pack.state === "closed" &&
+      selected.join() === shownHeld().join() &&
+      !cardPlay(world, selected).action))
     ? pack.prompt(cardIsCovered)
     : null;
 // A face-down card in an open pack shows its tier only as a rim glow, from
@@ -5221,7 +5223,7 @@ function render() {
     if (id.startsWith(`tarot:${currentActor(world)}:`) && !tarotKeys().includes(id))
       encountered.delete(id);
   packSync([...availableCards(world), ...tarotKeys()]);
-  if (packPlace !== placeHere() && pack.state === "closed") restedChoice = null;
+  if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
   packPlace = placeHere();
   const handCards = packHand(
     chosenFirst(
