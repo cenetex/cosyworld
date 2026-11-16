@@ -69,7 +69,7 @@ use axum::{
     Json, Router,
 };
 #[cfg(test)]
-use rusqlite::TransactionBehavior;
+use rusqlite::{params, TransactionBehavior};
 use serde_json::{json, Value};
 use std::{
     sync::{Arc, OnceLock},
