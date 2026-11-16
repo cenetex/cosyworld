@@ -164,12 +164,11 @@ describe("live story text", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(encodeSave(world)).toBe(saved);
     await vi.advanceTimersByTimeAsync(750);
-    requests[3].reject(new Error("offline again"));
-    await vi.advanceTimersByTimeAsync(0);
+    expect(requests).toHaveLength(3);
     expect(preview).toHaveBeenLastCalledWith(null);
     expect(status).toHaveBeenLastCalledWith(
       "failed",
-      expect.objectContaining({ message: "offline again" }),
+      expect.objectContaining({ message: "offline" }),
     );
   });
 });
