@@ -398,7 +398,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 28,
+      "revision": 29,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3004,7 +3004,6 @@
         {
           "from": "greek-gate",
           "to": "greek-battlefield",
-          "live": true,
           "requires": [
             {
               "kind": "any",
@@ -3028,29 +3027,9 @@
           "to": "greek-polynices-hollow",
           "requires": [
             {
-              "kind": "any",
-              "conditions": [
-                {
-                  "kind": "flag",
-                  "key": "greek-polynices-heard",
-                  "value": true
-                },
-                {
-                  "kind": "flag",
-                  "key": "greek-polynices-anointed",
-                  "value": true
-                },
-                {
-                  "kind": "flag",
-                  "key": "greek-polynices-veiled",
-                  "value": true
-                },
-                {
-                  "kind": "flag",
-                  "key": "greek-burial-performed",
-                  "value": true
-                }
-              ]
+              "kind": "flag",
+              "key": "greek-polynices-heard",
+              "value": true
             }
           ],
           "sealed": {
@@ -10612,7 +10591,7 @@
       "schemaVersion": 1,
       "id": "lonely-forest",
       "packId": "cosyworld.lonely-forest",
-      "revision": 4,
+      "revision": 5,
       "name": "Lonely Forest",
       "description": "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
       "tone": "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
@@ -11075,7 +11054,6 @@
       "routes": [
         {
           "from": "forest-oak",
-          "live": true,
           "to": "forest-trail",
           "requires": [
             {
@@ -12391,7 +12369,7 @@
       "schemaVersion": 1,
       "id": "ratiradio",
       "packId": "cosyworld.ratiradio",
-      "revision": 4,
+      "revision": 5,
       "name": "Night Shift at RatiRadio",
       "description": "A late-night radio station opens through recovered possessions. Bring the glass, ceramic raven, red beanie home to the Listening Room. RATi roams from this home; Raven joins the world when the return is complete.",
       "entry": "ratiradio-staff-kitchen",
@@ -12628,7 +12606,6 @@
         {
           "from": "ratiradio-staff-kitchen",
           "to": "ratiradio-dispatch-window",
-          "live": true,
           "requires": [
             {
               "kind": "any",
@@ -12674,7 +12651,6 @@
         {
           "from": "ratiradio-dispatch-window",
           "to": "ratiradio-listening-room",
-          "live": true,
           "requires": [
             {
               "kind": "any",

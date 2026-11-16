@@ -4,7 +4,6 @@ import { backdrop } from "../v2/card-game/scene.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import {
   hub,
-  latchRoutes,
   packDefinitions,
   packPlaces,
 } from "../v2/card-game/pack-registry.mjs";
@@ -12,8 +11,7 @@ import { greekErrands } from "./helpers/greek-opening.mjs";
 
 // The Theban City Gate shows its closed painting while the Gate Guard guards
 // it, and its open painting when both paper fixtures allow the road.
-// The route is live, not latched. Night keeps the matching closed or
-// open night painting.
+// Night keeps the matching closed or open night painting.
 const art = (file) => `./assets/greek-drama/${file}.webp`;
 const gate = (s) => backdrop("greek-gate", s);
 const night = (s) => ({ ...s, turn: DAYLIGHT_TURNS });
@@ -29,14 +27,12 @@ describe("the Theban City Gate backdrop", () => {
     s.items["greek-creon-writ"].holder = "vale";
     s.actors.vale.place = "greek-gate";
     expect(gate(s)).toBe(art("city-gate-closed-day"));
-    // The guard has the Writ and no duty order: the road is open, with no latch.
+    // The guard has the Writ and no duty order: the road is open.
     s.items["greek-creon-writ"].holder = "greek-guard";
     s.items["greek-decree"].holder = "greek-elder";
     expect(s.actors["greek-guard"].place).toBe("greek-gate");
     expect(gate(s)).toBe(art("city-gate-day"));
     expect(gate(night(s))).toBe(art("city-gate-night"));
-    latchRoutes(s);
-    expect(s.openedRoutes ?? []).not.toContain("greek-gate>greek-battlefield");
     // Moving the order between other holders leaves the road open.
     s.items["greek-decree"].holder = "greek-creon";
     expect(gate(s)).toBe(art("city-gate-day"));

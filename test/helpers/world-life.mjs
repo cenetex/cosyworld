@@ -8,11 +8,7 @@ import {
 } from "../../v2/card-game/world.mjs";
 import { DAY_TURNS } from "../../v2/card-game/resident-home.mjs";
 import { settleGuards } from "../../v2/card-game/resident-guard.mjs";
-import {
-  entityActive,
-  latchRoutes,
-  packPeople,
-} from "../../v2/card-game/pack-registry.mjs";
+import { entityActive, packPeople } from "../../v2/card-game/pack-registry.mjs";
 
 export const reload = (s) => decodeSave(encodeSave(s));
 export function lifeWorld({ seed = 7, turn = DAY_TURNS, place } = {}) {
@@ -43,7 +39,6 @@ export const wait = (s, n = 1) => {
 };
 export const waitUntil = (s, turn) => wait(s, Math.max(0, turn - s.turn));
 export const settleGate = (world) => {
-  latchRoutes(world);
   settleGuards(world);
   return world;
 };

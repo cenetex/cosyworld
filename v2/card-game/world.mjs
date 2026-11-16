@@ -132,8 +132,6 @@ import {
   entityActive,
   actorCanVisit,
   packExits,
-  latchRoutes,
-  validOpenedRoutes,
   packChoices,
   applyPackChoice,
   applyMeetingChoices,
@@ -1023,7 +1021,6 @@ export function holdChoice(s, actor, choice) {
   dropOpenedBoxQuests(s);
   settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
-  latchRoutes(s);
   settleArcana(s, actor, before.eventSeq ?? before.log.length, (text, detail) =>
     addLog(s, "World", text, detail),
   );
@@ -3506,12 +3503,9 @@ export function play(
   settleHomeLevels(next);
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);
-  // A gate whose condition now holds stays open from here on.
-  latchRoutes(next);
   settleArcana(next, actor, s.eventSeq ?? s.log.length, (text, detail) =>
     addLog(next, "World", text, detail),
   );
-  // A sealed thing whose seal follows its facts goes home when they lapse.
   settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);
   settleCompany(next, entityActive);
@@ -3683,7 +3677,6 @@ export function validateWorld(s) {
     "item-cycle": () => validItemCycle(s),
     conversations: () => validConversations(s),
     "held-items": () => validHeldItems(s),
-    "opened-routes": () => validOpenedRoutes(s.openedRoutes),
     opened: () => validOpened(s),
     arcana: () => validArcana(s),
     hidden: () =>
@@ -4125,10 +4118,7 @@ export function decodeSave(text) {
       laneText: laneFactText,
     });
     installJourneyProgress(s, packDefinitions);
-    // An earlier save records the gates already open as it loads, and its
-    // guards take their posts (rules 100).
     installConversations(s);
-    latchRoutes(s);
     settleGuards(s);
     settleHeldItems(s);
     settleLamp(s);

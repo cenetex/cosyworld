@@ -135,17 +135,12 @@ export function settleCrafting(s, a, nameOf, log) {
   }
 }
 
-// A sealed item with a `live` seal (rules 133) follows its facts: while its
-// `requires` hold it is an ordinary thing, and when they stop holding it is
-// shut again. One that is not at its rest then goes there, whoever holds it,
-// as a used-up thing does, and lies there sealed. Nothing is stranded in a
-// hand that cannot use it. A latching seal (the default) never comes back.
-const liveSeals = () =>
+const sealedIds = () =>
   Object.keys(packThings)
-    .filter((id) => packThings[id].sealed?.live)
+    .filter((id) => packThings[id].sealed)
     .sort();
 export function settleSealedItems(s, nameOf, log) {
-  for (const id of liveSeals()) {
+  for (const id of sealedIds()) {
     if (usedUp(s, id) || entityEnabled(s, id) || !entityShown(s, id)) continue;
     const rest = restOf(id);
     if (s.items[id].holder === rest) continue;

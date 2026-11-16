@@ -5,7 +5,6 @@ import {
   entityEnabled,
   packEntity,
   departed,
-  latchingRoute,
 } from "./pack-registry.mjs";
 import { boxDefs } from "./world/boxes.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
@@ -155,10 +154,7 @@ export function reconcileContent(s) {
     if (s.memories) delete s.memories[id];
   }
   forgetRetiredThings(s, new Set(gone));
-  if (Array.isArray(s.openedRoutes)) {
-    s.openedRoutes = s.openedRoutes.filter(latchingRoute);
-    if (!s.openedRoutes.length) delete s.openedRoutes;
-  }
+  delete s.openedRoutes;
   if (s.opened && typeof s.opened === "object" && !Array.isArray(s.opened)) {
     const boxes = new Set(boxDefs().map((d) => d.id));
     for (const id of Object.keys(s.opened))

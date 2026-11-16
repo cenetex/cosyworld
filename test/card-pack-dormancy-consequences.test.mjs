@@ -43,8 +43,6 @@ function journey() {
     for (const key of ["met", "receipts"])
       for (const [id, turn] of Object.entries(forest(before)[key]))
         expect(forest(next)[key][id]).toBe(turn);
-    for (const route of before.openedRoutes || [])
-      expect(next.openedRoutes).toContain(route);
     world = reload(next);
     expect(world).toEqual(next);
     expect(legalActions(world)).toEqual(legalActions(next));
@@ -111,8 +109,7 @@ for (const ending of ["keep", "give"])
       earned.receipts["forest-keep-charm"],
       earned.receipts["forest-leave-charm"],
     ]).toEqual(ending === "keep" ? [12, undefined] : [undefined, 12]);
-    expect(run.world.openedRoutes).toContain(`${garden}>${trail}`);
-    expect(run.world.openedRoutes).not.toContain(`${oak}>${trail}`);
+    expect(packRouteOpen(run.world, garden, trail)).toBe(true);
     expect(run.world.items[charm].holder).toBe(
       ending === "keep" ? "vale" : cottage,
     );
@@ -161,7 +158,7 @@ for (const ending of ["keep", "give"])
       expect(run.world.items[charm].holder).toBe(cottage);
       expect(forest(run.world)).toEqual(earned);
       run.reject(toggle(true));
-      // The gate stays latched, but the Oak's shortcut needs the charm nearby.
+      // The garden gate stays open; the Oak's shortcut needs the charm nearby.
       expect(packRouteOpen(run.world, garden, trail)).toBe(true);
       expect(packRouteOpen(run.world, oak, trail)).toBe(false);
       const saved = encodeSave(run.world);

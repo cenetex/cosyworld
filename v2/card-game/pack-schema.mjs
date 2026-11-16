@@ -1328,12 +1328,9 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     );
     media(i.art, `item ${id} art`);
     requirements(i.requires, `item ${id} requires`);
-    // A sealed item (rules 133) lies at a place of its pack shut until its
-    // `requires` hold. It latches open unless `live`, as a route does.
     check(
       i.sealed === undefined ||
-        (keysOk(i.sealed, ["live"]) &&
-          (i.sealed.live === undefined || i.sealed.live === true) &&
+        (keysOk(i.sealed, []) &&
           Array.isArray(i.requires) &&
           i.requires.length > 0 &&
           owns(places, i.holder) &&
@@ -1365,10 +1362,8 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         "to",
         "requires",
         "travelerRequires",
-        "live",
         "sealed",
       ]) &&
-        (r.live === undefined || r.live === true) &&
         owns(places, r.from) &&
         owns(places, r.to) &&
         r.from !== r.to,

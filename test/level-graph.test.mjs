@@ -102,7 +102,7 @@ describe("level graph", () => {
     expect(r.ids).toBe(
       "(pie is in a or gem is in a) and it is day and not (never is set)",
     );
-    expect(r.follows).toBe("latches");
+    expect(r.follows).toBe("live");
     // Every alternative counts; the negative flag does not.
     expect(r.prerequisites).toEqual({
       act: ["light", "see"],

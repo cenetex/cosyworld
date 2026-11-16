@@ -14,7 +14,6 @@ const identity = new Set([
 ]);
 const collections = new Set(["places", "avatars", "items", "transports"]);
 const labels = {
-  live: "live conditions",
   oneWay: "one-way travel",
   waitAtHome: "return to authored home",
 };

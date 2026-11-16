@@ -18,7 +18,6 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   entityActive,
-  latchRoutes,
   packDefinition,
   packDefinitions,
   packPeople,
@@ -246,8 +245,6 @@ function reach(
         const was = s.actors.vale.place;
         s.actors.vale.place = place;
         if (item) s.items[item].holder = holder;
-        latchRoutes(s);
-        // A latched gate's guard stands aside, as a play settles it.
         settleGuards(s);
         const found = exits(s, place, "vale").filter(keep);
         for (const to of lanes(place)) {

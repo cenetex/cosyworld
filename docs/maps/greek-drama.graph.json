@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 28,
+  "revision": 29,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -751,8 +751,7 @@
         "from": "greek-gate",
         "to": "greek-battlefield",
         "kind": "route",
-        "gate": "route:greek-gate>greek-battlefield",
-        "live": true
+        "gate": "route:greek-gate>greek-battlefield"
       },
       {
         "from": "greek-gate",
@@ -1418,65 +1417,30 @@
           "op": "and",
           "of": [
             {
-              "op": "or",
-              "of": [
-                {
-                  "op": "atom",
-                  "atom": "flag(key=greek-polynices-heard,value=true)"
-                },
-                {
-                  "op": "atom",
-                  "atom": "flag(key=greek-polynices-anointed,value=true)"
-                },
-                {
-                  "op": "atom",
-                  "atom": "flag(key=greek-polynices-veiled,value=true)"
-                },
-                {
-                  "op": "atom",
-                  "atom": "flag(key=greek-burial-performed,value=true)"
-                }
-              ]
+              "op": "atom",
+              "atom": "flag(key=greek-polynices-heard,value=true)"
             }
           ]
         },
-        "words": "(greek-polynices-heard is set or greek-polynices-anointed is set or greek-polynices-veiled is set or greek-burial-performed is set)",
-        "ids": "(greek-polynices-heard is set or greek-polynices-anointed is set or greek-polynices-veiled is set or greek-burial-performed is set)",
+        "words": "greek-polynices-heard is set",
+        "ids": "greek-polynices-heard is set",
         "latch": [
-          "flag(key=greek-burial-performed,value=true)",
-          "flag(key=greek-polynices-anointed,value=true)",
-          "flag(key=greek-polynices-heard,value=true)",
-          "flag(key=greek-polynices-veiled,value=true)"
+          "flag(key=greek-polynices-heard,value=true)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "person",
           "target": "greek-polynices-shade"
         },
         "prerequisites": {
           "act": [
-            "greek-anoint-polynices",
-            "greek-bury-polynices",
-            "greek-hear-polynices",
-            "greek-shroud-polynices"
+            "greek-hear-polynices"
           ],
           "flag": [
-            "greek-burial-performed",
-            "greek-polynices-anointed",
-            "greek-polynices-heard",
-            "greek-polynices-veiled"
-          ],
-          "item": [
-            "cloth",
-            "greek-oil-flask",
-            "greek-shovel"
+            "greek-polynices-heard"
           ],
           "resident": [
-            "greek-polynices-shade"
-          ],
-          "want": [
-            "greek-antigone",
             "greek-polynices-shade"
           ]
         }
@@ -1500,7 +1464,7 @@
           "choice(key=greek-helen-account,value=egypt)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "item",
           "target": "greek-helen-accounts",
@@ -1537,7 +1501,7 @@
           "choice(key=greek-helen-account,value=troy)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "item",
           "target": "greek-helen-accounts",
@@ -1574,7 +1538,7 @@
           "choice(key=greek-atreid-account,value=aeschylus)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "item",
           "target": "greek-atreid-record",
@@ -1611,7 +1575,7 @@
           "choice(key=greek-atreid-account,value=sophocles)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "item",
           "target": "greek-atreid-record",
@@ -1648,7 +1612,7 @@
           "choice(key=greek-atreid-account,value=euripides)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "item",
           "target": "greek-atreid-record",
@@ -1685,7 +1649,7 @@
           "choice(key=greek-atreid-account,value=aeschylus)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "place",
           "target": "greek-argos-palace"
@@ -8559,11 +8523,9 @@
           "act:greek-bury-polynices",
           "item:greek-burial-account",
           "resident:greek-patroclus",
-          "resident:greek-polynices-shade",
-          "route:greek-battlefield>greek-polynices-hollow"
+          "resident:greek-polynices-shade"
         ],
         "gates": [
-          "route:greek-battlefield>greek-polynices-hollow",
           "resident:greek-patroclus",
           "item:greek-burial-account"
         ],
@@ -9155,11 +9117,9 @@
         "clearedBy": [],
         "readBy": [
           "act:greek-anoint-polynices",
-          "act:greek-shroud-polynices",
-          "route:greek-battlefield>greek-polynices-hollow"
+          "act:greek-shroud-polynices"
         ],
         "gates": [
-          "route:greek-battlefield>greek-polynices-hollow",
           "resident:greek-patroclus",
           "item:greek-burial-account"
         ],
@@ -9191,11 +9151,9 @@
         "clearedBy": [],
         "readBy": [
           "act:greek-bury-polynices",
-          "act:greek-shroud-polynices",
-          "route:greek-battlefield>greek-polynices-hollow"
+          "act:greek-shroud-polynices"
         ],
         "gates": [
-          "route:greek-battlefield>greek-polynices-hollow",
           "resident:greek-patroclus",
           "item:greek-burial-account"
         ],
@@ -10440,10 +10398,7 @@
         "place:greek-argos-palace"
       ],
       "route:greek-battlefield>greek-polynices-hollow": [
-        "flag:greek-burial-performed",
-        "flag:greek-polynices-anointed",
         "flag:greek-polynices-heard",
-        "flag:greek-polynices-veiled",
         "resident:greek-polynices-shade"
       ],
       "route:greek-gate>greek-battlefield": [

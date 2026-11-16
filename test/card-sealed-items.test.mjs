@@ -22,7 +22,6 @@ import { isLockedBox, lockedQuest } from "../v2/card-game/locked-box.mjs";
 import {
   entityActive,
   entityShown,
-  latchRoutes,
   packDefinition,
   packThings,
   validatePackDefinition,
@@ -31,9 +30,8 @@ import { consume, settleSealedItems } from "../v2/card-game/pack-items.mjs";
 import { usedUp } from "../v2/card-game/item-use.mjs";
 
 // Sealed items (rules 133): an item that lies shut where it is until its
-// `requires` hold. The shovel opens when the figs lie at the gate and then
-// latches; the household token follows its facts (`live`): it opens while the
-// wine skin lies in the sanctuary. The rules memo the box lists on first use,
+// `requires` hold. The shovel opens while the figs lie at the gate; the
+// household token while the wine skin lies in the sanctuary. The rules memo the box lists on first use,
 // so the content is patched here, before any world is read.
 const SHOVEL = "greek-shovel",
   TOKEN = "greek-household-token",
@@ -45,7 +43,7 @@ const at = (item, place) => [{ kind: "item_at", item, place }];
 packThings[SHOVEL].requires = at(FIGS, gate);
 packThings[SHOVEL].sealed = {};
 packThings[TOKEN].requires = at(SKIN, sanctuary);
-packThings[TOKEN].sealed = { live: true };
+packThings[TOKEN].sealed = {};
 
 const world = (place = gate) => {
   const s = createWorld({ seed: 7, packScopes: { "greek-drama": "full" } });
@@ -118,7 +116,7 @@ describe("a sealed item lies shut", () => {
 });
 
 describe("opening", () => {
-  it("opens on the play that makes its conditions true, credits it once, and latches", () => {
+  it("opens on the play that makes its conditions true, credits it once, and shuts when they lapse", () => {
     let s = world();
     s.items[FIGS].holder = "vale";
     const xp = s.actors.vale.xp;
@@ -127,31 +125,18 @@ describe("opening", () => {
     expect(boxesAt(s, gate, "vale").some((b) => b.id === SHOVEL)).toBe(false);
     expect(s.opened[SHOVEL]).toEqual(["vale"]);
     expect(s.actors.vale.xp).toBe(xp);
-    expect(s.openedRoutes).toContain(`item:${SHOVEL}`);
     // Taken like any item.
     s = act(s, "take", { item: SHOVEL });
     expect(s.items[SHOVEL].holder).toBe("vale");
-    // The default latch: the fact lapsing does not shut it again.
     s = act(s, "take", { item: FIGS });
-    expect(entityActive(s, SHOVEL)).toBe(true);
-    expect(s.items[SHOVEL].holder).toBe("vale");
+    expect(entityActive(s, SHOVEL)).toBe(false);
+    expect(s.items[SHOVEL].holder).toBe(gate);
     expect(s.opened[SHOVEL]).toEqual(["vale"]);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
-  it("reads its conditions as they stand until the latch has run", () => {
-    const s = world();
-    s.items[FIGS].holder = gate;
-    expect(entityActive(s, SHOVEL)).toBe(true);
-    s.items[FIGS].holder = sanctuary;
-    expect(entityActive(s, SHOVEL)).toBe(false);
-    s.items[FIGS].holder = gate;
-    latchRoutes(s);
-    s.items[FIGS].holder = sanctuary;
-    expect(entityActive(s, SHOVEL)).toBe(true);
-  });
 });
 
-describe("a live seal locks again", () => {
+describe("a seal locks again", () => {
   const carried = () => {
     const s = world(sanctuary);
     const before = structuredClone(s);
@@ -202,15 +187,6 @@ describe("a live seal locks again", () => {
     expect(s.actors.vale.xp).toBe(xpNow);
     expect(decodeSave(encodeSave(s))).toEqual(s);
   });
-  it("lets a latching seal alone, wherever it is carried", () => {
-    const s = world();
-    s.items[FIGS].holder = gate;
-    latchRoutes(s);
-    s.items[SHOVEL].holder = "vale";
-    s.items[FIGS].holder = sanctuary;
-    settleSealedItems(s, the, quiet);
-    expect(s.items[SHOVEL].holder).toBe("vale");
-  });
   it("pays nothing to a second reading of the same opening", () => {
     const { s, before } = carried();
     const first = creditOpened(before, s, "vale").filter(
@@ -234,21 +210,13 @@ describe("made things and consumed items", () => {
   });
   it("brings a consumed sealed item home still shut", () => {
     const s = world();
-    s.items[FIGS].holder = gate;
-    latchRoutes(s);
     s.items[SHOVEL].holder = "vale";
-    // Eaten or used, a thing goes home: shut, if its seal is live.
-    packThings[SHOVEL].sealed = { live: true };
-    try {
-      s.items[FIGS].holder = sanctuary;
-      consume(s, SHOVEL);
-      expect(usedUp(s, SHOVEL)).toBe(false);
-      expect(s.items[SHOVEL].holder).toBe(gate);
-      expect(entityShown(s, SHOVEL)).toBe(true);
-      expect(entityActive(s, SHOVEL)).toBe(false);
-    } finally {
-      packThings[SHOVEL].sealed = {};
-    }
+    s.items[FIGS].holder = sanctuary;
+    consume(s, SHOVEL);
+    expect(usedUp(s, SHOVEL)).toBe(false);
+    expect(s.items[SHOVEL].holder).toBe(gate);
+    expect(entityShown(s, SHOVEL)).toBe(true);
+    expect(entityActive(s, SHOVEL)).toBe(false);
   });
 });
 
@@ -263,7 +231,7 @@ describe("schema", () => {
     expect(() => attempt(() => {})).not.toThrow();
     expect(() =>
       attempt((i) => {
-        Object.assign(i, shut, { sealed: { live: true } });
+        Object.assign(i, shut, { sealed: {} });
       }),
     ).not.toThrow();
   });
@@ -274,7 +242,7 @@ describe("schema", () => {
       ).toThrow();
     bad({}, { requires: [] });
     bad({ reason: "Shut." });
-    bad({ live: false });
+    bad({ live: true });
     bad({ quest: {} });
     bad({}, { holder: "greek-antigone" });
     bad({}, { home: "greek-courtyard" });

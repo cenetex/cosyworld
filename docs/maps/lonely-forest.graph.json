@@ -1,7 +1,7 @@
 {
   "pack": "lonely-forest",
   "name": "Lonely Forest",
-  "revision": 4,
+  "revision": 5,
   "entry": "forest-cottage",
   "entries": [
     {
@@ -102,8 +102,7 @@
         "from": "forest-oak",
         "to": "forest-trail",
         "kind": "route",
-        "gate": "route:forest-oak>forest-trail",
-        "live": true
+        "gate": "route:forest-oak>forest-trail"
       },
       {
         "from": "forest-trail",
@@ -171,7 +170,7 @@
           "flag(key=forest-path-cleared,value=true)"
         ],
         "live": [],
-        "follows": "latches",
+        "follows": "live",
         "seal": {
           "kind": "place",
           "target": "forest-trail"

@@ -7,8 +7,8 @@ import { levelFor, levelOf, startXp } from "./want.mjs";
 // A world levels up as it grows (owner, 2026-11-04): its level is
 // presentation, read in the browser from state the rules already keep, and
 // nothing new is stored or journaled. Each point only ever rises: a level a
-// resident gained (residents never lose one), and a way opened (a latched
-// gate route, an opened section, a discovered crossing). Players are left
+// resident gained (residents never lose one), and a way opened (an
+// opened section, a discovered crossing). Players are left
 // out: a shared world's players carry levels in from other worlds and a seat
 // reset lowers them. Shared and local play read the same projected world.
 export function worldPoints(world) {
@@ -19,7 +19,6 @@ export function worldPoints(world) {
         0,
         levelOf(world, id) - trackLevel(levelFor(startXp(id))),
       );
-  points += world?.openedRoutes?.length || 0;
   for (const pack of packDefinitions)
     for (const section of pack.sections || [])
       if (

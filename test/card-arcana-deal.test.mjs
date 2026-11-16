@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import data from "../v2/card-game/arcana.json" with { type: "json" };
 import {
-  latchingRoute,
   packDefinitions,
   packIdOf,
   packOn,
@@ -246,29 +245,20 @@ describe("a world saved with the cards on the table", () => {
 });
 
 describe("a world that opened something the content no longer has", () => {
-  const route = packDefinitions
-    .flatMap((pack) => pack.routes || [])
-    .map((r) => `${r.from}>${r.to}`)
-    .filter(latchingRoute)
-    .sort()[0];
   const box = boxDefs()[0].id;
 
-  it("drops the gone latches on load and keeps the real ones", () => {
+  it("drops the gone boxes on load and keeps the real ones", () => {
     const s = createWorld({ seed: 5 });
-    s.openedRoutes = [route, "item:gone-thing"].sort();
     s.opened = { [box]: ["vale"], "gone-thing": ["vale"] };
     expect(() => validateWorld(s)).toThrow();
     const loaded = decodeSave(JSON.stringify(s));
-    expect(loaded.openedRoutes).toEqual([route]);
     expect(loaded.opened).toEqual({ [box]: ["vale"] });
   });
 
   it("removes a list that ends empty", () => {
     const s = createWorld({ seed: 5 });
-    s.openedRoutes = ["item:gone-thing"];
     s.opened = { "gone-thing": ["vale"] };
     const loaded = decodeSave(JSON.stringify(s));
-    expect(loaded.openedRoutes).toBeUndefined();
     expect(loaded.opened).toBeUndefined();
   });
 });

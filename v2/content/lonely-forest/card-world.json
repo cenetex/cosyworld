@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "lonely-forest",
   "packId": "cosyworld.lonely-forest",
-  "revision": 4,
+  "revision": 5,
   "name": "Lonely Forest",
   "description": "Tea beneath the oak. A household task leads through the rain, along a watched path, and home with a story.",
   "tone": "Plain words, useful work, distinct personalities, and gradual discovery of a shared living mind. Warmth comes from the kettle, the hearth and care for returning travelers.",
@@ -439,7 +439,6 @@
   "routes": [
     {
       "from": "forest-oak",
-      "live": true,
       "to": "forest-trail",
       "requires": [
         {

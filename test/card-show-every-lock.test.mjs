@@ -178,11 +178,9 @@ describe("Greek residents are locked boxes on their own present things", () => {
 describe("Lonely Forest ways are drawn locked", () => {
   const trail = "forest-trail";
 
-  it("keeps the garden path latched and the oak path live, each with its want", () => {
+  it("draws the garden path and the oak path, each with its want", () => {
     const route = (from) =>
       source("lonely-forest").routes.find((r) => r.from === from);
-    expect(route("forest-oak").live).toBe(true);
-    expect(route("forest-garden").live).toBeUndefined();
 
     let s = at(world(), "forest-garden");
     lockedBox(s, trail, /^Talk with RATi$/u);

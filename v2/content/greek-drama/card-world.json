@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 28,
+  "revision": 29,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2608,7 +2608,6 @@
     {
       "from": "greek-gate",
       "to": "greek-battlefield",
-      "live": true,
       "requires": [
         {
           "kind": "any",
@@ -2632,29 +2631,9 @@
       "to": "greek-polynices-hollow",
       "requires": [
         {
-          "kind": "any",
-          "conditions": [
-            {
-              "kind": "flag",
-              "key": "greek-polynices-heard",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "greek-polynices-anointed",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "greek-polynices-veiled",
-              "value": true
-            },
-            {
-              "kind": "flag",
-              "key": "greek-burial-performed",
-              "value": true
-            }
-          ]
+          "kind": "flag",
+          "key": "greek-polynices-heard",
+          "value": true
         }
       ],
       "sealed": {

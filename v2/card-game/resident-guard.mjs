@@ -54,8 +54,6 @@ export const guardPost = (id) =>
   lifeField(id, "guards") && !humanAvatar(id)
     ? { from: homeOf(id), to: lifeField(id, "guards") }
     : null;
-// The way's gate is open: latched for good, or a live gate whose condition
-// holds now (rules 102), such as a guard who no longer holds his order.
 export const wayLifted = (s, from, to) => packRouteOpen(s, from, to);
 // The ways a guard adds to a place: a guardable way is one way, both
 // directions, open but for its guard. The rest is the pack's own routes.
