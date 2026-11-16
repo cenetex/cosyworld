@@ -280,8 +280,9 @@ function exchangeFacts(world, speaker, played) {
   });
 }
 
-function quietAlone(world, played, state) {
+function quietAlone(world, cast, state) {
   const actor = currentActor(world);
+  const { played, present, location } = cast;
   if (
     state.scenery ||
     state.speakers.length !== 1 ||
@@ -296,7 +297,16 @@ function quietAlone(world, played, state) {
       entry.kind === "dialogue" &&
       profiles[entry.actorId]?.kind === "avatar",
   );
-  return last?.actorId === actor;
+  if (last?.actorId !== actor) return false;
+  const noticed = perception(world, actor, {
+    speakers: [actor],
+    entries: [],
+    actor,
+    present,
+    desire: null,
+    location,
+  }).arrival;
+  return !(noticed?.gone || noticed?.came || noticed?.first);
 }
 
 export function narrativeContext(world, action = null, isCovered = null, remaining = false) {
@@ -320,7 +330,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
   const { occasion } = occasionState;
   const speakers = original
     ? original.speakers.filter((id) => ids.includes(id))
-    : quietAlone(world, played, occasionState)
+    : quietAlone(world, cast, occasionState)
       ? []
       : occasionState.speakers;
   const scenery = original ? original.scenery : occasionState.scenery;

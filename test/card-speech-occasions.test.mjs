@@ -137,18 +137,20 @@ describe("speech occasions", () => {
       });
     };
     const lastVoice = (s) => s.log.findLast((e) => e.generated && e.kind === "dialogue").actorId;
-    const alone = speak(act(meeting(), "talk", "moth"));
-    expect(lastVoice(alone)).toBe("moth");
-    const waited = act(alone, "wait");
-    expect(narrativeContext(waited).speakers).toEqual(["vale"]);
-    const spoke = speak(waited);
+    const met = speak(act(meeting(), "talk", "moth"));
+    expect(lastVoice(met)).toBe("moth");
+    expect(narrativeContext(act(met, "wait")).speakers).toEqual(["vale"]);
+    const lone = meeting();
+    lone.actors.moth.place = "pond";
+    const spoke = speak(act(lone, "wait"));
     expect(lastVoice(spoke)).toBe("vale");
     const home = spoke.actors.vale.place;
-    const back = act(act(spoke, "move"), "move", home);
-    expect(occasions(back)).toMatchObject({ speakers: ["vale"], scenery: false });
-    expect(narrativeContext(back).speakers).toEqual([]);
-    const lit = act(spoke, "talk", "moth");
-    expect(narrativeContext(lit).speakers).toEqual(["vale", "moth"]);
+    const first = act(spoke, "move");
+    const away = first.actors.vale.place;
+    expect(narrativeContext(first).speakers).toContain("vale");
+    const again = act(speak(act(speak(first), "move", home)), "move", away);
+    expect(occasions(again)).toMatchObject({ speakers: ["vale"], scenery: false });
+    expect(narrativeContext(again).speakers).toEqual([]);
   });
 
   it("asks for a private reflection after a quiet Wait", async () => {
