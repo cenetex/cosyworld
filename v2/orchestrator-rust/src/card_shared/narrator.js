@@ -18865,13 +18865,13 @@
         problems2.push(`guardable way ${r.from}>${r.to} needs an authored route`);
     for (const [id, r] of Object.entries(world_life_default.residents || {}))
       if (!own(people2, id) || !recordOk(r, ["range", "sails", "sleep", "guards"]) || r.guards !== void 0 && !(world_life_default.guardable || []).some(
-        (w) => w.from === lifeHome(id) && w.to === r.guards
+        (w) => w.from === homeOf2(id) && w.to === r.guards
       ))
         problems2.push(`resident ${id} has an unknown or invalid field`);
     return problems2;
   }
   var lifeField = (id, key2) => own(world_life_default.residents?.[id], key2) ? world_life_default.residents[id][key2] : void 0;
-  function lifeHome(id, world) {
+  function homeOf2(id, world) {
     const resident = packPeople[id];
     const next = resident?.homeWhen;
     if (world && next && conditionsMet(world, resident.packId, next.requires, id))
@@ -18906,7 +18906,7 @@
     guardData();
     return Boolean(guardable.get(from)?.has(to));
   };
-  var guardPost = (id) => lifeField(id, "guards") && !humanAvatar(id) ? { from: lifeHome(id), to: lifeField(id, "guards") } : null;
+  var guardPost = (id) => lifeField(id, "guards") && !humanAvatar(id) ? { from: homeOf2(id), to: lifeField(id, "guards") } : null;
   var wayLifted = (s, from, to) => packRouteOpen(s, from, to);
   function guardedExits(_s, place) {
     guardData();
@@ -19093,7 +19093,7 @@
   function homeRescueExit(s, place, actor = currentActor(s), previous = null) {
     const gate = homeGates[place];
     actor ||= currentActor(s);
-    return gate && (controlledByHuman(s, actor) || homeOf2(actor) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && (!homeGateRecoverable(s, place, gate, actor) || controlledByHuman(s, actor) && rootHolder(s, gate.item) === actor && Boolean(s.opened?.[gate.rescue]?.includes(actor))) ? (
+    return gate && (controlledByHuman(s, actor) || homeOf2(actor, s) === place || gate.opening && knownActors2(s).includes(actor)) && s.actors[actor]?.place === place && !ordinaryRouteHome(s, place, gate.rescue, actor, previous) && (!homeGateRecoverable(s, place, gate, actor) || controlledByHuman(s, actor) && rootHolder(s, gate.item) === actor && Boolean(s.opened?.[gate.rescue]?.includes(actor))) ? (
       // With its rescue place asleep, the first pack on takes them in (rules 98).
       entityActive(s, gate.rescue) ? gate.rescue : firstStart(s)
     ) : null;
@@ -19607,9 +19607,6 @@
       return !a?.talked || a.talked.includes(id) || world.opening?.met?.[id] !== void 0 || world.packs?.[packOf(id)?.id]?.met?.[id] !== void 0;
     return Boolean(world.items[id]) || !a?.visited || a.visited.includes(id);
   }
-
-  // v2/card-game/world/home.mjs
-  var homeOf2 = (id) => packPeople[id]?.levelAtHome && packPeople[id].home || tastes[id]?.home || humanAvatar(id)?.home?.id || null;
 
   // v2/card-game/world/arcana.mjs
   var deck = { cards: arcana_default.cards };

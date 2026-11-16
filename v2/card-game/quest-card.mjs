@@ -122,7 +122,7 @@ export const levelCards = (world, actor = currentActor(world)) =>
     step: null,
     art: face === "down" ? TAROT_BACK : face === "locked" ? TAROT_LOCKED_BACK : arcanumArt(card),
     conditions: face === "down" ? null : arcanumTerms(world, actor, index),
-    home: homeOf(actor) ?? null,
+    home: homeOf(actor, world) ?? null,
   }));
 // The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>

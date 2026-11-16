@@ -73,7 +73,7 @@ export function lifeDataProblems(places, people) {
       !recordOk(r, ["range", "sails", "sleep", "guards"]) ||
       (r.guards !== undefined &&
         !(life.guardable || []).some(
-          (w) => w.from === lifeHome(id) && w.to === r.guards,
+          (w) => w.from === homeOf(id) && w.to === r.guards,
         ))
     )
       problems.push(`resident ${id} has an unknown or invalid field`);
@@ -84,7 +84,7 @@ export const lifeField = (id, key) =>
 
 // --- Home and range ------------------------------------------------------
 
-export function lifeHome(id, world) {
+export function homeOf(id, world) {
   const resident = packPeople[id];
   const next = resident?.homeWhen;
   if (world && next && conditionsMet(world, resident.packId, next.requires, id))
@@ -160,7 +160,7 @@ export const hops = (from, to) => hopsFrom(from).get(to) ?? Infinity;
 // A test of places against a resident's range, or null for no limit.
 export function rangeTest(s, id) {
   const range = rangeOf(s, id),
-    home = lifeHome(id, s);
+    home = homeOf(id, s);
   if (range === null || range === Infinity || !home) return null;
   const table = hopsFrom(home);
   return (place) => (table.get(place) ?? Infinity) <= range;
@@ -169,13 +169,13 @@ export function rangeTest(s, id) {
 export function inRange(s, id, place) {
   const range = rangeOf(s, id);
   if (range === null || range === Infinity) return true;
-  const home = lifeHome(id, s);
+  const home = homeOf(id, s);
   return !home || hops(home, place) <= range;
 }
 // Away from home and beyond its range: pushed, sent, scattered or knocked.
 export function displaced(s, id) {
   const range = rangeOf(s, id),
-    home = lifeHome(id, s),
+    home = homeOf(id, s),
     here = s.actors[id]?.place;
   return (
     range !== null &&
@@ -189,7 +189,7 @@ export function displaced(s, id) {
 export const walksHome = (s, id) =>
   worldLife.on &&
   rangeOf(s, id) !== null &&
-  s.actors[id].place !== lifeHome(id, s) &&
+  s.actors[id].place !== homeOf(id, s) &&
   (Boolean(s.actors[id].homeward) || displaced(s, id));
 
 // A resident marked walking home holds `homeward: true`.

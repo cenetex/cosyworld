@@ -225,7 +225,7 @@ export const candidates = (s, kind, is) =>
 
 export function bindingOf(s, card, traveler, pool = candidates) {
   const binding = { traveler };
-  const home = homeOf(traveler);
+  const home = homeOf(traveler, s);
   if (home) binding.home = home;
   const taken = [];
   for (const role of card.roles || []) {
@@ -342,7 +342,7 @@ export function slotBinding(s, slot, traveler) {
   const card = slotCard(slot);
   if (!card) return null;
   const binding = { traveler };
-  const home = homeOf(traveler);
+  const home = homeOf(traveler, s);
   if (home) binding.home = home;
   const taken = [];
   for (const role of card.roles || []) {
@@ -526,7 +526,7 @@ function visit(s, traveler, say) {
       conditionWords(
         resolve(termsOf(slotCard(slot)), binding),
         (id) => found(s, traveler, id),
-        { home: homeOf(traveler) },
+        { home: homeOf(traveler, s) },
       )
     );
   };
@@ -570,7 +570,7 @@ function visit(s, traveler, say) {
     delete record.need;
     delete record.done;
     if (rises && slotsUsed(s.actors[traveler]) < MAX_HELD)
-      sleepQuest(s, traveler, { home: homeOf });
+      sleepQuest(s, traveler, { home: (id) => homeOf(id, s) });
   }
   const held = (record.spread || []).map((slot) => slot.card);
   if (

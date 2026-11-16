@@ -120,7 +120,7 @@ export function homeRescueExit(s, place, actor = currentActor(s), previous = nul
   actor ||= currentActor(s);
   return gate &&
     (controlledByHuman(s, actor) ||
-      homeOf(actor) === place ||
+      homeOf(actor, s) === place ||
       (gate.opening && knownActors(s).includes(actor))) &&
     s.actors[actor]?.place === place &&
     !ordinaryRouteHome(s, place, gate.rescue, actor, previous) &&

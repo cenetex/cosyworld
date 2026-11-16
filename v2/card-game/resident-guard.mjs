@@ -15,7 +15,7 @@ import {
   humanPresent,
   controlledByHuman,
 } from "./human-cast.mjs";
-import { life, lifeField, lifeHome } from "./resident-home.mjs";
+import { life, lifeField, homeOf } from "./resident-home.mjs";
 
 // --- Guard ---------------------------------------------------------------
 
@@ -52,7 +52,7 @@ export const isGuardable = (from, to) => {
 };
 export const guardPost = (id) =>
   lifeField(id, "guards") && !humanAvatar(id)
-    ? { from: lifeHome(id), to: lifeField(id, "guards") }
+    ? { from: homeOf(id), to: lifeField(id, "guards") }
     : null;
 // The way's gate is open: latched for good, or a live gate whose condition
 // holds now (rules 102), such as a guard who no longer holds his order.

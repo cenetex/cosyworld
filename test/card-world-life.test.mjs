@@ -14,7 +14,7 @@ import {
   OFFSTAGE_STEPS,
   hops,
   inRange,
-  lifeHome,
+  homeOf,
   mayBoard,
   rangeOf,
 } from "../v2/card-game/resident-home.mjs";
@@ -40,7 +40,7 @@ describe("home and range", () => {
     expect(rangeOf(s, "greek-rhapsode")).toBe(null);
     expect(rangeOf(s, "moth")).toBe(Infinity);
     expect(rangeOf(s, "vale")).toBe(null);
-    expect(lifeHome(GUARD)).toBe(GATE);
+    expect(homeOf(GUARD)).toBe(GATE);
     expect(inRange(s, "greek-creon", "greek-well")).toBe(true);
     expect(inRange(s, "greek-creon", "greek-harbor")).toBe(false);
   });
@@ -122,10 +122,10 @@ describe("home and range", () => {
         entityActive(s, id) &&
         rangeOf(s, id) > 0 &&
         Number.isFinite(rangeOf(s, id)) &&
-        exits(s, lifeHome(id), id).length,
+        exits(s, homeOf(id), id).length,
     );
     for (const id of away) {
-      s.actors[id].place = exits(s, lifeHome(id), id)[0];
+      s.actors[id].place = exits(s, homeOf(id), id)[0];
       s.actors[id].homeward = true;
     }
     s = reload(s);
@@ -137,7 +137,7 @@ describe("home and range", () => {
     expect(moved.length).toBeLessThanOrEqual(OFFSTAGE_STEPS);
     expect(moved.length).toBeGreaterThan(0);
     // One step each: everyone is home again, and nobody walks on.
-    expect(moved.every((id) => s.actors[id].place === lifeHome(id))).toBe(true);
+    expect(moved.every((id) => s.actors[id].place === homeOf(id))).toBe(true);
   });
 });
 
@@ -188,7 +188,7 @@ describe("world life is deterministic and cheap", () => {
     for (const id of Object.keys(packPeople)) {
       const range = rangeOf(s, id);
       const out =
-        entityActive(s, id) && range > 0 && exits(s, lifeHome(id), id)[0];
+        entityActive(s, id) && range > 0 && exits(s, homeOf(id), id)[0];
       if (out) s.actors[id].place = out;
     }
     s = reload(s);

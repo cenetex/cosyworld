@@ -222,7 +222,6 @@ import { installSpecials, validSeed } from "./pack-specials.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import {
-  lifeHome,
   rangeOf,
   wanders,
   mayBoard,
@@ -727,7 +726,7 @@ export function wantAPI(s) {
     reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
     rangeTest: (actor) => rangeTest(s, actor),
     wanders: (actor) => wanders(s, actor),
-    home: homeOf,
+    home: (id) => homeOf(id, s),
     active: (id) => entityActive(s, id),
     sanctuaries,
     restsAt,
@@ -1108,7 +1107,7 @@ function defeatInStandoff(s, c, winner, loser, here) {
   const defeats = (s.defeats ??= {});
   delete defeats[winner];
   const lossCount = (defeats[loser] || 0) + 1;
-  const home = homeOf(loser);
+  const home = homeOf(loser, s);
   // A guard beaten at its post is knocked through the way it guards, even
   // a third time: its home is the post (rules 100).
   const post = guardPost(loser);
@@ -1122,7 +1121,8 @@ function defeatInStandoff(s, c, winner, loser, here) {
     lossCount >= DEFEATS_TO_SEND_HOME &&
     Boolean(home) &&
     entityActive(s, home) &&
-    actorCanVisit(loser, home, s);
+    actorCanVisit(loser, home, s) &&
+    (humanHeld(s, loser) || Boolean(routeBetween(s, here, home, loser)));
   const dropped = sentHome
     ? ids.filter((id) => s.items[id].holder === loser)
     : [
@@ -1165,7 +1165,7 @@ function defeatInStandoff(s, c, winner, loser, here) {
   if (
     !humanHeld(s, loser) &&
     rangeOf(s, loser) !== null &&
-    to !== lifeHome(loser, s)
+    to !== homeOf(loser, s)
   )
     s.actors[loser].homeward = true;
   for (const id of carried(s, loser))
@@ -1835,7 +1835,7 @@ function searchHome(from, home) {
 // back at all (it is then not taken). A ship brings every rider home.
 export function wayHome(s, traveler, here, dest, companion) {
   if (transportPlace(here) || transportPlace(dest)) return [];
-  return homePath(dest, lifeHome(companion, s) || here);
+  return homePath(dest, homeOf(companion, s) || here);
 }
 // A ticket for each place on the resident's way home that it could not visit
 // by itself, or that it enters by a crossing only a player may use, so it can
@@ -1887,7 +1887,7 @@ function partyFor(s, traveler, dest, companion = companionOf(s, traveler)) {
 function narrowTickets(s, id) {
   const held = s.invitedPlaces?.[id];
   if (!held) return;
-  const home = lifeHome(id, s),
+  const home = homeOf(id, s),
     path = home ? homePath(s.actors[id].place, home) : null,
     keep =
       path && s.actors[id].place !== home
@@ -1929,7 +1929,7 @@ function settleCompanions(s) {
       parts(s, traveler, id, `${nameOf(id)} waits no longer and goes on alone.`);
   }
   for (const id of Object.keys(s.invitedPlaces || {}))
-    if (!travelerOf(s, id) && s.actors[id]?.place === lifeHome(id, s))
+    if (!travelerOf(s, id) && s.actors[id]?.place === homeOf(id, s))
       narrowTickets(s, id);
 }
 function dropOpenedBoxQuests(s) {
@@ -2209,7 +2209,7 @@ function residentRound(s, acted) {
   for (const id of life) {
     const a = s.actors[id],
       z = a.sleeping;
-    if (a.homeward && a.place === lifeHome(id, s)) delete a.homeward;
+    if (a.homeward && a.place === homeOf(id, s)) delete a.homeward;
     if (z?.until !== undefined) {
       if (s.turn >= z.until || a.place !== z.place || standoffFor(s, id)) {
         wakeResident(s, id);
@@ -2239,7 +2239,7 @@ function residentRound(s, acted) {
     // up and walks home at its own pace (dwell holds each step), then sleeps
     // if the window is still open. An avatar with no range sleeps where it
     // stands, as before.
-    const home = lifeHome(id, s);
+    const home = homeOf(id, s);
     prepareResidentLamp(s, id, home);
     if (rangeOf(s, id) !== null && home && a.place !== home) {
       // Only a resident with a way home is marked walking: one with none
@@ -2276,7 +2276,7 @@ function residentRound(s, acted) {
     if (steps >= OFFSTAGE_STEPS) break;
     const a = s.actors[id],
       here = a.place,
-      home = lifeHome(id, s);
+      home = homeOf(id, s);
     if (!home || !entityActive(s, home)) {
       delete a.homeward;
       continue;
@@ -2947,7 +2947,7 @@ function toward(s, actor, target) {
 function prepareResidentLamp(s, actor, target = null) {
   if (controlledByHuman(s, actor) || s.items.lamp.holder !== actor) return;
   const want = wantOf(s, actor), here = s.actors[actor].place;
-  const destination = target || (s.actors[actor].homeward ? lifeHome(actor, s) : null) || levelReturnHome(s, actor) || (want?.kind === "place" ? want.target :
+  const destination = target || (s.actors[actor].homeward ? homeOf(actor, s) : null) || levelReturnHome(s, actor) || (want?.kind === "place" ? want.target :
     want?.kind === "person" ? s.actors[want.target]?.place : null);
   let choice;
   if (destination && destination !== here && !routeBetween(s, here, destination, actor)) {
@@ -3120,7 +3120,7 @@ function wantPlan(s, actor) {
   // range drifts home when it has nothing to pursue here. With a player it
   // acts as before; its wants take it walking only at dawn and dusk, away
   // from players (residentRound).
-  const home = lifeHome(actor, s),
+  const home = homeOf(actor, s),
     ranged = Number.isFinite(rangeOf(s, actor) ?? Infinity);
   const homeStep = () => {
     const step = home && here !== home ? stepToward(s, actor, home) : null;

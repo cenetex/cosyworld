@@ -12,11 +12,15 @@ import {
   fightersOf,
   matchingActions,
   strikeDamage,
+  wantAPI,
+  homeOf as worldHome,
 } from "../v2/card-game/world.mjs";
 import { avatarPlays, cardPlay } from "../v2/card-game/cards.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { levelOf, newWant, travels } from "../v2/card-game/want.mjs";
-import { tastes } from "../v2/card-game/motives.mjs";
+import forest from "../v2/card-game/forest.json" with { type: "json" };
+import { homeOf } from "../v2/card-game/world/home.mjs";
+import { homeOf as residentHome } from "../v2/card-game/resident-home.mjs";
 import { humanAvatar, humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import {
   entityActive,
@@ -562,6 +566,24 @@ const valeFalls = (s) => {
   return act(s, "attack", "moth");
 };
 
+const withHome = (id, home, run) => {
+  const authored = forest.people[id].home;
+  forest.people[id].home = home;
+  try {
+    run();
+  } finally {
+    forest.people[id].home = authored;
+  }
+};
+const keeperFalls = () => {
+  const s = meeting();
+  s.actors.keeper.place = "station";
+  s.items.oil.holder = "keeper";
+  s.defeats = { keeper: 2 };
+  lastBlow(s, "vale", "keeper", "bell");
+  return act(s, "attack", "keeper");
+};
+
 describe("repeated defeats", () => {
   it("retreats twice, then sends the loser home with empty hands", () => {
     let s = meeting();
@@ -678,8 +700,8 @@ describe("repeated defeats", () => {
     expect(s.defeats).toEqual({});
   });
   it("falls back along the first exit when the loser has no home", () => {
-    const home = tastes.moth.home;
-    tastes.moth.home = undefined;
+    const home = forest.people.moth.home;
+    forest.people.moth.home = undefined;
     try {
       let s = meeting();
       s.items.lamp.holder = "moth";
@@ -700,8 +722,47 @@ describe("repeated defeats", () => {
       });
       expect(s.defeats).toEqual({});
     } finally {
-      tastes.moth.home = home;
+      forest.people.moth.home = home;
     }
+  });
+  it("reads one home for every avatar, the authored one", () => {
+    expect(residentHome).toBe(homeOf);
+    expect(worldHome).toBe(homeOf);
+    const s = meeting();
+    expect(Object.keys(s.actors).filter((id) => !homeOf(id, s))).toEqual([]);
+    withHome("keeper", "pond", () => {
+      expect(homeOf("keeper", s)).toBe("pond");
+      expect(wantAPI(s).home("keeper")).toBe("pond");
+    });
+  });
+  it("sends a resident to its authored home when an open path leads there", () => {
+    withHome("keeper", "pond", () => {
+      const s = keeperFalls();
+      expect(s.log.findLast((e) => e.verb === "attack")).toMatchObject({
+        outcome: "sent-home",
+        lossCount: 3,
+      });
+      expect(s.actors.keeper.place).toBe("pond");
+      expect(s.items.bell.holder).toBe("station");
+      expect(s.items.oil.holder).toBe("station");
+      expect(s.defeats).toEqual({});
+    });
+  });
+  it("yields in place of going home when no open path leads there", () => {
+    withHome("keeper", "attic", () => {
+      const s = keeperFalls();
+      expect(exits(s, "pond", "keeper")).not.toContain("attic");
+      expect(s.log.findLast((e) => e.verb === "attack")).toMatchObject({
+        outcome: "yield",
+        lossCount: 3,
+        droppedItemIds: ["bell"],
+      });
+      expect(s.log.some((e) => e.verb === "sent-home")).toBe(false);
+      expect(s.actors.keeper.place).toBe("pond");
+      expect(s.items.oil.holder).toBe("keeper");
+      expect(s.defeats).toEqual({});
+      validateWorld(s);
+    });
   });
   it("rejects malformed defeat counts", () => {
     for (const defeats of [{ vale: 3 }, { vale: 0 }, { nobody: 1 }, []]) {
@@ -724,8 +785,8 @@ describe("repeated defeats", () => {
       const stranded = [];
       for (const id of Object.keys(base.actors)) {
         if (!entityActive(base, id) || !travels(id) || staysPut(id)) continue;
-        const home = tastes[id]?.home || humanAvatar(id)?.home?.id;
         const s = structuredClone(base);
+        const home = homeOf(id, s);
         s.actors[id].place = home;
         for (const item of Object.values(s.items))
           if (item.holder === id) item.holder = "station";
