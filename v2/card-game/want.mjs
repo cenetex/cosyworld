@@ -4,7 +4,7 @@
 // A resident's next want is drawn from the world, deterministically, so a
 // replayed journal makes the same choices. A player's is never drawn or
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
-import { humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
+import { controlledByHuman, humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
   entityActive,
   isFood,
@@ -263,7 +263,6 @@ export const lostOf = (s, w) =>
     : undefined;
 
 // An authored want as the actor holds it: its kind, target, light and step.
-// `minTrust` stays in pack data and is read there (want-talk.mjs).
 const heldWant = (s, w) => ({
   ...newWant(w.kind, w.target, s.turn),
   ...(w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {}),
@@ -293,6 +292,10 @@ export function stagedNext(s, id, previous = null) {
     .filter(
       ({ open, want }) =>
         open &&
+        (!want.minTrust ||
+          Object.entries(s.actors[id].trust || {}).some(
+            ([who, trust]) => trust >= want.minTrust && controlledByHuman(s, who),
+          )) &&
         validTarget(s, want.kind, want.target) &&
         !lostOf(s, want) &&
         !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) &&
@@ -533,10 +536,11 @@ function questMet(s, actor, want, talk, action) {
     );
   if (want.kind === "place") return s.actors[actor].place === want.target;
   return Boolean(
-    talk &&
-      s.actors[want.target]?.place === s.actors[actor].place &&
-      ((talk.actor === actor && talk.target === want.target) ||
-        (talk.actor === want.target && talk.target === actor)),
+    s.actors[want.target]?.place === s.actors[actor].place &&
+      (talk
+        ? (talk.actor === actor && talk.target === want.target) ||
+          (talk.actor === want.target && talk.target === actor)
+        : action?.led?.includes(actor) && entityActive(s, want.target)),
   );
 }
 // Whether holding this item now meets the actor's item want, as settleWants
@@ -581,9 +585,8 @@ export const resting = (s, actor) => {
 
 // Record what each participant saw and said, then commit met wants. The want
 // is paid on the play that meets it. A resident's next is drawn where one is
-// met. A player whose play meets ANOTHER avatar's want helps them, and the
-// owner trusts them one more.
-export function settleWants(s, actors, api, action = null) {
+// met. A player whose play meets ANOTHER avatar's want helps them.
+export function settleWants(s, actors, api, action = null, stale = []) {
   const talk =
     action?.kind === "talk"
       ? { actor: action.actor, target: action.target }
@@ -603,7 +606,9 @@ export function settleWants(s, actors, api, action = null) {
     for (const held of api.player(id) ? heldOf(a) : a.want ? [a.want] : [])
       if (questMet(s, id, held, talk, action)) {
         commitMet(s, id, api, met, held);
+        if (stale.includes(id)) continue;
         helped(s, id, api, action);
+        if (a.content) setWant(a, stagedNext(s, id, held));
       }
   }
   return met;

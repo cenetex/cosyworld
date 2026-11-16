@@ -292,11 +292,11 @@ describe("selection", () => {
 });
 
 describe("a bond through staged gifts", () => {
-  it("raises trust by a plain Give at each stage, and withholds a want below its minTrust", () => {
+  it("raises trust by a plain Give at each stage, and takes a want once its minTrust is met", () => {
     stage(
       item("greek-wine-skin"),
-      item("greek-shovel", { minTrust: 2 }),
-      item("greek-figs", { minTrust: 3 }),
+      item("greek-shovel", { minTrust: 1 }),
+      item("greek-figs", { minTrust: 2 }),
     );
     let s = world();
     s.actors.vale.place = gate;

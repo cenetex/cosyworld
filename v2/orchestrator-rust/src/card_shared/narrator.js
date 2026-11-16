@@ -2823,7 +2823,9 @@
     if (!packPeople[id]?.wants) return null;
     const day = Math.floor(s.turn / (2 * DAYLIGHT_TURNS));
     const entries = stagedWants(s, id).filter(
-      ({ open, want }) => open && validTarget(s, want.kind, want.target) && !lostOf(s, want) && !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) && !questMet(s, id, heldWant(s, want), null, null)
+      ({ open, want }) => open && (!want.minTrust || Object.entries(s.actors[id].trust || {}).some(
+        ([who, trust]) => trust >= want.minTrust && controlledByHuman(s, who)
+      )) && validTarget(s, want.kind, want.target) && !lostOf(s, want) && !(previous && questTerms(heldWant(s, want)) === questTerms(previous)) && !questMet(s, id, heldWant(s, want), null, null)
     ).map((entry) => ({
       ...entry,
       rank: mixed(runHash(s, `staged:${id}:${entry.index}:${day}`))
@@ -2895,7 +2897,7 @@
       return holdsAsWanted(s, actor, want) || want.lit === void 0 && action?.kind === "give" && action.accepted === true && action.target === actor && action.item === want.target;
     if (want.kind === "place") return s.actors[actor].place === want.target;
     return Boolean(
-      talk && s.actors[want.target]?.place === s.actors[actor].place && (talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor)
+      s.actors[want.target]?.place === s.actors[actor].place && (talk ? talk.actor === actor && talk.target === want.target || talk.actor === want.target && talk.target === actor : action?.led?.includes(actor) && entityActive(s, want.target))
     );
   }
   function holdsAsWanted(s, actor, want) {
@@ -21260,7 +21262,7 @@
       (entry) => entry.turn === world.turn && !entry.generated
     );
     const played = playedEntry(world);
-    const wantMet = played && events.find(
+    const wantMet2 = played && events.find(
       (entry) => entry.verb === "want_met" && entry.actorId === played.actorId
     )?.wantMet;
     const here2 = world.actors[currentActor(world)].place;
@@ -21296,7 +21298,7 @@
         receive: played?.receiveId || null,
         destination: played?.destinationId || null,
         accepted: played?.accepted ?? null,
-        ...wantMet ? { wantMet: structuredClone(wantMet) } : {}
+        ...wantMet2 ? { wantMet: structuredClone(wantMet2) } : {}
       },
       avatars: actorIds2.map((id) => {
         const actor = world.actors[id];
