@@ -22,6 +22,7 @@ import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { CONTENT_TURNS, questsOf, setWant } from "../v2/card-game/want.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
+import { acceptBox } from "./helpers/accept-quest.mjs";
 import { sailTo } from "./helpers/voyage.mjs";
 import { courseOptions } from "../v2/card-game/pack-transport.mjs";
 
@@ -116,9 +117,7 @@ describe("the guard and the decree", () => {
     // The card beyond is locked; its reason names him, and its quest is a card.
     expect(availableCards(s)).toContain(FIELD);
     expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
-    expect(
-      questsOf(s, "vale").find((w) => w.from === `quest:box:${FIELD}`),
-    ).toBeTruthy();
+    s = acceptBox(s, FIELD);
     const talked = act(act(s, "talk", { target: GUARD }), "accept", { target: GUARD });
     expect(questsOf(talked, "vale")[0].from).toBe(`quest:from:${GUARD}`);
     expect(questsOf(talked, "vale")).toContainEqual(

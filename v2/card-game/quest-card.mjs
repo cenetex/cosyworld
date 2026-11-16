@@ -11,6 +11,7 @@ import { arcanumArt } from "./glimpse-card.mjs";
 import { TAROT_BACK, TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
+  boxOffer,
   currentActor,
   itemPlace,
   movesTo,
@@ -75,14 +76,15 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
-export function offerCard(world, actor = currentActor(world)) {
-  const asked = residentOffer(world, actor);
+export function offerCard(world, actor = currentActor(world), box = null) {
+  const asked = box ? boxOffer(world, box, actor) : residentOffer(world, actor);
   if (!asked) return null;
-  const turn = world.actors[actor].offered.turn;
+  const mark = box ? "box" : world.actors[actor].offered.turn;
   return {
-    ...questShape(world, actor, asked.want, `offer:${actor}:${asked.source}:${turn}`, -1),
+    ...questShape(world, actor, asked.want, `offer:${actor}:${asked.source}:${mark}`, -1),
     offer: asked.source,
     full: asked.full,
+    ...(box ? { box: true } : {}),
   };
 }
 export function offerLapse() {

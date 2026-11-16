@@ -13,6 +13,16 @@ export function acceptOffer(world, teller, actor = "vale") {
   return done.state;
 }
 
+export function acceptBox(world, box, actor = "vale") {
+  const accept = legalActions(world, actor).find(
+    (a) => a.kind === "accept" && a.box === box,
+  );
+  expect(accept, `${box} offers ${actor} its quest`).toBeTruthy();
+  const done = play(world, accept, world.revision, actor);
+  expect(done.ok).toBe(true);
+  return done.state;
+}
+
 export function heldFrom(world, teller, actor = "vale") {
   expect(toldWant(world, actor, teller), `${teller} told ${actor} a want`).toBe(
     true,

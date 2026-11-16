@@ -18,6 +18,7 @@ import { DREAM_FROM, heldOf, levelOf, sleepQuest, wantOf } from "../v2/card-game
 import { wantFact } from "../v2/card-game/want-talk.mjs";
 import { nameOf } from "../v2/card-game/world/catalog.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
+import { acceptBox } from "./helpers/accept-quest.mjs";
 import { journeyWorlds } from "./helpers/journey.mjs";
 import { questCards } from "./journeys/quest-cards.mjs";
 
@@ -35,9 +36,11 @@ const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
 const sources = (s) => heldOf(s.actors.vale).map((w) => w.from);
 const GUARD = "greek-guard";
 
-describe("quest offers are held at once", () => {
-  it("holds a shut box's quest where the box lies, and not once it is gone", () => {
-    const s = greekErrands().decree;
+const FIELD = "greek-battlefield";
+describe("quest offers are held on Accept", () => {
+  it("holds a shut box's quest on Accept where the box lies", () => {
+    expect(sources(wait(greekErrands().decree))).toEqual([]);
+    const s = acceptBox(greekErrands().decree, FIELD);
     const box = heldOf(s.actors.vale).find((w) => w.from === "quest:box:greek-battlefield");
     expect(box).toMatchObject({
       kind: "item",
@@ -83,7 +86,7 @@ describe("quest offers are held at once", () => {
   });
 
   it("stacks quests, discards any one, and keeps a discarded one closed", () => {
-    let s = accept(talk(greekErrands().decree, GUARD), GUARD);
+    let s = accept(talk(acceptBox(greekErrands().decree, FIELD), GUARD), GUARD);
     const before = sources(s);
     expect(before.length).toBeGreaterThan(1);
     const drops = legalActions(s).filter((a) => a.kind === "drop" && !a.item);
@@ -112,12 +115,14 @@ describe("the offer on Talk", () => {
       expect(find(s, (a) => a.kind === "accept" && a.target === GUARD)).toBeTruthy();
       s = wait(s);
       expect(offerFrom(s, "vale")).toBeNull();
-      expect(find(s, (a) => a.kind === "accept")).toBeUndefined();
+      expect(find(s, (a) => a.kind === "accept" && !a.box)).toBeUndefined();
     }
   });
 
-  it("applies to residents alone: a shut box's quest is always held", () => {
-    expect(sources(greekErrands().decree)).toContain("quest:box:greek-battlefield");
+  it("drops a held box quest when its box opens", () => {
+    const s = acceptBox(greekErrands().decree, FIELD);
+    s.items["greek-creon-writ"].holder = GUARD;
+    expect(sources(wait(s))).toEqual([]);
   });
 
   it("says so in the Talk context", () => {

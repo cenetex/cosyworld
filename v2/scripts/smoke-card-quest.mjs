@@ -207,7 +207,10 @@ try {
       )
       .click();
     await ready();
-    // The shut Black pond's own quest follows in the attic.
+    assert.equal((await saved()).want, null, "no box quest is held unasked");
+    await selectCard(page, "pond");
+    await tapCard(page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card'));
+    await readyActionButton(page, "accept").click();
     await page.waitForFunction(
       (k) =>
         JSON.parse(localStorage.getItem(k)).actors.vale.want?.from ===
@@ -291,7 +294,7 @@ try {
     await ready();
     const dropped = await saved();
     assert.equal(dropped.xp, 0, "the quest dropped at no cost");
-    assert.equal(dropped.want?.from, "quest:box:pond", "the shut pond's quest returns");
+    assert.equal(dropped.want, null, "no box quest returns unasked");
 
     // A step quest: at the Theban City Gate, the chosen quest card offers one
     // button, Discard; giving the Decree meets it and pays no XP.
@@ -362,13 +365,13 @@ try {
       gateKey,
     );
     await ready();
-    assert.equal((await saved(gateKey)).want.from, "quest:box:greek-battlefield");
+    assert.equal((await saved(gateKey)).want, null);
     assert.equal(
       (await saved(gateKey)).xp,
       xp,
       "the Give paid a traveler no XP, with no claim",
     );
-    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
+    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.deepEqual(errors, []);
     console.log(
