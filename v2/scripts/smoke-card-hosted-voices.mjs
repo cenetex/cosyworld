@@ -107,7 +107,9 @@ async function checkSharedVoice(width) {
     return route.fulfill({ contentType: "audio/mpeg", body: audio });
   });
   await page.route("**/auth/account", (route) =>
-    route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
+    route.fulfill({
+      json: { authenticated: true, user_id: "smoke-user", account_revision: 0 },
+    }),
   );
   await page.route(
     /\/card-game\/shared\/worlds\/voice-w(?:\/command)?$/u,
@@ -156,6 +158,11 @@ async function checkSharedVoice(width) {
   await checkAccountRefresh(page);
   await page.reload();
   await page.waitForFunction(() => document.body.inert === false);
+  for (const id of await page.$$eval(
+    '#hand [data-card][data-unrevealed="true"]',
+    (cards) => cards.map((card) => card.dataset.card),
+  ))
+    await revealCard(page, id);
   await page.locator("#speaker").click();
   await page.waitForFunction(
     () =>
@@ -209,7 +216,9 @@ async function checkPersonalReplay(width) {
     },
   );
   await page.route("**/auth/account", (route) =>
-    route.fulfill({ json: { authenticated: true, user_id: "smoke-user", account_revision: 0 } }),
+    route.fulfill({
+      json: { authenticated: true, user_id: "smoke-user", account_revision: 0 },
+    }),
   );
   const audio = await readFile(
     new URL("../card-game/assets/voices/vale.mp3", import.meta.url),
@@ -276,11 +285,16 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.route("**/auth/account", (route) =>
-      route.fulfill({ json: { authenticated: signedIn, user_id: signedIn ? "smoke-user" : null, account_revision: signedIn ? 0 : null } }),
+      route.fulfill({
+        json: {
+          authenticated: signedIn,
+          user_id: signedIn ? "smoke-user" : null,
+          account_revision: signedIn ? 0 : null,
+        },
+      }),
     );
     await page.goto(`${origin()}/?table=voices-${width}`);
     await page.waitForFunction(() => document.body.inert === false);
-    // The toolbar shows the world's logo as a plain image, not a button.
     await page.locator(".brand strong img.brand-logo").waitFor();
     assert.ok(await page.getAttribute(".brand-logo", "alt"));
     assert.equal(await page.locator(".brand button").count(), 0);
