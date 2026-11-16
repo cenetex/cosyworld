@@ -4,7 +4,6 @@ import {
   packPlaces,
 } from "../../v2/card-game/pack-registry.mjs";
 
-// Expand a named journey into the actual cards played along its road or ship.
 export function greekTravelTargets(from, to) {
   if (packPlaces[from]?.exits.includes(to)) return [to];
   // Black Pond sails only to the Wine-Dark Harbor. The opening fixture's
