@@ -29,7 +29,6 @@ mod full_tests;
 mod full_world;
 #[cfg(test)]
 mod import_tests;
-mod kernel;
 #[cfg(test)]
 mod meet_on_arrival_tests;
 mod narrator;
