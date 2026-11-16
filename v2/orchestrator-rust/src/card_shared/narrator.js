@@ -19196,7 +19196,6 @@
   var packKits = packDefinitions.flatMap(
     (pack) => (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id }))
   );
-  var kitThings = new Set(packKits.flatMap((kit) => kit.items));
   function rootOf4(s, id) {
     let holder = s.items[id].holder;
     for (let i = 0; i < 32 && s.items[holder]; i++)
@@ -19270,9 +19269,7 @@
       restOf2(id),
       ...gone(s, id) ? [restForGood(id)] : []
     ].includes(s.items[id]?.holder) : gone(s, id) && s.items[id]?.holder === restForGood(id)) && s.items[id].history.length === 0
-  ) && (s.astray === void 0 || Boolean(s.astray) && typeof s.astray === "object" && !Array.isArray(s.astray) && Object.keys(s.astray).length > 0 && Object.entries(s.astray).every(
-    ([id, place]) => homed.includes(id) && typeof place === "string"
-  )) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
+  ) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
     ([id, n]) => packKits.some((kit) => kit.id === id) && whole4(n)
   )) && (s.gone === void 0 || Array.isArray(s.gone) && s.gone.length > 0 && s.gone.every(
     (id, i) => s.usedUp.includes(id) && (!i || s.gone[i - 1] < id)
@@ -19349,6 +19346,7 @@
     }
     forgetRetiredThings(s, new Set(gone2));
     delete s.openedRoutes;
+    delete s.astray;
     if (s.opened && typeof s.opened === "object" && !Array.isArray(s.opened)) {
       const boxes = new Set(boxDefs().map((d) => d.id));
       for (const id of Object.keys(s.opened))

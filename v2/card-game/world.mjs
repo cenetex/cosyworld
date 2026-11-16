@@ -3466,7 +3466,7 @@ export function play(
       { locationId: reflectionSource },
     );
   wakeSleepers(next, s, voyages);
-  // Regrowth, the dawn safeguard and kits follow the light and long rests.
+  // Regrowth and kits follow the light and long rests.
   settleItemCycle(next, nameOf, worldLine);
   reviseStalledWants(
     next,

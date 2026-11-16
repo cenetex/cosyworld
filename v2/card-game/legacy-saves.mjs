@@ -155,6 +155,7 @@ export function reconcileContent(s) {
   }
   forgetRetiredThings(s, new Set(gone));
   delete s.openedRoutes;
+  delete s.astray;
   if (s.opened && typeof s.opened === "object" && !Array.isArray(s.opened)) {
     const boxes = new Set(boxDefs().map((d) => d.id));
     for (const id of Object.keys(s.opened))

@@ -291,7 +291,7 @@ describe("rules 95 item cycle", () => {
     unique(s);
   });
 
-  it("sends home at dawn a thing held by an absent traveler or lying astray", () => {
+  it("sends home at dawn a thing an absent traveler holds, and leaves a thing lying", () => {
     const players = ["vale", "mara"];
     let s = dispatchShared({ op: "create", save: encodeSave(harbor()) }).world;
     for (const id of players) s.actors[id].place = "greek-harbor";
@@ -317,15 +317,25 @@ describe("rules 95 item cycle", () => {
     // Only a thing marked absentReturn leaves an absent traveler's hands.
     expect(s.items["greek-test-figs"].holder).toBe("greek-sanctuary");
     expect(s.items["greek-test-water"].holder).toBe("mara");
-    // A thing laid down is first only seen astray, so a rite can use it.
     expect(s.items["greek-test-wine"].holder).toBe("greek-harbor");
-    expect(s.astray).toEqual({ "greek-test-wine": "greek-harbor" });
     // A present traveler keeps what they hold.
     expect(s.items["greek-bread"].holder).toBe("vale");
-    // Still there at the next dawn, it goes home.
-    s = dawn(toTurn(s, DAYLIGHT_TURNS * 4 - 1));
-    expect(s.items["greek-test-wine"].holder).toBe("greek-gate");
-    expect(s.astray).toBeUndefined();
+    for (const day of [2, 3]) {
+      s = dawn(toTurn(s, DAYLIGHT_TURNS * 2 * day - 1));
+      expect(s.items["greek-test-wine"].holder).toBe("greek-harbor");
+    }
+    const kept = decodeSave(encodeSave(s));
+    expect(kept.items["greek-test-wine"].holder).toBe("greek-harbor");
+    expect("astray" in kept).toBe(false);
+  });
+
+  it("loads an old save that still counts dawns for a thing left lying", () => {
+    const old = harbor();
+    old.items["greek-test-wine"].holder = "greek-harbor";
+    old.astray = { "greek-test-wine": "greek-harbor" };
+    const s = reload(old);
+    expect("astray" in s).toBe(false);
+    expect(s.items["greek-test-wine"].holder).toBe("greek-harbor");
   });
 
   it("scatters a kit once it is home, the same way on every replay", () => {
