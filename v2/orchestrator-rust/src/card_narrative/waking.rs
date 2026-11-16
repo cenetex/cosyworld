@@ -24,6 +24,18 @@ pub(super) fn system(context: &Context, entity: &Entity, part: Part) -> String {
     idiolect(entity, part)
 }
 
+pub(super) fn lead(context: &Context) -> String {
+    if context.covered.contains(&context.location) {
+        String::new()
+    } else {
+        conversation::place(context)
+    }
+}
+
+pub(super) fn asked() -> String {
+    format!("You wake up. {}", conversation::THINK)
+}
+
 /// The waking frame: one line of waking, then each uncovered thing.
 pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
     let mut lines = vec!["I'm waking up.".to_string()];
@@ -76,6 +88,18 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         assert_eq!(prompt, "I'm waking up.");
+        let sent = messages(&c, vale, Part::Line);
+        assert_eq!(sent.system, "");
+        assert_eq!(sent.lead, "");
+        assert_eq!(sent.assistant, "I'm waking up.");
+        assert_eq!(
+            sent.user,
+            "You wake up. What do you think to yourself? One short sentence."
+        );
+        assert_eq!(
+            messages(&c, vale, Part::Thought).user,
+            crate::ai_gateway::SILENCE
+        );
         for word in ["Vale", "Empty station", "Lamp", "lamp", "oil"] {
             assert!(!prompt.contains(word), "{word} in {prompt}");
         }
@@ -98,6 +122,16 @@ mod tests {
         );
         // He knows his name, but his persona waits past waking (#1665).
         assert_eq!(system(&c, vale, Part::Line), "");
+        let sent = messages(&c, vale, Part::Line);
+        assert!(
+            sent.lead.starts_with("You are standing in Empty station."),
+            "{}",
+            sent.lead
+        );
+        assert!(sent
+            .assistant
+            .starts_with("I'm waking up.\nMy name is Vale."));
+        assert_eq!(sent.user, asked());
         assert!(!system(&c, vale, Part::Thought).is_empty());
         // Outside the opening, the full conversation frame.
         let mut c = waking(&["station"]);

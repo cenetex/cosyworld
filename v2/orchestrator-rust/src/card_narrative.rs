@@ -2410,10 +2410,8 @@ fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     if conversation::applies(context, entity, part) {
         return conversation::messages(context, entity);
     }
-    // A thought, a persona, a dream or waking words: nobody spoke, and
-    // the view ends where my own words begin ("I think to myself:").
-    let own = (part != Part::Dream && !waking::applies(context, &entity.id, part))
-        .then(|| own_view(entity, part));
+    let wakes = waking::applies(context, &entity.id, part);
+    let own = (part != Part::Dream && !wakes).then(|| own_view(entity, part));
     let view = [
         own.clone().unwrap_or_default(),
         transcript(context, entity, part),
@@ -2424,9 +2422,12 @@ fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     }
     Prompt {
         system: own.map(|_| system_voice(entity, part)).unwrap_or_default(),
-        lead: String::new(),
+        lead: wakes.then(|| waking::lead(context)).unwrap_or_default(),
         assistant,
-        user: crate::ai_gateway::SILENCE.into(),
+        user: match wakes {
+            true => waking::asked(),
+            false => crate::ai_gateway::SILENCE.into(),
+        },
     }
 }
 

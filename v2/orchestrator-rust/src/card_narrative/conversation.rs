@@ -68,8 +68,26 @@ pub(super) const THINK: &str = "What do you think to yourself? One short sentenc
 pub(super) const NOTICE: &str = "In one short sentence, what do you notice here?";
 
 fn facing(context: &Context, entity: &Entity) -> Option<String> {
-    super::listener(context, &entity.id)
-        .filter(|_| entity.perception.is_some() || custody::exchange(context, &entity.id))
+    match super::listener(context, &entity.id) {
+        Some(listener) => (entity.perception.is_some() || custody::exchange(context, &entity.id))
+            .then_some(listener),
+        None => actor_here(context, entity),
+    }
+}
+
+fn actor_here(context: &Context, entity: &Entity) -> Option<String> {
+    let actor = context.acting_avatar.as_deref().unwrap_or("vale");
+    let hidden = context
+        .concealed
+        .iter()
+        .chain(&context.covered)
+        .any(|id| id == actor);
+    let here = context
+        .outcome
+        .iter()
+        .flat_map(|o| &o.avatars)
+        .any(|a| a.id == actor && a.location == context.location);
+    (entity.id != actor && !hidden && here).then(|| actor.to_string())
 }
 
 /// A speaking voice after a play, with no line to answer and nobody to
@@ -81,7 +99,7 @@ fn lone(context: &Context, entity: &Entity) -> bool {
         && super::system_voice(entity, Part::Line).starts_with("You are ")
 }
 
-fn place(context: &Context) -> String {
+pub(super) fn place(context: &Context) -> String {
     let sense = super::perception::anchor(&context.location)
         .filter(|_| !context.concealed.contains(&context.location));
     let here = format!("You are standing in {}.", name(&context.location));
@@ -431,6 +449,31 @@ mod tests {
             heard(&c, super::super::entity(&c, "vale")).unwrap().text,
             "You can borrow my lamp."
         );
+    }
+
+    #[test]
+    fn a_resident_speaking_alone_after_a_play_faces_the_actor() {
+        let mut c = talk();
+        c.speakers = vec!["moth".into()];
+        for (verb, accepted) in [("give", false), ("trade", false), ("give", true)] {
+            let card = &mut c.outcome.as_mut().unwrap().card;
+            card.kind = verb.into();
+            card.item = Some("lamp".into());
+            card.receive = (verb == "trade").then(|| "bell".into());
+            card.accepted = Some(accepted);
+            let prompt = messages(&c, super::super::entity(&c, "moth"));
+            assert_eq!(prompt.user, "Vale is here.", "{verb} {accepted}");
+            assert_eq!(prompt.lead, "");
+            assert!(prompt.system.ends_with(SAY_ALOUD), "{}", prompt.system);
+        }
+        c.speakers = vec!["vale".into()];
+        c.outcome.as_mut().unwrap().card.kind = "wait".into();
+        let prompt = messages(&c, super::super::entity(&c, "vale"));
+        assert_eq!(prompt.user, format!("You wait a moment. {THINK}"));
+        assert!(prompt
+            .lead
+            .starts_with("You are standing in Empty station."));
+        assert!(!prompt.system.contains(SAY_ALOUD));
     }
 
     /// A provider whose replies take `delay(stem)` before they come back.
