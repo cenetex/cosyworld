@@ -42,7 +42,6 @@ pub(super) async fn generate(
             turn: context.turn,
             text: thought.clone(),
         });
-    // The dream does not read the persona, so both run side by side.
     let (persona, dream) = tokio::join!(
         speak(
             config,
