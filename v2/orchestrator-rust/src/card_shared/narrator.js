@@ -22576,12 +22576,17 @@
   ]);
 
   // v2/card-game/scene.mjs
+  var unguarded = (world, c) => c.kind === "gate_open" && isGuardable(c.from, c.to) && !guardOf(world, c.from, c.to);
   function stateBackdrop(world, id) {
     const pack = packPlaces[id];
     const place = pack || places[id];
     if (!place?.backdrops || !(pack ? world?.packs : world?.actors)) return null;
     const match = place.backdrops.find(
-      (b) => pack ? conditionsMet(world, pack.packId, b.requires) : b.requires.every((c) => conditionMet(world, c, null))
+      (b) => pack ? conditionsMet(
+        world,
+        pack.packId,
+        b.requires.filter((c) => !unguarded(world, c))
+      ) : b.requires.every((c) => conditionMet(world, c, null))
     );
     return match?.backdrop || null;
   }
