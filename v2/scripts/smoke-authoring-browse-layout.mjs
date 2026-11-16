@@ -216,7 +216,6 @@ try {
       );
     assert.deepEqual(errors, []);
 
-    // One good set and one damaged set.
     await archive(false);
     await archive(true);
     await page.reload();
