@@ -12,7 +12,7 @@ use super::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 
-const EMPTY: &str = "t.retired_at IS NULL
+const EMPTY: &str = "t.retired_at IS NULL AND t.owner NOT LIKE 'discord-guild:%'
     AND NOT EXISTS (SELECT 1 FROM card_members m WHERE m.world=t.id)
     AND NOT EXISTS (SELECT 1 FROM card_bindings b WHERE b.world=t.id AND b.user<>t.owner)";
 

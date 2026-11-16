@@ -32,6 +32,8 @@ mod browser;
 mod continuation;
 #[path = "full_dedupe.rs"]
 mod dedupe;
+#[path = "full_guild.rs"]
+mod guild;
 #[path = "full_opening.rs"]
 mod opening;
 #[path = "full_reflect.rs"]
@@ -62,6 +64,10 @@ pub(super) fn router() -> Router<AppState> {
         .route(
             "/card-game/shared/worlds/{id}/talk",
             post(talk).layer(DefaultBodyLimit::max(8192)),
+        )
+        .route(
+            "/discord/world",
+            post(guild::route).layer(DefaultBodyLimit::max(1024)),
         )
 }
 #[derive(Deserialize)]
@@ -514,7 +520,6 @@ fn talk_with_revision(
     };
     command_with_revision(state, id, revision, &command, None)
 }
-// Leaving keeps the claim; releasing frees the avatar for someone else.
 fn leave(
     c: &rusqlite::Connection,
     id: &str,
@@ -722,6 +727,9 @@ pub(super) fn run(
             "leave" => leave(c, id, &mut w, a, &b.op, time)?,
             "release" => {
                 leave(c, id, &mut w, a, &b.op, time)?;
+                if guild::owned(c, id)? {
+                    vacate(c, id, &mut w, a, time)?;
+                }
                 retire::if_empty(c, id, u, time)?;
             }
             "hold" => {
