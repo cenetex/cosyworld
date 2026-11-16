@@ -36,7 +36,6 @@ import {
   placeText,
   places,
   things,
-  publishKnowledgeSpeech,
   laneTalkFacts,
   sealedWays,
   REFUSED_VERBS,
@@ -844,7 +843,6 @@ export function applyGeneratedText(
       cast: place === context.location ? [...cast] : castAt(place),
       ...(movement ? { arrivalFrom: movement.from } : {}),
     });
-    publishKnowledgeSpeech(next, next.log.at(-1), context.disclosures || []);
   }
   return validateWorld(next);
 }

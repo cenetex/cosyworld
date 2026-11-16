@@ -323,7 +323,6 @@ function topicFact(world, topic, entry) {
   return fact;
 }
 
-// A Talk reserves its own disclosure. Publication carries this event ID back.
 export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
   installKnowledge(world);
   if (speaker === listener || !world.actors[speaker] || !world.actors[listener])
@@ -365,24 +364,26 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
       p.commitChoice === choiceReady(fact),
   );
   if (prior) return prior;
+  return tell(world, fact, speaker, listener, entry, choiceReady(fact));
+}
+function tell(world, fact, speaker, listener, entry, commitChoice) {
+  remember(world, listener, fact, "heard", speaker, entry.seq, entry.turn);
   const disclosure = {
     factId: fact.id,
     speaker,
     listener,
     eventSeq: entry.seq,
     turn: entry.turn,
-    locationId: local,
-    commitChoice: choiceReady(fact),
+    locationId: world.actors[speaker].place,
+    commitChoice,
   };
-  world.knowledge.pending.push(disclosure);
-  world.knowledge.pending = world.knowledge.pending.slice(
-    -KNOWLEDGE_PENDING_LIMIT,
-  );
+  world.knowledge.pending = [
+    ...world.knowledge.pending.filter((p) => p.turn === entry.turn),
+    disclosure,
+  ].slice(-KNOWLEDGE_PENDING_LIMIT);
   return disclosure;
 }
 
-// A sea lane the speaker knows becomes a fact when it is told. The listener
-// learns the lane only from published speech that says it.
 export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
   installKnowledge(world);
   if (
@@ -433,20 +434,7 @@ export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
     )
   )
     return null;
-  const disclosure = {
-    factId: fact.id,
-    speaker,
-    listener,
-    eventSeq: entry.seq,
-    turn: entry.turn,
-    locationId: local,
-    commitChoice: false,
-  };
-  world.knowledge.pending.push(disclosure);
-  world.knowledge.pending = world.knowledge.pending.slice(
-    -KNOWLEDGE_PENDING_LIMIT,
-  );
-  return disclosure;
+  return tell(world, fact, speaker, listener, entry, false);
 }
 
 export function knowledgeDisclosures(
@@ -462,7 +450,7 @@ export function knowledgeDisclosures(
       speakers.includes(p.speaker) &&
       entities.includes(p.speaker) &&
       entities.includes(p.listener) &&
-      (!knowsFact(world, p.listener, p.factId) || p.commitChoice),
+      p.turn === world.turn,
   );
   pending.sort(
     (a, b) =>
@@ -477,71 +465,6 @@ export function knowledgeDisclosures(
     eventSeq: p.eventSeq,
     text: world.knowledge.facts[p.factId].text,
   }));
-}
-
-export function acceptKnowledgeSpeech(
-  world,
-  entry,
-  disclosures = [],
-  nameOf = () => null,
-) {
-  if (
-    !entry.generated ||
-    entry.kind !== "dialogue" ||
-    !Array.isArray(disclosures) ||
-    disclosures.length > 1
-  )
-    return [];
-  const learned = [];
-  for (const disclosure of disclosures) {
-    if (
-      !fields(disclosure, ["factId", "speaker", "listener", "text", "eventSeq"])
-    )
-      continue;
-    const pending = world.knowledge?.pending.find(
-      (p) =>
-        p.eventSeq === disclosure.eventSeq &&
-        p.factId === disclosure.factId &&
-        p.speaker === disclosure.speaker &&
-        p.listener === disclosure.listener,
-    );
-    const fact = pending && world.knowledge.facts[pending.factId];
-    if (
-      !pending ||
-      !fact ||
-      disclosure.text !== fact.text ||
-      entry.actorId !== pending.speaker ||
-      entry.locationId !== pending.locationId ||
-      !entry.cast?.includes(pending.listener) ||
-      !factDelivered(
-        entry.text,
-        fact.text,
-        nameOf(pending.speaker),
-        nameOf(pending.listener),
-      )
-    )
-      continue;
-    const added = remember(
-      world,
-      pending.listener,
-      fact,
-      "heard",
-      pending.speaker,
-      entry.seq,
-      world.turn,
-    );
-    if (added || pending.commitChoice)
-      learned.push({
-        fact,
-        listener: pending.listener,
-        learned: added,
-        commitChoice: pending.commitChoice,
-      });
-    world.knowledge.pending = world.knowledge.pending.filter(
-      (p) => p.factId !== pending.factId || p.listener !== pending.listener,
-    );
-  }
-  return learned;
 }
 
 export function knowledgeFacts(

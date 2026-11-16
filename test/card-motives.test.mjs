@@ -6,7 +6,6 @@ import {
   plan,
   play,
   addLog,
-  publishKnowledgeSpeech,
   canTrade,
   accompanyDecision,
   encodeSave,
@@ -235,13 +234,7 @@ describe("shore wants and grievances", () => {
           generated: true,
           actorId: "keeper",
         });
-        const entry = s.log.at(-1);
-        const told = reserveKnowledge(s, "keeper", "moth", entry);
-        const text = s.knowledge.facts[told.factId].text;
-        entry.text = text;
-        const { factId, speaker, listener, eventSeq } = told;
-        const said = { factId, speaker, listener, eventSeq, text };
-        publishKnowledgeSpeech(s, entry, [said]);
+        reserveKnowledge(s, "keeper", "moth", s.log.at(-1));
       }
       expect(s.knowledge.known.moth[repair.id].kind).toBe(how);
       expect(s.motives.grievances.moth[0].repaired).toBe(false);

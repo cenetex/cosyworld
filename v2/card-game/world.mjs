@@ -75,7 +75,6 @@ import {
   witnessKnowledge,
   reserveKnowledge,
   reserveLaneKnowledge,
-  acceptKnowledgeSpeech,
   witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
@@ -885,16 +884,14 @@ function talkKnowledge(s, action, entry) {
     const lane = laneToTell(s, speaker, listener);
     const port =
       lane && atPort(s, speaker) && !topics.some((topic) => topic.choiceReady);
-    if (port && reserveLaneKnowledge(s, speaker, listener, entry, lane)) break;
+    const tellLane = () =>
+      reserveLaneKnowledge(s, speaker, listener, entry, lane) &&
+      (learnLane(s, listener, ...lane.id.slice(5).split(">")), true);
+    if (port && tellLane()) break;
     const told = reserveKnowledge(s, speaker, listener, entry, topics);
     if (told?.commitChoice) commitTopicChoice(s, told);
     if (told) break;
-    if (
-      lane &&
-      !port &&
-      reserveLaneKnowledge(s, speaker, listener, entry, lane)
-    )
-      break;
+    if (lane && !port && tellLane()) break;
   }
 }
 function commitTopicChoice(s, told) {
@@ -925,18 +922,6 @@ import {
 } from "./world/lanes.mjs";
 export { laneTalkFacts, laneFact };
 
-// Only recorded speech teaches a selected account. Its story choice was
-// already committed by the Talk that reserved it.
-export function publishKnowledgeSpeech(s, entry, disclosures) {
-  // An unnamed id has no name to stand for I or you.
-  const named = (id) => (nameOf(id) === "the world" ? null : nameOf(id));
-  const learned = acceptKnowledgeSpeech(s, entry, disclosures, named);
-  // A lane heard in published speech goes on the listener's own chart.
-  for (const { fact, listener } of learned)
-    if (fact.source.kind === "lane")
-      learnLane(s, listener, ...fact.id.slice(5).split(">"));
-  return learned;
-}
 // Rules read recent history, so generated words never shorten the authoritative
 // window. Each kind keeps its own limit; the same plays leave the same events.
 export const LOG_LIMIT = 100;

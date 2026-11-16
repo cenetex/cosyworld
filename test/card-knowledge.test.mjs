@@ -5,7 +5,6 @@ import {
   witnessKnowledge,
   reserveKnowledge,
   knowledgeDisclosures,
-  acceptKnowledgeSpeech,
   knowsFact,
   factDelivered,
   factWords,
@@ -72,22 +71,6 @@ const talk = (w, speaker = "moth", listener = "vale", topics = []) => {
     entry.seq,
   );
 };
-const speech = (w, ds, words = ds[0]?.text, extra = {}) =>
-  acceptKnowledgeSpeech(
-    w,
-    {
-      seq: ++w.eventSeq,
-      turn: w.turn,
-      generated: true,
-      kind: "dialogue",
-      actorId: ds[0]?.speaker,
-      locationId: w.actors[ds[0]?.speaker]?.place,
-      cast: [ds[0]?.speaker, ds[0]?.listener],
-      text: words,
-      ...extra,
-    },
-    ds,
-  );
 const worldWithNews = () => {
   const w = createWorld();
   for (const id of ["vale", "moth", "keeper"]) w.actors[id].place = "station";
@@ -120,15 +103,13 @@ const response = (context, words) => ({
 });
 
 describe("saved public knowledge", () => {
-  it("records source witnesses and teaches an absent listener through confirmed speech", () => {
+  it("teaches an absent listener on the Talk itself, with no speech", () => {
     const w = bare();
     const fact = source(w);
     expect(knowsFact(w, "moth", fact.id)).toBe(true);
     expect(knowsFact(w, "vale", fact.id)).toBe(false);
     w.turn = 1;
-    const ds = talk(w);
-    expect(knowsFact(w, "vale", fact.id)).toBe(false);
-    expect(speech(w, ds)).toHaveLength(1);
+    expect(talk(w)).toHaveLength(1);
     expect(w.knowledge.known.vale[fact.id]).toMatchObject({
       kind: "heard",
       teller: "moth",
@@ -139,43 +120,33 @@ describe("saved public knowledge", () => {
       eventSeq: 2,
       witnesses: ["moth"],
     });
+    w.turn = 2;
     expect(talk(w)).toEqual([]);
     expect(validKnowledge(w, Object.keys(w.actors), ["station"])).toBe(true);
   });
 
-  it("keeps the same pending disclosure through an irrelevant or negated reply", () => {
+  it("tells the next fact on a second Talk, then nothing", () => {
     const w = bare(),
-      fact = source(w);
+      first = source(w),
+      second = source(w, { text: "Pip carried a shell to the pond." });
     w.turn = 1;
-    const ds = talk(w);
-    for (const words of [
-      "The wind feels warm.",
-      "It is false that Pip found a shell beside the pond.",
-      "Pip found a shell beside the pond",
-    ])
-      expect(speech(w, ds, words)).toEqual([]);
-    expect(knowsFact(w, "vale", fact.id)).toBe(false);
-    expect(
-      knowledgeDisclosures(w, ["moth"], ["moth", "vale"], "station"),
-    ).toEqual(ds);
-    expect(
-      speech(
-        w,
-        ds,
-        `“${clause.toUpperCase()}” I thought you would like to hear.`,
-      ),
-    ).toHaveLength(1);
-    expect(speech(w, ds)).toEqual([]);
+    expect(talk(w)[0].factId).toBe(second.id);
+    expect(knowsFact(w, "vale", first.id)).toBe(false);
+    w.turn = 2;
+    expect(talk(w)[0].factId).toBe(first.id);
+    w.turn = 3;
+    expect(talk(w)).toEqual([]);
   });
 
   it("uses one hop per round and keeps the immediate teller on each hop", () => {
     const w = bare(),
       fact = source(w);
     w.turn = 1;
-    speech(w, talk(w));
+    talk(w);
     expect(talk(w, "vale", "keeper")).toEqual([]);
+    expect(knowsFact(w, "keeper", fact.id)).toBe(false);
     w.turn = 2;
-    speech(w, talk(w, "vale", "keeper"));
+    talk(w, "vale", "keeper");
     expect(w.knowledge.known.keeper[fact.id]).toMatchObject({
       kind: "heard",
       teller: "vale",
@@ -184,20 +155,13 @@ describe("saved public knowledge", () => {
     expect(w.knowledge.facts[fact.id].source.actorId).toBe("moth");
   });
 
-  it("binds publication to the original Talk and its actual room audience", () => {
+  it("withholds a fact from a listener in another place", () => {
     const w = bare(),
       fact = source(w);
     w.turn = 1;
-    const ds = talk(w);
-    expect(speech(w, [{ ...ds[0], eventSeq: ds[0].eventSeq + 1 }])).toEqual([]);
-    expect(speech(w, ds, clause, { cast: ["moth"] })).toEqual([]);
-    w.actors.moth.place = w.actors.vale.place = "pond";
-    w.turn = 2;
-    const next = talk(w);
-    expect(next[0].eventSeq).not.toBe(ds[0].eventSeq);
-    expect(speech(w, ds)).toEqual([]);
-    expect(speech(w, next)).toHaveLength(1);
-    expect(knowsFact(w, "vale", fact.id)).toBe(true);
+    w.actors.vale.place = "pond";
+    expect(talk(w)).toEqual([]);
+    expect(knowsFact(w, "vale", fact.id)).toBe(false);
   });
 
   it("keeps only complete short rule facts and skips generated speech and private thoughts", () => {
@@ -287,7 +251,7 @@ describe("saved public knowledge", () => {
       text: "The families ask the city for a burial.",
       packId: "sample",
     };
-    speech(w, talk(w, "moth", "vale", [topic]));
+    talk(w, "moth", "vale", [topic]);
     source(w);
     for (let i = 0; i < KNOWLEDGE_FACT_LIMIT + 5; i++)
       source(w, { text: `Pip carried shell number ${i} to the pond.` });
@@ -459,7 +423,7 @@ describe("saved public knowledge", () => {
     const w = bare();
     source(w);
     w.turn = 1;
-    speech(w, talk(w));
+    talk(w);
     for (const change of [
       (v) => {
         v.knowledge.extra = true;
@@ -493,8 +457,8 @@ describe("saved public knowledge", () => {
       choiceId: "record-petition",
       text: "The families ask the city for a burial.",
     };
-    const first = talk(w, "moth", "vale", [topic]);
-    expect(speech(w, first)[0].learned).toBe(true);
+    expect(talk(w, "moth", "vale", [topic])).toHaveLength(1);
+    expect(knowsFact(w, "vale", topic.id)).toBe(true);
     expect(talk(w, "moth", "keeper", [])).toEqual([]);
     w.turn = 2;
     expect(talk(w, "vale", "keeper", [topic])).toHaveLength(1);
@@ -502,10 +466,7 @@ describe("saved public knowledge", () => {
       { ...topic, choiceReady: true },
     ]);
     expect(confirmation[0].factId).toBe(topic.id);
-    expect(speech(w, confirmation)[0]).toMatchObject({
-      learned: false,
-      commitChoice: true,
-    });
+    expect(w.knowledge.pending.at(-1).commitChoice).toBe(true);
     expect(w.knowledge.known.vale[topic.id].teller).toBe("moth");
   });
   it("keeps a topic's receipt from becoming a second news origin", () => {
@@ -537,26 +498,22 @@ describe("saved public knowledge", () => {
     installKnowledge(w, undefined, [topic]);
     expect(Object.keys(w.knowledge.facts)).toEqual([]);
     w.turn = 1;
-    const disclosure = talk(w, "moth", "vale", [topic]);
-    expect(speech(w, disclosure)).toHaveLength(1);
+    expect(talk(w, "moth", "vale", [topic])).toHaveLength(1);
     expect(Object.keys(w.knowledge.facts)).toEqual([topic.id]);
   });
 });
 
 describe("Talk publication and learned facts", () => {
-  it("adds one saved learned fact after accepted local speech and reuses it after reload", () => {
-    let { world, context } = localTalk(worldWithNews());
+  it("saves the learned fact on a local Talk, whatever is then said", () => {
+    const { world, context } = localTalk(worldWithNews());
     const id = context.disclosures[0].factId;
-    const pending = structuredClone(world.knowledge.pending);
-    const irrelevant = applyGeneratedText(
+    expect(knowsFact(world, "vale", id)).toBe(true);
+    const spoken = applyGeneratedText(
       world,
       context,
       response(context, "I enjoy the warm breeze."),
     );
-    expect(knowsFact(irrelevant, "vale", id)).toBe(false);
-    expect(irrelevant.knowledge.pending).toEqual(pending);
-    world = applyGeneratedText(world, context, response(context, clause));
-    expect(knowsFact(world, "vale", id)).toBe(true);
+    expect(spoken.knowledge).toEqual(world.knowledge);
     const restored = decodeSave(encodeSave(world));
     expect(restored.knowledge).toEqual(world.knowledge);
     // Vale already knows it; the cast may still pass it on among themselves.
@@ -568,7 +525,7 @@ describe("Talk publication and learned facts", () => {
   });
 
 
-  it("uses the same saved disclosure on shared publication", () => {
+  it("saves the learned fact on a shared Talk, whatever is then said", () => {
     let world = worldWithNews();
     const request = (op, extra = {}) =>
       dispatchShared({
@@ -591,19 +548,16 @@ describe("Talk publication and learned facts", () => {
       present: ["vale"],
       action,
     }).disclosures;
-    expect(knowsFact(world, "vale", ds[0].factId)).toBe(false);
+    expect(knowsFact(world, "vale", ds[0].factId)).toBe(true);
     const spoken = request("speech", {
       room: "station",
-      disclosures: ds,
       lines: [
         { actorId: "vale", text: "What did you find?" },
-        { actorId: "moth", text: clause },
+        { actorId: "moth", text: "I enjoy the warm breeze." },
       ],
     });
-    expect(knowsFact(spoken.world, "vale", ds[0].factId)).toBe(true);
-    expect(decodeSave(encodeSave(spoken.world)).knowledge).toEqual(
-      spoken.world.knowledge,
-    );
+    expect(spoken.world.knowledge).toEqual(world.knowledge);
+    expect(decodeSave(encodeSave(world)).knowledge).toEqual(world.knowledge);
   });
 });
 
@@ -619,7 +573,7 @@ describe("authored topics keep their saved deed identity", () => {
     if (originalTopics === undefined) delete pack.topics;
     else pack.topics = originalTopics;
   });
-  it("records the plea's receipt once at the Talk and teaches it from the words", () => {
+  it("records the plea's receipt and teaches it at the Talk", () => {
     const choice = decree;
     const text =
       "A public decree forbids burial of the brother left outside the city.";
@@ -641,10 +595,7 @@ describe("authored topics keep their saved deed identity", () => {
     const context = narrativeContext(world, action);
     expect(context.disclosures[0].factId).toBe(choice.id);
     expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
-    expect(knowsFact(world, "vale", choice.id)).toBe(false);
-    world = applyGeneratedText(world, context, response(context, text));
     expect(knowsFact(world, "vale", choice.id)).toBe(true);
-    expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
     const restored = decodeSave(encodeSave(world));
     expect(restored.packs[pack.id].receipts[choice.id]).toBe(world.turn);
     expect(restored.knowledge.known.vale[choice.id].teller).toBe(
@@ -733,20 +684,6 @@ describe("authored topics keep their saved deed identity", () => {
     reserveKnowledge(world, topic.speaker, "vale", entry, [
       { ...topic, packId: pack.id },
     ]);
-    const earlier = knowledgeDisclosures(
-      world,
-      [topic.speaker],
-      [topic.speaker, "vale"],
-      topic.at,
-    );
-    addLog(world, "The Gate Guard", topic.text, {
-      generated: true,
-      kind: "dialogue",
-      actorId: topic.speaker,
-      locationId: topic.at,
-      cast: [topic.speaker, "vale"],
-    });
-    acceptKnowledgeSpeech(world, world.log.at(-1), earlier);
     expect(knowsFact(world, "vale", topic.id)).toBe(true);
     expect(world.packs[pack.id].receipts[choice.id]).toBeUndefined();
     const action = legalActions(world).find(
