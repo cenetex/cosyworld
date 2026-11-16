@@ -19,6 +19,7 @@ import {
 import { levelOf, knownActors } from "./want.mjs";
 import { packPlaces, packPeople } from "./pack-registry.mjs";
 import { variantOf, crossingOpen, conditionMet } from "./pack-rules.mjs";
+import { guardOf, isGuardable } from "./resident-guard.mjs";
 import { locationWeather } from "./weather.mjs";
 import { expressionOf } from "./expression.mjs";
 import { daylightBackdrop, locationDaylight } from "./daylight.mjs";
@@ -41,13 +42,21 @@ export const lampLitHere = (world, place) =>
 // A place's state backdrops name saved conditions; the first that holds wins
 // (#1600, #1620). Pack places test them in their own pack, hub places such as
 // the lit or doused attic in the forest rules.
+const unguarded = (world, c) =>
+  c.kind === "gate_open" &&
+  isGuardable(c.from, c.to) &&
+  !guardOf(world, c.from, c.to);
 function stateBackdrop(world, id) {
   const pack = packPlaces[id];
   const place = pack || places[id];
   if (!place?.backdrops || !(pack ? world?.packs : world?.actors)) return null;
   const match = place.backdrops.find((b) =>
     pack
-      ? conditionsMet(world, pack.packId, b.requires)
+      ? conditionsMet(
+          world,
+          pack.packId,
+          b.requires.filter((c) => !unguarded(world, c)),
+        )
       : b.requires.every((c) => conditionMet(world, c, null)),
   );
   return match?.backdrop || null;
