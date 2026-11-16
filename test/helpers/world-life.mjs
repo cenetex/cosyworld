@@ -42,7 +42,6 @@ export const wait = (s, n = 1) => {
   return s;
 };
 export const waitUntil = (s, turn) => wait(s, Math.max(0, turn - s.turn));
-// aside, as the end of a play would do it (rules 100).
 export const settleGate = (world) => {
   latchRoutes(world);
   settleGuards(world);
