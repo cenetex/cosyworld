@@ -8,6 +8,7 @@ import {
   plan,
   play,
   validateWorld,
+  wantAPI,
 } from "../v2/card-game/world.mjs";
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
@@ -16,7 +17,7 @@ import { questCards } from "../v2/card-game/quest-card.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
-import { entityActive } from "../v2/card-game/pack-registry.mjs";
+import { entityActive, packPeople } from "../v2/card-game/pack-registry.mjs";
 
 const act = (s, kind, fields = {}, actor = "vale") => {
   const a = legalActions(s, actor).find(
@@ -232,6 +233,28 @@ describe("one want per avatar", () => {
     s.turn += STALL_TURNS;
     reviseStalledWants(s, [id], api);
     expect(s.actors[id].want?.target).not.toBe(start.target);
+  });
+
+  it("starts a resident's stall clock when a player first meets it", () => {
+    const s = baseCreateWorld();
+    const id = Object.keys(s.actors).find(
+      (other) => entityActive(s, other) && s.actors[other].want?.refusals === 0,
+    );
+    const start = { ...s.actors[id].want, since: 0, refusals: 1 };
+    const api = (metTurn) => ({ ...wantAPI(s), metTurn: () => metTurn });
+    s.actors[id].want = { ...start };
+    s.turn = STALL_TURNS * 2;
+    reviseStalledWants(s, [id], api(s.turn - 1));
+    expect(s.actors[id].want).toEqual(start);
+    reviseStalledWants(s, [id], api(s.turn - STALL_TURNS));
+    expect(s.actors[id].want).not.toEqual(start);
+    expect(s.actors[id].gaveUp).toEqual({ target: start.target, turn: s.turn });
+    const [resident, { packId }] = Object.entries(packPeople).find(
+      ([, person]) => s.packs[person.packId]?.met,
+    );
+    expect(wantAPI(s).metTurn(resident)).toBe(0);
+    s.packs[packId].met[resident] = 7;
+    expect(wantAPI(s).metTurn(resident)).toBe(7);
   });
 
   it("never redraws a player's quest for refusals; Drop is free", () => {
