@@ -148,7 +148,6 @@ export function fakeJobs({ auto, polls = 1 } = {}) {
       wait: async (ms, signal) => {
         signal?.throwIfAborted();
         waits.push(ms);
-        // Time moves only when a test says so (server.advance).
         clock += 1;
         await new Promise((resolve) => setTimeout(resolve, 1));
         signal?.throwIfAborted();
