@@ -27,14 +27,14 @@ mod full_store;
 #[cfg(test)]
 mod full_tests;
 mod full_world;
+mod guild_view;
+pub(crate) use guild_view::guild_view;
 #[cfg(test)]
 mod import_tests;
 mod kernel;
 #[cfg(test)]
 mod meet_on_arrival_tests;
 mod narrator;
-/// The shared narrator's dialogue context, for the story service's parity
-/// tests.
 #[cfg(test)]
 pub(crate) fn narrator_context(request: &Value) -> Result<Value> {
     narrator::context(request)
