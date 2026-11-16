@@ -2422,7 +2422,11 @@ fn scene_messages(context: &Context, entity: &Entity, part: Part) -> Prompt {
     }
     Prompt {
         system: own.map(|_| system_voice(entity, part)).unwrap_or_default(),
-        lead: wakes.then(|| waking::lead(context)).unwrap_or_default(),
+        lead: if wakes {
+            waking::lead(context)
+        } else {
+            String::new()
+        },
         assistant,
         user: match wakes {
             true => waking::asked(),
