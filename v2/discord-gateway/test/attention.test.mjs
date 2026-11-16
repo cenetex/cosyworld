@@ -15,7 +15,8 @@ test("config gives safe defaults and rejects bad numbers", () => {
   assert.equal(config.DISCORD_TYPING_MS, 8000);
   assert.equal(config.DISCORD_DAILY_REPLIES, 500);
   assert.equal(config.DISCORD_CONTEXT_MESSAGES, 12);
-  assert.equal(config.DISCORD_NONE_THRESHOLD, 0.6);
+  assert.equal(config.DISCORD_NONE_MARGIN, 0.1);
+  assert.equal(config.DISCORD_FRESH_SHARE, 0.5);
   assert.equal(config.DISCORD_MAX_RESIDENT_RUN, 6);
   assert.equal(config.DISCORD_CHANNEL_NAME, "lonely-forest");
   assert.equal(config.DISCORD_PACK, "lonely-forest");
