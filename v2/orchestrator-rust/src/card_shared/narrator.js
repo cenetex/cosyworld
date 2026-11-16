@@ -2650,6 +2650,119 @@
     );
   }
 
+  // v2/card-game/world/lock-goals.mjs
+  var DEPTH = 4;
+  var settersIn = (choices, condition) => (choices || []).filter(
+    (choice) => (choice.effects || []).some(
+      (e) => condition.kind === "choice" ? e.kind === "choose" && e.key === condition.key && e.value === condition.value : e.kind === "set_flag" && e.key === condition.key && e.value === condition.value
+    )
+  );
+  function playGoal(choice) {
+    const item = (choice.requires || []).find(
+      (r) => r.kind === "holding" && r.role === "actor"
+    )?.item;
+    if (choice.on === "give" && item)
+      return {
+        kind: "item",
+        target: item,
+        step: { verb: "give", to: choice.subject }
+      };
+    return choice.subject ? { kind: "person", target: choice.subject } : null;
+  }
+  function goalsFrom(world, conditions, depth = 0, seen = []) {
+    const out = [];
+    const push = (goal) => {
+      if (goal && !out.some((g) => JSON.stringify(g) === JSON.stringify(goal)))
+        out.push(goal);
+    };
+    for (const condition of conditions || []) {
+      if (world.met(condition)) continue;
+      switch (condition.kind) {
+        case "any": {
+          for (const branch of condition.conditions) {
+            const goals = goalsFrom(world, [branch], depth, seen);
+            if (goals.length) {
+              goals.forEach(push);
+              break;
+            }
+          }
+          break;
+        }
+        case "talked":
+          push({ kind: "person", target: condition.person });
+          break;
+        case "holding":
+          if (condition.actor)
+            push({
+              kind: "item",
+              target: condition.item,
+              step: { verb: "give", to: condition.actor }
+            });
+          else if (condition.role === "actor")
+            push({ kind: "item", target: condition.item });
+          break;
+        case "item_at":
+          push({
+            kind: "place",
+            target: condition.place,
+            step: { verb: "lay", items: [condition.item] }
+          });
+          break;
+        case "item_near":
+        case "item_present":
+          push({
+            kind: "item",
+            target: condition.item,
+            ...condition.place ? { step: { verb: "bring", at: condition.place } } : {}
+          });
+          break;
+        case "light":
+          push({ kind: "item", target: condition.item, lit: true });
+          break;
+        case "not":
+          if (condition.condition.kind === "light")
+            push({ kind: "item", target: condition.condition.item, lit: false });
+          break;
+        case "flag":
+        case "choice": {
+          if (depth >= DEPTH) break;
+          for (const choice of settersIn(world.choices, condition)) {
+            if (seen.includes(choice.id)) continue;
+            const play2 = playGoal(choice);
+            const needs = (choice.requires || []).filter(
+              (r) => !(play2?.step && r.kind === "holding" && r.role === "actor" && r.item === play2.target)
+            ).sort(
+              (a, b) => Number(!["flag", "choice"].includes(a.kind)) - Number(!["flag", "choice"].includes(b.kind))
+            );
+            const [first] = goalsFrom(world, needs, depth + 1, [
+              ...seen,
+              choice.id
+            ]);
+            push(first ?? play2);
+            if (first || play2) break;
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    return out;
+  }
+  var goalsOf = (s, packId, conditions, actor) => goalsFrom(
+    {
+      met: (condition) => packId ? conditionsMet(s, packId, [condition], actor) : conditionMet(s, condition, null),
+      choices: packId ? packDefinition(packId)?.choices : []
+    },
+    conditions
+  );
+  var stepGoal = (s, want, actor) => want?.step?.verb === "lay" && want.step.finish && goalsOf(
+    s,
+    packOf(want.target)?.id,
+    [{ kind: "flag", key: want.step.finish, value: true }],
+    actor
+  )[0] || want;
+
   // v2/card-game/want-talk.mjs
   var authoredWant = (id) => forest_default.people[id]?.want || packPeople[id]?.want || null;
   function stagedWants(world, id) {
@@ -2712,11 +2825,12 @@
       return `I want ${article(nameOf2(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
     }
     if (!revealed(world, id, want, listener)) return null;
-    const name = nameOf2(want.target);
+    const said = stepGoal(world, want, listener ?? id);
+    const name = nameOf2(said.target);
     const help = listener && offerFrom(world, listener) === id ? " I would be glad of your help." : "";
-    if (want.step?.verb === "lay")
-      return `I want ${want.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.${help}`;
-    return (want.kind === "item" ? want.step?.verb === "eat" ? `I want to ${consumable(want.target) === "drink" ? "drink" : "eat"} ${article(name)}${want.step.at ? ` at ${nameOf2(want.step.at)}` : ""}.` : `I want ${article(name)}.` : want.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
+    if (said.step?.verb === "lay")
+      return `I want ${said.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.${help}`;
+    return (said.kind === "item" ? said.step?.verb === "eat" ? `I want to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${article(name)}${said.step.at ? ` at ${nameOf2(said.step.at)}` : ""}.` : said.step?.verb === "bring" && said.step.at ? `I want ${article(name)} brought to ${nameOf2(said.step.at)}.` : said.step?.verb === "give" && said.step.to !== id ? `I want ${article(name)} given to ${nameOf2(said.step.to)}.` : `I want ${article(name)}.` : said.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
   }
   var wantHeard = (world, played, id, player2) => id === player2 || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
 
@@ -2880,14 +2994,14 @@
     return step.items.every((item) => world.items[item]?.holder === target);
   }
   function stepMet(s, actor, want, action) {
-    const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (kind === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
+    const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (verb === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
     if (verb === "lay") return layMet(s, want);
     if (verb === "find") return placeOfItem(s, want.target) === me.place;
     if (verb === "eat")
       return Boolean(
         action?.kind === "eat" && action.item === want.target && action.accepted !== false && (!at || me.place === at) && (action.actor === actor && (!want.step.with || action.target === want.step.with) || want.step.with && action.actor === want.step.with && action.target === actor)
       );
-    if (verb === "give") return by("give");
+    if (verb === "give") return by("give") || by("trade");
     if (verb === "bring" && want.kind === "person")
       return at ? together(s, actor, want.target) && me.place === at : together(s, want.target, to);
     if (verb === "bring")
@@ -21412,7 +21526,7 @@
                 ", "
               )}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Brace, guard, strike or wait are available.`
             );
-          const want2 = wantHeard(world, played, id, currentActor(world)) ? wantOf2(world, id) : null;
+          const want2 = wantHeard(world, played, id, currentActor(world)) ? stepGoal(world, wantOf2(world, id), currentActor(world)) : null;
           desire = {
             items: want2?.kind === "item" ? [want2.target] : [],
             location: want2?.kind === "place" ? want2.target : null,

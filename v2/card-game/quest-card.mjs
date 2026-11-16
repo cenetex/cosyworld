@@ -6,6 +6,7 @@ import { conditionsMet, consumable } from "./pack-registry.mjs";
 import { UNKNOWN, conditionWords, wantWords } from "./world/want-words.mjs";
 import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
 import { homeOf } from "./world/home.mjs";
+import { stepGoal } from "./world/lock-goals.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
 import { TAROT_BACK, TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
@@ -66,6 +67,9 @@ const questShape = (world, actor, want, key, index) => ({
   // A home quest (want.mjs) says "home"; no other bring does.
   ...(want.story ? { story: true } : {}),
   ...burial(world, want),
+  ...(stepGoal(world, want, actor) === want
+    ? {}
+    : { goal: stepGoal(world, want, actor) }),
 });
 export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
@@ -99,9 +103,14 @@ export function offerLapse() {
 }
 const the = (name) => (/^(the|an?) /iu.test(name) ? name : `the ${name}`);
 export function offerWords(quest, known = () => true) {
-  const who = nameOf(quest.offer);
-  if (quest.kind === "item" && quest.step?.verb === "give")
-    return `${who} asks for ${known(quest.target) ? the(nameOf(quest.target)) : UNKNOWN.item}`;
+  const who = nameOf(quest.offer),
+    said = quest.goal ?? quest;
+  if (
+    said.kind === "item" &&
+    said.step?.verb === "give" &&
+    (said === quest || said.step.to === quest.offer)
+  )
+    return `${who} asks for ${known(said.target) ? the(nameOf(said.target)) : UNKNOWN.item}`;
   const words = questCaption(quest, false, null, known);
   return `${who} asks you to ${words[0].toLowerCase()}${words.slice(1)}`;
 }
@@ -131,7 +140,6 @@ export const questCard = (world, actor = currentActor(world)) =>
 // A quest in words: the one wording of a want (world/want-words.mjs), with
 // the first letter raised. A card the traveler has not discovered is worded
 // as unknown; `covered` marks the target as one even when `known` is not given.
-// The burial rite words what is still to lay in the Hollow.
 export function questCaption(
   quest,
   covered = false,
@@ -139,21 +147,16 @@ export function questCaption(
   known = () => true,
 ) {
   const shown = (id) => !(covered && id === quest.target) && known(id);
-  const want = quest.riteVerb
-    ? {
-        kind: "place",
-        target: quest.target,
-        ...(quest.remaining?.length
-          ? { step: { verb: "lay", items: quest.remaining } }
-          : {}),
-      }
+  const want = quest.goal ??
+    (quest.riteVerb && !quest.remaining?.length
+    ? { kind: "place", target: quest.target }
     : {
         kind: quest.kind,
         target: quest.target,
         ...(quest.step ? { step: quest.step } : {}),
         ...(quest.lit === undefined ? {} : { lit: quest.lit }),
         ...(quest.story ? { story: true } : {}),
-      };
+      });
   if (quest.kind === "arcanum" && quest.face === "down") return "";
   const words =
     quest.kind === "arcanum"

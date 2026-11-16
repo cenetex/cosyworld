@@ -488,7 +488,7 @@ function stepMet(s, actor, want, action) {
     by = (kind) =>
       action?.kind === kind &&
       action.actor === actor &&
-      (kind === "give"
+      (verb === "give"
         ? action.item === want.target && action.target === to && action.accepted
         : action.target === want.target);
   if (verb === "lay") return layMet(s, want);
@@ -508,7 +508,7 @@ function stepMet(s, actor, want, action) {
             action.actor === want.step.with &&
             action.target === actor)),
     );
-  if (verb === "give") return by("give");
+  if (verb === "give") return by("give") || by("trade");
   // A person brought, as Talk asks (rules 99): to a place in your company,
   // or to the one they want to see.
   if (verb === "bring" && want.kind === "person")

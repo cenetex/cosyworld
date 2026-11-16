@@ -6,7 +6,7 @@
 // avatar it is made with, and the item given. A condition with no such trace
 // yields no goal; the box then shows only that it is shut, and an avatar's
 // talk, or an item's or place's description, says the rest.
-import { conditionsMet, packDefinition } from "../pack-registry.mjs";
+import { conditionsMet, packDefinition, packOf } from "../pack-registry.mjs";
 import { conditionMet } from "../pack-rules.mjs";
 
 const DEPTH = 4;
@@ -157,3 +157,14 @@ export const goalsOf = (s, packId, conditions, actor) =>
     },
     conditions,
   );
+
+export const stepGoal = (s, want, actor) =>
+  (want?.step?.verb === "lay" &&
+    want.step.finish &&
+    goalsOf(
+      s,
+      packOf(want.target)?.id,
+      [{ kind: "flag", key: want.step.finish, value: true }],
+      actor,
+    )[0]) ||
+  want;
