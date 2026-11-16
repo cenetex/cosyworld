@@ -476,7 +476,6 @@ try {
       assert.equal(await page.locator("#live-line").isVisible(), false);
       const grown = await nodesAfterSteps(page, stepBack, 12);
       assert(grown < 60, `Leaving copies are released: ${grown} nodes kept`);
-      // A play leaves focus with the hand.
       assert.equal(
         await page.locator("#previous-line, #next-line").count(),
         0,
