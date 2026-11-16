@@ -2933,9 +2933,7 @@ function renderActions() {
     };
     row.append(reveal);
   }
-  // The chosen quest card offers one button, Discard. Its step is done as
-  // any play is, by choosing the cards (the item and the person, the place).
-  const picked = !rested && !coveredPick ? pickedQuest() : null;
+  const picked =!rested && !coveredPick ? pickedQuest() : null;
   const legal = picked ? legalActions(world) : [];
   const drop =
     picked &&
@@ -2959,7 +2957,9 @@ function renderActions() {
         ? [{ action: accept, label: playLabel(accept, world) }]
         : picked?.full
           ? [{ action: null, label: "Your quest slots are full" }]
-          : [];
+          : picked?.offer
+            ? [{ action: null, label: "Not while fighting" }]
+            : [];
   for (const { action, label } of questButtons) {
     const discard = action?.kind === "drop" && !action.item,
       button = node(
@@ -2974,7 +2974,7 @@ function renderActions() {
       button.title = "Discard this quest";
     } else button.dataset.action = "accept";
     button.disabled = Boolean(action) && selectionBlocked();
-    if (!action) blockPlay(button, "full");
+    if (!action) blockPlay(button, picked.full ? "full" : "fight");
     else
       button.onclick = () => {
         if (performance.now() - heldAt < TAP_GUARD_MS) return;
