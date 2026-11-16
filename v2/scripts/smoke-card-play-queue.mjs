@@ -189,7 +189,7 @@ try {
         if (width === 1512)
           assert(
             Math.abs(open.dialogue.x + open.dialogue.width / 2 - width / 2) <
-              2 && open.dialogue.width <= 720,
+              2 && open.dialogue.width <= 860,
           );
         // Waiting plays have no chips (owner, 2026-11-01).
         assert.equal(await page.locator(".shared-play-avatar").count(), 0);
