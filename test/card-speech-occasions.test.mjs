@@ -13,6 +13,7 @@ import {
   createNarrator,
   speechOccasions,
   narrativeContext,
+  applyGeneratedText,
   voicesNobody,
 } from "../v2/card-game/narrative.mjs";
 import { dialogueCast } from "../v2/card-game/scene-cast.mjs";
@@ -30,7 +31,6 @@ const act = (s, kind, target) => {
   return play(s, action).state;
 };
 const occasions = (s) => speechOccasions(s, dialogueCast(s));
-// Vale and Pip at the station, with Pip holding the lamp.
 const meeting = () => {
   const s = createWorld();
   s.actors.moth.place = "station";
@@ -125,6 +125,32 @@ describe("speech occasions", () => {
       expect(world.speechVoices.vale).toEqual(speakers);
       expect(occasions(world).speakers).toEqual(speakers);
     }
+  });
+
+  it("keeps the avatar quiet on a move or Wait when it spoke last", () => {
+    const speak = (s) => {
+      const context = narrativeContext(s);
+      return applyGeneratedText(s, context, {
+        revision: s.revision,
+        model: "fixture-model",
+        entries: context.entities.map(({ id }) => ({ id, text: `${id} says a line.` })),
+      });
+    };
+    const lastVoice = (s) => s.log.findLast((e) => e.generated && e.kind === "dialogue").actorId;
+    const met = speak(act(meeting(), "talk", "moth"));
+    expect(lastVoice(met)).toBe("moth");
+    expect(narrativeContext(act(met, "wait")).speakers).toEqual(["vale"]);
+    const lone = meeting();
+    lone.actors.moth.place = "pond";
+    const spoke = speak(act(lone, "wait"));
+    expect(lastVoice(spoke)).toBe("vale");
+    const home = spoke.actors.vale.place;
+    const first = act(spoke, "move");
+    const away = first.actors.vale.place;
+    expect(narrativeContext(first).speakers).toContain("vale");
+    const again = act(speak(act(speak(first), "move", home)), "move", away);
+    expect(occasions(again)).toMatchObject({ speakers: ["vale"], scenery: false });
+    expect(narrativeContext(again).speakers).toEqual([]);
   });
 
   it("asks for a private reflection after a quiet Wait", async () => {
