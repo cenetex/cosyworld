@@ -14,6 +14,12 @@ function run(messages) {
   return count;
 }
 
+function speakers(messages) {
+  const spoke = new Set();
+  for (let index = messages.length - 1; index >= 0 && messages[index].resident; index -= 1) spoke.add(messages[index].resident);
+  return spoke;
+}
+
 function where(room) {
   return `guild=${room.guildId} channel=${room.channelId}`;
 }
@@ -47,9 +53,11 @@ export async function next(room, { config, cast, coordinate, stats, log }, signa
   const top = ranked[0] ?? null;
   const p = top ? chance(top) : 0;
   const none = "none" in odds || answer.choice === "none" ? chance("none") : Math.max(0, 1 - ranked.reduce((sum, id) => sum + chance(id), 0));
-  const who = top && none < config.DISCORD_NONE_THRESHOLD && none < p ? top : null;
+  const spoke = speakers(room.messages);
+  const fresh = ranked.find((id) => !spoke.has(id) && chance(id) >= config.DISCORD_TURN_FLOOR);
+  const who = top && none < config.DISCORD_NONE_THRESHOLD ? (fresh ?? top) : null;
   const shown = Object.entries(odds).map(([id, q]) => `${id}:${Number(q).toFixed(2)}`).join(",") || "none";
-  log(`next choice=${top ?? answer.choice} p=${p.toFixed(2)} none=${none.toFixed(2)} probs=${shown} action=${who ? "speak" : "silent"} ${where(room)}`);
+  log(`next choice=${top ?? answer.choice} p=${p.toFixed(2)} none=${none.toFixed(2)} probs=${shown} action=${who ? "speak" : "silent"}${who && who !== top ? ` turn=${who}` : ""} ${where(room)}`);
   return who;
 }
 
