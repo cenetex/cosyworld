@@ -13,10 +13,10 @@ fn fixture(name: &str, world: &World) -> (std::path::PathBuf, rusqlite::Connecti
 }
 
 fn created(version: &str) -> World {
-    let pack = engine::takes_content(version).then(|| content::seeded(version).into());
+    let pack = engine::takes_content(version).then(|| content::current().into());
     let game = engine::reduce_pack(
         version,
-        Some(content::seeded(version)),
+        Some(content::current()),
         json!({"op":"create","seed":9}),
     )
     .unwrap()["world"]

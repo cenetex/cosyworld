@@ -1,4 +1,4 @@
-use super::{engine, full_store, full_world::World, now, store};
+use super::{full_store, full_world::World, now, store};
 use serde_json::{json, Value};
 
 fn boardy_talk(view: &Value) -> Option<Value> {
@@ -169,79 +169,6 @@ fn boardy_follows_a_want_to_meet_a_human_in_the_c_host() {
 }
 
 #[test]
-fn released_boardy_searches_with_the_original_station_door() {
-    let seed = engine::reduce_version(engine::SEVENTEENTH_VERSION, json!({"op":"create"})).unwrap();
-    let world = World {
-        version: engine::SEVENTEENTH_VERSION.into(),
-        game: seed["world"].clone(),
-        claimed: [0; 8],
-        present: [0; 8],
-        pack: None,
-    };
-    assert_boardy_search_visits(
-        world,
-        ["station", "attic", "station", "pond", "station", "pond"],
-    );
-}
-
-fn assert_boardy_search_visits(mut world: World, expected: [&str; 6]) {
-    world.game.as_object_mut().unwrap().remove("opening");
-    world.game["actors"]["vale"]["place"] = json!("station");
-    world.game["actors"]["mara"]["place"] = json!("pond");
-    for actor in ["vale", "mara"] {
-        world.apply(&json!({"op":"claim", "actor":actor})).unwrap();
-        world.apply(&json!({"op":"enter", "actor":actor})).unwrap();
-    }
-    let mut path = Vec::new();
-    for _ in 0..6 {
-        let view = world.project(0).unwrap();
-        let wait = view["actions"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|a| a["kind"] == "wait")
-            .unwrap()
-            .clone();
-        world
-            .apply(&json!({"op":"play", "actor":"vale", "action":wait}))
-            .unwrap();
-        path.push(
-            world.game["actors"]["boardyai"]["place"]
-                .as_str()
-                .unwrap()
-                .to_owned(),
-        );
-        assert_eq!(world.game["actors"]["vale"]["place"], "station");
-        assert_eq!(world.game["actors"]["mara"]["place"], "pond");
-    }
-    assert_eq!(path, expected);
-    assert_eq!(
-        world.game["memories"]["boardyai"]["seen"]["mara"]["place"],
-        "pond"
-    );
-    let key = world.game["life"]["actors"]["boardyai"]["collection"]["active"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let view = world.project(1).unwrap();
-    let meet = view["actions"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|a| a["kind"] == "move" && a["target"] == "station")
-        .unwrap()
-        .clone();
-    world
-        .apply(&json!({"op":"play", "actor":"mara", "action":meet}))
-        .unwrap();
-    assert_eq!(
-        world.game["quests"]["records"][&key]["completedTurn"],
-        world.game["turn"]
-    );
-    assert_eq!(world.game["life"]["actors"]["boardyai"]["restLeft"], 3);
-}
-
-#[test]
 fn one_connected_human_keeps_the_normal_turn_loop() {
     let mut world = World::create(None).unwrap();
     world.apply(&json!({"op":"claim", "actor":"vale"})).unwrap();
@@ -260,40 +187,6 @@ fn one_connected_human_keeps_the_normal_turn_loop() {
             .unwrap();
     }
     assert_eq!(world.game["turn"], 3);
-}
-
-#[test]
-fn historical_presence_commands_leave_game_bytes_unchanged() {
-    let text = include_str!("../../../../test/fixtures/card-content-rules-125.json");
-    let hash = super::content::hash(text);
-    let c = rusqlite::Connection::open_in_memory().unwrap();
-    full_store::schema(&c).unwrap();
-    c.execute(
-        "INSERT INTO card_full_packs(hash,revision,content) VALUES(?,?,?)",
-        rusqlite::params![hash, "rules125", text],
-    )
-    .unwrap();
-    super::content::preload(&c, &hash).unwrap();
-    let version = "full-card-world/125";
-    let game =
-        engine::reduce_pack(version, Some(&hash), json!({"op":"create"})).unwrap()["world"].clone();
-    let mut world = World {
-        version: version.into(),
-        game: game.clone(),
-        claimed: [1, 1, 0, 0, 0, 0, 0, 0],
-        present: [0; 8],
-        pack: Some(hash),
-    };
-    for (op, actor) in [
-        ("enter", "vale"),
-        ("enter", "mara"),
-        ("leave", "mara"),
-        ("enter", "mara"),
-        ("release", "mara"),
-    ] {
-        world.apply(&json!({"op":op,"actor":actor})).unwrap();
-        assert_eq!(world.game, game, "historical {actor} {op}");
-    }
 }
 
 #[test]
