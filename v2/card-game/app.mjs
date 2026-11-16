@@ -2933,7 +2933,7 @@ function renderActions() {
     };
     row.append(reveal);
   }
-  const picked =!rested && !coveredPick ? pickedQuest() : null;
+  const picked = !rested && !coveredPick ? pickedQuest() : null;
   const legal = picked ? legalActions(world) : [];
   const drop =
     picked &&
