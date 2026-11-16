@@ -3,12 +3,12 @@
 //! The line is journaled and shown first. A reflection (thought, persona,
 //! dream) is generated afterwards, outside the scene's capacity, and journaled
 //! as its own later `reflect` op naming the play and the speech's turn. It is
-//! written at most once per play, only after that play's speech, and only for
-//! rules that take it. One that fails, is cancelled, or no longer passes the
-//! rules is simply absent: the world is whole without it.
+//! written at most once per play and only after that play's speech. One that
+//! fails, is cancelled, or no longer passes the rules is simply absent: the
+//! world is whole without it.
 use super::{db, now, store, turn, writer, Work};
 use crate::AppState;
-use rusqlite::{params, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, TransactionBehavior};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -54,17 +54,8 @@ async fn replaced(mut seat: watch::Receiver<u64>, start: u64) {
     }
 }
 
-/// Whether `version` journals reflections in their own op after the speech
-/// they follow. Rules v88 added it; earlier rules take them in the speech.
-pub(in crate::card_shared) fn takes_reflect(version: &str) -> bool {
-    version
-        .strip_prefix("full-card-world/")
-        .and_then(|n| n.parse::<u32>().ok())
-        .is_some_and(|n| n >= 88)
-}
-
 /// A settled speech or quiet rest can reflect once under the current rules.
-fn due(c: &rusqlite::Connection, id: &str, play: &str, version: &str) -> super::Result<bool> {
+fn due(c: &rusqlite::Connection, id: &str, play: &str) -> super::Result<bool> {
     let ops: Vec<String> = c
         .prepare(
             "SELECT json_extract(command,'$.op') FROM card_full_log WHERE world=?1 AND seq>(SELECT coalesce(max(seq),0)-4096 FROM card_full_log WHERE world=?1) AND json_extract(command,'$.play')=?2 AND json_extract(command,'$.op') IN ('speech','reflect')",
@@ -78,22 +69,7 @@ fn due(c: &rusqlite::Connection, id: &str, play: &str, version: &str) -> super::
         "SELECT EXISTS(SELECT 1 FROM card_full_plays p JOIN card_full_scenes s ON s.world=p.world AND s.play=p.id WHERE p.world=? AND p.id=? AND p.status IN ('playing','done') AND json_extract(p.command,'$.op')='play' AND json_extract(p.narrative,'$.context.resting')=json_extract(p.narrative,'$.actor') AND json_array_length(json_extract(p.narrative,'$.context.speakers'))=0 AND json_extract(p.narrative,'$.context.scenery')=0 AND coalesce(json_extract(s.content,'$.failed'),0)=0)",
         params![id, play], |r| r.get(0),
     ).map_err(super::sql_error)?;
-    Ok((quiet || ops.iter().any(|op| op == "speech"))
-        && !ops.iter().any(|op| op == "reflect")
-        && takes_reflect(version))
-}
-// The checkpoint's version, a cheap early answer before a model call. It can
-// trail an upgrade journaled since; `commit` checks the live world's version.
-fn checkpoint_version(c: &rusqlite::Connection, id: &str) -> super::Result<String> {
-    Ok(c.query_row(
-        "SELECT json_extract(state,'$.version') FROM card_full_checkpoints WHERE world=?",
-        [id],
-        |r| r.get::<_, Option<String>>(0),
-    )
-    .optional()
-    .map_err(super::sql_error)?
-    .flatten()
-    .unwrap_or_default())
+    Ok((quiet || ops.iter().any(|op| op == "speech")) && !ops.iter().any(|op| op == "reflect"))
 }
 
 /// The command for a play's reflections, dated to its speech.
@@ -123,7 +99,7 @@ pub(in crate::card_shared) fn commit(
     let play = command["play"].as_str().unwrap_or_default();
     let time = now();
     let mut w = store::world(&tx, id, time)?;
-    if !due(&tx, id, play, &w.version)? {
+    if !due(&tx, id, play)? {
         return Ok(false);
     }
     store::commit(&tx, id, &mut w, command, time)?;
@@ -172,8 +148,7 @@ pub(in crate::card_shared) fn spawn(state: AppState, id: String, work: Work, lin
         let ready = tokio::task::spawn_blocking(move || {
             let c = db(&s)?;
             store::schema(&c)?;
-            let version = checkpoint_version(&c, &wid)?;
-            due(&c, &wid, &play, &version)
+            due(&c, &wid, &play)
         });
         if !matches!(ready.await, Ok(Ok(true))) {
             return;

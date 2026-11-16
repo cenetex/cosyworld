@@ -163,14 +163,6 @@ pub(super) fn seats_elsewhere(
         .map_err(sql_error)?;
     Ok(worlds)
 }
-// A level belongs to its world (#2713); the highest is recorded per passkey.
-pub(super) fn carries_progress(version: &str) -> bool {
-    version
-        .rsplit('/')
-        .next()
-        .and_then(|n| n.parse::<u32>().ok())
-        .is_some_and(|n| n >= 80)
-}
 // What waits between seats is never lowered: a later save keeps the higher
 // level, then the higher experience, of the two.
 pub(super) fn save_progress(c: &Connection, user: &str, a: usize, progress: &Value) -> Result<()> {
@@ -216,20 +208,12 @@ pub(super) fn take_progress(c: &Connection, user: &str, a: usize) -> Result<Opti
     .map_err(sql_error)?;
     Ok(saved.and_then(|s| serde_json::from_str(&s).ok()))
 }
-// Cosmetic upgrades are one-way and per passkey (#1873). Each one is kept
-// here for good and goes with every claim. Rules before 81 cannot take them.
-pub(super) fn carries_upgrades(version: &str) -> bool {
-    rules_from(version, 81)
-}
 pub(super) fn carries_arcana(version: &str) -> bool {
-    rules_from(version, 141)
-}
-fn rules_from(version: &str, first: u32) -> bool {
     version
         .rsplit('/')
         .next()
         .and_then(|n| n.parse::<u32>().ok())
-        .is_some_and(|n| n >= first)
+        .is_some_and(|n| n >= 141)
 }
 pub(super) fn deck(c: &Connection, user: &str) -> Result<Vec<String>> {
     let sql = "SELECT DISTINCT upgrade FROM card_avatar_upgrades WHERE user=? AND upgrade LIKE 'arcanum-%' ORDER BY upgrade";
