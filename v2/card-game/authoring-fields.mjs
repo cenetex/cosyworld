@@ -16,6 +16,7 @@ const collections = new Set(["places", "avatars", "items", "transports"]);
 const labels = {
   oneWay: "one-way travel",
   waitAtHome: "return to authored home",
+  forGood: "gone for good",
 };
 const numberText = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/u;
 

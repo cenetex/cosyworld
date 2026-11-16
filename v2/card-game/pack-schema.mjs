@@ -6,7 +6,7 @@ import { validFactText } from "./knowledge.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { RARITY_WEIGHTS } from "./pack-specials.mjs";
-import { itemCycleProblems } from "./pack-items-schema.mjs";
+import { forGoodWarnings, itemCycleProblems } from "./pack-items-schema.mjs";
 
 export const PACK_SCHEMA_VERSION = 1;
 export const AUTHORED_TOPIC_LIMIT = 128;
@@ -1501,8 +1501,12 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       // (a rite uses up what lies on the grave).
       if (e.kind === "retire_item")
         valid =
-          keysOk(e, ["kind", "item", "waitAtHome"]) &&
+          keysOk(e, ["kind", "item", "waitAtHome", "forGood"]) &&
           (owns(items, e.item) || hub.items.includes(e.item)) &&
+          (e.forGood === undefined ||
+            (e.forGood === true &&
+              e.waitAtHome === undefined &&
+              owns(items, e.item))) &&
           (e.waitAtHome === undefined ||
             (e.waitAtHome === true &&
               items[e.item]?.home &&
@@ -2099,5 +2103,6 @@ export function packWarnings(pack) {
               `${pack.id}: choice ${c.id} intercepts the Give of ${r.item} to ${id}, a staged want, so that gift raises no trust`,
             );
   }
+  warnings.push(...forGoodWarnings(pack));
   return warnings;
 }
