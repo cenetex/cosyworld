@@ -338,7 +338,6 @@ try {
     assert.equal(await message.getAttribute("data-tap-hint"), "Tap to wait");
     assert.equal(await message.getAttribute("aria-label"), "Wait");
     const played = await measureHand(page, ".action-beat-cards");
-    // Its handlers read the live world, so it is refreshed in place.
     assert.equal(
       played.same,
       true,
