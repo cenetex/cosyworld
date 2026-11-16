@@ -51,8 +51,6 @@ mod quest_loop_tests;
 mod rules_agree_tests;
 #[cfg(test)]
 mod sea_steps;
-#[cfg(test)]
-mod speech;
 mod store;
 mod sync;
 #[cfg(test)]
