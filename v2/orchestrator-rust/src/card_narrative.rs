@@ -585,6 +585,8 @@ struct Context {
     present: Vec<String>,
     #[serde(skip)]
     images: Vec<String>,
+    #[serde(skip)]
+    channel: bool,
 }
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
