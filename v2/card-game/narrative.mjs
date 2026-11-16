@@ -280,6 +280,25 @@ function exchangeFacts(world, speaker, played) {
   });
 }
 
+function quietAlone(world, played, state) {
+  const actor = currentActor(world);
+  if (
+    state.scenery ||
+    state.speakers.length !== 1 ||
+    state.speakers[0] !== actor ||
+    !["action", "first_wait"].includes(state.occasion) ||
+    !["move", "wait"].includes(played?.verb)
+  )
+    return false;
+  const last = world.log.findLast(
+    (entry) =>
+      entry.generated &&
+      entry.kind === "dialogue" &&
+      profiles[entry.actorId]?.kind === "avatar",
+  );
+  return last?.actorId === actor;
+}
+
 export function narrativeContext(world, action = null, isCovered = null, remaining = false) {
   const cast = dialogueCast(world, action);
   const original = typeof remaining === "object" ? remaining : null;
@@ -299,7 +318,11 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
   // Talk and Ask speak; any other play speaks only on a rules occasion.
   const occasionState = speechOccasions(world, cast);
   const { occasion } = occasionState;
-  const speakers = original ? original.speakers.filter((id) => ids.includes(id)) : occasionState.speakers;
+  const speakers = original
+    ? original.speakers.filter((id) => ids.includes(id))
+    : quietAlone(world, played, occasionState)
+      ? []
+      : occasionState.speakers;
   const scenery = original ? original.scenery : occasionState.scenery;
   const battle = battleEvents(world, played);
   const resting =

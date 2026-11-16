@@ -21432,6 +21432,15 @@
       return facts;
     });
   }
+  function quietAlone(world, played, state) {
+    const actor = currentActor(world);
+    if (state.scenery || state.speakers.length !== 1 || state.speakers[0] !== actor || !["action", "first_wait"].includes(state.occasion) || !["move", "wait"].includes(played?.verb))
+      return false;
+    const last = world.log.findLast(
+      (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar"
+    );
+    return last?.actorId === actor;
+  }
   function narrativeContext(world, action = null, isCovered = null, remaining = false) {
     const cast = dialogueCast(world, action);
     const original = typeof remaining === "object" ? remaining : null;
@@ -21452,7 +21461,7 @@
     } = cast;
     const occasionState = speechOccasions(world, cast);
     const { occasion } = occasionState;
-    const speakers = original ? original.speakers.filter((id) => ids3.includes(id)) : occasionState.speakers;
+    const speakers = original ? original.speakers.filter((id) => ids3.includes(id)) : quietAlone(world, played, occasionState) ? [] : occasionState.speakers;
     const scenery = original ? original.scenery : occasionState.scenery;
     const battle = battleEvents(world, played);
     const resting2 = played?.verb !== "claim" && (!speakers.length || speakers[0] === cast.resting) ? cast.resting : null;
