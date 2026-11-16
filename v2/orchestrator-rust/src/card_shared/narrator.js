@@ -21494,7 +21494,7 @@
         if (kind === "location" && isCovered?.(id))
           return { id, facts: [], desire: null, memories: [], previous: null };
         const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location) : [];
-        const want = kind === "avatar" && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf, currentActor(world)) : null;
+        const want = kind === "avatar" && world.actors[id]?.want !== null && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf, currentActor(world)) : null;
         const cause = want && world.actors[id]?.rumours?.find((r) => r.subject === wantOf2(world, id)?.target);
         const glimpse = world.actors[id]?.glimpse;
         const glimpsed = cast.dream === "glimpse" && id === resting2 && glimpse ? `In a dream, a glimpse: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.` : null;

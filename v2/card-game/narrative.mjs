@@ -440,7 +440,9 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       // A want reaches the player through Talk: one first-person line for
       // the player and for whoever is in this Talk. Narration only.
       const want =
-        kind === "avatar" && wantHeard(world, played, id, currentActor(world))
+        kind === "avatar" &&
+        world.actors[id]?.want !== null &&
+        wantHeard(world, played, id, currentActor(world))
           ? wantFact(world, id, nameOf, currentActor(world))
           : null;
       const cause = want && world.actors[id]?.rumours?.find((r) => r.subject === wantOf(world, id)?.target);
