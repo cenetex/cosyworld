@@ -3,6 +3,7 @@ import { packEntity } from "./pack-registry.mjs";
 import { expressionOf } from "./expression.mjs";
 import { localVoiceClient } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
+import { voiceTone } from "./voice-tone.mjs";
 
 const connected = (client) => Boolean(client.available?.());
 const voiceClient = () => localVoiceClient() || hostedVoices().voices;
@@ -307,7 +308,7 @@ export function createCharacterSpeech({
           const node = context.createBufferSource();
           source = node;
           node.buffer = buffer;
-          node.connect(context.destination);
+          node.connect(voiceTone(context));
           node.onended = () => {
             if (source !== node) return;
             node.disconnect();
