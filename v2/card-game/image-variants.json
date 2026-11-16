@@ -3023,15 +3023,6 @@
       "phone": "assets/optimized/phone/png/greek-drama/figs.webp",
       "phoneHash": "847722a311d29aab42df80800d913f2ee634855cefbe752f707069b021e01f9b"
     },
-    "assets/greek-drama/funeral-cloth.png": {
-      "sourceHash": "495f882672ce8513a65f789b919741ef3f49f22a76c73551847cefb5d217e0a0",
-      "stage": "assets/optimized/stage/png/greek-drama/funeral-cloth.webp",
-      "stageHash": "ac6bb3db29ba5fc78be371fd1bfc4ce404ffff70b90377d7ce9c96dd152acbf2",
-      "card": "assets/optimized/card/png/greek-drama/funeral-cloth.webp",
-      "cardHash": "04908ec4ef42d1f602cdcd1c70a74f6126f424e14b79a1be384b2804ce9ba57d",
-      "phone": "assets/optimized/phone/png/greek-drama/funeral-cloth.webp",
-      "phoneHash": "63925c1ed59fc2437c4fbd8afa9db758b25ed89e82171448dcab8789d361ae57"
-    },
     "assets/greek-drama/guard-tablet.webp": {
       "sourceHash": "3d64f910dea0d6cd56be088b1c1fcd7ec9dc86331eff6eec7befcdaca9bed3d6",
       "stage": "assets/greek-drama/guard-tablet.webp",

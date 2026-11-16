@@ -11,6 +11,7 @@ import {
   freed,
   isPackActor,
   neverBack,
+  spentByChoice,
   packDefinition,
   packOf,
   packPeople,
@@ -258,8 +259,15 @@ const validTarget = (s, kind, target) =>
         : true;
 export const lostOf = (s, w) =>
   w
-    ? [w.target, w.step?.to, w.step?.with, w.step?.at, ...(w.step?.items || [])]
-        .find((id) => typeof id === "string" && neverBack(s, id))
+    ? [
+        w.target,
+        w.step?.to,
+        w.step?.with,
+        w.step?.at,
+        ...(w.step?.items || []).filter(
+          (id) => !(w.step.finish && spentByChoice(s, id)),
+        ),
+      ].find((id) => typeof id === "string" && neverBack(s, id))
     : undefined;
 
 // An authored want as the actor holds it: its kind, target, light and step.

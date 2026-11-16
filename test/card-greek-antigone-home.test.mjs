@@ -12,7 +12,7 @@ import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 // world's life is on here (the Greek journeys switch it off to hold the cast).
 const HOLLOW = "greek-polynices-hollow";
 const GATE = "greek-gate";
-const ITEMS = ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"];
+const ITEMS = ["greek-oil-flask", "cloth", "greek-shovel"];
 let held;
 beforeAll(() => {
   held = worldLife.on;

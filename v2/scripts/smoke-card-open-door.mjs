@@ -219,8 +219,6 @@ export async function checkOpenDoor(browser, origin) {
       const steps = [
         ...move("eleusis"),
         { kind: "take", item: "greek-burial-petition" },
-        { kind: "take", item: "greek-funeral-cloth" },
-        { kind: "give", item: "greek-funeral-cloth", target: "greek-aethra" },
         ...greekMoveSteps("greek-eleusis")("athens"),
         {
           kind: "trade",

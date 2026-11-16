@@ -354,7 +354,9 @@ export function forgetRetiredThings(s, retired) {
     if (retired.has(a.heldItem)) delete a.heldItem;
     const quests = [a?.want, ...(a?.under || [])].filter(Boolean);
     const kept = quests.filter(
-      (w) => !(w.kind === "item" && retired.has(w.target)),
+      (w) =>
+        !(w.kind === "item" && retired.has(w.target)) &&
+        !w.step?.items?.some((item) => retired.has(item)),
     );
     if (kept.length === quests.length) continue;
     a.want = kept[0] ?? null;

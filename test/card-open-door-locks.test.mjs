@@ -105,11 +105,7 @@ describe("each resident opens on its own present thing", () => {
   it("the urn is Aethra's to make, only while she stands at her altar", () => {
     expect(packThings["greek-ash-urn"].locked).toEqual({
       by: "greek-aethra",
-      consumes: [
-        "greek-funeral-cloth",
-        "greek-oil-flask",
-        "greek-olive-branch",
-      ],
+      consumes: ["greek-oil-flask", "greek-olive-branch"],
     });
     expect(packThings["greek-ash-urn"].home).toBe("greek-eleusis");
     expect(packPeople["greek-aethra"].travels).toBe(false);

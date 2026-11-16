@@ -21,7 +21,7 @@ import {
 
 const hollow = "greek-polynices-hollow",
   antigone = "greek-antigone";
-const kit = ["greek-oil-flask", "greek-funeral-cloth", "greek-shovel"];
+const kit = ["greek-oil-flask", "cloth", "greek-shovel"];
 const rites = [
   "greek-anoint-polynices",
   "greek-shroud-polynices",
@@ -294,7 +294,7 @@ try {
         undefined,
       );
       assert.equal(done.items["greek-oil-flask"].holder, "greek-colonus");
-      assert.equal(done.items["greek-funeral-cloth"].holder, "greek-eleusis");
+      assert.deepEqual(done.gone, ["cloth"]);
       assert.equal(done.items["greek-shovel"].holder, hollow);
       await photograph("buried");
       // A real Move keeps the started funeral performance through its end.

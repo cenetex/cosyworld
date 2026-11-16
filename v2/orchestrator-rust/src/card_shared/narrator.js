@@ -2807,7 +2807,15 @@
     refusals: 0
   });
   var validTarget = (s, kind, target) => kind === "item" ? Object.hasOwn(s.items, target) : kind === "person" ? Object.hasOwn(s.actors, target) : kind === "connect" ? target === CONNECT_TARGET : true;
-  var lostOf = (s, w) => w ? [w.target, w.step?.to, w.step?.with, w.step?.at, ...w.step?.items || []].find((id) => typeof id === "string" && neverBack(s, id)) : void 0;
+  var lostOf = (s, w) => w ? [
+    w.target,
+    w.step?.to,
+    w.step?.with,
+    w.step?.at,
+    ...(w.step?.items || []).filter(
+      (id) => !(w.step.finish && spentByChoice(s, id))
+    )
+  ].find((id) => typeof id === "string" && neverBack(s, id)) : void 0;
   var heldWant = (s, w) => ({
     ...newWant(w.kind, w.target, s.turn),
     ...w.kind === "item" && typeof w.lit === "boolean" ? { lit: w.lit } : {},
@@ -3418,7 +3426,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 27,
+        revision: 28,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -4554,7 +4562,7 @@
                     verb: "lay",
                     items: [
                       "greek-oil-flask",
-                      "greek-funeral-cloth",
+                      "cloth",
                       "greek-shovel"
                     ],
                     finish: "greek-burial-performed"
@@ -5124,11 +5132,10 @@
           },
           "greek-aethra": {
             name: "Aethra",
-            text: "Olive branches rest across her knees at Demeter\u2019s altar. She will not rise until clean Eleusis linen is here for the dead, and she has sent for her son Theseus.",
+            text: "Olive branches rest across her knees at Demeter\u2019s altar. She will not rise until funeral oil is here for the dead, and she has sent for her son Theseus.",
             place: "greek-eleusis",
             home: "greek-eleusis",
             values: {
-              "greek-funeral-cloth": 3,
               "greek-oil-flask": 3,
               "greek-olive-branch": 3
             },
@@ -5137,7 +5144,7 @@
             tastes: {
               likes: "careful listening and help that reaches its owner",
               sore: "promises treated as finished deeds",
-              reason: "Olive branches rest across her knees at Demeter\u2019s altar. She will not rise until clean Eleusis linen is here for the dead, and she has sent for her son Theseus."
+              reason: "Olive branches rest across her knees at Demeter\u2019s altar. She will not rise until funeral oil is here for the dead, and she has sent for her son Theseus."
             },
             requires: [
               {
@@ -5145,7 +5152,7 @@
                 conditions: [
                   {
                     kind: "item_near",
-                    item: "greek-funeral-cloth",
+                    item: "greek-oil-flask",
                     place: "greek-eleusis"
                   },
                   {
@@ -5586,7 +5593,7 @@
                 verb: "lay",
                 items: [
                   "greek-oil-flask",
-                  "greek-funeral-cloth",
+                  "cloth",
                   "greek-shovel"
                 ],
                 finish: "greek-burial-performed"
@@ -5735,15 +5742,6 @@
             tags: [
               "drink"
             ],
-            absentReturn: true
-          },
-          "greek-funeral-cloth": {
-            name: "Funeral Cloth",
-            text: "Clean linen from the looms at Eleusis, folded for a burial.",
-            holder: "greek-sanctuary",
-            persona: "Clean linen from the looms at Eleusis, folded for a burial.",
-            art: "assets/greek-drama/funeral-cloth.png",
-            home: "greek-eleusis",
             absentReturn: true
           },
           "greek-oil-flask": {
@@ -5910,16 +5908,15 @@
           "greek-ash-urn": {
             name: "The Funeral Urn",
             startLevel: 6,
-            text: "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from linen, oil and the herald\u2019s truce.",
+            text: "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from oil and the herald\u2019s truce.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/ash-urn.png",
-            persona: "A covered clay urn for the Argive ashes, made at Aethra's altar from linen, oil and the herald's truce.",
+            persona: "A covered clay urn for the Argive ashes, made at Aethra's altar from oil and the herald's truce.",
             home: "greek-eleusis",
             startsUsed: true,
             locked: {
               by: "greek-aethra",
               consumes: [
-                "greek-funeral-cloth",
                 "greek-oil-flask",
                 "greek-olive-branch"
               ]
@@ -8028,8 +8025,8 @@
                 role: "actor"
               },
               {
-                kind: "item_near",
-                item: "greek-funeral-cloth",
+                kind: "item_present",
+                item: "cloth",
                 place: "greek-polynices-hollow"
               },
               {
@@ -8062,7 +8059,7 @@
             at: "greek-polynices-hollow",
             subject: "greek-antigone",
             label: "Hand Antigone the cloth",
-            text: "Antigone draws the linen over her brother and lays a raven feather on it.",
+            text: "Antigone draws the black cloth over her brother and lays a raven feather on it.",
             requires: [
               {
                 kind: "flag",
@@ -8071,7 +8068,7 @@
               },
               {
                 kind: "holding",
-                item: "greek-funeral-cloth",
+                item: "cloth",
                 role: "actor"
               },
               {
@@ -8088,8 +8085,7 @@
             effects: [
               {
                 kind: "retire_item",
-                item: "greek-funeral-cloth",
-                waitAtHome: true
+                item: "cloth"
               },
               {
                 kind: "set_flag",
@@ -9834,7 +9830,6 @@
           items: [
             "greek-water-jar",
             "greek-bread",
-            "greek-funeral-cloth",
             "greek-oil-flask",
             "greek-shovel",
             "greek-decree",
@@ -16129,7 +16124,7 @@
     for (const c of choices)
       for (const e of (c.effects || []).filter((e2) => e2.kind === "retire_item"))
         check(
-          renews(e.item) || !needs.some((n) => n.by !== c.id && n.items.includes(e.item)),
+          renews(e.item) || !items2[e.item] || !needs.some((n) => n.by !== c.id && n.items.includes(e.item)),
           `item ${e.item} is used up by ${c.id} but still needed, so it must renew`
         );
     for (const [id, t] of Object.entries(pack.transports || {}))
@@ -16603,7 +16598,9 @@
       );
     }
     const wantOk = (w, id) => keysOk(w, ["kind", "target", "step", "minTrust"]) && (w.minTrust === void 0 || intOk(w.minTrust, 1, 3)) && // An eat quest (rules 102): eat or drink one, somewhere, with someone.
-    (w.step === void 0 || w.kind === "place" && w.step.verb === "lay" && keysOk(w.step, ["verb", "items", "finish"]) && Array.isArray(w.step.items) && intOk(w.step.items.length, 1, 3) && new Set(w.step.items).size === w.step.items.length && w.step.items.every((item) => owns3(items2, item)) && (w.step.finish === void 0 || idOk2(w.step.finish)) || w.kind === "item" && keysOk(w.step, ["verb", "at", "with"]) && w.step.verb === "eat" && ["food", "drink"].some((tag) => items2[w.target]?.tags?.includes(tag)) && (w.step.with === void 0 || w.step.with !== id && (owns3(avatars, w.step.with) || hub2.avatars.includes(w.step.with))) && (w.step.at === void 0 || owns3(places2, w.step.at))) && (w.kind === "item" ? owns3(items2, w.target) || hub2.items.includes(w.target) : w.kind === "place" ? owns3(places2, w.target) || hub2.places.includes(w.target) : w.kind === "connect" ? w.target === "humans" : w.kind === "person" && w.target !== id && (owns3(avatars, w.target) || hub2.avatars.includes(w.target)));
+    (w.step === void 0 || w.kind === "place" && w.step.verb === "lay" && keysOk(w.step, ["verb", "items", "finish"]) && Array.isArray(w.step.items) && intOk(w.step.items.length, 1, 3) && new Set(w.step.items).size === w.step.items.length && w.step.items.every(
+      (item) => owns3(items2, item) || hub2.items.includes(item)
+    ) && (w.step.finish === void 0 || idOk2(w.step.finish)) || w.kind === "item" && keysOk(w.step, ["verb", "at", "with"]) && w.step.verb === "eat" && ["food", "drink"].some((tag) => items2[w.target]?.tags?.includes(tag)) && (w.step.with === void 0 || w.step.with !== id && (owns3(avatars, w.step.with) || hub2.avatars.includes(w.step.with))) && (w.step.at === void 0 || owns3(places2, w.step.at))) && (w.kind === "item" ? owns3(items2, w.target) || hub2.items.includes(w.target) : w.kind === "place" ? owns3(places2, w.target) || hub2.places.includes(w.target) : w.kind === "connect" ? w.target === "humans" : w.kind === "person" && w.target !== id && (owns3(avatars, w.target) || hub2.avatars.includes(w.target)));
     for (const [id, a] of Object.entries(avatars)) {
       check(
         keysOk(a, [
@@ -16807,7 +16804,7 @@
             ok = keysOk(c, ["kind", "actor", "min"]) && owns3(avatars, c.actor) && intOk(c.min, 1, 3);
             break;
           case "holding":
-            ok = keysOk(c, ["kind", "item", "actor", "role"]) && owns3(items2, c.item) && (c.role === void 0 ? c.actor === hub2.player || owns3(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
+            ok = keysOk(c, ["kind", "item", "actor", "role"]) && (owns3(items2, c.item) || hub2.items.includes(c.item)) && (c.role === void 0 ? c.actor === hub2.player || owns3(avatars, c.actor) : c.role === "actor" && c.actor === void 0);
             break;
           case "upgraded":
             ok = keysOk(c, ["kind", "upgrade", "role"]) && idOk2(c.upgrade) && c.role === "actor";
@@ -17114,7 +17111,7 @@
         if (e.kind === "upgrade")
           valid = keysOk(e, ["kind", "upgrade"]) && idOk2(e.upgrade) && c.for !== void 0;
         if (e.kind === "retire_item")
-          valid = keysOk(e, ["kind", "item", "waitAtHome"]) && owns3(items2, e.item) && (e.waitAtHome === void 0 || e.waitAtHome === true && items2[e.item].home && !items2[e.item].regrow && !items2[e.item].locked) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
+          valid = keysOk(e, ["kind", "item", "waitAtHome"]) && (owns3(items2, e.item) || hub2.items.includes(e.item)) && (e.waitAtHome === void 0 || e.waitAtHome === true && items2[e.item]?.home && !items2[e.item].regrow && !items2[e.item].locked) && (c.requires || []).flatMap((r) => r.kind === "any" ? r.conditions : [r]).some(
             (r) => r.item === e.item && (r.kind === "holding" && r.role === "actor" || ["item_near", "item_at"].includes(r.kind) && r.place === c.at)
           );
         if (e.kind === "drop_item")
@@ -17879,6 +17876,11 @@
   ) ?? null;
   var departed = (pack, state, id) => (pack.choices || []).some(
     (c) => c.on === "depart" && c.subject === id && owns4(state.receipts, c.id)
+  );
+  var spentByChoice = (world, id) => packDefinitions.some(
+    (pack) => (pack.choices || []).some(
+      (c) => owns4(packState(world, pack.id)?.receipts, c.id) && c.effects.some((e) => e.kind === "retire_item" && e.item === id)
+    )
   );
   function neverBack(world, id) {
     if (gone(world, id)) return true;
@@ -19539,7 +19541,7 @@
       if (retired.has(a.heldItem)) delete a.heldItem;
       const quests = [a?.want, ...a?.under || []].filter(Boolean);
       const kept = quests.filter(
-        (w) => !(w.kind === "item" && retired.has(w.target))
+        (w) => !(w.kind === "item" && retired.has(w.target)) && !w.step?.items?.some((item) => retired.has(item))
       );
       if (kept.length === quests.length) continue;
       a.want = kept[0] ?? null;

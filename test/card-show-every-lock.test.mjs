@@ -137,7 +137,7 @@ describe("Greek ways between the districts are plain roads", () => {
 describe("Greek residents are locked boxes on their own present things", () => {
   // Each opens while its thing is at its post, nothing else (open-door-rework).
   const rows = [
-    ["greek-aethra", "greek-eleusis", "greek-funeral-cloth", /^Bring Funeral Cloth to Eleusinian Sanctuary$/u],
+    ["greek-aethra", "greek-eleusis", "greek-oil-flask", /^Bring Funeral Oil to Eleusinian Sanctuary$/u],
     ["greek-theseus", "greek-athens", "greek-burial-petition", /^Bring The Mothers’ Petition to Athenian Agora$/u],
     ["greek-quay-host", "greek-piraeus", "greek-wheat", /^Lay Sack of Wheat in Piraeus Quays$/u],
     ["greek-colonus-keeper", "greek-colonus", "greek-oil-flask", /^Bring Funeral Oil to Colonus Grove$/u],
@@ -163,7 +163,7 @@ describe("Greek residents are locked boxes on their own present things", () => {
 
   it("holds the Eleusis locks apart: each waits on its own thing", () => {
     const s = at(world(), "greek-eleusis");
-    s.items["greek-funeral-cloth"].holder = "greek-eleusis";
+    s.items["greek-oil-flask"].holder = "greek-eleusis";
     expect(entityActive(s, "greek-aethra")).toBe(true);
     for (const who of [
       "greek-adrastus",

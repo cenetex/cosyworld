@@ -666,7 +666,9 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         Array.isArray(w.step.items) &&
         intOk(w.step.items.length, 1, 3) &&
         new Set(w.step.items).size === w.step.items.length &&
-        w.step.items.every((item) => owns(items, item)) &&
+        w.step.items.every(
+          (item) => owns(items, item) || hub.items.includes(item),
+        ) &&
         (w.step.finish === undefined || idOk(w.step.finish))) ||
       (w.kind === "item" &&
         keysOk(w.step, ["verb", "at", "with"]) &&
@@ -1006,7 +1008,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         case "holding":
           ok =
             keysOk(c, ["kind", "item", "actor", "role"]) &&
-            owns(items, c.item) &&
+            (owns(items, c.item) || hub.items.includes(c.item)) &&
             (c.role === undefined
               ? c.actor === hub.player || owns(avatars, c.actor)
               : c.role === "actor" && c.actor === undefined);
@@ -1505,10 +1507,10 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       if (e.kind === "retire_item")
         valid =
           keysOk(e, ["kind", "item", "waitAtHome"]) &&
-          owns(items, e.item) &&
+          (owns(items, e.item) || hub.items.includes(e.item)) &&
           (e.waitAtHome === undefined ||
             (e.waitAtHome === true &&
-              items[e.item].home &&
+              items[e.item]?.home &&
               !items[e.item].regrow &&
               !items[e.item].locked)) &&
           (c.requires || [])

@@ -45,19 +45,17 @@ function until(s, light) {
 }
 
 describe("the burial supplies", () => {
-  it("go straight home to Eleusis and Colonus after the rite", () => {
-    // The burial is played from createWorld; the rite opens the Open Door,
-    // so Eleusis and Colonus are live the moment it is done.
+  it("go home to Colonus or are gone for good after the rite", () => {
     let s = funeralJourney().buried;
     expect(s.packs["greek-drama"].flags["greek-burial-performed"]).toBe(true);
-    expect(s.usedUp).not.toContain("greek-funeral-cloth");
-    expect(s.items["greek-funeral-cloth"].holder).toBe("greek-eleusis");
+    expect(s.gone).toEqual(["cloth"]);
     expect(s.items["greek-oil-flask"].holder).toBe("greek-colonus");
     // The shovel is a tool: it stays where it was used.
     expect(s.items["greek-shovel"].holder).toBe("greek-polynices-hollow");
     // Nothing moves them at dawn.
     s = until(s, "dawn");
-    expect(s.items["greek-funeral-cloth"].holder).toBe("greek-eleusis");
+    expect(s.gone).toEqual(["cloth"]);
+    expect(s.items.cloth.holder).toBe("pond");
     expect(s.items["greek-oil-flask"].holder).toBe("greek-colonus");
     expect(s.items["greek-shovel"].holder).toBe("greek-polynices-hollow");
   });
@@ -66,18 +64,12 @@ describe("the burial supplies", () => {
     // from its home is noted at one dawn and swept home at the next.
     let s = funeralJourney().buried;
     const grave = "greek-polynices-hollow";
-    s.items["greek-funeral-cloth"].holder = grave;
     s.items["greek-oil-flask"].holder = grave;
     delete s.astray;
     s = until(s, "dawn");
-    expect(s.items["greek-funeral-cloth"].holder).toBe(grave);
     expect(s.items["greek-oil-flask"].holder).toBe(grave);
-    expect(s.astray).toMatchObject({
-      "greek-funeral-cloth": grave,
-      "greek-oil-flask": grave,
-    });
+    expect(s.astray).toMatchObject({ "greek-oil-flask": grave });
     s = until(s, "dawn");
-    expect(s.items["greek-funeral-cloth"].holder).toBe("greek-eleusis");
     expect(s.items["greek-oil-flask"].holder).toBe("greek-colonus");
   });
 });
