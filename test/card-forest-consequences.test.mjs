@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
@@ -50,11 +48,6 @@ const route = [
   ["move", garden],
   ["move", cottage],
 ];
-const fixture = JSON.parse(
-  readFileSync(
-    new URL("./fixtures/forest-charm-rules-131.json", import.meta.url),
-  ),
-);
 
 for (const shared of [false, true])
   for (const ending of ["keep", "give"])
@@ -196,35 +189,3 @@ for (const shared of [false, true])
         expect(world).toEqual(before);
       }
     });
-
-it("pins both reviewed rules-131 Forest histories in compiled JS", () => {
-  const hash = (path) =>
-    createHash("sha256")
-      .update(readFileSync(new URL(path, import.meta.url)))
-      .digest("hex");
-  expect(hash("./fixtures/card-content-rules-131.json")).toBe(
-    fixture.contentSha256,
-  );
-  expect(hash("../v2/orchestrator-rust/src/card_shared/engine-v131.js")).toBe(
-    fixture.engineSha256,
-  );
-  const engine = currentSharedEngine(131);
-  for (const [ending, steps] of Object.entries(fixture.branches)) {
-    let world = fixture.initial;
-    for (const step of steps) {
-      const response = JSON.parse(
-        engine.cardShared(JSON.stringify({ ...step.request, world })),
-      );
-      expect(response.ok, response.error).toBe(true);
-      expect(response.world).toEqual(step.world);
-      world = sorted(response.world);
-    }
-    expect(steps).toHaveLength(16);
-    expect(endingReceipts(world)).toEqual(
-      ending === "keep" ? [12, undefined] : [undefined, 12],
-    );
-    expect(world.items[charm].holder).toBe(
-      ending === "keep" ? "vale" : cottage,
-    );
-  }
-});

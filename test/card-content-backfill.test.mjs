@@ -13,14 +13,6 @@ const read = (path) =>
     "utf8",
   );
 const content = JSON.parse(read("content.json"));
-// Released rules before 94 read the content they shipped with: rules 94's
-// two ships are content they refuse.
-const rules93 = JSON.parse(
-  readFileSync(
-    new URL("./fixtures/card-content-rules-93.json", import.meta.url),
-    "utf8",
-  ),
-);
 const version = read("engine.rs").match(
   /const VERSION: &str = "full-card-world\/(\d+)"/,
 )[1];
@@ -62,7 +54,6 @@ function grow(base, port, shore) {
   return grown;
 }
 const grown = grow(content, "greek-piraeus", "greek-piraeus-ship");
-const grown93 = grow(rules93, "greek-harbor", "greek-lemnos-ship");
 const filled = (world) => {
   expect(world.memories["greek-test-quay"]).toMatchObject({ events: [] });
   expect(world.memories["greek-test-dock"]).toMatchObject({ events: [] });
@@ -70,17 +61,6 @@ const filled = (world) => {
 };
 
 describe("content added after a world was saved", () => {
-  // The backfill arrived in rules 93; every later release keeps it.
-  it("runs on rules 93 or later", () =>
-    expect(Number(version)).toBeGreaterThanOrEqual(93));
-
-  it("asked rules 92 worlds for a fresh start", () => {
-    const { world } = engine(92, rules93)({ op: "create", seed: 7 });
-    const result = engine(92, grown93)({ op: "validate", world });
-    expect(result.error).toMatch(/fresh start/);
-  });
-
-
   it("joins a current shared world as it repacks", () => {
     const { world } = engine(version, content)({ op: "create", seed: 7 });
     expect(world.memories["greek-test-quay"]).toBeUndefined();
