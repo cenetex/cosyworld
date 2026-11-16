@@ -53,7 +53,6 @@ export default defineConfig({
     // Test timeout (10 seconds)
     testTimeout: 10000,
     
-    // Hook timeout
     hookTimeout: 10000,
     
     // Mocking
