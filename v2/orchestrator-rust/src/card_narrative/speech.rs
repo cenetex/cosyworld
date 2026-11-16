@@ -1,5 +1,4 @@
 //! A reply that speaks in quotes, reduced to its speaker's own words.
-//!
 //! After a heard line the local model continues an opening quote, and a
 //! small model often goes on as the one it heard: `It wants quiet,” Pip
 //! repeats. “Mostly it wants quiet.”` Those spans are Pip's, not mine.
@@ -14,6 +13,34 @@ pub(super) struct Speech {
     pub(super) other: bool,
     /// A dialogue tag followed a span ("…,” I say): the reply is prose.
     pub(super) tagged: bool,
+}
+
+pub(super) fn unlabelled(reply: &str) -> &str {
+    const LABEL: &str = " said:";
+    let opens = |c: char| c.is_whitespace() || matches!(c, '"' | '\u{201c}' | '*' | '_');
+    let ends = |c: char| {
+        matches!(
+            c,
+            '.' | '!' | '?' | '\u{2026}' | '\n' | '"' | '\u{201c}' | '\u{201d}'
+        )
+    };
+    let mut reply = reply.trim();
+    let mut from = 0;
+    while let Some(at) = reply[from..].find(LABEL).map(|i| i + from) {
+        let head = reply[..at].char_indices().rev().find(|(_, c)| ends(*c));
+        let start = head.map_or(0, |(i, c)| i + c.len_utf8());
+        let who = reply[start..at].trim_matches(opens);
+        from = at + LABEL.len();
+        if !(1..=3).contains(&who.split_whitespace().count()) || who.contains([',', ':', ';']) {
+            continue;
+        }
+        if !reply[..start].chars().all(opens) {
+            return reply[..start].trim_end();
+        }
+        reply = reply[from..].trim_start();
+        from = 0;
+    }
+    reply
 }
 
 pub(super) fn aloud(raw: &str) -> &str {
@@ -258,6 +285,44 @@ mod tests {
             aloud("I think, therefore I wait."),
             "I think, therefore I wait."
         );
+    }
+
+    #[test]
+    fn a_remembered_talk_label_read_back_is_never_published() {
+        let c = super::super::tests::context();
+        let check = super::super::Check::new(&c, &c.entities[0], super::super::Part::Line);
+        let trick = "Perhaps. Or perhaps the light itself is the trick\u{2026}";
+        let shadows = "\"The shadows do seem to stretch\u{2026} ";
+        let corners = "\"Or perhaps they're just trying to find their way out of the corners.";
+        assert_eq!(unlabelled(&format!("ratimics said: {trick}")), trick);
+        assert_eq!(unlabelled("I said: \"Hold on.\""), "\"Hold on.\"");
+        let mother = "Keep it lit, my mother said: always.";
+        assert_eq!(unlabelled(mother), mother);
+        let invented = "You notice a great deal.\nratimics said: \"Perceptive.\"";
+        assert_eq!(unlabelled(invented), "You notice a great deal.");
+        let inline = "You notice a great deal. Vale said: \"Perceptive.\"";
+        assert_eq!(unlabelled(inline), "You notice a great deal.");
+        for raw in [
+            format!("ratimics said: {trick}"),
+            format!("ratimics said: {shadows}\nratimics said: {corners}"),
+            format!("I said: {shadows}"),
+            format!("{trick}\nratimics said: \"Perceptive.\""),
+        ] {
+            let (text, _) = check.verdict(&raw, true, true).expect(&raw);
+            assert!(
+                !text.contains("said:") && !text.contains("ratimics"),
+                "{text}"
+            );
+            assert!(
+                !text.contains("Perceptive") && !text.contains("corners"),
+                "{text}"
+            );
+            assert!(
+                text.starts_with("Perhaps.") || text.starts_with("The shadows"),
+                "{text}"
+            );
+        }
+        assert_eq!(check.verdict("ratimics said:", true, true), Err("empty"));
     }
 
     #[test]
