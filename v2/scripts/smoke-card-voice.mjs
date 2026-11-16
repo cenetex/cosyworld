@@ -259,10 +259,9 @@ try {
         await wake(page);
         await finish();
         await quietLamp();
-        await playCards("wait", ["attic"]);
+        await playCards("wait", ["attic"], false);
       }
       if (width === 320) {
-        // Step back through the beat stack to Vale's long reply.
         for (
           let line = 0;
           line < 8 &&
