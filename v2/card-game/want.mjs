@@ -699,12 +699,15 @@ function giveUp(s, actor, api) {
 // that keeps to its scene acts only when someone is there, so time spent
 // unseen is not a stall: its want can stall only after it has tried and been
 // refused at least once.
-// Where a want's stall clock starts: its draw, or the latest arrival if later
-// (rules 133). A resident dwelling between steps is making progress at the
-// pace of its stays, so each arrival restarts the clock. `dwellUntil` less
-// the longest stay is never after the arrival.
-const stallStart = (s, id, want) =>
-  Math.max(want.since, (s.actors[id].dwellUntil ?? 0) - MAX_DWELL);
+// Where a want's stall clock starts: its draw, the turn a player first met
+// the resident, or the latest arrival, whichever is last (rules 133).
+// `dwellUntil` less the longest stay is never after the arrival.
+const stallStart = (s, id, want, api) =>
+  Math.max(
+    want.since,
+    api.metTurn?.(id) ?? 0,
+    (s.actors[id].dwellUntil ?? 0) - MAX_DWELL,
+  );
 export function reviseStalledWants(s, actors, api) {
   // A resident's want clock starts when he first becomes active: while his card
   // is shut or he is absent, the want is kept fresh, so he does not arrive
@@ -718,7 +721,7 @@ export function reviseStalledWants(s, actors, api) {
       want &&
       !api.player(id) &&
       (travels(id, s) || api.wanders?.(id) || want.refusals > 0) &&
-      s.turn - stallStart(s, id, want) >= STALL_TURNS &&
+      s.turn - stallStart(s, id, want, api) >= STALL_TURNS &&
       !rivalled(s, id, api)
     )
       giveUp(s, id, api);

@@ -274,6 +274,8 @@ import {
   people,
   things,
   nameOf,
+  ownName,
+  theName,
 } from "./world/catalog.mjs";
 export { places, sanctuaries, people, things, nameOf };
 const homeGates = forest.homeGates;
@@ -474,7 +476,7 @@ import {
 } from "./world/items.mjs";
 export { rootHolder, itemPlace, carried, shining };
 // Senses and reflections live in world/senses.mjs (#1390).
-import { reflectionOpen, senses, sensesFor } from "./world/senses.mjs";
+import { reflectionOpen, reflectionsFrom, senses, sensesFor } from "./world/senses.mjs";
 export { reflectionOpen, senses, sensesFor };
 // Geography lives in world/geography.mjs (#1390).
 import {
@@ -717,6 +719,7 @@ export function wantAPI(s) {
     reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
     rangeTest: (actor) => rangeTest(s, actor),
     wanders: (actor) => wanders(s, actor),
+    metTurn: (id) => s.packs?.[packOf(id)?.id]?.met?.[id] ?? 0,
     home: (id) => homeOf(id, s),
     active: (id) => entityActive(s, id),
     sanctuaries,
@@ -733,7 +736,7 @@ export function wantAPI(s) {
         s,
         "World",
         want.kind === "item"
-          ? `${nameOf(actor)} has the ${nameOf(want.target)} at last.`
+          ? `${nameOf(want.step?.verb === "give" ? want.step.to : actor)} has ${theName(want.target)} at last.`
           : want.kind === "place"
             ? `${nameOf(actor)} reaches ${nameOf(want.target)}.`
             : want.kind === "connect"
@@ -1124,7 +1127,7 @@ function defeatInStandoff(s, c, winner, loser, here) {
       ].filter(Boolean);
   let text = "";
   for (const id of dropped)
-    transfer(s, id, here, `${nameOf(loser)} yields the ${nameOf(id)}.`);
+    transfer(s, id, here, `${nameOf(loser)} yields ${theName(id)}.`);
   if (dropped.length)
     text += ` ${nameOf(loser)} drops the ${dropped.map(nameOf).join(", the ")}.`;
   if (lossCount >= DEFEATS_TO_SEND_HOME) delete defeats[loser];
@@ -1209,7 +1212,7 @@ function settleStandoffs(s) {
           ? `The fighters part. The battle ends.`
           : released
             ? `The ${nameOf(c.item)} changes hands. The battle ends.`
-            : `${nameOf(c.challenger)} lets the ${nameOf(c.item)} go. The battle ends.`,
+            : `${nameOf(c.challenger)} lets ${theName(c.item)} go. The battle ends.`,
         {
           kind: "narration",
           actorId: c.challenger,
@@ -1354,9 +1357,13 @@ export function legalActions(s, actor = currentActor(s)) {
     }
     const through = !baseExits(s, here).includes(to);
     const crossing = crossingBetween(here, to, s);
-    const way = through
-      ? ` ${crossing?.travel || "through the reflection"}`
-      : "";
+    const way = !through
+      ? ""
+      : crossing?.travel
+        ? ` ${crossing.travel}`
+        : reflectionsFrom(s, here).includes(to)
+          ? " through the reflection"
+          : "";
     // A human can invite a willing resident along their open route. The
     // way is the party's: if it is open for the traveler it is open for the
     // resident. A resident already with someone else is not offered (the
@@ -1412,8 +1419,8 @@ export function legalActions(s, actor = currentActor(s)) {
           id,
           to,
           crossing?.transport
-            ? `${nameOf(actor)} carries the ${nameOf(id)} ${crossing.travelLabel === "Board" ? "aboard" : "ashore at"} ${nameOf(to)}.`
-            : `${nameOf(actor)} carries the ${nameOf(id)} to ${nameOf(to)}${way}.`,
+            ? `${nameOf(actor)} carries ${theName(id)} ${crossing.travelLabel === "Board" ? "aboard" : "ashore at"} ${nameOf(to)}.`
+            : `${nameOf(actor)} carries ${theName(id)} to ${nameOf(to)}${way}.`,
           [id, to],
         ),
       );
@@ -1474,7 +1481,7 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           stake,
           other,
-          `${nameOf(actor)} threatens ${nameOf(other)}${stake ? ` over the ${nameOf(stake)}` : ""}.`,
+          `${nameOf(actor)} threatens ${nameOf(other)}${stake ? ` over ${theName(stake)}` : ""}.`,
           [other],
         ),
       );
@@ -1511,7 +1518,7 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           id,
           null,
-          `${nameOf(actor)} ${things[item.holder] ? "uncovers and takes" : "takes"} the ${nameOf(id)}.`,
+          `${nameOf(actor)} ${things[item.holder] ? "uncovers and takes" : "takes"} ${theName(id)}.`,
           [id],
         ),
       );
@@ -1538,7 +1545,7 @@ export function legalActions(s, actor = currentActor(s)) {
             actor,
             id,
             null,
-            `${nameOf(actor)} ${verb} the ${nameOf(id)}.`,
+            `${nameOf(actor)} ${verb} ${theName(id)}.`,
             [id],
           ),
         );
@@ -1551,7 +1558,7 @@ export function legalActions(s, actor = currentActor(s)) {
               actor,
               id,
               other,
-              `${nameOf(actor)} ${verb} the ${nameOf(id)} with ${nameOf(other)}.`,
+              `${nameOf(actor)} ${verb} ${theName(id)} with ${nameOf(other)}.`,
               [id, other],
             ),
           );
@@ -1562,7 +1569,7 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           id,
           here,
-          `${nameOf(actor)} puts the ${nameOf(id)} in ${nameOf(here)}.`,
+          `${nameOf(actor)} puts ${theName(id)} in ${nameOf(here)}.`,
           [id],
         ),
       );
@@ -1575,7 +1582,7 @@ export function legalActions(s, actor = currentActor(s)) {
             actor,
             id,
             other,
-            `${nameOf(actor)} gives the ${nameOf(id)} to ${nameOf(other)}.`,
+            `${nameOf(actor)} gives ${theName(id)} to ${nameOf(other)}.`,
             [id, other],
           ),
         );
@@ -1591,7 +1598,7 @@ export function legalActions(s, actor = currentActor(s)) {
           actor,
           id,
           item.holder,
-          `${nameOf(actor)} asks ${nameOf(item.holder)} for the ${nameOf(id)}.`,
+          `${nameOf(actor)} asks ${nameOf(item.holder)} for ${theName(id)}.`,
           [id, item.holder],
         ),
       );
@@ -1645,7 +1652,7 @@ export function legalActions(s, actor = currentActor(s)) {
         actor,
         give,
         other,
-        `${nameOf(actor)} trades the ${nameOf(give)} for ${nameOf(other)}’s ${nameOf(receive)}.`,
+        `${nameOf(actor)} trades ${theName(give)} for ${ownName(other, receive)}.`,
         [give, receive],
       );
       action.receive = receive;
@@ -2593,8 +2600,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
         if (a.kind === "trade") refuseWant(s, a.actor, a.receive, wantAPI(s));
         text =
           a.kind === "give"
-            ? `${who} offers the ${nameOf(a.item)} to ${nameOf(a.target)}.`
-            : `${who} offers the ${nameOf(a.item)} for ${nameOf(a.target)}’s ${nameOf(a.receive)}.`;
+            ? `${who} offers ${theName(a.item)} to ${nameOf(a.target)}.`
+            : `${who} offers ${theName(a.item)} for ${ownName(a.target, a.receive)}.`;
         text += ` ${nameOf(a.target)} declines.`;
         break;
       }
@@ -2642,7 +2649,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       requestAccepted = willing;
       if (willing) {
         trustGiver(s, a.actor, a.item, a.target);
-        text = `${nameOf(a.target)} hands the ${nameOf(a.item)} to ${who}.`;
+        text = `${nameOf(a.target)} hands ${theName(a.item)} to ${who}.`;
         transfer(s, a.item, a.actor, text);
       } else {
         text += ` ${nameOf(a.target)} keeps it for now.`;
@@ -2667,7 +2674,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       ? pressure
       : null;
   if (handover)
-    text = `${who} hands the ${nameOf(a.item)} to ${nameOf(a.target)} under pressure.`;
+    text = `${who} hands ${theName(a.item)} to ${nameOf(a.target)} under pressure.`;
   meetCast(s);
   recordLifeAction(
     s,

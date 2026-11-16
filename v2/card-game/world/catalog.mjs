@@ -26,3 +26,11 @@ export const nameOf = (id) =>
   things[id]?.name ||
   arcanaCards[id]?.name ||
   "the world";
+const NAMED = /^(?:The|An?) |^\p{L}+['’]s? /u;
+export const theName = (id) =>
+  NAMED.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
+export const ownName = (owner, id) =>
+  /^['’]/u.test(nameOf(id).slice(nameOf(owner).length)) &&
+  nameOf(id).startsWith(nameOf(owner))
+    ? nameOf(id)
+    : `${nameOf(owner)}’s ${nameOf(id)}`;

@@ -144,6 +144,16 @@ function naming(node) {
 }
 
 const VARIANTS = 64;
+const WORDED = {
+  theName: [
+    { parts: ["the ", ""], slots: "n" },
+    { parts: ["", ""], slots: "n" },
+  ],
+  ownName: [
+    { parts: ["", "’s ", ""], slots: "nn" },
+    { parts: ["", ""], slots: "n" },
+  ],
+};
 const concat = (left, right) =>
   left.flatMap((a) =>
     right.map((b) => ({
@@ -186,6 +196,8 @@ function shapes(node, depth = 0) {
     out = [...shapes(node.left, depth), ...shapes(node.right, depth)];
   else if (node.type === "BinaryExpression" && node.operator === "+")
     out = concat(shapes(node.left, depth), shapes(node.right, depth));
+  else if (node.type === "CallExpression" && WORDED[node.callee.name])
+    out = WORDED[node.callee.name];
   else if (node.type === "CallExpression" && depth < 4) {
     // A local helper such as near("to", id) has a literal preposition.
     // Spell that argument out; its other arguments remain checked slots.
