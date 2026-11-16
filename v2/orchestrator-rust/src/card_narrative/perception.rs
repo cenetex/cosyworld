@@ -90,7 +90,7 @@ fn who(id: &str) -> String {
 }
 
 /// The pack's state sentences for things I or my listener hold, as
-/// "My Lamp is burning and uncovered." or "Vale's Lamp is burning."
+/// "My Lamp is burning." or "Vale's Lamp is unlit."
 fn states(context: &Context, id: &str, listener: Option<&str>) -> Vec<String> {
     let Some(outcome) = &context.outcome else {
         return vec![];

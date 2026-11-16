@@ -661,7 +661,7 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     // L1: talking selects Myrto as a speaker; she hears Pip ask.
     let myrto = view("harbor talk with Myrto", "greek-shipmaster");
     assert!(myrto.ends_with(
-        "Worn stone steps rise under my sandals; water slaps the landing. Vale's Lamp is burning and uncovered. \
+        "Worn stone steps rise under my sandals; water slaps the landing. Vale's Lamp is burning. \
          Pip asks Vale for the Lamp. Vale keeps it for now. \
          Vale, the Lamplighter is right here; I'm talking with them."
     ), "{myrto}");
@@ -675,7 +675,7 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     assert!(view("P2 back at the pond", "vale").contains("The Bell wasn't here last time I came."));
     assert!(view("P4 alone at the pond", "vale").ends_with(
         "Pip was here last time I came. The water lies black and still; something breathes \
-         under it. My Lamp is unlit and uncovered. I'm alone here."
+         under it. My Lamp is unlit. I'm alone here."
     ));
     // An older tab sends no perception: the earlier view, unchanged.
     let (_, harbor, _) = cases
