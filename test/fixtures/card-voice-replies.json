@@ -14,7 +14,7 @@
   {"case": "station talk 5", "speaker": "vale", "reply": "Certainly! Here is the next line.", "expect": "assistant"},
   {"case": "station talk 5", "speaker": "vale", "reply": "Antigone would know what to do.", "expect": "unknown entity"},
   {"case": "station talk 5", "speaker": "vale", "reply": "I wonder whether,", "expect": "shape"},
-  {"case": "Theban decree through Talk", "speaker": "greek-guard", "reply": "Move along, traveller.", "expect": "untold"},
+  {"case": "Theban decree through Talk", "speaker": "greek-guard", "reply": "Move along, traveller.", "expect": "ok"},
   {"case": "Theban decree through Talk", "speaker": "greek-guard", "reply": "Creon's order forbids burial for Polyneices.", "expect": "ok"},
   {"case": "Theban decree through Talk", "speaker": "greek-guard", "reply": "Creon's order forbids burial for Polyneices. Mind the gate on your way.", "expect": "ok"},
   {"case": "station talk 4", "speaker": "vale", "reply": "You keep circling that lamp like it owes you something, Pip.", "expect": "ok"},

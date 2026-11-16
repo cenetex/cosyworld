@@ -2258,17 +2258,8 @@ async fn speak(
                         fallback::Miss::Failed
                     })?;
                 let finished = matches!(completion.finish_reason.as_str(), "stop" | "end_turn");
-                // A reply that only missed its fact is published at once
-                // (owner, 2026-11-02): the fact stays for another Talk and
-                // never costs an attempt. The rules' own check decides
-                // whether a published line taught it.
-                let told = check.verdict(&completion.text, finished, true);
-                let untold = matches!(told, Err("knowledge_fact"));
-                told.or_else(|reason| match reason {
-                    "knowledge_fact" => check.verdict(&completion.text, finished, false),
-                    _ => Err(reason),
-                })
-                .map(|(text, flags)| {
+                let said = check.verdict(&completion.text, finished);
+                said.map(|(text, flags)| {
                     for &reason in &flags {
                         call.flag(reason);
                     }
@@ -2284,7 +2275,7 @@ async fn speak(
                         );
                     }
                     tier.store(2, Ordering::Relaxed);
-                    (text, completion.resolved_model_id.clone(), untold)
+                    (text, completion.resolved_model_id.clone())
                 })
                 .map_err(|reason| {
                     tier.fetch_max(1, Ordering::Relaxed);
@@ -2327,19 +2318,9 @@ async fn speak(
         }
     }
     match spoken {
-        Ok((text, model, untold)) => {
-            if untold {
-                call.finish(voice_metrics::Outcome::Untold);
-                tracing::info!(
-                    feature = "card_voice",
-                    entity = id,
-                    reason = "knowledge_fact",
-                    "card voice spoke without its fact"
-                );
-            } else {
-                call.finish(voice_metrics::Outcome::Spoken);
-            }
-            Ok((text, model))
+        Ok(said) => {
+            call.finish(voice_metrics::Outcome::Spoken);
+            Ok(said)
         }
         Err(()) => {
             call.finish(voice_metrics::Outcome::Silent);
@@ -2580,27 +2561,14 @@ impl<'a> Check<'a> {
     /// Tests read each detector strictly: the first flag is an error here.
     #[cfg(test)]
     fn clean(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
-        self.strict(raw, finished, true)
-    }
-
-    /// The same checks without the fact. A reply that passes them may still
-    /// be spoken, but it teaches nothing: the game counts a fact only when
-    /// its own check finds the sentence in the published line.
-    #[cfg(test)]
-    fn untold(&self, raw: &str, finished: bool) -> Result<String, &'static str> {
-        self.strict(raw, finished, false)
+        let (text, flags) = self.verdict(raw, finished)?;
+        flags.first().map_or(Ok(text), |flag| Err(*flag))
     }
 
     #[cfg(test)]
     fn flags(&self, raw: &str) -> Vec<&'static str> {
-        let published = self.verdict(raw, true, true);
+        let published = self.verdict(raw, true);
         published.map_or_else(|_| Vec::new(), |(_, flags)| flags)
-    }
-
-    #[cfg(test)]
-    fn strict(&self, raw: &str, finished: bool, tell: bool) -> Result<String, &'static str> {
-        let (text, flags) = self.verdict(raw, finished, tell)?;
-        flags.first().map_or(Ok(text), |flag| Err(*flag))
     }
 
     /// Flag by default: only system talk, leaks and an empty or oversize
@@ -2610,7 +2578,6 @@ impl<'a> Check<'a> {
         &self,
         raw: &str,
         finished: bool,
-        tell: bool,
     ) -> Result<(String, Vec<&'static str>), &'static str> {
         let raw = speech::aloud(raw);
         let own = name(&self.entity.id);
@@ -2854,12 +2821,6 @@ impl<'a> Check<'a> {
         );
         if !bounded(&kept, self.limit) {
             return Err("shape");
-        }
-        if tell
-            && self.part == Part::Line
-            && !knowledge::delivered(self.context, &self.entity.id, &kept)
-        {
-            return Err("knowledge_fact");
         }
         flag(
             !observations::consistent(&kept, self.context),
@@ -3444,7 +3405,7 @@ pub(crate) mod tests {
                 "It does, Pip. That amber pulse... it stays.",
             ),
         ] {
-            let kept = check.verdict(raw, true, true).map(|(text, _)| text);
+            let kept = check.verdict(raw, true).map(|(text, _)| text);
             assert_eq!(kept.as_deref(), Ok(said), "{raw}");
         }
         let thought_raw = "My sleeves are dry. I hold it higher. And on.";
@@ -3455,13 +3416,13 @@ pub(crate) mod tests {
             Ok("My sleeves are dry. I hold it higher.")
         );
         // A stage direction goes and is counted.
-        let staged = check.verdict(&format!("*shifts a little* {line}"), true, true);
+        let staged = check.verdict(&format!("*shifts a little* {line}"), true);
         assert_eq!(staged, Ok((line.into(), vec!["stage action"])));
         // Speaking first, a quoted reply with a tag keeps its own words,
         // counted as a narration tag.
         let quoted = "(I sigh.)\n\n\u{201c}Vale,\u{201d} I say, my voice low. \u{201c}You\u{2019}re here.\u{201d}";
         assert_eq!(
-            check.verdict(quoted, false, true),
+            check.verdict(quoted, false),
             Ok((
                 "Vale. You\u{2019}re here.".into(),
                 vec!["stage action", "narration tag"]
@@ -3552,7 +3513,7 @@ pub(crate) mod tests {
             Ok("The rhythmic click of boots reaches my sleeves.".into())
         );
         assert_eq!(
-            check.verdict("Fine. *walks away slowly*", true, true),
+            check.verdict("Fine. *walks away slowly*", true),
             Ok(("Fine.".into(), vec!["stage action"]))
         );
         assert_eq!(
@@ -3561,7 +3522,7 @@ pub(crate) mod tests {
         );
         assert_eq!(clean("The"), Err("shape"));
         assert_eq!(
-            check.verdict("Yes. *She folds the cloth and looks away.* No.", true, true),
+            check.verdict("Yes. *She folds the cloth and looks away.* No.", true),
             Ok(("Yes. No.".into(), vec!["stage action"]))
         );
     }
@@ -3583,11 +3544,11 @@ pub(crate) mod tests {
         assert_eq!(check.clean("A tree 🌳", true), Err("expression"));
         // Words fall away and the line publishes, flagged.
         assert_eq!(
-            check.verdict("A tree 🌳 and eyes 👀.", true, true),
+            check.verdict("A tree 🌳 and eyes 👀.", true),
             Ok(("🌳👀".into(), vec!["emoji reduced"]))
         );
         assert_eq!(
-            check.verdict("My next reply contains 🌳 👀", true, true),
+            check.verdict("My next reply contains 🌳 👀", true),
             Err("instruction")
         );
     }
@@ -4051,7 +4012,7 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn a_speaker_who_never_says_the_fact_still_speaks_untold() {
+    async fn a_speaker_who_never_says_the_fact_still_speaks() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count = tries.clone();
@@ -4085,9 +4046,6 @@ pub(crate) mod tests {
         )
         .await
         .unwrap();
-        // The reply missed the fact and is otherwise valid: it is spoken at
-        // once, with no retry, and the game, which finds no fact in it,
-        // keeps the fact for later.
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
         assert_eq!(result["entries"][0]["id"], "vale");
         assert_eq!(result["entries"][0]["text"], "I want to sit by the pond.");

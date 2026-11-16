@@ -111,8 +111,6 @@ impl Budget {
 pub(super) enum Outcome {
     /// A reply passed every check.
     Spoken,
-    /// A reply passed every check except telling its fact.
-    Untold,
     /// No reply passed; the entity stays silent.
     Silent,
     /// The scene deadline or a closed client dropped the call.
@@ -123,7 +121,6 @@ impl Outcome {
     pub(super) fn label(self) -> &'static str {
         match self {
             Outcome::Spoken => "spoken",
-            Outcome::Untold => "untold",
             Outcome::Silent => "silent",
             Outcome::Cancelled => "cancelled",
         }
@@ -204,7 +201,6 @@ struct Mix {
     calls: u64,
     attempts: u64,
     spoken: u64,
-    untold: u64,
     silent: u64,
     cancelled: u64,
     /// Calls that reached this model after an earlier one in the chain failed.
@@ -278,7 +274,6 @@ impl Totals {
             tally.fallbacks += u64::from(fell_back);
             *match outcome {
                 Outcome::Spoken => &mut tally.spoken,
-                Outcome::Untold => &mut tally.untold,
                 Outcome::Silent => &mut tally.silent,
                 Outcome::Cancelled => &mut tally.cancelled,
             } += 1;
@@ -306,7 +301,7 @@ impl Totals {
         outcome: Outcome,
         reasons: &[&'static str],
     ) {
-        let spoken = u64::from(matches!(outcome, Outcome::Spoken | Outcome::Untold));
+        let spoken = u64::from(outcome == Outcome::Spoken);
         for tally in [
             self.plays.entry(labels.play).or_default(),
             self.occasions.entry(labels.occasion).or_default(),
@@ -508,9 +503,9 @@ impl<'a> Call<'a> {
 /// Each attempt's reason. An attempt with no reason and no reply ran out of
 /// its own time, except the one still running when the call was dropped: the
 /// scene deadline or a closed viewer cancelled that one. A published line
-/// (spoken or untold) explains its own attempt.
+/// explains its own attempt.
 fn explained(mut reasons: Vec<&'static str>, attempts: u8, outcome: Outcome) -> Vec<&'static str> {
-    let answered = usize::from(matches!(outcome, Outcome::Spoken | Outcome::Untold));
+    let answered = usize::from(outcome == Outcome::Spoken);
     let unexplained = usize::from(attempts).saturating_sub(reasons.len() + answered);
     for n in 1..=unexplained {
         let last = n == unexplained && outcome == Outcome::Cancelled;
@@ -632,9 +627,9 @@ mod tests {
     }
 
     #[test]
-    fn untold_lines_and_cancels_are_not_timeouts() {
-        assert!(explained(vec![], 1, Outcome::Untold).is_empty());
-        assert_eq!(explained(vec!["repeat"], 2, Outcome::Untold), ["repeat"]);
+    fn spoken_lines_and_cancels_are_not_timeouts() {
+        assert!(explained(vec![], 1, Outcome::Spoken).is_empty());
+        assert_eq!(explained(vec!["repeat"], 2, Outcome::Spoken), ["repeat"]);
         assert_eq!(explained(vec![], 1, Outcome::Cancelled), ["cancelled"]);
         assert_eq!(
             explained(vec![], 2, Outcome::Cancelled),

@@ -156,7 +156,6 @@ fn spoken(text: &str, speaker: &str, listener: &str, cast: &[String]) -> String 
 
 /// A present verb after its subject, told in the past: takes -> took,
 /// gives -> gave, is -> was/were. Other words ("can") stay as they are.
-/// Every form folds back to the same stem, so `delivered` still matches.
 fn past(verb: &str, person: &str) -> String {
     match verb {
         "is" | "am" | "are" | "was" | "were" => {
@@ -290,8 +289,7 @@ const FORMS: &[(&str, &str)] = &[
     ("left", "leave"),
 ];
 
-/// One word reduced to the form both tellings share. Must match `stem` in
-/// v2/card-game/knowledge.mjs.
+/// One word reduced to the form both tellings share.
 fn stem(word: &str) -> String {
     let mut w = FORMS
         .iter()
@@ -355,18 +353,6 @@ fn tells(fact: &Disclosure, sentence: &str) -> bool {
     fact_words(sentence, &speaker, &listener) == fact_words(&fact.text, &speaker, &listener)
 }
 
-pub(super) fn delivered(context: &Context, id: &str, text: &str) -> bool {
-    context
-        .disclosures
-        .iter()
-        .filter(|fact| fact.speaker == id)
-        .all(|fact| {
-            text.split_inclusive(['.', '!', '?', '。', '！', '？'])
-                .filter(|sentence| sentence.ends_with(['.', '!', '?', '。', '！', '？']))
-                .any(|sentence| tells(fact, sentence))
-        })
-}
-
 /// Only the accepted fact may repeat the prompt or name its own speaker.
 pub(super) fn other_words(context: &Context, id: &str, text: &str) -> String {
     let facts: Vec<_> = context
@@ -405,22 +391,25 @@ mod tests {
         .unwrap()
     }
 
+    fn said(context: &Context, id: &str, text: &str) -> bool {
+        other_words(context, id, text) != text
+    }
+
     #[test]
     fn a_fact_must_be_a_complete_sentence_in_the_spoken_reply() {
         let context = context();
         assert!(valid(&context));
-        assert!(delivered(
+        assert!(said(
             &context,
             "moth",
             "Pip hopes to see the lamp beside the pond. Will you help?"
         ));
-        assert!(!delivered(
+        assert!(!said(
             &context,
             "moth",
             "It is false that Pip hopes to see the lamp beside the pond."
         ));
-        assert!(!delivered(&context, "moth", "Pip hopes to see the lamp."));
-        assert!(delivered(&context, "vale", "I am listening."));
+        assert!(!said(&context, "moth", "Pip hopes to see the lamp."));
     }
 
     #[test]
@@ -430,7 +419,10 @@ mod tests {
         let check = Check::new(&context, pip, Part::Line);
         let text = "Pip hopes to see the lamp beside the pond. Will you help?";
         assert_eq!(check.clean(text, true), Ok(text.into()));
-        assert_eq!(check.clean("I am listening.", true), Err("knowledge_fact"));
+        assert_eq!(
+            check.clean("I am listening.", true),
+            Ok("I am listening.".into())
+        );
         assert_eq!(
             check.clean(
                 "Pip hopes to see the lamp beside the pond. Pip wants help.",
@@ -475,7 +467,7 @@ mod tests {
             "I took the lamp. It was warm.",
             "Well. Vale takes the Lamp!",
         ] {
-            assert!(delivered(&context, "vale", told), "{told}");
+            assert!(said(&context, "vale", told), "{told}");
         }
         for wrong in [
             "I took the bell.",
@@ -484,7 +476,7 @@ mod tests {
             "I took",
             "Pip took the lamp.",
         ] {
-            assert!(!delivered(&context, "vale", wrong), "{wrong}");
+            assert!(!said(&context, "vale", wrong), "{wrong}");
         }
         let vale = &context.entities[0];
         let check = Check::new(&context, vale, Part::Line);
@@ -498,17 +490,17 @@ mod tests {
     fn tense_person_and_pronouns_fold_but_names_and_items_hold() {
         let context = vale_saw("Pip gives the Lamp to Vale.");
         assert_eq!(directions(&context, "vale")[0], "You gave the Lamp to me.");
-        assert!(delivered(&context, "vale", "You gave the lamp to me."));
-        assert!(delivered(&context, "vale", "Pip gave the Lamp to me."));
-        assert!(!delivered(&context, "vale", "You gave the cloth to me."));
+        assert!(said(&context, "vale", "You gave the lamp to me."));
+        assert!(said(&context, "vale", "Pip gave the Lamp to me."));
+        assert!(!said(&context, "vale", "You gave the cloth to me."));
         let context = vale_saw("Vale has Pip's Lamp.");
         assert!(directions(&context, "vale")[0].contains("I had your Lamp."));
-        assert!(delivered(&context, "vale", "I had your lamp."));
-        assert!(!delivered(&context, "vale", "I had my lamp."));
+        assert!(said(&context, "vale", "I had your lamp."));
+        assert!(!said(&context, "vale", "I had my lamp."));
         let context = vale_saw("Vale is beside the pond.");
         assert!(directions(&context, "vale")[0].contains("I was beside the pond."));
-        assert!(delivered(&context, "vale", "I was beside the pond."));
-        assert!(!delivered(&context, "vale", "I was beside the attic."));
+        assert!(said(&context, "vale", "I was beside the pond."));
+        assert!(!said(&context, "vale", "I was beside the attic."));
     }
 
     #[test]
@@ -522,7 +514,7 @@ mod tests {
             assert!(valid(&context));
             let prompt = directions(&context, "vale").join(" ");
             assert_eq!(prompt, told);
-            assert!(delivered(&context, "vale", told), "{told}");
+            assert!(said(&context, "vale", told), "{told}");
         }
         for (verb, told) in [
             ("gives", "gave"),
@@ -538,25 +530,22 @@ mod tests {
     }
 
     #[test]
-    fn a_reply_that_misses_its_fact_can_still_be_spoken_untold() {
+    fn a_reply_that_misses_its_fact_is_still_spoken() {
         let context = vale_saw("Vale takes the Lamp.");
         let vale = &context.entities[0];
         let check = Check::new(&context, vale, Part::Line);
-        assert_eq!(check.clean("I am listening.", true), Err("knowledge_fact"));
         assert_eq!(
-            check.untold("I am listening.", true),
+            check.clean("I am listening.", true),
             Ok("I am listening.".into())
         );
-        // Without the fact, naming oneself is narration again.
         assert_eq!(
-            check.untold("Vale takes the bell.", true),
+            check.clean("Vale takes the bell.", true),
             Err("self-narration")
         );
     }
 
     #[test]
-    fn the_matching_rule_agrees_with_the_browser_rules() {
-        // The same vectors run against factWords in test/card-knowledge.test.mjs.
+    fn fact_words_fold_names_tense_and_articles() {
         for (sentence, folded) in [
             ("Vale takes the Lamp.", "i tak lamp"),
             ("I took the lamp", "i tak lamp"),
