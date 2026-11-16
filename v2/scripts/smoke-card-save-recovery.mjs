@@ -6,7 +6,6 @@ import { availableCards } from "../card-game/cards.mjs";
 import {
   readyActionButton,
   selectCard,
-  tapCard,
   smokeWidths,
 } from "./card-browser-helpers.mjs";
 
@@ -164,8 +163,6 @@ async function run(width, fault) {
       if (pressed !== "true") await selectCard(page, card, { touch });
     }
     const button = readyActionButton(page, "wait");
-    if (!(await button.count()))
-      await tapCard(page.locator('#hand [data-card="vale"]'), { touch });
     await button.waitFor();
     assert.equal(await page.locator("#card-actions button").count(), 1);
     await page.evaluate((arm) => {
