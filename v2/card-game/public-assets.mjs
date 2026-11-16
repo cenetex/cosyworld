@@ -92,7 +92,6 @@ const files = [
   ...(CUE_TRACKS.ratiradio
     ? []
     : ["assets/music/night-shift-on-ratiradio-remastered.mp3"]),
-  // Settings cards cut from the owner's workbench (settings-cards.mjs).
   ...BENCH.map((name) => `assets/settings/workbench-${name}.png`),
   // The workbench itself is Settings' scene.
   `assets/${SCENE}`,
@@ -441,6 +440,7 @@ const files = [
   ...["", "-offering", "-happy", "-sad", "-brace"].map(
     (pose) => `assets/listener/listener${pose}.webp`,
   ),
+  "assets/listener/listener-deck.webp",
   // Keep the art URLs published by earlier Rust releases.
   ...[0, 1, 2, 4, 5].map(
     (number) => `assets/lonely-forest/arcanum-${number}.png`,

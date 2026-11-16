@@ -93,6 +93,27 @@
         1407
       ],
       "receipt": "docs/design/assets/listener/missing-states-prompts.json"
+    },
+    {
+      "file": "listener-deck.png",
+      "source": "Generated with built-in image_gen",
+      "role": "A short stack of face-down star-back tarot cards tied with a thin black ribbon; no deck item mechanics are introduced.",
+      "size": [
+        1254,
+        1254
+      ],
+      "sha256": "7ffd5f1d77edea59c8cd7cd037d1195178f7cdd6f623ab6a9719c6acd6a24c24",
+      "alpha_range": [
+        0,
+        255
+      ],
+      "visible_bounds": [
+        167,
+        70,
+        916,
+        984
+      ],
+      "receipt": "docs/design/assets/art-batches/triptych-01-records.json"
     }
   ]
 }
