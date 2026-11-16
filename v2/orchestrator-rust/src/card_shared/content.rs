@@ -30,10 +30,6 @@ pub(super) fn current_text() -> &'static str {
 }
 /// The package version that built the current revision, for people.
 pub(super) const REVISION: &str = env!("CARGO_PKG_VERSION");
-/// A rules bundle takes content as input when it reads the content global.
-pub(super) fn takes_content(source: &str) -> bool {
-    source.contains("globalThis.cardContent")
-}
 fn loaded() -> &'static Mutex<HashMap<String, Arc<str>>> {
     static LOADED: OnceLock<Mutex<HashMap<String, Arc<str>>>> = OnceLock::new();
     LOADED.get_or_init(|| Mutex::new(HashMap::from([(current().to_string(), Arc::from(CURRENT))])))
@@ -133,22 +129,5 @@ mod tests {
         )
         .unwrap();
         assert!(preload(&c, &forged).is_err());
-    }
-
-    #[test]
-    fn worlds_on_rules_with_their_own_packs_keep_their_saved_bytes() {
-        use super::super::{engine, full_world::World};
-        let mut w = World::create(None).unwrap();
-        assert_eq!(w.pack.is_some(), engine::takes_content(engine::VERSION));
-        if w.pack.is_none() {
-            let saved = serde_json::to_value(&w).unwrap();
-            assert!(saved.get("pack").is_none());
-            let mut named = saved.clone();
-            named["pack"] = serde_json::json!(current());
-            let back: World = serde_json::from_value(named).unwrap();
-            assert_eq!(back.pack.as_deref(), Some(current()));
-            let repack = serde_json::json!({"op":"repack","from":null,"to":current()});
-            assert!(w.apply(&repack).is_err());
-        }
     }
 }

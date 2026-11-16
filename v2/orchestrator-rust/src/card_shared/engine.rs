@@ -160,21 +160,11 @@ pub(super) fn reduce(request: Value) -> Result<Value> {
 pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     reduce_pack(version, Some(content::current()), request)
 }
-/// Whether `version` reads pack content from the host instead of carrying it.
-pub(super) fn takes_content(version: &str) -> bool {
-    source(version).is_some_and(content::takes_content)
-}
-// Rules from v58 on receive the world's pack content; older rules carry theirs.
 pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> Result<Value> {
     let source = source(version).ok_or("This world needs a supported rules version.")?;
-    let content = if content::takes_content(source) {
-        Some(content::text(
-            pack.ok_or("This world's pack content needs recovery.")?,
-        )?)
-    } else {
-        None
-    };
-    reduce_source(version, source, content.as_deref().zip(pack), request)
+    let pack = pack.ok_or("This world's pack content needs recovery.")?;
+    let content = content::text(pack)?;
+    reduce_source(version, source, Some((&*content, pack)), request)
 }
 fn source(version: &str) -> Option<&'static str> {
     Some(match version {

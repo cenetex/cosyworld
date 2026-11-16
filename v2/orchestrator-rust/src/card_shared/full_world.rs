@@ -65,7 +65,7 @@ impl World {
             game: result["world"].clone(),
             claimed: [0; 8],
             present: [0; 8],
-            pack: engine::takes_content(engine::VERSION).then(|| content::current().into()),
+            pack: Some(content::current().into()),
         })
     }
     pub fn room(&self, a: usize) -> Result<&str> {
@@ -162,14 +162,11 @@ impl World {
             if command["seed"].is_u64() {
                 request["seed"] = command["seed"].clone();
             }
-            // Rules that take content record the revision they upgraded onto.
-            let pack = engine::takes_content(target)
-                .then(|| {
-                    command["pack"]
-                        .as_str()
-                        .ok_or("Choose the upgrade's pack content.")
-                })
-                .transpose()?;
+            let pack = Some(
+                command["pack"]
+                    .as_str()
+                    .ok_or("Choose the upgrade's pack content.")?,
+            );
             // Recorded upgrades retain their released target transformation.
             let result = engine::reduce_pack(target, pack, request)?;
             self.game = result["world"].clone();
@@ -320,10 +317,7 @@ impl World {
         let to = command["to"]
             .as_str()
             .ok_or("Choose a pack content revision.")?;
-        if !engine::takes_content(&self.version)
-            || command["from"].as_str() != self.pack.as_deref()
-            || self.pack.as_deref() == Some(to)
-        {
+        if command["from"].as_str() != self.pack.as_deref() || self.pack.as_deref() == Some(to) {
             return Err("This world's pack change needs its original revision.".into());
         }
         let mut request = self.request("upgrade", 0);

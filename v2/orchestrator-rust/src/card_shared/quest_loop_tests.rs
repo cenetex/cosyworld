@@ -20,7 +20,7 @@ fn fixture(name: &str, world: &World) -> (std::path::PathBuf, rusqlite::Connecti
 
 fn created(version: &str) -> World {
     let content = content::current().to_string();
-    let pack = engine::takes_content(version).then(|| content.clone());
+    let pack = Some(content.clone());
     let game = engine::reduce_pack(version, Some(&content), json!({"op":"create","seed":9}))
         .unwrap()["world"]
         .clone();
