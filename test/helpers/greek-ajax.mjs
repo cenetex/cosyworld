@@ -80,7 +80,6 @@ export function ajaxCamp() {
   return ajaxMove(world, "greek-ajax-landing", "greek-greek-camp");
 }
 
-// Any of Teucer, Odysseus or Tecmessa can say where the shield belongs.
 export function ajaxShieldKeeper(world) {
   return ajaxTalk(world, "greek-ajax-shield-teucer");
 }

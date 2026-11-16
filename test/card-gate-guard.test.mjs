@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { lockText } from "./helpers/lock-text.mjs";
 import { encodeSave, exits, legalActions, play, questOffers, sealedWays } from "../v2/card-game/world.mjs";
 import { cardActions, sealedReason } from "../v2/card-game/cards.mjs";
+import { placeBackdrop } from "../v2/card-game/scene.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   act,
@@ -52,6 +53,19 @@ describe("the Gate Guard", () => {
     expect(exits(field, FIELD, "vale")).not.toContain(GATE);
     expect(lockText(field, GATE)).toBe("Give Creon's Writ to The Gate Guard");
     expect(exits(field, FIELD, GUARD)).toContain(GATE);
+  });
+
+  it("shows the gate open while he is away from his post", () => {
+    let s = lifeWorld({ place: GATE });
+    expect(placeBackdrop(s, GATE)).toMatch(/city-gate-closed/);
+    s = beatGuard(s);
+    expect(s.actors[GUARD].place).not.toBe(GATE);
+    expect(exits(s, GATE, "vale")).toContain(FIELD);
+    expect(placeBackdrop(s, GATE)).toMatch(/city-gate-(day|night)\.webp$/);
+    for (let i = 0; i < 40 && s.actors[GUARD].guarding !== FIELD; i++)
+      s = wait(s);
+    expect(s.actors[GUARD].guarding).toBe(FIELD);
+    expect(placeBackdrop(s, GATE)).toMatch(/city-gate-closed/);
   });
 
   it("keeps guarding through a Talk", () => {
