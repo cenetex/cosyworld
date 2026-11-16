@@ -11,6 +11,7 @@ import {
 } from "./pack-registry.mjs";
 import { questCaption, questVerb } from "./quest-card.mjs";
 import { joinWants } from "./world/want-words.mjs";
+import { theName } from "./combat-beats.mjs";
 import {
   currentActor,
   places,
@@ -369,7 +370,9 @@ export function cardPlay(world, selected) {
   if (item && avatar)
     return result(
       find("give", item, avatar) || find("ask", item, avatar),
-      `${nameOf(avatar)} needs carrying space for that.`,
+      [currentActor(world), avatar].includes(rootHolder(world, item))
+        ? `${nameOf(avatar)} needs carrying space for that.`
+        : `Take ${theName(item)} first.`,
     );
   const trade = actions.find(
     (a) => a.kind === "trade" && cards.every((id) => a.cards.includes(id)),
@@ -427,8 +430,8 @@ export function cardActions(world, selected) {
       // Each hint names only a play the rules offer for this person now.
       hint = offered("threaten")
         ? offered("ask")
-          ? "Pair with Vale to threaten, or select a carried item to ask for it."
-          : "Pair with Vale to threaten."
+          ? `Pair with ${nameOf(currentActor(world))} to threaten, or select a carried item to ask for it.`
+          : `Pair with ${nameOf(currentActor(world))} to threaten.`
         : offered("accompany")
           ? `Pair with a place to invite ${nameOf(id)} along.`
           : offered("ask")
