@@ -1011,7 +1011,7 @@ async fn generate(
                             value["type"] = json!("complete");
                             value
                         }
-                        Err(_) => json!({"type":"error","message":"Story text will try again with your next play"}),
+                        Err(_) => json!({"type":"error","message":"The story text did not come."}),
                     };
                     let _ = sender.send(Event::default().data(event.to_string()));
                 }
@@ -1042,12 +1042,10 @@ async fn generate(
 /// is voiced and what each one is aware of; this validator decides what is
 /// published. Prompts carry only the entity's own words and awareness.
 ///
-/// Every voice stands on its own. An entity whose words fail twice, or that
-/// is still waiting when the scene deadline passes, stays silent and is listed
+/// Every voice stands on its own. An entity whose words fail, or that is
+/// still waiting when the scene deadline passes, stays silent and is listed
 /// under `omitted`; the others are published. The scene fails only when none
-/// of its speakers (or, with no speakers, none of its voices) has words, so
-/// the browser retries once and otherwise keeps its last scene. Nothing is
-/// invented.
+/// of its speakers (or, with no speakers, none of its voices) has words.
 async fn complete(
     config: &AiConfig,
     context: &Context,
@@ -1181,8 +1179,7 @@ async fn complete_selected(
             reflection,
         });
     }
-    // Someone the scene needed has to have words, or there is nothing to
-    // publish and the browser's one retry is the right answer.
+    // Someone the scene needed has to have words, or nothing is published.
     let needed: &[String] = if context.speakers.is_empty() {
         voiced
     } else {
@@ -1415,14 +1412,12 @@ impl Part {
 
 /// How the card voices reach their models. `hosted` keeps the deployed
 /// deadlines and runs calls side by side; `local` gives on-device models room
-/// and runs one call at a time. Both regenerate a rejected reply once, and
-/// both leave a voice that still fails silent rather than failing the scene.
+/// and runs one call at a time. Both leave a failed voice silent.
 #[derive(Clone, Debug, PartialEq)]
 struct VoiceSettings {
     call_timeout: Duration,
     scene_timeout: Duration,
     parallel: usize,
-    attempts: u8,
     line_limit: usize,
     reflection_model: Option<String>,
     escalation_model: Option<String>,
@@ -1435,7 +1430,6 @@ impl VoiceSettings {
             call_timeout: Duration::from_secs(12),
             scene_timeout: Duration::from_secs(22),
             parallel: 8,
-            attempts: 2,
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
@@ -1448,7 +1442,6 @@ impl VoiceSettings {
             call_timeout: Duration::from_secs(90),
             scene_timeout: Duration::from_secs(240),
             parallel: 1,
-            attempts: 2,
             line_limit: 400,
             reflection_model: None,
             escalation_model: None,
@@ -1488,9 +1481,6 @@ impl VoiceSettings {
         if let Some(parallel) = number("COSYWORLD_CARD_TEXT_PARALLEL", 16)? {
             settings.parallel = parallel as usize;
         }
-        if let Some(attempts) = number("COSYWORLD_CARD_TEXT_ATTEMPTS", 3)? {
-            settings.attempts = attempts as u8;
-        }
         // A tier is an exact model ID, bounded like the character map's.
         let model = |name: &str| -> Result<Option<String>, String> {
             get(name)
@@ -1524,7 +1514,7 @@ impl VoiceSettings {
         }
     }
 
-    /// The browser's budget for one scene, including its own single retry.
+    /// The browser's budget for one scene.
     fn client_budget(&self) -> Duration {
         (self.scene_timeout + Duration::from_secs(8)).max(Duration::from_secs(30))
     }
@@ -2231,7 +2221,6 @@ async fn speak(
         links.len(),
         |n: usize, attempt: u8, timeout: Duration| {
             let link = &links[n];
-            // A retry resamples the same prompt; code, not words, shapes it.
             let prompt = messages(context, entity, part);
             let view = prose(&prompt.assistant);
             let images = context.images.as_slice();
@@ -3674,8 +3663,8 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn provider_fragments_retry_before_local_or_shared_publication() {
-        for (raw, finish, shared, retry) in [
+    async fn provider_fragments_stay_silent_in_local_and_shared_publication() {
+        for (raw, finish, shared, silent) in [
             ("I want the story,", Some("stop"), false, true),
             (
                 "I want the story,\nand a patient ear.",
@@ -3690,16 +3679,19 @@ pub(crate) mod tests {
         ] {
             let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
             let count = tries.clone();
-            let provider = Router::new().route("/chat/completions", post(move |Json(body): Json<Value>| {
-                let attempt = count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                async move {
-                    let mut choice = json!({"message":{"content":if attempt == 0 { raw } else { EARNED_VERSE }}});
-                    if let Some(reason) = if attempt == 0 { finish } else { Some("stop") } {
-                        choice["finish_reason"] = json!(reason);
+            let provider = Router::new().route(
+                "/chat/completions",
+                post(move |Json(body): Json<Value>| {
+                    count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    async move {
+                        let mut choice = json!({"message":{"content":raw}});
+                        if let Some(reason) = finish {
+                            choice["finish_reason"] = json!(reason);
+                        }
+                        Json(json!({"model":body["model"],"choices":[choice]}))
                     }
-                    Json(json!({"model":body["model"],"choices":[choice]}))
-                }
-            }));
+                }),
+            );
             let (address, server) = serve(provider).await;
             let c = bard_context();
             let ids = vec!["greek-rhapsode".into()];
@@ -3717,7 +3709,7 @@ pub(crate) mod tests {
                     &BTreeMap::new(),
                 )
                 .await
-                .unwrap()
+                .ok()
             } else {
                 complete_selected(
                     &test_config(address),
@@ -3729,20 +3721,14 @@ pub(crate) mod tests {
                     Some(&emit),
                 )
                 .await
-                .unwrap()
+                .ok()
             };
-            let expected = if retry { EARNED_VERSE } else { raw };
-            assert_eq!(result["entries"][0]["text"], expected, "{raw:?} {finish:?}");
-            assert_eq!(
-                tries.load(std::sync::atomic::Ordering::SeqCst),
-                if retry { 2 } else { 1 }
-            );
+            let text = result.map(|value| value["entries"][0]["text"].clone());
+            assert_eq!(text, (!silent).then(|| json!(raw)), "{raw:?} {finish:?}");
+            assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
             if !shared {
                 let output = published.lock().unwrap().join(" ");
-                assert!(output.contains(expected));
-                if retry {
-                    assert!(!output.contains(raw));
-                }
+                assert_eq!(output.contains(raw), !silent);
             }
             server.abort();
         }
@@ -4028,17 +4014,11 @@ pub(crate) mod tests {
     #[tokio::test]
     async fn bard_comments_freely_on_the_full_poem_in_plain_and_shared_speech() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
-        let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        let count = tries.clone();
         let bard_stem = format!("{}:", name("greek-rhapsode"));
         let target = bard_stem.clone();
         let provider = plain_provider(seen.clone(), move |_, stem| {
             if stem == target {
-                if count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
-                    "As an AI, I can explain this poem.".into()
-                } else {
-                    "I hear a hard choice in those lines.".into()
-                }
+                "I hear a hard choice in those lines.".into()
             } else {
                 "I hear you.".into()
             }
@@ -4072,9 +4052,7 @@ pub(crate) mod tests {
             "I hear a hard choice in those lines."
         );
         let output = published.lock().unwrap().join(" ");
-        assert!(!output.contains("As an AI"));
         assert!(output.contains("I hear a hard choice"));
-        assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
         let shared = shared_lines(
             &test_config(address),
             &serde_json::to_value(&c).unwrap(),
@@ -4095,12 +4073,10 @@ pub(crate) mod tests {
             .iter()
             .filter(|r| stem_of(r) == bard_stem)
             .collect();
-        assert_eq!(bard.len(), 3);
+        assert_eq!(bard.len(), 2);
         assert!(bard.iter().all(
             |r| r["temperature"].as_f64().unwrap() > 0.0 && r.get("response_format").is_none()
         ));
-        // The retry resamples the same words (owner, 2026-11-03).
-        assert_eq!(bard[1]["messages"], bard[0]["messages"]);
         assert!(bard
             .iter()
             .all(|request| prompt_of(request).contains(POEM_FACT)));
@@ -4295,17 +4271,14 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn reversed_gift_perspective_is_repaired_before_local_or_shared_publication() {
+    async fn reversed_gift_perspective_stays_silent_in_local_and_shared_publication() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count = tries.clone();
         let provider = plain_provider(seen.clone(), move |_, stem| {
             if stem == "The keeper:" {
-                if count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
-                    "The bell is yours to keep now, Vale.".into()
-                } else {
-                    "I will keep it safe, Vale.".into()
-                }
+                count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                "The bell is yours to keep now, Vale.".into()
             } else {
                 "I am glad you have it.".into()
             }
@@ -4333,13 +4306,12 @@ pub(crate) mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(local["entries"][1]["text"], "I will keep it safe, Vale.");
+        assert_eq!(local["entries"].as_array().unwrap().len(), 1);
         assert!(!published
             .lock()
             .unwrap()
             .join(" ")
             .contains("yours to keep"));
-        tries.store(0, std::sync::atomic::Ordering::SeqCst);
         let shared = shared_lines(
             &test_config(address),
             &serde_json::to_value(&c).unwrap(),
@@ -4349,7 +4321,7 @@ pub(crate) mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(shared["entries"][1]["text"], "I will keep it safe, Vale.");
+        assert_eq!(shared["entries"].as_array().unwrap().len(), 1);
         assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
         let own_custody = "I'm carrying the Oil flask and the Bell.";
         let requests = seen.lock().unwrap();
@@ -4376,7 +4348,6 @@ pub(crate) mod tests {
         let (address, server) = serve(provider).await;
         let config = tiered_config(address, &[("escalation-model", false)]);
         let settings = VoiceSettings {
-            attempts: 1,
             escalation_model: Some("escalation-model".into()),
             ..VoiceSettings::hosted()
         };
@@ -4484,7 +4455,6 @@ pub(crate) mod tests {
         let (address, server) = serve(provider).await;
         let config = tiered_config(address, &[("escalation-model", false)]);
         let settings = VoiceSettings {
-            attempts: 1,
             escalation_model: Some("escalation-model".into()),
             ..VoiceSettings::hosted()
         };
@@ -4714,7 +4684,7 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn local_profile_retries_runs_one_call_at_a_time_and_leaves_failed_scenery_out() {
+    async fn local_profile_runs_one_call_at_a_time_and_leaves_failed_scenery_out() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let in_flight = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let most = Arc::new(std::sync::atomic::AtomicUsize::new(0));
@@ -4729,11 +4699,7 @@ pub(crate) mod tests {
                     let count = now.fetch_add(1, SeqCst) + 1;
                     peak.fetch_max(count, SeqCst);
                     tokio::time::sleep(Duration::from_millis(5)).await;
-                    let tries = {
-                        let mut seen = captured.lock().unwrap();
-                        seen.push(body.clone());
-                        seen.iter().filter(|b| stem_of(b) == stem_of(&body)).count()
-                    };
+                    captured.lock().unwrap().push(body.clone());
                     now.fetch_sub(1, SeqCst);
                     let user = &prompt_of(&body);
                     let stem = &*stem_of(&body);
@@ -4742,8 +4708,6 @@ pub(crate) mod tests {
                         || (stem == "Empty station:" && user.contains("Paths visible"));
                     let text = if mute {
                         String::new()
-                    } else if stem == "Vale:" && tries == 1 {
-                        "Vale:".into()
                     } else {
                         stem_reply(stem)
                     };
@@ -4778,8 +4742,7 @@ pub(crate) mod tests {
         assert_eq!(ids, ["vale", "moth", "lamp"]);
         assert_eq!(result["omitted"], json!(["station"]));
         assert_eq!(result["model"], "test-entity-model");
-        // Vale's first, empty reply was retried; the place had two tries.
-        assert_eq!(seen.lock().unwrap().len(), 6);
+        assert_eq!(seen.lock().unwrap().len(), 4);
         assert_eq!(most.load(std::sync::atomic::Ordering::SeqCst), 1);
         // A speaker without valid words stays silent while the other speaks.
         c.entities[0].facts.push("Mute speaker.".into());
@@ -4811,29 +4774,22 @@ pub(crate) mod tests {
         let local =
             VoiceSettings::from_lookup(env(&[("COSYWORLD_CARD_TEXT_PROFILE", "local")])).unwrap();
         assert_eq!(local, VoiceSettings::local());
-        assert!(local.parallel == 1 && local.attempts == 2 && hosted.attempts == 2);
+        assert_eq!(local.parallel, 1);
         assert_eq!(local.client_budget(), Duration::from_secs(248));
         let tuned = VoiceSettings::from_lookup(env(&[
             ("COSYWORLD_CARD_TEXT_PROFILE", "local"),
             ("COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS", "30"),
             ("COSYWORLD_CARD_TEXT_SCENE_TIMEOUT_SECS", "120"),
             ("COSYWORLD_CARD_TEXT_PARALLEL", "2"),
-            ("COSYWORLD_CARD_TEXT_ATTEMPTS", "1"),
         ]))
         .unwrap();
         assert_eq!(
-            (
-                tuned.call_timeout,
-                tuned.scene_timeout,
-                tuned.parallel,
-                tuned.attempts
-            ),
-            (Duration::from_secs(30), Duration::from_secs(120), 2, 1)
+            (tuned.call_timeout, tuned.scene_timeout, tuned.parallel),
+            (Duration::from_secs(30), Duration::from_secs(120), 2)
         );
         for bad in [
             &[("COSYWORLD_CARD_TEXT_PROFILE", "fast")][..],
             &[("COSYWORLD_CARD_TEXT_PARALLEL", "0")],
-            &[("COSYWORLD_CARD_TEXT_ATTEMPTS", "lots")],
             &[("COSYWORLD_CARD_TEXT_CALL_TIMEOUT_SECS", "30")],
         ] {
             let pairs: &'static [(&'static str, &'static str)] = bad;
@@ -5670,12 +5626,13 @@ pub(crate) mod tests {
     }
 
     #[tokio::test]
-    async fn observable_claims_are_checked_and_retried_as_plain_speech() {
+    async fn observable_claims_are_checked_as_plain_speech() {
         let seen = Arc::new(Mutex::new(Vec::<Value>::new()));
         let tries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let count = tries.clone();
         let provider = plain_provider(seen.clone(), move |_, stem| {
-            if stem == "Vale:" && count.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+            if stem == "Vale:" {
+                count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 "The lamp burns now.".into()
             } else {
                 stem_reply(stem)
@@ -5702,8 +5659,8 @@ pub(crate) mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 2);
-        assert_ne!(result["entries"][0]["text"], "The lamp burns now.");
+        assert_eq!(tries.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert_eq!(result["entries"][0]["id"], "moth");
         assert!(transcript(&c, &c.entities[0], Part::Line).contains("unlit"));
         let requests = seen.lock().unwrap();
         let vale: Vec<_> = requests
@@ -5711,9 +5668,7 @@ pub(crate) mod tests {
             .filter(|request| stem_of(request) == "Vale:")
             .map(|request| turn_of(request, "assistant"))
             .collect();
-        // The retry resamples the same words.
-        assert_eq!(vale[0], vale[1]);
-        assert!(vale[1].contains("unlit"));
+        assert!(vale[0].contains("unlit"));
         server.abort();
     }
 
@@ -6014,7 +5969,7 @@ pub(crate) mod tests {
             }
         }
         // A persona that already ran on the escalation model is not sent
-        // there again: two attempts, then silence for the reflection alone.
+        // there again: the reflection alone stays silent.
         c.entities[0].facts.push("Mute persona.".into());
         let same = VoiceSettings {
             escalation_model: Some("reflection-model".into()),
@@ -6029,10 +5984,10 @@ pub(crate) mod tests {
         assert_eq!(result["omitted"], json!([]));
         // The dream runs beside the persona, so it is asked for either way.
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 8);
+        assert_eq!(requests.len(), 7);
         assert_eq!(
             models_for(&requests, "Vale, who I am now:"),
-            ["reflection-model", "reflection-model"]
+            ["reflection-model"]
         );
         // A different escalation model gets the persona's next attempt.
         let bigger = VoiceSettings {
@@ -6166,7 +6121,7 @@ pub(crate) mod tests {
             ["test-entity-model", "escalation-model"]
         );
         // When the table's own world-content model is the escalation model,
-        // scenery that fails on it is not sent there a third time.
+        // scenery that fails on it is not sent there again.
         let mut pinned = config;
         pinned
             .capability_models
@@ -6177,10 +6132,10 @@ pub(crate) mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(result["omitted"], json!(["station"]));
         let requests = seen.lock().unwrap().clone();
-        assert_eq!(requests.len(), 5);
+        assert_eq!(requests.len(), 4);
         assert_eq!(
             models_for(&requests, "Empty station:"),
-            ["escalation-model", "escalation-model"]
+            ["escalation-model"]
         );
         server.abort();
     }
@@ -6347,7 +6302,7 @@ pub(crate) mod tests {
                 router_with_models::<()>(Arc::new(Some(config)), Ok(BTreeMap::new()), Ok(settings));
             let (status, _) = scene(&app, &context()).await;
             assert_eq!(status, StatusCode::BAD_GATEWAY);
-            assert_eq!(models_for(&seen.lock().unwrap(), "Vale:").len(), 2);
+            assert_eq!(models_for(&seen.lock().unwrap(), "Vale:").len(), 1);
         }
         // Two exact registry IDs can refer to one concrete model.
         let mut config = tiered_config(address, &[]);
@@ -6373,7 +6328,7 @@ pub(crate) mod tests {
         assert_eq!(status, StatusCode::BAD_GATEWAY);
         assert_eq!(
             models_for(&seen.lock().unwrap(), "Vale:"),
-            ["test-entity-model", "test-entity-model"]
+            ["test-entity-model"]
         );
         server.abort();
     }

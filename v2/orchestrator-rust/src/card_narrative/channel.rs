@@ -655,7 +655,6 @@ fn brisk(mut settings: VoiceSettings) -> VoiceSettings {
     }
     settings.call_timeout = settings.call_timeout.min(ADDRESSED_CALL);
     settings.scene_timeout = settings.scene_timeout.min(ADDRESSED_SCENE);
-    settings.attempts = 1;
     settings
 }
 
@@ -1941,7 +1940,6 @@ mod tests {
         let tight = brisk(hosted.clone());
         assert_eq!(tight.call_timeout, ADDRESSED_CALL);
         assert_eq!(tight.scene_timeout, ADDRESSED_SCENE);
-        assert_eq!(tight.attempts, 1);
         assert_eq!(tight.fallback_models, hosted.fallback_models);
         assert_eq!(tight.reflection_model, hosted.reflection_model);
         assert!(ADDRESSED_CALL < hosted.call_timeout && ADDRESSED_SCENE < hosted.scene_timeout);

@@ -890,7 +890,6 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null,"browser_chat":false})
         };
         context["browser_chat"] = json!(false);
-        context["hold_seq"] = json!(continuation::hold_seq(&tx, id)?);
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
             params![destination, time + 60_000, context.to_string(), context.to_string(), key],
@@ -1045,10 +1044,6 @@ fn finish_work_attempt(
             .check(&tx)
             .map_err(|error| error.to_string())?;
         let time = now();
-        if continuation::refresh(&tx, id, work, time)? {
-            tx.commit().map_err(sql_error)?;
-            return Ok(false);
-        }
         let mut scene = work.context.clone();
         // A scene without lines follows its play's last event, so its "…"
         // takes that place in the room's speech.

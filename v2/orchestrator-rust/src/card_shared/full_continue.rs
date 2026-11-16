@@ -1,28 +1,5 @@
-//! A quiet hand change refreshes unfinished words, never the committed play.
+//! A queued scene keeps its committed cast and reads the present facts.
 use super::*;
-
-pub(super) fn hold_seq(c: &rusqlite::Connection, id: &str) -> Result<i64> {
-    c.query_row("SELECT coalesce(max(seq),0) FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='hold'", [id], |r| r.get(0)).map_err(sql_error)
-}
-
-pub(super) fn refresh(c: &rusqlite::Connection, id: &str, work: &Work, time: i64) -> Result<bool> {
-    let seq = hold_seq(c, id)?;
-    // Older jobs lack this marker; their saved scene remains compatible.
-    if work.context["hold_seq"]
-        .as_i64()
-        .is_none_or(|old| old == seq)
-    {
-        return Ok(false);
-    }
-    let w = store::world(c, id, time)?;
-    if w.game["turn"] != work.context["turn"] || w.room(work.actor)? != work.room {
-        return Ok(false);
-    }
-    let mut narrative = context(c, &w, &work.id, work.actor, &work.context)?;
-    narrative["hold_seq"] = json!(seq);
-    c.execute("UPDATE card_full_plays SET status='retry',retries=retries+1,until_at=0,narrative=?,result=? WHERE id=?", params![narrative.to_string(), narrative.to_string(), work.id]).map_err(sql_error)?;
-    Ok(true)
-}
 
 pub(super) fn context(
     c: &rusqlite::Connection,
