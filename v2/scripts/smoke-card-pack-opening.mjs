@@ -445,7 +445,14 @@ for (const width of [390, 1440])
     await selectCard(page, arrival.to);
     await readyActionButton(page, "move").click();
     await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="closed"]').length > 1);
-    await oneButton(page, "Reveal all", `${label}: the new place asks Reveal all with no tap`);
+    await page.waitForFunction(() => document.querySelector("#play-status").textContent === "New cards unlocked");
+    assert.deepEqual(
+      (await chosen()).sort(),
+      [arrival.to, ...(held ? [arrival.item] : [])].sort(),
+      `${label}: the move keeps its chosen cards`,
+    );
+    await page.keyboard.press("Escape");
+    await oneButton(page, "Reveal all", `${label}: folding the hand asks Reveal all`);
     assert.deepEqual(await chosen(), held ? [arrival.item] : [], `${label}: only the held thing is chosen`);
     assert.equal(await page.locator("#play-readout").textContent(), "", `${label}: the readout names no other play`);
     if (shots) await page.screenshot({ path: new URL(`pack-arrival-${width}-${held}.png`, shots).pathname });
@@ -460,7 +467,7 @@ for (const width of [390, 1440])
     await page.close();
   }
 
-// Fewer than three unturned cards are no pack: they turn in place as before.
+// Two unturned cards are a pack too: nothing turns without a tap.
 {
   const pair = scenario.here.filter((id) => !id.startsWith("quest:")).slice(0, 2);
   const { page, key, errors } = await openTable(390, "no-preference", {
@@ -468,8 +475,9 @@ for (const width of [390, 1440])
     tag: "pack-pair",
   });
   await page.waitForTimeout(800);
-  assert.equal(await page.locator("#hand [data-pack]").count(), 0, "two cards form no pack");
-  assert.ok((await unturned(page, key)).length >= 1);
+  assert.equal(await page.locator("#hand [data-pack]").count(), 2, "two cards form a pack");
+  await oneButton(page, "Reveal all", "two cards ask Reveal all");
+  assert.equal((await unturned(page, key)).length, 2, "nothing turns without a tap");
   assert.deepEqual(errors, []);
   await page.close();
 }
@@ -674,6 +682,10 @@ for (const oneByOne of [false, true]) {
   }
   await clearSelection(page);
   await page.mouse.move(2, 2);
+  for (let i = 0; i < 6 && (await page.locator("#action-beat").isHidden()); i++) {
+    if (await page.locator("#dialogue-advance").isVisible()) await page.locator("#dialogue-advance").click();
+    await page.waitForTimeout(500);
+  }
   await oneButton(page, "Reveal all", `${label}: a lowered spread asks Reveal all`);
   assert.equal(
     (await tarotFaces(page)).filter((c) => c.shown).length,

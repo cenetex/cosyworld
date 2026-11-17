@@ -638,10 +638,6 @@ try {
         await page.locator("#beat-captions .beat-caption").count(),
         2,
       );
-      assert.equal(
-        await npcCaption.evaluate((caption) => getComputedStyle(caption).font),
-        actionFont,
-      );
       if (motion !== "reduce") {
         assert.equal(
           await page
@@ -661,6 +657,13 @@ try {
         await page.locator("#speech-row").evaluate((card) => card.click());
       }
       assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
+      await page.locator('#card-actions [data-pack="reveal"]').waitFor();
+      await behind.evaluate((button) => button.click());
+      assert.equal(await front(), "Pip");
+      assert.equal(
+        await npcCaption.evaluate((caption) => getComputedStyle(caption).font),
+        actionFont,
+      );
       await behind.evaluate((button) => button.click());
       assert.equal(await words(), "The lantern swings.");
       await page.locator("#live-line").click();
