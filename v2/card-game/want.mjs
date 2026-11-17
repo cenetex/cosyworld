@@ -625,8 +625,7 @@ export function settleWants(s, actors, api, action = null, stale = []) {
 }
 // The helper is the player whose play it was; credit goes only where the
 // causing play names one. A refused gift or trade meets nothing, and a
-// handover under pressure is no help. A plain Give
-// already earns its trust (`trustGiver`), so it adds only the experience.
+// handover under pressure is no help. A plain Give earns trust in `trustGiver`.
 function helped(s, owner, api, action) {
   const helper = action?.actor,
     h = s.actors[helper];
@@ -647,7 +646,7 @@ function helped(s, owner, api, action) {
       o.level = Math.max(o.level ?? 1, levelFor(o.xp));
   }
   const trust = s.actors[owner].trust;
-  if (action.kind !== "give" && trust)
+  if ((action.kind !== "give" || action.chosen) && trust)
     trust[helper] = Math.min(3, (trust[helper] || 0) + 1);
 }
 // The met want pays a resident one experience at once.

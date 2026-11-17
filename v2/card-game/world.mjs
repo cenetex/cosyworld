@@ -2348,6 +2348,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
   let text = a.text;
   let requestAccepted = false;
+  let chosen = false;
   let refusal = null;
   let affected = null,
     arrival = null,
@@ -2507,7 +2508,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       // A pack can make a gift the trigger of one authored choice.
       const gift = a.kind === "give" ? packGiveChoice(s, a) : null;
       if (gift) {
-        requestAccepted = true;
+        requestAccepted = chosen = true;
         text = choiceText(applyPackChoice(s, gift, { mode: "give" }), a.actor);
         break;
       }
@@ -2698,6 +2699,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
           ...a,
           accepted: !a.target || requestAccepted,
           ...(handover ? { pressured: true } : {}),
+          ...(chosen ? { chosen: true } : {}),
         }
       : { ...a, led },
     stale,
