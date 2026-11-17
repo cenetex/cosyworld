@@ -30,6 +30,7 @@ export const home = {
     "co-b": spot("Place B", ["co-a", "co-c"], { sanctuary: true }),
     "co-c": spot("Place C", ["co-b", "co-dock", "co-pit"]),
     "co-pit": spot("The Pit", []),
+    "co-loft": spot("The Loft", []),
     "co-dock": spot("Home Dock", ["co-c"]),
     "co-yard": spot("Locked Yard", []),
     "co-ship": spot("The Test Ship", []),
@@ -99,6 +100,17 @@ export const home = {
       transport: "co-ship",
       scenery: { open: "The test ship waits.", cardName: "The Test Ship" },
     },
+    ...[
+      ["pond", "co-loft"],
+      ["co-loft", "pond"],
+    ].map(([from, to]) => ({
+      id: `${from}-${to}`,
+      from,
+      to,
+      travelers: "player",
+      travel: "up the test ladder",
+      requires: [],
+    })),
     {
       id: "station-co-a",
       from: "station",
