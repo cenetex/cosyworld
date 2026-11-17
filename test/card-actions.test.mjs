@@ -86,9 +86,9 @@ describe("named card actions", () => {
     expect(playLabel(primary(world, ["cloth", "lamp"]))).toBe("Uncover");
     world.items.lamp.holder = "station";
     world.items.cloth.holder = "vale";
-    expect(kinds(world, ["lamp", "station"])).toEqual([]);
+    expect(kinds(world, ["lamp", "station"])).toEqual(["take"]);
     world.items.lamp.lit = true;
-    expect(kinds(world, ["lamp", "station"])).toEqual([]);
+    expect(kinds(world, ["lamp", "station"])).toEqual(["take"]);
     expect(primary(world, ["bell", "station"]).kind).toBe("ring");
   });
   it("shows the wait verb as Wait", () => {
@@ -169,11 +169,11 @@ describe("named card actions", () => {
     world.items.oil.holder = world.items.cloth.holder = "vale";
     world.items.bell.holder = "station";
     for (const cards of [
-      ["moth", "keeper"],
       ["lamp", "bell"],
       ["oil", "lamp"],
     ])
       expect(cardActions(world, cards)).toEqual({ actions: [], hint: "" });
+    expect(kinds(world, ["moth", "keeper"])).toEqual(["talk"]);
     for (const id of ["oil", "cloth", "lamp"]) {
       const { actions, hint } = cardActions(world, [id]);
       expect(actions).toEqual([]);

@@ -49,7 +49,7 @@ describe("playing the world through cards", () => {
     expect(cardPlay(s, ["pond"]).action.kind).toBe("move");
     expect(cardPlay(s, ["attic"]).action).toBeNull();
     expect(cardPlay(s, ["station"]).action.kind).toBe("wait");
-    expect(cardPlay(s, ["lamp", "bell"]).action).toBeFalsy();
+    expect(cardPlay(s, ["lamp", "bell"])).toEqual(cardPlay(s, ["lamp"]));
     expect(cardPlay(s, ["oil"]).action).toBeFalsy();
     expect(cardPlay(s, ["lamp", "attic", "station"]).action).toBeFalsy();
     expect(encodeSave(s)).toBe(before);
@@ -102,7 +102,7 @@ describe("playing the world through cards", () => {
     s.items.bell.holder = "vale";
     s = cards(s, "bell", "station");
     expect(s.items.bell.holder).toBe("station");
-    expect(cardPlay(s, ["bell", "pond"]).action).toBeFalsy();
+    expect(cardPlay(s, ["bell", "pond"])).toEqual(cardPlay(s, ["bell"]));
   });
   it("rings a grounded bell but offers no manual lamp lighting action", () => {
     let s = createWorld();
@@ -111,9 +111,9 @@ describe("playing the world through cards", () => {
     s = cards(s, "bell", "station");
     expect(s.items.bell).toMatchObject({ holder: "station", ringing: 3 });
     s.items.lamp.holder = "station";
-    expect(cardPlay(s, ["station", "lamp"]).action).toBeFalsy();
+    expect(cardPlay(s, ["station", "lamp"])).toEqual(cardPlay(s, ["lamp"]));
     s.items.lamp.lit = true;
-    expect(cardPlay(s, ["lamp", "station"]).action).toBeFalsy();
+    expect(cardPlay(s, ["lamp", "station"])).toEqual(cardPlay(s, ["lamp"]));
     expect(cardPlay(s, ["lamp"]).action.kind).toBe("take");
   });
   it("rings a carried bell and offers no cloth cover", () => {
@@ -124,7 +124,7 @@ describe("playing the world through cards", () => {
     expect(s.items.bell.ringing).toBe(3);
     expect(s.actors.keeper.place).toBe("station");
     s = cards(s, "pond");
-    expect(cardPlay(s, ["bell", "cloth"]).action).toBeFalsy();
+    expect(cardPlay(s, ["bell", "cloth"])).toEqual(cardPlay(s, ["bell"]));
   });
   it("honors the owner's answer and carrying space for card handovers", () => {
     let s = createWorld();

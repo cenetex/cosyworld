@@ -65,7 +65,7 @@ describe("accompany card requests", () => {
     expect(encodeSave(world)).toBe(before);
     expect(cardPlay(world, ["vale", "pond"]).action.kind).toBe("move");
     expect(cardPlay(world, ["vale", "station"]).action.kind).toBe("wait");
-    expect(cardPlay(world, ["moth", "station"]).action).toBeFalsy();
+    expect(cardPlay(world, ["moth", "station"]).action.kind).toBe("talk");
   });
   it("takes one shared trip toward its want while the other avatar acts", () => {
     const start = together(),
@@ -163,7 +163,7 @@ describe("accompany card requests", () => {
     const closed = together();
     closed.actors.vale.place = closed.actors.moth.place = "attic";
     closed.items.lamp.lit = true;
-    expect(cardPlay(closed, ["moth", "pond"]).action).toBeFalsy();
+    expect(cardPlay(closed, ["moth", "pond"]).action?.kind).not.toBe("accompany");
     expect(cardPlay(createWorld(), ["moth", "pond"]).action).toBeFalsy();
     const agreed = request(start, "moth", "pond");
     for (const patch of [

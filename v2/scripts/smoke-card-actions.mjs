@@ -668,11 +668,11 @@ try {
       const reason = page.locator("#card-actions button");
       await page.keyboard.press("Escape");
       for (const id of ["moth", "keeper"]) await selectCard(page, id);
-      assert.equal(await reason.count(), 0, "a pair with no play names no pairing");
-      assert.equal(await page.locator(".action-beat-heading").isVisible(), false);
+      assert.equal(await reason.count(), 1);
       assert.equal(
-        await page.locator("#play-readout").textContent(),
-        await page.locator("#selection-name").textContent(),
+        await reason.getAttribute("data-action"),
+        "talk",
+        "a pair with no play of its own plays its person",
       );
       await page.keyboard.press("Escape");
       for (const id of ["vale", "lamp"]) await selectCard(page, id);

@@ -218,6 +218,23 @@ function companyReason(world, selected) {
 // Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {
   const cards = [...new Set(selected)];
+  const own = selectionPlay(world, cards);
+  if (own.action || cards.length < 2 || cards.length > 3) return own;
+  if (cards.some((id) => !availableCards(world).includes(id))) return own;
+  const player = currentActor(world);
+  const order = [
+    cards.find((id) => people[id] && id !== player),
+    cards.find((id) => things[id]),
+    cards.find((id) => places[id]),
+  ];
+  for (const id of order.filter(Boolean)) {
+    const alone = selectionPlay(world, [id]);
+    if (alone.action) return alone;
+  }
+  return own;
+}
+function selectionPlay(world, selected) {
+  const cards = [...new Set(selected)];
   const available = availableCards(world);
   const result = (found, hint) => {
     const action = shownPlay(world, found, cards);
@@ -371,7 +388,6 @@ export function cardPlay(world, selected) {
       people[rootHolder(world, id)] &&
       rootHolder(world, id) !== currentActor(world),
   );
-  // Another person's quest is learned by talking with them, not from a card.
   if (heldByOther) {
     const give = cards.find(
       (id) => things[id] && world.items[id].holder === currentActor(world),
@@ -389,7 +405,7 @@ export function cardPlay(world, selected) {
 export function settledChoice(world, cards, id) {
   if (cards.length !== 2 || !cards.includes(id)) return cards;
   if (!things[id] && !places[id]) return cards;
-  if (cardPlay(world, cards).action) return cards;
+  if (selectionPlay(world, cards).action) return cards;
   const alone = cardPlay(world, [id]).action?.kind;
   return alone === "take" || alone === "move" || alone === "course"
     ? [id]
