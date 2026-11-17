@@ -74,8 +74,6 @@ async function waitingFor(page, id) {
   assert.equal(await page.locator("#speaker").innerText(), nameOf(id));
   assert.equal(await page.locator("#dialogue-text").innerText(), "");
 }
-// Stepping back from the wait reaches the last accepted line, past any
-// later action beats; ● live returns to the wait.
 async function reviewsEarlierLine(page, id) {
   for (
     let step = 0;
