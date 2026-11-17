@@ -88,15 +88,15 @@ describe("one want per avatar", () => {
     expect(s.actors.vale).toMatchObject({ xp: 3, level: 1, want: null });
   });
 
-  it("never lets a resident hold a stack: a set-aside want is replaced", () => {
+  it("never lets a resident hold a stack: a refused want is kept", () => {
     const s = createWorld();
     const api = wantAPI(s);
     s.actors.keeper.want = newWant("item", "oil", 0);
     s.items.oil.holder = "moth";
-    for (let i = 0; i < 3; i++) refuseWant(s, "keeper", "oil", api);
+    for (let i = 0; i < 5; i++) refuseWant(s, "keeper", "oil", api);
     expect(s.actors.keeper.under).toBeUndefined();
-    expect(s.actors.keeper.gaveUp).toMatchObject({ target: "oil" });
-    expect(s.actors.keeper.want?.target).not.toBe("oil");
+    expect(s.actors.keeper.gaveUp).toBeUndefined();
+    expect(s.actors.keeper.want).toMatchObject({ target: "oil", refusals: 3 });
   });
 
   it("draws a resident's next want after a day, and a player's never", () => {

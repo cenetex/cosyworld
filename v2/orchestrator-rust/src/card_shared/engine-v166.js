@@ -2120,14 +2120,6 @@
     a.heardOn = day;
     return { kind: pick2[0], target: pick2[1], since: s.turn, refusals: 0, from: HEARD_FROM };
   }
-  function rivalled(s, id, api) {
-    const w = s.actors[id]?.want;
-    return Boolean(
-      w?.from === HEARD_FROM && w.kind === "item" && Object.keys(s.actors).some(
-        (o) => o !== id && !api.player(o) && api.worldOf(o) === api.worldOf(id) && s.actors[o].want?.kind === "item" && s.actors[o].want.target === w.target && Math.max(trustIn(s, id, o), trustIn(s, o, id)) === 2
-      )
-    );
-  }
   function validRumours(s, id) {
     const a = s.actors[id], day = dayOf(s), list = a.rumours;
     const ref = (x) => x === null || typeof x === "string";
@@ -2550,9 +2542,14 @@
     if (want?.kind !== "item" || want.target !== item || api.player(actor))
       return;
     if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;
-    want.refusals += 1;
-    if (want.refusals >= REFUSAL_LIMIT) giveUp(s, actor, api);
+    want.refusals = Math.min(REFUSAL_LIMIT, want.refusals + 1);
   }
+  var quietWant = (s, actor, item) => {
+    const want = s.actors[actor]?.want;
+    return Boolean(
+      want?.kind === "item" && want.target === item && want.refusals >= REFUSAL_LIMIT
+    );
+  };
   function giveUp(s, actor, api) {
     const a = s.actors[actor], want = a.want;
     a.gaveUp = { target: want.target, turn: s.turn };
@@ -2563,13 +2560,20 @@
     api.metTurn?.(id) ?? 0,
     (s.actors[id].dwellUntil ?? 0) - MAX_DWELL
   );
-  function reviseStalledWants(s, actors2, api) {
-    for (const [id, a] of Object.entries(s.actors))
+  function reviseStalledWants(s, actors2, api, before = s) {
+    for (const [id, a] of Object.entries(s.actors)) {
       if (a.want && !api.player(id) && !entityActive(s, id))
         a.want.since = s.turn;
+      const was = before.actors[id]?.want;
+      if (a.want?.kind === "item" && a.want.refusals && before.items[a.want.target] && rootOf2(before, a.want.target) !== rootOf2(s, a.want.target))
+        a.want.refusals -= Math.min(
+          a.want.refusals,
+          was?.kind === "item" && was.target === a.want.target ? was.refusals : 0
+        );
+    }
     for (const id of actors2) {
       const want = wantOf(s, id);
-      if (want && !api.player(id) && (travels(id, s) || api.wanders?.(id) || want.refusals > 0) && s.turn - stallStart(s, id, want, api) >= STALL_TURNS && !rivalled(s, id, api))
+      if (!api.player(id) && (travels(id, s) || api.wanders?.(id)) && (want?.kind === "place" ? want.target !== s.actors[id].place && !api.reachable(id).includes(want.target) : want?.kind === "person" && !entityActive(s, want.target)) && s.turn - stallStart(s, id, want, api) >= STALL_TURNS)
         giveUp(s, id, api);
     }
   }
@@ -2666,7 +2670,7 @@
   function validQuest(s, id, w) {
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     return Boolean(
-      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean" || w.step?.verb === "lay" && w.lit === true) && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
+      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean" || w.step?.verb === "lay" && w.lit === true) && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals <= REFUSAL_LIMIT
     );
   }
 
@@ -5296,7 +5300,8 @@
   }
   function learnedPlan(world, actor, selected, actions, conditionsFor) {
     const goal = goalFor(world, actor, selected.action);
-    if (!goal) return selected;
+    if (!goal || goal.kind === "ask" && quietWant(world, actor, goal.item))
+      return selected;
     const before = observation(world, actor, goal);
     if (before.met) return selected;
     const trials = trialsFor(world, actor, goal);
@@ -8483,10 +8488,6 @@
       return "needs-it";
     return "wants-something-else";
   }
-  function saidWant(s, a, reason) {
-    const want = wantOf(s, a.target);
-    return reason === "wants-something-else" && toldWant(s, a.actor, a.target) && (want.kind === "item" || !want.step && want.kind !== "connect") ? { wantId: want.target } : {};
-  }
   function expects(s, a) {
     if (a.kind === "give" && keepsForGood(a.target)) return takes(s, a.actor);
     if (a.kind === "give")
@@ -9937,7 +9938,7 @@
       targetId: a.target,
       ...a.receive ? { receiveId: a.receive } : {},
       ...["ask", "give", "trade"].includes(a.kind) || a.kind === "eat" && a.target ? { accepted: requestAccepted } : {},
-      ...refusal ? { reason: refusal, ...saidWant(s, a, refusal) } : {},
+      ...refusal ? { reason: refusal } : {},
       ...invitation ? { destinationId: a.destination, accepted: invitation.accepted } : {},
       ...a.kind === "attack" ? { locationId: here, ...combat } : {},
       ...handover ? { handover } : {},
@@ -10321,6 +10322,7 @@
       const drop = spares("drop")[0];
       return drop ? { action: drop } : idle();
     }
+    if (quietWant(s, actor, item)) return idle();
     const recent = (verb, test = () => true) => s.log.some(
       (e) => e.kind === "action" && e.verb === verb && e.actorId === actor && e.targetId === owner2 && s.turn - e.turn <= 4 && test(e)
     );
@@ -10512,13 +10514,12 @@
       wantActors(next, [...residents2, ...roamingActors]).filter(
         (id) => !controlledByHuman(next, id)
       ),
-      wantAPI(next)
+      wantAPI(next),
+      s
     );
     settleLost(next, wantAPI(next));
     pruneTalkQuests(next, wantAPI(next));
     fillWants(next, wantAPI(next));
-    if (exact.kind === "talk" && next.actors[exact.target]?.place === next.actors[actor].place)
-      talkQuest(next, actor, exact.target, wantAPI(next));
     settleHomeLevels(next);
     settleStandoffs(next);
     settleArcana(
@@ -10786,10 +10787,6 @@
         fail(`log:${e.seq}:rest`);
       if (e.reason !== void 0 && (!REFUSED_VERBS.includes(e.verb) || e.accepted !== false || !REFUSAL_REASONS.includes(e.reason)))
         fail(`log:${e.seq}:reason`);
-      if (e.wantId !== void 0 && (e.reason !== "wants-something-else" || ![ids, actorIds, Object.keys(places)].some(
-        (all) => all.includes(e.wantId)
-      )))
-        fail(`log:${e.seq}:wantId`);
       if (e.verb === "accompany" && (!actorIds.includes(e.actorId) || !actorIds.includes(e.targetId) || e.targetId === e.actorId || !Object.hasOwn(places, e.destinationId) || !Object.hasOwn(places, e.fromLocationId) || e.destinationId === e.fromLocationId || typeof e.accepted !== "boolean" || e.locationId !== (e.accepted ? e.destinationId : e.fromLocationId)))
         fail(`log:${e.seq}:accompany`);
       if (e.itemId != null && !ids.includes(e.itemId)) fail(`log:${e.seq}:item`);
