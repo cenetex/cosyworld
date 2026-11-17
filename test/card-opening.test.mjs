@@ -383,7 +383,8 @@ describe("dousing the lamp in the attic", () => {
 
   it("keeps meeting wants and trading through cooperative play after the opening", () => {
     for (const seedStart of [7, 42, 1729]) {
-      let s = meetEveryone(),
+      const shore = { kind: "pack", pack: "hoppy", enable: false };
+      let s = play(meetEveryone(), shore).state,
         seed = seedStart,
         trades = 0;
       for (let i = 0; i < 240; i++) {
