@@ -21,7 +21,12 @@ export function createRoom(guildId, channelId) {
     awaiting: null,
     said: {},
     world: null,
+    cast: null,
   };
+}
+
+export function castOf(room, cast) {
+  return room?.cast ?? cast;
 }
 
 export function typist(room, typing, every) {
