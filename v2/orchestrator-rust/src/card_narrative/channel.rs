@@ -1389,6 +1389,11 @@ mod tests {
             (three[1].name.as_str(), three[1].portrait.as_str()),
             ("Rue", "/card-game/assets/shared/characters/rue.png")
         );
+        let vale = &recent(fixed.clone(), &["vale".into(), "greek-elder".into()])[0];
+        assert_eq!(
+            (vale.name.as_str(), vale.portrait.as_str()),
+            ("Vale", "/card-game/assets/vale.png")
+        );
         let many: Vec<String> = pack("greek-drama").unwrap()["avatars"]
             .as_object()
             .unwrap()
