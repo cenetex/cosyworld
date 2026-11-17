@@ -1,6 +1,5 @@
-// A signed-in passkey hears hosted voices free: a shared world voices a
-// saved scene line with no credits, and Settings deals no Credits or World
-// pool card. The toolbar shows the plain wordmark.
+// A signed-in passkey hears a saved line free, with no credits, and
+// Settings deals no Credits or World pool card.
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright";
