@@ -143,9 +143,9 @@ try {
       );
       fixture.items["greek-provisions"].holder =
         journey.cargo === false ? "greek-athens" : "greek-ship";
-      // A Hoppy Cat thing aboard carries the ship on to the jetty.
+      // A thing from the jetty aboard carries the ship on to it.
       if (journey.hoppy)
-        fixture.items["hoppycat-halfway-cup"].holder = "greek-ship";
+        fixture.items["hoppycat-red-thread-spool"].holder = "greek-ship";
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: "reduce",
