@@ -69,14 +69,6 @@ export function repeatsLine(lines, text, most = 0.8) {
   });
 }
 
-const SPEECH = /["“”«»?]|\b(i|i'm|me|my|we|us|our|you|your|you're)\b/iu;
-
-export function narrates(text, name) {
-  const clean = String(text ?? "").trim().replace(/^[*_]+|[*_]+$/g, "").trim().replace(/’/g, "'");
-  const first = String(name ?? "").split(/\s+/)[0].toLowerCase();
-  return Boolean(first) && clean.toLowerCase().startsWith(`${first} `) && !SPEECH.test(clean);
-}
-
 export function wait(ms, signal) {
   return new Promise((resolve) => {
     if (signal?.aborted) return resolve();

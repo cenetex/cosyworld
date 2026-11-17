@@ -278,6 +278,8 @@ pub(super) fn strategy(fact: &str) -> bool {
 /// 20 lines, with no assistant voice or echo. It must stay a command: "What
 /// you write is what you say aloud." did not work.
 pub(super) const SAY_ALOUD: &str = "Reply with only what you say aloud.";
+pub(super) const FOLLOW_UP: &str =
+    "You wait a moment. What do you add to what you just said? One short sentence.";
 
 /// Who I am, then the one command, for a speaking voice. A body-language or
 /// emoji voice keeps its own reply shape.
@@ -311,10 +313,10 @@ fn channel_turns(context: &Context, entity: &Entity, view: &str) -> super::Promp
             _ => turns.push((own, text)),
         }
     }
-    while turns.last().is_some_and(|(own, _)| *own) {
-        turns.pop();
-    }
-    let user = turns.pop().map_or_else(String::new, |(_, said)| said);
+    let user = match turns.last() {
+        Some((true, _)) => FOLLOW_UP.to_string(),
+        _ => turns.pop().map_or_else(String::new, |(_, said)| said),
+    };
     if turns.first().is_some_and(|(own, _)| *own) {
         turns.insert(0, (false, crate::ai_gateway::SILENCE.into()));
     }
