@@ -329,7 +329,9 @@ function planningReadsFor(world) {
   }
   return reads;
 }
+let offstage = false;
 export function knownActors(world) {
+  if (offstage) return actorIds.filter((id) => entityActive(world, id));
   const reads = planningReadsFor(world);
   if (!reads) return readKnownActors(world);
   return (reads.knownActors ??= readKnownActors(world)).slice();
@@ -858,7 +860,7 @@ export function addLog(s, speaker, text, detail = {}) {
       entityActive(s, id) && (!controlledByHuman(s, id) || humanPresent(s, id)),
     authoredKnowledgeTopics(),
   );
-  trimLog(s);
+  if (!offstage) trimLog(s);
 }
 
 const authoredKnowledgeTopics = () =>
@@ -2089,6 +2091,51 @@ function wantPlace(s, id) {
     return itemPlace(s, want.target);
   return null;
 }
+function seeks(s, id) {
+  const goal = wantPlace(s, id);
+  return Boolean(goal) && wanders(s, id) && inRange(s, id, goal);
+}
+const OFFSTAGE_PLAYS = ["talk", "ask", "trade", "give", "take", "drop", "eat"];
+function lightPlays(s, round, acted) {
+  if (!worldLife.on || s.turn % DAYLIGHT_TURNS) return [];
+  const seen = new Set(
+    actorIds
+      .filter((id) => controlledByHuman(s, id) && humanPresent(s, id))
+      .map((id) => s.actors[id].place),
+  );
+  const played = [];
+  for (const id of [...actorIds].sort()) {
+    if (
+      acted.includes(id) ||
+      controlledByHuman(s, id) ||
+      roamingActors.includes(id) ||
+      !(isPackActor(id) || unplayedAvatar(s, id)) ||
+      !entityActive(s, id) ||
+      seen.has(s.actors[id].place) ||
+      travelerOf(s, id) ||
+      residentAsleep(s, id) ||
+      standoffFor(s, id)
+    )
+      continue;
+    const seq = s.eventSeq ?? s.log.length;
+    offstage = true;
+    try {
+      const action = plan(s, id).action;
+      if (!OFFSTAGE_PLAYS.includes(action?.kind)) continue;
+      prepareResidentLamp(s, id);
+      perform(s, action, round, [id, action.target].filter(Boolean));
+      played.push(id);
+    } finally {
+      offstage = false;
+      s.log = s.log.filter(
+        (e) =>
+          e.seq <= seq || seen.has(e.locationId) || seen.has(e.fromLocationId),
+      );
+      trimLog(s);
+    }
+  }
+  return played;
+}
 // After the cast has acted: who falls asleep or rises, then the walk home
 // and, at dawn and dusk, one step for each resident where no player is.
 // Sorted ids, at most OFFSTAGE_STEPS steps, starting further on each turn.
@@ -2147,7 +2194,11 @@ function residentRound(s, acted) {
     if (rangeOf(s, id) !== null && home && a.place !== home) {
       // Only a resident with a way home is marked walking: one with none
       // keeps to its wants instead of standing idle.
-      if (entityActive(s, home) && stepToward(s, id, home).action?.kind === "move")
+      if (
+        !seeks(s, id) &&
+        entityActive(s, home) &&
+        stepToward(s, id, home).action?.kind === "move"
+      )
         a.homeward = true;
       continue;
     }
@@ -2186,20 +2237,15 @@ function residentRound(s, acted) {
     }
     const goal = wantPlace(s, id);
     const ranged = Number.isFinite(rangeOf(s, id));
-    // A resident that just arrived stays, whatever it would do next.
     const settled = dwelling(s, id);
+    const seeking = seeks(s, id);
     const idleAway = ranged && here !== home && !(goal && inRange(s, id, goal));
     const target =
       !settled &&
       here !== home &&
-      (walksHome(s, id) || idleAway || (ranged && dawnOrDusk))
+      (walksHome(s, id) || (!seeking && (idleAway || (ranged && dawnOrDusk))))
         ? home
-        : !settled &&
-            dawnOrDusk &&
-            wanders(s, id) &&
-            goal &&
-            goal !== here &&
-            inRange(s, id, goal)
+        : !settled && dawnOrDusk && seeking && goal !== here
           ? goal
           : null;
     if (!target) continue;
@@ -3399,7 +3445,8 @@ export function play(
     if (next.actors[id].place !== from)
       arriveRoamingRecitals(next, packDefinitions, id);
   }
-  residentRound(next, [actor, respondent, ...residents].filter(Boolean));
+  const cast = [actor, respondent, ...residents].filter(Boolean);
+  residentRound(next, [...cast, ...lightPlays(next, round, cast)]);
   settleStops(next, {
     distance: (traveler, to) => movesTo(next, traveler, to),
     arrive: (id, to) =>

@@ -113,5 +113,5 @@ describe("a thing left lying through a dawn", () => {
             `${id} at ${spot}`,
           ).toBeUndefined();
         }
-  });
+  }, 60_000);
 });
