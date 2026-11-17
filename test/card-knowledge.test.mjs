@@ -521,18 +521,30 @@ describe("learned facts in the avatar's own view", () => {
       `Pip told me this a little while ago at Empty station: ${clause}`,
     ]);
   });
-  it("fills the sixteen facts newest first and drops the oldest", () => {
+  it("keeps only the two newest witnessed events", () => {
     const world = worldWithNews();
     for (let i = 0; i < 20; i++)
       seen(world, `Pip carried shell number ${i} to the pond.`);
-    const facts = view(world);
-    const shells = facts.filter((f) => f.includes("shell number"));
-    expect(facts).toHaveLength(16);
-    expect(shells.length).toBeGreaterThan(2);
-    expect(shells[0]).toContain("shell number 19 ");
-    expect(shells.join()).not.toContain("shell number 0 ");
-    for (const kept of ["Holding: ", "Location now: ", "At the dialogue scene: "])
-      expect(facts.some((f) => f.startsWith(kept))).toBe(true);
+    const shells = view(world).filter((f) => f.includes("shell number"));
+    expect(shells.map((f) => f.match(/number (\d+)/u)[1])).toEqual(["19", "18"]);
+  });
+  it("keeps every told fact newest first, and drops the oldest over the cap", () => {
+    const w = bare();
+    for (let i = 0; i < 20; i++) {
+      w.turn = i;
+      source(w, { text: `Pip carried shell number ${i} to the pond.` });
+      w.turn = i + 1;
+      talk(w);
+    }
+    const names = (n) =>
+      knowledgeFacts(w, "vale", undefined, [], n).map(
+        (f) => f.match(/^moth told me .* number (\d+) /u)?.[1],
+      );
+    expect(names(20)).toEqual(Array.from({ length: 20 }, (_, i) => `${19 - i}`));
+    expect(names(4)).toEqual(["19", "18", "17", "16"]);
+    expect(knowledgeFacts(w, "vale", undefined, ["event:2"], 4)[0]).toContain(
+      "number 0 ",
+    );
   });
 });
 
@@ -686,7 +698,7 @@ describe("told facts by age", () => {
     ]);
     for (let i = 0; i < 4; i++) source(w, { text: `Pip saw shell ${i} here.` });
     expect(knowledgeFacts(w, "moth", nameOf)).toHaveLength(2);
-    expect(knowledgeFacts(w, "moth", nameOf, [], 9)).toHaveLength(5);
+    expect(knowledgeFacts(w, "moth", nameOf, [], 9)).toHaveLength(2);
     w.knowledge.known.moth = { "event:2": w.knowledge.known.moth["event:2"] };
     w.turn = 4;
     expect(knowledgeFacts(w, "moth", nameOf)[0]).toMatch(

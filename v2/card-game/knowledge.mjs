@@ -409,41 +409,42 @@ export function knowledgeFacts(
 ) {
   const known = world.knowledge?.known?.[actor] || {};
   const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
-  return Object.keys(known)
+  const first = (a, b) => priority.includes(b.id) - priority.includes(a.id);
+  const facts = Object.keys(known)
     .map((id) => world.knowledge.facts[id])
-    .filter(Boolean)
+    .filter(Boolean);
+  const told = facts
+    .filter((fact) => known[fact.id].kind === "heard")
     .sort(
-      (a, b) =>
-        priority.includes(b.id) - priority.includes(a.id) ||
-        learned(b) - learned(a) ||
-        compareFacts(a, b),
+      (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b),
     )
-    .slice(0, limit)
-    .map((fact) => {
-      const memory = known[fact.id];
-      const origin =
-        memory.kind === "witnessed"
-          ? "I witnessed"
-          : `${nameOf(memory.teller)} told me`;
-      const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
-      const place =
-        fact.source.kind === "topic" ? null : fact.source.locationId;
-      const where =
-        place && !fact.text.includes(nameOf(place))
-          ? ` at ${nameOf(place)}`
-          : "";
-      // Authored topics and finished stories hold. Witnessed events, such as
-      // who carried what where, can go stale, and saying so keeps an old
-      // account honest instead of a quiet lie.
-      const stale =
-        fact.source.kind === "event" && age >= STALE_TURNS
-          ? " Things may have changed since."
-          : "";
-      return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale}`.slice(
-        0,
-        240,
-      );
-    });
+    .slice(0, limit);
+  const seen = facts
+    .filter((fact) => known[fact.id].kind === "witnessed")
+    .sort((a, b) => first(a, b) || compareFacts(a, b))
+    .slice(0, Math.min(2, limit - told.length));
+  return [...told, ...seen].sort(first).map((fact) => {
+    const memory = known[fact.id];
+    const origin =
+      memory.kind === "witnessed"
+        ? "I witnessed"
+        : `${nameOf(memory.teller)} told me`;
+    const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
+    const place = fact.source.kind === "topic" ? null : fact.source.locationId;
+    const where =
+      place && !fact.text.includes(nameOf(place)) ? ` at ${nameOf(place)}` : "";
+    // Authored topics and finished stories hold. Witnessed events, such as
+    // who carried what where, can go stale, and saying so keeps an old
+    // account honest instead of a quiet lie.
+    const stale =
+      fact.source.kind === "event" && age >= STALE_TURNS
+        ? " Things may have changed since."
+        : "";
+    return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale}`.slice(
+      0,
+      240,
+    );
+  });
 }
 
 // Old news is told by age band, not turn number.

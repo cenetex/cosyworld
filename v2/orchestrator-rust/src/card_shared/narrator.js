@@ -1772,9 +1772,13 @@
   function knowledgeFacts(world, actor, nameOf2 = (id) => id, priority = [], limit = 2) {
     const known = world.knowledge?.known?.[actor] || {};
     const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
-    return Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean).sort(
-      (a, b) => priority.includes(b.id) - priority.includes(a.id) || learned(b) - learned(a) || compareFacts(a, b)
-    ).slice(0, limit).map((fact) => {
+    const first = (a, b) => priority.includes(b.id) - priority.includes(a.id);
+    const facts = Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean);
+    const told = facts.filter((fact) => known[fact.id].kind === "heard").sort(
+      (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b)
+    ).slice(0, limit);
+    const seen = facts.filter((fact) => known[fact.id].kind === "witnessed").sort((a, b) => first(a, b) || compareFacts(a, b)).slice(0, Math.min(2, limit - told.length));
+    return [...told, ...seen].sort(first).map((fact) => {
       const memory = known[fact.id];
       const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf2(memory.teller)} told me`;
       const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
