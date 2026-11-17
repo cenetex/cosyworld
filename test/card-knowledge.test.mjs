@@ -4,6 +4,7 @@ import {
   installKnowledge,
   witnessKnowledge,
   reserveKnowledge,
+  reserveLaneKnowledge,
   knowledgeDisclosures,
   knowsFact,
   validKnowledge,
@@ -160,6 +161,36 @@ describe("saved public knowledge", () => {
     w.actors.vale.place = "pond";
     expect(talk(w)).toEqual([]);
     expect(knowsFact(w, "vale", fact.id)).toBe(false);
+  });
+
+  it("lets a lane heard this turn pass on only on a later turn", () => {
+    const w = bare();
+    w.actors = {
+      pip: { place: "pond" },
+      rue: { place: "pond" },
+      ada: { place: "pond" },
+    };
+    const lane = {
+      id: "lane:pond>harbor",
+      text: "A boat runs from the pond to the harbor.",
+    };
+    const ok = () =>
+      validKnowledge(w, ["pip", "rue", "ada"], ["pond"], [], (id) =>
+        id === lane.id ? lane.text : null,
+      );
+    w.turn = 1;
+    const entry = () => ({ seq: ++w.eventSeq, turn: w.turn });
+    expect(reserveLaneKnowledge(w, "pip", "rue", entry(), lane)).toBeTruthy();
+    expect(reserveLaneKnowledge(w, "rue", "ada", entry(), lane)).toBeNull();
+    expect(knowsFact(w, "ada", lane.id)).toBe(false);
+    expect(ok()).toBe(true);
+    w.turn = 2;
+    expect(reserveLaneKnowledge(w, "rue", "ada", entry(), lane)).toBeTruthy();
+    expect(w.knowledge.known.ada[lane.id]).toMatchObject({
+      kind: "heard",
+      teller: "rue",
+    });
+    expect(ok()).toBe(true);
   });
 
   it("keeps only complete short rule facts and skips generated speech and private thoughts", () => {
@@ -457,7 +488,6 @@ describe("Talk publication and learned facts", () => {
     ).toEqual([]);
   });
 
-
   it("saves the learned fact on a shared Talk, whatever is then said", () => {
     let world = worldWithNews();
     const request = (op, extra = {}) =>
@@ -526,7 +556,10 @@ describe("learned facts in the avatar's own view", () => {
     for (let i = 0; i < 20; i++)
       seen(world, `Pip carried shell number ${i} to the pond.`);
     const shells = view(world).filter((f) => f.includes("shell number"));
-    expect(shells.map((f) => f.match(/number (\d+)/u)[1])).toEqual(["19", "18"]);
+    expect(shells.map((f) => f.match(/number (\d+)/u)[1])).toEqual([
+      "19",
+      "18",
+    ]);
   });
   it("keeps every told fact newest first, and drops the oldest over the cap", () => {
     const w = bare();
@@ -540,7 +573,9 @@ describe("learned facts in the avatar's own view", () => {
       knowledgeFacts(w, "vale", undefined, [], n).map(
         (f) => f.match(/^moth told me .* number (\d+) /u)?.[1],
       );
-    expect(names(20)).toEqual(Array.from({ length: 20 }, (_, i) => `${19 - i}`));
+    expect(names(20)).toEqual(
+      Array.from({ length: 20 }, (_, i) => `${19 - i}`),
+    );
     expect(names(4)).toEqual(["19", "18", "17", "16"]);
     expect(knowledgeFacts(w, "vale", undefined, ["event:2"], 4)[0]).toContain(
       "number 0 ",
