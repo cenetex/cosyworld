@@ -275,8 +275,7 @@ try {
           ].map((card) => card.dataset.card),
         );
       assert(!(await pressed()).includes("lamp"), "the lamp put down is not chosen");
-      // A lone closed card is a closed pack: the first tap opens the pack
-      // and turns nothing; the pond's own Open turns it below.
+      // A lone closed card is a closed pack; the first tap opens it, turning nothing.
       await pond.click();
       await page.locator('#hand .card-frame[data-pack="open"] [data-card="pond"]').waitFor();
       await pond.evaluate((el) =>

@@ -149,8 +149,7 @@ try {
   assert.equal(await sprite.count(), 0);
   const before = (await state()).turn;
   await page.locator('[data-card="badger"]').focus();
-  // A lone closed box is a closed pack: the first press opens the pack, the
-  // next selects the box, and its context button opens it.
+  // Press once to open the closed pack, once to select the box; its button opens it.
   await page.keyboard.press("Enter");
   await page.locator('.card-frame[data-pack="open"] [data-card="badger"]').waitFor();
   assert.equal(await page.locator('[data-card="badger"]').getAttribute("data-unrevealed"), "true");
