@@ -69,27 +69,22 @@ pub(crate) fn guild_talked(guild: &str) -> Option<Vec<String>> {
 }
 
 fn talked(path: &Path, guild: &str) -> Option<Vec<String>> {
-    let fields = "'claimed',json_extract(k.state,'$.claimed')";
-    let (c, world, state) = open(path, guild, fields)?;
-    let held: Vec<&str> = (0..8)
-        .filter(|a| state["claimed"][*a] == 1)
-        .map(super::full_world::actor_id)
-        .collect();
+    let (c, world, _) = open(path, guild, "")?;
     let mut q = c
         .prepare(
-            "SELECT json_extract(command,'$.action.target') FROM card_full_log \
-             WHERE world=? AND json_extract(command,'$.op')='play' \
+            "SELECT json_extract(command,'$.actor'),json_extract(command,'$.action.target') \
+             FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='play' \
              AND json_extract(command,'$.action.kind')='talk' ORDER BY seq DESC LIMIT 400",
         )
         .ok()?;
-    let targets = q
-        .query_map([world], |r| r.get::<_, Option<String>>(0))
+    let talks = q
+        .query_map([world], |r| Ok([r.get::<_, Option<String>>(0)?, r.get(1)?]))
         .ok()?
         .collect::<Result<Vec<_>, _>>()
         .ok()?;
     let mut seen: Vec<String> = Vec::new();
-    for id in targets.into_iter().flatten() {
-        if !held.contains(&id.as_str()) && !seen.contains(&id) {
+    for id in talks.into_iter().flatten().flatten() {
+        if !seen.contains(&id) {
             seen.push(id);
         }
     }
@@ -268,21 +263,21 @@ mod tests {
     }
 
     #[test]
-    fn the_talked_to_come_most_recent_first_once_each_never_a_held_seat() {
+    fn the_talkers_and_the_talked_to_come_most_recent_first_once_each() {
         let (path, _) = saved(&format!("discord-guild:{GUILD}"));
         assert_eq!(talked(&path, GUILD).unwrap(), Vec::<String>::new());
         let c = store::open(&path).unwrap();
         let plays = [
-            ("talk", "keeper"),
-            ("talk", "greek-antigone"),
-            ("take", "rati"),
-            ("talk", "rue"),
-            ("talk", "vale"),
-            ("talk", "keeper"),
+            ("mara", "talk", "keeper"),
+            ("mara", "talk", "greek-antigone"),
+            ("sage", "take", "rati"),
+            ("rue", "talk", "moth"),
+            ("mara", "talk", "vale"),
+            ("mara", "talk", "keeper"),
         ];
-        for (kind, target) in plays {
+        for (actor, kind, target) in plays {
             let action =
-                json!({"op": "play", "actor": "mara", "action": {"kind": kind, "target": target}});
+                json!({"op": "play", "actor": actor, "action": {"kind": kind, "target": target}});
             c.execute(
                 "INSERT INTO card_full_log(world,command,at) VALUES('world',?,1)",
                 [action.to_string()],
@@ -298,7 +293,7 @@ mod tests {
         assert_eq!(super::super::full_world::actor_id(5), "rue");
         assert_eq!(
             talked(&path, GUILD).unwrap(),
-            ["keeper", "vale", "greek-antigone"]
+            ["mara", "keeper", "vale", "rue", "moth", "greek-antigone"]
         );
     }
 
@@ -324,6 +319,6 @@ mod tests {
         let play = json!({"op":"play","actor":"vale","action":talk,"surface":"browser"});
         full_store::commit(&c, "world", &mut w, play, 3).unwrap();
         drop(c);
-        assert_eq!(talked(&path, GUILD).unwrap(), ["greek-elder"]);
+        assert_eq!(talked(&path, GUILD).unwrap(), ["vale", "greek-elder"]);
     }
 }

@@ -33,8 +33,6 @@ pub(super) fn actor_index(id: &str) -> Result<usize> {
         .find(|a| actor_id(*a) == id)
         .ok_or_else(|| "Choose one of the eight avatars.".into())
 }
-// A shared world's run seed: the first four bytes of the SHA-256 of its ID.
-// Rules that draw specials read it from create, migrate and upgrade.
 pub(super) fn run_seed(id: &str) -> u32 {
     let d = Sha256::digest(id.as_bytes());
     u32::from_be_bytes([d[0], d[1], d[2], d[3]])
