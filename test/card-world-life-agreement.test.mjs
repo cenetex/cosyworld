@@ -7,6 +7,8 @@
 import { describe, expect, it } from "vitest";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { encodeSave } from "../v2/card-game/world.mjs";
+import { holdQuest } from "../v2/card-game/want.mjs";
+import { questFor } from "../v2/card-game/talk-quest.mjs";
 import { DAY_TURNS } from "../v2/card-game/resident-home.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 import { lifeWorld } from "./helpers/world-life.mjs";
@@ -20,9 +22,10 @@ function playLife(server) {
     if (server) expect(server(structuredClone(request))).toEqual(local);
     return local;
   };
-  const save = encodeSave(
-    lifeWorld({ seed: 9, turn: 2 * DAY_TURNS + 20, place: "greek-gate" }),
-  );
+  const start = lifeWorld({ seed: 9, turn: 2 * DAY_TURNS + 20, place: "greek-gate" });
+  const creon = start.actors["greek-creon"];
+  holdQuest(start, "vale", questFor(start, "greek-creon", creon.want), "quest:from:greek-creon");
+  const save = encodeSave(start);
   let world = both({ op: "create", seed: 9, save, actor: "vale" }).world;
   const seen = { asleep: new Set(), homeward: new Set() };
   const run = (pick) => {

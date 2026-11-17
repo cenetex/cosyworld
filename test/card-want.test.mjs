@@ -12,8 +12,9 @@ import {
 } from "../v2/card-game/world.mjs";
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
-import { levelFor, levelOf, newWant, reviseStalledWants, wantCandidates, wantMet, REFUSAL_LIMIT, STALL_TURNS, CONTENT_TURNS } from "../v2/card-game/want.mjs";
+import { holdQuest, levelFor, levelOf, newWant, releaseQuest, reviseStalledWants, wantCandidates, wantMet, REFUSAL_LIMIT, STALL_TURNS, CONTENT_TURNS } from "../v2/card-game/want.mjs";
 import { questCards } from "../v2/card-game/quest-card.mjs";
+import { questFor } from "../v2/card-game/talk-quest.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
@@ -209,7 +210,7 @@ describe("one want per avatar", () => {
     expect(wantCandidates(s, "moth", api, null, true)).toContain("item:oil");
   });
 
-  it("keeps an unseen resident's starter want until it has tried", () => {
+  it("sets aside a resident's stalled starter want unless a player holds it", () => {
     const s = createWorld();
     const id = "greek-antigone";
     const start = s.actors[id].want;
@@ -218,20 +219,16 @@ describe("one want per avatar", () => {
       target: "greek-polynices-hollow",
       refusals: 0,
     });
-    const api = {
-      carried: () => [],
-      rootHolder: (item) => s.items[item].holder,
-      valueOf: () => 5,
-      reachable: () => [],
-      player: () => false,
-    };
-    s.turn = STALL_TURNS * 3;
-    reviseStalledWants(s, [id], api);
+    s.turn = STALL_TURNS - 1;
+    reviseStalledWants(s, [id], wantAPI(s));
     expect(s.actors[id].want).toEqual(start);
-    s.actors[id].want = { ...start, refusals: 1, since: s.turn };
-    s.turn += STALL_TURNS;
-    reviseStalledWants(s, [id], api);
-    expect(s.actors[id].want?.target).toBe(start.target);
+    const quest = holdQuest(s, "vale", questFor(s, id, start), `quest:from:${id}`);
+    s.turn = STALL_TURNS * 3;
+    reviseStalledWants(s, [id], wantAPI(s));
+    expect(s.actors[id].want).toEqual(start);
+    releaseQuest(s.actors.vale, quest);
+    reviseStalledWants(s, [id], wantAPI(s));
+    expect(s.actors[id].gaveUp).toEqual({ target: start.target, turn: s.turn });
   });
 
   it("starts a resident's stall clock when a player first meets it", () => {
@@ -303,11 +300,12 @@ describe("one want per avatar", () => {
     expect(metEvents(s, "moth")).toHaveLength(1);
   });
 
-  it("keeps a cast want with no way forward, but not a place with no route", () => {
+  it("keeps an accepted want with no way forward, but not a place with no route", () => {
     const s = createWorld();
     s.turn = 200;
     const api = (reach) => ({ ...wantAPI(s), reachable: () => reach });
     s.actors.moth.want = newWant("item", "bell", 0);
+    holdQuest(s, "vale", questFor(s, "moth", s.actors.moth.want), "quest:from:moth");
     reviseStalledWants(s, ["moth"], api([]));
     expect(s.actors.moth.want).toMatchObject({ target: "bell", since: 0 });
     s.actors.moth.want = newWant("place", "attic", 0);

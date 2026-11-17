@@ -6,6 +6,8 @@ import { DAY_TURNS, homeOf } from "../v2/card-game/resident-home.mjs";
 import { sleepSchedule, sleepWindow } from "../v2/card-game/resident-sleep.mjs";
 import { asleepReason } from "../v2/card-game/cards.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
+import { holdQuest } from "../v2/card-game/want.mjs";
+import { questFor } from "../v2/card-game/talk-quest.mjs";
 import {
   act,
   lifeWorld,
@@ -52,6 +54,8 @@ describe("resident sleep", () => {
 
   it("sleeps no one on the first day, then each at home on its schedule", () => {
     let s = lifeWorld({ turn: 0, place: "greek-harbor" });
+    for (const id of ["greek-creon", "greek-ismene", "greek-baker"])
+      holdQuest(s, "vale", questFor(s, id, s.actors[id].want), `quest:from:${id}`);
     s = wait(s, DAY_TURNS - 1);
     expect(Object.values(s.actors).some((a) => a.sleeping)).toBe(false);
     // Day two, 04:00: the diurnal cast sleeps, nocturnal Pip is awake.

@@ -8,6 +8,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import {
   REFUSAL_LIMIT,
+  STALL_TURNS,
   holdQuest,
   newWant,
   refuseWant,
@@ -64,6 +65,29 @@ describe("a resident keeps what it wants", () => {
     expect(s.items.lamp.holder).toBe("moth");
     expect(s.actors.moth.want?.target).not.toBe("lamp");
     expect(s.log.some((e) => e.verb === "want_met" && e.actorId === "moth")).toBe(true);
+  });
+
+  it("sets aside a stalled want no player has accepted, and keeps an accepted one", () => {
+    const stalled = () => {
+      const s = createWorld();
+      s.items.lamp.holder = "vale";
+      s.actors.moth.want = newWant("item", "lamp", 0);
+      s.turn = STALL_TURNS;
+      return s;
+    };
+    const early = stalled();
+    early.turn = STALL_TURNS - 1;
+    reviseStalledWants(early, [], wantAPI(early));
+    expect(early.actors.moth.want?.target).toBe("lamp");
+    const free = stalled();
+    reviseStalledWants(free, [], wantAPI(free));
+    expect(free.actors.moth.gaveUp).toEqual({ target: "lamp", turn: STALL_TURNS });
+    expect(free.actors.moth.want?.target).not.toBe("lamp");
+    const held = stalled();
+    holdQuest(held, "vale", questFor(held, "moth", held.actors.moth.want), "quest:from:moth");
+    reviseStalledWants(held, [], wantAPI(held));
+    expect(held.actors.moth.want?.target).toBe("lamp");
+    expect(held.actors.moth.gaveUp).toBeUndefined();
   });
 
   it("counts refusals afresh when the wanted item changes holder", () => {

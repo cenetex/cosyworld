@@ -693,7 +693,6 @@ function commitMet(s, id, api, met, held = null) {
   return met;
 }
 
-// A refusal of the actor's own want counts; enough of them set it aside.
 export function refuseWant(s, actor, item, api) {
   const want = wantOf(s, actor);
   if (want?.kind !== "item" || want.target !== item || api.player(actor))
@@ -754,7 +753,23 @@ export function reviseStalledWants(s, actors, api, before = s) {
     )
       giveUp(s, id, api);
   }
+  for (const id of Object.keys(s.actors).sort()) {
+    const want = s.actors[id].want;
+    if (
+      want &&
+      !api.player(id) &&
+      !humanAvatarIds.includes(id) &&
+      entityActive(s, id) &&
+      !accepted(s, id) &&
+      s.turn - stallStart(s, id, want, api) >= STALL_TURNS
+    )
+      giveUp(s, id, api);
+  }
 }
+const accepted = (s, id) =>
+  Object.values(s.actors).some((a) =>
+    heldOf(a).some((w) => w.from === `quest:from:${id}`),
+  );
 export function settleLost(s, api, action = null) {
   for (const id of Object.keys(s.actors).sort()) {
     const a = s.actors[id];
