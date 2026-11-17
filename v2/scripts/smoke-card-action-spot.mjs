@@ -212,7 +212,7 @@ try {
     const restHand = await box("#hand"),
       restDialogue = await box(".dialogue");
     const taking = await actionBeat("take");
-    assert.equal(taking.caption.trim(), "Vale takes The Burial Decree.");
+    assert.equal(taking.caption.trim(), "Vale takes the Burial Decree.");
     assert.equal(taking.cards, 2, "Vale and the decree");
     // The decree is the rarest card in the take, so its tier edges the box.
     assert.equal(taking.tier, levelTier(cardLevel(world, "greek-decree")).id);

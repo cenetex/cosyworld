@@ -2825,7 +2825,6 @@ function renderActions() {
           : (selected.length === 1 && lockedQuest(world, selected[0], known)) ||
             { text: LOCKED_BOX, cards: [] }
         : null,
-    // Rule texts can double a name's article ("the The Burial Decree").
     sentence = lockShown
       ? lockShown.text
       : questShown

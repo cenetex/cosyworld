@@ -320,7 +320,7 @@ try {
     });
     assert.equal(
       await page.locator("#hand .want-frame > .want-card").getAttribute("aria-label"),
-      "Quest: Give The Burial Decree to The Gate Guard, near",
+      "Quest: Give the Burial Decree to the Gate Guard, near",
     );
     // The fold's tap names the quest; its one button is Discard.
     await page
@@ -330,7 +330,7 @@ try {
       (
         await page.locator(".action-beat-heading:not([hidden])").textContent()
       ).trim(),
-      "Give The Burial Decree to The Gate Guard",
+      "Give the Burial Decree to the Gate Guard",
     );
     assert.deepEqual(
       await page
