@@ -128,7 +128,6 @@ function storyStream() {
     );
   };
 }
-// The desktop app streams each validated line as soon as it is ready.
 async function desktopApp(page) {
   await page.route(
     (url) => url.pathname === "/",
