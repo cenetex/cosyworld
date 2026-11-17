@@ -40,6 +40,7 @@ import {
 import { resetAvatar, settleHomeItems } from "./avatar-reset.mjs";
 import { arrive, hideAvatar } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
+import { beginHistory } from "./world/history.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
 
@@ -169,6 +170,7 @@ export function dispatchShared(request) {
         : importClientSave(request.save);
     // The host derives one seed from the world ID; an imported run keeps its own.
     seedRun(world, request.seed);
+    if (request.save == null && request.history === true) beginHistory(world);
     if (!world.sharedVersion) settleHomeItems(world);
     enableShared(world);
     // The host's pick from its passkey's locked avatars (#1936).

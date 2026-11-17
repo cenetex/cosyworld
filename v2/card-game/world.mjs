@@ -3601,7 +3601,9 @@ export function validateWorld(s) {
     !Number.isSafeInteger(s.turn) ||
     s.turn < 0 ||
     !Number.isSafeInteger(s.revision) ||
-    s.revision < s.turn
+    s.revision < s.turn ||
+    (s.began !== undefined &&
+      (!Number.isSafeInteger(s.began) || s.began < 0 || s.began > s.turn))
   )
     fail("turn");
   if (!validStationExitOrder(s, stationTargets)) fail("station-exits");

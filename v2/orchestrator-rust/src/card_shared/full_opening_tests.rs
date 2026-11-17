@@ -34,6 +34,8 @@ fn new_shared_avatars_open_once_and_keep_their_words_through_replay() {
     for a in 0..8 {
         let (app, c, id) = fresh(a);
         let before = full_store::world(&c, &id, now()).unwrap();
+        assert!(before.game["began"].as_u64().is_some_and(|turn| turn > 0));
+        assert_eq!(before.game["turn"], before.game["began"]);
         assert_eq!(
             full_store::snapshot(&c, &id, "owner", now()).unwrap()["queue"][0]["opening"],
             true
@@ -67,10 +69,13 @@ fn new_shared_avatars_open_once_and_keep_their_words_through_replay() {
             .as_array()
             .unwrap()
             .contains(&json!(actor_id(a))));
-        assert_eq!(full_store::world(&c, &id, now()).unwrap().game["turn"], 0);
+        assert_eq!(
+            full_store::world(&c, &id, now()).unwrap().game["turn"],
+            before.game["turn"]
+        );
         full::publish(&app, &id, work, Ok(words(a))).unwrap();
         let saved = full_store::world(&c, &id, now()).unwrap();
-        assert_eq!(saved.game["turn"], 0);
+        assert_eq!(saved.game["turn"], before.game["turn"]);
         assert_eq!(
             full_store::snapshot(&c, &id, "owner", now()).unwrap()["history"][0]["opening"],
             true
@@ -101,7 +106,7 @@ fn reentering_never_asks_again_for_an_opening_that_failed() {
     assert_eq!(snapshot["history"].as_array().unwrap().len(), 1);
     assert_eq!(snapshot["history"][0]["failed"], true);
     assert_eq!(snapshot["history"][0]["lines"], json!([]));
-    assert_eq!(snapshot["world"]["turn"], 0);
+    assert_eq!(snapshot["world"]["turn"], w.game["turn"]);
 }
 
 #[test]

@@ -1,4 +1,3 @@
-//! A new shared world's first line uses the saved speech queue at turn zero.
 use super::super::{
     full_world::{actor_id, World},
     narrator,
@@ -11,7 +10,7 @@ fn key(id: &str, a: usize) -> String {
     format!("opening-{id}-{}", actor_id(a))
 }
 fn due(w: &World, a: usize) -> bool {
-    w.game["turn"] == 0
+    w.game["turn"] == w.game["began"].as_u64().unwrap_or(0)
         && !w.game["log"].as_array().is_some_and(|log| {
             log.iter()
                 .any(|e| e["generated"] == true && e["actorId"] == actor_id(a))
@@ -43,7 +42,7 @@ pub(super) fn enqueue(
         .filter(|id| *id != actor_id(a))
         .collect::<Vec<_>>());
     let view = w.project(a)?;
-    let scene = json!({"play":key,"actor":actor_id(a),"room":room,"turn":0,"opening":true,
+    let scene = json!({"play":key,"actor":actor_id(a),"room":room,"turn":w.game["turn"],"opening":true,
         "context":context,"profiles":view["profiles"],"events":[],"lines":[],"after":w.game["eventSeq"],
         "starts_at":now,"until_at":now,"error":null});
     // A prepared retry already has its committed scene. Taking it asks for

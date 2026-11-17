@@ -203,7 +203,7 @@ fn a_new_world_starts_at_no_level_and_keeps_the_upgrade() {
     let fresh = found(&mut c, "ann").unwrap();
     let w = full_store::world(&c, &fresh, T).unwrap();
     let state = &w.game["actors"]["vale"];
-    assert_eq!(w.game["turn"], json!(0));
+    assert_eq!(w.game["turn"], w.game["began"]);
     assert_eq!(state["xp"], json!(0));
     assert!(state["level"].is_null());
     assert!(state["carried"].is_null());

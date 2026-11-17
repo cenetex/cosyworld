@@ -20004,7 +20004,7 @@
         { check }
       );
     };
-    if (!s || s.schema !== SAVE_SCHEMA || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn)
+    if (!s || s.schema !== SAVE_SCHEMA || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn || s.began !== void 0 && (!Number.isSafeInteger(s.began) || s.began < 0 || s.began > s.turn))
       fail("turn");
     if (!validStationExitOrder(s, stationTargets)) fail("station-exits");
     if (!validKnowledge(
@@ -20537,7 +20537,7 @@
       target: played.targetId
     });
     const meets = {
-      opening: world.turn === 0,
+      opening: world.turn === (world.began ?? 0),
       defeat: Boolean(cast.defeat),
       talk: talked || Boolean(hailed),
       refused: REFUSED_VERBS.includes(verb) && played.accepted === false,
