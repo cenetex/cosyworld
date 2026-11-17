@@ -19814,7 +19814,9 @@
     }
     return reads;
   }
+  var offstage = false;
   function knownActors2(world) {
+    if (offstage) return actorIds.filter((id) => entityActive(world, id));
     const reads = planningReadsFor(world);
     if (!reads) return knownActors(world);
     return (reads.knownActors ??= knownActors(world)).slice();
