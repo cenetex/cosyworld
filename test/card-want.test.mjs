@@ -228,11 +228,10 @@ describe("one want per avatar", () => {
     s.turn = STALL_TURNS * 3;
     reviseStalledWants(s, [id], api);
     expect(s.actors[id].want).toEqual(start);
-    // After a refusal the clock runs from that attempt.
     s.actors[id].want = { ...start, refusals: 1, since: s.turn };
     s.turn += STALL_TURNS;
     reviseStalledWants(s, [id], api);
-    expect(s.actors[id].want?.target).not.toBe(start.target);
+    expect(s.actors[id].want?.target).toBe(start.target);
   });
 
   it("starts a resident's stall clock when a player first meets it", () => {
@@ -240,8 +239,14 @@ describe("one want per avatar", () => {
     const id = Object.keys(s.actors).find(
       (other) => entityActive(s, other) && s.actors[other].want?.refusals === 0,
     );
-    const start = { ...s.actors[id].want, since: 0, refusals: 1 };
-    const api = (metTurn) => ({ ...wantAPI(s), metTurn: () => metTurn });
+    const away = s.actors[id].place === "attic" ? "pond" : "attic";
+    const start = newWant("place", away, 0);
+    const api = (metTurn) => ({
+      ...wantAPI(s),
+      metTurn: () => metTurn,
+      wanders: () => true,
+      reachable: () => [],
+    });
     s.actors[id].want = { ...start };
     s.turn = STALL_TURNS * 2;
     reviseStalledWants(s, [id], api(s.turn - 1));
@@ -298,20 +303,27 @@ describe("one want per avatar", () => {
     expect(metEvents(s, "moth")).toHaveLength(1);
   });
 
-  it("sets aside a cast want with no way forward", () => {
+  it("keeps a cast want with no way forward, but not a place with no route", () => {
     const s = createWorld();
+    s.turn = 200;
+    const api = (reach) => ({ ...wantAPI(s), reachable: () => reach });
     s.actors.moth.want = newWant("item", "bell", 0);
-    s.turn = STALL_TURNS + 1;
-    s.revision = s.turn;
-    // Asleep it makes no progress: a resident arriving somewhere would
-    // restart the clock (rules 133).
-    s.actors.moth.sleeping = {
-      since: s.turn - 1,
-      place: s.actors.moth.place,
-      until: s.turn + 10,
-    };
-    const next = play(s, act(s, "wait")).state;
-    expect(next.actors.moth.want?.target).not.toBe("bell");
+    reviseStalledWants(s, ["moth"], api([]));
+    expect(s.actors.moth.want).toMatchObject({ target: "bell", since: 0 });
+    s.actors.moth.want = newWant("place", "attic", 0);
+    reviseStalledWants(s, ["moth"], api(["attic"]));
+    expect(s.actors.moth.want).toMatchObject({ target: "attic", since: 0 });
+    reviseStalledWants(s, ["moth"], api([]));
+    expect(s.actors.moth.want?.target).not.toBe("attic");
+    expect(s.actors.moth.gaveUp).toEqual({ target: "attic", turn: 200 });
+    const off = Object.keys(s.actors).find((id) => !entityActive(s, id));
+    s.actors.moth.want = newWant("person", "keeper", 0);
+    reviseStalledWants(s, ["moth"], api([]));
+    expect(s.actors.moth.want).toMatchObject({ target: "keeper", since: 0 });
+    s.actors.moth.want = newWant("person", off, 0);
+    reviseStalledWants(s, ["moth"], api([]));
+    expect(s.actors.moth.want?.target).not.toBe(off);
+    expect(s.actors.moth.gaveUp).toEqual({ target: off, turn: 200 });
   });
 
 

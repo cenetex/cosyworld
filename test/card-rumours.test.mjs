@@ -7,7 +7,6 @@ import {
   heardWant,
   noteRumours,
   restless,
-  rivalled,
   rumourWords,
   talkRumours,
   validRumours,
@@ -152,13 +151,6 @@ describe("rumours", () => {
     }), "a");
     expect(heardWant(structuredClone(s), "a", api())).toMatchObject({ kind: "item" });
     expect(heardWant(s, "a", api(["cup"], {}, ["bell"]))).toBeNull();
-  });
-
-  it("keeps a rival's thin want alive only inside one world", () => {
-    const thin = { kind: "item", target: "cup", since: 0, refusals: 0, from: HEARD_FROM };
-    const s = world({ a: resident({ want: thin, trust: { b: 2 } }), b: resident({ want: { ...thin } }) });
-    expect(rivalled(s, "a", api())).toBe(true);
-    expect(rivalled(s, "a", api([], { b: "w2" }))).toBe(false);
   });
 
   it("passes the player's best-fitting rumour through Talk", () => {

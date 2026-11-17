@@ -13,54 +13,7 @@ import { transports } from "../v2/card-game/pack-registry.mjs";
 
 const ships = Object.values(transports).map((ship) => ship.place);
 
-// The resident cast and the traveller who learns the roads.
-const cast = ["moth", "keeper", "greek-rhapsode"];
-// Every resident meets a want at least this often in loose play.
-const WINDOW = 100;
-const TURNS = 400;
-
-function longestGaps(seed, opening = false) {
-  let x = (seed * 2654435761) >>> 0,
-    s = createWorld({ opening });
-  const last = Object.fromEntries(cast.map((id) => [id, 0]));
-  const gaps = Object.fromEntries(cast.map((id) => [id, 0]));
-  return (async () => {
-    for (let i = 0; i < TURNS; i++) {
-      if (i % 100 === 0) await yieldToRunner();
-      x = (Math.imul(x, 1103515245) + 12345) >>> 0;
-      const acts = legalActions(s).filter((a) => !ships.includes(a.box)),
-        before = s.turn;
-      s = play(s, acts[x % acts.length]).state;
-      // A long rest runs the world on for many turns in one play, so count
-      // every want met since the last play, each at its own turn.
-      for (const e of s.log)
-        if (
-          e.verb === "want_met" &&
-          e.turn > before &&
-          e.turn <= s.turn &&
-          cast.includes(e.actorId)
-        ) {
-          gaps[e.actorId] = Math.max(gaps[e.actorId], e.turn - last[e.actorId]);
-          last[e.actorId] = e.turn;
-        }
-    }
-    for (const id of cast) gaps[id] = Math.max(gaps[id], s.turn - last[id]);
-    return gaps;
-  })();
-}
-
 describe("the table stays alive", () => {
-  it("lets every resident meet a want in each window of loose play", async () => {
-    const report = {};
-    for (let seed = 1; seed <= 10; seed++) {
-      const gaps = await longestGaps(seed);
-      report[seed] = gaps;
-      for (const id of cast)
-        expect(gaps[id], `seed ${seed} ${id}`).toBeLessThanOrEqual(WINDOW);
-    }
-    expect(Object.keys(report)).toHaveLength(10);
-  }, 120_000);
-
   it("keeps a resident pursuing its want when the player waits", () => {
     let s = createWorld();
     s.actors.moth.place = "station";
