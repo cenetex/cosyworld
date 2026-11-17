@@ -1873,7 +1873,7 @@ function turnCard(button) {
 // table; pack-opening.mjs decides everything else.
 function packSync(cards) {
   return pack.sync(cards, {
-    unturned: cardIsCovered,
+    unturned: (id) => cardIsCovered(id) && !isLockedBox(world, id),
     kindOf: packKind,
     holderOf: packHolder,
     allowed: !saveBlocked && !pipPrelude() && !titleShowing(),
@@ -1898,7 +1898,7 @@ function applyPackFrame(frame, id) {
   if (part.top) {
     stackEdges(frame, part.under);
     button.setAttribute("aria-expanded", "false");
-    button.setAttribute("aria-label", `${part.under + 1} closed boxes. Select to open.`);
+    button.setAttribute("aria-label", part.under ? `${part.under + 1} closed boxes. Select to open.` : "A closed box. Select to open.");
   } else if (pack.state === "closed") button.removeAttribute("aria-expanded");
 }
 // What the one button asks while the pack owns it: nothing is chosen, or
@@ -1949,7 +1949,8 @@ function packTurned() {
 const packTurnNow = (id) => uncover(id, { flip: false, batch: true });
 // When the pack last changed what its one button does.
 let packStepAt = -Infinity,
-  packPlace = null;
+  packPlace = null,
+  packHeard = null;
 function openPack() {
   if (!pack.open()) return;
   dropQueuedPlay();
@@ -2937,6 +2938,7 @@ function renderActions() {
       return button;
     }),
   );
+  if ($("play-status").textContent === PACK_TEXT.reveal) $("play-status").hidden = Boolean(packAsk);
   if (packAsk) {
     const reveal = node("button", packAsk.label, "card-primary");
     reveal.type = "button";
@@ -5222,6 +5224,10 @@ function render() {
     if (id.startsWith(`tarot:${currentActor(world)}:`) && !tarotKeys().includes(id))
       encountered.delete(id);
   packSync([...availableCards(world), ...tarotKeys()]);
+  const packNews = pack.state === "closed" ? pack.key() : null;
+  if (packNews && renderedHand && packNews !== packHeard) notice(PACK_TEXT.reveal);
+  else if (!packNews && packHeard && $("play-status").textContent === PACK_TEXT.reveal) notice("");
+  packHeard = packNews;
   if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
   packPlace = placeHere();
   const handCards = packHand(

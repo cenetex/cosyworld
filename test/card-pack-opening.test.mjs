@@ -83,14 +83,11 @@ describe("which cards form a pack", () => {
     expect(packMembers(cards, { unturned, kindOf })).toEqual(["a-fox", "i-gem", "w-lane"]);
   });
 
-  it("needs three: one or two cards simply turn in place", () => {
-    expect(PACK_MIN).toBe(3);
-    for (const down of [[], ["a-fox"], ["a-fox", "i-gem"]]) {
-      const { unturned } = table(cards, down);
-      expect(packMembers(cards, { unturned, kindOf })).toEqual([]);
-    }
-    const { unturned } = table(cards, ["a-fox", "i-gem", "i-pin"]);
-    expect(packMembers(cards, { unturned, kindOf })).toHaveLength(3);
+  it("makes a pack of any unturned card, so none turns by itself", () => {
+    expect(PACK_MIN).toBe(1);
+    expect(packMembers(cards, { unturned: table(cards, []).unturned, kindOf })).toEqual([]);
+    expect(packMembers(cards, { unturned: table(cards, ["a-fox"]).unturned, kindOf })).toEqual(["a-fox"]);
+    expect(packMembers(cards, { unturned: table(cards, ["a-fox", "i-gem"]).unturned, kindOf })).toHaveLength(2);
   });
 
   it("keeps the hand's order among cards of one kind and counts a card once", () => {
@@ -107,7 +104,7 @@ describe("which cards form a pack", () => {
     ]);
     const spread = ["t-up", "t-down", "t-locked"];
     expect(packMembers(spread, { unturned: table(spread).unturned, kindOf })).toHaveLength(3);
-    expect(packMembers(spread.slice(0, 2), { unturned: table(spread).unturned, kindOf })).toEqual([]);
+    expect(packMembers(spread.slice(0, 2), { unturned: table(spread).unturned, kindOf })).toHaveLength(2);
   });
 
   it("treats a locked box like any other face-down card", () => {
@@ -260,9 +257,10 @@ describe("the pack's state machine", () => {
     const t = table(["a-fox", "i-gem", "i-pin"]);
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
     t.turn("a-fox");
-    // Closed: two left, so the pack dissolves and they turn in place.
+    // Closed: the two left stay a pack.
     pack.sync(t.cards, { unturned: t.unturned, kindOf });
-    expect(pack.state).toBe("none");
+    expect(pack.state).toBe("closed");
+    expect(pack.ids).toEqual(["i-gem", "i-pin"]);
     const open = table(["a-fox", "i-gem", "i-pin"]);
     pack.sync(open.cards, { unturned: open.unturned, kindOf });
     pack.open();
@@ -386,9 +384,9 @@ describe("the pack's state machine", () => {
     open.turn("a-fox");
     pack.dismiss({ unturned: open.unturned, turnNow: open.turn, tierOf });
     expect([...open.covered].sort()).toEqual(["i-gem", "i-pin"]);
-    // Two left face down: no new pack, they turn in place.
+    // Two left face down make a new pack.
     pack.sync(open.cards, { unturned: open.unturned, kindOf });
-    expect(pack.state).toBe("none");
+    expect(pack.state).toBe("closed");
   });
 
   it("shows the closed pack as one stack with a top and an edge count", () => {

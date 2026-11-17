@@ -13,8 +13,8 @@
 // and tier, and how to turn one. Presentation only: turning a card is
 // cosmetic and never touches the rules, the journal or sync.
 
-// Three or more unturned cards make a pack; one or two simply turn in place.
-export const PACK_MIN = 3;
+// Any unturned card makes a pack: nothing turns until the player taps.
+export const PACK_MIN = 1;
 
 // The one button's words. A small fixed vocabulary, no counts. The whole
 // descriptor is the button: `text` is its sentence and the verb makes its
