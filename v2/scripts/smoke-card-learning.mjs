@@ -215,7 +215,6 @@ try {
       assert(at.x + at.width > box.x + box.width - 48 && at.y < box.y + 48);
       if (attempt) await close.click();
       else {
-        // Escape closes it too.
         await page.keyboard.press("Escape");
         await dialog.waitFor({ state: "hidden" });
         await page.reload();
