@@ -97,9 +97,10 @@ fn talked(path: &Path, guild: &str) -> Option<Vec<String>> {
 }
 
 fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
-    let fields = "'actors',json_extract(k.state,'$.game.actors'),'items',json_extract(k.state,'$.game.items')";
-    let (c, world, state) = open(path, guild, fields)?;
-    let (actors, items) = (&state["actors"], &state["items"]);
+    let (c, world, state) = open(path, guild, "'game',json_extract(k.state,'$.game')")?;
+    let game = &state["game"];
+    let (actors, items) = (&game["actors"], &game["items"]);
+    let own = super::narrator::own(game, residents).unwrap_or_default();
     let mut seen = Map::new();
     for id in residents {
         let Some(place) = actors[id.as_str()]["place"].as_str() else {
@@ -111,6 +112,7 @@ fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
             "holds": ids(items, "holder", id, ""),
             "items": ids(items, "holder", place, ""),
             "lines": lines(&c, &world, place)?,
+            "own": own.get(id).cloned().unwrap_or_else(|| json!([])),
         });
         seen.insert(id.clone(), view);
     }
@@ -126,16 +128,20 @@ mod tests {
     const SECRET: &str = "nobody may hear this thought";
 
     fn saved(owner: &str) -> (std::path::PathBuf, World) {
-        let path = std::env::temp_dir().join(format!("card-view-{}.sqlite", crate::random_hex(12)));
-        let c = store::open(&path).unwrap();
-        full_store::schema(&c).unwrap();
         let mut w = World::create(None).unwrap();
         w.game["memories"]["moth"]["innerLife"] =
             json!({"thoughts": [{"turn": 0, "text": SECRET}]});
         w.game["knowledge"]["secret"] = json!(SECRET);
         w.game["actors"]["moth"]["secret"] = json!(SECRET);
+        (kept(owner, &w), w)
+    }
+
+    fn kept(owner: &str, w: &World) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("card-view-{}.sqlite", crate::random_hex(12)));
+        let c = store::open(&path).unwrap();
+        full_store::schema(&c).unwrap();
         store::create(&c, "world", owner, 1).unwrap();
-        full_store::seed(&c, "world", &w, "test-view", 1).unwrap();
+        full_store::seed(&c, "world", w, "test-view", 1).unwrap();
         let place = w.game["actors"]["moth"]["place"].as_str().unwrap();
         for n in 1..=6 {
             let lines = json!([{"speaker": "Pip", "text": format!("line {n}"), "reflection": {"thought": SECRET}}]);
@@ -146,7 +152,7 @@ mod tests {
             )
             .unwrap();
         }
-        (path, w)
+        path
     }
 
     #[test]
@@ -221,7 +227,33 @@ mod tests {
             .map(String::as_str)
             .collect();
         keys.sort_unstable();
-        assert_eq!(keys, ["here", "holds", "items", "lines", "place"]);
+        assert_eq!(keys, ["here", "holds", "items", "lines", "own", "place"]);
+    }
+
+    #[test]
+    fn a_resident_knows_its_own_want_and_favours_and_no_one_elses() {
+        let mut w = World::create(None).unwrap();
+        let pond = w.game["actors"]["moth"]["place"].clone();
+        w.game["actors"]["keeper"]["place"] = pond.clone();
+        w.game["actors"]["vale"]["place"] = pond;
+        w.game["actors"]["moth"]["trust"]["vale"] = json!(2);
+        w.game["actors"]["moth"]["secret"] = json!(SECRET);
+        w.game["memories"]["moth"]["innerLife"] =
+            json!({"persona": null, "thoughts": [{"turn": 0, "text": SECRET}], "dreams": []});
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
+        let ids: Vec<String> = ["moth", "keeper", "vale", "greek-baker"]
+            .map(String::from)
+            .into();
+        let all = view(&path, GUILD, &ids).unwrap();
+        let baker = json!(["I want the Water Jar laid in Theban Courtyard."]);
+        assert_eq!(all["greek-baker"]["own"], baker);
+        let favour = "Owes a favour to Vale; willing to share a spare or take a detour with them.";
+        assert_eq!(all["moth"]["own"], json!(["I want the Lamp.", favour]));
+        assert_eq!(all["keeper"]["own"], json!(["I want the Bell."]));
+        assert_eq!(all["vale"]["own"], json!([]));
+        assert!(!all["moth"].to_string().contains("Bell."), "{all}");
+        assert!(!all["keeper"].to_string().contains("Lamp."), "{all}");
+        assert!(!all.to_string().contains(SECRET));
     }
 
     #[test]

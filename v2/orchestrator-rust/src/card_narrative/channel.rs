@@ -346,6 +346,8 @@ fn knowledge(
         Some(seen) => {
             own.extend(listed("I hold", &named(&seen["holds"])));
             own.extend(listed("With me here", &named(&seen["here"])));
+            let felt = seen["own"].as_array().into_iter().flatten();
+            own.extend(felt.filter_map(Value::as_str).take(3).map(str::to_string));
             place.extend(listed("Items here", &named(&seen["items"])));
         }
         None => place.extend(listed("Items here", &world.held(home))),
@@ -2086,6 +2088,25 @@ mod tests {
         assert!(!serde_json::to_string(&context)
             .unwrap()
             .contains("a thought"));
+    }
+
+    #[test]
+    fn a_resident_tells_the_model_its_own_want_and_nothing_when_it_has_none() {
+        let residents = cast("lonely-forest").unwrap();
+        let vale = residents.iter().find(|r| r.id == "vale").unwrap();
+        let mut asked = request(json!([{"author": "Mara", "text": "What do you want?"}]));
+        let told = |asked: &LinesRequest| {
+            let context = scene(vale, &residents, asked).unwrap();
+            super::super::transcript(&context, &context.entities[0], super::super::Part::Line)
+        };
+        let seen = |own: Value| json!({"place": "pond", "here": ["moth"], "lines": [], "own": own});
+        let favour = "Owes a favour to Pip; willing to share a spare or take a detour with them.";
+        asked.view = Some(seen(json!(["I want the Lamp.", favour])));
+        let wants = told(&asked);
+        assert!(wants.contains("I want the Lamp."), "{wants}");
+        assert!(wants.contains("I owe Pip a favour;"), "{wants}");
+        asked.view = Some(seen(json!([])));
+        assert!(!told(&asked).contains("I want"));
     }
 
     #[test]

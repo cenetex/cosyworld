@@ -21436,6 +21436,25 @@
     }).arrival;
     return !(noticed?.gone || noticed?.came || noticed?.first);
   }
+  function moodNote(world, id) {
+    const state = world.actors[id], mood = variantOf(world, id);
+    return state.awake ? `Awake.${state.wakeCause ? ` First woken by ${state.wakeCause}.` : ""} ${mood.note}` : mood.note;
+  }
+  function favourFact(world, id, among = null) {
+    const helpers = Object.entries(world.actors[id].trust).filter(([other, n]) => n > 0 && (!among || among.includes(other))).map(([other]) => nameOf(other));
+    return helpers.length ? `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.` : null;
+  }
+  function ownFacts(world, id) {
+    const place = world.actors[id].place;
+    const here2 = Object.keys(world.actors).filter(
+      (other) => other !== id && world.actors[other].place === place
+    );
+    return [
+      wantFact(world, id, nameOf, id),
+      favourFact(world, id, here2),
+      hasTemperament(id) ? moodNote(world, id) : null
+    ].filter(Boolean);
+  }
   function narrativeContext(world, action = null, isCovered = null, remaining = false) {
     const cast = dialogueCast(world, action);
     const original = typeof remaining === "object" ? remaining : null;
@@ -21537,12 +21556,7 @@
         let desire = null;
         if (kind === "avatar") {
           facts.unshift(...battleFacts(world, id, battle, nameOf));
-          if (hasTemperament(id)) {
-            const state = world.actors[id], mood2 = variantOf(world, id);
-            facts.push(
-              state.awake ? `Awake.${state.wakeCause ? ` First woken by ${state.wakeCause}.` : ""} ${mood2.note}` : mood2.note
-            );
-          }
+          if (hasTemperament(id)) facts.push(moodNote(world, id));
           if (REFUSED_VERBS.includes(played?.verb) && played.accepted === false && [played.actorId, played.targetId].includes(id))
             facts.unshift(refusalFact(played));
           else if (played?.verb === "trade" && [played.actorId, played.targetId].includes(id)) {
@@ -21599,11 +21613,8 @@
             facts.push(
               `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived.`
             );
-          const helpers = Object.entries(world.actors[id].trust).filter(([, n]) => n > 0).map(([other]) => nameOf(other));
-          if (helpers.length)
-            facts.push(
-              `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`
-            );
+          const favour = favourFact(world, id);
+          if (favour) facts.push(favour);
           for (const item of desire.items)
             facts.push(
               carried(world, id).includes(item) ? `Already holds the wanted ${nameOf(item)}.` : visibleItem(world, id, item, location) ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.` : `Wants ${nameOf(item)}.`
@@ -22695,6 +22706,12 @@
   // v2/card-game/shared-narrator.mjs
   function sharedScene(request) {
     const world = load(request);
+    if (Array.isArray(request.own))
+      return {
+        own: Object.fromEntries(
+          request.own.filter((id) => world.actors[id]).map((id) => [id, ownFacts(world, id)])
+        )
+      };
     const revealed2 = Array.isArray(request.revealed) && new Set(request.revealed);
     const isCovered = revealed2 ? (id) => !revealed2.has(id) : null;
     return {

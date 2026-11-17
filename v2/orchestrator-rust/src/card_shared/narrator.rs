@@ -23,6 +23,9 @@ const MAX_BYTES: usize = 4 * 1024 * 1024;
 pub(super) fn context(request: &Value) -> Result<Value> {
     Ok(describe(request)?["context"].take())
 }
+pub(super) fn own(world: &Value, ids: &[String]) -> Result<Value> {
+    Ok(describe(&serde_json::json!({"world": world, "own": ids}))?["own"].take())
+}
 /// The drawn scene the browser shows for the same request.
 #[cfg(test)]
 pub(super) fn scene(request: &Value) -> Result<Value> {
@@ -68,7 +71,7 @@ fn describe(request: &Value) -> Result<Value> {
     })?;
     let value: Value = serde_json::from_str(&output)
         .map_err(|_| "The shared world is taking a moment. Try again.".to_string())?;
-    if value["ok"] != true || !value["context"].is_object() {
+    if value["ok"] != true || !(value["context"].is_object() || value["own"].is_object()) {
         tracing::warn!(error=?value["error"], "shared narrator refused a scene");
         return Err("The shared world is taking a moment. Try again.".into());
     }
