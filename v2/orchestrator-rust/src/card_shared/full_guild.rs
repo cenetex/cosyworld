@@ -94,7 +94,7 @@ pub(super) fn ensure(c: &Connection, guild: &str, time: i64) -> Result<String> {
     }
     let id = crate::random_hex(24);
     let seed = super::super::full_world::run_seed(&id);
-    let w = World::hiding(None, Some(seed), &Value::Null)?;
+    let w = super::with_history(seed, &Value::Null)?;
     create(c, &id, &owner, time)?;
     store::seed(c, &id, &w, "discord-guild-world", time)?;
     Ok(id)
@@ -214,6 +214,15 @@ mod tests {
             held.map(|(id, _)| id.clone()).collect(),
             game["turn"].clone(),
         )
+    }
+
+    #[test]
+    fn a_guild_world_begins_with_history() {
+        let (_, c) = open();
+        let id = ensure(&c, GUILD, T).unwrap();
+        let game = store::world(&c, &id, T).unwrap().game;
+        assert!(game["began"].as_u64().is_some_and(|turn| turn > 0));
+        assert_eq!(game["turn"], game["began"]);
     }
 
     #[test]

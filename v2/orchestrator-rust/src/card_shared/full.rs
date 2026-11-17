@@ -219,6 +219,22 @@ pub(super) fn vocabulary() -> &'static imported::Vocabulary {
         )
     })
 }
+fn with_history(seed: u32, hide: &Value) -> Result<World> {
+    let mut request = json!({"op":"create","save":null,"seed":seed,"history":true});
+    for (key, value) in hide.as_object().into_iter().flatten() {
+        if !value.is_null() {
+            request[key] = value.clone();
+        }
+    }
+    let result = super::engine::reduce(request)?;
+    Ok(World {
+        version: super::engine::VERSION.into(),
+        game: result["world"].clone(),
+        claimed: [0; 8],
+        present: [0; 8],
+        pack: Some(super::content::current().into()),
+    })
+}
 // A new world for one of the passkey's unlocked avatars. A fresh one hides
 // one of its still-locked avatars (unlocks.rs).
 pub(super) fn found(
@@ -239,7 +255,10 @@ pub(super) fn found(
     if save.is_none() && actor_id(a) != "vale" {
         hide["homecoming"] = json!(actor_id(a));
     }
-    let mut w = World::hiding(save, Some(seed), &hide)?;
+    let mut w = match save {
+        None => with_history(seed, &hide)?,
+        Some(_) => World::hiding(save, Some(seed), &hide)?,
+    };
     super::store::create(tx, &id, u, time)?;
     store::seed(tx, &id, &w, "share-existing-card-world", time)?;
     let claim = claim_command(tx, &w, u, a)?;

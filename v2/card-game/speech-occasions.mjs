@@ -134,7 +134,7 @@ export function speechOccasions(world, cast) {
       target: played.targetId,
     });
   const meets = {
-    opening: world.turn === 0,
+    opening: world.turn === (world.began ?? 0),
     defeat: Boolean(cast.defeat),
     talk: talked || Boolean(hailed),
     refused: REFUSED_VERBS.includes(verb) && played.accepted === false,

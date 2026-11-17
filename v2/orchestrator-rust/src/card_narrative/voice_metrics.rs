@@ -183,7 +183,7 @@ fn play_label(context: &Context) -> &'static str {
             .copied()
             .find(|kind| *kind == outcome.card.kind)
             .unwrap_or("other"),
-        None if context.turn == 0 => "opening",
+        None if context.turn == 0 || context.waking => "opening",
         None => "none",
     }
 }

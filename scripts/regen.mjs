@@ -28,6 +28,7 @@ const rulesDir = "v2/orchestrator-rust/src/card_shared";
 export const GENERATED_FILES = [
   `${rulesDir}/narrator.js`,
   `${rulesDir}/content.json`,
+  "v2/card-game/world-history.json",
   "v2/orchestrator-rust/src/card_narrative/authored-text.json",
   "test/journeys/checkpoints.json",
   "v2/card-game/packs.json",
@@ -83,6 +84,11 @@ export function steps(base = "origin/main") {
     },
     // Restores main's released bundles and wiring, then mints the next
     // version only if the rebuilt rules differ from main's.
+    {
+      name: "history",
+      build: node("v2/scripts/build-card-world-history.mjs"),
+      check: node("v2/scripts/build-card-world-history.mjs", "--check"),
+    },
     {
       name: "rules",
       build: node("v2/scripts/next-shared-rules.mjs", base),
