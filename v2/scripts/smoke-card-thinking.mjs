@@ -168,6 +168,7 @@ try {
     await talkRequest;
     const replaced = requests.at(-1);
     const asked = requests.length;
+    await page.keyboard.press("Escape");
     await selectCard(page, "station");
     assert.equal(await page.locator("#card-actions button").count(), 0);
     await page.locator("#speech-row").click();

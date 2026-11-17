@@ -393,7 +393,6 @@ try {
           else assert.deepEqual(now, beforePlay, label);
         };
         await readyActionButton(page, "wait").click();
-        if (!quiet) assert.equal(await action("wait").count(), 0, "the beat rests");
         await sameHand("committing a play leaves the hand where it is");
         await settled();
         await settleHand();

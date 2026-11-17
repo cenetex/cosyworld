@@ -619,7 +619,10 @@ try {
         () => document.querySelector("#speaker")?.textContent === "Vale",
       );
       // An NPC action uses the same main type and keeps face-down items unnamed.
-      await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
+      await page.evaluate(({ key, save }) => {
+        localStorage.setItem(key, save);
+        localStorage.setItem(`${key}.seen.covered`, JSON.stringify(["lamp"]));
+      }, {
         key,
         save: npcSave,
       });

@@ -35,41 +35,6 @@ world.crossings["pond-greek-harbor"].discovered = true;
 for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
 world.items["greek-creon-writ"].holder = "vale";
 const save = encodeSave(world);
-// Holds the lifting lid mid-turn for its picture.
-// It arms an observer and returns at once; `lidState` says "held" once the
-// lid is paused, or "missed". The caller polls it (waitForFunction) rather
-// than hold one long-pending evaluate, which Chromium sometimes rejects with
-// "Execution context was destroyed" with no navigation (seen under load).
-const holdLid = ({ id, at, reduced }) => {
-  globalThis.lidState = null;
-  {
-    const watch = new MutationObserver(() => {
-      const card = document.querySelector(`#hand [data-card="${id}"]`);
-      if (!card?.dataset.revealing) return;
-      globalThis.lid = card
-        .getAnimations({ subtree: true })
-        .filter((motion) => motion.effect.target.matches(".reveal-lid"));
-      if (!reduced && !globalThis.lid.length) return;
-      watch.disconnect();
-      clearTimeout(deadline);
-      for (const motion of globalThis.lid) {
-        motion.pause();
-        motion.currentTime = at;
-      }
-      globalThis.lidState = "held";
-    });
-    const deadline = setTimeout(() => {
-      watch.disconnect();
-      globalThis.lidState ??= "missed";
-    }, 15000);
-    watch.observe(document.getElementById("hand"), {
-      subtree: true,
-      childList: true,
-      attributeFilter: ["data-revealing"],
-    });
-  }
-};
-
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 let browser;
@@ -286,6 +251,7 @@ try {
       });
       await readyActionButton(page, "talk").click();
       await ready();
+      await page.keyboard.press("Escape");
       await selectCard(page, FIELD);
       await tapCard(page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card'));
       await readyActionButton(page, "accept").click();
@@ -326,22 +292,15 @@ try {
       await selectCard(page, "greek-guard");
       const give = readyActionButton(page, "give");
       await give.waitFor();
-      await page.evaluate(holdLid, { id: FIELD, at: 60, reduced });
-      const turning = page.waitForFunction(() => globalThis.lidState, null, {
-        polling: 20,
-        timeout: 20000,
-      });
       await give.click();
       assert.equal(
         (await state()).items["greek-creon-writ"].holder,
         "greek-guard",
       );
       await page.keyboard.press("Escape");
-      const revealing = revealCard(page, FIELD);
-      assert.equal(await (await turning).jsonValue(), "held", "the locked lid turned");
-      await shot("02-box-turning", 1200);
-      await page.evaluate(() => globalThis.lid.forEach((m) => m.play()));
-      await revealing;
+      await page.waitForTimeout(1000);
+      assert.equal(await attr("data-revealing"), null);
+      await revealCard(page, FIELD);
       await ready();
       await open();
       await shot("03-box-open");

@@ -147,6 +147,7 @@ try {
     const sawFaceDown = () => page.evaluate(() => window.questFaceDown.seen);
     await page.locator('#hand [data-card="vale"]').click();
     await quest.waitFor();
+    await page.locator("#hand .want-frame > .want-card").dispatchEvent("click");
     await page.locator('#hand .want-frame > .want-card[data-unrevealed="false"]').waitFor();
     assert.equal(await sawFaceDown(), true, "the quest is dealt face down");
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
@@ -162,6 +163,7 @@ try {
     );
     // Folding Vale's stack and opening it again never deals it face down
     // again.
+    await page.locator('#hand [data-card="vale"]').click();
     await page.evaluate(() => {
       window.questFaceDown.seen = false;
     });
