@@ -678,9 +678,6 @@ async fn speak(
     if addressed {
         settings = brisk(settings);
     }
-    if request.messages.last().and_then(|m| m.resident.as_ref()) == Some(&resident.id) {
-        return Err("no-line");
-    }
     let context = scene(resident, cast, request).ok_or("no-line")?;
     let voiced = vec![resident.id.clone()];
     let started = Instant::now();
@@ -1183,7 +1180,7 @@ fn noted(notes: Option<Notes>, reason: &'static str) -> Response {
 
 #[cfg(test)]
 mod tests {
-    use super::super::conversation::SAY_ALOUD;
+    use super::super::conversation::{FOLLOW_UP, SAY_ALOUD};
     use super::super::router_with_models;
     use super::super::tests::{prompt_of, serve, test_config, turn_of};
     use super::*;
@@ -1488,22 +1485,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_resident_whose_own_line_is_newest_is_not_asked() {
+    async fn a_resident_whose_own_line_is_newest_is_asked_to_add_to_it() {
         let reply = "Mind the step, it creaks.";
         let own = "Come in, the door sticks.";
         let mut body = json!({
             "pack": "lonely-forest",
             "messages": [
                 {"author": "Jun", "text": "RATi, can I come in?"},
-                {"resident": "rati", "text": own}
+                {"resident": "rati", "text": own},
+                {"resident": "rati", "text": "The kettle is on."}
             ]
         });
         body["continuing"] = json!("rati");
         body["channel"] = json!({"residents": [{"id": "rati", "lines": [own]}]});
         let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(answer, json!({"lines": [], "reason": "no-line"}));
-        assert!(requests.is_empty());
+        assert_eq!(
+            answer,
+            json!({"lines": [{"id": "rati", "name": "RATi", "text": reply}]})
+        );
+        let turns: Vec<_> = requests[0]["messages"].as_array().unwrap().iter().collect();
+        let said = |at: usize| (turns[at]["role"].as_str(), turns[at]["content"].as_str());
+        assert_eq!(said(1), (Some("user"), Some("Jun: RATi, can I come in?")));
+        let both = format!("{own}\nThe kettle is on.");
+        assert_eq!(said(2), (Some("assistant"), Some(both.as_str())));
+        assert_eq!(said(3), (Some("user"), Some(FOLLOW_UP)));
+        assert_eq!(turns.len(), 4);
     }
 
     #[tokio::test]
@@ -1596,17 +1603,6 @@ mod tests {
         assert!(requests.iter().all(|r| r.get("questions").is_none()));
         let heard = "Jun: Is anyone awake?\nSkull: RATi, did you hear that?";
         assert_eq!(turn_of(&requests[0], "user"), heard);
-        let again = json!({
-            "pack": "lonely-forest",
-            "addressed": "skull",
-            "messages": [
-                {"author": "Jun", "text": "Skull?"},
-                {"resident": "skull", "text": "Skull tilts his head."}
-            ]
-        });
-        let (_, answer, requests) = post_lines("{}", Some(reply), TOKEN, again).await;
-        assert_eq!(answer, json!({"lines": [], "reason": "no-line"}));
-        assert!(requests.is_empty());
     }
 
     const PICTURE: &str = "https://cdn.discordapp.com/attachments/1/2/pond.png?ex=1&is=2&hm=3";
