@@ -344,7 +344,6 @@ export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
       },
     });
   if (!fact) return null;
-  // The speaker already knew the lane; the saved fact keeps its first teller.
   if (!knowsFact(world, speaker, fact.id)) {
     const first = fact.source.witnesses.includes(speaker);
     if (!first && fact.source.turn >= entry.turn) return null;
@@ -358,6 +357,9 @@ export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
       fact.source.turn,
     );
   }
+  const learned = world.knowledge.known[speaker][fact.id];
+  if (learned.kind === "heard" && learned.learnedTurn >= entry.turn)
+    return null;
   if (
     world.knowledge.pending.some(
       (p) =>
