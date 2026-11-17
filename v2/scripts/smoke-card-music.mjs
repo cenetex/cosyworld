@@ -76,8 +76,6 @@ try {
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
-    // A way that lay shut turns over once when it opens (rules 133); choose it
-    // after its lid settles.
     await page.waitForFunction(
       (card) =>
         document.querySelector(`#hand [data-card="${card}"]`)?.dataset

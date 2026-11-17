@@ -1898,7 +1898,7 @@ function applyPackFrame(frame, id) {
   if (part.top) {
     stackEdges(frame, part.under);
     button.setAttribute("aria-expanded", "false");
-    button.setAttribute("aria-label", `${part.under + 1} closed boxes. Select to open.`);
+    if (part.under) button.setAttribute("aria-label", `${part.under + 1} closed boxes. Select to open.`);
   } else if (pack.state === "closed") button.removeAttribute("aria-expanded");
 }
 // What the one button asks while the pack owns it: nothing is chosen, or
@@ -1949,7 +1949,8 @@ function packTurned() {
 const packTurnNow = (id) => uncover(id, { flip: false, batch: true });
 // When the pack last changed what its one button does.
 let packStepAt = -Infinity,
-  packPlace = null;
+  packPlace = null,
+  packHeard = new Set();
 function openPack() {
   if (!pack.open()) return;
   dropQueuedPlay();
@@ -2723,7 +2724,7 @@ function presentPhase() {
     // An open pack's one button shows over a line still arriving: the pack
     // is opened first, and the line carries on after Done.
     revealing:
-      !packPrompt() &&
+      !(packPrompt() && pack.state !== "closed") &&
       !offerFront() &&
       (queuedChoice || !reveal.complete || exchange.hasNext || inscribing.size > 0),
     inFlight,
@@ -2937,6 +2938,7 @@ function renderActions() {
       return button;
     }),
   );
+  if ($("play-status").textContent === PACK_TEXT.reveal) $("play-status").hidden = Boolean(packAsk);
   if (packAsk) {
     const reveal = node("button", packAsk.label, "card-primary");
     reveal.type = "button";
@@ -5222,6 +5224,12 @@ function render() {
     if (id.startsWith(`tarot:${currentActor(world)}:`) && !tarotKeys().includes(id))
       encountered.delete(id);
   packSync([...availableCards(world), ...tarotKeys()]);
+  const packNews = pack.state === "closed"
+    ? pack.ids.filter((id) => !isLockedBox(world, id))
+    : [];
+  if (renderedHand && packNews.some((id) => !packHeard.has(id))) notice(PACK_TEXT.reveal);
+  else if (pack.state !== "closed" && $("play-status").textContent === PACK_TEXT.reveal) notice("");
+  packHeard = new Set([...[...packHeard].filter(cardIsCovered), ...packNews]);
   if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
   packPlace = placeHere();
   const handCards = packHand(
