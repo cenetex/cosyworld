@@ -42,6 +42,7 @@ import {
   heldByHuman,
   residentAvatar,
   unplayedAvatar,
+  awayAvatar,
 } from "./human-cast.mjs";
 export {
   currentActor,
@@ -108,6 +109,8 @@ import {
   validWant,
   WANT_KINDS,
   CONNECT_TARGET,
+  DREAM_FROM,
+  newWant,
 } from "./want.mjs";
 import { askerOf, pruneTalkQuests, talkQuest, toldWant, pinnedCompanion } from "./talk-quest.mjs";
 import {
@@ -2906,6 +2909,7 @@ function readFreePlan(s, actor) {
       (a) => a.kind === "move" && a.target === arrival,
     );
   if (landing) return { action: landing };
+  if (awayAvatar(s, actor)) return awayPlan(s, actor);
   const selected = wantPlan(s, actor);
   if (levelReturnHome(s, actor)) return selected;
   return reconsiderPlan(
@@ -2920,8 +2924,65 @@ function readFreePlan(s, actor) {
     ),
   );
 }
+const unspent = (actor, a) =>
+  !["threaten", "attack", "accept", "choose"].includes(a.kind) &&
+  !(a.kind === "drop" && (a.quest !== undefined || a.tarot !== undefined)) &&
+  !(
+    ["give", "trade", "drop", "eat"].includes(a.kind) &&
+    a.item === humanAvatar(actor).item?.id
+  );
+function awayPlan(s, actor) {
+  const acts = plannedActions(s, actor).filter((a) => unspent(actor, a));
+  const here = s.actors[actor].place,
+    near = (id) => s.actors[id]?.place;
+  const pick = (test) => acts.find((a) => a.kind !== "wait" && test(a)) || null;
+  const go = (place) =>
+    place && place !== here ? as(newWant("place", place, s.turn)) : null;
+  const as = (want) => {
+    const view = { ...s, actors: { ...s.actors, [actor]: { ...s.actors[actor], want } } };
+    const chosen = wantPlan(view, actor).action;
+    return chosen && pick((a) => a.key === chosen.key);
+  };
+  const holding = (item, then) =>
+    rootHolder(s, item) === actor ? then() : as(newWant("item", item, s.turn));
+  const escort = (w, dest) => {
+    if (near(w.target) !== here) return go(near(w.target));
+    const next = go(dest);
+    if (next?.kind !== "move" || companionOf(s, actor) === w.target) return next;
+    return pick(
+      (a) => a.kind === "accompany" && a.target === w.target && a.destination === next.target,
+    );
+  };
+  const step = (w) => {
+    const { verb, to, at, items, finish } = w.step || {};
+    if (!verb || verb === "eat") return as(w);
+    if (verb === "give")
+      return holding(w.target, () =>
+        near(to) === here
+          ? pick((a) => a.kind === "give" && a.item === w.target && a.target === to)
+          : go(near(to)),
+      );
+    if (verb === "bring" && w.kind === "person") return escort(w, at ?? near(to));
+    if (verb === "bring") return holding(w.target, () => go(at) ?? go(near(to)));
+    if (verb === "meet") return at ? escort(w, at) : go(near(w.target));
+    if (verb === "find") return go(itemPlace(s, w.target));
+    const item = verb === "lay" && !finish && items.find((i) => s.items[i]?.holder !== w.target);
+    return item
+      ? holding(item, () =>
+          here === w.target ? pick((a) => a.kind === "drop" && a.item === item) : go(w.target),
+        )
+      : null;
+  };
+  const quests = heldOf(s.actors[actor]).filter((w) => w.from !== DREAM_FROM).reverse();
+  for (const w of quests) {
+    const action = step(w);
+    if (action) return { action };
+  }
+  const wait = acts.find((a) => a.kind === "wait" && !a.sleep && !a.guards);
+  return { action: (!quests.length && go(homeOf(actor, s))) || wait || acts[0] };
+}
 function plannedActions(s, actor) {
-  return legalActions(s, actor).filter((a) => controlledByHuman(s, actor) ||
+  return legalActions(s, actor).filter((a) => controlledByHuman(s, actor) || awayAvatar(s, actor) ||
     !(["take", "steal", "ask", "threaten"].includes(a.kind) && reservedItem(s, a.item)) &&
     !(a.kind === "trade" && reservedItem(s, a.receive)));
 }
@@ -3269,7 +3330,8 @@ export function play(
         (id) =>
           residentAvatar(next, id) &&
           (next.actors[id].place === next.actors[actor].place ||
-            unplayedAvatar(next, id)),
+            unplayedAvatar(next, id) ||
+            awayAvatar(next, id)),
       ),
       ...active.filter(
         (id) =>

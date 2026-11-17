@@ -87,7 +87,7 @@ describe("avatars nobody plays live as residents", () => {
     expect(claimed.actors.mara.place).toBe("pond");
     expect(claimed.log.some((e) => e.actorId === "mara")).toBe(false);
     const away = waitFor(outside(fresh()), ["vale", "mara"], ["vale"]);
-    expect(away.actors.mara.place).toBe("pond");
+    expect(away.actors.mara.place).toBe("station");
   });
   it("never plays the local traveller on its own", () => {
     let world = enableMotives(createWorld({ opening: true, seed: 7 }));
