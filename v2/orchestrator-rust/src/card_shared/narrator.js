@@ -20443,7 +20443,7 @@
     battle_wait: ["actor", "opponent"],
     companion: ["target"],
     first_meeting: ["newcomer"],
-    want_met: ["met"],
+    want_met: ["met", "giver"],
     long_rest: ["actor"],
     first_wait: ["actor"],
     signal_echo: [],
@@ -20513,6 +20513,9 @@
       met: [actor, target].filter(
         (id) => thisTurn.some((e) => e.verb === "want_met" && e.actorId === id)
       ),
+      giver: thisTurn.some((e) => e.verb === "want_met" && e.actorId === actor) ? cast.audience.filter(
+        (id) => near(id) && world.actors[actor].closed?.[`quest:from:${id}`]?.[0] === world.turn
+      ) : [],
       place: []
     };
     const echo = played && signalEcho(world, cast.location, {
@@ -21611,6 +21614,11 @@
             facts.unshift(
               `${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`
             );
+          const player2 = currentActor(world);
+          if (world.actors[player2].closed?.[`quest:from:${id}`]?.[0] === world.turn && world.log.some(
+            (e) => e.turn === world.turn && !e.generated && e.verb === "want_met" && e.actorId === player2
+          ))
+            facts.unshift(`${nameOf(player2)} did what I asked.`);
           const company = Object.keys(world.actors).filter(
             (other) => other !== id && known.includes(other) && entityActive(world, other) && world.actors[other].place === world.actors[id].place && (!world.controlledActors?.includes(other) || world.presentActors?.includes(other))
           );

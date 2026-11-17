@@ -199,7 +199,7 @@ import {
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { recedeBackdrop } from "./combat-backdrop.mjs";
-import { createCharacterSpeech, createVoiceHistory, questLine, voiceLineIdentity } from "./character-speech.mjs";
+import { createCharacterSpeech, createVoiceHistory, voicedLine as voicedSceneLine, voiceLineIdentity } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
@@ -1206,7 +1206,7 @@ const reveal = createPagedReveal({
       completedSpokenLine = null;
       const reference = sharedVoiceReference(sharedSession?.state, shownSceneLine);
       voicedLine =
-        questLine(shownWorld(), shownSceneLine) &&
+        voicedSceneLine(shownWorld(), shownSceneLine) &&
         (!sharedSession || Boolean(reference));
       if (!voicedLine) characterSpeech.clear();
       else
@@ -1577,7 +1577,7 @@ function loadTurnLines({ pending = false } = {}) {
   );
   const voiced = lines.filter(
     (entry) =>
-      visibleText(entry.text) === entry.text && questLine(shownWorld(), entry),
+      visibleText(entry.text) === entry.text && voicedSceneLine(shownWorld(), entry),
   );
   if (localRuntime() && voiced.length) {
     const line =

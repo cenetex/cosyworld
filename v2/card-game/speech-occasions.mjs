@@ -117,6 +117,13 @@ export function speechOccasions(world, cast) {
     met: [actor, target].filter((id) =>
       thisTurn.some((e) => e.verb === "want_met" && e.actorId === id),
     ),
+    giver: thisTurn.some((e) => e.verb === "want_met" && e.actorId === actor)
+      ? cast.audience.filter(
+          (id) =>
+            near(id) &&
+            world.actors[actor].closed?.[`quest:from:${id}`]?.[0] === world.turn,
+        )
+      : [],
     place: [],
   };
   const echo =

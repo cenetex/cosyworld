@@ -177,8 +177,10 @@ async fn speak_with_flights(
     let cast: Value = serde_json::from_str(VOICES).map_err(|e| Failure::Store(e.to_string()))?;
     let world = line.world.clone().unwrap_or_default();
     let (speaker, words) = if world.is_empty() {
-        if line.occasion.as_deref() != Some("quest") {
-            return Err(Failure::Unknown);
+        match line.occasion.as_deref() {
+            Some("quest") => {}
+            Some("chance") if authority::chance_line(&line.speaker, &line.text) => {}
+            _ => return Err(Failure::Unknown),
         }
         (line.speaker.clone(), line.text.clone())
     } else {
@@ -369,6 +371,40 @@ mod tests {
         assert!(voiced(&game(json!([met])), "mara", json!(7)).is_empty());
     }
 
+    #[test]
+    fn a_line_is_voiced_by_chance_the_same_way_the_client_decides() {
+        let fixture: Value =
+            serde_json::from_str(include_str!("../../../test/fixtures/voice-chance.json")).unwrap();
+        for case in fixture.as_array().unwrap() {
+            let (speaker, text) = (
+                case["speaker"].as_str().unwrap(),
+                case["text"].as_str().unwrap(),
+            );
+            assert_eq!(
+                json!(authority::chance_line(speaker, text)),
+                case["voiced"],
+                "{text}"
+            );
+        }
+        let c = rusqlite::Connection::open_in_memory().unwrap();
+        authority::seed(&c, "Line 51.");
+        c.execute(
+            "UPDATE card_full_scenes SET content=json_remove(content,'$.quest')",
+            [],
+        )
+        .unwrap();
+        c.execute(
+            "UPDATE card_full_scenes SET content=json_set(content,'$.lines[1].actorId','moth')",
+            [],
+        )
+        .unwrap();
+        assert_eq!(authority::line(&c, "w1", "play-1", 0).unwrap(), None);
+        assert_eq!(
+            authority::line(&c, "w1", "play-1", 1).unwrap(),
+            Some(("moth".into(), "Line 51.".into()))
+        );
+    }
+
     #[tokio::test]
     async fn a_signed_in_line_is_spoken_free_and_a_failed_voice_is_reported() {
         let path =
@@ -385,7 +421,12 @@ mod tests {
             occasion: Some("quest".into()),
             ..Default::default()
         };
-        for occasion in [None, Some("talk".into()), Some("want_met".into())] {
+        for occasion in [
+            None,
+            Some("talk".into()),
+            Some("want_met".into()),
+            Some("chance".into()),
+        ] {
             let other = Line {
                 occasion,
                 ..line("vale", "A fair trade.")
@@ -399,6 +440,11 @@ mod tests {
         assert!(speak(&path, &config, "u1", &line("vale", "A fair trade."))
             .await
             .is_ok());
+        let chance = Line {
+            occasion: Some("chance".into()),
+            ..line("vale", "A fair trade, 60.")
+        };
+        assert!(speak(&path, &config, "u1", &chance).await.is_ok());
         let body = seen.lock().unwrap()[0].clone();
         assert_eq!(
             (body["model"].as_str(), body["input"].as_str()),

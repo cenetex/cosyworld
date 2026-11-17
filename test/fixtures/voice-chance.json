@@ -1,0 +1,37 @@
+[
+  {
+    "speaker": "moth",
+    "text": "Line 51.",
+    "voiced": true
+  },
+  {
+    "speaker": "moth",
+    "text": "Line 53.",
+    "voiced": true
+  },
+  {
+    "speaker": "moth",
+    "text": "Line 52.",
+    "voiced": false
+  },
+  {
+    "speaker": "vale",
+    "text": "A fair trade.",
+    "voiced": false
+  },
+  {
+    "speaker": "vale",
+    "text": "Hello.",
+    "voiced": false
+  },
+  {
+    "speaker": "rati",
+    "text": "Ça brûle — 0…",
+    "voiced": true
+  },
+  {
+    "speaker": "rati",
+    "text": "Ça brûle — 1…",
+    "voiced": false
+  }
+]
