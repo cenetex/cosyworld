@@ -224,6 +224,25 @@ try {
   await page.locator('[data-card="badger"]').waitFor({ state: "attached" });
   await ready();
   assert.equal(await sprite.getAttribute("data-state"), "awake");
+  // Turn any closed card in the clearing (a pack of one) so the phone hand rests idle.
+  const closed = page.locator('#hand .card-frame[data-pack="closed"] .card');
+  const closedId = (await closed.count()) ? await closed.first().getAttribute("data-card") : null;
+  if (closedId) {
+    await closed.first().click();
+    const lone = page.locator(`#hand [data-card="${closedId}"]`);
+    await page.locator(`#hand .card-frame[data-pack="open"] [data-card="${closedId}"]`).waitFor();
+    await lone.click();
+    await page.locator(`#card-actions [data-open-box="${closedId}"]`).click();
+    await page.waitForFunction(
+      (id) => {
+        const card = document.querySelector(`#hand [data-card="${id}"]`);
+        return card?.dataset.unrevealed === "false" && !card.dataset.revealing;
+      },
+      closedId,
+    );
+    await page.keyboard.press("Escape");
+    await ready();
+  }
   await page.setViewportSize({ width: 390, height: 844 });
   await decode();
   await page.screenshot({ path: "output/badger-check/mobile-awake.png" });
