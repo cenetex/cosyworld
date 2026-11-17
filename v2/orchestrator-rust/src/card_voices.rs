@@ -52,6 +52,8 @@ struct Line {
     /// A committed shared scene and its zero-based line position.
     play: Option<String>,
     line: Option<usize>,
+    #[serde(default)]
+    occasion: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -175,6 +177,9 @@ async fn speak_with_flights(
     let cast: Value = serde_json::from_str(VOICES).map_err(|e| Failure::Store(e.to_string()))?;
     let world = line.world.clone().unwrap_or_default();
     let (speaker, words) = if world.is_empty() {
+        if line.occasion.as_deref() != Some("quest") {
+            return Err(Failure::Unknown);
+        }
         (line.speaker.clone(), line.text.clone())
     } else {
         let (w, u) = (world.clone(), user.to_owned());
@@ -345,6 +350,25 @@ mod tests {
         crate::canonical_journal::open_event_store(path).unwrap()
     }
 
+    #[test]
+    fn only_the_resident_whose_quest_was_met_on_this_play_is_voiced() {
+        let closed = json!({"quest:from:mara":[7,"k"],"quest:from:echo":[6,"k"]});
+        let met = json!({"verb":"want_met","actorId":"vale","turn":7});
+        let game = |log: Value| json!({"actors":{"vale":{"closed":closed}},"log":log});
+        let lines =
+            json!([{"actorId":"vale"},{"actorId":"mara"},{"actorId":"echo"},{"actorId":null}]);
+        let voiced = |game: &Value, actor: &str, turn: Value| {
+            authority::quest_residents(game, actor, &turn, &lines)
+        };
+        assert_eq!(
+            voiced(&game(json!([met])), "vale", json!(7)),
+            vec!["mara".to_string()]
+        );
+        assert!(voiced(&game(json!([])), "vale", json!(7)).is_empty());
+        assert!(voiced(&game(json!([met])), "vale", Value::Null).is_empty());
+        assert!(voiced(&game(json!([met])), "mara", json!(7)).is_empty());
+    }
+
     #[tokio::test]
     async fn a_signed_in_line_is_spoken_free_and_a_failed_voice_is_reported() {
         let path =
@@ -358,8 +382,20 @@ mod tests {
             speaker: speaker.into(),
             text: text.into(),
             world: None,
+            occasion: Some("quest".into()),
             ..Default::default()
         };
+        for occasion in [None, Some("talk".into()), Some("want_met".into())] {
+            let other = Line {
+                occasion,
+                ..line("vale", "A fair trade.")
+            };
+            assert_eq!(
+                speak(&path, &config, "u1", &other).await,
+                Err(Failure::Unknown)
+            );
+        }
+        assert!(seen.lock().unwrap().is_empty());
         assert!(speak(&path, &config, "u1", &line("vale", "A fair trade."))
             .await
             .is_ok());
@@ -409,6 +445,7 @@ mod tests {
             world: Some("w1".into()),
             play: Some("play-1".into()),
             line: Some(usize::from(text == "Again?")),
+            occasion: None,
         };
         // Missing references, another world's play, and indices outside the
         // recorded exchange never reach the cache or provider.
@@ -428,6 +465,21 @@ mod tests {
             serde_json::from_value::<Line>(json!({"world":"w1","play":"play-1","line":-1}))
                 .is_err()
         );
+        let quest = |value: &str| {
+            c.execute(
+                "UPDATE card_full_scenes SET content=json_set(content,'$.quest',json(?))",
+                [value],
+            )
+            .unwrap()
+        };
+        for value in ["null", "[]", r#"["mara"]"#] {
+            quest(value);
+            assert_eq!(
+                speak(&path, &config, "u1", &line("Hello.")).await,
+                Err(Failure::Unknown)
+            );
+        }
+        quest(r#"["vale"]"#);
         assert!(seen.lock().unwrap().is_empty());
         assert_eq!(
             speak(&path, &config, "u3", &line("Hello.")).await,

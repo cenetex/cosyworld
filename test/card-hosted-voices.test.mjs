@@ -39,7 +39,7 @@ describe("hosted voices in the browser", () => {
       expect(JSON.parse(calls()[0][1].body)).toEqual(
         world
           ? { world, ...reference }
-          : { speaker: "vale", text: "The lamp is steady." },
+          : { speaker: "vale", text: "The lamp is steady.", occasion: "quest" },
       );
       // A new browser can fetch the same saved line from the server.
       await createVoiceClips(options)(
@@ -92,6 +92,7 @@ describe("hosted voices in the browser", () => {
     expect(JSON.parse(request.body)).toEqual({
       speaker: "vale",
       text: "Hello 0.",
+      occasion: "quest",
     });
     authenticated = false;
     await voices.refresh();

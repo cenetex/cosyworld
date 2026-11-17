@@ -734,6 +734,14 @@ fn full_world_shared_speech_is_journaled_with_matching_log_sequences() {
             lines.as_array_mut().unwrap().push(json!({"speaker":"Empty station","actorId":null,"entityId":work.room,"text":"A moth circles the glass."}));
         }
         full::finish_work(&state, &id, work, Ok(lines)).unwrap();
+        assert_eq!(voice(0), None, "a Wait line is text only");
+        let snap = full_store::snapshot(&c, &id, "user0", now()).unwrap();
+        assert!(snap["history"][0].get("quest").is_none());
+        c.execute(
+            r#"UPDATE card_full_scenes SET content=json_set(content,'$.quest',json('["vale"]')) WHERE play=?"#,
+            [&b.key],
+        )
+        .unwrap();
         let expected = full_store::world(&c, &id, now()).unwrap();
         let snap = full_store::snapshot(&c, &id, "user0", now()).unwrap();
         let lines = snap["history"][0]["lines"].as_array().unwrap();
