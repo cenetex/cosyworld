@@ -278,5 +278,45 @@
   "x": 0.313,
   "y": 0.007,
   "size": 0.273
+ },
+ "assets/shared/characters/vale.png": {
+  "x": 0.319,
+  "y": 0.002,
+  "size": 0.3
+ },
+ "assets/shared/characters/mara.png": {
+  "x": 0.284,
+  "y": 0.003,
+  "size": 0.3
+ },
+ "assets/shared/characters/ash.png": {
+  "x": 0.285,
+  "y": 0.012,
+  "size": 0.3
+ },
+ "assets/shared/characters/nell.png": {
+  "x": 0.354,
+  "y": 0,
+  "size": 0.3
+ },
+ "assets/shared/characters/tavi.png": {
+  "x": 0.351,
+  "y": 0.007,
+  "size": 0.3
+ },
+ "assets/shared/characters/rue.png": {
+  "x": 0.302,
+  "y": 0.001,
+  "size": 0.3
+ },
+ "assets/shared/characters/orin.png": {
+  "x": 0.349,
+  "y": 0.008,
+  "size": 0.3
+ },
+ "assets/shared/characters/ada.png": {
+  "x": 0.385,
+  "y": 0.077,
+  "size": 0.3
  }
 }
