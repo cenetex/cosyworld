@@ -34,7 +34,7 @@ describe("companions in a shared world", () => {
     w = act(w, "ash", (a) => a.kind === "talk" && a.target === "moth");
     w = wait(w, "mara");
     expect(sources(w, "ash")).toEqual([]);
-    expect(legalActions(w, "mara").some((a) => a.kind === "accept")).toBe(false);
+    expect(legalActions(w, "mara").some((a) => a.kind === "accept" && !a.box)).toBe(false);
     w.actors.moth.place = "pond";
     w = act(w, "ash", (a) => a.kind === "accept" && a.target === "moth");
     expect(sources(w, "ash")).toEqual(["quest:from:moth"]);

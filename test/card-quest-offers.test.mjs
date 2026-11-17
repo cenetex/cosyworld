@@ -45,7 +45,7 @@ it("lays the offer as its own card after Talk, held only once accepted", () => {
   expect(heldOf(world.actors.vale)).toEqual([]);
   expect(availableCards(world).some((id) => id.startsWith("quest:"))).toBe(false);
   expect(offerCard(world)).toMatchObject({ offer: "moth", kind: "item", target: "lamp", full: false });
-  const accept = legalActions(world).filter((a) => a.kind === "accept");
+  const accept = legalActions(world).filter((a) => a.kind === "accept" && !a.box);
   expect(accept).toMatchObject([{ target: "moth", cards: [] }]);
   expect(playLabel(accept[0], world)).toBe("Accept");
   expect(cardActions(world, ["moth"]).actions.some((a) => a.kind === "accept")).toBe(false);

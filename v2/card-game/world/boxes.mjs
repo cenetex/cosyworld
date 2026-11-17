@@ -138,8 +138,18 @@ function laneDefs() {
 }
 const shipDefs = () =>
   Object.entries(transports).flatMap(([transport, t]) =>
-    t.docks.map((at) => ({ kind: "ship", at, id: t.place, transport })),
+    t.docks.map((at) => ({
+      kind: "ship",
+      at,
+      id: t.place,
+      transport,
+      pack: t.packId,
+      call: crossings.find(
+        (c) => c.transport === transport && c.from === at && c.unlockWhen,
+      ),
+    })),
   );
+const called = (s, def) => !def.call || s.crossings[def.call.id].discovered;
 const crossingDefs = () =>
   crossings
     .filter((c) => c.sealed && !c.transport && !c.retired)
@@ -234,14 +244,12 @@ export function boxMet(s, def, actor = currentActor(s)) {
     case "hub":
       return def.route.requires.every((c) => conditionMet(s, c, null));
     case "ship":
-      return knowsLaneFrom(s, def.transport, def.at, actor);
+      return called(s, def) && knowsLaneFrom(s, def.transport, def.at, actor);
     default:
       return false;
   }
 }
 
-// Whether a box is on the table at all: a home's door only where this world
-// put it, and only in a shared world.
 function present(s, def) {
   switch (def.kind) {
     case "crossing":
@@ -253,8 +261,9 @@ function present(s, def) {
     }
     case "ship":
       return (
-        shipDock(s, def.transport) === def.at &&
-        transportUnlocked(s, def.transport)
+        !called(s, def) ||
+        (shipDock(s, def.transport) === def.at &&
+          transportUnlocked(s, def.transport))
       );
     default:
       return true;
@@ -263,7 +272,9 @@ function present(s, def) {
 
 /** Whether the box stands open to this actor now, as the hand shows it. */
 export const boxIdOpen = (s, id, actor) =>
-  boxDefs().some((def) => def.id === id && boxOpen(s, def, actor));
+  boxDefs().some(
+    (def) => def.id === id && present(s, def) && boxOpen(s, def, actor),
+  );
 export function boxOpen(s, box, actor = currentActor(s)) {
   const def = defOf(box);
   if (!def) return true;
@@ -380,6 +391,10 @@ function wantOf(s, def, actor) {
       return conditionGoal(s, def.pack, def.crossing.requires, actor);
     case "hub":
       return conditionGoal(s, null, def.route.requires, actor);
+    case "ship":
+      return (
+        goalsFor(s, def, actor).find((goal) => goal.kind !== "person") ?? null
+      );
     default:
       return null;
   }
@@ -421,6 +436,17 @@ export function goalsFor(s, def, actor) {
     case "hub":
       return goalsOf(s, null, def.route.requires, actor);
     case "ship":
+      if (!called(s, def))
+        return [actor, ...Object.keys(s.actors).sort()]
+          .filter(
+            (id) =>
+              id === actor ||
+              (s.actors[id].place === def.at && entityActive(s, id)),
+          )
+          .map((id) => goalsOf(s, def.pack, def.call.unlockWhen, id))
+          .reduce((least, goals) =>
+            goals.length < least.length ? goals : least,
+          );
       return Object.keys(s.actors)
         .sort()
         .filter(

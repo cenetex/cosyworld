@@ -64,7 +64,7 @@ export function wantWords(
         ? SEEK[want.kind]
         : `${verb} ${what}`;
   if (step?.verb === "lay")
-    return `lay ${list(step.items)} ${near("in", want.target)}`;
+    return `lay ${want.lit ? "the lit " : ""}${list(step.items)} ${near("in", want.target)}`;
   if (step?.verb === "give")
     return `give ${what} to ${name(step.to, "person")}`;
   if (step?.verb === "trade")

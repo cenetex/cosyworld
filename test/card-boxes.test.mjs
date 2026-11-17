@@ -120,7 +120,7 @@ describe("the hub's boxes", () => {
     world.actors.vale.place = "pond";
     world.items.lamp.holder = "vale";
     world.items.lamp.lit = false;
-    expect(boxesAt(world, "pond")).toEqual([
+    expect(boxesAt(world, "pond").filter((box) => box.kind === "hub")).toEqual([
       expect.objectContaining({
         id: "attic",
         kind: "hub",
