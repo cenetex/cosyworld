@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 import {
   encodeSave,
   decodeSave,
+  humanAvatarIds,
   legalActions,
   play,
   validateWorld,
@@ -71,7 +72,7 @@ const local = () => ({
 });
 function shared() {
   const compiled = currentSharedEngine();
-  const seat = { claimed: ["vale"], present: ["vale"] };
+  const seat = { claimed: humanAvatarIds, present: ["vale"] };
   const ask = (world, op, actor, extra = {}) => {
     const request = { ...seat, ...extra, op, actor, world };
     const result = dispatchShared(request);
@@ -326,7 +327,7 @@ it("reaches the same consequences through shared play as through local play", ()
 it("shows a second traveler the public deed and none of the first one's own record", () => {
   const { at, riteAction } = journey("shared");
   const engine = shared(),
-    both = { claimed: travelers, present: travelers };
+    both = { claimed: humanAvatarIds, present: travelers };
   const start = structuredClone(at.returned);
   const done = deed(start),
     first = own(start, "vale");

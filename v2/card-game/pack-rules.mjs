@@ -311,7 +311,8 @@ export const mayCross = (c, actor, senses) =>
   actor === senses.player ||
   roamingQuestActor(actor) ||
   packPeople[actor]?.personalQuests ||
-  senses.humanActors?.includes(actor);
+  senses.humanActors?.includes(actor) ||
+  humanAvatarIds.includes(actor);
 
 /** Places reachable by crossing from `place` now. */
 export const crossingExits = (s, place, actor, senses) =>

@@ -20,7 +20,7 @@ import {
   entityActive,
   staysPut,
 } from "./pack-registry.mjs";
-import { humanAvatar } from "./human-cast.mjs";
+import { humanAvatar, unplayedAvatar } from "./human-cast.mjs";
 import { authoredRouteEdges } from "./roaming-routes.mjs";
 import { DAYLIGHT_TURNS } from "./pack-rules.mjs";
 import { BOARDY } from "./boardyai.mjs";
@@ -101,6 +101,7 @@ export function homeOf(id, world) {
 // Infinity is no limit (the hub's residents). null is no home life at all:
 // players and their away avatars, roamers, journeys and freed residents.
 export function rangeOf(s, id) {
+  if (s && unplayedAvatar(s, id)) return Infinity;
   if (own(forest.people, id))
     return id === "vale" || forest.people[id].stops ? null : Infinity;
   const a = packPeople[id];

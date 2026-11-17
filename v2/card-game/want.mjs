@@ -727,7 +727,11 @@ export function reviseStalledWants(s, actors, api, before = s) {
       (want?.kind === "place"
         ? want.target !== s.actors[id].place &&
           !api.reachable(id).includes(want.target)
-        : want?.kind === "person" && !entityActive(s, want.target)) &&
+        : want?.kind === "person" &&
+          (!entityActive(s, want.target) ||
+            (humanAvatarIds.includes(id) &&
+              s.actors[want.target].place !== s.actors[id].place &&
+              !api.reachable(id).includes(s.actors[want.target].place)))) &&
       s.turn - stallStart(s, id, want, api) >= STALL_TURNS
     )
       giveUp(s, id, api);
