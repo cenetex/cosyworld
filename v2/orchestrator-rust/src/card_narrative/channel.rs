@@ -43,6 +43,8 @@ const ADDRESSED_WAIT: Duration = Duration::from_secs(3);
 const ADDRESSED_CALL: Duration = Duration::from_secs(6);
 const ADDRESSED_SCENE: Duration = Duration::from_secs(9);
 const CANDIDATES: usize = 8;
+const TALKED: usize = 8;
+const FLOOR: usize = 3;
 const PEOPLE: usize = 12;
 const HISTORY: usize = 200;
 const SHARES: &str = "[shares an image]";
@@ -66,6 +68,8 @@ struct Resident {
 pub(super) struct CastQuery {
     #[serde(default)]
     pack: Option<String>,
+    #[serde(default)]
+    guild: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -236,7 +240,8 @@ fn atlas(pack_id: &str) -> Atlas {
 
 impl Atlas {
     fn name(&self, id: &str) -> String {
-        let place = self.places.get(id).and_then(|p| p["name"].as_str());
+        let place = self.places.get(id).or_else(|| mounted(id));
+        let place = place.and_then(|p| p["name"].as_str());
         place.unwrap_or(id).to_string()
     }
 
@@ -307,7 +312,9 @@ fn knowledge(
     let world = atlas(pack_id);
     let card = pack(pack_id)
         .and_then(|p| p["avatars"].get(&resident.id))
+        .or_else(|| avatar_card(&resident.id))
         .or_else(|| forest_data()["people"].get(&resident.id))
+        .or_else(|| traveler(&resident.id))
         .cloned()
         .unwrap_or_default();
     let home = &resident.place;
@@ -363,28 +370,96 @@ fn world(pack_id: &str, cast: &[Resident]) -> Value {
     json!({"places": places, "homes": homes})
 }
 
+fn member(id: &str, avatar: &Value) -> Option<Resident> {
+    let portrait = avatar["portrait"]
+        .as_str()
+        .or_else(|| avatar["variants"]["awake"]["portrait"].as_str())
+        .map_or_else(|| format!("assets/{id}.png"), str::to_string);
+    Some(Resident {
+        id: id.to_string(),
+        name: avatar["name"].as_str().unwrap_or(id).to_string(),
+        place: avatar["place"].as_str()?.to_string(),
+        avatar: face_avatar(&portrait),
+        portrait: format!("/card-game/{portrait}"),
+    })
+}
+
 fn cast(pack_id: &str) -> Option<Vec<Resident>> {
     let mut residents: Vec<Resident> = pack(pack_id)?["avatars"]
         .as_object()?
         .iter()
-        .filter_map(|(id, avatar)| {
-            let portrait = avatar["portrait"]
-                .as_str()
-                .or_else(|| avatar["variants"]["awake"]["portrait"].as_str())
-                .map_or_else(|| format!("assets/{id}.png"), str::to_string);
-            Some(Resident {
-                id: id.clone(),
-                name: avatar["name"].as_str().unwrap_or(id).to_string(),
-                place: avatar["place"].as_str()?.to_string(),
-                avatar: face_avatar(&portrait),
-                portrait: format!("/card-game/{portrait}"),
-            })
-        })
+        .filter_map(|(id, avatar)| member(id, avatar))
         .collect();
     if pack_id == DEFAULT_PACK {
         residents.extend(core());
     }
     (!residents.is_empty()).then_some(residents)
+}
+
+fn avatar_card(id: &str) -> Option<&'static Value> {
+    let all = packs()["packs"].as_array()?;
+    all.iter().find_map(|p| p["avatars"].get(id))
+}
+
+fn traveler(id: &str) -> Option<&'static Value> {
+    let all = shared_cast()["avatars"].as_array()?;
+    all.iter().find(|human| human["id"] == id)
+}
+
+fn resident(id: &str) -> Option<Resident> {
+    if let Some(found) = avatar_card(id).and_then(|avatar| member(id, avatar)) {
+        return Some(found);
+    }
+    if let Some(found) = core().into_iter().find(|r| r.id == id) {
+        return Some(found);
+    }
+    let human = traveler(id)?;
+    let portrait = format!("assets/shared/characters/{id}.png");
+    Some(Resident {
+        id: id.to_string(),
+        name: human["name"].as_str()?.to_string(),
+        place: human["home"]["id"].as_str()?.to_string(),
+        avatar: face_avatar(&portrait),
+        portrait: format!("/card-game/{portrait}"),
+    })
+}
+
+fn recent(fixed: Vec<Resident>, talked: &[String]) -> Vec<Resident> {
+    let mut residents: Vec<Resident> = talked
+        .iter()
+        .filter_map(|id| resident(id))
+        .take(TALKED)
+        .collect();
+    if residents.len() < FLOOR {
+        for found in fixed {
+            if residents.len() < TALKED && !residents.iter().any(|r| r.id == found.id) {
+                residents.push(found);
+            }
+        }
+    }
+    residents
+}
+
+async fn room_cast(pack_id: &str, guild: Option<String>) -> Option<Vec<Resident>> {
+    let fixed = cast(pack_id)?;
+    let Some(guild) = guild else {
+        return Some(fixed);
+    };
+    let read = move || crate::card_shared::guild_talked(&guild);
+    let talked = tokio::task::spawn_blocking(read).await.ok().flatten();
+    Some(match talked {
+        Some(talked) => recent(fixed, &talked),
+        None => fixed,
+    })
+}
+
+fn joined(mut cast: Vec<Resident>, ids: impl IntoIterator<Item = String>) -> Vec<Resident> {
+    for id in ids {
+        if !cast.iter().any(|r| r.id == id) {
+            cast.extend(resident(&id));
+        }
+    }
+    cast
 }
 
 fn discord_image(url: &str) -> bool {
@@ -460,13 +535,19 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
     }
 }
 
+fn shared_cast() -> &'static Value {
+    static SHARED: OnceLock<Value> = OnceLock::new();
+    SHARED.get_or_init(|| {
+        serde_json::from_str(include_str!("../../../card-game/shared-cast.json"))
+            .expect("shared cast")
+    })
+}
+
 fn travelers() -> &'static std::collections::BTreeSet<String> {
     static TRAVELERS: std::sync::OnceLock<std::collections::BTreeSet<String>> =
         std::sync::OnceLock::new();
     TRAVELERS.get_or_init(|| {
-        let cast: Value = serde_json::from_str(include_str!("../../../card-game/shared-cast.json"))
-            .expect("shared cast");
-        cast["avatars"]
+        shared_cast()["avatars"]
             .as_array()
             .expect("human avatars")
             .iter()
@@ -785,7 +866,7 @@ pub(super) async fn cast_route(
         return error(StatusCode::BAD_REQUEST, "unreadable query");
     };
     let pack_id = query.pack.unwrap_or_else(|| DEFAULT_PACK.into());
-    match cast(&pack_id) {
+    match room_cast(&pack_id, query.guild).await {
         Some(residents) => (
             [("cache-control", "no-store")],
             Json(json!({"pack": pack_id, "residents": residents})),
@@ -813,6 +894,13 @@ pub(super) async fn lines(
     let Some(residents) = cast(&request.pack) else {
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
+    let named = [&request.addressed, &request.continuing]
+        .into_iter()
+        .flatten()
+        .cloned();
+    let spoke = request.messages.iter().filter_map(|m| m.resident.clone());
+    let recalled = request.channel.residents.iter().map(|r| r.id.clone());
+    let residents = joined(residents, named.chain(spoke).chain(recalled));
     if let Err(message) = validate(&request, &residents) {
         return error(StatusCode::BAD_REQUEST, message);
     }
@@ -1012,9 +1100,16 @@ pub(super) async fn coordinate(
     let Ok(Json(mut request)) = request else {
         return error(StatusCode::BAD_REQUEST, "unreadable request");
     };
-    let Some(residents) = cast(&request.pack) else {
+    let Some(residents) = room_cast(&request.pack, request.guild.clone()).await else {
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
+    let history = request.state.get("history").and_then(Value::as_array);
+    let spoke = history
+        .into_iter()
+        .flatten()
+        .filter_map(|l| l["resident"].as_str());
+    let spoke: Vec<String> = spoke.map(str::to_string).collect();
+    let residents = joined(residents, request.residents.iter().cloned().chain(spoke));
     let ids = residents.iter().map(|r| r.id.clone()).collect();
     request.live = live(request.guild.clone(), ids).await;
     let Some(mut view) = arranged(&request, &residents) else {
@@ -1086,6 +1181,8 @@ pub(super) async fn notes(
     let Some(residents) = cast(&request.pack) else {
         return error(StatusCode::BAD_REQUEST, "unknown pack");
     };
+    let spoke = request.messages.iter().filter_map(|m| m.resident.clone());
+    let residents = joined(residents, spoke);
     let fits = (1..=12).contains(&request.messages.len())
         && request.notes.as_ref().is_none_or(sound)
         && pictures(&request.messages) <= IMAGES_PER_REQUEST
@@ -1268,6 +1365,53 @@ mod tests {
         );
         assert_eq!(find("oak").name, "Oak");
         assert!(cast("no-such-pack").is_none());
+    }
+
+    #[test]
+    fn a_server_world_brings_the_characters_talked_to_most_recently() {
+        let fixed = cast("lonely-forest").unwrap();
+        let ids = |list: &[Resident]| list.iter().map(|r| r.id.clone()).collect::<Vec<_>>();
+        let talked = ["greek-antigone", "rue", "keeper"].map(String::from);
+        let three = recent(fixed.clone(), &talked);
+        assert_eq!(ids(&three), talked);
+        assert_eq!(three[0].name, "Antigone");
+        assert_eq!(
+            three[0].portrait,
+            "/card-game/assets/greek-drama/chthonic-antigone.png"
+        );
+        assert_eq!(
+            three[0].avatar.as_deref(),
+            Some("/card-game/assets/faces/greek-drama-chthonic-antigone.webp")
+        );
+        assert_eq!(
+            (three[1].name.as_str(), three[1].portrait.as_str()),
+            ("Rue", "/card-game/assets/shared/characters/rue.png")
+        );
+        let many: Vec<String> = pack("greek-drama").unwrap()["avatars"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .take(TALKED + 2)
+            .cloned()
+            .collect();
+        let capped = recent(fixed.clone(), &many);
+        assert_eq!(ids(&capped), many[..TALKED]);
+        let few = recent(fixed.clone(), &["keeper".into(), "nobody".into()]);
+        assert_eq!(few[0].id, "keeper");
+        assert_eq!(few.len(), fixed.len());
+        assert!(fixed
+            .iter()
+            .all(|r| few.iter().filter(|f| f.id == r.id).count() == 1));
+        assert_eq!(recent(fixed.clone(), &[]), fixed);
+    }
+
+    #[test]
+    fn a_character_from_any_pack_may_speak_in_the_room() {
+        let ids = ["greek-antigone", "nobody", "keeper", "mara"].map(String::from);
+        let all = joined(cast("lonely-forest").unwrap(), ids);
+        assert_eq!(all.len(), 9);
+        assert_eq!(all[7].id, "greek-antigone");
+        assert_eq!(all[8].name, "Mara");
     }
 
     #[test]
@@ -2222,6 +2366,10 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::NOT_FOUND);
         assert_eq!(body, json!({"error": "unknown pack"}));
+        let guild = "/discord/cast?pack=lonely-forest&guild=100000000000000009";
+        let (status, body) = read(app.clone().oneshot(get(guild, TOKEN)).await.unwrap()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["residents"].as_array().unwrap().len(), 7);
         let (status, _) = read(app.oneshot(get("/discord/cast", WRONG)).await.unwrap()).await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
