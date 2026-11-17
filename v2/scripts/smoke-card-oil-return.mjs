@@ -123,7 +123,6 @@ try {
     );
     assert(!(await floor()).includes("oil"), "the flask leaves the pond");
     await page.screenshot({ path: new URL(`pond-${width}.png`, output).pathname });
-    // The full flask waits on the station floor.
     await cards("station");
     await page.waitForFunction(() =>
       document.querySelector("#backdrop").src.includes("station"),
