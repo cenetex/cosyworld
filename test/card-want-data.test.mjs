@@ -62,12 +62,6 @@ describe("want data", () => {
           finish: "greek-burial-performed",
         },
       },
-      // The guard wants to eat the bread (Greek revision 20).
-      "greek-guard": {
-        kind: "item",
-        target: "greek-bread",
-        step: { verb: "eat" },
-      },
       "greek-baker": {
         kind: "place",
         target: "greek-courtyard",

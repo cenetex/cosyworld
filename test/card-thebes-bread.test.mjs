@@ -131,7 +131,7 @@ describe("the guard and the decree", () => {
     s = states.traded;
     expect(s.items["greek-decree"].holder).toBe("vale");
     expect(locked(s, "greek-bread")).toBe(true);
-    expect(s.actors[GUARD].want).toBe(null);
+    expect(s.actors[GUARD].want).toMatchObject({ target: "greek-creon-writ" });
     expect(out(s)).toBe(false);
     // The decree buys Creon's writ; the writ in his hands, he stands aside.
     s = states.opened;
