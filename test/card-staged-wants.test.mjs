@@ -230,19 +230,15 @@ describe("selection", () => {
     expect(s.actors[R].want).toBeNull();
     expect(s.actors[R].content).toBe(true);
   });
-  it("replaces a given-up want with another staged one", () => {
+  it("keeps a refused staged want", () => {
     stage(item("greek-figs"), item("greek-shovel"));
     const s = world();
     const held = s.actors[R].want.target;
-    // Refused three times, she sets it aside for the other staged want.
     refuseWant(s, R, held, wantAPI(s));
     refuseWant(s, R, held, wantAPI(s));
     refuseWant(s, R, held, wantAPI(s));
-    expect(s.actors[R].gaveUp.target).toBe(held);
-    expect(s.actors[R].want.target).not.toBe(held);
-    expect(stagedWants(s, R).map((e) => e.want.target)).toContain(
-      s.actors[R].want.target,
-    );
+    expect(s.actors[R].gaveUp).toBeUndefined();
+    expect(s.actors[R].want.target).toBe(held);
   });
   it("saves nothing new: only the want, and a reload agrees", () => {
     stage(item("greek-figs"), item("greek-shovel"), item("greek-wine-skin"));

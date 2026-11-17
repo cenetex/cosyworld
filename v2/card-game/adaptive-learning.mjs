@@ -1,6 +1,7 @@
 // Online action values come from completed plays. The game supplies legal
 // actions and goals; experience supplies each avatar's estimates and choices.
 import { grievanceActive } from "./knowledge.mjs";
+import { quietWant } from "./want.mjs";
 export const TRIAL_LIMIT = 32;
 const horizon = 4;
 const discount = 0.7;
@@ -191,7 +192,8 @@ function tieBreak(text) {
 }
 export function learnedPlan(world, actor, selected, actions, conditionsFor) {
   const goal = goalFor(world, actor, selected.action);
-  if (!goal) return selected;
+  if (!goal || (goal.kind === "ask" && quietWant(world, actor, goal.item)))
+    return selected;
   const before = observation(world, actor, goal);
   if (before.met) return selected;
   const trials = trialsFor(world, actor, goal);

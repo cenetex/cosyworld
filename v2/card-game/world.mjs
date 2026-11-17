@@ -100,6 +100,7 @@ import {
   settleLost,
   meetsItemWant,
   refuseWant,
+  quietWant,
   reviseStalledWants,
   fillWants,
   renewWant,
@@ -2957,8 +2958,6 @@ function stepToward(s, actor, target) {
   };
 }
 // Pursue the want with the fixed verbs: go there, then ask, trade, threaten.
-// A refusal is an outcome: it counts against the want, and enough of them
-// set it aside.
 function wantPlan(s, actor) {
   const acts = plannedActions(s, actor);
   const find = (kind, test = () => true) =>
@@ -3121,6 +3120,7 @@ function wantPlan(s, actor) {
     const drop = spares("drop")[0];
     return drop ? { action: drop } : idle();
   }
+  if (quietWant(s, actor, item)) return idle();
   const recent = (verb, test = () => true) =>
     s.log.some(
       (e) =>
@@ -3388,6 +3388,7 @@ export function play(
       (id) => !controlledByHuman(next, id),
     ),
     wantAPI(next),
+    s,
   );
   settleLost(next, wantAPI(next));
   pruneTalkQuests(next, wantAPI(next));

@@ -22,7 +22,7 @@ import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
-import { HEARD_FROM, heardWant, rivalled, validRumours } from "./world/rumours.mjs";
+import { HEARD_FROM, heardWant, validRumours } from "./world/rumours.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
 import {
   arcanaLevel,
@@ -47,9 +47,7 @@ const SAVED_STEP_VERBS = ["threaten", "attack"];
 
 // A connect want introduces people: its one target is the connected humans.
 export const CONNECT_TARGET = "humans";
-// A want is set aside after this many refusals, or after a long spell with
-// no way forward, and its target stays out of mind a while. A rest lasts a
-// few turns after a want is met, wherever it was met.
+// A rest lasts a few turns after a want is met, wherever it was met.
 export const REFUSAL_LIMIT = 3;
 export const STALL_TURNS = 48;
 export const REST_TURNS = 3;
@@ -681,52 +679,52 @@ function commitMet(s, id, api, met, held = null) {
 // A refusal of the actor's own want counts; enough of them set it aside.
 export function refuseWant(s, actor, item, api) {
   const want = wantOf(s, actor);
-  // A player's quest is never set aside by refusals; Drop sets it down.
   if (want?.kind !== "item" || want.target !== item || api.player(actor))
     return;
-  // A resident that keeps to its scene only tries while someone is there, so
-  // its stall clock starts at the first real attempt, not when it was given.
   if (want.refusals === 0 && !travels(actor, s)) want.since = s.turn;
-  want.refusals += 1;
-  if (want.refusals >= REFUSAL_LIMIT) giveUp(s, actor, api);
+  want.refusals = Math.min(REFUSAL_LIMIT, want.refusals + 1);
 }
-// A set-aside want stays out of mind for a while. A resident holds one want,
-// so the want it sets aside is replaced by a newly drawn one and its target is
-// remembered in `gaveUp`; nothing is kept beneath it.
+export const quietWant = (s, actor, item) => {
+  const want = s.actors[actor]?.want;
+  return Boolean(
+    want?.kind === "item" &&
+      want.target === item &&
+      want.refusals >= REFUSAL_LIMIT,
+  );
+};
 function giveUp(s, actor, api) {
   const a = s.actors[actor],
     want = a.want;
   a.gaveUp = { target: want.target, turn: s.turn };
   setWant(a, nextWant(s, actor, api, want));
 }
-// A cast want with no way forward for a long spell is set aside. A resident
-// that keeps to its scene acts only when someone is there, so time spent
-// unseen is not a stall: its want can stall only after it has tried and been
-// refused at least once.
-// Where a want's stall clock starts: its draw, the turn a player first met
-// the resident, or the latest arrival, whichever is last (rules 133).
-// `dwellUntil` less the longest stay is never after the arrival.
 const stallStart = (s, id, want, api) =>
   Math.max(
     want.since,
     api.metTurn?.(id) ?? 0,
     (s.actors[id].dwellUntil ?? 0) - MAX_DWELL,
   );
-export function reviseStalledWants(s, actors, api) {
-  // A resident's want clock starts when he first becomes active: while his card
-  // is shut or he is absent, the want is kept fresh, so he does not arrive
-  // with a stalled want that is set aside at once (rules 133).
-  for (const [id, a] of Object.entries(s.actors))
+export function reviseStalledWants(s, actors, api, before = s) {
+  for (const [id, a] of Object.entries(s.actors)) {
     if (a.want && !api.player(id) && !entityActive(s, id))
       a.want.since = s.turn;
+    if (
+      a.want?.kind === "item" &&
+      a.want.refusals &&
+      before.items[a.want.target] &&
+      rootOf(before, a.want.target) !== rootOf(s, a.want.target)
+    )
+      a.want.refusals = 0;
+  }
   for (const id of actors) {
     const want = wantOf(s, id);
     if (
-      want &&
+      want?.kind === "place" &&
       !api.player(id) &&
-      (travels(id, s) || api.wanders?.(id) || want.refusals > 0) &&
-      s.turn - stallStart(s, id, want, api) >= STALL_TURNS &&
-      !rivalled(s, id, api)
+      (travels(id, s) || api.wanders?.(id)) &&
+      want.target !== s.actors[id].place &&
+      !api.reachable(id).includes(want.target) &&
+      s.turn - stallStart(s, id, want, api) >= STALL_TURNS
     )
       giveUp(s, id, api);
   }
@@ -974,6 +972,6 @@ function validQuest(s, id, w) {
       whole(w.since) &&
       Number.isInteger(w.refusals) &&
       w.refusals >= 0 &&
-      w.refusals < REFUSAL_LIMIT,
+      w.refusals <= REFUSAL_LIMIT,
   );
 }
