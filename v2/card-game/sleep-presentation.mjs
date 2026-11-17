@@ -109,9 +109,8 @@ export const DARK_BEATS = new Set([
   "dream",
 ]);
 
-// One wake's sequence. Timers come from `schedule`/`cancel`, so tests can
-// drive it by hand. `changed(state)` runs at every beat and change;
-// `finishReveal()` asks the dialogue to finish writing the dream.
+// One wake's sequence; tests drive its `schedule`/`cancel` timers by hand.
+// `changed(state)` runs at every beat; `finishReveal()` finishes the dream.
 //
 // A tap finishes the current beat. On "Dreaming…" the first tap
 // asks and the second cancels; the dream then reads "…", as failed words do.
