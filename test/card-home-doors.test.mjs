@@ -246,7 +246,6 @@ describe("an unlocked avatar's homecoming", () => {
         "forest-garden",
         "forest-oak",
         "greek-ship",
-        "hoppycat-halfway-tea-garden",
         "willows-bank",
         "willows-camp",
         "willows-thicket",
