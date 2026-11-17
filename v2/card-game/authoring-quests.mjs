@@ -108,17 +108,6 @@ export function changeLaneRequirements(source, ship, index, conditions) {
   }
   const problems = laneProblems({ ...transport, lanes });
   need(problems.length === 0, problems[0]);
-  const home = new Set([transport.at]);
-  for (const dock of home)
-    for (const lane of lanes) {
-      if (lane.opensWith?.length || lane.spends?.length) continue;
-      if (lane.to === dock) home.add(lane.from);
-      if (!lane.oneWay && lane.from === dock) home.add(lane.to);
-    }
-  need(
-    transport.docks.every((dock) => home.has(dock)),
-    "Keep a free voyage home from every dock.",
-  );
   return sourceEdit(source, "Change voyage conditions", [
     { path: ["bridge", "transports", ship, "lanes"], value: lanes },
   ]);

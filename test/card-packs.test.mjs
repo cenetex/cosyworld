@@ -27,7 +27,10 @@ import {
 } from "../v2/card-game/cards.mjs";
 import { portrait } from "../v2/card-game/scene.mjs";
 import { knownActors } from "../v2/card-game/want.mjs";
-import { packProblems } from "../v2/card-game/pack-schema.mjs";
+import {
+  packProblems,
+  packWarnings,
+} from "../v2/card-game/pack-schema.mjs";
 import {
   hub,
   packDefinitions,
@@ -105,7 +108,6 @@ describe("world packs on the card table", () => {
       [(p) => (p.crossings[1].from = "station"), /join a hub place/],
       [(p) => (p.crossings[0].signal.steps[0].verb = "sing"), /known verb/],
       [(p) => (p.avatars.bell = p.avatars.badger), /reuse hub ids/],
-      [(p) => p.crossings.splice(1, 1), /crossing back to the hub/],
       [(p) => delete p.avatars.badger.travels, /stage needs/],
       [
         (p) => (p.avatars.badger.variants.awake.greet = "Hi {friend}."),
@@ -427,7 +429,7 @@ describe("a resident's temperament", () => {
   });
 });
 
-it("joins homes through distinct hub places while checking every home has a route", () => {
+it("joins homes through distinct hub places and notes a home with no route", () => {
   const mounted = packDefinitions
     .filter((p) => p.id !== humanHomePack.id)
     .flatMap((p) => Object.keys(p.places));
@@ -436,7 +438,14 @@ it("joins homes through distinct hub places while checking every home has a rout
   disconnected.crossings = disconnected.crossings.filter(
     (c) => c.to !== "train",
   );
-  expect(packProblems(disconnected, hub, mounted)).toContain(
+  expect(packProblems(disconnected, hub, mounted)).toEqual([]);
+  expect(packWarnings(disconnected, hub, mounted)).toContain(
     "shared-homes: every place must be reachable from the entry",
+  );
+  const noWayBack = forest();
+  noWayBack.crossings.splice(1, 1);
+  expect(packProblems(noWayBack, hub)).toEqual([]);
+  expect(packWarnings(noWayBack, hub).join("; ")).toMatch(
+    /crossing back to the hub/,
   );
 });

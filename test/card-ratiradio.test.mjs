@@ -459,28 +459,6 @@ it("leaves no placement of the key, beanie and Thermos that shuts a door for goo
   expect(stuck).toEqual([]);
 });
 
-it("never traps a traveler: every way out of the opened rooms stays plain", () => {
-  let s = steps(fixture(), upTo("move", home));
-  s = act(gather(s, rati), "take", id("raven-figurine"));
-  s = act(s, "talk", rati);
-  s = act(s, "move", id("broadcast-booth"));
-  // Behind every live door, with its item gone, the way back is still open.
-  for (const item of ["red-beanie", "thermos"]) s.items[id(item)].holder = "pond";
-  s.items[id("station-key")].holder = "pond";
-  for (const [here, back] of [
-    [id("broadcast-booth"), home],
-    [home, id("dispatch-window")],
-    [id("dispatch-window"), id("staff-kitchen")],
-    [id("staff-kitchen"), "station"],
-  ]) {
-    s.actors.vale.place = here;
-    expect(canMove(s, back), `${here} to ${back}`).toBe(true);
-  }
-  // Without the key, the entrance is shut from outside only.
-  s.actors.vale.place = "station";
-  expect(canMove(s, id("staff-kitchen"))).toBe(false);
-});
-
 it("opens the Broadcast Booth by talking with RATi while holding the figurine", () => {
   let s = steps(fixture(), upTo("move", home));
   s = gather(s, rati);

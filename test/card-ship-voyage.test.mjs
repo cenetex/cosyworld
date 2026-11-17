@@ -84,24 +84,25 @@ describe("sea lanes", () => {
     expect(ship().docks).not.toContain("greek-athens-harbor");
   });
 
-  it("the validator rejects a fifth lane, a stray dock and a dock with no way out", () => {
+  it("the validator rejects a fifth lane and a stray dock, and notes a dock with no way out", () => {
     const docks = ["a", "b", "c", "d", "e", "f"];
     const star = docks.slice(1).map((to) => ({ from: "a", to }));
     expect(laneProblems({ docks, lanes: star })).toContain(
       "dock a has more than 4 lanes",
     );
-    expect(laneProblems({ docks, lanes: star.slice(0, 4) })).toContain(
-      "dock f has no lane out",
-    );
+    const notes = [];
+    expect(laneProblems({ docks, lanes: star.slice(0, 4) }, notes)).toEqual([]);
+    expect(notes).toEqual(["dock f has no lane out"]);
     expect(
       laneProblems({ docks: ["a", "b"], lanes: [{ from: "a", to: "z" }] }),
     ).toContain("has a lane that does not join two of its docks");
     expect(
-      laneProblems({
-        docks: ["a", "b"],
-        lanes: [{ from: "a", to: "b", oneWay: true }],
-      }),
-    ).toContain("dock b has no lane out");
+      laneProblems(
+        { docks: ["a", "b"], lanes: [{ from: "a", to: "b", oneWay: true }] },
+        notes,
+      ),
+    ).toEqual([]);
+    expect(notes).toContain("dock b has no lane out");
   });
 });
 
