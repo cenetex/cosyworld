@@ -189,7 +189,6 @@ async function localCheck(width, actor, kind, mode) {
           id,
           text: `Accepted words for ${id}.`,
         }));
-        // Lines stream in speaking order; the completion carries every entity.
         for (const id of speakers.slice(from))
           globalThis.story.line(id, `Accepted words for ${id}.`);
         globalThis.story.complete({
