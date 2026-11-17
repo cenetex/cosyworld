@@ -252,7 +252,6 @@ async function localCheck(width, actor, kind, mode) {
     await keepsReply(page, words(actor), false);
     await finish(1);
   } else {
-    // A whole exchange plays in speaking order.
     await finish(speakers.length);
     await shows(page, actor);
   }
