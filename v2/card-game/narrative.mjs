@@ -466,12 +466,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
             })]
           : []),
         ...(kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : []),
-        ...knowledgeFacts(
-          pastDeedsAside(world, id, told(id), between.retold),
-          id,
-          nameOf,
-          told(id),
-        ),
+        null,
         ...(id === BOARDY ? boardyFacts(world, nameOf) : []),
         ...recitalFacts(world, packDefinitions, id),
         ...(kind === "avatar" ? laneTalkFacts(world, id) : []),
@@ -642,6 +637,17 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       }
       facts.push(
         `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf).join(", ") || "none"}.`,
+      );
+      facts.splice(
+        facts.indexOf(null),
+        1,
+        ...knowledgeFacts(
+          pastDeedsAside(world, id, told(id), between.retold),
+          id,
+          nameOf,
+          told(id),
+          Math.max(2, 17 - facts.length),
+        ),
       );
       return {
         id,

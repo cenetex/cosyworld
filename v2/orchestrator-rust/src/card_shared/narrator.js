@@ -1751,21 +1751,6 @@
   var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
   var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
   var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
-  var FACT_FORMS = Object.fromEntries(
-    [
-      "me:i my:i mine:i myself:i your:you yours:you yourself:you is:be was:be ",
-      "am:be are:be were:be been:be m:be re:be has:have had:have ve:have ",
-      "does:do did:do goes:go went:go took:take gave:give chose:choose ",
-      "brought:bring threw:throw made:make saw:see found:find held:hold ",
-      "kept:keep told:tell sold:sell bought:buy caught:catch led:lead ",
-      "fought:fight rang:ring ran:run came:come said:say stole:steal hid:hide ",
-      "wrote:write drew:draw knew:know fell:fall sat:sit stood:stand ",
-      "sent:send lost:lose met:meet paid:pay struck:strike won:win woke:wake ",
-      "broke:break spoke:speak ate:eat drank:drink sang:sing swore:swear ",
-      "wore:wear tore:tear left:leave"
-    ].join("").split(" ").map((pair) => pair.split(":"))
-  );
-  var VOWELS = /* @__PURE__ */ new Set([..."aeiou"]);
   var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
   var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
   var GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
@@ -1784,10 +1769,16 @@
       text: world.knowledge.facts[p.factId].text
     }));
   }
-  function knowledgeFacts(world, actor, nameOf2 = (id) => id, priority = [], relevant = []) {
-    const rank2 = (id) => priority.includes(id) ? 2 : relevant.includes(id) ? 1 : 0;
+  function knowledgeFacts(world, actor, nameOf2 = (id) => id, priority = [], limit = 2) {
     const known = world.knowledge?.known?.[actor] || {};
-    return Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean).sort((a, b) => rank2(b.id) - rank2(a.id) || compareFacts(a, b)).slice(0, 2).map((fact) => {
+    const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
+    const first = (a, b) => priority.includes(b.id) - priority.includes(a.id);
+    const facts = Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean);
+    const told = facts.filter((fact) => known[fact.id].kind === "heard").sort(
+      (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b)
+    ).slice(0, limit);
+    const seen = facts.filter((fact) => known[fact.id].kind === "witnessed").sort((a, b) => first(a, b) || compareFacts(a, b)).slice(0, Math.min(2, limit - told.length));
+    return [...told, ...seen].sort(first).map((fact) => {
       const memory = known[fact.id];
       const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf2(memory.teller)} told me`;
       const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
@@ -21476,12 +21467,7 @@
             legend: (thing) => packThings[thing]?.legend
           })] : [],
           ...kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : [],
-          ...knowledgeFacts(
-            pastDeedsAside(world, id, told(id), between.retold),
-            id,
-            nameOf,
-            told(id)
-          ),
+          null,
           ...id === BOARDY ? boardyFacts(world, nameOf) : [],
           ...recitalFacts(world, packDefinitions, id),
           ...kind === "avatar" ? laneTalkFacts(world, id) : [],
@@ -21604,6 +21590,17 @@
         }
         facts.push(
           `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf).join(", ") || "none"}.`
+        );
+        facts.splice(
+          facts.indexOf(null),
+          1,
+          ...knowledgeFacts(
+            pastDeedsAside(world, id, told(id), between.retold),
+            id,
+            nameOf,
+            told(id),
+            Math.max(2, 17 - facts.length)
+          )
         );
         return {
           id,
