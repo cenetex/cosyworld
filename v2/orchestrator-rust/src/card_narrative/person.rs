@@ -371,5 +371,14 @@ mod tests {
         ] {
             assert_eq!(fact(text, "vale", true).as_deref(), mine, "{text}");
         }
+        let refusal = "Pip refused Vale's offer of Bell (refusal: wants-something-else). Pip wants the Lamp. Nothing changed.";
+        assert_eq!(
+            fact(refusal, "moth", true).as_deref(),
+            Some("I refused Vale's offer of Bell. I want the Lamp. Nothing changed.")
+        );
+        assert_eq!(
+            fact(refusal, "vale", true).as_deref(),
+            Some("Pip refused my offer of Bell. Pip wants the Lamp. Nothing changed.")
+        );
     }
 }

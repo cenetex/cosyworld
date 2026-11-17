@@ -2839,6 +2839,14 @@
       return `I want ${said.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.${help}`;
     return (said.kind === "item" ? said.step?.verb === "eat" ? `I want to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${article(name)}${said.step.at ? ` at ${nameOf2(said.step.at)}` : ""}.` : said.step?.verb === "bring" && said.step.at ? `I want ${article(name)} brought to ${nameOf2(said.step.at)}.` : said.step?.verb === "give" && said.step.to !== id ? `I want ${article(name)} given to ${nameOf2(said.step.to)}.` : `I want ${article(name)}.` : said.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
   }
+  function refusalWhy(entry, nameOf2) {
+    const who = nameOf2(entry.targetId), id = entry.wantId;
+    if (entry.reason === "grudge") return `${who} holds a grudge.`;
+    if (entry.reason === "needs-it") return `${who} needs it.`;
+    if (!id) return `${who} wants something else.`;
+    const name = nameOf2(id);
+    return forest_default.people[id] || packPeople[id] ? `${who} wants to see ${name}.` : forest_default.places[id] || packPlaces[id] ? `${who} wants to be at ${name}.` : `${who} wants ${article(name)}.`;
+  }
   var wantHeard = (world, played, id, player2) => id === player2 || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
 
   // v2/card-game/world/dwell.mjs
@@ -20168,6 +20176,10 @@
         fail(`log:${e.seq}:rest`);
       if (e.reason !== void 0 && (!REFUSED_VERBS.includes(e.verb) || e.accepted !== false || !REFUSAL_REASONS.includes(e.reason)))
         fail(`log:${e.seq}:reason`);
+      if (e.wantId !== void 0 && (e.reason !== "wants-something-else" || ![ids, actorIds, Object.keys(places)].some(
+        (all) => all.includes(e.wantId)
+      )))
+        fail(`log:${e.seq}:wantId`);
       if (e.verb === "accompany" && (!actorIds.includes(e.actorId) || !actorIds.includes(e.targetId) || e.targetId === e.actorId || !Object.hasOwn(places, e.destinationId) || !Object.hasOwn(places, e.fromLocationId) || e.destinationId === e.fromLocationId || typeof e.accepted !== "boolean" || e.locationId !== (e.accepted ? e.destinationId : e.fromLocationId)))
         fail(`log:${e.seq}:accompany`);
       if (e.itemId != null && !ids.includes(e.itemId)) fail(`log:${e.seq}:item`);
@@ -21261,7 +21273,7 @@
   // v2/card-game/narrative.mjs
   function refusalFact(played) {
     const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
-    return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed.`;
+    return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). ${refusalWhy(played, nameOf)} Nothing changed.`;
   }
   function turnOutcome(world) {
     const hand = (id) => sleepingPortrait(world, id) ? null : heldItem(world, id);
