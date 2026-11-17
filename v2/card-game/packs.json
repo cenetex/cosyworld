@@ -398,7 +398,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 29,
+      "revision": 30,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -1671,13 +1671,33 @@
             "sore": "being blamed for things outside his sight",
             "reason": "He guards the road to the battlefield and stands aside only for Creon’s writ or the herald’s truce. He keeps glancing toward the smell of Dione’s oven."
           },
-          "want": {
-            "kind": "item",
-            "target": "greek-bread",
-            "step": {
-              "verb": "eat"
+          "wants": [
+            {
+              "want": {
+                "kind": "item",
+                "target": "greek-bread",
+                "step": {
+                  "verb": "eat"
+                }
+              }
+            },
+            {
+              "want": {
+                "kind": "item",
+                "target": "greek-creon-writ"
+              },
+              "when": [
+                {
+                  "kind": "not",
+                  "condition": {
+                    "kind": "holding",
+                    "item": "greek-decree",
+                    "actor": "greek-guard"
+                  }
+                }
+              ]
             }
-          },
+          ],
           "bonds": {
             "greek-baker": 2
           }
