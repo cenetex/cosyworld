@@ -1788,6 +1788,9 @@ function travelParty(s, actors, destination) {
   markCrossed(s, from, destination);
   for (const actor of actors) applyDeparture(s, actor, destination);
   for (const actor of actors) {
+    const own = unplayedAvatar(s, actor) && humanAvatar(actor);
+    if (own && own.home.id === from && s.items[own.item.id]?.holder === actor)
+      s.items[own.item.id].holder = from;
     if (through) s.actors[actor].crossed += 1;
     s.actors[actor].place = destination;
     // A resident that arrives stays a while (rules 133).
