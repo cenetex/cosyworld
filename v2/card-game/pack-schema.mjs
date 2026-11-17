@@ -125,9 +125,9 @@ export function waitWordsOk(t) {
 }
 const intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 // The sea is an authored graph. A lane joins two docks and is two-way unless
-// marked one-way. Each dock has at most four lanes and at least one way out.
+// marked one-way. Each dock has at most four lanes.
 export const MAX_LANES = 4;
-export function laneProblems(t) {
+export function laneProblems(t, warnings = []) {
   const out = [];
   if (!Array.isArray(t.lanes) || !t.lanes.length) return ["needs sea lanes"];
   const docks = Array.isArray(t.docks) ? t.docks : [];
@@ -166,7 +166,7 @@ export function laneProblems(t) {
   for (const [dock, set] of neighbours) {
     if (set.size > MAX_LANES)
       out.push(`dock ${dock} has more than ${MAX_LANES} lanes`);
-    if (!leaving.has(dock)) out.push(`dock ${dock} has no lane out`);
+    if (!leaving.has(dock)) warnings.push(`dock ${dock} has no lane out`);
   }
   return out;
 }
@@ -297,11 +297,20 @@ export const mediaPathOk = (pack, path) =>
  * Validate one compiled pack (source plus bridge) against the hub it joins.
  * Returns a list of readable problems; an empty list means the pack is valid.
  */
-export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
+export function packProblems(
+  pack,
+  hub,
+  mountedPlaces = [],
+  mountedItems = [],
+  warnings = [],
+) {
   const problems = [];
   const check = (ok, message) => {
     if (!ok) problems.push(`${pack?.id || "pack"}: ${message}`);
     return ok;
+  };
+  const warn = (ok, message) => {
+    if (!ok) warnings.push(`${pack.id}: ${message}`);
   };
   if (
     !check(
@@ -553,23 +562,26 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
           ),
         `place ${id} backdrops need a backdrop in this pack and saved conditions`,
       );
-    if (p.road !== undefined)
-      check(
+    if (p.road !== undefined) {
+      const fixed = check(
         Array.isArray(p.road) &&
           p.road.length === 2 &&
           new Set(p.road).size === 2 &&
-          p.road.every(
-            (end, i) =>
-              owns(places, end) &&
-              p.exits[i] === end &&
-              (p.retired === true ||
-                places[end].exits.includes(id) ||
-                // A gated end leads onto its road by a route.
-                (pack.routes || []).some((r) => r.from === end && r.to === id)),
-          ) &&
+          p.road.every((end, i) => owns(places, end) && p.exits[i] === end) &&
           p.exits.length === 2,
+        `road ${id} needs two fixed ends`,
+      );
+      warn(
+        !fixed ||
+          p.retired === true ||
+          p.road.every(
+            (end) =>
+              places[end].exits.includes(id) ||
+              (pack.routes || []).some((r) => r.from === end && r.to === id),
+          ),
         `road ${id} needs two fixed ends with a return path`,
       );
+    }
     // A retired road or place keeps its ID for saved history. No place leads
     // onto it. A retired place has one exit: the place that took it in.
     if (p.retired !== undefined)
@@ -1387,10 +1399,10 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     );
     requirements(r.requires, "route requires");
     requirements(r.travelerRequires, "route traveller requires", true, true);
-    check(
+    warn(
       routes.some((q) => q.from === r.to && q.to === r.from) ||
         places[r.to]?.exits?.includes(r.from),
-      "a route has no return",
+      `a route has no return: ${r.from}>${r.to}`,
     );
   }
   const choices = pack.choices || [],
@@ -1788,7 +1800,7 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         ...routes.filter((r) => r.from === id).map((r) => r.to),
       ].filter((id) => r.places.includes(id)))
         reachable.add(to);
-    check(
+    warn(
       r.places.every((p) => reachable.has(p) || places[p]?.retired === true),
       "release contains a disconnected place",
     );
@@ -1857,8 +1869,10 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
     );
     if (!valid) continue;
     transportPlaces.add(t.place);
-    for (const message of laneProblems(t))
+    const laneNotes = [];
+    for (const message of laneProblems(t, laneNotes))
       check(false, `transport ${id} ${message}`);
+    for (const note of laneNotes) warn(false, `transport ${id} ${note}`);
     // A gated lane opens with conditions on the ship, from its first port.
     for (const lane of t.lanes || [])
       if (lane?.opensWith !== undefined) {
@@ -1880,17 +1894,17 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
         (typeof t.shipmaster === "string" && t.shipmaster.length > 0),
       `transport ${id} shipmaster names a resident`,
     );
+    const boards = crossings.filter((c) => c.transport === id);
     check(
-      crossings.filter((c) => c.transport === id).length === t.docks.length &&
-        (t.docks || []).every((from) =>
-          crossings.some(
-            (c) =>
-              c.transport === id &&
-              c.from === from &&
-              t.docks.includes(c.to) &&
-              c.to !== from,
-          ),
+      new Set(boards.map((c) => c.from)).size === boards.length,
+      `transport ${id} takes one crossing from each dock`,
+    );
+    warn(
+      t.docks.every((from) =>
+        boards.some(
+          (c) => c.from === from && t.docks.includes(c.to) && c.to !== from,
         ),
+      ),
       `transport ${id} needs a crossing in each direction`,
     );
     check(
@@ -2046,8 +2060,6 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
 
   // The base world owns travel between its hub places. A pack may attach
   // different rooms to different points in that connected hub.
-  // Every pack place is reachable from the entry, the entry is reachable from
-  // the hub, and some pack place has a crossing back to the hub.
   const reached = new Set([pack.entry]);
   for (const id of reached)
     for (const to of [
@@ -2063,17 +2075,17 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
       ...crossings.filter((c) => c.from === id).map((c) => c.to),
     ])
       reached.add(to);
-  check(
+  warn(
     Object.entries(places).every(
       ([id, p]) => reached.has(id) || p.retired === true,
     ),
     "every place must be reachable from the entry",
   );
-  check(
+  warn(
     crossings.some((c) => c?.to === pack.entry && !owns(places, c.from)),
     "the bridge needs a crossing from the hub into the entry",
   );
-  check(
+  warn(
     crossings.some((c) => owns(places, c?.from) && !owns(places, c.to)),
     "the bridge needs a crossing back to the hub",
   );
@@ -2087,8 +2099,9 @@ export function packProblems(pack, hub, mountedPlaces = [], mountedItems = []) {
 // raises the giver's trust by a plain Give; a pack `on: "give"` choice for the
 // same resident and item takes the Give first, so no trust is raised. Author
 // a `trust` effect on that choice, or drop the choice.
-export function packWarnings(pack) {
+export function packWarnings(pack, hub, mountedPlaces, mountedItems) {
   const warnings = [];
+  if (hub) packProblems(pack, hub, mountedPlaces, mountedItems, warnings);
   for (const [id, a] of Object.entries(pack?.avatars || {})) {
     const wanted = new Set(
       (Array.isArray(a?.wants) ? a.wants : [])
