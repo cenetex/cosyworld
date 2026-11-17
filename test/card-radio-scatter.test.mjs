@@ -137,10 +137,10 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
     ["take", "lamp"], ["move", "pond"],
     ["ask", "cloth"], ["hold", "cloth"], ["drop", "lamp"],
     ["move", "greek-ship"], ["course", "greek-harbor"], ["wait"], ["move", "greek-harbor"],
-    // A Hoppy Cat thing no longer opens the lane to Piraeus: the provisions
-    // Myrto packs must lie on deck.
+    // The provisions Myrto packs must lie on deck for Piraeus, and a thing
+    // from the jetty for the jetty.
     ["move", "greek-ship"], ["stow"], ["course", "greek-piraeus"], ["wait"], ["move", "greek-piraeus"],
-    ["move", "greek-ship"], ["course", "hoppycat-signal-jetty"], ["wait"],
+    ["move", "greek-ship"], ["token"], ["course", "hoppycat-signal-jetty"], ["wait"],
     ["move", "hoppycat-signal-jetty"], ["move", "hoppycat-halfway-tea-garden"],
     ["drop", "cloth"], ["take", "ratiradio-red-beanie"], ["move", "pond"],
   ];
@@ -148,6 +148,7 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
     s = endStandoff(s);
     if (kind === "hold") { s = selectLamp(s, id); continue; }
     if (kind === "stow") { s = stowProvisions(s, "greek-ship"); continue; }
+    if (kind === "token") { s.items["hoppycat-red-thread-spool"].holder = "greek-ship"; continue; }
     const action = legalActions(s).find((a) => a.kind === kind &&
       (!id || a.item === id || a.target === id) && (!target || a.target === target));
     expect(action, `${kind} ${id || ""}`).toBeDefined();

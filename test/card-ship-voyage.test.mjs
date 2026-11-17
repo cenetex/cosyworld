@@ -267,9 +267,14 @@ describe("a real voyage", () => {
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
     ]);
-    // Aboard, they open Piraeus and the Hoppy Cat jetty beyond it. No ship
-    // rounds the cape now: Marathon and the Far Shores are rumours.
+    // Aboard, they open Piraeus; the jetty's spool opens the jetty beyond.
+    // No ship rounds the cape now: Marathon and the Far Shores are rumours.
     stowProvisions(s, "greek-ship");
+    expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
+      "greek-harbor",
+      "greek-piraeus",
+    ]);
+    s.items["hoppycat-red-thread-spool"].holder = "greek-ship";
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
       "greek-piraeus",

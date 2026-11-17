@@ -163,10 +163,10 @@ describe("knowing a lane is personal", () => {
     expect(knowsLane(s, "vale", "greek-harbor", "greek-piraeus")).toBe(true);
     // The Long Walls inland are open: no burial or truce is needed.
     expect(ask(s, "vale").exits).toContain("greek-road-athens-piraeus");
-    // The voyage leaves the provisions whole on deck (rules 102), so the
-    // ship may sail on to the Hoppy Cat jetty as well as home.
+    // The voyage leaves the provisions whole on deck (rules 102); they do not
+    // open the jetty, which waits for a thing of its own.
     expect(s.items["greek-provisions"].holder).toBe("greek-ship");
-    expect(courses(s, "mara")).toEqual(["greek-harbor", "hoppycat-signal-jetty"]);
+    expect(courses(s, "mara")).toEqual(["greek-harbor"]);
     // The lane home stays open with the provisions left on the quay; only
     // the onward lane closes.
     stowProvisions(s, "greek-piraeus");

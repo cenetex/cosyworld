@@ -40,7 +40,7 @@ function setup(berth, night) {
   for (const id of ["vale", "mara"]) learnLane(world, id, berth.origin, berth.place);
   world.actors.ash.place = berth.place;
   stowProvisions(world, "vale");
-  world.items["hoppycat-halfway-cup"].holder = "vale";
+  world.items["hoppycat-red-thread-spool"].holder = "vale";
   world.crossings[signal].discovered = true;
   summonTransport(world, ship, berth.origin);
   return reload(world);

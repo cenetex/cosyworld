@@ -161,6 +161,7 @@ try {
       await selectCard(page, "pond");
       await page.locator("#card-actions .card-primary").click();
       await ready();
+      await page.keyboard.press("Escape");
     };
     const beforeWait = await state();
     await waitHere();
@@ -271,6 +272,7 @@ try {
     await selectCard(page, "attic");
     await page.locator("#card-actions .card-primary").click();
     await ready();
+    await page.keyboard.press("Escape");
     // Held lit at the pond, the lamp brought Vale back into its light.
     assert.equal((await state()).actors.vale.place, "attic");
     assert.equal(

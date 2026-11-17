@@ -319,12 +319,13 @@ describe("ports reachable on foot or by a free leg home", () => {
     expect(cargo).toEqual([
       { kind: "item_at", item: "greek-provisions", place: "greek-ship" },
     ]);
-    expect(
-      laneConditions(
-        "greek-piraeus",
-        "hoppycat-signal-jetty",
-      )[0].conditions.map((c) => c.item ?? c.pack),
-    ).toEqual(["greek-provisions", "hoppycat-archive"]);
+    expect(laneConditions("greek-piraeus", "hoppycat-signal-jetty")).toEqual([
+      {
+        kind: "home_item_present",
+        home: "hoppycat-signal-jetty",
+        place: "greek-ship",
+      },
+    ]);
     expect(laneConditions("pond", "greek-harbor")).toBe(null);
     expect(laneConditions("greek-harbor", "pond")).toBe(null);
   });

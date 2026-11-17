@@ -63,9 +63,10 @@ function shared(dock, seas = false, ajax = false) {
   for (const id of players)
     for (const from of ship.docks)
       for (const to of lanesFrom(ship, from)) learnLane(world, id, from, to);
-  // The Travel Provisions ride on deck, which opens the Wine-Dark Harbor's
-  // lane to Piraeus.
+  // The Travel Provisions and the jetty's spool ride on deck: Piraeus and the
+  // Signal Jetty each see a thing for their lane.
   stowProvisions(world, "greek-ship");
+  world.items["hoppycat-red-thread-spool"].holder = "greek-ship";
   // The gate stands open for this journey; it never gains a lasting latch.
   if (ajax) openGreekGate(world);
   return world;
@@ -116,8 +117,8 @@ describe("Greek ports and fixed roads", () => {
       w = move(w, "mara", "greek-ship");
       // Course cards are the boarding port's lanes, never the port itself.
       // By day the Willows mist does not rise beside the rail.
-      // The provisions on deck open every leg beyond the harbor, on to
-      // Piraeus and the Signal Jetty (rules 94).
+      // The cargo on deck opens every leg beyond the harbor, on to
+      // Piraeus and the Signal Jetty.
       expect(ask(w, "vale").exits).toEqual(
         lanesFrom(transports["greek-ship"], from).filter((d) =>
           entityActive(w, d),

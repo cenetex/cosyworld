@@ -80,6 +80,7 @@ export const CONDITION_KINDS = [
   "knows",
   "talked",
   "pack_item_present",
+  "home_item_present",
   "clock",
   "daylight",
   "weather",
@@ -1097,6 +1098,12 @@ export function packProblems(
           ok =
             keysOk(c, ["kind", "pack", "place"]) &&
             idOk(c.pack) &&
+            anyPlace(c.place);
+          break;
+        case "home_item_present":
+          ok =
+            keysOk(c, ["kind", "home", "place"]) &&
+            anyPlace(c.home) &&
             anyPlace(c.place);
           break;
         case "weather":

@@ -31,6 +31,7 @@ export const LIVE_KINDS = [
   "item_near",
   "item_present",
   "pack_item_present",
+  "home_item_present",
   "tag_held",
   "ship_at",
   "daylight",
@@ -75,6 +76,8 @@ const WORDS = {
   item_present: (c, L) => `${L.item(c.item)} is in ${L.place(c.place)}`,
   pack_item_present: (c, L) =>
     `a ${c.pack} thing is in ${L.place(c.place)}`,
+  home_item_present: (c, L) =>
+    `a thing from ${L.place(c.home)} is in ${L.place(c.place)}`,
   tag_held: (c, L) => `a ${c.tag} thing is held in ${L.place(c.place)}`,
   ship_at: (c, L) =>
     `${c.transport} ${c.dock === "@sea" ? "is at sea" : `is docked at ${L.place(c.dock)}`}`,
@@ -114,6 +117,7 @@ const NEEDS = {
   grounded: (c) => [`item:${c.item}`],
   in_hand: (c) => [`item:${c.item}`],
   tag_held: (c) => [`place:${c.place}`],
+  home_item_present: (c) => [`place:${c.home}`, `place:${c.place}`],
   actor_at: (c) => [`place:${c.place}`],
   humans_at: (c) => [`place:${c.place}`],
   met: (c) => [`resident:${c.actor}`],
