@@ -12,7 +12,7 @@
 //   kits            When every thing of a pack kit is home, its event scatters
 //                   them to listed places, seeded by the run, the kit's count
 //                   and the turn.
-import { humanAvatar, humanPresent } from "./human-cast.mjs";
+import { awayAvatar, humanAvatar, humanPresent } from "./human-cast.mjs";
 import { bringBack, gone, sendHome, usedUp, useUp } from "./item-use.mjs";
 import { DAYLIGHT_TURNS, conditionMet, runHash } from "./pack-rules.mjs";
 import {
@@ -251,12 +251,15 @@ export function settleVoyageCargo(s, voyages, nameOf, log) {
   }
 }
 
-const heldByAbsent = (s, id) => {
-  const root = rootOf(s, id);
-  return (
-    packThings[id].absentReturn && humanAvatar(root) && !humanPresent(s, root)
+const sought = (s, holder, id) =>
+  awayAvatar(s, holder) &&
+  [s.actors[holder].want, ...(s.actors[holder].under || [])].some(
+    (w) => w && (w.target === id || w.step?.items?.includes(id)),
   );
-};
+const absentHolder = (s, holder, id) =>
+  humanAvatar(holder) && !humanPresent(s, holder) && !sought(s, holder, id);
+const heldByAbsent = (s, id) =>
+  packThings[id].absentReturn && absentHolder(s, rootOf(s, id), id);
 
 export function settleItemCycle(s, nameOf, log) {
   const events = itemEvents(s);
@@ -273,7 +276,7 @@ export function settleItemCycle(s, nameOf, log) {
       const to = thing.recoverTo;
       if (!to || usedUp(s, id) || !entityEnabled(s, id) || !entityActive(s, to)) continue;
       const holder = rootOf(s, id);
-      const absent = humanAvatar(holder) && !humanPresent(s, holder);
+      const absent = absentHolder(s, holder, id);
       const present = s.actors[holder] || packPlaces[holder] || hub.places.includes(holder);
       if (holder === to || (!absent && present && entityActive(s, holder))) continue;
       // Only genuinely absent custody recovers. Loose deposits stay put;

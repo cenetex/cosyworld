@@ -4,7 +4,6 @@ export const humanAvatars = cast.avatars;
 // The places any avatar reaches without Vale's lamp.
 export const lamplessPlaces = cast.lampless;
 export const humanAvatarIds = humanAvatars.map((a) => a.id);
-// The first avatar per id, as find would return, without a closure per call.
 const avatarById = new Map();
 for (const a of humanAvatars)
   if (!avatarById.has(a.id)) avatarById.set(a.id, a);
@@ -37,6 +36,10 @@ export const residentAvatar = (world, id) =>
 export const unplayedAvatar = (world, id) =>
   residentAvatar(world, id) &&
   !heldByHuman(world, id) &&
+  world.hidden?.actor !== id;
+export const awayAvatar = (world, id) =>
+  residentAvatar(world, id) &&
+  heldByHuman(world, id) &&
   world.hidden?.actor !== id;
 export const roomHumanCount = (world, place) =>
   humanAvatarIds.filter(
