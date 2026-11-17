@@ -15,7 +15,6 @@ const NAME = /^-?[A-Za-z_][\w-]*/;
 const lineAt = (text, offset) => text.slice(0, offset).split("\n").length;
 const blank = (match) => match.replace(/[^\n]/g, " ");
 
-// Names in a class/id attribute value; `${x}` parts become `*`.
 const tokens = (value) =>
   value
     .replace(/\$\{[^}]*\}/g, "*")

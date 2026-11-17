@@ -1,6 +1,6 @@
 import { addressedResident, assess } from "./attention.mjs";
 import { guildState, today } from "./channel.mjs";
-import { narrates, repeatsLine, wait } from "./beats.mjs";
+import { repeatsLine, wait } from "./beats.mjs";
 import { payload, refresh } from "./coordinator.mjs";
 import { ownLines, post, requestBody, typist } from "./room.mjs";
 
@@ -49,16 +49,18 @@ export async function next(room, { config, cast, coordinate, stats, log }, signa
   bump(stats.coordinator, "updates");
   const odds = answer.probabilities ?? {};
   const chance = (id) => Number(odds[id] ?? (id === answer.choice ? answer.confidence : 0) ?? 0);
+  const people = Number.isFinite(answer.people) ? answer.people : null;
   const ranked = cast.map((r) => r.id).filter((id) => chance(id) > 0).sort((a, b) => chance(b) - chance(a));
   const top = ranked[0] ?? null;
   const p = top ? chance(top) : 0;
-  const none = "none" in odds || answer.choice === "none" ? chance("none") : Math.max(0, 1 - ranked.reduce((sum, id) => sum + chance(id), 0));
+  const none = "none" in odds || answer.choice === "none" ? chance("none") : Math.max(0, 1 - (people ?? 0) - ranked.reduce((sum, id) => sum + chance(id), 0));
   const spoke = speakers(room.messages);
-  const beats = (id) => chance(id) >= none - config.DISCORD_NONE_MARGIN;
-  const fresh = ranked.find((id) => !spoke.has(id) && beats(id) && chance(id) >= p * config.DISCORD_FRESH_SHARE);
-  const who = top && beats(top) ? (fresh ?? top) : null;
+  const bar = Math.max(people === null ? 0 : config.DISCORD_SPEAK_FLOOR, none - config.DISCORD_NONE_MARGIN);
+  const fresh = ranked.find((id) => !spoke.has(id) && chance(id) >= bar && chance(id) >= p * config.DISCORD_FRESH_SHARE);
+  const who = top && p >= bar ? (fresh ?? top) : null;
   const shown = Object.entries(odds).map(([id, q]) => `${id}:${Number(q).toFixed(2)}`).join(",") || "none";
-  log(`next choice=${top ?? answer.choice} p=${p.toFixed(2)} none=${none.toFixed(2)} probs=${shown} action=${who ? "speak" : "silent"}${who && who !== top ? ` turn=${who}` : ""} ${where(room)}`);
+  const apart = people === null ? "" : `people=${people.toFixed(2)} `;
+  log(`next choice=${top ?? answer.choice} p=${p.toFixed(2)} none=${none.toFixed(2)} ${apart}probs=${shown} action=${who ? "speak" : "silent"}${who && who !== top ? ` turn=${who}` : ""} ${where(room)}`);
   return who;
 }
 
@@ -99,11 +101,6 @@ async function cycle(room, deps, halt) {
         if (retried.has(id)) return;
         retried.add(id);
         continue;
-      }
-      if (narrates(text, resident.name)) {
-        bump(stats.skips, "narration");
-        log(`skip narration resident=${id} ${where(room)}`);
-        return;
       }
       await post(room, resident, text, deps);
       room.lastResidentAt = Date.now();
