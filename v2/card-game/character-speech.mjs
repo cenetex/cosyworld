@@ -92,7 +92,6 @@ export function createVoiceClips({
       );
       const keys = (await cache?.keys()) || [];
       let bytes = 0;
-      // Keep the newest clips within 16 MiB, even across reloads.
       for (let i = keys.length - 1; i >= 0; i--) {
         const entry = await cache.match(keys[i]);
         bytes += Number(entry?.headers.get("content-length") || MAX_BYTES);
