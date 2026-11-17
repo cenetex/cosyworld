@@ -19742,6 +19742,17 @@
     });
   }
 
+  // v2/card-game/world/offers.mjs
+  function validPlaceMet(s) {
+    if (s.placeMet === void 0) return true;
+    const entries = s.placeMet && typeof s.placeMet === "object" && !Array.isArray(s.placeMet) ? Object.entries(s.placeMet) : null;
+    return Boolean(
+      entries?.length && entries.every(
+        ([place, items2]) => Object.hasOwn(places, place) && Array.isArray(items2) && items2.length >= 1 && new Set(items2).size === items2.length && items2.every((id) => things[id]?.holder === place)
+      )
+    );
+  }
+
   // v2/card-game/world/lanes.mjs
   var atPort = (s, actor) => Object.values(transports).some(
     (t) => t.place === s.actors[actor].place || t.docks.includes(s.actors[actor].place)
@@ -20045,6 +20056,7 @@
       conversations: () => validConversations(s),
       "held-items": () => validHeldItems(s),
       opened: () => validOpened(s),
+      "place-met": () => validPlaceMet(s),
       arcana: () => validArcana(s),
       hidden: () => validHidden(s) && !(s.hidden && !Object.hasOwn(places, s.hidden.place)),
       doors: () => validDoors(s),
