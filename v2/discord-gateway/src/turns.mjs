@@ -50,11 +50,10 @@ export async function next(room, { config, cast, coordinate, stats, log }, signa
   const odds = answer.probabilities ?? {};
   const chance = (id) => Number(odds[id] ?? (id === answer.choice ? answer.confidence : 0) ?? 0);
   const people = Number.isFinite(answer.people) ? answer.people : null;
-  const wanting = cast.map((r) => r.id).filter((id) => chance(id) > 0).sort((a, b) => chance(b) - chance(a));
-  const ranked = wanting.filter((id) => id !== last?.resident);
+  const ranked = cast.map((r) => r.id).filter((id) => chance(id) > 0).sort((a, b) => chance(b) - chance(a));
   const top = ranked[0] ?? null;
   const p = top ? chance(top) : 0;
-  const none = "none" in odds || answer.choice === "none" ? chance("none") : Math.max(0, 1 - (people ?? 0) - wanting.reduce((sum, id) => sum + chance(id), 0));
+  const none = "none" in odds || answer.choice === "none" ? chance("none") : Math.max(0, 1 - (people ?? 0) - ranked.reduce((sum, id) => sum + chance(id), 0));
   const spoke = speakers(room.messages);
   const bar = Math.max(people === null ? 0 : config.DISCORD_SPEAK_FLOOR, none - config.DISCORD_NONE_MARGIN);
   const fresh = ranked.find((id) => !spoke.has(id) && chance(id) >= bar && chance(id) >= p * config.DISCORD_FRESH_SHARE);
