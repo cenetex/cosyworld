@@ -2046,7 +2046,7 @@ mod tests {
     #[tokio::test]
     async fn a_bad_coordinate_request_reaches_no_model() {
         let mut stranger = met();
-        stranger["residents"] = json!(["mara"]);
+        stranger["residents"] = json!(["nobody"]);
         let mut empty = met();
         empty["state"]["history"] = json!([]);
         let mut both = met();
