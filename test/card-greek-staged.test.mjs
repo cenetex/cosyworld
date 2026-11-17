@@ -21,9 +21,9 @@ const LISTENING = "ratiradio-listening-room";
 describe("Antigone's burial wants", () => {
   const antigone = greek.avatars["greek-antigone"];
 
-  it("carries one staged want, the rites", () => {
+  it("carries the rites first, and two wants for after them", () => {
     expect(antigone.want).toBeUndefined();
-    expect(antigone.wants).toHaveLength(1);
+    expect(antigone.wants).toHaveLength(3);
     const [lay] = antigone.wants;
     expect(lay.want).toMatchObject({
       kind: "place",
@@ -46,17 +46,25 @@ describe("Antigone's burial wants", () => {
     });
   });
 
-  it("is left no second stage to set the rites aside for", () => {
+  it("is left no second stage to set the rites aside for until they are done", () => {
     const s = world();
     const lay = antigone.wants[0].want;
-    // Her home is the Hollow (rules 133), so being there is not a want.
     s.items["greek-creon-writ"].holder = "greek-guard";
     expect(stagedWants(s, "greek-antigone").map((entry) => entry.open)).toEqual([
       true,
+      false,
+      false,
     ]);
     expect(stagedNext(s, "greek-antigone", lay)).toBeNull();
     s.packs["greek-drama"].flags["greek-burial-performed"] = true;
-    expect(stagedNext(s, "greek-antigone", lay)).toBeNull();
+    expect(stagedWants(s, "greek-antigone").map((entry) => entry.open)).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    const next = stagedNext(s, "greek-antigone", lay);
+    expect(next.kind).toBe("person");
+    expect(["greek-ismene", "greek-creon"]).toContain(next.target);
   });
 });
 
