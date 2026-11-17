@@ -354,6 +354,7 @@ try {
       // The earlier beat is a card behind, with the speech on one line
       // peeking above the front card.
       // Phones keep both inside the fixed box over the hand (#1897).
+      await page.keyboard.press("Escape");
       const behind = page.locator("#beat-behind");
       const stepBack = () => behind.click({ position: { x: 80, y: 6 } });
       assert(await behind.isVisible(), "An earlier beat waits behind.");

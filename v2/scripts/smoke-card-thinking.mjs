@@ -108,6 +108,7 @@ try {
     );
     const requestedNext = page.waitForRequest("**/card-game/text");
     // Talk gives the next pending request a voice after the first Wait.
+    await page.keyboard.press("Escape");
     await selectCard(page, "moth");
     await readyActionButton(page, "talk").click();
     await requestedNext;
@@ -161,6 +162,7 @@ try {
     // taps stop waiting, and the next move keeps its own speech policy.
     // The replaced Talk stays out of the new room.
     const talkRequest = page.waitForRequest("**/card-game/text");
+    await page.keyboard.press("Escape");
     await selectCard(page, "moth");
     await readyActionButton(page, "talk").click();
     await talkRequest;

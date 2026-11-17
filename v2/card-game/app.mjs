@@ -68,11 +68,11 @@ import {
   swapTiming,
 } from "./card-swap.mjs";
 import {
-  QUEST_DOWN_MS,
   createCardEntries,
   createQuestEntries,
   entryDelays,
   questEntryKey,
+  questFaceKey,
   riseIn,
 } from "./card-entry.mjs";
 import {
@@ -80,7 +80,6 @@ import {
   TAROT_BACK,
   TAROT_LOCKED_BACK,
   LOCKED_BOX,
-  createLockedBoxes,
   isLockedBox,
   lockedQuest,
 } from "./locked-box.mjs";
@@ -385,8 +384,9 @@ function freshStartBeat() {
   };
 }
 // A play that commits rests the action beat, so the reply comes to the
-// front, until the player chooses or raises the hand again.
-let restedChoice = null;
+// front, until its turn has passed and the reply has been shown.
+let restedChoice = null,
+  restedRevision = null;
 // What the dialogue box shows now (presentation.mjs).
 let shownPhase = null;
 // Since when only committed plays' words have kept the Thinking card.
@@ -882,6 +882,7 @@ const playQueue = createPlayQueue({
     !document.querySelector("dialog[open], .world-menu:popover-open"),
   play: (action, revision) => {
     restedChoice = choiceKey();
+    restedRevision = world.revision;
     count(playCounter(action));
     if (sharedSession) void submitSharedPlay(action);
     else performAction(action, revision);
@@ -940,7 +941,7 @@ const exchange = createExchange({
     // An unrevealed person who speaks is revealed with the line, there at
     // once so the words never wait on a fade.
     if (people[speakerId] && cardIsCovered(speakerId))
-      uncover(speakerId, { fade: false });
+      uncover(speakerId, { fade: false, flip: false });
     lineSeq = line.seq;
     rememberReading(line);
     // The stack brings the new beat in front as it renders. A player who
@@ -1645,7 +1646,7 @@ async function persistHeldChoice(item) {
   }
 }
 function heldSelection() {
-  return { hands: handItems() };
+  return { hands: handItems(), held: shownHeld() };
 }
 function handItems() {
   const actor = currentActor(world);
@@ -1657,7 +1658,6 @@ function handItems() {
 // next redraw brings its card into view.
 let receivedCard = null;
 function keepHeldSelection(before, action = null) {
-  const actor = currentActor(world);
   const arrived = handItems().filter((id) => !before.hands.includes(id));
   const received =
     [action?.receive, action?.item].find((id) => arrived.includes(id)) ||
@@ -1665,14 +1665,14 @@ function keepHeldSelection(before, action = null) {
   receivedCard = received ?? null;
   // A standoff locks the room and takes the held things out of the hand
   // (#1775), so a raised item leaves the selection with its card.
-  const held = shownHeld();
-  const keepActor = held.length > 0 && selected.includes(actor);
+  const hand = availableCards(world),
+    held = shownHeld(),
+    swapped = held.join() !== before.held.join();
+  selected = selected.filter((id) => hand.includes(id) && !(swapped && before.held.includes(id)));
+  if (swapped) selected.push(...held.filter((id) => !selected.includes(id)));
   // The avatar's open stacks stay open after a deed, including a last gift.
-  const expanded = expandedHolders.has(actor);
-  selected = keepActor ? [actor, ...held] : held;
-  expandedHolders.clear();
-  if (expanded) expandedHolders.add(actor);
-  // A received card keeps the completed play's beat at rest until a new tap.
+  for (const id of expandedHolders) if (!hand.includes(id)) expandedHolders.delete(id);
+  // The completed play's beat rests until its reply has been shown.
   if (restedChoice !== null) restedChoice = choiceKey();
 }
 // The current place and its items sit on the left. The way back sits just
@@ -2159,6 +2159,7 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   // A play leaves the hand where it is: raised stays raised. Its beat rests
   // at once; the Thinking card stands for it until its scene.
   restedChoice = choiceKey();
+  restedRevision = world.revision;
   // A new play earns its own grace before the hand returns.
   thinkingSince = null;
   if ($("play-status").dataset.playStatus === "dropped") notice("");
@@ -2194,8 +2195,8 @@ function performAction(action, revision) {
   if (action.kind === "pack" || action.kind === "accept") {
     const offered = action.kind === "accept" && standingOffer();
     if (offered) {
-      questsInView.seen(questEntryKey(offered));
-      revealedQuests.add(questEntryKey(offered));
+      questsInView.seen(questFaceKey(offered));
+      revealedQuests.add(questFaceKey(offered));
       questOpen = false;
     }
     world = result.state;
@@ -2715,6 +2716,8 @@ function presentPhase() {
     queueMicrotask(() => exchange.settleLast());
   }
   const inFlight = Boolean(stackView.pending) || Boolean(ownPlayInFlight());
+  if (restedChoice !== null && restedRevision !== world.revision && !inFlight)
+    restedChoice = null;
   return phase({
     reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
     // An open pack's one button shows over a line still arriving: the pack
@@ -3228,35 +3231,10 @@ const handMotions = new Map();
 // Cards new to the hand rise in, and quests are dealt face down
 // (card-entry.mjs).
 const handEntries = createCardEntries(),
-  questsInView = createQuestEntries(),
-  lockedBoxes = createLockedBoxes();
+  questsInView = createQuestEntries();
 // Quests turned face up at least once: only these show their parts' tier
 // while folded.
 const revealedQuests = new Set();
-// A box whose quest is done turns over once, the next time it is in view. A
-// box never uncovered opens as a newly found card does, with its name.
-function openLockedBoxes() {
-  const buttons = [...$("hand").children]
-    .filter((frame) => !frame.dataset.want)
-    .map((frame) => frame.querySelector(".card"));
-  const opening = lockedBoxes.draw(
-    buttons
-      .filter((button) => !button.parentElement.hidden)
-      .map((button) => button.dataset.card),
-    buttons
-      .filter((button) => isLockedBox(world, button.dataset.card))
-      .map((button) => button.dataset.card),
-  );
-  const lid = imageUrl(LOCKED_BACK, "card");
-  for (const id of opening) {
-    const button = buttons.find((b) => b.dataset.card === id);
-    if (cardIsCovered(id)) {
-      // Face down for a moment, under the locked lid, until it is named.
-      openingLid(button, lid);
-      setTimeout(() => uncover(id, { lid }));
-    } else void turnCard(openingLid(button, lid));
-  }
-}
 // The lid that lifts is the one the card lay under (card-reveal.mjs).
 function openingLid(button, lid) {
   const back = lid && button.querySelector(".card-back");
@@ -3334,19 +3312,13 @@ function showQuests(opening) {
     questsInView.show(null);
     return;
   }
-  const key = card.dataset.questEntry,
+  const key = card.dataset.questFace,
     seen = !card.closest(".want-frame").hidden;
   if (card.dataset.face === "down") {
-    questsInView.show(key, seen, { stack: visibleQuests().map(questEntryKey) });
+    questsInView.show(key, seen);
     questsInView.turned(key);
   }
-  if (
-    questsInView.show(key, seen, {
-      opening,
-      stack: visibleQuests().map(questEntryKey),
-    })
-  )
-    setTimeout(() => turnQuest(key), QUEST_DOWN_MS);
+  questsInView.show(key, seen, { opening });
   const down = questsInView.down(key);
   setQuestClosed(card, down);
   if (!down && seen) revealedQuests.add(key);
@@ -3363,7 +3335,7 @@ function setQuestClosed(card, closed) {
 function turnQuest(key) {
   const card = [
     ...$("hand").querySelectorAll(".want-frame:not([hidden]) > .want-card"),
-  ].find((el) => el.dataset.questEntry === key);
+  ].find((el) => el.dataset.questFace === key);
   // Folded away before its turn, it turns when it is next seen.
   if (!card) return questsInView.unseen(key);
   if (!questsInView.turned(key)) return;
@@ -3688,9 +3660,10 @@ function questFrame({ id, quest }) {
   el.dataset.questId = id;
   el.dataset.questKey = quest.key;
   el.dataset.questEntry = `${quest.offer ? "offer:" : ""}${questEntryKey(quest)}`;
+  el.dataset.questFace = `${quest.offer ? "offer:" : ""}${questFaceKey(quest)}`;
   if (quest.face) el.dataset.face = quest.face;
   el.dataset.unrevealed = String(
-    covered || quest.face === "down" || questsInView.down(questEntryKey(quest)),
+    covered || quest.face === "down" || questsInView.down(questFaceKey(quest)),
   );
   const tell = packTell(id);
   if (tell) el.dataset.tell = tell;
@@ -3745,6 +3718,8 @@ function openQuest(id = entryIdOf(foldQuest())) {
   expandedHolders.add(currentActor(world));
   rowCollapsed = false;
   render();
+  const quest = questEntry(id)?.quest;
+  if (quest && questsInView.down(questFaceKey(quest))) turnQuest(questFaceKey(quest));
 }
 // The quest shows when the avatar's stacks show.
 const questShown = (quest) =>
@@ -3759,7 +3734,7 @@ function syncQuestFold(fold) {
   if (!quest) return;
   fold.style.setProperty(
     "--tier-color",
-    (revealedQuests.has(questEntryKey(quest))
+    (revealedQuests.has(questFaceKey(quest))
       ? questTier(quest, world, known)
       : questTier(quest)
     ).color,
@@ -5444,7 +5419,6 @@ function render() {
     showQuests(opening || Boolean(heldSource?.handed));
     // A new quest rises where the player can see its slot in the hand.
     if (dealtQuest && !opening) revealHandCard(entryIdOf(dealtQuest), { instant: true });
-    openLockedBoxes();
     // Every new place is measured before any card starts moving, so the
     // row is laid out once rather than once per card.
     const moves = [];
@@ -6145,7 +6119,7 @@ function resumeCurrentSharedPlay() {
   restedChoice = null;
   reviewing = false;
   reviewBeat = null;
-  selectCards(shownHeld(), { keepOpen: true });
+  selectCards(selected.filter((id) => availableCards(world).includes(id)), { keepOpen: true });
   notice("");
   lineSeq = sharedLineSeq;
   syncSharedLine();
