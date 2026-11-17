@@ -139,6 +139,9 @@ fn rules_100_world_life_commits_and_replays_in_the_c_host() {
     game["turn"] = json!(116);
     game["revision"] = json!(116);
     game["actors"]["vale"]["place"] = json!("greek-gate");
+    let mut held = game["actors"]["greek-creon"]["want"].clone();
+    held["from"] = json!("quest:from:greek-creon");
+    game["actors"]["vale"]["want"] = held;
     game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
     let (path, c, id) = fixture("world-life", &world);
     let commit = |w: &mut World, command: Value| {
