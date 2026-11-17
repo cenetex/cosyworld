@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cardPlay } from "../v2/card-game/cards.mjs";
+import { cardActions, cardPlay } from "../v2/card-game/cards.mjs";
 import { createWorld } from "../v2/card-game/world.mjs";
 
 function station() {
@@ -8,16 +8,22 @@ function station() {
   return world;
 }
 
+function pond() {
+  const world = createWorld();
+  for (const id of ["vale", "moth"]) world.actors[id].place = "pond";
+  return world;
+}
+
+const talk = { kind: "talk", target: "moth" };
+
 describe("item and resident pair reasons", () => {
-  it("asks to take a loose item first, not for carrying space", () => {
+  it("talks with the resident beside a loose item", () => {
     const world = station();
     world.items.lamp.holder = "station";
-    const { action, hint } = cardPlay(world, ["lamp", "moth"]);
-    expect(action).toBeFalsy();
-    expect(hint).toBe("Take the Lamp first.");
+    expect(cardPlay(world, ["lamp", "moth"]).action).toMatchObject(talk);
   });
 
-  it("says the traveler's hands are full when their item cannot be asked for", () => {
+  it("says the traveler's hands are full when nothing in the pair plays", () => {
     const world = station();
     world.items.lamp.holder = "moth";
     const mine = Object.keys(world.items)
@@ -27,13 +33,40 @@ describe("item and resident pair reasons", () => {
     const reason = "Make room to ask for the Lamp.";
     expect(cardPlay(world, ["lamp"]).action).toBeFalsy();
     expect(cardPlay(world, ["lamp"]).hint).toBe(reason);
-    expect(cardPlay(world, ["lamp", "moth"]).hint).toBe(reason);
+    expect(cardPlay(world, ["lamp", "moth"]).action).toMatchObject(talk);
     world.items[mine[0]].holder = "station";
     expect(cardPlay(world, ["lamp", "moth"]).action?.kind).toBe("ask");
   });
 
   it("gives a carried item to the resident", () => {
     const world = station();
+    world.items.lamp.holder = "vale";
+    expect(cardPlay(world, ["lamp", "moth"]).action?.kind).toBe("give");
+  });
+});
+
+describe("a pair with no play of its own", () => {
+  it("talks with the resident chosen with a place", () => {
+    const world = pond();
+    const { actions, hint } = cardActions(world, ["moth", "pond"]);
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject(talk);
+    expect(hint).toBe("");
+    expect(cardPlay(world, ["moth", "pond"])).toEqual(cardPlay(world, ["moth"]));
+  });
+
+  it("plays the item before the place", () => {
+    const world = pond();
+    world.items.lamp.holder = "pond";
+    expect(cardPlay(world, ["lamp", "station"]).action).toMatchObject({
+      kind: "take",
+      item: "lamp",
+    });
+  });
+
+  it("keeps a pair's own play first", () => {
+    const world = pond();
+    expect(cardPlay(world, ["vale", "moth"]).action?.kind).not.toBe("talk");
     world.items.lamp.holder = "vale";
     expect(cardPlay(world, ["lamp", "moth"]).action?.kind).toBe("give");
   });

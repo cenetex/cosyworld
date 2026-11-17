@@ -3069,7 +3069,6 @@ function renderActions() {
     const blocked = node("button", reason, "card-primary");
     blocked.type = "button";
     blockPlay(blocked, kind);
-    blocked.title = reason;
     row.append(blocked);
   }
   let message = heading.lastElementChild,
