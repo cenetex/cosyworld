@@ -881,7 +881,8 @@ const playQueue = createPlayQueue({
     !document.hidden &&
     !document.querySelector("dialog[open], .world-menu:popover-open"),
   play: (action, revision) => {
-    restedChoice = choiceKey();
+    if (action.sleep) selectCards([]);
+    restedChoice = action.sleep ? null : choiceKey();
     restedRevision = world.revision;
     count(playCounter(action));
     if (sharedSession) void submitSharedPlay(action);

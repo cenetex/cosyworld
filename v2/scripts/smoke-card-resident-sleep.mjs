@@ -166,6 +166,7 @@ try {
         attempt++
       ) {
         await ready();
+        await page.keyboard.press("Escape");
         await selectCard(page, place);
         if (id === "greek-baker" && savedWorld.turn === 95)
           await page.emulateMedia({ reducedMotion: "no-preference" });

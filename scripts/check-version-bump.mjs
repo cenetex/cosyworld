@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // Checks that every file carrying the release version agrees with
-// package.json. Pull requests do not bump the version; a release does, once,
-// with `npm run version:bump` (see docs/release.md).
+// package.json. Only a release bumps the version, once, with `npm run version:bump`.
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
