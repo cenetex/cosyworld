@@ -159,10 +159,7 @@ try {
       );
       await card("cloth").waitFor({ state: "attached" });
       await shot("pond-empty");
-      assert.equal(
-        await card("greek-ship").count(),
-        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
-      );
+      assert.equal(await card("greek-ship").getAttribute("data-locked"), "true");
       // A grounded, fueled lamp beside the held cloth calls the ship.
       await use("lamp", "pond");
       const called = await state();

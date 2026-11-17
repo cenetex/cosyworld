@@ -108,10 +108,7 @@ try {
       await ready();
     };
     const signal = async ({ reloadHalfway = false } = {}) => {
-      assert.equal(
-        await card("greek-ship").count(),
-        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
-      );
+      assert.equal(await card("greek-ship").getAttribute("data-locked"), "true");
       // A grounded lit lamp waits for the cloth to be actively held.
       assert.equal((await state()).items.lamp.holder, "pond");
       assert.equal((await state()).items.lamp.lit, true);
@@ -122,10 +119,7 @@ try {
         assert.equal((await state()).items.lamp.holder, "pond");
         assert.equal((await state()).crossings["pond-greek-harbor"].discovered, false);
       }
-      assert.equal(
-        await card("greek-ship").count(),
-        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
-      );
+      assert.equal(await card("greek-ship").getAttribute("data-locked"), "true");
       await clearSelection(page);
       await selectCard(page, "cloth");
       assert.equal((await state()).actors.vale.heldItem, "cloth");

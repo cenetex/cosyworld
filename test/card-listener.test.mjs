@@ -25,6 +25,7 @@ import { journeyWorlds } from "./helpers/journey.mjs";
 import { questCards } from "./journeys/quest-cards.mjs";
 
 const ID = "listener";
+const fetches = (offer) => offer.kind === "listener";
 const reload = (world) => decodeSave(encodeSave(world));
 const call = (world, extra = {}) => {
   world.actors.vale.arcana = { proved: [], did: [], calls: 3, ...extra };
@@ -121,7 +122,7 @@ describe("the Listener", () => {
     world = act(world, (a) => a.kind === "talk" && a.target === ID);
     for (let i = 0; i < 3; i++) world = wait(world);
     expect(world.actors[ID].want).toBeNull();
-    expect(questOffers(world, "vale")).toEqual([]);
+    expect(questOffers(world, "vale").filter(fetches)).toEqual([]);
     expect(questsOf(world, "vale")).toEqual([]);
   });
 
@@ -186,7 +187,7 @@ describe("the Listener", () => {
     let world = beside(call(createWorld({ seed: 5 }), { sale: true }));
     for (const item of Object.values(world.items))
       if (item.holder === "vale") item.holder = "pond";
-    const offers = questOffers(world, "vale");
+    const offers = questOffers(world, "vale").filter(fetches);
     expect(offers).toHaveLength(3);
     for (const offer of offers) {
       expect(offer.id).toBe(`quest:listener:${offer.want.target}`);

@@ -27,6 +27,7 @@ const act = (s, pick) => {
   return result.state;
 };
 const tell = (s) => act(s, (a) => a.kind === "talk" && a.target === "moth");
+const asked = (offer) => offer.kind !== "box";
 const accept = (s) => act(s, (a) => a.kind === "accept" && a.target === "moth");
 const talk = (s) => accept(tell(s));
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep && !a.guards);
@@ -50,8 +51,8 @@ describe("an offer is held only once accepted", () => {
       step: { verb: "give", to: "moth" },
       from: FROM,
     });
-    expect(questOffers(s)).toEqual([]);
-    expect(legalActions(s).some((a) => a.kind === "accept")).toBe(false);
+    expect(questOffers(s).filter(asked)).toEqual([]);
+    expect(legalActions(s).some((a) => a.kind === "accept" && !a.box)).toBe(false);
     expect(validateWorld(reload(s))).toBeTruthy();
   });
 
@@ -132,13 +133,13 @@ describe("a closed quest stays closed", () => {
     s = discard(s);
     expect(heldOf(s.actors.vale)).toEqual([]);
     expect(s.actors.vale.closed[FROM][1]).toContain("lamp");
-    expect(questOffers(staying(s))).toEqual([]);
+    expect(questOffers(staying(s)).filter(asked)).toEqual([]);
     for (let i = 0; i < 8; i++) {
       s = wait(staying(s));
       expect(sources(s)).not.toContain(FROM);
     }
     s = tell(staying(s));
-    expect(legalActions(s).some((a) => a.kind === "accept")).toBe(false);
+    expect(legalActions(s).some((a) => a.kind === "accept" && !a.box)).toBe(false);
     expect(sources(s)).not.toContain(FROM);
     expect(validateWorld(reload(s))).toBeTruthy();
   });

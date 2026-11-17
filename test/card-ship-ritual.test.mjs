@@ -25,7 +25,12 @@ import {
   plan,
   holdChoice,
 } from "../v2/card-game/world.mjs";
-import { availableCards, cardPlay, playLabel } from "../v2/card-game/cards.mjs";
+import {
+  availableCards,
+  cardPlay,
+  lockWords,
+  playLabel,
+} from "../v2/card-game/cards.mjs";
 import { currentScene } from "../v2/card-game/scene.mjs";
 import { settleHeldItems } from "../v2/card-game/held-item.mjs";
 import {
@@ -77,7 +82,11 @@ const summon = (s) => {
 const reload = (s) => decodeSave(encodeSave(s));
 function visible(s, yes) {
   assert.equal(greekShipPresent(s), yes);
-  assert.equal(availableCards(s).includes("greek-ship"), yes);
+  assert.equal(
+    availableCards(s).includes("greek-ship") &&
+      lockWords(s, "greek-ship") === null,
+    yes,
+  );
   assert.equal(currentScene(s).variant === "pond-greek-harbor", yes);
   assert.equal(Boolean(currentScene(s).overlay), yes);
 }

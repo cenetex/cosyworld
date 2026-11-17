@@ -146,7 +146,7 @@ describe("an unlocked avatar's homecoming", () => {
       controlledActors: ["mara"],
       presentActors: ["mara"],
     };
-    expect(questOffers(seated, "mara")).toEqual([]);
+    expect(questOffers(seated, "mara").filter((o) => o.kind === "home")).toEqual([]);
     // At the door while the belonging lies elsewhere, the door is shut.
     seated.actors.mara.place = world.doors.theatre;
     seated.items.mask.holder = "pond";

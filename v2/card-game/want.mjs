@@ -476,10 +476,14 @@ const placeOfItem = (s, item) => {
 };
 const together = (s, a, b) =>
   Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
-export function layMet(world, { target, step }) {
+export function layMet(world, { target, step, lit }) {
   if (step.finish)
     return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
-  return step.items.every((item) => world.items[item]?.holder === target);
+  return step.items.every(
+    (item) =>
+      world.items[item]?.holder === target &&
+      (!lit || Boolean(world.items[item].lit)),
+  );
 }
 
 function stepMet(s, actor, want, action) {
@@ -959,7 +963,8 @@ function validQuest(s, id, w) {
         (typeof w.from === "string" && OFFER_FROM.test(w.from))) &&
       (w.step === undefined || validStep(s, w, id)) &&
       (w.lit === undefined ||
-        (w.kind === "item" && typeof w.lit === "boolean")) &&
+        (w.kind === "item" && typeof w.lit === "boolean") ||
+        (w.step?.verb === "lay" && w.lit === true)) &&
       w.quest === undefined &&
       (w.story === undefined || w.story === true) &&
       WANT_KINDS.includes(w.kind) &&

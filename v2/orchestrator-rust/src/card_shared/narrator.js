@@ -2704,9 +2704,28 @@
             ...condition.place ? { step: { verb: "bring", at: condition.place } } : {}
           });
           break;
-        case "light":
-          push({ kind: "item", target: condition.item, lit: true });
+        case "in_hand":
+          push({ kind: "item", target: condition.item });
           break;
+        case "grounded":
+        case "light": {
+          const light = conditions.find(
+            (c) => c.kind === "light" && c.item === condition.item
+          );
+          const laid = conditions.some(
+            (c) => c.kind === "grounded" && c.item === condition.item
+          );
+          if (laid && light)
+            push({
+              kind: "place",
+              target: light.at[0],
+              step: { verb: "lay", items: [condition.item] },
+              lit: true
+            });
+          else if (light)
+            push({ kind: "item", target: condition.item, lit: true });
+          break;
+        }
         case "not":
           if (condition.condition.kind === "light")
             push({ kind: "item", target: condition.condition.item, lit: false });
@@ -2976,10 +2995,12 @@
     return s.actors[root]?.place ?? root;
   };
   var together = (s, a, b) => Boolean(s.actors[b]) && s.actors[b].place === s.actors[a].place;
-  function layMet(world, { target, step }) {
+  function layMet(world, { target, step, lit }) {
     if (step.finish)
       return world.packs?.[packOf(target)?.id]?.flags?.[step.finish] === true;
-    return step.items.every((item) => world.items[item]?.holder === target);
+    return step.items.every(
+      (item) => world.items[item]?.holder === target && (!lit || Boolean(world.items[item].lit))
+    );
   }
   function stepMet(s, actor, want, action) {
     const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (verb === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
@@ -3081,7 +3102,7 @@
   function validQuest(s, id, w) {
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     return Boolean(
-      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean") && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
+      w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean" || w.step?.verb === "lay" && w.lit === true) && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals < REFUSAL_LIMIT
     );
   }
 
@@ -19161,7 +19182,16 @@
     );
   }
   var shipDefs = () => Object.entries(transports).flatMap(
-    ([transport, t]) => t.docks.map((at) => ({ kind: "ship", at, id: t.place, transport }))
+    ([transport, t]) => t.docks.map((at) => ({
+      kind: "ship",
+      at,
+      id: t.place,
+      transport,
+      pack: t.packId,
+      call: crossings.find(
+        (c) => c.transport === transport && c.from === at && c.unlockWhen
+      )
+    }))
   );
   var crossingDefs = () => crossings.filter((c) => c.sealed && !c.transport && !c.retired).map((c) => ({
     kind: "crossing",

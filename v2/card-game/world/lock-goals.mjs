@@ -97,9 +97,28 @@ export function goalsFrom(world, conditions, depth = 0, seen = []) {
             : {}),
         });
         break;
-      case "light":
-        push({ kind: "item", target: condition.item, lit: true });
+      case "in_hand":
+        push({ kind: "item", target: condition.item });
         break;
+      case "grounded":
+      case "light": {
+        const light = conditions.find(
+          (c) => c.kind === "light" && c.item === condition.item,
+        );
+        const laid = conditions.some(
+          (c) => c.kind === "grounded" && c.item === condition.item,
+        );
+        if (laid && light)
+          push({
+            kind: "place",
+            target: light.at[0],
+            step: { verb: "lay", items: [condition.item] },
+            lit: true,
+          });
+        else if (light)
+          push({ kind: "item", target: condition.item, lit: true });
+        break;
+      }
       case "not":
         if (condition.condition.kind === "light")
           push({ kind: "item", target: condition.condition.item, lit: false });

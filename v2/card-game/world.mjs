@@ -1003,10 +1003,9 @@ export function holdChoice(s, actor, choice) {
   refuelCarried(s);
   settleHeldItems(s);
   settleLamp(s);
-  // Putting the lamp out opens the Black pond: a hold can open a box.
+  settleCrossingUnlocks(s, sensesFor(s));
   creditOpened(before, s, actor);
   dropOpenedBoxQuests(s);
-  settleCrossingUnlocks(s, sensesFor(s));
   wakeSleepers(s, before, []);
   settleArcana(s, actor, before.eventSeq ?? before.log.length, (text, detail) =>
     addLog(s, "World", text, detail),

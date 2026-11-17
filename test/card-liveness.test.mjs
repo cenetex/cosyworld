@@ -9,6 +9,9 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
+import { transports } from "../v2/card-game/pack-registry.mjs";
+
+const ships = Object.values(transports).map((ship) => ship.place);
 
 // The resident cast and the traveller who learns the roads.
 const cast = ["moth", "keeper", "greek-rhapsode"];
@@ -25,7 +28,7 @@ function longestGaps(seed, opening = false) {
     for (let i = 0; i < TURNS; i++) {
       if (i % 100 === 0) await yieldToRunner();
       x = (Math.imul(x, 1103515245) + 12345) >>> 0;
-      const acts = legalActions(s),
+      const acts = legalActions(s).filter((a) => !ships.includes(a.box)),
         before = s.turn;
       s = play(s, acts[x % acts.length]).state;
       // A long rest runs the world on for many turns in one play, so count

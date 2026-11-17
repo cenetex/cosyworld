@@ -367,10 +367,7 @@ try {
         false,
       );
       await page.keyboard.press("Escape");
-      assert.equal(
-        await card("greek-ship").count(),
-        (await state()).transports["greek-ship"].dock === "pond" ? 1 : 0,
-      );
+      assert.equal(await card("greek-ship").getAttribute("data-locked"), "true");
       await clearSelection(page);
       await selectCard(page, "cloth");
       // A carried lamp does not summon the ship. Set it on the shore while

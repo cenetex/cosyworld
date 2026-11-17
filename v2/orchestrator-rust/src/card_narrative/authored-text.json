@@ -3837,6 +3837,8 @@
 [["lane:",">",""],31,"aa"],
 [["lay "," ",""],31,"aa"],
 [["lay "," in ",""],31,"aa"],
+[["lay the lit "," ",""],31,"aa"],
+[["lay the lit "," in ",""],31,"aa"],
 [["listener-fetch:",":",":",""],31,"aaa"],
 [["log:",":accepted"],31,"a"],
 [["log:",":accompany"],31,"a"],
