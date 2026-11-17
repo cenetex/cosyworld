@@ -9,6 +9,7 @@ const IMAGE_BYTES = 8 * 1024 * 1024;
 const IMAGES_PER_MESSAGE = 2;
 const IMAGES_PER_REQUEST = 4;
 const SHARES = "[shares an image]";
+export const CAST_FRESH_MS = 60000;
 
 export function createRoom(guildId, channelId) {
   return {
@@ -22,7 +23,12 @@ export function createRoom(guildId, channelId) {
     said: {},
     world: null,
     cast: null,
+    castAt: 0,
   };
+}
+
+export function castDue(room, now) {
+  return Boolean(room?.world) && now - room.castAt >= CAST_FRESH_MS;
 }
 
 export function castOf(room, cast) {

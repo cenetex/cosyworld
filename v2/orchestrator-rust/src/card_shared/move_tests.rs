@@ -54,7 +54,6 @@ fn a_reading_scene_keeps_the_seat_and_progress_until_the_move_can_finish() {
         let app = crate::test_app_state(Some(path.clone()));
         full::command_as(&app, &first, "player", &command("claim"), None).unwrap();
         let a = actor_index("mara").unwrap();
-        // A published scene stays at the table while its words are read.
         c.execute(
             "INSERT INTO card_full_plays(id,world,actor,user,room,command,status,created,until_at)
              VALUES('reading',?,?,'player',?,'{}','playing',?,?)",
