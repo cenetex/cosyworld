@@ -214,10 +214,10 @@
     "greek-aethra": {
       "name": "Aethra",
       "file": "assets/voices/greek-aethra.mp3",
-      "transcript": "The branches are light, and my knees are old. I can sit a long time. Don't promise me anything, child. Bring the clean linen, and then I will stand up.",
+      "transcript": "The branches are light, and my knees are old. I can sit a long time. Don't promise me anything, child. Bring the oil, and then I will stand up.",
       "direction": "A very old woman with a low pitch, a dark creaky grain that stays steady, and patient authority. Speak softly and close to the microphone, at low volume, relaxed and unforced, as if not to wake someone in the next room. Use little projection and gentle consonants. Keep the phrases smooth and connected, with brief natural pauses, and let phrase endings settle very quietly. Quiet amusement colors her stubbornness. Let the words guide the emotion.",
       "speed": 1.12,
-      "reference_sha256": "e0d6a6da2cca8bb6317d99f484eb3145df5116c9486bb57b4d39a2f3fbe71c3f"
+      "reference_sha256": "a72a65736ceb87338e046e2807baba9c404c8b10c2d74581c29bb3471532a154"
     },
     "greek-adrastus": {
       "name": "Adrastus",
