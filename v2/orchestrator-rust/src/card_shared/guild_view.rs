@@ -301,4 +301,29 @@ mod tests {
             ["keeper", "vale", "greek-antigone"]
         );
     }
+
+    #[test]
+    fn a_real_talk_play_brings_the_chorus_elder_to_the_server() {
+        let mut w = World::create(None).unwrap();
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+        w.game["actors"]["vale"]["place"] = json!("greek-well");
+        w.game["actors"]["greek-elder"]["place"] = json!("greek-well");
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
+        let c = store::open(&path).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, "world", &mut w, json!({"op":op,"actor":"vale"}), 2).unwrap();
+        }
+        let talk = w.project(0).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "talk" && a["target"] == "greek-elder")
+            .unwrap()
+            .clone();
+        let play = json!({"op":"play","actor":"vale","action":talk,"surface":"browser"});
+        full_store::commit(&c, "world", &mut w, play, 3).unwrap();
+        drop(c);
+        assert_eq!(talked(&path, GUILD).unwrap(), ["greek-elder"]);
+    }
 }
