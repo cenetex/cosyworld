@@ -1,7 +1,6 @@
 import { accountRevision } from "./account-revision.mjs";
-// Hosted voices: a signed-in passkey hears character lines spoken by the
-// server's voice provider, free. In a shared world the server speaks only a
-// saved scene line, so every player hears the same clip.
+// A signed-in passkey hears free the line of a resident whose quest was just
+// completed; a shared world speaks only that saved line, one clip for all.
 export function createHostedVoices({
   fetcher = globalThis.fetch,
   world = "",
@@ -34,7 +33,6 @@ export function createHostedVoices({
       listener({ ...state });
       return () => listeners.delete(listener);
     },
-    // A voice client for character-speech.mjs.
     voices: {
       available: () => state.signed_in,
       timeoutMs: 25_000,
@@ -49,7 +47,7 @@ export function createHostedVoices({
           body: JSON.stringify(
             world
               ? { world, play: reference.play, line: reference.line }
-              : { speaker, text },
+              : { speaker, text, occasion: "quest" },
           ),
           signal,
         });

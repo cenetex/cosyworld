@@ -973,6 +973,15 @@ fn finish_work_attempt(
                     time,
                 )?;
                 scene["lines"] = result["lines"].clone();
+                let quest = crate::routes::shared_quest_residents(
+                    &w.game,
+                    &actor_id(work.actor),
+                    &work.context["turn"],
+                    &scene["lines"],
+                );
+                if !quest.is_empty() {
+                    scene["quest"] = json!(quest);
+                }
                 let silent = super::full_speech::silent(&work.context, work.actor, lines);
                 if !silent.is_empty() {
                     scene["silent"] = json!(silent);

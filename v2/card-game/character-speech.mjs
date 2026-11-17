@@ -148,6 +148,19 @@ export function createVoiceClips({
   return clip;
 }
 
+export const questLine = (world, line) =>
+  Boolean(line?.actorId) &&
+  !line.silent &&
+  Number.isInteger(line.turn) &&
+  world.log.some(
+    (entry) =>
+      !entry.generated &&
+      entry.turn === line.turn &&
+      entry.verb === "want_met" &&
+      world.actors[entry.actorId]?.closed?.[`quest:from:${line.actorId}`]?.[0] ===
+        line.turn,
+  );
+
 // Reveal keys include words; listening history only needs the saved occurrence.
 export const voiceLineIdentity = (line) =>
   JSON.stringify([line.seq, line.entityId || line.actorId || line.locationId]);
@@ -246,7 +259,7 @@ export function createCharacterSpeech({
       message: failed && failed.entry === shown?.entry ? failed.message : "",
     });
   const warn = (message) =>
-    changed({ key: shown?.key, state: "error", message });
+    shown && changed({ key: shown.key, state: "error", message });
   function drop(entry) {
     entry.controller.abort();
     queue.splice(queue.indexOf(entry), 1);

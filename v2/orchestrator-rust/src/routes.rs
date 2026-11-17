@@ -25,6 +25,7 @@ pub(crate) mod card_game;
 pub(crate) mod card_voices;
 #[cfg(test)]
 pub(crate) use card_voices::authority::line as shared_voice_line;
+pub(crate) use card_voices::authority::quest_residents as shared_quest_residents;
 #[path = "play_metrics.rs"]
 pub(crate) mod play_metrics;
 #[path = "signed_envelope.rs"]

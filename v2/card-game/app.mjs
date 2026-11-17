@@ -199,7 +199,7 @@ import {
 import { createHum } from "./hum.mjs";
 import { createSfx } from "./sfx.mjs";
 import { recedeBackdrop } from "./combat-backdrop.mjs";
-import { createCharacterSpeech, createVoiceHistory, voiceLineIdentity } from "./character-speech.mjs";
+import { createCharacterSpeech, createVoiceHistory, questLine, voiceLineIdentity } from "./character-speech.mjs";
 import { localRuntime } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { createLocalBackups, installBackupControls } from "./local-saves.mjs";
@@ -1002,6 +1002,7 @@ function lineHeard(spoken) {
   thinkingStartedAt = null;
 }
 let completedSpokenLine = null;
+let voicedLine = false;
 function finishSpokenLine() {
   const line = completedSpokenLine;
   if (
@@ -1194,7 +1195,7 @@ const reveal = createPagedReveal({
       !document.hidden &&
       !shownSceneLine?.silent &&
       expressionOf(people[args[0]]) === "speech" &&
-      !characterSpeech.speaks(args[0])
+      !(voicedLine && characterSpeech.speaks(args[0]))
     )
       speechSounds.syllable(...args);
   },
@@ -1203,13 +1204,17 @@ const reveal = createPagedReveal({
     if (speechKey !== value.key) {
       speechKey = value.key;
       completedSpokenLine = null;
-      if (shownSceneLine?.silent) characterSpeech.clear();
+      const reference = sharedVoiceReference(sharedSession?.state, shownSceneLine);
+      voicedLine =
+        questLine(shownWorld(), shownSceneLine) &&
+        (!sharedSession || Boolean(reference));
+      if (!voicedLine) characterSpeech.clear();
       else
         characterSpeech.show(
           voiceLineIdentity(shownSceneLine),
           value.speaker,
           value.text,
-          sharedVoiceReference(sharedSession?.state, shownSceneLine),
+          reference,
         );
       $("speech-announcement").textContent = "";
     }
@@ -1571,7 +1576,8 @@ function loadTurnLines({ pending = false } = {}) {
       !sleepView.hidesLine(entry),
   );
   const voiced = lines.filter(
-    (entry) => !entry.silent && visibleText(entry.text) === entry.text,
+    (entry) =>
+      visibleText(entry.text) === entry.text && questLine(shownWorld(), entry),
   );
   if (localRuntime() && voiced.length) {
     const line =

@@ -3,6 +3,32 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
+pub(crate) fn quest_residents(
+    game: &Value,
+    actor: &str,
+    turn: &Value,
+    lines: &Value,
+) -> Vec<String> {
+    let closed = &game["actors"][actor]["closed"];
+    let met = game["log"].as_array().into_iter().flatten().any(|entry| {
+        entry["verb"] == "want_met"
+            && entry["actorId"] == actor
+            && entry["turn"] == *turn
+            && entry["generated"] != true
+    });
+    if !met {
+        return vec![];
+    }
+    lines
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|line| line["actorId"].as_str())
+        .filter(|id| turn.is_number() && closed[format!("quest:from:{id}")][0] == *turn)
+        .map(String::from)
+        .collect()
+}
+
 pub(crate) fn line(
     c: &Connection,
     world: &str,
@@ -21,13 +47,12 @@ pub(crate) fn line(
     Ok(scene.and_then(|text| {
         let scene: Value = serde_json::from_str(&text).ok()?;
         let line = scene["lines"].as_array()?.get(index)?;
-        if line["kind"] != "dialogue" {
+        let actor = line["actorId"].as_str()?;
+        let quest = scene["quest"].as_array()?;
+        if line["kind"] != "dialogue" || !quest.iter().any(|id| id == actor) {
             return None;
         }
-        Some((
-            line["actorId"].as_str()?.into(),
-            line["text"].as_str()?.into(),
-        ))
+        Some((actor.into(), line["text"].as_str()?.into()))
     }))
 }
 
@@ -43,7 +68,7 @@ pub(super) fn seed(c: &Connection, second: &str) {
         .map(|text| serde_json::json!({"kind":"dialogue","actorId":"vale","text":text}));
     c.execute(
         "INSERT INTO card_full_scenes VALUES('w1','play-1',?)",
-        [serde_json::json!({"lines":lines}).to_string()],
+        [serde_json::json!({"lines":lines,"quest":["vale"]}).to_string()],
     )
     .unwrap();
 }

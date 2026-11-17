@@ -41,6 +41,18 @@ async function trackVoices(page) {
   });
 }
 
+const completeQuest = (world) => {
+  world.actors.moth.closed = { "quest:from:vale": [world.turn, "k"] };
+  addLog(world, "World", "Moth has the Lamp at last.", {
+    kind: "narration",
+    actorId: "moth",
+    verb: "want_met",
+    wantMet: { kind: "item", target: "lamp" },
+    itemId: "lamp",
+    locationId: world.actors.vale.place,
+  });
+};
+
 async function checkAccountRefresh(page) {
   assert.equal(
     await page.evaluate(() =>
@@ -90,6 +102,7 @@ async function checkSharedVoice(width) {
     lines: [{ actorId: "vale", text: "The lamp is steady." }],
   });
   shared = spoken.world;
+  completeQuest(shared);
   const history = [
     {
       play: "saved-voice-play",
@@ -198,6 +211,7 @@ async function checkPersonalReplay(width) {
   await trackVoices(page);
   // A legacy save gets its run seed once, and must keep it on reload.
   const world = createWorld({ opening: true });
+  completeQuest(world);
   addLog(world, "Vale", "The lamp is steady.", {
     actorId: "vale",
     entityId: "vale",
@@ -251,7 +265,7 @@ async function checkPersonalReplay(width) {
         );
       }
       assert.deepEqual(voices, [
-        { speaker: "vale", text: "The lamp is steady." },
+        { speaker: "vale", text: "The lamp is steady.", occasion: "quest" },
       ]);
       if (replay === 0) await page.reload();
     }
