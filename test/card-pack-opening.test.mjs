@@ -587,4 +587,42 @@ describe("card sounds", () => {
     for (const tier of PACK_TIERS) sfx.cardTurn(turnPlan(tier));
     expect(played.map((url) => url.match(/chimes\/(\w+)\.mp3/)[1])).toEqual(PACK_TIERS);
   });
+
+  function chimeRig() {
+    const ctx = context();
+    const sources = [];
+    ctx.decodeAudioData = async (url) => ({ url, duration: 5.43 });
+    ctx.createBufferSource = () => {
+      const source = {
+        connect() {},
+        start() { if (source.buffer) sources.push(source); },
+        stop() { source.stopped = true; },
+      };
+      return source;
+    };
+    const sfx = createSfx({ makeContext: () => ctx, fetchBytes: async (url) => url });
+    sfx.unlock();
+    return { ctx, sfx, sources };
+  }
+
+  it("lets each chime ring to its end while the next one starts", async () => {
+    const { ctx, sfx, sources } = chimeRig();
+    await new Promise((done) => setTimeout(done, 0));
+    sfx.cardTurn(turnPlan("mythic"));
+    ctx.currentTime += 0.3;
+    sfx.cardTurn(turnPlan("mythic"));
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).not.toBe(sources[1]);
+    expect(sources.some((s) => s.stopped)).toBe(false);
+    sources[0].onended();
+    sources[1].onended();
+    expect(sources.some((s) => s.stopped)).toBe(false);
+  });
+
+  it("keeps at most eight chimes ringing, dropping the oldest", async () => {
+    const { sfx, sources } = chimeRig();
+    await new Promise((done) => setTimeout(done, 0));
+    for (let i = 0; i < 10; i++) sfx.cardTurn(turnPlan("common"));
+    expect(sources.filter((s) => s.stopped)).toEqual(sources.slice(0, 2));
+  });
 });

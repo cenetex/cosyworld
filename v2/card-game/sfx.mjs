@@ -21,6 +21,7 @@ const BELL_ROOT = 523;
 const BELL_SECONDS = 3;
 const PEAK = 0.6;
 const FIGHT_PEAK = 0.4;
+const CHIME_CAP = 8;
 
 // A small seeded generator so each ring has its own slight detune.
 export function seeded(seed) {
@@ -61,7 +62,8 @@ export function createSfx({
     ringingUntil = 0,
     cursor = null,
     chimesAsked = false;
-  const chimes = new Map();
+  const chimes = new Map(),
+    ringing = [];
 
   const audible = () => unlocked && enabled && !hidden && volume > 0;
 
@@ -148,6 +150,9 @@ export function createSfx({
       level.gain.value = volume;
       source.connect(level);
       level.connect(context.destination);
+      source.onended = () => ringing.splice(ringing.indexOf(source) >>> 0, 1);
+      ringing.push(source);
+      if (ringing.length > CHIME_CAP) ringing.shift().stop();
       source.start();
     }
     return shapeTurnSound(context, out, plan, seeded(seed));
