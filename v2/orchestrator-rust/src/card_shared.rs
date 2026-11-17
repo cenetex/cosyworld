@@ -28,7 +28,7 @@ mod full_store;
 mod full_tests;
 mod full_world;
 mod guild_view;
-pub(crate) use guild_view::guild_view;
+pub(crate) use guild_view::{guild_talked, guild_view};
 #[cfg(test)]
 mod import_tests;
 #[cfg(test)]
@@ -103,7 +103,6 @@ fn reply(r: Result<Value>) -> Response {
     }
     let (status, body) = match r {
         Ok(v) => (StatusCode::OK, v),
-        // The client waits and retries on its own (shared.mjs).
         Err(e) if e == engine::UPDATING => (
             StatusCode::SERVICE_UNAVAILABLE,
             json!({"error":e, "code":"updating"}),
