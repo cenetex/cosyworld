@@ -592,6 +592,12 @@ describe("card sounds", () => {
     const ctx = context();
     const sources = [];
     ctx.decodeAudioData = async (url) => ({ url, duration: 5.43 });
+    ctx.compressors = 0;
+    ctx.createDynamicsCompressor = () => {
+      ctx.compressors += 1;
+      return { threshold: {}, ratio: {}, attack: {}, release: {}, connect() {} };
+    };
+    ctx.createDelay = () => ({ delayTime: {}, connect() {} });
     ctx.createBufferSource = () => {
       const source = {
         connect() {},
@@ -617,6 +623,7 @@ describe("card sounds", () => {
     sources[0].onended();
     sources[1].onended();
     expect(sources.some((s) => s.stopped)).toBe(false);
+    expect(ctx.compressors).toBe(1);
   });
 
   it("keeps at most eight chimes ringing, dropping the oldest", async () => {

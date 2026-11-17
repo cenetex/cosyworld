@@ -2,6 +2,7 @@ import { wakeContext } from "./audio-wake.mjs";
 import { COMBAT_SOUNDS, shapeCombatSound } from "./combat-sfx.mjs";
 import { CHIME_FILES, shapeCardSound, shapeTurnSound } from "./card-sfx.mjs";
 import { mediaUrl } from "./media.mjs";
+import { voiceTone } from "./voice-tone.mjs";
 
 // World sound effects made in the browser: a struck bell and the fight's
 // sounds (combat-sfx.mjs). They wait for a user gesture, follow the volume
@@ -149,7 +150,7 @@ export function createSfx({
       source.buffer = buffer;
       level.gain.value = volume;
       source.connect(level);
-      level.connect(context.destination);
+      level.connect(voiceTone(context));
       source.onended = () => ringing.splice(ringing.indexOf(source) >>> 0, 1);
       ringing.push(source);
       if (ringing.length > CHIME_CAP) ringing.shift().stop();
