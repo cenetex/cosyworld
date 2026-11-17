@@ -712,6 +712,9 @@ function giveUp(s, actor, api) {
   a.gaveUp = { target: want.target, turn: s.turn };
   setWant(a, nextWant(s, actor, api, want));
 }
+const asleep = (s, id, want, api) =>
+  api.metTurn(id) === undefined &&
+  stagedWants(s, id).some((entry) => sameQuest(heldWant(s, entry.want), want));
 const stallStart = (s, id, want, api) =>
   Math.max(
     want.since,
@@ -748,7 +751,8 @@ export function reviseStalledWants(s, actors, api, before = s) {
             (humanAvatarIds.includes(id) &&
               s.actors[want.target].place !== s.actors[id].place &&
               !api.reachable(id).includes(s.actors[want.target].place)))) &&
-      s.turn - stallStart(s, id, want, api) >= STALL_TURNS
+      s.turn - stallStart(s, id, want, api) >= STALL_TURNS &&
+      !asleep(s, id, want, api)
     )
       giveUp(s, id, api);
   }
@@ -760,7 +764,8 @@ export function reviseStalledWants(s, actors, api, before = s) {
       !humanAvatarIds.includes(id) &&
       entityActive(s, id) &&
       !accepted(s, id) &&
-      s.turn - stallStart(s, id, want, api) >= STALL_TURNS
+      s.turn - stallStart(s, id, want, api) >= STALL_TURNS &&
+      !asleep(s, id, want, api)
     )
       giveUp(s, id, api);
   }

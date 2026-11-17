@@ -720,7 +720,6 @@ function reachable(s, actor, within = null) {
 export { homeOf };
 // Avatars that became residents of a shared world (#1846) take a want at once.
 export const fillSeatWants = (s) => fillWants(s, wantAPI(s), true);
-// The world reads the want rules use, exported for their tests.
 export function wantAPI(s) {
   return {
     carried: (actor) => carried(s, actor),
@@ -744,7 +743,10 @@ export function wantAPI(s) {
     reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
     rangeTest: (actor) => rangeTest(s, actor),
     wanders: (actor) => wanders(s, actor),
-    metTurn: (id) => s.packs?.[packOf(id)?.id]?.met?.[id] ?? 0,
+    metTurn: (id) => {
+      const met = packOf(id) ? s.packs?.[packOf(id).id]?.met : s.opening?.met;
+      return met ? met[id] : 0;
+    },
     home: (id) => homeOf(id, s),
     active: (id) => entityActive(s, id),
     sanctuaries,
