@@ -370,6 +370,54 @@
       "direction": "A middle-aged man with a plain steady baritone, weathered flat grain, a light Swedish colour, and stolid care. Speak softly and close to the microphone, at low volume, relaxed and unforced, as if not to wake someone in the next room. Use little projection and gentle consonants. Keep the phrases smooth and connected, with brief natural pauses, and let phrase endings settle very quietly. Held worry stays under the calm. Let the words guide the emotion.",
       "speed": 1.12,
       "reference_sha256": "f2838b4cfa8de000960c53c6ee009ef7dd7609131151e1ec46269f9c6fc9e5fd"
+    },
+    "ash": {
+      "name": "Ash",
+      "file": "assets/voices/ash.mp3",
+      "transcript": "I let the float out, and the line is sounding. The old station bell is down there, under the water. One more dive, and then perhaps one more.",
+      "direction": "A man in his late fifties with a deep rounded baritone, a soft chuckle under the words, and unhurried dry humor. Speak softly and close to the microphone, at low volume, relaxed and unforced, as if not to wake someone in the next room. Use little projection and gentle consonants. Keep the phrases smooth and connected, with brief natural pauses, and let phrase endings settle very quietly. A quiet pull toward the next find colors his patience. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "18b3af55061d40bdb6bcc296e12d21960caf103f578a4ecb5e3d70f16d5e6f1e"
+    },
+    "nell": {
+      "name": "Iris",
+      "file": "assets/voices/nell.mp3",
+      "transcript": "A little water, and look, something green. I want a garden all across the platform. It's shared ground, so you get a say. Tell me what you'd grow, and I'll graft in a surprise.",
+      "direction": "A woman in her sixties with an upper-middle pitch, a sunny open tone with a light weathered roughness, and bold eager cheer. Speak softly and close to the microphone, at low volume, relaxed and unforced, as if not to wake someone in the next room. Use little projection and gentle consonants. Keep the phrases smooth and connected, with brief natural pauses, and let phrase endings settle very quietly. Daring delight colors any new idea. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "f55c02bd1011dde7ff319ea68e2ed739b2ad1d8e1369cace03ebc301a818f128"
+    },
+    "tavi": {
+      "name": "Tavi",
+      "file": "assets/voices/tavi.mp3",
+      "transcript": "The air is moving. I want to catch the wind that comes before the train. Hold the line, and I'll send the kite up, and the whole shore will see our signal.",
+      "direction": "A young adult of unclear sex, about twenty, with a light middle pitch, a springy airy tone, and playful inventive eagerness. Speak softly and close to the microphone, at low volume, relaxed and unforced, as if not to wake someone in the next room. Use little projection and gentle consonants. Keep the phrases smooth and connected, with brief natural pauses, and let phrase endings settle very quietly. A breath of laughter sits between the ideas. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "6fcc9e139b888ed4f7d6e454d50c59d39708fa69e0e7ffaada0adefb42d3ed92"
+    },
+    "rue": {
+      "name": "Rue",
+      "file": "assets/voices/rue.mp3",
+      "transcript": "The route board is open, and the platform is empty. I want the first departure in years. I can promise you a destination now, and find the route on the way. There's always a useful exception.",
+      "direction": "A woman in her early thirties with a low middle pitch, a crisp clipped tone, and brisk sly wit. Speak softly and close to the microphone, at low volume, relaxed and unforced, as if not to wake someone in the next room. Use little projection and gentle consonants. Keep the phrases smooth and connected, with brief natural pauses, and let phrase endings settle very quietly. Dry official humor colors every exception. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "ddc46bc7ef8bab1a6dca1d9e0604322020c7fc59bcfd4adcdc8a10ae3499881d"
+    },
+    "orin": {
+      "name": "Cass",
+      "file": "assets/voices/orin.mp3",
+      "transcript": "The board is set, and there's a stool for you. I want a game that everyone can enjoy. The rules are simple, mostly. Shall we make it interesting with a small wager, or a rather large one?",
+      "direction": "A young man in his mid twenties with a warm bright tenor, a ready soft laugh, and eager friendliness. Speak softly and close to the microphone, at low volume, relaxed and unforced, as if not to wake someone in the next room. Use little projection and gentle consonants. Keep the phrases smooth and connected, with brief natural pauses, and let phrase endings settle very quietly. Delight runs ahead of him when he names a wager. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "54e58ef30eaaee50429671a500b5e53d9d726980ae6239f6d78bfd2753c0a773"
+    },
+    "ada": {
+      "name": "Sage",
+      "file": "assets/voices/ada.mp3",
+      "transcript": "Every cloth has a loose seam somewhere. I want that old curtain for a sail. It holds a story, I know. I pull one thread free, and something new can begin.",
+      "direction": "A woman in her sixties with a middle pitch, a fine dry rasp like pulled thread, and brisk mischief. Speak softly and close to the microphone, at low volume, relaxed and unforced, as if not to wake someone in the next room. Use little projection and gentle consonants. Keep the phrases smooth and connected, with brief natural pauses, and let phrase endings settle very quietly. A knowing amusement colors any talk of seams. Let the words guide the emotion.",
+      "speed": 1.12,
+      "reference_sha256": "1df090cfee7d6fc516c12080da40a19d7fe53a286a608a7ba2b7785c205a5a0b"
     }
   }
 }
