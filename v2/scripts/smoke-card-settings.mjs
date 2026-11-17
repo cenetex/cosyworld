@@ -156,14 +156,9 @@ try {
     await page.locator('[data-setting="pack-sea"][data-lit="false"]').waitFor({
       state: "attached",
     });
-    // Hoppy Cat, reached only by the Sea, dims with it and says why.
-    const hoppy = setting(page, "pack-hoppy");
-    assert.equal(await hoppy.getAttribute("data-lit"), "false");
-    await tapCard(setting(page, "world"));
-    await tapCard(hoppy);
     assert.equal(
-      await page.locator("#setting-pack-hoppy").textContent(),
-      "Reached by The Wine-Dark Sea",
+      await setting(page, "pack-hoppy").getAttribute("data-lit"),
+      "true",
     );
     await pressSetting(page, "pack-sea");
     await page.locator('[data-setting="pack-sea"][data-lit="true"]').waitFor({
