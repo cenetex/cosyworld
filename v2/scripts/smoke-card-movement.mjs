@@ -210,7 +210,6 @@ try {
         );
         assert.equal(saved.turn, 0);
         assert.equal(saved.actors.vale.place, "attic");
-        // New openings start with the lamp lit.
         assert.equal(saved.items.lamp.lit, true);
         assert.equal(
           await page.locator("#backdrop").getAttribute("src"),
