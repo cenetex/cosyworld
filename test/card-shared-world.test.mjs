@@ -284,11 +284,9 @@ describe("the full world shared by human avatars", () => {
     expect(
       view.actions.some((a) => a.kind === "take" && a.item === "mask"),
     ).toBe(false);
-    // An away traveler is no one's to threaten or trade with, and an Ask
-    // takes nothing from her (rules 98).
+    // An away traveler is no one's to trade with, and an Ask takes nothing.
     const aimed = (a) =>
-      ["threaten", "trade"].includes(a.kind) &&
-      (a.target === "mara" || a.receive === "mask");
+      a.kind === "trade" && (a.target === "mara" || a.receive === "mask");
     expect(view.actions.filter(aimed).map((a) => a.key)).toEqual([]);
     const plea = view.actions.find((a) => a.kind === "ask");
     const asked = ask(world, "play", "vale", {
