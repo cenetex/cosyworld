@@ -65,7 +65,9 @@ const needOf = (c, choice = false) =>
     ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ")
     : c.item
       ? nameOf(c.item)
-      : choice && c.pack
+      : c.home
+        ? `something from ${nameOf(c.home)}`
+        : choice && c.pack
         ? `something from ${worldName(c.pack)}`
         : "something from there";
 const laneNeed = (gate) =>

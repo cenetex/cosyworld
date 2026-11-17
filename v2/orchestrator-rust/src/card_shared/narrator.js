@@ -2146,6 +2146,19 @@
   var usedUp = (world, id) => Array.isArray(world.usedUp) && world.usedUp.includes(id);
   var gone = (world, id) => Array.isArray(world.gone) && world.gone.includes(id);
 
+  // v2/card-game/world/for-good.mjs
+  var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
+  var startOf = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
+  function restForGood(item) {
+    let rest = restOf(item);
+    for (let i = 0; i < 8 && rest !== void 0; i++) {
+      if (startOf(rest)) return startOf(rest);
+      if (restOf(rest) === void 0) return rest;
+      rest = restOf(rest);
+    }
+    return rest;
+  }
+
   // v2/card-game/world/company.mjs
   var companionOf = (s, who) => s.actors?.[who]?.companion ?? null;
   function travelerOf(s, resident) {
@@ -2491,6 +2504,10 @@
       case "pack_item_present":
         return Object.keys(s.items).some(
           (id) => packThings[id]?.packId === c.pack && entityActive(s, id) && objectPlace(s, id) === c.place
+        );
+      case "home_item_present":
+        return Object.keys(s.items).some(
+          (id) => restForGood(id) === c.home && entityActive(s, id) && objectPlace(s, id) === c.place
         );
       case "drawn":
         return !!state?.specials?.includes(c.id);
@@ -3112,19 +3129,6 @@
     return Boolean(
       w && typeof w === "object" && Object.keys(w).length === 4 + (w.step === void 0 ? 0 : 1) + (w.lit === void 0 ? 0 : 1) + (w.story === void 0 ? 0 : 1) + (w.from === void 0 ? 0 : 1) && (w.from === void 0 || typeof w.from === "string" && OFFER_FROM.test(w.from)) && (w.step === void 0 || validStep(s, w, id)) && (w.lit === void 0 || w.kind === "item" && typeof w.lit === "boolean" || w.step?.verb === "lay" && w.lit === true) && w.quest === void 0 && (w.story === void 0 || w.story === true) && WANT_KINDS.includes(w.kind) && typeof w.target === "string" && validTarget(s, w.kind, w.target) && !(w.kind === "person" && w.target === id) && whole6(w.since) && Number.isInteger(w.refusals) && w.refusals >= 0 && w.refusals <= REFUSAL_LIMIT
     );
-  }
-
-  // v2/card-game/world/for-good.mjs
-  var restOf = (id) => packThings[id]?.home ?? packThings[id]?.holder ?? forest_default.initialState.items[id]?.holder;
-  var startOf = (id) => forest_default.initialState.actors?.[id]?.place ?? packPeople[id]?.place;
-  function restForGood(item) {
-    let rest = restOf(item);
-    for (let i = 0; i < 8 && rest !== void 0; i++) {
-      if (startOf(rest)) return startOf(rest);
-      if (restOf(rest) === void 0) return rest;
-      rest = restOf(rest);
-    }
-    return rest;
   }
 
   // v2/card-game/packs.json
@@ -10466,7 +10470,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions lying on deck, and on to the Hoppy Cat jetty only with them or a Hoppy Cat thing aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
+          description: "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions lying on deck, and on to the Signal Jetty only with a thing from the jetty aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
         },
         crossings: [
           {
@@ -10738,19 +10742,9 @@
                 oneWay: true,
                 opensWith: [
                   {
-                    kind: "any",
-                    conditions: [
-                      {
-                        kind: "item_present",
-                        item: "greek-provisions",
-                        place: "greek-ship"
-                      },
-                      {
-                        kind: "pack_item_present",
-                        pack: "hoppycat-archive",
-                        place: "greek-ship"
-                      }
-                    ]
+                    kind: "home_item_present",
+                    home: "hoppycat-signal-jetty",
+                    place: "greek-ship"
                   }
                 ]
               },
@@ -16365,6 +16359,7 @@
     "knows",
     "talked",
     "pack_item_present",
+    "home_item_present",
     "clock",
     "daylight",
     "weather",
@@ -16988,6 +16983,9 @@
             break;
           case "pack_item_present":
             ok = keysOk(c, ["kind", "pack", "place"]) && idOk2(c.pack) && anyPlace(c.place);
+            break;
+          case "home_item_present":
+            ok = keysOk(c, ["kind", "home", "place"]) && anyPlace(c.home) && anyPlace(c.place);
             break;
           case "weather":
             ok = keysOk(c, ["kind", "place", "condition"]) && anyPlace(c.place) && WEATHER_CONDITIONS.includes(c.condition);
@@ -19766,7 +19764,7 @@
     return known.length ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf(near)}.`];
   }
   var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
-  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf(c.item) : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
+  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf(c.item) : c.home ? `something from ${nameOf(c.home)}` : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
   var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
   var laneFact = (from, to) => {
     const gate = laneConditions(from, to);

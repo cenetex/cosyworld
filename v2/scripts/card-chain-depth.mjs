@@ -9,7 +9,7 @@ const all = (...x) => ({ t: "all", x });
 const any = (...x) => ({ t: "any", x });
 const ref = (id) => ({ t: "ref", id });
 const lost = (why) => ({ t: "lost", why });
-const ITEM_KINDS = new Set(["holding", "item", "item_present", "item_near", "item_at", "light", "in_hand", "pack_item_present"]);
+const ITEM_KINDS = new Set(["holding", "item", "item_present", "item_near", "item_at", "light", "in_hand", "pack_item_present", "home_item_present"]);
 
 export function chainDepth(packsJson, forest) {
   const w = liveWorld(packsJson, forest);

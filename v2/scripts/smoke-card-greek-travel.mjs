@@ -10,7 +10,7 @@ import {
 } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
-import { learnLane } from "../card-game/pack-transport.mjs";
+import { lanePath, learnLane } from "../card-game/pack-transport.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
 import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
@@ -143,9 +143,9 @@ try {
       );
       fixture.items["greek-provisions"].holder =
         journey.cargo === false ? "greek-athens" : "greek-ship";
-      // A Hoppy Cat thing aboard carries the ship on to the jetty.
+      // A thing from the jetty aboard carries the ship on to it.
       if (journey.hoppy)
-        fixture.items["hoppycat-halfway-cup"].holder = "greek-ship";
+        fixture.items["hoppycat-red-thread-spool"].holder = "greek-ship";
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
         reducedMotion: "reduce",
@@ -406,7 +406,9 @@ try {
       if (journey.cargo === false) {
         await step("wait");
         const stranded = await state();
-        assert.equal(stranded.transports["greek-ship"].dock, "greek-harbor");
+        const { dock } = stranded.transports["greek-ship"];
+        assert.notEqual(dock, "greek-piraeus");
+        assert.equal(lanePath(stranded, "greek-ship", dock, "greek-piraeus"), null);
         assert.ok(
           !legalActions(stranded, "mara").some((a) => a.target === "greek-ship"),
         );
