@@ -1782,7 +1782,6 @@ export function matchingActions(s, selected, actor = currentActor(s)) {
 function travelParty(s, actors, destination) {
   const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
-  // The legal action approves the whole party before any carried key moves.
   if (homeGates[from]?.opening && s.opening)
     s.locations[from].anchored = true;
   markCrossed(s, from, destination);
