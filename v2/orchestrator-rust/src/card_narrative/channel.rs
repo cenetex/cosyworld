@@ -975,29 +975,33 @@ fn answered(request: &CoordinateRequest, answers: &Map<String, Value>) -> Option
     let (choice, confidence) = system_one::choice(answers, "next")?;
     let resident = |id: &str| request.residents.iter().any(|r| r == id);
     let odds = answers["next"]["probabilities"].as_object()?;
-    let mut probabilities: Map<String, Value> = odds
-        .iter()
-        .filter(|(id, _)| resident(id.as_str()))
-        .filter_map(|(id, p)| Some((id.clone(), json!(rounded(p.as_f64()?)))))
+    let kept = |id: &str| resident(id) || id == "none";
+    let chance = |id: &str| odds.get(id).and_then(Value::as_f64);
+    let probabilities: Map<String, Value> = odds
+        .keys()
+        .filter(|id| kept(id.as_str()))
+        .filter_map(|id| Some((id.clone(), json!(rounded(chance(id.as_str())?)))))
         .collect();
-    let folded = odds.keys().any(|id| !resident(id.as_str()));
-    let silence: f64 = odds
-        .iter()
-        .filter(|(id, _)| !resident(id.as_str()))
-        .filter_map(|(_, p)| p.as_f64())
+    let people: f64 = odds
+        .keys()
+        .filter(|id| !kept(id.as_str()))
+        .filter_map(|id| chance(id.as_str()))
         .sum::<f64>()
         .min(1.0);
-    if folded {
-        probabilities.insert("none".into(), json!(rounded(silence)));
-    }
-    let (choice, confidence) = match (resident(choice), folded) {
-        (true, _) => (choice, confidence),
-        (false, true) if choice != "none" => ("none", silence),
-        (false, _) => ("none", confidence),
+    let nobody = chance("none").unwrap_or(0.0);
+    let best = request
+        .residents
+        .iter()
+        .filter_map(|id| Some((id.as_str(), chance(id.as_str())?)))
+        .max_by(|a, b| a.1.total_cmp(&b.1));
+    let (choice, confidence) = match best {
+        _ if kept(choice) => (choice, confidence),
+        Some((id, p)) if p >= nobody => (id, p),
+        _ => ("none", nobody),
     };
-    Some(
-        json!({"next": {"choice": choice, "confidence": rounded(confidence), "probabilities": probabilities}}),
-    )
+    let next = json!({"choice": choice, "confidence": rounded(confidence),
+        "probabilities": probabilities, "people": rounded(people)});
+    Some(json!({"next": next}))
 }
 
 pub(super) async fn coordinate(
@@ -1764,7 +1768,7 @@ mod tests {
         assert_eq!(
             body,
             json!({"reason": "ok", "answers": {"next": {"choice": "vale", "confidence": 0.8,
-                "probabilities": {"vale": 0.88, "rati": 0.1, "none": 0.0}}}})
+                "probabilities": {"vale": 0.88, "rati": 0.1, "none": 0.0}, "people": 0.0}}})
         );
         assert_eq!(requests.len(), 1);
         let asked = &requests[0];
@@ -1817,13 +1821,13 @@ mod tests {
         .await;
         assert_eq!(
             body,
-            json!({"reason": "ok", "answers": {"next": {"choice": "none", "confidence": 0.9,
-                "probabilities": {}}}})
+            json!({"reason": "ok", "answers": {"next": {"choice": "none", "confidence": 0.0,
+                "probabilities": {}, "people": 0.0}}})
         );
     }
 
     #[tokio::test]
-    async fn a_person_who_speaks_next_comes_back_as_none() {
+    async fn people_who_may_speak_next_are_counted_apart_from_none() {
         let answer = r#"{"answers": {"next": {"type": "choice", "choice": "person:ratimics",
             "probabilities": {"person:ratimics": 0.55, "person:Ash": 0.13, "rati": 0.2, "vale": 0.02,
             "none": 0.05, "person:other": 0.05}, "confidence": 0.55}}}"#;
@@ -1831,7 +1835,7 @@ mod tests {
         let history = body["state"]["history"].as_array_mut().unwrap();
         history.push(json!({"resident": "rati", "text": "Hello.", "ago": 1}));
         history.push(json!({"person": "ratimics", "text": "hold on, let me think", "ago": 0}));
-        let (_, folded, asked) = post_coordinate(answer, body.clone()).await;
+        let (_, apart, asked) = post_coordinate(answer, body.clone()).await;
         let criteria = asked[0]["questions"]["next"]["criteria"]
             .as_object()
             .unwrap();
@@ -1853,17 +1857,17 @@ mod tests {
             .starts_with("ratimics, a person, "));
         assert_eq!(asked[0]["state"]["history"][3]["speaker"], "ratimics");
         assert_eq!(
-            folded,
-            json!({"reason": "ok", "answers": {"next": {"choice": "none", "confidence": 0.78,
-                "probabilities": {"rati": 0.2, "vale": 0.02, "none": 0.78}}}})
+            apart,
+            json!({"reason": "ok", "answers": {"next": {"choice": "rati", "confidence": 0.2,
+                "probabilities": {"rati": 0.2, "vale": 0.02, "none": 0.05}, "people": 0.73}}})
         );
         let unlisted = r#"{"answers": {"next": {"type": "choice", "choice": "person:other",
-            "probabilities": {"person:other": 0.7, "rati": 0.25, "none": 0.05}, "confidence": 0.7}}}"#;
+            "probabilities": {"person:other": 0.7, "rati": 0.05, "none": 0.25}, "confidence": 0.7}}}"#;
         let (_, answer, _) = post_coordinate(unlisted, body).await;
         assert_eq!(
             answer,
-            json!({"reason": "ok", "answers": {"next": {"choice": "none", "confidence": 0.75,
-                "probabilities": {"rati": 0.25, "none": 0.75}}}})
+            json!({"reason": "ok", "answers": {"next": {"choice": "none", "confidence": 0.25,
+                "probabilities": {"rati": 0.05, "none": 0.25}, "people": 0.7}}})
         );
     }
 
