@@ -210,53 +210,54 @@ describe("one want per avatar", () => {
     expect(wantCandidates(s, "moth", api, null, true)).toContain("item:oil");
   });
 
-  it("sets aside a resident's stalled starter want unless a player holds it", () => {
-    const s = createWorld();
-    const id = "greek-antigone";
-    const start = s.actors[id].want;
-    expect(start).toMatchObject({
-      kind: "place",
-      target: "greek-polynices-hollow",
-      refusals: 0,
-    });
-    s.turn = STALL_TURNS - 1;
+  it("keeps an authored want asleep until a player meets its resident", () => {
+    const fresh = () => {
+      const s = baseCreateWorld({ opening: true });
+      const id = Object.keys(packPeople).find(
+        (other) =>
+          (packPeople[other].want || packPeople[other].wants) &&
+          entityActive(s, other) && s.actors[other].want && wantAPI(s).metTurn(other) === undefined,
+      );
+      return { s, id, start: { ...s.actors[id].want }, met: s.packs[packPeople[id].packId].met };
+    };
+    const { s, id, start, met } = fresh();
+    const moth = { ...s.actors.moth.want };
+    s.turn = 500;
+    reviseStalledWants(s, [id, "moth"], wantAPI(s));
+    expect(s.actors[id].want).toEqual(start);
+    expect(s.actors.moth.want).toEqual(moth);
+    met[id] = s.turn;
+    s.turn += STALL_TURNS - 1;
     reviseStalledWants(s, [id], wantAPI(s));
     expect(s.actors[id].want).toEqual(start);
-    const quest = holdQuest(s, "vale", questFor(s, id, start), `quest:from:${id}`);
-    s.turn = STALL_TURNS * 3;
-    reviseStalledWants(s, [id], wantAPI(s));
-    expect(s.actors[id].want).toEqual(start);
-    releaseQuest(s.actors.vale, quest);
+    s.turn += 1;
     reviseStalledWants(s, [id], wantAPI(s));
     expect(s.actors[id].gaveUp).toEqual({ target: start.target, turn: s.turn });
+    const held = fresh();
+    held.met[held.id] = 500;
+    holdQuest(held.s, "vale", questFor(held.s, held.id, held.start), `quest:from:${held.id}`);
+    held.s.turn = 2000;
+    reviseStalledWants(held.s, [held.id], wantAPI(held.s));
+    expect(held.s.actors[held.id].want).toEqual(held.start);
+    const drawn = fresh();
+    drawn.s.actors[drawn.id].want = newWant("person", drawn.id === "vale" ? "moth" : "vale", 0);
+    drawn.s.turn = STALL_TURNS;
+    reviseStalledWants(drawn.s, [drawn.id], wantAPI(drawn.s));
+    expect(drawn.s.actors[drawn.id].gaveUp?.turn).toBe(STALL_TURNS);
   });
 
-  it("starts a resident's stall clock when a player first meets it", () => {
-    const s = baseCreateWorld();
-    const id = Object.keys(s.actors).find(
-      (other) => entityActive(s, other) && s.actors[other].want?.refusals === 0,
+  it("wakes a want when any player first stands with its resident", () => {
+    const both = { claimed: ["rue", "mara"], present: ["rue", "mara"] };
+    let world = dispatchShared({ op: "create" }).world;
+    world = dispatchShared({ op: "join", world, actor: "mara", ...both }).world;
+    const id = Object.keys(packPeople).find(
+      (other) => entityActive(world, other) && wantAPI(world).metTurn(other) === undefined,
     );
-    const away = s.actors[id].place === "attic" ? "pond" : "attic";
-    const start = newWant("place", away, 0);
-    const api = (metTurn) => ({
-      ...wantAPI(s),
-      metTurn: () => metTurn,
-      wanders: () => true,
-      reachable: () => [],
-    });
-    s.actors[id].want = { ...start };
-    s.turn = STALL_TURNS * 2;
-    reviseStalledWants(s, [id], api(s.turn - 1));
-    expect(s.actors[id].want).toEqual(start);
-    reviseStalledWants(s, [id], api(s.turn - STALL_TURNS));
-    expect(s.actors[id].want).not.toEqual(start);
-    expect(s.actors[id].gaveUp).toEqual({ target: start.target, turn: s.turn });
-    const [resident, { packId }] = Object.entries(packPeople).find(
-      ([, person]) => s.packs[person.packId]?.met,
-    );
-    expect(wantAPI(s).metTurn(resident)).toBe(0);
-    s.packs[packId].met[resident] = 7;
-    expect(wantAPI(s).metTurn(resident)).toBe(7);
+    world.actors.mara.place = world.actors[id].place;
+    const { actions } = dispatchShared({ op: "view", world, actor: "mara", ...both });
+    const wait = actions.find((a) => a.kind === "wait" && !a.sleep);
+    world = dispatchShared({ op: "play", world, actor: "mara", ...both, action: wait }).world;
+    expect(wantAPI(world).metTurn(id)).toBe(world.turn);
   });
 
   it("never redraws a player's quest for refusals; Drop is free", () => {

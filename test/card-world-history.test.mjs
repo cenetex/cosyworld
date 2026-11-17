@@ -57,8 +57,7 @@ describe("a new world begins with history", () => {
       s.actors["greek-guard"].trust["greek-antigone"] = 3;
     });
     const world = beginHistory(structuredClone(start), changes(start, end, new Set()));
-    expect({ ...world.actors[CREON], want: null }).toEqual({ ...start.actors[CREON], want: null });
-    expect(world.actors[CREON].want).toEqual({ ...start.actors[CREON].want, since: world.turn });
+    expect(world.actors[CREON]).toEqual(start.actors[CREON]);
     expect(world.actors["greek-guard"].trust).toEqual(start.actors["greek-guard"].trust);
     expect(
       refusal(start, lived(start, (s) => (s.actors[RESIDENT].trust[CREON] = 2)), new Set()),

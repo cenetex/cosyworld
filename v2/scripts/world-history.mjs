@@ -101,9 +101,6 @@ export function changes(start, end, scene) {
   const guarded = new Set([...protectedIds, start.actors[playerOf(start)].place]);
   for (const id of residentsOf(end))
     diff(without(start.actors[id], RESTING), without(end.actors[id], RESTING), ["actors", id], out);
-  for (const [id, actor] of Object.entries(start.actors).sort())
-    if (protectedIds.has(id) && Number.isInteger(actor.want?.since))
-      out.push([["actors", id, "want", "since"], actor.want.since + end.turn - start.turn]);
   for (const id of Object.keys(end.items).sort())
     if (!guarded.has(id) && !protectedRoot(start, id))
       diff(start.items[id], end.items[id], ["items", id], out);
