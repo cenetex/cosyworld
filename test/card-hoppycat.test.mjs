@@ -82,12 +82,11 @@ describe("Hoppy Cat refresh", () => {
       expect(world.actors.vale.place).toBe(pack.entry);
       const returned = act(world, "move", { target: "pond" });
       expect(returned.actors.vale.place).toBe("pond");
-      // The red thread from Black pond is retired; new games sail to the jetty.
       expect(
         legalActions(returned).some(
           (a) => a.kind === "move" && a.target === pack.entry,
         ),
-      ).toBe(false);
+      ).toBe(true);
     }
     expect(landingPack("https://example.com/?pack=unknown")).toBeNull();
     expect(createLandingWorld().opening).toBeDefined();

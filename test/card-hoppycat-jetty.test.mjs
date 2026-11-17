@@ -205,22 +205,23 @@ describe("gate data", () => {
   });
 });
 
-describe("the retired red thread", () => {
-  it("is closed in a new game and in a pack landing", () => {
+describe("the red thread from Black pond", () => {
+  it("opens to a player in a new game and in a pack landing", () => {
     const s = setup("pond");
-    expect(s.crossings[THREAD].discovered).toBe(false);
-    expect(moves(s, "vale")).not.toContain(pack.entry);
+    expect(moves(s, "vale")).toContain(pack.entry);
+    const walked = act(s, "vale", "move", pack.entry);
+    expect(walked.actors.vale.place).toBe(pack.entry);
+    expect(moves(walked, "vale")).toContain("pond");
     const landing = reload(createLandingWorld(pack));
-    expect(landing.crossings[THREAD].discovered).toBe(false);
+    expect(landing.crossings[THREAD].discovered).toBe(true);
     expect(landing.crossings["hoppycat-garden-pond"].discovered).toBe(true);
   });
 
-  it("closes on load where a save had already found it", () => {
+  it("stays open on load", () => {
     const s = setup("pond");
     s.crossings[THREAD].discovered = true;
     const loaded = reload(s);
-    expect(loaded.crossings[THREAD].discovered).toBe(false);
-    expect(moves(loaded, "vale")).not.toContain(pack.entry);
+    expect(loaded.crossings[THREAD].discovered).toBe(true);
+    expect(moves(loaded, "vale")).toContain(pack.entry);
   });
-
 });

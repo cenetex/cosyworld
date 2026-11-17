@@ -141,11 +141,15 @@
         "to": "hoppycat-settled-light-theatre",
         "kind": "exit",
         "gate": null
+      },
+      {
+        "from": "pond",
+        "to": "hoppycat-halfway-tea-garden",
+        "kind": "crossing",
+        "gate": null
       }
     ],
-    "retired": [
-      "crossing:hoppycat-pond-garden"
-    ]
+    "retired": []
   },
   "mission": {
     "gates": [

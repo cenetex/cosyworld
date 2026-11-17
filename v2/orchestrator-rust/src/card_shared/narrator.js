@@ -3156,8 +3156,7 @@
           name: "Hoppy Cat Universe",
           packs: [
             "hoppycat-archive"
-          ],
-          reachedBy: "sea"
+          ]
         },
         radio: {
           name: "Night Shift at RatiRadio",
@@ -12954,7 +12953,7 @@
         },
         bridge: {
           id: "shore-hoppycat-archive",
-          description: "A red thread from the Halfway Tea Garden leads back to Black pond. Ships for the Signal Jetty leave from Piraeus. The pond's own thread into the garden stays open only where it was already found."
+          description: "A red thread at Black pond leads to the Halfway Tea Garden. Both shores keep the path open. Ships for the Signal Jetty also leave from Piraeus."
         },
         values: {},
         crossings: [
@@ -12962,13 +12961,12 @@
             id: "hoppycat-pond-garden",
             from: "pond",
             to: "hoppycat-halfway-tea-garden",
-            travelers: "any",
+            travelers: "player",
             travel: "along the red thread",
             requires: [],
             scenery: {
               open: "A red thread follows the water to a garden of kettle trees."
-            },
-            retired: true
+            }
           },
           {
             id: "hoppycat-garden-pond",
