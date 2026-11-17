@@ -2,10 +2,6 @@ use axum::http::{header, HeaderMap};
 
 use crate::AppState;
 
-// ---------------------------------------------------------------------------
-// HTTP handlers and auth (extracted from main.rs)
-// ---------------------------------------------------------------------------
-
 pub(crate) fn moderation_authorized(state: &AppState, headers: &HeaderMap) -> bool {
     moderation_authorized_token(
         state.moderation_token.as_deref().map(String::as_str),
