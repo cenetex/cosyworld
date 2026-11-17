@@ -368,7 +368,6 @@ for (const [width, motion] of [
     /^\d+ cards turned\. Rarest: (Common|Uncommon|Rare|Epic|Legendary|Mythic)\.$/u,
     `${label}: one batched announcement`,
   );
-  // The turned cards are named now.
   const shownNames = await page.evaluate(
     () => [...document.querySelectorAll('#hand [data-pack="open"] .name')].map((n) => n.textContent.trim()).filter(Boolean),
   );
