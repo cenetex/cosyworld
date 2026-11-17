@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { avatarUrl, residentIdentity } from "../src/identity.mjs";
 import { commandDefinitions, dispatch } from "../src/commands.mjs";
 import { channelLines, ensureWorld, fetchCast } from "../src/orchestrator.mjs";
-import { createRoom, requestBody } from "../src/room.mjs";
+import { castOf, createRoom, requestBody } from "../src/room.mjs";
+import { next } from "../src/turns.mjs";
 import { payload } from "../src/coordinator.mjs";
 import { readConfig } from "../src/config.mjs";
 
@@ -151,4 +152,41 @@ test("orchestrator errors become silence with a reason", async () => {
     await fetchCast(recorder({ status: 200, json: async () => ({ residents: [] }) }).fetch, "https://x", "t", "p"),
     null,
   );
+});
+
+test("a server's world brings its own cast, and an old server gives the global one", async () => {
+  const antigone = { id: "greek-antigone", name: "Antigone", portrait: "/a.png", avatar: "/fa.webp" };
+  const served = recorder({ status: 200, json: async () => ({ residents: [antigone] }) });
+  assert.deepEqual(await fetchCast(served.fetch, "https://x", "t", "lonely-forest", "100000000000000001"), [antigone]);
+  assert.equal(served.calls[0].url, "https://x/discord/cast?pack=lonely-forest&guild=100000000000000001");
+  const replies = [{ status: 400, json: async () => ({}) }, { status: 200, json: async () => ({ residents: deps.cast() }) }];
+  const old = { calls: [], fetch: async (url) => (old.calls.push(url), replies.shift()) };
+  assert.deepEqual((await fetchCast(old.fetch, "https://x", "t", "lonely-forest", "1")).map((r) => r.id), ["rati", "skull"]);
+  assert.deepEqual(old.calls, ["https://x/discord/cast?pack=lonely-forest&guild=1", "https://x/discord/cast?pack=lonely-forest"]);
+  assert.equal(await fetchCast(recorder({ status: 400, json: async () => ({}) }).fetch, "https://x", "t", "p"), null);
+});
+
+test("the coordinator, next and /who use the room's cast", async () => {
+  const config = readConfig({});
+  const room = createRoom("100000000000000001", "c1");
+  room.world = "https://x/?world=w";
+  room.messages.push({ id: "a", at: Date.now(), text: "Hello?", author: "Mara" });
+  const global = deps.cast();
+  assert.equal(castOf(room, global), global);
+  assert.equal(castOf(undefined, global), global);
+  room.cast = [{ id: "greek-antigone", name: "Antigone", portrait: "/a.png", avatar: "/fa.webp" }];
+  const cast = castOf(room, deps.cast());
+  assert.deepEqual(payload(room, config, cast).residents, ["greek-antigone"]);
+  const sent = [];
+  const coordinate = async (body) => {
+    sent.push(body);
+    return { answers: { next: { choice: "greek-antigone", confidence: 0.9, probabilities: { "greek-antigone": 0.9, rati: 0.05 } } } };
+  };
+  const who = await next(room, { config, cast, coordinate, stats: { coordinator: {} }, log: () => {} });
+  assert.equal(who, "greek-antigone");
+  assert.deepEqual(sent[0].residents, ["greek-antigone"]);
+  const listed = dispatch("who", { ...deps, cast: () => castOf(room, deps.cast()) }).content;
+  assert.match(listed, /1 resident: Antigone/);
+  assert.doesNotMatch(listed, /RATi/);
+  assert.equal(residentIdentity(cast[0], "https://x").avatarUrl, "https://x/fa.webp");
 });
