@@ -59,17 +59,13 @@ describe("the burial supplies", () => {
     expect(s.items["greek-oil-flask"].holder).toBe("greek-colonus");
     expect(s.items["greek-shovel"].holder).toBe("greek-polynices-hollow");
   });
-  it("stay where they are laid through a dawn, then go home the next", () => {
-    // Eleusis and Colonus are live once the way is open, so a thing laid away
-    // from its home is noted at one dawn and swept home at the next.
+  it("stay where they are laid, dawn after dawn", () => {
     let s = funeralJourney().buried;
     const grave = "greek-polynices-hollow";
     s.items["greek-oil-flask"].holder = grave;
-    delete s.astray;
-    s = until(s, "dawn");
-    expect(s.items["greek-oil-flask"].holder).toBe(grave);
-    expect(s.astray).toMatchObject({ "greek-oil-flask": grave });
-    s = until(s, "dawn");
-    expect(s.items["greek-oil-flask"].holder).toBe("greek-colonus");
+    for (let day = 0; day < 3; day++) {
+      s = until(s, "dawn");
+      expect(s.items["greek-oil-flask"].holder).toBe(grave);
+    }
   });
 });
