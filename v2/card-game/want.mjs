@@ -401,7 +401,14 @@ export function wantCandidates(
   });
   // A place is wanted only while a route to it is open.
   const places = reach.filter((id) => wide || !a.visited.includes(id));
-  const people = knownActors(s).filter(
+  const people = [
+    ...new Set([
+      ...knownActors(s),
+      ...Object.keys(s.actors).filter(
+        (id) => !humanAvatarIds.includes(id) && entityActive(s, id),
+      ),
+    ]),
+  ].filter(
     (id) =>
       id !== actor &&
       (wide || !a.talked.includes(id)) &&

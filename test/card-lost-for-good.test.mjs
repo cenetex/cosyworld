@@ -116,6 +116,7 @@ describe("a want on a thing that can never come back", () => {
     world.actors[id].place = COTTAGE;
     world.actors[id].want = newWant("item", BUTTON, world.turn);
     world.actors[id].trust.vale = 2;
+    world.actors[id].lastTalk = world.turn + 1;
     world = sew(world);
     expect(world.actors[id].want?.target).not.toBe(BUTTON);
     expect(world.actors[id].trust.vale).toBe(1);

@@ -224,7 +224,7 @@ describe("freed residents walk on their wants and sleep at home", () => {
       const visited = new Set([s.actors[id].place]);
       let slept = 0,
         awayAsleep = 0;
-      for (let i = 0; i < 2 * DAY; i++) {
+      for (let i = 0; i < 3 * DAY; i++) {
         const wait = legalActions(s).find(
           (a) => a.kind === "wait" && !a.sleep && !a.guards,
         );
