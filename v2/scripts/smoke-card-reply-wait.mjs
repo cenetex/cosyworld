@@ -259,9 +259,6 @@ async function localCheck(width, actor, kind, mode) {
   reports.push({ width, actor, kind, [mode]: "passed" });
   await page.close();
 }
-// A taken thing is in the taker's hand at once, face up and in view, while
-// the words for the Take are still on the way. On a phone the row keeps its
-// scroll, so the card must not land out of view beside its new holder.
 async function takeHolds(width, reducedMotion) {
   console.log(`Reply wait: take holds at ${width}px ${reducedMotion}`);
   const page = await browser.newPage({
