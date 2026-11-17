@@ -7,7 +7,7 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { installWants, stagedNext } from "../v2/card-game/want.mjs";
-import { packPeople } from "../v2/card-game/pack-registry.mjs";
+import { packDefinitions, packPeople } from "../v2/card-game/pack-registry.mjs";
 import { worldLife } from "../v2/card-game/resident-home.mjs";
 
 const R = "greek-ismene",
@@ -134,5 +134,35 @@ it("credits nobody when the want was met before the play", () => {
     s = act(s, kind, (a) => kind === "wait" || a.target === R);
     expect(s.actors[R].metTurn, kind).toBe(s.turn);
     expect(trust(s), kind).toBe(0);
+  }
+});
+
+it("credits the player once when a pack choice takes the gift that lays the thing", () => {
+  const pack = packDefinitions.find((p) => p.id === "greek-drama");
+  const choices = pack.choices;
+  pack.choices = [
+    ...choices,
+    {
+      id: "test-gift-lays",
+      subject: R,
+      at: home,
+      label: "Lay it",
+      text: "Vale lays it.",
+      textTemplate: "{actor} lays it.",
+      on: "give",
+      requires: [{ kind: "holding", item: thing, role: "actor" }],
+      effects: [{ kind: "place_item", item: thing, place: home }],
+    },
+  ];
+  try {
+    let s = world(place(next));
+    s.items[thing].holder = "vale";
+    laid(s);
+    s = act(s, "give", (a) => a.item === thing && a.target === R);
+    expect(s.items[thing].holder).toBe(home);
+    expect(s.actors[R].metTurn).toBe(s.turn);
+    expect(trust(s)).toBe(1);
+  } finally {
+    pack.choices = choices;
   }
 });
