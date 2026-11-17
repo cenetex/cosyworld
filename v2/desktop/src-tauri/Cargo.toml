@@ -1,6 +1,6 @@
 [package]
 name = "cosyworld-desktop"
-version = "1.2.154"
+version = "1.2.155"
 edition = "2021"
 publish = false
 
