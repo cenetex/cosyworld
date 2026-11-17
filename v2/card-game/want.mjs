@@ -723,11 +723,12 @@ export function reviseStalledWants(s, actors, api, before = s) {
   for (const id of actors) {
     const want = wantOf(s, id);
     if (
-      want?.kind === "place" &&
       !api.player(id) &&
       (travels(id, s) || api.wanders?.(id)) &&
-      want.target !== s.actors[id].place &&
-      !api.reachable(id).includes(want.target) &&
+      (want?.kind === "place"
+        ? want.target !== s.actors[id].place &&
+          !api.reachable(id).includes(want.target)
+        : want?.kind === "person" && !entityActive(s, want.target)) &&
       s.turn - stallStart(s, id, want, api) >= STALL_TURNS
     )
       giveUp(s, id, api);

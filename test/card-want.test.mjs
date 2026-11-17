@@ -316,6 +316,14 @@ describe("one want per avatar", () => {
     reviseStalledWants(s, ["moth"], api([]));
     expect(s.actors.moth.want?.target).not.toBe("attic");
     expect(s.actors.moth.gaveUp).toEqual({ target: "attic", turn: 200 });
+    const off = Object.keys(s.actors).find((id) => !entityActive(s, id));
+    s.actors.moth.want = newWant("person", "keeper", 0);
+    reviseStalledWants(s, ["moth"], api([]));
+    expect(s.actors.moth.want).toMatchObject({ target: "keeper", since: 0 });
+    s.actors.moth.want = newWant("person", off, 0);
+    reviseStalledWants(s, ["moth"], api([]));
+    expect(s.actors.moth.want?.target).not.toBe(off);
+    expect(s.actors.moth.gaveUp).toEqual({ target: off, turn: 200 });
   });
 
 

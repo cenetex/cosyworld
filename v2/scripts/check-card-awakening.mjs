@@ -205,9 +205,6 @@ try {
   await play("pond");
   assert.equal((await state()).actors.vale.place, "pond");
   await play("bell");
-  // Pip, twice refused, still threatens over the lamp after the first ring,
-  // and the standoff locks the room. Talking it out is a real play and breaks
-  // the two-ring sequence; the truce keeps Pip quiet for the rings below.
   await ready();
   assert.ok(await endStandoff(page, await state()), "Pip threatens Vale");
   await ready();
