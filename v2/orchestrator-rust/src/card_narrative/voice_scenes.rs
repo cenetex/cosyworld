@@ -37,7 +37,6 @@ tokio::task_local! {
     static SCENE: Voices;
 }
 
-/// Keep a finished line call for the scene it belongs to, if any.
 pub(super) fn heard(voice: Voice) {
     let _ = SCENE.try_with(|voices| {
         if let Ok(mut voices) = voices.lock() {
