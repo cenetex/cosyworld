@@ -41,6 +41,7 @@ import {
   humanHomeGates,
   heldByHuman,
   residentAvatar,
+  unplayedAvatar,
 } from "./human-cast.mjs";
 export {
   currentActor,
@@ -583,7 +584,8 @@ const needed = (s, actor, item) => {
 };
 // An away traveler's avatar, played as a resident, is no one's to ask,
 // threaten, trade with or draw into a fight (rules 98).
-const humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id);
+const humanHeld = (s, id) =>
+  controlledByHuman(s, id) || (residentAvatar(s, id) && heldByHuman(s, id));
 export function willingToGive(s, owner, item, recipient = null) {
   return (
     !humanHeld(s, owner) &&
@@ -3070,6 +3072,20 @@ function wantPlan(s, actor) {
       (!inRange(s, actor, to) || (transportPlace(to) && !mayBoard(s, actor)))
     )
       return drift();
+    const open = exits(s, here, actor).length;
+    const key =
+      !step.action &&
+      humanAvatar(actor) &&
+      acts.find(
+        (a) =>
+          a.kind === "take" &&
+          exits(
+            { ...s, items: { ...s.items, [a.item]: { ...s.items[a.item], holder: actor } } },
+            here,
+            actor,
+          ).length > open,
+      );
+    if (key) return { action: key };
     return step.action
       ? { action: step.action }
       : { ...idle(), ...(step.callShip ? { callShip: true } : {}) };
@@ -3249,11 +3265,11 @@ export function play(
       "moth",
       "keeper",
       ...active.filter((id) => id === BOARDY && !controlledByHuman(next, id)),
-      // Avatars nobody steers here live as residents where they stand.
       ...active.filter(
         (id) =>
           residentAvatar(next, id) &&
-          next.actors[id].place === next.actors[actor].place,
+          (next.actors[id].place === next.actors[actor].place ||
+            unplayedAvatar(next, id)),
       ),
       ...active.filter(
         (id) =>

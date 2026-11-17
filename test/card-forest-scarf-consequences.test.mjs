@@ -6,6 +6,7 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import {
   encodeSave,
+  humanAvatarIds,
   legalActions,
   play,
   validateWorld,
@@ -32,8 +33,7 @@ const sorted = (v) =>
       : v;
 // Mirror host session operations; native tests exercise the actual C guard.
 function session(reduce) {
-  let claimed = [],
-    present = [];
+  let present = [];
   return (world, command) => {
     const { op, actor } = command;
     if (op === "enter") present = [...present, actor];
@@ -41,7 +41,7 @@ function session(reduce) {
     const request = {
       ...command,
       world,
-      claimed,
+      claimed: humanAvatarIds,
       present,
       op:
         op === "claim"
@@ -50,9 +50,7 @@ function session(reduce) {
             ? "presence"
             : op,
     };
-    const result = reduce(request);
-    if (op === "claim" && result.ok) claimed.push(actor);
-    return result;
+    return reduce(request);
   };
 }
 const worn = (world, turns) => {

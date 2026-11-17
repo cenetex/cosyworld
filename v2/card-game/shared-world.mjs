@@ -37,7 +37,7 @@ import {
   applyLaterReflections,
   applySharedReflections,
 } from "./reflections.mjs";
-import { resetAvatar } from "./avatar-reset.mjs";
+import { resetAvatar, settleHomeItems } from "./avatar-reset.mjs";
 import { arrive, hideAvatar } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
@@ -123,18 +123,6 @@ function carryProgress(actor, progress) {
 function enableShared(world) {
   world.sharedVersion = 1;
   return world;
-}
-function settleHomeItems(world, claimed = []) {
-  for (const avatar of humanAvatars.filter((a) => a.id !== "vale")) {
-    const item = world.items[avatar.item.id];
-    if (
-      !claimed.includes(avatar.id) &&
-      world.actors[avatar.id].place === avatar.home.id &&
-      item.holder === avatar.id &&
-      item.history.length === 0
-    )
-      item.holder = avatar.home.id;
-  }
 }
 function view(world, actor) {
   return {

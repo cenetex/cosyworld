@@ -34,6 +34,10 @@ export const residentAvatar = (world, id) =>
   Boolean(humanAvatar(id)) &&
   !controlledByHuman(world, id) &&
   !world.absent?.includes(id);
+export const unplayedAvatar = (world, id) =>
+  residentAvatar(world, id) &&
+  !heldByHuman(world, id) &&
+  world.hidden?.actor !== id;
 export const roomHumanCount = (world, place) =>
   humanAvatarIds.filter(
     (id) => humanPresent(world, id) && world.actors[id]?.place === place,

@@ -1199,6 +1199,7 @@ fn bard_passage_help_uses_authoritative_home_and_ship_actions_and_replays() {
         // Keep this passage fixture separate from unrelated shore quests.
         w.game["actors"]["moth"]["place"] = json!("greek-battlefield");
         w.game["actors"]["keeper"]["place"] = json!("greek-battlefield");
+        w.game["absent"] = json!(["ada", "ash", "mara", "nell", "orin", "rue", "tavi"]);
         let start = if sea { "greek-harbor" } else { "theatre" };
         // Vale waits away from the ship, so the Bard may call it.
         w.game["actors"]["vale"]["place"] = json!(if sea { "station" } else { "theatre" });

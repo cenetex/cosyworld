@@ -1,7 +1,20 @@
 import { createWorld, fillSeatWants } from "./world.mjs";
 import { enableMotives } from "./motives.mjs";
 import { settleHeldItems } from "./held-item.mjs";
+import { humanAvatars } from "./human-cast.mjs";
 
+export function settleHomeItems(world, claimed = []) {
+  for (const avatar of humanAvatars.filter((a) => a.id !== "vale")) {
+    const item = world.items[avatar.item.id];
+    if (
+      !claimed.includes(avatar.id) &&
+      world.actors[avatar.id].place === avatar.home.id &&
+      item.holder === avatar.id &&
+      item.history.length === 0
+    )
+      item.holder = avatar.home.id;
+  }
+}
 // A shared world's owner frees a seat, or its holder releases it (#1825). The
 // avatar starts over as a fresh level-1 starter at its starting place: its
 // level, experience, quest, memory, learning and routes go, and everything it
@@ -11,6 +24,7 @@ export function resetAvatar(world, id) {
   // with a want (#1846).
   const fresh = enableMotives(createWorld({ opening: true }));
   fresh.sharedVersion = 1;
+  settleHomeItems(fresh);
   fillSeatWants(fresh);
   const actor = world.actors[id];
   if (!actor || !fresh.actors[id]) throw new Error("Choose a human avatar.");

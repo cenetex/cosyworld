@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createWorld, holdChoice, homeOf, legalActions, places, play, sanctuaries, standoffFor, validateWorld, LONG_SLEEP_TURNS } from "../v2/card-game/world.mjs";
+import { createWorld, holdChoice, homeOf, humanAvatarIds, legalActions, places, play, sanctuaries, standoffFor, validateWorld, LONG_SLEEP_TURNS } from "../v2/card-game/world.mjs";
 import {
   crossings,
   packDefinitions,
@@ -239,6 +239,7 @@ describe("rest and sanctuary", () => {
     };
     const quiet = (turn = 0) => {
       const s = seat(["mara"]);
+      s.heldActors = [...humanAvatarIds];
       s.actors.mara.place = "clearing";
       s.turn = s.revision = turn;
       return s;

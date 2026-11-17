@@ -7,6 +7,7 @@ import {
   decodeSave,
   encodeSave,
   exits,
+  humanAvatarIds,
   legalActions,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -74,7 +75,7 @@ const ask = (world, actor, extra = {}) =>
     world,
     actor,
     op: "view",
-    claimed: players,
+    claimed: humanAvatarIds,
     present: players,
     ...extra,
   });
