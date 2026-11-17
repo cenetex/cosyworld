@@ -247,7 +247,7 @@ impl Vocabulary {
     fn key(&self, key: &str, path: &[String]) -> bool {
         let closed = path.len() == 3 && path[0] == "actors" && path[2] == "closed";
         let offer = closed
-            && ["quest:box:", "quest:from:", "quest:home:"]
+            && ["quest:box:", "quest:from:", "quest:home:", "quest:place:"]
                 .iter()
                 .any(|head| {
                     key.strip_prefix(head)

@@ -504,12 +504,18 @@ import {
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
-import { boxOffer, questOffers, residentOffer } from "./world/offers.mjs";
+import {
+  boxOffer,
+  placeOffer,
+  questOffers,
+  residentOffer,
+  validPlaceMet,
+} from "./world/offers.mjs";
 import { lapseOffer } from "./offer-chance.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
 import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
-export { boxOffer, questOffers, residentOffer };
+export { boxOffer, placeOffer, questOffers, residentOffer };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
@@ -1675,6 +1681,11 @@ export function legalActions(s, actor = currentActor(s)) {
     if (shut.kind !== "box") continue;
     const take = offer("accept", actor, null, null, `${nameOf(actor)} accepts the closed box's quest.`, []);
     out.push({ ...take, box: shut.source, key: `${take.key}box:${shut.source}` });
+  }
+  const called = placeOffer(s, actor);
+  if (called && !called.full) {
+    const take = offer("accept", actor, null, null, `${nameOf(actor)} accepts ${nameOf(called.source)}'s quest.`, []);
+    out.push({ ...take, place: called.source, key: `${take.key}place:${called.source}` });
   }
   if (actor === currentActor(s) || controlledByHuman(s, actor))
     questsOf(s, actor).forEach((w, quest) => {
@@ -3339,9 +3350,11 @@ export function play(
   if (exact.kind === "accept") {
     const asked = exact.box
       ? boxOffer(next, exact.box, actor)
-      : residentOffer(next, actor);
+      : exact.place
+        ? placeOffer(next, actor)
+        : residentOffer(next, actor);
     const quest = holdQuest(next, actor, asked.want, asked.id);
-    if (!exact.box) lapseOffer(next, actor);
+    if (!exact.box && !exact.place) lapseOffer(next, actor);
     bindAsker(next, actor, quest, true);
     next.revision += 1;
     validateWorld(next);
@@ -3713,6 +3726,7 @@ export function validateWorld(s) {
     conversations: () => validConversations(s),
     "held-items": () => validHeldItems(s),
     opened: () => validOpened(s),
+    "place-met": () => validPlaceMet(s),
     arcana: () => validArcana(s),
     hidden: () =>
       validHidden(s) && !(s.hidden && !Object.hasOwn(places, s.hidden.place)),

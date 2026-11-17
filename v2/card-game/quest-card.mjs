@@ -17,6 +17,7 @@ import {
   itemPlace,
   movesTo,
   nameOf,
+  placeOffer,
   places,
   residentOffer,
   rootHolder,
@@ -78,14 +79,20 @@ export const questCards = (world, actor = currentActor(world)) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
 export function offerCard(world, actor = currentActor(world), box = null) {
-  const asked = box ? boxOffer(world, box, actor) : residentOffer(world, actor);
+  const place = Boolean(box) && box === world.actors[actor]?.place;
+  const asked = place
+    ? placeOffer(world, actor)
+    : box
+      ? boxOffer(world, box, actor)
+      : residentOffer(world, actor);
   if (!asked) return null;
-  const mark = box ? "box" : world.actors[actor].offered.turn;
+  const mark = place ? "place" : box ? "box" : world.actors[actor].offered.turn;
   return {
     ...questShape(world, actor, asked.want, `offer:${actor}:${asked.source}:${mark}`, -1),
     offer: asked.source,
     full: asked.full,
     ...(box ? { box: true } : {}),
+    ...(place ? { place: true } : {}),
   };
 }
 export function offerLapse() {

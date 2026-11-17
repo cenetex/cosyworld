@@ -82,8 +82,13 @@ export const travels = (id, s = null) =>
 export const levelFor = (xp) => Math.floor((1 + Math.sqrt(1 + 8 * xp)) / 2);
 const rankAt = (s, id) =>
   s.actors[id]?.level ?? levelFor(s.actors[id]?.xp || 0);
+export const PLACE_FROM = "quest:place:";
+const placeRank = (s, id) =>
+  s.placeMet && Object.hasOwn(s.placeMet, id) ? 1 + s.placeMet[id].length : null;
 export const levelOf = (s, id) =>
-  humanAvatarIds.includes(id) ? arcanaLevel(s, id) : trackLevel(rankAt(s, id));
+  humanAvatarIds.includes(id)
+    ? arcanaLevel(s, id)
+    : trackLevel(placeRank(s, id) ?? rankAt(s, id));
 // Opted-in residents bank experience while away. Their authored home stays
 // fixed even when a journey or a visit changes their latest sanctuary.
 export const levelReturnHome = (s, id) =>
@@ -669,6 +674,12 @@ function commitMet(s, id, api, met, held = null) {
   api.log(id, want);
   if (traveler && want.from?.startsWith("quest:from:"))
     countResidentQuest(a, want.from.slice("quest:from:".length));
+  if (want.from?.startsWith(PLACE_FROM)) {
+    const place = want.from.slice(PLACE_FROM.length),
+      met = s.placeMet?.[place] ?? [],
+      laid = want.step.items.filter((item) => !met.includes(item));
+    if (laid.length) s.placeMet = { ...s.placeMet, [place]: [...met, ...laid] };
+  }
   if (!traveler && !api.player(id) && !packPeople[id]?.levelAtHome)
     a.level = Math.max(a.level, levelFor(a.xp));
   if (api.player(id)) closeQuest(a, want, s.turn);

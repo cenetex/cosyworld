@@ -554,6 +554,7 @@ const offerFront = () => questOpen === OFFER_CARD && Boolean(standingOffer());
 function syncOffer() {
   const shut = selected.filter((id) => !cardIsCovered(id) && isLockedBox(world, id));
   if (shut.length === 1) boxAsk = shut[0];
+  else if (selected.length === 1 && selected[0] === placeHere()) boxAsk = selected[0];
   else if (questOpen !== OFFER_CARD) boxAsk = null;
   if (!offers.sync(!pipPrelude() && offerCard(world), questOpen === OFFER_CARD)) return;
   questOpen = OFFER_CARD;
@@ -2969,7 +2970,7 @@ function renderActions() {
     legal.find(
       (a) =>
         a.kind === "accept" &&
-        (picked.box ? a.box : a.target) === picked.offer,
+        (picked.place ? a.place : picked.box ? a.box : a.target) === picked.offer,
     );
   const questButtons = abandonQuest
     ? [{ action: drop, label: "Confirm?" }]
