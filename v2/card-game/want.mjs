@@ -660,7 +660,6 @@ function helped(s, owner, api, action) {
   }
   if (action.kind !== "give" || action.chosen) gainTrust(s, owner, helper);
 }
-// The met want pays a resident one experience at once.
 function commitMet(s, id, api, met, held = null) {
   const a = s.actors[id],
     want = held ?? a.want,
@@ -739,6 +738,7 @@ export function reviseStalledWants(s, actors, api, before = s) {
     const want = wantOf(s, id);
     if (
       !api.player(id) &&
+      !accepted(s, id) &&
       (travels(id, s) || api.wanders?.(id)) &&
       (want?.kind === "place"
         ? want.target !== s.actors[id].place &&
