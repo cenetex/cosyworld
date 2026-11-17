@@ -51,7 +51,7 @@ function states(seed) {
   return out;
 }
 
-function astray(world, id = BRANCH, spot = "greek-athens") {
+function leftAt(world, id = BRANCH, spot = "greek-athens") {
   world = structuredClone(world);
   const dawn = 2 * DAYLIGHT_TURNS;
   world.turn = Math.ceil((world.turn + 1) / dawn) * dawn - 1;
@@ -60,7 +60,6 @@ function astray(world, id = BRANCH, spot = "greek-athens") {
     crossing.discovered = true;
   world.items[id].holder = spot;
   world.items[id].history = ["Turn 3: It is left here."];
-  world.astray = { [id]: spot };
   return reload(world);
 }
 
@@ -81,23 +80,22 @@ describe("every play beside the Listener", () => {
   });
 });
 
-describe("a thing sent home where it sleeps", () => {
+describe("a thing left lying through a dawn", () => {
   it("lets every play go on beside the selling Listener", () => {
-    const world = astray(states(5).selling);
+    const world = leftAt(states(5).selling);
     expect(entityEnabled(world, BRANCH, true)).toBe(true);
     for (const action of legalActions(world, "vale"))
       expect(tryPlay(world, action).ok, action.key).toBe(true);
   });
 
-  it("rests at its home asleep, and a reload keeps it there", () => {
-    const world = astray(createWorld({ seed: 5 }));
+  it("stays where it lies, and a reload keeps it there", () => {
+    const world = leftAt(createWorld({ seed: 5 }));
     const result = play(world, waitOf(world), world.revision, "vale");
     expect(result.ok, result.error).toBe(true);
-    expect(entityEnabled(result.state, BRANCH, true)).toBe(false);
-    expect(reload(result.state).items[BRANCH].holder).toBe("greek-courtyard");
+    expect(reload(result.state).items[BRANCH].holder).toBe("greek-athens");
   });
 
-  it("never stops the world for any thing that comes home at dawn", () => {
+  it("never stops the world for any homed thing left anywhere", () => {
     const base = createWorld({ seed: 5 });
     for (const pack of packDefinitions)
       for (const [id, item] of Object.entries(pack.items || {}))
@@ -106,7 +104,7 @@ describe("a thing sent home where it sleeps", () => {
           : []) {
           let world;
           try {
-            world = astray(base, id, spot);
+            world = leftAt(base, id, spot);
           } catch {
             continue;
           }

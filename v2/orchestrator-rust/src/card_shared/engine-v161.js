@@ -457,6 +457,21 @@
   var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
   var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
   var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
+  var FACT_FORMS = Object.fromEntries(
+    [
+      "me:i my:i mine:i myself:i your:you yours:you yourself:you is:be was:be ",
+      "am:be are:be were:be been:be m:be re:be has:have had:have ve:have ",
+      "does:do did:do goes:go went:go took:take gave:give chose:choose ",
+      "brought:bring threw:throw made:make saw:see found:find held:hold ",
+      "kept:keep told:tell sold:sell bought:buy caught:catch led:lead ",
+      "fought:fight rang:ring ran:run came:come said:say stole:steal hid:hide ",
+      "wrote:write drew:draw knew:know fell:fall sat:sit stood:stand ",
+      "sent:send lost:lose met:meet paid:pay struck:strike won:win woke:wake ",
+      "broke:break spoke:speak ate:eat drank:drink sang:sing swore:swear ",
+      "wore:wear tore:tear left:leave"
+    ].join("").split(" ").map((pair) => pair.split(":"))
+  );
+  var VOWELS = /* @__PURE__ */ new Set([..."aeiou"]);
   var newKnowledge = () => ({
     version: KNOWLEDGE_VERSION,
     facts: {},
@@ -6765,7 +6780,6 @@
   var packKits = packDefinitions.flatMap(
     (pack) => (pack.kits || []).map((kit) => ({ ...kit, packId: pack.id }))
   );
-  var kitThings = new Set(packKits.flatMap((kit) => kit.items));
   var reservedItem = (s, id) => {
     const thing = packThings[id];
     return Boolean(thing?.reservedUntil?.length && !conditionsMet(s, thing.packId, thing.reservedUntil));
@@ -6902,13 +6916,10 @@
       }
     }
   }
-  function stray(s, id) {
-    const thing = packThings[id], root2 = rootOf4(s, id);
-    if (root2 === thing.home) return null;
-    if (humanAvatar(root2))
-      return thing.absentReturn && !humanPresent(s, root2) ? "absent" : null;
-    return !s.actors[root2] && root2 !== thing.holder && !kitThings.has(id) ? "astray" : null;
-  }
+  var heldByAbsent = (s, id) => {
+    const root2 = rootOf4(s, id);
+    return packThings[id].absentReturn && humanAvatar(root2) && !humanPresent(s, root2);
+  };
   function settleItemCycle(s, nameOf2, log) {
     const events = itemEvents(s);
     if (!events.length) return;
@@ -6932,21 +6943,15 @@
         note(s, id, text2);
         log(text2, to);
       }
-      const seen = {};
       for (const id of homed) {
-        const home = packThings[id].home, why = !usedUp(s, id) && entityActive(s, home) && stray(s, id);
-        if (!why) continue;
-        if (why === "astray" && s.astray?.[id] !== rootOf4(s, id)) {
-          seen[id] = rootOf4(s, id);
+        const home = packThings[id].home;
+        if (usedUp(s, id) || !entityActive(s, home) || !heldByAbsent(s, id))
           continue;
-        }
         const text2 = `${capital(the(nameOf2(home)))} has ${the(nameOf2(id))} back.`;
         s.items[id].holder = home;
         note(s, id, text2);
         log(text2, home);
       }
-      if (Object.keys(seen).length) s.astray = seen;
-      else delete s.astray;
     }
     for (const kit of packKits) scatterKit(s, kit, events, nameOf2, log);
   }
@@ -7024,9 +7029,7 @@
       restOf2(id),
       ...gone(s, id) ? [restForGood(id)] : []
     ].includes(s.items[id]?.holder) : gone(s, id) && s.items[id]?.holder === restForGood(id)) && s.items[id].history.length === 0
-  ) && (s.astray === void 0 || Boolean(s.astray) && typeof s.astray === "object" && !Array.isArray(s.astray) && Object.keys(s.astray).length > 0 && Object.entries(s.astray).every(
-    ([id, place2]) => homed.includes(id) && typeof place2 === "string"
-  )) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
+  ) && (s.scatters === void 0 || Boolean(s.scatters) && typeof s.scatters === "object" && !Array.isArray(s.scatters) && Object.entries(s.scatters).every(
     ([id, n]) => packKits.some((kit) => kit.id === id) && whole4(n)
   )) && (s.gone === void 0 || Array.isArray(s.gone) && s.gone.length > 0 && s.gone.every(
     (id, i) => s.usedUp.includes(id) && (!i || s.gone[i - 1] < id)
@@ -7103,6 +7106,7 @@
     }
     forgetRetiredThings(s, new Set(gone2));
     delete s.openedRoutes;
+    delete s.astray;
     if (s.opened && typeof s.opened === "object" && !Array.isArray(s.opened)) {
       const boxes = new Set(boxDefs().map((d) => d.id));
       for (const id of Object.keys(s.opened))
