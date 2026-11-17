@@ -15,8 +15,6 @@ export const ENTRY_MS = 460;
 // at the dialogue's 28 ms a letter, and the last waits at most this long.
 export const ENTRY_STAGGER_MS = 70;
 export const ENTRY_STAGGER_MAX_MS = 350;
-// A quest lies face down this long after it enters, then turns.
-export const QUEST_DOWN_MS = 520;
 const EASE = "cubic-bezier(.2,.7,.25,1)";
 const RISE = [
   { opacity: 0, translate: "0 28px", scale: 0.96 },
@@ -104,11 +102,13 @@ export function createCardEntries() {
 // the same card, never a new one.
 export const questEntryKey = (quest) =>
   `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}:${questTerms(quest)}`;
+export const questFaceKey = (quest) =>
+  `${quest.actor}:${quest.kind}:${quest.target ?? ""}:${quest.level ?? "ordinary"}`;
 
 // The one quest in the hand. `show(key, seen)` takes the held quest's key
 // (or null) and whether it is in view, and returns whether it is due to turn:
 // dealt face down and now seen. `down(key)` says whether it is still face
-// down, `turned(key)` marks it face up for as long as it stays in the hand,
+// down, `turned(key)` marks it face up for good, whatever the hand does,
 // and `unseen(key)` puts back a turn that found it folded again. The hand a
 // page or a new game opens on (`opening`) is already dealt: what shows then
 // is face up at once, and a quest folded away turns when first seen. A quest
@@ -118,8 +118,7 @@ export function createQuestEntries() {
     due = false,
     shown = new Set();
   return {
-    show(key, seen = false, { opening = false, stack = [] } = {}) {
-      shown = new Set([...shown].filter((k) => stack.includes(k)));
+    show(key, seen = false, { opening = false } = {}) {
       if (key !== held) {
         const fresh = key !== null;
         held = key;

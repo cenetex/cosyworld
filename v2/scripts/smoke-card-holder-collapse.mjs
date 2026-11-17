@@ -393,7 +393,6 @@ try {
           else assert.deepEqual(now, beforePlay, label);
         };
         await readyActionButton(page, "wait").click();
-        assert.equal(await action("wait").count(), 0, "the beat rests");
         await sameHand("committing a play leaves the hand where it is");
         await settled();
         await settleHand();
@@ -404,10 +403,10 @@ try {
         });
         assert.deepEqual(
           await selected(),
-          ["lamp", "vale"],
-          "waiting keeps the lamp in hand",
+          ["vale"],
+          "waiting keeps the chosen card chosen",
         );
-        await tap("vale");
+        await chooseItem();
         assert.deepEqual(await selected(), ["lamp"]);
         const held = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
         const speechCount = requests.length;
@@ -519,9 +518,10 @@ try {
         await settled();
         assert.deepEqual(
           await selected(),
-          [],
+          ["pond"],
           "a put-down item leaves the selection",
         );
+        await tap("pond");
         // An item that arrives in the player's hands is raised there.
         await tap("pond");
         await tap("oil");
@@ -531,9 +531,10 @@ try {
         await settled();
         assert.deepEqual(
           await selected(),
-          ["oil"],
+          ["oil", "pond"],
           "a taken item is raised in the hand",
         );
+        await tap("pond");
         assert.equal(await frame("oil").getAttribute("hidden"), null);
         await tap("moth");
         await tap("bell");

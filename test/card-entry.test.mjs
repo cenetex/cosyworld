@@ -8,6 +8,7 @@ import {
   enteringKeys,
   entryDelays,
   questEntryKey,
+  questFaceKey,
 } from "../v2/card-game/card-entry.mjs";
 import { revealPlan } from "../v2/card-game/card-reveal.mjs";
 
@@ -145,13 +146,19 @@ describe("the quest is dealt face down and turns once", () => {
     expect(quests.down(key)).toBe(false);
   });
 
-  it("deals a quest again when it truly leaves and comes back", () => {
+  it("never turns a quest again when it leaves and comes back", () => {
     const quests = createQuestEntries();
     quests.show(key, true);
     quests.turned(key);
     expect(quests.show(null)).toBe(false);
-    expect(quests.show(key, true)).toBe(true);
-    expect(quests.down(key)).toBe(true);
+    expect(quests.show(key, true)).toBe(false);
+    expect(quests.down(key)).toBe(false);
+  });
+
+  it("keeps one face for a quest whose step or light changes", () => {
+    const face = questFaceKey({ ...lamp, level: 2, step: { verb: "lay" } });
+    expect(questFaceKey({ ...lamp, level: 2, step: { verb: "carry" }, lit: true })).toBe(face);
+    expect(questFaceKey({ ...lamp, level: 3 })).not.toBe(face);
   });
 
   it("puts back a turn that finds the quest folded again", () => {

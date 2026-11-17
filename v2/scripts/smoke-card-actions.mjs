@@ -352,7 +352,7 @@ try {
     );
     await ready();
     assert.equal((await state()).turn, 1);
-    assert.equal(await page.locator(".action-panel").isVisible(), false);
+    assert.equal(await page.locator(".action-panel").isVisible(), true);
     await load(meeting());
     await selectCard(page, "vale");
     await selectCard(page, "lamp");
@@ -597,6 +597,7 @@ try {
     await page.keyboard.press("Enter");
     await ready();
     assert.equal((await state()).standoffs.length, 1);
+    await page.keyboard.press("Escape");
     await selectCard(page, "vale");
     await selectCard(page, "moth");
     assert.deepEqual(await labels(), ["Cover"]);
@@ -708,6 +709,7 @@ try {
       assert.equal(await focusedHandCard(page), "moth", "a play leaves focus on its card");
       await ready();
       assert.equal((await state()).turn, turn + 1);
+      await page.keyboard.press("Escape");
       await selectCard(page, "pond");
       await page.locator('#card-actions [data-revealing="false"]').click();
       assert.equal(await focusedHandCard(page), "pond", "a queued play leaves focus on its card");
