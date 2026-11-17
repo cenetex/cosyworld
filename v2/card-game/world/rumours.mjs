@@ -200,23 +200,6 @@ export function heardWant(s, id, api, skip = [], roams = true) {
   return { kind: pick[0], target: pick[1], since: s.turn, refusals: 0, from: HEARD_FROM };
 }
 
-export function rivalled(s, id, api) {
-  const w = s.actors[id]?.want;
-  return Boolean(
-    w?.from === HEARD_FROM &&
-      w.kind === "item" &&
-      Object.keys(s.actors).some(
-        (o) =>
-          o !== id &&
-          !api.player(o) &&
-          api.worldOf(o) === api.worldOf(id) &&
-          s.actors[o].want?.kind === "item" &&
-          s.actors[o].want.target === w.target &&
-          Math.max(trustIn(s, id, o), trustIn(s, o, id)) === 2,
-      ),
-  );
-}
-
 export function rumourWords(s, r, names) {
   const name = names.name(r.subject);
   const line =

@@ -2,7 +2,7 @@ import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import { readConfig } from "./config.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
 import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
-import { createRoom, createStats, record, seed, summary } from "./room.mjs";
+import { castOf, createRoom, createStats, record, seed, summary } from "./room.mjs";
 import { startHealth } from "./health.mjs";
 import { wait } from "./beats.mjs";
 import { channelLines, conversationNotes, coordinate, ensureWorld, fetchCast } from "./orchestrator.mjs";
@@ -45,11 +45,19 @@ async function refreshCast() {
   else log("cast unavailable");
 }
 
-async function findWorld(room) {
+async function castFor(room) {
+  const next = await fetchCast(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, config.DISCORD_PACK, room.guildId);
+  if (next) room.cast = next;
+  else log(`cast unavailable in guild ${room.guildId}`);
+}
+
+async function findWorld(room, again = false) {
   room.soughtAt = Date.now();
   const world = await ensureWorld(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, room.guildId);
-  if (world) room.world = world;
-  else log(`world unavailable in guild ${room.guildId}`);
+  if (!world) return log(`world unavailable in guild ${room.guildId}`);
+  const first = !room.world;
+  room.world = world;
+  if (first || again) await castFor(room);
 }
 
 function forget(guildId) {
@@ -69,16 +77,16 @@ async function watch(guild) {
   if (!found) return;
   const room = createRoom(guild.id, found.channel.id);
   room.webhookId = found.webhook.id;
+  await findWorld(room);
   try {
     const recent = await found.channel.messages.fetch({ limit: 100 });
-    seed(room, recent.values(), cast);
+    seed(room, recent.values(), castOf(room, cast));
   } catch (error) {
     log(`history unavailable in guild ${guild.id}: ${error?.code ?? "error"}`);
   }
   webhooks.set(found.channel.id, found.webhook);
   channels.set(found.channel.id, found.channel);
   rooms.set(found.channel.id, room);
-  await findWorld(room);
 }
 
 function jot(body) {
@@ -93,10 +101,10 @@ function poll() {
   lastTickAt = Date.now();
 }
 
-function turnDeps() {
+function turnDeps(room) {
   return {
     config,
-    cast,
+    cast: castOf(room, cast),
     state,
     lines: (body, signal) => channelLines(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, body, signal),
     send: (room, payload) => webhooks.get(room.channelId)?.send(payload),
@@ -124,7 +132,7 @@ client.once(Events.ClientReady, async () => {
   setInterval(() => log(summary(stats)), 600000);
   setInterval(() => {
     void refreshCast();
-    for (const room of rooms.values()) void findWorld(room);
+    for (const room of rooms.values()) void findWorld(room, true);
   }, Math.max(60000, config.DISCORD_CAST_REFRESH_MS));
   log("Lonely Forest gateway ready");
 });
@@ -158,17 +166,18 @@ client.on(Events.MessageCreate, (message) => {
   const room = rooms.get(message.channelId);
   if (!room) return;
   if (!room.world && Date.now() - (room.soughtAt ?? 0) > 60000) void findWorld(room);
-  const entry = record(room, message, room.webhookId, cast, stats);
-  heard(room, entry, turnDeps());
+  const entry = record(room, message, room.webhookId, castOf(room, cast), stats);
+  heard(room, entry, turnDeps(room));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
+  const room = [...rooms.values()].find((known) => known.guildId === interaction.guildId);
   const result = dispatch(interaction.commandName, {
-    cast: () => cast,
+    cast: () => castOf(room, cast),
     pack: config.DISCORD_PACK,
     assetBase: config.ORCHESTRATOR_URL,
-    world: [...rooms.values()].find((room) => room.guildId === interaction.guildId)?.world,
+    world: room?.world,
   });
   try {
     await interaction.reply({

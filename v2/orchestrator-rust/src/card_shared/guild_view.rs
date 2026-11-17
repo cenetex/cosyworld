@@ -45,23 +45,62 @@ fn lines(c: &Connection, world: &str, place: &str) -> Option<Vec<Value>> {
     Some(said)
 }
 
-fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
+fn open(path: &Path, guild: &str, fields: &str) -> Option<(Connection, String, Value)> {
     if guild.is_empty() || !guild.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
     let c = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY).ok()?;
-    let (world, game): (String, String) = c
+    let (world, state): (String, String) = c
         .query_row(
-            "SELECT t.id,json_extract(k.state,'$.game') \
-             FROM card_tables t JOIN card_full_checkpoints k ON k.world=t.id \
-             WHERE t.owner=? AND t.retired_at IS NULL ORDER BY t.created DESC,t.id LIMIT 1",
+            &format!(
+                "SELECT t.id,json_object({fields}) \
+                 FROM card_tables t JOIN card_full_checkpoints k ON k.world=t.id \
+                 WHERE t.owner=? AND t.retired_at IS NULL ORDER BY t.created DESC,t.id LIMIT 1"
+            ),
             [format!("discord-guild:{guild}")],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .ok()?;
-    let game: Value = serde_json::from_str(&game).ok()?;
+    Some((c, world, serde_json::from_str(&state).ok()?))
+}
+
+pub(crate) fn guild_talked(guild: &str) -> Option<Vec<String>> {
+    talked(&crate::event_store_path_from_env()?, guild)
+}
+
+fn talked(path: &Path, guild: &str) -> Option<Vec<String>> {
+    let fields = "'claimed',json_extract(k.state,'$.claimed')";
+    let (c, world, state) = open(path, guild, fields)?;
+    let held: Vec<&str> = (0..8)
+        .filter(|a| state["claimed"][*a] == 1)
+        .map(super::full_world::actor_id)
+        .collect();
+    let mut q = c
+        .prepare(
+            "SELECT json_extract(command,'$.action.target') FROM card_full_log \
+             WHERE world=? AND json_extract(command,'$.op')='play' \
+             AND json_extract(command,'$.action.kind')='talk' ORDER BY seq DESC LIMIT 400",
+        )
+        .ok()?;
+    let targets = q
+        .query_map([world], |r| r.get::<_, Option<String>>(0))
+        .ok()?
+        .collect::<Result<Vec<_>, _>>()
+        .ok()?;
+    let mut seen: Vec<String> = Vec::new();
+    for id in targets.into_iter().flatten() {
+        if !held.contains(&id.as_str()) && !seen.contains(&id) {
+            seen.push(id);
+        }
+    }
+    Some(seen)
+}
+
+fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
+    let (c, world, state) = open(path, guild, "'game',json_extract(k.state,'$.game')")?;
+    let game = &state["game"];
     let (actors, items) = (&game["actors"], &game["items"]);
-    let own = super::narrator::own(&game, residents).unwrap_or_default();
+    let own = super::narrator::own(game, residents).unwrap_or_default();
     let mut seen = Map::new();
     for id in residents {
         let Some(place) = actors[id.as_str()]["place"].as_str() else {
@@ -202,8 +241,12 @@ mod tests {
         w.game["memories"]["moth"]["innerLife"] =
             json!({"persona": null, "thoughts": [{"turn": 0, "text": SECRET}], "dreams": []});
         let path = kept(&format!("discord-guild:{GUILD}"), &w);
-        let ids: Vec<String> = ["moth", "keeper", "vale"].map(String::from).into();
+        let ids: Vec<String> = ["moth", "keeper", "vale", "greek-baker"]
+            .map(String::from)
+            .into();
         let all = view(&path, GUILD, &ids).unwrap();
+        let baker = json!(["I want the Water Jar laid in Theban Courtyard."]);
+        assert_eq!(all["greek-baker"]["own"], baker);
         let favour = "Owes a favour to Vale; willing to share a spare or take a detour with them.";
         assert_eq!(all["moth"]["own"], json!(["I want the Lamp.", favour]));
         assert_eq!(all["keeper"]["own"], json!(["I want the Bell."]));
@@ -221,5 +264,41 @@ mod tests {
         assert!(view(&path, "1 OR 1", &["moth".into()]).is_none());
         let missing = std::env::temp_dir().join(format!("none-{}.sqlite", crate::random_hex(12)));
         assert!(view(&missing, GUILD, &["moth".into()]).is_none());
+        assert!(talked(&path, GUILD).is_none());
+    }
+
+    #[test]
+    fn the_talked_to_come_most_recent_first_once_each_never_a_held_seat() {
+        let (path, _) = saved(&format!("discord-guild:{GUILD}"));
+        assert_eq!(talked(&path, GUILD).unwrap(), Vec::<String>::new());
+        let c = store::open(&path).unwrap();
+        let plays = [
+            ("talk", "keeper"),
+            ("talk", "greek-antigone"),
+            ("take", "rati"),
+            ("talk", "rue"),
+            ("talk", "vale"),
+            ("talk", "keeper"),
+        ];
+        for (kind, target) in plays {
+            let action =
+                json!({"op": "play", "actor": "mara", "action": {"kind": kind, "target": target}});
+            c.execute(
+                "INSERT INTO card_full_log(world,command,at) VALUES('world',?,1)",
+                [action.to_string()],
+            )
+            .unwrap();
+        }
+        c.execute(
+            "UPDATE card_full_checkpoints SET state=json_set(state,'$.claimed[5]',1)",
+            [],
+        )
+        .unwrap();
+        drop(c);
+        assert_eq!(super::super::full_world::actor_id(5), "rue");
+        assert_eq!(
+            talked(&path, GUILD).unwrap(),
+            ["keeper", "vale", "greek-antigone"]
+        );
     }
 }

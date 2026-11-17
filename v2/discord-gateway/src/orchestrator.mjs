@@ -4,12 +4,14 @@ function headers(token) {
   return { authorization: `Bearer ${token}` };
 }
 
-export async function fetchCast(fetch, origin, token, pack) {
+export async function fetchCast(fetch, origin, token, pack, guild = null) {
   try {
-    const response = await fetch(`${origin}/discord/cast?pack=${encodeURIComponent(pack)}`, {
+    const room = guild ? `&guild=${encodeURIComponent(guild)}` : "";
+    const response = await fetch(`${origin}/discord/cast?pack=${encodeURIComponent(pack)}${room}`, {
       headers: headers(token),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    if (response.status === 400 && guild) return fetchCast(fetch, origin, token, pack);
     if (response.status !== 200) return null;
     const body = await response.json();
     const residents = (Array.isArray(body?.residents) ? body.residents : []).filter(

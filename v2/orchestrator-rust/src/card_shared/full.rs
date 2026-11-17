@@ -145,7 +145,6 @@ async fn list(State(state): State<AppState>, h: HeaderMap) -> Response {
                 .as_array_mut()
                 .ok_or("The world list needs a moment.")?
             {
-                // The run seed names the world in the menu (avatar-menu.md).
                 let id = row["id"].as_str().unwrap_or_default().to_string();
                 row["seed"] = json!(store::name_seed(&c, &id)?);
                 super::world_list::decorate(&c, row, time)?;
