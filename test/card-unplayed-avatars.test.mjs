@@ -39,7 +39,7 @@ describe("avatars nobody plays live as residents", () => {
       next.log.some((e) => e.actorId === "mara" && e.verb === "move"),
     ).toBe(true);
   });
-  it("takes its belonging to leave its home for a want outside", () => {
+  it("takes its belonging to leave its home and leaves it there", () => {
     let world = fresh();
     expect(world.actors.mara.place).toBe("theatre");
     world.actors.mara.want = {
@@ -52,6 +52,40 @@ describe("avatars nobody plays live as residents", () => {
     expect(world.items.mask.holder).toBe("mara");
     world = waitFor(world, ["vale"], ["vale"]);
     expect(world.actors.mara.place).toBe(world.doors.theatre);
+    expect(world.items.mask.holder).toBe("theatre");
+  });
+  it("never shuts a player in its home by walking off with its belonging", () => {
+    let world = fresh();
+    const door = world.doors.theatre;
+    delete world.opening;
+    world.actors.vale.place = "theatre";
+    world.items.lamp.holder = "vale";
+    world.items.mask.holder = "mara";
+    world.actors.mara.want = {
+      kind: "place",
+      target: door,
+      since: world.turn,
+      refusals: 0,
+    };
+    world = waitFor(world, ["vale"], ["vale"]);
+    expect(world.actors.mara.place).toBe(door);
+    expect(world.items.mask.holder).toBe("theatre");
+    const take = seat(world, ["vale"], ["vale"]).actions.find(
+      (a) => a.kind === "take" && a.item === "mask",
+    );
+    world = seat(world, ["vale"], ["vale"], "play", { action: take }).world;
+    expect(
+      seat(world, ["vale"], ["vale"]).actions.some(
+        (a) => a.kind === "move" && a.target === door,
+      ),
+    ).toBe(true);
+  });
+  it("carries its belonging out of a home that is not its own", () => {
+    let world = outside(fresh());
+    world.items.mask.holder = "mara";
+    world = waitFor(world, ["vale"], ["vale"]);
+    expect(world.actors.mara.place).toBe("station");
+    expect(world.items.mask.holder).toBe("mara");
   });
   it("lets players and residents trade with an unclaimed avatar", () => {
     const world = outside(fresh());

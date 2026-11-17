@@ -1782,12 +1782,14 @@ export function matchingActions(s, selected, actor = currentActor(s)) {
 function travelParty(s, actors, destination) {
   const from = s.actors[actors[0]].place;
   const through = !baseExits(s, from).includes(destination);
-  // The legal action approves the whole party before any carried key moves.
   if (homeGates[from]?.opening && s.opening)
     s.locations[from].anchored = true;
   markCrossed(s, from, destination);
   for (const actor of actors) applyDeparture(s, actor, destination);
   for (const actor of actors) {
+    const own = unplayedAvatar(s, actor) && humanAvatar(actor);
+    if (own && own.home.id === from && s.items[own.item.id]?.holder === actor)
+      s.items[own.item.id].holder = from;
     if (through) s.actors[actor].crossed += 1;
     s.actors[actor].place = destination;
     // A resident that arrives stays a while (rules 133).
