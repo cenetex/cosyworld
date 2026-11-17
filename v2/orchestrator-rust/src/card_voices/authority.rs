@@ -7,7 +7,7 @@ pub(crate) const VOICE_CHANCE: f64 = 0.05;
 
 pub(crate) fn chance_line(speaker: &str, text: &str) -> bool {
     let mut hash: u32 = 0x811c_9dc5;
-    for byte in speaker.bytes().chain([b'\n']).chain(text.bytes()) {
+    for byte in speaker.bytes().chain(*b"\n").chain(text.bytes()) {
         hash = (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193);
     }
     f64::from(hash) < VOICE_CHANCE * 4_294_967_296.0

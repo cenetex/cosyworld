@@ -151,6 +151,7 @@ const files = [
   "card-sfx.mjs",
   ...Object.values(CHIME_FILES),
   "voice-tone.mjs",
+  "voice-chance.mjs",
   "card-entry.mjs",
   "account-revision.mjs",
   "card-exit.mjs",
