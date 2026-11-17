@@ -117,6 +117,7 @@ const NEEDS = {
   grounded: (c) => [`item:${c.item}`],
   in_hand: (c) => [`item:${c.item}`],
   tag_held: (c) => [`place:${c.place}`],
+  home_item_present: (c) => [`place:${c.home}`, `place:${c.place}`],
   actor_at: (c) => [`place:${c.place}`],
   humans_at: (c) => [`place:${c.place}`],
   met: (c) => [`resident:${c.actor}`],

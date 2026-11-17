@@ -1751,37 +1751,18 @@
           "op": "and",
           "of": [
             {
-              "op": "or",
-              "of": [
-                {
-                  "op": "atom",
-                  "atom": "item_present(item=greek-provisions,place=greek-ship)"
-                },
-                {
-                  "op": "atom",
-                  "atom": "pack_item_present(pack=hoppycat-archive,place=greek-ship)"
-                }
-              ]
+              "op": "atom",
+              "atom": "home_item_present(home=hoppycat-signal-jetty,place=greek-ship)"
             }
           ]
         },
-        "words": "(Travel Provisions is in The Charybdis or a hoppycat-archive thing is in The Charybdis)",
-        "ids": "(greek-provisions is in greek-ship or a hoppycat-archive thing is in greek-ship)",
+        "words": "a thing from Signal Jetty is in The Charybdis",
+        "ids": "a thing from hoppycat-signal-jetty is in greek-ship",
         "latch": [],
         "live": [
-          "item_present(item=greek-provisions,place=greek-ship)",
-          "pack_item_present(pack=hoppycat-archive,place=greek-ship)"
+          "home_item_present(home=hoppycat-signal-jetty,place=greek-ship)"
         ],
-        "prerequisites": {
-          "item": [
-            "greek-bread",
-            "greek-figs",
-            "greek-provisions",
-            "greek-water-jar",
-            "greek-wheat",
-            "greek-wine-skin"
-          ]
-        }
+        "prerequisites": {}
       },
       {
         "id": "resident:greek-helen-egypt",
@@ -9299,7 +9280,6 @@
           "act:greek-helen-egypt-passage",
           "act:greek-helen-troy-passage",
           "lane:greek-ship:greek-harbor>greek-piraeus",
-          "lane:greek-ship:greek-piraeus>hoppycat-signal-jetty",
           "resident:greek-patroclus"
         ]
       },
@@ -10281,8 +10261,8 @@
         "place:greek-ship"
       ],
       "lane:greek-ship:greek-piraeus>hoppycat-signal-jetty": [
-        "item:greek-provisions",
-        "place:greek-ship"
+        "place:greek-ship",
+        "place:hoppycat-signal-jetty"
       ],
       "place:greek-ajax-grave": [
         "flag:greek-ajax-open"
@@ -11084,6 +11064,11 @@
       "class": "live",
       "words": "the traveler holds greek-water-jar"
     },
+    "home_item_present(home=hoppycat-signal-jetty,place=greek-ship)": {
+      "kind": "home_item_present",
+      "class": "live",
+      "words": "a thing from hoppycat-signal-jetty is in greek-ship"
+    },
     "in_hand(item=cloth)": {
       "kind": "in_hand",
       "class": "live",
@@ -11148,11 +11133,6 @@
       "kind": "item_present",
       "class": "live",
       "words": "cloth is in greek-polynices-hollow"
-    },
-    "item_present(item=greek-provisions,place=greek-ship)": {
-      "kind": "item_present",
-      "class": "live",
-      "words": "greek-provisions is in greek-ship"
     },
     "knows(role=actor,topic=greek-ajax-account-appeal)": {
       "kind": "knows",
@@ -11229,11 +11209,6 @@
       "class": "latch",
       "words": "greek-theseus has been met"
     },
-    "pack_item_present(pack=hoppycat-archive,place=greek-ship)": {
-      "kind": "pack_item_present",
-      "class": "live",
-      "words": "a hoppycat-archive thing is in greek-ship"
-    },
     "ship_at(dock=greek-piraeus,transport=greek-ship)": {
       "kind": "ship_at",
       "class": "live",
@@ -11248,6 +11223,7 @@
     "flag",
     "grounded",
     "holding",
+    "home_item_present",
     "in_hand",
     "item_at",
     "item_near",
@@ -11255,7 +11231,6 @@
     "knows",
     "light",
     "met",
-    "pack_item_present",
     "ship_at"
   ]
 }
