@@ -12,6 +12,7 @@ import { rarityPortraitAssets } from "./rarity-portraits.mjs";
 import { castCombatAssets } from "./cast-combat-art.mjs";
 import { sleepPortraitAssets } from "./sleep-portraits.mjs";
 import { BENCH, SCENE } from "./settings-cards.mjs";
+import { CHIME_FILES } from "./card-sfx.mjs";
 
 const files = [
   "handover.mjs",
@@ -148,6 +149,7 @@ const files = [
   "card-reveal.mjs",
   "pack-opening.mjs",
   "card-sfx.mjs",
+  ...Object.values(CHIME_FILES),
   "voice-tone.mjs",
   "card-entry.mjs",
   "account-revision.mjs",

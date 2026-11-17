@@ -444,20 +444,12 @@ describe("the tell", () => {
 describe("tier timing and sound", () => {
   const plans = PACK_TIERS.map((tier) => turnPlan(tier));
 
-  it("climbs with the tier: hold, spacing, tone pitch, length and level", () => {
+  it("climbs with the tier: hold, spacing and tick", () => {
     expect(plans[0].hold).toBe(0);
-    expect(plans[0].tone).toBeNull();
     for (let i = 1; i < plans.length; i++) {
       expect(plans[i].hold).toBeGreaterThan(plans[i - 1].hold);
       expect(plans[i].spacing).toBeGreaterThan(plans[i - 1].spacing);
       expect(plans[i].tick).toBeGreaterThan(plans[i - 1].tick);
-      expect(plans[i].tone).not.toBeNull();
-      if (i > 1) {
-        expect(plans[i].tone.hz).toBeGreaterThan(plans[i - 1].tone.hz);
-        expect(plans[i].tone.ms).toBeGreaterThan(plans[i - 1].tone.ms);
-        expect(plans[i].tone.level).toBeGreaterThan(plans[i - 1].tone.level);
-        expect(plans[i].tone.partials).toBeGreaterThanOrEqual(plans[i - 1].tone.partials);
-      }
     }
   });
 
@@ -466,18 +458,13 @@ describe("tier timing and sound", () => {
     expect(plans.at(-1).hold).toBeLessThanOrEqual(1200);
   });
 
-  it("the tone is as long as the hold and a short tail", () => {
-    for (const plan of plans.filter((p) => p.tone)) expect(plan.tone.ms).toBe(plan.hold + 200);
-  });
-
   it("holds no breath under reduced motion; the tier lives in colour and sound", () => {
     for (const tier of PACK_TIERS) {
       const reduced = turnPlan(tier, { reduced: true });
       expect(reduced.hold).toBe(0);
       expect(reduced.spacing).toBe(320);
     }
-    expect(turnPlan("legendary", { reduced: true }).tone).not.toBeNull();
-    expect(turnPlan("legendary", { reduced: true }).tone.ms).toBe(200);
+    expect(turnPlan("legendary", { reduced: true }).tier).toBe("legendary");
   });
 
   it("reads an unknown tier as common", () => {
@@ -577,17 +564,72 @@ describe("card sounds", () => {
     expect(sfx.cardTurn(plan)).toBe(false);
   });
 
-  it("gives a rarer card more voices than a common one", () => {
-    const voices = (tier) => {
-      const ctx = context();
-      const sfx = createSfx({ makeContext: () => ctx });
-      sfx.unlock();
-      sfx.cardTurn(turnPlan(tier));
-      return ctx.made.oscillators;
+  it("still ticks when the chimes cannot load", async () => {
+    const ctx = context();
+    const sfx = createSfx({ makeContext: () => ctx, fetchBytes: () => Promise.reject(new Error("blocked")) });
+    sfx.unlock();
+    await new Promise((done) => setTimeout(done, 0));
+    expect(sfx.cardTurn(turnPlan("mythic"))).toBe(true);
+    expect(ctx.made.oscillators).toBeGreaterThan(0);
+  });
+
+  it("plays each tier's own chime once loaded", async () => {
+    const ctx = context();
+    const played = [];
+    ctx.decodeAudioData = async (url) => ({ url });
+    ctx.createBufferSource = () => {
+      const source = { connect() {}, stop() {}, start: () => source.buffer?.url && played.push(source.buffer.url) };
+      return source;
     };
-    const counts = PACK_TIERS.map(voices);
-    expect(counts[0]).toBeGreaterThan(0); // a common card still ticks
-    for (let i = 1; i < counts.length; i++) expect(counts[i]).toBeGreaterThanOrEqual(counts[i - 1]);
-    expect(counts.at(-1)).toBeGreaterThan(counts[0]);
+    const sfx = createSfx({ makeContext: () => ctx, fetchBytes: async (url) => url });
+    sfx.unlock();
+    await new Promise((done) => setTimeout(done, 0));
+    for (const tier of PACK_TIERS) sfx.cardTurn(turnPlan(tier));
+    expect(played.map((url) => url.match(/chimes\/(\w+)\.mp3/)[1])).toEqual(PACK_TIERS);
+  });
+
+  function chimeRig() {
+    const ctx = context();
+    const sources = [];
+    ctx.decodeAudioData = async (url) => ({ url, duration: 5.43 });
+    ctx.compressors = 0;
+    ctx.createDynamicsCompressor = () => {
+      ctx.compressors += 1;
+      return { threshold: {}, ratio: {}, attack: {}, release: {}, connect() {} };
+    };
+    ctx.createDelay = () => ({ delayTime: {}, connect() {} });
+    ctx.createBufferSource = () => {
+      const source = {
+        connect() {},
+        start() { if (source.buffer?.url) sources.push(source); },
+        stop() { source.stopped = true; },
+      };
+      return source;
+    };
+    const sfx = createSfx({ makeContext: () => ctx, fetchBytes: async (url) => url });
+    sfx.unlock();
+    return { ctx, sfx, sources };
+  }
+
+  it("lets each chime ring to its end while the next one starts", async () => {
+    const { ctx, sfx, sources } = chimeRig();
+    await new Promise((done) => setTimeout(done, 0));
+    sfx.cardTurn(turnPlan("mythic"));
+    ctx.currentTime += 0.3;
+    sfx.cardTurn(turnPlan("mythic"));
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).not.toBe(sources[1]);
+    expect(sources.some((s) => s.stopped)).toBe(false);
+    sources[0].onended();
+    sources[1].onended();
+    expect(sources.some((s) => s.stopped)).toBe(false);
+    expect(ctx.compressors).toBe(1);
+  });
+
+  it("keeps at most eight chimes ringing, dropping the oldest", async () => {
+    const { sfx, sources } = chimeRig();
+    await new Promise((done) => setTimeout(done, 0));
+    for (let i = 0; i < 10; i++) sfx.cardTurn(turnPlan("common"));
+    expect(sources.filter((s) => s.stopped)).toEqual(sources.slice(0, 2));
   });
 });

@@ -1,10 +1,12 @@
-// Card sounds made in the browser, like the fight's: no sample files. A
-// paper slide as the pack's cards rise, a flip tick as each card turns, a
-// tone that rises through a rarer card's held breath and ends on the turn,
-// and a soft settle as the cards go back. sfx.mjs owns the context and the
-// settings; the tier table lives in pack-opening.mjs. Presentation only.
+// A paper slide as the pack's cards rise, a flip tick and the tier's chime
+// as each card turns, and a soft settle as the cards go back.
 
 import { soundJitter, voice } from "./combat-sfx.mjs";
+import { PACK_TIERS } from "./pack-opening.mjs";
+
+export const CHIME_FILES = Object.fromEntries(
+  PACK_TIERS.map((tier) => [tier, `assets/chimes/${tier}.mp3`]),
+);
 
 // [voice, filter or wave, from Hz, to Hz, peak, attack, decay, Q]
 const SOUNDS = {
@@ -28,36 +30,9 @@ function tick(context, out, at, jitter, hz) {
   ]);
 }
 
-// The rising tone: partials of one note that glide up through the hold and
-// swell to the turn, then fade. Its peak is at `at + seconds`.
-function rise(context, out, at, tone, seconds, jitter) {
-  const end = at + seconds + 0.12;
-  for (let p = 1; p <= tone.partials + 1; p += 1) {
-    const source = context.createOscillator(),
-      gain = context.createGain(),
-      from = tone.hz * p * jitter.pitch,
-      peak = (tone.level / (p * p)) * 0.9;
-    source.type = p === 1 ? "triangle" : "sine";
-    source.frequency.setValueAtTime(from, at);
-    source.frequency.exponentialRampToValueAtTime(from * tone.glide, at + seconds);
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), at + seconds);
-    gain.gain.exponentialRampToValueAtTime(0.0001, end);
-    source.connect(gain);
-    gain.connect(out);
-    source.start(at);
-    source.stop(end + 0.05);
-  }
-}
-
-// One card turning: the tone rises through `plan.hold`, the tick lands as
-// the lid moves (plan: pack-opening.mjs turnPlan).
 export function shapeTurnSound(context, out, plan, random) {
-  const jitter = soundJitter(random),
-    at = context.currentTime;
-  if (plan.tone)
-    rise(context, out, at, plan.tone, Math.max(plan.hold, 120) / 1000, jitter);
-  tick(context, out, at + plan.hold / 1000, jitter, plan.tick);
+  const at = context.currentTime + plan.hold / 1000;
+  tick(context, out, at, soundJitter(random), plan.tick);
   return true;
 }
 

@@ -1852,8 +1852,7 @@ function uncover(
   if (openingHeld && openingWordsDue() && avatarKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
 }
-// Every card turn plays its reveal and a flip sound, both at its tier: a
-// rarer card holds a breath first, the tone rising through it
+// Every card turn plays its reveal, chime and flip at its tier
 // (pack-opening.mjs turnPlan). A card turned from a pack, by a tap, by its
 // speaker's line or by the rules opening its lock all take this one path.
 function turnCard(button) {
