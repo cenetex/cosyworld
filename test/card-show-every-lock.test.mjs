@@ -138,12 +138,12 @@ describe("Greek residents are locked boxes on their own present things", () => {
   // Each opens while its thing is at its post, nothing else (open-door-rework).
   const rows = [
     ["greek-aethra", "greek-eleusis", "greek-oil-flask", /^Bring Funeral Oil to Eleusinian Sanctuary$/u],
-    ["greek-theseus", "greek-athens", "greek-burial-petition", /^Bring The Mothers’ Petition to Athenian Agora$/u],
+    ["greek-theseus", "greek-athens", "greek-burial-petition", /^Bring the Mothers’ Petition to Athenian Agora$/u],
     ["greek-quay-host", "greek-piraeus", "greek-wheat", /^Lay Sack of Wheat in Piraeus Quays$/u],
     ["greek-colonus-keeper", "greek-colonus", "greek-oil-flask", /^Bring Funeral Oil to Colonus Grove$/u],
-    ["greek-argive-mother", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn to Eleusinian Sanctuary$/u],
-    ["greek-iphis", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn to Eleusinian Sanctuary$/u],
-    ["greek-household-witness", "greek-eleusis", "greek-ash-urn", /^Bring The Funeral Urn to Eleusinian Sanctuary$/u],
+    ["greek-argive-mother", "greek-eleusis", "greek-ash-urn", /^Bring the Funeral Urn to Eleusinian Sanctuary$/u],
+    ["greek-iphis", "greek-eleusis", "greek-ash-urn", /^Bring the Funeral Urn to Eleusinian Sanctuary$/u],
+    ["greek-household-witness", "greek-eleusis", "greek-ash-urn", /^Bring the Funeral Urn to Eleusinian Sanctuary$/u],
   ];
   for (const [who, place, thing, reason] of rows)
     it(`${who} lies sealed at ${place} until ${thing} is there`, () => {

@@ -1,9 +1,9 @@
 name: Fast check
 
 # Runs on every pull request and every push to main, in about five minutes.
-# A change to Rust inputs adds the focused Rust tests (the rust job). The full
-# suite (ci.yml) runs only by hand before a production release, and the full
-# Rust gate runs on the .dev train and on tags (deploy.yml).
+# A change to Rust inputs adds the focused Rust tests and the clippy ceiling
+# (rust, rust-lint). The full suite (ci.yml) runs only by hand before a
+# production release; the full Rust gate runs on the train and tags (deploy.yml).
 on:
   pull_request:
   push:
@@ -337,12 +337,34 @@ jobs:
           read -ra filters <<< "$FILTERS"
           bash v2/scripts/check-rust.sh focused "${filters[@]}"
 
-  # One stable context for branch protection. The Rust job counts when it
-  # runs; it is skipped when no Rust input changed.
+  rust-lint:
+    name: Rust clippy ceiling
+    needs: plan
+    if: needs.plan.outputs.rust-tests != ''
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    env:
+      CI: true
+    steps:
+      - *restore-git-objects
+      - *borrow-git-objects
+      - *checkout
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Check Rust architecture
+        run: |
+          bash v2/scripts/check-main-size.sh
+          bash v2/scripts/check-rust-lint.sh
+
+  # One stable context for branch protection. A Rust job counts when it runs.
   fast:
     name: fast
     if: ${{ always() }}
-    needs: [plan, lint, unit, rustfmt, smoke, rust]
+    needs: [plan, lint, unit, rustfmt, smoke, rust, rust-lint]
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Verify all fast-check jobs passed
@@ -351,7 +373,9 @@ jobs:
             ${{ needs.plan.result }} ${{ needs.lint.result }}
             ${{ needs.unit.result }} ${{ needs.rustfmt.result }}
             ${{ needs.smoke.result }}
-          RUST: ${{ needs.rust.result }}
+          RUST: ${{ needs.rust.result }} ${{ needs.rust-lint.result }}
         run: |
           for result in $REQUIRED; do test "$result" = success; done
-          case "$RUST" in success | skipped) ;; *) exit 1 ;; esac
+          for result in $RUST; do
+            case "$result" in success | skipped) ;; *) exit 1 ;; esac
+          done

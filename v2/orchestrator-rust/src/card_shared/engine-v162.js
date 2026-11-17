@@ -457,6 +457,21 @@
   var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
   var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
   var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
+  var FACT_FORMS = Object.fromEntries(
+    [
+      "me:i my:i mine:i myself:i your:you yours:you yourself:you is:be was:be ",
+      "am:be are:be were:be been:be m:be re:be has:have had:have ve:have ",
+      "does:do did:do goes:go went:go took:take gave:give chose:choose ",
+      "brought:bring threw:throw made:make saw:see found:find held:hold ",
+      "kept:keep told:tell sold:sell bought:buy caught:catch led:lead ",
+      "fought:fight rang:ring ran:run came:come said:say stole:steal hid:hide ",
+      "wrote:write drew:draw knew:know fell:fall sat:sit stood:stand ",
+      "sent:send lost:lose met:meet paid:pay struck:strike won:win woke:wake ",
+      "broke:break spoke:speak ate:eat drank:drink sang:sing swore:swear ",
+      "wore:wear tore:tear left:leave"
+    ].join("").split(" ").map((pair) => pair.split(":"))
+  );
+  var VOWELS = /* @__PURE__ */ new Set([..."aeiou"]);
   var newKnowledge = () => ({
     version: KNOWLEDGE_VERSION,
     facts: {},
@@ -2939,7 +2954,7 @@
   }
   var intOk = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
   var MAX_LANES = 4;
-  function laneProblems(t) {
+  function laneProblems(t, warnings = []) {
     const out = [];
     if (!Array.isArray(t.lanes) || !t.lanes.length) return ["needs sea lanes"];
     const docks = Array.isArray(t.docks) ? t.docks : [];
@@ -2969,7 +2984,7 @@
     for (const [dock, set2] of neighbours) {
       if (set2.size > MAX_LANES)
         out.push(`dock ${dock} has more than ${MAX_LANES} lanes`);
-      if (!leaving.has(dock)) out.push(`dock ${dock} has no lane out`);
+      if (!leaving.has(dock)) warnings.push(`dock ${dock} has no lane out`);
     }
     return out;
   }
@@ -3018,11 +3033,14 @@
   var mediaPathOk = (pack, path) => typeof path === "string" && (new RegExp(`^assets/${pack}/[a-z0-9-]+\\.(?:png|svg|webp)$`).test(path) || /^assets\/shared\/(characters|places|items)\/[a-z0-9-]+\.(png|webp)$/.test(
     path
   ));
-  function packProblems(pack, hub2, mountedPlaces = [], mountedItems = []) {
+  function packProblems(pack, hub2, mountedPlaces = [], mountedItems = [], warnings = []) {
     const problems2 = [];
     const check = (ok, message) => {
       if (!ok) problems2.push(`${pack?.id || "pack"}: ${message}`);
       return ok;
+    };
+    const warn = (ok, message) => {
+      if (!ok) warnings.push(`${pack.id}: ${message}`);
     };
     if (!check(
       record3(pack) && pack.schemaVersion === PACK_SCHEMA_VERSION && idOk2(pack.id) && typeof pack.packId === "string" && pack.packId === `cosyworld.${pack.id}` && intOk(pack.revision, 1, 1e6),
@@ -3220,14 +3238,18 @@
           ),
           `place ${id} backdrops need a backdrop in this pack and saved conditions`
         );
-      if (p.road !== void 0)
-        check(
-          Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every(
-            (end, i) => owns3(places2, end) && p.exits[i] === end && (p.retired === true || places2[end].exits.includes(id) || // A gated end leads onto its road by a route.
-            (pack.routes || []).some((r) => r.from === end && r.to === id))
-          ) && p.exits.length === 2,
+      if (p.road !== void 0) {
+        const fixed = check(
+          Array.isArray(p.road) && p.road.length === 2 && new Set(p.road).size === 2 && p.road.every((end, i) => owns3(places2, end) && p.exits[i] === end) && p.exits.length === 2,
+          `road ${id} needs two fixed ends`
+        );
+        warn(
+          !fixed || p.retired === true || p.road.every(
+            (end) => places2[end].exits.includes(id) || (pack.routes || []).some((r) => r.from === end && r.to === id)
+          ),
           `road ${id} needs two fixed ends with a return path`
         );
+      }
       if (p.retired !== void 0)
         check(
           p.retired === true && (p.road !== void 0 || p.exits.length === 1 && places2[p.exits[0]]?.retired !== true) && Object.values(places2).every(
@@ -3732,9 +3754,9 @@
       );
       requirements(r.requires, "route requires");
       requirements(r.travelerRequires, "route traveller requires", true, true);
-      check(
+      warn(
         routes.some((q2) => q2.from === r.to && q2.to === r.from) || places2[r.to]?.exits?.includes(r.from),
-        "a route has no return"
+        `a route has no return: ${r.from}>${r.to}`
       );
     }
     const choices = pack.choices || [], choiceIds = /* @__PURE__ */ new Set(), writes = /* @__PURE__ */ new Map(), flags = /* @__PURE__ */ new Set();
@@ -3984,7 +4006,7 @@
           ...routes.filter((r2) => r2.from === id).map((r2) => r2.to)
         ].filter((id2) => r.places.includes(id2)))
           reachable2.add(to);
-      check(
+      warn(
         r.places.every((p) => reachable2.has(p) || places2[p]?.retired === true),
         "release contains a disconnected place"
       );
@@ -4029,8 +4051,10 @@
       );
       if (!valid) continue;
       transportPlaces.add(t.place);
-      for (const message of laneProblems(t))
+      const laneNotes = [];
+      for (const message of laneProblems(t, laneNotes))
         check(false, `transport ${id} ${message}`);
+      for (const note2 of laneNotes) warn(false, `transport ${id} ${note2}`);
       for (const lane of t.lanes || [])
         if (lane?.opensWith !== void 0) {
           check(
@@ -4048,10 +4072,15 @@
         t.shipmaster === void 0 || typeof t.shipmaster === "string" && t.shipmaster.length > 0,
         `transport ${id} shipmaster names a resident`
       );
+      const boards = crossings2.filter((c) => c.transport === id);
       check(
-        crossings2.filter((c) => c.transport === id).length === t.docks.length && (t.docks || []).every(
-          (from) => crossings2.some(
-            (c) => c.transport === id && c.from === from && t.docks.includes(c.to) && c.to !== from
+        new Set(boards.map((c) => c.from)).size === boards.length,
+        `transport ${id} takes one crossing from each dock`
+      );
+      warn(
+        t.docks.every(
+          (from) => boards.some(
+            (c) => c.from === from && t.docks.includes(c.to) && c.to !== from
           )
         ),
         `transport ${id} needs a crossing in each direction`
@@ -4180,17 +4209,17 @@
         ...crossings2.filter((c) => c.from === id).map((c) => c.to)
       ])
         reached.add(to);
-    check(
+    warn(
       Object.entries(places2).every(
         ([id, p]) => reached.has(id) || p.retired === true
       ),
       "every place must be reachable from the entry"
     );
-    check(
+    warn(
       crossings2.some((c) => c?.to === pack.entry && !owns3(places2, c.from)),
       "the bridge needs a crossing from the hub into the entry"
     );
-    check(
+    warn(
       crossings2.some((c) => owns3(places2, c?.from) && !owns3(places2, c.to)),
       "the bridge needs a crossing back to the hub"
     );

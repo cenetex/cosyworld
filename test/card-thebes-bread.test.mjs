@@ -116,7 +116,7 @@ describe("the guard and the decree", () => {
     expect(out(s)).toBe(false);
     // The card beyond is locked; its reason names him, and its quest is a card.
     expect(availableCards(s)).toContain(FIELD);
-    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to The Gate Guard");
+    expect(lockText(s, FIELD)).toBe("Give Creon's Writ to the Gate Guard");
     s = acceptBox(s, FIELD);
     const talked = act(act(s, "talk", { target: GUARD }), "accept", { target: GUARD });
     expect(questsOf(talked, "vale")[0].from).toBe(`quest:from:${GUARD}`);

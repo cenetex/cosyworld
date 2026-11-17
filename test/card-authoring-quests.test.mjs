@@ -122,15 +122,20 @@ describe("authored opening and voyage quests", () => {
     );
     expect(next.bridge.crossings).toEqual(source.bridge.crossings);
   });
-  it("keeps a free way home and directs deck links to the ship editor", () => {
+  it("gates the voyage home and directs deck links to the ship editor", () => {
     const source = greek(),
       ship = source.bridge.transports["greek-ship"];
     const home = ship.lanes.findIndex((lane) => lane.to === ship.at);
-    expect(() =>
-      changeLaneRequirements(source, "greek-ship", home, [
-        { kind: "item_at", item: "greek-provisions", place: "greek-ship" },
-      ]),
-    ).toThrow();
+    const gate = [
+      { kind: "item_at", item: "greek-provisions", place: "greek-ship" },
+    ];
+    const gated = apply(
+      source,
+      changeLaneRequirements(source, "greek-ship", home, gate),
+    );
+    expect(gated.bridge.transports["greek-ship"].lanes[home].opensWith).toEqual(
+      gate,
+    );
     expect(() =>
       addItemOpening(source, {
         from: "greek-ship",

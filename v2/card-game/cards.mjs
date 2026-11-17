@@ -11,7 +11,7 @@ import {
 } from "./pack-registry.mjs";
 import { questCaption, questVerb } from "./quest-card.mjs";
 import { joinWants } from "./world/want-words.mjs";
-import { theName } from "./combat-beats.mjs";
+import { inSentence, theName } from "./combat-beats.mjs";
 import {
   currentActor,
   places,
@@ -488,31 +488,34 @@ function shownPlay(world, action, cards = []) {
 // own kinds (attack, guard) and journal text, so only the words change here.
 export function playText(action) {
   const who = nameOf(action?.actor),
-    other = nameOf(action?.target).replace(/^The /u, "the ");
+    other = inSentence(action?.target);
   if (action?.kind === "attack") return `${who} strikes ${other}.`;
   if (action?.kind === "guard") return `${who} braces.`;
   if (action?.kind === "intercept") return `${who} covers ${other}.`;
-  return action?.shown || action?.text;
+  return [action?.item, action?.target, action?.receive].reduce(
+    (text, id) => text?.replaceAll(` ${nameOf(id)}`, ` ${inSentence(id)}`),
+    action?.shown || action?.text,
+  );
 }
 
 export function playLabel(action, world = null) {
   // Pack data can name a play (a fixture, or greeting a sleeping resident).
   if (action?.label) return action.label;
   if (action?.kind === "trade")
-    return `Trade ${nameOf(action.item)} for ${nameOf(action.receive)}`;
+    return `Trade ${inSentence(action.item)} for ${inSentence(action.receive)}`;
   if (action?.kind === "threaten")
-    return `Threaten ${nameOf(action.target)}${action.item ? ` for ${nameOf(action.item)}` : ""}`;
-  if (action?.kind === "give") return `Give to ${nameOf(action.target)}`;
+    return `Threaten ${inSentence(action.target)}${action.item ? ` for ${inSentence(action.item)}` : ""}`;
+  if (action?.kind === "give") return `Give to ${inSentence(action.target)}`;
   if (action?.kind === "eat")
-    return `${consumable(action.item) === "drink" ? "Drink" : "Eat"}${action.target ? ` with ${nameOf(action.target)}` : ""}`;
+    return `${consumable(action.item) === "drink" ? "Drink" : "Eat"}${action.target ? ` with ${inSentence(action.target)}` : ""}`;
   if (action?.kind === "ask")
-    return `Ask ${nameOf(action.target)} for ${nameOf(action.item)}`;
+    return `Ask ${inSentence(action.target)} for ${inSentence(action.item)}`;
   if (action?.kind === "accompany")
-    return `Invite ${nameOf(action.target)} along`;
+    return `Invite ${inSentence(action.target)} along`;
   if (action?.kind === "drop" && !action.item) return "Discard";
   if (action?.kind === "focus") return "Choose quest";
   if (action?.kind === "move" && action.item)
-    return `Carry to ${nameOf(action.target)}`;
+    return `Carry to ${inSentence(action.target)}`;
   return {
     accept: "Accept",
     accompany: "Accompany",
