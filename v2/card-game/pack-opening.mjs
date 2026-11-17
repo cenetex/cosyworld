@@ -53,48 +53,21 @@ export const tierRank = (tier) => Math.max(0, PACK_TIERS.indexOf(tier));
 export const TELL_FROM = "rare";
 
 // What a turn costs at each tier. `hold` is the breath before the lid moves
-// (the glow builds and the tone rises through it); `spacing` is how long a
-// Reveal all waits from this card's start to the next card's start; `tone`
-// is the rising tone (none for common, which has only the flip tick).
-// Everything climbs with the tier, and the extra time is all anticipation.
+// while the glow builds and the tier's chime plays; `spacing` is how long a
+// Reveal all waits from this card's start to the next card's start.
 const TURN = {
-  common: { hold: 0, spacing: 300, tone: null, tick: 1500 },
-  uncommon: {
-    hold: 140,
-    spacing: 520,
-    tone: { hz: 392, glide: 1.12, level: 0.3, partials: 1 },
-    tick: 1650,
-  },
-  rare: {
-    hold: 380,
-    spacing: 900,
-    tone: { hz: 494, glide: 1.25, level: 0.4, partials: 2 },
-    tick: 1800,
-  },
-  epic: {
-    hold: 640,
-    spacing: 1250,
-    tone: { hz: 587, glide: 1.4, level: 0.5, partials: 3 },
-    tick: 1950,
-  },
-  legendary: {
-    hold: 900,
-    spacing: 1600,
-    tone: { hz: 698, glide: 1.5, level: 0.6, partials: 3 },
-    tick: 2100,
-  },
-  mythic: {
-    hold: 1100,
-    spacing: 1850,
-    tone: { hz: 784, glide: 1.6, level: 0.7, partials: 4 },
-    tick: 2250,
-  },
+  common: { hold: 0, spacing: 300, tick: 1500 },
+  uncommon: { hold: 140, spacing: 520, tick: 1650 },
+  rare: { hold: 380, spacing: 900, tick: 1800 },
+  epic: { hold: 640, spacing: 1250, tick: 1950 },
+  legendary: { hold: 900, spacing: 1600, tick: 2100 },
+  mythic: { hold: 1100, spacing: 1850, tick: 2250 },
 };
 const TELL_GLOW = { rare: 20, epic: 28, legendary: 36, mythic: 44 };
 
 // The timing and sound of one turn. Under reduced motion there is no hold
 // and the beat is short: a card crossfades, so its tier is carried by colour
-// and sound alone. The tone is as long as the hold plus a short tail.
+// and sound alone.
 export function turnPlan(tier, { reduced = false } = {}) {
   const base = TURN[PACK_TIERS.includes(tier) ? tier : "common"];
   const hold = reduced ? 0 : base.hold;
@@ -103,7 +76,6 @@ export function turnPlan(tier, { reduced = false } = {}) {
     hold,
     spacing: reduced ? 320 : base.spacing,
     tick: base.tick,
-    tone: base.tone ? { ...base.tone, ms: hold + 200 } : null,
   };
 }
 

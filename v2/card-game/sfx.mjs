@@ -1,6 +1,7 @@
 import { wakeContext } from "./audio-wake.mjs";
 import { COMBAT_SOUNDS, shapeCombatSound } from "./combat-sfx.mjs";
-import { shapeCardSound, shapeTurnSound } from "./card-sfx.mjs";
+import { CHIME_FILES, shapeCardSound, shapeTurnSound } from "./card-sfx.mjs";
+import { mediaUrl } from "./media.mjs";
 
 // World sound effects made in the browser: a struck bell and the fight's
 // sounds (combat-sfx.mjs). They wait for a user gesture, follow the volume
@@ -47,6 +48,8 @@ export function heardRing(log = [], since, place, nearby = []) {
 export function createSfx({
   makeContext = () =>
     new (globalThis.AudioContext || globalThis.webkitAudioContext)(),
+  fetchBytes = (url) =>
+    fetch(url).then((reply) => (reply.ok ? reply.arrayBuffer() : Promise.reject())),
 } = {}) {
   let context = null,
     failed = false,
@@ -56,7 +59,9 @@ export function createSfx({
     hidden = false,
     volume = 0.3,
     ringingUntil = 0,
-    cursor = null;
+    cursor = null,
+    chimesAsked = false;
+  const chimes = new Map();
 
   const audible = () => unlocked && enabled && !hidden && volume > 0;
 
@@ -111,21 +116,41 @@ export function createSfx({
     return shapeCombatSound(context, out, name, seeded(seed));
   }
 
+  function loadChimes() {
+    if (chimesAsked) return;
+    chimesAsked = true;
+    for (const [tier, file] of Object.entries(CHIME_FILES))
+      Promise.resolve()
+        .then(() => fetchBytes(mediaUrl(file)))
+        .then((bytes) => context.decodeAudioData(bytes))
+        .then((buffer) => chimes.set(tier, buffer))
+        .catch(() => {});
+  }
   // The card sounds (card-sfx.mjs) follow the Voices switch and the volume,
   // like the fight's. No new setting.
   function cardOut() {
     if (!unlocked || !voices || hidden || volume <= 0 || !build()) return null;
     void wakeContext(context);
+    loadChimes();
     const out = context.createGain();
     out.gain.value = volume * FIGHT_PEAK;
     out.connect(context.destination);
     return out;
   }
-  // One card turning at a tier: a flip tick, and for a rarer card a tone
-  // rising through its held breath. `plan` is pack-opening.mjs turnPlan.
   function cardTurn(plan, seed = 1) {
     const out = cardOut();
-    return out ? shapeTurnSound(context, out, plan, seeded(seed)) : false;
+    if (!out) return false;
+    const buffer = chimes.get(plan.tier);
+    if (buffer) {
+      const source = context.createBufferSource(),
+        level = context.createGain();
+      source.buffer = buffer;
+      level.gain.value = volume;
+      source.connect(level);
+      level.connect(context.destination);
+      source.start();
+    }
+    return shapeTurnSound(context, out, plan, seeded(seed));
   }
   // The pack's paper slide as its cards rise, and the settle as they go back.
   function card(name, seed = 1) {
@@ -163,6 +188,7 @@ export function createSfx({
     unlock() {
       unlocked = true;
       if ((enabled || voices) && build()) void wakeContext(context);
+      if (voices && context) loadChimes();
     },
   };
 }
