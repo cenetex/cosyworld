@@ -171,7 +171,6 @@ const files = [
   "mystery-view.mjs",
   "stage-reveal.mjs",
   "card-level-up.mjs",
-  // Willows sign alternates chosen by the willows pack.
   ...[
     "landing-otter",
     "landing-boatman",

@@ -1435,6 +1435,20 @@ mod tests {
         }
     }
 
+    #[test]
+    fn every_character_who_may_speak_in_the_room_has_a_face() {
+        let travellers = shared_cast()["avatars"].as_array().unwrap().iter();
+        let packs = packs()["packs"].as_array().unwrap().iter();
+        let ids = travellers
+            .filter_map(|human| human["id"].as_str().map(str::to_string))
+            .chain(packs.flat_map(|p| p["avatars"].as_object().unwrap().keys().cloned()));
+        for id in ids {
+            if let Some(found) = resident(&id) {
+                assert!(found.avatar.is_some(), "{id} has no Discord face");
+            }
+        }
+    }
+
     fn request(messages: Value) -> LinesRequest {
         serde_json::from_value(
             json!({"pack": "lonely-forest", "addressed": "rati", "messages": messages}),
