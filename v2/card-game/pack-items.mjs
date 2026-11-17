@@ -201,12 +201,17 @@ function cargo(s, t, conditions) {
     if (["item_present", "item_at"].includes(c.kind) && c.place === t.place)
       if (packThings[c.item] && conditionMet(s, c, null, t.packId))
         out.push(c.item);
-    if (c.kind === "pack_item_present" && c.place === t.place) {
+    if (
+      ["pack_item_present", "home_item_present"].includes(c.kind) &&
+      c.place === t.place
+    ) {
       const id = Object.keys(packThings)
         .sort()
         .find(
           (id) =>
-            packThings[id].packId === c.pack &&
+            (c.pack
+              ? packThings[id].packId === c.pack
+              : restForGood(id) === c.home) &&
             entityActive(s, id) &&
             conditionMet(s, { kind: "item_present", item: id, place: c.place }),
         );
