@@ -200,7 +200,6 @@ async function localCheck(width, actor, kind, mode) {
       },
       { speakers, from },
     );
-  // The player's avatar speaks first, so it thinks first.
   await waitingFor(page, actor);
   assert.equal(
     await page.locator("#speech-hint").innerText(),
