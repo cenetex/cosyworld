@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 30,
+  "revision": 31,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -7969,6 +7969,18 @@
           "greek-shovel"
         ],
         "finish": "greek-burial-performed"
+      },
+      {
+        "avatar": "greek-antigone",
+        "kind": "person",
+        "target": "greek-ismene",
+        "items": []
+      },
+      {
+        "avatar": "greek-antigone",
+        "kind": "person",
+        "target": "greek-creon",
+        "items": []
       },
       {
         "avatar": "greek-ismene",
