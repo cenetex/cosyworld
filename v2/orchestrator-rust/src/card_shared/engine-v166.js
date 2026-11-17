@@ -2564,8 +2564,12 @@
     for (const [id, a] of Object.entries(s.actors)) {
       if (a.want && !api.player(id) && !entityActive(s, id))
         a.want.since = s.turn;
+      const was = before.actors[id]?.want;
       if (a.want?.kind === "item" && a.want.refusals && before.items[a.want.target] && rootOf2(before, a.want.target) !== rootOf2(s, a.want.target))
-        a.want.refusals = 0;
+        a.want.refusals -= Math.min(
+          a.want.refusals,
+          was?.kind === "item" && was.target === a.want.target ? was.refusals : 0
+        );
     }
     for (const id of actors2) {
       const want = wantOf(s, id);

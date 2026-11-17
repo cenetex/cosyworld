@@ -74,5 +74,10 @@ describe("a resident keeps what it wants", () => {
     s.items.lamp.holder = "keeper";
     reviseStalledWants(s, [], wantAPI(s), before);
     expect(s.actors.moth.want).toMatchObject({ target: "lamp", refusals: 0 });
+    const late = refused();
+    before.items.lamp.holder = "station";
+    before.actors.moth.want.refusals = 1;
+    reviseStalledWants(late, [], wantAPI(late), before);
+    expect(late.actors.moth.want.refusals).toBe(REFUSAL_LIMIT - 1);
   });
 });
