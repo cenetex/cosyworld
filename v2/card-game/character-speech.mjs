@@ -4,6 +4,7 @@ import { expressionOf } from "./expression.mjs";
 import { localVoiceClient } from "./local-service.mjs";
 import { hostedVoices } from "./hosted-voices.mjs";
 import { voiceTone } from "./voice-tone.mjs";
+import { chanceLine } from "./voice-chance.mjs";
 
 const connected = (client) => Boolean(client.available?.());
 const voiceClient = () => localVoiceClient() || hostedVoices().voices;
@@ -160,6 +161,10 @@ export const questLine = (world, line) =>
       world.actors[entry.actorId]?.closed?.[`quest:from:${line.actorId}`]?.[0] ===
         line.turn,
   );
+
+export const voicedLine = (world, line) =>
+  questLine(world, line) ||
+  (Boolean(line?.actorId) && !line.silent && chanceLine(line.actorId, line.text));
 
 // Reveal keys include words; listening history only needs the saved occurrence.
 export const voiceLineIdentity = (line) =>

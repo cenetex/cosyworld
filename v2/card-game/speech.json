@@ -7,7 +7,7 @@
   "battle_wait": ["actor", "opponent"],
   "companion": ["target"],
   "first_meeting": ["newcomer"],
-  "want_met": ["met"],
+  "want_met": ["met", "giver"],
   "long_rest": ["actor"],
   "first_wait": ["actor"],
   "signal_echo": [],

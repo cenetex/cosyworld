@@ -1,6 +1,5 @@
 import { accountRevision } from "./account-revision.mjs";
-// A signed-in passkey hears free the line of a resident whose quest was just
-// completed; a shared world speaks only that saved line, one clip for all.
+import { chanceLine } from "./voice-chance.mjs";
 export function createHostedVoices({
   fetcher = globalThis.fetch,
   world = "",
@@ -47,7 +46,7 @@ export function createHostedVoices({
           body: JSON.stringify(
             world
               ? { world, play: reference.play, line: reference.line }
-              : { speaker, text, occasion: "quest" },
+              : { speaker, text, occasion: chanceLine(speaker, text) ? "chance" : "quest" },
           ),
           signal,
         });

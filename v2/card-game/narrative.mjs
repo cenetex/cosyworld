@@ -538,6 +538,18 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           facts.unshift(
             `${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`,
           );
+        const player = currentActor(world);
+        if (
+          world.actors[player].closed?.[`quest:from:${id}`]?.[0] === world.turn &&
+          world.log.some(
+            (e) =>
+              e.turn === world.turn &&
+              !e.generated &&
+              e.verb === "want_met" &&
+              e.actorId === player,
+          )
+        )
+          facts.unshift(`${nameOf(player)} did what I asked.`);
         const company = Object.keys(world.actors).filter(
           (other) =>
             other !== id &&

@@ -3,6 +3,16 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
+pub(crate) const VOICE_CHANCE: f64 = 0.05;
+
+pub(crate) fn chance_line(speaker: &str, text: &str) -> bool {
+    let mut hash: u32 = 0x811c_9dc5;
+    for byte in speaker.bytes().chain(*b"\n").chain(text.bytes()) {
+        hash = (hash ^ u32::from(byte)).wrapping_mul(0x0100_0193);
+    }
+    f64::from(hash) < VOICE_CHANCE * 4_294_967_296.0
+}
+
 pub(crate) fn quest_residents(
     game: &Value,
     actor: &str,
@@ -48,11 +58,14 @@ pub(crate) fn line(
         let scene: Value = serde_json::from_str(&text).ok()?;
         let line = scene["lines"].as_array()?.get(index)?;
         let actor = line["actorId"].as_str()?;
-        let quest = scene["quest"].as_array()?;
-        if line["kind"] != "dialogue" || !quest.iter().any(|id| id == actor) {
+        let words = line["text"].as_str()?;
+        let quest = scene["quest"]
+            .as_array()
+            .is_some_and(|quest| quest.iter().any(|id| id == actor));
+        if line["kind"] != "dialogue" || !(quest || chance_line(actor, words)) {
             return None;
         }
-        Some((actor.into(), line["text"].as_str()?.into()))
+        Some((actor.into(), words.into()))
     }))
 }
 
