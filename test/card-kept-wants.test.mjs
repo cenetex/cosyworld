@@ -90,6 +90,26 @@ describe("a resident keeps what it wants", () => {
     expect(held.actors.moth.gaveUp).toBeUndefined();
   });
 
+  it("keeps an accepted want for a place it cannot reach", () => {
+    const stalled = () => {
+      const s = createWorld();
+      s.actors.moth.place = "station";
+      s.actors.moth.want = newWant("place", "pond", 0);
+      s.turn = STALL_TURNS;
+      return s;
+    };
+    const cut = (s) => ({ ...wantAPI(s), reachable: () => [] });
+    const free = stalled();
+    reviseStalledWants(free, ["moth"], cut(free));
+    expect(free.actors.moth.gaveUp).toEqual({ target: "pond", turn: STALL_TURNS });
+    const held = stalled();
+    holdQuest(held, "vale", questFor(held, "moth", held.actors.moth.want), "quest:from:moth");
+    reviseStalledWants(held, ["moth"], cut(held));
+    expect(held.actors.moth.want?.target).toBe("pond");
+    expect(held.actors.moth.gaveUp).toBeUndefined();
+    expect(held.actors.vale.want?.from).toBe("quest:from:moth");
+  });
+
   it("counts refusals afresh when the wanted item changes holder", () => {
     const s = refused(),
       before = structuredClone(s);

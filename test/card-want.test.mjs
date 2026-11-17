@@ -300,30 +300,35 @@ describe("one want per avatar", () => {
     expect(metEvents(s, "moth")).toHaveLength(1);
   });
 
-  it("keeps an accepted want with no way forward, but not a place with no route", () => {
-    const s = createWorld();
-    s.turn = 200;
-    const api = (reach) => ({ ...wantAPI(s), reachable: () => reach });
-    s.actors.moth.want = newWant("item", "bell", 0);
-    holdQuest(s, "vale", questFor(s, "moth", s.actors.moth.want), "quest:from:moth");
-    reviseStalledWants(s, ["moth"], api([]));
-    expect(s.actors.moth.want).toMatchObject({ target: "bell", since: 0 });
-    s.actors.moth.want = newWant("place", "attic", 0);
-    reviseStalledWants(s, ["moth"], api(["attic"]));
-    expect(s.actors.moth.want).toMatchObject({ target: "attic", since: 0 });
-    reviseStalledWants(s, ["moth"], api([]));
-    expect(s.actors.moth.want?.target).not.toBe("attic");
-    expect(s.actors.moth.gaveUp).toEqual({ target: "attic", turn: 200 });
+  it("keeps an accepted want with no way forward, and sets aside one no player holds", () => {
+    const world = () => {
+      const s = createWorld();
+      s.turn = 200;
+      return s;
+    };
+    const api = (s) => ({ ...wantAPI(s), reachable: () => [] });
+    const s = world();
     const off = Object.keys(s.actors).find((id) => !entityActive(s, id));
-    s.actors.moth.want = newWant("person", "keeper", 0);
-    reviseStalledWants(s, ["moth"], api([]));
-    expect(s.actors.moth.want).toMatchObject({ target: "keeper", since: 0 });
-    s.actors.moth.want = newWant("person", off, 0);
-    reviseStalledWants(s, ["moth"], api([]));
-    expect(s.actors.moth.want?.target).not.toBe(off);
-    expect(s.actors.moth.gaveUp).toEqual({ target: off, turn: 200 });
+    const wants = () => [
+      newWant("item", "bell", 0),
+      newWant("place", "attic", 0),
+      newWant("person", "keeper", 0),
+      newWant("person", off, 0),
+    ];
+    holdQuest(s, "vale", questFor(s, "moth", wants()[0]), "quest:from:moth");
+    for (const want of wants()) {
+      s.actors.moth.want = want;
+      reviseStalledWants(s, ["moth"], api(s));
+      expect(s.actors.moth.want).toMatchObject({ target: want.target, since: 0 });
+    }
+    for (const want of wants().slice(1).filter((w) => w.target !== "keeper")) {
+      const open = world();
+      open.actors.moth.want = want;
+      reviseStalledWants(open, ["moth"], api(open));
+      expect(open.actors.moth.want?.target).not.toBe(want.target);
+      expect(open.actors.moth.gaveUp).toEqual({ target: want.target, turn: 200 });
+    }
   });
-
 
   it("keeps a want on every active resident but the content through a long shared run", () => {
     const players = humanAvatarIds.slice(0, 4);
