@@ -23,6 +23,7 @@ import {
 import { heldOf, newWant } from "../v2/card-game/want.mjs";
 import { offerCard } from "../v2/card-game/quest-card.mjs";
 import { cardLevel } from "../v2/card-game/rarity.mjs";
+import { transports } from "../v2/card-game/pack-registry.mjs";
 
 const STATION = "sample-station",
   SHORE = "sample-shore",
@@ -98,6 +99,17 @@ it("never asks for a thing a resident wants", () => {
   const s = scarfAway();
   s.actors["sample-keeper"].want = newWant("item", SCARF, s.turn);
   expect(placeOffer(s)).toBeNull();
+});
+
+it("asks only for a thing that lies loose, not one held, boxed or aboard", () => {
+  const ship = Object.values(transports)[0].place;
+  for (const at of ["sample-keeper", "vale", "sample-bell", ship]) {
+    const s = scarfAway();
+    s.actors["sample-keeper"].place = SHORE;
+    s.items["sample-bell"].holder = SHORE;
+    s.items[SCARF].holder = at;
+    expect(placeOffer(s), at).toBeNull();
+  }
 });
 
 it("keeps only things that lay at that place in its record", () => {

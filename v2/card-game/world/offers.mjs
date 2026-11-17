@@ -1,8 +1,8 @@
-import { entityActive, neverBack, packOf } from "../pack-registry.mjs";
+import { entityActive, neverBack, packOf, transports } from "../pack-registry.mjs";
 import { packDiscovered, runHash } from "../pack-rules.mjs";
 import { usedUp } from "../item-use.mjs";
 import { arcanaLevel, owesGiving, recordOf } from "./arcana-record.mjs";
-import { itemPlace, rootHolder } from "./items.mjs";
+import { rootHolder } from "./items.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
   MAX_HELD,
@@ -40,7 +40,6 @@ const boxQuest = (s, { kind, target, step, lit }) => ({
   ...(lit === undefined ? {} : { lit }),
 });
 
-// An escort or meeting offered by a resident who is already another
 function withAnother(s, actor, kind, source, want) {
   const traveler = travelerOf(s, source);
   return Boolean(
@@ -88,6 +87,8 @@ export function placeWant(s, place) {
       .filter(([id]) => !humanAvatar(id))
       .flatMap(([, a]) => [a.want?.target, ...(a.want?.step?.items || [])]),
   );
+  const aboard = new Set(Object.values(transports).map((t) => t.place));
+  const loose = (at) => !s.items[at] && !s.actors[at] && !aboard.has(at);
   const missing = Object.keys(s.items)
     .filter(
       (id) =>
@@ -99,8 +100,8 @@ export function placeWant(s, place) {
         !neverBack(s, id) &&
         !usedUp(s, id) &&
         !wanted.has(id) &&
-        !humanAvatar(rootHolder(s, id)) &&
-        itemPlace(s, id) !== place,
+        loose(s.items[id].holder) &&
+        s.items[id].holder !== place,
     )
     .sort();
   return missing.length
