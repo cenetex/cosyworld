@@ -2,7 +2,7 @@ import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import { readConfig } from "./config.mjs";
 import { commandDefinitions, dispatch } from "./commands.mjs";
 import { ensureChannel, guildState, loadState, saveState } from "./channel.mjs";
-import { castOf, createRoom, createStats, record, seed, summary } from "./room.mjs";
+import { castDue, castOf, createRoom, createStats, record, seed, summary } from "./room.mjs";
 import { startHealth } from "./health.mjs";
 import { wait } from "./beats.mjs";
 import { channelLines, conversationNotes, coordinate, ensureWorld, fetchCast } from "./orchestrator.mjs";
@@ -45,7 +45,10 @@ async function refreshCast() {
   else log("cast unavailable");
 }
 
+const WHO_WAIT_MS = 2000;
+
 async function castFor(room) {
+  room.castAt = Date.now();
   const next = await fetchCast(fetch, config.ORCHESTRATOR_URL, config.COSYWORLD_BOT_TOKEN, config.DISCORD_PACK, room.guildId);
   if (next) room.cast = next;
   else log(`cast unavailable in guild ${room.guildId}`);
@@ -166,6 +169,7 @@ client.on(Events.MessageCreate, (message) => {
   const room = rooms.get(message.channelId);
   if (!room) return;
   if (!room.world && Date.now() - (room.soughtAt ?? 0) > 60000) void findWorld(room);
+  if (castDue(room, Date.now())) void castFor(room);
   const entry = record(room, message, room.webhookId, castOf(room, cast), stats);
   heard(room, entry, turnDeps(room));
 });
@@ -173,6 +177,7 @@ client.on(Events.MessageCreate, (message) => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
   const room = [...rooms.values()].find((known) => known.guildId === interaction.guildId);
+  if (interaction.commandName === "who" && room?.world) await Promise.race([castFor(room), wait(WHO_WAIT_MS)]);
   const result = dispatch(interaction.commandName, {
     cast: () => castOf(room, cast),
     pack: config.DISCORD_PACK,

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readConfig } from "../src/config.mjs";
-import { createRoom, record, requestBody, seed } from "../src/room.mjs";
+import { CAST_FRESH_MS, castDue, createRoom, record, requestBody, seed } from "../src/room.mjs";
 
 const config = readConfig({ ORCHESTRATOR_URL: "https://cosyworld.example" });
 const cast = [
@@ -152,4 +152,15 @@ test("a request carries at most four images, newest first, and a placeholder for
     { author: "Mara", text: "", images: [cdn("3.png"), cdn("4.png")] },
     { author: "Mara", text: "RATi, see?", images: [cdn("5.png"), cdn("6.png")] },
   ]);
+});
+
+test("a room with a world refetches its cast at most once a minute", () => {
+  const room = createRoom("g", "c");
+  assert.equal(castDue(room, Date.now()), false);
+  room.world = { id: "w" };
+  assert.equal(castDue(room, Date.now()), true);
+  room.castAt = 1000;
+  assert.equal(castDue(room, 1000 + CAST_FRESH_MS - 1), false);
+  assert.equal(castDue(room, 1000 + CAST_FRESH_MS), true);
+  assert.equal(castDue(undefined, Date.now()), false);
 });
