@@ -107,7 +107,6 @@ async function keepsReply(page, text, tap = true) {
   }
   assert.equal(await page.locator("#speech-row").innerText(), before);
 }
-// Stream the story by hand so each line arrives when the check says.
 function storyStream() {
   const fetch = globalThis.fetch;
   globalThis.fetch = (url, options) => {
