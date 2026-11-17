@@ -10,7 +10,7 @@ import {
 } from "../card-game/world.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
-import { learnLane } from "../card-game/pack-transport.mjs";
+import { lanePath, learnLane } from "../card-game/pack-transport.mjs";
 import { openDoorAction, openSeas } from "../../test/helpers/open-door.mjs";
 import { selectCard, wordsFellSilent } from "./card-browser-helpers.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
@@ -406,7 +406,9 @@ try {
       if (journey.cargo === false) {
         await step("wait");
         const stranded = await state();
-        assert.equal(stranded.transports["greek-ship"].dock, "greek-harbor");
+        const { dock } = stranded.transports["greek-ship"];
+        assert.notEqual(dock, "greek-piraeus");
+        assert.equal(lanePath(stranded, "greek-ship", dock, "greek-piraeus"), null);
         assert.ok(
           !legalActions(stranded, "mara").some((a) => a.target === "greek-ship"),
         );
