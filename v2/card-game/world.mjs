@@ -108,7 +108,7 @@ import {
   WANT_KINDS,
   CONNECT_TARGET,
 } from "./want.mjs";
-import { askerOf, pruneTalkQuests, talkQuest, pinnedCompanion } from "./talk-quest.mjs";
+import { askerOf, pruneTalkQuests, talkQuest, toldWant, pinnedCompanion } from "./talk-quest.mjs";
 import {
   ABSENT_TURNS,
   ACCOMPANY_TRUST,
@@ -665,6 +665,14 @@ function refusalReason(s, a) {
   )
     return "needs-it";
   return "wants-something-else";
+}
+function saidWant(s, a, reason) {
+  const want = wantOf(s, a.target);
+  return reason === "wants-something-else" &&
+    toldWant(s, a.actor, a.target) &&
+    (want.kind === "item" || (!want.step && want.kind !== "connect"))
+    ? { wantId: want.target }
+    : {};
 }
 // What the other side will say to a Give or Trade. The residents' planner
 // reads this to avoid some offers it expects to be refused.
@@ -2606,7 +2614,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     (a.kind === "eat" && a.target)
       ? { accepted: requestAccepted }
       : {}),
-    ...(refusal ? { reason: refusal } : {}),
+    ...(refusal ? { reason: refusal, ...saidWant(s, a, refusal) } : {}),
     ...(invitation
       ? { destinationId: a.destination, accepted: invitation.accepted }
       : {}),
@@ -3393,6 +3401,11 @@ export function play(
   settleLost(next, wantAPI(next));
   pruneTalkQuests(next, wantAPI(next));
   fillWants(next, wantAPI(next));
+  if (
+    exact.kind === "talk" &&
+    next.actors[exact.target]?.place === next.actors[actor].place
+  )
+    talkQuest(next, actor, exact.target, wantAPI(next));
   settleHomeLevels(next);
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);
@@ -3921,6 +3934,14 @@ export function validateWorld(s) {
         !REFUSAL_REASONS.includes(e.reason))
     )
       fail(`log:${e.seq}:reason`);
+    if (
+      e.wantId !== undefined &&
+      (e.reason !== "wants-something-else" ||
+        ![ids, actorIds, Object.keys(places)].some((all) =>
+          all.includes(e.wantId),
+        ))
+    )
+      fail(`log:${e.seq}:wantId`);
     if (
       e.verb === "accompany" &&
       (!actorIds.includes(e.actorId) ||

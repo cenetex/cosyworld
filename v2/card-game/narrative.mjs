@@ -1,7 +1,7 @@
 import { learningFacts } from "./learning.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
-import { revealed, wantFact, wantHeard } from "./want-talk.mjs";
+import { refusalWhy, revealed, wantFact, wantHeard } from "./want-talk.mjs";
 import { BOARDY, boardyFacts } from "./boardyai.mjs";
 import { recitalContext, recitalFacts } from "./pack-recital.mjs";
 import { hasMotives, motiveFacts, tastes } from "./motives.mjs";
@@ -61,8 +61,6 @@ import { heldItem } from "./held-item.mjs";
 import { sleepingPortrait } from "./sleep-portraits.mjs";
 import { moodFact } from "./mood.mjs";
 
-// A refusal reaches the brief as its committed code; the refuser's line
-// says why in its own words.
 function refusalFact(played) {
   const asked =
     played.verb === "ask"
@@ -70,7 +68,7 @@ function refusalFact(played) {
       : played.verb === "accompany"
         ? `invitation to ${nameOf(played.destinationId)}`
         : `offer of ${nameOf(played.itemId)}`;
-  return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). Nothing changed.`;
+  return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). ${refusalWhy(played, nameOf)} Nothing changed.`;
 }
 
 // Capture the resolved turn separately from wishes and remembered speech.

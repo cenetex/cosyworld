@@ -10,6 +10,7 @@ import { currentActor, nameOf as fullName } from "./world.mjs";
 import { isSceneText } from "./scene.mjs";
 import { consumable, transports } from "./pack-registry.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
+import { refusalWhy } from "./want-talk.mjs";
 
 // Taking a quest from a card (verb "quest") is silent too: no turn, no beat.
 const QUIET_VERBS = new Set(["talk", "quest"]);
@@ -108,6 +109,10 @@ export function actionCaption(
     kind,
     actorId: entry.actorId,
   });
+  const why =
+    entry.accepted === false && entry.reason
+      ? ` ${refusalWhy(entry, fullName)}`
+      : "";
   if (!verb) {
     if (entry.kind === "narration" && STANDOFF_ENDS.test(entry.text || ""))
       return caption("⚔", entry.text, "standoff");
@@ -144,7 +149,7 @@ export function actionCaption(
       return entry.kind === "narration" ? caption("➜", entry.text) : null;
     case "accompany":
       if (entry.accepted === false)
-        return caption("⇄", `${t} wouldn't go with ${a}.`);
+        return caption("⇄", `${t} wouldn't go with ${a}.${why}`);
       if (leaving)
         return caption(
           "➜",
@@ -221,7 +226,7 @@ export function actionCaption(
       return entry.accepted === false
         ? caption(
             "⇄",
-            `${a} offered ${the(entry.itemId)} to ${t}, but ${t} refused.`,
+            `${a} offered ${the(entry.itemId)} to ${t}, but ${t} refused.${why}`,
           )
         : caption("⇄", `${a} gave ${the(entry.itemId)} to ${t}.`);
     case "trade":
@@ -229,8 +234,8 @@ export function actionCaption(
         ? caption(
             "⇄",
             entry.itemId && entry.receiveId
-              ? `${a} offered ${the(entry.itemId)} for ${the(entry.receiveId)}, but ${t} refused.`
-              : `${a} offered ${t} a trade, but ${t} refused.`,
+              ? `${a} offered ${the(entry.itemId)} for ${the(entry.receiveId)}, but ${t} refused.${why}`
+              : `${a} offered ${t} a trade, but ${t} refused.${why}`,
           )
         : caption(
             "⇄",
@@ -240,14 +245,14 @@ export function actionCaption(
       return entry.accepted === false
         ? caption(
             "⇄",
-            `${a} asked ${t} for ${the(entry.itemId)}, but was refused.`,
+            `${a} asked ${t} for ${the(entry.itemId)}, but was refused.${why}`,
           )
         : caption("⇄", `${a} got ${the(entry.itemId)} from ${t}.`);
     case "take":
       return caption("✋", `${a} took ${the(entry.itemId)}.`);
     case "eat":
       return entry.accepted === false
-        ? caption("✋", entry.text)
+        ? caption("✋", `${entry.text}${why}`)
         : caption(
             "✦",
             `${a} ${consumable(entry.itemId) === "drink" ? "drank" : "ate"} ${the(entry.itemId)}${entry.targetId ? ` with ${t}` : ""}.`,

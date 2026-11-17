@@ -6,7 +6,7 @@ import { sharedContentInput } from "./shared-content-input.mjs";
 import { releasedBundleRefusal } from "./released-bundles.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = new URL(
-  "../orchestrator-rust/src/card_shared/engine-v166.js",
+  "../orchestrator-rust/src/card_shared/engine-v167.js",
   import.meta.url,
 );
 const result = await build({

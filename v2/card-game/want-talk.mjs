@@ -13,6 +13,7 @@ import {
   makerChoice,
   conditionsMet,
   packPeople,
+  packPlaces,
 } from "./pack-registry.mjs";
 
 // The authored first want, until the rules keep one on the actor. A pack
@@ -141,6 +142,20 @@ export function wantFact(world, id, nameOf, listener) {
         ? `I want to be at ${name}.`
         : `I want to see ${name}.`) + help
   );
+}
+
+export function refusalWhy(entry, nameOf) {
+  const who = nameOf(entry.targetId),
+    id = entry.wantId;
+  if (entry.reason === "grudge") return `${who} holds a grudge.`;
+  if (entry.reason === "needs-it") return `${who} needs it.`;
+  if (!id) return `${who} wants something else.`;
+  const name = nameOf(id);
+  return forest.people[id] || packPeople[id]
+    ? `${who} wants to see ${name}.`
+    : forest.places[id] || packPlaces[id]
+      ? `${who} wants to be at ${name}.`
+      : `${who} wants ${article(name)}.`;
 }
 
 // The player's own want, and the want of the person on either side of Talk.
