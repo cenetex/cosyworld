@@ -22,6 +22,7 @@ import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
+import { gainTrust } from "./world/company.mjs";
 import { HEARD_FROM, heardWant, validRumours } from "./world/rumours.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
 import {
@@ -635,31 +636,29 @@ export function settleWants(s, actors, api, action = null, stale = []) {
   }
   return met;
 }
-// The helper is the player whose play it was; credit goes only where the
-// causing play names one. A refused gift or trade meets nothing, and a
-// handover under pressure is no help. A plain Give earns trust in `trustGiver`.
+// A refused gift or trade meets nothing, and a handover under pressure is no
+// help. A plain Give earns trust in `trustGiver`.
 function helped(s, owner, api, action) {
-  const helper = action?.actor,
+  const own = action?.actor === owner,
+    helper = own ? action.target : action?.actor,
     h = s.actors[helper];
   if (
     !h || helper === owner || action.accepted === false || action.pressured ||
-    !api.player(helper) || api.player(owner)
+    api.player(owner)
   )
     return;
-  if (!humanAvatarIds.includes(helper)) {
+  if (!own && api.player(helper) && !humanAvatarIds.includes(helper)) {
     h.level ??= levelFor(h.xp);
     h.xp += 1;
   }
   const o = s.actors[owner];
-  if (humanAvatarIds.includes(helper) && !humanAvatarIds.includes(owner)) {
+  if (!own && api.player(helper) && humanAvatarIds.includes(helper) && !humanAvatarIds.includes(owner)) {
     const rank = levelFor(Math.max(0, o.xp - 1));
     if (rank < rankOf(LEVEL_CAP)) o.xp = Math.max(o.xp, rankXp(rank + 1));
     if (!packPeople[owner]?.levelAtHome)
       o.level = Math.max(o.level ?? 1, levelFor(o.xp));
   }
-  const trust = s.actors[owner].trust;
-  if ((action.kind !== "give" || action.chosen) && trust)
-    trust[helper] = Math.min(3, (trust[helper] || 0) + 1);
+  if (action.kind !== "give" || action.chosen) gainTrust(s, owner, helper);
 }
 // The met want pays a resident one experience at once.
 function commitMet(s, id, api, met, held = null) {

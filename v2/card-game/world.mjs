@@ -119,6 +119,8 @@ import {
   TRUST_LOSS,
   bind,
   companionOf,
+  fadeTrust,
+  gainTrust,
   loseTrust,
   trustBroken,
   release,
@@ -1954,15 +1956,8 @@ function companionRound(s, acted, round) {
   }
 }
 
-// Trust has two sources: someone gave me the item I wanted (here), and an
-// authored meeting (a pack choice with a trust effect). A pack on:"give"
-// choice on the item intercepts the Give before this runs.
 function trustGiver(s, recipient, item, giver) {
-  if (!needed(s, recipient, item) || !s.actors[recipient].trust) return;
-  s.actors[recipient].trust[giver] = Math.min(
-    3,
-    (s.actors[recipient].trust[giver] || 0) + 1,
-  );
+  if (needed(s, recipient, item)) gainTrust(s, recipient, giver);
 }
 // Wait is the only rest. Any Wait at a sanctuary, by a player or a resident,
 // clears every loss. A Wait anywhere else leaves losses as they are. Sleep, a
@@ -3540,6 +3535,7 @@ export function play(
     wantAPI(next),
     s,
   );
+  fadeTrust(next);
   settleLost(next, wantAPI(next));
   pruneTalkQuests(next, wantAPI(next));
   fillWants(next, wantAPI(next));
