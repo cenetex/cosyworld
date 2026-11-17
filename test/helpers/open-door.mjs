@@ -97,7 +97,7 @@ export function traveler(world = greekStart()) {
       t.act("trade", { item: g(item), receive: g(receive) }),
     talk(who) {
       t.act("talk", { target: g(who) });
-      return legalActions(t.s).some((a) => a.kind === "accept")
+      return legalActions(t.s).some((a) => a.kind === "accept" && a.target === g(who))
         ? t.act("accept", { target: g(who) })
         : t;
     },

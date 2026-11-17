@@ -1,15 +1,12 @@
-//
-//   box       a shut box lying here
-//   home      your own home's door, shut
-//
 import { entityActive, neverBack, packOf } from "../pack-registry.mjs";
 import { packDiscovered, runHash } from "../pack-rules.mjs";
 import { usedUp } from "../item-use.mjs";
 import { arcanaLevel, owesGiving, recordOf } from "./arcana-record.mjs";
-import { rootHolder } from "./items.mjs";
+import { itemPlace, rootHolder } from "./items.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
   MAX_HELD,
+  PLACE_FROM,
   closedAny,
   closedBy,
   heldOf,
@@ -22,13 +19,13 @@ import { questFor, toldWant } from "../talk-quest.mjs";
 import { revealed } from "../want-talk.mjs";
 import { offerFrom } from "../offer-chance.mjs";
 import { boxWant, shutBoxesAt } from "./boxes.mjs";
-import { nameOf, people } from "./catalog.mjs";
+import { nameOf, people, places, things } from "./catalog.mjs";
 import { travelerOf } from "./company.mjs";
 
-export const OFFER_KINDS = ["box", "resident", "home", "listener"];
+export const OFFER_KINDS = ["box", "resident", "home", "listener", "place"];
 const LISTENER = "listener";
 export const offerId = (kind, source) =>
-  `quest:${kind === "resident" ? "from" : kind}:${source}`;
+  kind === "place" ? `${PLACE_FROM}${source}` : `quest:${kind === "resident" ? "from" : kind}:${source}`;
 export const isOfferId = (id) => typeof id === "string" && id.startsWith("quest:");
 
 // The quest a shut box gives: the thing to hold or bring, the place to reach
@@ -81,6 +78,69 @@ export function boxOffer(s, source, actor = currentActor(s)) {
   const want = goal && boxQuest(s, goal);
   if (!stands(s, actor, "box", source, want)) return null;
   return { id: offerId("box", source), kind: "box", source, want, full: slotsUsed(a) >= MAX_HELD };
+}
+
+export const placeMet = (s, place) =>
+  s.placeMet && Object.hasOwn(s.placeMet, place) ? s.placeMet[place] : [];
+export function placeWant(s, place) {
+  const wanted = new Set(
+    Object.entries(s.actors)
+      .filter(([id]) => !humanAvatar(id))
+      .flatMap(([, a]) => [a.want?.target, ...(a.want?.step?.items || [])]),
+  );
+  const missing = Object.keys(s.items)
+    .filter(
+      (id) =>
+        things[id]?.holder === place &&
+        !things[id].locked &&
+        !things[id].sealed &&
+        !placeMet(s, place).includes(id) &&
+        entityActive(s, id) &&
+        !neverBack(s, id) &&
+        !usedUp(s, id) &&
+        !wanted.has(id) &&
+        !humanAvatar(rootHolder(s, id)) &&
+        itemPlace(s, id) !== place,
+    )
+    .sort();
+  return missing.length
+    ? {
+        ...newWant("place", place, s.turn),
+        story: true,
+        step: { verb: "lay", items: [missing[0]] },
+      }
+    : null;
+}
+export function validPlaceMet(s) {
+  if (s.placeMet === undefined) return true;
+  const entries =
+    s.placeMet && typeof s.placeMet === "object" && !Array.isArray(s.placeMet)
+      ? Object.entries(s.placeMet)
+      : null;
+  return Boolean(
+    entries?.length &&
+      entries.every(
+        ([place, items]) =>
+          Object.hasOwn(places, place) &&
+          Array.isArray(items) &&
+          items.length >= 1 &&
+          new Set(items).size === items.length &&
+          items.every((id) => things[id]?.holder === place),
+      ),
+  );
+}
+export function placeOffer(s, actor = currentActor(s)) {
+  const a = s.actors[actor];
+  if (!a || !isPlayer(s, actor) || !Object.hasOwn(places, a.place)) return null;
+  const want = placeWant(s, a.place);
+  if (!stands(s, actor, "place", a.place, want)) return null;
+  return {
+    id: offerId("place", a.place),
+    kind: "place",
+    source: a.place,
+    want,
+    full: slotsUsed(a) >= MAX_HELD,
+  };
 }
 
 export function questOffers(s, actor = currentActor(s)) {
