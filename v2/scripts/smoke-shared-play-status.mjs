@@ -290,6 +290,7 @@ async function check(width) {
     await wait.click();
     // The play waits for the read scene to settle before it is sent.
     await until(() => keys.length > sentBefore && queue.length > 0);
+    await page.keyboard.press("Escape");
     queue = [];
     notice = refusal;
     const aside = "Not played: Wait. That play has changed.";

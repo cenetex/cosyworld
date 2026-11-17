@@ -66,6 +66,7 @@ async function local(width) {
     else await play.press("Enter");
     await settled();
     // The same card chosen again offers Sleep in place of Wait.
+    await page.keyboard.press("Escape");
     await selectCard(page, "vale", { touch });
     assert.deepEqual(await labels(page), ["Sleep"]);
     await page.screenshot({ path: resolve(output, `offer-${width}.png`) });
@@ -75,6 +76,7 @@ async function local(width) {
     assert.deepEqual(await labels(page), ["Wait"]);
     await play.click();
     await settled();
+    await page.keyboard.press("Escape");
     await selectCard(page, "vale", { touch });
     if (touch) await play.click();
     else {
