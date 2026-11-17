@@ -2524,10 +2524,7 @@
   var crossingOpen = (s, c, senses2, actor = senses2?.player ?? null) => (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) && entityActive(s, c.from) && entityActive(s, c.to) && (c.transport ? transportUnlocked(s, c.transport) && shipDock(s, c.transport) === c.from : windowOpen(s, c) && signalReady(s, c, senses2)) && c.requires.every((r) => conditionMet(s, r, senses2, c.packId, actor));
   var mayCross = (c, actor, senses2) => c.travelers === "any" || actor === senses2.player || roamingQuestActor(actor) || packPeople[actor]?.personalQuests || senses2.humanActors?.includes(actor);
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
-    (c) => c.from === place && (mayCross(c, actor, senses2) || // A resident taken along walks home by the same way: from a
-    // ticketed place into its own part of the world, or on to
-    // another ticketed place on that way (rules 133).
-    s.invitedPlaces?.[actor]?.includes(c.from) && ((packPeople[actor]?.packId ?? null) === (packPlaces[c.to]?.packId ?? null) || s.invitedPlaces[actor].includes(c.to))) && crossingOpen(s, c, senses2, actor) && (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor))
+    (c) => c.from === place && mayCross(c, actor, senses2) && crossingOpen(s, c, senses2, actor) && (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor))
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
   var packDiscovered = (s, packId) => crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
