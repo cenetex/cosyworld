@@ -308,6 +308,32 @@ function quietAlone(world, cast, state) {
   return !(noticed?.gone || noticed?.came || noticed?.first);
 }
 
+function moodNote(world, id) {
+  const state = world.actors[id],
+    mood = variantOf(world, id);
+  return state.awake
+    ? `Awake.${state.wakeCause ? ` First woken by ${state.wakeCause}.` : ""} ${mood.note}`
+    : mood.note;
+}
+function favourFact(world, id, among = null) {
+  const helpers = Object.entries(world.actors[id].trust)
+    .filter(([other, n]) => n > 0 && (!among || among.includes(other)))
+    .map(([other]) => nameOf(other));
+  return helpers.length
+    ? `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`
+    : null;
+}
+export function ownFacts(world, id) {
+  const place = world.actors[id].place;
+  const here = Object.keys(world.actors).filter(
+    (other) => other !== id && world.actors[other].place === place,
+  );
+  return [
+    wantFact(world, id, nameOf, id),
+    favourFact(world, id, here),
+    hasTemperament(id) ? moodNote(world, id) : null,
+  ].filter(Boolean);
+}
 export function narrativeContext(world, action = null, isCovered = null, remaining = false) {
   const cast = dialogueCast(world, action);
   const original = typeof remaining === "object" ? remaining : null;
@@ -479,16 +505,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       let desire = null;
       if (kind === "avatar") {
         facts.unshift(...battleFacts(world, id, battle, nameOf));
-        // A resident's mood is a world fact; its pack words how to play it.
-        if (hasTemperament(id)) {
-          const state = world.actors[id],
-            mood = variantOf(world, id);
-          facts.push(
-            state.awake
-              ? `Awake.${state.wakeCause ? ` First woken by ${state.wakeCause}.` : ""} ${mood.note}`
-              : mood.note,
-          );
-        }
+        if (hasTemperament(id)) facts.push(moodNote(world, id));
         if (
           REFUSED_VERBS.includes(played?.verb) &&
           played.accepted === false &&
@@ -577,13 +594,8 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           facts.push(
             `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived.`,
           );
-        const helpers = Object.entries(world.actors[id].trust)
-          .filter(([, n]) => n > 0)
-          .map(([other]) => nameOf(other));
-        if (helpers.length)
-          facts.push(
-            `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`,
-          );
+        const favour = favourFact(world, id);
+        if (favour) facts.push(favour);
         for (const item of desire.items)
           facts.push(
             carried(world, id).includes(item)

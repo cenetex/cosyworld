@@ -5,6 +5,8 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { wantFact } from "../v2/card-game/want-talk.mjs";
+import { decodeSave, nameOf } from "../v2/card-game/world.mjs";
 
 // Rust asks the narrator bundle for a committed play's dialogue context; the
 // rules engine no longer builds it (docs/design/pack-content-outside-the-engine.md).
@@ -76,4 +78,19 @@ it("reports a bad request instead of throwing into the host", () => {
   expect(told.ok).toBe(false);
   expect(typeof told.error).toBe("string");
   expect(humanAvatarIds).toContain("vale");
+});
+
+it("gives a resident its own want in the game's words, and nothing without one", () => {
+  const world = dispatchShared({ op: "create" }).world;
+  world.actors.vale.place = world.actors.moth.place;
+  world.actors.moth.trust.vale = 2;
+  const told = narrate({ world, own: ["moth", "keeper", "vale"] });
+  const game = decodeSave(JSON.stringify(world));
+  expect(told.own.moth[0]).toBe(wantFact(game, "moth", nameOf, "vale"));
+  expect(told.own.moth).toEqual([
+    "I want the Lamp.",
+    "Owes a favour to Vale; willing to share a spare or take a detour with them.",
+  ]);
+  expect(told.own.keeper).toEqual([wantFact(game, "keeper", nameOf, "vale")]);
+  expect(told.own.vale).toEqual([]);
 });
