@@ -595,7 +595,7 @@ describe("card sounds", () => {
     ctx.createBufferSource = () => {
       const source = {
         connect() {},
-        start() { if (source.buffer) sources.push(source); },
+        start() { if (source.buffer?.url) sources.push(source); },
         stop() { source.stopped = true; },
       };
       return source;
