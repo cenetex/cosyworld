@@ -1032,7 +1032,6 @@
           seed: a.seed,
           requires: [{ kind: "shared_world" }],
           portrait: a.image,
-          standoffs: false,
           tastes: {
             likes: a.pleasure,
             sore: "Someone deciding for them",

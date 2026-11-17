@@ -85,13 +85,13 @@ describe("an away avatar pursues its person's held quests", () => {
     expect(heldOf(back.actors.mara)).toHaveLength(1);
     expect(waitFor(world).actors.mara.place).toBe("pond");
   });
-  it("is still no one's to ask, threaten or trade with", () => {
+  it("is still no one's to ask or trade with", () => {
     const world = fresh();
     world.actors.mara.place = world.actors.vale.place;
     world.items.cloth.holder = "mara";
     const view = seat(world, ["vale"]);
     const at = view.actions.filter((a) => a.target === "mara" || a.receive === "cloth");
-    expect(at.some((a) => ["threaten", "trade"].includes(a.kind))).toBe(false);
+    expect(at.some((a) => a.kind === "trade")).toBe(false);
     const ask = at.find((a) => a.kind === "ask");
     expect(seat(world, ["vale"], "play", { action: ask }).world.items.cloth.holder).toBe("mara");
   });

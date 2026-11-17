@@ -587,10 +587,11 @@ const needed = (s, actor, item) => {
     want?.kind === "item" && bundle(s, item).includes(want.target),
   );
 };
-// An away traveler's avatar, played as a resident, is no one's to ask,
-// threaten, trade with or draw into a fight (rules 98).
+// An away traveler's avatar is no one's to ask or trade with.
 const humanHeld = (s, id) =>
   controlledByHuman(s, id) || (residentAvatar(s, id) && heldByHuman(s, id));
+const safeAtHome = (s, id) =>
+  sharedEnabled(s) && humanHeld(s, id) && s.actors[id].place === homeOf(id, s);
 export function willingToGive(s, owner, item, recipient = null) {
   return (
     !humanHeld(s, owner) &&
@@ -1090,7 +1091,7 @@ function leaveBattle(s, c, id) {
 }
 const fightsHere = (s, c, id) =>
   [c.challenger, c.defender].includes(id) ||
-  (!avoidsStandoffs(id) && !(sharedEnabled(s) && humanHeld(s, id)));
+  (!avoidsStandoffs(id) && !safeAtHome(s, id));
 // Consecutive defeats per avatar. A win or a rest at a sanctuary clears it;
 // the third defeat sends the loser home with empty hands.
 export const DEFEATS_TO_SEND_HOME = 3;
@@ -1460,7 +1461,7 @@ export function legalActions(s, actor = currentActor(s)) {
           ),
         );
     } else if (
-      !(sharedEnabled(s) && humanHeld(s, other)) &&
+      !safeAtHome(s, other) &&
       !avoidsStandoffs(other) &&
       !conflict &&
       !standoffFor(s, other) &&
@@ -2955,7 +2956,7 @@ function readFreePlan(s, actor) {
       (a) => a.kind === "move" && a.target === arrival,
     );
   if (landing) return { action: landing };
-  if (awayAvatar(s, actor)) return awayPlan(s, actor);
+  if (awayAvatar(s, actor) && !standoffFor(s, actor)) return awayPlan(s, actor);
   const selected = wantPlan(s, actor);
   if (levelReturnHome(s, actor)) return selected;
   return reconsiderPlan(
@@ -3278,6 +3279,7 @@ function wantPlan(s, actor) {
   const bold =
     travels(actor, s) &&
     !avoidsStandoffs(actor) &&
+    !humanAvatar(actor) &&
     want.refusals >= 1 &&
     (resentment(s, actor, owner) > 0 ||
       want.refusals >= 2 ||
