@@ -26,9 +26,13 @@ function obey(s, asked) {
   const a = s.actors[me];
   const legal = legalActions(s, me);
   const find = (test) => legal.find(test);
+  const asks = find((x) => x.kind === "accept" && !x.box);
+  if (asks) return [s, asks];
+  const unasked = find((x) => x.kind === "talk" && !asked.has(x.target));
+  if (unasked) return [s, asked.add(unasked.target) && unasked];
   const accept = find((x) => x.kind === "accept");
   if (accept) return [s, accept];
-  for (const q of heldOf(a)) {
+  for (const q of heldOf(a).toReversed()) {
     const step = q.step ?? {};
     if (q.kind === "item" && q.lit === false && mine(s, q.target))
       return [hold(s, null), null];
@@ -51,8 +55,6 @@ function obey(s, asked) {
     );
     if (take) return [s, take];
   }
-  const talk = find((x) => x.kind === "talk" && !asked.has(x.target));
-  if (talk) return [s, asked.add(talk.target) && talk];
   const onward = find(
     (x) => x.kind === "move" && !x.item && !a.visited.includes(x.target),
   );
@@ -69,7 +71,8 @@ function obedientWalk(turns) {
     if (!action) continue;
     const done = play(s, action, s.revision, me);
     expect(done.ok, done.error).toBe(true);
-    s = done.state;  }
+    s = done.state;
+  }
   return s;
 }
 

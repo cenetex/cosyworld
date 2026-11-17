@@ -52,7 +52,6 @@ describe("want data", () => {
           .map(([id, a]) => [id, a.want]),
       ),
     ).toEqual({
-      // Antigone, Ismene, Creon, the Grove Keeper and RATi carry staged `wants` (rules 133).
       "greek-polynices-shade": {
         kind: "place",
         target: "greek-polynices-hollow",
