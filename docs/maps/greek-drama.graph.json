@@ -1071,6 +1071,14 @@
         "oneWay": true
       },
       {
+        "from": "hoppycat-signal-jetty",
+        "to": "pond",
+        "kind": "lane",
+        "transport": "greek-ship",
+        "gate": null,
+        "oneWay": true
+      },
+      {
         "from": "pond",
         "to": "greek-harbor",
         "kind": "crossing",
@@ -1083,6 +1091,14 @@
         "kind": "lane",
         "transport": "greek-ship",
         "gate": null
+      },
+      {
+        "from": "pond",
+        "to": "hoppycat-signal-jetty",
+        "kind": "lane",
+        "transport": "greek-ship",
+        "gate": "lane:greek-ship:pond>hoppycat-signal-jetty",
+        "oneWay": true
       }
     ],
     "retired": [
@@ -1752,15 +1768,36 @@
           "of": [
             {
               "op": "atom",
-              "atom": "home_item_present(home=hoppycat-signal-jetty,place=greek-ship)"
+              "atom": "pack_item_present(pack=hoppycat-archive,place=greek-ship)"
             }
           ]
         },
-        "words": "a thing from Signal Jetty is in The Charybdis",
-        "ids": "a thing from hoppycat-signal-jetty is in greek-ship",
+        "words": "a hoppycat-archive thing is in The Charybdis",
+        "ids": "a hoppycat-archive thing is in greek-ship",
         "latch": [],
         "live": [
-          "home_item_present(home=hoppycat-signal-jetty,place=greek-ship)"
+          "pack_item_present(pack=hoppycat-archive,place=greek-ship)"
+        ],
+        "prerequisites": {}
+      },
+      {
+        "id": "lane:greek-ship:pond>hoppycat-signal-jetty",
+        "kind": "lane",
+        "title": "Black pond to Signal Jetty by sea",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "pack_item_present(pack=hoppycat-archive,place=greek-ship)"
+            }
+          ]
+        },
+        "words": "a hoppycat-archive thing is in The Charybdis",
+        "ids": "a hoppycat-archive thing is in greek-ship",
+        "latch": [],
+        "live": [
+          "pack_item_present(pack=hoppycat-archive,place=greek-ship)"
         ],
         "prerequisites": {}
       },
@@ -10260,10 +10297,6 @@
         "item:greek-provisions",
         "place:greek-ship"
       ],
-      "lane:greek-ship:greek-piraeus>hoppycat-signal-jetty": [
-        "place:greek-ship",
-        "place:hoppycat-signal-jetty"
-      ],
       "place:greek-ajax-grave": [
         "flag:greek-ajax-open"
       ],
@@ -11064,11 +11097,6 @@
       "class": "live",
       "words": "the traveler holds greek-water-jar"
     },
-    "home_item_present(home=hoppycat-signal-jetty,place=greek-ship)": {
-      "kind": "home_item_present",
-      "class": "live",
-      "words": "a thing from hoppycat-signal-jetty is in greek-ship"
-    },
     "in_hand(item=cloth)": {
       "kind": "in_hand",
       "class": "live",
@@ -11209,6 +11237,11 @@
       "class": "latch",
       "words": "greek-theseus has been met"
     },
+    "pack_item_present(pack=hoppycat-archive,place=greek-ship)": {
+      "kind": "pack_item_present",
+      "class": "live",
+      "words": "a hoppycat-archive thing is in greek-ship"
+    },
     "ship_at(dock=greek-piraeus,transport=greek-ship)": {
       "kind": "ship_at",
       "class": "live",
@@ -11223,7 +11256,6 @@
     "flag",
     "grounded",
     "holding",
-    "home_item_present",
     "in_hand",
     "item_at",
     "item_near",
@@ -11231,6 +11263,7 @@
     "knows",
     "light",
     "met",
+    "pack_item_present",
     "ship_at"
   ]
 }

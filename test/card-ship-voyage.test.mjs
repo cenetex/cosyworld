@@ -78,8 +78,11 @@ describe("sea lanes", () => {
     expect(laneProblems(bridge.transports["greek-ship"])).toEqual([]);
     for (const dock of ship().docks)
       expect(lanesFrom(ship(), dock).length).toBeLessThanOrEqual(MAX_LANES);
-    // From Black Pond the ship sails only to the Wine-Dark Harbor.
-    expect(lanesFrom(ship(), "pond")).toEqual(["greek-harbor"]);
+    // From Black Pond: the Wine-Dark Harbor, and the jetty with a Hoppy Cat thing.
+    expect(lanesFrom(ship(), "pond").sort()).toEqual([
+      "greek-harbor",
+      "hoppycat-signal-jetty",
+    ]);
     // Athens Harbor has joined Piraeus and is no longer a dock.
     expect(ship().docks).not.toContain("greek-athens-harbor");
   });

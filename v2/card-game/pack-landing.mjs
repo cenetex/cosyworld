@@ -1,5 +1,5 @@
 import landings from "./pack-landings.json" with { type: "json" };
-import { packDefinition } from "./pack-registry.mjs";
+import { crossings, packDefinition, transports } from "./pack-registry.mjs";
 import { addLog, createWorld } from "./world.mjs";
 
 export function landingPack(url) {
@@ -25,6 +25,14 @@ export function createLandingWorld(pack = null, seed = newRunSeed()) {
     }
   }
   world.actors.vale.place = pack.entry;
+  // A landing at a port finds its ship there, unlocked, so the way home is open.
+  for (const [id, t] of Object.entries(transports)) {
+    if (!t.docks.includes(pack.entry)) continue;
+    world.transports[id].dock = pack.entry;
+    for (const c of crossings)
+      if (c.transport === id && (c.signal || c.unlockWhen))
+        world.crossings[c.id].discovered = true;
+  }
   // A retired crossing stays closed in a new game.
   for (const crossing of pack.crossings)
     if (!crossing.retired) world.crossings[crossing.id].discovered = true;

@@ -132,17 +132,17 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
   let s = createWorld({ seed: 1 });
   // This journey tests the scattered keepsake and real transport route, not gift refusal.
   s.actors.moth.trust.vale = 1;
-  expect(s.items["ratiradio-red-beanie"].holder).toBe("hoppycat-halfway-tea-garden");
+  expect(s.items["ratiradio-red-beanie"].holder).toBe("hoppycat-signal-jetty");
   const route = [
     ["take", "lamp"], ["move", "pond"],
     ["ask", "cloth"], ["hold", "cloth"], ["drop", "lamp"],
     ["move", "greek-ship"], ["course", "greek-harbor"], ["wait"], ["move", "greek-harbor"],
-    // The provisions Myrto packs must lie on deck for Piraeus, and a thing
-    // from the jetty for the jetty.
+    // Piraeus needs the provisions on deck; the jetty, a Hoppy Cat thing aboard.
     ["move", "greek-ship"], ["stow"], ["course", "greek-piraeus"], ["wait"], ["move", "greek-piraeus"],
     ["move", "greek-ship"], ["token"], ["course", "hoppycat-signal-jetty"], ["wait"],
-    ["move", "hoppycat-signal-jetty"], ["move", "hoppycat-halfway-tea-garden"],
-    ["drop", "cloth"], ["take", "ratiradio-red-beanie"], ["move", "pond"],
+    ["move", "hoppycat-signal-jetty"],
+    ["drop", "cloth"], ["take", "ratiradio-red-beanie"],
+    ["move", "greek-ship"], ["course", "pond"], ["wait"], ["move", "pond"],
   ];
   for (const [kind, id, target] of route) {
     s = endStandoff(s);

@@ -2,14 +2,8 @@
   "pack": "hoppycat-archive",
   "name": "Hoppy Cat: February Third",
   "revision": 4,
-  "entry": "hoppycat-halfway-tea-garden",
+  "entry": "hoppycat-signal-jetty",
   "entries": [
-    {
-      "joins": "hub",
-      "at": "pond",
-      "arrive": "hoppycat-halfway-tea-garden",
-      "via": "hoppycat-garden-pond"
-    },
     {
       "joins": "greek-drama",
       "at": "greek-piraeus",
@@ -68,11 +62,6 @@
         "name": "Signal Jetty",
         "kind": "place",
         "district": "d-hoppycat-halfway-tea-garden"
-      },
-      {
-        "id": "pond",
-        "name": "Black pond",
-        "kind": "hub"
       }
     ],
     "edges": [
@@ -98,12 +87,6 @@
         "from": "hoppycat-halfway-tea-garden",
         "to": "hoppycat-signal-jetty",
         "kind": "exit",
-        "gate": null
-      },
-      {
-        "from": "hoppycat-halfway-tea-garden",
-        "to": "pond",
-        "kind": "crossing",
         "gate": null
       },
       {
@@ -141,15 +124,12 @@
         "to": "hoppycat-settled-light-theatre",
         "kind": "exit",
         "gate": null
-      },
-      {
-        "from": "pond",
-        "to": "hoppycat-halfway-tea-garden",
-        "kind": "crossing",
-        "gate": null
       }
     ],
-    "retired": []
+    "retired": [
+      "crossing:hoppycat-garden-pond",
+      "crossing:hoppycat-pond-garden"
+    ]
   },
   "mission": {
     "gates": [

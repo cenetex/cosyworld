@@ -3259,12 +3259,6 @@
         ],
         "hoppycat-archive": [
           {
-            joins: "hub",
-            at: "pond",
-            arrive: "hoppycat-halfway-tea-garden",
-            via: "hoppycat-garden-pond"
-          },
-          {
             joins: "greek-drama",
             at: "greek-piraeus",
             arrive: "hoppycat-signal-jetty",
@@ -10470,7 +10464,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions lying on deck, and on to the Signal Jetty only with a thing from the jetty aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
+          description: "The Charybdis sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions on deck, and to the Signal Jetty, from Black Pond or Piraeus, only with a Hoppy Cat thing aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
         },
         crossings: [
           {
@@ -10742,11 +10736,28 @@
                 oneWay: true,
                 opensWith: [
                   {
-                    kind: "home_item_present",
-                    home: "hoppycat-signal-jetty",
+                    kind: "pack_item_present",
+                    pack: "hoppycat-archive",
                     place: "greek-ship"
                   }
                 ]
+              },
+              {
+                from: "pond",
+                to: "hoppycat-signal-jetty",
+                oneWay: true,
+                opensWith: [
+                  {
+                    kind: "pack_item_present",
+                    pack: "hoppycat-archive",
+                    place: "greek-ship"
+                  }
+                ]
+              },
+              {
+                from: "hoppycat-signal-jetty",
+                to: "pond",
+                oneWay: true
               },
               {
                 from: "hoppycat-signal-jetty",
@@ -10768,7 +10779,7 @@
         revision: 4,
         name: "Hoppy Cat: February Third",
         description: "A place is waiting at the tea table. Walk with Glim, share a chosen work, keep its maker named, and carry an invitation home.",
-        entry: "hoppycat-halfway-tea-garden",
+        entry: "hoppycat-signal-jetty",
         places: {
           "hoppycat-halfway-tea-garden": {
             sanctuary: true,
@@ -12947,7 +12958,7 @@
         },
         bridge: {
           id: "shore-hoppycat-archive",
-          description: "A red thread at Black pond leads to the Halfway Tea Garden. Both shores keep the path open. Ships for the Signal Jetty also leave from Piraeus."
+          description: "The Signal Jetty is the only way in: the Charybdis sails there from Black Pond or Piraeus while a Hoppy Cat thing is aboard. The old red thread between Black pond and the Halfway Tea Garden is retired both ways."
         },
         values: {},
         crossings: [
@@ -12955,12 +12966,13 @@
             id: "hoppycat-pond-garden",
             from: "pond",
             to: "hoppycat-halfway-tea-garden",
-            travelers: "player",
+            travelers: "any",
             travel: "along the red thread",
             requires: [],
             scenery: {
               open: "A red thread follows the water to a garden of kettle trees."
-            }
+            },
+            retired: true
           },
           {
             id: "hoppycat-garden-pond",
@@ -12971,7 +12983,8 @@
             requires: [],
             scenery: {
               open: "A red thread follows the water to Black pond."
-            }
+            },
+            retired: true
           }
         ]
       },
