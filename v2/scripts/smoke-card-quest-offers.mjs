@@ -204,12 +204,11 @@ try {
       await t.ready();
       assert.equal((await t.state()).actors.vale.place, "pond");
       assert.equal(await offerCards(page).count(), 0, "no offer before Pip is heard");
-      const offer = page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card');
-      const talkToPip = async () => {
-        await clearSelection(page);
-        await selectCard(page, "moth");
-        await page.locator('#card-actions [data-action="talk"]').click();
+      const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
+      const locked = page.locator('#hand .card-frame[data-quest-id="offer:moth:locked"] > .card');
+      const openOffer = async () => {
         await offer.waitFor();
+        await tapCard(offer);
         await page.locator('#card-actions [data-action="accept"]').waitFor();
         assert.equal(await offer.getAttribute("aria-pressed"), "true");
         assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
@@ -217,26 +216,21 @@ try {
         assert.equal(await label(page), "Accept");
         assert.equal((await t.state()).actors.vale.want, null);
       };
-      await talkToPip();
-      await t.shot("offer-after-talk");
-      await tapCard(offer);
-      assert.equal(await offer.getAttribute("aria-pressed"), "true", "a tapped offer stays chosen");
-      assert.equal(await label(page), "Accept");
       await clearSelection(page);
-      for (let i = 0; i < 20; i++) {
-        const packAsk = page
-          .locator("#card-actions button")
-          .filter({ hasText: /^(New cards? unlocked|Turning the cards|All cards revealed)/u });
-        if (!(await packAsk.count())) break;
-        await packAsk.first().click();
-        await page.waitForTimeout(400);
-      }
+      await selectCard(page, "moth");
+      await locked.waitFor();
+      assert.equal(await locked.getAttribute("data-locked"), "true");
+      await page.locator('#card-actions [data-action="talk"]').click();
       await t.ready();
-      assert.equal(await offer.count(), 0, "a deselected offer lapses");
+      assert.equal(await locked.count(), 0, "a Talk unlocks it");
+      assert.equal(await offer.getAttribute("aria-pressed"), "false", "a Talk opens no offer by itself");
+      await openOffer();
+      await t.shot("offer-after-talk");
+      await clearSelection(page);
+      await t.ready();
       assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
       await selectCard(page, "moth");
-      assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
-      await talkToPip();
+      await openOffer();
       await page.locator('#card-actions [data-action="accept"]').click();
       await t.ready();
       assert.equal(await offer.count(), 0, "an accepted offer leaves");
@@ -267,15 +261,14 @@ try {
       const step = (kind, target) =>
         play(world, legalActions(world).find((a) => a.kind === kind && a.target === target)).state;
       world = step("talk", "moth");
-      const offered = world.actors.vale.offered;
       world = step("threaten", "keeper");
-      world.actors.vale.offered = offered;
       const t = await open("quest-offers-fight", world);
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-fight-${width}`);
-      const offer = page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card');
-      await offer.waitFor();
+      const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
       await t.ready();
+      await selectCard(page, "moth");
+      await offer.waitFor();
       if ((await offer.getAttribute("aria-pressed")) !== "true") await tapCard(offer);
       assert.equal(await t.oneButton(), 1, "an offer in a fight keeps one button");
       const only = page.locator("#card-actions button").first();

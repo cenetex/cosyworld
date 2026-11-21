@@ -17,7 +17,6 @@ import {
 } from "../want.mjs";
 import { questFor, toldWant } from "../talk-quest.mjs";
 import { revealed } from "../want-talk.mjs";
-import { offerFrom } from "../offer-chance.mjs";
 import { boxWant, shutBoxesAt } from "./boxes.mjs";
 import { nameOf, people, places, things } from "./catalog.mjs";
 import { travelerOf } from "./company.mjs";
@@ -186,9 +185,8 @@ export function questOffers(s, actor = currentActor(s)) {
   return out;
 }
 
-export function residentOffer(s, actor = currentActor(s)) {
-  const a = s.actors[actor],
-    them = offerFrom(s, actor);
+export function residentOffer(s, actor, them) {
+  const a = s.actors[actor];
   if (
     !a ||
     !them ||
@@ -205,6 +203,29 @@ export function residentOffer(s, actor = currentActor(s)) {
   if (!stands(s, actor, "resident", them, want)) return null;
   return { id, kind: "resident", source: them, want, full: slotsUsed(a) >= MAX_HELD };
 }
+// A resident's quest lies locked until a Talk tells it, then stands (below).
+export function lockedOffer(s, actor, them) {
+  const a = s.actors[actor],
+    want = s.actors[them]?.want;
+  if (
+    !a ||
+    !isPlayer(s, actor) ||
+    !people[them] ||
+    them === actor ||
+    s.actors[them].place !== a.place ||
+    !entityActive(s, them) ||
+    !revealed(s, them, want) ||
+    toldWant(s, actor, them)
+  )
+    return null;
+  const quest = questFor(s, them, want);
+  return quest && stands(s, actor, "resident", them, quest) ? { kind: "resident", source: them } : null;
+}
+export const residentOffers = (s, actor = currentActor(s)) =>
+  Object.keys(s.actors)
+    .sort()
+    .map((them) => residentOffer(s, actor, them))
+    .filter(Boolean);
 
 function fetchPool(s, actor) {
   const level = arcanaLevel(s, actor);

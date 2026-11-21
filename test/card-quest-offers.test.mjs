@@ -44,17 +44,17 @@ it("lays the offer as its own card after Talk, held only once accepted", () => {
   const world = worlds.told;
   expect(heldOf(world.actors.vale)).toEqual([]);
   expect(availableCards(world).some((id) => id.startsWith("quest:"))).toBe(false);
-  expect(offerCard(world)).toMatchObject({ offer: "moth", kind: "item", target: "lamp", full: false });
+  expect(offerCard(world, "vale", null, "moth")).toMatchObject({ offer: "moth", kind: "item", target: "lamp", full: false });
   const accept = legalActions(world).filter((a) => a.kind === "accept" && !a.box);
   expect(accept).toMatchObject([{ target: "moth", cards: [] }]);
   expect(playLabel(accept[0], world)).toBe("Accept");
   expect(cardActions(world, ["moth"]).actions.some((a) => a.kind === "accept")).toBe(false);
   expect(heldOf(worlds.accepted.actors.vale).map((w) => w.from)).toEqual([OFFER]);
-  expect(offerCard(worlds.accepted)).toBeNull();
+  expect(offerCard(worlds.accepted, "vale", null, "moth")).toBeNull();
 });
 
 it("words the offer as the resident asking, naming nothing undiscovered", () => {
-  const quest = offerCard(worlds.told);
+  const quest = offerCard(worlds.told, "vale", null, "moth");
   expect(offerWords(quest)).toBe("Pip asks for the Lamp");
   expect(offerWords(quest, (id) => id !== "lamp")).toBe(
     "Pip asks for something you haven't found",

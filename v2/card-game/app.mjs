@@ -101,8 +101,8 @@ import {
   isQuestId,
   isTarotKey,
   levelCards,
+  besideHolders,
   offerCard,
-  offerLapse,
   offerWords,
   questCards,
   questVisible,
@@ -238,6 +238,7 @@ import {
   encodeSave,
   decodeSave,
   legalActions,
+  lockedOffer,
   seedRun,
   exits as placeExits,
 } from "./world.mjs";
@@ -546,22 +547,31 @@ const visibleQuests = () =>
 const foldQuest = () => visibleQuests()[0] ?? null;
 const entryIdOf = (quest) => (quest.kind === "arcanum" ? quest.key : questId());
 const OFFER_CARD = "offer:0";
-const offers = offerLapse();
 let boxAsk = null;
 const standingOffer = () =>
-  (!pipPrelude() && boxAsk && offerCard(world, currentActor(world), boxAsk)) ||
-  offers.standing(!pipPrelude() && offerCard(world));
+  (!pipPrelude() && boxAsk && offerCard(world, currentActor(world), boxAsk)) || null;
 const offerFront = () => questOpen === OFFER_CARD && Boolean(standingOffer());
+const isResidentOffer = (id) => typeof id === "string" && id.startsWith("offer:") && id !== OFFER_CARD;
+const residentOffers = () => {
+  const actor = currentActor(world);
+  if (pipPrelude()) return [];
+  return availableCards(world)
+    .filter((id) => people[id] && id !== actor && !cardIsClosed(id))
+    .map((resident) => {
+      const quest = offerCard(world, actor, null, resident);
+      if (quest) return { id: `offer:${resident}`, quest };
+      return lockedOffer(world, actor, resident)
+        ? { id: `offer:${resident}:locked`, quest: { offer: resident, locked: true, actor } }
+        : null;
+    })
+    .filter(Boolean);
+};
 function syncOffer() {
   const shut = selected.filter((id) => !cardIsCovered(id) && isLockedBox(world, id));
   if (shut.length === 1) boxAsk = shut[0];
   else if (selected.length === 1 && selected[0] === placeHere()) boxAsk = selected[0];
   else if (questOpen !== OFFER_CARD) boxAsk = null;
-  if (!offers.sync(!pipPrelude() && offerCard(world), questOpen === OFFER_CARD)) return;
-  questOpen = OFFER_CARD;
-  selected = [];
-  rowCollapsed = false;
-  expandedHolders.add(currentActor(world));
+  if (isResidentOffer(questOpen) && !questEntry(questOpen)) questOpen = false;
 }
 function besideBox(cards) {
   if (!cards.includes(boxAsk) || !cards.includes(OFFER_CARD)) return cards;
@@ -578,6 +588,7 @@ const questEntries = () => {
       (q) => ({ id: entryIdOf(q), quest: q }),
     ),
     ...(offer ? [{ id: OFFER_CARD, quest: offer }] : []),
+    ...residentOffers(),
   ];
 };
 const questEntry = (id) => questEntries().find((entry) => entry.id === id);
@@ -1738,6 +1749,15 @@ function wayStack(id) {
 // card of its own, shown with the stack and chosen by a tap on it.
 function avatarStack(id) {
   const actor = currentActor(world);
+  if (isResidentOffer(id))
+    return {
+      kind: "quest",
+      chosen: questOpen === id,
+      open: false,
+      top: true,
+      under: 0,
+      shown: questOpen === id || expandedHolders.has(questEntry(id)?.quest.offer),
+    };
   if (isQuestId(id) || isTarotKey(id))
     return {
       kind: "quest",
@@ -1802,7 +1822,7 @@ function chosenFirst(cards) {
   const actor = currentActor(world);
   if (!expandedHolders.has(actor)) return cards;
   const chosen = cards.filter(
-      (id) => !isQuestId(id) && !isTarotKey(id) && avatarStack(id)?.chosen,
+      (id) => !isQuestId(id) && !isTarotKey(id) && !isResidentOffer(id) && avatarStack(id)?.chosen,
     ),
     hand = cards.filter((id) => !chosen.includes(id));
   hand.splice(hand.indexOf(actor) + 1, 0, ...chosen);
@@ -2204,7 +2224,7 @@ function performAction(action, revision) {
   }
   // Taking a quest passes no turn and leaves the scene and its speech be.
   if (action.kind === "pack" || action.kind === "accept") {
-    const offered = action.kind === "accept" && standingOffer();
+    const offered = action.kind === "accept" && (pickedQuest()?.offer ? pickedQuest() : standingOffer());
     if (offered) {
       questsInView.seen(questFaceKey(offered));
       revealedQuests.add(questFaceKey(offered));
@@ -3654,61 +3674,75 @@ function questFace(quest, verb) {
   return [screen, head];
 }
 function questFrame({ id, quest }) {
-  const picked = questOpen === id,
+  const locked = Boolean(quest.locked),
+    picked = questOpen === id,
     covered = isTarotKey(id) && cardIsCovered(id);
-  const hidden = questCovered(quest),
-    tier = questTier(quest, world, known),
-    verb = questVerb(world, quest, hidden),
+  const hidden = locked || questCovered(quest),
+    tier = locked ? null : questTier(quest, world, known),
+    verb = locked ? null : questVerb(world, quest, hidden),
     near = !hidden && !covered && questNear(world, quest);
-  const el = node("button", undefined, "card want-card");
+  const el = node("button", undefined, locked ? "card" : "card want-card");
   el.type = "button";
-  el.dataset.want = quest.kind;
-  el.dataset.tier = tier.id;
-  el.dataset.near = String(near);
-  el.style.setProperty("--tier-color", tier.color);
   el.disabled = selectionBlocked();
   el.dataset.questId = id;
-  el.dataset.questKey = quest.key;
-  el.dataset.questEntry = `${quest.offer ? "offer:" : ""}${questEntryKey(quest)}`;
-  el.dataset.questFace = `${quest.offer ? "offer:" : ""}${questFaceKey(quest)}`;
-  if (quest.face) el.dataset.face = quest.face;
-  el.dataset.unrevealed = String(
-    covered || quest.face === "down" || questsInView.down(questFaceKey(quest)),
-  );
-  const tell = packTell(id);
-  if (tell) el.dataset.tell = tell;
-  el.dataset.picked = String(picked);
-  el.setAttribute("aria-pressed", String(picked));
-  el.setAttribute("aria-label", covered ? "A face-down card" : questLabel(quest, near));
+  if (locked) {
+    el.dataset.questEntry = `locked:${quest.offer}`;
+    el.dataset.locked = "true";
+    el.dataset.unrevealed = "false";
+    el.setAttribute("aria-label", `${knownName(quest.offer, "Someone")}'s quest, locked until you talk`);
+  } else {
+    el.dataset.want = quest.kind;
+    el.dataset.tier = tier.id;
+    el.dataset.near = String(near);
+    el.style.setProperty("--tier-color", tier.color);
+    el.dataset.questKey = quest.key;
+    el.dataset.questEntry = `${quest.offer ? "offer:" : ""}${questEntryKey(quest)}`;
+    el.dataset.questFace = `${quest.offer ? "offer:" : ""}${questFaceKey(quest)}`;
+    if (quest.face) el.dataset.face = quest.face;
+    el.dataset.unrevealed = String(
+      covered || quest.face === "down" || questsInView.down(questFaceKey(quest)),
+    );
+    const tell = packTell(id);
+    if (tell) el.dataset.tell = tell;
+    el.dataset.picked = String(picked);
+    el.setAttribute("aria-pressed", String(picked));
+    el.setAttribute("aria-label", covered ? "A face-down card" : questLabel(quest, near));
+  }
   el.append(
     // Face down, it shows the carved lid until it turns.
     Object.assign(node("img", undefined, "card-back"), {
       src: imageUrl(
-        quest.kind !== "arcanum"
-          ? CARD_BACK
-          : quest.face === "locked"
-            ? TAROT_LOCKED_BACK
-            : TAROT_BACK,
+        locked
+          ? LOCKED_BACK
+          : quest.kind !== "arcanum"
+            ? CARD_BACK
+            : quest.face === "locked"
+              ? TAROT_LOCKED_BACK
+              : TAROT_BACK,
         "card",
       ),
       alt: "",
       draggable: false,
     }),
-    ...(covered ? [] : questFace(quest, verb)),
+    ...(covered || locked ? [] : questFace(quest, verb)),
   );
   el.addEventListener("click", () => {
+    if (locked) {
+      if (!selectionBlocked() && !selected.includes(quest.offer)) choose(quest.offer);
+      return;
+    }
     if (finishCardReveal(id) || selectionBlocked() || packTap(id)) return;
     if (questOpen === id && id !== OFFER_CARD && shownPhase === "choosing") {
       questOpen = false;
       render();
     } else openQuest(id);
   });
-  const frame = node("div", undefined, "card-frame want-frame");
-  frame.dataset.want = quest.kind;
+  const frame = node("div", undefined, locked ? "card-frame" : "card-frame want-frame");
+  frame.dataset.want = locked ? "locked" : quest.kind;
   frame.dataset.questId = id;
   frame.dataset.raised = String(picked);
-  // It folds behind the player's avatar until that avatar's stacks show.
-  frame.dataset.holder = quest.actor;
+  // It folds behind its avatar until that avatar's stacks show.
+  frame.dataset.holder = isResidentOffer(id) ? quest.offer : quest.actor;
   frame.append(el);
   syncAvatarStack(frame, id);
   applyPackFrame(frame, id);
@@ -5241,12 +5275,16 @@ function render() {
   const handCards = packHand(
     besideBox(
       chosenFirst(
-        handWithQuest(
-          pipPrelude()
-            ? ["moth"]
-            : stackPlaces(availableCards(world)),
+        besideHolders(
+          handWithQuest(
+            pipPrelude()
+              ? ["moth"]
+              : stackPlaces(availableCards(world)),
+            world,
+            questEntries().map((entry) => entry.id).filter((id) => !isResidentOffer(id)),
+          ),
           world,
-          questEntries().map((entry) => entry.id),
+          residentOffers().map(({ id, quest }) => ({ id, holder: quest.offer })),
         ),
       ),
     ),
@@ -5342,7 +5380,7 @@ function render() {
         { frames, changed, faces } = keepFrames(
           row,
           handCards.map((id) =>
-            isQuestId(id) || isTarotKey(id) || id === OFFER_CARD
+            isQuestId(id) || isTarotKey(id) || id === OFFER_CARD || isResidentOffer(id)
               ? questFrame(questEntry(id))
               : card(id),
           ),

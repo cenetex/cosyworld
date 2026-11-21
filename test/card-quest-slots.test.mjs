@@ -62,7 +62,7 @@ describe("three quest slots", () => {
     const s = fill(createPipWorld(5), 3);
     expect(slotsUsed(s.actors.vale)).toBe(3);
     const after = tell(s);
-    expect(residentOffer(after)).toMatchObject({ source: "moth", full: true });
+    expect(residentOffer(after, "vale", "moth")).toMatchObject({ source: "moth", full: true });
     expect(legalActions(after).some((a) => a.kind === "accept")).toBe(false);
     expect(sources(after)).not.toContain(FROM);
     expect(heldOf(after.actors.vale)).toHaveLength(3);
