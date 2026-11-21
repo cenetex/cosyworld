@@ -49,8 +49,7 @@
         "greek-argolid-road",
         "greek-road-north"
       ],
-      "backdrop": "assets/greek-drama/harbor-open-berth.webp",
-      "persona": "Worn steps climb from the stone landing toward the town."
+      "backdrop": "assets/greek-drama/harbor-open-berth.webp"
     },
     "greek-courtyard": {
       "name": "Theban Courtyard",
@@ -59,8 +58,7 @@
         "greek-well",
         "greek-gate"
       ],
-      "backdrop": "assets/greek-drama/courtyard-day.webp",
-      "persona": "Bread cools beneath a cloth. An empty place remains at the common table."
+      "backdrop": "assets/greek-drama/courtyard-day.webp"
     },
     "greek-well": {
       "name": "Theban Market Well",
@@ -68,8 +66,7 @@
         "greek-courtyard",
         "greek-palace"
       ],
-      "backdrop": "assets/greek-drama/market-well-day.webp",
-      "persona": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass."
+      "backdrop": "assets/greek-drama/market-well-day.webp"
     },
     "greek-palace": {
       "name": "Theban Palace Forecourt",
@@ -77,8 +74,7 @@
         "greek-well",
         "greek-sanctuary"
       ],
-      "backdrop": "assets/greek-drama/palace-day.webp",
-      "persona": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders."
+      "backdrop": "assets/greek-drama/palace-day.webp"
     },
     "greek-gate": {
       "name": "Theban City Gate",
@@ -116,16 +112,14 @@
             }
           ]
         }
-      ],
-      "persona": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers. He guards it until Creon's writ is in his hands."
+      ]
     },
     "greek-battlefield": {
       "name": "The Exposed Battlefield",
       "exits": [
         "greek-gate"
       ],
-      "backdrop": "assets/greek-drama/burial-ground-dusk.webp",
-      "persona": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother."
+      "backdrop": "assets/greek-drama/burial-ground-dusk.webp"
     },
     "greek-sanctuary": {
       "sanctuary": true,
@@ -133,8 +127,7 @@
       "exits": [
         "greek-palace"
       ],
-      "backdrop": "assets/greek-drama/sanctuary-dawn.webp",
-      "persona": "Olive trees shade a small altar. A stone basin stands beneath its roof."
+      "backdrop": "assets/greek-drama/sanctuary-dawn.webp"
     },
     "greek-cithaeron": {
       "name": "The Cithaeron Road",
@@ -143,7 +136,6 @@
         "greek-eleusis"
       ],
       "backdrop": "assets/greek-drama/bacchae-cithaeron-day.webp",
-      "persona": "A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. It stays open both ways. Travelers meet, talk, rest and carry their belongings here.",
       "road": [
         "greek-battlefield",
         "greek-eleusis"
@@ -154,8 +146,7 @@
       "exits": [
         "greek-gate"
       ],
-      "backdrop": "assets/greek-drama/aulis-anchorage-day.webp",
-      "persona": "The ships lie motionless beside the shore. Soldiers wait outside the command tents."
+      "backdrop": "assets/greek-drama/aulis-anchorage-day.webp"
     },
     "greek-athens": {
       "name": "Athenian Agora",
@@ -166,14 +157,12 @@
         "greek-road-athens-eleusis",
         "greek-road-sacred-way"
       ],
-      "backdrop": "assets/greek-drama/athens-grand-agora.webp",
-      "persona": "The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers’ petition at the herald’s table. A road leads to the Piraeus quays. Streets lead to the harbor and the grove at Colonus."
+      "backdrop": "assets/greek-drama/athens-grand-agora.webp"
     },
     "greek-piraeus": {
       "name": "Piraeus Quays",
       "exits": [],
-      "backdrop": "assets/greek-drama/piraeus-open-berth.webp",
-      "persona": "These quays hold the practical work of welcome. Grain comes up from here to Thebes, and travelers from Eleusis come down to the ships. The host speaks about what is actually on her quay."
+      "backdrop": "assets/greek-drama/piraeus-open-berth.webp"
     },
     "greek-assembly": {
       "name": "The Assembly Hill",
@@ -181,8 +170,7 @@
         "greek-athens",
         "greek-demos-house"
       ],
-      "backdrop": "assets/greek-drama/palace.svg",
-      "persona": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals."
+      "backdrop": "assets/greek-drama/palace.svg"
     },
     "greek-acropolis": {
       "name": "Acropolis Treasury",
@@ -190,24 +178,21 @@
         "greek-athens",
         "greek-festival"
       ],
-      "backdrop": "assets/greek-drama/palace.svg",
-      "persona": "A barred door separates the treasury from the courtyard. Women keep watch on the steps."
+      "backdrop": "assets/greek-drama/palace.svg"
     },
     "greek-demos-house": {
       "name": "House of Demos",
       "exits": [
         "greek-assembly"
       ],
-      "backdrop": "assets/greek-drama/courtyard.svg",
-      "persona": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside."
+      "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-thinkery": {
       "name": "The Thinkery",
       "exits": [
         "greek-athens"
       ],
-      "backdrop": "assets/greek-drama/courtyard.svg",
-      "persona": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument."
+      "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-jury-house": {
       "name": "The Juror's House",
@@ -215,7 +200,6 @@
         "greek-athens"
       ],
       "backdrop": "assets/greek-drama/courtyard.svg",
-      "persona": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
       "retired": true
     },
     "greek-festival": {
@@ -223,8 +207,7 @@
       "exits": [
         "greek-acropolis"
       ],
-      "backdrop": "assets/greek-drama/grove.svg",
-      "persona": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest."
+      "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-attic-farm": {
       "name": "The Attic Farm",
@@ -234,16 +217,14 @@
         "greek-marathon",
         "greek-acharnae"
       ],
-      "backdrop": "assets/greek-drama/grove.svg",
-      "persona": "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed."
+      "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-acharnae": {
       "name": "Acharnae Market",
       "exits": [
         "greek-attic-farm"
       ],
-      "backdrop": "assets/greek-drama/courtyard.svg",
-      "persona": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones."
+      "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-colonus": {
       "name": "Colonus Grove",
@@ -253,7 +234,7 @@
         "greek-attic-farm"
       ],
       "backdrop": "assets/greek-drama/open-door-colonus.webp",
-      "persona": "The keeper tells Sophocles’s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The oil pressed here and the traveler’s deeds belong to the present grove."
+      "seed": "Oedipus at Colonus is told here as an earlier tale, before the brothers died at Thebes."
     },
     "greek-eleusis": {
       "name": "Eleusinian Sanctuary",
@@ -265,7 +246,7 @@
         "greek-road-athens-eleusis"
       ],
       "backdrop": "assets/greek-drama/open-door-eleusis.webp",
-      "persona": "This episode follows the attack on Thebes. The Argive mothers seek their sons’ remains. The traveler’s own Theban deed stays true."
+      "seed": "After the attack on Thebes, the Argive mothers seek their sons’ remains here."
     },
     "greek-marathon": {
       "name": "Marathon Altar",
@@ -275,7 +256,7 @@
         "greek-attic-farm"
       ],
       "backdrop": "assets/greek-drama/open-door-marathon.webp",
-      "persona": "The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests."
+      "seed": "Children of Heracles is told here as a separate tale, under Demophon, son of Theseus."
     },
     "greek-argolid-road": {
       "name": "The Argolid Crossroads",
@@ -284,16 +265,14 @@
         "greek-argos-sanctuary",
         "greek-corinth"
       ],
-      "backdrop": "assets/greek-drama/grove.svg",
-      "persona": "Three roads leave a shaded meeting place."
+      "backdrop": "assets/greek-drama/grove.svg"
     },
     "greek-argos-sanctuary": {
       "name": "Argive Shore Sanctuary",
       "exits": [
         "greek-argolid-road"
       ],
-      "backdrop": "assets/greek-drama/suppliants-argive-shore-day.webp",
-      "persona": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship."
+      "backdrop": "assets/greek-drama/suppliants-argive-shore-day.webp"
     },
     "greek-argos-palace": {
       "name": "Argive Palace",
@@ -306,7 +285,6 @@
           "value": "aeschylus"
         }
       ],
-      "persona": "A bronze door opens onto the royal court. Wax tablets list the household’s dead and absent members.",
       "backdrops": [
         {
           "backdrop": "assets/greek-drama/house-atreus-palace-night.webp",
@@ -336,7 +314,6 @@
           "value": "aeschylus"
         }
       ],
-      "persona": "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
       "backdrops": [
         {
           "backdrop": "assets/greek-drama/house-atreus-tomb-night.webp",
@@ -366,7 +343,6 @@
           "value": "sophocles"
         }
       ],
-      "persona": "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
       "backdrops": [
         {
           "backdrop": "assets/greek-drama/house-atreus-mycenae-night.webp",
@@ -396,7 +372,6 @@
           "value": "euripides"
         }
       ],
-      "persona": "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
       "backdrops": [
         {
           "backdrop": "assets/greek-drama/house-atreus-farmhouse-night.webp",
@@ -421,16 +396,14 @@
         "greek-argolid-road",
         "greek-troezen"
       ],
-      "backdrop": "assets/greek-drama/courtyard.svg",
-      "persona": "A rented household opens onto the harbor road. Bundles stand ready beside the door."
+      "backdrop": "assets/greek-drama/courtyard.svg"
     },
     "greek-troezen": {
       "name": "Troezen Palace",
       "exits": [
         "greek-corinth"
       ],
-      "backdrop": "assets/greek-drama/palace.svg",
-      "persona": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico."
+      "backdrop": "assets/greek-drama/palace.svg"
     },
     "greek-delphi": {
       "name": "Delphic Temple",
@@ -438,8 +411,7 @@
         "greek-road-sacred-way",
         "greek-oeta"
       ],
-      "backdrop": "assets/greek-drama/palace.svg",
-      "persona": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps."
+      "backdrop": "assets/greek-drama/palace.svg"
     },
     "greek-trachis": {
       "name": "House at Trachis",
@@ -447,8 +419,7 @@
         "greek-oeta",
         "greek-pherae"
       ],
-      "backdrop": "assets/greek-drama/book-two-trachis-day.webp",
-      "persona": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench."
+      "backdrop": "assets/greek-drama/book-two-trachis-day.webp"
     },
     "greek-oeta": {
       "name": "The Oeta Road",
@@ -457,7 +428,6 @@
         "greek-trachis"
       ],
       "backdrop": "assets/greek-drama/oeta-road.svg",
-      "persona": "A shared road between Delphic Temple and House at Trachis. The left end always leads to Delphic Temple. The right end always leads to House at Trachis. Bearers have set a litter beside a level patch of stone. Travelers can meet, talk, rest and carry their belongings here.",
       "road": [
         "greek-delphi",
         "greek-trachis"
@@ -469,16 +439,14 @@
         "greek-trachis",
         "greek-thetis"
       ],
-      "backdrop": "assets/greek-drama/book-two-pherae-day.webp",
-      "persona": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door."
+      "backdrop": "assets/greek-drama/book-two-pherae-day.webp"
     },
     "greek-thetis": {
       "name": "Thetis's Sanctuary",
       "exits": [
         "greek-pherae"
       ],
-      "backdrop": "assets/greek-drama/book-three-thrace-day.webp",
-      "persona": "The sanctuary stands beside a great household. A woman has taken refuge near the altar."
+      "backdrop": "assets/greek-drama/book-three-thrace-day.webp"
     },
     "greek-troy": {
       "name": "The Trojan Walls",
@@ -486,8 +454,7 @@
         "greek-greek-camp",
         "greek-trojan-camp"
       ],
-      "backdrop": "assets/greek-drama/trojan-walls-day.webp",
-      "persona": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells."
+      "backdrop": "assets/greek-drama/trojan-walls-day.webp"
     },
     "greek-greek-camp": {
       "name": "The Greek Camp at Troy",
@@ -498,15 +465,14 @@
         "greek-ajax-grave"
       ],
       "backdrop": "assets/greek-drama/ajax-camp-day.webp",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. The household tents, shore landing and grave are local paths within the same camp."
+      "seed": "A named Trojan account, beginning after Ajax’s death."
     },
     "greek-trojan-camp": {
       "name": "The Trojan Night Camp",
       "exits": [
         "greek-troy"
       ],
-      "backdrop": "assets/greek-drama/trojan-night-camp-day.webp",
-      "persona": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide."
+      "backdrop": "assets/greek-drama/trojan-night-camp-day.webp"
     },
     "greek-troy-beach": {
       "name": "The Homecoming Beach",
@@ -518,8 +484,7 @@
           "key": "greek-helen-account",
           "value": "troy"
         }
-      ],
-      "persona": "A small boat is drawn above the tideline. Its passengers compare what they remember of the war."
+      ]
     },
     "greek-lemnos": {
       "name": "The Lemnian Cave",
@@ -527,8 +492,7 @@
         "greek-piraeus"
       ],
       "retired": true,
-      "backdrop": "assets/greek-drama/lemnian-cave-day.webp",
-      "persona": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air."
+      "backdrop": "assets/greek-drama/lemnian-cave-day.webp"
     },
     "greek-thrace": {
       "name": "The Thracian Shore",
@@ -536,8 +500,7 @@
         "greek-piraeus"
       ],
       "retired": true,
-      "backdrop": "assets/greek-drama/thracian-shore-day.webp",
-      "persona": "A fleet waits beyond the breakers. Captive households search among the new arrivals."
+      "backdrop": "assets/greek-drama/thracian-shore-day.webp"
     },
     "greek-egypt-tomb": {
       "name": "Proteus's Tomb in Egypt",
@@ -549,8 +512,7 @@
           "key": "greek-helen-account",
           "value": "egypt"
         }
-      ],
-      "persona": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea."
+      ]
     },
     "greek-tauris": {
       "name": "The Taurian Temple",
@@ -558,8 +520,7 @@
         "greek-piraeus"
       ],
       "retired": true,
-      "backdrop": "assets/greek-drama/tauris-shore-scene.webp",
-      "persona": "A walled temple overlooks the landing place. An attendant counts the people brought ashore."
+      "backdrop": "assets/greek-drama/tauris-shore-scene.webp"
     },
     "greek-sicily": {
       "name": "The Sicilian Cave",
@@ -567,8 +528,7 @@
         "greek-piraeus"
       ],
       "retired": true,
-      "backdrop": "assets/greek-drama/book-three-lemnos-day.webp",
-      "persona": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach."
+      "backdrop": "assets/greek-drama/book-three-lemnos-day.webp"
     },
     "greek-susa": {
       "name": "The Court at Susa",
@@ -576,7 +536,6 @@
         "greek-troy"
       ],
       "backdrop": "assets/greek-drama/book-three-susa-day.webp",
-      "persona": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
       "retired": true
     },
     "greek-scythian-crag": {
@@ -585,7 +544,6 @@
         "greek-piraeus"
       ],
       "backdrop": "assets/greek-drama/grove.svg",
-      "persona": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
       "retired": true
     },
     "greek-divine-heights": {
@@ -594,7 +552,6 @@
         "greek-attic-farm"
       ],
       "backdrop": "assets/greek-drama/sea.svg",
-      "persona": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
       "retired": true
     },
     "greek-bird-wilderness": {
@@ -603,7 +560,6 @@
         "greek-attic-farm"
       ],
       "backdrop": "assets/greek-drama/grove.svg",
-      "persona": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
       "retired": true
     },
     "greek-underworld": {
@@ -612,12 +568,11 @@
         "greek-colonus"
       ],
       "backdrop": "assets/greek-drama/harbor.svg",
-      "persona": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
       "retired": true
     },
     "greek-ship": {
       "name": "The Charybdis",
-      "persona": "A named ship, the Charybdis, on the Black Pond route. It sails between Black Pond and the Wine-Dark Harbor with no cargo and always comes home that way. Beyond the harbor it sails out to Piraeus Quays only with the Travel Provisions lying on deck, and on from Piraeus to the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard; every way back toward Black Pond is free. Marathon Bay, the Trojan shore and the Far Shores are only rumours on the quays: no ship sails there now. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
+      "seed": "The Charybdis keeps to its charted lanes; Marathon Bay, the Trojan shore and the Far Shores are only rumours.",
       "exits": [],
       "backdrop": "assets/greek-drama/ship-deck.webp",
       "art": "assets/greek-drama/ship-card.webp",
@@ -673,7 +628,7 @@
     },
     "greek-athens-harbor": {
       "name": "Athens Harbor",
-      "persona": "Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
+      "seed": "The ship’s landing for Athens; Piraeus Quays is a separate town.",
       "exits": [
         "greek-piraeus"
       ],
@@ -682,7 +637,6 @@
     },
     "greek-road-thebes": {
       "name": "Theban Harbor Road",
-      "persona": "A shared road over the olive hills between The Wine-Dark Harbor and Theban Courtyard. Travelers meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-harbor",
         "greek-courtyard"
@@ -695,7 +649,6 @@
     },
     "greek-road-athens-harbor": {
       "name": "Athens Harbor Road",
-      "persona": "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-athens-harbor",
         "greek-athens"
@@ -709,7 +662,6 @@
     },
     "greek-road-athens-piraeus": {
       "name": "The Long Walls",
-      "persona": "A shared road between the long walls, joining Piraeus Quays and Athenian Agora. It is open from either end. Travelers meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-piraeus",
         "greek-athens"
@@ -722,7 +674,6 @@
     },
     "greek-road-athens-colonus": {
       "name": "Colonus Road",
-      "persona": "A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-athens",
         "greek-colonus"
@@ -736,7 +687,6 @@
     },
     "greek-road-athens-eleusis": {
       "name": "The Sacred Way",
-      "persona": "A shared road between Athenian Agora and Eleusinian Sanctuary, with small shrines along the verge. Travelers meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-athens",
         "greek-eleusis"
@@ -749,7 +699,6 @@
     },
     "greek-road-athens-marathon": {
       "name": "Marathon Road",
-      "persona": "A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-athens",
         "greek-marathon"
@@ -763,7 +712,6 @@
     },
     "greek-road-piraeus-eleusis": {
       "name": "Eleusis Coast Road",
-      "persona": "A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-piraeus",
         "greek-eleusis"
@@ -777,7 +725,6 @@
     },
     "greek-road-colonus-eleusis": {
       "name": "Colonus–Eleusis Road",
-      "persona": "A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-colonus",
         "greek-eleusis"
@@ -791,7 +738,6 @@
     },
     "greek-road-colonus-marathon": {
       "name": "Colonus–Marathon Road",
-      "persona": "A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-colonus",
         "greek-marathon"
@@ -805,7 +751,6 @@
     },
     "greek-road-sacred-way": {
       "name": "The Road to Delphi",
-      "persona": "A shared road between Athenian Agora and Delphic Temple. The left end always leads to Athenian Agora. The right end always leads to Delphic Temple. Pilgrims carry questions and gifts for Apollo along this road. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-athens",
         "greek-delphi"
@@ -818,7 +763,6 @@
     },
     "greek-road-royal": {
       "name": "The Royal Road",
-      "persona": "A shared road between The Trojan Walls and The Court at Susa. The left end always leads to The Trojan Walls. The right end always leads to The Court at Susa. Royal messengers ride this road between the sea and the Persian court. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-troy",
         "greek-susa"
@@ -832,7 +776,6 @@
     },
     "greek-road-black-sea": {
       "name": "The Black Sea Road",
-      "persona": "A shared road between The Thracian Shore and The Taurian Temple. The left end always leads to The Thracian Shore. The right end always leads to The Taurian Temple. The road follows the cold northern coast. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-thrace",
         "greek-tauris"
@@ -846,7 +789,6 @@
     },
     "greek-road-colonists": {
       "name": "The Colonists' Road",
-      "persona": "A shared road between Corinthian Courtyard and The Sicilian Cave. The left end always leads to Corinthian Courtyard. The right end always leads to The Sicilian Cave. Corinthian settlers took this way west when they founded Syracuse. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-corinth",
         "greek-sicily"
@@ -860,7 +802,6 @@
     },
     "greek-road-coast": {
       "name": "The Coast Road",
-      "persona": "A shared road between Piraeus Quays and The Wine-Dark Harbor. The left end always leads to Piraeus Quays. The right end always leads to The Wine-Dark Harbor. From Piraeus the road is always open. From the harbor it opens only once the herald’s truce rests in the Agora, as the Long Walls do; until then the ship with the Travel Provisions is the way to Piraeus. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-piraeus",
         "greek-harbor"
@@ -874,7 +815,6 @@
     },
     "greek-road-north": {
       "name": "The Northern Road",
-      "persona": "A shared road between The Trojan Camp Landing and The Wine-Dark Harbor. The left end always leads to The Trojan Camp Landing. The right end always leads to The Wine-Dark Harbor, outside the city; it never passes the City Gate. The road is open both ways. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
       "exits": [
         "greek-ajax-landing",
         "greek-harbor"
@@ -893,7 +833,7 @@
         }
       },
       "name": "The Trojan Camp Landing",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
+      "seed": "A named Trojan account, beginning after Ajax’s death.",
       "exits": [
         "greek-greek-camp",
         "greek-road-north"
@@ -909,7 +849,7 @@
     },
     "greek-ajax-household": {
       "name": "Ajax’s Household Tent",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
+      "seed": "A named Trojan account, beginning after Ajax’s death.",
       "exits": [
         "greek-greek-camp"
       ],
@@ -924,7 +864,7 @@
     },
     "greek-ajax-grave": {
       "name": "Ajax’s Grave",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
+      "seed": "A named Trojan account, beginning after Ajax’s death.",
       "exits": [
         "greek-greek-camp"
       ],
@@ -939,7 +879,6 @@
     },
     "greek-polynices-hollow": {
       "name": "Polynices' Hollow",
-      "persona": "A bent olive shelters the shelf below the battlefield. There is room to kneel beside the earth.",
       "exits": [
         "greek-battlefield"
       ],
@@ -2174,7 +2113,6 @@
     "greek-water-jar": {
       "name": "Water Jar",
       "holder": "greek-well",
-      "persona": "A filled clay jar with a repaired handle, drawn at the well. Dione needs it back at the common table, where her bread is made.",
       "art": "assets/greek-drama/water-jar.png",
       "home": "greek-well",
       "absentReturn": true
@@ -2182,7 +2120,6 @@
     "greek-bread": {
       "name": "Courtyard Bread",
       "holder": "greek-courtyard",
-      "persona": "A round loaf from Dione's oven, baked from well water and wheat in the Theban courtyard.",
       "art": "assets/greek-drama/bread.png",
       "home": "greek-courtyard",
       "tags": [
@@ -2201,7 +2138,6 @@
     "greek-wheat": {
       "name": "Sack of Wheat",
       "holder": "greek-baker",
-      "persona": "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus for Dione's oven.",
       "art": "assets/greek-drama/wheat.png",
       "home": "greek-piraeus",
       "absentReturn": true
@@ -2209,7 +2145,6 @@
     "greek-figs": {
       "name": "Dried Figs",
       "holder": "greek-sanctuary",
-      "persona": "Dried figs from the trees beside the sanctuary altar, strung for a journey.",
       "art": "assets/greek-drama/figs.png",
       "home": "greek-sanctuary",
       "tags": [
@@ -2220,7 +2155,6 @@
     "greek-wine-skin": {
       "name": "Wine Skin",
       "holder": "greek-gate",
-      "persona": "A stoppered leather skin of wine from the gate's ration, for a crew at sea.",
       "art": "assets/greek-drama/wine-skin.png",
       "home": "greek-gate",
       "tags": [
@@ -2231,7 +2165,6 @@
     "greek-oil-flask": {
       "name": "Funeral Oil",
       "holder": "greek-courtyard",
-      "persona": "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
       "art": "assets/greek-drama/oil-lekythos.png",
       "home": "greek-colonus",
       "absentReturn": true
@@ -2240,7 +2173,6 @@
       "name": "Burial Shovel",
       "startLevel": 6,
       "holder": "greek-gate",
-      "persona": "A short iron shovel with soil caught beneath the blade.",
       "art": "assets/greek-drama/shovel.png",
       "home": "greek-gate"
     },
@@ -2248,19 +2180,18 @@
       "name": "The Burial Decree",
       "startLevel": 19,
       "holder": "greek-guard",
-      "persona": "A public copy of Creon's decree. It forbids burial of the brother left outside the city.",
+      "seed": "Creon’s decree forbidding burial of the brother left outside the city.",
       "art": "assets/greek-drama/decree.png"
     },
     "greek-household-token": {
       "name": "Household Token",
       "holder": "greek-sanctuary",
-      "persona": "A small marked seal that names the bereaved household for a public petition.",
+      "seed": "A seal naming the bereaved household for a public petition.",
       "art": "assets/greek-drama/household-token.png"
     },
     "greek-provisions": {
       "name": "Travel Provisions",
       "holder": "greek-harbor",
-      "persona": "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
       "art": "assets/greek-drama/provisions.png",
       "home": "greek-harbor",
       "startsUsed": true,
@@ -2282,7 +2213,7 @@
       "startLevel": 15,
       "holder": "greek-theseus",
       "art": "assets/greek-drama/olive-branch.webp",
-      "persona": "An olive branch bound with white wool: the herald's burial truce. Thebes gives up the Argive dead under witness.",
+      "seed": "The herald’s burial truce: Thebes gives up the Argive dead under witness.",
       "requires": [
         {
           "kind": "any",
@@ -2306,7 +2237,7 @@
       "name": "The Egyptian Witness Tablet",
       "startLevel": 6,
       "holder": "greek-egypt-tomb",
-      "persona": "A witness tablet. It records Helen's stay in Egypt and tells her apart from the phantom sent to Troy.",
+      "seed": "Records Helen’s stay in Egypt, apart from the phantom sent to Troy.",
       "art": "assets/greek-drama/testimony.png",
       "requires": [
         {
@@ -2319,7 +2250,7 @@
     "greek-troy-testimony": {
       "name": "The Trojan Witness Tablet",
       "holder": "greek-troy-beach",
-      "persona": "A witness tablet. It records Helen's journey from Troy and makes no claim that a phantom took her place.",
+      "seed": "Records Helen’s journey from Troy, with no phantom in her place.",
       "art": "assets/greek-drama/troy-testimony.png",
       "requires": [
         {
@@ -2332,7 +2263,7 @@
     "greek-tomb-testimony": {
       "name": "The Tomb Witness Tablet",
       "holder": "greek-argos-tomb",
-      "persona": "A witness tablet. Its account begins with offerings and a meeting at Agamemnon's tomb.",
+      "seed": "Its account begins with offerings and a meeting at Agamemnon’s tomb.",
       "art": "assets/greek-drama/tomb-testimony.png",
       "requires": [
         {
@@ -2345,7 +2276,7 @@
     "greek-palace-testimony": {
       "name": "The Palace Witness Tablet",
       "holder": "greek-mycenae-palace",
-      "persona": "A witness tablet. Its account begins with Electra waiting outside the Mycenaean palace.",
+      "seed": "Its account begins with Electra waiting outside the Mycenaean palace.",
       "art": "assets/greek-drama/palace-testimony.png",
       "requires": [
         {
@@ -2358,7 +2289,7 @@
     "greek-farm-testimony": {
       "name": "The Farmer's Witness Tablet",
       "holder": "greek-argive-farm",
-      "persona": "A witness tablet. Its account begins in a poor household in the Argive countryside.",
+      "seed": "Its account begins in a poor household in the Argive countryside.",
       "art": "assets/greek-drama/farm-testimony.png",
       "requires": [
         {
@@ -2373,7 +2304,7 @@
       "startLevel": 11,
       "holder": "greek-eleusis",
       "art": "assets/greek-drama/burial-petition.png",
-      "persona": "An olive branch across a tablet that bears the mothers' request to the Agora of Athens. Room is left for the city's answer.",
+      "seed": "The Argive mothers’ request to Athens, with room left for the city’s answer.",
       "home": "greek-eleusis",
       "absentReturn": true
     },
@@ -2382,7 +2313,7 @@
       "startLevel": 6,
       "holder": "greek-eleusis",
       "art": "assets/greek-drama/ash-urn.png",
-      "persona": "A covered clay urn for the Argive ashes, made at Aethra's altar from oil and the herald's truce.",
+      "seed": "A covered clay urn for the Argive ashes.",
       "home": "greek-eleusis",
       "startsUsed": true,
       "locked": {
@@ -2397,14 +2328,12 @@
     "greek-shelter-blanket": {
       "name": "The Shelter Blanket",
       "holder": "greek-piraeus",
-      "art": "assets/greek-drama/shelter-blanket.png",
-      "persona": "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds."
+      "art": "assets/greek-drama/shelter-blanket.png"
     },
     "greek-ajax-shield": {
       "name": "Ajax’s Shield",
       "startLevel": 11,
       "holder": "greek-greek-camp",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
       "art": "assets/greek-drama/ajax-shield.png",
       "requires": [
         {
@@ -2417,7 +2346,6 @@
     "greek-ajax-plea": {
       "name": "Teucer’s Written Plea",
       "holder": "greek-greek-camp",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
       "art": "assets/greek-drama/ajax-plea.png",
       "requires": [
         {
@@ -2435,7 +2363,6 @@
     "greek-ajax-cloth": {
       "name": "The Camp’s Burial Cloth",
       "holder": "greek-greek-camp",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
       "art": "assets/greek-drama/ajax-cloth.png",
       "requires": [
         {
@@ -2448,7 +2375,6 @@
     "greek-ajax-tools": {
       "name": "The Camp’s Grave Tools",
       "holder": "greek-greek-camp",
-      "persona": "This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
       "art": "assets/greek-drama/ajax-tools.png",
       "requires": [
         {
@@ -2460,7 +2386,11 @@
     },
     "greek-burial-account": {
       "name": "Burial Account",
-      "persona": "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
+      "records": [
+        "greek-anoint-polynices",
+        "greek-shroud-polynices",
+        "greek-bury-polynices"
+      ],
       "holder": "greek-battlefield",
       "art": "assets/greek-drama/burial-account.webp",
       "requires": [
@@ -2473,7 +2403,7 @@
     },
     "greek-creon-writ": {
       "name": "Creon's Writ",
-      "persona": "A sealed writ from the palace. With it Creon lets the household bury the brother, and the gate guard stands aside.",
+      "seed": "Creon’s written leave for the household to bury the brother.",
       "holder": "greek-creon",
       "art": "assets/greek-drama/creon-writ.webp"
     },
@@ -2481,13 +2411,13 @@
       "name": "Helen’s Account Tablet",
       "holder": "greek-harbor",
       "art": "assets/greek-drama/helen-accounts.png",
-      "persona": "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy."
+      "seed": "Two copied accounts of Helen: the Egyptian account and the song about Troy."
     },
     "greek-atreid-record": {
       "name": "Record of the House of Atreus",
       "holder": "greek-argolid-road",
       "art": "assets/greek-drama/atreid-record.png",
-      "persona": "Ismene knows the way to Agamemnon’s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter."
+      "seed": "Three ways into the House of Atreus: Agamemnon’s tomb, the palace road and the farmer’s house."
     }
   },
   "routes": [

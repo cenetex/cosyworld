@@ -36,7 +36,14 @@ const future = ["pack", "choices", 0, "future"];
 
 it("edits the Shade's completion flag while retaining the full handwritten step", () => {
   const original = JSON.stringify(greek);
-  const path = ["pack", "avatars", "greek-polynices-shade", "want", "step", "finish"];
+  const path = [
+    "pack",
+    "avatars",
+    "greek-polynices-shade",
+    "want",
+    "step",
+    "finish",
+  ];
   const field = fieldAt(greek, path);
   assert.equal(field.type, "string");
   assert.deepEqual(field.path, path);
@@ -56,21 +63,16 @@ it("edits one route field and preserves its gate, alternative roads and unknown 
   const source = structuredClone(greek);
   source.pack.future = { opaque: ["kept", { version: 3 }] };
   const to = greek.pack.routes[route].to;
-  const path = ["pack", "places", to, "persona"];
-  const result = apply(
-    source,
-    fieldAt(source, path),
-    "Bring the account.\n雪 stays on the road.",
-  );
+  const path = ["pack", "places", to, "name"];
+  const result = apply(source, fieldAt(source, path), "The Hollow of 雪");
   const expected = structuredClone(source);
-  expected.pack.places[to].persona =
-    "Bring the account.\n雪 stays on the road.";
+  expected.pack.places[to].name = "The Hollow of 雪";
   assert.deepEqual(result.source, expected);
   assert.deepEqual(applySourceEdit(result.source, result.undo).source, source);
   const unchanged = authoringFieldEdit(
     source,
     fieldAt(source, path),
-    source.pack.places[to].persona,
+    source.pack.places[to].name,
   );
   assert.deepEqual(unchanged.changes, []);
 });

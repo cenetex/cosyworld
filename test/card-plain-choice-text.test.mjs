@@ -15,7 +15,10 @@ describe("the Greek pack carries no card prose", () => {
     for (const kind of ["places", "avatars", "items"])
       for (const [id, entity] of Object.entries(greek[kind])) {
         expect(entity.text, `${kind} ${id}`).toBeUndefined();
+        expect(entity.persona, `${kind} ${id}`).toBeUndefined();
         expect(entity.name, `${kind} ${id}`).toBeTruthy();
+        if (entity.seed !== undefined)
+          expect(entity.seed.length, `${kind} ${id}`).toBeLessThanOrEqual(120);
       }
     for (const [id, avatar] of Object.entries(greek.avatars)) {
       expect(avatar.seed, id).toBeTruthy();
@@ -58,6 +61,9 @@ describe("the Greek pack carries no card prose", () => {
     ]);
     expect(world.items["greek-shovel"].history.at(-1)).toBe(rite[2].text);
     expect(packFacts(world, "greek-antigone")).toEqual(rite.map((e) => e.text));
+    expect(packFacts(world, "greek-burial-account")).toEqual(
+      rite.map((e) => e.text),
+    );
     expect(packSceneFacts(world, "greek-polynices-hollow")).toEqual(
       rite.slice(1).map((e) => e.text),
     );

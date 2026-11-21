@@ -213,8 +213,11 @@ fn base_profiles() -> &'static Value {
                         json!({"kind": kind, "name": entity["name"], "pack": pack["id"]});
                     // An avatar is only its seed sentence; card text is for the table.
                     if kind != "avatar" {
-                        profile["persona"] =
-                            entity.get("persona").unwrap_or(&entity["text"]).clone();
+                        profile["persona"] = entity
+                            .get("persona")
+                            .or_else(|| entity.get("seed"))
+                            .unwrap_or(&entity["text"])
+                            .clone();
                     }
                     if kind == "item" {
                         profile["text"] = entity["text"].clone();
@@ -1625,12 +1628,17 @@ fn idiolect(entity: &Entity, part: Part) -> String {
             .as_str()
             .map(str::to_owned)
             .unwrap_or_else(|| {
-                format!(
-                    "I am {}.\n{}\n{}",
-                    name(&entity.id),
-                    profile["persona"].as_str().unwrap_or_default(),
-                    profile["voice"].as_str().unwrap_or_default()
-                )
+                let own = format!("I am {}.", name(&entity.id));
+                [
+                    Some(own.as_str()),
+                    profile["persona"].as_str(),
+                    profile["voice"].as_str(),
+                ]
+                .into_iter()
+                .flatten()
+                .filter(|line| !line.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n")
             })
     };
     if let Some(persona) = entity
@@ -3303,6 +3311,21 @@ pub(crate) mod tests {
                 "{id} {pronouns}"
             );
         }
+    }
+
+    #[test]
+    fn greek_places_and_items_are_names_with_at_most_a_seed() {
+        for (id, profile) in profiles().as_object().unwrap() {
+            if profile["pack"] == "greek-drama" && profile["kind"] != "avatar" {
+                let seed = profile["persona"].as_str();
+                assert!(seed.is_none_or(|seed| bounded(seed, 120)), "{id}");
+            }
+        }
+        assert!(profiles()["greek-courtyard"]["persona"].is_null());
+        assert_eq!(
+            profiles()["greek-decree"]["persona"],
+            "Creon’s decree forbidding burial of the brother left outside the city."
+        );
     }
 
     #[test]

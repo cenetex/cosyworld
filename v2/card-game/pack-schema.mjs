@@ -514,6 +514,7 @@ export function packProblems(
         "name",
         "text",
         "persona",
+        "seed",
         "voice",
         "exits",
         "backdrop",
@@ -534,8 +535,11 @@ export function packProblems(
       `place ${id} sanctuary must be true when set`,
     );
     check(
-      textOk(p.name, 120) && proseOk(p.text) && textOk(p.persona),
-      `place ${id} needs a name and persona; its text is optional`,
+      textOk(p.name, 120) &&
+        proseOk(p.text) &&
+        proseOk(p.persona) &&
+        proseOk(p.seed, 120),
+      `place ${id} needs a name; its text, persona and one-line seed are optional`,
     );
     check(
       p.voice === undefined || textOk(p.voice, 900),
@@ -1312,6 +1316,8 @@ export function packProblems(
         "name",
         "text",
         "persona",
+        "seed",
+        "records",
         "holder",
         "art",
         "requires",
@@ -1336,7 +1342,18 @@ export function packProblems(
             i.tags.every(idOk))) &&
         textOk(i.name, 120) &&
         proseOk(i.text) &&
-        textOk(i.persona) &&
+        proseOk(i.persona) &&
+        proseOk(i.seed, 120) &&
+        (i.records === undefined ||
+          (Array.isArray(i.records) &&
+            i.records.length >= 1 &&
+            i.records.length <= 6 &&
+            new Set(i.records).size === i.records.length &&
+            i.records.every(
+              (choice) =>
+                Array.isArray(pack.choices) &&
+                pack.choices.some((c) => c?.id === choice),
+            ))) &&
         (owns(places, i.holder) ||
           owns(avatars, i.holder) ||
           hub?.places?.includes(i.holder)),

@@ -204,7 +204,7 @@ fn atlas(pack_id: &str) -> Atlas {
             places.insert(
                 id.clone(),
                 json!({"name": place["name"],
-                    "text": place.get("text").unwrap_or(&place["persona"]),
+                    "text": place.get("text").or_else(|| place.get("persona")).unwrap_or(&place["seed"]),
                     "paths": paths}),
             );
         }
@@ -340,7 +340,11 @@ fn knowledge(
         .places
         .get(at)
         .or_else(|| mounted(at))
-        .and_then(|p| p["text"].as_str().or_else(|| p["persona"].as_str()))
+        .and_then(|p| {
+            ["text", "persona", "seed"]
+                .into_iter()
+                .find_map(|f| p[f].as_str())
+        })
         .map(str::to_string)
         .into_iter()
         .collect();
