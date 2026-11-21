@@ -1430,8 +1430,6 @@
         return state?.choices?.[c.key] === c.value;
       case "choice_unset":
         return !!state && !Object.hasOwn(state.choices || {}, c.key);
-      case "receipt":
-        return !!state && Object.hasOwn(state.receipts || {}, c.choice);
       case "clock": {
         const hour = s.turn % (2 * DAYLIGHT_TURNS);
         return c.from < c.to ? hour >= c.from && hour < c.to : hour >= c.from || hour < c.to;
@@ -2970,7 +2968,6 @@
     "any",
     "choice",
     "choice_unset",
-    "receipt",
     "flag",
     "holding",
     "trusted",
@@ -3005,7 +3002,6 @@
   var TRAVELERS = ["player", "any"];
   var VARIANTS = ["asleep", "awake", "irritated"];
   var record3 = (v) => v && typeof v === "object" && !Array.isArray(v);
-  var LORE_PAGE_CHARS = 1200;
   var owns3 = (o, key3) => record3(o) && typeof key3 === "string" && Object.hasOwn(o, key3);
   var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
   var proseOk = (v, max = 1200) => v === void 0 || textOk(v, max);
@@ -3552,9 +3548,6 @@
           case "choice_unset":
             ok = keysOk(c, ["kind", "key"]) && idOk2(c.key);
             break;
-          case "receipt":
-            ok = keysOk(c, ["kind", "choice"]) && idOk2(c.choice);
-            break;
           case "daylight":
             ok = keysOk(c, ["kind", "phase"]) && ["day", "night"].includes(c.phase);
             break;
@@ -3648,7 +3641,6 @@
     const savedCondition = (c) => c?.kind === "any" ? Array.isArray(c.conditions) && c.conditions.every(savedCondition) : c?.kind === "not" ? savedCondition(c.condition) : [
       "choice",
       "choice_unset",
-      "receipt",
       "flag",
       "holding",
       "item_at",
@@ -3765,7 +3757,6 @@
           "persona",
           "seed",
           "records",
-          "lore",
           "holder",
           "art",
           "requires",
@@ -3792,19 +3783,6 @@
       );
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);
-      check(
-        i.lore === void 0 || Array.isArray(i.lore) && i.lore.length >= 1 && i.lore.length <= 80,
-        `item ${id} lore must be a list of 1 to 80 pages`
-      );
-      for (const [n, page] of (Array.isArray(i.lore) ? i.lore : []).entries()) {
-        check(
-          keysOk(page, ["text", "about", "requires"]) && textOk(page.text, LORE_PAGE_CHARS) && (page.about === void 0 || [places2, pack.avatars, pack.items].some(
-            (all) => owns3(all, page.about)
-          )),
-          `item ${id} lore[${n}] needs text of at most ${LORE_PAGE_CHARS} characters and may be about one of this pack's entities`
-        );
-        requirements(page?.requires, `item ${id} lore[${n}] requires`);
-      }
       check(
         i.sealed === void 0 || keysOk(i.sealed, []) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
         `item ${id} sealed needs requires and a place of the pack where it lies (home, if any, the same place)`
@@ -3927,11 +3905,6 @@
         );
       if (c.kind === "choice_unset")
         check(writes.has(c.key), "a condition names an unwritten choice");
-      if (c.kind === "receipt")
-        check(
-          (pack.choices || []).some((choice) => choice?.id === c.choice),
-          "a receipt condition names no choice in this pack"
-        );
       if (c.kind === "flag")
         check(flags.has(c.key), "a condition names an unwritten flag");
     });
@@ -3960,8 +3933,6 @@
       ...choices
     ].forEach((e) => {
       verifyRefs(e.requires);
-      if (Array.isArray(e.lore))
-        e.lore.forEach((page) => verifyRefs(page?.requires));
     });
     if (pack.sections !== void 0) {
       check(
@@ -4975,7 +4946,7 @@
   function handSnapshot(world) {
     return Object.fromEntries(
       Object.entries(world.items).filter(
-        ([id, item]) => world.actors[item.holder] && !packThings[id]?.lore && entityEnabled(world, id)
+        ([id, item]) => world.actors[item.holder] && entityEnabled(world, id)
       ).map(([id, item]) => [id, item.holder])
     );
   }
@@ -5303,9 +5274,7 @@
         (id) => world.actors[id]?.place === goal.destination
       ),
       trust: world.actors[goal.target]?.trust?.[actor] || 0,
-      held: Object.entries(world.items).filter(
-        ([id, item]) => item.holder === actor && !packThings[id]?.lore
-      ).length,
+      held: Object.values(world.items).filter((item) => item.holder === actor).length,
       strain: Math.min(
         3,
         (world.motives?.grievances[goal.target] || []).filter((g) => g.other === actor && grievanceActive(world, g)).reduce((n, g) => n + g.weight, 0)
@@ -5362,18 +5331,18 @@
   }
   function actionEstimate(world, actor, goal, conditions, action) {
     const trials = trialsFor(world, actor, goal);
-    let sum = 0, weight2 = 0, samples = 0, local = 0;
+    let sum = 0, weight = 0, samples = 0, local = 0;
     for (const [index, trial] of trials.entries()) {
       if (actionKey(trial.action) !== actionKey(action)) continue;
       const exact = trial.conditions === conditions;
       const w = (exact ? 1 : 0.25) * 0.9 ** (trials.length - index - 1);
       sum += w * returns(trials, index);
-      weight2 += w;
+      weight += w;
       samples++;
       if (exact) local++;
     }
     return {
-      value: samples ? round(sum / (weight2 + (local ? 0 : 1))) : null,
+      value: samples ? round(sum / (weight + (local ? 0 : 1))) : null,
       samples,
       local
     };
@@ -5498,9 +5467,7 @@
       );
       if (strain !== observed.strain) return false;
       const items2 = new Map(parts2[5].map(([id, owner2]) => [id, owner2]));
-      if ([...items2].filter(
-        ([id, owner2]) => owner2 === actor && !packThings[id]?.lore
-      ).length !== observed.held)
+      if ([...items2.values()].filter((id) => id === actor).length !== observed.held)
         return false;
       let root2 = goal.item;
       const visited = /* @__PURE__ */ new Set();
@@ -8605,9 +8572,7 @@
   var canReach = (s, actor, item) => itemPlace(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
   var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
-  var burden = (s, actor) => carried(s, actor).filter((held) => !packThings[held]?.lore).length;
-  var weight = (s, id) => packThings[id]?.lore ? 0 : loadOf(s, id);
-  var hasSpace = (s, actor, id) => burden(s, actor) + (rootHolder(s, id) === actor ? 0 : weight(s, id)) <= 3;
+  var hasSpace = (s, actor, id) => carried(s, actor).length + (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <= 3;
   var wantText = (want) => wantWords(want);
   var bundle = (s, item) => [
     item,
@@ -8628,8 +8593,8 @@
     const other = s.items[receive]?.holder;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
-    const outgoing = weight(s, give), incoming = weight(s, receive);
-    return burden(s, actor) - outgoing + incoming <= 3 && burden(s, other) - incoming + outgoing <= 3;
+    const outgoing = loadOf(s, give), incoming = loadOf(s, receive);
+    return carried(s, actor).length - outgoing + incoming <= 3 && carried(s, other).length - incoming + outgoing <= 3;
   }
   function tradeWilling(s, actor, give, receive) {
     const other = s.items[receive].holder;
@@ -9224,7 +9189,7 @@
     }
     for (const id of ids) {
       const item = s.items[id];
-      if (!entityActive(s, id) || itemPlace(s, id) !== here || actorIds.includes(rootHolder(s, id)) && !knownActors2(s).includes(rootHolder(s, id)) || packThings[id]?.lore && !controlledByHuman(s, actor))
+      if (!entityActive(s, id) || itemPlace(s, id) !== here || actorIds.includes(rootHolder(s, id)) && !knownActors2(s).includes(rootHolder(s, id)))
         continue;
       if (canReach(s, actor, id) && item.holder !== actor && hasSpace(s, actor, id)) {
         out.push(
@@ -10962,7 +10927,7 @@
     }
     for (const actor of actorIds) {
       const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-      const count = burden(s, actor);
+      const count = carried(s, actor).length;
       if (count > (allowance || 3) || allowance && allowance !== count) fail(`actor:${actor}:carried`);
     }
     if (!validRadioItem(s)) fail("radio");

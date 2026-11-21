@@ -13,7 +13,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/185";
+pub(super) const VERSION: &str = "full-card-world/186";
+pub(super) const HUNDRED_EIGHTY_FIFTH_VERSION: &str = "full-card-world/185";
 pub(super) const HUNDRED_EIGHTY_FOURTH_VERSION: &str = "full-card-world/184";
 pub(super) const HUNDRED_EIGHTY_THIRD_VERSION: &str = "full-card-world/183";
 pub(super) const HUNDRED_EIGHTY_SECOND_VERSION: &str = "full-card-world/182";
@@ -66,7 +67,8 @@ pub(super) const HUNDRED_THIRTY_SIXTH_VERSION: &str = "full-card-world/136";
 pub(super) const HUNDRED_THIRTY_FIFTH_VERSION: &str = "full-card-world/135";
 pub(super) const HUNDRED_THIRTY_FOURTH_VERSION: &str = "full-card-world/134";
 pub(super) const HUNDRED_THIRTY_THIRD_VERSION: &str = "full-card-world/133";
-const SOURCE: &str = include_str!("engine-v185.js");
+const SOURCE: &str = include_str!("engine-v186.js");
+const HUNDRED_EIGHTY_FIFTH_SOURCE: &str = include_str!("engine-v185.js");
 const HUNDRED_EIGHTY_FOURTH_SOURCE: &str = include_str!("engine-v184.js");
 const HUNDRED_EIGHTY_THIRD_SOURCE: &str = include_str!("engine-v183.js");
 const HUNDRED_EIGHTY_SECOND_SOURCE: &str = include_str!("engine-v182.js");
@@ -187,6 +189,7 @@ pub(super) fn historical(version: &str) -> bool {
             | HUNDRED_EIGHTY_SECOND_VERSION
             | HUNDRED_EIGHTY_THIRD_VERSION
             | HUNDRED_EIGHTY_FOURTH_VERSION
+            | HUNDRED_EIGHTY_FIFTH_VERSION
     )
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
@@ -250,6 +253,7 @@ pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> 
 fn source(version: &str) -> Option<&'static str> {
     Some(match version {
         VERSION => SOURCE,
+        HUNDRED_EIGHTY_FIFTH_VERSION => HUNDRED_EIGHTY_FIFTH_SOURCE,
         HUNDRED_EIGHTY_FOURTH_VERSION => HUNDRED_EIGHTY_FOURTH_SOURCE,
         HUNDRED_EIGHTY_THIRD_VERSION => HUNDRED_EIGHTY_THIRD_SOURCE,
         HUNDRED_EIGHTY_SECOND_VERSION => HUNDRED_EIGHTY_SECOND_SOURCE,
