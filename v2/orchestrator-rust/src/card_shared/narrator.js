@@ -3527,7 +3527,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 31,
+        revision: 32,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -6801,8 +6801,8 @@
             ]
           },
           "greek-songbook": {
-            name: "The Rhapsode's Songbook",
-            holder: "greek-rhapsode",
+            name: "The Chorus Songbook",
+            holder: "greek-elder",
             art: "assets/greek-drama/refuge-tablet.png",
             lore: [
               {
@@ -7079,7 +7079,7 @@
           },
           "greek-guide": {
             name: "A Guide to Thebes and Attica",
-            holder: "greek-rhapsode",
+            holder: "greek-shipmaster",
             art: "assets/greek-drama/pyre-account.webp",
             lore: [
               {
@@ -14059,7 +14059,7 @@
         schemaVersion: 1,
         id: "willows",
         packId: "cosyworld.willows",
-        revision: 2,
+        revision: 3,
         name: "The Willows",
         description: "A small island in the flooded Danube. The Swede keeps camp while the river and the willows gather around him.",
         tone: "Quiet cosmic horror grounded in ordinary camping work, river sounds and damaged gear. The places narrate in the first person and explain each change away until the reasons run out; the willows speak together and only count. The Swede knows early and says little. Signs come from Observing at a place; leaving comes from the kit back at camp.",
@@ -19429,7 +19429,7 @@
   function handSnapshot(world) {
     return Object.fromEntries(
       Object.entries(world.items).filter(
-        ([id, item]) => world.actors[item.holder] && entityEnabled(world, id)
+        ([id, item]) => world.actors[item.holder] && !packThings[id]?.lore && entityEnabled(world, id)
       ).map(([id, item]) => [id, item.holder])
     );
   }
@@ -19612,18 +19612,18 @@
   }
   function actionEstimate(world, actor, goal, conditions, action) {
     const trials = trialsFor(world, actor, goal);
-    let sum = 0, weight = 0, samples = 0, local = 0;
+    let sum = 0, weight2 = 0, samples = 0, local = 0;
     for (const [index, trial] of trials.entries()) {
       if (actionKey(trial.action) !== actionKey(action)) continue;
       const exact = trial.conditions === conditions;
       const w = (exact ? 1 : 0.25) * 0.9 ** (trials.length - index - 1);
       sum += w * returns(trials, index);
-      weight += w;
+      weight2 += w;
       samples++;
       if (exact) local++;
     }
     return {
-      value: samples ? round(sum / (weight + (local ? 0 : 1))) : null,
+      value: samples ? round(sum / (weight2 + (local ? 0 : 1))) : null,
       samples,
       local
     };
@@ -21214,6 +21214,8 @@
     (c) => homeGates[c.from]?.opening && s.crossings?.[c.id]?.discovered
   );
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
+  var burden = (s, actor) => carried(s, actor).filter((held) => !packThings[held]?.lore).length;
+  var weight = (s, id) => packThings[id]?.lore ? 0 : loadOf(s, id);
   var bundle = (s, item) => [
     item,
     ...s.items.cloth.holder === item ? ["cloth"] : []
@@ -21232,8 +21234,8 @@
     const other = s.items[receive]?.holder;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
-    const outgoing = loadOf(s, give), incoming = loadOf(s, receive);
-    return carried(s, actor).length - outgoing + incoming <= 3 && carried(s, other).length - incoming + outgoing <= 3;
+    const outgoing = weight(s, give), incoming = weight(s, receive);
+    return burden(s, actor) - outgoing + incoming <= 3 && burden(s, other) - incoming + outgoing <= 3;
   }
   function tradeWilling(s, actor, give, receive) {
     const other = s.items[receive].holder;
@@ -21408,7 +21410,7 @@
     }
     for (const actor of actorIds) {
       const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-      const count = carried(s, actor).length;
+      const count = burden(s, actor);
       if (count > (allowance || 3) || allowance && allowance !== count) fail(`actor:${actor}:carried`);
     }
     if (!validRadioItem(s)) fail("radio");

@@ -4975,7 +4975,7 @@
   function handSnapshot(world) {
     return Object.fromEntries(
       Object.entries(world.items).filter(
-        ([id, item]) => world.actors[item.holder] && entityEnabled(world, id)
+        ([id, item]) => world.actors[item.holder] && !packThings[id]?.lore && entityEnabled(world, id)
       ).map(([id, item]) => [id, item.holder])
     );
   }
@@ -5360,18 +5360,18 @@
   }
   function actionEstimate(world, actor, goal, conditions, action) {
     const trials = trialsFor(world, actor, goal);
-    let sum = 0, weight = 0, samples = 0, local = 0;
+    let sum = 0, weight2 = 0, samples = 0, local = 0;
     for (const [index, trial] of trials.entries()) {
       if (actionKey(trial.action) !== actionKey(action)) continue;
       const exact = trial.conditions === conditions;
       const w = (exact ? 1 : 0.25) * 0.9 ** (trials.length - index - 1);
       sum += w * returns(trials, index);
-      weight += w;
+      weight2 += w;
       samples++;
       if (exact) local++;
     }
     return {
-      value: samples ? round(sum / (weight + (local ? 0 : 1))) : null,
+      value: samples ? round(sum / (weight2 + (local ? 0 : 1))) : null,
       samples,
       local
     };
@@ -8601,7 +8601,9 @@
   var canReach = (s, actor, item) => itemPlace(s, item) === s.actors[actor].place && !actorIds.includes(rootHolder(s, item)) || rootHolder(s, item) === actor;
   var canUse = canReach;
   var loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
-  var hasSpace = (s, actor, id) => carried(s, actor).length + (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <= 3;
+  var burden = (s, actor) => carried(s, actor).filter((held) => !packThings[held]?.lore).length;
+  var weight = (s, id) => packThings[id]?.lore ? 0 : loadOf(s, id);
+  var hasSpace = (s, actor, id) => burden(s, actor) + (rootHolder(s, id) === actor ? 0 : weight(s, id)) <= 3;
   var wantText = (want) => wantWords(want);
   var bundle = (s, item) => [
     item,
@@ -8622,8 +8624,8 @@
     const other = s.items[receive]?.holder;
     if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
       return false;
-    const outgoing = loadOf(s, give), incoming = loadOf(s, receive);
-    return carried(s, actor).length - outgoing + incoming <= 3 && carried(s, other).length - incoming + outgoing <= 3;
+    const outgoing = weight(s, give), incoming = weight(s, receive);
+    return burden(s, actor) - outgoing + incoming <= 3 && burden(s, other) - incoming + outgoing <= 3;
   }
   function tradeWilling(s, actor, give, receive) {
     const other = s.items[receive].holder;
@@ -10956,7 +10958,7 @@
     }
     for (const actor of actorIds) {
       const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-      const count = carried(s, actor).length;
+      const count = burden(s, actor);
       if (count > (allowance || 3) || allowance && allowance !== count) fail(`actor:${actor}:carried`);
     }
     if (!validRadioItem(s)) fail("radio");

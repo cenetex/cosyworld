@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "greek-drama",
   "packId": "cosyworld.greek-drama",
-  "revision": 31,
+  "revision": 32,
   "name": "The Wine-Dark Sea",
   "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
   "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3276,8 +3276,8 @@
       ]
     },
     "greek-songbook": {
-      "name": "The Rhapsode's Songbook",
-      "holder": "greek-rhapsode",
+      "name": "The Chorus Songbook",
+      "holder": "greek-elder",
       "art": "assets/greek-drama/refuge-tablet.png",
       "lore": [
         {
@@ -3554,7 +3554,7 @@
     },
     "greek-guide": {
       "name": "A Guide to Thebes and Attica",
-      "holder": "greek-rhapsode",
+      "holder": "greek-shipmaster",
       "art": "assets/greek-drama/pyre-account.webp",
       "lore": [
         {

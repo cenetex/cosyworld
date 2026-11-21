@@ -81,7 +81,9 @@ function source(place = "greek-eleusis", roaming = false) {
         expect(loaded.packs["greek-drama"][field]).toEqual(
           world.packs["greek-drama"][field],
         );
-      expect(loaded.packs["greek-drama"].revision).toBe(31);
+      expect(loaded.packs["greek-drama"].revision).toBe(
+        packDefinition("greek-drama").revision,
+      );
       const shared = JSON.parse(
         context.cardShared(
           JSON.stringify({ op: "create", save: world, seed: 7 }),
@@ -209,7 +211,8 @@ it("keeps archived choices unavailable and rejects malformed or future revisions
   expect(legalActions(loaded).some((a) => archived.has(a.choiceId))).toBe(
     false,
   );
-  for (const revision of [0, -1, 24.5, "24", 32]) {
+  const future = packDefinition("greek-drama").revision + 1;
+  for (const revision of [0, -1, 24.5, "24", future]) {
     const bad = structuredClone(loaded);
     bad.packs["greek-drama"].revision = revision;
     expect(() => decodeSave(JSON.stringify(bad))).toThrow(/fresh start/);

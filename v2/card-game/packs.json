@@ -391,7 +391,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 31,
+      "revision": 32,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -3665,8 +3665,8 @@
           ]
         },
         "greek-songbook": {
-          "name": "The Rhapsode's Songbook",
-          "holder": "greek-rhapsode",
+          "name": "The Chorus Songbook",
+          "holder": "greek-elder",
           "art": "assets/greek-drama/refuge-tablet.png",
           "lore": [
             {
@@ -3943,7 +3943,7 @@
         },
         "greek-guide": {
           "name": "A Guide to Thebes and Attica",
-          "holder": "greek-rhapsode",
+          "holder": "greek-shipmaster",
           "art": "assets/greek-drama/pyre-account.webp",
           "lore": [
             {
@@ -10923,7 +10923,7 @@
       "schemaVersion": 1,
       "id": "willows",
       "packId": "cosyworld.willows",
-      "revision": 2,
+      "revision": 3,
       "name": "The Willows",
       "description": "A small island in the flooded Danube. The Swede keeps camp while the river and the willows gather around him.",
       "tone": "Quiet cosmic horror grounded in ordinary camping work, river sounds and damaged gear. The places narrate in the first person and explain each change away until the reasons run out; the willows speak together and only count. The Swede knows early and says little. Signs come from Observing at a place; leaving comes from the kit back at camp.",

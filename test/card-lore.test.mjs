@@ -18,49 +18,44 @@ const text = (ref) => {
 describe("lore items", () => {
   it("give their holder the pages about the scene", () => {
     const world = createWorld();
-    expect(world.items["greek-guide"].holder).toBe("greek-rhapsode");
-    expect(lorePages(world, "greek-rhapsode", ["greek-harbor"])).toEqual([
-      `greek-guide#${greek.items["greek-guide"].lore.findIndex((p) => p.about === "greek-harbor")}`,
+    expect(world.items["greek-guide"].holder).toBe("greek-shipmaster");
+    const harbor = greek.items["greek-guide"].lore.findIndex(
+      (page) => page.about === "greek-harbor",
+    );
+    expect(lorePages(world, "greek-shipmaster", ["greek-harbor"])).toEqual([
+      `greek-guide#${harbor}`,
     ]);
-    expect(lorePages(world, "greek-rhapsode", [])).toEqual([]);
+    expect(lorePages(world, "greek-shipmaster", [])).toEqual([]);
     expect(lorePages(world, "greek-antigone", ["greek-harbor"])).toEqual([]);
   });
 
-  it("open chronicle and song pages only once their choices are made", () => {
+  it("open song and chronicle pages once their choices are made, and move with the book", () => {
     const world = funeralJourney().buried;
-    const elder = lorePages(world, "greek-elder", []);
-    expect(elder).toHaveLength(3);
-    for (const ref of elder) {
-      const [item, n] = ref.split("#");
-      const choice = greek.items[item].lore[Number(n)].requires[0].choice;
-      expect(world.packs["greek-drama"].receipts).toHaveProperty(choice);
-    }
-    expect(elder.map(text)).toContain(
-      "Antigone covers her brother with earth and leaves the raven feather on the mound.",
-    );
-    expect(lorePages(world, "greek-rhapsode", []).map(text)).toContain(
+    const opened = (holder) =>
+      lorePages(world, holder, []).map((ref) => {
+        const [item, n] = ref.split("#");
+        const choice = greek.items[item].lore[Number(n)].requires[0].choice;
+        expect(world.packs["greek-drama"].receipts).toHaveProperty(choice);
+        return text(ref);
+      });
+    expect(opened("greek-elder")).toContain(
       "She laid her brother in the earth. / A raven feather marked his rest.",
+    );
+    world.items["greek-songbook"].holder = "greek-antigone";
+    expect(opened("greek-antigone")).toContain(
+      "She laid her brother in the earth. / A raven feather marked his rest.",
+    );
+    expect(opened("greek-elder")).toContain(
+      "Antigone covers her brother with earth and leaves the raven feather on the mound.",
     );
   });
 
-  it("keep at most three pages and move with the item", () => {
+  it("keep at most three pages, the scene's first", () => {
     const world = funeralJourney().buried;
     const scene = Object.keys(greek.avatars);
-    expect(lorePages(world, "greek-elder", scene)).toHaveLength(3);
-    expect(
-      lorePages(world, "greek-elder", scene).every((ref) =>
-        ref.startsWith("greek-city-roll#"),
-      ),
-    ).toBe(true);
-    world.items["greek-songbook"].holder = "greek-antigone";
-    expect(lorePages(world, "greek-antigone", [])[0]).toMatch(
-      /^greek-songbook#/,
-    );
-    expect(
-      lorePages(world, "greek-rhapsode", []).some((ref) =>
-        ref.startsWith("greek-songbook#"),
-      ),
-    ).toBe(false);
+    const pages = lorePages(world, "greek-elder", scene);
+    expect(pages).toHaveLength(3);
+    expect(pages.every((ref) => ref.startsWith("greek-city-roll#"))).toBe(true);
   });
 
   it("reach the narrator as page ids, never as text", () => {
@@ -68,9 +63,9 @@ describe("lore items", () => {
     world.crossings["pond-greek-harbor"].discovered = true;
     world.actors.vale.place = "greek-harbor";
     const context = narrativeContext(world);
-    const bard = context.entities.find((e) => e.id === "greek-rhapsode");
-    expect(bard?.lore?.[0]).toMatch(/^greek-guide#/);
-    expect(JSON.stringify(context)).not.toContain(text(bard.lore[0]));
+    const myrto = context.entities.find((e) => e.id === "greek-shipmaster");
+    expect(myrto?.lore?.[0]).toMatch(/^greek-guide#/);
+    expect(JSON.stringify(context)).not.toContain(text(myrto.lore[0]));
   });
 
   it("are checked by the pack schema", () => {

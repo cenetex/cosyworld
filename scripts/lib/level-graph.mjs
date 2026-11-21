@@ -17,6 +17,7 @@ export const LATCH_KINDS = [
   "flag",
   "choice",
   "choice_unset",
+  "receipt",
   "met",
   "knows",
   "talked",

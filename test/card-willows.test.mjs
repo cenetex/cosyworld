@@ -441,7 +441,7 @@ describe("The Willows", () => {
     }
     for (const c of pack.crossings) delete old.crossings[c.id];
     const mounted = decodeSave(JSON.stringify(old));
-    expect(mounted.packs.willows.revision).toBe(2);
+    expect(mounted.packs.willows.revision).toBe(pack.revision);
     for (const [id, item] of Object.entries(priorItems))
       expect(mounted.items[id]).toEqual(item);
     for (const [id, state] of Object.entries(priorPacks))

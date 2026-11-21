@@ -166,6 +166,7 @@ import {
   neverBack,
   packOf,
   packStatesFault,
+  packThings,
 } from "./pack-registry.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { dailyRumours, dayOf, noteRumours, talkRumours } from "./world/rumours.mjs";
@@ -578,10 +579,11 @@ const canReach = (s, actor, item) =>
   rootHolder(s, item) === actor;
 export const canUse = canReach;
 const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
+const burden = (s, actor) =>
+  carried(s, actor).filter((held) => !packThings[held]?.lore).length;
+const weight = (s, id) => (packThings[id]?.lore ? 0 : loadOf(s, id));
 const hasSpace = (s, actor, id) =>
-  carried(s, actor).length +
-    (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <=
-  3;
+  burden(s, actor) + (rootHolder(s, id) === actor ? 0 : weight(s, id)) <= 3;
 // A want in words, for cards and history (world/want-words.mjs).
 export const wantText = (want) => wantWords(want);
 const bundle = (s, item) => [
@@ -622,11 +624,11 @@ export function tradePossible(s, actor, give, receive) {
     s.actors[actor].place !== s.actors[other].place
   )
     return false;
-  const outgoing = loadOf(s, give),
-    incoming = loadOf(s, receive);
+  const outgoing = weight(s, give),
+    incoming = weight(s, receive);
   return (
-    carried(s, actor).length - outgoing + incoming <= 3 &&
-    carried(s, other).length - incoming + outgoing <= 3
+    burden(s, actor) - outgoing + incoming <= 3 &&
+    burden(s, other) - incoming + outgoing <= 3
   );
 }
 // Nobody trades away their own want; anyone takes it in trade.
@@ -3898,7 +3900,7 @@ export function validateWorld(s) {
   }
   for (const actor of actorIds) {
     const allowance = s.sharedMigration?.inventoryAllowances?.[actor];
-    const count = carried(s, actor).length;
+    const count = burden(s, actor);
     if (count > (allowance || 3) || (allowance && allowance !== count)) fail(`actor:${actor}:carried`);
   }
   if (!validRadioItem(s)) fail("radio");
