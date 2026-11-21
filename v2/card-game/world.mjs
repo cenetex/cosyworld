@@ -1977,13 +1977,13 @@ function rest(s, actor, here, sleep = false) {
       present: bodiesAt(s, here),
     };
 }
-// Who is physically in a place: being discovered or met is not arriving.
+// Who is physically in the world here: being met is not arriving; appearing is.
 const bodiesAt = (s, place) =>
   actorIds
     .filter(
       (id) =>
         s.actors[id].place === place &&
-        (!controlledByHuman(s, id) || humanPresent(s, id)),
+        (controlledByHuman(s, id) ? humanPresent(s, id) : entityActive(s, id)),
     )
     .sort();
 const witnessesAt = (s, place) =>

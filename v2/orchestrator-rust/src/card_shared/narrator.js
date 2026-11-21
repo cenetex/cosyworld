@@ -1596,12 +1596,12 @@
   var BOARDY = "boardyai";
   var connectedHumans = (world) => sharedEnabled(world) ? humanAvatarIds.filter((id) => humanPresent(world, id)) : [];
   var boardyActive = (world) => connectedHumans(world).length >= 2;
-  function boardyFacts(world, nameOf2) {
+  function boardyFacts(world, nameOf3) {
     const here2 = world.actors[BOARDY].place;
     return [
       "My home is BoardyAI's Parlour. My calling card opens its door at Empty station, held or left there.",
       ...connectedHumans(world).map(
-        (id) => world.actors[id].place === here2 ? `${nameOf2(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf2(id)} at ${nameOf2(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf2(id)}.`
+        (id) => world.actors[id].place === here2 ? `${nameOf3(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf3(id)} at ${nameOf3(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf3(id)}.`
       )
     ];
   }
@@ -1769,7 +1769,7 @@
       text: world.knowledge.facts[p.factId].text
     }));
   }
-  function knowledgeFacts(world, actor, nameOf2 = (id) => id, priority = [], limit = 2) {
+  function knowledgeFacts(world, actor, nameOf3 = (id) => id, priority = [], limit = 2) {
     const known = world.knowledge?.known?.[actor] || {};
     const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
     const first = (a, b) => priority.includes(b.id) - priority.includes(a.id);
@@ -1780,10 +1780,10 @@
     const seen = facts.filter((fact) => known[fact.id].kind === "witnessed").sort((a, b) => first(a, b) || compareFacts(a, b)).slice(0, Math.min(2, limit - told.length));
     return [...told, ...seen].sort(first).map((fact) => {
       const memory = known[fact.id];
-      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf2(memory.teller)} told me`;
+      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
       const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
       const place = fact.source.kind === "topic" ? null : fact.source.locationId;
-      const where = place && !fact.text.includes(nameOf2(place)) ? ` at ${nameOf2(place)}` : "";
+      const where = place && !fact.text.includes(nameOf3(place)) ? ` at ${nameOf3(place)}` : "";
       const stale2 = fact.source.kind === "event" && age >= STALE_TURNS ? " Things may have changed since." : "";
       return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale2}`.slice(
         0,
@@ -2324,17 +2324,17 @@
       ...courseOptions(s, id, actor)
     ];
   }
-  function transportScenery(s, place, nameOf2) {
+  function transportScenery(s, place, nameOf3) {
     const found2 = shipAt(place);
     if (!found2) return [];
     const state = read(s, found2[0]);
     if (state.phase === "sea")
-      return [`The ship is at sea, bound for ${nameOf2(state.destination)}.`];
+      return [`The ship is at sea, bound for ${nameOf3(state.destination)}.`];
     if (state.phase === "course")
-      return [`The ship has set its course for ${nameOf2(state.destination)}.`];
+      return [`The ship has set its course for ${nameOf3(state.destination)}.`];
     if (state.phase === "arrived")
-      return [`The ship has arrived at ${nameOf2(state.dock)}.`];
-    return [`The ship is docked at ${nameOf2(state.dock)}.`];
+      return [`The ship has arrived at ${nameOf3(state.dock)}.`];
+    return [`The ship is docked at ${nameOf3(state.dock)}.`];
   }
   var whole2 = (n) => Number.isSafeInteger(n) && n >= 0;
   function validTransports(s) {
@@ -2837,31 +2837,31 @@
       (entityActive(world, want.target) || Boolean(packThings[want.target]?.locked) || Boolean(packThings[want.target]?.sealed)) && !(want.kind === "item" && !world.items[want.target]) && !(want.kind === "person" && !world.actors[want.target]) && !lostOf(world, want) && !met(world, id, want) && trustedEnough(world, id, want, listener)
     );
   }
-  function wantFact(world, id, nameOf2, listener) {
+  function wantFact(world, id, nameOf3, listener) {
     const want = wantOf(world, id);
     if (want?.kind === "connect" && world.actors?.[id])
       return "I want to introduce you to someone.";
     const making = want?.kind === "item" && world.actors?.[id] && makerChoice(id, want.target);
     if (making) {
       const set = heldSlots(making.requires).map(
-        (slot) => slot.map((item) => article(nameOf2(item))).join(" or ")
+        (slot) => slot.map((item) => article(nameOf3(item))).join(" or ")
       );
-      return `I want ${article(nameOf2(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
+      return `I want ${article(nameOf3(want.target))}: ${set.slice(0, -1).join(", ")}${set.length > 1 ? " and " : ""}${set.at(-1)}.`;
     }
     if (!revealed(world, id, want, listener)) return null;
     const said = stepGoal(world, want, listener ?? id);
-    const name = nameOf2(said.target);
+    const name = nameOf3(said.target);
     const help = listener && offerFrom(world, listener) === id ? " I would be glad of your help." : "";
     if (said.step?.verb === "lay")
-      return `I want ${said.step.items.map((item) => article(nameOf2(item))).join(", ")} laid in ${name}.${help}`;
-    return (said.kind === "item" ? said.step?.verb === "eat" ? `I want to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${article(name)}${said.step.at ? ` at ${nameOf2(said.step.at)}` : ""}.` : said.step?.verb === "bring" && said.step.at ? `I want ${article(name)} brought to ${nameOf2(said.step.at)}.` : said.step?.verb === "give" && said.step.to !== id ? `I want ${article(name)} given to ${nameOf2(said.step.to)}.` : `I want ${article(name)}.` : said.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
+      return `I want ${said.step.items.map((item) => article(nameOf3(item))).join(", ")} laid in ${name}.${help}`;
+    return (said.kind === "item" ? said.step?.verb === "eat" ? `I want to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${article(name)}${said.step.at ? ` at ${nameOf3(said.step.at)}` : ""}.` : said.step?.verb === "bring" && said.step.at ? `I want ${article(name)} brought to ${nameOf3(said.step.at)}.` : said.step?.verb === "give" && said.step.to !== id ? `I want ${article(name)} given to ${nameOf3(said.step.to)}.` : `I want ${article(name)}.` : said.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
   }
-  function refusalWhy(entry, nameOf2) {
-    const who = nameOf2(entry.targetId), id = entry.wantId;
+  function refusalWhy(entry, nameOf3) {
+    const who = nameOf3(entry.targetId), id = entry.wantId;
     if (entry.reason === "grudge") return `${who} holds a grudge.`;
     if (entry.reason === "needs-it") return `${who} needs it.`;
     if (!id) return `${who} wants something else.`;
-    const name = nameOf2(id);
+    const name = nameOf3(id);
     return forest_default.people[id] || packPeople[id] ? `${who} wants to see ${name}.` : forest_default.places[id] || packPlaces[id] ? `${who} wants to be at ${name}.` : `${who} wants ${article(name)}.`;
   }
   var wantHeard = (world, played, id, player2) => id === player2 || played?.verb === "talk" && [played.actorId, played.targetId].includes(id);
@@ -3567,7 +3567,6 @@
         places: {
           "greek-harbor": {
             name: "The Wine-Dark Harbor",
-            text: "Worn steps climb from the stone landing toward the town.",
             exits: [
               "greek-road-thebes",
               "greek-argolid-road",
@@ -3578,7 +3577,6 @@
           },
           "greek-courtyard": {
             name: "Theban Courtyard",
-            text: "Bread cools beneath a cloth. An empty place remains at the common table.",
             exits: [
               "greek-road-thebes",
               "greek-well",
@@ -3589,7 +3587,6 @@
           },
           "greek-well": {
             name: "Theban Market Well",
-            text: "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
             exits: [
               "greek-courtyard",
               "greek-palace"
@@ -3599,7 +3596,6 @@
           },
           "greek-palace": {
             name: "Theban Palace Forecourt",
-            text: "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
             exits: [
               "greek-well",
               "greek-sanctuary"
@@ -3609,7 +3605,6 @@
           },
           "greek-gate": {
             name: "Theban City Gate",
-            text: "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear.",
             exits: [
               "greek-courtyard",
               "greek-aulis"
@@ -3649,7 +3644,6 @@
           },
           "greek-battlefield": {
             name: "The Exposed Battlefield",
-            text: "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
             exits: [
               "greek-gate"
             ],
@@ -3659,7 +3653,6 @@
           "greek-sanctuary": {
             sanctuary: true,
             name: "The Hillside Sanctuary",
-            text: "Olive trees shade a small altar. A stone basin stands beneath its roof.",
             exits: [
               "greek-palace"
             ],
@@ -3668,7 +3661,6 @@
           },
           "greek-cithaeron": {
             name: "The Cithaeron Road",
-            text: "Goat paths cross the wooded slope of Cithaeron. One end leads to The Exposed Battlefield; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees.",
             exits: [
               "greek-battlefield",
               "greek-eleusis"
@@ -3682,7 +3674,6 @@
           },
           "greek-aulis": {
             name: "Aulis Anchorage",
-            text: "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
             exits: [
               "greek-gate"
             ],
@@ -3691,7 +3682,6 @@
           },
           "greek-athens": {
             name: "Athenian Agora",
-            text: "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market.",
             exits: [
               "greek-assembly",
               "greek-acropolis",
@@ -3704,14 +3694,12 @@
           },
           "greek-piraeus": {
             name: "Piraeus Quays",
-            text: "A low bench and an empty grain board stand beside the mooring ropes. A host waits for the names of returning families. The Long Walls run inland to Athens.",
             exits: [],
             backdrop: "assets/greek-drama/piraeus-open-berth.webp",
             persona: "These quays hold the practical work of welcome. Grain comes up from here to Thebes, and travelers from Eleusis come down to the ships. The host speaks about what is actually on her quay."
           },
           "greek-assembly": {
             name: "The Assembly Hill",
-            text: "Stone benches face the speaker's platform. Citizens gather beside a list of proposals.",
             exits: [
               "greek-athens",
               "greek-demos-house"
@@ -3721,7 +3709,6 @@
           },
           "greek-acropolis": {
             name: "Acropolis Treasury",
-            text: "A barred door separates the treasury from the courtyard. Women keep watch on the steps.",
             exits: [
               "greek-athens",
               "greek-festival"
@@ -3731,7 +3718,6 @@
           },
           "greek-demos-house": {
             name: "House of Demos",
-            text: "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside.",
             exits: [
               "greek-assembly"
             ],
@@ -3740,7 +3726,6 @@
           },
           "greek-thinkery": {
             name: "The Thinkery",
-            text: "Writing tablets lie beside a narrow bed. A student practices both sides of an argument.",
             exits: [
               "greek-athens"
             ],
@@ -3749,7 +3734,6 @@
           },
           "greek-jury-house": {
             name: "The Juror's House",
-            text: "A jury token hangs beside the door. The household has arranged a small court in the yard.",
             exits: [
               "greek-athens"
             ],
@@ -3759,7 +3743,6 @@
           },
           "greek-festival": {
             name: "The Women's Festival",
-            text: "Garlands mark the sanctuary entrance. The women at the door check each arriving guest.",
             exits: [
               "greek-acropolis"
             ],
@@ -3768,7 +3751,6 @@
           },
           "greek-attic-farm": {
             name: "The Attic Farm",
-            text: "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed.",
             exits: [
               "greek-eleusis",
               "greek-colonus",
@@ -3780,7 +3762,6 @@
           },
           "greek-acharnae": {
             name: "Acharnae Market",
-            text: "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones.",
             exits: [
               "greek-attic-farm"
             ],
@@ -3789,7 +3770,6 @@
           },
           "greek-colonus": {
             name: "Colonus Grove",
-            text: "A keeper rests beside a smooth stone at the grove\u2019s edge, among the olives. Country paths lead to Eleusis and the farm. Travelers speak of an altar at Marathon beyond the hills.",
             exits: [
               "greek-eleusis",
               "greek-marathon",
@@ -3800,7 +3780,6 @@
           },
           "greek-eleusis": {
             name: "Eleusinian Sanctuary",
-            text: "Mothers hold olive branches on Demeter\u2019s steps. Aethra keeps a clear space beside the altar. The Sacred Way leads to the Dipylon gate of Athens; the Cithaeron road leads to Thebes.",
             exits: [
               "greek-colonus",
               "greek-marathon",
@@ -3813,7 +3792,6 @@
           },
           "greek-marathon": {
             name: "Marathon Altar",
-            text: "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. Country paths lead to Eleusis, Colonus and the farm. Ships call in the bay below.",
             exits: [
               "greek-eleusis",
               "greek-colonus",
@@ -3824,7 +3802,6 @@
           },
           "greek-argolid-road": {
             name: "The Argolid Crossroads",
-            text: "Three roads leave a shaded meeting place.",
             exits: [
               "greek-harbor",
               "greek-argos-sanctuary",
@@ -3835,7 +3812,6 @@
           },
           "greek-argos-sanctuary": {
             name: "Argive Shore Sanctuary",
-            text: "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
             exits: [
               "greek-argolid-road"
             ],
@@ -3844,7 +3820,6 @@
           },
           "greek-argos-palace": {
             name: "Argive Palace",
-            text: "A bronze door opens onto the royal court. Wax tablets list the household\u2019s dead and absent members.",
             exits: [],
             backdrop: "assets/greek-drama/house-atreus-palace.webp",
             requires: [
@@ -3875,7 +3850,6 @@
           },
           "greek-argos-tomb": {
             name: "Agamemnon's Tomb",
-            text: "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
             exits: [],
             backdrop: "assets/greek-drama/house-atreus-tomb.webp",
             requires: [
@@ -3906,7 +3880,6 @@
           },
           "greek-mycenae-palace": {
             name: "Mycenaean Palace",
-            text: "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
             exits: [],
             backdrop: "assets/greek-drama/house-atreus-mycenae.webp",
             requires: [
@@ -3937,7 +3910,6 @@
           },
           "greek-argive-farm": {
             name: "The Argive Farmhouse",
-            text: "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
             exits: [],
             backdrop: "assets/greek-drama/house-atreus-farmhouse.webp",
             requires: [
@@ -3968,7 +3940,6 @@
           },
           "greek-corinth": {
             name: "Corinthian Courtyard",
-            text: "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
             exits: [
               "greek-argolid-road",
               "greek-troezen"
@@ -3978,7 +3949,6 @@
           },
           "greek-troezen": {
             name: "Troezen Palace",
-            text: "Two shrines flank the palace approach. A hunting party has left its equipment under the portico.",
             exits: [
               "greek-corinth"
             ],
@@ -3987,7 +3957,6 @@
           },
           "greek-delphi": {
             name: "Delphic Temple",
-            text: "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
             exits: [
               "greek-road-sacred-way",
               "greek-oeta"
@@ -3997,7 +3966,6 @@
           },
           "greek-trachis": {
             name: "House at Trachis",
-            text: "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
             exits: [
               "greek-oeta",
               "greek-pherae"
@@ -4007,7 +3975,6 @@
           },
           "greek-oeta": {
             name: "The Oeta Road",
-            text: "A steep road climbs above the trees on Mount Oeta. One end leads to Delphic Temple; the other leads to House at Trachis. Bearers have set a litter beside a level patch of stone.",
             exits: [
               "greek-delphi",
               "greek-trachis"
@@ -4021,7 +3988,6 @@
           },
           "greek-pherae": {
             name: "Palace of Pherae",
-            text: "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
             exits: [
               "greek-trachis",
               "greek-thetis"
@@ -4031,7 +3997,6 @@
           },
           "greek-thetis": {
             name: "Thetis's Sanctuary",
-            text: "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
             exits: [
               "greek-pherae"
             ],
@@ -4040,7 +4005,6 @@
           },
           "greek-troy": {
             name: "The Trojan Walls",
-            text: "The city road runs between battered walls. Soldiers and displaced households share the remaining wells.",
             exits: [
               "greek-greek-camp",
               "greek-trojan-camp"
@@ -4050,7 +4014,6 @@
           },
           "greek-greek-camp": {
             name: "The Greek Camp at Troy",
-            text: "A speaker names the Trojan account after Ajax\u2019s death. Tents stand above the ships. Teucer carries a burial plea to the commanders.",
             exits: [
               "greek-troy",
               "greek-ajax-landing",
@@ -4062,7 +4025,6 @@
           },
           "greek-trojan-camp": {
             name: "The Trojan Night Camp",
-            text: "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
             exits: [
               "greek-troy"
             ],
@@ -4071,7 +4033,6 @@
           },
           "greek-troy-beach": {
             name: "The Homecoming Beach",
-            text: "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
             exits: [],
             backdrop: "assets/greek-drama/homecoming-beach-day.webp",
             requires: [
@@ -4085,7 +4046,6 @@
           },
           "greek-lemnos": {
             name: "The Lemnian Cave",
-            text: "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
             exits: [
               "greek-piraeus"
             ],
@@ -4095,7 +4055,6 @@
           },
           "greek-thrace": {
             name: "The Thracian Shore",
-            text: "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
             exits: [
               "greek-piraeus"
             ],
@@ -4105,7 +4064,6 @@
           },
           "greek-egypt-tomb": {
             name: "Proteus's Tomb in Egypt",
-            text: "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea.",
             exits: [],
             backdrop: "assets/greek-drama/helen-egypt-tomb-day.webp",
             requires: [
@@ -4119,7 +4077,6 @@
           },
           "greek-tauris": {
             name: "The Taurian Temple",
-            text: "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
             exits: [
               "greek-piraeus"
             ],
@@ -4129,7 +4086,6 @@
           },
           "greek-sicily": {
             name: "The Sicilian Cave",
-            text: "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
             exits: [
               "greek-piraeus"
             ],
@@ -4139,7 +4095,6 @@
           },
           "greek-susa": {
             name: "The Court at Susa",
-            text: "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
             exits: [
               "greek-troy"
             ],
@@ -4149,7 +4104,6 @@
           },
           "greek-scythian-crag": {
             name: "The Scythian Crag",
-            text: "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
             exits: [
               "greek-piraeus"
             ],
@@ -4159,7 +4113,6 @@
           },
           "greek-divine-heights": {
             name: "The Divine Heights",
-            text: "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
             exits: [
               "greek-attic-farm"
             ],
@@ -4169,7 +4122,6 @@
           },
           "greek-bird-wilderness": {
             name: "The Hoopoe's Thicket",
-            text: "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
             exits: [
               "greek-attic-farm"
             ],
@@ -4179,7 +4131,6 @@
           },
           "greek-underworld": {
             name: "The Underworld Landing",
-            text: "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
             exits: [
               "greek-colonus"
             ],
@@ -4189,7 +4140,6 @@
           },
           "greek-ship": {
             name: "The Charybdis",
-            text: "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail.",
             persona: "A named ship, the Charybdis, on the Black Pond route. It sails between Black Pond and the Wine-Dark Harbor with no cargo and always comes home that way. Beyond the harbor it sails out to Piraeus Quays only with the Travel Provisions lying on deck, and on from Piraeus to the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard; every way back toward Black Pond is free. Marathon Bay, the Trojan shore and the Far Shores are only rumours on the quays: no ship sails there now. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
             exits: [],
             backdrop: "assets/greek-drama/ship-deck.webp",
@@ -4246,7 +4196,6 @@
           },
           "greek-athens-harbor": {
             name: "Athens Harbor",
-            text: "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens.",
             persona: "Athens Harbor is the ship\u2019s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
             exits: [
               "greek-piraeus"
@@ -4256,7 +4205,6 @@
           },
           "greek-road-thebes": {
             name: "Theban Harbor Road",
-            text: "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge.",
             persona: "A shared road over the olive hills between The Wine-Dark Harbor and Theban Courtyard. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-harbor",
@@ -4270,7 +4218,6 @@
           },
           "greek-road-athens-harbor": {
             name: "Athens Harbor Road",
-            text: "A broad road crosses the olive hills. One end leads to Athens Harbor; the other leads to Athenian Agora. A stone bench rests beside the verge.",
             persona: "A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-athens-harbor",
@@ -4285,7 +4232,6 @@
           },
           "greek-road-athens-piraeus": {
             name: "The Long Walls",
-            text: "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge.",
             persona: "A shared road between the long walls, joining Piraeus Quays and Athenian Agora. It is open from either end. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-piraeus",
@@ -4299,7 +4245,6 @@
           },
           "greek-road-athens-colonus": {
             name: "Colonus Road",
-            text: "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Colonus Grove. A stone bench rests beside the verge.",
             persona: "A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-athens",
@@ -4314,7 +4259,6 @@
           },
           "greek-road-athens-eleusis": {
             name: "The Sacred Way",
-            text: "A paved road runs from Demeter\u2019s sanctuary to the Dipylon, the double gate of Athens. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. Small shrines stand along the verge.",
             persona: "A shared road between Athenian Agora and Eleusinian Sanctuary, with small shrines along the verge. Travelers meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-athens",
@@ -4328,7 +4272,6 @@
           },
           "greek-road-athens-marathon": {
             name: "Marathon Road",
-            text: "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Marathon Altar. A stone bench rests beside the verge.",
             persona: "A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-athens",
@@ -4343,7 +4286,6 @@
           },
           "greek-road-piraeus-eleusis": {
             name: "Eleusis Coast Road",
-            text: "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
             persona: "A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-piraeus",
@@ -4358,7 +4300,6 @@
           },
           "greek-road-colonus-eleusis": {
             name: "Colonus\u2013Eleusis Road",
-            text: "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge.",
             persona: "A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-colonus",
@@ -4373,7 +4314,6 @@
           },
           "greek-road-colonus-marathon": {
             name: "Colonus\u2013Marathon Road",
-            text: "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Marathon Altar. A stone bench rests beside the verge.",
             persona: "A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-colonus",
@@ -4388,7 +4328,6 @@
           },
           "greek-road-sacred-way": {
             name: "The Road to Delphi",
-            text: "A paved pilgrim road climbs through the hills toward Mount Parnassus. One end leads to Athenian Agora; the other leads to Delphic Temple. Small shrines stand along the verge.",
             persona: "A shared road between Athenian Agora and Delphic Temple. The left end always leads to Athenian Agora. The right end always leads to Delphic Temple. Pilgrims carry questions and gifts for Apollo along this road. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-athens",
@@ -4402,7 +4341,6 @@
           },
           "greek-road-royal": {
             name: "The Royal Road",
-            text: "A long royal road runs east across dry plains. One end leads to The Trojan Walls; the other leads to The Court at Susa. A post station keeps fresh horses by the road.",
             persona: "A shared road between The Trojan Walls and The Court at Susa. The left end always leads to The Trojan Walls. The right end always leads to The Court at Susa. Royal messengers ride this road between the sea and the Persian court. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-troy",
@@ -4417,7 +4355,6 @@
           },
           "greek-road-black-sea": {
             name: "The Black Sea Road",
-            text: "A windy coast road follows the cliffs above the Black Sea. One end leads to The Thracian Shore; the other leads to The Taurian Temple. Fishing boats lie pulled up on the stones below.",
             persona: "A shared road between The Thracian Shore and The Taurian Temple. The left end always leads to The Thracian Shore. The right end always leads to The Taurian Temple. The road follows the cold northern coast. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-thrace",
@@ -4432,7 +4369,6 @@
           },
           "greek-road-colonists": {
             name: "The Colonists' Road",
-            text: "A long road runs west with the settlers of Corinth. One end leads to Corinthian Courtyard; the other leads to The Sicilian Cave. Carts carry seed, tools and household pots.",
             persona: "A shared road between Corinthian Courtyard and The Sicilian Cave. The left end always leads to Corinthian Courtyard. The right end always leads to The Sicilian Cave. Corinthian settlers took this way west when they founded Syracuse. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-corinth",
@@ -4447,7 +4383,6 @@
           },
           "greek-road-coast": {
             name: "The Coast Road",
-            text: "A long coast road winds west over the cliffs above the gulf. One end leads to Piraeus Quays; the other leads to The Wine-Dark Harbor. The ship makes the same passage sooner.",
             persona: "A shared road between Piraeus Quays and The Wine-Dark Harbor. The left end always leads to Piraeus Quays. The right end always leads to The Wine-Dark Harbor. From Piraeus the road is always open. From the harbor it opens only once the herald\u2019s truce rests in the Agora, as the Long Walls do; until then the ship with the Travel Provisions is the way to Piraeus. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-piraeus",
@@ -4462,7 +4397,6 @@
           },
           "greek-road-north": {
             name: "The Northern Road",
-            text: "A long road runs north through Thessaly and Thrace and crosses the strait to Troy. One end leads to The Trojan Camp Landing; the other comes down to The Wine-Dark Harbor. The ship makes the same passage sooner.",
             persona: "A shared road between The Trojan Camp Landing and The Wine-Dark Harbor. The left end always leads to The Trojan Camp Landing. The right end always leads to The Wine-Dark Harbor, outside the city; it never passes the City Gate. The road is open both ways. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
             exits: [
               "greek-ajax-landing",
@@ -4482,7 +4416,6 @@
               }
             },
             name: "The Trojan Camp Landing",
-            text: "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
             exits: [
               "greek-greek-camp",
@@ -4499,7 +4432,6 @@
           },
           "greek-ajax-household": {
             name: "Ajax\u2019s Household Tent",
-            text: "Tecmessa keeps a place for Eurysaces beside the tent. The child\u2019s father has died. His shield can be set safely with the household.",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Tecmessa keeps a place for Eurysaces beside the tent. The child\u2019s father has died. His shield can be set safely with the household.",
             exits: [
               "greek-greek-camp"
@@ -4515,7 +4447,6 @@
           },
           "greek-ajax-grave": {
             name: "Ajax\u2019s Grave",
-            text: "A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax\u2019s burial can be completed.",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax\u2019s burial can be completed.",
             exits: [
               "greek-greek-camp"
@@ -4531,7 +4462,6 @@
           },
           "greek-polynices-hollow": {
             name: "Polynices' Hollow",
-            text: "A bent olive shelters the shelf below the battlefield.",
             persona: "A bent olive shelters the shelf below the battlefield. There is room to kneel beside the earth.",
             exits: [
               "greek-battlefield"
@@ -4647,7 +4577,6 @@
           "greek-antigone": {
             name: "Antigone",
             startLevel: 11,
-            text: "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
             place: "greek-gate",
             home: "greek-polynices-hollow",
             seed: "Antigone, daughter of Oedipus.",
@@ -4697,8 +4626,7 @@
             ],
             tastes: {
               likes: "practical help, care for the dead",
-              sore: "being told that family grief is an inconvenience",
-              reason: "Dust marks the hem of her dress. She keeps looking toward the battlefield."
+              sore: "being told that family grief is an inconvenience"
             },
             bonds: {
               "greek-ismene": 3
@@ -4706,7 +4634,6 @@
           },
           "greek-ismene": {
             name: "Ismene",
-            text: "She has gathered clean cloth under the altar roof and checks the road before speaking. She would ask Theseus of Athens where her father was laid.",
             place: "greek-sanctuary",
             home: "greek-sanctuary",
             values: {
@@ -4757,8 +4684,7 @@
             ],
             tastes: {
               likes: "careful plans, a safe place for family",
-              sore: "being called indifferent because she is afraid",
-              reason: "She has gathered clean cloth under the altar roof and checks the road before speaking. She would ask Theseus of Athens where her father was laid."
+              sore: "being called indifferent because she is afraid"
             },
             bonds: {
               "greek-antigone": 3
@@ -4767,7 +4693,6 @@
           "greek-creon": {
             name: "Creon",
             startLevel: 19,
-            text: "He receives petitions beside the palace door. He wants his decree back in his own hands.",
             place: "greek-palace",
             home: "greek-palace",
             values: {
@@ -4801,13 +4726,11 @@
             ],
             tastes: {
               likes: "public procedure, named witnesses",
-              sore: "private defiance presented as settled law",
-              reason: "He receives petitions beside the palace door. He wants his decree back in his own hands."
+              sore: "private defiance presented as settled law"
             }
           },
           "greek-guard": {
             name: "The Gate Guard",
-            text: "He guards the road to the battlefield and stands aside only for Creon\u2019s writ or the herald\u2019s truce. He keeps glancing toward the smell of Dione\u2019s oven.",
             place: "greek-gate",
             home: "greek-gate",
             values: {
@@ -4821,8 +4744,7 @@
             portrait: "assets/greek-drama/chthonic-guard.png",
             tastes: {
               likes: "an unambiguous instruction, returning alive",
-              sore: "being blamed for things outside his sight",
-              reason: "He guards the road to the battlefield and stands aside only for Creon\u2019s writ or the herald\u2019s truce. He keeps glancing toward the smell of Dione\u2019s oven."
+              sore: "being blamed for things outside his sight"
             },
             wants: [
               {
@@ -4864,7 +4786,6 @@
           },
           "greek-baker": {
             name: "Dione the Baker",
-            text: "Flour covers her forearms. She has kept a place free at the common table.",
             place: "greek-courtyard",
             home: "greek-courtyard",
             values: {
@@ -4886,8 +4807,7 @@
             },
             tastes: {
               likes: "a returned jar, a fed neighbor",
-              sore: "grand speeches that leave the washing to her",
-              reason: "Flour covers her forearms. She has kept a place free at the common table."
+              sore: "grand speeches that leave the washing to her"
             },
             bonds: {
               "greek-guard": 2,
@@ -4896,7 +4816,6 @@
           },
           "greek-elder": {
             name: "The Chorus Elder",
-            text: "He listens beside the well and repeats each claim with the speaker's name.",
             place: "greek-well",
             home: "greek-well",
             values: {
@@ -4907,8 +4826,7 @@
             portrait: "assets/greek-drama/chthonic-elder.png",
             tastes: {
               likes: "named witnesses, a hearing before punishment",
-              sore: "rumor repeated as fact",
-              reason: "He listens beside the well and repeats each claim with the speaker's name."
+              sore: "rumor repeated as fact"
             },
             wants: [
               {
@@ -4924,7 +4842,6 @@
           },
           "greek-shipmaster": {
             name: "Myrto the Shipmaster",
-            text: "She ties a mooring rope around the stone bollard and watches the road into town. Her crew will not sail without bread, figs and wine.",
             place: "greek-harbor",
             home: "greek-harbor",
             values: {
@@ -4937,8 +4854,7 @@
             portrait: "assets/greek-drama/chthonic-shipmaster.png",
             tastes: {
               likes: "bread, figs and wine for the crew, an honest destination",
-              sore: "passengers promising what they cannot deliver",
-              reason: "She ties a mooring rope around the stone bollard and watches the road into town. Her crew will not sail without bread, figs and wine."
+              sore: "passengers promising what they cannot deliver"
             },
             want: {
               kind: "item",
@@ -4951,7 +4867,6 @@
           },
           "greek-rhapsode": {
             name: "The Bard",
-            text: "He keeps the words of the journey in a song, and would hear Adrastus speak over the Argive dead.",
             place: "greek-harbor",
             home: "greek-harbor",
             previousHomes: [
@@ -4964,8 +4879,7 @@
             portrait: "assets/greek-drama/chthonic-singer.png",
             tastes: {
               likes: "specific testimony, a patient audience",
-              sore: "three incompatible accounts flattened into one",
-              reason: "He keeps the words of the journey in a song, and would hear Adrastus speak over the Argive dead."
+              sore: "three incompatible accounts flattened into one"
             },
             standoffs: false,
             roamingQuest: "latest-completion",
@@ -4976,7 +4890,6 @@
           },
           "greek-market-neighbor": {
             name: "The Agora Neighbor",
-            text: "She sells small pots near the herald\u2019s platform and talks of Dione\u2019s Theban bread, which she has never tasted.",
             place: "greek-athens",
             home: "greek-athens",
             values: {
@@ -4986,8 +4899,7 @@
             portrait: "assets/greek-drama/chthonic-neighbor.png",
             tastes: {
               likes: "peaceful trade, useful arguments",
-              sore: "public schemes paid for by someone else",
-              reason: "She sells small pots near the herald\u2019s platform and talks of Dione\u2019s Theban bread, which she has never tasted."
+              sore: "public schemes paid for by someone else"
             },
             want: {
               kind: "item",
@@ -4999,7 +4911,6 @@
           },
           "greek-temple-attendant": {
             name: "The Delphic Attendant",
-            text: "He has arranged travelers' questions in a short queue. A broom leans against the columns.",
             place: "greek-delphi",
             home: "greek-delphi",
             values: {
@@ -5009,13 +4920,11 @@
             portrait: "assets/greek-drama/chthonic-attendant.png",
             tastes: {
               likes: "clear questions, careful custody of tokens",
-              sore: "being asked to confirm an unspoken prophecy",
-              reason: "He has arranged travelers' questions in a short queue. A broom leans against the columns."
+              sore: "being asked to confirm an unspoken prophecy"
             }
           },
           "greek-ferryman": {
             name: "The Lower Ferryman",
-            text: "He holds a mooring rope and waits for each traveler to name a purpose.",
             place: "greek-colonus",
             home: "greek-colonus",
             values: {
@@ -5025,13 +4934,11 @@
             portrait: "assets/greek-drama/chthonic-ferryman.png",
             tastes: {
               likes: "a stated purpose, a return plan",
-              sore: "travelers who expect death to erase consequences",
-              reason: "He holds a mooring rope and waits for each traveler to name a purpose."
+              sore: "travelers who expect death to erase consequences"
             }
           },
           "greek-helen-egypt": {
             name: "Helen",
-            text: "She checks the traveler's account against a witness tablet.",
             place: "greek-egypt-tomb",
             home: "greek-egypt-tomb",
             values: {},
@@ -5047,8 +4954,7 @@
             canonicalPerson: "helen",
             tastes: {
               likes: "being heard in her own words",
-              sore: "others deciding her identity from a rumor",
-              reason: "She checks the traveler's account against a witness tablet."
+              sore: "others deciding her identity from a rumor"
             },
             sealed: {
               at: "greek-egypt-tomb"
@@ -5056,7 +4962,6 @@
           },
           "greek-menelaus-egypt": {
             name: "Menelaus",
-            text: "Salt stains his cloak. He has kept the ship's passenger tally.",
             place: "greek-egypt-tomb",
             home: "greek-egypt-tomb",
             values: {},
@@ -5072,8 +4977,7 @@
             canonicalPerson: "menelaus",
             tastes: {
               likes: "a reliable witness, provisions for the crew",
-              sore: "confident claims without a source",
-              reason: "Salt stains his cloak. He has kept the ship's passenger tally."
+              sore: "confident claims without a source"
             },
             sealed: {
               at: "greek-egypt-tomb"
@@ -5082,7 +4986,6 @@
           "greek-helen-troy": {
             name: "Helen",
             startLevel: 6,
-            text: "She checks the traveler's account against a witness tablet.",
             place: "greek-troy-beach",
             home: "greek-troy-beach",
             values: {},
@@ -5098,8 +5001,7 @@
             canonicalPerson: "helen",
             tastes: {
               likes: "being heard in her own words",
-              sore: "others deciding her identity from a rumor",
-              reason: "She checks the traveler's account against a witness tablet."
+              sore: "others deciding her identity from a rumor"
             },
             sealed: {
               at: "greek-troy-beach"
@@ -5107,7 +5009,6 @@
           },
           "greek-menelaus-troy": {
             name: "Menelaus",
-            text: "Salt stains his cloak. He has kept the ship's passenger tally.",
             place: "greek-troy-beach",
             home: "greek-troy-beach",
             values: {},
@@ -5123,8 +5024,7 @@
             canonicalPerson: "menelaus",
             tastes: {
               likes: "a reliable witness, provisions for the crew",
-              sore: "confident claims without a source",
-              reason: "Salt stains his cloak. He has kept the ship's passenger tally."
+              sore: "confident claims without a source"
             },
             sealed: {
               at: "greek-troy-beach"
@@ -5132,7 +5032,6 @@
           },
           "greek-electra-aeschylus": {
             name: "Electra",
-            text: "She has preserved an account of the household's losses.",
             place: "greek-argos-tomb",
             home: "greek-argos-tomb",
             values: {},
@@ -5148,8 +5047,7 @@
             canonicalPerson: "electra",
             tastes: {
               likes: "testimony about her father, a relative who listens",
-              sore: "silence demanded for the household's convenience",
-              reason: "She has preserved an account of the household's losses."
+              sore: "silence demanded for the household's convenience"
             },
             sealed: {
               at: "greek-argos-tomb"
@@ -5157,7 +5055,6 @@
           },
           "greek-orestes-aeschylus": {
             name: "Orestes",
-            text: "He has come to hear his sister before committing himself.",
             place: "greek-argos-tomb",
             home: "greek-argos-tomb",
             values: {},
@@ -5173,8 +5070,7 @@
             canonicalPerson: "orestes",
             tastes: {
               likes: "evidence before an irreversible promise",
-              sore: "being treated as an instrument of someone else's revenge",
-              reason: "He has come to hear his sister before committing himself."
+              sore: "being treated as an instrument of someone else's revenge"
             },
             sealed: {
               at: "greek-argos-tomb"
@@ -5183,7 +5079,6 @@
           "greek-electra-sophocles": {
             name: "Electra",
             startLevel: 6,
-            text: "She has preserved an account of the household's losses.",
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
             values: {},
@@ -5199,8 +5094,7 @@
             canonicalPerson: "electra",
             tastes: {
               likes: "testimony about her father, a relative who listens",
-              sore: "silence demanded for the household's convenience",
-              reason: "She has preserved an account of the household's losses."
+              sore: "silence demanded for the household's convenience"
             },
             sealed: {
               at: "greek-mycenae-palace"
@@ -5209,7 +5103,6 @@
           "greek-orestes-sophocles": {
             name: "Orestes",
             startLevel: 6,
-            text: "He has come to hear his sister before committing himself.",
             place: "greek-mycenae-palace",
             home: "greek-mycenae-palace",
             values: {},
@@ -5225,8 +5118,7 @@
             canonicalPerson: "orestes",
             tastes: {
               likes: "evidence before an irreversible promise",
-              sore: "being treated as an instrument of someone else's revenge",
-              reason: "He has come to hear his sister before committing himself."
+              sore: "being treated as an instrument of someone else's revenge"
             },
             sealed: {
               at: "greek-mycenae-palace"
@@ -5234,7 +5126,6 @@
           },
           "greek-electra-euripides": {
             name: "Electra",
-            text: "She has preserved an account of the household's losses.",
             place: "greek-argive-farm",
             home: "greek-argive-farm",
             values: {},
@@ -5250,8 +5141,7 @@
             canonicalPerson: "electra",
             tastes: {
               likes: "testimony about her father, a relative who listens",
-              sore: "silence demanded for the household's convenience",
-              reason: "She has preserved an account of the household's losses."
+              sore: "silence demanded for the household's convenience"
             },
             sealed: {
               at: "greek-argive-farm"
@@ -5259,7 +5149,6 @@
           },
           "greek-orestes-euripides": {
             name: "Orestes",
-            text: "He has come to hear his sister before committing himself.",
             place: "greek-argive-farm",
             home: "greek-argive-farm",
             values: {},
@@ -5275,8 +5164,7 @@
             canonicalPerson: "orestes",
             tastes: {
               likes: "evidence before an irreversible promise",
-              sore: "being treated as an instrument of someone else's revenge",
-              reason: "He has come to hear his sister before committing himself."
+              sore: "being treated as an instrument of someone else's revenge"
             },
             sealed: {
               at: "greek-argive-farm"
@@ -5284,7 +5172,6 @@
           },
           "greek-aethra": {
             name: "Aethra",
-            text: "Olive branches rest across her knees at Demeter\u2019s altar. She will not rise until funeral oil is here for the dead, and she has sent for her son Theseus.",
             place: "greek-eleusis",
             home: "greek-eleusis",
             values: {
@@ -5295,8 +5182,7 @@
             portrait: "assets/greek-drama/open-door-aethra.webp",
             tastes: {
               likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "Olive branches rest across her knees at Demeter\u2019s altar. She will not rise until funeral oil is here for the dead, and she has sent for her son Theseus."
+              sore: "promises treated as finished deeds"
             },
             requires: [
               {
@@ -5325,7 +5211,6 @@
           },
           "greek-adrastus": {
             name: "Adrastus",
-            text: "Dust lies in the folds of his cloak. He led the Argive host against Thebes, and he waits at Eleusis for the herald\u2019s word that Thebes will give up the dead.",
             place: "greek-eleusis",
             home: "greek-eleusis",
             values: {
@@ -5335,8 +5220,7 @@
             portrait: "assets/greek-drama/open-door-adrastus.webp",
             tastes: {
               likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "Dust lies in the folds of his cloak. He led the Argive host against Thebes, and he waits at Eleusis for the herald\u2019s word that Thebes will give up the dead."
+              sore: "promises treated as finished deeds"
             },
             requires: [
               {
@@ -5364,7 +5248,6 @@
           },
           "greek-argive-mother": {
             name: "An Argive Mother",
-            text: "She holds a strip of cloth between both hands. She waits at Eleusis for her son\u2019s ashes and means to keep them in her own arms.",
             place: "greek-eleusis",
             home: "greek-eleusis",
             values: {
@@ -5390,8 +5273,7 @@
             ],
             tastes: {
               likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "She holds a strip of cloth between both hands. She waits at Eleusis for her son\u2019s ashes and means to keep them in her own arms."
+              sore: "promises treated as finished deeds"
             },
             sealed: {
               at: "greek-eleusis"
@@ -5403,7 +5285,6 @@
           },
           "greek-iphis": {
             name: "Iphis",
-            text: "He sits beside the shrine steps, a place empty at his side. When the ashes come, he would see them taken down to the Piraeus quays, toward home.",
             place: "greek-eleusis",
             home: "greek-eleusis",
             values: {},
@@ -5427,8 +5308,7 @@
             ],
             tastes: {
               likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "He sits beside the shrine steps, a place empty at his side. When the ashes come, he would see them taken down to the Piraeus quays, toward home."
+              sore: "promises treated as finished deeds"
             },
             sealed: {
               at: "greek-eleusis"
@@ -5447,7 +5327,6 @@
           "greek-theseus": {
             name: "Theseus",
             startLevel: 11,
-            text: "He stands by the herald\u2019s table with the truce in his hand. He will not act for Argos until the mothers\u2019 own petition reaches the Agora.",
             place: "greek-athens",
             home: "greek-athens",
             values: {
@@ -5458,8 +5337,7 @@
             portrait: "assets/greek-drama/open-door-theseus.webp",
             tastes: {
               likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "He stands by the herald\u2019s table with the truce in his hand. He will not act for Argos until the mothers\u2019 own petition reaches the Agora."
+              sore: "promises treated as finished deeds"
             },
             requires: [
               {
@@ -5487,7 +5365,6 @@
           },
           "greek-quay-host": {
             name: "Thaleia the Quay Host",
-            text: "She counts bowls beside an empty grain board. Her quay waits for its own sack of wheat, and her list keeps a space for Myrine of Argos.",
             place: "greek-piraeus",
             home: "greek-piraeus",
             values: {},
@@ -5495,8 +5372,7 @@
             portrait: "assets/greek-drama/open-door-quay-host.webp",
             tastes: {
               likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "She counts bowls beside an empty grain board. Her quay waits for its own sack of wheat, and her list keeps a space for Myrine of Argos."
+              sore: "promises treated as finished deeds"
             },
             requires: [
               {
@@ -5525,7 +5401,6 @@
           },
           "greek-colonus-keeper": {
             name: "The Grove Keeper",
-            text: "The keeper sits by the boundary stone where an old exile once rested. The funeral oil was pressed from these olives, and he wants it set down in the grove again.",
             place: "greek-colonus",
             home: "greek-colonus",
             values: {},
@@ -5533,8 +5408,7 @@
             portrait: "assets/greek-drama/open-door-grove-keeper.webp",
             tastes: {
               likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "The keeper sits by the boundary stone where an old exile once rested. The funeral oil was pressed from these olives, and he wants it set down in the grove again."
+              sore: "promises treated as finished deeds"
             },
             requires: [
               {
@@ -5587,7 +5461,6 @@
           },
           "greek-marathon-keeper": {
             name: "The Altar Keeper",
-            text: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter.",
             place: "greek-marathon",
             home: "greek-marathon",
             values: {},
@@ -5595,13 +5468,11 @@
             portrait: "assets/greek-drama/open-door-altar-keeper.webp",
             tastes: {
               likes: "careful listening and help that reaches its owner",
-              sore: "promises treated as finished deeds",
-              reason: "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter."
+              sore: "promises treated as finished deeds"
             }
           },
           "greek-household-witness": {
             name: "Myrine of Argos",
-            text: "Road dust marks her sandals. She will not leave Eleusis before the ashes are in the mothers\u2019 keeping; then she means to walk down to the Piraeus quays.",
             place: "greek-eleusis",
             home: "greek-eleusis",
             values: {},
@@ -5625,8 +5496,7 @@
             ],
             tastes: {
               likes: "a place kept ready and a promise carried through",
-              sore: "her household spoken for before she has answered",
-              reason: "Road dust marks her sandals. She will not leave Eleusis before the ashes are in the mothers\u2019 keeping; then she means to walk down to the Piraeus quays."
+              sore: "her household spoken for before she has answered"
             },
             sealed: {
               at: "greek-eleusis"
@@ -5638,7 +5508,6 @@
           },
           "greek-ajax-tecmessa": {
             name: "Tecmessa",
-            text: "Tecmessa keeps the household beside Eurysaces. She asks for Ajax\u2019s shield to be set where the child can keep it.",
             place: "greek-ajax-household",
             home: "greek-ajax-household",
             values: {},
@@ -5654,8 +5523,7 @@
             ],
             tastes: {
               likes: "a deed carried through with its witnesses",
-              sore: "a promise called a finished burial",
-              reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+              sore: "a promise called a finished burial"
             },
             sealed: {
               at: "greek-ajax-household"
@@ -5666,7 +5534,6 @@
           },
           "greek-ajax-teucer": {
             name: "Teucer",
-            text: "Ajax\u2019s brother carries a written plea for burial. He asks for the household and the dead to be heard.",
             place: "greek-greek-camp",
             home: "greek-greek-camp",
             values: {},
@@ -5682,8 +5549,7 @@
             ],
             tastes: {
               likes: "a deed carried through with its witnesses",
-              sore: "a promise called a finished burial",
-              reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+              sore: "a promise called a finished burial"
             },
             sealed: {
               at: "greek-greek-camp"
@@ -5695,7 +5561,6 @@
           "greek-ajax-odysseus": {
             name: "Odysseus",
             startLevel: 15,
-            text: "Odysseus waits by the commanders\u2019 tents. He can hear Teucer\u2019s plea and speak for a former rival.",
             place: "greek-greek-camp",
             home: "greek-greek-camp",
             values: {},
@@ -5711,8 +5576,7 @@
             ],
             tastes: {
               likes: "a deed carried through with its witnesses",
-              sore: "a promise called a finished burial",
-              reason: "Ajax\u2019s household and burial are at issue in this named Trojan account."
+              sore: "a promise called a finished burial"
             },
             sealed: {
               at: "greek-greek-camp"
@@ -5720,7 +5584,6 @@
           },
           "greek-polynices-shade": {
             name: "Polynices' Shade",
-            text: "A pale figure stands beside the broken spears.",
             seed: "Polynices, brother of Antigone.",
             place: "greek-battlefield",
             portrait: "assets/greek-drama/polynices-shade.webp",
@@ -5753,13 +5616,11 @@
             },
             tastes: {
               likes: "care for his kin",
-              sore: "the neglect of the dead",
-              reason: "He asks that his sister be allowed to lay him to rest."
+              sore: "the neglect of the dead"
             }
           },
           "greek-patroclus": {
             name: "Patroclus",
-            text: "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus.",
             place: "greek-ship",
             home: "greek-piraeus",
             values: {
@@ -5793,8 +5654,7 @@
             },
             tastes: {
               likes: "bread shared on deck, a steady voyage home",
-              sore: "being treated as cargo",
-              reason: "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus."
+              sore: "being treated as cargo"
             },
             appearsWhen: [
               {
@@ -5836,7 +5696,6 @@
         items: {
           "greek-water-jar": {
             name: "Water Jar",
-            text: "A filled clay jar with a repaired handle. Dione needs it back at the common table.",
             holder: "greek-well",
             persona: "A filled clay jar with a repaired handle, drawn at the well. Dione needs it back at the common table, where her bread is made.",
             art: "assets/greek-drama/water-jar.png",
@@ -5845,7 +5704,6 @@
           },
           "greek-bread": {
             name: "Courtyard Bread",
-            text: "A round loaf from Dione's oven, baked from well water and wheat.",
             holder: "greek-courtyard",
             persona: "A round loaf from Dione's oven, baked from well water and wheat in the Theban courtyard.",
             art: "assets/greek-drama/bread.png",
@@ -5865,7 +5723,6 @@
           },
           "greek-wheat": {
             name: "Sack of Wheat",
-            text: "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus.",
             holder: "greek-baker",
             persona: "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus for Dione's oven.",
             art: "assets/greek-drama/wheat.png",
@@ -5874,7 +5731,6 @@
           },
           "greek-figs": {
             name: "Dried Figs",
-            text: "Dried figs from the trees beside the sanctuary altar, strung for a journey.",
             holder: "greek-sanctuary",
             persona: "Dried figs from the trees beside the sanctuary altar, strung for a journey.",
             art: "assets/greek-drama/figs.png",
@@ -5886,7 +5742,6 @@
           },
           "greek-wine-skin": {
             name: "Wine Skin",
-            text: "A stoppered leather skin of wine from the gate's ration, for a crew at sea.",
             holder: "greek-gate",
             persona: "A stoppered leather skin of wine from the gate's ration, for a crew at sea.",
             art: "assets/greek-drama/wine-skin.png",
@@ -5898,7 +5753,6 @@
           },
           "greek-oil-flask": {
             name: "Funeral Oil",
-            text: "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
             holder: "greek-courtyard",
             persona: "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
             art: "assets/greek-drama/oil-lekythos.png",
@@ -5908,7 +5762,6 @@
           "greek-shovel": {
             name: "Burial Shovel",
             startLevel: 6,
-            text: "A short iron shovel with soil caught beneath the blade.",
             holder: "greek-gate",
             persona: "A short iron shovel with soil caught beneath the blade.",
             art: "assets/greek-drama/shovel.png",
@@ -5917,21 +5770,18 @@
           "greek-decree": {
             name: "The Burial Decree",
             startLevel: 19,
-            text: "A public copy forbids burial of the brother left outside the city.",
             holder: "greek-guard",
             persona: "A public copy of Creon's decree. It forbids burial of the brother left outside the city.",
             art: "assets/greek-drama/decree.png"
           },
           "greek-household-token": {
             name: "Household Token",
-            text: "A small marked seal identifies the bereaved household for a public petition.",
             holder: "greek-sanctuary",
             persona: "A small marked seal that names the bereaved household for a public petition.",
             art: "assets/greek-drama/household-token.png"
           },
           "greek-provisions": {
             name: "Travel Provisions",
-            text: "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
             holder: "greek-harbor",
             persona: "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
             art: "assets/greek-drama/provisions.png",
@@ -5953,7 +5803,6 @@
           "greek-olive-branch": {
             name: "The Herald\u2019s Truce",
             startLevel: 15,
-            text: "An olive branch bound with white wool carries the herald\u2019s burial truce: Thebes gives up the Argive dead under witness. Its place is Dione\u2019s table in the Theban courtyard.",
             holder: "greek-theseus",
             art: "assets/greek-drama/olive-branch.webp",
             persona: "An olive branch bound with white wool: the herald's burial truce. Thebes gives up the Argive dead under witness.",
@@ -5979,7 +5828,6 @@
           "greek-egypt-testimony": {
             name: "The Egyptian Witness Tablet",
             startLevel: 6,
-            text: "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy.",
             holder: "greek-egypt-tomb",
             persona: "A witness tablet. It records Helen's stay in Egypt and tells her apart from the phantom sent to Troy.",
             art: "assets/greek-drama/testimony.png",
@@ -5993,7 +5841,6 @@
           },
           "greek-troy-testimony": {
             name: "The Trojan Witness Tablet",
-            text: "The account records Helen's journey from Troy. It makes no claim that a phantom took her place.",
             holder: "greek-troy-beach",
             persona: "A witness tablet. It records Helen's journey from Troy and makes no claim that a phantom took her place.",
             art: "assets/greek-drama/troy-testimony.png",
@@ -6007,7 +5854,6 @@
           },
           "greek-tomb-testimony": {
             name: "The Tomb Witness Tablet",
-            text: "The testimony begins with offerings and a meeting at Agamemnon's tomb.",
             holder: "greek-argos-tomb",
             persona: "A witness tablet. Its account begins with offerings and a meeting at Agamemnon's tomb.",
             art: "assets/greek-drama/tomb-testimony.png",
@@ -6021,7 +5867,6 @@
           },
           "greek-palace-testimony": {
             name: "The Palace Witness Tablet",
-            text: "The testimony begins with Electra waiting outside the Mycenaean palace.",
             holder: "greek-mycenae-palace",
             persona: "A witness tablet. Its account begins with Electra waiting outside the Mycenaean palace.",
             art: "assets/greek-drama/palace-testimony.png",
@@ -6035,7 +5880,6 @@
           },
           "greek-farm-testimony": {
             name: "The Farmer's Witness Tablet",
-            text: "The testimony begins in a poor household in the Argive countryside.",
             holder: "greek-argive-farm",
             persona: "A witness tablet. Its account begins in a poor household in the Argive countryside.",
             art: "assets/greek-drama/farm-testimony.png",
@@ -6050,7 +5894,6 @@
           "greek-burial-petition": {
             name: "The Mothers\u2019 Petition",
             startLevel: 11,
-            text: "An olive branch lies across a tablet bearing the mothers\u2019 request. It is addressed to the Agora of Athens, and Aethra has left room for the city\u2019s answer.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/burial-petition.png",
             persona: "An olive branch across a tablet that bears the mothers' request to the Agora of Athens. Room is left for the city's answer.",
@@ -6060,7 +5903,6 @@
           "greek-ash-urn": {
             name: "The Funeral Urn",
             startLevel: 6,
-            text: "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from oil and the herald\u2019s truce.",
             holder: "greek-eleusis",
             art: "assets/greek-drama/ash-urn.png",
             persona: "A covered clay urn for the Argive ashes, made at Aethra's altar from oil and the herald's truce.",
@@ -6077,7 +5919,6 @@
           },
           "greek-shelter-blanket": {
             name: "The Shelter Blanket",
-            text: "A thick clean blanket is folded beside the cargo baskets. Sailors say an altar keeper at Marathon once asked for it.",
             holder: "greek-piraeus",
             art: "assets/greek-drama/shelter-blanket.png",
             persona: "Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler\u2019s present deeds."
@@ -6085,7 +5926,6 @@
           "greek-ajax-shield": {
             name: "Ajax\u2019s Shield",
             startLevel: 11,
-            text: "Ajax\u2019s shield waits to be carried to Tecmessa\u2019s household for Eurysaces.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
             art: "assets/greek-drama/ajax-shield.png",
@@ -6099,7 +5939,6 @@
           },
           "greek-ajax-plea": {
             name: "Teucer\u2019s Written Plea",
-            text: "Teucer asks for earth over his brother. Odysseus backs a public rite, Tecmessa wants a household rite, and Teucer asks for witnesses.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
             art: "assets/greek-drama/ajax-plea.png",
@@ -6118,7 +5957,6 @@
           },
           "greek-ajax-cloth": {
             name: "The Camp\u2019s Burial Cloth",
-            text: "Clean linen is set aside for Ajax\u2019s burial in the Trojan account.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
             art: "assets/greek-drama/ajax-cloth.png",
@@ -6132,7 +5970,6 @@
           },
           "greek-ajax-tools": {
             name: "The Camp\u2019s Grave Tools",
-            text: "Take the tools and the linen to Ajax\u2019s grave. Set them down and stay for the burial.",
             holder: "greek-greek-camp",
             persona: "This is a named Trojan account, beginning after Ajax\u2019s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
             art: "assets/greek-drama/ajax-tools.png",
@@ -6146,7 +5983,6 @@
           },
           "greek-burial-account": {
             name: "Burial Account",
-            text: "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
             persona: "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
             holder: "greek-battlefield",
             art: "assets/greek-drama/burial-account.webp",
@@ -6160,21 +5996,18 @@
           },
           "greek-creon-writ": {
             name: "Creon's Writ",
-            text: "A sealed writ from the palace. With it, Creon permits the household to bury the brother, and the gate guard to stand aside.",
             persona: "A sealed writ from the palace. With it Creon lets the household bury the brother, and the gate guard stands aside.",
             holder: "greek-creon",
             art: "assets/greek-drama/creon-writ.webp"
           },
           "greek-helen-accounts": {
             name: "Helen\u2019s Account Tablet",
-            text: "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy.",
             holder: "greek-harbor",
             art: "assets/greek-drama/helen-accounts.png",
             persona: "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy."
           },
           "greek-atreid-record": {
             name: "Record of the House of Atreus",
-            text: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter.",
             holder: "greek-argolid-road",
             art: "assets/greek-drama/atreid-record.png",
             persona: "Ismene knows the way to Agamemnon\u2019s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter."
@@ -6368,8 +6201,6 @@
             id: "greek-return-water-jar",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Return the water jar",
-            text: "Vale sets the filled jar beside Dione's table. She puts a loaf aside for Myrto's crew.",
             requires: [
               {
                 kind: "holding",
@@ -6389,15 +6220,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} sets the filled jar beside Dione's table. She puts a loaf aside for Myrto's crew.",
             on: "give"
           },
           {
             id: "greek-hear-decree",
             subject: "greek-guard",
             at: "greek-gate",
-            label: "Hear the burial order",
-            text: "The guard reads the burial prohibition aloud.",
             requires: [],
             effects: [
               {
@@ -6406,15 +6234,12 @@
                 value: true
               }
             ],
-            textTemplate: "The guard reads the burial prohibition aloud.",
             on: "meet"
           },
           {
             id: "greek-gather-witness",
             subject: "greek-elder",
             at: "greek-well",
-            label: "Ask for a public witness",
-            text: "The elder agrees to witness a petition from the bereaved household.",
             requires: [
               {
                 kind: "flag",
@@ -6435,8 +6260,6 @@
             id: "greek-helen-egypt",
             subject: "greek-shipmaster",
             at: "greek-harbor",
-            label: "Follow Helen's Egyptian account",
-            text: "Myrto names the tomb in Egypt where Helen waited.",
             requires: [
               {
                 kind: "choice_unset",
@@ -6460,16 +6283,12 @@
                 place: "greek-harbor"
               }
             ],
-            summary: "The Egyptian account governs Helen's whereabouts and testimony. The Trojan account remains an alternative story.",
-            textTemplate: "{actor} commits to the Egyptian account: Helen remained with Proteus while a phantom went to Troy. Myrto opens the passage to the tomb.",
             on: "give"
           },
           {
             id: "greek-helen-troy",
             subject: "greek-elder",
             at: "greek-well",
-            label: "Follow Helen's Trojan account",
-            text: "The Chorus Elder names the beach where Helen returned from Troy.",
             requires: [
               {
                 kind: "choice_unset",
@@ -6493,16 +6312,12 @@
                 place: "greek-well"
               }
             ],
-            summary: "The Trojan account governs Helen's whereabouts and testimony. No phantom has been established in this history.",
-            textTemplate: "{actor} commits to the Trojan account: Helen returns from Troy. Myrto opens the passage to the homecoming beach.",
             on: "give"
           },
           {
             id: "greek-hear-helen-egypt",
             subject: "greek-helen-egypt",
             at: "greek-egypt-tomb",
-            label: "Hear Helen's testimony",
-            text: "Helen tells her own account.",
             requires: [
               {
                 kind: "choice",
@@ -6517,15 +6332,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports.",
             on: "talk"
           },
           {
             id: "greek-helen-egypt-passage",
             subject: "greek-menelaus-egypt",
             at: "greek-egypt-tomb",
-            label: "Provision a return passage",
-            text: "Vale deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
             requires: [
               {
                 kind: "choice",
@@ -6573,15 +6385,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
             on: "give"
           },
           {
             id: "greek-helen-egypt-shelter",
             subject: "greek-helen-egypt",
             at: "greek-egypt-tomb",
-            label: "Support a stay under protection",
-            text: "Vale records Helen's request to remain under protection while the competing claims are heard.",
             requires: [
               {
                 kind: "choice",
@@ -6620,15 +6429,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard.",
             on: "give"
           },
           {
             id: "greek-hear-helen-troy",
             subject: "greek-helen-troy",
             at: "greek-troy-beach",
-            label: "Hear Helen's testimony",
-            text: "Helen tells her own account.",
             requires: [
               {
                 kind: "choice",
@@ -6643,15 +6449,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Helen give her own account and keeps its source separate from earlier reports.",
             on: "talk"
           },
           {
             id: "greek-helen-troy-passage",
             subject: "greek-menelaus-troy",
             at: "greek-troy-beach",
-            label: "Provision a return passage",
-            text: "Vale deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
             requires: [
               {
                 kind: "choice",
@@ -6699,15 +6502,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
             on: "give"
           },
           {
             id: "greek-helen-troy-shelter",
             subject: "greek-helen-troy",
             at: "greek-troy-beach",
-            label: "Support a stay under protection",
-            text: "Vale records Helen's request to remain under protection while the competing claims are heard.",
             requires: [
               {
                 kind: "choice",
@@ -6746,15 +6546,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} records Helen's request to remain under protection while the competing claims are heard.",
             on: "give"
           },
           {
             id: "greek-atreid-aeschylus",
             subject: "greek-ismene",
             at: "greek-sanctuary",
-            label: "Follow the tomb account \xB7 Aeschylus",
-            text: "Ismene names the road to Agamemnon\u2019s tomb.",
             requires: [
               {
                 kind: "choice_unset",
@@ -6778,16 +6575,12 @@
                 place: "greek-sanctuary"
               }
             ],
-            summary: "The Aeschylus account governs the Atreid household, beginning at Agamemnon\u2019s tomb. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Aeschylus account. The singer points out the road to Agamemnon's Tomb.",
             on: "give"
           },
           {
             id: "greek-hear-electra-aeschylus",
             subject: "greek-electra-aeschylus",
             at: "greek-argos-tomb",
-            label: "Hear the household's testimony",
-            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -6802,15 +6595,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
             on: "talk"
           },
           {
             id: "greek-atreid-aeschylus-hearing",
             subject: "greek-orestes-aeschylus",
             at: "greek-argos-tomb",
-            label: "Commit the testimony to a hearing",
-            text: "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
             requires: [
               {
                 kind: "choice",
@@ -6849,15 +6639,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
             on: "give"
           },
           {
             id: "greek-atreid-aeschylus-refusal",
             subject: "greek-electra-aeschylus",
             at: "greek-argos-tomb",
-            label: "Refuse the revenge commitment",
-            text: "Vale refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
             requires: [
               {
                 kind: "choice",
@@ -6896,15 +6683,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
             on: "give"
           },
           {
             id: "greek-atreid-sophocles",
             subject: "greek-creon",
             at: "greek-palace",
-            label: "Follow the palace account \xB7 Sophocles",
-            text: "Creon names the road to the palace at Mycenae.",
             requires: [
               {
                 kind: "choice_unset",
@@ -6928,16 +6712,12 @@
                 place: "greek-palace"
               }
             ],
-            summary: "The Sophocles account governs the Atreid household, beginning at the Mycenaean palace. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Sophocles account. The singer points out the road to Mycenaean Palace.",
             on: "give"
           },
           {
             id: "greek-hear-electra-sophocles",
             subject: "greek-electra-sophocles",
             at: "greek-mycenae-palace",
-            label: "Hear the household's testimony",
-            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -6952,15 +6732,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
             on: "talk"
           },
           {
             id: "greek-atreid-sophocles-hearing",
             subject: "greek-orestes-sophocles",
             at: "greek-mycenae-palace",
-            label: "Commit the testimony to a hearing",
-            text: "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
             requires: [
               {
                 kind: "choice",
@@ -6999,15 +6776,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
             on: "give"
           },
           {
             id: "greek-atreid-sophocles-refusal",
             subject: "greek-electra-sophocles",
             at: "greek-mycenae-palace",
-            label: "Refuse the revenge commitment",
-            text: "Vale refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
             requires: [
               {
                 kind: "choice",
@@ -7046,15 +6820,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
             on: "give"
           },
           {
             id: "greek-atreid-euripides",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Follow the farmhouse account \xB7 Euripides",
-            text: "Dione names the farm that gave Electra shelter.",
             requires: [
               {
                 kind: "choice_unset",
@@ -7078,16 +6849,12 @@
                 place: "greek-courtyard"
               }
             ],
-            summary: "The Euripides account governs the Atreid household, beginning at the Argive farmhouse. The other accounts remain alternative stories.",
-            textTemplate: "{actor} follows the Euripides account. The singer points out the road to The Argive Farmhouse.",
             on: "give"
           },
           {
             id: "greek-hear-electra-euripides",
             subject: "greek-electra-euripides",
             at: "greek-argive-farm",
-            label: "Hear the household's testimony",
-            text: "Electra names what her family has lost.",
             requires: [
               {
                 kind: "choice",
@@ -7102,15 +6869,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} hears Electra name the household\u2019s losses before asking for a commitment.",
             on: "talk"
           },
           {
             id: "greek-atreid-euripides-hearing",
             subject: "greek-orestes-euripides",
             at: "greek-argive-farm",
-            label: "Commit the testimony to a hearing",
-            text: "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
             requires: [
               {
                 kind: "choice",
@@ -7149,15 +6913,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
             on: "give"
           },
           {
             id: "greek-atreid-euripides-refusal",
             subject: "greek-electra-euripides",
             at: "greek-argive-farm",
-            label: "Refuse the revenge commitment",
-            text: "Vale refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
             requires: [
               {
                 kind: "choice",
@@ -7196,16 +6957,12 @@
                 value: true
               }
             ],
-            textTemplate: "{actor} refuses to promise revenge while keeping the household\u2019s testimony on record. Electra knows the answer.",
             on: "give"
           },
           {
             id: "greek-ajax-invitation",
             subject: "greek-shipmaster",
             at: "greek-harbor",
-            label: "Accept the Trojan camp\u2019s invitation",
-            text: "Myrto points out the Northern Road to Ajax\u2019s camp.",
-            textTemplate: "{actor} accepts Myrto\u2019s lasting invitation to a named Trojan account. It begins after Ajax\u2019s death, where his household and Teucer seek burial. The Greek ship can now call at the camp landing. Dione\u2019s earlier account keeps its own time.",
             requires: [
               {
                 kind: "choice_unset",
@@ -7231,9 +6988,6 @@
             id: "greek-ajax-learn-shield-teucer",
             subject: "greek-ajax-teucer",
             at: "greek-greek-camp",
-            label: "Hear Teucer name the shield\u2019s keeper",
-            text: "Teucer tells Vale that Ajax left his shield for his son Eurysaces in Tecmessa\u2019s tent. This is testimony within the named Trojan account.",
-            textTemplate: "Teucer tells {actor} that Ajax left his shield for his son Eurysaces in Tecmessa\u2019s tent. This is testimony within the named Trojan account.",
             requires: [
               {
                 kind: "flag",
@@ -7265,9 +7019,6 @@
             id: "greek-ajax-learn-shield-odysseus",
             subject: "greek-ajax-odysseus",
             at: "greek-greek-camp",
-            label: "Hear Odysseus name the shield\u2019s keeper",
-            text: "Odysseus tells Vale that the shield belongs with Eurysaces in Tecmessa\u2019s care. This is testimony within the named Trojan account.",
-            textTemplate: "Odysseus tells {actor} that the shield belongs with Eurysaces in Tecmessa\u2019s care. This is testimony within the named Trojan account.",
             requires: [
               {
                 kind: "flag",
@@ -7299,9 +7050,6 @@
             id: "greek-ajax-learn-shield-tecmessa",
             subject: "greek-ajax-tecmessa",
             at: "greek-ajax-household",
-            label: "Hear Tecmessa speak for Eurysaces",
-            text: "Tecmessa tells Vale that Ajax wanted their son Eurysaces to keep the shield. This is testimony within the named Trojan account.",
-            textTemplate: "Tecmessa tells {actor} that Ajax wanted their son Eurysaces to keep the shield. This is testimony within the named Trojan account.",
             requires: [
               {
                 kind: "flag",
@@ -7333,9 +7081,6 @@
             id: "greek-ajax-deliver-shield",
             subject: "greek-ajax-tecmessa",
             at: "greek-ajax-household",
-            label: "Set the shield with Tecmessa for Eurysaces",
-            text: "Tecmessa sets Ajax\u2019s shield beside her tent for Eurysaces.",
-            textTemplate: "{actor} sets Ajax\u2019s shield beside Tecmessa\u2019s tent for Eurysaces. Tecmessa receives it into the household\u2019s care within the Trojan account.",
             requires: [
               {
                 kind: "flag",
@@ -7376,9 +7121,6 @@
             id: "greek-ajax-hear-plea",
             subject: "greek-ajax-teucer",
             at: "greek-greek-camp",
-            label: "Hear Teucer\u2019s burial plea",
-            text: "Teucer asks Vale to carry his written burial plea to Odysseus. He places the plea on the camp bench. This is testimony within the named Trojan account.",
-            textTemplate: "Teucer asks {actor} to carry his written burial plea to Odysseus. He places the plea on the camp bench. This is testimony within the named Trojan account.",
             requires: [
               {
                 kind: "flag",
@@ -7405,9 +7147,6 @@
             id: "greek-ajax-deliver-plea",
             subject: "greek-ajax-odysseus",
             at: "greek-greek-camp",
-            label: "Read Teucer\u2019s plea with Odysseus",
-            text: "Odysseus reads Teucer\u2019s plea aloud.",
-            textTemplate: "{actor} sets Teucer\u2019s written plea before Odysseus and names its source. Odysseus hears the rival\u2019s claim to burial within the Trojan account.",
             requires: [
               {
                 kind: "flag",
@@ -7444,9 +7183,6 @@
             id: "greek-ajax-choose-public",
             subject: "greek-ajax-odysseus",
             at: "greek-greek-camp",
-            label: "Seek a public burial with Odysseus\u2019s support",
-            text: "Odysseus asks for a public burial.",
-            textTemplate: "Odysseus supports a public burial for his former rival. {actor} undertakes the work of the rite. The burial still needs cloth, grave tools and earth.",
             requires: [
               {
                 kind: "flag",
@@ -7492,9 +7228,6 @@
             id: "greek-ajax-choose-household",
             subject: "greek-ajax-tecmessa",
             at: "greek-ajax-household",
-            label: "Keep the rite with Ajax\u2019s household",
-            text: "Tecmessa asks for a quiet burial with the household.",
-            textTemplate: "Tecmessa asks for a quiet household rite. {actor} agrees to prepare it. Ajax still awaits the cloth, grave tools and earth.",
             requires: [
               {
                 kind: "flag",
@@ -7540,9 +7273,6 @@
             id: "greek-ajax-choose-appeal",
             subject: "greek-ajax-teucer",
             at: "greek-greek-camp",
-            label: "Keep a vigil while the burial appeal is heard",
-            text: "Teucer asks for witnesses to stand with him.",
-            textTemplate: "{actor} joins Teucer\u2019s vigil while witnesses press the burial appeal. This begins the appeal. The account will close when Ajax has received burial.",
             requires: [
               {
                 kind: "flag",
@@ -7588,9 +7318,6 @@
             id: "greek-ajax-witness-appeal",
             subject: "greek-ajax-odysseus",
             at: "greek-greek-camp",
-            label: "Hear the witnessed appeal with Teucer and Odysseus",
-            text: "Odysseus adds his voice to Teucer\u2019s appeal.",
-            textTemplate: "Before Teucer and Odysseus, {actor} hears the witnessed appeal receive support. The vigil can become a rite. Ajax still awaits actual burial at the grave.",
             requires: [
               {
                 kind: "choice",
@@ -7621,9 +7348,6 @@
             id: "greek-ajax-prepare-grave",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
-            label: "Prepare Ajax\u2019s grave with the camp tools",
-            text: "Vale digs Ajax\u2019s grave with the camp tools.",
-            textTemplate: "{actor} prepares Ajax\u2019s grave and sets the camp tools beside it. This is the work of preparation within the Trojan account.",
             requires: [
               {
                 kind: "flag",
@@ -7655,9 +7379,6 @@
             id: "greek-ajax-lay-cloth",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
-            label: "Lay the camp\u2019s cloth at Ajax\u2019s grave",
-            text: "Vale spreads the linen inside Ajax\u2019s grave.",
-            textTemplate: "{actor} lays clean linen at Ajax\u2019s prepared grave. The cloth is ready for the chosen rite.",
             requires: [
               {
                 kind: "flag",
@@ -7684,9 +7405,6 @@
             id: "greek-ajax-bury-public",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
-            label: "Complete Ajax\u2019s public burial",
-            text: "Vale buries Ajax while the camp looks on.",
-            textTemplate: "{actor} uses the prepared grave, cloth and tools to complete Ajax\u2019s public burial. The account records Odysseus\u2019s support for his former rival and the earth given to Ajax.",
             requires: [
               {
                 kind: "flag",
@@ -7743,9 +7461,6 @@
             id: "greek-ajax-record-public",
             subject: "greek-ajax-teucer",
             at: "greek-greek-camp",
-            label: "Ask Teucer to sign the burial account",
-            text: "Vale brings the written plea back to Teucer. He adds the completed public burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
-            textTemplate: "{actor} brings the written plea back to Teucer. He adds the completed public burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
             requires: [
               {
                 kind: "choice",
@@ -7782,9 +7497,6 @@
             id: "greek-ajax-return-public",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Read Teucer\u2019s signed account to Dione",
-            text: "Dione reads Teucer\u2019s account of Ajax\u2019s public burial.",
-            textTemplate: "{actor} lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the public burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
             requires: [
               {
                 kind: "choice",
@@ -7835,9 +7547,6 @@
             id: "greek-ajax-bury-household",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
-            label: "Complete Ajax\u2019s household burial",
-            text: "Vale buries Ajax beside Tecmessa and Eurysaces.",
-            textTemplate: "{actor} uses the prepared grave, cloth and tools to complete Ajax\u2019s household burial. The account keeps Tecmessa and Eurysaces\u2019s care beside the rite.",
             requires: [
               {
                 kind: "flag",
@@ -7894,9 +7603,6 @@
             id: "greek-ajax-record-household",
             subject: "greek-ajax-teucer",
             at: "greek-greek-camp",
-            label: "Ask Teucer to sign the burial account",
-            text: "Vale brings the written plea back to Teucer. He adds the completed household burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
-            textTemplate: "{actor} brings the written plea back to Teucer. He adds the completed household burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
             requires: [
               {
                 kind: "choice",
@@ -7933,9 +7639,6 @@
             id: "greek-ajax-return-household",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Read Teucer\u2019s signed account to Dione",
-            text: "Dione reads Teucer\u2019s account of the household burial.",
-            textTemplate: "{actor} lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the household burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
             requires: [
               {
                 kind: "choice",
@@ -7986,9 +7689,6 @@
             id: "greek-ajax-bury-appeal",
             subject: "greek-ajax-grave",
             at: "greek-ajax-grave",
-            label: "Complete Ajax\u2019s witnessed-appeal burial",
-            text: "Vale buries Ajax after Teucer\u2019s appeal.",
-            textTemplate: "After the witnessed appeal, {actor} uses the prepared grave, cloth and tools to bury Ajax. The vigil closes with actual burial in the named Trojan account.",
             requires: [
               {
                 kind: "flag",
@@ -8050,9 +7750,6 @@
             id: "greek-ajax-record-appeal",
             subject: "greek-ajax-teucer",
             at: "greek-greek-camp",
-            label: "Ask Teucer to sign the burial account",
-            text: "Vale brings the written plea back to Teucer. He adds the completed witnessed-appeal burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
-            textTemplate: "{actor} brings the written plea back to Teucer. He adds the completed witnessed-appeal burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
             requires: [
               {
                 kind: "choice",
@@ -8089,9 +7786,6 @@
             id: "greek-ajax-return-appeal",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Read Teucer\u2019s signed account to Dione",
-            text: "Dione reads Teucer\u2019s account of the witnessed burial.",
-            textTemplate: "{actor} lays Teucer\u2019s signed account beside Dione\u2019s bread. Dione hears how the witnessed-appeal burial was completed in the Trojan telling. Its time and witnesses join the song beside the earlier Theban deeds.",
             requires: [
               {
                 kind: "choice",
@@ -8142,8 +7836,6 @@
             id: "greek-anoint-polynices",
             at: "greek-polynices-hollow",
             subject: "greek-antigone",
-            label: "Hand Antigone the oil",
-            text: "Antigone cleans the dust from her brother and anoints him.",
             requires: [
               {
                 kind: "flag",
@@ -8189,8 +7881,6 @@
             id: "greek-shroud-polynices",
             at: "greek-polynices-hollow",
             subject: "greek-antigone",
-            label: "Hand Antigone the cloth",
-            text: "Antigone draws the black cloth over her brother and lays a raven feather on it.",
             requires: [
               {
                 kind: "flag",
@@ -8230,8 +7920,6 @@
             id: "greek-bury-polynices",
             at: "greek-polynices-hollow",
             subject: "greek-antigone",
-            label: "Hand Antigone the shovel",
-            text: "Antigone covers her brother with earth and leaves the raven feather on the mound.",
             requires: [
               {
                 kind: "flag",
@@ -8267,8 +7955,6 @@
             id: "greek-hear-polynices",
             at: "greek-battlefield",
             subject: "greek-polynices-shade",
-            label: "Hear Polynices\u2019 Shade",
-            text: "Polynices\u2019 Shade points beneath the bent olive, where his sister can lay him to rest.",
             requires: [],
             effects: [
               {
@@ -8283,8 +7969,6 @@
             id: "greek-meet-patroclus",
             subject: "greek-patroclus",
             at: "greek-piraeus",
-            label: "Meet Patroclus",
-            text: "Patroclus steps down onto the quay and makes room beside Vale.",
             requires: [
               {
                 kind: "flag",
@@ -8303,16 +7987,12 @@
                 value: true
               }
             ],
-            textTemplate: "Patroclus steps down onto the quay and makes room beside {actor}.",
             on: "meet"
           },
           {
             id: "greek-open-door-hear-mothers",
             subject: "greek-aethra",
             at: "greek-eleusis",
-            label: "Hear the mothers\u2019 request",
-            text: "Vale sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
-            textTemplate: "{actor} sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
             requires: [],
             effects: [
               {
@@ -8328,9 +8008,6 @@
             id: "greek-open-door-hear-adrastus",
             subject: "greek-adrastus",
             at: "greek-eleusis",
-            label: "Ask Adrastus about the war",
-            text: "Vale asks Adrastus why the army went to Thebes. He owns the failed expedition and the warning he set aside. Aethra asks that the mothers\u2019 right to bury their sons receive its own hearing.",
-            textTemplate: "{actor} asks Adrastus why the army went to Thebes. He owns the failed expedition and the warning he set aside. Aethra asks that the mothers\u2019 right to bury their sons receive its own hearing.",
             requires: [
               {
                 kind: "flag",
@@ -8352,9 +8029,6 @@
             id: "greek-open-door-register-plea",
             subject: "greek-theseus",
             at: "greek-athens",
-            label: "Lay the mothers\u2019 petition before Theseus",
-            text: "Vale gives Theseus the mothers\u2019 petition. He takes up the burial claim as the city\u2019s own duty. The herald sets out for Thebes with a burial truce that names the dead, a return road and witnesses from both sides.",
-            textTemplate: "{actor} gives Theseus the mothers\u2019 petition. He takes up the burial claim as the city\u2019s own duty. The herald sets out for Thebes with a burial truce that names the dead, a return road and witnesses from both sides.",
             requires: [
               {
                 kind: "flag",
@@ -8381,9 +8055,6 @@
             id: "greek-open-door-hear-truce-report",
             subject: "greek-theseus",
             at: "greek-athens",
-            label: "Receive the herald\u2019s truce report",
-            text: "Theseus reads the herald\u2019s return to Vale. In this new telling, both sides accepted the burial truce. The remains reached Eleusis under witness. The mothers now have their dead; their funeral and care still lie before them.",
-            textTemplate: "Theseus reads the herald\u2019s return to {actor}. In this new telling, both sides accepted the burial truce. The remains reached Eleusis under witness. The mothers now have their dead; their funeral and care still lie before them.",
             requires: [
               {
                 kind: "choice",
@@ -8399,16 +8070,12 @@
               }
             ],
             workId: "euripides-suppliant-women",
-            summary: "In this adapted telling, the herald confirmed a witnessed return of the Argive dead under a burial truce.",
             archived: true
           },
           {
             id: "greek-open-door-hear-quay",
             subject: "greek-quay-host",
             at: "greek-piraeus",
-            label: "Ask what the returning households need",
-            text: "Thaleia shows Vale the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
-            textTemplate: "Thaleia shows {actor} the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers\u2019 own list before assigning the berth.",
             requires: [],
             effects: [
               {
@@ -8423,9 +8090,6 @@
             id: "greek-open-door-set-provisions",
             subject: "greek-quay-host",
             at: "greek-piraeus",
-            label: "Set the basket beside the resting place",
-            text: "The grain basket rests beside Thaleia\u2019s bench. Vale lays out the cups for people who will rest here on their way home.",
-            textTemplate: "The grain basket rests beside Thaleia\u2019s bench. {actor} lays out the cups for people who will rest here on their way home.",
             requires: [
               {
                 kind: "flag",
@@ -8446,9 +8110,6 @@
             id: "greek-open-door-lay-cloths",
             subject: "greek-aethra",
             at: "greek-eleusis",
-            label: "Lay out the clean burial cloths",
-            text: "Vale lays the cloths from Piraeus beside Aethra. The mothers prepare the returned dead. Their children gather near the shrine while the funeral attendants carry out the rite.",
-            textTemplate: "{actor} lays the cloths from Piraeus beside Aethra. The mothers prepare the returned dead. Their children gather near the shrine while the funeral attendants carry out the rite.",
             requires: [
               {
                 kind: "flag",
@@ -8470,9 +8131,6 @@
             id: "greek-open-door-lay-ashes",
             subject: "greek-argive-mother",
             at: "greek-eleusis",
-            label: "Place the urn in the mothers\u2019 care",
-            text: "Vale gives the funeral urn to the mothers. They name their sons over the ashes. Aethra writes the funeral account and the households\u2019 return list for Thaleia.",
-            textTemplate: "{actor} gives the funeral urn to the mothers. They name their sons over the ashes. Aethra writes the funeral account and the households\u2019 return list for Thaleia.",
             requires: [
               {
                 kind: "flag",
@@ -8499,9 +8157,6 @@
             id: "greek-open-door-hear-pyre",
             subject: "greek-aethra",
             at: "greek-eleusis",
-            label: "Hear what happened beside the pyre",
-            text: "Aethra tells Vale the funeral\u2019s further loss. Evadne died at Capaneus\u2019s pyre despite Iphis\u2019s plea. He has lost both his children. The surviving children carry ashes and speak of vengeance. Aethra recalls the play\u2019s closing oath: Argos owes Athens aid, while Athena names another war for the children. Iphis comes to sit beside the shrine steps.",
-            textTemplate: "Aethra tells {actor} the funeral\u2019s further loss. Evadne died at Capaneus\u2019s pyre despite Iphis\u2019s plea. He has lost both his children. The surviving children carry ashes and speak of vengeance. Aethra recalls the play\u2019s closing oath: Argos owes Athens aid, while Athena names another war for the children. Iphis comes to sit beside the shrine steps.",
             requires: [
               {
                 kind: "flag",
@@ -8517,16 +8172,12 @@
               }
             ],
             workId: "euripides-suppliant-women",
-            summary: "Aethra reported Evadne\u2019s death and Iphis\u2019s loss after the funeral. This source event belongs to the account the traveler heard.",
             archived: true
           },
           {
             id: "greek-open-door-family-berth",
             subject: "greek-quay-host",
             at: "greek-piraeus",
-            label: "Reserve the berth for the listed households",
-            text: "Vale gives Thaleia the mothers\u2019 list. She reserves the prepared bench, basket and next open berth for those households. Their names stay beside the mooring rope until they arrive.",
-            textTemplate: "{actor} gives Thaleia the mothers\u2019 list. She reserves the prepared bench, basket and next open berth for those households. Their names stay beside the mooring rope until they arrive.",
             requires: [
               {
                 kind: "flag",
@@ -8561,9 +8212,6 @@
             id: "greek-open-door-colonus-enter",
             subject: "greek-colonus-keeper",
             at: "greek-colonus",
-            label: "Hear the earlier tale of Oedipus",
-            text: "The keeper names an earlier time, before the deaths of the Theban brothers. In Sophocles\u2019s tale, blind Oedipus reaches this grove with Antigone. The townspeople fear his name. Theseus grants him shelter. Vale listens at the present boundary stone.",
-            textTemplate: "The keeper names an earlier time, before the deaths of the Theban brothers. In Sophocles\u2019s tale, blind Oedipus reaches this grove with Antigone. The townspeople fear his name. Theseus grants him shelter. {actor} listens at the present boundary stone.",
             requires: [],
             effects: [
               {
@@ -8579,9 +8227,6 @@
             id: "greek-open-door-colonus-water",
             subject: "greek-colonus-keeper",
             at: "greek-colonus",
-            label: "Set water and honey by the grove",
-            text: "The water cup and honey rest beside the grove. The keeper recalls the gentle offering taught to Oedipus, which Ismene made in the earlier tale. Today\u2019s gift rests at the same boundary for the keeper\u2019s rite. Vale waits beside it.",
-            textTemplate: "The water cup and honey rest beside the grove. The keeper recalls the gentle offering taught to Oedipus, which Ismene made in the earlier tale. Today\u2019s gift rests at the same boundary for the keeper\u2019s rite. {actor} waits beside it.",
             requires: [
               {
                 kind: "flag",
@@ -8603,9 +8248,6 @@
             id: "greek-open-door-colonus-daughters",
             subject: "greek-colonus-keeper",
             at: "greek-colonus",
-            label: "Hear the daughters\u2019 return and the son\u2019s plea",
-            text: "The keeper continues the earlier tale. Creon seized Antigone and Ismene to force their father\u2019s return. Theseus brought them back. Polyneices then sought his father\u2019s blessing for war. Oedipus refused and cursed both sons. Vale hears how care and power crossed these paths.",
-            textTemplate: "The keeper continues the earlier tale. Creon seized Antigone and Ismene to force their father\u2019s return. Theseus brought them back. Polyneices then sought his father\u2019s blessing for war. Oedipus refused and cursed both sons. {actor} hears how care and power crossed these paths.",
             requires: [
               {
                 kind: "flag",
@@ -8627,9 +8269,6 @@
             id: "greek-open-door-colonus-farewell",
             subject: "greek-colonus-keeper",
             at: "greek-colonus",
-            label: "Hear the kept promise at the end",
-            text: "The keeper finishes the tale. Oedipus entrusted his final place to Theseus alone. His daughters mourned and returned toward Thebes. Theseus kept the place secret and promised them care. Vale hears the public promise while the old resting place keeps its silence.",
-            textTemplate: "The keeper finishes the tale. Oedipus entrusted his final place to Theseus alone. His daughters mourned and returned toward Thebes. Theseus kept the place secret and promised them care. {actor} hears the public promise while the old resting place keeps its silence.",
             requires: [
               {
                 kind: "flag",
@@ -8651,9 +8290,6 @@
             id: "greek-open-door-colonus-custom",
             subject: "greek-colonus-keeper",
             at: "greek-colonus",
-            label: "Record a welcome for the next exile",
-            text: "The keeper writes on the refuge tablet beside Vale. It records a present custom: hear a stranger\u2019s need, offer rest and seek protection. The old tale gives this promise its weight.",
-            textTemplate: "The keeper writes on the refuge tablet beside {actor}. It records a present custom: hear a stranger\u2019s need, offer rest and seek protection. The old tale gives this promise its weight.",
             requires: [
               {
                 kind: "flag",
@@ -8675,9 +8311,6 @@
             id: "greek-open-door-marathon-enter",
             subject: "greek-marathon-keeper",
             at: "greek-marathon",
-            label: "Hear the tale of Heracles\u2019s children",
-            text: "The keeper opens a separate tale after Heracles\u2019s death, under Demophon, son of Theseus. Iolaus and the children sought shelter here. Eurystheus\u2019s herald claimed them and used force. Demophon upheld the altar\u2019s protection. Vale hears the claim beside the present shrine.",
-            textTemplate: "The keeper opens a separate tale after Heracles\u2019s death, under Demophon, son of Theseus. Iolaus and the children sought shelter here. Eurystheus\u2019s herald claimed them and used force. Demophon upheld the altar\u2019s protection. {actor} hears the claim beside the present shrine.",
             requires: [],
             effects: [
               {
@@ -8693,9 +8326,6 @@
             id: "greek-open-door-marathon-blanket",
             subject: "greek-marathon-keeper",
             at: "greek-marathon",
-            label: "Lay the blanket inside the shelter",
-            text: "The blanket from Piraeus lies beside the altar. The keeper sets it aside for present-day guests. The old tale continues beside a place made ready for someone who may need it. Vale waits with the keeper.",
-            textTemplate: "The blanket from Piraeus lies beside the altar. The keeper sets it aside for present-day guests. The old tale continues beside a place made ready for someone who may need it. {actor} waits with the keeper.",
             requires: [
               {
                 kind: "flag",
@@ -8717,9 +8347,6 @@
             id: "greek-open-door-marathon-daughter",
             subject: "greek-marathon-keeper",
             at: "greek-marathon",
-            label: "Hear the daughter\u2019s own answer",
-            text: "In the tale, an oracle demanded a noble maiden\u2019s life. Demophon refused to compel a household. Heracles\u2019s daughter offered herself for her siblings and rejected a lottery. The keeper gives her reasons their full place, then names the life the city\u2019s safety cost. Vale listens.",
-            textTemplate: "In the tale, an oracle demanded a noble maiden\u2019s life. Demophon refused to compel a household. Heracles\u2019s daughter offered herself for her siblings and rejected a lottery. The keeper gives her reasons their full place, then names the life the city\u2019s safety cost. {actor} listens.",
             requires: [
               {
                 kind: "flag",
@@ -8741,9 +8368,6 @@
             id: "greek-open-door-marathon-battle",
             subject: "greek-marathon-keeper",
             at: "greek-marathon",
-            label: "Hear the battle and the captive\u2019s arrival",
-            text: "The keeper tells the next part. The daughter\u2019s sacrifice preceded the battle. Athens won; Iolaus pursued Eurystheus, who was brought back alive. The messenger distinguished what he saw from the story of Iolaus\u2019s renewed youth. Vale hears the cost before the victory.",
-            textTemplate: "The keeper tells the next part. The daughter\u2019s sacrifice preceded the battle. Athens won; Iolaus pursued Eurystheus, who was brought back alive. The messenger distinguished what he saw from the story of Iolaus\u2019s renewed youth. {actor} hears the cost before the victory.",
             requires: [
               {
                 kind: "flag",
@@ -8765,9 +8389,6 @@
             id: "greek-open-door-marathon-captive",
             subject: "greek-marathon-keeper",
             at: "greek-marathon",
-            label: "Hear the claim against the captive",
-            text: "The keeper sets out the final dispute. Alcmene demands Eurystheus\u2019s death. The city\u2019s rule protects a prisoner taken alive. Eurystheus defends his choices and foretells his grave\u2019s power. Alcmene orders him away to die. The keeper writes the Marathon record for Vale.",
-            textTemplate: "The keeper sets out the final dispute. Alcmene demands Eurystheus\u2019s death. The city\u2019s rule protects a prisoner taken alive. Eurystheus defends his choices and foretells his grave\u2019s power. Alcmene orders him away to die. The keeper writes the Marathon record for {actor}.",
             requires: [
               {
                 kind: "flag",
@@ -8794,9 +8415,6 @@
             id: "greek-open-door-return-dione",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Tell Dione what welcome has cost",
-            text: "Dione\u2019s table holds the herald\u2019s truce, the funeral account, Myrine\u2019s signed list and the refuge tablet. Vale sits with her. Dione sets the bread between them. The new verses join the earlier song.",
-            textTemplate: "Dione\u2019s table holds the herald\u2019s truce, the funeral account, Myrine\u2019s signed list and the refuge tablet. {actor} sits with her. Dione sets the bread between them. The new verses join the earlier song.",
             requires: [
               {
                 kind: "flag",
@@ -8827,9 +8445,6 @@
             id: "greek-homecoming-report-agora-truce",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Tell Dione about the burial truce",
-            text: "Vale gives Dione the herald\u2019s truce: both sides accepted it, and the remains reached Eleusis under witness. Dione keeps it at her table.",
-            textTemplate: "{actor} gives Dione the herald\u2019s truce: both sides accepted it, and the remains reached Eleusis under witness. Dione keeps it at her table.",
             requires: [
               {
                 kind: "flag",
@@ -8855,9 +8470,6 @@
             id: "greek-homecoming-report-eleusis-pledge",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Tell Dione about the burial pledge",
-            text: "Vale gives Dione the funeral account from Eleusis. Evadne\u2019s death and Iphis\u2019s grief remain in the telling. Dione keeps it at her table.",
-            textTemplate: "{actor} gives Dione the funeral account from Eleusis. Evadne\u2019s death and Iphis\u2019s grief remain in the telling. Dione keeps it at her table.",
             requires: [
               {
                 kind: "flag",
@@ -8883,9 +8495,6 @@
             id: "greek-homecoming-report-piraeus-family",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Tell Dione about the reserved berth",
-            text: "Vale gives Dione Myrine\u2019s signed return list. It names the bench, basket and berth Thaleia kept for the listed households. Dione keeps it at her table.",
-            textTemplate: "{actor} gives Dione Myrine\u2019s signed return list. It names the bench, basket and berth Thaleia kept for the listed households. Dione keeps it at her table.",
             requires: [
               {
                 kind: "flag",
@@ -8921,9 +8530,6 @@
             id: "greek-homecoming-report-colonus-custom",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Tell Dione about the grove\u2019s welcome",
-            text: "Vale gives Dione the refuge tablet from Colonus. It records a welcome for the next stranger. Dione keeps it at her table.",
-            textTemplate: "{actor} gives Dione the refuge tablet from Colonus. It records a welcome for the next stranger. Dione keeps it at her table.",
             requires: [
               {
                 kind: "flag",
@@ -8949,9 +8555,6 @@
             id: "greek-homecoming-report-marathon-alcmene",
             subject: "greek-baker",
             at: "greek-courtyard",
-            label: "Tell Dione the Marathon source ending",
-            text: "Vale gives Dione the Marathon record. Heracles\u2019s daughter gave her life; Alcmene later ordered the captive Eurystheus to die. Dione keeps it at her table.",
-            textTemplate: "{actor} gives Dione the Marathon record. Heracles\u2019s daughter gave her life; Alcmene later ordered the captive Eurystheus to die. Dione keeps it at her table.",
             requires: [
               {
                 kind: "flag",
@@ -8977,9 +8580,6 @@
             id: "greek-homecoming-agree-journey",
             subject: "greek-household-witness",
             at: "greek-eleusis",
-            label: "Agree to walk with Myrine to the quay",
-            text: "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the shore path with a traveler from Vale\u2019s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
-            textTemplate: "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the shore path with a traveler from {actor}\u2019s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
             requires: [
               {
                 kind: "flag",
@@ -8994,16 +8594,12 @@
                 value: true
               }
             ],
-            summary: "Myrine agreed at Eleusis to walk along the shore path to Piraeus with a traveler from this company. Her departure needs their company.",
             archived: true
           },
           {
             id: "greek-homecoming-receive-family",
             subject: "greek-household-witness",
             at: "greek-piraeus",
-            label: "Witness Myrine receive her household\u2019s care",
-            text: "Myrine rests at the quay with the basket now in her hands. Thaleia finds her household on the list and keeps its place. Before Vale, Myrine signs the margin: \u201CI reached the quay. My household\u2019s place was kept, and its basket passed to me.\u201D Her words can travel to Dione.",
-            textTemplate: "Myrine rests at the quay with the basket now in her hands. Thaleia finds her household on the list and keeps its place. Before {actor}, Myrine signs the margin: \u201CI reached the quay. My household\u2019s place was kept, and its basket passed to me.\u201D Her words can travel to Dione.",
             requires: [
               {
                 kind: "flag",
@@ -9032,7 +8628,6 @@
                 value: true
               }
             ],
-            summary: "Myrine arrived at Piraeus, held her household\u2019s basket and signed her own account on the return list. Thaleia kept the listed household\u2019s place.",
             archived: true
           }
         ],
@@ -16394,6 +15989,7 @@
   var record3 = (v) => v && typeof v === "object" && !Array.isArray(v);
   var owns3 = (o, key2) => record3(o) && typeof key2 === "string" && Object.hasOwn(o, key2);
   var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
+  var proseOk = (v, max = 1200) => v === void 0 || textOk(v, max);
   var textOk = (v, max = 1200) => typeof v === "string" && v.trim().length > 0 && v.length <= max && !/[\u0000-\u001f]/.test(v);
   function waitWordsOk(t) {
     if (t.waitVerb === void 0 && t.waitSentence === void 0) return true;
@@ -16666,8 +16262,8 @@
         `place ${id} sanctuary must be true when set`
       );
       check(
-        textOk(p.name, 120) && textOk(p.text) && textOk(p.persona),
-        `place ${id} needs a name, text and persona`
+        textOk(p.name, 120) && proseOk(p.text) && textOk(p.persona),
+        `place ${id} needs a name and persona; its text is optional`
       );
       check(
         p.voice === void 0 || textOk(p.voice, 900),
@@ -16795,8 +16391,8 @@
         `avatar ${id} personalQuests needs a boolean`
       );
       check(
-        textOk(a.name, 120) && textOk(a.text) && textOk(a.seed, 120) && owns3(places2, a.place),
-        `avatar ${id} needs a name, text, one seed sentence and a home place in this pack`
+        textOk(a.name, 120) && proseOk(a.text) && textOk(a.seed, 120) && owns3(places2, a.place),
+        `avatar ${id} needs a name, one seed sentence and a home place in this pack`
       );
       check(
         a.expression === void 0 || EXPRESSION_TYPES.includes(a.expression),
@@ -16819,8 +16415,8 @@
         `avatar ${id} previous homes need authored places`
       );
       check(
-        keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) && textOk(a.tastes?.likes, 120) && textOk(a.tastes?.sore, 120) && textOk(a.tastes?.reason, 240) && (a.tastes?.noise === void 0 || templateOk(a.tastes.noise, 240, ["actor"])),
-        `avatar ${id} tastes need likes, sore and reason`
+        keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) && textOk(a.tastes?.likes, 120) && textOk(a.tastes?.sore, 120) && proseOk(a.tastes?.reason, 240) && (a.tastes?.noise === void 0 || templateOk(a.tastes.noise, 240, ["actor"])),
+        `avatar ${id} tastes need likes and sore`
       );
       check(
         a.want === void 0 || a.wants === void 0,
@@ -17158,7 +16754,7 @@
           "recoverTo",
           "scatterOutside",
           "legend"
-        ]) && (i.legend === void 0 || textOk(i.legend, 120)) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && textOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
+        ]) && (i.legend === void 0 || textOk(i.legend, 120)) && (i.tags === void 0 || Array.isArray(i.tags) && i.tags.length >= 1 && i.tags.length <= 4 && i.tags.every(idOk2)) && textOk(i.name, 120) && proseOk(i.text) && textOk(i.persona) && (owns3(places2, i.holder) || owns3(avatars, i.holder) || hub2?.places?.includes(i.holder)),
         `item ${id} is invalid`
       );
       check(
@@ -17232,7 +16828,7 @@
           (r) => r.kind === "holding" && r.role === "actor" && r.item === c.subject
         ) || c.on === "give" && (c.requires || []).some(
           (r) => r.kind === "holding" && r.role === "actor"
-        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && (c.archived === void 0 || c.archived === true) && !choiceIds.has(c.id) && own2.includes(c.subject) && owns3(places2, c.at) && textOk(c.label, 120) && textOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
+        ) && Boolean(avatars[c.subject])) && (c.for === void 0 || humanAvatarIds.includes(c.for)) && (c.archived === void 0 || c.archived === true) && !choiceIds.has(c.id) && own2.includes(c.subject) && owns3(places2, c.at) && proseOk(c.label, 120) && proseOk(c.text, 600) && (c.textTemplate === void 0 || templateOk(c.textTemplate, 600, ["actor"])) && (c.summary === void 0 || textOk(c.summary, 600)),
         `choice ${c.id} is invalid`
       );
       choiceIds.add(c.id);
@@ -17888,10 +17484,37 @@
     return true;
   }
   function choiceText(choice, actor) {
-    return choice.textTemplate === void 0 ? choice.text : choice.textTemplate.replaceAll(
-      "{actor}",
-      humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
-    );
+    if (choice.textTemplate !== void 0)
+      return choice.textTemplate.replaceAll(
+        "{actor}",
+        humanAvatar(actor)?.name || packPeople[actor]?.name || "An earlier traveler"
+      );
+    return choice.text ?? plainChoiceText(choice, actor);
+  }
+  var nameOf = (id) => humanAvatar(id)?.name || entities[id]?.name || forest_default.people[id]?.name || forest_default.things[id]?.name || forest_default.places[id]?.name || "An earlier traveler";
+  var NAMED = /^(?:The|An?) |^\p{L}+['’]s? /u;
+  var theName = (id) => NAMED.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
+  function plainChoiceText(choice, actor) {
+    const at = choice.subject === choice.at ? "" : ` at ${nameOf(choice.at)}`;
+    const given = (choice.requires || []).find(
+      (r) => r.kind === "holding" && r.role === "actor"
+    )?.item;
+    switch (choice.on) {
+      case "give":
+        return given ? `${nameOf(actor)} gives ${theName(given)} to ${nameOf(choice.subject)}${at}.` : `${nameOf(actor)} gives to ${nameOf(choice.subject)}${at}.`;
+      case "talk":
+        return `${nameOf(actor)} talks with ${nameOf(choice.subject)}${at}.`;
+      case "meet":
+        return `${nameOf(actor)} meets ${nameOf(choice.subject)}${at}.`;
+      case "wait":
+        return `${nameOf(actor)} waits at ${nameOf(choice.at)}.`;
+      case "hold":
+        return `${nameOf(actor)} takes ${theName(choice.subject)}.`;
+      case "depart":
+        return `${nameOf(choice.subject)} leaves ${nameOf(choice.at)}.`;
+      default:
+        return `${nameOf(actor)} speaks with ${nameOf(choice.subject)}${at}.`;
+    }
   }
   function rootOf3(world, id) {
     let holder = world.items[id].holder;
@@ -18029,9 +17652,12 @@
   }
   function committedChoiceText(world, pack, choice) {
     if (choice.summary) return choice.summary;
+    const turn = world.packs[pack.id].receipts?.[choice.id];
     const actor = world.log?.find(
       (entry) => entry.packId === pack.id && entry.choiceId === choice.id
-    )?.actorId || world.packs[pack.id].recitals?.[choice.id]?.actor || null;
+    )?.actorId || world.packs[pack.id].recitals?.[choice.id]?.actor || world.log?.find(
+      (entry) => entry.kind === "action" && !entry.generated && entry.turn === turn && entry.actorId && [entry.locationId, entry.fromLocationId].includes(choice.at)
+    )?.actorId || null;
     return choiceText(choice, actor);
   }
   function packFacts(world, id) {
@@ -18198,7 +17824,7 @@
     arcana_default.cards.map((card) => [card.id, card])
   );
   validatePackLinks(places, people, things);
-  var nameOf = (id) => places[id]?.name || people[id]?.name || things[id]?.name || arcanaCards[id]?.name || "the world";
+  var nameOf2 = (id) => places[id]?.name || people[id]?.name || things[id]?.name || arcanaCards[id]?.name || "the world";
 
   // v2/card-game/lamp-room-fuel.mjs
   var LAMP_ROOM_LIMIT = 3;
@@ -18357,25 +17983,25 @@
       local
     };
   }
-  function trialFacts(world, actor, nameOf2) {
+  function trialFacts(world, actor, nameOf3) {
     const trial = world.memories[actor]?.learning?.at(-1);
     if (trial?.version !== 2) return null;
     const goal = trial.goal;
-    const purpose = goal.kind === "ask" ? nameOf2(goal.item) : nameOf2(goal.destination);
+    const purpose = goal.kind === "ask" ? nameOf3(goal.item) : nameOf3(goal.destination);
     const result = trial.after.met ? "That reached my goal." : trial.reward > 0 ? "That improved our relationship." : "My goal is still open.";
     const earlier = trial.expected.samples ? `I had ${trial.expected.samples} earlier ${trial.expected.samples === 1 ? "attempt" : "attempts"} at ${approach(trial.action.kind)} to compare.` : "This was my first measured try at that approach.";
     const trials = trialsFor(world, actor, goal);
     const keys = new Map(trials.map((t) => [actionKey(t.action), t.action]));
     const describe = (a) => {
       if (a.kind === "ask")
-        return `asking ${nameOf2(a.target)} for ${nameOf2(a.item)}`;
+        return `asking ${nameOf3(a.target)} for ${nameOf3(a.item)}`;
       if (a.kind === "trade")
-        return `trading ${nameOf2(a.item)} for ${nameOf2(a.receive)}`;
+        return `trading ${nameOf3(a.item)} for ${nameOf3(a.receive)}`;
       if (a.kind === "give")
-        return `giving ${nameOf2(a.item)} to ${nameOf2(a.target)}`;
-      if (a.kind === "talk") return `talking with ${nameOf2(a.target)}`;
+        return `giving ${nameOf3(a.item)} to ${nameOf3(a.target)}`;
+      if (a.kind === "talk") return `talking with ${nameOf3(a.target)}`;
       if (a.kind === "accompany")
-        return `inviting ${nameOf2(a.target)} to ${nameOf2(a.destination)}`;
+        return `inviting ${nameOf3(a.target)} to ${nameOf3(a.destination)}`;
       return "waiting";
     };
     return [
@@ -18465,12 +18091,12 @@
   // v2/card-game/learning.mjs
   var kinds = ["ask", "accompany"];
   var keyOf2 = (a) => [a.kind, a.target, a.item || "", a.destination || ""].join(":");
-  function learningFacts(world, actor, nameOf2) {
-    const facts = trialFacts(world, actor, nameOf2);
+  function learningFacts(world, actor, nameOf3) {
+    const facts = trialFacts(world, actor, nameOf3);
     if (facts) return facts;
     const lesson = world.memories[actor]?.learning?.at(-1);
     if (!lesson) return [];
-    const other = nameOf2(lesson.target);
+    const other = nameOf3(lesson.target);
     return [
       `I expected ${other} to ${lesson.expected ? "agree" : "decline"}. ${other} ${lesson.observed ? "agreed" : "declined"}. ${lesson.strategy === "offer_trade" ? "I will try a fair trade when one is available." : lesson.strategy === "give_space" ? "I will give them time and talk first." : "I can continue with their agreement."}`
     ];
@@ -19099,7 +18725,7 @@
   ).map((r) => r.to);
   var reflectionOpen = (s, from = itemPlace(s, "lamp")) => reflectionsFrom(s, from).length > 0;
   var baseSoundAt = (s, place) => entityActive(s, "bell") && s.items.bell.ringing > 0 && itemPlace(s, "bell") === place;
-  var senses = { player: "vale", baseSoundAt, nameOf };
+  var senses = { player: "vale", baseSoundAt, nameOf: nameOf2 };
   var sensesFor = (s) => ({
     ...senses,
     player: currentActor(s),
@@ -19154,8 +18780,8 @@
       sensesFor(s),
       place === "station" ? stationCandidates(s).filter((id) => !stationExits(s, stationCandidates(s)).includes(id)) : []
     ),
-    ...transportScenery(s, place, nameOf)
-  ].join(" ");
+    ...transportScenery(s, place, nameOf2)
+  ].filter(Boolean).join(" ");
   function rawOrdinaryExits(s, place, actor, previous) {
     return [
       .../* @__PURE__ */ new Set([
@@ -19773,17 +19399,17 @@
     const near = ship ? s.transports[ship[0]].dock : here2;
     const known = laneEdges().map(laneOfEdge).filter(
       ([from, to]) => from === near && entityActive(s, to) && knowsLane(s, actor, from, to)
-    ).map(([, to]) => nameOf(to));
-    return known.length ? [`I know ships sail from ${nameOf(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf(near)}.`];
+    ).map(([, to]) => nameOf2(to));
+    return known.length ? [`I know ships sail from ${nameOf2(near)} to ${known.join(" and ")}.`] : [`I know of no ship lane from ${nameOf2(near)}.`];
   }
   var worldName = (pack) => packDefinitions.find((p) => p.id === pack)?.name.split(":")[0] ?? "there";
-  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf(c.item) : c.home ? `something from ${nameOf(c.home)}` : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
+  var needOf = (c, choice = false) => c.kind === "any" ? [...new Set(c.conditions.map((r) => needOf(r, true)))].join(" or ") : c.item ? nameOf2(c.item) : c.home ? `something from ${nameOf2(c.home)}` : choice && c.pack ? `something from ${worldName(c.pack)}` : "something from there";
   var laneNeed = (gate) => [...new Set(gate.map((c) => needOf(c)))].join(" and ");
   var laneFact = (from, to) => {
     const gate = laneConditions(from, to);
     return {
       id: `lane:${from}>${to}`,
-      text: gate ? `Ships for ${nameOf(to)} leave from ${nameOf(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf(to)} leave from ${nameOf(from)}.`
+      text: gate ? `Ships for ${nameOf2(to)} leave from ${nameOf2(from)} only with ${laneNeed(gate)} aboard.` : `Ships for ${nameOf2(to)} leave from ${nameOf2(from)}.`
     };
   };
   var laneFactText = (id) => {
@@ -20766,7 +20392,7 @@
     return {
       hidden,
       blur: blurrer(
-        new Map(hidden.map((t) => [nameOf(t).toLowerCase(), unnamed(world, t)]))
+        new Map(hidden.map((t) => [nameOf2(t).toLowerCase(), unnamed(world, t)]))
       )
     };
   }
@@ -20802,12 +20428,12 @@
       unnamedIds: [...hidden].filter((id) => !shown.has(lowerName(id)))
     };
   }
-  var lowerName = (id) => nameOf(id).toLowerCase();
+  var lowerName = (id) => nameOf2(id).toLowerCase();
   function nameKeys(ids3, shown, phrase) {
     const taken = new Set([...shown].map((name) => name.split(" ").at(-1)));
     const full = /* @__PURE__ */ new Map(), short = /* @__PURE__ */ new Map();
     for (const id of ids3) {
-      const name = nameOf(id), last = name.split(" ").at(-1);
+      const name = nameOf2(id), last = name.split(" ").at(-1);
       full.set(name.toLowerCase(), phrase(id));
       if (last !== name && last.length > 3 && /^[A-Z]/.test(last) && !taken.has(last.toLowerCase()))
         short.set(last, phrase(id));
@@ -20964,10 +20590,10 @@
 
   // v2/card-game/between-us.mjs
   var seqOf = (g) => Number(g.incident.slice("event:".length));
-  function incidents(world, id, other, nameOf2) {
+  function incidents(world, id, other, nameOf3) {
     const known = world.knowledge?.known?.[id] || {};
     const facts = world.knowledge?.facts || {};
-    const Other = nameOf2(other);
+    const Other = nameOf3(other);
     const against = (holder, them) => (world.motives?.grievances?.[holder] || []).filter(
       (g) => g.other === them && g.kind === "threat" && g.incident && known[g.incident] && facts[g.incident]
     ).map((g) => ({ g, mine: holder === id }));
@@ -20978,7 +20604,7 @@
       if (g.repaired && !repair) return [];
       const when = facts[g.incident].source?.turn ?? g.turn;
       const age = ageText(world.turn - when);
-      const item = g.item ? nameOf2(g.item) : null;
+      const item = g.item ? nameOf3(g.item) : null;
       const line = mine ? item ? `${Other} threatened me over the ${item}, ${age}.` : `${Other} picked a fight with me, ${age}.` : item ? `I threatened ${Other} over the ${item}, ${age}.` : `I picked a fight with ${Other}, ${age}.`;
       const made = !g.repaired ? "" : mine ? ` ${Other} made it right.` : " I made it right.";
       const covers2 = repair ? [g.incident, repair.id] : [g.incident];
@@ -20994,11 +20620,11 @@
   var lastSaid = (world, from, to) => world.log.filter(
     (e) => e.generated && e.kind === "dialogue" && !e.silent && e.actorId === from && e.turn < world.turn && e.text.length <= 400 && [...e.witnesses || [], ...e.cast || []].includes(to)
   ).map(({ actorId, text: text2, turn }) => ({ actorId, text: text2, turn })).at(-1);
-  function betweenUs(world, id, speakers, nameOf2) {
+  function betweenUs(world, id, speakers, nameOf3) {
     if (!speakers.includes(id)) return { entries: [], retold: [] };
     const covers2 = [];
     const entries = speakers.filter((other) => other !== id).map((other) => {
-      const told = incidents(world, id, other, nameOf2);
+      const told = incidents(world, id, other, nameOf3);
       covers2.push(...told.flatMap((t) => t.covers));
       return {
         with: other,
@@ -21117,20 +20743,20 @@
       outcome: e.outcome || null
     }));
   }
-  function battleFacts(world, actor, events, nameOf2) {
+  function battleFacts(world, actor, events, nameOf3) {
     const witnessed = events.filter((e) => e.witnesses.includes(actor)).slice(-6);
     const facts = [];
     for (const e of witnessed) {
-      const who = e.actor === actor ? "I" : nameOf2(e.actor);
-      const target = e.target === actor ? "me" : e.target && nameOf2(e.target);
+      const who = e.actor === actor ? "I" : nameOf3(e.actor);
+      const target = e.target === actor ? "me" : e.target && nameOf3(e.target);
       if (e.kind === "threaten") facts.push(`${who} threatened ${target}.`);
       if (e.kind === "guard") facts.push(`${who} braced for a blow.`);
       if (e.kind === "intercept")
         facts.push(`${who} stepped forward to protect ${target}.`);
       if (e.kind === "attack") {
-        const hit = e.target === actor ? "I" : nameOf2(e.target);
-        const ward = e.protected === actor ? "me" : e.protected && nameOf2(e.protected);
-        let result = e.protected ? `${hit} took ${e.actor === actor ? "my" : `${nameOf2(e.actor)}'s`} blow for ${ward}.` : `${who} struck ${target}.`;
+        const hit = e.target === actor ? "I" : nameOf3(e.target);
+        const ward = e.protected === actor ? "me" : e.protected && nameOf3(e.protected);
+        let result = e.protected ? `${hit} took ${e.actor === actor ? "my" : `${nameOf3(e.actor)}'s`} blow for ${ward}.` : `${who} struck ${target}.`;
         if (e.braced)
           result += ` ${hit === "I" ? "I was" : `${hit} was`} braced.`;
         if ([e.before, e.after, e.damage].every(Number.isInteger))
@@ -21141,7 +20767,7 @@
       }
       if (e.destination)
         facts.push(
-          `${who} ${e.kind === "sent-home" ? "was sent home" : "retreated"} to ${nameOf2(e.destination)}.`
+          `${who} ${e.kind === "sent-home" ? "was sent home" : "retreated"} to ${nameOf3(e.destination)}.`
         );
     }
     const battle = world.standoffs.find((c) => Object.hasOwn(c.resolve, actor));
@@ -21150,11 +20776,11 @@
         `I have ${battle.resolve[actor]} resolve now. My stance is ${battle.guarding[actor] ? "braced" : "open"}.`
       );
       if (battle.covering?.[actor])
-        facts.push(`I am covering ${nameOf2(battle.covering[actor])}.`);
+        facts.push(`I am covering ${nameOf3(battle.covering[actor])}.`);
       const protector = Object.entries(battle.covering || {}).find(
         ([, ward]) => ward === actor
       )?.[0];
-      if (protector) facts.push(`${nameOf2(protector)} is covering me.`);
+      if (protector) facts.push(`${nameOf3(protector)} is covering me.`);
     }
     return facts;
   }
@@ -21331,8 +20957,8 @@
 
   // v2/card-game/narrative.mjs
   function refusalFact(played) {
-    const asked = played.verb === "ask" ? `request for ${nameOf(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf(played.destinationId)}` : `offer of ${nameOf(played.itemId)}`;
-    return `${nameOf(played.targetId)} refused ${nameOf(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). ${refusalWhy(played, nameOf)} Nothing changed.`;
+    const asked = played.verb === "ask" ? `request for ${nameOf2(played.itemId)}` : played.verb === "accompany" ? `invitation to ${nameOf2(played.destinationId)}` : `offer of ${nameOf2(played.itemId)}`;
+    return `${nameOf2(played.targetId)} refused ${nameOf2(played.actorId)}'s ${asked} (refusal: ${played.reason || "wants-something-else"}). ${refusalWhy(played, nameOf2)} Nothing changed.`;
   }
   function turnOutcome(world) {
     const hand = (id) => sleepingPortrait(world, id) ? null : heldItem(world, id);
@@ -21437,7 +21063,7 @@
       ...guardedFrom(place)
     ];
     return [...new Set(ways2)].filter((to) => shut.includes(to) || open.includes(to)).map(
-      (to) => shut.includes(to) ? `The way to ${nameOf(to)} is shut.` : `The way to ${nameOf(to)} is open.`
+      (to) => shut.includes(to) ? `The way to ${nameOf2(to)} is shut.` : `The way to ${nameOf2(to)} is open.`
     );
   }
   function visibleItem(world, observer, item, location) {
@@ -21465,14 +21091,14 @@
     const price = want?.kind === "item" && revealed(world, speaker, want, partner) && !carried(world, speaker).includes(want.target) && want.target;
     return items2.flatMap((item) => {
       const given = willingToGive(world, speaker, item, partner);
-      const facts = [given ? `If ${nameOf(partner)} asked me for ${nameOf(item)}, I would agree to give it.` : `If ${nameOf(partner)} asked me for ${nameOf(item)}, I would refuse to give it.`];
+      const facts = [given ? `If ${nameOf2(partner)} asked me for ${nameOf2(item)}, I would agree to give it.` : `If ${nameOf2(partner)} asked me for ${nameOf2(item)}, I would refuse to give it.`];
       if (price && !given)
-        facts.push(`I would trade my ${nameOf(item)} for ${nameOf(price)}.`);
+        facts.push(`I would trade my ${nameOf2(item)} for ${nameOf2(price)}.`);
       const offers = payments.filter((payment) => canTrade(world, partner, payment, item));
       for (const payment of offers)
-        facts.push(`I would accept ${nameOf(payment)} from ${nameOf(partner)} in trade for my ${nameOf(item)} now.`);
+        facts.push(`I would accept ${nameOf2(payment)} from ${nameOf2(partner)} in trade for my ${nameOf2(item)} now.`);
       if (payments.length && !offers.length)
-        facts.push(`No item ${nameOf(partner)} is showing me would make me trade ${nameOf(item)} now.`);
+        facts.push(`No item ${nameOf2(partner)} is showing me would make me trade ${nameOf2(item)} now.`);
       return facts;
     });
   }
@@ -21500,7 +21126,7 @@
     return state.awake ? `Awake.${state.wakeCause ? ` First woken by ${state.wakeCause}.` : ""} ${mood.note}` : mood.note;
   }
   function favourFact(world, id, among = null) {
-    const helpers = Object.entries(world.actors[id].trust).filter(([other, n]) => n > 0 && (!among || among.includes(other))).map(([other]) => nameOf(other));
+    const helpers = Object.entries(world.actors[id].trust).filter(([other, n]) => n > 0 && (!among || among.includes(other))).map(([other]) => nameOf2(other));
     return helpers.length ? `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.` : null;
   }
   function ownFacts(world, id) {
@@ -21509,7 +21135,7 @@
       (other) => other !== id && world.actors[other].place === place
     );
     return [
-      wantFact(world, id, nameOf, id),
+      wantFact(world, id, nameOf2, id),
       favourFact(world, id, here2),
       hasTemperament(id) ? moodNote(world, id) : null
     ].filter(Boolean);
@@ -21539,7 +21165,7 @@
     const battle = battleEvents(world, played);
     const resting2 = played?.verb !== "claim" && (!speakers.length || speakers[0] === cast.resting) ? cast.resting : null;
     const rest = resting2 ? cast.rest : null;
-    const defeated = cast.defeat && `${nameOf(currentActor(world))} was beaten by ${nameOf(cast.defeat)} and came to at ${nameOf(location)}.`;
+    const defeated = cast.defeat && `${nameOf2(currentActor(world))} was beaten by ${nameOf2(cast.defeat)} and came to at ${nameOf2(location)}.`;
     const disclosures = knowledgeDisclosures(
       world,
       speakers,
@@ -21582,7 +21208,7 @@
       // What the long rest dreamed by the rules, the only time a dream is due.
       ...rest && cast.dream ? { dream: cast.dream } : {},
       ...disclosures.length ? { disclosures } : {},
-      action: played?.text || (world.turn ? `${nameOf(currentActor(world))} waits and watches the cast.` : null),
+      action: played?.text || (world.turn ? `${nameOf2(currentActor(world))} waits and watches the cast.` : null),
       events,
       conversation,
       entities: ids3.map((id) => {
@@ -21590,31 +21216,31 @@
         if (kind === "location" && isCovered?.(id))
           return { id, facts: [], desire: null, memories: [], previous: null };
         const continuity = !isCovered?.(location) && (kind === "location" || id === currentActor(world)) ? packSceneFacts(world, location) : [];
-        const want = kind === "avatar" && world.actors[id]?.want !== null && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf, currentActor(world)) : null;
+        const want = kind === "avatar" && world.actors[id]?.want !== null && wantHeard(world, played, id, currentActor(world)) ? wantFact(world, id, nameOf2, currentActor(world)) : null;
         const cause = want && world.actors[id]?.rumours?.find((r) => r.subject === wantOf2(world, id)?.target);
         const glimpse = world.actors[id]?.glimpse;
-        const glimpsed = cast.dream === "glimpse" && id === resting2 && glimpse ? `In a dream, a glimpse: ${glimpse.kind === "verb" ? glimpse.id : nameOf(glimpse.id)}.` : null;
-        const between = beforeFirstLight ? { entries: [], retold: [] } : betweenUs(world, id, speakers, nameOf);
+        const glimpsed = cast.dream === "glimpse" && id === resting2 && glimpse ? `In a dream, a glimpse: ${glimpse.kind === "verb" ? glimpse.id : nameOf2(glimpse.id)}.` : null;
+        const between = beforeFirstLight ? { entries: [], retold: [] } : betweenUs(world, id, speakers, nameOf2);
         const facts = [
           ...glimpsed ? [glimpsed] : [],
           ...want ? [want] : [],
           ...cause ? [rumourWords(world, cause, {
-            name: nameOf,
+            name: nameOf2,
             world: (thing) => packOf(thing)?.name,
             legend: (thing) => packThings[thing]?.legend
           })] : [],
           ...kind === "avatar" && !beforeFirstLight ? exchangeFacts(world, id, played) : [],
           null,
-          ...id === BOARDY ? boardyFacts(world, nameOf) : [],
+          ...id === BOARDY ? boardyFacts(world, nameOf2) : [],
           ...recitalFacts(world, packDefinitions, id),
           ...kind === "avatar" ? laneTalkFacts(world, id) : [],
-          ...learningFacts(world, id, nameOf),
+          ...learningFacts(world, id, nameOf2),
           ...[...packFacts(world, id), ...continuity].filter((fact, index, all) => all.indexOf(fact) === index).slice(-4),
           ...kind === "location" ? packNarration(world, id) : []
         ];
         let desire = null;
         if (kind === "avatar") {
-          facts.unshift(...battleFacts(world, id, battle, nameOf));
+          facts.unshift(...battleFacts(world, id, battle, nameOf2));
           if (hasTemperament(id)) facts.push(moodNote(world, id));
           if (REFUSED_VERBS.includes(played?.verb) && played.accepted === false && [played.actorId, played.targetId].includes(id))
             facts.unshift(refusalFact(played));
@@ -21623,43 +21249,43 @@
             const receiving = id === played.actorId ? played.receiveId : played.itemId;
             const other = id === played.actorId ? played.targetId : played.actorId;
             facts.unshift(
-              `Your completed exchange: you gave ${nameOf(giving)} to ${nameOf(other)} and received ${nameOf(receiving)} from them. The item you gained was ${nameOf(receiving)}.`
+              `Your completed exchange: you gave ${nameOf2(giving)} to ${nameOf2(other)} and received ${nameOf2(receiving)} from them. The item you gained was ${nameOf2(receiving)}.`
             );
           }
           facts.push(
-            `Holding: ${carried(world, id).map(nameOf).join(", ") || "empty hands"}.`
+            `Holding: ${carried(world, id).map(nameOf2).join(", ") || "empty hands"}.`
           );
           const mood = moodFact(world, id);
           if (mood) facts.push(mood);
           if (quietFact && mindsNoise(id)) facts.push(quietFact);
           if (played?.verb === "accompany" && [played.actorId, played.targetId].includes(id))
             facts.unshift(
-              `${nameOf(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf(played.actorId)}'s invitation to ${nameOf(played.destinationId)}. This is the recorded answer for this play.`
+              `${nameOf2(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf2(played.actorId)}'s invitation to ${nameOf2(played.destinationId)}. This is the recorded answer for this play.`
             );
           const player2 = currentActor(world);
           if (world.actors[player2].closed?.[`quest:from:${id}`]?.[0] === world.turn && world.log.some(
             (e) => e.turn === world.turn && !e.generated && e.verb === "want_met" && e.actorId === player2
           ))
-            facts.unshift(`${nameOf(player2)} did what I asked.`);
+            facts.unshift(`${nameOf2(player2)} did what I asked.`);
           const company = Object.keys(world.actors).filter(
             (other) => other !== id && known.includes(other) && entityActive(world, other) && world.actors[other].place === world.actors[id].place && (!world.controlledActors?.includes(other) || world.presentActors?.includes(other))
           );
           facts.push(
-            `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`
+            `Location now: ${nameOf2(world.actors[id].place)}. Company now: ${company.map(nameOf2).join(", ") || "alone"}.`
           );
           if (world.actors[id].place === location) facts.push(...ways2);
           const movement = changes2.find((change) => change.actorId === id);
           if (defeated && id === speakers[0]) facts.unshift(defeated);
           else if (movement && speakers.includes(id))
             facts.push(
-              movement.leaving ? `Leaving ${nameOf(movement.from)} for ${nameOf(movement.to)} now.` : `Just arrived from ${nameOf(movement.from)}.`
+              movement.leaving ? `Leaving ${nameOf2(movement.from)} for ${nameOf2(movement.to)} now.` : `Just arrived from ${nameOf2(movement.from)}.`
             );
           const conflict = standoffFor(world, id);
           if (conflict)
             facts.push(
-              `In a battle with ${fightersOf(conflict).filter((other) => other !== id).map(nameOf).join(
+              `In a battle with ${fightersOf(conflict).filter((other) => other !== id).map(nameOf2).join(
                 ", "
-              )}${conflict.item ? ` over ${nameOf(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Brace, guard, strike or wait are available.`
+              )}${conflict.item ? ` over ${nameOf2(conflict.item)}` : ""}: ${conflict.guarding[id] ? "braced" : "open stance"}. Brace, guard, strike or wait are available.`
             );
           const want2 = wantHeard(world, played, id, currentActor(world)) ? stepGoal(world, wantOf2(world, id), currentActor(world)) : null;
           desire = {
@@ -21675,46 +21301,47 @@
           }
           if (world.opening?.met[id] === world.turn && id !== currentActor(world))
             facts.push(
-              `This is your first meeting with ${nameOf(currentActor(world))}. You were already here when ${nameOf(currentActor(world))} arrived.`
+              `This is your first meeting with ${nameOf2(currentActor(world))}. You were already here when ${nameOf2(currentActor(world))} arrived.`
             );
           const favour = favourFact(world, id);
           if (favour) facts.push(favour);
           for (const item of desire.items)
             facts.push(
-              carried(world, id).includes(item) ? `Already holds the wanted ${nameOf(item)}.` : visibleItem(world, id, item, location) ? `Wants ${nameOf(item)}, currently with ${nameOf(rootHolder(world, item))}.` : `Wants ${nameOf(item)}.`
+              carried(world, id).includes(item) ? `Already holds the wanted ${nameOf2(item)}.` : visibleItem(world, id, item, location) ? `Wants ${nameOf2(item)}, currently with ${nameOf2(rootHolder(world, item))}.` : `Wants ${nameOf2(item)}.`
             );
           if (desire.location)
             facts.push(
-              `Wants to be at ${nameOf(desire.location)}; currently at ${nameOf(world.actors[id].place)}.`
+              `Wants to be at ${nameOf2(desire.location)}; currently at ${nameOf2(world.actors[id].place)}.`
             );
           if (desire.avatars.length)
             facts.push(
-              `Wants the company of ${desire.avatars.map(nameOf).join(", ")}.`
+              `Wants the company of ${desire.avatars.map(nameOf2).join(", ")}.`
             );
         } else if (kind === "item") {
           const item = world.items[id];
-          facts.push(`Held by or resting at: ${nameOf(rootHolder(world, id))}.`);
+          facts.push(`Held by or resting at: ${nameOf2(rootHolder(world, id))}.`);
           if (id === "lamp")
             facts.push(
               `${item.fuel === 0 ? "Empty" : item.fuelRooms === 1 || item.fuelRooms === void 0 && item.fuel <= 3 ? "Running low on oil" : "Has oil"}; ${item.lit ? "lit" : "unlit"}.`
             );
           if (things[id]?.refuels)
             facts.push(
-              `Full. Held with an empty ${nameOf(things[id].refuels)}, it fills it and returns to ${nameOf(things[id].returnsTo)}.`
+              `Full. Held with an empty ${nameOf2(things[id].refuels)}, it fills it and returns to ${nameOf2(things[id].returnsTo)}.`
             );
           if (id === "bell")
             facts.push(
               `${item.ringing ? "Ringing" : "Silent"}.`
             );
-          if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
+          if (id === "cloth") facts.push(`Touches: ${nameOf2(item.holder)}.`);
         } else {
-          if (places[id]) facts.push(placeText(world, id));
+          if (places[id] && placeText(world, id))
+            facts.push(placeText(world, id));
           const weather = locationWeather(world, id);
           if (weather) facts.push(`Weather: ${weather.condition}.`);
           const daylight = locationDaylight(world, id);
           if (daylight) facts.push(daylight.description);
           facts.push(
-            `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`
+            `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf2).join(", ") || "none"}.`
           );
           if (id === location) facts.push(...ways2);
           if ((id === "attic" || id === "pond") && exits(world, id).includes(id === "attic" ? "pond" : "attic"))
@@ -21723,7 +21350,7 @@
             facts.push("The wrapped bell rests beside the quiet water.");
         }
         facts.push(
-          `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf).join(", ") || "none"}.`
+          `At the dialogue scene: ${present.map(nameOf2).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf2).join(", ") || "none"}.`
         );
         facts.splice(
           facts.indexOf(null),
@@ -21731,7 +21358,7 @@
           ...knowledgeFacts(
             pastDeedsAside(world, id, told(id), between.retold),
             id,
-            nameOf,
+            nameOf2,
             told(id),
             Math.max(2, 17 - facts.length)
           )
@@ -22699,7 +22326,7 @@
     return f ? `./${f}` : null;
   };
   var personIds = Object.keys(people);
-  var speakerId = (entry) => entry.actorId || personIds.find((id) => nameOf(id) === entry.speaker) || null;
+  var speakerId = (entry) => entry.actorId || personIds.find((id) => nameOf2(id) === entry.speaker) || null;
   var entryKind = (entry) => entry.kind || (speakerId(entry) ? "dialogue" : entry.speaker === "You" ? "input" : "narration");
   function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
     const here2 = world.actors[currentActor(world)].place;

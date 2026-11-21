@@ -56,21 +56,21 @@ it("edits one route field and preserves its gate, alternative roads and unknown 
   const source = structuredClone(greek);
   source.pack.future = { opaque: ["kept", { version: 3 }] };
   const to = greek.pack.routes[route].to;
-  const path = ["pack", "places", to, "text"];
+  const path = ["pack", "places", to, "persona"];
   const result = apply(
     source,
     fieldAt(source, path),
     "Bring the account.\n雪 stays on the road.",
   );
   const expected = structuredClone(source);
-  expected.pack.places[to].text =
+  expected.pack.places[to].persona =
     "Bring the account.\n雪 stays on the road.";
   assert.deepEqual(result.source, expected);
   assert.deepEqual(applySourceEdit(result.source, result.undo).source, source);
   const unchanged = authoringFieldEdit(
     source,
     fieldAt(source, path),
-    source.pack.places[to].text,
+    source.pack.places[to].persona,
   );
   assert.deepEqual(unchanged.changes, []);
 });

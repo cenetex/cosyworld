@@ -9,7 +9,8 @@
 // `--check` fails when the output is stale.
 import { build } from "esbuild";
 import * as acorn from "acorn";
-import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { laneEdges, laneOfEdge } from "../card-game/pack-transport.mjs";
@@ -498,6 +499,28 @@ catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
   (1 << KINDS.length) - 1,
   "n",
 ]);
+
+const contentDir = new URL("../content/", import.meta.url);
+const retiredSentences = [];
+for (const pack of (await readdir(contentDir, { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort()) {
+  const file = new URL(`${pack}/retired-sentences.json`, contentDir);
+  if (existsSync(file))
+    retiredSentences.push(
+      ...JSON.parse(await readFile(file, "utf8")).sentences,
+    );
+}
+for (const sentence of retiredSentences) {
+  const parts = sentence.split(/\{[A-Za-z]+\}/u);
+  if (parts.length > 1)
+    catalog.templates.set(
+      JSON.stringify([parts, "n".repeat(parts.length - 1)]),
+      [parts, (1 << KINDS.length) - 1, "n".repeat(parts.length - 1)],
+    );
+  else catalog.literals.set(sentence, (1 << KINDS.length) - 1);
+}
 
 // Removed item names still occur in honest event knowledge. This finite map
 // comes from the immutable rules-137 catalog at 521c76cb39df10c2e552a9e2d88dc4a8d02d6fe9;

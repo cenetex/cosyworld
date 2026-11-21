@@ -639,7 +639,8 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           );
         if (id === "cloth") facts.push(`Touches: ${nameOf(item.holder)}.`);
       } else {
-        if (places[id]) facts.push(placeText(world, id));
+        if (places[id] && placeText(world, id))
+          facts.push(placeText(world, id));
         const weather = locationWeather(world, id);
         if (weather) facts.push(`Weather: ${weather.condition}.`);
         const daylight = locationDaylight(world, id);

@@ -358,14 +358,48 @@ export function conditionsMet(world, packId, conditions = [], actor = null) {
   return true;
 }
 export function choiceText(choice, actor) {
-  return choice.textTemplate === undefined
-    ? choice.text
-    : choice.textTemplate.replaceAll(
-        "{actor}",
-        humanAvatar(actor)?.name ||
-          packPeople[actor]?.name ||
-          "An earlier traveler",
-      );
+  if (choice.textTemplate !== undefined)
+    return choice.textTemplate.replaceAll(
+      "{actor}",
+      humanAvatar(actor)?.name ||
+        packPeople[actor]?.name ||
+        "An earlier traveler",
+    );
+  return choice.text ?? plainChoiceText(choice, actor);
+}
+const nameOf = (id) =>
+  humanAvatar(id)?.name ||
+  entities[id]?.name ||
+  forest.people[id]?.name ||
+  forest.things[id]?.name ||
+  forest.places[id]?.name ||
+  "An earlier traveler";
+const NAMED = /^(?:The|An?) |^\p{L}+['’]s? /u;
+const theName = (id) =>
+  NAMED.test(nameOf(id)) ? nameOf(id) : `the ${nameOf(id)}`;
+function plainChoiceText(choice, actor) {
+  const at = choice.subject === choice.at ? "" : ` at ${nameOf(choice.at)}`;
+  const given = (choice.requires || []).find(
+    (r) => r.kind === "holding" && r.role === "actor",
+  )?.item;
+  switch (choice.on) {
+    case "give":
+      return given
+        ? `${nameOf(actor)} gives ${theName(given)} to ${nameOf(choice.subject)}${at}.`
+        : `${nameOf(actor)} gives to ${nameOf(choice.subject)}${at}.`;
+    case "talk":
+      return `${nameOf(actor)} talks with ${nameOf(choice.subject)}${at}.`;
+    case "meet":
+      return `${nameOf(actor)} meets ${nameOf(choice.subject)}${at}.`;
+    case "wait":
+      return `${nameOf(actor)} waits at ${nameOf(choice.at)}.`;
+    case "hold":
+      return `${nameOf(actor)} takes ${theName(choice.subject)}.`;
+    case "depart":
+      return `${nameOf(choice.subject)} leaves ${nameOf(choice.at)}.`;
+    default:
+      return `${nameOf(actor)} speaks with ${nameOf(choice.subject)}${at}.`;
+  }
 }
 
 // The item's outermost holder, or the first repeated item when holders loop.
@@ -901,11 +935,20 @@ export function applyPackChoice(
 }
 function committedChoiceText(world, pack, choice) {
   if (choice.summary) return choice.summary;
+  const turn = world.packs[pack.id].receipts?.[choice.id];
   const actor =
     world.log?.find(
       (entry) => entry.packId === pack.id && entry.choiceId === choice.id,
     )?.actorId ||
     world.packs[pack.id].recitals?.[choice.id]?.actor ||
+    world.log?.find(
+      (entry) =>
+        entry.kind === "action" &&
+        !entry.generated &&
+        entry.turn === turn &&
+        entry.actorId &&
+        [entry.locationId, entry.fromLocationId].includes(choice.at),
+    )?.actorId ||
     null;
   return choiceText(choice, actor);
 }
