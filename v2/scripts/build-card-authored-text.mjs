@@ -9,7 +9,8 @@
 // `--check` fails when the output is stale.
 import { build } from "esbuild";
 import * as acorn from "acorn";
-import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { laneEdges, laneOfEdge } from "../card-game/pack-transport.mjs";
@@ -501,13 +502,19 @@ catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
 
 // Removed pack choice sentences still occur in saves players import: in log
 // entries, item histories and the memories that quote them.
-const retiredSentences = JSON.parse(
-  await readFile(
-    new URL("./retired-pack-sentences.json", import.meta.url),
-    "utf8",
-  ),
-);
-for (const sentence of Object.values(retiredSentences.packs).flat()) {
+const contentDir = new URL("../content/", import.meta.url);
+const retiredSentences = [];
+for (const pack of (await readdir(contentDir, { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort()) {
+  const file = new URL(`${pack}/retired-sentences.json`, contentDir);
+  if (existsSync(file))
+    retiredSentences.push(
+      ...JSON.parse(await readFile(file, "utf8")).sentences,
+    );
+}
+for (const sentence of retiredSentences) {
   const parts = sentence.split(/\{[A-Za-z]+\}/u);
   if (parts.length > 1)
     catalog.templates.set(
