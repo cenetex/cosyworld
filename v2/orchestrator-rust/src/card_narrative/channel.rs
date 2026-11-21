@@ -203,7 +203,6 @@ fn atlas(pack_id: &str) -> Atlas {
             let paths = place["exits"].as_array().cloned().unwrap_or_default();
             places.insert(
                 id.clone(),
-                // A place with no card text is known by its persona.
                 json!({"name": place["name"],
                     "text": place.get("text").unwrap_or(&place["persona"]),
                     "paths": paths}),

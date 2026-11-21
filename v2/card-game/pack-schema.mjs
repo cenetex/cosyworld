@@ -105,7 +105,6 @@ const record = (v) => v && typeof v === "object" && !Array.isArray(v);
 const owns = (o, key) =>
   record(o) && typeof key === "string" && Object.hasOwn(o, key);
 const idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
-// Card prose is optional: the model describes what a pack only names.
 const proseOk = (v, max = 1200) => v === undefined || textOk(v, max);
 const textOk = (v, max = 1200) =>
   typeof v === "string" &&

@@ -208,7 +208,6 @@ fn authored_corpus() {
 #[test]
 fn plain_choice_lines_and_retired_greek_lines_are_authored() {
     for (field, text) in [
-        // A choice with no prose is told plainly by the rules.
         (
             Field::Events,
             "Vale gives the Funeral Oil to Antigone at Polynices' Hollow.",
@@ -221,7 +220,6 @@ fn plain_choice_lines_and_retired_greek_lines_are_authored() {
             Field::Facts,
             "I witnessed this just now at Polynices' Hollow: Vale gives the Burial Shovel to Antigone at Polynices' Hollow.",
         ),
-        // Saves written before the Greek prose was removed still quote it.
         (
             Field::Events,
             "Antigone cleans the dust from her brother and anoints him.",

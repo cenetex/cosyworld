@@ -367,8 +367,6 @@ export function choiceText(choice, actor) {
     );
   return choice.text ?? plainChoiceText(choice, actor);
 }
-// A choice with no prose is told plainly from what it is: who did what, with
-// what, where. The model narrates it; the rules only state it.
 const nameOf = (id) =>
   humanAvatar(id)?.name ||
   entities[id]?.name ||
@@ -937,8 +935,6 @@ export function applyPackChoice(
 }
 function committedChoiceText(world, pack, choice) {
   if (choice.summary) return choice.summary;
-  // A give, talk or wait that committed a choice is logged as that play, on
-  // the turn the choice's receipt names.
   const turn = world.packs[pack.id].receipts?.[choice.id];
   const actor =
     world.log?.find(

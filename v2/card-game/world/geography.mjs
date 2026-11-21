@@ -1,5 +1,4 @@
 // Geography: place text, exits and sealed ways.
-// Split out of world.mjs (#1390).
 import {
   entityActive,
   entityShown,

@@ -1977,10 +1977,7 @@ function rest(s, actor, here, sleep = false) {
       present: bodiesAt(s, here),
     };
 }
-// Who is physically in a place: being discovered or met is not arriving.
-// A resident counts only while it is in the world, so one that keeps its
-// place but appears on a clock or flag (Polynices' Shade before dawn)
-// arrives, and wakes a sleeper, when it appears.
+// Who is physically in the world here: being met is not arriving; appearing is.
 const bodiesAt = (s, place) =>
   actorIds
     .filter(

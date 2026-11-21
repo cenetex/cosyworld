@@ -11,7 +11,6 @@ import { funeralJourney } from "./helpers/greek-funeral.mjs";
 const FIELD = "greek-battlefield",
   SHADE = "greek-polynices-shade";
 
-// Vale lies down on the Exposed Battlefield at `turn`, ready to sleep.
 function onTheField(turn) {
   const world = createWorld();
   world.crossings["pond-greek-harbor"].discovered = true;
@@ -26,7 +25,6 @@ function step(world, pick) {
   expect(result.ok, result.error).toBe(true);
   return decodeSave(encodeSave(result.state));
 }
-// Wait, then sleep on until Vale wakes; returns the world and the wake line.
 function sleepThrough(world) {
   if (!world.actors.vale.sleeping)
     world = step(world, (a) => a.kind === "wait" && !a.sleep);

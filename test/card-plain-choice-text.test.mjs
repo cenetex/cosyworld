@@ -18,7 +18,6 @@ describe("the Greek pack carries no card prose", () => {
         expect(entity.name, `${kind} ${id}`).toBeTruthy();
       }
     for (const [id, avatar] of Object.entries(greek.avatars)) {
-      // What the model starts from: one seed sentence, likes and sore.
       expect(avatar.seed, id).toBeTruthy();
       expect(avatar.tastes.likes, id).toBeTruthy();
       expect(avatar.tastes.sore, id).toBeTruthy();

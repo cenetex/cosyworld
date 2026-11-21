@@ -500,8 +500,6 @@ catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
   "n",
 ]);
 
-// Removed pack choice sentences still occur in saves players import: in log
-// entries, item histories and the memories that quote them.
 const contentDir = new URL("../content/", import.meta.url);
 const retiredSentences = [];
 for (const pack of (await readdir(contentDir, { withFileTypes: true }))
