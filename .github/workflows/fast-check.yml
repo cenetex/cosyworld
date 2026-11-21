@@ -95,6 +95,8 @@ jobs:
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: npm run check:comments -- --base "$PR_BASE"
+      - name: Check app.mjs size
+        run: bash v2/scripts/check-app-size.sh
       - name: Check version alignment
         run: npm run check:version
       # New card-table UI needs the owner's approval in ui-inventory.json.
