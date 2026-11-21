@@ -880,6 +880,13 @@
         "holder": "willows-swede",
         "consumedBy": [],
         "readBy": []
+      },
+      {
+        "id": "willows-notebook",
+        "name": "The River Notebook",
+        "holder": "willows-camp",
+        "consumedBy": [],
+        "readBy": []
       }
     ],
     "needs": {

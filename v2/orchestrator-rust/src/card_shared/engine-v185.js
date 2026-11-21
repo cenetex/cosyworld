@@ -1430,6 +1430,8 @@
         return state?.choices?.[c.key] === c.value;
       case "choice_unset":
         return !!state && !Object.hasOwn(state.choices || {}, c.key);
+      case "receipt":
+        return !!state && Object.hasOwn(state.receipts || {}, c.choice);
       case "clock": {
         const hour = s.turn % (2 * DAYLIGHT_TURNS);
         return c.from < c.to ? hour >= c.from && hour < c.to : hour >= c.from || hour < c.to;
@@ -2968,6 +2970,7 @@
     "any",
     "choice",
     "choice_unset",
+    "receipt",
     "flag",
     "holding",
     "trusted",
@@ -3002,6 +3005,7 @@
   var TRAVELERS = ["player", "any"];
   var VARIANTS = ["asleep", "awake", "irritated"];
   var record3 = (v) => v && typeof v === "object" && !Array.isArray(v);
+  var LORE_PAGE_CHARS = 1200;
   var owns3 = (o, key3) => record3(o) && typeof key3 === "string" && Object.hasOwn(o, key3);
   var idOk2 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
   var proseOk = (v, max = 1200) => v === void 0 || textOk(v, max);
@@ -3548,6 +3552,9 @@
           case "choice_unset":
             ok = keysOk(c, ["kind", "key"]) && idOk2(c.key);
             break;
+          case "receipt":
+            ok = keysOk(c, ["kind", "choice"]) && idOk2(c.choice);
+            break;
           case "daylight":
             ok = keysOk(c, ["kind", "phase"]) && ["day", "night"].includes(c.phase);
             break;
@@ -3641,6 +3648,7 @@
     const savedCondition = (c) => c?.kind === "any" ? Array.isArray(c.conditions) && c.conditions.every(savedCondition) : c?.kind === "not" ? savedCondition(c.condition) : [
       "choice",
       "choice_unset",
+      "receipt",
       "flag",
       "holding",
       "item_at",
@@ -3757,6 +3765,7 @@
           "persona",
           "seed",
           "records",
+          "lore",
           "holder",
           "art",
           "requires",
@@ -3783,6 +3792,19 @@
       );
       media(i.art, `item ${id} art`);
       requirements(i.requires, `item ${id} requires`);
+      check(
+        i.lore === void 0 || Array.isArray(i.lore) && i.lore.length >= 1 && i.lore.length <= 80,
+        `item ${id} lore must be a list of 1 to 80 pages`
+      );
+      for (const [n, page] of (Array.isArray(i.lore) ? i.lore : []).entries()) {
+        check(
+          keysOk(page, ["text", "about", "requires"]) && textOk(page.text, LORE_PAGE_CHARS) && (page.about === void 0 || [places2, pack.avatars, pack.items].some(
+            (all) => owns3(all, page.about)
+          )),
+          `item ${id} lore[${n}] needs text of at most ${LORE_PAGE_CHARS} characters and may be about one of this pack's entities`
+        );
+        requirements(page?.requires, `item ${id} lore[${n}] requires`);
+      }
       check(
         i.sealed === void 0 || keysOk(i.sealed, []) && Array.isArray(i.requires) && i.requires.length > 0 && owns3(places2, i.holder) && (i.home === void 0 || i.home === i.holder) && i.locked === void 0 && !i.startsUsed,
         `item ${id} sealed needs requires and a place of the pack where it lies (home, if any, the same place)`
@@ -3905,6 +3927,11 @@
         );
       if (c.kind === "choice_unset")
         check(writes.has(c.key), "a condition names an unwritten choice");
+      if (c.kind === "receipt")
+        check(
+          (pack.choices || []).some((choice) => choice?.id === c.choice),
+          "a receipt condition names no choice in this pack"
+        );
       if (c.kind === "flag")
         check(flags.has(c.key), "a condition names an unwritten flag");
     });
@@ -3933,6 +3960,8 @@
       ...choices
     ].forEach((e) => {
       verifyRefs(e.requires);
+      if (Array.isArray(e.lore))
+        e.lore.forEach((page) => verifyRefs(page?.requires));
     });
     if (pack.sections !== void 0) {
       check(

@@ -32,6 +32,7 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
     }
     lines.push("Visible facts:".into());
     lines.extend(entity.facts.iter().cloned());
+    lines.extend(super::lore::prompt_lines(&entity.lore));
     for fact in observations::facts(context)
         .as_array()
         .into_iter()
