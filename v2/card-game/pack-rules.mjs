@@ -120,6 +120,8 @@ export function conditionMet(s, c, senses, packId = null, actor = null) {
       return state?.choices?.[c.key] === c.value;
     case "choice_unset":
       return !!state && !Object.hasOwn(state.choices || {}, c.key);
+    case "receipt":
+      return !!state && Object.hasOwn(state.receipts || {}, c.choice);
     case "clock": {
       const hour = s.turn % (2 * DAYLIGHT_TURNS);
       return c.from < c.to

@@ -50,6 +50,8 @@ use grounding::{dialogue_tag, first_person, grounded, invents_item};
 pub(crate) mod imported;
 #[path = "card_narrative/knowledge.rs"]
 mod knowledge;
+#[path = "card_narrative/lore.rs"]
+mod lore;
 #[path = "card_narrative/observations.rs"]
 mod observations;
 #[path = "card_narrative/perception.rs"]
@@ -411,6 +413,8 @@ struct Entity {
     facts: Vec<String>,
     #[serde(default)]
     poem: Option<recital::Poem>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    lore: Vec<String>,
     desire: Option<Desire>,
     memories: Vec<Memory>,
     previous: Option<String>,
@@ -658,6 +662,7 @@ fn valid(context: &Context) -> bool {
         && context.entities.iter().all(|e| {
             profiles().get(&e.id).is_some()
                 && recital::valid(&e.id, e.poem.as_ref(), context.turn)
+                && lore::valid(&e.lore)
                 && e.facts.len() <= 16
                 && e.facts.iter().all(|s| bounded(s, 240))
                 && between::valid(context, e)
@@ -2016,6 +2021,7 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
     if let Some(poem) = &entity.poem {
         lines.extend(tagged(Section::Facts, recital::prompt_lines(poem)));
     }
+    lines.extend(tagged(Section::Facts, lore::prompt_lines(&entity.lore)));
     // A line's present is the narrator's choice, worded last, next to the
     // line I answer (P3). An older tab sends none and keeps the scene above.
     let perceived = entity
@@ -3949,13 +3955,13 @@ pub(crate) mod tests {
             prompt,
             ["My poem Before the Burial holds deeds by Vale, Mara, an earlier traveler."]
         );
-        let lore: Value = serde_json::from_str(include_str!(
-            "../../content/greek-drama/lore/bard-couplets.json"
-        ))
-        .unwrap();
-        for verse in lore["verses"].as_object().unwrap().values() {
-            for line in verse["lines"].as_array().unwrap() {
-                assert!(!prompt[0].contains(line.as_str().unwrap()));
+        let greek = packs["packs"].as_array().unwrap().iter();
+        let greek = greek.filter(|pack| pack["id"] == "greek-drama");
+        for page in
+            greek.flat_map(|pack| pack["items"]["greek-songbook"]["lore"].as_array().unwrap())
+        {
+            for line in page["text"].as_str().unwrap().split(" / ") {
+                assert!(!prompt[0].contains(line));
             }
         }
     }

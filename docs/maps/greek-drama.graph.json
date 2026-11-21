@@ -1,7 +1,7 @@
 {
   "pack": "greek-drama",
   "name": "The Wine-Dark Sea",
-  "revision": 31,
+  "revision": 32,
   "entry": "greek-harbor",
   "entries": [
     {
@@ -9423,6 +9423,41 @@
           "act:greek-atreid-euripides",
           "act:greek-atreid-sophocles"
         ]
+      },
+      {
+        "id": "greek-theban-chronicle",
+        "name": "The Theban Chronicle",
+        "holder": "greek-elder",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "greek-city-roll",
+        "name": "The Roll of the City",
+        "holder": "greek-elder",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "greek-songbook",
+        "name": "The Chorus Songbook",
+        "holder": "greek-elder",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "greek-guide",
+        "name": "A Guide to Thebes and Attica",
+        "holder": "greek-shipmaster",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "greek-cargo-list",
+        "name": "Myrto's Cargo List",
+        "holder": "greek-shipmaster",
+        "consumedBy": [],
+        "readBy": []
       }
     ],
     "needs": {

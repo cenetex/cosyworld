@@ -391,7 +391,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 31,
+      "revision": 32,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2807,6 +2807,1541 @@
           "holder": "greek-argolid-road",
           "art": "assets/greek-drama/atreid-record.png",
           "seed": "Three ways into the House of Atreus: Agamemnon’s tomb, the palace road and the farmer’s house."
+        },
+        "greek-theban-chronicle": {
+          "name": "The Theban Chronicle",
+          "holder": "greek-elder",
+          "art": "assets/greek-drama/marathon-record.webp",
+          "lore": [
+            {
+              "text": "Vale sets the filled jar beside Dione's table. She puts a loaf aside for Myrto's crew.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-return-water-jar"
+                }
+              ]
+            },
+            {
+              "text": "The guard reads the burial prohibition aloud.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-hear-decree"
+                }
+              ]
+            },
+            {
+              "text": "The elder agrees to witness a petition from the bereaved household.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-gather-witness"
+                }
+              ]
+            },
+            {
+              "text": "Myrto names the tomb in Egypt where Helen waited.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-helen-egypt"
+                }
+              ]
+            },
+            {
+              "text": "The Chorus Elder names the beach where Helen returned from Troy.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-helen-troy"
+                }
+              ]
+            },
+            {
+              "text": "Helen tells her own account.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-hear-helen-egypt"
+                }
+              ]
+            },
+            {
+              "text": "Vale deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-helen-egypt-passage"
+                }
+              ]
+            },
+            {
+              "text": "Vale records Helen's request to remain under protection while the competing claims are heard.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-helen-egypt-shelter"
+                }
+              ]
+            },
+            {
+              "text": "Helen tells her own account.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-hear-helen-troy"
+                }
+              ]
+            },
+            {
+              "text": "Vale deposits provisions and the witness tablet beside the boat. Helen accepts a witnessed passage agreement.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-helen-troy-passage"
+                }
+              ]
+            },
+            {
+              "text": "Vale records Helen's request to remain under protection while the competing claims are heard.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-helen-troy-shelter"
+                }
+              ]
+            },
+            {
+              "text": "Ismene names the road to Agamemnon’s tomb.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-aeschylus"
+                }
+              ]
+            },
+            {
+              "text": "Electra names what her family has lost.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-hear-electra-aeschylus"
+                }
+              ]
+            },
+            {
+              "text": "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-aeschylus-hearing"
+                }
+              ]
+            },
+            {
+              "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-aeschylus-refusal"
+                }
+              ]
+            },
+            {
+              "text": "Creon names the road to the palace at Mycenae.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-sophocles"
+                }
+              ]
+            },
+            {
+              "text": "Electra names what her family has lost.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-hear-electra-sophocles"
+                }
+              ]
+            },
+            {
+              "text": "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-sophocles-hearing"
+                }
+              ]
+            },
+            {
+              "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-sophocles-refusal"
+                }
+              ]
+            },
+            {
+              "text": "Dione names the farm that gave Electra shelter.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-euripides"
+                }
+              ]
+            },
+            {
+              "text": "Electra names what her family has lost.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-hear-electra-euripides"
+                }
+              ]
+            },
+            {
+              "text": "Vale deposits the witness tablet and agrees to carry the household's claim to a public hearing. No killing is authorized or recorded.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-euripides-hearing"
+                }
+              ]
+            },
+            {
+              "text": "Vale refuses to promise revenge while keeping the household’s testimony on record. Electra knows the answer.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-atreid-euripides-refusal"
+                }
+              ]
+            },
+            {
+              "text": "Myrto points out the Northern Road to Ajax’s camp.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-invitation"
+                }
+              ]
+            },
+            {
+              "text": "Teucer tells Vale that Ajax left his shield for his son Eurysaces in Tecmessa’s tent. This is testimony within the named Trojan account.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-learn-shield-teucer"
+                }
+              ]
+            },
+            {
+              "text": "Odysseus tells Vale that the shield belongs with Eurysaces in Tecmessa’s care. This is testimony within the named Trojan account.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-learn-shield-odysseus"
+                }
+              ]
+            },
+            {
+              "text": "Tecmessa tells Vale that Ajax wanted their son Eurysaces to keep the shield. This is testimony within the named Trojan account.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-learn-shield-tecmessa"
+                }
+              ]
+            },
+            {
+              "text": "Tecmessa sets Ajax’s shield beside her tent for Eurysaces.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-deliver-shield"
+                }
+              ]
+            },
+            {
+              "text": "Teucer asks Vale to carry his written burial plea to Odysseus. He places the plea on the camp bench. This is testimony within the named Trojan account.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-hear-plea"
+                }
+              ]
+            },
+            {
+              "text": "Odysseus reads Teucer’s plea aloud.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-deliver-plea"
+                }
+              ]
+            },
+            {
+              "text": "Odysseus asks for a public burial.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-choose-public"
+                }
+              ]
+            },
+            {
+              "text": "Tecmessa asks for a quiet burial with the household.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-choose-household"
+                }
+              ]
+            },
+            {
+              "text": "Teucer asks for witnesses to stand with him.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-choose-appeal"
+                }
+              ]
+            },
+            {
+              "text": "Odysseus adds his voice to Teucer’s appeal.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-witness-appeal"
+                }
+              ]
+            },
+            {
+              "text": "Vale digs Ajax’s grave with the camp tools.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-prepare-grave"
+                }
+              ]
+            },
+            {
+              "text": "Vale spreads the linen inside Ajax’s grave.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-lay-cloth"
+                }
+              ]
+            },
+            {
+              "text": "Vale buries Ajax while the camp looks on.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-bury-public"
+                }
+              ]
+            },
+            {
+              "text": "Vale brings the written plea back to Teucer. He adds the completed public burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-record-public"
+                }
+              ]
+            },
+            {
+              "text": "Dione reads Teucer’s account of Ajax’s public burial.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-return-public"
+                }
+              ]
+            },
+            {
+              "text": "Vale buries Ajax beside Tecmessa and Eurysaces.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-bury-household"
+                }
+              ]
+            },
+            {
+              "text": "Vale brings the written plea back to Teucer. He adds the completed household burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-record-household"
+                }
+              ]
+            },
+            {
+              "text": "Dione reads Teucer’s account of the household burial.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-return-household"
+                }
+              ]
+            },
+            {
+              "text": "Vale buries Ajax after Teucer’s appeal.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-bury-appeal"
+                }
+              ]
+            },
+            {
+              "text": "Vale brings the written plea back to Teucer. He adds the completed witnessed-appeal burial and signs the Trojan account for Dione. The paper now carries his own testimony.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-record-appeal"
+                }
+              ]
+            },
+            {
+              "text": "Dione reads Teucer’s account of the witnessed burial.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-return-appeal"
+                }
+              ]
+            },
+            {
+              "text": "Antigone cleans the dust from her brother and anoints him.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-anoint-polynices"
+                }
+              ]
+            },
+            {
+              "text": "Antigone draws the black cloth over her brother and lays a raven feather on it.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-shroud-polynices"
+                }
+              ]
+            },
+            {
+              "text": "Antigone covers her brother with earth and leaves the raven feather on the mound.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-bury-polynices"
+                }
+              ]
+            },
+            {
+              "text": "Polynices’ Shade points beneath the bent olive, where his sister can lay him to rest.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-hear-polynices"
+                }
+              ]
+            },
+            {
+              "text": "Patroclus steps down onto the quay and makes room beside Vale.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-meet-patroclus"
+                }
+              ]
+            },
+            {
+              "text": "Vale sits with Aethra and the Argive mothers. Their sons died in the attack on Thebes. They ask Athens to recover the remains for burial. Aethra sets their petition and olive branch within reach.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-hear-mothers"
+                }
+              ]
+            },
+            {
+              "text": "Vale asks Adrastus why the army went to Thebes. He owns the failed expedition and the warning he set aside. Aethra asks that the mothers’ right to bury their sons receive its own hearing.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-hear-adrastus"
+                }
+              ]
+            },
+            {
+              "text": "Vale gives Theseus the mothers’ petition. He takes up the burial claim as the city’s own duty. The herald sets out for Thebes with a burial truce that names the dead, a return road and witnesses from both sides.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-register-plea"
+                }
+              ]
+            },
+            {
+              "text": "Theseus reads the herald’s return to Vale. In this new telling, both sides accepted the burial truce. The remains reached Eleusis under witness. The mothers now have their dead; their funeral and care still lie before them.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-hear-truce-report"
+                }
+              ]
+            },
+            {
+              "text": "Thaleia shows Vale the resting place at the quay. She has cloth for Eleusis, a basket for the homeward meal and a blanket the sailors say was meant for Marathon. She asks for the mothers’ own list before assigning the berth.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-hear-quay"
+                }
+              ]
+            },
+            {
+              "text": "The grain basket rests beside Thaleia’s bench. Vale lays out the cups for people who will rest here on their way home.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-set-provisions"
+                }
+              ]
+            },
+            {
+              "text": "Vale lays the cloths from Piraeus beside Aethra. The mothers prepare the returned dead. Their children gather near the shrine while the funeral attendants carry out the rite.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-lay-cloths"
+                }
+              ]
+            },
+            {
+              "text": "Vale gives the funeral urn to the mothers. They name their sons over the ashes. Aethra writes the funeral account and the households’ return list for Thaleia.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-lay-ashes"
+                }
+              ]
+            },
+            {
+              "text": "Aethra tells Vale the funeral’s further loss. Evadne died at Capaneus’s pyre despite Iphis’s plea. He has lost both his children. The surviving children carry ashes and speak of vengeance. Aethra recalls the play’s closing oath: Argos owes Athens aid, while Athena names another war for the children. Iphis comes to sit beside the shrine steps.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-hear-pyre"
+                }
+              ]
+            },
+            {
+              "text": "Vale gives Thaleia the mothers’ list. She reserves the prepared bench, basket and next open berth for those households. Their names stay beside the mooring rope until they arrive.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-family-berth"
+                }
+              ]
+            },
+            {
+              "text": "The keeper names an earlier time, before the deaths of the Theban brothers. In Sophocles’s tale, blind Oedipus reaches this grove with Antigone. The townspeople fear his name. Theseus grants him shelter. Vale listens at the present boundary stone.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-colonus-enter"
+                }
+              ]
+            },
+            {
+              "text": "The water cup and honey rest beside the grove. The keeper recalls the gentle offering taught to Oedipus, which Ismene made in the earlier tale. Today’s gift rests at the same boundary for the keeper’s rite. Vale waits beside it.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-colonus-water"
+                }
+              ]
+            },
+            {
+              "text": "The keeper continues the earlier tale. Creon seized Antigone and Ismene to force their father’s return. Theseus brought them back. Polyneices then sought his father’s blessing for war. Oedipus refused and cursed both sons. Vale hears how care and power crossed these paths.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-colonus-daughters"
+                }
+              ]
+            },
+            {
+              "text": "The keeper finishes the tale. Oedipus entrusted his final place to Theseus alone. His daughters mourned and returned toward Thebes. Theseus kept the place secret and promised them care. Vale hears the public promise while the old resting place keeps its silence.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-colonus-farewell"
+                }
+              ]
+            },
+            {
+              "text": "The keeper writes on the refuge tablet beside Vale. It records a present custom: hear a stranger’s need, offer rest and seek protection. The old tale gives this promise its weight.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-colonus-custom"
+                }
+              ]
+            },
+            {
+              "text": "The keeper opens a separate tale after Heracles’s death, under Demophon, son of Theseus. Iolaus and the children sought shelter here. Eurystheus’s herald claimed them and used force. Demophon upheld the altar’s protection. Vale hears the claim beside the present shrine.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-marathon-enter"
+                }
+              ]
+            },
+            {
+              "text": "The blanket from Piraeus lies beside the altar. The keeper sets it aside for present-day guests. The old tale continues beside a place made ready for someone who may need it. Vale waits with the keeper.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-marathon-blanket"
+                }
+              ]
+            },
+            {
+              "text": "In the tale, an oracle demanded a noble maiden’s life. Demophon refused to compel a household. Heracles’s daughter offered herself for her siblings and rejected a lottery. The keeper gives her reasons their full place, then names the life the city’s safety cost. Vale listens.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-marathon-daughter"
+                }
+              ]
+            },
+            {
+              "text": "The keeper tells the next part. The daughter’s sacrifice preceded the battle. Athens won; Iolaus pursued Eurystheus, who was brought back alive. The messenger distinguished what he saw from the story of Iolaus’s renewed youth. Vale hears the cost before the victory.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-marathon-battle"
+                }
+              ]
+            },
+            {
+              "text": "The keeper sets out the final dispute. Alcmene demands Eurystheus’s death. The city’s rule protects a prisoner taken alive. Eurystheus defends his choices and foretells his grave’s power. Alcmene orders him away to die. The keeper writes the Marathon record for Vale.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-marathon-captive"
+                }
+              ]
+            },
+            {
+              "text": "Dione’s table holds the herald’s truce, the funeral account, Myrine’s signed list and the refuge tablet. Vale sits with her. Dione sets the bread between them. The new verses join the earlier song.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-return-dione"
+                }
+              ]
+            },
+            {
+              "text": "Vale gives Dione the herald’s truce: both sides accepted it, and the remains reached Eleusis under witness. Dione keeps it at her table.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-agora-truce"
+                }
+              ]
+            },
+            {
+              "text": "Vale gives Dione the funeral account from Eleusis. Evadne’s death and Iphis’s grief remain in the telling. Dione keeps it at her table.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-eleusis-pledge"
+                }
+              ]
+            },
+            {
+              "text": "Vale gives Dione Myrine’s signed return list. It names the bench, basket and berth Thaleia kept for the listed households. Dione keeps it at her table.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-piraeus-family"
+                }
+              ]
+            },
+            {
+              "text": "Vale gives Dione the refuge tablet from Colonus. It records a welcome for the next stranger. Dione keeps it at her table.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-colonus-custom"
+                }
+              ]
+            },
+            {
+              "text": "Vale gives Dione the Marathon record. Heracles’s daughter gave her life; Alcmene later ordered the captive Eurystheus to die. Dione keeps it at her table.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-marathon-alcmene"
+                }
+              ]
+            },
+            {
+              "text": "Myrine names the household she represents. She agrees to walk from Eleusis to Piraeus along the shore path with a traveler from Vale’s company. She will wait for company before setting out. At the quay she will claim the care prepared for her household.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-agree-journey"
+                }
+              ]
+            },
+            {
+              "text": "Myrine rests at the quay with the basket now in her hands. Thaleia finds her household on the list and keeps its place. Before Vale, Myrine signs the margin: “I reached the quay. My household’s place was kept, and its basket passed to me.” Her words can travel to Dione.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-receive-family"
+                }
+              ]
+            }
+          ]
+        },
+        "greek-city-roll": {
+          "name": "The Roll of the City",
+          "holder": "greek-elder",
+          "art": "assets/greek-drama/return-list.png",
+          "lore": [
+            {
+              "text": "Dust marks the hem of her dress. She keeps looking toward the battlefield.",
+              "about": "greek-antigone"
+            },
+            {
+              "text": "She has gathered clean cloth under the altar roof and checks the road before speaking. She would ask Theseus of Athens where her father was laid.",
+              "about": "greek-ismene"
+            },
+            {
+              "text": "He receives petitions beside the palace door. He wants his decree back in his own hands.",
+              "about": "greek-creon"
+            },
+            {
+              "text": "He guards the road to the battlefield and stands aside only for Creon’s writ or the herald’s truce. He keeps glancing toward the smell of Dione’s oven.",
+              "about": "greek-guard"
+            },
+            {
+              "text": "Flour covers her forearms. She has kept a place free at the common table.",
+              "about": "greek-baker"
+            },
+            {
+              "text": "He listens beside the well and repeats each claim with the speaker's name.",
+              "about": "greek-elder"
+            },
+            {
+              "text": "She ties a mooring rope around the stone bollard and watches the road into town. Her crew will not sail without bread, figs and wine.",
+              "about": "greek-shipmaster"
+            },
+            {
+              "text": "He keeps the words of the journey in a song, and would hear Adrastus speak over the Argive dead.",
+              "about": "greek-rhapsode"
+            },
+            {
+              "text": "She sells small pots near the herald’s platform and talks of Dione’s Theban bread, which she has never tasted.",
+              "about": "greek-market-neighbor"
+            },
+            {
+              "text": "He has arranged travelers' questions in a short queue. A broom leans against the columns.",
+              "about": "greek-temple-attendant"
+            },
+            {
+              "text": "He holds a mooring rope and waits for each traveler to name a purpose.",
+              "about": "greek-ferryman"
+            },
+            {
+              "text": "She checks the traveler's account against a witness tablet.",
+              "about": "greek-helen-egypt"
+            },
+            {
+              "text": "Salt stains his cloak. He has kept the ship's passenger tally.",
+              "about": "greek-menelaus-egypt"
+            },
+            {
+              "text": "She checks the traveler's account against a witness tablet.",
+              "about": "greek-helen-troy"
+            },
+            {
+              "text": "Salt stains his cloak. He has kept the ship's passenger tally.",
+              "about": "greek-menelaus-troy"
+            },
+            {
+              "text": "She has preserved an account of the household's losses.",
+              "about": "greek-electra-aeschylus"
+            },
+            {
+              "text": "He has come to hear his sister before committing himself.",
+              "about": "greek-orestes-aeschylus"
+            },
+            {
+              "text": "She has preserved an account of the household's losses.",
+              "about": "greek-electra-sophocles"
+            },
+            {
+              "text": "He has come to hear his sister before committing himself.",
+              "about": "greek-orestes-sophocles"
+            },
+            {
+              "text": "She has preserved an account of the household's losses.",
+              "about": "greek-electra-euripides"
+            },
+            {
+              "text": "He has come to hear his sister before committing himself.",
+              "about": "greek-orestes-euripides"
+            },
+            {
+              "text": "Olive branches rest across her knees at Demeter’s altar. She will not rise until funeral oil is here for the dead, and she has sent for her son Theseus.",
+              "about": "greek-aethra"
+            },
+            {
+              "text": "Dust lies in the folds of his cloak. He led the Argive host against Thebes, and he waits at Eleusis for the herald’s word that Thebes will give up the dead.",
+              "about": "greek-adrastus"
+            },
+            {
+              "text": "She holds a strip of cloth between both hands. She waits at Eleusis for her son’s ashes and means to keep them in her own arms.",
+              "about": "greek-argive-mother"
+            },
+            {
+              "text": "He sits beside the shrine steps, a place empty at his side. When the ashes come, he would see them taken down to the Piraeus quays, toward home.",
+              "about": "greek-iphis"
+            },
+            {
+              "text": "He stands by the herald’s table with the truce in his hand. He will not act for Argos until the mothers’ own petition reaches the Agora.",
+              "about": "greek-theseus"
+            },
+            {
+              "text": "She counts bowls beside an empty grain board. Her quay waits for its own sack of wheat, and her list keeps a space for Myrine of Argos.",
+              "about": "greek-quay-host"
+            },
+            {
+              "text": "The keeper sits by the boundary stone where an old exile once rested. The funeral oil was pressed from these olives, and he wants it set down in the grove again.",
+              "about": "greek-colonus-keeper"
+            },
+            {
+              "text": "The keeper smooths a place for a blanket beside the altar. A small bowl rests inside the shelter.",
+              "about": "greek-marathon-keeper"
+            },
+            {
+              "text": "Road dust marks her sandals. She will not leave Eleusis before the ashes are in the mothers’ keeping; then she means to walk down to the Piraeus quays.",
+              "about": "greek-household-witness"
+            },
+            {
+              "text": "Tecmessa keeps the household beside Eurysaces. She asks for Ajax’s shield to be set where the child can keep it. Ajax’s household and burial are at issue in this named Trojan account.",
+              "about": "greek-ajax-tecmessa"
+            },
+            {
+              "text": "Ajax’s brother carries a written plea for burial. He asks for the household and the dead to be heard. Ajax’s household and burial are at issue in this named Trojan account.",
+              "about": "greek-ajax-teucer"
+            },
+            {
+              "text": "Odysseus waits by the commanders’ tents. He can hear Teucer’s plea and speak for a former rival. Ajax’s household and burial are at issue in this named Trojan account.",
+              "about": "greek-ajax-odysseus"
+            },
+            {
+              "text": "A pale figure stands beside the broken spears. He asks that his sister be allowed to lay him to rest.",
+              "about": "greek-polynices-shade"
+            },
+            {
+              "text": "He sits against the mast with a coil of rope across his knees. He keeps looking toward Piraeus.",
+              "about": "greek-patroclus"
+            }
+          ]
+        },
+        "greek-songbook": {
+          "name": "The Chorus Songbook",
+          "holder": "greek-elder",
+          "art": "assets/greek-drama/refuge-tablet.png",
+          "lore": [
+            {
+              "text": "She laid her brother in the earth. / A raven feather marked his rest.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-bury-polynices"
+                }
+              ]
+            },
+            {
+              "text": "I set the water by her hands. / She kept a loaf of bread for me.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-return-water-jar"
+                }
+              ]
+            },
+            {
+              "text": "Their branches rested on my knees. / I heard the names beneath them.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-hear-mothers"
+                }
+              ]
+            },
+            {
+              "text": "I laid their plea before the town. / The crowded square grew quiet.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-register-plea"
+                }
+              ]
+            },
+            {
+              "text": "The herald named a road of peace. / The dead came home beneath it.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-hear-truce-report"
+                }
+              ]
+            },
+            {
+              "text": "I set the basket by the ropes. / The waiting cups stood ready.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-set-provisions"
+                }
+              ]
+            },
+            {
+              "text": "The cloth lay clean upon the stone. / Their children gathered near it.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-lay-cloths"
+                }
+              ]
+            },
+            {
+              "text": "I set the ashes by their hands. / Each name was heavier than clay.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-lay-ashes"
+                }
+              ]
+            },
+            {
+              "text": "I heard the father’s second loss. / One chair stood empty by the stone.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-hear-pyre"
+                }
+              ]
+            },
+            {
+              "text": "I laid their names beside the rope. / A place was kept for each of them.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-family-berth"
+                }
+              ]
+            },
+            {
+              "text": "I set sweet water by the grove. / The keeper named an older road.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-colonus-water"
+                }
+              ]
+            },
+            {
+              "text": "The keeper sang of daughters walking. / The final place stayed with the king.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-colonus-farewell"
+                }
+              ]
+            },
+            {
+              "text": "I wrote a welcome by the trees. / A stranger’s need could find a name.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-colonus-custom"
+                }
+              ]
+            },
+            {
+              "text": "I laid a blanket by the altar. / The old tale found a living task.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-marathon-blanket"
+                }
+              ]
+            },
+            {
+              "text": "The keeper gave the daughter voice. / Her empty place remained among them.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-marathon-daughter"
+                }
+              ]
+            },
+            {
+              "text": "I brought those names beside her bread. / We made room for the words they carried.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-open-door-return-dione"
+                }
+              ]
+            },
+            {
+              "text": "I told her how the herald spoke. / A road for the dead lay in his words.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-agora-truce"
+                }
+              ]
+            },
+            {
+              "text": "I spoke the pledge beside her bread. / The names of loss stayed in the room.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-eleusis-pledge"
+                }
+              ]
+            },
+            {
+              "text": "I told her where their names were kept. / The quay’s first promise reached the table.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-piraeus-family"
+                }
+              ]
+            },
+            {
+              "text": "I brought the grove’s old tale to her. / Its tablet spoke of guests to come.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-colonus-custom"
+                }
+              ]
+            },
+            {
+              "text": "I brought the keeper’s ending home. / Its saved lives cast a troubled shadow.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-report-marathon-alcmene"
+                }
+              ]
+            },
+            {
+              "text": "Her feet had reached the waiting quay. / Her household’s basket passed to her.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-homecoming-receive-family"
+                }
+              ]
+            },
+            {
+              "text": "I set his shield beside the tent. / Tecmessa kept it for her child.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-deliver-shield"
+                }
+              ]
+            },
+            {
+              "text": "I brought his brother’s written plea. / A rival heard it by the ships.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-deliver-plea"
+                }
+              ]
+            },
+            {
+              "text": "His rival spoke; I broke the ground. / The camp laid down its quarrel.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-bury-public"
+                }
+              ]
+            },
+            {
+              "text": "I gave him earth beside the ships. / The household kept his shield.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-bury-household"
+                }
+              ]
+            },
+            {
+              "text": "I kept the vigil with their plea. / The witnessed rite gave Ajax earth.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-bury-appeal"
+                }
+              ]
+            },
+            {
+              "text": "I laid his words beside the bread. / She held the rival’s plea with care.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-return-public"
+                }
+              ]
+            },
+            {
+              "text": "I laid his words beside the bread. / She named the household in the song.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-return-household"
+                }
+              ]
+            },
+            {
+              "text": "I laid his words beside the bread. / She heard how witnesses brought earth.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "greek-ajax-return-appeal"
+                }
+              ]
+            }
+          ]
+        },
+        "greek-guide": {
+          "name": "A Guide to Thebes and Attica",
+          "holder": "greek-shipmaster",
+          "art": "assets/greek-drama/pyre-account.webp",
+          "lore": [
+            {
+              "text": "Worn steps climb from the stone landing toward the town.",
+              "about": "greek-harbor"
+            },
+            {
+              "text": "Bread cools beneath a cloth. An empty place remains at the common table.",
+              "about": "greek-courtyard"
+            },
+            {
+              "text": "Water jars stand beside the well. Neighbors lower their voices when palace servants pass.",
+              "about": "greek-well"
+            },
+            {
+              "text": "The king receives petitions beneath a painted portico. A space beside the door is kept for public orders.",
+              "about": "greek-palace"
+            },
+            {
+              "text": "Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers clear. Fresh repairs cover the gate. A guard keeps the road to the fallen soldiers. He guards it until Creon's writ is in his hands.",
+              "about": "greek-gate"
+            },
+            {
+              "text": "Broken spear shafts lie in the dust. A strip of earth outside the city is set apart for the fallen brother.",
+              "about": "greek-battlefield"
+            },
+            {
+              "text": "Olive trees shade a small altar. A stone basin stands beneath its roof.",
+              "about": "greek-sanctuary"
+            },
+            {
+              "text": "Goat paths cross the wooded slope of Cithaeron. One end leads to The Exposed Battlefield; the other leads to Eleusinian Sanctuary. A distant drum carries between the trees. A shared road over Cithaeron between The Exposed Battlefield and Eleusinian Sanctuary. It stays open both ways. Travelers meet, talk, rest and carry their belongings here.",
+              "about": "greek-cithaeron"
+            },
+            {
+              "text": "The ships lie motionless beside the shore. Soldiers wait outside the command tents.",
+              "about": "greek-aulis"
+            },
+            {
+              "text": "A broad civic square opens beneath long painted colonnades. Marble steps rise toward the Acropolis above the roofs. A herald keeps a petition table beside the market. The Agora is the great civic heart of Athens. Colonnades, public monuments and the high Acropolis give the city its scale. Theseus receives the mothers’ petition at the herald’s table. A road leads to the Piraeus quays. Streets lead to the harbor and the grove at Colonus.",
+              "about": "greek-athens"
+            },
+            {
+              "text": "A low bench and an empty grain board stand beside the mooring ropes. A host waits for the names of returning families. The Long Walls run inland to Athens. These quays hold the practical work of welcome. Grain comes up from here to Thebes, and travelers from Eleusis come down to the ships. The host speaks about what is actually on her quay.",
+              "about": "greek-piraeus"
+            },
+            {
+              "text": "Stone benches face the speaker's platform. Citizens gather beside a list of proposals.",
+              "about": "greek-assembly"
+            },
+            {
+              "text": "A barred door separates the treasury from the courtyard. Women keep watch on the steps.",
+              "about": "greek-acropolis"
+            },
+            {
+              "text": "Serving dishes crowd a kitchen table. Two servants quarrel over who will carry dinner inside.",
+              "about": "greek-demos-house"
+            },
+            {
+              "text": "Writing tablets lie beside a narrow bed. A student practices both sides of an argument.",
+              "about": "greek-thinkery"
+            },
+            {
+              "text": "A jury token hangs beside the door. The household has arranged a small court in the yard.",
+              "about": "greek-jury-house"
+            },
+            {
+              "text": "Garlands mark the sanctuary entrance. The women at the door check each arriving guest.",
+              "about": "greek-festival"
+            },
+            {
+              "text": "Vines grow beside a patched farmhouse. Unused ploughs stand where military wagons passed.",
+              "about": "greek-attic-farm"
+            },
+            {
+              "text": "Charcoal baskets line the lane. A farmer has marked a separate trading ground with stones.",
+              "about": "greek-acharnae"
+            },
+            {
+              "text": "A keeper rests beside a smooth stone at the grove’s edge, among the olives. Country paths lead to Eleusis and the farm. Travelers speak of an altar at Marathon beyond the hills. The keeper tells Sophocles’s Oedipus at Colonus as an earlier tale, before the brothers died at Thebes. Oedipus and his daughters belong to that named tale. The oil pressed here and the traveler’s deeds belong to the present grove.",
+              "about": "greek-colonus"
+            },
+            {
+              "text": "Mothers hold olive branches on Demeter’s steps. Aethra keeps a clear space beside the altar. The Sacred Way leads to the Dipylon gate of Athens; the Cithaeron road leads to Thebes. This episode follows the attack on Thebes. The Argive mothers seek their sons’ remains. The traveler’s own Theban deed stays true.",
+              "about": "greek-eleusis"
+            },
+            {
+              "text": "A folded cloth lies beside the altar of Zeus. A keeper watches the road where families once sought shelter. Country paths lead to Eleusis, Colonus and the farm. Ships call in the bay below. The keeper tells Euripides’s Children of Heracles as a separate tale under Demophon, son of Theseus, after Heracles’s death. The daughter, battle and captive king belong to that tale. The traveler’s blanket stays at the present altar for guests.",
+              "about": "greek-marathon"
+            },
+            {
+              "text": "Three roads leave a shaded meeting place.",
+              "about": "greek-argolid-road"
+            },
+            {
+              "text": "Suppliant branches rest beside a coastal altar. A lookout watches an approaching ship.",
+              "about": "greek-argos-sanctuary"
+            },
+            {
+              "text": "A bronze door opens onto the royal court. Wax tablets list the household’s dead and absent members.",
+              "about": "greek-argos-palace"
+            },
+            {
+              "text": "A stone mound stands beside the palace road. Fresh offerings have been placed at its foot.",
+              "about": "greek-argos-tomb"
+            },
+            {
+              "text": "The palace rises above a worn approach. A woman waits where arriving servants can hear her.",
+              "about": "greek-mycenae-palace"
+            },
+            {
+              "text": "A small house stands beyond cultivated fields. A farmer has left a seat for an unexpected guest.",
+              "about": "greek-argive-farm"
+            },
+            {
+              "text": "A rented household opens onto the harbor road. Bundles stand ready beside the door.",
+              "about": "greek-corinth"
+            },
+            {
+              "text": "Two shrines flank the palace approach. A hunting party has left its equipment under the portico.",
+              "about": "greek-troezen"
+            },
+            {
+              "text": "Travelers queue beneath Apollo's columns. An attendant sweeps leaves from the sanctuary steps.",
+              "about": "greek-delphi"
+            },
+            {
+              "text": "A messenger's sandals dry beside the doorway. A folded garment waits on a workbench.",
+              "about": "greek-trachis"
+            },
+            {
+              "text": "A steep road climbs above the trees on Mount Oeta. One end leads to Delphic Temple; the other leads to House at Trachis. Bearers have set a litter beside a level patch of stone. A shared road between Delphic Temple and House at Trachis. The left end always leads to Delphic Temple. The right end always leads to House at Trachis. Bearers have set a litter beside a level patch of stone. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-oeta"
+            },
+            {
+              "text": "Guests arrive at a house in mourning. A servant hesitates before opening the inner door.",
+              "about": "greek-pherae"
+            },
+            {
+              "text": "The sanctuary stands beside a great household. A woman has taken refuge near the altar.",
+              "about": "greek-thetis"
+            },
+            {
+              "text": "The city road runs between battered walls. Soldiers and displaced households share the remaining wells.",
+              "about": "greek-troy"
+            },
+            {
+              "text": "A speaker names the Trojan account after Ajax’s death. Tents stand above the ships. Teucer carries a burial plea to the commanders. This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. The household tents, shore landing and grave are local paths within the same camp.",
+              "about": "greek-greek-camp"
+            },
+            {
+              "text": "Watch fires mark the edge of the camp. A newly arrived ally waits for a guide.",
+              "about": "greek-trojan-camp"
+            },
+            {
+              "text": "A small boat is drawn above the tideline. Its passengers compare what they remember of the war.",
+              "about": "greek-troy-beach"
+            },
+            {
+              "text": "A rough bed lies inside the cave. Footprints lead toward a bow wrapped against the salt air.",
+              "about": "greek-lemnos"
+            },
+            {
+              "text": "A fleet waits beyond the breakers. Captive households search among the new arrivals.",
+              "about": "greek-thrace"
+            },
+            {
+              "text": "A tomb stands beside the Egyptian palace. A woman receives visitors from the sea.",
+              "about": "greek-egypt-tomb"
+            },
+            {
+              "text": "A walled temple overlooks the landing place. An attendant counts the people brought ashore.",
+              "about": "greek-tauris"
+            },
+            {
+              "text": "Sheep crowd a stone enclosure beside the cave. Wine jars stand beyond the shepherds' reach.",
+              "about": "greek-sicily"
+            },
+            {
+              "text": "Officials wait beside the royal tomb. The last dispatch from the fleet lies unopened.",
+              "about": "greek-susa"
+            },
+            {
+              "text": "Iron bonds fix a figure to the rock. A narrow ledge allows visitors to approach.",
+              "about": "greek-scythian-crag"
+            },
+            {
+              "text": "A steep stair ends above the clouds. Broken farming tools have been carried to the landing.",
+              "about": "greek-divine-heights"
+            },
+            {
+              "text": "A nest hangs above a rocky clearing. Two travelers have laid out a basket, a pot, and a plan for a city.",
+              "about": "greek-bird-wilderness"
+            },
+            {
+              "text": "A ferry rests beside dark water. The keeper of the landing asks the purpose of each crossing.",
+              "about": "greek-underworld"
+            },
+            {
+              "text": "Water passes beneath the hull. The shipmaster watches the shores. Open ports wait beyond the rail. A named ship, the Charybdis, on the Black Pond route. It sails between Black Pond and the Wine-Dark Harbor with no cargo and always comes home that way. Beyond the harbor it sails out to Piraeus Quays only with the Travel Provisions lying on deck, and on from Piraeus to the Hoppy Cat jetty only with the Travel Provisions or something from Hoppy Cat aboard; every way back toward Black Pond is free. Marathon Bay, the Trojan shore and the Far Shores are only rumours on the quays: no ship sails there now. The first passenger ashore chooses the arrival port for everyone aboard. New passengers can board there for the next voyage.",
+              "about": "greek-ship"
+            },
+            {
+              "text": "Stone quays run beneath long warehouses. Beyond the harbor gate, city streets and steps climb toward the walls and the Acropolis of Athens. Athens Harbor is the ship’s landing for the great city. City streets lead inland to the Agora. Piraeus Quays is a separate town with its own host and work of welcome.",
+              "about": "greek-athens-harbor"
+            },
+            {
+              "text": "A broad road crosses the olive hills. One end leads to The Wine-Dark Harbor; the other leads to Theban Courtyard. A stone bench rests beside the verge. A shared road over the olive hills between The Wine-Dark Harbor and Theban Courtyard. Travelers meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-thebes"
+            },
+            {
+              "text": "A broad road crosses the olive hills. One end leads to Athens Harbor; the other leads to Athenian Agora. A stone bench rests beside the verge. A shared road between Athens Harbor and Athenian Agora. The left end always leads to Athens Harbor. The right end always leads to Athenian Agora. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-athens-harbor"
+            },
+            {
+              "text": "A road runs between two long walls from the city to its port. One end leads to Piraeus Quays; the other leads to Athenian Agora. A stone bench rests beside the verge. A shared road between the long walls, joining Piraeus Quays and Athenian Agora. It is open from either end. Travelers meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-athens-piraeus"
+            },
+            {
+              "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Colonus Grove. A stone bench rests beside the verge. A shared road between Athenian Agora and Colonus Grove. The left end always leads to Athenian Agora. The right end always leads to Colonus Grove. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-athens-colonus"
+            },
+            {
+              "text": "A paved road runs from Demeter’s sanctuary to the Dipylon, the double gate of Athens. One end leads to Athenian Agora; the other leads to Eleusinian Sanctuary. Small shrines stand along the verge. A shared road between Athenian Agora and Eleusinian Sanctuary, with small shrines along the verge. Travelers meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-athens-eleusis"
+            },
+            {
+              "text": "A broad road crosses the olive hills. One end leads to Athenian Agora; the other leads to Marathon Altar. A stone bench rests beside the verge. A shared road between Athenian Agora and Marathon Altar. The left end always leads to Athenian Agora. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-athens-marathon"
+            },
+            {
+              "text": "A broad road crosses the olive hills. One end leads to Piraeus Quays; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge. A shared road between Piraeus Quays and Eleusinian Sanctuary. The left end always leads to Piraeus Quays. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-piraeus-eleusis"
+            },
+            {
+              "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Eleusinian Sanctuary. A stone bench rests beside the verge. A shared road between Colonus Grove and Eleusinian Sanctuary. The left end always leads to Colonus Grove. The right end always leads to Eleusinian Sanctuary. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-colonus-eleusis"
+            },
+            {
+              "text": "A broad road crosses the olive hills. One end leads to Colonus Grove; the other leads to Marathon Altar. A stone bench rests beside the verge. A shared road between Colonus Grove and Marathon Altar. The left end always leads to Colonus Grove. The right end always leads to Marathon Altar. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-colonus-marathon"
+            },
+            {
+              "text": "A paved pilgrim road climbs through the hills toward Mount Parnassus. One end leads to Athenian Agora; the other leads to Delphic Temple. Small shrines stand along the verge. A shared road between Athenian Agora and Delphic Temple. The left end always leads to Athenian Agora. The right end always leads to Delphic Temple. Pilgrims carry questions and gifts for Apollo along this road. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-sacred-way"
+            },
+            {
+              "text": "A long royal road runs east across dry plains. One end leads to The Trojan Walls; the other leads to The Court at Susa. A post station keeps fresh horses by the road. A shared road between The Trojan Walls and The Court at Susa. The left end always leads to The Trojan Walls. The right end always leads to The Court at Susa. Royal messengers ride this road between the sea and the Persian court. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-royal"
+            },
+            {
+              "text": "A windy coast road follows the cliffs above the Black Sea. One end leads to The Thracian Shore; the other leads to The Taurian Temple. Fishing boats lie pulled up on the stones below. A shared road between The Thracian Shore and The Taurian Temple. The left end always leads to The Thracian Shore. The right end always leads to The Taurian Temple. The road follows the cold northern coast. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-black-sea"
+            },
+            {
+              "text": "A long road runs west with the settlers of Corinth. One end leads to Corinthian Courtyard; the other leads to The Sicilian Cave. Carts carry seed, tools and household pots. A shared road between Corinthian Courtyard and The Sicilian Cave. The left end always leads to Corinthian Courtyard. The right end always leads to The Sicilian Cave. Corinthian settlers took this way west when they founded Syracuse. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-colonists"
+            },
+            {
+              "text": "A long coast road winds west over the cliffs above the gulf. One end leads to Piraeus Quays; the other leads to The Wine-Dark Harbor. The ship makes the same passage sooner. A shared road between Piraeus Quays and The Wine-Dark Harbor. The left end always leads to Piraeus Quays. The right end always leads to The Wine-Dark Harbor. From Piraeus the road is always open. From the harbor it opens only once the herald’s truce rests in the Agora, as the Long Walls do; until then the ship with the Travel Provisions is the way to Piraeus. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-coast"
+            },
+            {
+              "text": "A long road runs north through Thessaly and Thrace and crosses the strait to Troy. One end leads to The Trojan Camp Landing; the other comes down to The Wine-Dark Harbor. The ship makes the same passage sooner. A shared road between The Trojan Camp Landing and The Wine-Dark Harbor. The left end always leads to The Trojan Camp Landing. The right end always leads to The Wine-Dark Harbor, outside the city; it never passes the City Gate. The road is open both ways. The ship is the quicker way. Travelers can meet, talk, rest and carry their belongings here.",
+              "about": "greek-road-north"
+            },
+            {
+              "text": "A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account. This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A wooden landing meets the ships below the tents. The Greek ship calls here for the named Trojan burial account.",
+              "about": "greek-ajax-landing"
+            },
+            {
+              "text": "Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household. This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Tecmessa keeps a place for Eurysaces beside the tent. The child’s father has died. His shield can be set safely with the household.",
+              "about": "greek-ajax-household"
+            },
+            {
+              "text": "A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed. This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. A patch of earth waits above the ships. Cloth and grave tools must reach this place before Ajax’s burial can be completed.",
+              "about": "greek-ajax-grave"
+            },
+            {
+              "text": "A bent olive shelters the shelf below the battlefield. A bent olive shelters the shelf below the battlefield. There is room to kneel beside the earth.",
+              "about": "greek-polynices-hollow"
+            }
+          ]
+        },
+        "greek-cargo-list": {
+          "name": "Myrto's Cargo List",
+          "holder": "greek-shipmaster",
+          "art": "assets/greek-drama/guard-tablet.webp",
+          "lore": [
+            {
+              "text": "A filled clay jar with a repaired handle. Dione needs it back at the common table. A filled clay jar with a repaired handle, drawn at the well. Dione needs it back at the common table, where her bread is made.",
+              "about": "greek-water-jar"
+            },
+            {
+              "text": "A round loaf from Dione's oven, baked from well water and wheat. A round loaf from Dione's oven, baked from well water and wheat in the Theban courtyard.",
+              "about": "greek-bread"
+            },
+            {
+              "text": "Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus. Threshed wheat in a coarse sack, carried up from the grain quays at Piraeus for Dione's oven.",
+              "about": "greek-wheat"
+            },
+            {
+              "text": "Dried figs from the trees beside the sanctuary altar, strung for a journey.",
+              "about": "greek-figs"
+            },
+            {
+              "text": "A stoppered leather skin of wine from the gate's ration, for a crew at sea.",
+              "about": "greek-wine-skin"
+            },
+            {
+              "text": "Oil pressed from the Colonus olives, stoppered for the funeral rite.",
+              "about": "greek-oil-flask"
+            },
+            {
+              "text": "A short iron shovel with soil caught beneath the blade.",
+              "about": "greek-shovel"
+            },
+            {
+              "text": "A public copy forbids burial of the brother left outside the city. A public copy of Creon's decree. It forbids burial of the brother left outside the city.",
+              "about": "greek-decree"
+            },
+            {
+              "text": "A small marked seal identifies the bereaved household for a public petition. A small marked seal that names the bereaved household for a public petition.",
+              "about": "greek-household-token"
+            },
+            {
+              "text": "Bread, dried figs and a wine skin, packed by Myrto for a voyage out of Thebes.",
+              "about": "greek-provisions"
+            },
+            {
+              "text": "An olive branch bound with white wool carries the herald’s burial truce: Thebes gives up the Argive dead under witness. Its place is Dione’s table in the Theban courtyard. An olive branch bound with white wool: the herald's burial truce. Thebes gives up the Argive dead under witness.",
+              "about": "greek-olive-branch"
+            },
+            {
+              "text": "The account records Helen's stay in Egypt and distinguishes her from the phantom sent to Troy. A witness tablet. It records Helen's stay in Egypt and tells her apart from the phantom sent to Troy.",
+              "about": "greek-egypt-testimony"
+            },
+            {
+              "text": "The account records Helen's journey from Troy. It makes no claim that a phantom took her place. A witness tablet. It records Helen's journey from Troy and makes no claim that a phantom took her place.",
+              "about": "greek-troy-testimony"
+            },
+            {
+              "text": "The testimony begins with offerings and a meeting at Agamemnon's tomb. A witness tablet. Its account begins with offerings and a meeting at Agamemnon's tomb.",
+              "about": "greek-tomb-testimony"
+            },
+            {
+              "text": "The testimony begins with Electra waiting outside the Mycenaean palace. A witness tablet. Its account begins with Electra waiting outside the Mycenaean palace.",
+              "about": "greek-palace-testimony"
+            },
+            {
+              "text": "The testimony begins in a poor household in the Argive countryside. A witness tablet. Its account begins in a poor household in the Argive countryside.",
+              "about": "greek-farm-testimony"
+            },
+            {
+              "text": "An olive branch lies across a tablet bearing the mothers’ request. It is addressed to the Agora of Athens, and Aethra has left room for the city’s answer. An olive branch across a tablet that bears the mothers' request to the Agora of Athens. Room is left for the city's answer.",
+              "about": "greek-burial-petition"
+            },
+            {
+              "text": "A covered clay urn for the Argive ashes. Aethra prepares it at her altar from oil and the herald’s truce. A covered clay urn for the Argive ashes, made at Aethra's altar from oil and the herald's truce.",
+              "about": "greek-ash-urn"
+            },
+            {
+              "text": "A thick clean blanket is folded beside the cargo baskets. Sailors say an altar keeper at Marathon once asked for it. Describe this object, its actual holder and its recorded use. Separate a remembered tale from the traveler’s present deeds.",
+              "about": "greek-shelter-blanket"
+            },
+            {
+              "text": "Ajax’s shield waits to be carried to Tecmessa’s household for Eurysaces. This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
+              "about": "greek-ajax-shield"
+            },
+            {
+              "text": "Teucer asks for earth over his brother. Odysseus backs a public rite, Tecmessa wants a household rite, and Teucer asks for witnesses. This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
+              "about": "greek-ajax-plea"
+            },
+            {
+              "text": "Clean linen is set aside for Ajax’s burial in the Trojan account. This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
+              "about": "greek-ajax-cloth"
+            },
+            {
+              "text": "Take the tools and the linen to Ajax’s grave. Set them down and stay for the burial. This is a named Trojan account, beginning after Ajax’s death. Its deeds belong to that telling. The Theban opening keeps its own time. Describe its actual holder and recorded use.",
+              "about": "greek-ajax-tools"
+            },
+            {
+              "text": "A written account of the rite on the battlefield: who dug, who brought cloth and oil, and who saw.",
+              "about": "greek-burial-account"
+            },
+            {
+              "text": "A sealed writ from the palace. With it, Creon permits the household to bury the brother, and the gate guard to stand aside. A sealed writ from the palace. With it Creon lets the household bury the brother, and the gate guard stands aside.",
+              "about": "greek-creon-writ"
+            },
+            {
+              "text": "A sailor copied two accounts of Helen. Myrto the Shipmaster knows the Egyptian account and The Chorus Elder knows the song about Troy.",
+              "about": "greek-helen-accounts"
+            },
+            {
+              "text": "Ismene knows the way to Agamemnon’s tomb. Creon knows the palace road. Dione the Baker knows the farmer who gave Electra shelter.",
+              "about": "greek-atreid-record"
+            }
+          ]
         }
       },
       "routes": [
@@ -6364,7 +7899,12 @@
           "greek-creon-writ",
           "greek-figs",
           "greek-wine-skin",
-          "greek-wheat"
+          "greek-wheat",
+          "greek-theban-chronicle",
+          "greek-city-roll",
+          "greek-songbook",
+          "greek-guide",
+          "greek-cargo-list"
         ],
         "choices": [
           "greek-return-water-jar",
@@ -9383,7 +10923,7 @@
       "schemaVersion": 1,
       "id": "willows",
       "packId": "cosyworld.willows",
-      "revision": 2,
+      "revision": 3,
       "name": "The Willows",
       "description": "A small island in the flooded Danube. The Swede keeps camp while the river and the willows gather around him.",
       "tone": "Quiet cosmic horror grounded in ordinary camping work, river sounds and damaged gear. The places narrate in the first person and explain each change away until the reasons run out; the willows speak together and only count. The Swede knows early and says little. Signs come from Observing at a place; leaving comes from the kit back at camp.",
@@ -9735,6 +11275,124 @@
           "persona": "The Swede's well-used briar pipe. Words are scratched around its bowl.",
           "holder": "willows-swede",
           "art": "assets/willows/pipe.png"
+        },
+        "willows-notebook": {
+          "name": "The River Notebook",
+          "holder": "willows-camp",
+          "art": "assets/willows/notebook-book.png",
+          "lore": [
+            {
+              "text": "The change came suddenly, as when a series of bioscope pictures snaps down on the streets of a town and shifts without warning into the scenery of lake and forest. We entered the land of desolation on wings, and in less than half an hour there was neither boat nor fishing-hut nor red roof, nor any single sign of human habitation and civilization within sight. The sense of remoteness from the world of humankind, the utter isolation, the fascination of this singular world of willows, winds, and waters, instantly laid its spell upon us both, so that we allowed laughingly to one another that we ought by rights to have held some special kind of passport to admit us, and that we had, somewhat audaciously, come without asking leave into a separate little kingdom of wonder and magic—a kingdom that was reserved for the use of others who had a right to it, with everywhere unwritten warnings to trespassers for those who had the imagination to discover them."
+            },
+            {
+              "text": "There was a long, finely made tear in the bottom of the canoe where a little slither of wood had been neatly taken clean out; it looked as if the tooth of a sharp rock or snag had eaten down her length, and investigation showed that the hole went through. Had we launched out in her without observing it we must inevitably have foundered. At first the water would have made the wood swell so as to close the hole, but once out in mid-stream the water must have poured in, and the canoe, never more than two inches above the surface, would have filled and sunk very rapidly.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-examine-hull"
+                }
+              ]
+            },
+            {
+              "text": "“It’s gone. There is no bread. They’ve taken it!”",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-count-stores"
+                }
+              ]
+            },
+            {
+              "text": "I made a hurried examination of the tent and its surroundings, but the measurements of the night remained the same. There were deep hollows formed in the sand I now noticed for the first time, basin-shaped and of various depths and sizes, varying from that of a tea-cup to a large bowl. The wind, no doubt, was responsible for these miniature craters, just as it was for lifting the paddle and tossing it towards the water. The rent in the canoe was the only thing that seemed quite inexplicable; and, after all, it _was_ conceivable that a sharp point had caught it when we landed. The examination I made of the shore did not assist this theory, but all the same I clung to it with that diminishing portion of my intelligence which I called my “reason.” An explanation of some kind was an absolute necessity, just as some working explanation of the universe is necessary—however absurd—to the happiness of every individual who seeks to do his duty in the world and face the problems of life. The simile seemed to me at the time an exact parallel.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-examine-hollows"
+                }
+              ]
+            },
+            {
+              "text": "We stood there, listening attentively together. At first I heard only the deep note of the water and the hissings rising from its turbulent surface. The willows, for once, were motionless and silent. Then a sound began to reach my ears faintly, a peculiar sound—something like the humming of a distant gong. It seemed to come across to us in the darkness from the waste of swamps and willows opposite. It was repeated at regular intervals, but it was certainly neither the sound of a bell nor the hooting of a distant steamer. I can liken it to nothing so much as to the sound of an immense gong, suspended far up in the sky, repeating incessantly its muffled metallic note, soft and musical, as it was repeatedly struck. My heart quickened as I listened.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-hear-humming"
+                }
+              ]
+            },
+            {
+              "text": "For just as the body swung round to the current the face and the exposed chest turned full towards us, and showed plainly how the skin and flesh were indented with small hollows, beautifully formed, and exactly similar in shape and kind to the sand-funnels that we had found all over the island.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-look-beneath-roots"
+                }
+              ]
+            },
+            {
+              "text": "A black thing, turning over and over in the foaming waves, swept rapidly past. It kept disappearing and coming up to the surface again. It was about twenty feet from the shore, and just as it was opposite to where we stood it lurched round and looked straight at us. We saw its eyes reflecting the sunset, and gleaming an odd yellow as the body turned over. Then it gave a swift, gulping plunge, and dived out of sight in a flash. “An otter, by gad!” we exclaimed in the same breath, laughing. It was an otter, alive, and out on the hunt; yet it had looked exactly like the body of a drowned man turning helplessly in the current. Far below it came to the surface once again, and we saw its black skin, wet and shining in the sunlight.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-look-beneath-roots"
+                }
+              ]
+            },
+            {
+              "text": "“He’s crossing himself!” I cried. “Look, he’s making the sign of the Cross!” “I believe you’re right,” the Swede said, shading his eyes with his hand and watching the man out of sight. He seemed to be gone in a moment, melting away down there into the sea of willows where the sun caught them in the bend of the river and turned them into a great crimson wall of beauty. Mist, too, had begun to rise, so that the air was hazy.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-hear-humming"
+                }
+              ]
+            },
+            {
+              "text": "I returned quietly, creepily, to the tent, first taking another exhaustive look round and—yes, I confess it—making a few measurements. I paced out on the warm sand the distances between the willows and the tent, making a note of the shortest distance particularly.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-pace-willows"
+                }
+              ]
+            },
+            {
+              "text": "For a change, I thought, had somehow come about in the arrangement of the landscape. It was not that my point of vantage gave me a different view, but that an alteration had apparently been effected in the relation of the tent to the willows, and of the willows to the tent. Surely the bushes now crowded much closer—unnecessarily, unpleasantly close. _They had moved nearer._",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-pace-again"
+                }
+              ]
+            },
+            {
+              "text": "Outside there was a sound of multitudinous little patterings. They had been coming, I was aware, for a long time, and in my sleep they had first become audible. I sat there nervously wide awake as though I had not slept at all. It seemed to me that my breathing came with difficulty, and that there was a great weight upon the surface of my body. In spite of the hot night, I felt clammy with cold and shivered. Something surely was pressing steadily against the sides of the tent and weighing down upon it from above. Was it the body of the wind? Was this the pattering rain, the dripping of the leaves? The spray blown from the river by the wind and gathering in big drops? I thought quickly of a dozen things.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-listen-tent"
+                }
+              ]
+            },
+            {
+              "text": "They were nude, fluid shapes, passing up the bushes, _within_ the leaves almost—rising up in a living column into the heavens. Their faces I never could see. Unceasingly they poured upwards, swaying in great bending curves, with a hue of dull bronze upon their skins.",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-look-up-willows"
+                }
+              ]
+            },
+            {
+              "text": "“It’s _their_ sound,” he whispered gravely. “It’s the sound of their world, the humming in their region. The division here is so thin that it leaks through somehow. But, if you listen carefully, you’ll find it’s not above so much as around us. It’s in the willows. It’s the willows themselves humming, because here the willows have been made symbols of the forces that are against us.”",
+              "requires": [
+                {
+                  "kind": "receipt",
+                  "choice": "willows-compare-signs"
+                }
+              ]
+            }
+          ]
         }
       },
       "choices": [

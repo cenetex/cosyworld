@@ -118,7 +118,7 @@ function kitHome(world) {
 }
 
 describe("The Willows", () => {
-  it("keeps the source passages as world lore, out of every speech prompt", () => {
+  it("keeps the source passages as River Notebook pages the camp holds", () => {
     const normalize = (s) => s.replace(/\s+/g, " ").trim();
     const original = normalize(
       readFileSync(
@@ -126,22 +126,18 @@ describe("The Willows", () => {
         "utf8",
       ),
     );
-    const lore = JSON.parse(
-      readFileSync(
-        new URL("../v2/content/willows/lore/readings.json", import.meta.url),
-        "utf8",
-      ),
-    );
-    expect(lore.source.author).toBe("Algernon Blackwood");
-    expect(lore.readings).toHaveLength(13);
-    for (const reading of lore.readings)
-      expect(original).toContain(normalize(reading.text));
+    const pages = pack.items["willows-notebook"].lore;
+    expect(pages).toHaveLength(13);
+    for (const page of pages) expect(original).toContain(normalize(page.text));
     expect(pack.readings).toBeUndefined();
-    // Characters speak from world state; the passages never reach dialogue.
-    const context = JSON.stringify(narrativeContext(discoveries()));
-    expect(context).not.toContain('"readings"');
-    for (const reading of lore.readings)
-      expect(context).not.toContain(reading.text.slice(0, 60));
+    const context = narrativeContext(discoveries());
+    const camp = context.entities.find((e) => e.id === "willows-camp");
+    expect(camp.lore.length).toBeGreaterThan(0);
+    expect(camp.lore.every((ref) => ref.startsWith("willows-notebook#"))).toBe(
+      true,
+    );
+    for (const page of pages)
+      expect(JSON.stringify(context)).not.toContain(page.text.slice(0, 60));
   });
 
   it("shares the ship side passage while preserving riders, dock and pending recall", () => {
@@ -445,7 +441,7 @@ describe("The Willows", () => {
     }
     for (const c of pack.crossings) delete old.crossings[c.id];
     const mounted = decodeSave(JSON.stringify(old));
-    expect(mounted.packs.willows.revision).toBe(2);
+    expect(mounted.packs.willows.revision).toBe(pack.revision);
     for (const [id, item] of Object.entries(priorItems))
       expect(mounted.items[id]).toEqual(item);
     for (const [id, state] of Object.entries(priorPacks))
@@ -495,7 +491,6 @@ describe("The Willows", () => {
     for (let i = 0; i < 6; i++) world = act(world, { kind: "wait" });
     expect(world.actors["willows-swede"].place).toBe("pond");
   });
-
 
   it("paces the willows nearer by night and keeps night signs to the dark", () => {
     const night = (world) => {

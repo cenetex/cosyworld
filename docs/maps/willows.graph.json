@@ -1,7 +1,7 @@
 {
   "pack": "willows",
   "name": "The Willows",
-  "revision": 2,
+  "revision": 3,
   "entry": "willows-landing",
   "entries": [
     {
@@ -878,6 +878,13 @@
         "id": "willows-pipe",
         "name": "The Swede's Pipe",
         "holder": "willows-swede",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "willows-notebook",
+        "name": "The River Notebook",
+        "holder": "willows-camp",
         "consumedBy": [],
         "readBy": []
       }

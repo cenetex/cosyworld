@@ -11,23 +11,18 @@ import { greekErrands } from "./helpers/greek-opening.mjs";
 import { openDoorStart } from "./helpers/open-door.mjs";
 import { recitalContext, recitalPoem } from "../v2/card-game/pack-recital.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
-import {
-  packDefinition,
-} from "../v2/card-game/pack-registry.mjs";
+import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { hub } from "../v2/card-game/pack-registry.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import lore from "../v2/content/greek-drama/lore/bard-couplets.json" with { type: "json" };
 
 const openingPoem = (world) =>
   recitalPoem(world, packDefinition("greek-drama"));
 const stanzas = (world) => openingPoem(world).stanzas;
 const ids = (world) => stanzas(world).map((s) => s.id);
-// Every authored couplet line, kept as lore outside the rules and prompts.
-const couplets = Object.values(lore.verses).flatMap((v) => [
-  ...v.lines,
-  ...(v.after?.lines || []),
-]);
+const couplets = packDefinition("greek-drama").items[
+  "greek-songbook"
+].lore.flatMap((page) => page.text.split(" / "));
 const quotesLore = (value) =>
   couplets.some((line) => JSON.stringify(value).includes(line));
 const reload = (world) => decodeSave(encodeSave(world));
@@ -67,12 +62,13 @@ const poem = (world) =>
 const poemIds = (world) => poem(world)?.stanzas.map((s) => s.id) || [];
 
 describe("the opening poem", () => {
-  it("keeps every couplet as lore keyed by its verse choice", () => {
+  it("keeps every couplet in the songbook, opened by its verse choice", () => {
     const pack = packDefinition("greek-drama");
-    expect(lore.title).toBe(pack.recital.title);
-    expect(Object.keys(lore.verses).sort()).toEqual(
-      pack.recital.verses.map((v) => v.choice).sort(),
-    );
+    expect(
+      pack.items["greek-songbook"].lore
+        .map((page) => page.requires[0].choice)
+        .sort(),
+    ).toEqual(pack.recital.verses.map((v) => v.choice).sort());
     expect(couplets).toHaveLength(60);
     expect(quotesLore(pack.recital)).toBe(false);
   });
@@ -126,7 +122,6 @@ describe("the opening poem", () => {
     ).toBe(true);
     expect(facts(reload(talked))).toEqual(song);
   });
-
 
   it("validates authored recital choices and keeps couplets out of the pack", () => {
     for (const change of [
