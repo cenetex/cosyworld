@@ -571,6 +571,10 @@ try {
         await readyActionButton(page, "ring").waitFor();
         await settleHand();
         const layout = await handLayout(true);
+        await page.evaluate(() => {
+          window.otherTabSaves = 0;
+          addEventListener("storage", () => window.otherTabSaves++);
+        });
         const other = await context.newPage();
         await other.goto(`http://127.0.0.1:${server.address().port}/missing`);
         await other.evaluate((key) => {
@@ -578,9 +582,8 @@ try {
           save.revision++;
           localStorage.setItem(key, JSON.stringify(save));
         }, key);
-        await page
-          .locator("#play-status", { hasText: "updated in another tab" })
-          .waitFor();
+        await page.waitForFunction(() => window.otherTabSaves > 0);
+        assert.equal(await page.locator("#play-status").isHidden(), true);
         assert.equal(await handExpanded(), "true", "another tab keeps it up");
         assert.deepEqual(await selected(), choice);
         await readyActionButton(page, "ring").waitFor();

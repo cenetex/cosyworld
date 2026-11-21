@@ -657,8 +657,7 @@ try {
         await page.locator("#speech-row").evaluate((card) => card.click());
       }
       assert.equal(await page.locator("#beat-captions .inscribe").count(), 0);
-      await page.locator('#card-actions [data-pack="reveal"]').waitFor();
-      await behind.evaluate((button) => button.click());
+      assert.equal(await page.locator("#card-actions [data-pack]").count(), 0);
       assert.equal(await front(), "Pip");
       assert.equal(
         await npcCaption.evaluate((caption) => getComputedStyle(caption).font),

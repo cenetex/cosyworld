@@ -1,11 +1,13 @@
 import { expect, it } from "vitest";
 import {
   phase,
+  STALE_REFUSALS,
   refusalLabel,
   refusalSentence,
   THINKING_GRACE_MS,
 } from "../v2/card-game/presentation.mjs";
 import { WORLD_UPDATE } from "../v2/card-game/shared-auth.mjs";
+import { createWorld, legalActions, play } from "../v2/card-game/world.mjs";
 
 const choosing = { raised: true, chosen: true };
 
@@ -67,4 +69,11 @@ it("ends a refusal's status sentence with one mark", () => {
   );
   expect(refusalSentence("Wait… then try again.")).toBe("Wait…");
   expect(refusalSentence("Not now!")).toBe("Not now.");
+});
+
+it("knows the rules' answers to a stale play, which never reach the screen", () => {
+  const s = createWorld();
+  const [first] = legalActions(s);
+  expect(STALE_REFUSALS.has(play(s, first, s.revision + 1).error)).toBe(true);
+  expect(STALE_REFUSALS.has(play(s, { ...first, key: "gone" }, s.revision).error)).toBe(true);
 });

@@ -87,6 +87,7 @@ import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
 import {
   actionTapVerb,
   phase,
+  STALE_REFUSALS,
   refusalLabel,
   refusalSentence,
   revealedBeat,
@@ -896,9 +897,7 @@ const playQueue = createPlayQueue({
   },
 });
 function dropQueuedPlay() {
-  const dropped = playQueue.pending?.action;
   playQueue.clear();
-  if (dropped) notice(`Not played: ${playText(dropped)}`, "dropped");
 }
 // Strikes and journeys have the screen. The hand is locked through them but
 // stays exactly where the player left it: only the player lowers it. The
@@ -1614,6 +1613,9 @@ function showFailedSilence() {
 // play. Choosing a card ends the pause.
 let lastPlayAt = -Infinity;
 const SETTLE_MS = 500;
+const tappedTurn = new WeakMap();
+const stillLegal = (action) =>
+  legalActions(world, currentActor(world)).some((a) => a.key === action.key);
 // A held item stays raised until it leaves the player's hands. An item that
 // arrives in the player's hands through the play, such as the other side of a
 // trade or a take, becomes the held item instead.
@@ -1638,7 +1640,7 @@ async function persistHeldChoice(item) {
         !world.items[id] || world.items[id].holder !== currentActor(world),
     );
     selected.push(...[heldItem(world, currentActor(world))].filter(Boolean));
-    notice(error.message);
+    console.warn("[hold]", error.message);
   } finally {
     holdingChoice = false;
     selectionRevision = world.revision;
@@ -1950,8 +1952,7 @@ function packTurned() {
 const packTurnNow = (id) => uncover(id, { flip: false, batch: true });
 // When the pack last changed what its one button does.
 let packStepAt = -Infinity,
-  packPlace = null,
-  packHeard = new Set();
+  packPlace = null;
 function openPack() {
   if (!pack.open()) return;
   dropQueuedPlay();
@@ -2164,7 +2165,7 @@ function commitAction(action, revision, renderedAt = -Infinity) {
   restedRevision = world.revision;
   // A new play earns its own grace before the hand returns.
   thinkingSince = null;
-  if ($("play-status").dataset.playStatus === "dropped") notice("");
+  tappedTurn.set(action, world.turn);
   playQueue.submit(action, revision);
 }
 function worldStuck() {
@@ -2177,6 +2178,14 @@ function worldStuck() {
 }
 function performAction(action, revision) {
   if (saveBlocked || sharedSession) return;
+  if (revision !== world.revision) {
+    if (tappedTurn.get(action) !== world.turn || !stillLegal(action)) {
+      restedChoice = null;
+      render();
+      return;
+    }
+    revision = world.revision;
+  }
   const result = attemptPlay(() => play(world, action, revision), saveCodec);
   if (!result.ok) {
     if (result.fault) reportSaveFault(result.fault, action);
@@ -2189,7 +2198,7 @@ function performAction(action, revision) {
       return;
     }
     restedChoice = null;
-    notice(result.error);
+    if (!STALE_REFUSALS.has(result.error)) notice(result.error);
     render();
     return;
   }
@@ -2939,7 +2948,6 @@ function renderActions() {
       return button;
     }),
   );
-  if ($("play-status").textContent === PACK_TEXT.reveal) $("play-status").hidden = Boolean(packAsk);
   if (packAsk) {
     const reveal = node("button", packAsk.label, "card-primary");
     reveal.type = "button";
@@ -5228,12 +5236,6 @@ function render() {
     if (id.startsWith(`tarot:${currentActor(world)}:`) && !tarotKeys().includes(id))
       encountered.delete(id);
   packSync([...availableCards(world), ...tarotKeys()]);
-  const packNews = pack.state === "closed"
-    ? pack.ids.filter((id) => !isLockedBox(world, id))
-    : [];
-  if (renderedHand && packNews.some((id) => !packHeard.has(id))) notice(PACK_TEXT.reveal);
-  else if (pack.state !== "closed" && $("play-status").textContent === PACK_TEXT.reveal) notice("");
-  packHeard = new Set([...[...packHeard].filter(cardIsCovered), ...packNews]);
   if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
   packPlace = placeHere();
   const handCards = packHand(
@@ -5895,7 +5897,7 @@ window.addEventListener("storage", (event) => {
     // less any card that has left the table.
     selectCards(selected.filter((id) => availableCards(world).includes(id)));
     unblockSave();
-    notice("The world was updated in another tab.");
+    notice("");
     resumeScene({ otherTab: true });
   } catch {
     blockSave("The save changed in another tab.");
@@ -6006,7 +6008,7 @@ function showSharedPlay(state, reason = "") {
   )
     rememberWait(play.action, play.choice);
   const shown = $("play-status").dataset.playStatus;
-  if (state === "rejected")
+  if (state === "rejected" && !STALE_REFUSALS.has(reason))
     sharedRefusal = {
       reason,
       key: play.action.key,
@@ -6145,7 +6147,6 @@ async function submitSharedPlay(action) {
     return;
   const current = legalActions(world).find((entry) => entry.key === action.key);
   if (!current) {
-    notice("The table changed. Choose a current play.");
     render();
     return;
   }
@@ -6334,7 +6335,7 @@ function adoptShared(value) {
   const refused = trackSharedPlay(value);
   const serverNotice = value.notice || "";
   if (sharedNoticeSeen !== undefined && serverNotice !== sharedNoticeSeen) {
-    if (serverNotice && !refused) notice(serverNotice);
+    if (serverNotice && !refused && !STALE_REFUSALS.has(serverNotice)) notice(serverNotice);
   }
   sharedNoticeSeen = serverNotice;
   const nudge = value.nudge
@@ -6416,7 +6417,7 @@ if (sharedSession) {
   sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
     if (!recoveredFrom || $("play-status").textContent === recoveredFrom) {
       // A refusal stays on its play's button (renderActions).
-      notice(message === sharedRefusal?.reason ? "" : message);
+      notice(message === sharedRefusal?.reason || STALE_REFUSALS.has(message) ? "" : message);
       if (message && message === sharedRefusal?.reason) renderActions();
     }
   });

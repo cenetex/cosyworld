@@ -65,14 +65,16 @@ try {
     );
     await page.waitForFunction(() => document.querySelector('#hand .card-frame[data-pack="closed"]'));
     await page.waitForFunction(() => document.querySelector("#hand").dataset.cooling === "false");
-    await page.waitForFunction(() => document.querySelector("#play-status").textContent === "New cards unlocked");
+    assert.equal(await page.locator("#play-status").isHidden(), true, "no status line repeats the pack");
     if (shots) await page.screenshot({ path: `${shots}/unlock-kept-choice-${width}.png` });
     await page.keyboard.press("Escape");
-    await page.waitForFunction(
-      () =>
-        document.querySelector('#card-actions [data-pack="reveal"]')?.textContent === "New cards unlocked",
-    );
     await page.waitForTimeout(1500);
+    const packed = await page.locator('#hand .card-frame[data-pack="closed"]').count();
+    assert.equal(
+      (await page.locator('#card-actions [data-pack="reveal"]').count()) > 0,
+      packed > 3,
+      `Reveal all is offered only over three cards (${packed} here)`,
+    );
     assert.equal(await port.getAttribute("data-unrevealed"), "true", "an unlocked card waits face down");
     assert.equal(await page.evaluate(() => window.turns), 0, "nothing turns before a tap");
     if (shots) await page.screenshot({ path: `${shots}/unlock-notice-${width}.png` });

@@ -23,7 +23,8 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch({ headless: true });
 const output = resolve("output/shared-play-status");
 await mkdir(output, { recursive: true });
-const refusal = "That play has changed. Check the cards and choose again.";
+const refusal = "The room filled just now. Wait for a place.";
+const stale = "That play has changed. Check the cards and choose again.";
 
 async function check(width) {
   let world = dispatchShared({
@@ -283,6 +284,17 @@ async function check(width) {
     assert.equal((await status()).text, "");
     assert.equal(world.turn, 1);
 
+    await chooseWait();
+    const staleBefore = keys.length;
+    await wait.click();
+    await until(() => keys.length > staleBefore && queue.length > 0);
+    await page.keyboard.press("Escape");
+    queue = [];
+    notice = stale;
+    await seenByPage();
+    await thinkingIs("");
+    assert.equal((await status()).text, "");
+
     // A play refused at the table after its cards were let go says so
     // briefly, and stays until the next choice.
     await chooseWait();
@@ -293,7 +305,7 @@ async function check(width) {
     await page.keyboard.press("Escape");
     queue = [];
     notice = refusal;
-    const aside = "Not played: Wait. That play has changed.";
+    const aside = "Not played: Wait. The room filled just now.";
     await waitFor(aside);
     assert.equal((await status()).state, "rejected");
     await page.waitForTimeout(2200);

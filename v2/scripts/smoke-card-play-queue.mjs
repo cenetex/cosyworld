@@ -216,7 +216,6 @@ try {
           .filter({ hasText: "Tap to confirm" })
           .waitFor();
         await page.locator("#speech-row").click();
-        // The queued play is gone and its button is back.
         await play.waitFor();
         assert.equal(plays.length, 0);
         await play.click();
@@ -224,8 +223,7 @@ try {
         const status = () => page.locator("#play-status").textContent();
         assert.equal(await status(), "");
         await clearSelection(page);
-        assert.match(await status(), /^Not played: \S.*\.$/u);
-        assert.equal(await page.locator("#play-status").isVisible(), true);
+        assert.equal(await status(), "");
         await page.screenshot({
           path: new URL(`dropped-${width}-${stale}.png`, output).pathname,
         });
@@ -244,15 +242,13 @@ try {
           assert(moved.ok);
           world = moved.world;
           queue = [];
-          await page.waitForFunction(
-            () =>
-              document.querySelector("#play-status").textContent ===
-              "The table changed. Choose a current play.",
-          );
+          await thinkingIs("");
+          assert.equal(await status(), "");
           assert.equal(plays.length, 0);
         } else {
           await selectCard(page, "vale");
-          assert.equal(await status(), `Not played: ${move.text}`);
+          await thinkingIs("");
+          assert.equal(await status(), "");
           await clearSelection(page);
           await selectCard(page, "vale");
           await readyActionButton(page, "wait").click();

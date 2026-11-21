@@ -46,14 +46,19 @@ try {
       "false",
       "no face-down card starts chosen",
     );
-    await button(page, "reveal").waitFor();
+    await page.locator('#hand > .card-frame[data-pack="closed"]').first().waitFor({ state: "attached" });
+    await page.waitForTimeout(1500);
+    const packed = await page
+      .locator('#hand > .card-frame[data-pack="closed"] > .card[data-unrevealed="true"]')
+      .count();
+    assert.equal(await button(page, "reveal").count() > 0, packed > 3, `Reveal all only over three cards (${packed})`);
     const stack = page.locator(
       '#hand > .card-frame[data-pack="closed"]:not([hidden]) > .card',
     );
     await stack.first().tap({ position: await visibleSpot(stack.first()) });
     await page.locator('#hand [data-pack="open"]').first().waitFor();
     assert.equal(await button(page, "reveal").count(), 0, "a raised hand dismisses Reveal all");
-    if (voice === "missing") {
+    if (voice === "missing" || packed <= 3) {
       for (;;) {
         const id = await page.evaluate(
           () => document.querySelector('#hand [data-unrevealed="true"]')?.dataset.card,
