@@ -103,7 +103,6 @@ export const TRAVELERS = ["player", "any"];
 export const VARIANTS = ["asleep", "awake", "irritated"];
 
 const record = (v) => v && typeof v === "object" && !Array.isArray(v);
-// What a holder of lore items has in context: pages, each and in all.
 export const LORE_PAGE_CHARS = 1200;
 export const LORE_PAGES = 3;
 export const LORE_CHARS = 2400;

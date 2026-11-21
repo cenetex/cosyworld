@@ -359,8 +359,6 @@ export function conditionsMet(world, packId, conditions = [], actor = null) {
     if (!evaluateCondition(world, condition, null, packId, actor)) return false;
   return true;
 }
-// The lore pages a holder has in context: its own and those of the lore
-// items it holds, whose conditions hold and whose subject is in the scene.
 export function lorePages(world, holder, scene) {
   const books = [holder, ...Object.keys(world.items)].filter(
     (item, n) =>

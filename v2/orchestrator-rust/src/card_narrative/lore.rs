@@ -1,5 +1,4 @@
-//! Lore pages a holder has in context: the rules name them by id and the
-//! text comes from the compiled packs.
+//! Lore pages a holder has in context, named by id and read from the packs.
 
 use serde_json::Value;
 use std::collections::BTreeSet;
