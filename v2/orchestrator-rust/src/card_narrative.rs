@@ -3331,7 +3331,6 @@ pub(crate) mod tests {
     #[test]
     fn prompts_hold_only_first_person_idiolect_and_transcript() {
         for (id, profile) in profiles().as_object().unwrap() {
-            // An avatar is one seed sentence: no persona, voice or idiolect.
             if profile["kind"] == "avatar" {
                 let seed = profile["seed"]
                     .as_str()
