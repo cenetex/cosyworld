@@ -19700,7 +19700,9 @@
       );
       if (strain !== observed.strain) return false;
       const items2 = new Map(parts[5].map(([id, owner2]) => [id, owner2]));
-      if ([...items2.values()].filter((id) => id === actor).length !== observed.held)
+      if ([...items2].filter(
+        ([id, owner2]) => owner2 === actor && !packThings[id]?.lore
+      ).length !== observed.held)
         return false;
       let root = goal.item;
       const visited = /* @__PURE__ */ new Set();

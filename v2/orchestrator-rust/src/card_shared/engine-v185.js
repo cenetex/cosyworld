@@ -5303,7 +5303,9 @@
         (id) => world.actors[id]?.place === goal.destination
       ),
       trust: world.actors[goal.target]?.trust?.[actor] || 0,
-      held: Object.values(world.items).filter((item) => item.holder === actor).length,
+      held: Object.entries(world.items).filter(
+        ([id, item]) => item.holder === actor && !packThings[id]?.lore
+      ).length,
       strain: Math.min(
         3,
         (world.motives?.grievances[goal.target] || []).filter((g) => g.other === actor && grievanceActive(world, g)).reduce((n, g) => n + g.weight, 0)
@@ -5496,7 +5498,9 @@
       );
       if (strain !== observed.strain) return false;
       const items2 = new Map(parts2[5].map(([id, owner2]) => [id, owner2]));
-      if ([...items2.values()].filter((id) => id === actor).length !== observed.held)
+      if ([...items2].filter(
+        ([id, owner2]) => owner2 === actor && !packThings[id]?.lore
+      ).length !== observed.held)
         return false;
       let root2 = goal.item;
       const visited = /* @__PURE__ */ new Set();
@@ -9220,7 +9224,7 @@
     }
     for (const id of ids) {
       const item = s.items[id];
-      if (!entityActive(s, id) || itemPlace(s, id) !== here || actorIds.includes(rootHolder(s, id)) && !knownActors2(s).includes(rootHolder(s, id)))
+      if (!entityActive(s, id) || itemPlace(s, id) !== here || actorIds.includes(rootHolder(s, id)) && !knownActors2(s).includes(rootHolder(s, id)) || packThings[id]?.lore && !controlledByHuman(s, actor))
         continue;
       if (canReach(s, actor, id) && item.holder !== actor && hasSpace(s, actor, id)) {
         out.push(

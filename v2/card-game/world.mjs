@@ -1515,7 +1515,8 @@ export function legalActions(s, actor = currentActor(s)) {
       !entityActive(s, id) ||
       itemPlace(s, id) !== here ||
       (actorIds.includes(rootHolder(s, id)) &&
-        !knownActors(s).includes(rootHolder(s, id)))
+        !knownActors(s).includes(rootHolder(s, id))) ||
+      (packThings[id]?.lore && !controlledByHuman(s, actor))
     )
       continue;
     if (
