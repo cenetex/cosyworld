@@ -3,6 +3,7 @@ import {
   createWorld,
   encodeSave,
   decodeSave,
+  legalActions,
   play,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
@@ -26,6 +27,7 @@ const JETTY = "hoppycat-signal-jetty";
 const THREAD = "hoppycat-pond-garden";
 const CUP = "hoppycat-halfway-cup";
 const SPOOL = "hoppycat-red-thread-spool";
+const GARDEN = "hoppycat-halfway-tea-garden";
 const players = ["vale", "mara"];
 const reload = (s) => decodeSave(encodeSave(s));
 // An earlier save is not valid under the current rules until it upgrades.
@@ -69,7 +71,7 @@ const moves = (s, actor) =>
     .map((a) => a.target);
 
 describe("the Signal Jetty lane", () => {
-  it("is one of Piraeus's lanes and the jetty's only one", () => {
+  it("is a lane from Piraeus and from Black Pond, each with a free way back", () => {
     const ship = packDefinition("greek-drama").transports["greek-ship"];
     const lanes = (dock) =>
       ship.lanes.filter((l) => l.from === dock || l.to === dock);
@@ -79,24 +81,25 @@ describe("the Signal Jetty lane", () => {
     expect(lanes("greek-piraeus")).toHaveLength(4);
     expect(lanes(JETTY)).toEqual([
       expect.objectContaining({ from: "greek-piraeus", to: JETTY }),
+      expect.objectContaining({ from: "pond", to: JETTY }),
+      { from: JETTY, to: "pond", oneWay: true },
       { from: JETTY, to: "greek-piraeus", oneWay: true },
     ]);
   });
 
-  it("opens only while a thing from the jetty is aboard; knowing it is not enough", () => {
+  it("opens only while a Hoppy Cat thing is aboard; knowing it is not enough", () => {
     let s = setup("greek-piraeus");
     // The lane to the Wine-Dark Harbor waits for the Travel Provisions,
     // which stay ashore.
     // Mara knows the jetty lane too; knowledge alone leaves it closed.
     learnLane(s, "mara", "greek-piraeus", JETTY);
     learnLane(s, "vale", "greek-piraeus", JETTY);
-    // Vale waits ashore with the jetty's spool in hand.
     s.items[SPOOL].holder = "vale";
     s = reload(s);
     s = act(s, "mara", "move", "greek-ship");
     const gate = {
-      kind: "home_item_present",
-      home: JETTY,
+      kind: "pack_item_present",
+      pack: "hoppycat-archive",
       place: "greek-ship",
     };
     expect(knowsLane(s, "mara", "greek-piraeus", JETTY)).toBe(true);
@@ -121,11 +124,15 @@ describe("the Signal Jetty lane", () => {
     expect(courses(s, "vale")).toEqual([]);
     expect(courses(s, "mara")).toEqual([]);
 
-    s.items[CUP].holder = "greek-ship";
     s.items["greek-provisions"].holder = "greek-ship";
     s.usedUp = s.usedUp.filter((id) => id !== "greek-provisions");
     s = reload(s);
     expect(courses(s, "vale")).not.toContain(JETTY);
+
+    s.items[CUP].holder = "greek-ship";
+    s = reload(s);
+    expect(courses(s, "vale")).toContain(JETTY);
+    s.items[CUP].holder = "greek-piraeus";
 
     s.items[SPOOL].holder = "vale";
     s = reload(s);
@@ -152,7 +159,7 @@ describe("the Signal Jetty lane", () => {
     const disclosure = narrativeContext(result.state, talk).disclosures?.[0];
     expect(disclosure?.factId).toBe(`lane:greek-piraeus>${JETTY}`);
     expect(disclosure.text).toBe(
-      "Ships for Signal Jetty leave from Piraeus Quays only with something from Signal Jetty aboard.",
+      "Ships for Signal Jetty leave from Piraeus Quays only with something from there aboard.",
     );
     const world = result.state;
     expect(knowsLane(world, "vale", "greek-piraeus", JETTY)).toBe(true);
@@ -179,6 +186,21 @@ describe("the way in", () => {
     expect(courses(aboard, "vale")).toContain(JETTY);
   });
 
+  it("sails from Black Pond to the jetty with a Hoppy Cat thing aboard, and back freely", () => {
+    let s = setup("pond");
+    s = act(reload(s), "vale", "move", "greek-ship");
+    expect(courses(s, "vale")).toEqual(["greek-harbor"]);
+    s.items[SPOOL].holder = "greek-ship";
+    s = reload(s);
+    expect(courses(s, "vale")).toEqual(["greek-harbor", JETTY]);
+    s = act(s, "vale", "course", JETTY);
+    s = act(s, "mara", "wait");
+    s = act(s, "vale", "move", JETTY);
+    expect(s.actors.vale.place).toBe(JETTY);
+    s = act(s, "vale", "move", "greek-ship");
+    expect(courses(s, "vale")).toContain("pond");
+  });
+
   it("keeps the spool at the jetty in a Hoppy Cat landing", () => {
     const landing = reload(createLandingWorld(pack));
     expect(landing.items[SPOOL].holder).toBe(JETTY);
@@ -201,7 +223,7 @@ describe("gate data", () => {
     const lane = (g) =>
       g.transports["greek-ship"].lanes.find((l) => l.to === JETTY);
     expect(
-      problems((g) => (lane(g).opensWith[0].home = "Not A Place")),
+      problems((g) => (lane(g).opensWith[0].pack = "Not A Pack")),
     ).toMatch(/condition/);
     expect(problems((g) => (lane(g).opensWith = []))).toMatch(/opensWith/);
     expect(problems((g, h) => (h.crossings[0].retired = false))).toMatch(
@@ -211,22 +233,37 @@ describe("gate data", () => {
 });
 
 describe("the red thread from Black pond", () => {
-  it("opens to a player in a new game and in a pack landing", () => {
+  it("is retired both ways: Black Pond and the Halfway Tea Garden never meet", () => {
     const s = setup("pond");
-    expect(moves(s, "vale")).toContain(pack.entry);
-    const walked = act(s, "vale", "move", pack.entry);
-    expect(walked.actors.vale.place).toBe(pack.entry);
-    expect(moves(walked, "vale")).toContain("pond");
-    const landing = reload(createLandingWorld(pack));
-    expect(landing.crossings[THREAD].discovered).toBe(true);
-    expect(landing.crossings["hoppycat-garden-pond"].discovered).toBe(true);
+    expect(moves(s, "vale")).not.toContain(GARDEN);
+    for (const id of [THREAD, "hoppycat-garden-pond"])
+      expect(pack.crossings.find((c) => c.id === id).retired).toBe(true);
+    s.actors.vale.place = GARDEN;
+    expect(moves(reload(s), "vale")).not.toContain("pond");
   });
 
-  it("stays open on load", () => {
-    const s = setup("pond");
-    s.crossings[THREAD].discovered = true;
-    const loaded = reload(s);
-    expect(loaded.crossings[THREAD].discovered).toBe(true);
-    expect(moves(loaded, "vale")).toContain(pack.entry);
+  it("lands a Hoppy Cat link at the jetty, with the Charybdis there to sail home", () => {
+    let s = reload(createLandingWorld(pack));
+    expect(pack.entry).toBe(JETTY);
+    expect(s.actors.vale.place).toBe(JETTY);
+    expect(s.crossings[THREAD].discovered).toBe(false);
+    expect(s.crossings["hoppycat-garden-pond"].discovered).toBe(false);
+    const step = (kind, target) => {
+      const action = legalActions(s).find(
+        (a) => a.kind === kind && (target === undefined || a.target === target),
+      );
+      expect(action, `${kind} ${target ?? ""}`).toBeDefined();
+      const result = play(s, action);
+      expect(result.ok, result.error).toBe(true);
+      s = reload(result.state);
+    };
+    step("move", "greek-ship");
+    step("course", "pond");
+    step("wait");
+    step("move", "pond");
+    expect(s.actors.vale.place).toBe("pond");
+    expect(
+      legalActions(s).some((a) => a.kind === "move" && a.target === GARDEN),
+    ).toBe(false);
   });
 });

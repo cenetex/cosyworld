@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "shore-greek-drama",
   "pack": "greek-drama",
-  "description": "The Charybdis sails the Black Pond route. It sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions lying on deck, and on to the Signal Jetty only with a thing from the jetty aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond.",
+  "description": "The Charybdis sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions on deck, and to the Signal Jetty, from Black Pond or Piraeus, only with a Hoppy Cat thing aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond.",
   "entries": [
     {
       "joins": "hub",
@@ -287,11 +287,28 @@
           "oneWay": true,
           "opensWith": [
             {
-              "kind": "home_item_present",
-              "home": "hoppycat-signal-jetty",
+              "kind": "pack_item_present",
+              "pack": "hoppycat-archive",
               "place": "greek-ship"
             }
           ]
+        },
+        {
+          "from": "pond",
+          "to": "hoppycat-signal-jetty",
+          "oneWay": true,
+          "opensWith": [
+            {
+              "kind": "pack_item_present",
+              "pack": "hoppycat-archive",
+              "place": "greek-ship"
+            }
+          ]
+        },
+        {
+          "from": "hoppycat-signal-jetty",
+          "to": "pond",
+          "oneWay": true
         },
         {
           "from": "hoppycat-signal-jetty",

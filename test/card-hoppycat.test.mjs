@@ -70,7 +70,7 @@ describe("Hoppy Cat refresh", () => {
     expect(Object.keys(pack.items)).toHaveLength(13);
   });
 
-  it("starts a valid garden save from the host or pack link and offers the way home", () => {
+  it("starts a valid jetty save from the host or pack link and sails home", () => {
     for (const url of [
       "https://hoppy.lonelyforest.com/",
       "https://hoppycat.lonelyforest.com/",
@@ -80,13 +80,16 @@ describe("Hoppy Cat refresh", () => {
         encodeSave(createLandingWorld(landingPack(url))),
       );
       expect(world.actors.vale.place).toBe(pack.entry);
-      const returned = act(world, "move", { target: "pond" });
+      expect(pack.entry).toBe(id("signal-jetty"));
+      let returned = act(world, "move", { target: "greek-ship" });
+      returned = act(returned, "course", { target: "pond" });
+      returned = act(act(returned, "wait"), "move", { target: "pond" });
       expect(returned.actors.vale.place).toBe("pond");
       expect(
         legalActions(returned).some(
-          (a) => a.kind === "move" && a.target === pack.entry,
+          (a) => a.kind === "move" && a.target === id("halfway-tea-garden"),
         ),
-      ).toBe(true);
+      ).toBe(false);
     }
     expect(landingPack("https://example.com/?pack=unknown")).toBeNull();
     expect(createLandingWorld().opening).toBeDefined();
@@ -95,6 +98,7 @@ describe("Hoppy Cat refresh", () => {
   it("walks the guests to tea and keeps every deed through a save", () => {
     let world = createLandingWorld(pack, 7);
     const steps = [
+      ["visit", "halfway-tea-garden"],
       ["take", "halfway-cup"],
       ["talk", "hoppy-cat"],
       ["take", "loop-token"],
@@ -162,11 +166,13 @@ describe("Hoppy Cat refresh", () => {
     ];
     world = runSteps(world, steps);
     for (const guest of ["glim-twice", "mira-meraki", "lumen-facet"])
-      expect(world.actors[id(guest)].place).toBe(pack.entry);
+      expect(world.actors[id(guest)].place).toBe(id("halfway-tea-garden"));
     for (const flag of ["cup", "credit", "route-ready", "tomorrow", "signal"])
       expect(world.packs[pack.id].flags[id(`table-${flag}`)]).toBe(true);
     expect(world.items[id("return-path-checklist")].holder).toBe("vale");
-    expect(world.items[id("evening-programme")].holder).toBe(pack.entry);
+    expect(world.items[id("evening-programme")].holder).toBe(
+      id("halfway-tea-garden"),
+    );
     const forged = structuredClone(world);
     delete forged.packs[pack.id].receipts[id("table-glim-agree")];
     expect(() => encodeSave(forged)).toThrow();
@@ -235,7 +241,7 @@ describe("Hoppy Cat refresh", () => {
       const pair = [...rooms].sort().join();
       if (pairs.has(pair)) continue;
       pairs.add(pair);
-      start.actors.vale.place = pack.entry;
+      start.actors.vale.place = id("halfway-tea-garden");
 
       expect(
         legalActions(start).some(
@@ -269,7 +275,9 @@ describe("Hoppy Cat refresh", () => {
       JSON.parse(runtime.cardShared(JSON.stringify(request)));
     let world = dispatchShared({
       op: "create",
-      save: encodeSave(createLandingWorld(pack)),
+      save: encodeSave(
+        visit(createLandingWorld(pack), id("halfway-tea-garden")),
+      ),
     }).world;
     const request = {
       op: "view",

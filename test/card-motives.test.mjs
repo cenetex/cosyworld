@@ -444,12 +444,12 @@ describe("shore wants and grievances", () => {
   it("takes the homeward exit when both paths give space from a grievance", () => {
     const s = fresh();
     s.turn = s.revision = 12;
-    s.actors.moth.place = s.actors.keeper.place = "hoppycat-halfway-tea-garden";
+    s.actors.moth.place = s.actors.keeper.place = "ratiradio-dispatch-window";
     slight(s, { kind: "threaten", actor: "keeper", target: "moth" }, ["moth"]);
     const before = structuredClone(s);
     expect(plan(s, "moth").action).toMatchObject({
       kind: "move",
-      target: "pond",
+      target: "ratiradio-staff-kitchen",
     });
     expect(s).toEqual(before);
     expect(decodeSave(encodeSave(s))).toEqual(s);
