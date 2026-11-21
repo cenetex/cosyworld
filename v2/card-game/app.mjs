@@ -4011,7 +4011,8 @@ function renderScene() {
   img.alt = coveredCards.has(scene.locationId)
     ? ""
     : stageOf(world, scene.locationId).alt ||
-      placeText(world, scene.locationId);
+      placeText(world, scene.locationId) ||
+      nameOf(scene.locationId);
   if (scene.weather) img.alt += ` Weather: ${scene.weather.condition}.`;
   if (scene.daylight) img.alt += ` ${scene.daylight.description}`;
   img.dataset.locationVariant = scene.variant;
@@ -4036,7 +4037,9 @@ function renderScene() {
     fadeLayer(overlay, Boolean(scene.overlay), {
       duration: !stayed || reducedMotion.matches ? 0 : CHANGE_FADE_MS,
     });
-    overlay.alt = scene.overlay ? placeText(world, scene.locationId) : "";
+    overlay.alt = scene.overlay
+      ? placeText(world, scene.locationId) || nameOf(scene.locationId)
+      : "";
   }
   const staging = sceneStaging(view, {
     through: view.log.length - 1,

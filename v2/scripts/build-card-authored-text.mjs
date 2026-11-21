@@ -499,6 +499,24 @@ catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
   "n",
 ]);
 
+// Removed pack choice sentences still occur in saves players import: in log
+// entries, item histories and the memories that quote them.
+const retiredSentences = JSON.parse(
+  await readFile(
+    new URL("./retired-pack-sentences.json", import.meta.url),
+    "utf8",
+  ),
+);
+for (const sentence of Object.values(retiredSentences.packs).flat()) {
+  const parts = sentence.split(/\{[A-Za-z]+\}/u);
+  if (parts.length > 1)
+    catalog.templates.set(
+      JSON.stringify([parts, "n".repeat(parts.length - 1)]),
+      [parts, (1 << KINDS.length) - 1, "n".repeat(parts.length - 1)],
+    );
+  else catalog.literals.set(sentence, (1 << KINDS.length) - 1);
+}
+
 // Removed item names still occur in honest event knowledge. This finite map
 // comes from the immutable rules-137 catalog at 521c76cb39df10c2e552a9e2d88dc4a8d02d6fe9;
 // open-door-import.mjs verifies each ID/name against that original catalog.

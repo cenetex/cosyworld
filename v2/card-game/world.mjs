@@ -1978,12 +1978,15 @@ function rest(s, actor, here, sleep = false) {
     };
 }
 // Who is physically in a place: being discovered or met is not arriving.
+// A resident counts only while it is in the world, so one that keeps its
+// place but appears on a clock or flag (Polynices' Shade before dawn)
+// arrives, and wakes a sleeper, when it appears.
 const bodiesAt = (s, place) =>
   actorIds
     .filter(
       (id) =>
         s.actors[id].place === place &&
-        (!controlledByHuman(s, id) || humanPresent(s, id)),
+        (controlledByHuman(s, id) ? humanPresent(s, id) : entityActive(s, id)),
     )
     .sort();
 const witnessesAt = (s, place) =>

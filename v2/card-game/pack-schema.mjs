@@ -105,6 +105,8 @@ const record = (v) => v && typeof v === "object" && !Array.isArray(v);
 const owns = (o, key) =>
   record(o) && typeof key === "string" && Object.hasOwn(o, key);
 const idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
+// Card prose is optional: the model describes what a pack only names.
+const proseOk = (v, max = 1200) => v === undefined || textOk(v, max);
 const textOk = (v, max = 1200) =>
   typeof v === "string" &&
   v.trim().length > 0 &&
@@ -533,8 +535,8 @@ export function packProblems(
       `place ${id} sanctuary must be true when set`,
     );
     check(
-      textOk(p.name, 120) && textOk(p.text) && textOk(p.persona),
-      `place ${id} needs a name, text and persona`,
+      textOk(p.name, 120) && proseOk(p.text) && textOk(p.persona),
+      `place ${id} needs a name and persona; its text is optional`,
     );
     check(
       p.voice === undefined || textOk(p.voice, 900),
@@ -748,10 +750,10 @@ export function packProblems(
     );
     check(
       textOk(a.name, 120) &&
-        textOk(a.text) &&
+        proseOk(a.text) &&
         textOk(a.seed, 120) &&
         owns(places, a.place),
-      `avatar ${id} needs a name, text, one seed sentence and a home place in this pack`,
+      `avatar ${id} needs a name, one seed sentence and a home place in this pack`,
     );
     check(
       a.expression === undefined || EXPRESSION_TYPES.includes(a.expression),
@@ -786,10 +788,10 @@ export function packProblems(
       keysOk(a.tastes, ["likes", "sore", "reason", "noise"]) &&
         textOk(a.tastes?.likes, 120) &&
         textOk(a.tastes?.sore, 120) &&
-        textOk(a.tastes?.reason, 240) &&
+        proseOk(a.tastes?.reason, 240) &&
         (a.tastes?.noise === undefined ||
           templateOk(a.tastes.noise, 240, ["actor"])),
-      `avatar ${id} tastes need likes, sore and reason`,
+      `avatar ${id} tastes need likes and sore`,
     );
     // One want per resident: an item, a place or a person it seeks first, or
     // (BoardyAI) connecting humans. Or staged wants (rules 133): a short list
@@ -1334,7 +1336,7 @@ export function packProblems(
             i.tags.length <= 4 &&
             i.tags.every(idOk))) &&
         textOk(i.name, 120) &&
-        textOk(i.text) &&
+        proseOk(i.text) &&
         textOk(i.persona) &&
         (owns(places, i.holder) ||
           owns(avatars, i.holder) ||
@@ -1460,8 +1462,8 @@ export function packProblems(
         !choiceIds.has(c.id) &&
         own.includes(c.subject) &&
         owns(places, c.at) &&
-        textOk(c.label, 120) &&
-        textOk(c.text, 600) &&
+        proseOk(c.label, 120) &&
+        proseOk(c.text, 600) &&
         (c.textTemplate === undefined ||
           templateOk(c.textTemplate, 600, ["actor"])) &&
         (c.summary === undefined || textOk(c.summary, 600)),

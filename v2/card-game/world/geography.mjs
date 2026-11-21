@@ -31,7 +31,9 @@ export const placeText = (s, place) =>
       place === "station" ? stationCandidates(s).filter((id) =>
         !stationExits(s, stationCandidates(s)).includes(id)) : []),
     ...transportScenery(s, place, nameOf),
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 function rawOrdinaryExits(s, place, actor, previous) {
   return [
     ...new Set([
