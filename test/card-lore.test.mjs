@@ -10,10 +10,10 @@ import { packProblems } from "../v2/card-game/pack-schema.mjs";
 import { funeralJourney } from "./helpers/greek-funeral.mjs";
 
 const greek = packDefinition("greek-drama");
-const text = (ref) => {
-  const [item, n] = ref.split("#");
-  return greek.items[item].lore[Number(n)].text;
-};
+const page = (ref) => greek.items[ref.split("#")[0]].lore[ref.split("#")[1]];
+const text = (ref) => page(ref).text;
+const song =
+  "She laid her brother in the earth. / A raven feather marked his rest.";
 
 describe("lore items", () => {
   it("give their holder the pages about the scene", () => {
@@ -33,29 +33,21 @@ describe("lore items", () => {
     const world = funeralJourney().buried;
     const opened = (holder) =>
       lorePages(world, holder, []).map((ref) => {
-        const [item, n] = ref.split("#");
-        const choice = greek.items[item].lore[Number(n)].requires[0].choice;
-        expect(world.packs["greek-drama"].receipts).toHaveProperty(choice);
+        expect(world.packs["greek-drama"].receipts).toHaveProperty(
+          page(ref).requires[0].choice,
+        );
         return text(ref);
       });
-    expect(opened("greek-elder")).toContain(
-      "She laid her brother in the earth. / A raven feather marked his rest.",
-    );
+    expect(opened("greek-elder")).toContain(song);
     world.items["greek-songbook"].holder = "greek-antigone";
-    expect(opened("greek-antigone")).toContain(
-      "She laid her brother in the earth. / A raven feather marked his rest.",
-    );
+    expect(opened("greek-antigone")).toContain(song);
     expect(opened("greek-elder")).toContain(
       "Antigone covers her brother with earth and leaves the raven feather on the mound.",
     );
-  });
-
-  it("keep at most three pages, the scene's first", () => {
-    const world = funeralJourney().buried;
-    const scene = Object.keys(greek.avatars);
-    const pages = lorePages(world, "greek-elder", scene);
-    expect(pages).toHaveLength(3);
-    expect(pages.every((ref) => ref.startsWith("greek-city-roll#"))).toBe(true);
+    const crowd = lorePages(world, "greek-elder", Object.keys(greek.avatars));
+    expect(crowd.map((ref) => ref.split("#")[0])).toEqual(
+      Array(3).fill("greek-city-roll"),
+    );
   });
 
   it("reach the narrator as page ids, never as text", () => {
