@@ -352,6 +352,11 @@ try {
     );
     await ready();
     assert.equal((await state()).turn, 1);
+    for (let i = 0; i < 20 && !(await page.locator(".action-panel").isVisible()); i++) {
+      if (await page.locator("#dialogue-advance").isVisible())
+        await page.locator("#dialogue-advance").click();
+      await page.waitForTimeout(100);
+    }
     assert.equal(await page.locator(".action-panel").isVisible(), true);
     await load(meeting());
     await selectCard(page, "vale");
