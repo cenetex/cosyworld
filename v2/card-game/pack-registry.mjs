@@ -965,6 +965,7 @@ export function packFacts(world, id) {
         owns(state.receipts, c.id) &&
         (c.subject === id ||
           (c.at === id && c.on !== "hold") ||
+          e.records?.includes(c.id) ||
           c.effects.some((effect) => effect.item === id)),
     )
     .sort((a, b) => state.receipts[a.id] - state.receipts[b.id])

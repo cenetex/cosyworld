@@ -204,7 +204,7 @@ fn atlas(pack_id: &str) -> Atlas {
             places.insert(
                 id.clone(),
                 json!({"name": place["name"],
-                    "text": place.get("text").unwrap_or(&place["persona"]),
+                    "text": place.get("text").or_else(|| place.get("persona")).unwrap_or(&place["seed"]),
                     "paths": paths}),
             );
         }
@@ -340,7 +340,11 @@ fn knowledge(
         .places
         .get(at)
         .or_else(|| mounted(at))
-        .and_then(|p| p["text"].as_str().or_else(|| p["persona"].as_str()))
+        .and_then(|p| {
+            ["text", "persona", "seed"]
+                .into_iter()
+                .find_map(|f| p[f].as_str())
+        })
         .map(str::to_string)
         .into_iter()
         .collect();
@@ -2134,12 +2138,12 @@ mod tests {
     fn a_resident_in_another_packs_place_names_that_place_and_not_home() {
         let residents = cast("lonely-forest").unwrap();
         let vale = residents.iter().find(|r| r.id == "vale").unwrap();
-        let seen = json!({"place": "greek-courtyard", "here": ["moth"], "holds": ["lamp"],
+        let seen = json!({"place": "greek-colonus", "here": ["moth"], "holds": ["lamp"],
             "items": [], "lines": []});
         let (own, place) = knowledge(vale, "lonely-forest", Some(&seen));
-        assert_eq!(own[0], "Location now: Theban Courtyard.");
+        assert_eq!(own[0], "Location now: Colonus Grove.");
         assert!(
-            place[0].starts_with("Bread cools beneath a cloth."),
+            place[0].starts_with("Oedipus at Colonus is told here"),
             "{place:?}"
         );
         let mut asked = request(json!([{"author": "Mara", "text": "Where are you now, Vale?"}]));
@@ -2149,10 +2153,10 @@ mod tests {
             .any(|fact| fact.starts_with("Location now")));
         asked.view = Some(seen);
         let context = scene(vale, &residents, &asked).unwrap();
-        assert_eq!(context.location, "greek-courtyard");
+        assert_eq!(context.location, "greek-colonus");
         let told =
             super::super::transcript(&context, &context.entities[0], super::super::Part::Line);
-        let at = told.find("I'm at Theban Courtyard.").expect(&told);
+        let at = told.find("I'm at Colonus Grove.").expect(&told);
         assert!(at < told.find("Home: Mirror attic.").expect(&told));
         assert!(!told.contains("I'm at Mirror attic."), "{told}");
         assert!(told.contains("I hold: Lamp."), "{told}");

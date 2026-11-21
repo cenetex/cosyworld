@@ -26,12 +26,11 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
         .next()
         .unwrap_or_default()
         .to_string();
-    let mut lines = vec![
-        "Current scene:".into(),
-        format!("{own}."),
-        format!("Setting: {setting}"),
-        "Visible facts:".into(),
-    ];
+    let mut lines = vec!["Current scene:".into(), format!("{own}.")];
+    if !setting.is_empty() {
+        lines.push(format!("Setting: {setting}"));
+    }
+    lines.push("Visible facts:".into());
     lines.extend(entity.facts.iter().cloned());
     for fact in observations::facts(context)
         .as_array()
