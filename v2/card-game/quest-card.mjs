@@ -78,37 +78,21 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
-export function offerCard(world, actor = currentActor(world), box = null) {
+export function offerCard(world, actor = currentActor(world), box = null, resident = null) {
   const place = Boolean(box) && box === world.actors[actor]?.place;
   const asked = place
     ? placeOffer(world, actor)
     : box
       ? boxOffer(world, box, actor)
-      : residentOffer(world, actor);
+      : residentOffer(world, actor, resident);
   if (!asked) return null;
-  const mark = place ? "place" : box ? "box" : world.actors[actor].offered.turn;
+  const mark = place ? "place" : box ? "box" : `${asked.want.kind}:${asked.want.target}`;
   return {
     ...questShape(world, actor, asked.want, `offer:${actor}:${asked.source}:${mark}`, -1),
     offer: asked.source,
     full: asked.full,
     ...(box ? { box: true } : {}),
     ...(place ? { place: true } : {}),
-  };
-}
-export function offerLapse() {
-  let seen = null,
-    lapsed = null;
-  return {
-    sync(offer, open) {
-      if (!offer) return false;
-      if (offer.key !== seen) {
-        seen = offer.key;
-        return true;
-      }
-      if (!open) lapsed = offer.key;
-      return false;
-    },
-    standing: (offer) => (offer && offer.key !== lapsed ? offer : null),
   };
 }
 const SPOKEN = {
@@ -282,6 +266,16 @@ export const isQuestId = (id) => id === questId();
 
 // The hand with the quest card after the player's avatar and what it
 // carries (a quest card never lies ahead of a carried thing, #2295).
+export function besideHolders(cards, world, entries = []) {
+  const hand = [...cards];
+  for (const { id, holder } of entries) {
+    let at = hand.indexOf(holder) + 1;
+    if (!at) continue;
+    while (at < hand.length && world.items[hand[at]] && rootHolder(world, hand[at]) === holder) at++;
+    hand.splice(at, 0, id);
+  }
+  return hand;
+}
 export function handWithQuest(cards, world, ids = []) {
   const hand = cards.filter((id) => !isQuestId(id));
   if (!ids.length) return hand;

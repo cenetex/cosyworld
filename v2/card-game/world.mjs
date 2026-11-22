@@ -510,15 +510,17 @@ import { homeOf, restsAt } from "./world/home.mjs";
 import {
   boxOffer,
   placeOffer,
+  lockedOffer,
   questOffers,
   residentOffer,
+  residentOffers,
   validPlaceMet,
 } from "./world/offers.mjs";
 import { lapseOffer } from "./offer-chance.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
 import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
-export { boxOffer, placeOffer, questOffers, residentOffer };
+export { boxOffer, lockedOffer, placeOffer, questOffers, residentOffer, residentOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
 // Station exits and candidates live in world/station.mjs (#1390).
 import {
@@ -1672,18 +1674,18 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(action);
     }
   out.push(...fixtureOffers(s, actor, sensesFor(s)));
-  const asked = residentOffer(s, actor);
-  if (asked && !asked.full)
-    out.push(
-      offer(
-        "accept",
-        actor,
-        null,
-        asked.source,
-        `${nameOf(actor)} accepts ${nameOf(asked.source)}'s quest.`,
-        [],
-      ),
-    );
+  for (const asked of residentOffers(s, actor))
+    if (!asked.full)
+      out.push(
+        offer(
+          "accept",
+          actor,
+          null,
+          asked.source,
+          `${nameOf(actor)} accepts ${nameOf(asked.source)}'s quest.`,
+          [],
+        ),
+      );
   for (const shut of questOffers(s, actor)) {
     if (shut.kind !== "box") continue;
     const take = offer("accept", actor, null, null, `${nameOf(actor)} accepts the closed box's quest.`, []);
@@ -3354,7 +3356,7 @@ export function play(
       ? boxOffer(next, exact.box, actor)
       : exact.place
         ? placeOffer(next, actor)
-        : residentOffer(next, actor);
+        : residentOffer(next, actor, exact.target);
     const quest = holdQuest(next, actor, asked.want, asked.id);
     if (!exact.box && !exact.place) lapseOffer(next, actor);
     bindAsker(next, actor, quest, true);

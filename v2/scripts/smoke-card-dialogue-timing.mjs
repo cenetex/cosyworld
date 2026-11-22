@@ -175,16 +175,12 @@ try {
         assert.equal(await card("vale").isDisabled(), false);
         await page.waitForTimeout(2800);
         assert.equal(await card("vale").isDisabled(), false);
-        if (kind === "talk") {
-          const accept = page.locator('#card-actions [data-action="accept"]');
-          await accept.waitFor();
-          const tops = await page.evaluate(() =>
-            ["#speech-row", "#action-beat"].map(
-              (id) => document.querySelector(id).getBoundingClientRect().top,
-            ),
+        if (kind === "talk")
+          assert.equal(
+            await page.locator('#card-actions [data-action="accept"]').count(),
+            0,
+            "a Talk opens no offer over its reply",
           );
-          assert(tops[0] < tops[1], `the offer stands in front: ${tops}`);
-        }
         // Plays keep their cards chosen (#3070); fold the hand to read the reply.
         await page.keyboard.press("Escape");
         await page.waitForFunction(

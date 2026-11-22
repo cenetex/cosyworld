@@ -8,11 +8,12 @@ import {
   encodeSave,
   legalActions,
   play,
+  lockedOffer,
   residentOffer,
 } from "../v2/card-game/world.mjs";
 import { MAX_HELD, heldOf, holdQuest, newWant, slotsUsed } from "../v2/card-game/want.mjs";
 import { offerFrom } from "../v2/card-game/offer-chance.mjs";
-import { offerCard, offerLapse, offerWords } from "../v2/card-game/quest-card.mjs";
+import { offerCard, offerWords } from "../v2/card-game/quest-card.mjs";
 import { packPeople } from "../v2/card-game/pack-registry.mjs";
 
 const act = (s, pick, actor = "vale") => {
@@ -49,7 +50,7 @@ describe("a resident's offer after Talk", () => {
   });
 
   it("is worded as the resident asking, naming nothing undiscovered", () => {
-    const quest = offerCard(talk(station()));
+    const quest = offerCard(talk(station()), "vale", null, "moth");
     expect(quest).toMatchObject({ offer: "moth", kind: "item", target: "lamp" });
     expect(offerWords(quest)).toBe("Pip asks for the Lamp");
     expect(offerWords(quest, (id) => id !== "lamp")).toBe(
@@ -57,31 +58,22 @@ describe("a resident's offer after Talk", () => {
     );
   });
 
-  it("lapses on deselect, and Talk again offers it again", () => {
-    const lapse = offerLapse();
-    let s = talk(station());
-    const first = offerCard(s);
-    expect(lapse.sync(first, false)).toBe(true);
-    expect(lapse.sync(first, true)).toBe(false);
-    expect(lapse.standing(first)).toBe(first);
-    expect(lapse.sync(first, false)).toBe(false);
-    expect(lapse.standing(first)).toBeNull();
-    expect(lapse.sync(first, true)).toBe(false);
-    expect(lapse.standing(first)).toBeNull();
-    s = talk(s);
-    const again = offerCard(s);
-    expect(again.key).not.toBe(first.key);
-    expect(lapse.sync(again, false)).toBe(true);
-    expect(lapse.standing(again)).toBe(again);
+  it("lies locked among the resident's things until a Talk tells it", () => {
+    const s = station();
+    expect(lockedOffer(s, "vale", "moth")).toMatchObject({ source: "moth" });
+    expect(accepts(s)).toEqual([]);
+    const told = talk(s);
+    expect(lockedOffer(told, "vale", "moth")).toBeNull();
+    expect(accepts(told)).toMatchObject([{ target: "moth" }]);
   });
 
-  it("lapses in the rules at the next play", () => {
-    let s = wait(talk(station()));
+  it("stands after the next play once told, while the want is still theirs", () => {
+    const s = wait(talk(station()));
     expect(offerFrom(s, "vale")).toBeNull();
+    expect(accepts(s)).toMatchObject([{ target: "moth" }]);
+    expect(offerCard(s, "vale", null, "moth")).toMatchObject({ offer: "moth" });
+    s.actors.moth.want = null;
     expect(accepts(s)).toEqual([]);
-    expect(offerCard(s)).toBeNull();
-    s = talk(s);
-    expect(accepts(s)).toHaveLength(1);
   });
 
   it("fills a slot on Accept, passing no turn, and saves as it plays", () => {
@@ -100,8 +92,8 @@ describe("a resident's offer after Talk", () => {
     for (const [kind, target] of [["place", "attic"], ["item", "cloth"], ["item", "bell"]].slice(0, MAX_HELD))
       holdQuest(s, "vale", newWant(kind, target, s.turn), `quest:box:${target}`);
     const told = talk(s);
-    expect(residentOffer(told)).toMatchObject({ source: "moth", full: true });
-    expect(offerCard(told)).toMatchObject({ full: true });
+    expect(residentOffer(told, "vale", "moth")).toMatchObject({ source: "moth", full: true });
+    expect(offerCard(told, "vale", null, "moth")).toMatchObject({ full: true });
     expect(accepts(told)).toEqual([]);
   });
 

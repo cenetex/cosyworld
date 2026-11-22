@@ -48,6 +48,11 @@ async function walkToGivenLamp(browser, base) {
   const travel = async (place, name) => {
     await page.keyboard.press("Escape");
     await choose(place);
+    if ((await page.locator(`#hand [data-card="${place}"]`).getAttribute("data-unrevealed")) === "true") {
+      await buttonReads(/new card unlocked/iu);
+      await button.first().click();
+      await page.waitForFunction((id) => document.querySelector(`#hand [data-card="${id}"]`)?.dataset.unrevealed === "false", place);
+    }
     await buttonReads(new RegExp(`(goes|carries the Lamp) to ${name}`, "iu"));
     await press(() => page.waitForFunction((name) => document.getElementById("place-title")?.textContent === name, name, { timeout: 2500 }));
   };
@@ -59,10 +64,10 @@ async function walkToGivenLamp(browser, base) {
   }
   assert.equal(decodeSave(await page.evaluate((key) => localStorage.getItem(key), key)).items.lamp.lit, false);
   await travel("pond", "Black pond");
-  assert.equal(await page.locator('#hand .want-frame').count(), 0, "no offer before Pip is asked again");
   await choose("moth");
-  await page.locator('#card-actions [data-action="talk"]').waitFor();
-  await press(() => page.locator('#card-actions [data-action="accept"]').waitFor({ timeout: 8000 }));
+  const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
+  await offer.click();
+  await page.locator('#card-actions [data-action="accept"]').waitFor({ timeout: 8000 });
   assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
   await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 2500 }));
   await page.keyboard.press("Escape");

@@ -104,7 +104,7 @@ describe("quest offers are held on Accept", () => {
 });
 
 describe("the offer on Talk", () => {
-  it("comes every time, from a stranger too, and lapses at the next play", () => {
+  it("comes every time, from a stranger too, and stands after the next play", () => {
     for (let i = 0; i < 6; i++) {
       let s = structuredClone(greekErrands().decree);
       s.turn += i;
@@ -115,7 +115,7 @@ describe("the offer on Talk", () => {
       expect(find(s, (a) => a.kind === "accept" && a.target === GUARD)).toBeTruthy();
       s = wait(s);
       expect(offerFrom(s, "vale")).toBeNull();
-      expect(find(s, (a) => a.kind === "accept" && !a.box)).toBeUndefined();
+      expect(find(s, (a) => a.kind === "accept" && a.target === GUARD)).toBeTruthy();
     }
   });
 
