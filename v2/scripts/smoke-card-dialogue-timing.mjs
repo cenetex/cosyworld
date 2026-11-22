@@ -1,4 +1,4 @@
-import { clearSelection, selectCard } from "./card-browser-helpers.mjs";
+import { selectCard } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
@@ -165,8 +165,6 @@ try {
             .querySelector("#dialogue-text")
             .textContent.startsWith("Vale has a full reply."),
         );
-        // Vale's name is written in Vale's card colour, through the same
-        // reveal (card-names.mjs).
         assert.deepEqual(
           await page.$eval("#dialogue-text .card-name", (run) => [
             run.textContent,
@@ -186,12 +184,15 @@ try {
             ),
           );
           assert(tops[0] < tops[1], `the offer stands in front: ${tops}`);
-          await clearSelection(page);
-          await accept.waitFor({ state: "detached" });
-          await page.waitForFunction(
-            () => !document.querySelector(".beat-ghost, .beat-card[data-motion]"),
-          );
         }
+        // Plays keep their cards chosen (#3070); fold the hand to read the reply.
+        await page.keyboard.press("Escape");
+        await page.waitForFunction(
+          () =>
+            !document.querySelector(
+              "#card-actions button, .beat-ghost, .beat-card[data-motion]",
+            ),
+        );
         const layout = await page.evaluate(() => {
           const portrait = document
             .querySelector("#speaker-portrait")
@@ -281,7 +282,6 @@ try {
             const asked = requestCount;
             await selectCard(page, "vale");
             await action.click();
-            assert.equal(await page.locator("#card-actions button").count(), 0);
             if (SPEECH_OCCASIONS.includes("first_wait")) {
               await page.waitForFunction(
                 ({ key, turn }) =>
