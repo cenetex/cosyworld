@@ -126,8 +126,18 @@ try {
       await page.waitForFunction(
         () =>
           document.querySelector("#dialogue-advance").dataset.revealing === "false" &&
-          !document.querySelector("#hand [data-revealing]") &&
-          document.querySelector("#card-actions button:not([hidden]):not([data-revealing=\"true\"])"),
+          !document.querySelector("#hand [data-revealing]"),
+      );
+      await page.waitForTimeout(1200);
+      assert.equal(
+        await page.evaluate(() => [...document.querySelectorAll("#card-actions button")].some((b) => b.checkVisibility())),
+        false,
+        "The play's button waits for a tap on the reply",
+      );
+      await page.waitForFunction(() => document.querySelector("#speech-hint").textContent === "Tap to continue", null, { timeout: 5000 });
+      await page.locator("#dialogue-advance").click();
+      await page.waitForFunction(() =>
+        document.querySelector("#card-actions button:not([hidden]):not([data-revealing=\"true\"])"),
       );
       const after = await hand(page);
       if (shots) await page.screenshot({ path: `${shots}/${shot}-${width}.png` });

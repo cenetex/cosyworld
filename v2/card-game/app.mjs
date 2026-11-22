@@ -386,8 +386,7 @@ function freshStartBeat() {
     ],
   };
 }
-// A play that commits rests the action beat, so the reply comes to the
-// front, until its turn has passed and the reply has been shown.
+// A committed play rests its action beat until its reply is tapped away.
 let restedChoice = null,
   restedRevision = null;
 // What the dialogue box shows now (presentation.mjs).
@@ -938,7 +937,7 @@ function updateCardCooldown() {
   if (handFocusOwed && !covering) restoreHandFocus();
 }
 const exchange = createExchange({
-  holdLast: () => queuedChoice,
+  holdLast: () => queuedChoice || restedChoice !== null,
   prepare: prepareScene,
   show: (line) => {
     pendingSpeaker = null;
@@ -1085,7 +1084,7 @@ function updateSpeechControls(complete) {
   const sharedForward = sharedSession && shownSceneLine && !sharedAdvanceRequested &&
     (ownPlayInFlight() || sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq));
   const forward = reveal.morePages || (reviewing && (frontIndex < liveIndex || choiceInStack())) ||
-    exchange.hasNext || sharedForward || queuedChoice;
+    exchange.hasNext || sharedForward || queuedChoice || (restedChoice !== null && Boolean(exchange.current));
   const label = reviewing ? "Step forward to a later beat" : "Continue to the next beat";
   const dreamTap = sleepView.dreamTap;
   const cue = dreamTap !== null
@@ -1624,7 +1623,7 @@ function keepHeldSelection(before, action = null) {
   if (swapped) selected.push(...held.filter((id) => !selected.includes(id)));
   // The avatar's open stacks stay open after a deed, including a last gift.
   for (const id of expandedHolders) if (!hand.includes(id)) expandedHolders.delete(id);
-  // The completed play's beat rests until its reply has been shown.
+  // The completed play's beat rests until its reply is tapped away.
   if (restedChoice !== null) restedChoice = choiceKey();
 }
 // The current place and its items sit on the left. The way back sits just
@@ -2653,7 +2652,7 @@ const choiceKey = () => `${selected.join("+")}:${questOpen}:${rowCollapsed}`;
 let queuedChoice = false;
 function queueChoice() {
   queuedChoice ||= Boolean(shownSceneLine && (
-    !reveal.complete || exchange.current || replyPending() ||
+    !reveal.complete || (exchange.current && (!exchange.read || exchange.hasNext)) || replyPending() ||
     (sharedSession && sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))
   ));
 }
@@ -2680,12 +2679,12 @@ function lingeringWords(inFlight) {
 }
 function presentPhase() {
   if (restedChoice !== choiceKey()) restedChoice = null;
-  if (queuedChoice && (rowCollapsed || (!selected.length && !questOpen) || restedChoice !== null || offerFront())) {
+  if (queuedChoice ? rowCollapsed || (!selected.length && !questOpen) || restedChoice !== null || offerFront() : restedChoice === null && exchange.read) {
     queuedChoice = false;
     queueMicrotask(() => exchange.settleLast());
   }
   const inFlight = Boolean(stackView.pending) || Boolean(ownPlayInFlight());
-  if (restedChoice !== null && restedRevision !== world.revision && !inFlight)
+  if (restedChoice !== null && restedRevision !== world.revision && !inFlight && !exchange.active)
     restedChoice = null;
   return phase({
     reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
