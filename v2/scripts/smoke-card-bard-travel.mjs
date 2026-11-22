@@ -174,6 +174,7 @@ try {
       assert.equal(await wordsFellSilent(page, key), false);
       const poem = requests.at(-1).entities.find((e) => e.id === singer)?.poem;
       assert.equal(poem.stanzas.length, 1);
+      // Couplet text is lore, never dialogue context.
       assert.equal(poem.stanzas[0].id, "greek-return-water-jar");
       assert.equal(
         JSON.stringify(poem).includes("I set the water by her hands"),

@@ -337,7 +337,6 @@ describe("saved public knowledge", () => {
       ).length;
     // Every active grievance keeps its evidence; dormant ones keep theirs by
     // most recent touch; no repaired one holds a pin while others need it.
-    // (The newest unpinned incidents survive by age alone.)
     for (let h = 0; h < 10; h++) expect(kept(h), ids[h]).toBe(6);
     const dormant = Array.from({ length: 20 }, (_, d) => kept(10 + d));
     expect(dormant.reduce((n, k) => n + k, 0)).toBe(GRIEVANCE_PIN_LIMIT - 60);
