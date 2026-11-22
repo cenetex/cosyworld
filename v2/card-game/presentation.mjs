@@ -98,6 +98,10 @@ export function refusalLabel(reason = "") {
 }
 // The label as a sentence for the status line: a question or a trailing
 // ellipsis keeps its own mark.
+export const STALE_REFUSALS = new Set([
+  "The world changed. Choose a current play.",
+  "That play has changed. Check the cards and choose again.",
+]);
 export const refusalSentence = (reason) => {
   const label = refusalLabel(reason);
   return /[?…]$/u.test(label) ? label : `${label}.`;

@@ -445,7 +445,7 @@ for (const width of [390, 1440])
     await selectCard(page, arrival.to);
     await readyActionButton(page, "move").click();
     await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="closed"]').length > 1);
-    await page.waitForFunction(() => document.querySelector("#play-status").textContent === "New cards unlocked");
+    assert.equal(await page.locator("#play-status").isHidden(), true, `${label}: no status line repeats the pack`);
     assert.deepEqual(
       (await chosen()).sort(),
       [arrival.to, ...(held ? [arrival.item] : [])].sort(),
@@ -467,7 +467,7 @@ for (const width of [390, 1440])
     await page.close();
   }
 
-// Two unturned cards are a pack too: nothing turns without a tap.
+// Two unturned cards are a pack too, turned only by tapping the stack.
 {
   const pair = scenario.here.filter((id) => !id.startsWith("quest:")).slice(0, 2);
   const { page, key, errors } = await openTable(390, "no-preference", {
@@ -476,7 +476,7 @@ for (const width of [390, 1440])
   });
   await page.waitForTimeout(800);
   assert.equal(await page.locator("#hand [data-pack]").count(), 2, "two cards form a pack");
-  await oneButton(page, "Reveal all", "two cards ask Reveal all");
+  assert.equal(await page.locator("#card-actions [data-pack]").count(), 0, "two cards offer no Reveal all");
   assert.equal((await unturned(page, key)).length, 2, "nothing turns without a tap");
   assert.deepEqual(errors, []);
   await page.close();
@@ -653,11 +653,11 @@ const tarotFaces = (page) =>
       label: c.getAttribute("aria-label"),
     })),
   );
-for (const oneByOne of [false, true]) {
-  const label = `spread ${oneByOne ? "one by one" : "Reveal all"}`;
+{
+  const label = "spread";
   const { page, errors } = await openTable(390, "no-preference", {
     covered: [],
-    tag: `pack-spread-${oneByOne}`,
+    tag: "pack-spread",
     world: spreadWorld(),
   });
   const levelled = await page.evaluate(() => document.querySelector('#hand .card[data-card="vale"]')?.getAttribute("aria-label") ?? "");
@@ -686,47 +686,30 @@ for (const oneByOne of [false, true]) {
     if (await page.locator("#dialogue-advance").isVisible()) await page.locator("#dialogue-advance").click();
     await page.waitForTimeout(500);
   }
-  await oneButton(page, "Reveal all", `${label}: a lowered spread asks Reveal all`);
+  assert.equal(await page.locator("#card-actions [data-pack]").count(), 0, `${label}: three cards offer no Reveal all`);
   assert.equal(
     (await tarotFaces(page)).filter((c) => c.shown).length,
     1,
     `${label}: the lowered spread shows one stack`,
   );
-  if (oneByOne) {
-    await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
-    await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length >= 3);
-    await page.waitForTimeout(900);
-    const up = dealt.find((c) => c.face === "up");
-    const card = page.locator(`#hand .want-card[data-quest-key="${up.key}"]`);
-    await tapCard(card);
-    await oneButton(page, "Reveal", `${label}: a chosen face-down tarot asks Reveal`);
-    await page.locator(`#card-actions [data-open-box="${up.key}"]`).click();
-    await page.waitForFunction(
-      (key) => document.querySelector(`#hand [data-quest-key="${key}"]`)?.dataset.unrevealed === "false",
-      up.key,
-    );
-    assert.match(
-      await page.locator("#discovery-announcement").textContent(),
-      /^New card: /u,
-      `${label}: the turned tarot is announced`,
-    );
-    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
-  } else {
-    await page.locator("#card-actions [data-pack='reveal']").click();
-    const finish = page.locator("#card-actions [data-pack='finish']");
-    await page.waitForTimeout(400);
-    if (await finish.count()) await finish.click();
-    await oneButton(page, "Done", `${label}: the turned spread asks for Done`);
-    await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
-    const turned = await tarotFaces(page);
-    for (const card of turned) {
-      assert.equal(card.unrevealed, card.face === "down" ? "true" : "false", `${label}: ${card.key} is turned`);
-      if (card.face !== "down") assert.match(card.label, /^Quest: Level/u, `${label}: ${card.key} is named`);
-    }
-    await page.waitForTimeout(300);
-    await page.locator("#card-actions [data-pack='done']").click();
-    await page.waitForFunction(() => !document.querySelector("#hand [data-pack]"));
-  }
+  await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
+  await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length >= 3);
+  await page.waitForTimeout(900);
+  const up = dealt.find((c) => c.face === "up");
+  const card = page.locator(`#hand .want-card[data-quest-key="${up.key}"]`);
+  await tapCard(card);
+  await oneButton(page, "Reveal", `${label}: a chosen face-down tarot asks Reveal`);
+  await page.locator(`#card-actions [data-open-box="${up.key}"]`).click();
+  await page.waitForFunction(
+    (key) => document.querySelector(`#hand [data-quest-key="${key}"]`)?.dataset.unrevealed === "false",
+    up.key,
+  );
+  assert.match(
+    await page.locator("#discovery-announcement").textContent(),
+    /^New card: /u,
+    `${label}: the turned tarot is announced`,
+  );
+  await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
   assert.deepEqual(errors, [], `${label}: no page errors`);
   await page.close();
 }

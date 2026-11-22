@@ -15,6 +15,7 @@
 
 // Any unturned card makes a pack: nothing turns until the player taps.
 export const PACK_MIN = 1;
+export const REVEAL_ALL_OVER = 3;
 
 // The one button's words. A small fixed vocabulary, no counts. The whole
 // descriptor is the button: `text` is its sentence and the verb makes its
@@ -298,7 +299,7 @@ export function createPackOpening({
     prompt(unturned) {
       if (state === "running") return ask("finish", PACK_FINISH);
       if (state === "turned") return ask("done", PACK_DONE);
-      if (state === "closed" && left(unturned).length)
+      if (state === "closed" && left(unturned).length > REVEAL_ALL_OVER)
         return ask("reveal", PACK_REVEAL_ALL);
       return null;
     },
