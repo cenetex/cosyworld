@@ -722,9 +722,13 @@ try {
         (key) =>
           JSON.parse(localStorage.getItem(key)).actors.vale.place === "pond" &&
           document.querySelector(".play-dock").dataset.covered === "false" &&
-          document.querySelector("#hand").dataset.cooling === "false" &&
-          document.activeElement.matches("#hand .card-frame:not([hidden]) .card"),
+          document.querySelector("#speech-hint").textContent === "Tap to continue",
         key,
+      );
+      await page.locator("#dialogue-advance").dispatchEvent("click");
+      await page.waitForFunction(() =>
+        document.querySelector("#hand").dataset.cooling === "false" &&
+        document.activeElement.matches("#hand .card-frame:not([hidden]) .card"),
       );
       assert.equal(await focusedHandCard(page), "pond", "travel returns focus to the hand");
     }
