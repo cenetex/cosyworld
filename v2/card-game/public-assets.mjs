@@ -395,6 +395,7 @@ const files = [
   "emoji-symbols.json",
   "dialogue.mjs",
   "speech-pages.mjs",
+  "speech-text.mjs",
   "card-names.mjs",
   "character-speech.mjs",
   "hosted-voices.mjs",

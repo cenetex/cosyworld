@@ -224,7 +224,8 @@ import {
   waitForScene,
 } from "./dialogue.mjs";
 import { nameLetters, namedText } from "./card-names.mjs";
-import { createPagedReveal, speechPages } from "./speech-pages.mjs";
+import { createPagedReveal } from "./speech-pages.mjs";
+import { createSpeechText } from "./speech-text.mjs";
 import {
   currentActor,
   places,
@@ -771,13 +772,6 @@ let storyStatus = "ready",
   renderedHandPlace = null,
   renderedHandState = null,
   speechKey = null,
-  speechPageKey = null,
-  speechGlyphs = [],
-  shownLetters = 0,
-  glyphLines = [],
-  speechHeight = 0,
-  speechScrollTarget = 0,
-  speechComplete = null,
   cardsCooling = false,
   reviewing = false,
   // The beat stepped back to while reviewing, by beat key.
@@ -1065,48 +1059,17 @@ try {
 } catch {}
 speechSounds.setEnabled(soundEnabled);
 characterSpeech.setEnabled(soundEnabled);
-function measureSpeech() {
-  const text = $("dialogue-text");
-  glyphLines = speechGlyphs.map((glyph) => [
-    glyph.offsetTop,
-    glyph.offsetTop + glyph.offsetHeight,
-  ]);
-  speechHeight = text.clientHeight;
-  speechScrollTarget = text.scrollTop;
-}
-new ResizeObserver(measureSpeech).observe($("dialogue-text"));
-function speechRoom() {
-  const row = $("speech-row"), text = $("dialogue-text"), stack = row.parentElement;
-  if (row.hidden || text.hidden || stack.hidden || stack.dataset.action === "true")
-    return setStyle(text.style, "--speech-room", null), Infinity;
-  const { bottom, left, right } = stack.getBoundingClientRect(), style = getComputedStyle(row);
-  const chrome = text.offsetTop + row.clientTop + parseFloat(style.paddingBottom) + 17 +
-    ($("beat-captions").hidden ? 0 : $("beat-captions").offsetHeight) +
-    (parseFloat(getComputedStyle(stack).getPropertyValue("--beat-peek")) || 0);
-  let limit = Math.max(document.querySelector(".topbar").getBoundingClientRect().bottom + 8, innerHeight * 0.35);
-  for (const name of $("hand").querySelectorAll(".card-frame:not([hidden]) .name")) {
-    const box = name.getBoundingClientRect();
-    if (box.height && box.bottom < bottom && box.right > left && box.left < right) limit = Math.max(limit, box.bottom + 6);
-  }
-  const room = Math.max(parseFloat(getComputedStyle(text).lineHeight) * 2 || 44, bottom - limit - chrome);
-  setStyle(text.style, "--speech-room", `${Math.floor(room)}px`);
-  return room;
-}
-function paginateSpeech(words, { whole = false } = {}) {
-  const text = $("dialogue-text"), room = speechRoom(), kept = [...text.childNodes], top = text.scrollTop;
-  if (whole || room === Infinity) return [words];
-  const pages = speechPages(words, (part) => ((text.textContent = part), text.scrollHeight <= room + 1));
-  text.replaceChildren(...kept);
-  text.scrollTop = top;
-  return pages;
-}
-let speechRoomTimer = 0;
-const syncSpeechRoom = () => {
-  clearTimeout(speechRoomTimer);
-  speechRoomTimer = setTimeout(() => reveal.repage(), 300);
-};
-const speechRoomWatch = new ResizeObserver(syncSpeechRoom);
-[$("dialogue-text"), $("hand")].forEach((part) => speechRoomWatch.observe(part));
+const speechText = createSpeechText({
+  row: $("speech-row"),
+  text: $("dialogue-text"),
+  hand: $("hand"),
+  captions: $("beat-captions"),
+  topbar: document.querySelector(".topbar"),
+  setStyle,
+  sceneCards: () => sceneCards(),
+  repage: () => reveal.repage(),
+  stopSounds: () => speechSounds.stop(),
+});
 function replyPending() {
   return sharedSession
     ? Boolean(shownSceneLine && storyStatus === "pending" &&
@@ -1139,9 +1102,6 @@ function updateSpeechControls(complete) {
   hint.textContent = waitingLine ? "Thinking…" : cue.hint;
   hint.hidden = button.hidden || !hint.textContent;
 }
-const speechPainter = createRevealPainter($("dialogue-text"), { rest: true });
-// A wake plays on the table: dusk or dawn through a held black, and the
-// halfway dream before it (sleep-view.mjs).
 const sleepView = createSleepView({
   stage: $("stage"),
   speechRow: $("speech-row"),
@@ -1201,7 +1161,7 @@ function writeActionMessage(root, text, key, name) {
   else actionReveal.show(key, text, currentActor(world));
 }
 const reveal = createPagedReveal({
-  paginate: paginateSpeech,
+  paginate: speechText.paginate,
   reduced: () => reducedMotion.matches,
   sound: (...args) => {
     if (
@@ -1213,7 +1173,6 @@ const reveal = createPagedReveal({
       speechSounds.syllable(...args);
   },
   frame: (value) => {
-    const text = $("dialogue-text");
     if (speechKey !== value.key) {
       speechKey = value.key;
       completedSpokenLine = null;
@@ -1231,33 +1190,12 @@ const reveal = createPagedReveal({
         );
       $("speech-announcement").textContent = "";
     }
-    if (speechPageKey !== value.pageKey) {
-      speechPageKey = value.pageKey;
-      shownLetters = 0;
-      speechComplete = null;
-      text.scrollTop = 0;
-      speechSounds.stop();
-      speechGlyphs = letterSpans(value.page);
-      text.replaceChildren(...speechGlyphs);
-      text.dataset.page = value.pageKey.split("#").at(-1).split(":")[0];
-      nameLetters(speechGlyphs, value.page, sceneCards());
-      speechPainter.start(speechGlyphs);
-      measureSpeech();
-    }
-    speechPainter.paint({ shown: value.shown, complete: value.pageComplete });
-    shownLetters = value.shown;
-    if (speechComplete !== value.pageComplete) {
-      speechComplete = value.pageComplete;
+    if (speechText.paint(value)) {
       updateSpeechControls(value.pageComplete);
       // A read line lets a play in flight show its Thinking card.
       queueMicrotask(() =>
         value.complete && ownPlayInFlight() ? renderScene() : syncPhase(),
       );
-    }
-    const [top, bottom] = glyphLines[Math.max(0, shownLetters - 1)] || [0, 0];
-    if (!value.pageComplete && bottom > speechScrollTarget + speechHeight) {
-      speechScrollTarget = top;
-      text.scrollTop = top;
     }
     // Only the newest beat is announced, never one stepped back to.
     if (value.complete && !reviewing && announcedBeat !== value.key) {
@@ -4563,7 +4501,7 @@ function renderScene() {
       keepPrefetch: Boolean(localRuntime() && exchange.preparing),
     });
     speechKey = null;
-    speechPageKey = null;
+    speechText.forget();
     $("dialogue-text").replaceChildren();
     // An action beat is announced when it arrives live.
     const announce =
@@ -5918,7 +5856,7 @@ window.addEventListener("storage", (event) => {
   exchange.cancel();
   reveal.cancel();
   speechKey = null;
-  speechPageKey = null;
+  speechText.forget();
   speechSounds.stop();
   try {
     const previous = world, previousQuests = shownQuests;

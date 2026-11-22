@@ -208,6 +208,7 @@ function appBoundary(sleepView, world) {
     playQueue: { clear: noop },
     exchange: { cancel: noop },
     reveal: { cancel: noop },
+    speechText: { forget: noop },
     speechSounds: { stop: noop },
     narrator: { invalidate: () => sleepView.words("ready") },
     $: () => ({ close: noop }),
