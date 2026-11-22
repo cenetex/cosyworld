@@ -9,4 +9,5 @@
 #
 # 6484 -> 6422: the speech text's paging and painting move to
 # speech-text.mjs.
-6422
+# 6421 -> 6313: the beat stack's motion moves to beat-motion.mjs.
+6313
