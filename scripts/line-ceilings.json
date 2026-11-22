@@ -1,0 +1,16 @@
+{
+  "about": "Line ceilings for the repository's largest hand-written code files, read by scripts/check-line-ceilings.mjs in the fast check. A listed file may shrink but not grow past its ceiling; a pull request that shrinks one lowers its ceiling (--write). A code file not listed here may not pass the threshold. New systems go in their own modules (the factory pattern of v2/card-game/sleep-view.mjs and speech-text.mjs, the seams of the Rust crate), where the fast check can choose the tests that cover them (scripts/fast-smokes.json). Raise a ceiling only as a reviewed exception, in the same diff, with the reason in the pull request. v2/orchestrator-rust/src/main.rs keeps its own ceiling and history (v2/scripts/main-rs-line-ceiling.txt). Generated files, lockfiles and assets follow scripts/change-budget.json and are never counted.",
+  "threshold": 1500,
+  "ceilings": {
+    "v2/card-game/app.mjs": 6313,
+    "v2/card-game/pack-schema.mjs": 2179,
+    "v2/card-game/style.css": 3663,
+    "v2/card-game/world.mjs": 4197,
+    "v2/orchestrator-rust/src/account_auth.rs": 1771,
+    "v2/orchestrator-rust/src/ai_gateway.rs": 3556,
+    "v2/orchestrator-rust/src/ai_registry.rs": 2058,
+    "v2/orchestrator-rust/src/card_narrative.rs": 6600,
+    "v2/orchestrator-rust/src/card_narrative/channel.rs": 2422,
+    "v2/orchestrator-rust/src/card_shared/full_tests.rs": 1609
+  }
+}
