@@ -81,7 +81,7 @@
       "smokes": ["smoke-authoring-transient-discard"]
     },
     {
-      "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative|speech-(pages|text))\\.",
+      "paths": "^v2/card-game/(beats|combat-beats|dialogue|character-speech|narrative|speech-(pages|text)|beat-motion)\\.",
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
     },
     {
