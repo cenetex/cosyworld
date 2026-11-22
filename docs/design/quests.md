@@ -35,12 +35,12 @@ This section proposes how the decisions work in the rules. Where a point rests o
 
 ### Learning a quest
 
-- A quest is a fact in `world.knowledge` (`card-game/knowledge.mjs`), the store Talk already uses to pass facts on, with a new source kind, `quest`, beside `event` and `topic`. How a character learned it stays the separate record kind (`witnessed`, `told`, or the `read` kind proposed in `docs/design/books.md`, #3088), so a book can teach a quest.
+- A quest is a fact in `world.knowledge` (`card-game/knowledge.mjs`), the store Talk already uses to pass facts on, with a new source kind, `quest`, beside `event`, `topic` and the rest. How a character learned it stays the separate memory kind (`witnessed`, `heard`, or the `read` kind proposed in `docs/design/books.md`, #3088), so a book can teach a quest.
 - The fact's id names the owner and the card. Its text is the owner's want in one sentence, within `FACT_TEXT_LIMIT` (180 characters).
 - When the owner tells it in a Talk, the listener records it as `heard` with the owner as teller (`tell`, `knowledge.mjs:302-318`; the entry's shape is checked at `:565-580`).
 - A Talk teaches the speaker's card and the cards of the items the speaker holds. The gates in `revealed` stay, including authored `minTrust` (`card-game/want-talk.mjs:79-108`).
 - The `heard` map (`validHeard`, `want.mjs:890-908`) and `toldWant` (`talk-quest.mjs:131-134`) are replaced by reading the fact. II The High Priestess (`arcana.json:72-84`, a count of `heard`) counts owners whose quest you learned from them.
-- A live card's fact does not age out. When the store is full, `retainFact` evicts the oldest fact that is neither a topic nor pinned grievance evidence (`knowledge.mjs:112-133`), so quest facts are spared the way topic facts are. When a card completes, its fact may age out.
+- A live card's fact does not age out. When the store is full, `retainFact` evicts the oldest fact that is neither a topic nor pinned grievance evidence (`knowledge.mjs:112-133`), so quest facts are spared the way topic facts are. When a card completes, its fact may age out. Topic, book-claim and live quest facts would all be spared, so they need one shared cap below the 256-fact store; otherwise `retainFact` stores no new fact once they fill it.
 - Knowledge validation is exact-shape (`validKnowledge`, `knowledge.mjs:470-622`), so the new source kind is a rules change.
 
 ### Completing a card
@@ -182,7 +182,7 @@ Each resolution below is proposed.
   - The arcana `spread` keeps one slot. A face-down slot keeps its `done`; otherwise the first unproved card of `need` stays, face up. `sale` is deleted, and an open sale deals the next card at once. `level`, `proved`, `did`, `calls` and `callers` stay, and so do the avatar's `upgrades`.
   - A resident's `want` stays as its live card. With P6 it loses `from`, and a drawn want stays until it is met or lost; then the resident's authored cards take over.
   - `placeMet` stays. An item with no saved level reads `startLevel`.
-- Shared worlds get the migration through a new rules version (`npm run v2:card:shared:next`, which mints the next bundle, `engine-v188.js` today). The `upgrade` op loads the save through the target bundle's load path first (`card-game/shared-world.mjs:203-214`), so the same install-time migration applies. `FLOOR` (`rust/card_shared/full_floor.rs:23`) stays.
+- Shared worlds get the migration through a new rules version (`npm run v2:card:shared:next`, which mints the next free bundle; the books design needs one too). The `upgrade` op loads the save through the target bundle's load path first (`card-game/shared-world.mjs:203-214`), so the same install-time migration applies. `FLOOR` (`rust/card_shared/full_floor.rs:23`) stays.
 - No new recorded-save fixtures are allowed (`scripts/recorded-saves-allowlist.json` only shrinks). Migration tests build old shapes by playing on the old rules bundle, or by hand.
 - Journey checkpoints (`test/journeys/checkpoints.json`) and the released-rules pins change with each rules version. The `quest-cards` journey's `accept` steps are rewritten.
 
@@ -225,7 +225,7 @@ Each step is one or more PRs, and each PR stays under the 400-line budget with d
 
 ## Open questions
 
-1. Does a quest fact passed on second-hand by Talk turn the card face up, or only the owner's own telling? The knowledge system tells facts on by default (`reserveKnowledge`, `knowledge.mjs:259-301`).
+1. Does a quest fact learned second-hand, told on by Talk or `read` in a book, turn the card face up, or only the owner's own telling? The knowledge system tells facts on by default (`reserveKnowledge`, `knowledge.mjs:259-301`).
 2. Does an unplayed avatar (rules 169) carry only its arcanum and work on others' cards, or does it also show a resident card from its pack wants?
 3. Do an away avatar's planned plays prove its person's arcanum?
 4. Is one level one step on the 0-21 track, or one rank? Above level 5, the bands stretch ranks (`card-game/level-tiers.mjs:6-12`).
