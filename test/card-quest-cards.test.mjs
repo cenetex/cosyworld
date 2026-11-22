@@ -50,7 +50,6 @@ describe("quest offers are held on Accept", () => {
     });
     expect(questOffers(s).some((o) => o.kind === "box")).toBe(false);
     expect(legalActions(s).some((a) => a.kind === "take" && a.offer)).toBe(false);
-    // The offer is deterministic for the same world.
     expect(questOffers(decodeSave(encodeSave(s)))).toEqual(questOffers(s));
     const fresh = structuredClone(s);
     fresh.actors.vale.want = null;

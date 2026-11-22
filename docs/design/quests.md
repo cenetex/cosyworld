@@ -35,7 +35,7 @@ This section proposes how the decisions work in the rules. Where a point rests o
 
 ### Learning a quest
 
-- A quest is a fact in `world.knowledge` (`card-game/knowledge.mjs`), the store Talk already uses to pass facts on, with a new source kind, `quest`. A planned books design (branch `docs/books-design`, not yet published) may share this store.
+- A quest is a fact in `world.knowledge` (`card-game/knowledge.mjs`), the store Talk already uses to pass facts on, with a new source kind, `quest`, beside `event` and `topic`. How a character learned it stays the separate record kind (`witnessed`, `told`, or the `read` kind proposed in `docs/design/books.md`, #3088), so a book can teach a quest.
 - The fact's id names the owner and the card. Its text is the owner's want in one sentence, within `FACT_TEXT_LIMIT` (180 characters).
 - When the owner tells it in a Talk, the listener records it as `heard` with the owner as teller (`tell`, `knowledge.mjs:302-318`; the entry's shape is checked at `:565-580`).
 - A Talk teaches the speaker's card and the cards of the items the speaker holds. The gates in `revealed` stay, including authored `minTrust` (`card-game/want-talk.mjs:79-108`).
