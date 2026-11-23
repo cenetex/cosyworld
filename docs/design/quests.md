@@ -63,7 +63,7 @@ This section proposes how the decisions work in the rules. Where a point rests o
 
 ## Proposals
 
-These are not decided. Each names the research that supports it.
+Accepted on 2026-11-23, with the defaults under Open questions. Each names the research that supports it.
 
 ### P1. Completing another's quest earns their trust, and trust feeds the arcana
 
@@ -225,14 +225,16 @@ Each step is one or more PRs, and each PR stays under the 400-line budget with d
 
 ## Open questions
 
-1. Does a quest fact learned second-hand, told on by Talk or `read` in a book, turn the card face up, or only the owner's own telling? The knowledge system tells facts on by default (`reserveKnowledge`, `knowledge.mjs:259-301`).
-2. Does an unplayed avatar (rules 169) carry only its arcanum and work on others' cards, or does it also show a resident card from its pack wants?
-3. Do an away avatar's planned plays prove its person's arcanum?
-4. Is one level one step on the 0-21 track, or one rank? Above level 5, the bands stretch ranks (`card-game/level-tiers.mjs:6-12`).
-5. What is XII The Hanged Man's new proof?
-6. Does an escort asker bind as a companion on Talk, or only through Accompany?
-7. Who trusts the completer of an item's or a place's card: its holder, the place's residents, or nobody?
-8. When an entity has no next card, does it have no card, or a repeatable one?
+Each has a default, settled on 2026-11-23 so building can start. Any of them can be reopened.
+
+1. A quest fact learned second-hand, told on by Talk or `read` in a book, turns the card face up, the same as the owner's own telling. Knowing is knowing (`reserveKnowledge`, `knowledge.mjs:259-301`).
+2. An unplayed avatar (rules 169) carries only its arcanum and works on others' cards.
+3. An away avatar's planned plays prove its person's arcanum, as P6 implies.
+4. One level is one step on the 0-21 track (`card-game/level-tiers.mjs:6-12`).
+5. XII The Hanged Man is proved when someone else finishes a card you knew.
+6. An escort asker binds as a companion only through Accompany.
+7. An item's holder trusts the completer of the item's card. A place's card earns no trust; the place's level is the reward.
+8. An entity with no next card has no card.
 
 ## Prior art
 
