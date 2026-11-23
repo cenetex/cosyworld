@@ -32,6 +32,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
 import { locationWeather } from "../v2/card-game/weather.mjs";
 import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
+import { bind } from "../v2/card-game/world/company.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
 const find = (world, fields) =>
@@ -74,7 +75,6 @@ function mist(world) {
   world.transports["greek-ship"].since = world.turn;
   return world;
 }
-// Run the saved clock forward to the next day or night block.
 function clock(world, night) {
   while (isNight(world) !== night) world.turn += 1;
   world.revision = Math.max(world.revision, world.turn);
@@ -490,6 +490,21 @@ describe("The Willows", () => {
     expect(view.actions.some((a) => a.target === "willows-swede")).toBe(false);
     for (let i = 0; i < 6; i++) world = act(world, { kind: "wait" });
     expect(world.actors["willows-swede"].place).toBe("pond");
+  });
+
+  it("lets the Swede leave for good by following his traveler aboard", () => {
+    let world = createWorld({ seed: 7 });
+    world.actors.vale.place = "pond";
+    world.crossings["pond-greek-harbor"].discovered = true;
+    summonTransport(world, "greek-ship", "pond");
+    world = move(mist(move(world, "greek-ship")), "willows-landing");
+    for (const item of ["paddle", "sheet", "rope", "provisions"])
+      world.items[`willows-${item}`].holder = "willows-camp";
+    world.actors["willows-swede"].place = "willows-landing";
+    bind(world, "vale", "willows-swede");
+    world = move(world, "greek-ship");
+    expect(world.packs.willows.flags["willows-swede-gone"]).toBe(true);
+    expect(entityActive(world, "willows-swede")).toBe(false);
   });
 
   it("paces the willows nearer by night and keeps night signs to the dark", () => {
