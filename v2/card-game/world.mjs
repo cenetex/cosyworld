@@ -3422,9 +3422,8 @@ export function play(
   creditOpened(s, next, actor);
   for (const id of residents) {
     if (
-      id === respondent ||
-      !active.includes(id) ||
-      controlledByHuman(next, id)
+      id === respondent || !active.includes(id) || controlledByHuman(next, id) ||
+      (!entityActive(next, id) && !roamingQuestActor(id, next))
     )
       continue;
     // A sleeper makes no play unless a fight wakes it (rules 100).
