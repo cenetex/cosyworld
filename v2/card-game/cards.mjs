@@ -315,7 +315,7 @@ function selectionPlay(world, selected) {
     );
     if (meal) return result(meal);
     return single(
-      use(id),
+      use(id) || find("read", id),
       "Pair with a person to give it, or this place to put it down.",
     );
   }

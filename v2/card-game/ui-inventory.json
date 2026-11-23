@@ -284,6 +284,7 @@
     "v2/card-game/page-fade.mjs": 1,
     "v2/card-game/privacy.mjs": 2,
     "v2/card-game/quest-screen.mjs": 2,
+    "v2/card-game/read-view.mjs": 8,
     "v2/card-game/settings-screen.mjs": 7,
     "v2/card-game/shared-auth.mjs": 8,
     "v2/card-game/shared.mjs": 12,

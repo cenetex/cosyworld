@@ -166,6 +166,7 @@ const files = [
   "glimpse-card.mjs",
   "sleep-presentation.mjs",
   "sleep-view.mjs",
+  "read-view.mjs",
   "local-carry.mjs",
   "sleep.css",
   "locked-box.mjs",
