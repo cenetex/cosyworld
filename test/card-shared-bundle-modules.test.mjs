@@ -25,6 +25,7 @@ const RULES = [
   "human-cast.mjs",
   "item-use.mjs",
   "knowledge.mjs",
+  "claims.mjs",
   "learning.mjs",
   "legacy-saves.mjs",
   "level-tiers.mjs",
