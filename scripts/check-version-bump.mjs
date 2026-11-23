@@ -51,8 +51,7 @@ function main() {
     return 1;
   }
 
-  // The Rust crate reports CARGO_PKG_VERSION in /meta, so a mismatch would only
-  // surface deep in the suite; fail here instead, with the exact files to fix.
+  // The Rust crate reports CARGO_PKG_VERSION in /meta; fail here, not deep in the suite.
   const manifestPath = path.resolve(repoRoot, 'v2/orchestrator-rust/Cargo.toml');
   try {
     const manifest = readFileSync(manifestPath, 'utf8');
