@@ -1,6 +1,6 @@
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { expect, it } from "vitest";
-import { beginPipJourney, createPipWorld, pipEntry, talkToPip } from "../v2/card-game/pip-landing.mjs";
+import { beginPipJourney, createPipWorld, pipEntry, pipHeard, talkToPip } from "../v2/card-game/pip-landing.mjs";
 import { openTableSession } from "../v2/card-game/table-session.mjs";
 import { SAVE_BASE } from "../v2/card-game/avatar-world.mjs";
 import { decodeSave, encodeSave, legalActions, play, questOffers } from "../v2/card-game/world.mjs";
@@ -56,14 +56,14 @@ it.each([0, 17, 4294967295])("carries what Pip told into Vale's opening, where h
   expect(talk.action).toMatchObject({ kind: "talk", target: "moth" });
   expect(play(prelude, talk.action).ok).toBe(true);
   const talked = talkToPip(prelude);
-  expect(talked.actors.vale.heard).toEqual({ moth: "item:lamp" });
+  expect(talked.knowledge.known.vale["quest:moth:lamp"].teller).toBe("moth");
   const quest = { kind: "item", target: "lamp", step: { verb: "give", to: "moth" } };
   expect(talked.actors.vale.want).toBeNull();
   expect(legalActions(talked).some((a) => a.kind === "accept" && a.target === "moth")).toBe(true);
   let world = beginPipJourney(seed);
   expect(world.opening).toBeDefined();
   expect(world.actors.vale.place).toBe("attic");
-  expect(world.actors.vale.heard).toEqual({ moth: "item:lamp" });
+  expect(pipHeard(world)).toBe(true);
   world = selectLamp(world);
   const move = legalActions(world).find((a) => a.kind === "move" && a.target === "pond");
   expect(move).toBeDefined();

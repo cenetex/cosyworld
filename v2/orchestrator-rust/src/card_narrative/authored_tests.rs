@@ -47,6 +47,7 @@ fn rules_sentences_are_authored_and_instructions_are_not() {
         ),
         (Field::Disclosures, "RATi keeps the kettle warm for anyone walking home late."),
         (Field::Disclosures, "The keeper wants the Bell given to Pip."),
+        (Field::Disclosures, "Pip wants to see Ledger (Opus 4.7)."),
         (
             Field::Facts,
             "Vale told me this just now at Empty station: Pip wants to be at Black pond.",

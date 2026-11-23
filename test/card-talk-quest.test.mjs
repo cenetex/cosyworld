@@ -17,6 +17,7 @@ import {
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { newWant, questsOf } from "../v2/card-game/want.mjs";
+import { questOwners } from "../v2/card-game/quest-learn.mjs";
 import {
   pruneTalkQuests,
   questFor,
@@ -50,12 +51,12 @@ describe("Talk tells a want", () => {
   it("records what was told, and holds the quest it gives", () => {
     let s = talk(station(), "moth");
     expect(heldFrom(s, "moth").actors.vale.want.from).toBe("quest:from:moth");
-    expect(s.actors.vale.heard).toEqual({ moth: "item:lamp" });
+    expect(questOwners(s, "vale")).toEqual(["moth"]);
     expect(toldWant(s, "vale", "moth")).toBe(true);
     // Saved and loaded exactly; the same plays make the same world.
     expect(reload(s)).toEqual(s);
-    expect(talk(talk(station(), "moth"), "moth").actors.vale.heard).toEqual(
-      s.actors.vale.heard,
+    expect(talk(talk(station(), "moth"), "moth").knowledge.known.vale).toEqual(
+      s.knowledge.known.vale,
     );
     expect(validateWorld(reload(s))).toBeTruthy();
     s = heldFrom(s, "moth");
@@ -157,28 +158,15 @@ describe("Talk tells a want", () => {
     const s = station();
     s.actors.keeper.want = newWant("item", "bell", 0);
     expect(talkQuest(s, "keeper", "moth", wantAPI(s))).toBeNull();
-    expect(s.actors.keeper.heard).toBeUndefined();
+    expect(questOwners(s, "keeper")).toEqual([]);
     // A want Talk gives no quest for records nothing.
     s.actors.moth.want = null;
     expect(talkQuest(s, "vale", "moth", wantAPI(s))).toBeNull();
-    expect(s.actors.vale.heard).toBeUndefined();
+    expect(questOwners(s, "vale")).toEqual([]);
   });
 
   it("refuses a malformed saved record", () => {
     const s = talk(station(), "moth");
-    for (const heard of [
-      { vale: "item:lamp" },
-      { nobody: "item:lamp" },
-      { moth: "connect:humans" },
-      [],
-    ]) {
-      const bad = JSON.parse(encodeSave(s));
-      bad.actors.vale.heard = heard;
-      expect(
-        () => decodeSave(JSON.stringify(bad)),
-        JSON.stringify(heard),
-      ).toThrow();
-    }
     // A Talk quest with both a place and a person is no quest.
     const bad = JSON.parse(encodeSave(s));
     bad.actors.vale.want = {

@@ -1765,9 +1765,144 @@
   var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
   var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
   var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
+  var decimalPoint = /(?<=\p{N})\.(?=\p{N})/gu;
+  var validQuestText = (v) => typeof v === "string" && validFactText(v.replace(decimalPoint, "0"));
+  var newKnowledge = () => ({
+    version: KNOWLEDGE_VERSION,
+    facts: {},
+    known: {},
+    pending: []
+  });
   var knowsFact = (world, actor, id) => owns(world.knowledge?.facts, id) && owns(world.knowledge?.known?.[actor], id);
   var compareFacts = (a, b) => b.source.turn - a.source.turn || b.source.eventSeq - a.source.eventSeq || a.id.localeCompare(b.id);
+  function remember(world, actor, fact, kind, teller, eventSeq, learnedTurn) {
+    const knowledge = world.knowledge;
+    if (knowsFact(world, actor, fact.id)) return false;
+    const known = knowledge.known[actor] ??= {};
+    known[fact.id] = { kind, teller, eventSeq, learnedTurn };
+    const ordered = Object.keys(known).sort(
+      (a, b) => known[b].learnedTurn - known[a].learnedTurn || known[b].eventSeq - known[a].eventSeq || a.localeCompare(b)
+    );
+    for (const id of ordered.slice(KNOWLEDGE_PERSON_LIMIT)) delete known[id];
+    knowledge.pending = knowledge.pending.filter(
+      (p) => knowsFact(world, p.speaker, p.factId)
+    );
+    return owns(known, fact.id);
+  }
   var GRIEVANCE_PIN_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+  function pinnedFacts(world) {
+    const facts = world.knowledge?.facts || {};
+    const byPlay = {};
+    for (const f of Object.values(facts).sort(compareFacts))
+      if (f.source.kind === "event")
+        (byPlay[`${f.source.actorId}|${f.source.turn}`] ??= []).push(f);
+    const rank2 = (g) => g.repaired ? 2 : grievanceActive(world, g) ? 0 : 1;
+    const grievances = world.motives?.grievances || {};
+    const standing = Object.keys(grievances).sort().flatMap((holder) => grievances[holder].map((g, i) => ({ holder, g, i }))).sort(
+      (a, b) => rank2(a.g) - rank2(b.g) || (b.g.lastTouched ?? b.g.turn) - (a.g.lastTouched ?? a.g.turn) || a.holder.localeCompare(b.holder) || a.i - b.i
+    );
+    const pinned = /* @__PURE__ */ new Set();
+    for (const { holder, g } of standing) {
+      const evidence = g.incident ? owns(facts, g.incident) ? [facts[g.incident]] : [] : (byPlay[`${g.other}|${g.turn}`] || []).filter(
+        (f) => f.source.witnesses.includes(holder)
+      );
+      for (const f of evidence) {
+        if (pinned.size >= GRIEVANCE_PIN_LIMIT) return pinned;
+        if (f.source.kind === "event") pinned.add(f.id);
+      }
+    }
+    return pinned;
+  }
+  function retainFact(world, fact) {
+    const knowledge = world.knowledge;
+    if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
+    const spare = (f) => protectedFact(f, world);
+    const all = Object.values(knowledge.facts);
+    const spared = spare(fact) ? all.filter(spare).sort(compareFacts) : [];
+    const old = spared.slice(PROTECTED_FACT_LIMIT - 1);
+    if (!old.length && all.length >= KNOWLEDGE_FACT_LIMIT) {
+      const aging = all.filter((f) => !spare(f)).sort(compareFacts);
+      const pinned = pinnedFacts(world);
+      old.push(
+        [...aging].reverse().find((f) => !pinned.has(f.id)) || aging.at(-1)
+      );
+      if (!old[0]) return null;
+    }
+    for (const { id } of old) {
+      delete knowledge.facts[id];
+      for (const known of Object.values(knowledge.known)) delete known[id];
+      knowledge.pending = knowledge.pending.filter((p) => p.factId !== id);
+    }
+    knowledge.facts[fact.id] = fact;
+    return fact;
+  }
+  var newsVerbs = /* @__PURE__ */ new Set([
+    "read",
+    "give",
+    "trade",
+    "attack",
+    "threaten",
+    "accompany",
+    "choose"
+  ]);
+  function witnessKnowledge(world, entry, eligible = () => true, topics = []) {
+    if (!world.knowledge || entry.generated || entry.kind !== "action" && !entry.consequence || !newsVerbs.has(entry.verb) && !entry.consequence || !validFactText(entry.text) || !entry.seq || !world.actors[entry.actorId] || entry.verb === "choose" && topics.some(
+      (topic) => topic.packId === entry.packId && topic.choiceId === entry.choiceId
+    ))
+      return null;
+    const witnesses = [
+      .../* @__PURE__ */ new Set([
+        entry.actorId,
+        ...entry.cast || [],
+        ...entry.witnesses || []
+      ])
+    ].filter((id) => world.actors[id] && eligible(id)).sort();
+    const fact = retainFact(world, {
+      id: `event:${entry.seq}`,
+      text: entry.text.trim(),
+      source: {
+        kind: "event",
+        eventSeq: entry.seq,
+        turn: entry.turn,
+        actorId: entry.actorId,
+        locationId: entry.locationId,
+        witnesses,
+        topic: null
+      }
+    });
+    if (!fact) return null;
+    for (const actor of witnesses)
+      remember(world, actor, fact, "witnessed", null, entry.seq, entry.turn);
+    return fact;
+  }
+  function installKnowledge(world, eligible = () => true, topics = []) {
+    if (world.knowledge !== void 0) return world.knowledge;
+    world.knowledge = newKnowledge();
+    for (const entry of world.log || [])
+      witnessKnowledge(world, entry, eligible, topics);
+    return world.knowledge;
+  }
+  function learnQuest(world, owner2, learner, { id, text: text2 }, entry) {
+    installKnowledge(world);
+    if (!world.actors[owner2] || owner2 === learner || !entry.seq || !safeId(id) || !validQuestText(text2) || knowsFact(world, learner, id))
+      return null;
+    const fact = retainFact(world, {
+      id,
+      text: text2,
+      source: {
+        kind: "quest",
+        eventSeq: entry.seq,
+        turn: entry.turn,
+        actorId: owner2,
+        locationId: world.actors[owner2].place,
+        witnesses: [],
+        topic: null
+      }
+    });
+    if (fact)
+      remember(world, learner, fact, "heard", owner2, entry.seq, entry.turn);
+    return fact;
+  }
   function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
     const pending = (world.knowledge?.pending || []).filter(
       (p) => p.locationId === location && speakers.includes(p.speaker) && entities2.includes(p.speaker) && entities2.includes(p.listener) && p.turn === world.turn
@@ -1833,7 +1968,9 @@
     if (!fields(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
       return false;
     for (const [id, fact] of Object.entries(k.facts)) {
-      if (!safeId(id) || !fields(fact, ["id", "text", "source"]) || fact.id !== id || !validFactText(fact.text))
+      if (!safeId(id) || !fields(fact, ["id", "text", "source"]) || fact.id !== id || !(fact.source?.kind === "quest" ? validQuestText : validFactText)(
+        fact.text
+      ))
         return false;
       const s = fact.source;
       if (!fields(s, [
@@ -3137,29 +3274,20 @@
     const slept = verb === "rest" && !w.story;
     const eaten = verb === "eat" && w.kind === "item" && isFood(w.target);
     const asked = !w.story && (verb === "give" && w.kind === "item" || verb === "bring" && w.kind === "person");
-    const named = eaten ? ["at", "with"].filter((key2) => cards[key2] !== void 0) : home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
+    const named2 = eaten ? ["at", "with"].filter((key2) => cards[key2] !== void 0) : home ? ["at"] : asked && w.kind === "person" ? [cards.at === void 0 ? "to" : "at"] : STEP_CARDS[verb] || (verb === "meet" && cards.at ? ["at"] : []);
     return (home || gift || slept || asked || eaten) && [
       ...STEP_VERBS[w.kind] || [],
       ...eaten ? ["eat"] : [],
       ...w.kind === "person" ? SAVED_STEP_VERBS : [],
       ...asked ? [verb] : []
-    ].includes(verb) && Object.keys(cards).length === named.length && named.every((key2) => typeof cards[key2] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target) && (!cards.with || Object.hasOwn(s.actors, cards.with) && cards.with !== id);
-  }
-  function validHeard(s, id) {
-    const heard = s.actors[id].heard;
-    if (heard === void 0) return true;
-    return Boolean(
-      heard && typeof heard === "object" && !Array.isArray(heard) && Object.entries(heard).every(
-        ([them, told]) => them !== id && Object.hasOwn(s.actors, them) && typeof told === "string" && told.length <= 160 && /^(item|place|person):./u.test(told)
-      )
-    );
+    ].includes(verb) && Object.keys(cards).length === named2.length && named2.every((key2) => typeof cards[key2] === "string") && (!cards.to || Object.hasOwn(s.actors, cards.to) && cards.to !== w.target) && (!cards.with || Object.hasOwn(s.actors, cards.with) && cards.with !== id);
   }
   function validWant(s, id) {
     const a = s.actors[id];
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && validHeard(s, id) && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && a.heard === void 0 && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
   }
   function validUnder(s, id) {
     const a = s.actors[id];
@@ -18229,12 +18357,12 @@
             ok = keysOk(c, ["kind", "transport", "dock"]) && idOk3(c.transport) && (c.dock === AT_SEA || anyPlace(c.dock));
             break;
           case "knows": {
-            const named = Array.isArray(c.topics) ? c.topics : [c.topic];
-            ok = (c.topics === void 0 ? keysOk(c, ["kind", "topic", "role"]) : keysOk(c, ["kind", "topics", "role"]) && named.length >= 2 && named.length <= 4 && new Set(named).size === named.length && new Set(
-              named.map(
+            const named2 = Array.isArray(c.topics) ? c.topics : [c.topic];
+            ok = (c.topics === void 0 ? keysOk(c, ["kind", "topic", "role"]) : keysOk(c, ["kind", "topics", "role"]) && named2.length >= 2 && named2.length <= 4 && new Set(named2).size === named2.length && new Set(
+              named2.map(
                 (id) => (pack.topics || []).find((topic) => topic.id === id)?.speaker
               )
-            ).size === named.length) && c.role === "actor" && named.every(
+            ).size === named2.length) && c.role === "actor" && named2.every(
               (id) => idOk3(id) && (pack.topics || []).some((topic) => topic.id === id)
             );
             break;
@@ -18650,9 +18778,9 @@
           cast.filter((a) => a.place === place).length <= 2,
           `${place} exceeds two initially active residents`
         );
-      const named = cast.map((a) => a.canonicalPerson).filter(Boolean);
+      const named2 = cast.map((a) => a.canonicalPerson).filter(Boolean);
       check(
-        new Set(named).size === named.length,
+        new Set(named2).size === named2.length,
         "incompatible embodiments are active together"
       );
     }
@@ -19499,6 +19627,8 @@
   );
   validatePackLinks(places, people, things);
   var nameOf2 = (id) => places[id]?.name || people[id]?.name || things[id]?.name || arcanaCards[id]?.name || "the world";
+  var NAMED2 = /^(?:The|An?) |^\p{L}+['’]s? /u;
+  var theName2 = (id) => NAMED2.test(nameOf2(id)) ? nameOf2(id) : `the ${nameOf2(id)}`;
 
   // v2/card-game/lamp-room-fuel.mjs
   var LAMP_ROOM_LIMIT = 3;
@@ -20413,6 +20543,59 @@
     return true;
   }
 
+  // v2/card-game/quest-learn.mjs
+  function questText(s, owner2, want) {
+    const who = nameOf2(owner2);
+    const said = stepGoal(s, want, owner2);
+    const step = said.step;
+    const what = theName2(said.target);
+    if (step?.verb === "lay")
+      return `${who} wants ${step.items.map(nameOf2).join(", ")} laid in ${nameOf2(said.target)}.`;
+    if (said.kind === "place")
+      return `${who} wants to be at ${nameOf2(said.target)}.`;
+    if (said.kind === "person")
+      return `${who} wants to see ${nameOf2(said.target)}.`;
+    if (step?.verb === "eat")
+      return `${who} wants to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${what}${step.at ? ` at ${nameOf2(step.at)}` : ""}.`;
+    if (step?.verb === "bring" && step.at)
+      return `${who} wants ${what} brought to ${nameOf2(step.at)}.`;
+    if (step?.verb === "give" && step.to !== owner2)
+      return `${who} wants ${what} given to ${nameOf2(step.to)}.`;
+    return `${who} wants ${what}.`;
+  }
+  var learnTold = (s, owner2, learner, want = s.actors[owner2].want) => learnQuest(
+    s,
+    owner2,
+    learner,
+    { id: questFactId(owner2, want), text: questText(s, owner2, want) },
+    { seq: s.eventSeq, turn: s.turn }
+  );
+  var questOwners = (s, who) => [
+    ...new Set(
+      Object.entries(s.knowledge?.known?.[who] || {}).map(([id, m]) => [s.knowledge.facts[id]?.source, m.teller]).filter(
+        ([source, by]) => source?.kind === "quest" && by === source.actorId
+      ).map(([source]) => source.actorId)
+    )
+  ];
+  var named = (id) => [places, people, things].some((c) => Object.hasOwn(c, id));
+  function installQuestFacts(s) {
+    for (const [id, a] of Object.entries(s.actors)) {
+      if (!a.heard) continue;
+      for (const [them, told] of Object.entries(a.heard)) {
+        const live = s.actors[them]?.want;
+        const [kind, target] = told.split(/:(.*)/su);
+        if (live && told === `${live.kind}:${live.target}`)
+          learnTold(s, them, id, live);
+        else if (named(target)) learnTold(s, them, id, { kind, target });
+      }
+      const lost = Object.keys(a.heard).length - questOwners(s, id).length;
+      for (const slot of a.arcana?.spread || [])
+        if (lost > 0 && slot.base?.heard !== void 0)
+          slot.base.heard = Math.max(0, slot.base.heard - lost);
+      delete a.heard;
+    }
+  }
+
   // v2/card-game/world/senses.mjs
   var reflectionsFrom = (s, from) => (forest_default.reflectionRoutes || []).filter(
     (r) => r.from === from && r.requires.every((c) => conditionMet(s, c, null))
@@ -20724,6 +20907,7 @@
     reconcileClaims(s);
     for (const pack of packDefinitions)
       if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
+    installQuestFacts(s);
     return s;
   }
   function reconcileContent(s) {
@@ -21911,9 +22095,9 @@
       ].includes(verb)
     };
     const occasions = meets.defeat ? ["defeat"] : SPEECH_OCCASIONS.filter((name) => meets[name]);
-    const named = occasions.flatMap((name) => speech_default[name] || []);
+    const named2 = occasions.flatMap((name) => speech_default[name] || []);
     const voices = [
-      ...new Set(named.flatMap((role) => roles[role] || []))
+      ...new Set(named2.flatMap((role) => roles[role] || []))
     ].filter(
       (id) => id && cast.ids.includes(id) && profiles[id]?.kind === "avatar"
     );
@@ -21924,7 +22108,7 @@
         ...voices.filter((id) => id === actor),
         ...voices.filter((id) => id !== actor)
       ].slice(0, 3),
-      scenery: named.includes("place")
+      scenery: named2.includes("place")
     };
   }
 

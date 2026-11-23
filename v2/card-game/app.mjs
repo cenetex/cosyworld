@@ -123,7 +123,7 @@ import {
 } from "./quest-card.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
-import { beginPipJourney, createPipWorld } from "./pip-landing.mjs";
+import { beginPipJourney, createPipWorld, pipHeard } from "./pip-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
 import { locationWeather } from "./weather.mjs";
 import { DAYLIGHT_TURNS, isNight, locationDaylight } from "./daylight.mjs";
@@ -5655,14 +5655,13 @@ $("new-game").onclick = () => {
   pauseSpeech();
 };
 $("cancel-reset").onclick = () => $("reset-dialog").close();
-const pipHeard = () => Boolean(world.actors.vale.heard?.moth);
 const pipWatch = pipPrelude() ? setInterval(leaveWhenPipHeard, 300) : null;
 function leaveWhenPipHeard() {
   if (!pipPrelude()) {
     clearInterval(pipWatch);
     return;
   }
-  if (pipLeaving || !pipHeard()) return;
+  if (pipLeaving || !pipHeard(world)) return;
   if (
     storyStatus === "pending" ||
     !reveal.complete ||
@@ -6306,7 +6305,7 @@ onTitleWake(() => {
   });
   gone.observe(document.documentElement, { childList: true });
 });
-if (pipPrelude() && pipHeard()) leaveToOpening();
+if (pipPrelude() && pipHeard(world)) leaveToOpening();
 else if (pipPrelude() && openingTable) {
   playTitleIntro({ cardOnly: true, storage: null });
   holdMusicForTitle();

@@ -1,6 +1,6 @@
 import { learnQuest, questFactId } from "./knowledge.mjs";
 import { consumable } from "./pack-registry.mjs";
-import { nameOf, theName } from "./world/catalog.mjs";
+import { nameOf, people, places, theName, things } from "./world/catalog.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 
 export function questText(s, owner, want) {
@@ -23,14 +23,44 @@ export function questText(s, owner, want) {
   return `${who} wants ${what}.`;
 }
 
-export const learnTold = (s, owner, learner) =>
+export const learnTold = (s, owner, learner, want = s.actors[owner].want) =>
   learnQuest(
     s,
     owner,
     learner,
-    {
-      id: questFactId(owner, s.actors[owner].want),
-      text: questText(s, owner, s.actors[owner].want),
-    },
+    { id: questFactId(owner, want), text: questText(s, owner, want) },
     { seq: s.eventSeq, turn: s.turn },
   );
+
+export const questOwners = (s, who) => [
+  ...new Set(
+    Object.entries(s.knowledge?.known?.[who] || {})
+      .map(([id, m]) => [s.knowledge.facts[id]?.source, m.teller])
+      .filter(
+        ([source, by]) => source?.kind === "quest" && by === source.actorId,
+      )
+      .map(([source]) => source.actorId),
+  ),
+];
+const named = (id) =>
+  [places, people, things].some((c) => Object.hasOwn(c, id));
+
+// Saves from before rules 191 kept a `heard` map. Each entry becomes the
+// teller's quest fact, live while it is still their want, so II keeps its count.
+export function installQuestFacts(s) {
+  for (const [id, a] of Object.entries(s.actors)) {
+    if (!a.heard) continue;
+    for (const [them, told] of Object.entries(a.heard)) {
+      const live = s.actors[them]?.want;
+      const [kind, target] = told.split(/:(.*)/su);
+      if (live && told === `${live.kind}:${live.target}`)
+        learnTold(s, them, id, live);
+      else if (named(target)) learnTold(s, them, id, { kind, target });
+    }
+    const lost = Object.keys(a.heard).length - questOwners(s, id).length;
+    for (const slot of a.arcana?.spread || [])
+      if (lost > 0 && slot.base?.heard !== undefined)
+        slot.base.heard = Math.max(0, slot.base.heard - lost);
+    delete a.heard;
+  }
+}

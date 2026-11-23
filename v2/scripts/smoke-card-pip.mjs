@@ -22,7 +22,7 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(await page.evaluate(() => document.body.inert), false);
   assert.equal(await page.evaluate(() => document.activeElement?.dataset.card), "moth");
   await page.locator('#card-actions [data-action="talk"]').click();
-  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.heard?.moth === "item:lamp", key, { timeout: 4000 });
+  await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).knowledge?.known?.vale?.["quest:moth:lamp"], key, { timeout: 4000 });
   assert.equal(await page.locator('#hand .want-frame').count(), 0, "the prelude lays no offer card");
   await page.locator('.title-intro[data-phase="ack"]').waitFor({ timeout: 8000 });
   // The land acknowledgement and the logo, then the opening itself: no second box.
@@ -37,7 +37,7 @@ async function walkToGivenLamp(browser, base) {
   const carried = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
   assert.equal(carried.actors.vale.place, "attic");
   assert.equal(carried.actors.vale.want ?? null, null);
-  assert.deepEqual(carried.actors.vale.heard, { moth: "item:lamp" });
+  assert.equal(carried.knowledge.known.vale["quest:moth:lamp"].teller, "moth");
   // The opening: each face-down card chosen shows its own Reveal.
   for (const id of ["attic", "lamp"]) {
     await choose(id);
@@ -166,7 +166,7 @@ try {
     assert(pip.width > 80 && pip.x >= 0 && pip.x + pip.width <= width);
     await page.screenshot({ path: new URL(`pip-${width}.png`, output).pathname });
     await talk.click();
-    await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.heard?.moth === "item:lamp", key, { timeout: 4000 });
+    await page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).knowledge?.known?.vale?.["quest:moth:lamp"], key, { timeout: 4000 });
     assert.equal(await page.locator('#hand .want-frame').count(), 0);
     // Closed during the fade: the page returns to the fade, not to Pip.
     await page.reload();
@@ -175,7 +175,7 @@ try {
     await page.locator(".title-intro").waitFor({ state: "detached" });
     const journey = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
     assert.equal(journey.actors.vale.place, "attic");
-    assert.deepEqual(journey.actors.vale.heard, { moth: "item:lamp" });
+    assert.equal(journey.knowledge.known.vale["quest:moth:lamp"].teller, "moth");
     assert.equal(journey.actors.vale.want ?? null, null);
     await page.reload();
     await page.locator('#hand [data-card="vale"]').waitFor();

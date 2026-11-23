@@ -12,6 +12,7 @@ import { humanAvatarIds } from "./human-cast.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { installItemCycle } from "./pack-items.mjs";
 import { authoredClaim } from "./claims.mjs";
+import { installQuestFacts } from "./quest-learn.mjs";
 
 // The save schema. The rules 133 bump retired every earlier save and shared
 // world ("we can reset"): a save of another schema is not lifted, it starts
@@ -105,6 +106,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
   reconcileClaims(s);
   for (const pack of packDefinitions)
     if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
+  installQuestFacts(s);
   return s;
 }
 

@@ -36,6 +36,7 @@ import { found } from "./found.mjs";
 import { homeOf } from "./home.mjs";
 import { rootHolder, shining } from "./items.mjs";
 import { conditionWords } from "./want-words.mjs";
+import { questOwners } from "../quest-learn.mjs";
 import { LEVEL_CAP } from "../level-tiers.mjs";
 import {
   heldOf,
@@ -69,7 +70,7 @@ const COUNTS = {
   carried: (s, who) =>
     Object.keys(s.items || {}).filter((id) => rootHolder(s, id) === who).length,
   visited: (s, who) => (s.actors[who]?.visited || []).length,
-  heard: (s, who) => Object.keys(s.actors[who]?.heard || {}).length,
+  heard: (s, who) => questOwners(s, who).length,
   trusting: (s, who, c) =>
     Object.keys(s.actors).filter(
       (other) =>
@@ -100,8 +101,7 @@ const ROOM = {
       64 - COUNTS.visited(s, who),
       unseen(candidates(s, "place"), s.actors[who]?.visited || []),
     ),
-  heard: (s, who) =>
-    unseen(residents(s), Object.keys(s.actors[who]?.heard || {})),
+  heard: (s, who) => unseen(residents(s), questOwners(s, who)),
   trusting: (s, who, c) =>
     residents(s).filter(
       (other) =>
