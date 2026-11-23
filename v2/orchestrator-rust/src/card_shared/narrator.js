@@ -1781,14 +1781,14 @@
     const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
     const first = (a, b) => priority.includes(b.id) - priority.includes(a.id);
     const facts = Object.keys(known).map((id) => world.knowledge.facts[id]).filter(Boolean);
-    const told = facts.filter((fact) => known[fact.id].kind === "heard").sort(
-      (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b)
-    ).slice(0, limit);
-    const seen = facts.filter((fact) => known[fact.id].kind === "witnessed").sort((a, b) => first(a, b) || compareFacts(a, b)).slice(0, Math.min(2, limit - told.length));
     const near = (fact) => scene.includes(fact.source.about);
     const read2 = facts.filter((fact) => known[fact.id].kind === "read").sort(
       (a, b) => first(a, b) || near(b) - near(a) || learned(b) - learned(a) || compareFacts(a, b)
-    ).slice(0, Math.min(2, limit - told.length - seen.length));
+    ).slice(0, Math.min(2, limit - 1));
+    const told = facts.filter((fact) => known[fact.id].kind === "heard").sort(
+      (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b)
+    ).slice(0, limit - read2.length);
+    const seen = facts.filter((fact) => known[fact.id].kind === "witnessed").sort((a, b) => first(a, b) || compareFacts(a, b)).slice(0, Math.min(2, limit - told.length - read2.length));
     return [...told, ...seen, ...read2].sort(first).map((fact) => {
       const memory = known[fact.id];
       const age = world.turn - (memory.learnedTurn ?? fact.source.turn);

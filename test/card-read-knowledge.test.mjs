@@ -113,6 +113,9 @@ describe("claims learned by reading", () => {
     ]);
     expect(lines([], 10, ["keeper"])[0]).toContain(texts[2]);
     expect(lines([id(1)], 10, ["keeper"])[0]).toContain(texts[1]);
+    talk(w, "moth", "vale");
+    read(w, "vale");
+    expect(knowledgeFacts(w, "vale", nameOf, [id(2)])[0]).toContain(texts[2]);
   });
 
   it("shortens the attribution so a long claim stays whole", () => {
