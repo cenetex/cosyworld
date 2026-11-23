@@ -4,8 +4,9 @@ import {
   safeId,
   validFactText,
 } from "./knowledge.mjs";
+import { mediaPathOk } from "./pack-schema.mjs";
 
-export const BOOK_KEYS = ["author", "claims", "lifecycle"];
+export const BOOK_KEYS = ["author", "claims", "lifecycle", "pages"];
 export const BOOK_CLAIMS = 3;
 export const LIFECYCLES = ["kept", "spent"];
 const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -29,6 +30,13 @@ export function bookProblems(pack) {
       fail("author must be a named place, avatar or item of this pack");
     if (item.lifecycle !== undefined && !LIFECYCLES.includes(item.lifecycle))
       fail(`lifecycle must be ${LIFECYCLES.join(" or ")}`);
+    const pages = item.pages ?? [];
+    if (
+      !Array.isArray(pages) ||
+      pages.length > BOOK_CLAIMS ||
+      !pages.every((path) => mediaPathOk(pack.id, path))
+    )
+      fail(`pages must list up to ${BOOK_CLAIMS} pictures of this pack`);
     const seen = new Set();
     for (const [n, claim] of claims.entries()) {
       const ok =

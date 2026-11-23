@@ -1122,7 +1122,7 @@ function updateSpeechControls(complete) {
   hint.textContent = waitingLine ? "Thinking…" : cue.hint;
   hint.hidden = button.hidden || !hint.textContent;
 }
-const readView = createReadView({ opened: () => pauseSpeech() });
+const readView = createReadView({ opened: () => pauseSpeech(), closed: (book) => { lastHandFocus = book; document.activeElement?.blur(); restoreHandFocus(); } });
 const sleepView = createSleepView({
   stage: $("stage"),
   speechRow: $("speech-row"),

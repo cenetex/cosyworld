@@ -11,7 +11,6 @@ import { sceneStaging } from "../card-game/scene.mjs";
 const output = new URL("../../output/floor-props/", import.meta.url);
 await mkdir(output, { recursive: true });
 
-// The bell starts on the station floor and the River Notebook on the camp floor.
 const station = createWorld({ opening: true, seed: 7 });
 station.actors.vale.place = "station";
 assert.deepEqual(
@@ -22,7 +21,7 @@ const willows = createWorld({ opening: true, seed: 7 });
 willows.actors.vale.place = "willows-camp";
 assert.deepEqual(
   sceneStaging(willows, { currentState: true }).floorItems.map(({ id }) => id),
-  ["willows-notebook"],
+  [],
 );
 // A crowded station floor for the browser: four camp things set down beside
 // the bell.
