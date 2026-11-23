@@ -47,6 +47,14 @@ const named = (id) =>
 
 // Saves from before rules 195 count II from their heard map or quest facts.
 export function installQuestFacts(s) {
+  for (const [id, a] of Object.entries(s.actors))
+    noteTold(s, id, [
+      ...Object.keys(a.heard || {}),
+      ...Object.entries(s.knowledge?.known?.[id] || {})
+        .map(([fact, m]) => [s.knowledge.facts[fact]?.source, m.teller])
+        .filter(([at, by]) => at?.kind === "quest" && by === at.actorId)
+        .map(([at]) => at.actorId),
+    ]);
   for (const [id, a] of Object.entries(s.actors)) {
     for (const [them, told] of Object.entries(a.heard || {})) {
       const live = s.actors[them]?.want;
@@ -55,13 +63,6 @@ export function installQuestFacts(s) {
         learnTold(s, them, id, live);
       else if (named(target)) learnTold(s, them, id, { kind, target });
     }
-    noteTold(s, id, [
-      ...Object.keys(a.heard || {}),
-      ...Object.entries(s.knowledge?.known?.[id] || {})
-        .map(([fact, m]) => [s.knowledge.facts[fact]?.source, m.teller])
-        .filter(([at, by]) => at?.kind === "quest" && by === at.actorId)
-        .map(([at]) => at.actorId),
-    ]);
     delete a.heard;
   }
 }

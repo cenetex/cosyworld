@@ -8,6 +8,10 @@ import {
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import {
+  KNOWLEDGE_FACT_LIMIT,
+  witnessKnowledge,
+} from "../v2/card-game/knowledge.mjs";
 import { learnTold, questOwners } from "../v2/card-game/quest-learn.mjs";
 import { toldWant } from "../v2/card-game/talk-quest.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
@@ -102,6 +106,56 @@ describe("saves that kept a heard map", () => {
       s.actors.vale.told = told;
       expect(() => validateWorld(s)).toThrow();
     }
+  });
+
+  it("keep an owner whose fact the heard map's facts evict", () => {
+    const s = createWorld();
+    for (const id of ["vale", "moth", "keeper"]) s.actors[id].place = "station";
+    s.actors.moth.want = newWant("item", "lamp", s.turn);
+    learnTold(s, "moth", "vale");
+    s.actors.moth.want = newWant("place", "pond", s.turn);
+    const room = KNOWLEDGE_FACT_LIMIT - Object.keys(s.knowledge.facts).length;
+    for (let n = 0; n < room; n++)
+      witnessKnowledge(s, {
+        seq: ++s.eventSeq,
+        turn: s.turn,
+        kind: "action",
+        verb: "give",
+        actorId: "keeper",
+        locationId: "station",
+        cast: ["keeper"],
+        text: `The keeper carried shell number ${n} to the pond.`,
+      });
+    const old = JSON.parse(encodeSave(s));
+    delete old.actors.vale.told;
+    old.actors.vale.heard = { keeper: heard.keeper };
+    const loaded = decodeSave(JSON.stringify(old));
+    expect(loaded.knowledge.facts["quest:moth:lamp"]).toBeUndefined();
+    expect(questOwners(loaded, "vale")).toEqual(["keeper", "moth"]);
+  });
+
+  it("move a rules 194 shared world's told quests through upgrade", () => {
+    const old = engine(194);
+    const { createWorld: create, legalActions, play } = old.rules;
+    let w = create();
+    for (const id of ["vale", "moth"]) w.actors[id].place = "station";
+    w.items.lamp.holder = "vale";
+    w.actors.moth.want = newWant("item", "lamp", w.turn);
+    const talk = legalActions(w).find(
+      (a) => a.kind === "talk" && a.target === "moth",
+    );
+    w = play(w, talk).state;
+    const world = ask(old, { op: "create", save: JSON.stringify(w) }).world;
+    expect(world.actors.vale.told).toBeUndefined();
+    const seats = { claimed: humanAvatarIds, present: humanAvatarIds };
+    const up = ask(currentSharedEngine(), {
+      world,
+      op: "upgrade",
+      actor: "vale",
+      ...seats,
+    });
+    expect(up.ok).toBe(true);
+    expect(questOwners(up.world, "vale")).toEqual(["moth"]);
   });
 
   it("move a rules 189 shared world onto these rules through upgrade", () => {

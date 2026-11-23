@@ -6574,6 +6574,11 @@
   }
   var named = (id) => [places, people, things].some((c) => Object.hasOwn(c, id));
   function installQuestFacts(s) {
+    for (const [id, a] of Object.entries(s.actors))
+      noteTold(s, id, [
+        ...Object.keys(a.heard || {}),
+        ...Object.entries(s.knowledge?.known?.[id] || {}).map(([fact, m]) => [s.knowledge.facts[fact]?.source, m.teller]).filter(([at, by]) => at?.kind === "quest" && by === at.actorId).map(([at]) => at.actorId)
+      ]);
     for (const [id, a] of Object.entries(s.actors)) {
       for (const [them, told] of Object.entries(a.heard || {})) {
         const live = s.actors[them]?.want;
@@ -6582,10 +6587,6 @@
           learnTold(s, them, id, live);
         else if (named(target)) learnTold(s, them, id, { kind, target });
       }
-      noteTold(s, id, [
-        ...Object.keys(a.heard || {}),
-        ...Object.entries(s.knowledge?.known?.[id] || {}).map(([fact, m]) => [s.knowledge.facts[fact]?.source, m.teller]).filter(([at, by]) => at?.kind === "quest" && by === at.actorId).map(([at]) => at.actorId)
-      ]);
       delete a.heard;
     }
   }
