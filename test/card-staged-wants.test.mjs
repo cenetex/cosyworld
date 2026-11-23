@@ -164,7 +164,6 @@ describe("selection", () => {
     stage(item("greek-figs", {}, flag("a")), item("greek-shovel"));
     const s = world();
     expect(termsOf(s.actors[R].want)).toEqual(["item", "greek-shovel"]);
-    // The held want has only a kind, target and its bookkeeping.
     expect(Object.keys(s.actors[R].want).sort()).toEqual([
       "kind",
       "refusals",
