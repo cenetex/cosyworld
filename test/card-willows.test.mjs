@@ -1,7 +1,6 @@
 import "./helpers/no-dwell.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
 import {
@@ -35,6 +34,7 @@ import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
 import { bind } from "../v2/card-game/world/company.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
+const BOOK = "willows-notebook";
 const find = (world, fields) =>
   legalActions(world).find((a) =>
     Object.entries(fields).every(([key, value]) => a[key] === value),
@@ -118,26 +118,45 @@ function kitHome(world) {
 }
 
 describe("The Willows", () => {
-  it("keeps the source passages as River Notebook pages the camp holds", () => {
-    const normalize = (s) => s.replace(/\s+/g, " ").trim();
-    const original = normalize(
-      readFileSync(
-        new URL("../v2/content/willows/source-text.txt", import.meta.url),
-        "utf8",
-      ),
+  it("lays the River Notebook face down at the camp until the willows are paced", () => {
+    const book = pack.items[BOOK];
+    expect(book).toMatchObject({ author: "willows-swede", sealed: {} });
+    expect(book.lore).toBeUndefined();
+    let world = createWorld({ seed: 7 });
+    world.actors.vale.place = "willows-camp";
+    expect(entityActive(world, BOOK)).toBe(false);
+    expect(sceneStaging(world, { currentState: true }).floorItems).toEqual([]);
+    expect(find(world, { item: BOOK })).toBeUndefined();
+    world = observe(world, "pace-willows");
+    expect(world.opened[BOOK]).toEqual(["vale"]);
+    world = act(take(world, "notebook"), { kind: "read", item: BOOK });
+    for (const claim of book.claims)
+      expect(world.knowledge.known.vale[`claim:willows:${BOOK}:${claim.id}`]?.kind).toBe("read");
+    const vale = narrativeContext(world).entities.find((e) => e.id === "vale");
+    expect(vale.lore).toBeUndefined();
+    expect(vale.facts).toContain(
+      `I read this just now in The River Notebook, by The Swede: ${book.claims[1].text}`,
     );
-    const pages = pack.items["willows-notebook"].lore;
-    expect(pages).toHaveLength(13);
-    for (const page of pages) expect(original).toContain(normalize(page.text));
-    expect(pack.readings).toBeUndefined();
-    const context = narrativeContext(discoveries());
-    const camp = context.entities.find((e) => e.id === "willows-camp");
-    expect(camp.lore.length).toBeGreaterThan(0);
-    expect(camp.lore.every((ref) => ref.startsWith("willows-notebook#"))).toBe(
-      true,
-    );
-    for (const page of pages)
-      expect(JSON.stringify(context)).not.toContain(page.text.slice(0, 60));
+  });
+
+  it.each([
+    ["held", "vale", ["Turn 0: Vale takes it."], true],
+    ["dropped elsewhere", "willows-thicket", ["Turn 0: Vale sets it down."], true],
+    ["set back at the camp", "willows-camp", ["Turn 0: Vale sets it down."], false],
+    ["untouched", "willows-camp", [], false],
+  ])("loads an old save whose notebook was %s", (_, holder, history, open) => {
+    const old = discoveries();
+    Object.assign(old.items[BOOK], { holder, history });
+    const save = JSON.stringify(old);
+    const shared = dispatchShared({ op: "create", save }).world;
+    for (const world of [
+      decodeSave(save),
+      dispatchShared({ op: "upgrade", from: "full-card-world/191", world: shared }).world,
+    ]) {
+      expect(world.items[BOOK]).toEqual({ holder, history });
+      expect(entityActive(world, BOOK)).toBe(open);
+      expect(Object.keys(world.knowledge.known.vale).filter((id) => id.startsWith("claim:"))).toEqual([]);
+    }
   });
 
   it("shares the ship side passage while preserving riders, dock and pending recall", () => {

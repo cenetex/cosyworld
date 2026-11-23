@@ -318,7 +318,10 @@ export const packMediaFiles = [
         p.art,
         ...(p.backdrops || []).map((b) => b.backdrop),
       ]),
-      ...Object.values(pack.items || {}).map((i) => i.art),
+      ...Object.values(pack.items || {}).flatMap((i) => [
+        i.art,
+        ...(i.pages || []),
+      ]),
       ...pack.crossings.flatMap((c) => [
         c.scenery?.overlay,
         c.scenery?.backdrop,

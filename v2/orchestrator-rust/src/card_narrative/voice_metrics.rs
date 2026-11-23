@@ -128,7 +128,7 @@ impl Outcome {
 }
 
 /// The play kinds a scene can name; anything else counts as "other".
-const PLAYS: [&str; 20] = [
+const PLAYS: [&str; 21] = [
     "arrive",
     "wait",
     "move",
@@ -149,6 +149,7 @@ const PLAYS: [&str; 20] = [
     "guard",
     "attack",
     "choose",
+    "read",
 ];
 
 /// The narrator's fixed speech occasions (narrative.mjs `SPEECH_OCCASIONS`).
@@ -681,5 +682,9 @@ mod tests {
         context.occasion = Some("chatter".into());
         assert_eq!(Labels::of(&context).occasion, "none");
         assert!(!super::super::valid(&context));
+        let mut read = super::super::tests::solo_departure();
+        read.card.kind = "read".into();
+        context.outcome = Some(read);
+        assert_eq!(Labels::of(&context).play, "read");
     }
 }

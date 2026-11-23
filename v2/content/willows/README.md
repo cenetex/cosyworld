@@ -4,12 +4,12 @@ A small card world based on Algernon Blackwood's 1907 story.
 
 Source: [The Willows, original English text](https://www.gutenberg.org/files/11438/11438-h/11438-h.htm).
 Project Gutenberg lists the original story as public domain in the USA.
-The pack uses the original English passages and new art. The exact source
-is in `source-text.txt`. Thirteen exact passages are the pages of the River
-Notebook, which rests at the camp. Each page after the first opens with the
-discovery that once revealed it. Whoever holds the notebook has its open pages
-in context, so the camp, or a traveler who carries it off, can speak from them.
-The location and action descriptions connect the story to the game.
+The pack draws on the original English text and uses new art. The exact
+source is in `source-text.txt`. The River Notebook, by the Swede, lies face
+down at the camp until the willows there are paced out by day. It holds three
+one-sentence claims distilled from the story's passages about the island and
+the river, and whoever reads it remembers them as the Swede's claims. The
+location and action descriptions connect the story to the game.
 
 The landing, camp and bank speak in the narrator's voice: each notices a change
 and gives it an ordinary reason, and the reasons shorten and stop as recorded

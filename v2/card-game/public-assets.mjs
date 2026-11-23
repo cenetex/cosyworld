@@ -185,14 +185,7 @@ const files = [
     "bank-roots",
     "bank-drowned",
   ].map((name) => `assets/willows/${name}.webp`),
-  // Notebook cards remain available before their items are wired.
-  ...[
-    "notebook-page-1",
-    "notebook-page-2",
-    "notebook-page-3",
-    "notebook-chapter",
-    "notebook-book",
-  ].map((name) => `assets/willows/${name}.png`),
+  "assets/willows/notebook-chapter.png",
   // Argos commissioned art: start
   "assets/greek-drama/house-atreus-palace.webp",
   "assets/greek-drama/house-atreus-tomb.webp",

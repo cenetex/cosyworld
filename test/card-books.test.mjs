@@ -142,6 +142,7 @@ describe("book schema", () => {
   it("accepts a book with an author and one to three claims", () => {
     expect(bookProblems(pack(ok))).toEqual([]);
     expect(bookProblems(pack({ ...ok, lifecycle: "spent", author: "hall" }))).toEqual([]);
+    expect(bookProblems(pack({ ...ok, pages: ["assets/sample/page.png"] }))).toEqual([]);
     expect(bookProblems(pack({}))).toEqual([]);
   });
   it("rejects books that cannot be read or told whole", () => {
@@ -158,6 +159,8 @@ describe("book schema", () => {
       { ...ok, claims: [{ ...ok.claims[0], about: "elsewhere" }] },
       { ...ok, claims: [{ ...ok.claims[0], page: 1 }] },
       { ...ok, lifecycle: "fixed" },
+      { ...ok, pages: ["assets/other/page.png"] },
+      { ...ok, pages: Array(4).fill("assets/sample/page.png") },
       { ...ok, lore: [{ text: "A page." }] },
       { author: "scribe" },
     ])
