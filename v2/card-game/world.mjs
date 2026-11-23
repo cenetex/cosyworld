@@ -80,7 +80,7 @@ import {
   witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
-import { authoredClaim } from "./claims.mjs";
+import { authoredClaim, claimsIn, readBook, residentRead } from "./claims.mjs";
 import {
   knownActors as readKnownActors,
   installWants,
@@ -275,8 +275,7 @@ import {
   staysByRole,
 } from "./resident-guard.mjs";
 
-// Authored forest data and mounted packs share the same rule path. The
-// catalog and its names live in world/catalog.mjs (#1390).
+// Authored forest data and mounted packs share the same rule path.
 import {
   places,
   sanctuaries,
@@ -350,8 +349,7 @@ const expectedTrustKeys = Object.fromEntries(
       .join(),
   ]),
 );
-// A run seed draws each pack's specials once (pack-specials.mjs). World
-// creation and seeding live in world/create.mjs (#1390).
+// A run seed draws each pack's specials once (pack-specials.mjs).
 import { createWorld, seedRun } from "./world/create.mjs";
 export { createWorld, seedRun };
 // Mount every pack missing from this save: its crossings, its state, and its
@@ -485,17 +483,14 @@ import {
   shining,
 } from "./world/items.mjs";
 export { rootHolder, itemPlace, carried, shining };
-// Senses and reflections live in world/senses.mjs (#1390).
 import { reflectionOpen, reflectionsFrom, senses, sensesFor } from "./world/senses.mjs";
 export { reflectionOpen, senses, sensesFor };
-// Geography lives in world/geography.mjs (#1390).
 import {
   placeText,
   exits,
   sealedWays,
 } from "./world/geography.mjs";
 export { placeText, exits, sealedWays };
-// Boxes live in world/boxes.mjs (rules 133).
 import { boxIdOpen, creditOpened, validOpened } from "./world/boxes.mjs";
 import {
   discardTarot,
@@ -522,7 +517,6 @@ import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
 export { boxOffer, lockedOffer, placeOffer, questOffers, residentOffer, residentOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
-// Station exits and candidates live in world/station.mjs (#1390).
 import {
   baseExits,
   stationCandidates,
@@ -586,7 +580,6 @@ const burden = (s, actor) =>
 const weight = (s, id) => (packThings[id]?.lore ? 0 : loadOf(s, id));
 const hasSpace = (s, actor, id) =>
   burden(s, actor) + (rootHolder(s, id) === actor ? 0 : weight(s, id)) <= 3;
-// A want in words, for cards and history (world/want-words.mjs).
 export const wantText = (want) => wantWords(want);
 const bundle = (s, item) => [
   item,
@@ -1546,6 +1539,8 @@ export function legalActions(s, actor = currentActor(s)) {
         label: `Turn ${on ? "on" : "off"}`,
       });
     }
+    if (item.holder === actor && claimsIn(id).length)
+      out.push({ ...offer("read", actor, id, null, `${nameOf(actor)} reads ${theName(id)}.`, [id]), label: "Read" });
     if (item.holder === actor) {
       // Food and drink are eaten or drunk by whoever holds them, alone or
       // with someone here (rules 102).
@@ -1759,6 +1754,7 @@ const ROOM_LOCKED = new Set([
   "give",
   "trade",
   "ask",
+  "read",
 ]);
 function roomLocked(s, here, actor, actions) {
   if (!s.standoffs.some((c) => c.location === here)) return actions;
@@ -2380,6 +2376,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     });
     return;
   }
+  if (a.kind === "read") return readBook(s, a, witnesses, addLog);
   if (a.kind === "wait") {
     const asleep = Boolean(s.actors[a.actor].sleeping);
     rest(s, a.actor, here, a.sleep);
@@ -3434,7 +3431,8 @@ export function play(
     if (residentAsleep(next, id) && !standoffFor(next, id)) continue;
     wakeResident(next, id);
     prepareResidentLamp(next, id);
-    perform(next, plan(next, id).action, round, residents);
+    const read = residentRead(next, id, controlledByHuman, () => legalActions(next, id));
+    perform(next, read ?? plan(next, id).action, round, residents);
   }
   const rings = next.log.filter(
     (entry) =>
@@ -4000,6 +3998,7 @@ export function validateWorld(s) {
     "trade",
     "choose",
     "use",
+    "read",
   ];
   const cast = castIds,
     entities = entityIds;

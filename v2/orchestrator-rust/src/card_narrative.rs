@@ -728,6 +728,7 @@ fn valid_outcome(outcome: &TurnOutcome) -> bool {
             | "give"
             | "trade"
             | "eat"
+            | "read"
             | "light"
             | "snuff"
             | "ring"
@@ -1976,7 +1977,6 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             // in the present tense ("Vale gives the Lamp to Pip").
             _ if part == Part::Line => continue,
             "expression" => (Section::Earlier, conversation::said(text, &own)),
-            // This moment's events are already said above.
             _ if lines.iter().any(|(_, line)| *line == event) => continue,
             _ => (Section::Memories, format!("I remember: {event}")),
         });

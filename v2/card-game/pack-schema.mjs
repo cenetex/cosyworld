@@ -2,7 +2,7 @@
 // The build script and the browser registry both use this one validator, so
 // an authored pack either loads exactly as checked or does not load at all.
 import { validFactText } from "./knowledge.mjs";
-
+import { BOOK_KEYS, bookProblems } from "./book-schema.mjs";
 import { EXPRESSION_TYPES } from "./expression.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import { RARITY_WEIGHTS } from "./pack-specials.mjs";
@@ -1327,6 +1327,7 @@ export function packProblems(
         "seed",
         "records",
         "lore",
+        ...BOOK_KEYS,
         "holder",
         "art",
         "requires",
@@ -1745,7 +1746,6 @@ export function packProblems(
       "recital needs a singer, a title and up to 64 verses",
     );
     const seen = new Set();
-    // Couplet text is lore (content/<pack>/lore), never part of the rules.
     for (const v of Array.isArray(r?.verses) ? r.verses : []) {
       check(
         keysOk(v, ["choice", "quest", "summons"]) &&
@@ -2149,7 +2149,7 @@ export function packProblems(
   );
   for (const kit of Array.isArray(pack.kits) ? pack.kits : [])
     requirements(kit?.requires, `kit ${kit?.id} requires`);
-  problems.push(...itemCycleProblems(pack, mountedPlaces, hub?.places || []));
+  problems.push(...itemCycleProblems(pack, mountedPlaces, hub?.places || []), ...bookProblems(pack));
   return problems;
 }
 

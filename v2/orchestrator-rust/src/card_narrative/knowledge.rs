@@ -284,6 +284,7 @@ const FORMS: &[(&str, &str)] = &[
     ("broke", "break"),
     ("spoke", "speak"),
     ("ate", "eat"),
+    ("read", "read"),
     ("drank", "drink"),
     ("sang", "sing"),
     ("swore", "swear"),
@@ -525,6 +526,7 @@ mod tests {
             ("lights", "lighted"),
             ("arrives", "arrived"),
             ("rings", "rang"),
+            ("reads", "read"),
             ("puts", "put"),
             ("can", "can"),
         ] {

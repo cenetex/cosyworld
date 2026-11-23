@@ -417,6 +417,7 @@ const files = [
   "item-use.mjs",
   "pack-items.mjs",
   "pack-items-schema.mjs",
+  "book-schema.mjs",
   "legacy-saves.mjs",
   "forest.json",
   "arcana.json",
