@@ -1,6 +1,5 @@
-// Talk tells a quest (#2196, rules 99; #2605). A player's Talk that reveals the
-// and nothing is pushed at the player. The quest that meets a want is read
-// from its shape (`questFor`):
+// Talk tells a quest (#2196, rules 99; #2605). The quest that meets a want is
+// read from its shape (`questFor`):
 //   their item X   -> give(X, them):     the item, step give to them;
 //   their place P  -> bring(them, P):    the person, step bring at P;
 //   their person Q -> introduce(them, Q): the person, step bring to Q.
@@ -12,6 +11,7 @@ import { heldOf, releaseQuest } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
 import { askOffer, pruneOffers } from "./offer-chance.mjs";
 import { staysByRole } from "./resident-guard.mjs";
+import { learnTold } from "./quest-learn.mjs";
 
 // A resident who cannot leave its place (the Oak, Badger, a guard at his
 // post) is never asked to be escorted: its quest is to bring the other
@@ -115,8 +115,8 @@ export function pinnedCompanion(s, traveler) {
 }
 
 // A player's Talk with `them`: the want of theirs that Talk reveals is
-// recorded as heard (`heard[them]` is its key), and nothing else changes. The
-// quest it would be is `questFor(s, them, want)`. Null when nothing is told.
+// recorded as heard (`heard[them]` is its key) and learned as their quest
+// fact. The quest it would be is `questFor(s, them, want)`.
 export function talkQuest(s, actor, them, api) {
   const a = s.actors[actor],
     want = s.actors[them]?.want;
@@ -124,6 +124,7 @@ export function talkQuest(s, actor, them, api) {
   const quest = revealed(s, them, want, actor) && questFor(s, them, want);
   if (!quest) return null;
   a.heard = { ...a.heard, [them]: key(want) };
+  learnTold(s, them, actor);
   askOffer(s, actor, them);
   return quest;
 }

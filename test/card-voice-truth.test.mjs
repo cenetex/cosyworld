@@ -221,11 +221,16 @@ describe.each(["local", "shared"])("voice truth in %s play", (mode) => {
     });
     expect(holders(snap.world)).toEqual(holders(snap.before.world));
     expect(holders(snap.spoken)).toEqual(holders(snap.before.world));
-    expect(snap.world.knowledge.facts).toEqual({});
-    expect(snap.spoken.knowledge.facts).toEqual({});
+    for (const w of [snap.world, snap.spoken])
+      expect(Object.values(w.knowledge.facts).map((f) => f.source.kind)).toEqual(["quest"]);
+    const quest = Object.values(snap.world.knowledge.facts)[0].text;
     for (const id of avatars(snap)) {
       expect(holding(snap, id)).toEqual(holding(snap.before, id));
-      expect(facts(snap, id).filter((f) => SHAPE.exchange.test(f) || provenance(f))).toEqual([]);
+      expect(
+        facts(snap, id).filter(
+          (f) => SHAPE.exchange.test(f) || (provenance(f) && !f.endsWith(quest)),
+        ),
+      ).toEqual([]);
     }
     expect(facts(snap, CAST.player).filter((f) => SHAPE.offer.test(f))).toEqual([]);
   });

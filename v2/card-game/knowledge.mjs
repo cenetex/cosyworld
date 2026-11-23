@@ -8,12 +8,19 @@ export const FACT_TEXT_LIMIT = 180;
 export const FACT_LINE_LIMIT = 240;
 export const heardClaim = (author, text) => `I heard what ${author} wrote: ${text}`;
 export const PROTECTED_FACT_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
-const PROTECTED_KINDS = new Set(["topic", "claim"]);
-const READ_KINDS = new Set(["claim"]);
+const PROTECTED_KINDS = new Set(["topic", "claim", "quest"]);
+const READ_KINDS = new Set(["claim", "quest"]);
 const CLAIM_KEYS = ["book", "claim", "author", "about"];
 const MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
 const READ_KEYS = [...MEMORY_KEYS, "book"];
-export const protectedFact = (fact) => PROTECTED_KINDS.has(fact.source.kind);
+export const questFactId = (owner, want) => `quest:${owner}:${want.target}`;
+const liveQuest = (world, fact) => {
+  const want = world?.actors?.[fact.source.actorId]?.want;
+  return Boolean(want) && fact.id === questFactId(fact.source.actorId, want);
+};
+export const protectedFact = (fact, world) =>
+  PROTECTED_KINDS.has(fact.source.kind) &&
+  (fact.source.kind !== "quest" || liveQuest(world, fact));
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
 const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -123,21 +130,22 @@ function retainFact(world, fact) {
   if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
   // Protected facts share half the store, oldest out first. Other news ages
   // in source order, sparing pinned grievance evidence unless all is pinned.
+  const spare = (f) => protectedFact(f, world);
   const all = Object.values(knowledge.facts);
-  const spared = protectedFact(fact)
-    ? all.filter(protectedFact).sort(compareFacts)
-    : [];
-  let old = spared.length >= PROTECTED_FACT_LIMIT ? spared.at(-1) : null;
-  if (!old && all.length >= KNOWLEDGE_FACT_LIMIT) {
-    const aging = all.filter((f) => !protectedFact(f)).sort(compareFacts);
+  const spared = spare(fact) ? all.filter(spare).sort(compareFacts) : [];
+  const old = spared.slice(PROTECTED_FACT_LIMIT - 1);
+  if (!old.length && all.length >= KNOWLEDGE_FACT_LIMIT) {
+    const aging = all.filter((f) => !spare(f)).sort(compareFacts);
     const pinned = pinnedFacts(world);
-    old = [...aging].reverse().find((f) => !pinned.has(f.id)) || aging.at(-1);
-    if (!old) return null;
+    old.push(
+      [...aging].reverse().find((f) => !pinned.has(f.id)) || aging.at(-1),
+    );
+    if (!old[0]) return null;
   }
-  if (old) {
-    delete knowledge.facts[old.id];
-    for (const known of Object.values(knowledge.known)) delete known[old.id];
-    knowledge.pending = knowledge.pending.filter((p) => p.factId !== old.id);
+  for (const { id } of old) {
+    delete knowledge.facts[id];
+    for (const known of Object.values(knowledge.known)) delete known[id];
+    knowledge.pending = knowledge.pending.filter((p) => p.factId !== id);
   }
   knowledge.facts[fact.id] = fact;
   return fact;
@@ -301,6 +309,35 @@ export function readClaim(world, reader, claim, entry) {
   return fact;
 }
 
+export function learnQuest(world, owner, learner, { id, text }, entry) {
+  installKnowledge(world);
+  if (
+    !world.actors[owner] ||
+    owner === learner ||
+    !entry.seq ||
+    !safeId(id) ||
+    !validFactText(text) ||
+    knowsFact(world, learner, id)
+  )
+    return null;
+  const fact = retainFact(world, {
+    id,
+    text,
+    source: {
+      kind: "quest",
+      eventSeq: entry.seq,
+      turn: entry.turn,
+      actorId: owner,
+      locationId: world.actors[owner].place,
+      witnesses: [],
+      topic: null,
+    },
+  });
+  if (fact)
+    remember(world, learner, fact, "heard", owner, entry.seq, entry.turn);
+  return fact;
+}
+
 export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
   installKnowledge(world);
   if (speaker === listener || !world.actors[speaker] || !world.actors[listener])
@@ -314,6 +351,8 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
   const known = world.knowledge.known[speaker] || {};
   const fresh = (fact) =>
     (fact.source.kind !== "topic" || topics.some((t) => t.id === fact.id)) &&
+    (fact.source.kind !== "quest" ||
+      (fact.source.actorId !== listener && protectedFact(fact, world))) &&
     !knowsFact(world, listener, fact.id) &&
     (known[fact.id]?.kind === "witnessed" ||
       known[fact.id]?.learnedTurn < world.turn);
@@ -513,7 +552,8 @@ export function knowledgeFacts(
     // who carried what where, can go stale, and saying so keeps an old
     // account honest instead of a quiet lie.
     const stale =
-      fact.source.kind === "event" && age >= STALE_TURNS
+      (fact.source.kind === "event" && age >= STALE_TURNS) ||
+      (fact.source.kind === "quest" && !protectedFact(fact, world))
         ? " Things may have changed since."
         : "";
     return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale}`.slice(
@@ -583,9 +623,15 @@ export function validKnowledge(
         ...(s.kind === "repair" ? ["answers"] : []),
         ...(s.kind === "claim" ? CLAIM_KEYS : []),
       ]) ||
-      !["event", "topic", "ending", "lane", "repair", "claim"].includes(
-        s.kind,
-      ) ||
+      ![
+        "event",
+        "topic",
+        "ending",
+        "lane",
+        "repair",
+        "claim",
+        "quest",
+      ].includes(s.kind) ||
       !whole(s.eventSeq, world.eventSeq) ||
       s.eventSeq < 1 ||
       !whole(s.turn, world.turn) ||
@@ -615,6 +661,13 @@ export function validKnowledge(
       if (laneText(id) !== fact.text || s.topic !== null) return false;
     } else if (s.kind === "ending") {
       if (!/^ending:./u.test(id) || s.topic !== null) return false;
+    } else if (s.kind === "quest") {
+      if (
+        s.topic !== null ||
+        !id.startsWith(`quest:${s.actorId}:`) ||
+        id.endsWith(":")
+      )
+        return false;
     } else if (s.kind === "claim") {
       const claim = claimOf(id);
       if (
@@ -642,7 +695,9 @@ export function validKnowledge(
     }
   }
   if (
-    Object.values(k.facts).filter(protectedFact).length > PROTECTED_FACT_LIMIT
+    Object.values(k.facts).filter(
+      (f) => f.source.kind !== "quest" && protectedFact(f),
+    ).length > PROTECTED_FACT_LIMIT
   )
     return false;
   for (const [actor, known] of Object.entries(k.known)) {
@@ -656,6 +711,7 @@ export function validKnowledge(
       const fact = k.facts[id];
       if (
         !owns(k.facts, id) ||
+        (fact.source.kind === "quest" && fact.source.actorId === actor) ||
         !fields(m, m?.kind === "read" ? READ_KEYS : MEMORY_KEYS) ||
         !["witnessed", "heard", "read"].includes(m.kind) ||
         !whole(m.eventSeq, world.eventSeq) ||
