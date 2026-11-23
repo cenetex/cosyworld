@@ -5,6 +5,13 @@ export const KNOWLEDGE_FACT_LIMIT = 256;
 export const KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
 export const KNOWLEDGE_PENDING_LIMIT = 32;
 export const FACT_TEXT_LIMIT = 180;
+export const PROTECTED_FACT_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+const PROTECTED_KINDS = new Set(["topic", "claim"]);
+const READ_KINDS = new Set(["claim"]);
+const CLAIM_KEYS = ["book", "claim", "author", "about"];
+const MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
+const READ_KEYS = [...MEMORY_KEYS, "book"];
+export const protectedFact = (fact) => PROTECTED_KINDS.has(fact.source.kind);
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
 const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -112,18 +119,20 @@ export function pinnedFacts(world) {
 function retainFact(world, fact) {
   const knowledge = world.knowledge;
   if (owns(knowledge.facts, fact.id)) return knowledge.facts[fact.id];
-  // Authored facts keep their stable identity. Event and ending news ages in
-  // source order, skipping pinned grievance evidence. If every aging fact is
-  // pinned, the oldest goes anyway so the store stays bounded.
-  if (Object.keys(knowledge.facts).length >= KNOWLEDGE_FACT_LIMIT) {
-    const eventFacts = Object.values(knowledge.facts)
-      .filter((f) => f.source.kind !== "topic")
-      .sort(compareFacts);
+  // Protected facts share half the store, oldest out first. Other news ages
+  // in source order, sparing pinned grievance evidence unless all is pinned.
+  const all = Object.values(knowledge.facts);
+  const spared = protectedFact(fact)
+    ? all.filter(protectedFact).sort(compareFacts)
+    : [];
+  let old = spared.length >= PROTECTED_FACT_LIMIT ? spared.at(-1) : null;
+  if (!old && all.length >= KNOWLEDGE_FACT_LIMIT) {
+    const aging = all.filter((f) => !protectedFact(f)).sort(compareFacts);
     const pinned = pinnedFacts(world);
-    const old =
-      [...eventFacts].reverse().find((f) => !pinned.has(f.id)) ||
-      eventFacts.at(-1);
+    old = [...aging].reverse().find((f) => !pinned.has(f.id)) || aging.at(-1);
     if (!old) return null;
+  }
+  if (old) {
     delete knowledge.facts[old.id];
     for (const known of Object.values(knowledge.known)) delete known[old.id];
     knowledge.pending = knowledge.pending.filter((p) => p.factId !== old.id);
@@ -253,6 +262,39 @@ function topicFact(world, topic, entry) {
       fact.source.eventSeq,
       fact.source.turn,
     );
+  return fact;
+}
+
+// Every reader of a claim shares its fact, which keeps the book and author.
+export function readClaim(world, reader, claim, entry) {
+  installKnowledge(world);
+  const { id, text, ...said } = claim;
+  if (
+    !world.actors[reader] ||
+    !entry.seq ||
+    !safeId(id) ||
+    !validFactText(text) ||
+    knowsFact(world, reader, id)
+  )
+    return null;
+  const fact = retainFact(world, {
+    id,
+    text,
+    source: {
+      kind: "claim",
+      eventSeq: entry.seq,
+      turn: entry.turn,
+      actorId: reader,
+      locationId: world.actors[reader].place,
+      witnesses: [],
+      topic: null,
+      ...said,
+    },
+  });
+  if (!fact) return null;
+  fact.source.witnesses = [...fact.source.witnesses, reader].sort();
+  remember(world, reader, fact, "read", null, entry.seq, entry.turn);
+  world.knowledge.known[reader][id].book = said.book;
   return fact;
 }
 
@@ -408,6 +450,7 @@ export function knowledgeFacts(
   nameOf = (id) => id,
   priority = [],
   limit = 2,
+  scene = [],
 ) {
   const known = world.knowledge?.known?.[actor] || {};
   const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
@@ -415,23 +458,49 @@ export function knowledgeFacts(
   const facts = Object.keys(known)
     .map((id) => world.knowledge.facts[id])
     .filter(Boolean);
+  const near = (fact) => scene.includes(fact.source.about);
+  const read = facts
+    .filter((fact) => known[fact.id].kind === "read")
+    .sort(
+      (a, b) =>
+        first(a, b) ||
+        near(b) - near(a) ||
+        learned(b) - learned(a) ||
+        compareFacts(a, b),
+    )
+    .slice(0, Math.min(2, limit - 1));
   const told = facts
     .filter((fact) => known[fact.id].kind === "heard")
     .sort(
       (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b),
     )
-    .slice(0, limit);
+    .slice(0, limit - read.length);
   const seen = facts
     .filter((fact) => known[fact.id].kind === "witnessed")
     .sort((a, b) => first(a, b) || compareFacts(a, b))
-    .slice(0, Math.min(2, limit - told.length));
-  return [...told, ...seen].sort(first).map((fact) => {
+    .slice(0, Math.min(2, limit - told.length - read.length));
+  return [...told, ...seen, ...read].sort(first).map((fact) => {
     const memory = known[fact.id];
+    const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
+    if (fact.source.kind === "claim") {
+      const author = nameOf(fact.source.author);
+      const from = `${nameOf(fact.source.book)}, by ${author}`;
+      const [whole, short] =
+        memory.kind === "read"
+          ? [
+              `I read this ${ageText(age)} in ${from}: ${fact.text}`,
+              `I read what ${author} wrote: ${fact.text}`,
+            ]
+          : [
+              `${nameOf(memory.teller)} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
+              `${nameOf(memory.teller)} told me what ${author} wrote: ${fact.text}`,
+            ];
+      return (whole.length <= 240 ? whole : short).slice(0, 240);
+    }
     const origin =
       memory.kind === "witnessed"
         ? "I witnessed"
         : `${nameOf(memory.teller)} told me`;
-    const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
     const place = fact.source.kind === "topic" ? null : fact.source.locationId;
     const where =
       place && !fact.text.includes(nameOf(place)) ? ` at ${nameOf(place)}` : "";
@@ -473,6 +542,7 @@ export function validKnowledge(
   places,
   topics = [],
   laneText = () => null,
+  claimOf = () => null,
 ) {
   const k = world.knowledge;
   if (k === undefined) return true;
@@ -506,8 +576,11 @@ export function validKnowledge(
         "witnesses",
         "topic",
         ...(s.kind === "repair" ? ["answers"] : []),
+        ...(s.kind === "claim" ? CLAIM_KEYS : []),
       ]) ||
-      !["event", "topic", "ending", "lane", "repair"].includes(s.kind) ||
+      !["event", "topic", "ending", "lane", "repair", "claim"].includes(
+        s.kind,
+      ) ||
       !whole(s.eventSeq, world.eventSeq) ||
       s.eventSeq < 1 ||
       !whole(s.turn, world.turn) ||
@@ -537,6 +610,14 @@ export function validKnowledge(
       if (laneText(id) !== fact.text || s.topic !== null) return false;
     } else if (s.kind === "ending") {
       if (!/^ending:./u.test(id) || s.topic !== null) return false;
+    } else if (s.kind === "claim") {
+      const claim = claimOf(id);
+      if (
+        s.topic !== null ||
+        claim?.text !== fact.text ||
+        CLAIM_KEYS.some((key) => claim[key] !== s[key])
+      )
+        return false;
     } else {
       if (!fields(s.topic, ["packId", "id", "choiceId"])) return false;
       const topic = topics.find(
@@ -555,6 +636,10 @@ export function validKnowledge(
         return false;
     }
   }
+  if (
+    Object.values(k.facts).filter(protectedFact).length > PROTECTED_FACT_LIMIT
+  )
+    return false;
   for (const [actor, known] of Object.entries(k.known)) {
     if (
       !actors.includes(actor) ||
@@ -566,15 +651,21 @@ export function validKnowledge(
       const fact = k.facts[id];
       if (
         !owns(k.facts, id) ||
-        !fields(m, ["kind", "teller", "eventSeq", "learnedTurn"]) ||
-        !["witnessed", "heard"].includes(m.kind) ||
+        !fields(m, m?.kind === "read" ? READ_KEYS : MEMORY_KEYS) ||
+        !["witnessed", "heard", "read"].includes(m.kind) ||
         !whole(m.eventSeq, world.eventSeq) ||
         m.eventSeq < fact.source.eventSeq ||
         !whole(m.learnedTurn, world.turn) ||
         m.learnedTurn < fact.source.turn ||
-        (m.kind === "witnessed"
-          ? m.teller !== null || !fact.source.witnesses.includes(actor)
-          : !actors.includes(m.teller) || m.teller === actor)
+        (m.kind === "heard"
+          ? !actors.includes(m.teller) || m.teller === actor
+          : m.teller !== null ||
+            !fact.source.witnesses.includes(actor) ||
+            (m.kind === "read"
+              ? !READ_KINDS.has(fact.source.kind) ||
+                !safeId(m.book) ||
+                (fact.source.kind === "claim" && m.book !== fact.source.book)
+              : fact.source.kind === "claim"))
       )
         return false;
     }
@@ -604,7 +695,8 @@ export function validKnowledge(
     )
       return false;
     const learned = k.known[p.speaker][p.factId];
-    if (learned.kind === "heard" && learned.learnedTurn >= p.turn) return false;
+    if (learned.kind !== "witnessed" && learned.learnedTurn >= p.turn)
+      return false;
     const fact = k.facts[p.factId];
     if (
       p.commitChoice &&

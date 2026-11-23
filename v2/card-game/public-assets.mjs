@@ -371,6 +371,7 @@ const files = [
   "motives.mjs",
   "life.mjs",
   "knowledge.mjs",
+  "claims.mjs",
   "roaming-routes.mjs",
   "resident-home.mjs",
   "resident-sleep.mjs",
