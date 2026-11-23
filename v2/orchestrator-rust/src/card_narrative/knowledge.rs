@@ -20,7 +20,18 @@ fn words(text: &str) -> Vec<String> {
 }
 
 fn sentences(text: &str) -> impl Iterator<Item = &str> {
-    text.split(['.', '!', '?', '。', '！', '？'])
+    let point = |i: usize| {
+        text[..i].ends_with(char::is_numeric) && text[i + 1..].starts_with(char::is_numeric)
+    };
+    let (mut from, mut out) = (0, Vec::new());
+    for (i, c) in text.char_indices() {
+        if ['.', '!', '?', '。', '！', '？'].contains(&c) && !(c == '.' && point(i)) {
+            out.push(&text[from..i]);
+            from = i + c.len_utf8();
+        }
+    }
+    out.push(&text[from..]);
+    out.into_iter()
         .map(str::trim)
         .filter(|sentence| !words(sentence).is_empty())
 }
@@ -544,6 +555,10 @@ mod tests {
         context.disclosures[0].fact_id = "quest:keeper:bell".into();
         context.disclosures[0].text = "The keeper wants the Bell.".into();
         assert_eq!(directions(&context, "vale"), ["The keeper wants the Bell."]);
+        context.disclosures[0].text = "Ledger (Opus 4.7) wants the Bell.".into();
+        assert!(valid(&context));
+        let reply = "Ledger (Opus 4.7) wants the Bell. Yes.";
+        assert_eq!(other_words(&context, "vale", reply), "Yes");
     }
 
     #[test]

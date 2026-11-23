@@ -3,22 +3,19 @@
 //   their item X   -> give(X, them):     the item, step give to them;
 //   their place P  -> bring(them, P):    the person, step bring at P;
 //   their person Q -> introduce(them, Q): the person, step bring to Q.
-// `heard` keeps, per avatar, the want the player was last told, so a tap
-// offered after a Talk lasts only while that want is still the one told. A
-// quest whose want has since changed leaves at the next settle, not as a
-// refusal. Met, it is a want met like any other.
+// A tap offered after a Talk lasts only while the quest fact told is still
+// their want.
 import { heldOf, releaseQuest } from "./want.mjs";
 import { revealed } from "./want-talk.mjs";
 import { askOffer, pruneOffers } from "./offer-chance.mjs";
 import { staysByRole } from "./resident-guard.mjs";
 import { learnTold } from "./quest-learn.mjs";
+import { knowsFact, questFactId } from "./knowledge.mjs";
 
 // A resident who cannot leave its place (the Oak, Badger, a guard at his
 // post) is never asked to be escorted: its quest is to bring the other
 // person to it (sticky companions, rules 133).
 const fixedResident = (s, id) => staysByRole(s, id);
-
-const key = (want) => `${want.kind}:${want.target}`;
 
 // The avatar a quest serves, when Talk gave it: null for any other quest.
 export function talkQuestFrom(w) {
@@ -115,23 +112,20 @@ export function pinnedCompanion(s, traveler) {
 }
 
 // A player's Talk with `them`: the want of theirs that Talk reveals is
-// recorded as heard (`heard[them]` is its key) and learned as their quest
-// fact. The quest it would be is `questFor(s, them, want)`.
+// learned as their quest fact. The quest it would be is `questFor`.
 export function talkQuest(s, actor, them, api) {
-  const a = s.actors[actor],
-    want = s.actors[them]?.want;
+  const want = s.actors[them]?.want;
   if (!api.player(actor) || them === actor || !want) return null;
   const quest = revealed(s, them, want, actor) && questFor(s, them, want);
   if (!quest) return null;
-  a.heard = { ...a.heard, [them]: key(want) };
   learnTold(s, them, actor);
   askOffer(s, actor, them);
   return quest;
 }
-// Whether the player was told this avatar's want and it is still theirs.
+// Whether the player knows this avatar's quest, from them or second-hand.
 export function toldWant(s, actor, them) {
   const want = s.actors[them]?.want;
-  return Boolean(want && s.actors[actor]?.heard?.[them] === key(want));
+  return Boolean(want && knowsFact(s, actor, questFactId(them, want)));
 }
 
 // A Talk quest whose want they no longer hold, met by someone else or set

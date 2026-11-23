@@ -11,7 +11,12 @@ import {
   validKnowledge,
   witnessKnowledge,
 } from "../v2/card-game/knowledge.mjs";
-import { learnTold, questText } from "../v2/card-game/quest-learn.mjs";
+import {
+  learnTold,
+  questOwners,
+  questText,
+} from "../v2/card-game/quest-learn.mjs";
+import { toldWant } from "../v2/card-game/talk-quest.mjs";
 import {
   createWorld,
   decodeSave,
@@ -22,6 +27,8 @@ import {
 } from "../v2/card-game/world.mjs";
 import { theName } from "../v2/card-game/world/catalog.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
+import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
+import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 
 const Q = "quest:moth:lamp";
 const cast = Array.from({ length: PROTECTED_FACT_LIMIT }, (_, n) => `r${n}`);
@@ -72,6 +79,29 @@ describe("quest facts", () => {
       teller: "moth",
     });
     expect(knowsFact(s, "moth", Q)).toBe(false);
+  });
+
+  it("are learned by a Talk when a name holds a decimal point", () => {
+    const ledger = "hoppycat-ledger-opus";
+    const act = (w, kind, target) => {
+      const a = legalActions(w).find(
+        (x) => x.kind === kind && x.target === target,
+      );
+      return decodeSave(encodeSave(play(w, a).state));
+    };
+    let s = createLandingWorld(packDefinition("hoppycat-archive"), 7);
+    for (const to of ["halfway-tea-garden", "meraki-atelier"])
+      s = act(s, "move", `hoppycat-${to}`);
+    s = act(s, "talk", "hoppycat-mira-meraki");
+    s.actors[ledger].want = newWant("item", "lamp", s.turn);
+    s = act(s, "talk", ledger);
+    expect(s.knowledge.facts[`quest:${ledger}:lamp`].text).toBe(
+      "Ledger (Opus 4.7) wants the Lamp.",
+    );
+    expect(toldWant(s, "vale", ledger)).toBe(true);
+    expect(
+      legalActions(s).some((a) => a.kind === "accept" && a.target === ledger),
+    ).toBe(true);
   });
 
   it("word the owner's want in one sentence", () => {
@@ -148,6 +178,15 @@ describe("quest facts", () => {
     delete w.knowledge.known.keeper[Q];
     expect(tell("vale", "keeper")).toEqual([]);
     expect(valid(w)).toBe(true);
+  });
+
+  it("count as told when learned second-hand, but not toward II", () => {
+    const w = told(bare());
+    w.turn = 2;
+    reserveKnowledge(w, "vale", "keeper", entry(w));
+    expect(toldWant(w, "keeper", "moth")).toBe(true);
+    expect(questOwners(w, "keeper")).toEqual([]);
+    expect(questOwners(w, "vale")).toEqual(["moth"]);
   });
 
   it("validate their owner, id and memories", () => {

@@ -110,8 +110,8 @@ fn rules_133_one_want_commits_and_replays_in_the_c_host() {
     assert_eq!(held[0]["from"], "quest:from:keeper");
     assert_eq!(held[0]["target"], "bell");
     assert_eq!(
-        world.game["actors"]["vale"]["heard"],
-        json!({"keeper":"item:bell"})
+        world.game["knowledge"]["known"]["vale"]["quest:keeper:bell"]["teller"],
+        "keeper"
     );
     let again = play(&world, |a| a["kind"] == "talk" && a["target"] == "keeper");
     commit(&mut world, again);

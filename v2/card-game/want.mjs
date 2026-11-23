@@ -887,25 +887,6 @@ function validStep(s, w, id) {
     (!cards.with || (Object.hasOwn(s.actors, cards.with) && cards.with !== id))
   );
 }
-// The saved record of wants a player was told by Talk, by avatar
-// (talk-quest.mjs, rules 99).
-function validHeard(s, id) {
-  const heard = s.actors[id].heard;
-  if (heard === undefined) return true;
-  return Boolean(
-    heard &&
-      typeof heard === "object" &&
-      !Array.isArray(heard) &&
-      Object.entries(heard).every(
-        ([them, told]) =>
-          them !== id &&
-          Object.hasOwn(s.actors, them) &&
-          typeof told === "string" &&
-          told.length <= 160 &&
-          /^(item|place|person):./u.test(told),
-      ),
-  );
-}
 export function validWant(s, id) {
   const a = s.actors[id];
   const whole = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
@@ -945,7 +926,7 @@ export function validWant(s, id) {
         typeof a.gaveUp.target === "string" &&
         whole(a.gaveUp.turn))) &&
     list(a.talked, s.actors) &&
-    validHeard(s, id) &&
+    a.heard === undefined &&
     validRumours(s, id) &&
     validOffered(s, id) &&
     !a.talked.includes(id) &&

@@ -2,6 +2,10 @@ import { addLog, createWorld, legalActions, play } from "./world.mjs";
 import { newMemories } from "./memory.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import landings from "./pack-landings.json" with { type: "json" };
+import { toldWant } from "./talk-quest.mjs";
+import { learnTold } from "./quest-learn.mjs";
+
+export const pipHeard = (world) => toldWant(world, "vale", "moth");
 
 // A physical Pip card opens its own local world. Explicit world links win.
 export function pipEntry(href) {
@@ -38,8 +42,12 @@ export function talkToPip(world) {
 // The first world after Pip's card: Vale in the attic, carrying what Pip told
 export function beginPipJourney(seed = newRunSeed(), prelude = talkToPip(createPipWorld(seed))) {
   const world = createLandingWorld(null, seed);
-  const { heard, want } = prelude.actors.vale;
-  if (heard) world.actors.vale.heard = structuredClone(heard);
+  const { want } = prelude.actors.vale;
+  if (
+    pipHeard(prelude) &&
+    world.actors.moth.want?.target === prelude.actors.moth.want.target
+  )
+    learnTold(world, "moth", "vale");
   // so the pond's offer of it is not a second one.
   if (want)
     world.actors.vale.want = { ...structuredClone(want), since: world.turn };

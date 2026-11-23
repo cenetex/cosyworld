@@ -8,6 +8,7 @@ import { arcanumArt, glimpseCompanion } from "../v2/card-game/glimpse-card.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
 import { conditionWords, UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 import { createWorld, nameOf } from "../v2/card-game/world.mjs";
+import { questOwners } from "../v2/card-game/quest-learn.mjs";
 
 const cards = {
   name: (id) => ({ den: "the Den", bread: "Bread", wren: "Wren" })[id] ?? id,
@@ -26,7 +27,7 @@ const hold = (s, id, face = "up", did = []) => {
         face,
         base: {
           visited: s.actors.vale.visited.length,
-          heard: Object.keys(s.actors.vale.heard || {}).length,
+          heard: questOwners(s, "vale").length,
           trusting: 0,
           opened: 0,
         },

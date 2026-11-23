@@ -11,6 +11,7 @@ const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { wantFact, wantOf } from "../v2/card-game/want-talk.mjs";
+import { learnTold } from "../v2/card-game/quest-learn.mjs";
 
 const QUEST_LINES =
   /^(What I want most now|I also want to pursue|I just finished|Help needed here|Open story here)|is pursuing /u;
@@ -63,7 +64,7 @@ describe("a want in Talk context", () => {
     const world = atStation();
     world.items.lamp.holder = "vale";
     world.actors.vale.want = { kind: "place", target: "pond", since: 0, refusals: 0 };
-    world.actors.vale.heard = { moth: "item:lamp" };
+    learnTold(world, "moth", "vale");
     const context = talkTo(world, "moth");
     const pip = factsOf(context, "moth");
     // Pip's lamp is a starter want: he says he would take the help too.

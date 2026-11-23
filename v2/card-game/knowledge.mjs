@@ -52,6 +52,9 @@ export const validFactText = (v) =>
   /[.!?。！？]["'’”]?$/u.test(v.trim()) &&
   sentences(v).length === 1 &&
   sentences(v)[0].split(" ").length >= 3;
+const decimalPoint = /(?<=\p{N})\.(?=\p{N})/gu;
+const validQuestText = (v) =>
+  typeof v === "string" && validFactText(v.replace(decimalPoint, "0"));
 
 export const newKnowledge = () => ({
   version: KNOWLEDGE_VERSION,
@@ -316,7 +319,7 @@ export function learnQuest(world, owner, learner, { id, text }, entry) {
     owner === learner ||
     !entry.seq ||
     !safeId(id) ||
-    !validFactText(text) ||
+    !validQuestText(text) ||
     knowsFact(world, learner, id)
   )
     return null;
@@ -607,7 +610,9 @@ export function validKnowledge(
       !safeId(id) ||
       !fields(fact, ["id", "text", "source"]) ||
       fact.id !== id ||
-      !validFactText(fact.text)
+      !(fact.source?.kind === "quest" ? validQuestText : validFactText)(
+        fact.text,
+      )
     )
       return false;
     const s = fact.source;
