@@ -43,16 +43,16 @@ CosyWorld is a solo and shared card world with a hard boundary between a determi
 
 ## Pictures of play
 
-No gameplay screenshot or video is stored with this introduction. Do not generate a stand-in. When you have a capture from the live site or a local server, put it in `docs/play/` and link it below.
+![The table at the Theban gate in The Wine-Dark Sea: Vale, Antigone and the gate guard, with place, item and character cards in the hand](docs/play/table.jpg)
 
-Useful frames, in this order:
+Captures come from the live site or a local server, never a generated stand-in. They go in `docs/play/` and are linked here.
 
-1. The table at a place, with the hand visible.
+1. The table at a place, with the hand visible: [`docs/play/table.jpg`](docs/play/table.jpg), from a local server at 1440 px. Its one spoken line is the test harness's stand-in, so it is not frame 3.
 2. A card just played, with the world message the rules wrote.
 3. A spoken line on that same beat, so the two layers can be told apart.
 4. A shared room, or the list of worlds.
 
-A short recording of one play, from card to world message to reply, is enough. Link each file from this section once it exists, for example `docs/play/table.png` and `docs/play/play.png`.
+A short recording of one play, from card to world message to reply, is enough.
 
 ## Where the code lives
 
