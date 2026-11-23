@@ -15,7 +15,7 @@ This design replaces the holder-context lore of rules 186 (#3077). It covers eve
 - Packs carry no hand-authored prose. Narration is text a language model generates, so a book is not pages of prose.
 - The holder-context design of rules 186 (#3077) is replaced, not extended. Under it, pages reach the prompt by custody and nobody remembers them. The design returns to the principle of #1629 (2026-10-31): lore lives in books that are found and read, and nothing is injected.
 
-Everything else in this doc is a proposal or an open question, except where it describes the code as it is.
+The proposals were accepted on 2026-11-23, with the defaults under Open questions. Held item text is removed (open question 9).
 
 ## Where things stand
 
@@ -201,17 +201,19 @@ Proposal. Each step is one PR under the 400-line budget (`scripts/change-budget.
 
 ## Open questions
 
-1. Lifecycle: should the default be `kept` or `spent`? Should letters and slips be spent when they change hands?
-2. Should the Read view show only the claims, or also a short page of text the model generates from them and the game caches? A generated page could say more than the claims, while the avatar knows only the claims.
-3. Literacy: can every character read, or does a trait decide? Pentiment's lettering marks who can read ([GameSpot, Pentiment](https://www.gamespot.com/reviews/pentiment-review/1900-6417998/)), and in Book of Hours a book in an unknown language cannot be read ([KosGames, Book of Hours](https://kosgames.com/book-of-hours-how-to-be-an-efficient-librarian-44143/)). Is being read to the fallback?
-4. Can a claim depend on the reader's own experience, such as notebook claims that need a sign the reader noticed? That needs a condition naming a choice the reader witnessed, because `receipt` covers the whole world.
-5. Can a character write down a claim it does not know, which would let it lie in writing?
-6. May an avatar seed state world facts, such as the Elder's city?
-7. Should writing in scenery, such as the timetable or the Hoppy Cat exhibit labels, become fixtures a character can read?
-8. Do residents refuse to tell claims that go against their own side?
-9. When held item text goes, does a holder keep a short physical description of what it holds, or only the name, state and claims?
-10. Topic facts, claims and live quest facts never age out. What caps them together, so that events still fit in the 256-fact store?
-11. Does a quest read in a book turn its card face up, the way a quest told by its owner does? `docs/design/quests.md` open question 1 asks the same of second-hand telling.
+Each has a default, settled on 2026-11-23 so building can start. Any of them can be reopened.
+
+1. Lifecycle defaults to `kept`, letters and slips included. A pack marks a book `spent` explicitly.
+2. The Read view shows only the claims. No generated page.
+3. Every character can read. Literacy and being read to wait.
+4. No reader-specific gates. A claim depends on nothing but the book.
+5. A character writes down only claims it knows. It can still pass on a false claim it read or heard.
+6. No avatar seeds. Avatars start knowing nothing about the world.
+7. Writing in scenery stays out of scope for now.
+8. Residents tell claims regardless of side until factions exist.
+9. A holder keeps the item's name, its visible state and the claims it has read. No physical description.
+10. Topic, claim and live quest facts share one cap of 128, half the 256-fact store. Past it, the oldest of them ages out.
+11. A quest read in a book turns its card face up, as `docs/design/quests.md` settles for second-hand telling.
 
 ## Prior art
 
