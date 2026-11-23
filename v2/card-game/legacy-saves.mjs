@@ -11,6 +11,7 @@ import { sectionAllows } from "./pack-sections.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { installItemCycle } from "./pack-items.mjs";
+import { authoredClaim } from "./claims.mjs";
 
 // The save schema. The rules 133 bump retired every earlier save and shared
 // world ("we can reset"): a save of another schema is not lifted, it starts
@@ -102,6 +103,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     else if (reworked.size) forgetFact(s.knowledge, id);
   }
   reconcileTopics(s, reworked);
+  reconcileClaims(s, reworked);
   for (const pack of packDefinitions)
     if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
   return s;
@@ -314,6 +316,20 @@ export function reconcileTopics(s, reworked) {
       continue;
     }
     forgetFact(k, id);
+  }
+}
+// A read claim of a reworked pack follows its book's current words, author
+// and subject. One whose book or claim the content retired is forgotten.
+export function reconcileClaims(s, reworked) {
+  for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
+    if (fact?.source?.kind !== "claim" || !reworked.has(id.split(":")[1]))
+      continue;
+    const claim = authoredClaim(id);
+    if (!claim) forgetFact(s.knowledge, id);
+    else {
+      fact.text = claim.text;
+      Object.assign(fact.source, { author: claim.author, about: claim.about });
+    }
   }
 }
 function forgetFact(k, id) {

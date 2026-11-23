@@ -5,6 +5,8 @@ export const KNOWLEDGE_FACT_LIMIT = 256;
 export const KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
 export const KNOWLEDGE_PENDING_LIMIT = 32;
 export const FACT_TEXT_LIMIT = 180;
+export const FACT_LINE_LIMIT = 240;
+export const heardClaim = (author, text) => `I heard what ${author} wrote: ${text}`;
 export const PROTECTED_FACT_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
 const PROTECTED_KINDS = new Set(["topic", "claim"]);
 const READ_KINDS = new Set(["claim"]);
@@ -15,7 +17,7 @@ export const protectedFact = (fact) => PROTECTED_KINDS.has(fact.source.kind);
 const owns = (o, key) =>
   typeof key === "string" && !!o && Object.hasOwn(o, key);
 const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-const safeId = (v) =>
+export const safeId = (v) =>
   typeof v === "string" &&
   v.length > 0 &&
   v.length <= 160 &&
@@ -142,6 +144,7 @@ function retainFact(world, fact) {
 }
 
 const newsVerbs = new Set([
+  "read",
   "give",
   "trade",
   "attack",
@@ -485,7 +488,7 @@ export function knowledgeFacts(
     if (fact.source.kind === "claim") {
       const author = nameOf(fact.source.author);
       const from = `${nameOf(fact.source.book)}, by ${author}`;
-      const [whole, short] =
+      const lines =
         memory.kind === "read"
           ? [
               `I read this ${ageText(age)} in ${from}: ${fact.text}`,
@@ -494,8 +497,10 @@ export function knowledgeFacts(
           : [
               `${nameOf(memory.teller)} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
               `${nameOf(memory.teller)} told me what ${author} wrote: ${fact.text}`,
+              heardClaim(author, fact.text),
             ];
-      return (whole.length <= 240 ? whole : short).slice(0, 240);
+      const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
+      return fits ?? lines.at(-1).slice(0, FACT_LINE_LIMIT);
     }
     const origin =
       memory.kind === "witnessed"

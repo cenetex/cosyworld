@@ -34,6 +34,7 @@ const RULES = [
   "motives.mjs",
   "offer-chance.mjs",
   "pack-items-schema.mjs",
+  "book-schema.mjs",
   "pack-items.mjs",
   "pack-journeys.mjs",
   "pack-recital.mjs",
