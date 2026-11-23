@@ -374,6 +374,7 @@ const files = [
   "want.mjs",
   "glimpse.mjs",
   "talk-quest.mjs",
+  "quest-learn.mjs",
   "offer-chance.mjs",
   "memory.mjs",
   "learning.mjs",

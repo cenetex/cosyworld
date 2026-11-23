@@ -1745,12 +1745,17 @@
   var FACT_LINE_LIMIT = 240;
   var heardClaim = (author, text2) => `I heard what ${author} wrote: ${text2}`;
   var PROTECTED_FACT_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
-  var PROTECTED_KINDS = /* @__PURE__ */ new Set(["topic", "claim"]);
-  var READ_KINDS = /* @__PURE__ */ new Set(["claim"]);
+  var PROTECTED_KINDS = /* @__PURE__ */ new Set(["topic", "claim", "quest"]);
+  var READ_KINDS = /* @__PURE__ */ new Set(["claim", "quest"]);
   var CLAIM_KEYS = ["book", "claim", "author", "about"];
   var MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
   var READ_KEYS = [...MEMORY_KEYS, "book"];
-  var protectedFact = (fact) => PROTECTED_KINDS.has(fact.source.kind);
+  var questFactId = (owner2, want) => `quest:${owner2}:${want.target}`;
+  var liveQuest = (world, fact) => {
+    const want = world?.actors?.[fact.source.actorId]?.want;
+    return Boolean(want) && fact.id === questFactId(fact.source.actorId, want);
+  };
+  var protectedFact = (fact, world) => PROTECTED_KINDS.has(fact.source.kind) && (fact.source.kind !== "quest" || liveQuest(world, fact));
   var owns = (o, key2) => typeof key2 === "string" && !!o && Object.hasOwn(o, key2);
   var record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
@@ -1811,7 +1816,7 @@
       const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
       const place = fact.source.kind === "topic" ? null : fact.source.locationId;
       const where = place && !fact.text.includes(nameOf3(place)) ? ` at ${nameOf3(place)}` : "";
-      const stale2 = fact.source.kind === "event" && age >= STALE_TURNS ? " Things may have changed since." : "";
+      const stale2 = fact.source.kind === "event" && age >= STALE_TURNS || fact.source.kind === "quest" && !protectedFact(fact, world) ? " Things may have changed since." : "";
       return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale2}`.slice(
         0,
         240
@@ -1841,9 +1846,15 @@
         "topic",
         ...s.kind === "repair" ? ["answers"] : [],
         ...s.kind === "claim" ? CLAIM_KEYS : []
-      ]) || !["event", "topic", "ending", "lane", "repair", "claim"].includes(
-        s.kind
-      ) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !actors2.includes(s.actorId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
+      ]) || ![
+        "event",
+        "topic",
+        "ending",
+        "lane",
+        "repair",
+        "claim",
+        "quest"
+      ].includes(s.kind) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !actors2.includes(s.actorId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
         (a, i) => !actors2.includes(a) || i && s.witnesses[i - 1] >= a
       ))
         return false;
@@ -1857,6 +1868,9 @@
         if (laneText(id) !== fact.text || s.topic !== null) return false;
       } else if (s.kind === "ending") {
         if (!/^ending:./u.test(id) || s.topic !== null) return false;
+      } else if (s.kind === "quest") {
+        if (s.topic !== null || !id.startsWith(`quest:${s.actorId}:`) || id.endsWith(":"))
+          return false;
       } else if (s.kind === "claim") {
         const claim = claimOf(id);
         if (s.topic !== null || claim?.text !== fact.text || CLAIM_KEYS.some((key2) => claim[key2] !== s[key2]))
@@ -1870,14 +1884,16 @@
           return false;
       }
     }
-    if (Object.values(k.facts).filter(protectedFact).length > PROTECTED_FACT_LIMIT)
+    if (Object.values(k.facts).filter(
+      (f) => f.source.kind !== "quest" && protectedFact(f)
+    ).length > PROTECTED_FACT_LIMIT)
       return false;
     for (const [actor, known] of Object.entries(k.known)) {
       if (!actors2.includes(actor) || !record(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
         return false;
       for (const [id, m] of Object.entries(known)) {
         const fact = k.facts[id];
-        if (!owns(k.facts, id) || !fields(m, m?.kind === "read" ? READ_KEYS : MEMORY_KEYS) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || fact.source.kind === "claim" && m.book !== fact.source.book : fact.source.kind === "claim")))
+        if (!owns(k.facts, id) || fact.source.kind === "quest" && fact.source.actorId === actor || !fields(m, m?.kind === "read" ? READ_KEYS : MEMORY_KEYS) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || fact.source.kind === "claim" && m.book !== fact.source.book : fact.source.kind === "claim")))
           return false;
       }
     }
