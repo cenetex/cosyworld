@@ -20768,7 +20768,7 @@
       else if (reworked.size) forgetFact(s.knowledge, id);
     }
     reconcileTopics(s, reworked);
-    reconcileClaims(s, reworked);
+    reconcileClaims(s);
     for (const pack of packDefinitions)
       if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
     return s;
@@ -20928,10 +20928,9 @@
       forgetFact(k, id);
     }
   }
-  function reconcileClaims(s, reworked) {
+  function reconcileClaims(s) {
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
-      if (fact?.source?.kind !== "claim" || !reworked.has(id.split(":")[1]))
-        continue;
+      if (fact?.source?.kind !== "claim") continue;
       const claim = authoredClaim(id);
       if (!claim) forgetFact(s.knowledge, id);
       else {

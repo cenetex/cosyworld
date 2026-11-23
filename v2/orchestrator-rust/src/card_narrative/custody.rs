@@ -750,6 +750,26 @@ mod tests {
     }
 
     #[test]
+    fn a_read_is_a_valid_turn_that_moves_nothing() {
+        let mut c = tests::context();
+        let mut outcome = tests::solo_departure();
+        outcome.card.kind = "read".into();
+        outcome.card.item = Some("cloth".into());
+        outcome.avatars[0].holding.push("cloth".into());
+        outcome.avatars[1].holding.retain(|id| id != "cloth");
+        outcome.items[1].holder = "vale".into();
+        outcome.items[1].location = "station".into();
+        c.outcome = Some(outcome);
+        assert!(super::super::valid(&c));
+        assert!(transfers(&c).is_empty());
+        assert!(!facts(&c, "vale")
+            .iter()
+            .any(|f| f.starts_with("I received")));
+        c.outcome.as_mut().unwrap().card.destination = Some("pond".into());
+        assert!(!super::super::valid(&c));
+    }
+
+    #[test]
     fn committed_inventory_survives_full_facts_and_later_transfer() {
         let mut c = tests::context();
         c.outcome = Some(tests::solo_departure());
