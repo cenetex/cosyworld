@@ -1,9 +1,14 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
-import { createWorld, decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import {
+  createWorld,
+  decodeSave,
+  encodeSave,
+  validateWorld,
+} from "../v2/card-game/world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
-import { questOwners } from "../v2/card-game/quest-learn.mjs";
+import { learnTold, questOwners } from "../v2/card-game/quest-learn.mjs";
 import { toldWant } from "../v2/card-game/talk-quest.mjs";
 import { newWant } from "../v2/card-game/want.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
@@ -82,6 +87,21 @@ describe("saves that kept a heard map", () => {
     const s = decodeSave(JSON.stringify(old));
     expect(questOwners(s, "vale")).toEqual([]);
     expect(s.actors.vale.arcana.spread).toEqual(spread(1));
+  });
+
+  it("count II from the quest facts of a save without told", () => {
+    let s = createWorld();
+    for (const id of ["vale", "moth"]) s.actors[id].place = "station";
+    s.actors.moth.want = newWant("item", "lamp", s.turn);
+    learnTold(s, "moth", "vale");
+    const old = JSON.parse(encodeSave(s));
+    delete old.actors.vale.told;
+    s = decodeSave(JSON.stringify(old));
+    expect(questOwners(s, "vale")).toEqual(["moth"]);
+    for (const told of [["vale"], [], ["moth", "moth"], ["nobody"]]) {
+      s.actors.vale.told = told;
+      expect(() => validateWorld(s)).toThrow();
+    }
   });
 
   it("move a rules 189 shared world onto these rules through upgrade", () => {

@@ -3287,7 +3287,13 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && a.heard === void 0 && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && a.heard === void 0 && validTold(s, id) && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+  }
+  function validTold(s, id) {
+    const told = s.actors[id].told;
+    return told === void 0 || Array.isArray(told) && told.length > 0 && told.every(
+      (o, i) => o !== id && Object.hasOwn(s.actors, o) && (!i || told[i - 1] < o)
+    );
   }
   function validUnder(s, id) {
     const a = s.actors[id];
@@ -20563,35 +20569,36 @@
       return `${who} wants ${what} given to ${nameOf2(step.to)}.`;
     return `${who} wants ${what}.`;
   }
-  var learnTold = (s, owner2, learner, want = s.actors[owner2].want) => learnQuest(
-    s,
-    owner2,
-    learner,
-    { id: questFactId(owner2, want), text: questText(s, owner2, want) },
-    { seq: s.eventSeq, turn: s.turn }
-  );
-  var questOwners = (s, who) => [
-    ...new Set(
-      Object.entries(s.knowledge?.known?.[who] || {}).map(([id, m]) => [s.knowledge.facts[id]?.source, m.teller]).filter(
-        ([source, by]) => source?.kind === "quest" && by === source.actorId
-      ).map(([source]) => source.actorId)
-    )
-  ];
+  function learnTold(s, owner2, learner, want = s.actors[owner2].want) {
+    noteTold(s, learner, [owner2]);
+    return learnQuest(
+      s,
+      owner2,
+      learner,
+      { id: questFactId(owner2, want), text: questText(s, owner2, want) },
+      { seq: s.eventSeq, turn: s.turn }
+    );
+  }
+  var questOwners = (s, who) => s.actors[who]?.told || [];
+  function noteTold(s, who, owners) {
+    const told = [.../* @__PURE__ */ new Set([...questOwners(s, who), ...owners])].filter((o) => o !== who && Object.hasOwn(s.actors, o)).sort();
+    if (told.length) s.actors[who].told = told;
+    else delete s.actors[who].told;
+  }
   var named = (id) => [places, people, things].some((c) => Object.hasOwn(c, id));
   function installQuestFacts(s) {
     for (const [id, a] of Object.entries(s.actors)) {
-      if (!a.heard) continue;
-      for (const [them, told] of Object.entries(a.heard)) {
+      for (const [them, told] of Object.entries(a.heard || {})) {
         const live = s.actors[them]?.want;
         const [kind, target] = told.split(/:(.*)/su);
         if (live && told === `${live.kind}:${live.target}`)
           learnTold(s, them, id, live);
         else if (named(target)) learnTold(s, them, id, { kind, target });
       }
-      const lost = Object.keys(a.heard).length - questOwners(s, id).length;
-      for (const slot of a.arcana?.spread || [])
-        if (lost > 0 && slot.base?.heard !== void 0)
-          slot.base.heard = Math.max(0, slot.base.heard - lost);
+      noteTold(s, id, [
+        ...Object.keys(a.heard || {}),
+        ...Object.entries(s.knowledge?.known?.[id] || {}).map(([fact, m]) => [s.knowledge.facts[fact]?.source, m.teller]).filter(([at, by]) => at?.kind === "quest" && by === at.actorId).map(([at]) => at.actorId)
+      ]);
       delete a.heard;
     }
   }

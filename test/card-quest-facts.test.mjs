@@ -133,6 +133,7 @@ describe("quest facts", () => {
     news(w, KNOWLEDGE_FACT_LIMIT);
     expect(w.knowledge.facts[Q]).toBeUndefined();
     expect(valid(w)).toBe(true);
+    expect(questOwners(w, "vale")).toEqual(["moth"]);
   });
 
   it("share the protected cap, which trims a card that came back", () => {
