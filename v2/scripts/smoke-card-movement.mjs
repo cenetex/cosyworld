@@ -4,6 +4,7 @@ import {
   readyActionButton,
   revealCard,
   selectCard,
+  settleHand,
   startNewGame,
 } from "./card-browser-helpers.mjs";
 import assert from "node:assert/strict";
@@ -250,7 +251,8 @@ try {
         (speaks) =>
           speaks
             ? document.querySelector("#dialogue-text .revealed")
-            : document.querySelector("#hand").dataset.cooling === "false" &&
+            : (document.querySelector("#hand").dataset.cooling === "false" ||
+                document.querySelector("#speech-hint").textContent === "Tap to continue") &&
               !document.querySelector("#cast .entering") &&
               Number(
                 getComputedStyle(document.querySelector("#travel")).opacity,
@@ -261,6 +263,7 @@ try {
         window.movementCheck.active = false;
         return window.movementCheck;
       });
+      if (!speaks) await settleHand(page);
       report.animations = captured.animations;
       const pondImage = await page.evaluate(async () =>
         (await import("/card-game/images.mjs")).imageUrl("./assets/pond.png"),

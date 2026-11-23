@@ -48,6 +48,8 @@
     "smoke-card-sleep-dream": 90,
     "smoke-card-wait-sail": 20,
     "smoke-card-content": 25,
+    "smoke-card-dialogue-presentation": 90,
+    "smoke-card-pip": 60,
     "smoke-card-floor-items": 15,
     "smoke-card-read": 15,
     "smoke-card-stage-fill": 250,
