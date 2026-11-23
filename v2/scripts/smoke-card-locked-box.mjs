@@ -276,7 +276,7 @@ try {
         assert.equal(questLid.near, "false");
         assert.equal(questLid.art, "hidden");
       }
-      const edges = await page.locator(".quest-edge, .quest-fold, .place-edge").all();
+      const edges = await page.locator(".quest-edge, .quest-fold:not([data-owner]), .place-edge").all();
       assert(edges.length > 0, "the hand contains folded card layers");
       for (const edge of edges) {
         const back = await edge.evaluate((el) => getComputedStyle(el).getPropertyValue("--card-back"));

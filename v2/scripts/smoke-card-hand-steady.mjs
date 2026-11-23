@@ -106,7 +106,7 @@ try {
           if (change.target.matches(".want-card") && change.target.dataset.revealing) window.questTurns++;
       }).observe(document.querySelector("#hand"), { subtree: true, attributeFilter: ["data-revealing"] });
     });
-    const fold = page.locator("#hand .quest-fold");
+    const fold = page.locator("#hand .quest-fold:not([data-owner])");
     if (await fold.isVisible()) await fold.dispatchEvent("click");
     else await tapCard(page.locator('#hand [data-quest-id="quest:0"].want-card'));
     await page.waitForFunction(() =>
@@ -155,7 +155,7 @@ try {
     assert.deepEqual((await hand(page)).chosen.sort(), ["greek-road-thebes", "lamp"]);
     await playAndHear("move", "The road is warm under the lamp.", "move");
     await page.keyboard.press("Escape");
-    await page.locator("#hand .quest-fold").dispatchEvent("click");
+    await page.locator("#hand .quest-fold:not([data-owner])").dispatchEvent("click");
     await page.waitForTimeout(800);
     assert.equal(
       await page.locator('#hand [data-quest-id="quest:0"].want-card').getAttribute("data-unrevealed"),
