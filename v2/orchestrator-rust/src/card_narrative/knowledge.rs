@@ -59,6 +59,9 @@ pub(super) fn directions(context: &Context, id: &str) -> Vec<String> {
         .iter()
         .filter(|fact| fact.speaker == id)
         .map(|fact| {
+            if fact.fact_id.starts_with("claim:") {
+                return fact.text.clone();
+            }
             spoken(
                 &fact.text,
                 &super::name(&fact.speaker),
@@ -527,6 +530,15 @@ mod tests {
         ] {
             assert_eq!(past(verb, "I"), told, "{verb}");
         }
+    }
+
+    #[test]
+    fn a_told_claim_keeps_its_authors_words() {
+        let mut context = vale_saw("The writ lets him pass.");
+        assert_eq!(directions(&context, "vale"), ["The writ let him pass."]);
+        context.disclosures[0].fact_id = "claim:greek-drama:greek-creon-writ:gate".into();
+        assert!(valid(&context));
+        assert_eq!(directions(&context, "vale"), ["The writ lets him pass."]);
     }
 
     #[test]

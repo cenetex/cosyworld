@@ -662,6 +662,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       facts.push(
         `At the dialogue scene: ${present.map(nameOf).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf).join(", ") || "none"}.`,
       );
+      const scene = [location, ...present, ...localItems];
       facts.splice(
         facts.indexOf(null),
         1,
@@ -671,9 +672,10 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           nameOf,
           told(id),
           Math.max(2, 17 - facts.length),
+          scene,
         ),
       );
-      const lore = lorePages(world, id, [location, ...present, ...localItems]);
+      const lore = lorePages(world, id, scene);
       return {
         id,
         poem: recitalContext(world, packDefinitions, id),

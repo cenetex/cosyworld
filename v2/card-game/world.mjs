@@ -80,6 +80,7 @@ import {
   witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
+import { authoredClaim } from "./claims.mjs";
 import {
   knownActors as readKnownActors,
   installWants,
@@ -477,7 +478,6 @@ export function installRouteKnowledge(s) {
       rememberRoutes(s, actor, visibleRouteEdges(s.actors[actor].place));
     }
 }
-// Item lookups live in world/items.mjs (#1390).
 import {
   rootHolder,
   itemPlace,
@@ -943,7 +943,6 @@ function commitTopicChoice(s, told) {
     locationId: s.actors[told.listener].place,
   });
 }
-// Lane facts and the ships that tell them live in world/lanes.mjs (#1390).
 import {
   laneTalkFacts,
   laneFact,
@@ -3621,6 +3620,7 @@ export function validateWorld(s) {
       Object.keys(places),
       authoredKnowledgeTopics(),
       laneFactText,
+      authoredClaim,
     )
   )
     fail("knowledge");

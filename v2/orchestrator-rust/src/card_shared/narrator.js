@@ -1742,6 +1742,13 @@
   var KNOWLEDGE_PERSON_LIMIT = KNOWLEDGE_FACT_LIMIT;
   var KNOWLEDGE_PENDING_LIMIT = 32;
   var FACT_TEXT_LIMIT = 180;
+  var PROTECTED_FACT_LIMIT = KNOWLEDGE_FACT_LIMIT / 2;
+  var PROTECTED_KINDS = /* @__PURE__ */ new Set(["topic", "claim"]);
+  var READ_KINDS = /* @__PURE__ */ new Set(["claim"]);
+  var CLAIM_KEYS = ["book", "claim", "author", "about"];
+  var MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
+  var READ_KEYS = [...MEMORY_KEYS, "book"];
+  var protectedFact = (fact) => PROTECTED_KINDS.has(fact.source.kind);
   var owns = (o, key2) => typeof key2 === "string" && !!o && Object.hasOwn(o, key2);
   var record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   var safeId = (v) => typeof v === "string" && v.length > 0 && v.length <= 160 && !["__proto__", "prototype", "constructor"].includes(v) && !/[\u0000-\u0020\u007f]/u.test(v);
@@ -1769,7 +1776,7 @@
       text: world.knowledge.facts[p.factId].text
     }));
   }
-  function knowledgeFacts(world, actor, nameOf3 = (id) => id, priority = [], limit = 2) {
+  function knowledgeFacts(world, actor, nameOf3 = (id) => id, priority = [], limit = 2, scene = []) {
     const known = world.knowledge?.known?.[actor] || {};
     const learned = (fact) => known[fact.id].learnedTurn ?? fact.source.turn;
     const first = (a, b) => priority.includes(b.id) - priority.includes(a.id);
@@ -1778,10 +1785,26 @@
       (a, b) => first(a, b) || learned(b) - learned(a) || compareFacts(a, b)
     ).slice(0, limit);
     const seen = facts.filter((fact) => known[fact.id].kind === "witnessed").sort((a, b) => first(a, b) || compareFacts(a, b)).slice(0, Math.min(2, limit - told.length));
-    return [...told, ...seen].sort(first).map((fact) => {
+    const near = (fact) => scene.includes(fact.source.about);
+    const read2 = facts.filter((fact) => known[fact.id].kind === "read").sort(
+      (a, b) => first(a, b) || near(b) - near(a) || learned(b) - learned(a) || compareFacts(a, b)
+    ).slice(0, Math.min(2, limit - told.length - seen.length));
+    return [...told, ...seen, ...read2].sort(first).map((fact) => {
       const memory = known[fact.id];
-      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
       const age = world.turn - (memory.learnedTurn ?? fact.source.turn);
+      if (fact.source.kind === "claim") {
+        const author = nameOf3(fact.source.author);
+        const from = `${nameOf3(fact.source.book)}, by ${author}`;
+        const [whole6, short] = memory.kind === "read" ? [
+          `I read this ${ageText(age)} in ${from}: ${fact.text}`,
+          `I read what ${author} wrote: ${fact.text}`
+        ] : [
+          `${nameOf3(memory.teller)} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
+          `${nameOf3(memory.teller)} told me what ${author} wrote: ${fact.text}`
+        ];
+        return (whole6.length <= 240 ? whole6 : short).slice(0, 240);
+      }
+      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
       const place = fact.source.kind === "topic" ? null : fact.source.locationId;
       const where = place && !fact.text.includes(nameOf3(place)) ? ` at ${nameOf3(place)}` : "";
       const stale2 = fact.source.kind === "event" && age >= STALE_TURNS ? " Things may have changed since." : "";
@@ -1795,7 +1818,7 @@
   var GRIEVANCE_DORMANT_TURNS = 24;
   var grievanceActive = (world, g) => !g.repaired && world.turn - (g.lastTouched ?? g.turn) < GRIEVANCE_DORMANT_TURNS;
   var ageText = (turns) => turns <= 1 ? "just now" : turns < STALE_TURNS ? "a little while ago" : turns <= 20 ? "some time ago" : "long ago";
-  function validKnowledge(world, actors2, places2, topics = [], laneText = () => null) {
+  function validKnowledge(world, actors2, places2, topics = [], laneText = () => null, claimOf = () => null) {
     const k = world.knowledge;
     if (k === void 0) return true;
     if (!fields(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
@@ -1812,8 +1835,11 @@
         "locationId",
         "witnesses",
         "topic",
-        ...s.kind === "repair" ? ["answers"] : []
-      ]) || !["event", "topic", "ending", "lane", "repair"].includes(s.kind) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !actors2.includes(s.actorId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
+        ...s.kind === "repair" ? ["answers"] : [],
+        ...s.kind === "claim" ? CLAIM_KEYS : []
+      ]) || !["event", "topic", "ending", "lane", "repair", "claim"].includes(
+        s.kind
+      ) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !actors2.includes(s.actorId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
         (a, i) => !actors2.includes(a) || i && s.witnesses[i - 1] >= a
       ))
         return false;
@@ -1827,6 +1853,10 @@
         if (laneText(id) !== fact.text || s.topic !== null) return false;
       } else if (s.kind === "ending") {
         if (!/^ending:./u.test(id) || s.topic !== null) return false;
+      } else if (s.kind === "claim") {
+        const claim = claimOf(id);
+        if (s.topic !== null || claim?.text !== fact.text || CLAIM_KEYS.some((key2) => claim[key2] !== s[key2]))
+          return false;
       } else {
         if (!fields(s.topic, ["packId", "id", "choiceId"])) return false;
         const topic = topics.find(
@@ -1836,12 +1866,14 @@
           return false;
       }
     }
+    if (Object.values(k.facts).filter(protectedFact).length > PROTECTED_FACT_LIMIT)
+      return false;
     for (const [actor, known] of Object.entries(k.known)) {
       if (!actors2.includes(actor) || !record(known) || Object.keys(known).length > KNOWLEDGE_PERSON_LIMIT)
         return false;
       for (const [id, m] of Object.entries(known)) {
         const fact = k.facts[id];
-        if (!owns(k.facts, id) || !fields(m, ["kind", "teller", "eventSeq", "learnedTurn"]) || !["witnessed", "heard"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "witnessed" ? m.teller !== null || !fact.source.witnesses.includes(actor) : !actors2.includes(m.teller) || m.teller === actor))
+        if (!owns(k.facts, id) || !fields(m, m?.kind === "read" ? READ_KEYS : MEMORY_KEYS) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || fact.source.kind === "claim" && m.book !== fact.source.book : fact.source.kind === "claim")))
           return false;
       }
     }
@@ -1858,7 +1890,8 @@
       ]) || !owns(k.facts, p.factId) || !actors2.includes(p.speaker) || !actors2.includes(p.listener) || p.speaker === p.listener || !knowsFact(world, p.speaker, p.factId) || !whole(p.eventSeq, world.eventSeq) || p.eventSeq < 1 || !whole(p.turn, world.turn) || typeof p.commitChoice !== "boolean" || !places2.includes(p.locationId))
         return false;
       const learned = k.known[p.speaker][p.factId];
-      if (learned.kind === "heard" && learned.learnedTurn >= p.turn) return false;
+      if (learned.kind !== "witnessed" && learned.learnedTurn >= p.turn)
+        return false;
       const fact = k.facts[p.factId];
       if (p.commitChoice && (fact.source.kind !== "topic" || !fact.source.topic.choiceId || p.speaker !== fact.source.actorId || p.locationId !== fact.source.locationId))
         return false;
@@ -20215,6 +20248,21 @@
     );
   }
 
+  // v2/card-game/claims.mjs
+  var bookClaims = (packId, book) => {
+    const pack = packDefinitions.find((p) => p.id === packId);
+    const item = Object.hasOwn(pack?.items || {}, book) ? pack.items[book] : {};
+    return (item.claims || []).map((claim) => ({
+      id: `claim:${packId}:${book}:${claim.id}`,
+      text: claim.text,
+      book,
+      claim: claim.id,
+      author: item.author,
+      about: claim.about ?? null
+    }));
+  };
+  var authoredClaim = (id) => bookClaims(...id.split(":").slice(1, 3)).find((c) => c.id === id) || null;
+
   // v2/card-game/world-life.json
   var world_life_default = {
     defaults: {
@@ -21296,7 +21344,8 @@
       actorIds,
       Object.keys(places),
       authoredKnowledgeTopics(),
-      laneFactText
+      laneFactText,
+      authoredClaim
     ))
       fail("knowledge");
     if (s.sharedMigration !== void 0) {
@@ -23001,6 +23050,7 @@
         facts.push(
           `At the dialogue scene: ${present.map(nameOf2).join(", ")}. Items here: ${localItems.filter((item) => visibleItem(world, id, item, location)).map(nameOf2).join(", ") || "none"}.`
         );
+        const scene = [location, ...present, ...localItems];
         facts.splice(
           facts.indexOf(null),
           1,
@@ -23009,10 +23059,11 @@
             id,
             nameOf2,
             told(id),
-            Math.max(2, 17 - facts.length)
+            Math.max(2, 17 - facts.length),
+            scene
           )
         );
-        const lore = lorePages(world, id, [location, ...present, ...localItems]);
+        const lore = lorePages(world, id, scene);
         return {
           id,
           poem: recitalContext(world, packDefinitions, id),
