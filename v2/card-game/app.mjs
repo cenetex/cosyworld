@@ -135,6 +135,7 @@ import {
   placeLight,
 } from "./stage-light.mjs";
 import { asleepView, createSleepView } from "./sleep-view.mjs";
+import { createReadView } from "./read-view.mjs";
 import { DREAMING_LABEL, DREAM_TIER, withDream } from "./dream-card.mjs";
 import { arcanumArt, paintGlimpse } from "./glimpse-card.mjs";
 import { isArcanum } from "./world/arcana-record.mjs";
@@ -280,7 +281,6 @@ import {
   asleepReason,
   settledChoice,
 } from "./cards.mjs";
-// A person's want reaches the player through Talk context (want-talk.mjs).
 // The hand holds people, items and places, and the player's quest cards.
 const $ = (id) => document.getElementById(id);
 const {
@@ -1122,6 +1122,7 @@ function updateSpeechControls(complete) {
   hint.textContent = waitingLine ? "Thinking…" : cue.hint;
   hint.hidden = button.hidden || !hint.textContent;
 }
+const readView = createReadView({ opened: () => pauseSpeech() });
 const sleepView = createSleepView({
   stage: $("stage"),
   speechRow: $("speech-row"),
@@ -5038,6 +5039,7 @@ function render() {
   // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
   sleepView.observe(world, currentActor(world));
+  readView.observe(world, currentActor(world));
   music.setRoom(
     world.actors[currentActor(world)].place,
     locationDaylight(world, world.actors[currentActor(world)].place)?.phase ||
@@ -5197,14 +5199,12 @@ function render() {
     if (sameWorld) {
       const shown = [...$("hand").children].filter((frame) => !frame.hidden);
       for (const frame of $("hand").children) updateCardSelection(frame);
-      // A stack folding shows its cards folding away (card-exit.mjs).
       foldCards(
         shown.filter((frame) => frame.hidden && frame.isConnected),
         handExits(),
         reducedMotion.matches,
       );
     } else {
-      // A card still in the hand keeps its node (card-keep.mjs).
       const row = [...$("hand").children],
         { frames, changed, faces } = keepFrames(
           row,
