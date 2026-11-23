@@ -295,7 +295,7 @@ export function readClaim(world, reader, claim, entry) {
     },
   });
   if (!fact) return null;
-  fact.source.witnesses = [...fact.source.witnesses, reader].sort();
+  fact.source.witnesses = [...new Set([...fact.source.witnesses, reader])].sort();
   remember(world, reader, fact, "read", null, entry.seq, entry.turn);
   world.knowledge.known[reader][id].book = said.book;
   return fact;

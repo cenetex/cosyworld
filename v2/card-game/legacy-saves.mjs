@@ -75,7 +75,6 @@ export function carryLocalProgress(world, old) {
 export function upgradeSave(s, { installPacks, laneText = () => null }) {
   if (!s || s.schema !== SAVE_SCHEMA)
     throw new Error("This save needs a fresh start.");
-  // Packs saved at an earlier revision follow their reworked story below.
   const reworked = new Set(
     packDefinitions
       .filter((p) => {
@@ -103,7 +102,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     else if (reworked.size) forgetFact(s.knowledge, id);
   }
   reconcileTopics(s, reworked);
-  reconcileClaims(s, reworked);
+  reconcileClaims(s);
   for (const pack of packDefinitions)
     if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
   return s;
@@ -318,12 +317,11 @@ export function reconcileTopics(s, reworked) {
     forgetFact(k, id);
   }
 }
-// A read claim of a reworked pack follows its book's current words, author
-// and subject. One whose book or claim the content retired is forgotten.
-export function reconcileClaims(s, reworked) {
+// A read claim follows its book's current words, author and subject at any
+// pack revision. One whose book or claim content retired is forgotten.
+export function reconcileClaims(s) {
   for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
-    if (fact?.source?.kind !== "claim" || !reworked.has(id.split(":")[1]))
-      continue;
+    if (fact?.source?.kind !== "claim") continue;
     const claim = authoredClaim(id);
     if (!claim) forgetFact(s.knowledge, id);
     else {

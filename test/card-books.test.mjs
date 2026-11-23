@@ -70,6 +70,14 @@ describe("the read play", () => {
     expect(offers(w, WRIT)).toContain("read");
   });
 
+  it("lets a reader whose memory was reset read the book again", () => {
+    let w = read(at({ [WRIT]: "vale" }));
+    delete w.knowledge.known.vale;
+    w = read(w);
+    expect(knows(w, "vale", claim(WRIT))).toBe("read");
+    expect(w.knowledge.facts[claim(WRIT)].source.witnesses).toEqual(["vale"]);
+  });
+
   it("uses up a spent book once it is read", () => {
     items[WRIT].lifecycle = "spent";
     const w = read(at({ [WRIT]: "vale" }));
@@ -163,14 +171,17 @@ describe("book schema", () => {
   });
 });
 
-describe("a save from an earlier pack revision", () => {
+describe("a save from before a claim changed", () => {
   const older = (w) => {
     const s = JSON.parse(encodeSave(w));
     s.packs["greek-drama"].revision -= 1;
     return JSON.stringify(s);
   };
-  it("follows a reworded claim and a new author, and forgets a retired one", () => {
-    const saved = older(read(at({ [WRIT]: "vale" })));
+  it.each([
+    ["an earlier", older],
+    ["the same", encodeSave],
+  ])("follows a reworded claim and a new author, and forgets a retired one, at %s pack revision", (_, save) => {
+    const saved = save(read(at({ [WRIT]: "vale" })));
     items[WRIT].claims[0].text = "The gate opens only for the king.";
     items[WRIT].author = "greek-guard";
     const fact = decodeSave(saved).knowledge.facts[claim(WRIT)];
