@@ -1,27 +1,30 @@
 /**
  * Copyright (c) 2019-2025 Cenetex Inc.
  * Licensed under the MIT License.
- * 
- * @file vitest.config.js
- * @description Vitest test configuration for CosyWorld
  */
 
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { DurationSequencer } from './test/helpers/duration-sequencer.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// These share module state with other files, so each gets fresh modules.
+const ISOLATED = [
+  'test/card-dialogue-funding.test.mjs',
+  'test/card-lane-token.test.mjs',
+  'test/card-live-gate.test.mjs',
+  'test/card-one-way-pack.test.mjs',
+  'test/card-shared-open-retry.test.mjs',
+  'test/card-store-fetch.test.mjs',
+];
+
 export default defineConfig({
   test: {
-    // Test environment
     environment: 'node',
-    
-    // Global test setup
     globals: true,
-    
-    // Coverage configuration
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],
@@ -44,33 +47,38 @@ export default defineConfig({
       branches: 10,
       statements: 10,
     },
-    
-    // Test file patterns
-    include: [
-      'test/**/*.test.{js,mjs}',
-    ],
-    
-    // Test timeout (10 seconds)
     testTimeout: 10000,
-    
     hookTimeout: 10000,
-    
-    // Mocking
     mockReset: true,
     restoreMocks: true,
     clearMocks: true,
-    
-    // Keep room for native and browser checks alongside the larger game suite.
-    maxWorkers: 2,
+    pool: 'forks',
+    poolOptions: { forks: { isolate: false } },
+    maxWorkers: '100%',
     minWorkers: 1,
-    
-    // Retry failed tests once
+    sequence: { sequencer: DurationSequencer },
     retry: 1,
-    
-    // Setup files
     setupFiles: ['./test/setup.mjs'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'shared',
+          include: ['test/**/*.test.{js,mjs}'],
+          exclude: [...configDefaults.exclude, ...ISOLATED],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'isolated',
+          include: ISOLATED,
+          poolOptions: { forks: { isolate: true } },
+        },
+      },
+    ],
   },
-  
+
   resolve: {
     alias: {
       '@test': path.resolve(__dirname, './test'),
