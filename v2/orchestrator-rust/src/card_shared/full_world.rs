@@ -181,6 +181,7 @@ impl World {
                 engine::HUNDRED_NINETY_SIXTH_VERSION,
                 engine::HUNDRED_NINETY_SEVENTH_VERSION,
                 engine::HUNDRED_NINETY_EIGHTH_VERSION,
+                engine::HUNDRED_NINETY_NINTH_VERSION,
                 engine::VERSION,
             ];
             let allowed = versions
@@ -281,6 +282,7 @@ impl World {
             engine::HUNDRED_NINETY_SIXTH_VERSION,
             engine::HUNDRED_NINETY_SEVENTH_VERSION,
             engine::HUNDRED_NINETY_EIGHTH_VERSION,
+            engine::HUNDRED_NINETY_NINTH_VERSION,
         ]
         .contains(&self.version.as_str())
         {

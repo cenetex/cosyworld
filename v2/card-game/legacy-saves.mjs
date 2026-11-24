@@ -332,6 +332,9 @@ export function reconcileClaims(s) {
     else {
       fact.text = claim.text;
       Object.assign(fact.source, { author: claim.author, about: claim.about });
+      for (const known of Object.values(s.knowledge.known || {}))
+        if (known?.[id]?.status !== undefined && known[id].status !== claim.settles)
+          delete known[id].status;
     }
   }
 }

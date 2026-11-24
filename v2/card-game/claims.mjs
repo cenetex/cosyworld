@@ -1,4 +1,13 @@
-import { committedChoiceText, packDefinitions, packThings } from "./pack-registry.mjs";
+import {
+  choiceText,
+  committedChoiceText,
+  conditionsMet,
+  entityActive,
+  packDefinition,
+  packDefinitions,
+  packEntity,
+  packThings,
+} from "./pack-registry.mjs";
 import { knowsFact, readClaim, validFactText } from "./knowledge.mjs";
 import { giveUpForGood } from "./world/for-good.mjs";
 
@@ -51,7 +60,7 @@ export const savedClaim = (s, id, fact) => {
     (recorded(s, packId, book).includes(choice)
       ? record(packId, book, choice, fact?.text)
       : null);
-  return claim?.id === id ? claim : null;
+  return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
 };
 export const claimsIn = (book, s) => {
   const packId = packThings[book]?.packId;
@@ -86,4 +95,69 @@ export function residentRead(s, id, human, actionsOf) {
   )
     return null;
   return actionsOf().find((a) => a.kind === "read" && books.includes(a.item));
+}
+
+export const claimTruth = (packId, about) => {
+  const keys = (packDefinition(packId)?.continuity?.groups || []).map((g) => g.key);
+  return (packEntity(about)?.requires || []).filter(
+    (c) => c.kind === "choice" && keys.includes(c.key),
+  );
+};
+function settles(s, id, about) {
+  const packId = id.split(":")[1],
+    truth = claimTruth(packId, about),
+    chosen = s.packs?.[packId]?.choices || {};
+  if (!truth.length || truth.some((c) => !Object.hasOwn(chosen, c.key))) return null;
+  return conditionsMet(s, packId, truth) ? "confirmed" : "disproved";
+}
+function sawBranch(s, actor, packId, key) {
+  const { choices, receipts } = s.packs[packId],
+    known = s.knowledge.known[actor],
+    here = s.actors[actor].place;
+  const onBranch = (id) =>
+    (packEntity(id)?.requires || []).some(
+      (c) => c.kind === "choice" && c.key === key && c.value === choices[key],
+    );
+  const commit = packDefinition(packId).choices.find(
+    (c) =>
+      Object.hasOwn(receipts, c.id) &&
+      c.effects.some(
+        (e) => e.kind === "choose" && e.key === key && e.value === choices[key],
+      ),
+  );
+  const sawCommit = (id) => {
+    const f = s.knowledge.facts[id];
+    return (
+      known[id].kind === "witnessed" &&
+      f?.source.kind === "event" &&
+      f.source.turn === receipts[commit.id] &&
+      f.source.locationId === commit.at &&
+      f.text === choiceText(commit, f.source.actorId)
+    );
+  };
+  return (
+    onBranch(here) ||
+    Object.keys(s.actors).some(
+      (id) => s.actors[id].place === here && onBranch(id) && entityActive(s, id),
+    ) ||
+    (!!commit && Object.keys(known).some(sawCommit))
+  );
+}
+export function settleClaims(s) {
+  const { facts = {}, known = {} } = s.knowledge || {};
+  for (const fact of Object.values(facts)) {
+    const status = fact.source.kind === "claim" && settles(s, fact.id, fact.source.about);
+    if (!status) continue;
+    const packId = fact.id.split(":")[1];
+    for (const [actor, memory] of Object.entries(known))
+      if (
+        memory[fact.id] &&
+        !memory[fact.id].status &&
+        entityActive(s, actor) &&
+        claimTruth(packId, fact.source.about).every((c) =>
+          sawBranch(s, actor, packId, c.key),
+        )
+      )
+        memory[fact.id].status = status;
+  }
 }

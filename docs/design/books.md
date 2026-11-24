@@ -13,6 +13,7 @@ This design replaces the holder-context lore of rules 186 (#3077). It covers eve
 - Every text item is accounted for. That includes the writ, the burial decree, petitions, accounts, records, tablets, labels, slips and maps as well as the six lore books.
 - A book a character finds becomes something that avatar remembers. The knowledge outlives the object and can be told on, so books that disagree leave their readers disagreeing.
 - Packs carry no hand-authored prose. Narration is text a language model generates, so a book is not pages of prose.
+- Claims that contradict each other belong to different branches of the story (2026-11-24). Truth follows the world's branch, not canon, and a character learns it only by witnessing (see Branch truth).
 - The holder-context design of rules 186 (#3077) is replaced, not extended. Under it, pages reach the prompt by custody and nobody remembers them. The design returns to the principle of #1629 (2026-10-31): lore lives in books that are found and read, and nothing is injected.
 
 The proposals were accepted on 2026-11-23, with the defaults under Open questions. Held item text is removed (open question 9).
@@ -103,6 +104,16 @@ Proposal. A book lies face down where content puts it: in a place or at a seeded
 - Each pack puts at least one book in a fixed spot, so rare never means none.
 
 Why. Skyrim's skill books are rare because they are placed by hand and never appear as random loot ([UESP](https://pt.uesp.net/wiki/Skyrim:Skill_Books)). Harvey Smith argues that some things must be missable for finding them to mean anything ([Nieman Storyboard](https://niemanstoryboard.org/2011/01/14/harvey-smith-on-environmental-storytelling-and-embedding-narrative/)), and Henry Jenkins that essential story information must be presented redundantly across spaces and artifacts ([Jenkins](https://web.mit.edu/~21fms/People/henry3/games&narrative.html)).
+
+## Branch truth
+
+Decided on 2026-11-24 and built in rules 200 (`card-game/claims.mjs`).
+
+- **The condition comes from the claim's subject.** A claim's truth condition is the `choice` conditions on the pack's `continuity.groups` that its `about` entity `requires`. Helen's Egypt claim is about Proteus's Tomb, which requires `greek-helen-account: egypt`. Authors write no separate condition, so a claim can never name one branch while its subject exists on another. A claim whose subject carries no branch condition stays a plain claim.
+- **Open, true or false.** A claim is open while its branch is uncommitted, true once the condition holds and false once the branch has committed elsewhere. In a world committed to Egypt the tablet's Troy claim is false, and in one committed to Euripides the Atreid record's tomb and palace claims are.
+- **Learned only by witnessing.** Reading and hearing still teach every claim as a belief. A character settles a claim it knows by being present at the play that commits the branch, while it still remembers that event, or by standing later at a place, or with a resident, that exists only on the committed branch. Nobody is told the truth, and telling a settled claim passes on only the claim.
+- **Memory.** The memory gains `status: "confirmed"` or `"disproved"`, on read and heard claims alike. Validation accepts a status only when it agrees with the branch as the world has it. No status means a belief, so older saves load unchanged. On load, a status whose claim no longer has that truth is dropped.
+- **Narration.** "I read this in Helen's Account Tablet, by The Bard, and I know it is true: …" for a confirmed claim, and "I read in Helen's Account Tablet, by The Bard, that …; it was wrong." for a disproved one, with shorter forms that keep within the 240-character line cap.
 
 ## Every text item
 
@@ -196,7 +207,7 @@ Proposal. Each step is one PR under the 400-line budget (`scripts/change-budget.
 2. **Books and the read play.** Schema for `author`, `claims` and `lifecycle`. The read play for avatars and residents, with its budget. The #3077 exclusions lifted for claim books. A Read view that shows the claims.
 3. **The River Notebook.** Claims replace the passages, the notebook lies face down at a fixed spot, the page art goes into the Read view, the save step is added and the smoke's camp-floor expectation is updated again.
 4. **The lore path removed.** `lorePages`, the `LORE_*` constants, `Entity.lore` handling, `lore.rs` and the caption lines go. So do the five Greek books, with the Cargo List reduced or dropped. Tests are updated.
-5. **Text items teach claims.** Claims for the writs, decrees, petitions, tablets, records and labels. The Burial Account and the Hoppy Cat writables write theirs from play, and characters can write down what they know.
+5. **Text items teach claims.** Claims for the writs, decrees, petitions, tablets, records and labels. The Burial Account and the Hoppy Cat writables write theirs from play, and characters can write down what they know. Step 5c settles claims on different branches by witnessing, as under Branch truth.
 6. **Canon outside lore.** Held item text, the 37 topics and the Discord route, as decided under open question 9 and the proposals above. This may take two PRs.
 
 ## Open questions
