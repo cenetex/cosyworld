@@ -179,9 +179,6 @@ describe("deploy workflow", () => {
     expect(rustLint).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustLint).toContain("bash v2/scripts/check-main-size.sh");
     expect(rustLint).toContain("bash v2/scripts/check-rust-lint.sh");
-    expect(rustLint).toContain(
-      "needs: [dev-deploy, deployment-impact, release-owner]",
-    );
     expect(gate).toContain(
       "needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]",
     );
@@ -231,23 +228,16 @@ describe("deploy workflow", () => {
     expect(dev).not.toContain("lonelyforest");
     expect(dev).not.toContain("FLY_LONELYFOREST_API_TOKEN");
 
-    // Tags and dispatches keep the Node and Rust gates and the backup. All
-    // three also run after a train's rollout, so a version-bump tag of that
-    // commit reuses the Rust passes. The train never waits for them.
+    // The gates run only for tags and production dispatches, never after a
+    // train, so no train holds the .dev group for them.
     for (const rust of [nodeGate, rustGate, rustLint]) {
       expect(rust).toContain(
-        "needs: [dev-deploy, deployment-impact, release-owner]",
+        "needs: [deployment-impact, release-owner]\n    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'\n",
       );
-      expect(rust).toContain("!cancelled() &&");
-      expect(rust).toContain(
-        `needs.release-owner.outputs.owns == 'true' &&\n        ${fullRelease}) ||`,
-      );
-      expect(rust).toContain(
-        "(needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true')",
-      );
+      expect(rust).not.toContain("dev-deploy");
     }
     expect(gate).toContain(`if: \${{ always() && ${fullRelease} }}`);
-    expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
+    expect(gate).not.toContain("FULL_RELEASE");
     expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
     expect(primaryBackup).toContain(
       "(github.event_name == 'workflow_dispatch' &&\n        (inputs.target == 'both' || inputs.target == 'primary'))",
