@@ -493,7 +493,15 @@
       "text": "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
       "persona": "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
       "holder": "hoppycat-goldfish-tank",
-      "art": "assets/hoppycat-archive/hoppycat-concordance-compass-cutout.png"
+      "art": "assets/hoppycat-archive/hoppycat-concordance-compass-cutout.png",
+      "author": "hoppycat-rill-current",
+      "claims": [
+        {
+          "id": "two-stops",
+          "text": "The route runs by the Signal Jetty and the Halfway Tea Garden.",
+          "about": "hoppycat-signal-jetty"
+        }
+      ]
     },
     "hoppycat-meraki-brush": {
       "name": "Mira's Worn Brush",

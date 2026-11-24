@@ -6,7 +6,6 @@ const itemOf = (packId, book) => {
   const pack = packDefinitions.find((p) => p.id === packId);
   return Object.hasOwn(pack?.items || {}, book) ? pack.items[book] : {};
 };
-// A book's claims as knowledge keeps them, each id claim:<pack>:<book>:<claim>.
 export const bookClaims = (packId, book) => {
   const item = itemOf(packId, book);
   return (item.claims || []).map((claim) => ({

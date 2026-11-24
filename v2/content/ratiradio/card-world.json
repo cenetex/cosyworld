@@ -147,7 +147,15 @@
           "value": true
         }
       ],
-      "recoverTo": "pond"
+      "recoverTo": "pond",
+      "author": "ratiradio-rati",
+      "claims": [
+        {
+          "id": "staff",
+          "text": "This brass key is for the station's staff.",
+          "about": "ratiradio-staff-kitchen"
+        }
+      ]
     },
     "ratiradio-red-beanie": {
       "name": "Red Beanie",
@@ -224,6 +232,14 @@
           "kind": "flag",
           "key": "rati-awake",
           "value": true
+        }
+      ],
+      "author": "ratiradio-rati",
+      "claims": [
+        {
+          "id": "lost-property",
+          "text": "The red beanie, ceramic raven and glass were lost beyond the station and belong in the Listening Room.",
+          "about": "ratiradio-listening-room"
         }
       ]
     },
