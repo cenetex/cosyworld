@@ -66,7 +66,7 @@ import {
   travelFrames,
   tuckFrames,
 } from "./card-travel.mjs";
-import { keepFrames, morphFrame } from "./card-keep.mjs";
+import { keepFrames, morphFrame, syncTier } from "./card-keep.mjs";
 import {
   SWAP_REDUCED_MS,
   fadeFaces,
@@ -3680,9 +3680,7 @@ function questFrame({ id, quest }) {
   applyPackFrame(frame, id);
   return frame;
 }
-// Choosing the quest takes no turn: the quest alone is the choice, beside
-// its avatar's stack.
-function openQuest(id = entryIdOf(foldQuest())) {
+function openQuest(id = entryIdOf(foldQuest()), focus = false) {
   if (selectionBlocked()) return;
   if (reviewing) returnToLive();
   queueChoice();
@@ -3694,6 +3692,7 @@ function openQuest(id = entryIdOf(foldQuest())) {
   expandedHolders.add(currentActor(world));
   rowCollapsed = false;
   render();
+  if (focus) $("hand").querySelector(`.want-card[data-quest-id="${id}"]`)?.focus({ preventScroll: true });
   const quest = questEntry(id)?.quest;
   if (quest && questsInView.down(questFaceKey(quest))) turnQuest(questFaceKey(quest));
 }
@@ -3745,7 +3744,7 @@ function questFold(owner) {
   fold.addEventListener("click", (event) => {
     event.stopPropagation();
     const id = owner && `offer:${owner}`;
-    if (!id || questEntry(id)) openQuest(id);
+    if (!id || questEntry(id)) openQuest(id, true);
     else if (!selectionBlocked() && !selected.includes(owner)) choose(owner);
   });
   return fold;
@@ -5223,7 +5222,7 @@ function render() {
         if (stayed && faces.length) fadeFaces(faces, handExits(), wait(faceAt));
       } else if (leaving.length) dissolveCards(leaving, handExits());
       Object.assign(closing, closeTiming(leaving.length, Boolean(swap)));
-      for (const [was, now] of changed) morphFrame(was, now, syncFigureFrame).querySelectorAll(":scope > .quest-fold").forEach(syncQuestFold);
+      for (const [was, now] of changed) syncTier(morphFrame(was, now, syncFigureFrame), now).querySelectorAll(":scope > .quest-fold").forEach(syncQuestFold);
       $("hand").replaceChildren(...frames);
       if (swap) swap.left += leaving.length;
     }
