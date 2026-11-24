@@ -9,7 +9,7 @@ export function questText(s, owner, want) {
   const step = said.step;
   const what = theName(said.target);
   if (step?.verb === "lay")
-    return `${who} wants ${step.items.map(nameOf).join(", ")} laid in ${nameOf(said.target)}.`;
+    return `${who} wants ${step.items.map(nameOf).join(", ")} ${said.target === owner ? "back" : `laid in ${nameOf(said.target)}`}.`;
   if (said.kind === "place")
     return `${who} wants to be at ${nameOf(said.target)}.`;
   if (said.kind === "person")

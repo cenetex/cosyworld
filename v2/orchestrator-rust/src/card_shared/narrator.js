@@ -1751,9 +1751,10 @@
   var MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
   var READ_KEYS = [...MEMORY_KEYS, "book"];
   var questFactId = (owner2, want) => `quest:${owner2}:${want.target}`;
+  var placeFactId = (place, item) => questFactId(place, { target: item });
   var liveQuest = (world, fact) => {
-    const want = world?.actors?.[fact.source.actorId]?.want;
-    return Boolean(want) && fact.id === questFactId(fact.source.actorId, want);
+    const owner2 = fact.source.actorId, card = world?.placeCard?.[owner2], want = world?.actors?.[owner2]?.want;
+    return card ? fact.id === placeFactId(owner2, card) : Boolean(want) && fact.id === questFactId(owner2, want);
   };
   var protectedFact = (fact, world) => PROTECTED_KINDS.has(fact.source.kind) && (fact.source.kind !== "quest" || liveQuest(world, fact));
   var owns = (o, key2) => typeof key2 === "string" && !!o && Object.hasOwn(o, key2);
@@ -1884,7 +1885,8 @@
   }
   function learnQuest(world, owner2, learner, { id, text: text2 }, entry) {
     installKnowledge(world);
-    if (!world.actors[owner2] || owner2 === learner || !entry.seq || !safeId(id) || !validQuestText(text2) || knowsFact(world, learner, id))
+    const seen = entry.at === owner2;
+    if (!(world.actors[owner2] || seen) || owner2 === learner || !entry.seq || !safeId(id) || !validQuestText(text2) || knowsFact(world, learner, id))
       return null;
     const fact = retainFact(world, {
       id,
@@ -1894,13 +1896,14 @@
         eventSeq: entry.seq,
         turn: entry.turn,
         actorId: owner2,
-        locationId: world.actors[owner2].place,
+        locationId: seen ? owner2 : world.actors[owner2].place,
         witnesses: [],
         topic: null
       }
     });
-    if (fact)
-      remember(world, learner, fact, "heard", owner2, entry.seq, entry.turn);
+    if (!fact) return null;
+    if (seen) fact.source.witnesses = [.../* @__PURE__ */ new Set([...fact.source.witnesses, learner])].sort();
+    remember(world, learner, fact, seen ? "witnessed" : "heard", seen ? null : owner2, entry.seq, entry.turn);
     return fact;
   }
   function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
@@ -2005,7 +2008,7 @@
         "repair",
         "claim",
         "quest"
-      ].includes(s.kind) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !actors2.includes(s.actorId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
+      ].includes(s.kind) || !whole(s.eventSeq, world.eventSeq) || s.eventSeq < 1 || !whole(s.turn, world.turn) || !(actors2.includes(s.actorId) || s.kind === "quest" && s.actorId === s.locationId) || !places2.includes(s.locationId) || !Array.isArray(s.witnesses) || s.witnesses.length > actors2.length || s.witnesses.some(
         (a, i) => !actors2.includes(a) || i && s.witnesses[i - 1] >= a
       ))
         return false;
@@ -18940,7 +18943,7 @@
     const step = said.step;
     const what = theName2(said.target);
     if (step?.verb === "lay")
-      return `${who} wants ${step.items.map(nameOf2).join(", ")} laid in ${nameOf2(said.target)}.`;
+      return `${who} wants ${step.items.map(nameOf2).join(", ")} ${said.target === owner2 ? "back" : `laid in ${nameOf2(said.target)}`}.`;
     if (said.kind === "place")
       return `${who} wants to be at ${nameOf2(said.target)}.`;
     if (said.kind === "person")

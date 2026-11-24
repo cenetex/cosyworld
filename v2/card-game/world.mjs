@@ -2282,13 +2282,13 @@ function residentRound(s, acted) {
 // played since the last Strike and none of those plays was one. A Strike
 // starts the round again; an arrival must play before it can complete.
 function perform(s, a, round = null, settle = []) {
-  const hands = handSnapshot(s);
+  const hands = handSnapshot(s), from = s.actors[a.actor].place;
   const stale = staleWants(s, actorIds, a.actor, wantAPI(s));
   settleCrossingUnlocks(s, sensesFor(s));
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);
   const result = performPlay(s, a, round, settle, hands, stale);
-  settlePlaceCards(s, a.actor, wantAPI(s));
+  settlePlaceCards(s, a.actor, wantAPI(s), from);
   settleLost(s, wantAPI(s), a);
   if (companionOf(s, a.actor) && controlledByHuman(s, a.actor))
     s.actors[a.actor].actedAt = s.turn;
