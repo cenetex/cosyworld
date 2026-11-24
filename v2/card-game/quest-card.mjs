@@ -1,8 +1,10 @@
 // The player's one quest, drawn as a quest card in the hand: its target's
 // art with the rules' own words for the want as the caption. Nothing here is
 // authored or decides anything; the rules own the want (want.mjs).
-import { CONNECT_TARGET, questsOf, wantKey } from "./want.mjs";
-import { conditionsMet, consumable } from "./pack-registry.mjs";
+import { CONNECT_TARGET, layMet, questsOf, wantKey } from "./want.mjs";
+import { conditionsMet, consumable, spentByChoice } from "./pack-registry.mjs";
+import { questFor } from "./talk-quest.mjs";
+import { revealed } from "./want-talk.mjs";
 import { UNKNOWN, conditionWords, kindOf, wantWords } from "./world/want-words.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
@@ -28,18 +30,12 @@ const HOLLOW = "greek-polynices-hollow";
 const stages = ["fallen", "anointed", "veiled", "grave"];
 function burial(world, want) {
   if (want.target !== HOLLOW || want.step?.verb !== "lay") return {};
-  const flags = world.packs["greek-drama"].flags;
-  const stage = flags["greek-burial-performed"]
-    ? 3
-    : flags["greek-polynices-veiled"]
-      ? 2
-      : flags["greek-polynices-anointed"]
-        ? 1
-        : 0;
+  const remaining = layMet(world, want)
+    ? []
+    : want.step.items.filter((id) => !spentByChoice(world, id));
   return {
-    art: `assets/greek-drama/polynices-${stages[stage]}.webp`,
-    riteVerb: ["Anoint", "Veil", "Bury", "Buried"][stage],
-    remaining: want.step.items.slice(stage),
+    art: `assets/greek-drama/polynices-${stages[want.step.items.length - remaining.length]}.webp`,
+    remaining,
   };
 }
 
@@ -62,11 +58,11 @@ const questShape = (world, actor, want, key, index) => ({
   kind: want.kind,
   target: want.target === CONNECT_TARGET ? null : want.target,
   xp: world.actors[actor].xp,
-  // A level quest: the level it leads to and the steps still to go.
   level: want.quest?.level ?? null,
   left: want.quest?.left ?? 0,
   step: want.step ?? null,
   ...(want.lit === undefined ? {} : { lit: want.lit }),
+  ...(want.from ? { from: want.from } : {}),
   // A home quest (want.mjs) says "home"; no other bring does.
   ...(want.story ? { story: true } : {}),
   ...burial(world, want),
@@ -78,6 +74,16 @@ export const questCards = (world, actor = currentActor(world)) =>
   questsOf(world, actor).map((want, index) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
+export function ownerCard(world, viewer, owner) {
+  const want = world.actors[owner]?.want,
+    card = want && revealed(world, owner, want, viewer) && questFor(world, owner, want);
+  return card
+    ? {
+        ...questShape(world, viewer, card, `offer:${viewer}:${owner}:${card.kind}:${card.target}`, -1),
+        offer: owner,
+      }
+    : null;
+}
 export function offerCard(world, actor = currentActor(world), box = null, resident = null) {
   const place = Boolean(box) && box === world.actors[actor]?.place;
   const asked = place
@@ -146,7 +152,7 @@ export function questCaption(
 ) {
   const shown = (id) => !(covered && id === quest.target) && known(id);
   const want = quest.goal ??
-    (quest.riteVerb && !quest.remaining?.length
+    (quest.remaining && !quest.remaining.length
     ? { kind: "place", target: quest.target }
     : {
         kind: quest.kind,
@@ -230,7 +236,8 @@ const STEP_LABELS = {
   attack: "Strike",
 };
 export function questVerb(world, quest, covered = false) {
-  if (quest.step?.verb === "lay") return quest.riteVerb ?? "Lay";
+  if (quest.step?.verb === "lay")
+    return quest.goal ? questVerb(world, { ...quest.goal, actor: quest.actor }, covered) : "Lay";
   if (quest.step?.verb === "eat")
     return consumable(quest.target) === "drink" ? "Drink" : "Eat";
   if (STEP_LABELS[quest.step?.verb]) return STEP_LABELS[quest.step.verb];
