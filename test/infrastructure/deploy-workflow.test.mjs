@@ -269,7 +269,7 @@ describe("deploy workflow", () => {
       'bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"',
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
       "bash scripts/serialize-primary-rollout.sh dev",
-      'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
+      'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
       "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
       "node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
       "actions/cache/save@v6",
@@ -314,12 +314,13 @@ describe("deploy workflow", () => {
       "utf8",
     );
     expect(check).not.toContain("Please bump the version");
-    const deploys = workflow.match(/flyctl deploy --config [^\n]+/g);
+    expect(workflow).not.toMatch(/flyctl deploy --config/);
+    const deploys = workflow.match(/fly-rollout\.sh --config [^\n]+/g);
     expect(deploys).toHaveLength(4);
     // Each rollout names the commit it serves; restore-dev serves .dev's.
     const restoring = deploys.filter((deploy) => deploy.includes("DEV_SHA"));
     expect(restoring).toEqual([
-      'flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
+      'fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
     ]);
     for (const deploy of deploys.filter((d) => !restoring.includes(d))) {
       expect(deploy).toContain('--env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"');
@@ -661,15 +662,17 @@ describe("deploy workflow", () => {
     const primaryFly = job("primary-fly", "lonelyforest-image");
     const lonelyForestFly = job("lonelyforest-fly", "deploy-outcome");
     expect(primaryFly).toContain(
-      'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE"',
+      'fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE"',
     );
     expect(primaryJobs).toContain(
       "FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}",
     );
     expect(primaryJobs).not.toContain("FLY_LONELYFOREST_API_TOKEN");
     expect(lonelyForestFly).toContain(
-      'flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false',
+      'fly-rollout.sh --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false',
     );
+    for (const deploy of [primaryFly, lonelyForestFly])
+      expect(deploy).toContain("COSYWORLD_FLY_WAIT_TIMEOUT: 5m");
     expect(lonelyForestJobs).toContain(
       "FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}",
     );
