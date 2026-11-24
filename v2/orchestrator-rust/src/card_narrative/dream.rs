@@ -1,7 +1,7 @@
 //! Dreams run raw: no system voice, scene, persona or hope. Earlier dreams
-//! lead into the next one. Held item stories, a thought, a scrap of memory
-//! or a face from the day can drift in. The dreamer, turn and memories seed
-//! every choice, so the same saved scene always dreams from the same material.
+//! lead into the next one. A thought, a scrap of memory or a face from the
+//! day can drift in. The dreamer, turn and memories seed every choice, so
+//! the same saved scene always dreams from the same material.
 use super::*;
 
 /// A small, stable mix of the dreamer, the turn and a salt.
@@ -51,7 +51,7 @@ pub(super) fn transcript(context: &Context, entity: &Entity) -> String {
     {
         lines.push(format!("I dreamed: {}", dream.text));
     }
-    let mut drift = custody::held_item_text(context, id);
+    let mut drift = Vec::new();
     if let Some(thought) = life
         .and_then(|l| l.thoughts.last())
         .filter(|t| roll(id, turn, 1).is_multiple_of(2) && grounded(&t.text, &known))
