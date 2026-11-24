@@ -543,6 +543,29 @@ function stepMet(s, actor, want, action) {
 }
 export const wantMet = (s, actor, talk = null, action = null) =>
   questMet(s, actor, wantOf(s, actor), talk, action);
+function knownCards(s, id, api) {
+  const a = s.actors[id];
+  return Object.entries(s.actors)
+    .filter(
+      ([owner, o]) =>
+        owner !== id && o.want && !api.player(owner) &&
+        knowsFact(s, id, questFactId(owner, o.want)),
+    )
+    .map(([owner, o]) => ({ ...api.card(owner, o.want), from: `quest:from:${owner}` }))
+    .filter(
+      (card) =>
+        card.kind && !closedBy(a, card.from, card) &&
+        !heldOf(a).some((w) => w.from === card.from),
+    );
+}
+export const staleWants = (s, ids, actor, api) => [
+  ...ids.filter((id) => wantMet(s, id)),
+  ...(api.player(actor)
+    ? knownCards(s, actor, api)
+        .filter((card) => questMet(s, actor, card, null, null))
+        .map((card) => card.from)
+    : []),
+];
 function questMet(s, actor, want, talk, action) {
   if (!want) return false;
   if (want.step) return stepMet(s, actor, want, action);
@@ -605,9 +628,8 @@ export const resting = (s, actor) => {
   );
 };
 
-// Record what each participant saw and said, then commit met wants. The want
-// is paid on the play that meets it. A resident's next is drawn where one is
-// met. A player whose play meets ANOTHER avatar's want helps them.
+// Record what each participant saw and said, then commit the wants, held
+// quests and known cards the play meets. A player who meets another's want helps.
 export function settleWants(s, actors, api, action = null, stale = []) {
   const talk =
     action?.kind === "talk"
@@ -625,7 +647,11 @@ export function settleWants(s, actors, api, action = null, stale = []) {
       if (s.actors[other] && !a.talked.includes(other))
         a.talked = [...a.talked, other].slice(-64);
     }
-    for (const held of api.player(id) ? heldOf(a) : a.want ? [a.want] : [])
+    const known =
+      action?.actor === id && api.player(id)
+        ? knownCards(s, id, api).filter((card) => !stale.includes(card.from))
+        : [];
+    for (const held of api.player(id) ? [...heldOf(a), ...known] : a.want ? [a.want] : [])
       if (questMet(s, id, held, talk, action)) {
         commitMet(s, id, api, met, held);
         if (stale.includes(id)) continue;
