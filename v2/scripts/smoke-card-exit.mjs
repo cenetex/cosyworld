@@ -102,6 +102,7 @@ try {
         () => !document.querySelector(".card-exits > *, .travel.travelling"),
       );
     const travel = async (place) => {
+      await page.keyboard.press("Escape");
       await selectCard(page, place);
       // A lone way on is chosen at one tap, so the hand may still be rising.
       await page.evaluate(() =>

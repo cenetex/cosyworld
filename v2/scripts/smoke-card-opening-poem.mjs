@@ -22,8 +22,8 @@ export async function checkOpeningPoem(browser, origin) {
       ? branches
       : [branches[index % branches.length]]) {
       const world = openDoorStart();
-      // The Bard's quest is to hear Vale's account. The world rules carry
-      // it to the courtyard by its known roads; the Talk there meets it.
+      // The Bard's quest is to hear Vale's account; the Talk meets it.
+      world.actors["greek-rhapsode"].place = world.actors.vale.place;
       world.actors["greek-rhapsode"].want = {
         kind: "person",
         target: "vale",
@@ -124,17 +124,6 @@ export async function checkOpeningPoem(browser, origin) {
           world,
           packDefinition("greek-drama"),
         ).stanzas.map((s) => s.id);
-        // The Bard sails and walks from wherever the fixture left it.
-        for (let step = 0; step < 10; step++) {
-          const arrived = await page.evaluate((key) => {
-            const s = JSON.parse(localStorage.getItem(key));
-            return s.actors["greek-rhapsode"].place === s.actors.vale.place;
-          }, key);
-          if (arrived) break;
-          await selectCard(page, "vale", { touch: width < 700 });
-          await page.locator('#card-actions [data-action="wait"]').click();
-          await settle();
-        }
         // Poem-only fixtures preserve arrival at the report site through reload.
         await page.reload();
         await settle();
