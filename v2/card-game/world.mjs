@@ -139,7 +139,6 @@ import {
   entityActive,
   actorCanVisit,
   packExits,
-  packChoices,
   applyPackChoice,
   applyMeetingChoices,
   applyHoldChoices,
@@ -885,54 +884,27 @@ function talkKnowledge(s, action, entry) {
       ];
   for (const [speaker, listener] of pairs) {
     if (expressionOf(people[speaker]) !== "speech") continue;
-    // A story choice is the listener's own deed: only their Talk commits it,
-    // at the play, whether or not the line is ever voiced. A resident who
-    // seeks them out may tell the account, which their own later Talk can
-    // still turn into the choice, one choice per turn.
-    const choices = listener === action.actor ? packChoices(s, listener) : [];
+    // A topic is what its speaker says at the Talk that commits its choice.
     const topics = authoredKnowledgeTopics()
       .filter((topic) =>
         conditionsMet(s, topic.packId, topic.requires || [], listener),
       )
       .map((topic) => ({
         ...topic,
-        choiceReady: choices.some(
-          (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
-        ),
+        said:
+          listener === action.actor &&
+          speaker === action.target &&
+          s.packs[topic.packId]?.receipts[topic.choiceId] === s.turn,
       }));
-    // At a port or aboard, talk turns to the ships unless an authored story
-    // choice is ready here; elsewhere a lane is told when there is nothing
-    // newer to say.
     const lane = laneToTell(s, speaker, listener);
-    const port =
-      lane && atPort(s, speaker) && !topics.some((topic) => topic.choiceReady);
+    const port = lane && atPort(s, speaker) && !topics.some((t) => t.said);
     const tellLane = () =>
       reserveLaneKnowledge(s, speaker, listener, entry, lane) &&
       (learnLane(s, listener, ...lane.id.slice(5).split(">")), true);
     if (port && tellLane()) break;
-    const told = reserveKnowledge(s, speaker, listener, entry, topics);
-    if (told?.commitChoice) commitTopicChoice(s, told);
-    if (told) break;
+    if (reserveKnowledge(s, speaker, listener, entry, topics)) break;
     if (lane && !port && tellLane()) break;
   }
-}
-function commitTopicChoice(s, told) {
-  const topic = s.knowledge.facts[told.factId].source.topic;
-  const action = packChoices(s, told.listener).find(
-    (a) => a.packId === topic.packId && a.choiceId === topic.choiceId,
-  );
-  if (!action || Object.values(s.packs[topic.packId].receipts).includes(s.turn))
-    return;
-  applyPackChoice(s, action);
-  addLog(s, "World", action.text, {
-    kind: "action",
-    actorId: told.listener,
-    verb: "choose",
-    packId: action.packId,
-    choiceId: action.choiceId,
-    targetId: action.target,
-    locationId: s.actors[told.listener].place,
-  });
 }
 import {
   laneTalkFacts,

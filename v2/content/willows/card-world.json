@@ -655,22 +655,6 @@
       "use": "The River Notebook's claims are distilled from its passages. The exact downloaded source is kept in source-text.txt."
     }
   ],
-  "topics": [
-    {
-      "id": "willows-supper",
-      "speaker": "willows-swede",
-      "at": "willows-camp",
-      "text": "The Swede says a hot supper keeps the fear smaller than the river.",
-      "requires": []
-    },
-    {
-      "id": "willows-channels",
-      "speaker": "willows-swede",
-      "at": "willows-camp",
-      "text": "The Swede says the river has cut new channels since the map was drawn.",
-      "requires": []
-    }
-  ],
   "hiding": {
     "pool": [
       { "id": "willows-thicket", "depth": "night" },

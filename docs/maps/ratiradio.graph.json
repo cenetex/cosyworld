@@ -684,9 +684,7 @@
         ],
         "clearedBy": [],
         "readBy": [
-          "resident:ratiradio-raven",
-          "topic:ratiradio-bring-them-home",
-          "topic:ratiradio-little-one"
+          "resident:ratiradio-raven"
         ],
         "gates": [
           "resident:ratiradio-raven"
@@ -831,19 +829,6 @@
         "place:ratiradio-staff-kitchen",
         "resident:undefined"
       ],
-      "topic:ratiradio-bring-them-home": [
-        "place:ratiradio-listening-room",
-        "resident:ratiradio-rati"
-      ],
-      "topic:ratiradio-little-one": [
-        "flag:raven-awake",
-        "place:ratiradio-listening-room",
-        "resident:ratiradio-raven"
-      ],
-      "topic:ratiradio-rati-home": [
-        "place:ratiradio-listening-room",
-        "resident:ratiradio-rati"
-      ],
       "want:ratiradio-rati": [
         "item:ratiradio-glass",
         "item:ratiradio-raven-figurine",
@@ -867,11 +852,6 @@
       "kind": "flag",
       "class": "latch",
       "words": "rati-awake is set"
-    },
-    "flag(key=raven-awake,value=false)": {
-      "kind": "flag",
-      "class": "latch",
-      "words": "raven-awake is not set"
     },
     "flag(key=raven-awake,value=true)": {
       "kind": "flag",

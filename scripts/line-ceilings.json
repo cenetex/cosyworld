@@ -5,7 +5,7 @@
     "v2/card-game/app.mjs": 6295,
     "v2/card-game/pack-schema.mjs": 2144,
     "v2/card-game/style.css": 3663,
-    "v2/card-game/world.mjs": 4192,
+    "v2/card-game/world.mjs": 4164,
     "v2/orchestrator-rust/src/account_auth.rs": 1771,
     "v2/orchestrator-rust/src/ai_gateway.rs": 3556,
     "v2/orchestrator-rust/src/ai_registry.rs": 2058,

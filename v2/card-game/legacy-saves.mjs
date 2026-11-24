@@ -107,7 +107,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     if (text) fact.text = text;
     else if (reworked.size) forgetFact(s.knowledge, id);
   }
-  reconcileTopics(s, reworked);
+  reconcileTopics(s);
   reconcileClaims(s);
   for (const pack of packDefinitions)
     if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
@@ -296,10 +296,9 @@ export function reconcilePackProgress(s, reworked) {
   }
 }
 
-// A told topic of a reworked pack follows its current words and choice. One
-// the content retired, or gave another teller or place, is forgotten
-// (#1747 reworded Oak's night watch; Greek revision 15 retired a report).
-export function reconcileTopics(s, reworked) {
+// A told topic follows its current words and choice at any pack revision.
+// One the content retired, or gave another teller or place, is forgotten.
+export function reconcileTopics(s) {
   const k = s?.knowledge;
   if (!k?.facts || typeof k.facts !== "object") return;
   const topics = new Map(
@@ -309,7 +308,7 @@ export function reconcileTopics(s, reworked) {
   );
   for (const [id, fact] of Object.entries(k.facts)) {
     const told = fact?.source?.kind === "topic" && fact.source.topic;
-    if (!told || !reworked.has(told.packId)) continue;
+    if (!told) continue;
     const topic = topics.get(`${told.packId}:${told.id}`);
     if (
       topic?.id === id &&

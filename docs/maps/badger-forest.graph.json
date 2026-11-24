@@ -99,16 +99,7 @@
     "wants": [],
     "flags": {},
     "items": [],
-    "needs": {
-      "topic:badger-cold-moss": [
-        "place:clearing",
-        "resident:badger"
-      ],
-      "topic:badger-no-bells": [
-        "place:clearing",
-        "resident:badger"
-      ]
-    }
+    "needs": {}
   },
   "atoms": {
     "sound(at=pond)": {

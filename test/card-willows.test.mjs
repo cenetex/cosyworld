@@ -151,7 +151,9 @@ describe("The Willows", () => {
     const save = JSON.stringify(old);
     const shared = dispatchShared({ op: "create", save }).world;
     const read = (w) => Object.values(w.knowledge.known).flatMap(Object.keys).filter((id) => id.startsWith("claim:"));
-    expect(read(old)).toEqual(["claim:willows:willows-map:margin", "claim:willows:willows-pipe:their-sound"]);
+    const [map, pipe] = ["map:margin", "pipe:their-sound"].map((c) => `claim:willows:willows-${c}`);
+    expect(read(old)).toEqual([pipe, map, pipe]);
+    expect(old.knowledge.known.vale[pipe]).toMatchObject({ kind: "heard", teller: "willows-swede" });
     for (const world of [
       decodeSave(save),
       dispatchShared({ op: "upgrade", from: "full-card-world/191", world: shared }).world,

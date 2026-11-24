@@ -30,7 +30,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
-import { packDefinition } from "../v2/card-game/pack-registry.mjs";
+import { packDefinition, packDefinitions } from "../v2/card-game/pack-registry.mjs";
 import { greekStart, openDoorWalk } from "./helpers/open-door.mjs";
 
 const clause = "Pip found a shell beside the pond.";
@@ -215,7 +215,7 @@ describe("saved public knowledge", () => {
       text: "The families ask the city for a burial.",
       packId: "sample",
     };
-    talk(w, "moth", "vale", [topic]);
+    talk(w, "moth", "vale", [{ ...topic, said: true }]);
     source(w);
     for (let i = 0; i < KNOWLEDGE_FACT_LIMIT + 5; i++)
       source(w, { text: `Pip carried shell number ${i} to the pond.` });
@@ -409,7 +409,7 @@ describe("saved public knowledge", () => {
     }
   });
 
-  it("keeps topic prerequisites on gossip and permits a later source confirmation", () => {
+  it("says a topic only at its Talk choice and keeps its prerequisites on gossip", () => {
     const w = bare();
     w.turn = 1;
     const topic = {
@@ -420,17 +420,15 @@ describe("saved public knowledge", () => {
       choiceId: "record-petition",
       text: "The families ask the city for a burial.",
     };
-    expect(talk(w, "moth", "vale", [topic])).toHaveLength(1);
+    expect(talk(w, "moth", "vale", [topic])).toEqual([]);
+    expect(w.knowledge.facts[topic.id]).toBeUndefined();
+    expect(talk(w, "moth", "vale", [{ ...topic, said: true }])).toHaveLength(1);
     expect(knowsFact(w, "vale", topic.id)).toBe(true);
     expect(talk(w, "moth", "keeper", [])).toEqual([]);
     w.turn = 2;
     expect(talk(w, "vale", "keeper", [topic])).toHaveLength(1);
-    const confirmation = talk(w, "moth", "vale", [
-      { ...topic, choiceReady: true },
-    ]);
-    expect(confirmation[0].factId).toBe(topic.id);
-    expect(w.knowledge.pending.at(-1).commitChoice).toBe(true);
-    expect(w.knowledge.known.vale[topic.id].teller).toBe("moth");
+    expect(w.knowledge.known.keeper[topic.id].teller).toBe("vale");
+    expect(w.knowledge.pending.at(-1).commitChoice).toBe(false);
   });
   it("keeps a topic's receipt from becoming a second news origin", () => {
     const w = bare();
@@ -461,7 +459,7 @@ describe("saved public knowledge", () => {
     installKnowledge(w, undefined, [topic]);
     expect(Object.keys(w.knowledge.facts)).toEqual([]);
     w.turn = 1;
-    expect(talk(w, "moth", "vale", [topic])).toHaveLength(1);
+    expect(talk(w, "moth", "vale", [{ ...topic, said: true }])).toHaveLength(1);
     expect(Object.keys(w.knowledge.facts)).toEqual([topic.id]);
   });
 });
@@ -582,141 +580,59 @@ describe("learned facts in the avatar's own view", () => {
   });
 });
 
-describe("authored topics keep their saved deed identity", () => {
+describe("authored topics are said at their Talk choice", () => {
   const pack = packDefinition("greek-drama");
   const originalTopics = pack.topics;
-  // The guard's decree commits on meeting him. These cases stand it in for a
-  // choice that commits through its Talk topic.
+  // The guard's decree commits on meeting him. These cases make it a Talk
+  // choice with a topic.
   const decree = pack.choices.find((c) => c.id === "greek-hear-decree");
-  beforeEach(() => delete decree.on);
+  const topic = {
+    id: decree.id,
+    speaker: decree.subject,
+    at: decree.at,
+    text: "A public decree forbids burial of the brother left outside the city.",
+    requires: decree.requires,
+    choiceId: decree.id,
+  };
+  beforeEach(() => {
+    decree.on = "talk";
+    pack.topics = [topic];
+  });
   afterEach(() => {
     decree.on = "meet";
     if (originalTopics === undefined) delete pack.topics;
     else pack.topics = originalTopics;
   });
-  it("records the plea's receipt and teaches it at the Talk", () => {
-    const choice = decree;
-    const text =
-      "A public decree forbids burial of the brother left outside the city.";
-    pack.topics = [
-      {
-        id: choice.id,
-        speaker: choice.subject,
-        at: choice.at,
-        text,
-        requires: choice.requires,
-        choiceId: choice.id,
-      },
-    ];
-    let world = openDoorWalk(greekStart(), "gate");
-    const action = legalActions(world).find(
-      (a) => a.kind === "talk" && a.target === choice.subject,
-    );
-    world = play(world, action).state;
-    const context = narrativeContext(world, action);
-    expect(context.disclosures[0].factId).toBe(choice.id);
-    expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
-    expect(knowsFact(world, "vale", choice.id)).toBe(true);
-    const restored = decodeSave(encodeSave(world));
-    expect(restored.packs[pack.id].receipts[choice.id]).toBe(world.turn);
-    expect(restored.knowledge.known.vale[choice.id].teller).toBe(
-      choice.subject,
-    );
+  it("gives every pack topic a Talk choice of its speaker at its place", () => {
+    for (const p of packDefinitions)
+      for (const t of p.topics || [])
+        expect(p.choices.find((c) => c.id === t.choiceId), t.id).toMatchObject({
+          on: "talk",
+          subject: t.speaker,
+          at: t.at,
+        });
   });
-  it("lets a resident who seeks Vale out tell the plea without making her choice", () => {
-    const choice = decree;
-    const text =
-      "A public decree forbids burial of the brother left outside the city.";
-    pack.topics = [
-      {
-        id: choice.id,
-        speaker: choice.subject,
-        at: choice.at,
-        text,
-        requires: choice.requires,
-        choiceId: choice.id,
-      },
-    ];
-    let world = openDoorWalk(greekStart(), "gate");
-    // The guard's own quest is to talk with Vale, so he speaks first.
-    world.actors[choice.subject].want = {
-      kind: "person",
-      target: "vale",
-      since: world.turn,
-      refusals: 0,
-    };
-    // The roaming Bard stays at the harbor instead of walking in.
-    world.actors["greek-rhapsode"].want = {
-      kind: "place",
-      target: "greek-harbor",
-      since: world.turn,
-      refusals: 0,
-    };
-    // Antigone keeps to herself, so the decree reaches Vale and no one else.
-    world.actors["greek-antigone"].want = {
-      kind: "place",
-      target: world.actors["greek-antigone"].place,
-      since: world.turn,
-      refusals: 0,
-    };
-    // Wait until he has sought Vale out, never for a fixed number of turns.
-    const sought = () =>
-      world.log.some(
-        (e) =>
-          e.turn === world.turn &&
-          e.verb === "talk" &&
-          e.actorId === choice.subject,
-      );
-    let wait;
-    for (let turns = 0; turns < 80 && !sought(); turns++) {
-      wait = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
-      world = play(world, wait).state;
-    }
-    expect(sought()).toBe(true);
-    let context = narrativeContext(world, wait);
-    expect(context.disclosures[0].factId).toBe(choice.id);
-    world = applyGeneratedText(world, context, response(context, text));
-    // He tells it; the choice stays Vale's own deed for Vale's own Talk.
-    expect(knowsFact(world, "vale", choice.id)).toBe(true);
-    expect(world.packs[pack.id].receipts[choice.id]).toBeUndefined();
-    const talk = legalActions(world).find(
-      (a) => a.kind === "talk" && a.target === choice.subject,
-    );
-    world = play(world, talk).state;
-    context = narrativeContext(world, talk);
-    expect(context.disclosures[0].factId).toBe(choice.id);
-    world = applyGeneratedText(world, context, response(context, text));
-    expect(world.packs[pack.id].receipts[choice.id]).toBe(world.turn);
-    expect(decodeSave(encodeSave(world))).toEqual(world);
-  });
-  it("records the source scene after its public fact was learned earlier", () => {
-    const choice = decree;
-    const topic = {
-      id: choice.id,
-      speaker: choice.subject,
-      at: choice.at,
-      text: "A public decree forbids burial of the brother left outside the city.",
-      requires: choice.requires,
-      choiceId: choice.id,
-    };
-    pack.topics = [topic];
+  it("records the choice's receipt and tells its topic at that Talk only", () => {
     let world = openDoorWalk(greekStart(), "gate");
     const entry = { seq: ++world.eventSeq, turn: world.turn };
     reserveKnowledge(world, topic.speaker, "vale", entry, [
       { ...topic, packId: pack.id },
     ]);
-    expect(knowsFact(world, "vale", topic.id)).toBe(true);
-    expect(world.packs[pack.id].receipts[choice.id]).toBeUndefined();
+    expect(world.knowledge.facts[topic.id]).toBeUndefined();
     const action = legalActions(world).find(
       (a) => a.kind === "talk" && a.target === topic.speaker,
     );
     world = play(world, action).state;
     const context = narrativeContext(world, action);
     expect(context.disclosures[0].factId).toBe(topic.id);
+    expect(world.packs[pack.id].receipts[decree.id]).toBe(world.turn);
     world = applyGeneratedText(world, context, response(context, topic.text));
-    expect(
-      decodeSave(encodeSave(world)).packs[pack.id].receipts[choice.id],
-    ).toBe(world.turn);
+    const restored = decodeSave(encodeSave(world));
+    expect(restored.packs[pack.id].receipts[decree.id]).toBe(world.turn);
+    expect(restored.knowledge.known.vale[topic.id].teller).toBe(topic.speaker);
+    expect(restored.knowledge.known[topic.speaker][topic.id].kind).toBe(
+      "witnessed",
+    );
   });
 });
 

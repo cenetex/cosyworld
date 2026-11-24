@@ -10418,50 +10418,6 @@
         "place:greek-greek-camp",
         "resident:greek-ajax-teucer"
       ],
-      "topic:greek-hear-decree": [
-        "place:greek-gate",
-        "resident:greek-guard"
-      ],
-      "topic:greek-open-door-colonus-daughters": [
-        "place:greek-colonus",
-        "resident:greek-colonus-keeper"
-      ],
-      "topic:greek-open-door-colonus-enter": [
-        "place:greek-colonus",
-        "resident:greek-colonus-keeper"
-      ],
-      "topic:greek-open-door-colonus-farewell": [
-        "place:greek-colonus",
-        "resident:greek-colonus-keeper"
-      ],
-      "topic:greek-open-door-hear-adrastus": [
-        "place:greek-eleusis",
-        "resident:greek-adrastus"
-      ],
-      "topic:greek-open-door-hear-mothers": [
-        "place:greek-eleusis",
-        "resident:greek-aethra"
-      ],
-      "topic:greek-open-door-hear-pyre": [
-        "place:greek-eleusis",
-        "resident:greek-aethra"
-      ],
-      "topic:greek-open-door-marathon-battle": [
-        "place:greek-marathon",
-        "resident:greek-marathon-keeper"
-      ],
-      "topic:greek-open-door-marathon-captive": [
-        "place:greek-marathon",
-        "resident:greek-marathon-keeper"
-      ],
-      "topic:greek-open-door-marathon-daughter": [
-        "place:greek-marathon",
-        "resident:greek-marathon-keeper"
-      ],
-      "topic:greek-open-door-marathon-enter": [
-        "place:greek-marathon",
-        "resident:greek-marathon-keeper"
-      ],
       "want:greek-adrastus": [
         "resident:greek-adrastus"
       ],

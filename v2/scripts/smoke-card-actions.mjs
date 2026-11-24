@@ -3,7 +3,6 @@ import { mkdir } from "node:fs/promises";
 import { chromium, webkit } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { knowsFact } from "../card-game/knowledge.mjs";
 import {
   actionLabel,
   focusedHandCard,
@@ -626,10 +625,6 @@ try {
     await page.getByRole("button", { name: "Talk", exact: true }).click();
     await ready();
     assert.equal((await state()).turn, 1);
-    assert(
-      knowsFact(await state(), "vale", "greek-hear-decree"),
-      "Talk teaches the decree on the play",
-    );
     if ([1440, 390].includes(width)) {
       const meal = createWorld({ seed: 17 });
       meal.actors.vale.place = "greek-gate";

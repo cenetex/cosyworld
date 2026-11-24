@@ -2303,8 +2303,7 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-sew-scarf-ada",
-          "item:forest-button-ada",
-          "topic:forest-button-ada"
+          "item:forest-button-ada"
         ],
         "gates": [
           "item:forest-button-ada",
@@ -2323,8 +2322,7 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-sew-scarf-ash",
-          "item:forest-button-ash",
-          "topic:forest-button-ash"
+          "item:forest-button-ash"
         ],
         "gates": [
           "item:forest-button-ash",
@@ -2343,8 +2341,7 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-sew-scarf-mara",
-          "item:forest-button-mara",
-          "topic:forest-button-mara"
+          "item:forest-button-mara"
         ],
         "gates": [
           "item:forest-button-mara",
@@ -2363,8 +2360,7 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-sew-scarf-nell",
-          "item:forest-button-nell",
-          "topic:forest-button-nell"
+          "item:forest-button-nell"
         ],
         "gates": [
           "item:forest-button-nell",
@@ -2383,8 +2379,7 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-sew-scarf-orin",
-          "item:forest-button-orin",
-          "topic:forest-button-orin"
+          "item:forest-button-orin"
         ],
         "gates": [
           "item:forest-button-orin",
@@ -2403,8 +2398,7 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-sew-scarf-rue",
-          "item:forest-button-rue",
-          "topic:forest-button-rue"
+          "item:forest-button-rue"
         ],
         "gates": [
           "item:forest-button-rue",
@@ -2423,8 +2417,7 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-sew-scarf-tavi",
-          "item:forest-button-tavi",
-          "topic:forest-button-tavi"
+          "item:forest-button-tavi"
         ],
         "gates": [
           "item:forest-button-tavi",
@@ -2443,8 +2436,7 @@
         "clearedBy": [],
         "readBy": [
           "act:forest-sew-scarf-vale",
-          "item:forest-button-vale",
-          "topic:forest-button-vale"
+          "item:forest-button-vale"
         ],
         "gates": [
           "item:forest-button-vale",
@@ -2528,8 +2520,7 @@
         "clearedBy": [],
         "readBy": [
           "item:forest-button-ada",
-          "item:forest-scarf-ada",
-          "topic:forest-button-ada"
+          "item:forest-scarf-ada"
         ],
         "gates": [
           "item:forest-scarf-ada"
@@ -2558,8 +2549,7 @@
         "clearedBy": [],
         "readBy": [
           "item:forest-button-ash",
-          "item:forest-scarf-ash",
-          "topic:forest-button-ash"
+          "item:forest-scarf-ash"
         ],
         "gates": [
           "item:forest-scarf-ash"
@@ -2588,8 +2578,7 @@
         "clearedBy": [],
         "readBy": [
           "item:forest-button-mara",
-          "item:forest-scarf-mara",
-          "topic:forest-button-mara"
+          "item:forest-scarf-mara"
         ],
         "gates": [
           "item:forest-scarf-mara"
@@ -2618,8 +2607,7 @@
         "clearedBy": [],
         "readBy": [
           "item:forest-button-nell",
-          "item:forest-scarf-nell",
-          "topic:forest-button-nell"
+          "item:forest-scarf-nell"
         ],
         "gates": [
           "item:forest-scarf-nell"
@@ -2648,8 +2636,7 @@
         "clearedBy": [],
         "readBy": [
           "item:forest-button-orin",
-          "item:forest-scarf-orin",
-          "topic:forest-button-orin"
+          "item:forest-scarf-orin"
         ],
         "gates": [
           "item:forest-scarf-orin"
@@ -2678,8 +2665,7 @@
         "clearedBy": [],
         "readBy": [
           "item:forest-button-rue",
-          "item:forest-scarf-rue",
-          "topic:forest-button-rue"
+          "item:forest-scarf-rue"
         ],
         "gates": [
           "item:forest-scarf-rue"
@@ -2708,8 +2694,7 @@
         "clearedBy": [],
         "readBy": [
           "item:forest-button-tavi",
-          "item:forest-scarf-tavi",
-          "topic:forest-button-tavi"
+          "item:forest-scarf-tavi"
         ],
         "gates": [
           "item:forest-scarf-tavi"
@@ -2738,8 +2723,7 @@
         "clearedBy": [],
         "readBy": [
           "item:forest-button-vale",
-          "item:forest-scarf-vale",
-          "topic:forest-button-vale"
+          "item:forest-scarf-vale"
         ],
         "gates": [
           "item:forest-scarf-vale"
@@ -3344,50 +3328,6 @@
         "place:forest-oak",
         "place:forest-trail"
       ],
-      "topic:forest-button-ada": [
-        "flag:forest-button-ada-hidden",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-button-ash": [
-        "flag:forest-button-ash-hidden",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-button-mara": [
-        "flag:forest-button-mara-hidden",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-button-nell": [
-        "flag:forest-button-nell-hidden",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-button-orin": [
-        "flag:forest-button-orin-hidden",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-button-rue": [
-        "flag:forest-button-rue-hidden",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-button-tavi": [
-        "flag:forest-button-tavi-hidden",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-button-vale": [
-        "flag:forest-button-vale-hidden",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-night-watch": [
-        "place:forest-oak",
-        "resident:oak"
-      ],
       "topic:forest-walkers-oak": [
         "act:forest-hear-walkers-oak",
         "flag:forest-homecoming-shared",
@@ -3397,10 +3337,6 @@
       "topic:forest-walkers-rati": [
         "act:forest-hear-walkers-rati",
         "flag:forest-homecoming-shared",
-        "place:forest-cottage",
-        "resident:rati"
-      ],
-      "topic:forest-warm-kettle": [
         "place:forest-cottage",
         "resident:rati"
       ]

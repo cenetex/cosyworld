@@ -348,7 +348,7 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
   const local = world.actors[speaker].place;
   if (world.actors[listener].place !== local) return null;
   const authored = topics
-    .filter((t) => t.speaker === speaker && t.at === local)
+    .filter((t) => t.said && t.speaker === speaker && t.at === local)
     .map((topic) => topicFact(world, topic, entry))
     .filter(Boolean);
   const known = world.knowledge.known[speaker] || {};
@@ -359,20 +359,13 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
     !knowsFact(world, listener, fact.id) &&
     (known[fact.id]?.kind === "witnessed" ||
       known[fact.id]?.learnedTurn < world.turn);
-  const choiceReady = (fact) =>
-    topics.some(
-      (t) =>
-        t.id === fact.id &&
-        t.speaker === speaker &&
-        t.at === local &&
-        t.choiceReady,
-    );
+  const rank = (f) => topics.findIndex((t) => t.id === f.id) + 1 || Infinity;
   const fact =
-    authored.find((f) => fresh(f) || choiceReady(f)) ||
+    authored.find(fresh) ||
     Object.keys(known)
       .map((id) => world.knowledge.facts[id])
       .filter(Boolean)
-      .sort(compareFacts)
+      .sort((a, b) => rank(a) - rank(b) || compareFacts(a, b))
       .find(fresh);
   if (!fact) return null;
   const prior = world.knowledge.pending.find(
@@ -380,13 +373,12 @@ export function reserveKnowledge(world, speaker, listener, entry, topics = []) {
       p.factId === fact.id &&
       p.speaker === speaker &&
       p.listener === listener &&
-      p.locationId === local &&
-      p.commitChoice === choiceReady(fact),
+      p.locationId === local,
   );
   if (prior) return prior;
-  return tell(world, fact, speaker, listener, entry, choiceReady(fact));
+  return tell(world, fact, speaker, listener, entry);
 }
-function tell(world, fact, speaker, listener, entry, commitChoice) {
+function tell(world, fact, speaker, listener, entry) {
   remember(world, listener, fact, "heard", speaker, entry.seq, entry.turn);
   const disclosure = {
     factId: fact.id,
@@ -395,7 +387,7 @@ function tell(world, fact, speaker, listener, entry, commitChoice) {
     eventSeq: entry.seq,
     turn: entry.turn,
     locationId: world.actors[speaker].place,
-    commitChoice,
+    commitChoice: false,
   };
   world.knowledge.pending = [
     ...world.knowledge.pending.filter((p) => p.turn === entry.turn),
@@ -456,7 +448,7 @@ export function reserveLaneKnowledge(world, speaker, listener, entry, lane) {
     )
   )
     return null;
-  return tell(world, fact, speaker, listener, entry, false);
+  return tell(world, fact, speaker, listener, entry);
 }
 
 export function knowledgeDisclosures(
