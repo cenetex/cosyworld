@@ -32,8 +32,8 @@ assets/
 
 The server looks in this order:
 
-1. `COSYWORLD_ASSETS_DIR`, if set.
-2. `assets/` beside the executable, if it holds `manifest.json` (the image's `/app/assets`, the desktop app's `game/assets`).
+1. `COSYWORLD_ASSETS_DIR`, if set. The image sets it to `/app/assets`, so a production server never reaches step 3.
+2. `assets/` beside the executable, if it holds `manifest.json` (the desktop app's `game/assets`).
 3. The source tree. The server runs `node v2/scripts/build-card-assets.mjs --manifest -` once at startup and reads the files in place. This is the path for `cargo run`, `cargo test` and the smokes that spawn the debug binary, so they always see the working tree and nothing needs regenerating first.
 
 `node v2/scripts/build-card-assets.mjs --release <dir>` writes a release directory: the files and `manifest.json`, split into `<dir>/media` (images and audio) and `<dir>/text` (everything else, with the manifest) so the two can be separate image layers.
@@ -42,7 +42,7 @@ The server looks in this order:
 
 ### Integrity
 
-- At startup the server reads `manifest.json`, then reads and hashes every file it lists. A missing file, a size or a sha256 that differs from the manifest stops startup with an error naming the file. A failed start keeps the old machine serving, because the rolling deploy's health check never passes.
+- At startup the server reads `manifest.json`, then reads and hashes every file it lists. A missing file, a size or a sha256 that differs from the manifest stops startup with an error naming the file. A failed start never passes the rollout's health check. .dev and production each run one machine, which a rolling deploy replaces in place, so the game is down until the previous image is rolled out again.
 - Text files (JS, CSS, HTML, JSON, SVG, about 3.5 MB) stay in memory after the check. Images and audio are read from disk on each request, so resident memory does not grow by 950 MB on the 2 GB machines. Those reads check the size against the manifest. An assets directory is never changed in place once verified; a new release is a new directory.
 - In the source-tree case, node has just hashed the files, so the server does not hash them again.
 
