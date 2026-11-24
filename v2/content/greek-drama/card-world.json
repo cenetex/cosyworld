@@ -2277,6 +2277,10 @@
           "text": "Helen waited out the war in Egypt while a phantom took her place at Troy.",
           "about": "greek-egypt-tomb"
         }
+      ],
+      "records": [
+        "greek-helen-egypt-passage",
+        "greek-helen-egypt-shelter"
       ]
     },
     "greek-troy-testimony": {
@@ -2298,6 +2302,10 @@
           "text": "Helen sailed home from Troy herself, and no phantom ever stood in her place.",
           "about": "greek-troy-beach"
         }
+      ],
+      "records": [
+        "greek-helen-troy-passage",
+        "greek-helen-troy-shelter"
       ]
     },
     "greek-tomb-testimony": {
@@ -2319,6 +2327,10 @@
           "text": "Electra met her brother at Agamemnon's tomb while she brought offerings.",
           "about": "greek-argos-tomb"
         }
+      ],
+      "records": [
+        "greek-atreid-aeschylus-hearing",
+        "greek-atreid-aeschylus-refusal"
       ]
     },
     "greek-palace-testimony": {
@@ -2340,6 +2352,10 @@
           "text": "Electra waited outside the Mycenaean palace for her brother to come home.",
           "about": "greek-mycenae-palace"
         }
+      ],
+      "records": [
+        "greek-atreid-sophocles-hearing",
+        "greek-atreid-sophocles-refusal"
       ]
     },
     "greek-farm-testimony": {
@@ -2361,6 +2377,10 @@
           "text": "Electra lives in a poor farmer's house in the Argive countryside, far from the palace.",
           "about": "greek-argive-farm"
         }
+      ],
+      "records": [
+        "greek-atreid-euripides-hearing",
+        "greek-atreid-euripides-refusal"
       ]
     },
     "greek-burial-petition": {
@@ -2479,7 +2499,8 @@
           "key": "greek-burial-performed",
           "value": true
         }
-      ]
+      ],
+      "author": "greek-antigone"
     },
     "greek-creon-writ": {
       "name": "Creon's Writ",

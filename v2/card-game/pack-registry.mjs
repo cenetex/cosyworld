@@ -936,7 +936,7 @@ export function applyPackChoice(
   recordRecital(world, pack, choice.id, action.actor);
   return choice;
 }
-function committedChoiceText(world, pack, choice) {
+export function committedChoiceText(world, pack, choice) {
   if (choice.summary) return choice.summary;
   const turn = world.packs[pack.id].receipts?.[choice.id];
   const actor =

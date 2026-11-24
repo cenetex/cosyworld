@@ -12,7 +12,7 @@ import { sectionAllows } from "./pack-sections.mjs";
 import { humanAvatarIds } from "./human-cast.mjs";
 import forest from "./forest.json" with { type: "json" };
 import { installItemCycle } from "./pack-items.mjs";
-import { authoredClaim } from "./claims.mjs";
+import { savedClaim } from "./claims.mjs";
 import { installQuestFacts } from "./quest-learn.mjs";
 import { release } from "./world/company.mjs";
 
@@ -182,8 +182,7 @@ export function reconcileContent(s) {
 
 // A story step the content no longer leads to leaves a save from an earlier
 // pack revision; a save at the current revision is checked as it stands.
-// Receipts
-// replay in order, as validation reads them; a step whose prerequisites
+// Receipts replay in order, as validation reads them; a step whose prerequisites
 // are no longer met leaves with its log line and recital, and the pack's
 // flags and choices are counted again from the steps that stay. Whoever and
 // whatever those flags held back goes home, and anyone standing in a place
@@ -324,12 +323,11 @@ export function reconcileTopics(s, reworked) {
     forgetFact(k, id);
   }
 }
-// A read claim follows its book's current words, author and subject at any
-// pack revision. One whose book or claim content retired is forgotten.
+// A read claim follows its book at any pack revision, or is forgotten.
 export function reconcileClaims(s) {
   for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
     if (fact?.source?.kind !== "claim") continue;
-    const claim = authoredClaim(id);
+    const claim = savedClaim(s, id, fact);
     if (!claim) forgetFact(s.knowledge, id);
     else {
       fact.text = claim.text;

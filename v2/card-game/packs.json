@@ -2666,6 +2666,10 @@
               "text": "Helen waited out the war in Egypt while a phantom took her place at Troy.",
               "about": "greek-egypt-tomb"
             }
+          ],
+          "records": [
+            "greek-helen-egypt-passage",
+            "greek-helen-egypt-shelter"
           ]
         },
         "greek-troy-testimony": {
@@ -2687,6 +2691,10 @@
               "text": "Helen sailed home from Troy herself, and no phantom ever stood in her place.",
               "about": "greek-troy-beach"
             }
+          ],
+          "records": [
+            "greek-helen-troy-passage",
+            "greek-helen-troy-shelter"
           ]
         },
         "greek-tomb-testimony": {
@@ -2708,6 +2716,10 @@
               "text": "Electra met her brother at Agamemnon's tomb while she brought offerings.",
               "about": "greek-argos-tomb"
             }
+          ],
+          "records": [
+            "greek-atreid-aeschylus-hearing",
+            "greek-atreid-aeschylus-refusal"
           ]
         },
         "greek-palace-testimony": {
@@ -2729,6 +2741,10 @@
               "text": "Electra waited outside the Mycenaean palace for her brother to come home.",
               "about": "greek-mycenae-palace"
             }
+          ],
+          "records": [
+            "greek-atreid-sophocles-hearing",
+            "greek-atreid-sophocles-refusal"
           ]
         },
         "greek-farm-testimony": {
@@ -2750,6 +2766,10 @@
               "text": "Electra lives in a poor farmer's house in the Argive countryside, far from the palace.",
               "about": "greek-argive-farm"
             }
+          ],
+          "records": [
+            "greek-atreid-euripides-hearing",
+            "greek-atreid-euripides-refusal"
           ]
         },
         "greek-burial-petition": {
@@ -2868,7 +2888,8 @@
               "key": "greek-burial-performed",
               "value": true
             }
-          ]
+          ],
+          "author": "greek-antigone"
         },
         "greek-creon-writ": {
           "name": "Creon's Writ",
@@ -7753,7 +7774,11 @@
           "text": "A small card with room for a maker's name, a drawing, and a line in their own words.",
           "persona": "A small card with room for a maker's name, a drawing, and a line in their own words.",
           "holder": "hoppycat-meraki-atelier",
-          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+          "author": "hoppycat-penny-vellum",
+          "records": [
+            "hoppycat-table-credit"
+          ]
         },
         "hoppycat-unfinished-prism": {
           "name": "Crooked Prism",
@@ -7769,7 +7794,11 @@
           "text": "A seed for one visit. Its label will name someone and something they did.",
           "persona": "A seed for one visit. Its label will name someone and something they did.",
           "holder": "hoppycat-prism-foundry",
-          "art": "assets/hoppycat-archive/hoppycat-context-seed-cutout.png"
+          "art": "assets/hoppycat-archive/hoppycat-context-seed-cutout.png",
+          "author": "hoppycat-patch-fern",
+          "records": [
+            "hoppycat-table-patch"
+          ]
         },
         "hoppycat-concordance-compass": {
           "name": "Rill's Compass",
@@ -7842,7 +7871,12 @@
           "text": "A personal invitation with a route drawing on the back. Static will finish it after a shared evening.",
           "persona": "A personal invitation with a route drawing on the back. Static will finish it after a shared evening.",
           "holder": "hoppycat-signal-jetty",
-          "art": "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png"
+          "art": "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png",
+          "author": "hoppycat-staticwashere",
+          "records": [
+            "hoppycat-table-invitation",
+            "hoppycat-table-signal"
+          ]
         },
         "hoppycat-draft-page": {
           "name": "Mira's Draft",
@@ -7856,7 +7890,11 @@
               "value": true
             }
           ],
-          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+          "author": "hoppycat-mira-meraki",
+          "records": [
+            "hoppycat-table-draft-chosen"
+          ]
         },
         "hoppycat-evening-programme": {
           "name": "Evening Programme",
@@ -7880,7 +7918,12 @@
               ]
             }
           ],
-          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+          "author": "hoppycat-mira-meraki",
+          "records": [
+            "hoppycat-table-draft-ready",
+            "hoppycat-table-paint-ready"
+          ]
         },
         "hoppycat-sol-programme": {
           "name": "Sol's Reading",
@@ -7894,7 +7937,11 @@
               "value": true
             }
           ],
-          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+          "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+          "author": "hoppycat-solwashere",
+          "records": [
+            "hoppycat-table-reading"
+          ]
         }
       },
       "specials": {
