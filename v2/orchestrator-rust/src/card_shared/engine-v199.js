@@ -2868,8 +2868,9 @@
         continue;
       const fail = (message) => problems2.push(`${pack.id}: item ${id} ${message}`);
       const claims = Array.isArray(item.claims) ? item.claims : [];
-      if (claims.length > BOOK_CLAIMS || !(claims.length || item.claims === void 0 && item.records))
-        fail(`needs one to ${BOOK_CLAIMS} claims, or the choices it records`);
+      const records = [].concat(item.records ?? []);
+      if (claims.length + records.length > BOOK_CLAIMS || !(claims.length || item.claims === void 0 && records.length))
+        fail(`needs one to ${BOOK_CLAIMS} claims and recorded choices`);
       const author = card(item.author)?.name;
       if (typeof author !== "string")
         fail("author must be a named place, avatar or item of this pack");
@@ -2880,7 +2881,7 @@
         fail(`pages must list up to ${BOOK_CLAIMS} pictures of this pack`);
       const seen = /* @__PURE__ */ new Set();
       for (const [n, claim] of claims.entries()) {
-        const ok = record2(claim) && Object.keys(claim).every((key2) => ["id", "text", "about"].includes(key2)) && idOk(claim.id) && !seen.has(claim.id) && ![].concat(item.records ?? []).includes(claim.id) && safeId(`claim:${pack.id}:${id}:${claim.id}`) && validFactText(claim.text) && (claim.about === void 0 || card(claim.about) !== void 0);
+        const ok = record2(claim) && Object.keys(claim).every((key2) => ["id", "text", "about"].includes(key2)) && idOk(claim.id) && !seen.has(claim.id) && !records.includes(claim.id) && safeId(`claim:${pack.id}:${id}:${claim.id}`) && validFactText(claim.text) && (claim.about === void 0 || card(claim.about) !== void 0);
         seen.add(claim?.id);
         if (!ok)
           fail(
@@ -6348,15 +6349,12 @@
   var authoredClaim = (id) => bookClaims(...id.split(":").slice(1, 3)).find((c) => c.id === id) || null;
   var savedClaim = (s, id, fact) => {
     const [, packId, book, choice] = id.split(":");
-    if (authoredClaim(id)) return authoredClaim(id);
-    return recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, fact?.text) : null;
+    const claim = authoredClaim(id) ?? (recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, fact?.text) : null);
+    return claim?.id === id ? claim : null;
   };
   var claimsIn = (book, s) => {
     const packId = packThings[book]?.packId;
-    return [...bookClaims(packId, book), ...recordClaims(s, packId, book)].slice(
-      0,
-      BOOK_CLAIMS
-    );
+    return [...bookClaims(packId, book), ...recordClaims(s, packId, book)];
   };
   function readBook(s, a, witnesses, addLog2) {
     addLog2(s, "World", a.text, {

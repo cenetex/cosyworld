@@ -71,6 +71,9 @@ describe("a record book", () => {
     const forged = structuredClone(w);
     forged.knowledge.facts[id].source.claim = "greek-hear-decree";
     expect(() => validateWorld(forged)).toThrow(expect.objectContaining({ check: "knowledge" }));
+    const copied = structuredClone(w);
+    copied.knowledge.facts[`${id}:again`] = { ...copied.knowledge.facts[id], id: `${id}:again` };
+    expect(() => validateWorld(copied)).toThrow(expect.objectContaining({ check: "knowledge" }));
     const saved = encodeSave(w);
     const account = packDefinition("greek-drama").items[ACCOUNT];
     const records = account.records;
@@ -85,11 +88,11 @@ describe("a record book", () => {
     }
   });
 
-  it("loads a rules 195 world holding the account, locally and shared, for its holder to read", () => {
+  it("loads a rules 198 world holding the account, locally and shared, for its holder to read", () => {
     const shared = dispatchShared({ op: "create", save: encodeSave(buried) }).world;
     for (const world of [
       decodeSave(encodeSave(holding(buried, ACCOUNT))),
-      dispatchShared({ op: "upgrade", from: "full-card-world/195", world: holding(shared, ACCOUNT) }).world,
+      dispatchShared({ op: "upgrade", from: "full-card-world/198", world: holding(shared, ACCOUNT) }).world,
     ]) {
       expect(world.items[ACCOUNT].holder).toBe("vale");
       const w = read(world, ACCOUNT);
@@ -109,6 +112,7 @@ describe("the book schema for records", () => {
     const claim = { id: "visit", text: "The hall is old." };
     expect(bookProblems(pack({ records: ["visit"] }))).toEqual([]);
     expect(bookProblems(pack({ records: ["meet"], claims: [claim] }))).toEqual([]);
+    expect(bookProblems(pack({ records: ["meet", "rest", "leave"], claims: [claim] }))).not.toEqual([]);
     expect(bookProblems(pack({ records: ["visit"], claims: [claim] }))).not.toEqual([]);
     expect(bookProblems(pack({ records: ["visit"], claims: [] }))).not.toEqual([]);
   });

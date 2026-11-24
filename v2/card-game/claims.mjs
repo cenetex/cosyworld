@@ -1,6 +1,5 @@
 import { committedChoiceText, packDefinitions, packThings } from "./pack-registry.mjs";
 import { knowsFact, readClaim, validFactText } from "./knowledge.mjs";
-import { BOOK_CLAIMS } from "./book-schema.mjs";
 import { giveUpForGood } from "./world/for-good.mjs";
 
 const itemOf = (packId, book) => {
@@ -47,17 +46,16 @@ export const authoredClaim = (id) =>
   bookClaims(...id.split(":").slice(1, 3)).find((c) => c.id === id) || null;
 export const savedClaim = (s, id, fact) => {
   const [, packId, book, choice] = id.split(":");
-  if (authoredClaim(id)) return authoredClaim(id);
-  return recorded(s, packId, book).includes(choice)
-    ? record(packId, book, choice, fact?.text)
-    : null;
+  const claim =
+    authoredClaim(id) ??
+    (recorded(s, packId, book).includes(choice)
+      ? record(packId, book, choice, fact?.text)
+      : null);
+  return claim?.id === id ? claim : null;
 };
 export const claimsIn = (book, s) => {
   const packId = packThings[book]?.packId;
-  return [...bookClaims(packId, book), ...recordClaims(s, packId, book)].slice(
-    0,
-    BOOK_CLAIMS,
-  );
+  return [...bookClaims(packId, book), ...recordClaims(s, packId, book)];
 };
 
 export function readBook(s, a, witnesses, addLog) {
