@@ -107,7 +107,8 @@ fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
             "holds": ids(items, "holder", id, ""),
             "items": ids(items, "holder", place, ""),
             "lines": lines(&c, &world, place)?,
-            "own": own.get(id).cloned().unwrap_or_else(|| json!([])),
+            "own": own["own"].get(id).cloned().unwrap_or_else(|| json!([])),
+            "known": own["known"].get(id).cloned().unwrap_or_else(|| json!([])),
         });
         seen.insert(id.clone(), view);
     }
@@ -222,7 +223,10 @@ mod tests {
             .map(String::as_str)
             .collect();
         keys.sort_unstable();
-        assert_eq!(keys, ["here", "holds", "items", "lines", "own", "place"]);
+        assert_eq!(
+            keys,
+            ["here", "holds", "items", "known", "lines", "own", "place"]
+        );
     }
 
     #[test]
@@ -249,6 +253,40 @@ mod tests {
         assert!(!all["moth"].to_string().contains("Bell."), "{all}");
         assert!(!all["keeper"].to_string().contains("Lamp."), "{all}");
         assert!(!all.to_string().contains(SECRET));
+    }
+
+    #[test]
+    fn a_resident_knows_on_the_server_what_it_knows_at_the_card_table() {
+        let mut w = World::create(None).unwrap();
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["packs"]["greek-drama"]["scope"] = json!("full");
+        w.game["crossings"]["pond-greek-harbor"]["discovered"] = json!(true);
+        w.game["actors"]["vale"]["place"] = json!("greek-gate");
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
+        let c = store::open(&path).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, "world", &mut w, json!({"op":op,"actor":"vale"}), 2).unwrap();
+        }
+        let mut table = Value::Null;
+        for turn in 3..5 {
+            let actions = w.project(0).unwrap()["actions"].clone();
+            let talk = actions
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["target"] == "greek-guard");
+            let play = json!({"op":"play","actor":"vale","action":talk.unwrap()});
+            table = full_store::commit(&c, "world", &mut w, play, turn).unwrap();
+        }
+        let entities = table["context"]["entities"].as_array().unwrap();
+        let guard = entities.iter().find(|e| e["id"] == "greek-guard").unwrap();
+        let known =
+            view(&path, GUILD, &["greek-guard".into()]).unwrap()["greek-guard"]["known"].clone();
+        let decree = "in The Burial Decree, by Creon: No one may bury or mourn Polynices";
+        assert!(known.to_string().contains(decree), "{known}");
+        for line in known.as_array().unwrap() {
+            assert!(guard["facts"].as_array().unwrap().contains(line), "{line}");
+        }
     }
 
     #[test]

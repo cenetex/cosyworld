@@ -24,7 +24,7 @@ pub(super) fn context(request: &Value) -> Result<Value> {
     Ok(describe(request)?["context"].take())
 }
 pub(super) fn own(world: &Value, ids: &[String]) -> Result<Value> {
-    Ok(describe(&serde_json::json!({"world": world, "own": ids}))?["own"].take())
+    describe(&serde_json::json!({"world": world, "own": ids}))
 }
 /// The drawn scene the browser shows for the same request.
 #[cfg(test)]

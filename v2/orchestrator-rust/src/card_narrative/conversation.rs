@@ -40,7 +40,6 @@ pub(super) fn heard<'a>(context: &'a Context, entity: &Entity) -> Option<&'a Spo
     })
 }
 
-/// Who is with me, as I see it: "Pip is here with me." or "I'm alone here."
 pub(super) fn presence(context: &Context, id: &str) -> String {
     let mut here: Vec<String> = context
         .outcome
@@ -51,10 +50,10 @@ pub(super) fn presence(context: &Context, id: &str) -> String {
         .collect();
     if context.outcome.is_none() {
         here.extend(super::listener(context, id));
-        for other in &context.present {
-            if other != id && !here.contains(other) {
-                here.push(other.clone());
-            }
+    }
+    for other in &context.present {
+        if other != id && !here.contains(other) {
+            here.push(other.clone());
         }
     }
     match here.len() {

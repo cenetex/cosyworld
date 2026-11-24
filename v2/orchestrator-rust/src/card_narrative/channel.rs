@@ -223,17 +223,16 @@ fn atlas(pack_id: &str) -> Atlas {
         .and_then(|p| p["items"].as_object())
         .into_iter()
         .flatten()
-        .filter_map(|(_, item)| {
-            Some((
-                item["name"].as_str()?.to_string(),
-                item["holder"].as_str()?.to_string(),
-            ))
-        })
+        .filter_map(|(id, item)| Some((id.clone(), item["holder"].as_str()?.to_string())))
         .collect();
-    for (id, thing) in forest["things"].as_object().into_iter().flatten() {
-        let holder = forest["initialState"]["items"][id]["holder"].as_str();
-        if let (Some(name), Some(holder)) = (thing["name"].as_str(), holder) {
-            items.push((name.to_string(), holder.to_string()));
+    for id in forest["things"]
+        .as_object()
+        .into_iter()
+        .flatten()
+        .map(|(id, _)| id)
+    {
+        if let Some(holder) = forest["initialState"]["items"][id]["holder"].as_str() {
+            items.push((id.clone(), holder.to_string()));
         }
     }
     Atlas { places, items }
@@ -257,28 +256,9 @@ impl Atlas {
     }
 
     fn held(&self, id: &str) -> Vec<String> {
-        self.items
-            .iter()
-            .filter(|(_, holder)| holder == id)
-            .map(|(name, _)| name.clone())
-            .collect()
+        let held = self.items.iter().filter(|(_, holder)| holder == id);
+        held.map(|(item, _)| item.clone()).collect()
     }
-}
-
-fn listed(label: &str, names: &[String]) -> Option<String> {
-    let mut line = String::new();
-    for name in names {
-        let next = if line.is_empty() {
-            name.clone()
-        } else {
-            format!("{line}, {name}")
-        };
-        if label.len() + next.len() + 3 > 240 {
-            break;
-        }
-        line = next;
-    }
-    (!line.is_empty()).then(|| format!("{label}: {line}."))
 }
 
 async fn live(guild: Option<String>, residents: Vec<String>) -> Option<Value> {
@@ -298,69 +278,45 @@ fn mounted(id: &str) -> Option<&'static Value> {
     all.iter().find_map(|p| p["places"].get(id))
 }
 
-fn named(ids: &Value) -> Vec<String> {
-    let ids = ids.as_array().into_iter().flatten();
-    ids.filter_map(|id| profiles()[id.as_str()?]["name"].as_str())
-        .map(str::to_string)
-        .collect()
+fn strings(ids: &Value) -> Vec<String> {
+    let all = ids.as_array().into_iter().flatten();
+    all.filter_map(Value::as_str).map(str::to_string).collect()
 }
 
-fn knowledge(
-    resident: &Resident,
-    pack_id: &str,
-    view: Option<&Value>,
-) -> (Vec<String>, Vec<String>) {
-    let world = atlas(pack_id);
-    let card = pack(pack_id)
-        .and_then(|p| p["avatars"].get(&resident.id))
-        .or_else(|| avatar_card(&resident.id))
-        .or_else(|| forest_data()["people"].get(&resident.id))
-        .or_else(|| traveler(&resident.id))
-        .cloned()
-        .unwrap_or_default();
-    let home = &resident.place;
-    let mut own: Vec<String> = card["text"]
-        .as_str()
-        .map(str::to_string)
-        .into_iter()
-        .collect();
-    own.push(format!("Home: {}.", world.name(home)));
-    for (key, label) in [("likes", "Likes"), ("sore", "Sore")] {
-        if let Some(taste) = card["tastes"][key].as_str() {
-            own.push(format!("{label}: {}.", taste.trim_end_matches('.')));
-        }
-    }
-    own.extend(listed("Paths from home", &world.paths(home)));
-    let at = standing(resident, view);
-    if view.is_some_and(|seen| seen["place"] == at) {
-        own.insert(0, format!("Location now: {}.", name(at)));
-    }
-    let mut place: Vec<String> = world
-        .places
-        .get(at)
-        .or_else(|| mounted(at))
-        .and_then(|p| {
-            ["text", "persona", "seed"]
-                .into_iter()
-                .find_map(|f| p[f].as_str())
-        })
-        .map(str::to_string)
-        .into_iter()
-        .collect();
-    match view {
-        Some(seen) => {
-            own.extend(listed("I hold", &named(&seen["holds"])));
-            own.extend(listed("With me here", &named(&seen["here"])));
-            let felt = seen["own"].as_array().into_iter().flatten();
-            own.extend(felt.filter_map(Value::as_str).take(3).map(str::to_string));
-            place.extend(listed("Items here", &named(&seen["items"])));
-        }
-        None => place.extend(listed("Items here", &world.held(home))),
-    }
-    let keep = |facts: Vec<String>| -> Vec<String> {
-        facts.into_iter().filter(|f| bounded(f, 240)).collect()
+fn talk(resident: &Resident, pack_id: &str, view: Option<&Value>) -> (Vec<String>, Value) {
+    let at = standing(resident, view).to_string();
+    let start = atlas(pack_id);
+    let (holds, here, ground) = match view {
+        Some(seen) => (
+            strings(&seen["holds"]),
+            strings(&seen["here"]),
+            strings(&seen["items"]),
+        ),
+        None => (start.held(&resident.id), Vec::new(), start.held(&at)),
     };
-    (keep(own), keep(place))
+    let facts = view
+        .into_iter()
+        .flat_map(|seen| [&seen["own"], &seen["known"]]);
+    let facts = facts
+        .flat_map(strings)
+        .filter(|f| bounded(f, 240))
+        .collect();
+    let avatar = |id: &str, holding: &[String]| json!({"id": id, "location": &at, "holding": holding, "travel": null});
+    let mut avatars = vec![avatar(&resident.id, &holds)];
+    avatars.extend(
+        here.iter()
+            .filter(|id| kind(id, "avatar"))
+            .map(|id| avatar(id, &[])),
+    );
+    let item = |id: &String, holder: &str| json!({"id": id, "holder": holder, "location": &at});
+    let held = holds.iter().map(|id| item(id, &resident.id));
+    let items: Vec<Value> = held.chain(ground.iter().map(|id| item(id, &at))).collect();
+    let card = json!({"kind": "talk", "target": &resident.id, "item": null,
+        "receive": null, "destination": null, "accepted": null});
+    (
+        facts,
+        json!({"card": card, "avatars": avatars, "items": items}),
+    )
 }
 
 fn world(pack_id: &str, cast: &[Resident]) -> Value {
@@ -368,7 +324,10 @@ fn world(pack_id: &str, cast: &[Resident]) -> Value {
     let places: Vec<Value> = world
         .places
         .iter()
-        .map(|(id, place)| json!({"name": place["name"], "text": place["text"], "paths": world.paths(id), "items": world.held(id)}))
+        .map(|(id, place)| {
+            let items: Vec<String> = world.held(id).iter().map(|item| name(item)).collect();
+            json!({"name": place["name"], "text": place["text"], "paths": world.paths(id), "items": items})
+        })
         .collect();
     let homes: Map<String, Value> = cast
         .iter()
@@ -695,7 +654,7 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
         facts.extend(thread(notes));
     }
     let view = request.view.as_ref();
-    let (own, place) = knowledge(resident, &request.pack, view);
+    let (own, outcome) = talk(resident, &request.pack, view);
     facts.extend(own);
     let at = standing(resident, view);
     for line in view
@@ -728,12 +687,15 @@ fn scene(resident: &Resident, cast: &[Resident], request: &LinesRequest) -> Opti
         "speakers": [&resident.id],
         "entities": [
             {"id": &resident.id, "facts": facts, "desire": null, "memories": memories, "previous": null},
-            {"id": at, "facts": place, "desire": null, "memories": [], "previous": null}
+            {"id": at, "facts": [], "desire": null, "memories": [], "previous": null}
         ],
-        "conversation": conversation
+        "conversation": conversation,
+        "outcome": outcome
     }))
     .ok()?;
-    context.acting_avatar = Some(resident.id.clone());
+    let mut others = context.conversation.iter().rev().map(|line| &line.actor_id);
+    let answered = others.find(|actor| **actor != resident.id).cloned();
+    context.acting_avatar = Some(answered.unwrap_or_else(|| "Someone".into()));
     context.channel = true;
     context.present = present(resident, cast, request);
     context.images = messages[start..]
@@ -1725,9 +1687,10 @@ mod tests {
             view.contains("So far here: Jun asked about the corridor."),
             "{view}"
         );
-        assert!(view.contains("Home: Cosy Cottage."), "{view}");
-        assert!(view.contains("Likes: A traveler's own button sewn into a warm scarf."));
-        assert!(view.contains("Sore: Muddy boots on the wool."));
+        let card = pack("lonely-forest").unwrap()["avatars"]["rati"]["text"].as_str();
+        for authored in [card.unwrap_or("Home:"), "Likes:", "Sore:", "Paths from"] {
+            assert!(!view.contains(authored), "{authored}");
+        }
         assert_eq!(view.matches("Reply with").count(), 1);
     }
 
@@ -2087,31 +2050,50 @@ mod tests {
     }
 
     #[test]
-    fn a_server_world_view_gives_the_live_place_company_and_things() {
+    fn a_discord_message_is_a_talk_with_the_resident_in_its_world() {
         let residents = cast("lonely-forest").unwrap();
         let vale = residents.iter().find(|r| r.id == "vale").unwrap();
+        let read = "I read this just now in The Burial Decree, by Creon: No one may bury him.";
+        let heard = "Pip told me this just now at Black pond: The keeper wants the Bell.";
         let seen = json!({"place": "pond", "here": ["moth"], "holds": ["lamp"], "items": ["bell"],
-            "lines": [{"speaker": "Pip", "text": "The pond is still."}]});
-        let (own, place) = knowledge(vale, "lonely-forest", Some(&seen));
-        for fact in ["Home: Mirror attic.", "I hold: Lamp.", "With me here: Pip."] {
-            assert!(own.contains(&fact.to_string()), "{own:?}");
-        }
-        assert_eq!(place.last().unwrap(), "Items here: Bell.");
+            "lines": [{"speaker": "Pip", "text": "The pond is still."}], "known": [read, heard]});
         let mut asked = request(json!([{"author": "Mara", "text": "Hello there."}]));
-        assert_eq!(scene(vale, &residents, &asked).unwrap().location, "attic");
+        let told = |asked: &LinesRequest| {
+            let context = scene(vale, &residents, asked).unwrap();
+            let part = super::super::Part::Line;
+            (
+                context.location.clone(),
+                super::super::transcript(&context, &context.entities[0], part),
+            )
+        };
+        let (home, alone) = told(&asked);
+        assert_eq!(home, "attic");
+        assert!(alone.contains("I'm talking with Mara."), "{alone}");
         asked.view = Some(seen);
-        let context = scene(vale, &residents, &asked).unwrap();
-        assert_eq!(context.location, "pond");
-        assert_eq!(context.entities[1].id, "pond");
-        let heard = &context.entities[0].memories;
-        assert_eq!(heard.last().unwrap().text, "Pip: The pond is still.");
-        let lost = json!({"place": "nowhere", "private": "a thought"});
-        assert_eq!(standing(vale, Some(&lost)), "attic");
-        asked.view = Some(lost);
-        let context = scene(vale, &residents, &asked).unwrap();
-        assert!(!serde_json::to_string(&context)
-            .unwrap()
-            .contains("a thought"));
+        let (at, view) = told(&asked);
+        assert_eq!(at, "pond");
+        for line in [
+            "I'm carrying the Lamp.",
+            "The Bell is on the ground here.",
+            read,
+            heard,
+        ] {
+            assert!(view.contains(line), "{line}: {view}");
+        }
+        assert!(view.contains("Pip and Mara are here with me."), "{view}");
+        let card = forest_data()["people"]["vale"]["text"]
+            .as_str()
+            .unwrap_or("Home:");
+        for authored in [card, "Home:", "Paths from home", "Items here:"] {
+            assert!(!view.contains(authored), "{authored}: {view}");
+        }
+        asked.view = Some(json!({"place": "greek-colonus", "holds": [], "lines": []}));
+        let (colonus, view) = told(&asked);
+        assert_eq!(colonus, "greek-colonus");
+        assert!(
+            view.contains("I'm at Colonus Grove.") && !view.contains("Oedipus"),
+            "{view}"
+        );
     }
 
     #[test]
@@ -2131,64 +2113,6 @@ mod tests {
         assert!(wants.contains("I owe Pip a favour;"), "{wants}");
         asked.view = Some(seen(json!([])));
         assert!(!told(&asked).contains("I want"));
-    }
-
-    #[test]
-    fn a_resident_in_another_packs_place_names_that_place_and_not_home() {
-        let residents = cast("lonely-forest").unwrap();
-        let vale = residents.iter().find(|r| r.id == "vale").unwrap();
-        let seen = json!({"place": "greek-colonus", "here": ["moth"], "holds": ["lamp"],
-            "items": [], "lines": []});
-        let (own, place) = knowledge(vale, "lonely-forest", Some(&seen));
-        assert_eq!(own[0], "Location now: Colonus Grove.");
-        assert!(
-            place[0].starts_with("Oedipus at Colonus is told here"),
-            "{place:?}"
-        );
-        let mut asked = request(json!([{"author": "Mara", "text": "Where are you now, Vale?"}]));
-        assert!(!knowledge(vale, "lonely-forest", None)
-            .0
-            .iter()
-            .any(|fact| fact.starts_with("Location now")));
-        asked.view = Some(seen);
-        let context = scene(vale, &residents, &asked).unwrap();
-        assert_eq!(context.location, "greek-colonus");
-        let told =
-            super::super::transcript(&context, &context.entities[0], super::super::Part::Line);
-        let at = told.find("I'm at Colonus Grove.").expect(&told);
-        assert!(at < told.find("Home: Mirror attic.").expect(&told));
-        assert!(!told.contains("I'm at Mirror attic."), "{told}");
-        assert!(told.contains("I hold: Lamp."), "{told}");
-        assert!(!told.contains("Station Key"), "{told}");
-    }
-
-    #[test]
-    fn residents_know_their_home_paths_and_the_items_there() {
-        let residents = cast("lonely-forest").unwrap();
-        let rati = residents.iter().find(|r| r.id == "rati").unwrap();
-        let (own, place) = knowledge(rati, "lonely-forest", None);
-        assert!(
-            own.contains(&"Paths from home: Rain-Soft Garden.".to_string()),
-            "{own:?}"
-        );
-        assert!(place[1].starts_with("Items here: "), "{place:?}");
-        assert!(place[1].contains("Vale's Black Button"));
-        assert!(own.iter().chain(&place).all(|f| bounded(f, 240)));
-        let vale = residents.iter().find(|r| r.id == "vale").unwrap();
-        assert!(knowledge(vale, "lonely-forest", None)
-            .0
-            .contains(&"Home: Mirror attic.".to_string()));
-        let garden = &world("lonely-forest", &residents)["places"];
-        let garden = garden
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|p| p["name"] == "Rain-Soft Garden")
-            .unwrap();
-        assert_eq!(
-            garden["paths"],
-            json!(["Cosy Cottage", "Old Oak Tree", "Moonlit Trail"])
-        );
     }
 
     #[test]
