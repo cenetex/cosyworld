@@ -66,7 +66,6 @@ export const CONDITION_KINDS = [
   "any",
   "choice",
   "choice_unset",
-  "receipt",
   "flag",
   "holding",
   "trusted",
@@ -103,7 +102,6 @@ export const TRAVELERS = ["player", "any"];
 export const VARIANTS = ["asleep", "awake", "irritated"];
 
 const record = (v) => v && typeof v === "object" && !Array.isArray(v);
-export const LORE_PAGE_CHARS = 1200;
 const owns = (o, key) =>
   record(o) && typeof key === "string" && Object.hasOwn(o, key);
 const idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
@@ -999,9 +997,6 @@ export function packProblems(
         case "choice_unset":
           ok = keysOk(c, ["kind", "key"]) && idOk(c.key);
           break;
-        case "receipt":
-          ok = keysOk(c, ["kind", "choice"]) && idOk(c.choice);
-          break;
         case "daylight":
           ok =
             keysOk(c, ["kind", "phase"]) && ["day", "night"].includes(c.phase);
@@ -1177,7 +1172,6 @@ export function packProblems(
         : [
             "choice",
             "choice_unset",
-            "receipt",
             "flag",
             "holding",
             "item_at",
@@ -1324,7 +1318,6 @@ export function packProblems(
         "persona",
         "seed",
         "records",
-        "lore",
         ...BOOK_KEYS,
         "holder",
         "art",
@@ -1373,23 +1366,6 @@ export function packProblems(
     );
     media(i.art, `item ${id} art`);
     requirements(i.requires, `item ${id} requires`);
-    check(
-      i.lore === undefined ||
-        (Array.isArray(i.lore) && i.lore.length >= 1 && i.lore.length <= 80),
-      `item ${id} lore must be a list of 1 to 80 pages`,
-    );
-    for (const [n, page] of (Array.isArray(i.lore) ? i.lore : []).entries()) {
-      check(
-        keysOk(page, ["text", "about", "requires"]) &&
-          textOk(page.text, LORE_PAGE_CHARS) &&
-          (page.about === undefined ||
-            [places, pack.avatars, pack.items].some((all) =>
-              owns(all, page.about),
-            )),
-        `item ${id} lore[${n}] needs text of at most ${LORE_PAGE_CHARS} characters and may be about one of this pack's entities`,
-      );
-      requirements(page?.requires, `item ${id} lore[${n}] requires`);
-    }
     check(
       i.sealed === undefined ||
         (keysOk(i.sealed, []) &&
@@ -1627,11 +1603,6 @@ export function packProblems(
         );
       if (c.kind === "choice_unset")
         check(writes.has(c.key), "a condition names an unwritten choice");
-      if (c.kind === "receipt")
-        check(
-          (pack.choices || []).some((choice) => choice?.id === c.choice),
-          "a receipt condition names no choice in this pack",
-        );
       if (c.kind === "flag")
         check(flags.has(c.key), "a condition names an unwritten flag");
     });
@@ -1664,11 +1635,7 @@ export function packProblems(
     ...Object.values(items),
     ...routes,
     ...choices,
-  ].forEach((e) => {
-    verifyRefs(e.requires);
-    if (Array.isArray(e.lore))
-      e.lore.forEach((page) => verifyRefs(page?.requires));
-  });
+  ].forEach((e) => verifyRefs(e.requires));
   if (pack.sections !== undefined) {
     check(
       Array.isArray(pack.sections) && pack.sections.length <= 32,

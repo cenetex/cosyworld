@@ -1,4 +1,4 @@
-import { entityEnabled, packThings } from "./pack-registry.mjs";
+import { entityEnabled } from "./pack-registry.mjs";
 
 // One visible hand choice sits beside custody. A covering remains on its
 // item; only directly carried, available things can be chosen in hand.
@@ -6,10 +6,7 @@ export function handSnapshot(world) {
   return Object.fromEntries(
     Object.entries(world.items)
       .filter(
-        ([id, item]) =>
-          world.actors[item.holder] &&
-          !packThings[id]?.lore &&
-          entityEnabled(world, id),
+        ([id, item]) => world.actors[item.holder] && entityEnabled(world, id),
       )
       .map(([id, item]) => [id, item.holder]),
   );

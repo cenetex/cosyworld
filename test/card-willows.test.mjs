@@ -121,7 +121,6 @@ describe("The Willows", () => {
   it("lays the River Notebook face down at the camp until the willows are paced", () => {
     const book = pack.items[BOOK];
     expect(book).toMatchObject({ author: "willows-swede", sealed: {} });
-    expect(book.lore).toBeUndefined();
     let world = createWorld({ seed: 7 });
     world.actors.vale.place = "willows-camp";
     expect(entityActive(world, BOOK)).toBe(false);
@@ -133,7 +132,6 @@ describe("The Willows", () => {
     for (const claim of book.claims)
       expect(world.knowledge.known.vale[`claim:willows:${BOOK}:${claim.id}`]?.kind).toBe("read");
     const vale = narrativeContext(world).entities.find((e) => e.id === "vale");
-    expect(vale.lore).toBeUndefined();
     expect(vale.facts).toContain(
       `I read this just now in The River Notebook, by The Swede: ${book.claims[1].text}`,
     );
@@ -520,10 +518,21 @@ describe("The Willows", () => {
     for (const item of ["paddle", "sheet", "rope", "provisions"])
       world.items[`willows-${item}`].holder = "willows-camp";
     world.actors["willows-swede"].place = "willows-landing";
+    world.actors["willows-swede"].trust.vale = 2;
     bind(world, "vale", "willows-swede");
     world = move(world, "greek-ship");
     expect(world.packs.willows.flags["willows-swede-gone"]).toBe(true);
     expect(entityActive(world, "willows-swede")).toBe(false);
+    expect(world.actors.vale.companion).toBeUndefined();
+    const old = JSON.parse(encodeSave(world));
+    old.actors.vale.companion = "willows-swede";
+    const shared = dispatchShared({ op: "create", save: encodeSave(world) }).world;
+    shared.actors.vale.companion = "willows-swede";
+    for (const loaded of [
+      decodeSave(JSON.stringify(old)),
+      dispatchShared({ op: "upgrade", from: "full-card-world/194", world: shared }).world,
+    ])
+      expect(loaded.actors.vale.companion).toBeUndefined();
   });
 
   it("paces the willows nearer by night and keeps night signs to the dark", () => {

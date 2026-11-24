@@ -453,7 +453,6 @@ fn full_world_bard_visit_and_song_replay_from_the_journal() {
                 .unwrap();
             assert_eq!(stanza["authorId"], "vale");
             assert_eq!(stanza["authorName"], "Vale");
-            // Couplet text is lore, not dialogue context.
             assert!(stanza.get("lines").is_none());
             assert!(bard["poem"].get("newLines").is_none());
         }
