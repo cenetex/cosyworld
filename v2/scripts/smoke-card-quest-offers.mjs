@@ -54,6 +54,19 @@ try {
       const key = `cosyworld.reflected-shore.v1.${name}-${width}`;
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
+      page.on("console", (message) => {
+        if (message.text().startsWith("CSP blocked")) errors.push(message.text());
+      });
+      await page.addInitScript(() =>
+        document.addEventListener(
+          "securitypolicyviolation",
+          (event) =>
+            console.error(
+              `CSP blocked ${event.violatedDirective} on ${event.target.className || event.sourceFile}`,
+            ),
+          true,
+        ),
+      );
       if (world)
         await page.addInitScript(
           ({ key, save, seen, covered }) => {
