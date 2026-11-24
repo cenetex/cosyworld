@@ -13,6 +13,7 @@ import {
   openSettings,
   closeSettings,
   startNewGame,
+  pinSeed,
 } from "./card-browser-helpers.mjs";
 
 const server = createServer();
@@ -42,17 +43,9 @@ try {
       table = `unveil-${width}`,
       key = `cosyworld.reflected-shore.v1.${table}`;
     page.on("pageerror", (error) => errors.push(error.message));
+    // Seed 17 leaves the attic clear as other-world items scatter.
+    await pinSeed(page, 17);
     await page.addInitScript(() => {
-      // Keep initial and reset hands reproducible as other-world items scatter.
-      // Seed 17 leaves the attic clear; all reveal/hit-testing assertions stay exact.
-      const random = crypto.getRandomValues.bind(crypto);
-      crypto.getRandomValues = (array) => {
-        if (array instanceof Uint32Array && array.length === 1) {
-          array[0] = 17;
-          return array;
-        }
-        return random(array);
-      };
       localStorage.setItem("cosyworld.dialogue.sound", "off");
       localStorage.setItem(
         "cosyworld.room-music",

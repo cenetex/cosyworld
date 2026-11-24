@@ -1,6 +1,13 @@
 import { packDefinitions } from "../card-game/pack-registry.mjs";
 import { holdChoice } from "../card-game/world.mjs";
 import { roomFuelFromTurns } from "../card-game/lamp-room-fuel.mjs";
+import { TEST_SEED_KEY } from "../card-game/pack-landing.mjs";
+
+export const pinSeed = (page, seed) =>
+  page.addInitScript(([key, value]) => localStorage.setItem(key, value), [
+    TEST_SEED_KEY,
+    String(seed),
+  ]);
 
 // The lamp's fuel counts rooms (#2580), so a fixture that sets turns of oil
 // sets both, in place.

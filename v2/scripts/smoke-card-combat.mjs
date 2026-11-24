@@ -5,6 +5,7 @@
 import { atticOpening } from "../../test/fixtures/card-attic-opening.mjs";
 import {
   clearSelection,
+  pinSeed,
   readyActionButton,
   selectCard,
 } from "./card-browser-helpers.mjs";
@@ -94,6 +95,7 @@ try {
     const report = { opponent, width, motion, knownArrival, errors: [] };
     results.push(report);
     page.on("pageerror", (error) => report.errors.push(error.message));
+    await pinSeed(page, 17);
     await page.addInitScript(
       ({ key, save, knownArrival }) => {
         localStorage.setItem(key, save);
