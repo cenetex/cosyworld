@@ -35,10 +35,10 @@ const rites = [
 
 it.each([false, true])("shows each rite with its remaining kit in the Hollow (shared: %s)", (shared) => {
   const states = funeralJourney();
-  for (const [phase, verb, used] of [
-    ["beforeAnoint", "Anoint", []],
-    ["anointed", "Veil", [oil]],
-    ["veiled", "Bury", [oil, cloth]],
+  for (const [phase, given, used] of [
+    ["beforeAnoint", oil, []],
+    ["anointed", cloth, [oil]],
+    ["veiled", shovel, [oil, cloth]],
   ]) {
     const world = decodeSave(encodeSave(states[phase]));
     if (shared) {
@@ -47,7 +47,9 @@ it.each([false, true])("shows each rite with its remaining kit in the Hollow (sh
       world.presentActors = ["vale"];
     }
     const quest = burialCard(world);
-    expect(questVerb(world, quest)).toBe(verb);
+    expect(questVerb(world, quest)).toBe("Give");
+    expect(quest.goal).toMatchObject({ target: given, step: { verb: "give", to: antigone } });
+    expect(quest.remaining[0]).toBe(given);
     expect(questVisible(world, quest)).toBe(true);
     for (const item of used) expect(itemPlace(world, item)).not.toBe(hollow);
     const saved = encodeSave(world);

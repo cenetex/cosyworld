@@ -180,13 +180,14 @@ try {
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
 
+    const held = '#hand .want-frame:not([data-quest-id^="offer:"])';
     const openHeld = async (page, t) => {
       await clearSelection(page);
       await selectCard(page, "vale");
       const fold = page.locator("#hand .quest-fold:not([data-owner])");
       if (await fold.isVisible()) await fold.click();
-      else await tapCard(page.locator("#hand .want-frame > .want-card").first());
-      await page.locator("#hand .want-frame:not([hidden]) > .want-card").waitFor();
+      else await tapCard(page.locator(`${held} > .want-card`).first());
+      await page.locator(`${held}:not([hidden]) > .want-card`).waitFor();
       await t.ready();
     };
 
@@ -313,25 +314,29 @@ try {
       await page.goto(`${origin}/?table=quest-offers-covered-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
-      await openHeld(page, t);
+      assert.equal(await page.locator(held).count(), 0, "a taken copy is not shown beside its owner's card");
+      const openPip = async () => {
+        await clearSelection(page);
+        await page.locator('#hand .quest-fold[data-owner="moth"]').dispatchEvent("click");
+        await page.locator(".action-beat-heading:not([hidden])").waitFor();
+        await t.ready();
+      };
+      await openPip();
       assert.equal(await t.oneButton(), 0);
       const hidden = await surfaces(page);
       assert.match(hidden, /\bsomething\b/u);
       assert.doesNotMatch(hidden, /lamp/iu);
       // Its face is the card back, not the Lamp's art.
-      const face = page.locator("#hand .want-frame .quest-screen");
+      const face = page.locator('#hand [data-quest-id="offer:moth"] .quest-screen');
       assert.equal(await face.locator(".quest-back").count(), 1);
       assert.equal(await face.locator(".quest-thing").count(), 0);
       await t.shot("held-undiscovered");
       // Discovered, the same quest names the Lamp and shows it.
       await clearSelection(page);
       await revealCard(page, "lamp");
-      await openHeld(page, t);
+      await openPip();
       assert.match(await surfaces(page), /Lamp/u);
-      assert.equal(
-        await page.locator("#hand .want-frame .quest-thing").count(),
-        1,
-      );
+      assert.equal(await face.locator(".quest-thing").count(), 1);
       assert.deepEqual(t.errors, []);
       await page.close();
     }
@@ -384,7 +389,7 @@ try {
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 1);
       assert.equal(await label(page), "Discard");
-      const back = page.locator("#hand .want-frame:not([hidden]) > .want-card > .card-back");
+      const back = page.locator(`${held}:not([hidden]) > .want-card > .card-back`);
       assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
       assert.notEqual(
         await back.evaluate((el) => getComputedStyle(el).display),
@@ -400,17 +405,18 @@ try {
     {
       const world = decodeSave(encodeSave(accepted));
       holdQuest(world, "vale", newWant("item", "cloth", world.turn), "quest:box:test");
+      holdQuest(world, "vale", newWant("item", "bell", world.turn), "quest:box:other");
       const t = await open("quest-offers-stack", world);
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-stack-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
-      assert.equal(await page.locator("#hand .want-frame").count(), 1, "only the top quest is shown");
+      assert.equal(await page.locator(held).count(), 1, "only the top quest is shown");
       await openHeld(page, t);
       assert.equal(await t.oneButton(), 0, "a held quest has no Discard");
       assert.equal(
-        await page.locator("#hand .want-frame > .place-edge").count(),
+        await page.locator(`${held} > .place-edge`).count(),
         1,
         "the quest beneath lies as a stack edge",
       );

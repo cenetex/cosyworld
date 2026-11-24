@@ -120,7 +120,7 @@ import {
   questVerb,
 } from "./quest-card.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
-import { besideOwners, syncTableFold, tableBack, tableOwner, tableQuest, tableQuests } from "./quest-hand.mjs";
+import { besideOwners, notBehindOwners, syncTableFold, tableBack, tableOwner, tableQuest, tableQuests } from "./quest-hand.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import { beginPipJourney, createPipWorld, pipHeard } from "./pip-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
@@ -548,7 +548,7 @@ let shownQuests = [],
   // The place whose ways on are fanned at the row's right end (#2272).
   waysOpen = null;
 const visibleQuests = () =>
-  shownQuests.filter((quest) => questVisible(world, quest));
+  notBehindOwners(shownQuests.filter((quest) => questVisible(world, quest)), tableHand);
 const foldQuest = () => visibleQuests()[0] ?? null;
 const entryIdOf = (quest) => (quest.kind === "arcanum" ? quest.key : questId());
 const isResidentOffer = (id) => typeof id === "string" && id.startsWith("offer:");
@@ -3546,13 +3546,13 @@ const questLabel = (quest, near) => {
 };
 // The face every quest card shares, held or offered: the scene and its head.
 function questFace(quest, verb) {
+  const rite = quest.art && { ...questView({ ...quest, ...quest.goal }), here: quest.target };
   const screen = questScreen(
-    quest.art ? { ...questView(quest), actor: null } : questView(quest),
+    rite ? { ...rite, actor: quest.goal ? rite.actor : null } : questView(quest),
     quest.art ? { ...questArt, place: () => quest.art } : questArt,
   );
   if (quest.face === "down") return [screen];
   const head = node("span", undefined, "quest-head");
-  // A level quest keeps its title through each step.
   head.append(
     setCardLabel(node("span", undefined, "quest-verb"), quest.level ? "Level Up" : verb),
     node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),

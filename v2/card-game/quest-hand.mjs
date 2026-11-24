@@ -1,22 +1,36 @@
 // A resident's quest card stacks and fans with its things, face up once known.
+import { questEntryKey } from "./card-entry.mjs";
 import { imageUrl } from "./images.mjs";
 import { LOCKED_BACK } from "./locked-box.mjs";
 import { tableHolder } from "./mystery-view.mjs";
-import { offerCard, offerWords, questTier } from "./quest-card.mjs";
-import { toldWant } from "./talk-quest.mjs";
-import { lockedOffer, people } from "./world.mjs";
+import { ownerCard, offerWords, questTier } from "./quest-card.mjs";
+import { questFor, toldWant } from "./talk-quest.mjs";
+import { revealed } from "./want-talk.mjs";
+import { entityActive } from "./pack-registry.mjs";
+import { people } from "./world.mjs";
 
 export function tableQuest(world, viewer, owner) {
-  if (!people[owner] || owner === viewer) return null;
-  const up = toldWant(world, viewer, owner),
-    quest = up ? offerCard(world, viewer, null, owner) : null;
-  return quest || (!up && lockedOffer(world, viewer, owner))
-    ? { id: `offer:${owner}`, owner, quest }
-    : null;
+  const want = world.actors[owner]?.want;
+  if (
+    !people[owner] ||
+    owner === viewer ||
+    !entityActive(world, owner) ||
+    !revealed(world, owner, want) ||
+    !questFor(world, owner, want)
+  )
+    return null;
+  const quest = toldWant(world, viewer, owner) ? ownerCard(world, viewer, owner) : null;
+  return { id: `offer:${owner}`, owner, quest };
 }
 
 export const tableQuests = (world, viewer, ids) =>
   ids.map((owner) => tableQuest(world, viewer, owner)).filter(Boolean);
+
+export function notBehindOwners(quests, tableHand) {
+  const table = quests.some((q) => q.from?.startsWith("quest:from:")) ? tableHand() : [];
+  const shown = (q) => (t) => q.from === `quest:from:${t.owner}` && t.quest && questEntryKey(t.quest) === questEntryKey(q);
+  return quests.filter((q) => !table.some(shown(q)));
+}
 
 export const tableOwner = (id) => id.slice("offer:".length);
 

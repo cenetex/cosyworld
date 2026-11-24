@@ -146,7 +146,7 @@ try {
         `http://127.0.0.1:${server.address().port}/?table=polynices-${width}`,
       );
       await settle();
-      const funeral = page.locator('button[data-quest-key*="greek-polynices-hollow"]');
+      const funeral = page.locator(`#hand button[data-quest-id="offer:${antigone}"][data-quest-key*="${hollow}"]`);
       const showState = async (world) => {
         await page.evaluate(({ key, save }) => localStorage.setItem(key, save), {
           key, save: encodeSave(world),
@@ -163,7 +163,7 @@ try {
         else if (missing === antigone) world.actors[antigone].place = "greek-gate";
         else world.items[missing].holder = "greek-courtyard";
         await showState(world);
-        assert.equal(await funeral.count(), 0, `Rite waits for ${missing}`);
+        assert.equal(await funeral.count(), kit.includes(missing) ? 1 : 0, `Rite waits for ${missing}`);
         assert.equal(await page.locator('[data-quest-step]').count(), 0);
         if (missing === "place") await photograph("courtyard-quest");
       }
@@ -199,17 +199,17 @@ try {
       await settle();
       assert.equal((await state()).actors.vale.place, hollow);
       assert.equal((await state()).actors[antigone].place, hollow);
-      const quest = page.locator('#hand button[data-quest-id="quest:0"]');
+      assert.equal(await page.locator('#hand [data-quest-id="quest:0"]').count(), 0, "The taken copy is not shown beside Antigone's card");
+      const quest = funeral;
       const pickQuest = async () => {
         await clearSelection(page);
-        await selectCard(page, "vale", { touch: width === 390 });
-        await tapCard(quest);
+        await tapCard(page.locator(`#hand .quest-fold[data-owner="${antigone}"]`));
         await page.waitForFunction(
           () => !document.querySelector("#hand [data-revealing]"),
         );
         if ((await quest.getAttribute("data-picked")) === "false")
           await tapCard(quest);
-        await page.locator('#hand button[data-quest-id="quest:0"][data-unrevealed="false"]').waitFor();
+        await page.locator(`#hand button[data-quest-id="offer:${antigone}"][data-unrevealed="false"]`).waitFor();
         await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
       };
       await pickQuest();
@@ -226,7 +226,7 @@ try {
           }, { key, saved });
           await settle();
           if (saved === changed) {
-            assert.equal(await funeral.count(), 0, `Selected rite clears when ${missing} leaves`);
+            assert.equal(await funeral.count(), missing === antigone ? 0 : 1, `Selected rite clears when ${missing} leaves`);
             assert.equal(await page.locator("[data-quest-step]").count(), 0);
           } else await pickQuest();
         }
@@ -240,7 +240,9 @@ try {
       assert.equal((await state()).items[kit[0]].holder, "vale");
       for (const [index, stage] of ["fallen", "anointed", "veiled"].entries()) {
         await pickQuest();
-        assert.equal(await quest.locator(".quest-verb").textContent(), ["Anoint", "Veil", "Bury"][index]);
+        assert.equal(await quest.locator(".quest-verb").textContent(), "Give");
+        for (const id of [kit[index], antigone])
+          assert.equal(await quest.locator(`.quest-screen [data-entity="${id}"]`).count(), 1, `The rite shows ${id}`);
         assert.ok(
           await page.locator(`#hand img[src*="polynices-${stage}"]`).count(),
           `Quest art ${stage}`,
