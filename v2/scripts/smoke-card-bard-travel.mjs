@@ -129,6 +129,7 @@ try {
       await reachTurn(1);
       assert.equal((await saved()).actors[singer].place, "greek-road-thebes");
       // Return the water jar: this living deed gives the Bard a verse.
+      await clearSelection(page);
       await selectCard(page, "greek-water-jar");
       await selectCard(page, "greek-baker");
       await page.locator('#card-actions [data-action="give"]').click();

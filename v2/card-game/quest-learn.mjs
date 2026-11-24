@@ -23,44 +23,46 @@ export function questText(s, owner, want) {
   return `${who} wants ${what}.`;
 }
 
-export const learnTold = (s, owner, learner, want = s.actors[owner].want) =>
-  learnQuest(
+export function learnTold(s, owner, learner, want = s.actors[owner].want) {
+  noteTold(s, learner, [owner]);
+  return learnQuest(
     s,
     owner,
     learner,
     { id: questFactId(owner, want), text: questText(s, owner, want) },
     { seq: s.eventSeq, turn: s.turn },
   );
+}
 
-export const questOwners = (s, who) => [
-  ...new Set(
-    Object.entries(s.knowledge?.known?.[who] || {})
-      .map(([id, m]) => [s.knowledge.facts[id]?.source, m.teller])
-      .filter(
-        ([source, by]) => source?.kind === "quest" && by === source.actorId,
-      )
-      .map(([source]) => source.actorId),
-  ),
-];
+export const questOwners = (s, who) => s.actors[who]?.told || [];
+function noteTold(s, who, owners) {
+  const told = [...new Set([...questOwners(s, who), ...owners])]
+    .filter((o) => o !== who && Object.hasOwn(s.actors, o))
+    .sort();
+  if (told.length) s.actors[who].told = told;
+  else delete s.actors[who].told;
+}
 const named = (id) =>
   [places, people, things].some((c) => Object.hasOwn(c, id));
 
-// Saves from before rules 191 kept a `heard` map. Each entry becomes the
-// teller's quest fact, live while it is still their want, so II keeps its count.
+// Saves from before rules 195 count II from their heard map or quest facts.
 export function installQuestFacts(s) {
+  for (const [id, a] of Object.entries(s.actors))
+    noteTold(s, id, [
+      ...Object.keys(a.heard || {}),
+      ...Object.entries(s.knowledge?.known?.[id] || {})
+        .map(([fact, m]) => [s.knowledge.facts[fact]?.source, m.teller])
+        .filter(([at, by]) => at?.kind === "quest" && by === at.actorId)
+        .map(([at]) => at.actorId),
+    ]);
   for (const [id, a] of Object.entries(s.actors)) {
-    if (!a.heard) continue;
-    for (const [them, told] of Object.entries(a.heard)) {
+    for (const [them, told] of Object.entries(a.heard || {})) {
       const live = s.actors[them]?.want;
       const [kind, target] = told.split(/:(.*)/su);
       if (live && told === `${live.kind}:${live.target}`)
         learnTold(s, them, id, live);
       else if (named(target)) learnTold(s, them, id, { kind, target });
     }
-    const lost = Object.keys(a.heard).length - questOwners(s, id).length;
-    for (const slot of a.arcana?.spread || [])
-      if (lost > 0 && slot.base?.heard !== undefined)
-        slot.base.heard = Math.max(0, slot.base.heard - lost);
     delete a.heard;
   }
 }

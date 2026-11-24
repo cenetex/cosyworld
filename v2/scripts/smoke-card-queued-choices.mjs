@@ -149,7 +149,7 @@ try {
         await selectCard(page, "vale");
         // Choosing the quest card passes no turn; like any choice made while
         // speech plays, it waits behind the words.
-        const fold = page.locator("#hand .quest-fold");
+        const fold = page.locator("#hand .quest-fold:not([data-owner])");
         if (await fold.isVisible()) await fold.click();
         else
           await tapCard(

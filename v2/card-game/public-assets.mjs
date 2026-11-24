@@ -143,6 +143,7 @@ const files = [
   "quest-card.mjs",
   "quest-step.mjs",
   "quest-screen.mjs",
+  "quest-hand.mjs",
   "card-tiers.css",
   "card-label.mjs",
   "card-descriptor.mjs",

@@ -108,7 +108,7 @@ try {
     assert.equal(await fold.count(), 1);
     assert.equal(await page.locator("#hand .quest-tab").count(), 0);
     const [foldBox, valeBox] = await page.evaluate(() =>
-      [".quest-fold", '[data-card="vale"]'].map((s) => {
+      [".quest-fold:not([data-owner])", '[data-card="vale"]'].map((s) => {
         const el = document.querySelector(`#hand ${s}`);
         return [el.offsetWidth, el.offsetHeight];
       }),
@@ -156,7 +156,7 @@ try {
       { name: "Hold", lines: 1, color: "rgb(255, 240, 130)" },
       "the verb alone, in the Legendary lamp's tier",
     );
-    assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
+    assert.equal(await page.locator("#hand .quest-fold:not([data-owner])").isHidden(), true);
     assert.equal(
       await page.locator('#hand .want-frame > .want-card[data-near="true"]').isVisible(),
       true,
@@ -244,7 +244,7 @@ try {
     }, { key });
     await page.reload();
     await ready();
-    await page.locator("#hand .quest-fold").focus();
+    await page.locator("#hand .quest-fold:not([data-owner])").focus();
     await page.keyboard.press("Enter");
     await page.locator("#hand .want-frame:not([hidden])").waitFor();
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
@@ -312,7 +312,7 @@ try {
       `http://127.0.0.1:${server.address().port}/?table=quest-give-${width}`,
     );
     await ready();
-    await page.locator("#hand .quest-fold").focus();
+    await page.locator("#hand .quest-fold:not([data-owner])").focus();
     await page.keyboard.press("Enter");
     await page.locator('#hand .want-frame > .want-card[data-unrevealed="false"]').waitFor();
     assert.deepEqual(await head(), {
