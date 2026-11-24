@@ -1,15 +1,14 @@
 name: Deploy
 
-# Merges to main do not deploy. A scheduled .dev train deploys main's head
-# every 30 minutes, only when main has moved since .dev's last rollout; the
-# `dev` dispatch target runs one now. Edit the cron line to change the
-# cadence, or set the COSYWORLD_DEV_TRAIN repository variable to `off` to
-# pause the schedule. Tags and the other dispatch targets are production.
+# Every push to main deploys .dev unless it changes only docs or tests. A
+# newer push cancels an older build, and rollouts run one at a time.
+# COSYWORLD_DEV_TRAIN=off pauses them; the `dev` dispatch still deploys. Tags
+# and the other dispatch targets are production.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
-  schedule:
-    - cron: "7,37 * * * *"
+    paths-ignore: ["**.md", "docs/**", "sites/**", "test/**", "v2/docs/**", "v2/tests/**", "v2/mvp.sh"]
   workflow_dispatch:
     inputs:
       target:
@@ -27,17 +26,7 @@ on:
 # reads it: a `dev` dispatch is otherwise indistinguishable from production.
 # A production run's name ends with its target, which
 # scripts/supersede-production-deploy.mjs reads; a tag deploys both apps.
-run-name: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && format('.dev train {0}', github.sha) || format('Deploy {0} to {1}', github.ref_name, inputs.target || 'both') }}
-
-# .dev trains queue in one group. Production runs (v* tags, dispatches) get a
-# group each, so a newer release never waits behind a whole older run:
-# scripts/supersede-production-deploy.mjs cancels an older run still in its
-# gates and serializes the Fly rollouts themselves. Nothing here cancels a
-# run in progress. Trains and production both roll out the primary app;
-# scripts/serialize-primary-rollout.sh keeps those rollouts apart.
-concurrency:
-  group: deploy-${{ github.repository }}-${{ (github.event_name == 'schedule' || inputs.target == 'dev') && 'dev' || format('production-{0}', github.run_id) }}
-  cancel-in-progress: false
+run-name: ${{ ((github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch') || inputs.target == 'dev') && format('.dev train {0}', github.sha) || format('Deploy {0} to {1}', github.ref_name, inputs.target || 'both') }}
 
 permissions:
   contents: read
@@ -47,60 +36,66 @@ env:
   CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
-  # The .dev train deploys main's head from this one job, so it waits for one
-  # runner, not five in a row. The production gates, primary backup and
-  # Lonely Forest run only for tags and production dispatches, below.
-  # The train deploys the commit it started on even if main moves meanwhile;
-  # the next train takes the rest.
-  dev-deploy:
-    name: Deploy main to .dev
+  dev-plan:
+    name: Plan the .dev deploy
     if: >-
       github.ref == 'refs/heads/main' &&
-      ((github.event_name == 'schedule' && vars.COSYWORLD_DEV_TRAIN != 'off') ||
+      ((github.event_name == 'push' && vars.COSYWORLD_DEV_TRAIN != 'off') ||
        (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 10
     permissions:
       contents: read
       # Reads earlier Deploy runs to find what .dev runs.
       actions: read
     outputs:
       deploy: ${{ steps.impact.outputs.deploy }}
-      rolled-out: ${{ steps.rollout.outcome == 'success' }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:
-      - name: Checkout committed release
+      - name: Checkout deploy scripts
         uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
 
-      # Compare with the commit .dev actually runs. A train whose main has
-      # not moved, or moved only in docs, tests, or tooling, deploys nothing.
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       - name: Check whether production inputs changed
         id: impact
-        run: |
-          base="$(node scripts/last-dev-rollout.mjs)"
-          echo "base=$base" >> "$GITHUB_OUTPUT"
-          if [ -n "$base" ]; then
-            echo "The primary app last rolled out ${base:0:7}."
-            git fetch --no-tags --depth=1 origin "$base" || true
-          fi
-          node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+        run: bash scripts/plan-dev-deploy.sh "$(node scripts/last-dev-rollout.mjs)" >> "$GITHUB_OUTPUT"
 
-      # Label the drop: the commit and the pull requests merged since .dev's
-      # last rollout, in the run summary.
       - name: Record the train
+        if: steps.impact.outputs.deploy == 'true'
         env:
           BASE: ${{ steps.impact.outputs.base }}
           DEPLOY: ${{ steps.impact.outputs.deploy }}
         run: bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"
 
+  # Latest wins: a newer main push cancels this build. Only a run that will
+  # deploy joins the group, so a no-op run never cancels a real build.
+  dev-image:
+    name: Build the .dev image
+    needs: dev-plan
+    if: needs.dev-plan.outputs.deploy == 'true'
+    concurrency:
+      group: deploy-${{ github.repository }}-dev-image${{ needs.dev-plan.outputs.deploy != 'true' && format('-{0}', github.run_id) || '' }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+
       - name: Setup flyctl
-        if: steps.impact.outputs.deploy == 'true'
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Install image transfer tool
-        if: steps.impact.outputs.deploy == 'true'
         run: |
           command -v skopeo >/dev/null ||
             { sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo; }
@@ -109,12 +104,10 @@ jobs:
       # recompiles only what changed.
       - name: Choose release build cache key
         id: release-cache-key
-        if: steps.impact.outputs.deploy == 'true'
         run: echo "day=$(date -u +%Y%m%d)" >> "$GITHUB_OUTPUT"
 
       - name: Restore release build cache
         id: release-cache
-        if: steps.impact.outputs.deploy == 'true'
         uses: actions/cache/restore@v6
         with:
           path: ${{ runner.temp }}/release-target
@@ -125,69 +118,19 @@ jobs:
 
       # build.rs runs Node to generate the embedded card asset list.
       - name: Setup Node.js
-        if: steps.impact.outputs.deploy == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: "24"
 
       - name: Prepare primary image
         id: image
-        if: steps.impact.outputs.deploy == 'true'
         run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
         env:
           COSYWORLD_IMAGE_BUILDER: runner
           COSYWORLD_RELEASE_TARGET_CACHE: ${{ runner.temp }}/release-target
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
-      # Waits while a production deploy is queued or running. Production
-      # waits for .dev runs past this step.
-      - name: Wait for production deploys
-        if: steps.impact.outputs.deploy == 'true'
-        run: bash scripts/serialize-primary-rollout.sh dev
-
-      # A Fly release started outside the train while this one runs (a
-      # `fly secrets set` without --stage) waits for the machine lease and
-      # then writes back the config it read earlier, restoring the previous
-      # image after flyctl has reported success. Check the machines kept this
-      # commit and roll out again when they did not.
-      - name: Roll out .dev
-        id: rollout
-        if: steps.impact.outputs.deploy == 'true'
-        run: |
-          for attempt in 1 2 3; do
-            bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
-            sleep 20
-            if node scripts/fly-machines-serve-commit.mjs cosyworld "$GITHUB_SHA"; then
-              exit 0
-            fi
-            echo "::warning::Another Fly release replaced rollout $attempt; rolling out again"
-          done
-          echo "::error::.dev machines did not keep $GITHUB_SHA after three rollouts" >&2
-          exit 1
-        env:
-          RELEASE_IMAGE: ${{ steps.image.outputs.image }}
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
-      - name: Verify primary readiness and persistence
-        if: steps.impact.outputs.deploy == 'true'
-        run: |
-          for attempt in {1..13}; do
-            if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
-              exit 0
-            fi
-            if [ "$attempt" -eq 13 ]; then
-              echo "Primary readiness remained degraded after 120 seconds" >&2
-              exit 1
-            fi
-            echo "::warning::Primary readiness attempt $attempt failed; retrying in 10 seconds"
-            sleep 10
-          done
-
-      - name: Verify primary card game
-        if: steps.impact.outputs.deploy == 'true'
-        run: node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
-
-      # Save once per UTC day, after .dev is live. The key leaves out
+      # Save once per UTC day, while the rollout runs. The key leaves out
       # Cargo.lock, which every version bump changes; Cargo rebuilds changed
       # dependencies itself.
       - name: Check release build cache
@@ -207,6 +150,89 @@ jobs:
         with:
           path: ${{ runner.temp }}/release-target
           key: ${{ steps.release-cache.outputs.cache-primary-key }}
+
+  # Rollouts never cancel: a newer one waits, replacing any older waiting one.
+  dev-deploy:
+    name: Deploy main to .dev
+    needs: [dev-plan, dev-image]
+    concurrency:
+      group: deploy-${{ github.repository }}-dev
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      rolled-out: ${{ steps.rollout.outcome == 'success' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - name: Checkout deploy scripts
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts
+            v2/scripts
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Waits while a production deploy is queued or running. Production
+      # waits for .dev runs past this step.
+      - name: Wait for production deploys
+        run: bash scripts/serialize-primary-rollout.sh dev
+
+      # A Fly release started outside the train while this one runs (a
+      # `fly secrets set` without --stage) waits for the machine lease and
+      # then writes back the config it read earlier, restoring the previous
+      # image after flyctl has reported success. Check the machines kept this
+      # commit and roll out again when they did not.
+      - name: Roll out .dev
+        id: rollout
+        run: |
+          for attempt in 1 2 3; do
+            bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
+            sleep 20
+            if node scripts/fly-machines-serve-commit.mjs cosyworld "$GITHUB_SHA"; then
+              exit 0
+            fi
+            echo "::warning::Another Fly release replaced rollout $attempt; rolling out again"
+          done
+          echo "::error::.dev machines did not keep $GITHUB_SHA after three rollouts" >&2
+          exit 1
+        env:
+          RELEASE_IMAGE: ${{ needs.dev-image.outputs.image }}
+
+      - name: Verify primary readiness and persistence
+        run: |
+          for attempt in {1..13}; do
+            if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 13 ]; then
+              echo "Primary readiness remained degraded after 120 seconds" >&2
+              exit 1
+            fi
+            echo "::warning::Primary readiness attempt $attempt failed; retrying in 10 seconds"
+            sleep 10
+          done
+
+      # The card smoke compares every served file with this commit's.
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+        with:
+          path: release
+
+      - name: Verify primary card game
+        run: node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
 
   deployment-impact:
     name: Check production impact
@@ -876,6 +902,8 @@ jobs:
     name: Report production deployment outcome
     runs-on: ubuntu-latest
     needs:
+      - dev-plan
+      - dev-image
       - dev-deploy
       - deployment-impact
       - release-owner
@@ -887,10 +915,9 @@ jobs:
       - lonelyforest-image
       - lonelyforest-backup
       - lonelyforest-fly
-    # A queued run that a newer run in its concurrency group replaced (a
-    # later train for .dev, a later tag or dispatch for production) is
-    # cancelled and owns nothing; the newer run reports for it (#1044).
-    if: ${{ !cancelled() }}
+    # A run a newer one cancelled owns nothing; the newer run reports for it
+    # (#1044). A .dev run that deploys nothing has nothing to report.
+    if: ${{ !cancelled() && needs.dev-plan.outputs.deploy != 'false' }}
     permissions:
       contents: read
       issues: write
@@ -914,6 +941,8 @@ jobs:
       # without anyone going to look.
       - name: Open a loud tracking issue when a required production deploy did not succeed
         if: >-
+          needs.dev-plan.result == 'failure' ||
+          needs.dev-image.result == 'failure' ||
           needs.dev-deploy.result == 'failure' ||
           (needs.deployment-impact.outputs.deploy == 'true' &&
           (needs.release-owner.result == 'failure' ||
@@ -928,8 +957,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          DEV_RESULT: ${{ needs.dev-deploy.result }}
-          TRIGGER: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && '.dev train' || format('{0} {1}', github.event_name, github.ref) }}
+          DEV_RESULT: build ${{ needs.dev-image.result }}, rollout ${{ needs.dev-deploy.result }}
+          TRIGGER: ${{ ((github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch') || inputs.target == 'dev') && '.dev train' || format('{0} {1}', github.event_name, github.ref) }}
           OWNER_RESULT: ${{ needs.release-owner.result }}
           GATE_RESULT: ${{ needs.production-gate.result }}
           PRIMARY_IMAGE_RESULT: ${{ needs.primary-image.result }}
@@ -981,7 +1010,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          DEV_TRAIN: ${{ github.event_name == 'schedule' || inputs.target == 'dev' }}
+          DEV_TRAIN: ${{ (github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch') || inputs.target == 'dev' }}
         run: |
           if [ "$DEV_TRAIN" = "true" ]; then
             scope="the primary app"
