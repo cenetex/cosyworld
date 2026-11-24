@@ -493,6 +493,28 @@ describe("a .dev run plans before it joins the build queue", () => {
     expect(moved.stdout).toContain("deploy=false");
     expect(moved.stderr).toContain("a rerun deploys only main's head");
   });
+
+  it("leaves the build to a live .dev run of main's newer head", () => {
+    const head = "d".repeat(40);
+    const api = (title, status, conclusion = null) => ({
+      "repos/example/world/commits/main": { sha: head },
+      "repos/example/world/actions/workflows/deploy.yml/runs": {
+        workflow_runs: [{ display_title: title, status, conclusion }],
+      },
+    });
+    const train = `.dev train ${head}`;
+    for (const live of [api(train, "queued"), api(train, "completed", "success")]) {
+      const result = plan("", live);
+      expect(result.stdout).toContain("deploy=false");
+      expect(result.stderr).toContain("the .dev run for main's head ddddddd");
+    }
+    for (const gone of [
+      api(train, "completed", "failure"),
+      api(train, "completed", "cancelled"),
+      api(`Deploy v1.2.3 to both`, "queued"),
+    ])
+      expect(plan("", gone).stdout).toContain("deploy=true");
+  });
 });
 
 const rolloutScript = fileURLToPath(
