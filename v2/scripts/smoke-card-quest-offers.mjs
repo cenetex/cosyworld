@@ -228,11 +228,10 @@ try {
       const fold = page.locator('#hand .quest-fold[data-owner="moth"]');
       const openOffer = async (tap) => {
         await tapCard(tap);
-        await page.locator('#card-actions [data-action="accept"]').waitFor();
+        await page.locator(".action-beat-heading:not([hidden])").waitFor();
         assert.equal(await offer.getAttribute("aria-pressed"), "true");
         assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
-        assert.equal(await t.oneButton(), 1);
-        assert.equal(await label(page), "Accept");
+        assert.equal(await t.oneButton(), 0, "a resident's card has no Accept");
         assert.equal((await t.state()).actors.vale.want, null);
       };
       await selectCard(page, "moth");
@@ -263,25 +262,19 @@ try {
       await t.shot("offer-after-talk");
       await clearSelection(page);
       await t.ready();
-      assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
       await openOffer(fold);
-      await page.locator('#card-actions [data-action="accept"]').click();
+      await clearSelection(page);
+      await selectCard(page, "lamp");
+      await selectCard(page, "moth");
+      await page.locator('#card-actions [data-action="give"]').click();
       await t.ready();
-      assert.equal(await offer.count(), 0, "an accepted offer leaves");
-      const held = await t.state();
-      assert.deepEqual(
-        { kind: held.actors.vale.want.kind, target: held.actors.vale.want.target, from: held.actors.vale.want.from },
-        { kind: "item", target: "lamp", from: "quest:from:moth" },
-      );
-      assert.equal(await offerCards(page).count(), 0, "nothing lies to accept");
-      const heldCard = page.locator('#hand .want-frame[data-quest-id="quest:0"] > .want-card');
-      await heldCard.waitFor({ state: "attached" });
-      assert.equal(await heldCard.getAttribute("data-unrevealed"), "false", "the accepted quest lies face up");
-      assert.equal(await page.locator("#hand .want-frame").count(), 1, "the held quest card");
-      await openHeld(page, t);
-      assert.equal(await t.oneButton(), 0, "a held quest has no Discard");
+      const met = await t.state();
+      assert.equal(met.items.lamp.holder, "moth");
+      assert.equal(met.actors.vale.want, null);
+      assert.equal(met.log.filter((e) => e.verb === "want_met" && e.actorId === "vale" && e.ownerId === "moth").length, 1);
+      assert.equal(await offer.count(), 0, "a met card leaves its owner");
       await t.layout();
-      await t.shot("held-step");
+      await t.shot("card-met");
       assert.deepEqual(t.errors, []);
       await page.close();
     }
@@ -304,33 +297,6 @@ try {
       );
       assert.deepEqual(await pipGroup(page), ["moth shown", "cloth shown", "offer:moth shown"]);
       await t.shot("group-face-up");
-      assert.deepEqual(t.errors, []);
-      await page.close();
-    }
-
-    {
-      let world = questing(createWorld());
-      for (const id of ["vale", "moth", "keeper"]) world.actors[id].place = "station";
-      world.items.lamp.holder = "vale";
-      world.actors.vale.want = null;
-      const step = (kind, target) =>
-        play(world, legalActions(world).find((a) => a.kind === kind && a.target === target)).state;
-      world = step("talk", "moth");
-      world = step("threaten", "keeper");
-      const t = await open("quest-offers-fight", world);
-      const { page } = t;
-      await page.goto(`${origin}/?table=quest-offers-fight-${width}`);
-      const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
-      await t.ready();
-      await selectCard(page, "moth");
-      await tapCard(offer);
-      await page.waitForFunction(
-        () => document.querySelector('#hand [data-quest-id="offer:moth"] > .want-card')?.ariaPressed === "true",
-      );
-      assert.equal(await t.oneButton(), 1, "an offer in a fight keeps one button");
-      const only = page.locator("#card-actions button").first();
-      assert.equal(await only.getAttribute("data-blocked"), "fight");
-      assert.equal(await only.textContent(), "Not while fighting");
       assert.deepEqual(t.errors, []);
       await page.close();
     }
@@ -469,7 +435,7 @@ try {
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
-      assert.equal((await t.state()).actors.vale.want, null, "a box quest waits for Accept");
+      assert.equal((await t.state()).actors.vale.want, null, "no box quest is held");
       const boxOffer = page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card');
       const locked = async () => {
         await selectCard(page, "greek-battlefield");
@@ -477,24 +443,9 @@ try {
         assert.equal(await page.locator("#card-actions button").first().textContent(), "Locked");
       };
       await locked();
-      const words = await page.locator(".action-beat-text").textContent();
-      await tapCard(boxOffer);
-      assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Accept");
-      assert.equal(await page.locator(".action-beat-text").textContent(), words);
-      await t.shot("box-offer");
-      const turn = (await t.state()).turn;
-      await page.locator('#card-actions [data-action="accept"]').click();
-      await boxOffer.waitFor({ state: "detached" });
-      await t.ready();
-      assert.equal((await t.state()).actors.vale.want.from, "quest:box:greek-battlefield");
-      assert.equal((await t.state()).turn, turn);
-      await locked();
-      assert.equal(await boxOffer.count(), 0, "a held box quest is not offered again");
-      await openHeld(page, t);
-      assert.equal(await t.oneButton(), 0);
+      assert.equal(await boxOffer.count(), 0, "a shut box lays out no quest card");
       await t.layout();
-      await t.shot("box-held");
+      await t.shot("box-locked");
       assert.deepEqual(t.errors, []);
       await page.close();
     }

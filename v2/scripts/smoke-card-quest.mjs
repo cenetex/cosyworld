@@ -208,19 +208,12 @@ try {
       )
       .click();
     await ready();
-    assert.equal((await saved()).want, null, "no box quest is held unasked");
-    await selectCard(page, "pond");
-    await tapCard(page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card'));
-    await readyActionButton(page, "accept").click();
-    await page.waitForFunction(
-      (k) =>
-        JSON.parse(localStorage.getItem(k)).actors.vale.want?.from ===
-        "quest:box:pond",
-      key,
-    );
     const after = await saved();
+    assert.equal(after.want, null, "no box quest is held unasked");
     assert.equal(after.xp, before.xp, "a traveler earns no XP");
-    assert.equal(after.want.lit, false);
+    await selectCard(page, "pond");
+    assert.equal(await page.locator('#hand .want-frame[data-quest-id="offer:0"]').count(), 0, "the shut pond lays out no quest card");
+    assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.equal(
       await page.locator("#card-actions [data-claim]").count(),

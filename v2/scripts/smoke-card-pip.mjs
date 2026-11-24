@@ -68,9 +68,8 @@ async function walkToGivenLamp(browser, base) {
   await travel("pond", "Black pond");
   await choose("moth");
   await page.locator('#hand [data-quest-id="offer:moth"] > .want-card[data-unrevealed="false"]').click();
-  await page.locator('#card-actions [data-action="accept"]').waitFor({ timeout: 8000 });
-  assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
-  await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 2500 }));
+  await page.waitForFunction(() => document.querySelector(".action-beat-text")?.textContent === "Pip asks for the Lamp", null, { timeout: 8000 });
+  assert.equal(await button.count(), 0, "Pip's card has no Accept");
   await page.keyboard.press("Escape");
   await choose("vale");
   await choose("lamp");
@@ -81,11 +80,12 @@ async function walkToGivenLamp(browser, base) {
   const saved = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
   assert.equal(saved.items.lamp.holder, "moth");
   assert.notEqual(saved.actors.vale.want?.from, "quest:from:moth");
+  assert(saved.log.some((e) => e.verb === "want_met" && e.actorId === "vale" && e.ownerId === "moth"));
   assert.equal(saved.actors.vale.xp, 0);
   assert.equal(saved.actors.vale.under, undefined);
   assert.equal(saved.actors.vale.place, "pond");
   assert.deepEqual(errors, []);
-  console.log("Pip first quest: box, Talk, fade, opening, Accept at the pond and Give passed.");
+  console.log("Pip first quest: box, Talk, fade, opening, Pip's card at the pond and Give passed.");
   await page.close();
 }
 // Choosing and pressing, waiting on what the screen shows. A press soon after
