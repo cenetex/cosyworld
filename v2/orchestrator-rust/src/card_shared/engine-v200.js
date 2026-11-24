@@ -6401,7 +6401,9 @@
       (c) => c.kind === "choice" && c.key === key2 && c.value === choices[key2]
     );
     const commit = packDefinition(packId).choices.find(
-      (c) => Object.hasOwn(receipts, c.id) && c.effects.some((e) => e.kind === "choose" && e.key === key2)
+      (c) => Object.hasOwn(receipts, c.id) && c.effects.some(
+        (e) => e.kind === "choose" && e.key === key2 && e.value === choices[key2]
+      )
     );
     const sawCommit = (id) => {
       const f = s.knowledge.facts[id];

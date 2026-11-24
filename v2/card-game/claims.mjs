@@ -121,7 +121,9 @@ function sawBranch(s, actor, packId, key) {
   const commit = packDefinition(packId).choices.find(
     (c) =>
       Object.hasOwn(receipts, c.id) &&
-      c.effects.some((e) => e.kind === "choose" && e.key === key),
+      c.effects.some(
+        (e) => e.kind === "choose" && e.key === key && e.value === choices[key],
+      ),
   );
   const sawCommit = (id) => {
     const f = s.knowledge.facts[id];
