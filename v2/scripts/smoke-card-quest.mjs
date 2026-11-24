@@ -324,7 +324,7 @@ try {
       color: "rgb(255, 240, 130)",
     });
     assert.equal(
-      await page.locator("#hand .want-frame > .want-card").getAttribute("aria-label"),
+      await page.locator('#hand .want-frame[data-quest-id="quest:0"] > .want-card').getAttribute("aria-label"),
       "Quest: Give the Burial Decree to the Gate Guard, near",
     );
     // The fold's tap names the quest; its one button is Discard.
@@ -380,7 +380,7 @@ try {
       xp,
       "the Give paid a traveler no XP, with no claim",
     );
-    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
+    assert.equal(await page.locator('#hand .want-frame[data-quest-id="quest:0"]').count(), 0);
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.deepEqual(errors, []);
     console.log(

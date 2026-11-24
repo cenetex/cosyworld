@@ -121,7 +121,7 @@ import {
   questVerb,
 } from "./quest-card.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
-import { besideOwners, syncTableFold, tableQuest, tableQuests } from "./quest-hand.mjs";
+import { besideOwners, syncTableFold, tableBack, tableOwner, tableQuest, tableQuests } from "./quest-hand.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
 import { beginPipJourney, createPipWorld, pipHeard } from "./pip-landing.mjs";
 import { flipStagePortrait, portraitFraming } from "./portrait-facing.mjs";
@@ -558,11 +558,10 @@ const standingOffer = () =>
   (!pipPrelude() && boxAsk && offerCard(world, currentActor(world), boxAsk)) || null;
 const offerFront = () => questOpen === OFFER_CARD && Boolean(standingOffer());
 const isResidentOffer = (id) => typeof id === "string" && id.startsWith("offer:") && id !== OFFER_CARD;
-const residentOffers = () =>
+const tableHand = () =>
   pipPrelude()
     ? []
-    : tableQuests(world, currentActor(world), availableCards(world).filter((id) => !cardIsClosed(id)))
-        .filter((table) => table.quest);
+    : tableQuests(world, currentActor(world), availableCards(world).filter((id) => !cardIsClosed(id)));
 function syncOffer() {
   const shut = selected.filter((id) => !cardIsCovered(id) && isLockedBox(world, id));
   if (shut.length === 1) boxAsk = shut[0];
@@ -585,7 +584,7 @@ const questEntries = () => {
       (q) => ({ id: entryIdOf(q), quest: q }),
     ),
     ...(offer ? [{ id: OFFER_CARD, quest: offer }] : []),
-    ...residentOffers(),
+    ...tableHand().filter((table) => table.quest),
   ];
 };
 const questEntry = (id) => questEntries().find((entry) => entry.id === id);
@@ -1706,7 +1705,7 @@ function avatarStack(id) {
       open: false,
       top: true,
       under: 0,
-      shown: questOpen === id,
+      shown: questOpen === id || expandedHolders.has(tableOwner(id)),
     };
   if (isQuestId(id) || isTarotKey(id))
     return {
@@ -3525,8 +3524,7 @@ function card(id) {
         named.push(`${held.length - named.length} covered`);
       if (!hidden)
         observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${named.join(", ")}. Select to show these cards.`;
-      // One carried thing peeks out behind its holder; the rest wait in
-      // the opened stack.
+      // One carried thing peeks out behind its holder.
       for (const item of held.slice(0, 1)) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
@@ -3543,7 +3541,6 @@ function card(id) {
   syncAvatarStack(frame, id);
   if (!hidden && foldQuest()?.actor === id) frame.prepend(questFold());
   else if (!hidden && !pipPrelude() && tableQuest(world, currentActor(world), id)) frame.prepend(questFold(id));
-  // A real lock takes priority over discovery.
   el.dataset.locked = String(locked);
   el.dataset.unrevealed = String(cardIsCovered(id) && !locked);
   const back = node("img", undefined, "card-back");
@@ -3622,6 +3619,7 @@ function questFace(quest, verb) {
   return [screen, head];
 }
 function questFrame({ id, quest }) {
+  if (!quest) return tableBack(id, tableView(tableOwner(id)));
   const picked = questOpen === id,
     covered = isTarotKey(id) && cardIsCovered(id);
   const hidden = questCovered(quest),
@@ -3696,23 +3694,13 @@ function openQuest(id = entryIdOf(foldQuest()), focus = false) {
   const quest = questEntry(id)?.quest;
   if (quest && questsInView.down(questFaceKey(quest))) turnQuest(questFaceKey(quest));
 }
-// The quest shows when the avatar's stacks show.
 const questShown = (quest) =>
   Boolean(quest) && expandedHolders.has(quest.actor);
-// The folded quest is a card in the avatar's stack: the world's card back
-// with a glowing line in its tier colour. The line pulses while the quest is
-// new and holds a steady halo while it is near. Once the quest card shows,
-// the fold hides and the card glows instead.
+// The folded quest: the card back with a line in its tier colour, which pulses
+// while the quest is new and holds a halo while it is near.
 function syncQuestFold(fold) {
   const { owner } = fold.dataset;
-  if (owner)
-    return syncTableFold(fold, world, tableQuest(world, currentActor(world), owner), {
-      open: questOpen === `offer:${owner}`,
-      art: questArt,
-      covered: questCovered,
-      known,
-      name: knownName,
-    });
+  if (owner) return syncTableFold(fold, world, tableQuest(world, currentActor(world), owner), tableView(owner));
   const quest = foldQuest();
   fold.hidden = !quest || questShown(quest);
   if (!quest) return;
@@ -3743,12 +3731,23 @@ function questFold(owner) {
   syncQuestFold(fold);
   fold.addEventListener("click", (event) => {
     event.stopPropagation();
-    const id = owner && `offer:${owner}`;
-    if (!id || questEntry(id)) openQuest(id, true);
-    else if (!selectionBlocked() && !selected.includes(owner)) choose(owner);
+    if (owner) tableView(owner).tap();
+    else openQuest(undefined, true);
   });
   return fold;
 }
+const tableView = (owner) => ({
+  fanned: questOpen === `offer:${owner}` || expandedHolders.has(owner),
+  art: questArt,
+  covered: questCovered,
+  known,
+  name: knownName,
+  blocked: selectionBlocked(),
+  tap: () => {
+    if (questEntry(`offer:${owner}`)) openQuest(`offer:${owner}`, true);
+    else if (!selectionBlocked() && !selected.includes(owner)) choose(owner);
+  },
+});
 const showPreferredLocations = createPreferredLocationsView(
   $("stage"),
   $("stage-figures"),
@@ -5098,7 +5097,8 @@ function render() {
             world,
             questEntries().map((entry) => entry.id).filter((id) => !isResidentOffer(id)),
           ),
-          residentOffers(),
+          tableHand(),
+          world,
         ),
       ),
     ),
@@ -5193,7 +5193,7 @@ function render() {
           row,
           handCards.map((id) =>
             isQuestId(id) || isTarotKey(id) || id === OFFER_CARD || isResidentOffer(id)
-              ? questFrame(questEntry(id))
+              ? questFrame(questEntry(id) ?? { id })
               : card(id),
           ),
         ),
