@@ -266,16 +266,6 @@ export const isQuestId = (id) => id === questId();
 
 // The hand with the quest card after the player's avatar and what it
 // carries (a quest card never lies ahead of a carried thing, #2295).
-export function besideHolders(cards, world, entries = []) {
-  const hand = [...cards];
-  for (const { id, holder } of entries) {
-    let at = hand.indexOf(holder) + 1;
-    if (!at) continue;
-    while (at < hand.length && world.items[hand[at]] && rootHolder(world, hand[at]) === holder) at++;
-    hand.splice(at, 0, id);
-  }
-  return hand;
-}
 export function handWithQuest(cards, world, ids = []) {
   const hand = cards.filter((id) => !isQuestId(id));
   if (!ids.length) return hand;
