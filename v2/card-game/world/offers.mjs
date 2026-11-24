@@ -80,7 +80,7 @@ export function boxOffer(s, source, actor = currentActor(s)) {
 
 export const placeMet = (s, place) =>
   s.placeMet && Object.hasOwn(s.placeMet, place) ? s.placeMet[place] : [];
-export function placeWant(s, place) {
+export function looseThings(s) {
   const wanted = new Set(
     Object.entries(s.actors)
       .filter(([id]) => !humanAvatar(id))
@@ -88,26 +88,32 @@ export function placeWant(s, place) {
   );
   const aboard = new Set(Object.values(transports).map((t) => t.place));
   const loose = (at) => !s.items[at] && !s.actors[at] && !aboard.has(at);
-  const missing = Object.keys(s.items)
-    .filter(
-      (id) =>
-        things[id]?.holder === place &&
-        !things[id].locked &&
-        !things[id].sealed &&
-        !placeMet(s, place).includes(id) &&
-        entityActive(s, id) &&
-        !neverBack(s, id) &&
-        !usedUp(s, id) &&
-        !wanted.has(id) &&
-        loose(s.items[id].holder) &&
-        s.items[id].holder !== place,
+  const out = {};
+  for (const id of Object.keys(s.items).sort()) {
+    const place = things[id]?.holder;
+    if (
+      Object.hasOwn(places, place) &&
+      s.items[id].holder !== place &&
+      loose(s.items[id].holder) &&
+      !things[id].locked &&
+      !things[id].sealed &&
+      !wanted.has(id) &&
+      !placeMet(s, place).includes(id) &&
+      entityActive(s, id) &&
+      !neverBack(s, id) &&
+      !usedUp(s, id)
     )
-    .sort();
-  return missing.length
+      (out[place] ??= []).push(id);
+  }
+  return out;
+}
+export function placeWant(s, place) {
+  const item = s.placeCard?.[place] ?? looseThings(s)[place]?.[0];
+  return item
     ? {
         ...newWant("place", place, s.turn),
         story: true,
-        step: { verb: "lay", items: [missing[0]] },
+        step: { verb: "lay", items: [item] },
       }
     : null;
 }

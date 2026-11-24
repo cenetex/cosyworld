@@ -50,6 +50,7 @@
 "v2/card-game/pack-transport.mjs",
 "v2/card-game/packs.json",
 "v2/card-game/perception.mjs",
+"v2/card-game/quest-deck.mjs",
 "v2/card-game/quest-learn.mjs",
 "v2/card-game/radio-item.mjs",
 "v2/card-game/reflections.mjs",
