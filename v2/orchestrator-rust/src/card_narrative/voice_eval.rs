@@ -655,9 +655,9 @@ fn a_line_ends_on_what_the_speaker_perceives() {
     // L4: Antigone at the gate, no "Vale and Antigone are both at…".
     let antigone = view("Antigone at the gate", "greek-antigone");
     assert!(antigone.ends_with(
-        "Fresh mortar smells damp on the gate; dust blows in from the road. Vale, the Lamplighter is right here; I'm talking \
-         with them."
-    ));
+        "Fresh mortar smells damp on the gate; dust blows in from the road. \
+         The Gate Guard reads The Burial Decree. Vale, the Lamplighter is right here; I'm talking with them."
+    ), "{antigone}");
     // P2 and P4: a return compared with the visit before it.
     assert!(view("P2 back at the pond", "vale").contains("The Bell wasn't here last time I came."));
     assert!(view("P4 alone at the pond", "vale").ends_with(

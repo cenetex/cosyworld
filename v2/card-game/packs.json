@@ -2570,13 +2570,29 @@
           "startLevel": 19,
           "holder": "greek-guard",
           "seed": "Creon’s decree forbidding burial of the brother left outside the city.",
-          "art": "assets/greek-drama/decree.png"
+          "art": "assets/greek-drama/decree.png",
+          "author": "greek-creon",
+          "claims": [
+            {
+              "id": "no-burial",
+              "text": "No one may bury or mourn Polynices, who lies outside the city walls.",
+              "about": "greek-polynices-hollow"
+            }
+          ]
         },
         "greek-household-token": {
           "name": "Household Token",
           "holder": "greek-sanctuary",
           "seed": "A seal naming the bereaved household for a public petition.",
-          "art": "assets/greek-drama/household-token.png"
+          "art": "assets/greek-drama/household-token.png",
+          "author": "greek-ismene",
+          "claims": [
+            {
+              "id": "seal",
+              "text": "Its bearer speaks for the house of Oedipus in mourning.",
+              "about": "greek-ismene"
+            }
+          ]
         },
         "greek-provisions": {
           "name": "Travel Provisions",
@@ -2620,7 +2636,15 @@
             }
           ],
           "home": "greek-courtyard",
-          "absentReturn": true
+          "absentReturn": true,
+          "author": "greek-theseus",
+          "claims": [
+            {
+              "id": "argive-dead",
+              "text": "Thebes gives up the Argive dead to Athens for burial, under witness.",
+              "about": "greek-eleusis"
+            }
+          ]
         },
         "greek-egypt-testimony": {
           "name": "The Egyptian Witness Tablet",
@@ -2633,6 +2657,14 @@
               "kind": "choice",
               "key": "greek-helen-account",
               "value": "egypt"
+            }
+          ],
+          "author": "greek-helen-egypt",
+          "claims": [
+            {
+              "id": "stay",
+              "text": "Helen waited out the war in Egypt while a phantom took her place at Troy.",
+              "about": "greek-egypt-tomb"
             }
           ]
         },
@@ -2647,6 +2679,14 @@
               "key": "greek-helen-account",
               "value": "troy"
             }
+          ],
+          "author": "greek-helen-troy",
+          "claims": [
+            {
+              "id": "journey",
+              "text": "Helen sailed home from Troy herself, and no phantom ever stood in her place.",
+              "about": "greek-troy-beach"
+            }
           ]
         },
         "greek-tomb-testimony": {
@@ -2659,6 +2699,14 @@
               "kind": "choice",
               "key": "greek-atreid-account",
               "value": "aeschylus"
+            }
+          ],
+          "author": "greek-electra-aeschylus",
+          "claims": [
+            {
+              "id": "meeting",
+              "text": "Electra met her brother at Agamemnon's tomb while she brought offerings.",
+              "about": "greek-argos-tomb"
             }
           ]
         },
@@ -2673,6 +2721,14 @@
               "key": "greek-atreid-account",
               "value": "sophocles"
             }
+          ],
+          "author": "greek-electra-sophocles",
+          "claims": [
+            {
+              "id": "waiting",
+              "text": "Electra waited outside the Mycenaean palace for her brother to come home.",
+              "about": "greek-mycenae-palace"
+            }
           ]
         },
         "greek-farm-testimony": {
@@ -2686,6 +2742,14 @@
               "key": "greek-atreid-account",
               "value": "euripides"
             }
+          ],
+          "author": "greek-electra-euripides",
+          "claims": [
+            {
+              "id": "farmhouse",
+              "text": "Electra lives in a poor farmer's house in the Argive countryside, far from the palace.",
+              "about": "greek-argive-farm"
+            }
           ]
         },
         "greek-burial-petition": {
@@ -2695,7 +2759,15 @@
           "art": "assets/greek-drama/burial-petition.png",
           "seed": "The Argive mothers’ request to Athens, with room left for the city’s answer.",
           "home": "greek-eleusis",
-          "absentReturn": true
+          "absentReturn": true,
+          "author": "greek-argive-mother",
+          "claims": [
+            {
+              "id": "sons-home",
+              "text": "The Argive mothers ask Athens to win back their sons' bodies from Thebes for burial.",
+              "about": "greek-theseus"
+            }
+          ]
         },
         "greek-ash-urn": {
           "name": "The Funeral Urn",
@@ -2747,6 +2819,14 @@
               "key": "greek-ajax-plea-heard",
               "value": true
             }
+          ],
+          "author": "greek-ajax-teucer",
+          "claims": [
+            {
+              "id": "bury-ajax",
+              "text": "Ajax must not lie unburied, and Odysseus should speak for his burial.",
+              "about": "greek-ajax-odysseus"
+            }
           ]
         },
         "greek-ajax-cloth": {
@@ -2794,19 +2874,58 @@
           "name": "Creon's Writ",
           "seed": "Creon’s written leave for the household to bury the brother.",
           "holder": "greek-creon",
-          "art": "assets/greek-drama/creon-writ.webp"
+          "art": "assets/greek-drama/creon-writ.webp",
+          "author": "greek-creon",
+          "claims": [
+            {
+              "id": "leave-to-bury",
+              "text": "The household of Oedipus may bury Polynices, and the gate guard must let them pass.",
+              "about": "greek-gate"
+            }
+          ]
         },
         "greek-helen-accounts": {
           "name": "Helen’s Account Tablet",
           "holder": "greek-harbor",
           "art": "assets/greek-drama/helen-accounts.png",
-          "seed": "Two copied accounts of Helen: the Egyptian account and the song about Troy."
+          "seed": "Two copied accounts of Helen: the Egyptian account and the song about Troy.",
+          "author": "greek-rhapsode",
+          "claims": [
+            {
+              "id": "egypt",
+              "text": "Helen spent the war in Egypt, and only a phantom of her went to Troy.",
+              "about": "greek-egypt-tomb"
+            },
+            {
+              "id": "troy",
+              "text": "Helen went to Troy with Paris and stayed there through the war.",
+              "about": "greek-troy-beach"
+            }
+          ]
         },
         "greek-atreid-record": {
           "name": "Record of the House of Atreus",
           "holder": "greek-argolid-road",
           "art": "assets/greek-drama/atreid-record.png",
-          "seed": "Three ways into the House of Atreus: Agamemnon’s tomb, the palace road and the farmer’s house."
+          "seed": "Three ways into the House of Atreus: Agamemnon’s tomb, the palace road and the farmer’s house.",
+          "author": "greek-rhapsode",
+          "claims": [
+            {
+              "id": "tomb",
+              "text": "Orestes comes home in secret and finds Electra at Agamemnon's tomb.",
+              "about": "greek-argos-tomb"
+            },
+            {
+              "id": "palace",
+              "text": "Orestes comes home to find Electra waiting outside the Mycenaean palace.",
+              "about": "greek-mycenae-palace"
+            },
+            {
+              "id": "farm",
+              "text": "Orestes comes home to find Electra married to a poor Argive farmer.",
+              "about": "greek-argive-farm"
+            }
+          ]
         }
       },
       "routes": [
@@ -7658,7 +7777,15 @@
           "text": "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
           "persona": "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
           "holder": "hoppycat-goldfish-tank",
-          "art": "assets/hoppycat-archive/hoppycat-concordance-compass-cutout.png"
+          "art": "assets/hoppycat-archive/hoppycat-concordance-compass-cutout.png",
+          "author": "hoppycat-rill-current",
+          "claims": [
+            {
+              "id": "two-stops",
+              "text": "The route runs by the Signal Jetty and the Halfway Tea Garden.",
+              "about": "hoppycat-signal-jetty"
+            }
+          ]
         },
         "hoppycat-meraki-brush": {
           "name": "Mira's Worn Brush",
@@ -9703,7 +9830,15 @@
           "text": "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
           "persona": "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
           "holder": "willows-swede",
-          "art": "assets/willows/map.png"
+          "art": "assets/willows/map.png",
+          "author": "willows-swede",
+          "claims": [
+            {
+              "id": "margin",
+              "text": "This stretch of the Danube has unwritten warnings for trespassers.",
+              "about": "willows-landing"
+            }
+          ]
         },
         "willows-rope": {
           "name": "Tent Rope",
@@ -9734,7 +9869,15 @@
           "text": "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
           "persona": "The Swede's well-used briar pipe. Words are scratched around its bowl.",
           "holder": "willows-swede",
-          "art": "assets/willows/pipe.png"
+          "art": "assets/willows/pipe.png",
+          "author": "willows-swede",
+          "claims": [
+            {
+              "id": "their-sound",
+              "text": "The humming on the island is their sound, not the wind's.",
+              "about": "willows-thicket"
+            }
+          ]
         },
         "willows-notebook": {
           "name": "The River Notebook",
@@ -12142,7 +12285,15 @@
               "value": true
             }
           ],
-          "recoverTo": "pond"
+          "recoverTo": "pond",
+          "author": "ratiradio-rati",
+          "claims": [
+            {
+              "id": "staff",
+              "text": "This brass key is for the station's staff.",
+              "about": "ratiradio-staff-kitchen"
+            }
+          ]
         },
         "ratiradio-red-beanie": {
           "name": "Red Beanie",
@@ -12219,6 +12370,14 @@
               "kind": "flag",
               "key": "rati-awake",
               "value": true
+            }
+          ],
+          "author": "ratiradio-rati",
+          "claims": [
+            {
+              "id": "lost-property",
+              "text": "The red beanie, ceramic raven and glass were lost beyond the station and belong in the Listening Room.",
+              "about": "ratiradio-listening-room"
             }
           ]
         },

@@ -309,7 +309,15 @@
       "text": "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
       "persona": "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
       "holder": "willows-swede",
-      "art": "assets/willows/map.png"
+      "art": "assets/willows/map.png",
+      "author": "willows-swede",
+      "claims": [
+        {
+          "id": "margin",
+          "text": "This stretch of the Danube has unwritten warnings for trespassers.",
+          "about": "willows-landing"
+        }
+      ]
     },
     "willows-rope": {
       "name": "Tent Rope",
@@ -340,7 +348,15 @@
       "text": "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
       "persona": "The Swede's well-used briar pipe. Words are scratched around its bowl.",
       "holder": "willows-swede",
-      "art": "assets/willows/pipe.png"
+      "art": "assets/willows/pipe.png",
+      "author": "willows-swede",
+      "claims": [
+        {
+          "id": "their-sound",
+          "text": "The humming on the island is their sound, not the wind's.",
+          "about": "willows-thicket"
+        }
+      ]
     },
     "willows-notebook": {
       "name": "The River Notebook",

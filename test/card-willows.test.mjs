@@ -150,13 +150,15 @@ describe("The Willows", () => {
     Object.assign(old.items[BOOK], { holder, history });
     const save = JSON.stringify(old);
     const shared = dispatchShared({ op: "create", save }).world;
+    const read = (w) => Object.values(w.knowledge.known).flatMap(Object.keys).filter((id) => id.startsWith("claim:"));
+    expect(read(old)).toEqual(["claim:willows:willows-map:margin", "claim:willows:willows-pipe:their-sound"]);
     for (const world of [
       decodeSave(save),
       dispatchShared({ op: "upgrade", from: "full-card-world/191", world: shared }).world,
     ]) {
       expect(world.items[BOOK]).toEqual({ holder, history });
       expect(entityActive(world, BOOK)).toBe(open);
-      expect(Object.values(world.knowledge.known).flatMap(Object.keys).filter((id) => id.startsWith("claim:"))).toEqual([]);
+      expect(read(world)).toEqual(read(old));
     }
   });
 
