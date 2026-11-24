@@ -165,6 +165,16 @@ try {
         return seen.filter(Boolean).join("\n");
       });
     const offerCards = (page) => page.locator('#hand [data-card^="quest:"]');
+    // The row from Pip's card to its quest card, and which of them show.
+    const pipGroup = (page) =>
+      page.evaluate(() => {
+        const row = [...document.querySelectorAll("#hand > .card-frame")],
+          from = row.findIndex((frame) => frame.querySelector('[data-card="moth"]')),
+          to = row.findIndex((frame) => frame.dataset.questId === "offer:moth");
+        return row
+          .slice(from, to + 1)
+          .map((frame) => `${frame.querySelector(".card").dataset.card ?? frame.dataset.questId}${frame.hidden ? "" : " shown"}`);
+      });
     const motion = async (page, reducedMotion) => {
       await page.emulateMedia({ reducedMotion });
       await page.evaluate(() => window.motionPreferenceReady);
@@ -219,8 +229,8 @@ try {
       assert.equal(await offerCards(page).count(), 0, "no offer before Pip is heard");
       const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
       const fold = page.locator('#hand .quest-fold[data-owner="moth"]');
-      const openOffer = async () => {
-        await tapCard(fold);
+      const openOffer = async (tap) => {
+        await tapCard(tap);
         await page.locator('#card-actions [data-action="accept"]').waitFor();
         assert.equal(await offer.getAttribute("aria-pressed"), "true");
         assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
@@ -231,26 +241,33 @@ try {
       await selectCard(page, "moth");
       await clearSelection(page);
       assert.equal(await fold.getAttribute("data-face"), "down", "Pip's quest lies face down behind Pip");
+      assert.deepEqual(await pipGroup(page), ["moth shown", "offer:moth"], "it is stacked behind Pip");
       await tapCard(fold);
       assert.equal(await page.locator('#hand [data-card="moth"]').getAttribute("aria-pressed"), "true");
+      assert.deepEqual(await pipGroup(page), ["moth shown", "offer:moth shown"], "it fans out as a full card");
+      assert.equal(await fold.isVisible(), false);
+      assert.equal(await offer.getAttribute("data-unrevealed"), "true", "face down");
       await page.locator('#card-actions [data-action="talk"]').click();
       await page.waitForFunction(
-        () => document.querySelector('#hand .quest-fold[data-owner="moth"]')?.dataset.face === "up",
+        () =>
+          document.querySelector('#hand .want-frame[data-quest-id="offer:moth"] > .want-card')?.dataset
+            .unrevealed === "false",
       );
       assert.equal(await page.locator("#speech-row").isVisible(), true, "it turns while Pip speaks");
+      assert.equal(await fold.getAttribute("data-face"), "up");
       assert.doesNotMatch(
         await fold.evaluate((el) => getComputedStyle(el).getPropertyValue("--card-back")),
         /locked/u,
         "its face shows, not the locked back",
       );
-      assert.equal(await offer.isVisible(), false, "a Talk opens no offer by itself");
+      assert.equal(await offer.getAttribute("aria-pressed"), "false", "a Talk opens no offer by itself");
       await t.ready();
-      await openOffer();
+      await openOffer(offer);
       await t.shot("offer-after-talk");
       await clearSelection(page);
       await t.ready();
       assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
-      await openOffer();
+      await openOffer(fold);
       await page.locator('#card-actions [data-action="accept"]').click();
       await t.ready();
       assert.equal(await offer.count(), 0, "an accepted offer leaves");
@@ -274,6 +291,28 @@ try {
     }
 
     {
+      const world = questing(createWorld());
+      for (const id of ["vale", "moth", "keeper"]) world.actors[id].place = "station";
+      world.items.lamp.holder = "vale";
+      world.actors.vale.want = null;
+      const t = await open("quest-offers-group", world);
+      const { page } = t;
+      await page.goto(`${origin}/?table=quest-offers-group-${width}`);
+      await t.ready();
+      assert.deepEqual(await pipGroup(page), ["moth shown", "cloth", "offer:moth"], "it is stacked with Pip's things");
+      await selectCard(page, "moth");
+      assert.deepEqual(await pipGroup(page), ["moth shown", "cloth shown", "offer:moth shown"], "and fans after them");
+      await page.locator('#card-actions [data-action="talk"]').click();
+      await page.waitForFunction(
+        () => document.querySelector('#hand [data-quest-id="offer:moth"] > .want-card')?.dataset.unrevealed === "false",
+      );
+      assert.deepEqual(await pipGroup(page), ["moth shown", "cloth shown", "offer:moth shown"]);
+      await t.shot("group-face-up");
+      assert.deepEqual(t.errors, []);
+      await page.close();
+    }
+
+    {
       let world = questing(createWorld());
       for (const id of ["vale", "moth", "keeper"]) world.actors[id].place = "station";
       world.items.lamp.holder = "vale";
@@ -288,8 +327,10 @@ try {
       const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
       await t.ready();
       await selectCard(page, "moth");
-      await tapCard(page.locator('#hand .quest-fold[data-owner="moth"]'));
-      await offer.waitFor();
+      await tapCard(offer);
+      await page.waitForFunction(
+        () => document.querySelector('#hand [data-quest-id="offer:moth"] > .want-card')?.ariaPressed === "true",
+      );
       assert.equal(await t.oneButton(), 1, "an offer in a fight keeps one button");
       const only = page.locator("#card-actions button").first();
       assert.equal(await only.getAttribute("data-blocked"), "fight");

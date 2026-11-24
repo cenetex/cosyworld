@@ -27,11 +27,13 @@ describe("the quest card behind a resident", () => {
         quest: { offer: "moth", target: "lamp" },
       },
     ]);
-    expect(besideOwners(["vale", "moth", "lamp"], table())).toEqual([
+    expect(besideOwners(["vale", "lamp", "moth", "cloth", "keeper"], table(), s)).toEqual([
       "vale",
-      "moth",
-      "offer:moth",
       "lamp",
+      "moth",
+      "cloth",
+      "offer:moth",
+      "keeper",
     ]);
   });
 });

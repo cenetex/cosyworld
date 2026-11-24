@@ -398,8 +398,8 @@ export async function revealOpening(page) {
     }
     const down = await page.evaluate(
       () =>
-        document.querySelector('#hand .card[data-unrevealed="true"]')?.dataset
-          .card,
+        document.querySelector('#hand .card[data-card][data-unrevealed="true"]')
+          ?.dataset.card,
     );
     if (!down) break;
     await revealCard(page, down);
@@ -407,7 +407,7 @@ export async function revealOpening(page) {
   await page.waitForFunction(
     () =>
       !document.querySelector("#hand [data-revealing]") &&
-      !document.querySelector('#hand [data-unrevealed="true"]') &&
+      !document.querySelector('#hand [data-unrevealed="true"]:not([data-quest-entry^="locked:"])') &&
       !document.querySelector('#hand [data-pack="open"]'),
   );
 }
