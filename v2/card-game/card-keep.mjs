@@ -59,6 +59,13 @@ export function morphFrame(was, frame, syncImage) {
   return was;
 }
 
+// The CSP drops a redrawn style attribute, so a kept card's tier goes by CSSOM.
+export function syncTier(frame, like) {
+  const tier = cardIn(like)?.style.getPropertyValue("--tier-color");
+  if (tier) cardIn(frame).style.setProperty("--tier-color", tier);
+  return frame;
+}
+
 // The new row with each card's old frame kept where it can be. `changed`
 // pairs a kept frame with its new look, for morphFrame once anything that
 // copies the old face has read it; `faces` are the old shown frames whose

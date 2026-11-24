@@ -24,6 +24,8 @@ gate.actors.vale.want = {
   refusals: 0,
   story: true,
 };
+gate.actors["greek-guard"].want = { kind: "item", target: "greek-decree", since: 0, refusals: 0 };
+Object.assign(gate.actors["greek-guard"], { level: 9, xp: 36 });
 await mkdir(output, { recursive: true });
 try {
   for (const [width, height, motion] of [
@@ -247,6 +249,7 @@ try {
     await page.locator("#hand .quest-fold:not([data-owner])").focus();
     await page.keyboard.press("Enter");
     await page.locator("#hand .want-frame:not([hidden])").waitFor();
+    assert.equal(await page.evaluate(() => document.activeElement.matches("#hand .want-card")), true, "Enter leaves focus on the quest card");
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
     // The fold's tap also chooses the quest and shows its details.
     assert.equal(
@@ -357,6 +360,9 @@ try {
       path: new URL(`give-${width}.png`, output).pathname,
     });
     const xp = (await saved(gateKey)).xp;
+    const guardTier = () =>
+      page.locator('#hand [data-card="greek-guard"]').evaluate((el) => [el.dataset.tier, getComputedStyle(el).getPropertyValue("--tier-color").trim()]);
+    assert.deepEqual(await guardTier(), ["common", "#c8dce6"]);
     // The Give is done as any give is, by choosing the Decree and the guard.
     await clearSelection(page);
     await selectCard(page, "greek-decree");
@@ -368,6 +374,7 @@ try {
     );
     await ready();
     assert.equal((await saved(gateKey)).want, null);
+    assert.deepEqual(await guardTier(), ["uncommon", "#8cdcff"], "a kept card takes its new tier colour");
     assert.equal(
       (await saved(gateKey)).xp,
       xp,
