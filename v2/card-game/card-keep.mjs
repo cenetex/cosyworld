@@ -22,7 +22,6 @@ export function sameFace(a, b) {
   return x.isEqualNode(y);
 }
 
-// Whether one node tree can be brought to look like another in place.
 const sameShape = (a, b) =>
   a.nodeName === b.nodeName &&
   a.childNodes.length === b.childNodes.length &&
@@ -32,7 +31,8 @@ function syncAttributes(node, like) {
   for (const { name } of [...node.attributes])
     if (!like.hasAttribute(name)) node.removeAttribute(name);
   for (const { name, value } of like.attributes)
-    if (node.getAttribute(name) !== value) node.setAttribute(name, value);
+    if (name !== "style" && node.getAttribute(name) !== value)
+      node.setAttribute(name, value);
 }
 
 // Brings `node` to look like `like`, which has its shape, keeping its nodes.
