@@ -24,6 +24,7 @@ import {
   residentOffer,
   rootHolder,
 } from "./world.mjs";
+import { placeWant } from "./world/offers.mjs";
 
 export const QUEST_CARD = "quest";
 const HOLLOW = "greek-polynices-hollow";
@@ -75,12 +76,14 @@ export const questCards = (world, actor = currentActor(world)) =>
     questShape(world, actor, want, wantKey(actor, want), index),
   );
 export function ownerCard(world, viewer, owner) {
-  const want = world.actors[owner]?.want,
-    card = want && revealed(world, owner, want, viewer) && questFor(world, owner, want);
+  const place = places[owner] && placeWant(world, owner),
+    want = place || world.actors[owner]?.want,
+    card = want && (place || revealed(world, owner, want, viewer)) && questFor(world, owner, want);
   return card
     ? {
         ...questShape(world, viewer, card, `offer:${viewer}:${owner}:${card.kind}:${card.target}`, -1),
         offer: owner,
+        ...(place ? { lies: rootHolder(world, card.step.items[0]) } : {}),
       }
     : null;
 }
@@ -106,9 +109,20 @@ const SPOKEN = {
   kind: kindOf,
   drink: (id) => consumable(id) === "drink",
 };
+const lies = ({ lies, actor }, known) =>
+  lies === actor
+    ? "which you carry"
+    : places[lies]
+      ? `which lies ${known(lies) ? `at ${theName(lies)}` : UNKNOWN.place}`
+      : `which ${known(lies) ? nameOf(lies) : "someone"} carries`;
 export function offerWords(quest, known = () => true) {
   const who = nameOf(quest.offer),
     said = quest.goal ?? quest;
+  if (quest.lies) {
+    const [item] = quest.step.items,
+      place = theName(quest.offer);
+    return `${place[0].toUpperCase()}${place.slice(1)} asks for ${known(item) ? theName(item) : UNKNOWN.item} back, ${lies(quest, known)}`;
+  }
   if (
     said.kind === "item" &&
     said.step?.verb === "give" &&
@@ -137,7 +151,6 @@ export const levelCards = (world, actor = currentActor(world)) =>
     conditions: face === "down" ? null : arcanumTerms(world, actor, index),
     home: homeOf(actor, world) ?? null,
   }));
-// The held quest, the one the folded card shows, or null.
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
 

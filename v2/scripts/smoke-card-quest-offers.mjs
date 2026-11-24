@@ -12,6 +12,7 @@ import { createWorld, decodeSave, encodeSave, legalActions, play } from "../card
 import { questing } from "../../test/helpers/first-quest.mjs";
 import { holdQuest, newWant } from "../card-game/want.mjs";
 import { recordOf } from "../card-game/world/arcana-record.mjs";
+import { cardLevel } from "../card-game/rarity.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { journeyWorlds } from "../../test/helpers/journey.mjs";
 import { questCards } from "../../test/journeys/quest-cards.mjs";
@@ -452,6 +453,58 @@ try {
       assert.equal(await boxOffer.count(), 0, "a shut box lays out no quest card");
       await t.layout();
       await t.shot("box-locked");
+      assert.deepEqual(t.errors, []);
+      await page.close();
+    }
+
+    {
+      let world = structuredClone(greekErrands().decree);
+      world.actors.vale.place = "greek-courtyard";
+      world.items["greek-wine-skin"].holder = "greek-courtyard";
+      world = play(world, legalActions(world).find((a) => a.kind === "wait" && !a.sleep && !a.guards)).state;
+      const t = await open("quest-offers-place", world);
+      const { page } = t;
+      const gate = "greek-gate",
+        card = page.locator(`#hand .want-frame[data-quest-id="offer:${gate}"] > .want-card`),
+        fold = page.locator(`#hand .quest-fold[data-owner="${gate}"]`);
+      const go = async (id, kind = null) => {
+        await clearSelection(page);
+        for (const one of [id].flat()) await selectCard(page, one);
+        await page.locator(`#card-actions ${kind ? `[data-action="${kind}"]` : ".card-primary"}`).click();
+        await t.ready();
+      };
+      await page.goto(`${origin}/?table=quest-offers-place-${width}`);
+      await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
+      await t.ready();
+      assert.equal(await fold.count(), 0, "a place's card shows only to one standing in it");
+      await go(gate);
+      assert.equal((await t.state()).actors.vale.place, gate);
+      assert.equal(await fold.getAttribute("data-face"), "down", "it lies face down on arrival");
+      assert.deepEqual(await page.evaluate((id) => [...document.querySelectorAll("#hand > .card-frame")]
+        .filter((f) => !f.hidden && f.dataset.holder === id).map((f) => f.dataset.questId ?? f.querySelector(".card").dataset.card), gate),
+        ["greek-shovel", "greek-battlefield", `offer:${gate}`], "it fans after the place's things");
+      assert.equal(await card.getAttribute("data-unrevealed"), "true");
+      assert.doesNotMatch(await surfaces(page), /wine skin/iu);
+      await card.scrollIntoViewIfNeeded();
+      await t.shot("place-card-down");
+      await page.locator('#card-actions [data-action="wait"]').click();
+      await t.ready();
+      assert.equal(await fold.getAttribute("data-face"), "up", "a play there turns it");
+      await tapCard(card);
+      const words = "The Theban City Gate asks for the Wine Skin back, which lies at the Theban Courtyard";
+      assert.equal(await page.locator(".action-beat-text").textContent(), words);
+      assert.equal(await card.getAttribute("aria-label"), words);
+      assert.equal(await t.oneButton(), 0);
+      await t.shot("place-card-up");
+      await go("greek-courtyard");
+      await go("greek-wine-skin", "take");
+      await go(gate);
+      await go(["greek-wine-skin", gate], "drop");
+      const met = await t.state();
+      assert.deepEqual(met.placeMet, { [gate]: ["greek-wine-skin"] });
+      assert.equal(cardLevel(met, gate), 2, "laying the thing back levels the place");
+      assert.equal(met.log.filter((e) => e.verb === "want_met" && e.actorId === "vale" && e.ownerId === gate).length, 1);
+      assert.equal(await fold.count() + (await card.count()), 0, "a met card leaves its place");
       assert.deepEqual(t.errors, []);
       await page.close();
     }

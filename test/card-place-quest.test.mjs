@@ -25,6 +25,7 @@ import { offerCard } from "../v2/card-game/quest-card.mjs";
 import { cardLevel } from "../v2/card-game/rarity.mjs";
 import { transports } from "../v2/card-game/pack-registry.mjs";
 import { useUp } from "../v2/card-game/item-use.mjs";
+import { knowsFact, placeFactId, protectedFact } from "../v2/card-game/knowledge.mjs";
 
 const STATION = "sample-station",
   SHORE = "sample-shore",
@@ -170,4 +171,21 @@ it("keeps only things that lay at that place in its record", () => {
   expect(() => validateWorld(s)).toThrow();
   s.placeMet = {};
   expect(() => validateWorld(s)).toThrow();
+});
+
+it("teaches its card to a player who plays while standing in it, not on arrival", () => {
+  const id = placeFactId(STATION, SCARF);
+  const s = scarfAway();
+  expect(knowsFact(s, "vale", id)).toBe(false);
+  const stood = act(s, "wait");
+  expect(stood.knowledge.facts[id]).toMatchObject({
+    text: "The Keeper's Station wants Blue scarf back.",
+    source: { kind: "quest", actorId: STATION, locationId: STATION, witnesses: ["vale"] },
+  });
+  expect(stood.knowledge.known.vale[id]).toMatchObject({ kind: "witnessed", teller: null });
+  expect(protectedFact(stood.knowledge.facts[id], stood)).toBe(true);
+  let laid = act(act(act(stood, "move", { target: SHORE }), "take", { item: SCARF }), "move", { target: STATION });
+  laid = act(laid, "drop", { item: SCARF });
+  expect(protectedFact(laid.knowledge.facts[id], laid)).toBe(false);
+  expect(cardLevel(laid, STATION)).toBe(2);
 });

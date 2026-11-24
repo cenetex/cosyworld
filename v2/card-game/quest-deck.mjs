@@ -1,4 +1,6 @@
 import { usedUp } from "./item-use.mjs";
+import { learnQuest, placeFactId } from "./knowledge.mjs";
+import { questText } from "./quest-learn.mjs";
 import { neverBack } from "./pack-registry.mjs";
 import { PLACE_FROM, heldOf, releaseQuest, sameQuest } from "./want.mjs";
 import { places, things } from "./world/catalog.mjs";
@@ -13,7 +15,7 @@ function setCard(s, place, item) {
   else delete s.placeCard;
 }
 
-export function settlePlaceCards(s, actor, api) {
+export function settlePlaceCards(s, actor, api, from) {
   for (const [place, item] of Object.entries(s.placeCard || {})) {
     if (neverBack(s, item) || usedUp(s, item)) setCard(s, place, null);
     else if (s.items[item].holder === place) {
@@ -30,6 +32,16 @@ export function settlePlaceCards(s, actor, api) {
   const loose = looseThings(s);
   for (const place of Object.keys(loose).sort())
     if (!s.placeCard?.[place]) setCard(s, place, loose[place][0]);
+  const at = s.actors[actor].place,
+    item = s.placeCard?.[at];
+  if (item && at === from && api.player(actor))
+    learnQuest(
+      s,
+      at,
+      actor,
+      { id: placeFactId(at, item), text: questText(s, at, placeWant(s, at)) },
+      { seq: s.eventSeq, turn: s.turn, at },
+    );
 }
 
 export function validPlaceCard(s) {

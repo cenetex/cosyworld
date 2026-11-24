@@ -1,4 +1,4 @@
-// A resident's quest card stacks and fans with its things, face up once known.
+// A resident's or a place's quest card stacks and fans with its things, face up once known.
 import { questEntryKey } from "./card-entry.mjs";
 import { imageUrl } from "./images.mjs";
 import { LOCKED_BACK } from "./locked-box.mjs";
@@ -7,10 +7,14 @@ import { ownerCard, offerWords, questTier } from "./quest-card.mjs";
 import { questFor, toldWant } from "./talk-quest.mjs";
 import { revealed } from "./want-talk.mjs";
 import { entityActive } from "./pack-registry.mjs";
-import { people } from "./world.mjs";
+import { people, places } from "./world.mjs";
+import { knowsFact, placeFactId } from "./knowledge.mjs";
 
 export function tableQuest(world, viewer, owner) {
-  const want = world.actors[owner]?.want;
+  const want = world.actors[owner]?.want,
+    item = places[owner] && world.actors[viewer]?.place === owner && world.placeCard?.[owner];
+  if (item)
+    return { id: `offer:${owner}`, owner, quest: knowsFact(world, viewer, placeFactId(owner, item)) ? ownerCard(world, viewer, owner) : null };
   if (
     !people[owner] ||
     owner === viewer ||
@@ -46,7 +50,7 @@ export function besideOwners(cards, entries, world) {
 }
 
 const downWords = (view, owner) =>
-  `${view.name(owner, "Someone")}'s quest, face down until you talk`;
+  `${view.name(owner, "Someone")}'s quest, face down until ${places[owner] ? "your next play here" : "you talk"}`;
 
 export function tableBack(id, view) {
   const owner = tableOwner(id),

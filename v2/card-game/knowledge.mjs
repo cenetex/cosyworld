@@ -14,9 +14,12 @@ const CLAIM_KEYS = ["book", "claim", "author", "about"];
 const MEMORY_KEYS = ["kind", "teller", "eventSeq", "learnedTurn"];
 const READ_KEYS = [...MEMORY_KEYS, "book"];
 export const questFactId = (owner, want) => `quest:${owner}:${want.target}`;
+export const placeFactId = (place, item) => questFactId(place, { target: item });
 const liveQuest = (world, fact) => {
-  const want = world?.actors?.[fact.source.actorId]?.want;
-  return Boolean(want) && fact.id === questFactId(fact.source.actorId, want);
+  const owner = fact.source.actorId,
+    card = world?.placeCard?.[owner],
+    want = world?.actors?.[owner]?.want;
+  return card ? fact.id === placeFactId(owner, card) : Boolean(want) && fact.id === questFactId(owner, want);
 };
 export const protectedFact = (fact, world) =>
   PROTECTED_KINDS.has(fact.source.kind) &&
@@ -314,8 +317,9 @@ export function readClaim(world, reader, claim, entry) {
 
 export function learnQuest(world, owner, learner, { id, text }, entry) {
   installKnowledge(world);
+  const seen = entry.at === owner;
   if (
-    !world.actors[owner] ||
+    !(world.actors[owner] || seen) ||
     owner === learner ||
     !entry.seq ||
     !safeId(id) ||
@@ -331,13 +335,14 @@ export function learnQuest(world, owner, learner, { id, text }, entry) {
       eventSeq: entry.seq,
       turn: entry.turn,
       actorId: owner,
-      locationId: world.actors[owner].place,
+      locationId: seen ? owner : world.actors[owner].place,
       witnesses: [],
       topic: null,
     },
   });
-  if (fact)
-    remember(world, learner, fact, "heard", owner, entry.seq, entry.turn);
+  if (!fact) return null;
+  if (seen) fact.source.witnesses = [...new Set([...fact.source.witnesses, learner])].sort();
+  remember(world, learner, fact, seen ? "witnessed" : "heard", seen ? null : owner, entry.seq, entry.turn);
   return fact;
 }
 
@@ -652,7 +657,7 @@ export function validKnowledge(
       !whole(s.eventSeq, world.eventSeq) ||
       s.eventSeq < 1 ||
       !whole(s.turn, world.turn) ||
-      !actors.includes(s.actorId) ||
+      !(actors.includes(s.actorId) || (s.kind === "quest" && s.actorId === s.locationId)) ||
       !places.includes(s.locationId) ||
       !Array.isArray(s.witnesses) ||
       s.witnesses.length > actors.length ||
