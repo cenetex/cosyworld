@@ -30,7 +30,7 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
 import { locationWeather } from "../v2/card-game/weather.mjs";
-import { cardChoices, availableCards } from "../v2/card-game/cards.mjs";
+import { cardChoices, availableCards, lockWords } from "../v2/card-game/cards.mjs";
 import { bind } from "../v2/card-game/world/company.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
@@ -126,6 +126,7 @@ describe("The Willows", () => {
     expect(entityActive(world, BOOK)).toBe(false);
     expect(sceneStaging(world, { currentState: true }).floorItems).toEqual([]);
     expect(find(world, { item: BOOK })).toBeUndefined();
+    expect(lockWords(world, BOOK, () => true)).toBe("Wait at River Camp");
     world = observe(world, "pace-willows");
     expect(world.opened[BOOK]).toEqual(["vale"]);
     world = act(take(world, "notebook"), { kind: "read", item: BOOK });
@@ -140,6 +141,8 @@ describe("The Willows", () => {
   it.each([
     ["held", "vale", ["Turn 0: Vale takes it."], true],
     ["dropped elsewhere", "willows-thicket", ["Turn 0: Vale sets it down."], true],
+    ["given to the Swede", "willows-swede", ["Turn 0: Vale gives it to the Swede."], true],
+    ["given away beyond the island", "moth", ["Turn 0: Vale gives it to Pip."], true],
     ["set back at the camp", "willows-camp", ["Turn 0: Vale sets it down."], false],
     ["untouched", "willows-camp", [], false],
   ])("loads an old save whose notebook was %s", (_, holder, history, open) => {
@@ -153,7 +156,7 @@ describe("The Willows", () => {
     ]) {
       expect(world.items[BOOK]).toEqual({ holder, history });
       expect(entityActive(world, BOOK)).toBe(open);
-      expect(Object.keys(world.knowledge.known.vale).filter((id) => id.startsWith("claim:"))).toEqual([]);
+      expect(Object.values(world.knowledge.known).flatMap(Object.keys).filter((id) => id.startsWith("claim:"))).toEqual([]);
     }
   });
 

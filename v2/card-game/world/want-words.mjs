@@ -80,10 +80,12 @@ export function wantWords(
         : near("to", step.at)
     }`;
   if (step?.at) return `${act} ${near("at", step.at)}`;
+  if (step?.verb === "wait") return `wait ${near("at", want.target)}`;
   if (step?.verb === "rest")
     return approach && !cold
       ? `${approach} ${what} and rest there`
       : `rest ${near("at", want.target)}`;
+  if (step?.verb === "depart") return `see ${what} depart`;
   if (step) return act;
   if (cold) return SEEK[want.kind] ?? SEEK.person;
   if (want.kind === "item")

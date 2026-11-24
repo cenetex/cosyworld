@@ -2858,17 +2858,22 @@
       (e) => condition.kind === "choice" ? e.kind === "choose" && e.key === condition.key && e.value === condition.value : e.kind === "set_flag" && e.key === condition.key && e.value === condition.value
     )
   );
-  function playGoal(choice) {
+  var OWN_VERB = { item: "hold", person: "talk", place: "meet" };
+  var packKind = (id) => Object.hasOwn(packPeople, id) ? "person" : isPackPlace(id) ? "place" : "item";
+  function playGoal(choice, kindIn) {
     const item = (choice.requires || []).find(
       (r) => r.kind === "holding" && r.role === "actor"
     )?.item;
-    if (choice.on === "give" && item)
-      return {
-        kind: "item",
+    if (choice.on === "give")
+      return item ? {
+        kind: kindIn(item),
         target: item,
         step: { verb: "give", to: choice.subject }
-      };
-    return choice.subject ? { kind: "person", target: choice.subject } : null;
+      } : null;
+    const target = choice.on === "wait" ? choice.at : choice.subject;
+    if (!target) return null;
+    const kind = kindIn(target), verb = choice.on ?? OWN_VERB[kind];
+    return verb === OWN_VERB[kind] ? { kind, target } : { kind, target, step: { verb } };
   }
   function goalsFrom(world, conditions, depth = 0, seen = []) {
     const out = [];
@@ -2948,9 +2953,9 @@
           if (depth >= DEPTH) break;
           for (const choice of settersIn(world.choices, condition)) {
             if (seen.includes(choice.id)) continue;
-            const play2 = playGoal(choice);
+            const play2 = playGoal(choice, world.kind ?? packKind);
             const needs = (choice.requires || []).filter(
-              (r) => !(play2?.step && r.kind === "holding" && r.role === "actor" && r.item === play2.target)
+              (r) => !(r.kind === "holding" && r.role === "actor" && r.item === play2?.target)
             ).sort(
               (a, b) => Number(!["flag", "choice"].includes(a.kind)) - Number(!["flag", "choice"].includes(b.kind))
             );
@@ -13339,10 +13344,10 @@
             id: "willows-swede-departs",
             subject: "willows-swede",
             at: "willows-landing",
-            label: "The Swede takes the canoe",
+            label: "The Swede leaves the island",
             on: "depart",
-            text: "The Swede pushes the mended canoe off the sand and paddles into the main stream without looking back. The willows close over the place where he went.",
-            summary: "The Swede took the mended canoe and left the island. He is gone, and the canoe with him.",
+            text: "The Swede leaves the island without looking back. The willows close over the place where he went.",
+            summary: "The Swede left the island for good.",
             requires: [],
             effects: [
               {

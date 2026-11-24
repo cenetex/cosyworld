@@ -705,7 +705,7 @@
       {
         "id": "act:willows-swede-departs",
         "kind": "act",
-        "title": "The Swede takes the canoe",
+        "title": "The Swede leaves the island",
         "cond": {
           "op": "and",
           "of": []
