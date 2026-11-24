@@ -1681,8 +1681,7 @@ fn system_voice(entity: &Entity, part: Part) -> String {
     }
 }
 
-/// The scene's entities and any names this speaker learned from an item or
-/// heard in conversation. A reply that names anyone else is rejected.
+/// Names in the scene or learned by this speaker; a reply naming anyone else is rejected.
 fn known(context: &Context, entity: &Entity) -> BTreeSet<String> {
     let mut ids: BTreeSet<String> = context.entities.iter().map(|e| e.id.clone()).collect();
     ids.insert(context.location.clone());
@@ -1749,7 +1748,6 @@ fn known(context: &Context, entity: &Entity) -> BTreeSet<String> {
             .filter(|line| witnessed(entity, line))
             .map(|line| &line.text),
     )
-    .chain(custody::held_item_text(context, &entity.id).iter())
     .map(String::as_str)
     .collect::<Vec<_>>()
     .join(" ");
@@ -1938,7 +1936,6 @@ fn transcript_sections(context: &Context, entity: &Entity, part: Part) -> Vec<(S
             .filter(|f| part != Part::Line || !conversation::strategy(f))
             .filter_map(|f| person::fact(f, id, outcome.is_some())),
     ));
-    lines.extend(tagged(Section::Facts, custody::held_item_text(context, id)));
     // A fact the rules reserved for this Talk, among the things I know.
     let mentions = if part == Part::Line {
         knowledge::directions(context, id)

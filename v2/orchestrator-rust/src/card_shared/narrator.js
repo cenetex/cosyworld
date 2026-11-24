@@ -11153,7 +11153,7 @@
           "hoppycat-concordance-compass": {
             name: "Rill's Compass",
             startLevel: 11,
-            text: "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
+            text: "A trusted compass with two names scratched into its case. Rill lends it for a journey and wants to hear how it went.",
             persona: "A trusted compass with the Garden and Jetty scratched into its case. Rill lends it for a journey and wants to hear how it went.",
             holder: "hoppycat-goldfish-tank",
             art: "assets/hoppycat-archive/hoppycat-concordance-compass-cutout.png",
@@ -13224,7 +13224,7 @@
           "willows-map": {
             name: "River Map",
             startLevel: 15,
-            text: "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
+            text: "A creased Danube map with a pencilled note in the margin.",
             persona: "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
             holder: "willows-swede",
             art: "assets/willows/map.png",
@@ -13263,7 +13263,7 @@
           "willows-pipe": {
             name: "The Swede's Pipe",
             startLevel: 19,
-            text: "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
+            text: "The Swede's worn briar pipe, with words scratched around the bowl.",
             persona: "The Swede's well-used briar pipe. Words are scratched around its bowl.",
             holder: "willows-swede",
             art: "assets/willows/pipe.png",
@@ -15671,7 +15671,7 @@
         items: {
           "ratiradio-station-key": {
             name: "Station Key",
-            text: "A brass key with a worn STAFF tag. Carry it from Black Pond to the staff entrance at Empty Station.",
+            text: "A brass key with a worn tag.",
             persona: "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station, but only while someone carries it.",
             holder: "pond",
             art: "assets/ratiradio/station-key.webp",
@@ -15694,7 +15694,7 @@
           },
           "ratiradio-red-beanie": {
             name: "Red Beanie",
-            text: "Red wool, lost beyond the station. Carry it to open Dispatch Window, then put it down in the Listening Room.",
+            text: "Red wool, lost beyond the station.",
             persona: "A soft red knitted beanie, left for someone who works late. Carried through the Staff Kitchen, it opens dispatch, then belongs back in the Listening Room.",
             holder: "ratiradio-staff-kitchen",
             art: "assets/ratiradio/red-beanie.webp",
@@ -15710,7 +15710,7 @@
           },
           "ratiradio-thermos": {
             name: "Thermos",
-            text: "Still warm at the neck. Lost beyond the station; set it down at the Dispatch Window to open the Listening Room.",
+            text: "Still warm at the neck. Lost beyond the station.",
             persona: "A dented steel thermos with a dark lid. Set down at the Dispatch Window, its warmth opens the Listening Room for as long as it lies there.",
             holder: "ratiradio-dispatch-window",
             art: "assets/ratiradio/thermos.webp",
@@ -15726,7 +15726,7 @@
           },
           "ratiradio-raven-figurine": {
             name: "Raven Figurine",
-            text: "A small ceramic raven, lost beyond the station. Hold it and talk with RATi to open the Broadcast Booth, then leave it in the Listening Room.",
+            text: "A small ceramic raven, lost beyond the station.",
             persona: "A small black ceramic raven with a glazed eye. It remains a ceramic object when the living Raven appears. Its place is in the Listening Room, beside the glass and the beanie.",
             holder: "ratiradio-listening-room",
             art: "assets/ratiradio/raven-figurine.webp",
@@ -15742,7 +15742,7 @@
           },
           "ratiradio-glass": {
             name: "Half-full Glass",
-            text: "A water glass, lost beyond the station. Put it down in the Listening Room beside the Red Beanie and Raven Figurine.",
+            text: "A water glass, lost beyond the station.",
             persona: "An ordinary drinking glass, half full of water. Returning the glass, ceramic raven, red beanie together reveals the living Raven.",
             holder: "ratiradio-broadcast-booth",
             art: "assets/ratiradio/glass.webp",
@@ -15758,7 +15758,7 @@
           },
           "ratiradio-request-slip": {
             name: "Request Slip",
-            text: "Lost beyond the station: a red beanie, thermos, ceramic raven and glass. Search the other worlds. Bring the beanie, raven and glass home to the Listening Room.",
+            text: "A lost-property slip with a short list on it.",
             persona: "A creased radio request slip with a lost-property note. RATi keeps it by his radio. The glass, ceramic raven, red beanie belong in the Listening Room. This paper is a clue, not a required return.",
             holder: "ratiradio-rati",
             art: "assets/ratiradio/request-slip.webp",

@@ -306,7 +306,7 @@
     "willows-map": {
       "name": "River Map",
       "startLevel": 15,
-      "text": "A creased Danube map. In the margin, in pencil: unwritten warnings to trespassers.",
+      "text": "A creased Danube map with a pencilled note in the margin.",
       "persona": "A creased paper river map of the Danube below Pressburg. A pencilled note runs down its margin.",
       "holder": "willows-swede",
       "art": "assets/willows/map.png",
@@ -345,7 +345,7 @@
     "willows-pipe": {
       "name": "The Swede's Pipe",
       "startLevel": 19,
-      "text": "The Swede's worn briar pipe. Scratched around the bowl: It's their sound.",
+      "text": "The Swede's worn briar pipe, with words scratched around the bowl.",
       "persona": "The Swede's well-used briar pipe. Words are scratched around its bowl.",
       "holder": "willows-swede",
       "art": "assets/willows/pipe.png",

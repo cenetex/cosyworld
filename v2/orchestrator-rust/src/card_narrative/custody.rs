@@ -60,25 +60,6 @@ pub(super) fn carrying(context: &Context, entity: &Entity) -> Option<String> {
     Some(format!("I'm carrying {}.", person::list(&things)))
 }
 
-pub(super) fn held_item_text(context: &Context, speaker: &str) -> Vec<String> {
-    let Some(outcome) = context.outcome.as_ref().filter(|_| !context.waking) else {
-        return vec![];
-    };
-    let Some(avatar) = outcome.avatars.iter().find(|avatar| avatar.id == speaker) else {
-        return vec![];
-    };
-    avatar
-        .holding
-        .iter()
-        .filter(|id| !context.covered.contains(id) && holder(outcome, id) == Some(speaker))
-        .filter_map(|id| {
-            let text = super::profiles()[id]["text"].as_str()?.trim();
-            let passage: String = text.chars().take(240).collect();
-            Some(format!("From {}: {passage}", super::person::the(&name(id))))
-        })
-        .collect()
-}
-
 pub(super) fn hand(context: &Context, speaker: &str) -> Option<String> {
     let outcome = context.outcome.as_ref()?;
     let avatar = outcome.avatars.iter().find(|a| a.id == speaker)?;
@@ -452,7 +433,7 @@ pub(super) fn consistent(text: &str, context: &Context, speaker: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::super::{
-        conversation, entity, known, messages, tests, Check, Context, ItemOutcome, Part,
+        conversation, entity, known, messages, profiles, tests, Check, Context, ItemOutcome, Part,
     };
     use super::*;
 
@@ -872,11 +853,10 @@ mod tests {
     }
 
     #[test]
-    fn held_item_story_follows_the_gift_in_talk_thoughts_and_dreams() {
+    fn a_holder_knows_the_name_of_what_it_carries_but_not_its_card_text() {
         let mut context = tests::context();
         let mut outcome = tests::solo_departure();
         let id = "willows-pipe";
-        let passage = "It's their sound.";
         outcome.card.kind = "talk".into();
         outcome.card.target = Some("moth".into());
         outcome.avatars[0].holding.push(id.into());
@@ -888,33 +868,17 @@ mod tests {
             location: "station".into(),
         });
         context.outcome = Some(outcome);
-
-        let sees_story = |context: &Context, speaker: &str, part| {
-            messages(context, entity(context, speaker), part)
-                .assistant
-                .contains(passage)
-        };
+        let text = profiles()[id]["text"].as_str().unwrap();
+        let vale = entity(&context, "vale");
         for part in [Part::Line, Part::Thought, Part::Dream] {
-            assert!(sees_story(&context, "vale", part));
-            assert!(!sees_story(&context, "moth", part));
+            let prompt = messages(&context, vale, part);
+            let all = format!("{}{}{}", prompt.system, prompt.assistant, prompt.user);
+            assert!(!all.contains(text) && !all.contains("their sound"), "{all}");
         }
+        assert!(carrying(&context, vale).unwrap().contains("Swede"));
         let swede = "willows-swede";
-        assert!(known(&context, entity(&context, "vale")).contains(swede));
-        assert!(!known(&context, entity(&context, "moth")).contains(swede));
+        assert!(!known(&context, vale).contains(swede));
         let heard = conversation::with_line(&context, "vale", "The Swede heard it too.").unwrap();
         assert!(known(&heard, entity(&heard, "moth")).contains(swede));
-
-        let outcome = context.outcome.as_mut().unwrap();
-        outcome.avatars[0].holding.clear();
-        outcome.avatars[1].holding.push(id.into());
-        outcome.items.last_mut().unwrap().holder = "moth".into();
-        for part in [Part::Line, Part::Thought, Part::Dream] {
-            assert!(!sees_story(&context, "vale", part));
-            assert!(sees_story(&context, "moth", part));
-        }
-        context.covered.push(id.into());
-        for part in [Part::Line, Part::Thought, Part::Dream] {
-            assert!(!sees_story(&context, "moth", part));
-        }
     }
 }
