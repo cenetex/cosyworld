@@ -154,3 +154,25 @@ it("invalidates synchronously before a coalesced close/reopen toggle", async () 
   await finish(3, list("current"));
   expect(slots()).toEqual(["current"]);
 });
+it("shows no avatar face it has not found before the world list arrives", async () => {
+  const seated = element();
+  const held = [0, 0, 0, 0, 0, 1, 0, 0];
+  installAvatarMenu({
+    menu: seated,
+    session: {
+      id: "here",
+      state: { actor: "rue", world: { actors: {}, seed: 1 }, claimed: held, bound: held, present: held },
+    },
+    getWorld: () => ({ actors: {}, seed: 1 }),
+    allowShared: () => true,
+  });
+  const faces = () =>
+    seated.children[0].children
+      .find((n) => n.className?.includes("slot-cast"))
+      ?.children.map((n) => n.dataset.avatar || null);
+  seated.toggle(true);
+  expect(faces()).toEqual(["rue", null, null, null, null, null, null, null]);
+  await finish(0, { authenticated: true });
+  await finish(1, { worlds: [], unlocked: ["rue", "tavi"] });
+  expect(faces()).toEqual(["rue", "tavi", null, null, null, null, null, null]);
+});

@@ -170,7 +170,11 @@ try {
       await page.locator("#toolbar-menu-button").click();
       const menu = page.locator("#world-menu");
       await menu.locator(".menu-tools").waitFor();
-      if (state.worlds) await menu.locator(".slot-cast").waitFor();
+      if (state.worlds)
+        await page.waitForFunction(
+          (found) => document.querySelectorAll(".slot-cast [data-avatar]").length === found,
+          state.unlocked.length,
+        );
       await page.waitForFunction(() =>
         [...document.querySelectorAll("#world-menu img")].every(
           (i) => i.complete,
