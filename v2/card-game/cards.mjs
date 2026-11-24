@@ -399,9 +399,11 @@ function selectionPlay(world, selected) {
   }
   return result(null, "");
 }
-// A card tapped while a held thing is raised pairs with it only when the
-// pair plays. Otherwise a card that is taken or travelled to alone puts the
-// held thing aside, so the tap leaves its one button.
+export function sharedMeal(world, cards) {
+  return cards.length === 3 && selectionPlay(world, cards).action?.kind === "eat";
+}
+// A card tapped beside a raised held thing pairs with it only when the pair
+// plays; one taken or travelled to alone puts the held thing aside.
 export function settledChoice(world, cards, id) {
   if (cards.length !== 2 || !cards.includes(id)) return cards;
   if (!things[id] && !places[id]) return cards;
