@@ -240,19 +240,17 @@ jobs:
             exit 1
           fi
 
-  # One job per smoke: the core list in scripts/fast-smokes.json on every run,
-  # then up to three chosen by changed paths. The fast job counts them all.
+  # The core smokes and every smoke the changed paths choose, packed by
+  # measured time into at most four jobs (scripts/fast-smokes.json packing).
   smoke:
-    name: Browser smoke (${{ matrix.smoke }})
+    name: Browser smokes (${{ matrix.smokes }})
     needs: plan
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    # A cache miss fetches the whole tree from Git, which took up to 11
-    # minutes on 2026-11-03; with the cache the job takes about 5.
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        smoke: ${{ fromJSON(needs.plan.outputs.smokes) }}
+        smokes: ${{ fromJSON(needs.plan.outputs.smokes) }}
     env:
       CI: true
     steps:
@@ -276,19 +274,15 @@ jobs:
       - name: Install Chromium
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium
-      - name: Run ${{ matrix.smoke }}
+      - name: Run browser smokes
         env:
-          SMOKE: ${{ matrix.smoke }}
-        run: |
-          case "$SMOKE" in
-            *@*) COSYWORLD_SMOKE_WIDTHS="${SMOKE#*@}" node "v2/scripts/${SMOKE%@*}.mjs" ;;
-            *) node "v2/scripts/$SMOKE.mjs" ;;
-          esac
+          SMOKES: ${{ matrix.smokes }}
+        run: node scripts/select-fast-smokes.mjs --run "$SMOKES"
       - name: Upload browser evidence
-        if: failure() || matrix.smoke == 'smoke-card-title-intro' || matrix.smoke == 'smoke-card-ratiradio' || matrix.smoke == 'smoke-card-lock-quests' || matrix.smoke == 'smoke-card-resident-sleep' || matrix.smoke == 'smoke-card-generation-profile'
+        if: failure() || contains(matrix.smokes, 'smoke-card-title-intro') || contains(matrix.smokes, 'smoke-card-ratiradio') || contains(matrix.smokes, 'smoke-card-lock-quests')
         uses: actions/upload-artifact@v7
         with:
-          name: fast-check-${{ matrix.smoke }}
+          name: fast-check-smokes-${{ strategy.job-index }}
           path: output/
           if-no-files-found: ignore
           retention-days: 7
