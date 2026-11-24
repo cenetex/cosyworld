@@ -12,7 +12,6 @@ import { locationDaylight } from "./daylight.mjs";
 import { profiles } from "./memory.mjs";
 import {
   entityActive,
-  lorePages,
   packEntity,
   packDefinitions,
   packFacts,
@@ -675,11 +674,9 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           scene,
         ),
       );
-      const lore = lorePages(world, id, scene);
       return {
         id,
         poem: recitalContext(world, packDefinitions, id),
-        ...(lore.length ? { lore } : {}),
         facts: facts.slice(0, 16).map((text) => text.slice(0, 240)),
         desire,
         memories: speechMemories(world.memories[id], {

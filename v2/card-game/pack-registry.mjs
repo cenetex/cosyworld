@@ -37,8 +37,6 @@ import {
   packProblems,
   observationProblems,
   packCompositionProblems,
-  LORE_CHARS,
-  LORE_PAGES,
 } from "./pack-schema.mjs";
 import { conditionMet as evaluateCondition } from "./pack-rules.mjs";
 const owns = (o, key) =>
@@ -361,33 +359,6 @@ export function conditionsMet(world, packId, conditions = [], actor = null) {
   for (const condition of conditions)
     if (!evaluateCondition(world, condition, null, packId, actor)) return false;
   return true;
-}
-export function lorePages(world, holder, scene) {
-  const books = [holder, ...Object.keys(world.items)].filter(
-    (item, n) =>
-      packThings[item]?.lore &&
-      (n === 0 || world.items[item].holder === holder) &&
-      entityEnabled(world, item),
-  );
-  const pages = books.flatMap((item) =>
-    packThings[item].lore.flatMap((page, n) =>
-      (page.about === undefined || scene.includes(page.about)) &&
-      conditionsMet(world, packThings[item].packId, page.requires)
-        ? [{ ref: `${item}#${n}`, size: page.text.length, about: page.about }]
-        : [],
-    ),
-  );
-  const kept = [];
-  let size = 0;
-  for (const page of [
-    ...pages.filter((page) => page.about).reverse(),
-    ...pages.filter((page) => !page.about).reverse(),
-  ])
-    if (kept.length < LORE_PAGES && size + page.size <= LORE_CHARS) {
-      kept.unshift(page.ref);
-      size += page.size;
-    }
-  return kept;
 }
 export function choiceText(choice, actor) {
   if (choice.textTemplate !== undefined)

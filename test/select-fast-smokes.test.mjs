@@ -87,6 +87,7 @@ describe("fast check smoke selection", () => {
       "v2/scripts/music-reveal-check.mjs",
     ])
       expect(pick(file)).toContain("smoke-card-music");
+    expect(pick("v2/card-game/app.mjs")).toContain("smoke-card-read");
   });
 
   it("checks dream lifetime when the sleep owner changes", () => {

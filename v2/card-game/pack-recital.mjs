@@ -140,8 +140,7 @@ export function arriveRoamingRecitals(world, packs, actor) {
   }
 }
 
-// The earned poem as world facts: its title and whose deeds it holds. The
-// couplet text is lore in content/<pack>/lore, never prompt text.
+// The earned poem as world facts: its title and whose deeds it holds.
 export function recitalContext(world, packs, actor) {
   const pack = packs.find((p) => p.recital?.actor === actor);
   if (!pack) return null;

@@ -31,8 +31,7 @@ fn authored_recital(actor: &str) -> Option<&'static Value> {
         .map(|pack| &pack["recital"])
 }
 
-// The poem names authored verse ids and their travellers. Couplet text is
-// lore in content/<pack>/lore and never reaches the prompt.
+// The poem names authored verse ids and their travellers.
 pub(super) fn valid(actor: &str, poem: Option<&Poem>, turn: u64) -> bool {
     let Some(poem) = poem else { return true };
     let Some(recital) = authored_recital(actor) else {

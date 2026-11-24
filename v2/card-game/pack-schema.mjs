@@ -104,8 +104,6 @@ export const VARIANTS = ["asleep", "awake", "irritated"];
 
 const record = (v) => v && typeof v === "object" && !Array.isArray(v);
 export const LORE_PAGE_CHARS = 1200;
-export const LORE_PAGES = 3;
-export const LORE_CHARS = 2400;
 const owns = (o, key) =>
   record(o) && typeof key === "string" && Object.hasOwn(o, key);
 const idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
