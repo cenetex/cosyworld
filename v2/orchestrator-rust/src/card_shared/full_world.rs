@@ -10,6 +10,7 @@ pub(super) struct World {
     pub game: Value,
     pub claimed: [i32; 8],
     pub present: [i32; 8],
+    // The pack content revision read by rules that take content as input.
     // Absent for older rules, so their saved bytes stay the same.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pack: Option<String>,
