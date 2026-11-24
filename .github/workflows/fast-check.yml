@@ -148,9 +148,9 @@ jobs:
       # here, not in each unit shard.
       - run: npm run regen:check
 
-  # Two vitest shards balanced by test/durations.json, each using every CPU.
+  # Three vitest shards balanced by test/durations.json, three workers each.
   unit-shard:
-    name: JavaScript unit tests (${{ matrix.shard }}/2)
+    name: JavaScript unit tests (${{ matrix.shard }}/3)
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     # A cache miss fetches the whole tree from Git, which took up to 11
     # minutes on 2026-11-03; with the cache the job takes about 5.
@@ -158,7 +158,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     env:
       CI: true
     steps:
@@ -196,7 +196,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
       # Not a gate: lists tests that passed only on a retry (`retry: 1`).
-      - run: npx vitest run --shard=${{ matrix.shard }}/2 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
+      - run: npx vitest run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
 
   # cargo fmt reads source only, so this job builds nothing and needs no
   # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
