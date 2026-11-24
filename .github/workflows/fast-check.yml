@@ -273,7 +273,7 @@ jobs:
   # Runs only when Rust, the rules or the shared bundles change, and only the
   # tests of the modules involved (scripts/select-rust-tests.mjs and the rust
   # section of scripts/fast-smokes.json). It starts from the dependency cache
-  # rust-cache.yml saves on main. The full gate stays on the train.
+  # rust-cache.yml saves on main. The full gate runs on tags (deploy.yml).
   rust:
     name: Rust tests
     needs: plan

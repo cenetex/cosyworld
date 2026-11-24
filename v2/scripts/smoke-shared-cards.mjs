@@ -88,8 +88,7 @@ const provider = createServer(async (req, res) => {
   // Other parts keep "Current scene:" and a cue.
   const prompt = input.messages.map((message) => message.content).join("\n");
   const direction = input.messages[0].content;
-  const reflection = /What do you think to yourself\?/u.test(input.messages.at(-1).content) ||
-    input.messages.map(({ role }) => role).join(",") === "system,user,assistant,user" &&
+  const reflection = input.messages.map(({ role }) => role).join(",") === "system,user,assistant,user" &&
     direction.startsWith("You are ") && !speakerOf(input) &&
     input.messages[1].content === "…" && input.messages[3].content === "…" &&
     /(?:I think to myself:|Who I am now:)$/u.test(input.messages[2].content);
