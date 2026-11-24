@@ -331,6 +331,12 @@ export function residentKnowledge(world, id) {
   ];
   return talkKnowledge(world, id, [], [], Math.max(2, 16 - ownFacts(world, id).length), scene);
 }
+export function residentScene(world, id) {
+  const place = world.actors[id].place;
+  const live = (all, key, at) =>
+    Object.keys(all).filter((other) => other !== id && all[other][key] === at && entityActive(world, other));
+  return { here: live(world.actors, "place", place), holds: live(world.items, "holder", id), items: live(world.items, "holder", place) };
+}
 export function ownFacts(world, id) {
   const place = world.actors[id].place;
   const here = Object.keys(world.actors).filter(

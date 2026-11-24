@@ -1385,10 +1385,6 @@ pub(crate) fn led(lead: &str, view: &str) -> String {
     }
 }
 
-pub(crate) fn earlier_turns(turns: &[String]) -> String {
-    turns.join(&LEAD_END.to_string())
-}
-
 /// Whether a user turn is a line someone said (`Pip says, “…”`), which a
 /// prefilled reply answers; silence or a presence ("Pip is here.") is not.
 pub(crate) fn heard_line(user: &str) -> bool {
@@ -2214,8 +2210,7 @@ mod tests {
         let led = chat_messages("", &led("You are here.", "I am Pip."), "Now?".into(), false);
         assert_eq!(led[0], json!({"role": "user", "content": "You are here."}));
         assert_eq!(led[1], json!({"role": "assistant", "content": "I am Pip."}));
-        let earlier = earlier_turns(&["Jun: Hi.".into(), "Come in.".into()]);
-        let talk = chat_messages("You are Pip.", &earlier, "Jun: Thanks.".into(), false);
+        let talk = chat_messages("You are Pip.", "I am Pip.", "Jun: Thanks.".into(), false);
         assert_eq!(roles(talk), ["system", "user", "assistant", "user"]);
         assert_eq!(roles(view), ["user", "assistant", "user"]);
         let quoted = chat_messages(

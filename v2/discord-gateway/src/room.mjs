@@ -173,7 +173,13 @@ export function awareness(room, now) {
 
 export function requestBody(room, config, addressed, now = Date.now()) {
   const speaker = addressed && room.messages.at(-1)?.resident === addressed ? { continuing: addressed } : { addressed: addressed ?? null };
-  const recent = room.messages.slice(-Math.max(1, config.DISCORD_CONTEXT_MESSAGES));
+  const replies = [];
+  for (const entry of room.messages) {
+    const last = replies.at(-1);
+    if (entry.beat && last?.resident === entry.resident) replies[replies.length - 1] = { ...last, text: `${last.text} ${entry.text}` };
+    else replies.push(entry);
+  }
+  const recent = replies.slice(-Math.max(1, config.DISCORD_CONTEXT_MESSAGES));
   const parts = pictured(recent);
   return {
     pack: config.DISCORD_PACK,
@@ -244,6 +250,8 @@ export async function post(room, resident, text, { config, send, sleep, stats, l
       room.messages.push({ id: sent.id, at: sent.createdTimestamp ?? 0, text: part, replyTo: null, resident: resident.id });
       if (room.messages.length > RING) room.messages.splice(0, room.messages.length - RING);
     }
+    const beat = index && room.messages.find((entry) => entry.id === sent?.id);
+    if (beat) beat.beat = true;
   }
   room.said ??= {};
   room.said[resident.id] = [...(room.said[resident.id] ?? []), text].slice(-3);
