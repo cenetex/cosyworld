@@ -1,10 +1,10 @@
 {
-  "about": "Browser smokes for the fast check on pull requests (.github/workflows/fast-check.yml), chosen in scripts/select-fast-smokes.mjs. The core smokes run on every pull request. A changed smoke script runs too, then every smoke the rules below select; a core smoke a rule names runs once. Each smoke serves the static card game; smokes in needsRust start the Rust server and run only in the full suite (ci.yml).",
+  "about": "Browser smokes for the fast check on pull requests (.github/workflows/fast-check.yml), chosen in scripts/select-fast-smokes.mjs. The core smokes run on every pull request. A changed smoke script runs too, then every smoke the rules below select; a core smoke a rule names runs once. Each smoke serves the static card game; smokes in needsRust start the Rust server and are never packed here.",
   "packing": {
     "about": "The chosen smokes are packed longest first into as few jobs as keep each lane near targetSeconds, never more than jobs, so a run stays well under the account's 20 concurrent jobs. Each job runs lanes smokes at a time. seconds holds each smoke's measured run time (fast check p50 to 2026-11-24, else the nightly's); an unlisted smoke counts defaultSeconds.",
     "jobs": 4,
     "lanes": 2,
-    "targetSeconds": 240,
+    "targetSeconds": 200,
     "defaultSeconds": 90,
     "seconds": {
       "check-card-awakening": 36,
