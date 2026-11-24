@@ -9,6 +9,7 @@ import {
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { claimsIn } from "../v2/card-game/claims.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 
 const AUTHORS = {
   "greek-decree": "greek-creon",
@@ -55,6 +56,17 @@ describe("text items that teach what they say", () => {
     expect(claimsIn("hoppycat-loop-token")).toEqual([]);
   });
 
+  it("give a reader of Helen's tablet both accounts, each told as the Bard's from it", () => {
+    let w = createWorld({ packScopes: { "greek-drama": "full" } });
+    w.crossings["pond-greek-harbor"].discovered = true;
+    w.actors.vale.place = "greek-harbor";
+    w.items["greek-helen-accounts"].holder = "vale";
+    w = play(w, legalActions(w).find((a) => a.kind === "read" && a.item === "greek-helen-accounts")).state;
+    const facts = narrativeContext(w).entities.find((e) => e.id === "vale").facts;
+    for (const { text } of claimsIn("greek-helen-accounts"))
+      expect(facts).toContain(`I read this just now in Helen’s Account Tablet, by The Bard: ${text}`);
+  });
+
   it("are read by the residents who hold them, one a turn, and stay in hand", () => {
     let w = meeting("greek-gate");
     w = wait(w);
@@ -79,7 +91,7 @@ describe("text items that teach what they say", () => {
     const shared = dispatchShared({ op: "create", save: encodeSave(played) }).world;
     for (const world of [
       decodeSave(JSON.stringify(older(played))),
-      dispatchShared({ op: "upgrade", from: "full-card-world/195", world: older(shared) }).world,
+      dispatchShared({ op: "upgrade", from: "full-card-world/198", world: older(shared) }).world,
     ]) {
       expect(world.knowledge.facts[claimsIn(DECREE)[0].id].text).toBe(claimsIn(DECREE)[0].text);
       expect(world.items[DECREE].holder).toBe("greek-guard");
