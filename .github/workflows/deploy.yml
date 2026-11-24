@@ -259,9 +259,14 @@ jobs:
           PREVIOUS_IMAGE: ${{ steps.serving.outputs.image }}
           PREVIOUS_COMMIT: ${{ steps.serving.outputs.commit }}
         run: |
-          echo "::error::${GITHUB_SHA:0:7} failed its .dev rollout or checks; returning .dev to ${PREVIOUS_COMMIT:0:7}."
-          bash scripts/fly-rollout.sh --config fly.toml --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"
-          node scripts/fly-machines-serve-commit.mjs cosyworld "$PREVIOUS_COMMIT"
+          echo "::error::${GITHUB_SHA:0:7} failed its .dev rollout or checks; returning .dev to ${PREVIOUS_IMAGE}."
+          config=fly.toml
+          if [ -n "$PREVIOUS_COMMIT" ] && git fetch --quiet --no-tags --depth=1 origin "$PREVIOUS_COMMIT" &&
+            git show "$PREVIOUS_COMMIT:fly.toml" > fly.previous.toml; then
+            config=fly.previous.toml
+          fi
+          bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"
+          [ -z "$PREVIOUS_COMMIT" ] || node scripts/fly-machines-serve-commit.mjs cosyworld "$PREVIOUS_COMMIT"
 
   deployment-impact:
     name: Check production impact

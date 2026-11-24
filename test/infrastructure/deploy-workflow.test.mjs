@@ -269,7 +269,8 @@ describe("deploy workflow", () => {
       'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
       "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
       "node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
-      'bash scripts/fly-rollout.sh --config fly.toml --image "$PREVIOUS_IMAGE"',
+      'git show "$PREVIOUS_COMMIT:fly.toml" > fly.previous.toml',
+      'bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE"',
     ];
     for (const [index, text] of order.entries()) {
       expect(dev).toContain(text);
@@ -349,7 +350,7 @@ describe("deploy workflow", () => {
     expect(deploys).toHaveLength(5);
     const restoring = deploys.filter((deploy) => /DEV_SHA|PREVIOUS/.test(deploy));
     expect(restoring).toEqual([
-      'fly-rollout.sh --config fly.toml --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"',
+      'fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"',
       'fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
     ]);
     for (const deploy of deploys.filter((d) => !restoring.includes(d))) {

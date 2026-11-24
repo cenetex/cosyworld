@@ -411,10 +411,15 @@ describe("a .dev rollout confirms its machines kept the commit", () => {
       servingRelease([serving(sha), serving("c".repeat(40), image, "stopped")]),
     ).toEqual({ commit: sha, image });
     for (const machines of [
-      [],
       [serving(sha), serving("c".repeat(40))],
       [serving("0456b60d9fce")],
+      [serving(undefined)],
+    ])
+      expect(servingRelease(machines)).toEqual({ commit: "", image });
+    for (const machines of [
+      [],
       [serving(sha, "")],
+      [serving(sha), serving(sha, `${image}0`)],
     ])
       expect(servingRelease(machines)).toEqual({ commit: "", image: "" });
   });
@@ -503,7 +508,10 @@ describe("a .dev run plans before it joins the build queue", () => {
       },
     });
     const train = `.dev train ${head}`;
-    for (const live of [api(train, "queued"), api(train, "completed", "success")]) {
+    for (const live of [
+      api(train, "queued"),
+      api(train, "completed", "success"),
+    ]) {
       const result = plan("", live);
       expect(result.stdout).toContain("deploy=false");
       expect(result.stderr).toContain("the .dev run for main's head ddddddd");

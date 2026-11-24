@@ -35,19 +35,18 @@ export function staleMachines(machines, commit) {
 }
 
 export function servingRelease(machines) {
-  const releases = new Set(
-    servingMachines(machines).map((machine) =>
-      JSON.stringify([
-        machine.config?.env?.COSYWORLD_SOURCE_COMMIT ?? "",
-        machine.config?.image ?? "",
-      ]),
-    ),
+  const agreed = (read) => {
+    const values = new Set(servingMachines(machines).map(read));
+    return values.size === 1 ? [...values][0] : "";
+  };
+  const image = agreed((machine) => machine.config?.image ?? "");
+  const commit = agreed(
+    (machine) => machine.config?.env?.COSYWORLD_SOURCE_COMMIT ?? "",
   );
-  const [commit, image] =
-    releases.size === 1 ? JSON.parse([...releases][0]) : ["", ""];
-  return /^[0-9a-f]{40}$/.test(commit) && image
-    ? { commit, image }
-    : { commit: "", image: "" };
+  return {
+    commit: image && /^[0-9a-f]{40}$/.test(commit) ? commit : "",
+    image,
+  };
 }
 
 if (
