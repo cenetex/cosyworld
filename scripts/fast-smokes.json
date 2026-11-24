@@ -89,6 +89,19 @@
   ],
   "rules": [
     {
+      "paths": "^scripts/(select-fast-smokes\\.mjs|fast-smokes\\.json)$",
+      "smokes": [
+        "smoke-card-lock-quests",
+        "smoke-shared-snapshot-order",
+        "smoke-shared-play-status",
+        "smoke-card-quest-offers",
+        "smoke-card-shared-updating",
+        "smoke-card-combat",
+        "smoke-card-pond-access",
+        "smoke-card-save-validation"
+      ]
+    },
+    {
       "paths": "^v2/card-game/(quest-hand|card-keep)\\.mjs$",
       "smokes": ["smoke-card-ratiradio", "smoke-card-quest-offers"]
     },
