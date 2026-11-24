@@ -215,12 +215,9 @@ try {
           key,
         );
       } else {
-        // One quest card, one button: Discard.
-        await page
-          .locator("#card-actions [data-drop-quest]")
-          .first()
-          .waitFor();
-        assert.equal(await page.locator("#card-actions button").count(), 1);
+        // One quest card and no button.
+        await page.locator(".action-beat-heading:not([hidden])").waitFor();
+        assert.equal(await page.locator("#card-actions button").count(), 0);
       }
       const after = await page.evaluate(
         (key) => JSON.parse(localStorage.getItem(key)),

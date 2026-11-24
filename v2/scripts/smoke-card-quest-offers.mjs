@@ -12,7 +12,6 @@ import { createWorld, decodeSave, encodeSave, legalActions, play } from "../card
 import { questing } from "../../test/helpers/first-quest.mjs";
 import { holdQuest, newWant } from "../card-game/want.mjs";
 import { recordOf } from "../card-game/world/arcana-record.mjs";
-import { DISSOLVE_MS } from "../card-game/card-travel.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { journeyWorlds } from "../../test/helpers/journey.mjs";
 import { questCards } from "../../test/journeys/quest-cards.mjs";
@@ -177,10 +176,6 @@ try {
           .slice(from, to + 1)
           .map((frame) => `${frame.querySelector(".card").dataset.card ?? frame.dataset.questId}${frame.hidden ? "" : " shown"}`);
       });
-    const motion = async (page, reducedMotion) => {
-      await page.emulateMedia({ reducedMotion });
-      await page.evaluate(() => window.motionPreferenceReady);
-    };
     const label = async (page) =>
       (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
       (await page.locator("#card-actions button").first().textContent());
@@ -284,8 +279,7 @@ try {
       assert.equal(await heldCard.getAttribute("data-unrevealed"), "false", "the accepted quest lies face up");
       assert.equal(await page.locator("#hand .want-frame").count(), 1, "the held quest card");
       await openHeld(page, t);
-      assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Discard");
+      assert.equal(await t.oneButton(), 0, "a held quest has no Discard");
       await t.layout();
       await t.shot("held-step");
       assert.deepEqual(t.errors, []);
@@ -354,7 +348,7 @@ try {
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
       await openHeld(page, t);
-      assert.equal(await t.oneButton(), 1);
+      assert.equal(await t.oneButton(), 0);
       const hidden = await surfaces(page);
       assert.match(hidden, /\bsomething\b/u);
       assert.doesNotMatch(hidden, /lamp/iu);
@@ -448,8 +442,7 @@ try {
       assert.equal(await offerCards(page).count(), 0);
       assert.equal(await page.locator("#hand .want-frame").count(), 1, "only the top quest is shown");
       await openHeld(page, t);
-      assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Discard");
+      assert.equal(await t.oneButton(), 0, "a held quest has no Discard");
       assert.equal(
         await page.locator("#hand .want-frame > .place-edge").count(),
         1,
@@ -457,26 +450,6 @@ try {
       );
       await t.layout();
       await t.shot("stacked");
-      await page.locator("#card-actions [data-drop-quest]").click();
-      await motion(page, "no-preference");
-      await page.locator("#card-actions [data-drop-quest]").click();
-      const fading = page.locator(".card-exits .want-card");
-      await fading.waitFor({ state: "attached" });
-      assert.ok(await page.evaluate(() => document.activeElement.closest("#hand")), "focus stays in the hand");
-      assert.equal(
-        await fading.evaluate((el) => el.parentElement.getAnimations()[0].effect.getTiming().duration),
-        DISSOLVE_MS,
-      );
-      await fading.waitFor({ state: "detached" });
-      await motion(page, "reduce");
-      await t.ready();
-      const next = await t.state();
-      assert.equal(next.actors.vale.want.from, "quest:from:moth", "the next quest shows");
-      assert.equal(next.actors.vale.under, undefined);
-      assert.equal(next.actors.vale.closed["quest:box:test"][1].includes("cloth"), true);
-      await openHeld(page, t);
-      assert.equal(await page.locator("#hand .want-frame > .place-edge").count(), 0);
-      assert.equal(await label(page), "Discard");
       assert.deepEqual(t.errors, []);
       await page.close();
     }
@@ -519,7 +492,7 @@ try {
       await locked();
       assert.equal(await boxOffer.count(), 0, "a held box quest is not offered again");
       await openHeld(page, t);
-      assert.equal(await label(page), "Discard");
+      assert.equal(await t.oneButton(), 0);
       await t.layout();
       await t.shot("box-held");
       assert.deepEqual(t.errors, []);

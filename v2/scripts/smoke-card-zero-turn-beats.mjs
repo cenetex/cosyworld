@@ -142,12 +142,9 @@ try {
         await readyActionButton(page, kind).click();
       }
       if (kind === "quest") {
-        // One quest card, one button; nothing was committed.
-        await page
-          .locator("#card-actions [data-drop-quest]")
-          .first()
-          .waitFor();
-        assert.equal(await page.locator("#card-actions button").count(), 1);
+        // One quest card and no button; nothing was committed.
+        await page.locator(".action-beat-heading:not([hidden])").waitFor();
+        assert.equal(await page.locator("#card-actions button").count(), 0);
         assert.equal(
           await page
             .locator('#hand .want-card[aria-pressed="true"]')

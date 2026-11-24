@@ -183,18 +183,15 @@ try {
     await page.screenshot({
       path: new URL(`expanded-${width}.png`, output).pathname,
     });
-    // Choosing the quest card shows its details and one button. The lamp is
-    // already held, so there is no step left: Discard is the one button.
+    // Choosing the quest card shows its details and no button: a quest is
+    // never set down.
     await page.locator("#hand .want-frame > .want-card").click({ position: { x: 40, y: 16 } });
     assert.equal(
       await page.locator("#hand .want-frame > .want-card").getAttribute("aria-pressed"),
       "true",
     );
-    await page
-      .locator('#card-actions button:not([data-revealing="true"])')
-      .first()
-      .waitFor();
-    assert.equal(await page.locator("#card-actions button").count(), 1);
+    await page.locator(".action-beat-heading:not([hidden])").waitFor();
+    assert.equal(await page.locator("#card-actions button").count(), 0);
     // Tapping the chosen quest lowers it again; the avatar's stack stays.
     await page.locator("#hand .want-frame > .want-card").click({ position: { x: 40, y: 16 } });
     assert.equal(
@@ -231,8 +228,7 @@ try {
       "no Claim button",
     );
 
-    // Discard. A held quest has one button, asks again, and drops on the
-    // second tap with no turn passing and no cost.
+    // A held quest opened from its fold keeps focus and offers no Discard.
     await page.evaluate(({ key }) => {
       const s = JSON.parse(localStorage.getItem(key));
       const vale = s.actors.vale;
@@ -250,59 +246,17 @@ try {
     await page.keyboard.press("Enter");
     await page.locator("#hand .want-frame:not([hidden])").waitFor();
     assert.equal(await page.evaluate(() => document.activeElement.matches("#hand .want-card")), true, "Enter leaves focus on the quest card");
-    assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 1);
-    // The fold's tap also chooses the quest and shows its details.
     assert.equal(
       await page.locator("#hand .want-frame > .want-card").getAttribute("aria-pressed"),
       "true",
     );
-    const drop = page.locator('#card-actions [data-drop-quest="0"]');
-    await page
-      .locator('#card-actions [data-drop-quest="0"]:not([data-revealing="true"])')
-      .waitFor();
-    assert.equal(await page.locator("#card-actions button").count(), 1);
-    assert.equal(await drop.getAttribute("aria-label"), "Discard");
-    // Discard is the beat's usual context button, its words red.
-    assert.deepEqual(
-      await drop.evaluate((el) => {
-        const style = getComputedStyle(el);
-        return [style.color, style.textShadow, style.borderTopWidth];
-      }),
-      ["rgb(255, 143, 132)", "none", "0px"],
-    );
-    const { turn } = await saved();
-    const readyDrop = page.locator(
-      '#card-actions [data-drop-quest]:not([data-revealing="true"])',
-    );
-    await readyDrop.click();
-    assert.equal((await saved()).turn, turn);
-    const panel = page.locator("#action-beat");
-    assert.equal(
-      await panel.evaluate((el) => getComputedStyle(el).borderTopColor),
-      "rgb(255, 143, 132)",
-    );
     assert.match(
-      await panel.locator(".action-beat-note").innerText(),
-      /^Discover somewhere\.$/u,
+      await page.locator(".action-beat-heading:not([hidden])").textContent(),
+      /^\s*Discover somewhere\s*$/u,
     );
-    assert.equal(await panel.locator("button").count(), 1);
-    // Escape asks no more; nothing was dropped.
-    await page.keyboard.press("Escape");
-    assert.equal((await saved()).want.target, "station");
-    assert.equal((await saved()).turn, turn);
-    await readyDrop.click();
-    const confirm = panel.locator("button");
-    // The first tap on words still being typed finishes them.
-    if ((await confirm.getAttribute("data-revealing")) === "true")
-      await confirm.click();
-    await confirm.click();
-    await ready();
-    const dropped = await saved();
-    assert.equal(dropped.xp, 0, "the quest dropped at no cost");
-    assert.equal(dropped.want, null, "no box quest returns unasked");
+    assert.equal(await page.locator("#card-actions button").count(), 0, "no Discard");
 
-    // A step quest: at the Theban City Gate, the chosen quest card offers one
-    // button, Discard; giving the Decree meets it and pays no XP.
+    // A step quest at the Theban City Gate: giving the Decree meets it and pays no XP.
     const gateKey = `cosyworld.reflected-shore.v1.quest-give-${width}`;
     await page.evaluate(
       ({ gateKey, save, seen }) => {
@@ -327,24 +281,15 @@ try {
       await page.locator('#hand .want-frame[data-quest-id="quest:0"] > .want-card').getAttribute("aria-label"),
       "Quest: Give the Burial Decree to the Gate Guard, near",
     );
-    // The fold's tap names the quest; its one button is Discard.
-    await page
-      .locator('#card-actions [data-drop-quest]:not([data-revealing="true"])')
-      .waitFor();
+    // The fold's tap names the quest, with no button.
+    await page.locator(".action-beat-heading:not([hidden])").waitFor();
     assert.equal(
       (
         await page.locator(".action-beat-heading:not([hidden])").textContent()
       ).trim(),
       "Give the Burial Decree to the Gate Guard",
     );
-    assert.deepEqual(
-      await page
-        .locator("#card-actions button")
-        .evaluateAll((buttons) =>
-          buttons.map((b) => [b.textContent, b.disabled]),
-        ),
-      [["Tap to discard", false]],
-    );
+    assert.equal(await page.locator("#card-actions button").count(), 0);
     assert.equal(
       await page
         .locator('#hand .want-frame > .want-card .quest-screen[data-parts="3"] > img')
@@ -384,7 +329,7 @@ try {
     assert.equal(await page.locator(".quest-seal, .quest-xp").count(), 0);
     assert.deepEqual(errors, []);
     console.log(
-      `One quest card: fold, deal, one button (Discard), met with no claim passed at ${width}px (${motion}).`,
+      `One quest card: fold, deal, no Discard, met with no claim passed at ${width}px (${motion}).`,
     );
     await page.close();
   }

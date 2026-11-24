@@ -232,7 +232,7 @@ try {
         }
       }
       assert.equal(await page.locator("[data-quest-step]").count(), 0);
-      assert.equal(await page.locator("[data-drop-quest]").count(), 1);
+      assert.equal(await page.locator("[data-drop-quest]").count(), 0);
       await clearSelection(page);
       await selectCard(page, kit[0]);
       await readyActionButton(page, "take").click();
@@ -247,13 +247,9 @@ try {
         );
         await photograph(stage);
         const before = await state();
-        // The held quest's one button is Discard; the rite is done by
-        // choosing the supply and Antigone, as any give is.
-        assert.equal(await page.locator("#card-actions button").count(), 1);
-        assert.equal(
-          await page.locator("#card-actions [data-drop-quest]").getAttribute("data-tap-verb"),
-          "Discard",
-        );
+        // The held quest has no button; the rite is done by choosing the
+        // supply and Antigone, as any give is.
+        assert.equal(await page.locator("#card-actions button").count(), 0);
         await clearSelection(page);
         await selectCard(page, kit[index]);
         await selectCard(page, antigone);
