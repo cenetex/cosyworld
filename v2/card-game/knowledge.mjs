@@ -530,20 +530,20 @@ export function knowledgeFacts(
     if (fact.source.kind === "claim") {
       const author = nameOf(fact.source.author);
       const from = `${nameOf(fact.source.book)}, by ${author}`;
-      const told = nameOf(memory.teller),
+      const teller = nameOf(memory.teller),
         that = fact.text.replace(/[.!?。！？]$/u, "");
       const settled = {
         confirmed: [
           memory.kind === "read"
             ? `I read this in ${from}, and I know it is true: ${fact.text}`
-            : `${told} told me this from ${from}, and I know it is true: ${fact.text}`,
+            : `${teller} told me this from ${from}, and I know it is true: ${fact.text}`,
           `I know what ${author} wrote is true: ${fact.text}`,
           `${author} wrote truly: ${fact.text}`,
         ],
         disproved: [
           memory.kind === "read"
             ? `I read in ${from}, that ${that}; it was wrong.`
-            : `${told} told me that ${from}, says ${that}; it was wrong.`,
+            : `${teller} told me that ${from}, says ${that}; it was wrong.`,
           `${author} wrote that ${that}; it was wrong.`,
           `${author} was wrong: ${fact.text}`,
         ],
@@ -556,8 +556,8 @@ export function knowledgeFacts(
               `I read what ${author} wrote: ${fact.text}`,
             ]
           : [
-              `${told} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
-              `${told} told me what ${author} wrote: ${fact.text}`,
+              `${teller} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
+              `${teller} told me what ${author} wrote: ${fact.text}`,
               heardClaim(author, fact.text),
             ]);
       const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);

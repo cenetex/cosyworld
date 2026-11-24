@@ -1937,15 +1937,15 @@
       if (fact.source.kind === "claim") {
         const author = nameOf3(fact.source.author);
         const from = `${nameOf3(fact.source.book)}, by ${author}`;
-        const told2 = nameOf3(memory.teller), that = fact.text.replace(/[.!?。！？]$/u, "");
+        const teller = nameOf3(memory.teller), that = fact.text.replace(/[.!?。！？]$/u, "");
         const settled = {
           confirmed: [
-            memory.kind === "read" ? `I read this in ${from}, and I know it is true: ${fact.text}` : `${told2} told me this from ${from}, and I know it is true: ${fact.text}`,
+            memory.kind === "read" ? `I read this in ${from}, and I know it is true: ${fact.text}` : `${teller} told me this from ${from}, and I know it is true: ${fact.text}`,
             `I know what ${author} wrote is true: ${fact.text}`,
             `${author} wrote truly: ${fact.text}`
           ],
           disproved: [
-            memory.kind === "read" ? `I read in ${from}, that ${that}; it was wrong.` : `${told2} told me that ${from}, says ${that}; it was wrong.`,
+            memory.kind === "read" ? `I read in ${from}, that ${that}; it was wrong.` : `${teller} told me that ${from}, says ${that}; it was wrong.`,
             `${author} wrote that ${that}; it was wrong.`,
             `${author} was wrong: ${fact.text}`
           ]
@@ -1954,8 +1954,8 @@
           `I read this ${ageText(age)} in ${from}: ${fact.text}`,
           `I read what ${author} wrote: ${fact.text}`
         ] : [
-          `${told2} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
-          `${told2} told me what ${author} wrote: ${fact.text}`,
+          `${teller} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
+          `${teller} told me what ${author} wrote: ${fact.text}`,
           heardClaim(author, fact.text)
         ]);
         const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
