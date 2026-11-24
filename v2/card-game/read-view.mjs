@@ -8,7 +8,7 @@ export function readPage(world, actor, seen) {
   const entry = world.log.findLast(
     (e) => e.verb === "read" && e.actorId === actor && !e.generated,
   );
-  const claims = claimsIn(entry?.itemId);
+  const claims = claimsIn(entry?.itemId, world);
   if (!entry || entry.seq <= seen || entry.turn !== world.turn || !claims.length)
     return null;
   return {
@@ -16,7 +16,7 @@ export function readPage(world, actor, seen) {
     book: entry.itemId,
     title: nameOf(entry.itemId),
     author: nameOf(claims[0].author),
-    claims: claims.map((claim) => claim.text),
+    claims: claims.map((c) => world.knowledge?.facts?.[c.id]?.text ?? c.text),
     pages: packThings[entry.itemId].pages ?? [],
   };
 }

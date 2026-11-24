@@ -1110,28 +1110,28 @@
     ).map((card) => card.id)
   );
   function recordOf(s, traveler) {
-    const record6 = s.actors?.[traveler]?.arcana;
+    const record7 = s.actors?.[traveler]?.arcana;
     return {
-      proved: record6?.proved || [],
-      did: record6?.did || [],
-      level: record6?.level ?? null,
-      calls: record6?.calls ?? 0,
-      callers: record6?.callers || [],
-      need: record6?.need || [],
-      done: record6?.done || [],
-      spread: record6?.spread || [],
-      sale: record6?.sale === true
+      proved: record7?.proved || [],
+      did: record7?.did || [],
+      level: record7?.level ?? null,
+      calls: record7?.calls ?? 0,
+      callers: record7?.callers || [],
+      need: record7?.need || [],
+      done: record7?.done || [],
+      spread: record7?.spread || [],
+      sale: record7?.sale === true
     };
   }
   var arcanaLevel = (s, id) => {
-    const record6 = recordOf(s, id);
-    return Math.min(LEVEL_CAP, record6.level ?? record6.proved.length);
+    const record7 = recordOf(s, id);
+    return Math.min(LEVEL_CAP, record7.level ?? record7.proved.length);
   };
   var tarotsHeld = (actor) => actor?.arcana?.spread?.length ?? 0;
   function called(s, traveler) {
     if (!humanPresent(s, traveler)) return false;
-    const record6 = recordOf(s, traveler);
-    return record6.sale || record6.calls >= CALLS && (arcanaLevel(s, traveler) < LEVEL_CAP || record6.spread.some((slot) => slot.face === "down"));
+    const record7 = recordOf(s, traveler);
+    return record7.sale || record7.calls >= CALLS && (arcanaLevel(s, traveler) < LEVEL_CAP || record7.spread.some((slot) => slot.face === "down"));
   }
   var calledTravelers = (s) => Object.keys(s.actors || {}).sort().filter((id) => called(s, id));
   var selling = (s, traveler) => humanPresent(s, traveler) && recordOf(s, traveler).sale;
@@ -2009,7 +2009,7 @@
         if (s.topic !== null || !id.startsWith(`quest:${s.actorId}:`) || id.endsWith(":"))
           return false;
       } else if (s.kind === "claim") {
-        const claim = claimOf(id);
+        const claim = claimOf(id, fact);
         if (s.topic !== null || claim?.text !== fact.text || CLAIM_KEYS.some((key2) => claim[key2] !== s[key2]))
           return false;
       } else {
@@ -2796,9 +2796,9 @@
         return false;
     }
     for (const pack of packDefinitions) {
-      const record6 = s.packs[pack.id];
+      const record7 = s.packs[pack.id];
       const fixtures = Object.entries(pack.fixtures || {});
-      if (!exactKeys(record6, [
+      if (!exactKeys(record7, [
         ...pack.specials && s.run ? ["specials"] : [],
         ...pack.choices ? [
           "revision",
@@ -2810,11 +2810,11 @@
           "scope",
           ...pack.recital ? ["recitals"] : []
         ] : ["revision", "sounds"]
-      ]) || record6.revision !== pack.revision || !exactKeys(
-        record6.sounds,
+      ]) || record7.revision !== pack.revision || !exactKeys(
+        record7.sounds,
         fixtures.map(([id]) => id)
       ) || fixtures.some(
-        ([id, f]) => !whole3(record6.sounds[id], s.turn + f.sound.turns)
+        ([id, f]) => !whole3(record7.sounds[id], s.turn + f.sound.turns)
       ))
         return false;
     }
@@ -5998,6 +5998,10 @@
                 text: "Helen waited out the war in Egypt while a phantom took her place at Troy.",
                 about: "greek-egypt-tomb"
               }
+            ],
+            records: [
+              "greek-helen-egypt-passage",
+              "greek-helen-egypt-shelter"
             ]
           },
           "greek-troy-testimony": {
@@ -6019,6 +6023,10 @@
                 text: "Helen sailed home from Troy herself, and no phantom ever stood in her place.",
                 about: "greek-troy-beach"
               }
+            ],
+            records: [
+              "greek-helen-troy-passage",
+              "greek-helen-troy-shelter"
             ]
           },
           "greek-tomb-testimony": {
@@ -6040,6 +6048,10 @@
                 text: "Electra met her brother at Agamemnon's tomb while she brought offerings.",
                 about: "greek-argos-tomb"
               }
+            ],
+            records: [
+              "greek-atreid-aeschylus-hearing",
+              "greek-atreid-aeschylus-refusal"
             ]
           },
           "greek-palace-testimony": {
@@ -6061,6 +6073,10 @@
                 text: "Electra waited outside the Mycenaean palace for her brother to come home.",
                 about: "greek-mycenae-palace"
               }
+            ],
+            records: [
+              "greek-atreid-sophocles-hearing",
+              "greek-atreid-sophocles-refusal"
             ]
           },
           "greek-farm-testimony": {
@@ -6082,6 +6098,10 @@
                 text: "Electra lives in a poor farmer's house in the Argive countryside, far from the palace.",
                 about: "greek-argive-farm"
               }
+            ],
+            records: [
+              "greek-atreid-euripides-hearing",
+              "greek-atreid-euripides-refusal"
             ]
           },
           "greek-burial-petition": {
@@ -6200,7 +6220,8 @@
                 key: "greek-burial-performed",
                 value: true
               }
-            ]
+            ],
+            author: "greek-antigone"
           },
           "greek-creon-writ": {
             name: "Creon's Writ",
@@ -11085,7 +11106,11 @@
             text: "A small card with room for a maker's name, a drawing, and a line in their own words.",
             persona: "A small card with room for a maker's name, a drawing, and a line in their own words.",
             holder: "hoppycat-meraki-atelier",
-            art: "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+            art: "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+            author: "hoppycat-penny-vellum",
+            records: [
+              "hoppycat-table-credit"
+            ]
           },
           "hoppycat-unfinished-prism": {
             name: "Crooked Prism",
@@ -11101,7 +11126,11 @@
             text: "A seed for one visit. Its label will name someone and something they did.",
             persona: "A seed for one visit. Its label will name someone and something they did.",
             holder: "hoppycat-prism-foundry",
-            art: "assets/hoppycat-archive/hoppycat-context-seed-cutout.png"
+            art: "assets/hoppycat-archive/hoppycat-context-seed-cutout.png",
+            author: "hoppycat-patch-fern",
+            records: [
+              "hoppycat-table-patch"
+            ]
           },
           "hoppycat-concordance-compass": {
             name: "Rill's Compass",
@@ -11174,7 +11203,12 @@
             text: "A personal invitation with a route drawing on the back. Static will finish it after a shared evening.",
             persona: "A personal invitation with a route drawing on the back. Static will finish it after a shared evening.",
             holder: "hoppycat-signal-jetty",
-            art: "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png"
+            art: "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png",
+            author: "hoppycat-staticwashere",
+            records: [
+              "hoppycat-table-invitation",
+              "hoppycat-table-signal"
+            ]
           },
           "hoppycat-draft-page": {
             name: "Mira's Draft",
@@ -11188,7 +11222,11 @@
                 value: true
               }
             ],
-            art: "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+            art: "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+            author: "hoppycat-mira-meraki",
+            records: [
+              "hoppycat-table-draft-chosen"
+            ]
           },
           "hoppycat-evening-programme": {
             name: "Evening Programme",
@@ -11212,7 +11250,12 @@
                 ]
               }
             ],
-            art: "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+            art: "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+            author: "hoppycat-mira-meraki",
+            records: [
+              "hoppycat-table-draft-ready",
+              "hoppycat-table-paint-ready"
+            ]
           },
           "hoppycat-sol-programme": {
             name: "Sol's Reading",
@@ -11226,7 +11269,11 @@
                 value: true
               }
             ],
-            art: "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+            art: "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+            author: "hoppycat-solwashere",
+            records: [
+              "hoppycat-table-reading"
+            ]
           }
         },
         specials: {
@@ -16050,8 +16097,9 @@
         continue;
       const fail = (message) => problems2.push(`${pack.id}: item ${id} ${message}`);
       const claims = Array.isArray(item.claims) ? item.claims : [];
-      if (!claims.length || claims.length > BOOK_CLAIMS)
-        fail(`needs one to ${BOOK_CLAIMS} claims`);
+      const records = [].concat(item.records ?? []);
+      if (claims.length + records.length > BOOK_CLAIMS || !(claims.length || item.claims === void 0 && records.length))
+        fail(`needs one to ${BOOK_CLAIMS} claims and recorded choices`);
       const author = card(item.author)?.name;
       if (typeof author !== "string")
         fail("author must be a named place, avatar or item of this pack");
@@ -16062,7 +16110,7 @@
         fail(`pages must list up to ${BOOK_CLAIMS} pictures of this pack`);
       const seen = /* @__PURE__ */ new Set();
       for (const [n, claim] of claims.entries()) {
-        const ok = record2(claim) && Object.keys(claim).every((key2) => ["id", "text", "about"].includes(key2)) && idOk(claim.id) && !seen.has(claim.id) && safeId(`claim:${pack.id}:${id}:${claim.id}`) && validFactText(claim.text) && (claim.about === void 0 || card(claim.about) !== void 0);
+        const ok = record2(claim) && Object.keys(claim).every((key2) => ["id", "text", "about"].includes(key2)) && idOk(claim.id) && !seen.has(claim.id) && !records.includes(claim.id) && safeId(`claim:${pack.id}:${id}:${claim.id}`) && validFactText(claim.text) && (claim.about === void 0 || card(claim.about) !== void 0);
         seen.add(claim?.id);
         if (!ok)
           fail(
@@ -18970,7 +19018,24 @@
       about: claim.about ?? null
     }));
   };
+  var recorded = (s, packId, book) => {
+    const item = itemOf(packId, book), receipts = s?.packs?.[packId]?.receipts || {};
+    return (item.author ? item.records || [] : []).filter((choice) => Object.hasOwn(receipts, choice)).sort((a, b) => receipts[a] - receipts[b]);
+  };
+  var record6 = (packId, book, claim, text2) => ({
+    id: `claim:${packId}:${book}:${claim}`,
+    text: text2,
+    book,
+    claim,
+    author: itemOf(packId, book).author,
+    about: null
+  });
   var authoredClaim = (id) => bookClaims(...id.split(":").slice(1, 3)).find((c) => c.id === id) || null;
+  var savedClaim = (s, id, fact) => {
+    const [, packId, book, choice] = id.split(":");
+    const claim = authoredClaim(id) ?? (recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, fact?.text) : null);
+    return claim?.id === id ? claim : null;
+  };
 
   // v2/card-game/world-life.json
   var world_life_default = {
@@ -19590,9 +19655,9 @@
         delete state.receipts[id];
         delete state.recitals?.[id];
         for (const e of pack.choices.find((c) => c.id === id)?.effects || []) {
-          const record6 = { choose: state.choices, set_flag: state.flags }[e.kind];
+          const record7 = { choose: state.choices, set_flag: state.flags }[e.kind];
           const now = e.kind === "choose" ? choices : flags;
-          if (record6 && !Object.hasOwn(now, e.key)) delete record6[e.key];
+          if (record7 && !Object.hasOwn(now, e.key)) delete record7[e.key];
         }
       }
       if (dropped.length)
@@ -19653,7 +19718,7 @@
   function reconcileClaims(s) {
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
       if (fact?.source?.kind !== "claim") continue;
-      const claim = authoredClaim(id);
+      const claim = savedClaim(s, id, fact);
       if (!claim) forgetFact(s.knowledge, id);
       else {
         fact.text = claim.text;
@@ -19808,34 +19873,34 @@
   var validLevel = (level) => Number.isSafeInteger(level) && level >= 0 && level <= LEVEL_CAP;
   function installArcana(s) {
     for (const actor of Object.values(s.actors || {})) {
-      const record6 = actor?.arcana;
-      if (!plainObject(record6)) continue;
-      delete record6.held;
-      delete record6.dealt;
-      delete record6.base;
-      const proved = Array.isArray(record6.proved) ? record6.proved.filter(isArcanum) : [];
-      if (record6.level === void 0 && proved.length) {
-        record6.level = Math.min(LEVEL_CAP, proved.length);
+      const record7 = actor?.arcana;
+      if (!plainObject(record7)) continue;
+      delete record7.held;
+      delete record7.dealt;
+      delete record7.base;
+      const proved = Array.isArray(record7.proved) ? record7.proved.filter(isArcanum) : [];
+      if (record7.level === void 0 && proved.length) {
+        record7.level = Math.min(LEVEL_CAP, proved.length);
         actor.upgrades = sorted([...actor.upgrades || [], ...proved]);
       }
-      if (record6.level !== void 0 && !validLevel(record6.level))
-        delete record6.level;
-      if (record6.spread !== void 0 && !validSpread(record6.spread))
-        delete record6.spread;
-      if (record6.need !== void 0 && !validNeed(record6.need))
-        delete record6.need;
-      if (record6.done !== void 0 && !validDone(record6.done))
-        delete record6.done;
-      if (record6.sale !== void 0 && record6.sale !== true) delete record6.sale;
+      if (record7.level !== void 0 && !validLevel(record7.level))
+        delete record7.level;
+      if (record7.spread !== void 0 && !validSpread(record7.spread))
+        delete record7.spread;
+      if (record7.need !== void 0 && !validNeed(record7.need))
+        delete record7.need;
+      if (record7.done !== void 0 && !validDone(record7.done))
+        delete record7.done;
+      if (record7.sale !== void 0 && record7.sale !== true) delete record7.sale;
     }
     return s;
   }
   function validArcana(s) {
     return Object.entries(s.actors || {}).every(([id, actor]) => {
-      const record6 = actor?.arcana;
-      if (record6 === void 0) return true;
-      if (!plainObject(record6)) return false;
-      const keys = Object.keys(record6);
+      const record7 = actor?.arcana;
+      if (record7 === void 0) return true;
+      if (!plainObject(record7)) return false;
+      const keys = Object.keys(record7);
       return Boolean(humanAvatar(id)) && keys.includes("did") && keys.includes("proved") && keys.every(
         (key2) => [
           "callers",
@@ -19848,7 +19913,7 @@
           "sale",
           "spread"
         ].includes(key2)
-      ) && (record6.calls === void 0 || Number.isSafeInteger(record6.calls) && record6.calls >= 1 && record6.calls <= CALLS) && (record6.callers === void 0 || validList(record6.callers) && record6.callers.length >= 1 && record6.callers.length <= (record6.calls ?? 0)) && (record6.sale === void 0 || record6.sale === true) && (record6.level === void 0 || validLevel(record6.level)) && (record6.spread === void 0 || validSpread(record6.spread)) && (record6.need === void 0 || validNeed(record6.need)) && (record6.done === void 0 || validDone(record6.done)) && validList(record6.did) && validList(record6.proved);
+      ) && (record7.calls === void 0 || Number.isSafeInteger(record7.calls) && record7.calls >= 1 && record7.calls <= CALLS) && (record7.callers === void 0 || validList(record7.callers) && record7.callers.length >= 1 && record7.callers.length <= (record7.calls ?? 0)) && (record7.sale === void 0 || record7.sale === true) && (record7.level === void 0 || validLevel(record7.level)) && (record7.spread === void 0 || validSpread(record7.spread)) && (record7.need === void 0 || validNeed(record7.need)) && (record7.done === void 0 || validDone(record7.done)) && validList(record7.did) && validList(record7.proved);
     });
   }
 
@@ -20124,7 +20189,7 @@
       Object.keys(places),
       authoredKnowledgeTopics(),
       laneFactText,
-      authoredClaim
+      (id, fact) => savedClaim(s, id, fact)
     ))
       fail("knowledge");
     if (s.sharedMigration !== void 0) {

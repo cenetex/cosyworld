@@ -62,7 +62,10 @@ const engine = (version) => {
     readFileSync(new URL("content.json", dir), "utf8"),
   );
   for (const pack of cardContent.files["v2/card-game/packs.json"].packs)
-    for (const item of Object.values(pack.items || {})) delete item.pages;
+    for (const item of Object.values(pack.items || {})) {
+      delete item.pages;
+      if (!item.claims) delete item.author;
+    }
   const runtime = vm.createContext({ structuredClone, cardContent });
   const source = readFileSync(new URL(`engine-v${version}.js`, dir), "utf8");
   vm.runInContext(

@@ -674,7 +674,7 @@ export function validKnowledge(
       )
         return false;
     } else if (s.kind === "claim") {
-      const claim = claimOf(id);
+      const claim = claimOf(id, fact);
       if (
         s.topic !== null ||
         claim?.text !== fact.text ||

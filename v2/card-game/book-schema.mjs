@@ -23,8 +23,12 @@ export function bookProblems(pack) {
       continue;
     const fail = (message) => problems.push(`${pack.id}: item ${id} ${message}`);
     const claims = Array.isArray(item.claims) ? item.claims : [];
-    if (!claims.length || claims.length > BOOK_CLAIMS)
-      fail(`needs one to ${BOOK_CLAIMS} claims`);
+    const records = [].concat(item.records ?? []);
+    if (
+      claims.length + records.length > BOOK_CLAIMS ||
+      !(claims.length || (item.claims === undefined && records.length))
+    )
+      fail(`needs one to ${BOOK_CLAIMS} claims and recorded choices`);
     const author = card(item.author)?.name;
     if (typeof author !== "string")
       fail("author must be a named place, avatar or item of this pack");
@@ -44,6 +48,7 @@ export function bookProblems(pack) {
         Object.keys(claim).every((key) => ["id", "text", "about"].includes(key)) &&
         idOk(claim.id) &&
         !seen.has(claim.id) &&
+        !records.includes(claim.id) &&
         safeId(`claim:${pack.id}:${id}:${claim.id}`) &&
         validFactText(claim.text) &&
         (claim.about === undefined || card(claim.about) !== undefined);

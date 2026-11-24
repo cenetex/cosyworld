@@ -80,7 +80,7 @@ import {
   witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
-import { authoredClaim, claimsIn, readBook, residentRead } from "./claims.mjs";
+import { claimsIn, readBook, residentRead, savedClaim } from "./claims.mjs";
 import {
   knownActors as readKnownActors,
   installWants,
@@ -1536,7 +1536,7 @@ export function legalActions(s, actor = currentActor(s)) {
         label: `Turn ${on ? "on" : "off"}`,
       });
     }
-    if (item.holder === actor && claimsIn(id).length)
+    if (item.holder === actor && claimsIn(id, s).length)
       out.push({ ...offer("read", actor, id, null, `${nameOf(actor)} reads ${theName(id)}.`, [id]), label: "Read" });
     if (item.holder === actor) {
       // Food and drink are eaten or drunk by whoever holds them, alone or
@@ -3612,7 +3612,7 @@ export function validateWorld(s) {
       Object.keys(places),
       authoredKnowledgeTopics(),
       laneFactText,
-      authoredClaim,
+      (id, fact) => savedClaim(s, id, fact),
     )
   )
     fail("knowledge");

@@ -469,7 +469,11 @@
       "text": "A small card with room for a maker's name, a drawing, and a line in their own words.",
       "persona": "A small card with room for a maker's name, a drawing, and a line in their own words.",
       "holder": "hoppycat-meraki-atelier",
-      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+      "author": "hoppycat-penny-vellum",
+      "records": [
+        "hoppycat-table-credit"
+      ]
     },
     "hoppycat-unfinished-prism": {
       "name": "Crooked Prism",
@@ -485,7 +489,11 @@
       "text": "A seed for one visit. Its label will name someone and something they did.",
       "persona": "A seed for one visit. Its label will name someone and something they did.",
       "holder": "hoppycat-prism-foundry",
-      "art": "assets/hoppycat-archive/hoppycat-context-seed-cutout.png"
+      "art": "assets/hoppycat-archive/hoppycat-context-seed-cutout.png",
+      "author": "hoppycat-patch-fern",
+      "records": [
+        "hoppycat-table-patch"
+      ]
     },
     "hoppycat-concordance-compass": {
       "name": "Rill's Compass",
@@ -558,7 +566,12 @@
       "text": "A personal invitation with a route drawing on the back. Static will finish it after a shared evening.",
       "persona": "A personal invitation with a route drawing on the back. Static will finish it after a shared evening.",
       "holder": "hoppycat-signal-jetty",
-      "art": "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png"
+      "art": "assets/hoppycat-archive/hoppycat-return-path-checklist-cutout.png",
+      "author": "hoppycat-staticwashere",
+      "records": [
+        "hoppycat-table-invitation",
+        "hoppycat-table-signal"
+      ]
     },
     "hoppycat-draft-page": {
       "name": "Mira's Draft",
@@ -572,7 +585,11 @@
           "value": true
         }
       ],
-      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+      "author": "hoppycat-mira-meraki",
+      "records": [
+        "hoppycat-table-draft-chosen"
+      ]
     },
     "hoppycat-evening-programme": {
       "name": "Evening Programme",
@@ -596,7 +613,12 @@
           ]
         }
       ],
-      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+      "author": "hoppycat-mira-meraki",
+      "records": [
+        "hoppycat-table-draft-ready",
+        "hoppycat-table-paint-ready"
+      ]
     },
     "hoppycat-sol-programme": {
       "name": "Sol's Reading",
@@ -610,7 +632,11 @@
           "value": true
         }
       ],
-      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png"
+      "art": "assets/hoppycat-archive/hoppycat-provenance-card-cutout.png",
+      "author": "hoppycat-solwashere",
+      "records": [
+        "hoppycat-table-reading"
+      ]
     }
   },
   "specials": {
