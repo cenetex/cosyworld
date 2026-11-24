@@ -19,22 +19,26 @@ pub(crate) fn quest_residents(
     turn: &Value,
     lines: &Value,
 ) -> Vec<String> {
-    let closed = &game["actors"][actor]["closed"];
-    let met = game["log"].as_array().into_iter().flatten().any(|entry| {
-        entry["verb"] == "want_met"
-            && entry["actorId"] == actor
-            && entry["turn"] == *turn
-            && entry["generated"] != true
-    });
-    if !met {
-        return vec![];
-    }
+    let owners: Vec<&str> = game["log"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|entry| {
+            entry["verb"] == "want_met"
+                && entry["actorId"] == actor
+                && turn.is_number()
+                && entry["turn"] == *turn
+                && entry["generated"] != true
+        })
+        .filter_map(|entry| entry["ownerId"].as_str())
+        .filter(|owner| *owner != actor)
+        .collect();
     lines
         .as_array()
         .into_iter()
         .flatten()
         .filter_map(|line| line["actorId"].as_str())
-        .filter(|id| turn.is_number() && closed[format!("quest:from:{id}")][0] == *turn)
+        .filter(|id| owners.contains(id))
         .map(String::from)
         .collect()
 }

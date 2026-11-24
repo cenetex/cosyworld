@@ -5,6 +5,8 @@ import {
   createWorld,
   decodeSave,
   encodeSave,
+  legalActions as actions,
+  play as move,
   validateWorld,
 } from "../v2/card-game/world.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
@@ -14,7 +16,8 @@ import {
 } from "../v2/card-game/knowledge.mjs";
 import { learnTold, questOwners } from "../v2/card-game/quest-learn.mjs";
 import { toldWant } from "../v2/card-game/talk-quest.mjs";
-import { newWant } from "../v2/card-game/want.mjs";
+import { heldOf, newWant } from "../v2/card-game/want.mjs";
+import { recordOf } from "../v2/card-game/world/arcana-record.mjs";
 import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
 
 const heard = { moth: "item:lamp", keeper: "item:oil" };
@@ -188,5 +191,60 @@ describe("saves that kept a heard map", () => {
     });
     expect(up.ok).toBe(true);
     migrated(up.world, 0);
+  });
+});
+
+describe("worlds from rules 195 keep a taken quest and complete it by owner", () => {
+  const taken = (old) => {
+    const { createWorld: create, legalActions, play } = old.rules;
+    let w = create();
+    for (const id of ["vale", "moth", "keeper"]) w.actors[id].place = "station";
+    w.items.lamp.holder = w.items.bell.holder = "vale";
+    w.actors.moth.want = newWant("item", "lamp", w.turn);
+    w.actors.keeper.want = newWant("item", "bell", w.turn);
+    for (const [kind, target, item] of [
+      ["talk", "keeper"],
+      ["accept", "keeper"],
+      ["give", "keeper", "bell"],
+      ["talk", "moth"],
+      ["accept", "moth"],
+    ]) {
+      const action = legalActions(w).find(
+        (a) => a.kind === kind && a.target === target && (!item || a.item === item),
+      );
+      w = play(w, action).state;
+    }
+    expect(w.log.some((e) => e.verb === "want_met" && !e.ownerId)).toBe(true);
+    return w;
+  };
+  const gave = (s) => {
+    expect(recordOf(s, "vale")).toMatchObject({ calls: 2, callers: ["keeper", "moth"] });
+    expect(s.log.findLast((e) => e.verb === "want_met" && e.actorId === "vale")).toMatchObject({ ownerId: "moth" });
+  };
+  const lamp = (s) => actions(s).find((a) => a.kind === "give" && a.item === "lamp" && a.target === "moth");
+
+  it("loads a saved one and counts the Listener's call from its owner", () => {
+    const s = decodeSave(JSON.stringify(taken(engine(195))));
+    expect(heldOf(s.actors.vale).map((w) => w.from)).toEqual(["quest:from:moth"]);
+    expect(recordOf(s, "vale")).toMatchObject({ calls: 1, callers: ["keeper"] });
+    gave(move(s, lamp(s), s.revision).state);
+  });
+
+  it("moves a shared one through upgrade", () => {
+    const old = engine(195);
+    const world = ask(old, { op: "create", save: JSON.stringify(taken(old)) }).world;
+    const seats = { claimed: humanAvatarIds, present: humanAvatarIds };
+    const current = currentSharedEngine();
+    const up = ask(current, { world, op: "upgrade", actor: "vale", ...seats });
+    expect(up.ok).toBe(true);
+    const done = ask(current, {
+      world: up.world,
+      op: "play",
+      actor: "vale",
+      action: lamp(decodeSave(JSON.stringify(up.world))).key,
+      ...seats,
+    });
+    expect(done.ok).toBe(true);
+    gave(done.world);
   });
 });

@@ -87,6 +87,7 @@ it("holds the place's quest on Accept and levels the place when the thing is lai
   const laid = act(back, "drop", { item: SCARF });
   expect(sources(laid)).toEqual([]);
   expect(laid.placeMet).toEqual({ [STATION]: [SCARF] });
+  expect(laid.log.findLast((e) => e.verb === "want_met")).toMatchObject({ actorId: "vale", ownerId: STATION });
   expect(cardLevel(laid, STATION)).toBe(2);
   expect(cardLevel(laid, SHORE)).toBe(1);
   let again = act(laid, "take", { item: SCARF });

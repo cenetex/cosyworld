@@ -113,7 +113,7 @@ import {
   DREAM_FROM,
   newWant,
 } from "./want.mjs";
-import { askerOf, pruneTalkQuests, talkQuest, toldWant, pinnedCompanion } from "./talk-quest.mjs";
+import { askerOf, pruneTalkQuests, questFor, talkQuest, toldWant, pinnedCompanion } from "./talk-quest.mjs";
 import {
   ABSENT_TURNS,
   ACCOMPANY_TRUST,
@@ -733,7 +733,6 @@ export function wantAPI(s) {
         )
       );
     },
-    // A resident kept to a range only wants what lies within it (rules 100).
     reachable: (actor) => reachable(s, actor, rangeTest(s, actor)),
     rangeTest: (actor) => rangeTest(s, actor),
     wanders: (actor) => wanders(s, actor),
@@ -752,7 +751,8 @@ export function wantAPI(s) {
     thick: authoredWant,
     player: (id) => id === currentActor(s) || heldByHuman(s, id),
     dreamCard: (actor) => dreamCard(s, actor),
-    log: (actor, want) =>
+    card: (owner, want) => questFor(s, owner, want),
+    log: (actor, want, owner) =>
       addLog(
         s,
         "World",
@@ -767,6 +767,7 @@ export function wantAPI(s) {
           kind: "narration",
           actorId: actor,
           verb: "want_met",
+          ...(entityIds.has(owner) ? { ownerId: owner } : {}),
           wantMet: { kind: want.kind, target: want.target },
           wantKey: wantKey(actor, want),
           ...(want.kind === "item" ? { itemId: want.target } : {}),
@@ -1922,7 +1923,7 @@ function bindAsker(s, actor, quest, replace) {
 }
 function wakeCompanion(s, traveler) {
   const id = companionOf(s, traveler);
-  if (id && pinnedCompanion(s, traveler) !== id)
+  if (id && !pinnedCompanion(s, traveler, id))
     parts(s, traveler, id, `${nameOf(id)} goes on alone after the long rest.`);
 }
 // An act against a resident lowers its trust in the human who did it:
@@ -2745,7 +2746,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
   settleStandoffs(s);
   settleHeldItems(s);
   settleLamp(s);
-  // A want met by this play is a world fact recorded right after it.
   settleWants(
     s,
     wantActors(s, [
@@ -2764,8 +2764,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       : { ...a, led },
     stale,
   );
-  // A player's Talk that reveals a want new to them records what was said, so
-  // Accept quest can offer it while it is still the want told (#2605).
   if (a.kind === "talk") talkQuest(s, a.actor, a.target, wantAPI(s));
   if (a.kind === "talk" && s.actors[a.target] && controlledByHuman(s, a.actor))
     talkRumours(s, a.actor, a.target);
@@ -4110,6 +4108,8 @@ export function validateWorld(s) {
           !e.wantKey.startsWith(
             `${e.actorId}:${e.wantMet?.kind}:${e.wantMet?.target}:`,
           ))) ||
+      (e.ownerId !== undefined &&
+        (e.verb !== "want_met" || !entities.has(e.ownerId))) ||
       (e.questXp !== undefined &&
         (e.verb !== "want_met" ||
           !Number.isInteger(e.questXp) ||

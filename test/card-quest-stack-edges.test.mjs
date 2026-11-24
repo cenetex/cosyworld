@@ -124,7 +124,7 @@ describe("a stack under an avatar that stops being a player's", () => {
     holdQuest(s, "vale", newWant("place", "station", s.turn), "quest:from:b");
     expect(heldOf(s.actors.vale)).toHaveLength(2);
     s.actors.vale.place = "station";
-    const api = { player: () => false, log() {}, sanctuaries: [], home: () => null };
+    const api = { player: () => false, log() {}, kindOf: () => null, sanctuaries: [], home: () => null };
     settleWants(s, ["vale"], api, null);
     expect(s.actors.vale.want.from).toBe("quest:from:a");
     expect(s.actors.vale.under).toBeUndefined();

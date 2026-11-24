@@ -62,7 +62,7 @@ const errand = (s, from = "keeper") => {
   );
   return wait(s);
 };
-const askers = ["keeper", "pip", "moth"];
+const askers = ["keeper", "badger", "moth"];
 const errands = (s, n) => {
   for (let i = 0; i < n; i++) s = errand(s, askers[i % askers.length]);
   return s;
@@ -125,10 +125,10 @@ describe("the Listener's first visit", () => {
     expect(recordOf(s, "vale")).toMatchObject({ calls: 1, callers: ["keeper"] });
     expect(entityActive(s, "listener")).toBe(false);
     expect(validateWorld(reload(s))).toBeTruthy();
-    s = errand(errand(s, "moth"), "pip");
+    s = errand(errand(s, "moth"), "badger");
     expect(recordOf(s, "vale")).toMatchObject({
       calls: 3,
-      callers: ["keeper", "moth", "pip"],
+      callers: ["badger", "keeper", "moth"],
     });
     expect(entityActive(s, "listener")).toBe(true);
     s = talk(s);
