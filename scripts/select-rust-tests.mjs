@@ -95,6 +95,16 @@ export function rustInputs(modules) {
   return inputs;
 }
 
+export function compiledInputs(modules) {
+  const compiled = new Set();
+  for (const file of modules.keys())
+    for (const [, ref] of read(file).matchAll(
+      /include_(?:str|bytes)!\(\s*"([^"]+)"/g,
+    ))
+      compiled.add(posix.normalize(posix.join(posix.dirname(file), ref)));
+  return compiled;
+}
+
 // A module's libtest filter, or null for a crate root (the default covers it).
 const filterOf = (modules, file) =>
   modules.get(file)?.length ? `${modules.get(file).join("::")}::` : null;
@@ -112,9 +122,12 @@ export function selectRustTests(changed, config, tree = {}) {
   const { rust } = config;
   const modules = tree.modules ?? moduleTree();
   const inputs = tree.inputs ?? rustInputs(modules);
+  const compiled = tree.compiled ?? compiledInputs(modules);
   const triggers = [rust.paths, ...rust.rules.map((rule) => rule.paths)];
-  if (!changed.some((file) => triggers.some((p) => new RegExp(p).test(file))))
-    return [];
+  const triggered = (file) =>
+    triggers.some((p) => new RegExp(p).test(file)) ||
+    (compiled.has(file) && !rust.ignoreInputs.includes(file));
+  if (!changed.some(triggered)) return [];
   const picked = new Set();
   let fallback = false;
   const add = (file) => {

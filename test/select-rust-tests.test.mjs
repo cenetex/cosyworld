@@ -8,8 +8,9 @@ const config = JSON.parse(
 const SRC = "v2/orchestrator-rust/src";
 const modules = select.moduleTree();
 const inputs = select.rustInputs(modules);
+const compiled = select.compiledInputs(modules);
 const pick = (...changed) =>
-  select.selectRustTests(changed, config, { modules, inputs });
+  select.selectRustTests(changed, config, { modules, inputs, compiled });
 const N = "routes::card_game::narrative::";
 
 describe("fast check Rust test selection", () => {
@@ -42,13 +43,21 @@ describe("fast check Rust test selection", () => {
     expect(pick("package.json")).toEqual([]);
   });
 
-  it("skips it when only a file the crate reads changed", () => {
+  it("skips it when only a file a test reads changed", () => {
     for (const file of [
-      "v2/card-game/senses.json",
-      "v2/card-game/packs.json",
       "test/helpers/long-play.mjs",
+      "v2/card-game/narrative.mjs",
     ])
       expect(pick(file), file).toEqual([]);
+  });
+
+  it("runs the readers of a file the crate compiles in", () => {
+    expect(pick("v2/card-game/senses.json")).toEqual([N]);
+    expect(pick("v2/card-game/voices.json")).toEqual([
+      "routes::card_game::local::",
+      "routes::card_voices::",
+    ]);
+    expect(pick("v2/card-game/index.html")).toEqual(["routes::card_game::"]);
   });
 
   it("runs funeral parity when the source world changes", () => {
@@ -104,7 +113,10 @@ describe("fast check Rust test selection", () => {
       "card_shared::content::",
       `${N}instruction::`,
     ]);
-    const packs = pick("v2/card-game/packs.json", `${SRC}/card_shared/content.json`);
+    const packs = pick(
+      "v2/card-game/packs.json",
+      `${SRC}/card_shared/content.json`,
+    );
     expect(packs).toContain("routes::card_game::");
     expect(packs).toContain("card_shared::content::");
     expect(packs).toContain("card_shared::world_life_tests::");
