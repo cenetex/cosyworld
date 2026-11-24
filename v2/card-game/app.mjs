@@ -2935,13 +2935,8 @@ function renderActions() {
   const picked = !rested && !coveredPick ? pickedQuest() : null;
   const legal = picked ? legalActions(world) : [];
   const drop =
-    picked &&
-    legal.find(
-      (a) =>
-        a.kind === "drop" &&
-        !a.item &&
-        (picked.kind === "arcanum" ? a.tarot : a.quest) === picked.index,
-    );
+    picked?.kind === "arcanum" &&
+    legal.find((a) => a.kind === "drop" && !a.item && a.tarot === picked.index);
   const confirmKey = drop ? `${revision}:${picked.key}` : null;
   if (abandonQuest !== confirmKey) abandonQuest = null;
   const dropLabel = drop && playLabel(drop, world);

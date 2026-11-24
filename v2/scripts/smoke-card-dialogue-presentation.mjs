@@ -140,7 +140,8 @@ async function local(width, questAfterWait = false) {
     assert.equal(await t.page.locator("#speech-hint").innerText(), "Tap to continue",
       "choosing a quest after Wait keeps an explicit way to its actions");
     await t.tap(t.page.locator("#speaker-portrait"));
-    await t.page.locator("#card-actions [data-drop-quest]").waitFor({ state: "visible" });
+    await t.page.locator(".action-beat-heading:not([hidden])").waitFor({ state: "visible" });
+    assert.equal(await t.page.locator("#card-actions button").count(), 0);
     assert.deepEqual(t.page.errors, []);
     await t.page.close();
     return;
