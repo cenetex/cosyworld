@@ -67,8 +67,7 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(decodeSave(await page.evaluate((key) => localStorage.getItem(key), key)).items.lamp.lit, false);
   await travel("pond", "Black pond");
   await choose("moth");
-  const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
-  await offer.click();
+  await page.locator('#hand .quest-fold[data-owner="moth"][data-face="up"]').dispatchEvent("click");
   await page.locator('#card-actions [data-action="accept"]').waitFor({ timeout: 8000 });
   assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
   await press(() => page.waitForFunction((k) => JSON.parse(localStorage.getItem(k)).actors.vale.want?.from === "quest:from:moth", key, { timeout: 2500 }));

@@ -163,7 +163,7 @@ try {
     const openHeld = async (page, t) => {
       await clearSelection(page);
       await selectCard(page, "vale");
-      const fold = page.locator("#hand .quest-fold");
+      const fold = page.locator("#hand .quest-fold:not([data-owner])");
       if (await fold.isVisible()) await fold.click();
       else await tapCard(page.locator("#hand .want-frame > .want-card").first());
       await page.locator("#hand .want-frame:not([hidden]) > .want-card").waitFor();
@@ -205,10 +205,9 @@ try {
       assert.equal((await t.state()).actors.vale.place, "pond");
       assert.equal(await offerCards(page).count(), 0, "no offer before Pip is heard");
       const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
-      const locked = page.locator('#hand .card-frame[data-quest-id="offer:moth:locked"] > .card');
+      const fold = page.locator('#hand .quest-fold[data-owner="moth"]');
       const openOffer = async () => {
-        await offer.waitFor();
-        await tapCard(offer);
+        await tapCard(fold);
         await page.locator('#card-actions [data-action="accept"]').waitFor();
         assert.equal(await offer.getAttribute("aria-pressed"), "true");
         assert.equal(await page.locator(".action-beat-text").textContent(), "Pip asks for the Lamp");
@@ -216,20 +215,28 @@ try {
         assert.equal(await label(page), "Accept");
         assert.equal((await t.state()).actors.vale.want, null);
       };
-      await clearSelection(page);
       await selectCard(page, "moth");
-      await locked.waitFor();
-      assert.equal(await locked.getAttribute("data-locked"), "true");
+      await clearSelection(page);
+      assert.equal(await fold.getAttribute("data-face"), "down", "Pip's quest lies face down behind Pip");
+      await tapCard(fold);
+      assert.equal(await page.locator('#hand [data-card="moth"]').getAttribute("aria-pressed"), "true");
       await page.locator('#card-actions [data-action="talk"]').click();
+      await page.waitForFunction(
+        () => document.querySelector('#hand .quest-fold[data-owner="moth"]')?.dataset.face === "up",
+      );
+      assert.equal(await page.locator("#speech-row").isVisible(), true, "it turns while Pip speaks");
+      assert.doesNotMatch(
+        await fold.evaluate((el) => getComputedStyle(el).getPropertyValue("--card-back")),
+        /locked/u,
+        "its face shows, not the locked back",
+      );
+      assert.equal(await offer.isVisible(), false, "a Talk opens no offer by itself");
       await t.ready();
-      assert.equal(await locked.count(), 0, "a Talk unlocks it");
-      assert.equal(await offer.getAttribute("aria-pressed"), "false", "a Talk opens no offer by itself");
       await openOffer();
       await t.shot("offer-after-talk");
       await clearSelection(page);
       await t.ready();
       assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
-      await selectCard(page, "moth");
       await openOffer();
       await page.locator('#card-actions [data-action="accept"]').click();
       await t.ready();
@@ -268,8 +275,8 @@ try {
       const offer = page.locator('#hand .want-frame[data-quest-id="offer:moth"] > .want-card');
       await t.ready();
       await selectCard(page, "moth");
+      await tapCard(page.locator('#hand .quest-fold[data-owner="moth"]'));
       await offer.waitFor();
-      if ((await offer.getAttribute("aria-pressed")) !== "true") await tapCard(offer);
       assert.equal(await t.oneButton(), 1, "an offer in a fight keeps one button");
       const only = page.locator("#card-actions button").first();
       assert.equal(await only.getAttribute("data-blocked"), "fight");
