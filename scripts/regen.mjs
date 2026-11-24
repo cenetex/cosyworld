@@ -9,43 +9,12 @@
 // files are never hand-merged. After `git merge origin/main` (or a rebase that
 // stops), run `npm run regen`: it takes the branch's side of each conflicted
 // generated file, rebuilds all of them from the merged sources, stages them,
-// and tells you to continue. Anything else in conflict stops it. The step
-// list is the single source for the order; `scripts/land-branch.mjs` uses it.
+// and tells you to continue. Anything else in conflict stops it.
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  RULES_WIRING,
-  isLevelMap,
-  isRulesBundle,
-  realWiringChanges,
-} from "./land-branch.mjs";
-
-const rulesDir = "v2/orchestrator-rust/src/card_shared";
-
-// Outputs rebuilt whole from their sources. A conflict in one is meaningless.
-export const GENERATED_FILES = [
-  `${rulesDir}/narrator.js`,
-  `${rulesDir}/content.json`,
-  "v2/card-game/world-history.json",
-  "v2/orchestrator-rust/src/card_narrative/authored-text.json",
-  "test/journeys/checkpoints.json",
-  "v2/card-game/packs.json",
-  "v2/card-game/media-manifest.json",
-  "v2/card-game/image-variants.json",
-  "v2/card-game/music-streams.json",
-  "v2/card-game/assets/music/radio-catalog.json",
-];
-
-// 'generated' is rebuilt; 'wiring' is the rules version bookkeeping that
-// next-shared-rules.mjs restores from main; anything else is real work.
-export function classify(file) {
-  if (GENERATED_FILES.includes(file) || isRulesBundle(file) || isLevelMap(file))
-    return "generated";
-  if (RULES_WIRING.includes(file)) return "wiring";
-  return "other";
-}
+import { classify, realWiringChanges } from "./lib/generated-files.mjs";
 
 // Build order follows the data: packs, then the images and music they name,
 // then the asset hashes, then the rules and dialogue bundles, then the
@@ -82,8 +51,6 @@ export function steps(base = "origin/main") {
       build: node("v2/scripts/build-card-assets.mjs"),
       check: node("v2/scripts/build-card-assets.mjs", "--check"),
     },
-    // Restores main's released bundles and wiring, then mints the next
-    // version only if the rebuilt rules differ from main's.
     {
       name: "history",
       build: node("v2/scripts/build-card-world-history.mjs"),

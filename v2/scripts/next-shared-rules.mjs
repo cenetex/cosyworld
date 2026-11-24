@@ -17,16 +17,14 @@ import {
   writeFileSync,
 } from "node:fs";
 import { fileURLToPath } from "node:url";
+import {
+  RULES_DIR as dir,
+  RULES_WIRING as wiring,
+  isWiringLine as isWiring,
+} from "../../scripts/lib/generated-files.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const base = process.argv[2] || "origin/main";
-const dir = "v2/orchestrator-rust/src/card_shared";
-const wiring = [
-  `${dir}/engine.rs`,
-  `${dir}/full_world.rs`,
-  "test/card-released-rules.test.mjs",
-  "v2/scripts/build-card-shared-engine.mjs",
-];
 const git = (...args) =>
   execFileSync("git", args, { cwd: root, encoding: "utf8" });
 const read = (path) => readFileSync(new URL(path, `file://${root}`), "utf8");
@@ -43,12 +41,6 @@ const live = Math.max(
   ...bundles(git("ls-tree", "--name-only", `${base}:${dir}`).split("\n")),
 );
 
-// A version line, a bundle path or a pinned hash is wiring. Any other change
-// to these files is real work, so stop instead of replacing it.
-const isWiring = (line) =>
-  /VERSION|SOURCE|engine-v\d+\.js|^\s*\d+: "[0-9a-f]{64}",$|^\/\/ Rules /u.test(
-    line,
-  );
 for (const path of wiring) {
   const diff = git("diff", "-U0", base, "--", path)
     .split("\n")
