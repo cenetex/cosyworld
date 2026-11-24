@@ -154,7 +154,7 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
       ),
     });
   const beat = (value) =>
-    page.waitForFunction((v) => document.body.dataset.sleep === v, value);
+    page.waitForFunction((v) => window.sleepBeats.includes(v), value);
   const play = readyActionButton(page, "wait");
   const advance = page.locator("#dialogue-advance");
   const catcher = page.locator(".sleep-catcher");
@@ -188,6 +188,8 @@ async function wake(width, { halfway, reduced = false, replace = null }) {
     await page.waitForFunction(() => document.body.inert === false);
     await selectCard(page, "vale", { touch });
     await play.click();
+    await cue("Tap to continue", "Continue to the next beat");
+    await advance.click();
     await settled();
     await page.waitForFunction(() => !document.body.dataset.sleep);
     await shot("before");

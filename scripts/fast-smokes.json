@@ -179,6 +179,26 @@
     {
       "paths": "^v2/card-game/(app|cards|quest-card|locked-box|pip-landing|beats)\\.mjs$",
       "smokes": ["smoke-card-quest-offers"]
+    },
+    {
+      "paths": "^v2/card-game/(cards|quest-card|resident-sleep)\\.mjs$",
+      "smokes": ["smoke-card-content"]
+    },
+    {
+      "paths": "^v2/card-game/(presentation|narrative)\\.mjs$",
+      "smokes": ["smoke-card-dialogue-presentation"]
+    },
+    {
+      "paths": "^v2/card-game/pack-landing(\\.mjs|s\\.json)$",
+      "smokes": ["smoke-card-pip"]
+    },
+    {
+      "paths": "^v2/card-game/(index\\.html|style\\.css)$",
+      "smokes": ["smoke-card-devices"]
+    },
+    {
+      "paths": "^v2/card-game/card-travel\\.mjs$",
+      "smokes": ["smoke-card-movement"]
     }
   ],
   "rust": {

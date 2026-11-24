@@ -5,6 +5,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { createLandingWorld } from "../card-game/pack-landing.mjs";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { SAVE_BASE, PLAYING_KEY } from "../card-game/avatar-world.mjs";
+import { openPack } from "./card-browser-helpers.mjs";
 
 async function walkToGivenLamp(browser, base) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: "reduce" });
@@ -47,6 +48,7 @@ async function walkToGivenLamp(browser, base) {
   }
   const travel = async (place, name) => {
     await page.keyboard.press("Escape");
+    await openPack(page, place);
     await choose(place);
     if ((await page.locator(`#hand [data-card="${place}"]`).getAttribute("data-unrevealed")) === "true") {
       await buttonReads(/new card unlocked/iu);

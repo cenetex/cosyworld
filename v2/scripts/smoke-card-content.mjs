@@ -85,8 +85,11 @@ try {
     assert.equal(await page.locator("#hand .quest-fold").count(), 0);
     assert.equal(await page.locator("#hand .want-frame").count(), 0);
     assert.equal(await page.locator("#hand .want-frame > .want-card").count(), 0);
-    // Choosing Vale offers no Discard, and the keyboard walks the hand.
-    await tapCard(page.locator('#hand [data-card="vale"]'));
+    // Vale stays chosen after the Wait, with no Discard; Tab walks the hand.
+    assert.equal(
+      await page.locator('#hand [data-card="vale"]').getAttribute("aria-pressed"),
+      "true",
+    );
     assert.equal(
       await page.locator("#card-actions [data-drop-quest]").count(),
       0,
@@ -107,7 +110,6 @@ try {
     // After a Wait, Vale again offers Sleep; waking draws no quest, so the
     // hand still shows none.
     await page.keyboard.press("Escape");
-    await clearSelection(page);
     await tapCard(page.locator('#hand [data-card="vale"]'));
     await play("Sleep");
     await ready();

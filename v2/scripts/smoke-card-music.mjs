@@ -82,7 +82,8 @@ try {
           .locked !== "true" && !document.querySelector("#hand [data-revealing]"),
       card,
     );
-    await selectCard(page, card);
+    const chosen = page.locator(`#hand [data-card="${card}"][aria-pressed="true"]`);
+    if (!(await chosen.count())) await selectCard(page, card);
     const action = readyActionButton(page, kind);
     await action.click();
   }
