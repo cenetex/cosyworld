@@ -2,11 +2,16 @@
 // pack writes a sentence for it. This reads the conditions that keep a box
 // shut and says each unmet one as a goal `{kind, target, step?, lit?}`, the
 // shape every quest has (world/want-words.mjs words it). A condition on a
-// story flag or choice is followed to the pack's own choice that sets it: the
-// avatar it is made with, and the item given. A condition with no such trace
-// yields no goal; the box then shows only that it is shut, and an avatar's
-// talk, or an item's or place's description, says the rest.
-import { conditionsMet, packDefinition, packOf } from "../pack-registry.mjs";
+// story flag or choice is followed to the pack's own choice that sets it: its
+// trigger, on its subject or place, and the item given. A condition with no
+// such trace yields no goal; the box then shows only that it is shut.
+import {
+  conditionsMet,
+  isPackPlace,
+  packDefinition,
+  packOf,
+  packPeople,
+} from "../pack-registry.mjs";
 import { conditionMet } from "../pack-rules.mjs";
 
 const DEPTH = 4;
@@ -27,24 +32,37 @@ const settersIn = (choices, condition) =>
     ),
   );
 
-// The goal of the one play a choice is: give the item it needs to its
-// subject, or meet its subject.
-function playGoal(choice) {
+// A kind's own verb needs no step; a choice with no trigger plays it.
+const OWN_VERB = { item: "hold", person: "talk", place: "meet" };
+const packKind = (id) =>
+  Object.hasOwn(packPeople, id) ? "person" : isPackPlace(id) ? "place" : "item";
+
+// The goal of the one play a choice is: its trigger, on the item it gives,
+// the place a Wait is made at, or else its subject, each of its own kind.
+function playGoal(choice, kindIn) {
   const item = (choice.requires || []).find(
     (r) => r.kind === "holding" && r.role === "actor",
   )?.item;
-  if (choice.on === "give" && item)
-    return {
-      kind: "item",
-      target: item,
-      step: { verb: "give", to: choice.subject },
-    };
-  return choice.subject ? { kind: "person", target: choice.subject } : null;
+  if (choice.on === "give")
+    return item
+      ? {
+          kind: kindIn(item),
+          target: item,
+          step: { verb: "give", to: choice.subject },
+        }
+      : null;
+  const target = choice.on === "wait" ? choice.at : choice.subject;
+  if (!target) return null;
+  const kind = kindIn(target),
+    verb = choice.on ?? OWN_VERB[kind];
+  return verb === OWN_VERB[kind]
+    ? { kind, target }
+    : { kind, target, step: { verb } };
 }
 
 /**
  * The goals still unmet in a list of conditions, in order, each once.
- * `world` says what is true: `met(condition)` and the pack's `choices`.
+ * `world` says what is true: `met(condition)`, the `choices` and `kind(id)`.
  * `seen` and the depth keep a trace of choices from circling.
  */
 export function goalsFrom(world, conditions, depth = 0, seen = []) {
@@ -131,16 +149,14 @@ export function goalsFrom(world, conditions, depth = 0, seen = []) {
         // item it gives is part of the play.
         for (const choice of settersIn(world.choices, condition)) {
           if (seen.includes(choice.id)) continue;
-          const play = playGoal(choice);
-          // Earlier plays (flags and choices) come before the things to bring.
+          const play = playGoal(choice, world.kind ?? packKind);
           const needs = (choice.requires || [])
             .filter(
               (r) =>
                 !(
-                  play?.step &&
                   r.kind === "holding" &&
                   r.role === "actor" &&
-                  r.item === play.target
+                  r.item === play?.target
                 ),
             )
             .sort(
