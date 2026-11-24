@@ -161,8 +161,11 @@ try {
     // The next play is available at once. Invalid content is "…" too, and
     // nothing is saved for it.
     mode = "invalid";
-    const pond = person;
-    await pond.click();
+    const choose = async () => {
+      if ((await person.getAttribute("aria-pressed")) !== "true")
+        await person.click();
+    };
+    await choose();
     await page.locator("#card-actions .card-primary").click();
     assert.equal((await state()).turn, before.turn + 1, "the next play runs");
     await silentBeat();
@@ -203,7 +206,7 @@ try {
     await noFailureUi();
     // Slow words release the hand rather than holding it.
     mode = "hang";
-    await pond.click();
+    await choose();
     await page.locator("#card-actions .card-primary").click();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
@@ -227,7 +230,7 @@ try {
       (await state()).log.some((e) => e.turn === hung && e.generated),
       false,
     );
-    await pond.click();
+    await choose();
     await page.locator("#card-actions .card-primary").click();
     await ready();
     assert.equal((await state()).turn, hung + 1);
@@ -244,15 +247,17 @@ try {
     // Slow words keep the Thinking card but not the hand: after a short
     // grace the next choice is offered, and the late line still types in.
     mode = "slow";
-    await pond.click();
+    await choose();
     await page.locator("#card-actions .card-primary").click();
     const slow = await state();
     const started = Date.now();
     await page.waitForFunction(
       () => document.querySelector("#hand").dataset.cooling === "false",
     );
-    if (!(await page.locator("#card-actions .card-primary").isVisible()))
-      await pond.click();
+    if (!(await page.locator("#card-actions .card-primary").isVisible())) {
+      await page.keyboard.press("Escape");
+      await choose();
+    }
     await page
       .locator("#card-actions .card-primary")
       .waitFor({ state: "visible", timeout: 7000 });

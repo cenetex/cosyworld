@@ -97,12 +97,28 @@
       "smokes": ["smoke-card-beat-stack", "smoke-card-dialogue-timing"]
     },
     {
+      "paths": "^v2/card-game/(narrative|presentation)\\.mjs$",
+      "smokes": ["smoke-card-dialogue-recovery", "smoke-card-thinking"]
+    },
+    {
+      "paths": "^v2/card-game/speech-(pages|text)\\.mjs$",
+      "smokes": ["smoke-card-voice"]
+    },
+    {
       "paths": "^v2/card-game/card-(exit|ghost|swap|entry|travel)\\.",
       "smokes": ["smoke-card-swap", "smoke-card-exit", "smoke-card-beat-stack"]
     },
     {
       "paths": "^v2/card-game/(pack-opening|card-reveal|card-sfx|sfx|combat-sfx)\\.mjs$|^v2/scripts/(smoke-card-pack-opening|card-browser-helpers)\\.mjs$",
       "smokes": ["smoke-card-pack-opening", "smoke-card-unveil"]
+    },
+    {
+      "paths": "^v2/card-game/pack-opening\\.mjs$",
+      "smokes": ["smoke-card-unlock-pack"]
+    },
+    {
+      "paths": "^v2/card-game/pack-recital\\.mjs$",
+      "smokes": ["smoke-card-opening-poem"]
     },
     {
       "paths": "^v2/card-game/(card-tiers|cards|rarity|images)\\.|covered",

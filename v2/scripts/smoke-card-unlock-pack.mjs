@@ -4,7 +4,7 @@ import { createServer } from "../card-game/serve.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { enableMotives } from "../card-game/motives.mjs";
 import { profiles } from "../card-game/memory.mjs";
-import { readyActionButton, selectCard, visibleSpot } from "./card-browser-helpers.mjs";
+import { readyActionButton, selectCard, settleHand, visibleSpot } from "./card-browser-helpers.mjs";
 
 const shots = process.env.COSYWORLD_HAND_SHOTS;
 const fixture = enableMotives(createWorld());
@@ -58,13 +58,15 @@ try {
     });
     await selectCard(page, "greek-provisions");
     await selectCard(page, "greek-ship");
+    const drop = page.locator('#card-actions [data-action="drop"]');
+    if ((await drop.getAttribute("data-revealing")) === "true") await drop.click();
     await readyActionButton(page, "drop").click();
     await page.waitForFunction(
       (key) => JSON.parse(localStorage.getItem(key)).items["greek-provisions"].holder === "greek-ship",
       key,
     );
     await page.waitForFunction(() => document.querySelector('#hand .card-frame[data-pack="closed"]'));
-    await page.waitForFunction(() => document.querySelector("#hand").dataset.cooling === "false");
+    await settleHand(page);
     assert.equal(await page.locator("#play-status").isHidden(), true, "no status line repeats the pack");
     if (shots) await page.screenshot({ path: `${shots}/unlock-kept-choice-${width}.png` });
     await page.keyboard.press("Escape");
