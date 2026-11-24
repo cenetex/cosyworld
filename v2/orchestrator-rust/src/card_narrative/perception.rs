@@ -316,15 +316,9 @@ mod tests {
         assert!(!with(nowhere, &mut c));
     }
 
-    const HARBOR: &str = "import { createWorld, legalActions, play } from './v2/card-game/world.mjs'; \
-        const act = (w, kind, test = () => true) => play(w, legalActions(w, 'vale').find((a) => a.kind === kind && !a.sleep && test(a))).state; \
-        const greek = () => { const w = createWorld({ packScopes: { 'greek-drama': 'full' } }); \
-          w.crossings['pond-greek-harbor'].discovered = true; w.actors.vale.place = 'greek-harbor'; return act(w, 'wait'); }; \
-        const committed = (value) => { const w = greek(); w.packs['greek-drama'].choices['greek-helen-account'] = value; \
-          w.packs['greek-drama'].receipts['greek-helen-' + value] = w.turn; return act(w, 'wait'); }; \
-        const witness = greek(); witness.items['greek-helen-accounts'].holder = 'vale'; \
-        const given = act(witness, 'give', (a) => a.item === 'greek-helen-accounts' && a.target === 'greek-shipmaster'); \
-        console.log(JSON.stringify({ open: greek(), egypt: committed('egypt'), troy: committed('troy'), witness: act(given, 'wait') }));";
+    const HARBOR: &str = "import { committed, greek, wait, witnessed } from './test/fixtures/card-branch-ways.mjs'; \
+        console.log(JSON.stringify({ open: wait(wait(greek())), egypt: committed('egypt'), \
+          troy: committed('troy'), witness: witnessed('egypt') }));";
 
     #[test]
     fn shared_prompts_name_a_way_on_one_branch_only_to_who_settled_it() {
