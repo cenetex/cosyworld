@@ -17,7 +17,7 @@ const openingItems = new Set([...Object.keys(forest.initialState.items), ...Obje
 const thebes = packDefinition("greek-drama");
 const protectedIds = new Set([...openingCast, ...openingItems,
   ...[thebes.avatars, thebes.items || {}, thebes.places].flatMap(Object.keys)]);
-const KEPT = new Set(["actors", "items", "memories", "conversations", "knowledge", "turn", "revision", "eventSeq", "log"]);
+const KEPT = new Set(["actors", "items", "memories", "conversations", "knowledge", "placeCard", "turn", "revision", "eventSeq", "log"]);
 const RESTING = new Set(["sanctuary", "waitSpeech", "slept", "sleeping"]);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const playerOf = (s) => s.playerActorId || "vale";
@@ -112,6 +112,7 @@ export function changes(start, end, scene) {
       diff(start.memories[id], { ...end.memories[id], events }, ["memories", id], out);
   }
   diff(start.knowledge, keptKnowledge(start, end), ["knowledge"], out);
+  diff(start.placeCard, end.placeCard, ["placeCard"], out);
   if (!same(start.conversations || [], keptTalks(end))) out.push([["conversations"], keptTalks(end)]);
   out.push([["turn"], end.turn], [["revision"], end.revision], [["eventSeq"], end.eventSeq]);
   return out;

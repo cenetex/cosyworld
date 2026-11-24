@@ -19666,12 +19666,25 @@
   }
 
   // v2/card-game/world/offers.mjs
+  var placeMet = (s, place) => s.placeMet && Object.hasOwn(s.placeMet, place) ? s.placeMet[place] : [];
   function validPlaceMet(s) {
     if (s.placeMet === void 0) return true;
     const entries = s.placeMet && typeof s.placeMet === "object" && !Array.isArray(s.placeMet) ? Object.entries(s.placeMet) : null;
     return Boolean(
       entries?.length && entries.every(
         ([place, items2]) => Object.hasOwn(places, place) && Array.isArray(items2) && items2.length >= 1 && new Set(items2).size === items2.length && items2.every((id) => things[id]?.holder === place)
+      )
+    );
+  }
+
+  // v2/card-game/quest-deck.mjs
+  var homeOf3 = (id) => things[id]?.holder;
+  function validPlaceCard(s) {
+    if (s.placeCard === void 0) return true;
+    const entries = s.placeCard && typeof s.placeCard === "object" && !Array.isArray(s.placeCard) ? Object.entries(s.placeCard) : null;
+    return Boolean(
+      entries?.length && entries.every(
+        ([place, item]) => Object.hasOwn(places, place) && Object.hasOwn(s.items, item) && homeOf3(item) === place && !placeMet(s, place).includes(item)
       )
     );
   }
@@ -19981,7 +19994,7 @@
       conversations: () => validConversations(s),
       "held-items": () => validHeldItems(s),
       opened: () => validOpened(s),
-      "place-met": () => validPlaceMet(s),
+      "place-met": () => validPlaceMet(s) && validPlaceCard(s),
       arcana: () => validArcana(s),
       hidden: () => validHidden(s) && !(s.hidden && !Object.hasOwn(places, s.hidden.place)),
       doors: () => validDoors(s),

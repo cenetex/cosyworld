@@ -510,6 +510,7 @@ import {
   validPlaceMet,
 } from "./world/offers.mjs";
 import { lapseOffer } from "./offer-chance.mjs";
+import { settlePlaceCards, validPlaceCard } from "./quest-deck.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
 import { settleStops, stopsOf } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
@@ -1034,7 +1035,6 @@ export function opponentOf(c, actor) {
 const tierOf = (s, id) => levelTier(levelOf(s, id)).rank;
 export const outranks = (s, actor, other) =>
   tierOf(s, actor) > tierOf(s, other);
-// The most a strike can land: 3 on a lower tier, 2 on the same, 1 on a higher.
 export function strikePower(s, actor, target) {
   return 2 + Math.sign(tierOf(s, actor) - tierOf(s, target));
 }
@@ -1796,7 +1796,6 @@ function partyFor(s, traveler, dest, companion = companionOf(s, traveler)) {
   joinTrip(s, companion, here, dest);
   return [traveler, companion];
 }
-// Release a bond and say so where it was seen.
 function parts(s, traveler, id, text) {
   release(s, traveler);
   addLog(s, "World", text, {
@@ -2289,6 +2288,7 @@ function perform(s, a, round = null, settle = []) {
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);
   const result = performPlay(s, a, round, settle, hands, stale);
+  settlePlaceCards(s, a.actor, wantAPI(s));
   settleLost(s, wantAPI(s), a);
   if (companionOf(s, a.actor) && controlledByHuman(s, a.actor))
     s.actors[a.actor].actedAt = s.turn;
@@ -3697,7 +3697,7 @@ export function validateWorld(s) {
     conversations: () => validConversations(s),
     "held-items": () => validHeldItems(s),
     opened: () => validOpened(s),
-    "place-met": () => validPlaceMet(s),
+    "place-met": () => validPlaceMet(s) && validPlaceCard(s),
     arcana: () => validArcana(s),
     hidden: () =>
       validHidden(s) && !(s.hidden && !Object.hasOwn(places, s.hidden.place)),
