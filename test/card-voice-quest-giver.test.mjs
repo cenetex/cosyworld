@@ -28,6 +28,7 @@ const completed = ({ verb, giverAt = "station", quest = true, met = true }) => {
       kind: "narration",
       verb: "want_met",
       actorId: "vale",
+      ...(quest && { ownerId: "moth" }),
     });
   if (verb === "give")
     addLog(s, "World", "Pip has the Lamp at last.", {
@@ -35,7 +36,6 @@ const completed = ({ verb, giverAt = "station", quest = true, met = true }) => {
       verb: "want_met",
       actorId: "moth",
     });
-  if (quest) s.actors.vale.closed = { "quest:from:moth": [s.turn, "k"] };
   return s;
 };
 const speakers = (s) => speechOccasions(s, dialogueCast(s)).speakers;

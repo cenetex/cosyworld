@@ -100,15 +100,11 @@ export function askerOf(s, w) {
 }
 const askerWants = (want, wanted) =>
   want?.kind === wanted.kind && want.target === wanted.target;
-// The resident a held quest asks the traveler to bring or meet, whose bond it
-// pins: an escort or meeting, never an errand for an item.
-export function pinnedCompanion(s, traveler) {
-  for (const w of heldOf(s.actors[traveler])) {
-    const asker =
-      w.kind === "person" && w.step?.verb === "bring" ? askerOf(s, w) : null;
-    if (asker) return asker;
-  }
-  return null;
+// A companion stays while the traveler knows its card asks to be brought
+// somewhere: an escort or meeting, never an errand for an item.
+export function pinnedCompanion(s, traveler, id) {
+  const card = toldWant(s, traveler, id) && questFor(s, id, s.actors[id].want);
+  return card?.kind === "person" && card.step?.verb === "bring" && card.target === id;
 }
 
 // A player's Talk with `them`: the want of theirs that Talk reveals is

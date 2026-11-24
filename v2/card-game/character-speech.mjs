@@ -158,8 +158,8 @@ export const questLine = (world, line) =>
       !entry.generated &&
       entry.turn === line.turn &&
       entry.verb === "want_met" &&
-      world.actors[entry.actorId]?.closed?.[`quest:from:${line.actorId}`]?.[0] ===
-        line.turn,
+      entry.ownerId === line.actorId &&
+      entry.actorId !== line.actorId,
   );
 
 export const voicedLine = (world, line) =>

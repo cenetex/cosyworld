@@ -285,10 +285,12 @@ describe.each(["local", "shared"])("voice truth in %s play", (mode) => {
         kind: "witnessed",
         teller: null,
       });
-      expect(SHAPE.exchange.test(facts(snap, id)[0])).toBe(true);
-      expect(facts(snap, id)[0].endsWith(`${nameOf(gained)}.`)).toBe(true);
+      const [first] = facts(snap, id).filter((f) => !f.endsWith(" did what I asked."));
+      expect(SHAPE.exchange.test(first)).toBe(true);
+      expect(first.endsWith(`${nameOf(gained)}.`)).toBe(true);
       expect(recalls(snap, id, fact.text).map((f) => SHAPE.witnessed.test(f))).toEqual([true]);
     }
+    expect(facts(snap, CAST.near)[0]).toBe(`${nameOf(CAST.player)} did what I asked.`);
     expect(snap.world.knowledge.known[CAST.far]).toBeUndefined();
     expect(entity(snap, CAST.far)).toBeUndefined();
     const kept = recalls(snaps.away, CAST.near, fact.text);

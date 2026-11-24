@@ -354,19 +354,20 @@ mod tests {
 
     #[test]
     fn only_the_resident_whose_quest_was_met_on_this_play_is_voiced() {
-        let closed = json!({"quest:from:mara":[7,"k"],"quest:from:echo":[6,"k"]});
-        let met = json!({"verb":"want_met","actorId":"vale","turn":7});
-        let game = |log: Value| json!({"actors":{"vale":{"closed":closed}},"log":log});
+        let met = json!({"verb":"want_met","actorId":"vale","ownerId":"mara","turn":7});
+        let echo = json!({"verb":"want_met","actorId":"vale","ownerId":"echo","turn":6});
+        let own = json!({"verb":"want_met","actorId":"vale","ownerId":"vale","turn":7});
+        let game = |log: Value| json!({ "log": log });
         let lines =
             json!([{"actorId":"vale"},{"actorId":"mara"},{"actorId":"echo"},{"actorId":null}]);
         let voiced = |game: &Value, actor: &str, turn: Value| {
             authority::quest_residents(game, actor, &turn, &lines)
         };
         assert_eq!(
-            voiced(&game(json!([met])), "vale", json!(7)),
+            voiced(&game(json!([met, echo, own])), "vale", json!(7)),
             vec!["mara".to_string()]
         );
-        assert!(voiced(&game(json!([])), "vale", json!(7)).is_empty());
+        assert!(voiced(&game(json!([echo, own])), "vale", json!(7)).is_empty());
         assert!(voiced(&game(json!([met])), "vale", Value::Null).is_empty());
         assert!(voiced(&game(json!([met])), "mara", json!(7)).is_empty());
     }

@@ -1,8 +1,6 @@
 // One want per avatar: an item, a place or a person. The world rules decide
 // when it is met and what it earns: one experience, paid on the play that
 // meets it. `actor.want` is that want.
-// A resident's next want is drawn from the world, deterministically, so a
-// replayed journal makes the same choices. A player's is never drawn or
 import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { controlledByHuman, humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
@@ -22,6 +20,7 @@ import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
+import { knowsFact, questFactId } from "./knowledge.mjs";
 import { gainTrust } from "./world/company.mjs";
 import { HEARD_FROM, heardWant, validRumours } from "./world/rumours.mjs";
 import { LEVEL_CAP, rankOf, trackLevel } from "./level-tiers.mjs";
@@ -630,7 +629,7 @@ export function settleWants(s, actors, api, action = null, stale = []) {
       if (questMet(s, id, held, talk, action)) {
         commitMet(s, id, api, met, held);
         if (stale.includes(id)) continue;
-        helped(s, id, api, action);
+        helped(s, id, api, action, met, held);
         if (a.content) setWant(a, stagedNext(s, id, held));
       }
   }
@@ -638,7 +637,7 @@ export function settleWants(s, actors, api, action = null, stale = []) {
 }
 // A refused gift or trade meets nothing, and a handover under pressure is no
 // help. A plain Give earns trust in `trustGiver`.
-function helped(s, owner, api, action) {
+function helped(s, owner, api, action, met, card) {
   const own = action?.actor === owner,
     helper = own ? action.target : action?.actor,
     h = s.actors[helper];
@@ -647,6 +646,7 @@ function helped(s, owner, api, action) {
     api.player(owner)
   )
     return;
+  if (api.player(helper)) credit(s, owner, helper, api, met, card);
   if (!own && api.player(helper) && !humanAvatarIds.includes(helper)) {
     h.level ??= levelFor(h.xp);
     h.xp += 1;
@@ -660,23 +660,37 @@ function helped(s, owner, api, action) {
   }
   if (action.kind !== "give" || action.chosen) gainTrust(s, owner, helper);
 }
+export function ownerOf(id, want) {
+  const [, kind, source] = /^quest:(\w+):(.*)$/su.exec(want.from ?? "") ?? [];
+  if (kind === "home") return want.target;
+  return kind === "from" || kind === "place" ? source : kind ? null : id;
+}
+function credit(s, owner, helper, api, met, want) {
+  const from = `quest:from:${owner}`,
+    h = s.actors[helper],
+    held = heldOf(h).find((w) => w.from === from),
+    card = api.card(owner, want),
+    knew = knowsFact(s, helper, questFactId(owner, want));
+  if (held || (card && knew && h.closed?.[from]?.[0] !== s.turn))
+    commitMet(s, helper, api, met, held ?? { ...card, from });
+}
 function commitMet(s, id, api, met, held = null) {
   const a = s.actors[id],
     want = held ?? a.want,
+    owner = ownerOf(id, want),
     traveler = humanAvatarIds.includes(id);
   const xp = traveler || want.from?.startsWith("quest:box:") ? 0 : 1;
   if (!traveler) a.level ??= levelFor(a.xp);
   a.xp += xp;
   a.metTurn = s.turn;
   met.push({ actorId: id, want });
-  api.log(id, want);
-  if (traveler && want.from?.startsWith("quest:from:"))
-    countResidentQuest(a, want.from.slice("quest:from:".length));
-  if (want.from?.startsWith(PLACE_FROM)) {
-    const place = want.from.slice(PLACE_FROM.length),
-      met = s.placeMet?.[place] ?? [],
-      laid = want.step.items.filter((item) => !met.includes(item));
-    if (laid.length) s.placeMet = { ...s.placeMet, [place]: [...met, ...laid] };
+  api.log(id, want, owner);
+  if (traveler && owner !== id && api.kindOf(owner) === "person")
+    countResidentQuest(a, owner);
+  if (owner !== id && api.kindOf(owner) === "place") {
+    const done = s.placeMet?.[owner] ?? [],
+      laid = want.step.items.filter((item) => !done.includes(item));
+    if (laid.length) s.placeMet = { ...s.placeMet, [owner]: [...done, ...laid] };
   }
   if (!traveler && !api.player(id) && !packPeople[id]?.levelAtHome)
     a.level = Math.max(a.level, levelFor(a.xp));

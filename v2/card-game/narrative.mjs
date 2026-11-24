@@ -540,13 +540,14 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           );
         const player = currentActor(world);
         if (
-          world.actors[player].closed?.[`quest:from:${id}`]?.[0] === world.turn &&
+          id !== player &&
           world.log.some(
             (e) =>
               e.turn === world.turn &&
               !e.generated &&
               e.verb === "want_met" &&
-              e.actorId === player,
+              e.actorId === player &&
+              e.ownerId === id,
           )
         )
           facts.unshift(`${nameOf(player)} did what I asked.`);

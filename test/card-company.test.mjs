@@ -553,11 +553,19 @@ describe("the pin survives a long rest", () => {
     expect(s.log.some((e) => e.rest === "long")).toBe(true);
     expect(companionOf(s, "vale")).toBe(ANN);
   });
-  it("unpins when the quest is discarded", () => {
+  it("keeps the pin when the quest is set down, since its card is still known", () => {
     let s = vow();
     s = step(s, "drop", {});
     s = sleepAtB(s);
-    expect(companionOf(s, "vale")).toBeNull();
+    expect(companionOf(s, "vale")).toBe(ANN);
+  });
+  it("pins an escort whose card was told and never taken", () => {
+    let s = world({ at: "co-a", turn: 48 });
+    s.actors[ANN].want = { kind: "place", target: "co-c", since: s.turn, refusals: 0 };
+    s = step(invite(s, ANN, "co-b"), "talk", { target: ANN });
+    expect(s.actors.vale.want).toBeFalsy();
+    s = sleepAtB(hush(s));
+    expect(companionOf(s, "vale")).toBe(ANN);
   });
   it("unpins when the quest is met", () => {
     let s = vow();

@@ -20182,7 +20182,7 @@
       if (e.receiveId != null && !ids.includes(e.receiveId)) fail(`log:${e.seq}:receive`);
       if (e.verb === "want_met" !== (e.wantMet !== void 0) || e.wantKey !== void 0 && (e.verb !== "want_met" || typeof e.wantKey !== "string" || e.wantKey.length > 600 || !e.wantKey.startsWith(
         `${e.actorId}:${e.wantMet?.kind}:${e.wantMet?.target}:`
-      )) || e.questXp !== void 0 && (e.verb !== "want_met" || !Number.isInteger(e.questXp) || e.questXp < 2 || e.questXp > levelTier(Infinity).rank + 1) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : !entities2.has(e.wantMet.target))))
+      )) || e.ownerId !== void 0 && (e.verb !== "want_met" || !entities2.has(e.ownerId)) || e.questXp !== void 0 && (e.verb !== "want_met" || !Number.isInteger(e.questXp) || e.questXp < 2 || e.questXp > levelTier(Infinity).rank + 1) || e.wantMet !== void 0 && (!e.wantMet || Object.keys(e.wantMet).length !== 2 || !WANT_KINDS.includes(e.wantMet.kind) || !actorIds.includes(e.actorId) || (e.wantMet.kind === "connect" ? e.wantMet.target !== CONNECT_TARGET : !entities2.has(e.wantMet.target))))
         fail(`log:${e.seq}:want-met`);
       if (e.targetId != null && !entities2.has(e.targetId)) fail(`log:${e.seq}:target`);
       if (e.light !== void 0 && typeof e.light !== "boolean") fail(`log:${e.seq}:light`);
@@ -20475,9 +20475,11 @@
       met: [actor, target].filter(
         (id) => thisTurn.some((e) => e.verb === "want_met" && e.actorId === id)
       ),
-      giver: thisTurn.some((e) => e.verb === "want_met" && e.actorId === actor) ? cast.audience.filter(
-        (id) => near(id) && world.actors[actor].closed?.[`quest:from:${id}`]?.[0] === world.turn
-      ) : [],
+      giver: cast.audience.filter(
+        (id) => near(id) && thisTurn.some(
+          (e) => e.verb === "want_met" && e.actorId === actor && e.ownerId === id
+        )
+      ),
       place: []
     };
     const echo = played && signalEcho(world, cast.location, {
@@ -21577,8 +21579,8 @@
               `${nameOf2(played.targetId)} ${played.accepted ? "agreed to" : "declined"} ${nameOf2(played.actorId)}'s invitation to ${nameOf2(played.destinationId)}. This is the recorded answer for this play.`
             );
           const player2 = currentActor(world);
-          if (world.actors[player2].closed?.[`quest:from:${id}`]?.[0] === world.turn && world.log.some(
-            (e) => e.turn === world.turn && !e.generated && e.verb === "want_met" && e.actorId === player2
+          if (id !== player2 && world.log.some(
+            (e) => e.turn === world.turn && !e.generated && e.verb === "want_met" && e.actorId === player2 && e.ownerId === id
           ))
             facts.unshift(`${nameOf2(player2)} did what I asked.`);
           const company = Object.keys(world.actors).filter(
