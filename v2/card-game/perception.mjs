@@ -4,6 +4,7 @@
 // existing state, outside the rules engine.
 import { exits, itemPlace } from "./world.mjs";
 import { entityActive } from "./pack-registry.mjs";
+import { waySaid } from "./branch-ways.mjs";
 
 // The play itself is the conversation, or nothing happened.
 const QUIET = new Set(["wait", "talk"]);
@@ -96,7 +97,9 @@ export function perception(world, id, cast) {
   const listener = listenerOf(speakers, id, actor);
   const here = world.actors[id].place;
   const pull =
-    desire?.location && exits(world, here, id).includes(desire.location)
+    desire?.location &&
+    exits(world, here, id).includes(desire.location) &&
+    waySaid(world, id, desire.location)
       ? desire.location
       : null;
   const wanted = (desire?.items || []).filter(

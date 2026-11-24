@@ -110,7 +110,7 @@ function settles(s, id, about) {
   if (!truth.length || truth.some((c) => !Object.hasOwn(chosen, c.key))) return null;
   return conditionsMet(s, packId, truth) ? "confirmed" : "disproved";
 }
-function sawBranch(s, actor, packId, key) {
+export function sawBranch(s, actor, packId, key) {
   const { choices, receipts } = s.packs[packId],
     known = s.knowledge.known[actor],
     here = s.actors[actor].place;

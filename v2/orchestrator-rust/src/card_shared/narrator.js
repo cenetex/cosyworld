@@ -1938,7 +1938,7 @@
         const author = nameOf3(fact.source.author);
         const from = `${nameOf3(fact.source.book)}, by ${author}`;
         const teller = nameOf3(memory.teller), that = fact.text.replace(/[.!?。！？]$/u, "");
-        const settled = {
+        const settled2 = {
           confirmed: [
             memory.kind === "read" ? `I read this in ${from}, and I know it is true: ${fact.text}` : `${teller} told me this from ${from}, and I know it is true: ${fact.text}`,
             `I know what ${author} wrote is true: ${fact.text}`,
@@ -1950,7 +1950,7 @@
             `${author} was wrong: ${fact.text}`
           ]
         };
-        const lines = settled[memory.status] ?? (memory.kind === "read" ? [
+        const lines = settled2[memory.status] ?? (memory.kind === "read" ? [
           `I read this ${ageText(age)} in ${from}: ${fact.text}`,
           `I read what ${author} wrote: ${fact.text}`
         ] : [
@@ -19065,6 +19065,24 @@
     if (!truth.length || truth.some((c) => !Object.hasOwn(chosen, c.key))) return null;
     return conditionsMet(s, packId, truth) ? "confirmed" : "disproved";
   }
+  function sawBranch(s, actor, packId, key2) {
+    const { choices, receipts } = s.packs[packId], known = s.knowledge.known[actor], here2 = s.actors[actor].place;
+    const onBranch = (id) => (packEntity(id)?.requires || []).some(
+      (c) => c.kind === "choice" && c.key === key2 && c.value === choices[key2]
+    );
+    const commit = packDefinition(packId).choices.find(
+      (c) => Object.hasOwn(receipts, c.id) && c.effects.some(
+        (e) => e.kind === "choose" && e.key === key2 && e.value === choices[key2]
+      )
+    );
+    const sawCommit = (id) => {
+      const f = s.knowledge.facts[id];
+      return known[id].kind === "witnessed" && f?.source.kind === "event" && f.source.turn === receipts[commit.id] && f.source.locationId === commit.at && f.text === choiceText(commit, f.source.actorId);
+    };
+    return onBranch(here2) || Object.keys(s.actors).some(
+      (id) => s.actors[id].place === here2 && onBranch(id) && entityActive(s, id)
+    ) || !!commit && Object.keys(known).some(sawCommit);
+  }
 
   // v2/card-game/world-life.json
   var world_life_default = {
@@ -20926,6 +20944,23 @@
     return dockedNightBackdrops[file] || nightBackdrops[id] || file;
   }
 
+  // v2/card-game/branch-ways.mjs
+  function settled(s, id, packId, key2) {
+    const known = s.knowledge?.known?.[id];
+    const told = Object.entries(known || {}).some(
+      ([fact, m]) => m.status && claimTruth(packId, s.knowledge.facts[fact]?.source.about).some((c) => c.key === key2)
+    );
+    return told || sawBranch(known ? s : { ...s, knowledge: { facts: {}, known: { [id]: {} } } }, id, packId, key2);
+  }
+  function waySaid(s, id, to) {
+    const packId = packEntity(to)?.packId, truth = packId ? claimTruth(packId, to) : [];
+    if (!truth.length) return true;
+    if (!conditionsMet(s, packId, truth)) return false;
+    if (!s.actors[id])
+      return truth.every((c) => claimTruth(packId, id).some((own2) => own2.key === c.key));
+    return truth.every((c) => settled(s, id, packId, c.key));
+  }
+
   // v2/card-game/speech-knowledge.mjs
   var UNKNOWN_THING = "something I can't make out";
   var UNKNOWN_LIGHT = "something shining I can't make out";
@@ -21268,7 +21303,7 @@
     const { speakers, entries, actor, present, desire, location } = cast;
     const listener = listenerOf(speakers, id, actor);
     const here2 = world.actors[id].place;
-    const pull = desire?.location && exits(world, here2, id).includes(desire.location) ? desire.location : null;
+    const pull = desire?.location && exits(world, here2, id).includes(desire.location) && waySaid(world, id, desire.location) ? desire.location : null;
     const wanted = (desire?.items || []).filter(
       (item) => itemPlace(world, item) === here2
     );
@@ -21639,9 +21674,10 @@
       ...packDefinitions.flatMap((pack) => pack.routes || []).filter((r) => r.sealed && r.from === place).map((r) => r.to),
       ...guardedFrom(place)
     ];
-    return [...new Set(ways2)].filter((to) => shut.includes(to) || open.includes(to)).map(
-      (to) => shut.includes(to) ? `The way to ${nameOf2(to)} is shut.` : `The way to ${nameOf2(to)} is open.`
-    );
+    return [...new Set(ways2)].filter((to) => shut.includes(to) || open.includes(to)).map((to) => ({
+      to,
+      line: shut.includes(to) ? `The way to ${nameOf2(to)} is shut.` : `The way to ${nameOf2(to)} is open.`
+    }));
   }
   function visibleItem(world, observer, item, location) {
     const here2 = world.actors[observer]?.place ?? location;
@@ -21761,7 +21797,8 @@
     );
     const quietFact = bellHandled && !bellRang && !world.items.bell.ringing ? `The Bell made no sound this turn: it is silent. Nobody rang it.` : null;
     const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
-    const ways2 = wayFacts(world, location);
+    const wayLines = wayFacts(world, location);
+    const ways2 = (id) => wayLines.filter(({ to }) => waySaid(world, id, to)).map(({ line }) => line);
     const conversation = beforeFirstLight ? [] : world.log.filter(
       (entry) => entry.generated && entry.kind === "dialogue" && profiles[entry.actorId]?.kind === "avatar" && entry.locationId === location && (entry.turn < world.turn || remaining && entry.turn === world.turn)
     ).slice(-6).map(({ actorId, text: text2, cast: cast2, witnesses }) => ({
@@ -21850,7 +21887,7 @@
           facts.push(
             `Location now: ${nameOf2(world.actors[id].place)}. Company now: ${company.map(nameOf2).join(", ") || "alone"}.`
           );
-          if (world.actors[id].place === location) facts.push(...ways2);
+          if (world.actors[id].place === location) facts.push(...ways2(id));
           const movement = changes2.find((change) => change.actorId === id);
           if (defeated && id === speakers[0]) facts.unshift(defeated);
           else if (movement && speakers.includes(id))
@@ -21917,10 +21954,9 @@
           if (weather) facts.push(`Weather: ${weather.condition}.`);
           const daylight = locationDaylight(world, id);
           if (daylight) facts.push(daylight.description);
-          facts.push(
-            `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf2).join(", ") || "none"}.`
-          );
-          if (id === location) facts.push(...ways2);
+          const paths = exits(world, id, currentActor(world)).filter((to) => waySaid(world, id, to));
+          facts.push(`Paths visible now: ${paths.map(nameOf2).join(", ") || "none"}.`);
+          if (id === location) facts.push(...ways2(id));
           if ((id === "attic" || id === "pond") && exits(world, id).includes(id === "attic" ? "pond" : "attic"))
             facts.push("An open passage is visible in the reflection.");
           if (id === "pond" && world.locations.pond.answer === "hush")

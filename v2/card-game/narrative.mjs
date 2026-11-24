@@ -46,6 +46,7 @@ import { controlledByHuman, residentAvatar } from "./human-cast.mjs";
 import { knownActors, wantOf } from "./want.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { guardedFrom } from "./resident-guard.mjs";
+import { waySaid } from "./branch-ways.mjs";
 import {
   forgetCovered,
   forgetUnfound,
@@ -205,9 +206,6 @@ function groundedLife(world, id) {
   return { ...life, persona: null };
 }
 
-// A sealed way (rules 95) is open or shut by the rules alone. Everyone in
-// the scene hears which, as the player finds it, so no authored line or sense
-// keeps a gate shut once it opens, or opens one still shut.
 function wayFacts(world, place) {
   const actor = currentActor(world);
   if (world.actors[actor]?.place !== place) return [];
@@ -224,11 +222,12 @@ function wayFacts(world, place) {
   ];
   return [...new Set(ways)]
     .filter((to) => shut.includes(to) || open.includes(to))
-    .map((to) =>
-      shut.includes(to)
+    .map((to) => ({
+      to,
+      line: shut.includes(to)
         ? `The way to ${nameOf(to)} is shut.`
         : `The way to ${nameOf(to)} is open.`,
-    );
+    }));
 }
 
 function visibleItem(world, observer, item, location) {
@@ -406,7 +405,9 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       ? `The Bell made no sound this turn: it is silent. Nobody rang it.`
       : null;
   const mindsNoise = (id) => /noise|ringing/i.test(tastes[id]?.sore || "");
-  const ways = wayFacts(world, location);
+  const wayLines = wayFacts(world, location);
+  const ways = (id) =>
+    wayLines.filter(({ to }) => waySaid(world, id, to)).map(({ line }) => line);
   // Authored sounds such as the clock's echo stay in the scene/history, but
   // the speech API's conversation contains only registered avatar voices:
   // the recent talk at this place, which each speaker reads as a group chat.
@@ -563,7 +564,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         facts.push(
           `Location now: ${nameOf(world.actors[id].place)}. Company now: ${company.map(nameOf).join(", ") || "alone"}.`,
         );
-        if (world.actors[id].place === location) facts.push(...ways);
+        if (world.actors[id].place === location) facts.push(...ways(id));
         const movement = changes.find((change) => change.actorId === id);
         if (defeated && id === speakers[0]) facts.unshift(defeated);
         else if (movement && speakers.includes(id))
@@ -647,10 +648,9 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
         const daylight = locationDaylight(world, id);
         if (daylight) facts.push(daylight.description);
 
-        facts.push(
-          `Paths visible now: ${exits(world, id, currentActor(world)).map(nameOf).join(", ") || "none"}.`,
-        );
-        if (id === location) facts.push(...ways);
+        const paths = exits(world, id, currentActor(world)).filter((to) => waySaid(world, id, to));
+        facts.push(`Paths visible now: ${paths.map(nameOf).join(", ") || "none"}.`);
+        if (id === location) facts.push(...ways(id));
         if (
           (id === "attic" || id === "pond") &&
           exits(world, id).includes(id === "attic" ? "pond" : "attic")
