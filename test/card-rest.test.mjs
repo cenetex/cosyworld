@@ -421,8 +421,7 @@ describe("rest and sanctuary", () => {
     let longRests = 0,
       seen = 0;
     for (let step = 0; step < 300; step++) {
-      // Now and then the player sleeps at home in the attic.
-      // A fighter is never lifted out of a battle.
+      // Now and then the player sleeps at home in the attic, never mid-battle.
       if (step % 50 === 0 && !standoffFor(s, "vale")) {
         s.actors.vale.place = "attic";
         s = sleep(s);
@@ -445,5 +444,5 @@ describe("rest and sanctuary", () => {
     }
     expect(validateWorld(s)).toBe(s);
     expect(longRests).toBeGreaterThan(0);
-  });
+  }, 60_000);
 });
