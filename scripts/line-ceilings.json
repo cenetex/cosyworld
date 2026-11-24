@@ -10,7 +10,7 @@
     "v2/orchestrator-rust/src/ai_gateway.rs": 3556,
     "v2/orchestrator-rust/src/ai_registry.rs": 2058,
     "v2/orchestrator-rust/src/card_narrative.rs": 6584,
-    "v2/orchestrator-rust/src/card_narrative/channel.rs": 2421,
+    "v2/orchestrator-rust/src/card_narrative/channel.rs": 2345,
     "v2/orchestrator-rust/src/card_shared/full_tests.rs": 1608
   }
 }

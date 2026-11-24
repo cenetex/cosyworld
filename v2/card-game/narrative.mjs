@@ -320,6 +320,17 @@ function favourFact(world, id, among = null) {
     ? `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.`
     : null;
 }
+export const talkKnowledge = (world, id, telling, retold, limit, scene) =>
+  knowledgeFacts(pastDeedsAside(world, id, telling, retold), id, nameOf, telling, limit, scene);
+export function residentKnowledge(world, id) {
+  const place = world.actors[id].place;
+  const scene = [
+    place,
+    ...Object.keys(world.actors).filter((other) => world.actors[other].place === place),
+    ...Object.keys(world.items).filter((item) => itemPlace(world, item) === place),
+  ];
+  return talkKnowledge(world, id, [], [], Math.max(2, 16 - ownFacts(world, id).length), scene);
+}
 export function ownFacts(world, id) {
   const place = world.actors[id].place;
   const here = Object.keys(world.actors).filter(
@@ -666,14 +677,7 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
       facts.splice(
         facts.indexOf(null),
         1,
-        ...knowledgeFacts(
-          pastDeedsAside(world, id, told(id), between.retold),
-          id,
-          nameOf,
-          told(id),
-          Math.max(2, 17 - facts.length),
-          scene,
-        ),
+        ...talkKnowledge(world, id, told(id), between.retold, Math.max(2, 17 - facts.length), scene),
       );
       return {
         id,

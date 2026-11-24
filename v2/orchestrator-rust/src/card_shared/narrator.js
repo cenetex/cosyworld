@@ -21440,6 +21440,16 @@
     const helpers = Object.entries(world.actors[id].trust).filter(([other, n]) => n > 0 && (!among || among.includes(other))).map(([other]) => nameOf2(other));
     return helpers.length ? `Owes a favour to ${helpers.join(" and ")}; willing to share a spare or take a detour with them.` : null;
   }
+  var talkKnowledge = (world, id, telling, retold, limit, scene) => knowledgeFacts(pastDeedsAside(world, id, telling, retold), id, nameOf2, telling, limit, scene);
+  function residentKnowledge(world, id) {
+    const place = world.actors[id].place;
+    const scene = [
+      place,
+      ...Object.keys(world.actors).filter((other) => world.actors[other].place === place),
+      ...Object.keys(world.items).filter((item) => itemPlace(world, item) === place)
+    ];
+    return talkKnowledge(world, id, [], [], Math.max(2, 16 - ownFacts(world, id).length), scene);
+  }
   function ownFacts(world, id) {
     const place = world.actors[id].place;
     const here2 = Object.keys(world.actors).filter(
@@ -21667,14 +21677,7 @@
         facts.splice(
           facts.indexOf(null),
           1,
-          ...knowledgeFacts(
-            pastDeedsAside(world, id, told(id), between.retold),
-            id,
-            nameOf2,
-            told(id),
-            Math.max(2, 17 - facts.length),
-            scene
-          )
+          ...talkKnowledge(world, id, told(id), between.retold, Math.max(2, 17 - facts.length), scene)
         );
         return {
           id,
@@ -22710,12 +22713,11 @@
   // v2/card-game/shared-narrator.mjs
   function sharedScene(request) {
     const world = load(request);
-    if (Array.isArray(request.own))
-      return {
-        own: Object.fromEntries(
-          request.own.filter((id) => world.actors[id]).map((id) => [id, ownFacts(world, id)])
-        )
-      };
+    if (Array.isArray(request.own)) {
+      const ids3 = request.own.filter((id) => world.actors[id]);
+      const each = (facts) => Object.fromEntries(ids3.map((id) => [id, facts(world, id)]));
+      return { own: each(ownFacts), known: each(residentKnowledge) };
+    }
     const revealed2 = Array.isArray(request.revealed) && new Set(request.revealed);
     const isCovered = revealed2 ? (id) => !revealed2.has(id) : null;
     return {
