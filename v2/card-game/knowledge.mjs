@@ -530,17 +530,36 @@ export function knowledgeFacts(
     if (fact.source.kind === "claim") {
       const author = nameOf(fact.source.author);
       const from = `${nameOf(fact.source.book)}, by ${author}`;
+      const told = nameOf(memory.teller),
+        that = fact.text.replace(/[.!?。！？]$/u, "");
+      const settled = {
+        confirmed: [
+          memory.kind === "read"
+            ? `I read this in ${from}, and I know it is true: ${fact.text}`
+            : `${told} told me this from ${from}, and I know it is true: ${fact.text}`,
+          `I know what ${author} wrote is true: ${fact.text}`,
+          `${author} wrote truly: ${fact.text}`,
+        ],
+        disproved: [
+          memory.kind === "read"
+            ? `I read in ${from}, that ${that}; it was wrong.`
+            : `${told} told me that ${from}, says ${that}; it was wrong.`,
+          `${author} wrote that ${that}; it was wrong.`,
+          `${author} was wrong: ${fact.text}`,
+        ],
+      };
       const lines =
-        memory.kind === "read"
+        settled[memory.status] ??
+        (memory.kind === "read"
           ? [
               `I read this ${ageText(age)} in ${from}: ${fact.text}`,
               `I read what ${author} wrote: ${fact.text}`,
             ]
           : [
-              `${nameOf(memory.teller)} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
-              `${nameOf(memory.teller)} told me what ${author} wrote: ${fact.text}`,
+              `${told} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
+              `${told} told me what ${author} wrote: ${fact.text}`,
               heardClaim(author, fact.text),
-            ];
+            ]);
       const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
       return fits ?? lines.at(-1).slice(0, FACT_LINE_LIMIT);
     }
@@ -605,6 +624,7 @@ export function validKnowledge(
     k.pending.length > KNOWLEDGE_PENDING_LIMIT
   )
     return false;
+  const settles = {};
   for (const [id, fact] of Object.entries(k.facts)) {
     if (
       !safeId(id) ||
@@ -681,6 +701,7 @@ export function validKnowledge(
         CLAIM_KEYS.some((key) => claim[key] !== s[key])
       )
         return false;
+      settles[id] = claim.settles;
     } else {
       if (!fields(s.topic, ["packId", "id", "choiceId"])) return false;
       const topic = topics.find(
@@ -717,7 +738,11 @@ export function validKnowledge(
       if (
         !owns(k.facts, id) ||
         (fact.source.kind === "quest" && fact.source.actorId === actor) ||
-        !fields(m, m?.kind === "read" ? READ_KEYS : MEMORY_KEYS) ||
+        !fields(m, [
+          ...(m?.kind === "read" ? READ_KEYS : MEMORY_KEYS),
+          ...(m?.status === undefined ? [] : ["status"]),
+        ]) ||
+        (m.status !== undefined && (!settles[id] || m.status !== settles[id])) ||
         !["witnessed", "heard", "read"].includes(m.kind) ||
         !whole(m.eventSeq, world.eventSeq) ||
         m.eventSeq < fact.source.eventSeq ||

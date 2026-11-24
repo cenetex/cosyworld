@@ -1937,14 +1937,27 @@
       if (fact.source.kind === "claim") {
         const author = nameOf3(fact.source.author);
         const from = `${nameOf3(fact.source.book)}, by ${author}`;
-        const lines = memory.kind === "read" ? [
+        const told2 = nameOf3(memory.teller), that = fact.text.replace(/[.!?。！？]$/u, "");
+        const settled = {
+          confirmed: [
+            memory.kind === "read" ? `I read this in ${from}, and I know it is true: ${fact.text}` : `${told2} told me this from ${from}, and I know it is true: ${fact.text}`,
+            `I know what ${author} wrote is true: ${fact.text}`,
+            `${author} wrote truly: ${fact.text}`
+          ],
+          disproved: [
+            memory.kind === "read" ? `I read in ${from}, that ${that}; it was wrong.` : `${told2} told me that ${from}, says ${that}; it was wrong.`,
+            `${author} wrote that ${that}; it was wrong.`,
+            `${author} was wrong: ${fact.text}`
+          ]
+        };
+        const lines = settled[memory.status] ?? (memory.kind === "read" ? [
           `I read this ${ageText(age)} in ${from}: ${fact.text}`,
           `I read what ${author} wrote: ${fact.text}`
         ] : [
-          `${nameOf3(memory.teller)} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
-          `${nameOf3(memory.teller)} told me what ${author} wrote: ${fact.text}`,
+          `${told2} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
+          `${told2} told me what ${author} wrote: ${fact.text}`,
           heardClaim(author, fact.text)
-        ];
+        ]);
         const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
         return fits ?? lines.at(-1).slice(0, FACT_LINE_LIMIT);
       }
@@ -1967,6 +1980,7 @@
     if (k === void 0) return true;
     if (!fields(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
       return false;
+    const settles2 = {};
     for (const [id, fact] of Object.entries(k.facts)) {
       if (!safeId(id) || !fields(fact, ["id", "text", "source"]) || fact.id !== id || !(fact.source?.kind === "quest" ? validQuestText : validFactText)(
         fact.text
@@ -2012,6 +2026,7 @@
         const claim = claimOf(id, fact);
         if (s.topic !== null || claim?.text !== fact.text || CLAIM_KEYS.some((key2) => claim[key2] !== s[key2]))
           return false;
+        settles2[id] = claim.settles;
       } else {
         if (!fields(s.topic, ["packId", "id", "choiceId"])) return false;
         const topic = topics.find(
@@ -2030,7 +2045,10 @@
         return false;
       for (const [id, m] of Object.entries(known)) {
         const fact = k.facts[id];
-        if (!owns(k.facts, id) || fact.source.kind === "quest" && fact.source.actorId === actor || !fields(m, m?.kind === "read" ? READ_KEYS : MEMORY_KEYS) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || fact.source.kind === "claim" && m.book !== fact.source.book : fact.source.kind === "claim")))
+        if (!owns(k.facts, id) || fact.source.kind === "quest" && fact.source.actorId === actor || !fields(m, [
+          ...m?.kind === "read" ? READ_KEYS : MEMORY_KEYS,
+          ...m?.status === void 0 ? [] : ["status"]
+        ]) || m.status !== void 0 && (!settles2[id] || m.status !== settles2[id]) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || fact.source.kind === "claim" && m.book !== fact.source.book : fact.source.kind === "claim")))
           return false;
       }
     }
@@ -19034,8 +19052,19 @@
   var savedClaim = (s, id, fact) => {
     const [, packId, book, choice] = id.split(":");
     const claim = authoredClaim(id) ?? (recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, fact?.text) : null);
-    return claim?.id === id ? claim : null;
+    return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
   };
+  var claimTruth = (packId, about) => {
+    const keys = (packDefinition(packId)?.continuity?.groups || []).map((g) => g.key);
+    return (packEntity(about)?.requires || []).filter(
+      (c) => c.kind === "choice" && keys.includes(c.key)
+    );
+  };
+  function settles(s, id, about) {
+    const packId = id.split(":")[1], truth = claimTruth(packId, about), chosen = s.packs?.[packId]?.choices || {};
+    if (!truth.length || truth.some((c) => !Object.hasOwn(chosen, c.key))) return null;
+    return conditionsMet(s, packId, truth) ? "confirmed" : "disproved";
+  }
 
   // v2/card-game/world-life.json
   var world_life_default = {
@@ -19723,6 +19752,9 @@
       else {
         fact.text = claim.text;
         Object.assign(fact.source, { author: claim.author, about: claim.about });
+        for (const known of Object.values(s.knowledge.known || {}))
+          if (known?.[id]?.status !== void 0 && known[id].status !== claim.settles)
+            delete known[id].status;
       }
     }
   }

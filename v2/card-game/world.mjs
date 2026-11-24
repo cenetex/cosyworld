@@ -80,7 +80,7 @@ import {
   witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
-import { claimsIn, readBook, residentRead, savedClaim } from "./claims.mjs";
+import { claimsIn, readBook, residentRead, savedClaim, settleClaims } from "./claims.mjs";
 import {
   knownActors as readKnownActors,
   installWants,
@@ -2325,6 +2325,7 @@ function perform(s, a, round = null, settle = []) {
   settleLamp(s);
   refuelCarried(s);
   settleLamp(s);
+  settleClaims(s);
   if (a.kind === "wait")
     settleWants(s, wantActors(s, [a.actor, ...settle]), wantAPI(s), a, stale);
   if (conflict && s.standoffs.includes(conflict)) {
@@ -2772,7 +2773,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     noteAct(s, a, here, holder, round, sensesFor(s), (line, locationId) =>
       addLog(s, "World", line, { locationId }),
     );
-  // A flask and an empty lamp in one avatar's hands refuel after the play.
   refuelCarried(s);
   // Giving a maker the last of a locked thing's set makes it (rules 102).
   settleCrafting(s, a, nameOf, (text, locationId, outcome) =>
