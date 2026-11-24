@@ -927,11 +927,24 @@ export function validWant(s, id) {
         whole(a.gaveUp.turn))) &&
     list(a.talked, s.actors) &&
     a.heard === undefined &&
+    validTold(s, id) &&
     validRumours(s, id) &&
     validOffered(s, id) &&
     !a.talked.includes(id) &&
     Array.isArray(a.visited) &&
     (a.want === null || validQuest(s, id, a.want))
+  );
+}
+function validTold(s, id) {
+  const told = s.actors[id].told;
+  return (
+    told === undefined ||
+    (Array.isArray(told) &&
+      told.length > 0 &&
+      told.every(
+        (o, i) =>
+          o !== id && Object.hasOwn(s.actors, o) && (!i || told[i - 1] < o),
+      ))
   );
 }
 function validUnder(s, id) {

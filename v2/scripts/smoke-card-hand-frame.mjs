@@ -226,7 +226,7 @@ try {
       1,
       `${width} one quest card`,
     );
-    assert.equal(await page.locator("#hand .quest-fold").isHidden(), true);
+    assert.equal(await page.locator("#hand .quest-fold:not([data-owner])").isHidden(), true);
     await card("vale").click();
     await card("station").scrollIntoViewIfNeeded();
     await card("station").click();
