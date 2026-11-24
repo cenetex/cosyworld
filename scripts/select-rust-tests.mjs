@@ -73,9 +73,13 @@ export function rustInputs(modules) {
   const use = (key, file) =>
     inputs.set(key, (inputs.get(key) ?? new Set()).add(file));
   const literal = /["']((?:\.{1,2}\/|src\/|v2\/|test\/)[\w@./-]*[\w-])["']/g;
+  const sibling = /include_(?:str|bytes)!\("([\w@.-]+)"\)/g;
   for (const file of modules.keys()) {
     const text = read(file);
     if (/\bcosyworld_ai_model\b/.test(text)) use("v2/ai-model-rust/", file);
+    for (const [, name] of text.matchAll(sibling))
+      if (exists(posix.join(posix.dirname(file), name)))
+        use(posix.join(posix.dirname(file), name), file);
     for (const [, ref] of text.matchAll(literal)) {
       const target = [posix.dirname(file), CRATE, "."]
         .map((base) => posix.normalize(posix.join(base, ref)))
@@ -95,8 +99,8 @@ export function rustInputs(modules) {
 const filterOf = (modules, file) =>
   modules.get(file)?.length ? `${modules.get(file).join("::")}::` : null;
 
-// A file under src/ belongs to its own module or, for data beside the
-// sources (a rules bundle, a JSON table), to its directory's module.
+// A file under src/ that no module names belongs to its own module or its
+// directory's.
 const ownerOf = (modules, file) => {
   for (let dir = file; dir.startsWith(SRC); dir = posix.dirname(dir))
     for (const owner of [dir, `${dir}.rs`, `${dir}/mod.rs`])
@@ -108,6 +112,9 @@ export function selectRustTests(changed, config, tree = {}) {
   const { rust } = config;
   const modules = tree.modules ?? moduleTree();
   const inputs = tree.inputs ?? rustInputs(modules);
+  const triggers = [rust.paths, ...rust.rules.map((rule) => rule.paths)];
+  if (!changed.some((file) => triggers.some((p) => new RegExp(p).test(file))))
+    return [];
   const picked = new Set();
   let fallback = false;
   const add = (file) => {
@@ -116,11 +123,13 @@ export function selectRustTests(changed, config, tree = {}) {
     else fallback = true;
   };
   for (const file of changed) {
-    const owners = file.startsWith(`${SRC}/`) ? [ownerOf(modules, file)] : [];
+    const owners = [];
     for (const [input, users] of inputs)
       if (!rust.ignoreInputs.includes(input))
         if (input.endsWith("/") ? file.startsWith(input) : file === input)
           owners.push(...users);
+    if (!owners.length && file.startsWith(`${SRC}/`))
+      owners.push(ownerOf(modules, file));
     for (const rule of rust.rules)
       if (new RegExp(rule.paths).test(file))
         owners.push(...rule.modules.map((m) => `${SRC}/${m}`));

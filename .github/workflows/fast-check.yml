@@ -270,21 +270,19 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # Runs only when the change touches the crate or a file it reads, and only
-  # the tests of the modules involved (scripts/select-rust-tests.mjs and the
-  # rust section of scripts/fast-smokes.json). It restores the Cargo cache
-  # that ci.yml saves and never saves one, so the repository's 10 GB of
-  # caches holds no extra Cargo copy. The full gate stays on the train.
+  # Runs only when Rust, the rules or the shared bundles change, and only the
+  # tests of the modules involved (scripts/select-rust-tests.mjs and the rust
+  # section of scripts/fast-smokes.json). It starts from the dependency cache
+  # rust-cache.yml saves on main. The full gate stays on the train.
   rust:
-    name: Rust tests (${{ needs.plan.outputs.rust-tests }})
+    name: Rust tests
     needs: plan
     if: needs.plan.outputs.rust-tests != ''
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     env:
       CI: true
-      RUST_TEST_THREADS: "2"
-      # Match ci.yml so the restored cache's fingerprints still apply.
+      RUST_TEST_THREADS: "4"
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
@@ -297,7 +295,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - name: Restore Cargo build cache
+      - &restore-cargo
+        name: Restore Cargo dependency cache
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -305,9 +304,9 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-day-restore-only
+          key: ${{ runner.os }}-cargo-deps-v1-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-cargo-compact-v1-day-
+            ${{ runner.os }}-cargo-deps-v1-
             ${{ runner.os }}-cargo-compact-v1-
       - name: Run focused Rust tests
         env:
@@ -315,6 +314,60 @@ jobs:
         run: |
           read -ra filters <<< "$FILTERS"
           bash v2/scripts/check-rust.sh focused "${filters[@]}"
+
+  rust-smokes:
+    name: Rust server smokes
+    needs: plan
+    if: needs.plan.outputs.rust-tests != ''
+    runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 25
+    env:
+      CI: true
+      CARGO_PROFILE_DEV_DEBUG: "0"
+    steps:
+      - *restore-git-objects
+      - *borrow-git-objects
+      - *checkout
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - run: npm ci --prefer-offline --no-audit --no-fund
+      - *restore-cargo
+      - name: Build the server
+        working-directory: v2/orchestrator-rust
+        run: cargo build
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('node_modules/playwright-core/package.json') }}
+      - uses: ./.github/actions/chromium-deps
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+      - name: Run the smokes that start the server
+        run: |
+          run() {
+            if node "v2/scripts/$1.mjs" > "$RUNNER_TEMP/$1.log" 2>&1; then
+              echo "::group::$1 passed"; cat "$RUNNER_TEMP/$1.log"; echo "::endgroup::"
+            else
+              echo "::error title=Rust server smoke failed::$1"; cat "$RUNNER_TEMP/$1.log"; touch "$RUNNER_TEMP/failed"
+            fi
+          }
+          for smoke in $(node -p "require('./scripts/fast-smokes.json').rust.smokes.join(' ')"); do run "$smoke" & done
+          wait
+          test ! -e "$RUNNER_TEMP/failed"
+      - name: Upload browser evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fast-check-rust-smokes
+          path: output/
+          if-no-files-found: ignore
+          retention-days: 7
 
   rust-lint:
     name: Rust clippy ceiling
@@ -343,7 +396,7 @@ jobs:
   fast:
     name: fast
     if: ${{ always() }}
-    needs: [plan, lint, unit-shard, rustfmt, smoke, rust, rust-lint]
+    needs: [plan, lint, unit-shard, rustfmt, smoke, rust, rust-lint, rust-smokes]
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Verify all fast-check jobs passed
@@ -352,7 +405,9 @@ jobs:
             ${{ needs.plan.result }} ${{ needs.lint.result }}
             ${{ needs.unit-shard.result }} ${{ needs.rustfmt.result }}
             ${{ needs.smoke.result }}
-          RUST: ${{ needs.rust.result }} ${{ needs.rust-lint.result }}
+          RUST: >-
+            ${{ needs.rust.result }} ${{ needs.rust-lint.result }}
+            ${{ needs.rust-smokes.result }}
         run: |
           for result in $REQUIRED; do test "$result" = success; done
           for result in $RUST; do
