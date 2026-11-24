@@ -100,7 +100,6 @@ fn resident_passage_checks_each_traveller_in_the_c_host() {
     let blocked = world.project(1).unwrap();
     assert!(permitted["exits"].as_array().unwrap().contains(&beyond));
     assert!(!blocked["exits"].as_array().unwrap().contains(&beyond));
-    // A way is the party's (rules 133): open for the traveller, open for the
     // resident asked along.
     assert!(permitted["actions"]
         .as_array()

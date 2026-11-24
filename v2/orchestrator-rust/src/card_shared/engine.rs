@@ -161,7 +161,6 @@ const HUNDRED_THIRTY_THIRD_SOURCE: &str = include_str!("engine-v133.js");
 pub(super) fn current_source() -> &'static str {
     SOURCE
 }
-// A world saved by rules newer than this server's: a release swap briefly
 // runs the older build (docs/release.md), so the world waits, unchanged.
 pub(super) const UPDATING: &str = "This world is updating. Back in a moment.";
 pub(super) fn newer(version: &str) -> bool {
