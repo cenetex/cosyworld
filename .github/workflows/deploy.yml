@@ -406,8 +406,7 @@ jobs:
         with:
           node-version: "24"
 
-      # Restore only: CI saves this cache daily, and a per-tag save cost a
-      # minute and 2 GB of the 10 GB cache budget for a key nothing reuses.
+      # Restore only: main saves its Rust dependencies daily (rust-cache.yml).
       - name: Restore Cargo build cache
         if: steps.ci.outputs.reuse != 'true'
         uses: actions/cache/restore@v6
@@ -417,9 +416,9 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             v2/orchestrator-rust/target
-          key: ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-${{ github.sha }}
+          key: ${{ runner.os }}-cargo-deps-v1-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-cargo-compact-v1-${{ hashFiles('v2/orchestrator-rust/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-deps-v1-
             ${{ runner.os }}-cargo-compact-v1-
 
       - name: Verify Rust orchestrator tests
@@ -512,9 +511,33 @@ jobs:
        inputs.target == 'primary')
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
     steps:
       - name: Checkout committed release
         uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      # Promote .dev's image of this commit, or of an equivalent one.
+      - name: Find the image .dev built
+        id: dev
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          bash scripts/await-dev-image.sh
+          base="$(node scripts/last-dev-rollout.mjs)"
+          if [ -n "$base" ] && [ "$base" != "$GITHUB_SHA" ]; then
+            git fetch --quiet --no-tags --depth=1 origin "$base" || true
+            if node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA" | grep -qx deploy=false; then
+              echo "commit=$base" >> "$GITHUB_OUTPUT"
+            fi
+          fi
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
@@ -522,13 +545,12 @@ jobs:
       - name: Install image transfer tool
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends skopeo
 
-      # Tags and dispatches compile inside the Dockerfile from the registry
-      # dependency cache, unless an image for this commit already exists.
       - name: Prepare primary image
         id: image
         run: bash scripts/prepare-fly-image.sh cosyworld fly.toml
         env:
           COSYWORLD_IMAGE_BUILDER: runner
+          EQUIVALENT_COMMIT: ${{ steps.dev.outputs.commit }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   # Run the guards and rollback snapshot beside the checks and image build.
@@ -762,8 +784,7 @@ jobs:
           echo ".dev readiness remained degraded after 120 seconds" >&2
           exit 1
 
-  # Copy the primary build into the Lonely Forest registry with separate
-  # app tokens. A Lonely Forest-only release builds directly in its registry.
+  # Copy the primary build into the Lonely Forest registry with its own token.
   lonelyforest-image:
     name: Prepare Lonely Forest image
     needs: [deployment-impact, release-owner, primary-image]
