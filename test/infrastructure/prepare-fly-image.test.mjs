@@ -26,6 +26,7 @@ function prepare({
   runFailures = 0,
   train = "",
   equivalent = "",
+  ref = "refs/heads/main",
 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cosyworld-image-test-"));
   const log = join(dir, "calls.jsonl");
@@ -98,6 +99,7 @@ if (command === 'flyctl' && args[0] === 'auth') {
           FLY_API_TOKEN: "destination-fixture",
           FLY_SOURCE_API_TOKEN: "source-fixture",
           GITHUB_SHA: "b".repeat(40),
+          GITHUB_REF: ref,
           GITHUB_OUTPUT: output,
           SOURCE_IMAGE: copy ? sourceImage : "",
           COSYWORLD_IMAGE_BUILDER: imageBuilder,
@@ -330,6 +332,10 @@ describe("Fly commit image preparation", () => {
     const missing = prepare({ equivalent: "none" });
     expect(operations(missing, "skopeo", "copy")).toHaveLength(0);
     expect(operations(missing, "flyctl", "deploy")).toHaveLength(1);
+    const tag = prepare({ equivalent: digest, ref: "refs/tags/v1.2.163" });
+    expect(tag.status).toBe(0);
+    expect(operations(tag, "skopeo", "copy")).toHaveLength(0);
+    expect(operations(tag, "flyctl", "deploy")).toHaveLength(1);
   });
   it("reuses the destination when it already has the source digest", () => {
     const result = prepare({ copy: true, existing: digest });

@@ -77,9 +77,9 @@ if [ -z "$source_image" ] && [[ "$app" == cosyworld-lonelyforest ]] &&
   fi
 fi
 
-# A commit that only adds docs or tests to .dev's promotes .dev's image.
+# A dispatch, never a tag, of a docs- or tests-only commit promotes .dev's image.
 if [ -z "$source_image" ] && [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] &&
-  [[ "${EQUIVALENT_COMMIT:-}" =~ ^[0-9a-f]{40}$ ]]; then
+  [[ "${GITHUB_REF:-}" != refs/tags/* ]] && [[ "${EQUIVALENT_COMMIT:-}" =~ ^[0-9a-f]{40}$ ]]; then
   equivalent="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://registry.fly.io/${app}:deploy-${EQUIVALENT_COMMIT}" 2>/dev/null || true)"
   if [[ "$equivalent" =~ ^sha256:[0-9a-f]{64}$ ]]; then
     echo "Reusing ${EQUIVALENT_COMMIT:0:7}'s image for ${GITHUB_SHA:0:7}: ${equivalent}"
