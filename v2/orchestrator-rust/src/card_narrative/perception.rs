@@ -272,7 +272,7 @@ pub(super) fn lines(context: &Context, entity: &Entity, p: &Perception) -> Vec<(
 
 #[cfg(test)]
 mod tests {
-    use super::super::{tests::context, valid};
+    use super::super::{tests::context, valid, Part};
     use super::*;
 
     #[test]
@@ -314,5 +314,46 @@ mod tests {
             ..Default::default()
         };
         assert!(!with(nowhere, &mut c));
+    }
+
+    const HARBOR: &str = "import { committed, greek, wait, witnessed } from './test/fixtures/card-branch-ways.mjs'; \
+        console.log(JSON.stringify({ open: wait(wait(greek())), egypt: committed('egypt'), \
+          troy: committed('troy'), witness: witnessed('egypt') }));";
+
+    #[test]
+    fn shared_prompts_name_a_way_on_one_branch_only_to_who_settled_it() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let output = std::process::Command::new("node")
+            .current_dir(root.parent().unwrap().parent().unwrap())
+            .args(["--input-type=module", "-e", HARBOR])
+            .output()
+            .expect("Node builds the harbour worlds");
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let worlds: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let (tomb, beach) = ("Proteus's Tomb in Egypt", "The Homecoming Beach");
+        for (case, world) in worlds.as_object().unwrap() {
+            let request = serde_json::json!({"world": world, "actor": "vale"});
+            let shared = crate::card_shared::narrator_context(&request).unwrap();
+            let c: Context = serde_json::from_value(shared).unwrap();
+            for entity in &c.entities {
+                let prompt: String = [Part::Line, Part::Thought, Part::Persona]
+                    .map(|part| {
+                        let p = super::super::messages(&c, entity, part);
+                        [p.system, p.lead, p.assistant, p.user].concat()
+                    })
+                    .concat();
+                let id = &entity.id;
+                assert!(!prompt.contains(beach), "{case} {id}: {prompt}");
+                if case != "witness" {
+                    assert!(!prompt.contains(tomb), "{case} {id}: {prompt}");
+                } else if id == "vale" {
+                    assert!(prompt.contains(&format!("{tomb} is open")), "{prompt}");
+                }
+            }
+        }
     }
 }

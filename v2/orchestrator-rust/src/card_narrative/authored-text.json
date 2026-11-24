@@ -10,6 +10,7 @@
 "v2/card-game/boardyai.json",
 "v2/card-game/boardyai.mjs",
 "v2/card-game/book-schema.mjs",
+"v2/card-game/branch-ways.mjs",
 "v2/card-game/claims.mjs",
 "v2/card-game/conversation.mjs",
 "v2/card-game/daylight.mjs",

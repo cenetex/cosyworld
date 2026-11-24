@@ -22,6 +22,8 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::OwnedSemaphorePermit;
+#[path = "channel_ways.rs"]
+mod ways;
 
 const LIMIT: RateLimit = RateLimit {
     max_hits: 30,
@@ -209,10 +211,7 @@ fn atlas(pack_id: &str) -> Atlas {
             );
         }
     }
-    let routes = world
-        .and_then(|p| p["routes"].as_array())
-        .into_iter()
-        .flatten();
+    let routes = ways::routes(world);
     for (from, to) in routes.filter_map(|r| Some((r["from"].as_str()?, r["to"].as_str()?))) {
         if let Some(paths) = places.get_mut(from).and_then(|p| p["paths"].as_array_mut()) {
             if !paths.contains(&json!(to)) {
