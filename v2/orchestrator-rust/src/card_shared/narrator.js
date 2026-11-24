@@ -17738,8 +17738,6 @@
   var VARIANTS = ["asleep", "awake", "irritated"];
   var record4 = (v) => v && typeof v === "object" && !Array.isArray(v);
   var LORE_PAGE_CHARS = 1200;
-  var LORE_PAGES = 3;
-  var LORE_CHARS = 2400;
   var owns4 = (o, key2) => record4(o) && typeof key2 === "string" && Object.hasOwn(o, key2);
   var idOk3 = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
   var proseOk = (v, max = 1200) => v === void 0 || textOk(v, max);
@@ -19269,27 +19267,6 @@
     for (const condition of conditions)
       if (!conditionMet(world, condition, null, packId, actor)) return false;
     return true;
-  }
-  function lorePages(world, holder, scene) {
-    const books = [holder, ...Object.keys(world.items)].filter(
-      (item, n) => packThings[item]?.lore && (n === 0 || world.items[item].holder === holder) && entityEnabled(world, item)
-    );
-    const pages = books.flatMap(
-      (item) => packThings[item].lore.flatMap(
-        (page, n) => (page.about === void 0 || scene.includes(page.about)) && conditionsMet(world, packThings[item].packId, page.requires) ? [{ ref: `${item}#${n}`, size: page.text.length, about: page.about }] : []
-      )
-    );
-    const kept = [];
-    let size = 0;
-    for (const page of [
-      ...pages.filter((page2) => page2.about).reverse(),
-      ...pages.filter((page2) => !page2.about).reverse()
-    ])
-      if (kept.length < LORE_PAGES && size + page.size <= LORE_CHARS) {
-        kept.unshift(page.ref);
-        size += page.size;
-      }
-    return kept;
   }
   function choiceText(choice, actor) {
     if (choice.textTemplate !== void 0)
@@ -23267,11 +23244,9 @@
             scene
           )
         );
-        const lore = lorePages(world, id, scene);
         return {
           id,
           poem: recitalContext(world, packDefinitions, id),
-          ...lore.length ? { lore } : {},
           facts: facts.slice(0, 16).map((text2) => text2.slice(0, 240)),
           desire,
           memories: speechMemories(world.memories[id], {

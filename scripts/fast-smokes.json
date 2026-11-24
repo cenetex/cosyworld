@@ -61,6 +61,10 @@
       "smokes": ["smoke-card-speech-queue"]
     },
     {
+      "paths": "^v2/card-game/app\\.mjs$",
+      "smokes": ["smoke-card-read"]
+    },
+    {
       "paths": "^v2/card-game/authoring-create-transfer\\.mjs$|^v2/scripts/smoke-authoring-create-transfer\\.mjs$",
       "smokes": ["smoke-authoring-create-transfer"]
     },

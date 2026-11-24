@@ -341,6 +341,16 @@ async fn unknown_and_oversized_fields_are_refused() {
     );
 }
 
+#[test]
+fn lore_page_ids_from_an_older_tab_are_accepted_and_ignored() {
+    let mut value = json!(remembered());
+    value["entities"][0]["lore"] = json!(["greek-guide#49"]);
+    let old = trusted(serde_json::from_value(value).unwrap()).unwrap();
+    let plain = trusted(remembered()).unwrap();
+    let prompt = |c: &Context| transcript(c, &c.entities[0], Part::Line);
+    assert_eq!(prompt(&old), prompt(&plain));
+}
+
 /// Every string a browser scene carries, with an instruction in it, is
 /// either refused or kept out of every prompt.
 #[tokio::test]
