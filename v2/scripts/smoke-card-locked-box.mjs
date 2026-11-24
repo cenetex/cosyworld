@@ -18,7 +18,6 @@ import {
   revealCard,
   selectCard,
   smokeWidths,
-  tapCard,
 } from "./card-browser-helpers.mjs";
 
 const FIELD = "greek-battlefield";
@@ -237,52 +236,13 @@ try {
         await page.keyboard.press("Escape");
         await selectCard(page, "greek-guard");
       }
-      await page.evaluate(() => {
-        const watch = new MutationObserver(() => {
-          const card = document.querySelector('.want-card[data-unrevealed="true"][aria-label="Face-down quest"]');
-          if (!card) return;
-          const back = card.querySelector(".card-back");
-          window.closedQuestEvidence = { src: back.src, label: card.getAttribute("aria-label"),
-            border: getComputedStyle(card).borderTopColor, outline: getComputedStyle(back).outline,
-            locked: card.dataset.locked, near: card.dataset.near, art: getComputedStyle(card.querySelector(".quest-screen")).visibility };
-          watch.disconnect();
-        });
-        watch.observe(document.getElementById("hand"), { subtree: true, childList: true, attributes: true });
-      });
       await readyActionButton(page, "talk").click();
       await ready();
       await page.keyboard.press("Escape");
       await selectCard(page, FIELD);
-      await tapCard(page.locator('#hand .want-frame[data-quest-id="offer:0"] > .want-card'));
-      await readyActionButton(page, "accept").click();
-      await page.waitForFunction(
-        (key) => Boolean(JSON.parse(localStorage.getItem(key)).actors.vale.want),
-        key,
-      );
-      const vale = (await state()).actors.vale;
-      assert(
-        [vale.want, ...(vale.under || [])].some(
-          (w) => w.from === "quest:box:greek-battlefield",
-        ),
-        "the box's quest is held",
-      );
-      assert.equal(await page.locator('#hand [data-card^="quest:"]').count(), 0);
-      const questLid = await page.evaluate(() => window.closedQuestEvidence);
-      if (questLid) {
-        assert.equal(questLid.src, plainLid.src);
-        assert.equal(questLid.label, "Face-down quest");
-        assert.equal(questLid.locked, "false");
-        assert.notEqual(questLid.border, closedLid.border);
-        assert.equal(questLid.near, "false");
-        assert.equal(questLid.art, "hidden");
-      }
-      const edges = await page.locator(".quest-edge, .quest-fold:not([data-owner]), .place-edge").all();
-      assert(edges.length > 0, "the hand contains folded card layers");
-      for (const edge of edges) {
-        const back = await edge.evaluate((el) => getComputedStyle(el).getPropertyValue("--card-back"));
-        assert.match(back, /card-back.webp/u);
-        assert.doesNotMatch(back, /locked/u);
-      }
+      assert.equal(await page.locator('#hand .want-frame[data-quest-id="offer:0"]').count(), 0, "the shut box lays out no quest card");
+      assert.equal(await page.locator('#card-actions [data-action="accept"]').count(), 0);
+      assert.equal((await state()).actors.vale.want, null);
       await page.keyboard.press("Escape");
       await boxed();
 

@@ -107,7 +107,6 @@ import {
   isQuestId,
   isTarotKey,
   levelCards,
-  offerCard,
   offerWords,
   questCards,
   questVisible,
@@ -552,38 +551,18 @@ const visibleQuests = () =>
   shownQuests.filter((quest) => questVisible(world, quest));
 const foldQuest = () => visibleQuests()[0] ?? null;
 const entryIdOf = (quest) => (quest.kind === "arcanum" ? quest.key : questId());
-const OFFER_CARD = "offer:0";
-let boxAsk = null;
-const standingOffer = () =>
-  (!pipPrelude() && boxAsk && offerCard(world, currentActor(world), boxAsk)) || null;
-const offerFront = () => questOpen === OFFER_CARD && Boolean(standingOffer());
-const isResidentOffer = (id) => typeof id === "string" && id.startsWith("offer:") && id !== OFFER_CARD;
+const isResidentOffer = (id) => typeof id === "string" && id.startsWith("offer:");
 const tableHand = () =>
   pipPrelude()
     ? []
     : tableQuests(world, currentActor(world), availableCards(world).filter((id) => !cardIsClosed(id)));
-function syncOffer() {
-  const shut = selected.filter((id) => !cardIsCovered(id) && isLockedBox(world, id));
-  if (shut.length === 1) boxAsk = shut[0];
-  else if (selected.length === 1 && selected[0] === placeHere()) boxAsk = selected[0];
-  else if (questOpen !== OFFER_CARD) boxAsk = null;
-  if (isResidentOffer(questOpen) && !questEntry(questOpen)) questOpen = false;
-}
-function besideBox(cards) {
-  if (!cards.includes(boxAsk) || !cards.includes(OFFER_CARD)) return cards;
-  const hand = cards.filter((id) => id !== OFFER_CARD);
-  hand.splice(hand.indexOf(boxAsk) + 1, 0, OFFER_CARD);
-  return hand;
-}
 const questEntries = () => {
   const shown = visibleQuests(),
-    quest = shown.find((q) => q.kind !== "arcanum"),
-    offer = standingOffer();
+    quest = shown.find((q) => q.kind !== "arcanum");
   return [
     ...[...shown.filter((q) => q.kind === "arcanum"), ...(quest ? [quest] : [])].map(
       (q) => ({ id: entryIdOf(q), quest: q }),
     ),
-    ...(offer ? [{ id: OFFER_CARD, quest: offer }] : []),
     ...tableHand().filter((table) => table.quest),
   ];
 };
@@ -866,13 +845,12 @@ function ownSharedEntry() {
 // shared table's seat makes it do, and the next scene is asked after it.
 const localWordsPending = () => !sharedSession && storyStatus === "pending";
 const playQueue = createPlayQueue({
-  ready: (action) =>
-    (action.kind === "accept" ||
-      (!cardsCooling &&
-        performance.now() >= swapEnd &&
-        (!localWordsPending() || openingWordsDue()) &&
-        !exchange.current &&
-        reveal.complete)) &&
+  ready: () =>
+    !cardsCooling &&
+    performance.now() >= swapEnd &&
+    (!localWordsPending() || openingWordsDue()) &&
+    !exchange.current &&
+    reveal.complete &&
     (!sharedSession ||
       (!sharedSending &&
         !sharedSession.state.queue?.some(
@@ -2092,9 +2070,7 @@ function choose(id) {
   const firstItem =
     id === placeHere()
       ? hand.querySelector(`.card-frame[data-holder="${id}"]:not([hidden])`)
-      : id === boxAsk
-        ? hand.querySelector(`.card-frame[data-quest-id="${OFFER_CARD}"]`)
-        : null;
+      : null;
   revealHandCard(id, { nextFrame: firstItem });
 }
 function dragPlay(cards) {
@@ -2168,14 +2144,8 @@ function performAction(action, revision) {
     render();
     return;
   }
-  // Taking a quest passes no turn and leaves the scene and its speech be.
-  if (action.kind === "pack" || action.kind === "accept") {
-    const offered = action.kind === "accept" && (pickedQuest()?.offer ? pickedQuest() : standingOffer());
-    if (offered) {
-      questsInView.seen(questFaceKey(offered));
-      revealedQuests.add(questFaceKey(offered));
-      questOpen = false;
-    }
+  // Switching a pack passes no turn and leaves the scene and its speech be.
+  if (action.kind === "pack") {
     world = result.state;
     save();
     render();
@@ -2688,7 +2658,7 @@ function lingeringWords(inFlight) {
 }
 function presentPhase() {
   if (restedChoice !== choiceKey()) restedChoice = null;
-  if (queuedChoice ? rowCollapsed || (!selected.length && !questOpen) || restedChoice !== null || offerFront() : restedChoice === null && exchange.read) {
+  if (queuedChoice ? rowCollapsed || (!selected.length && !questOpen) || restedChoice !== null : restedChoice === null && exchange.read) {
     queuedChoice = false;
     queueMicrotask(() => exchange.settleLast());
   }
@@ -2701,7 +2671,6 @@ function presentPhase() {
     // is opened first, and the line carries on after Done.
     revealing:
       !(packPrompt() && pack.state !== "closed") &&
-      !offerFront() &&
       (queuedChoice || !reveal.complete || exchange.hasNext || inscribing.size > 0),
     inFlight,
     lingering: lingeringWords(inFlight),
@@ -2814,7 +2783,7 @@ function renderActions() {
     sentence = lockShown
       ? lockShown.text
       : questShown
-        ? questShown.offer && !questShown.box
+        ? questShown.offer
           ? offerWords(questShown, known)
           : shownQuestCaption(questShown, false)
         : (
@@ -2878,7 +2847,7 @@ function renderActions() {
   $("action-beat").style.setProperty("--tier-color", rarest.color);
   // A folded row lies low even with a choice in it.
   document.querySelector(".play-dock").dataset.selected = String(
-    (selected.length > 0 && !rowCollapsed) || Boolean(packPrompt()) || offerFront(),
+    (selected.length > 0 && !rowCollapsed) || Boolean(packPrompt()),
   );
   // Settings' hand of cards stands raised (settings-cards.mjs).
   document.body.dataset.handExpanded = String(
@@ -2940,52 +2909,30 @@ function renderActions() {
   const confirmKey = drop ? `${revision}:${picked.key}` : null;
   if (abandonQuest !== confirmKey) abandonQuest = null;
   const dropLabel = drop && playLabel(drop, world);
-  const accept =
-    picked?.offer &&
-    legal.find(
-      (a) =>
-        a.kind === "accept" &&
-        (picked.place ? a.place : picked.box ? a.box : a.target) === picked.offer,
-    );
   const questButtons = abandonQuest
     ? [{ action: drop, label: "Confirm?" }]
     : drop
       ? [{ action: drop, label: dropLabel }]
-      : accept
-        ? [{ action: accept, label: playLabel(accept, world) }]
-        : picked?.full
-          ? [{ action: null, label: "Your quest slots are full" }]
-          : picked?.offer
-            ? [{ action: null, label: "Not while fighting" }]
-            : [];
+      : [];
   for (const { action, label } of questButtons) {
-    const discard = action?.kind === "drop" && !action.item,
-      button = node(
-        "button",
-        label,
-        action && !discard ? "card-primary" : "card-action",
-      );
+    const button = node("button", label, "card-action");
     button.type = "button";
-    if (discard) {
-      button.dataset.dropQuest = String(picked.index);
-      button.dataset.destructive = "";
-      button.title = "Discard this quest";
-    } else button.dataset.action = "accept";
-    button.disabled = Boolean(action) && selectionBlocked();
-    if (!action) blockPlay(button, picked.full ? "full" : "fight");
-    else
-      button.onclick = () => {
-        if (performance.now() - heldAt < TAP_GUARD_MS) return;
-        if (discard && !abandonQuest) {
-          abandonQuest = confirmKey;
-          renderActions();
-          row.lastElementChild?.focus();
-          return;
-        }
-        abandonQuest = null;
-        if (discard) questOpen = false;
-        commitAction(action, revision);
-      };
+    button.dataset.dropQuest = String(picked.index);
+    button.dataset.destructive = "";
+    button.title = "Discard this quest";
+    button.disabled = selectionBlocked();
+    button.onclick = () => {
+      if (performance.now() - heldAt < TAP_GUARD_MS) return;
+      if (!abandonQuest) {
+        abandonQuest = confirmKey;
+        renderActions();
+        row.lastElementChild?.focus();
+        return;
+      }
+      abandonQuest = null;
+      questOpen = false;
+      commitAction(action, revision);
+    };
     row.append(button);
   }
   // An item with its own view offers a client-only Look; it plays nothing.
@@ -3074,7 +3021,7 @@ function renderActions() {
   } else if (questShown && row.childElementCount === 1) {
     cardTapHint(
       row.firstElementChild,
-      abandonQuest ? "Confirm" : questShown.offer ? "Accept" : "Discard",
+      abandonQuest ? "Confirm" : "Discard",
     );
   } else if (
     sentence &&
@@ -3556,8 +3503,7 @@ const cardBackImage = () =>
   `url("${imageUrl(CARD_BACK, "card")}")`;
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
-// words. It glows while the target is near. The card itself plays nothing:
-// chosen, the context button offers Discard.
+// words. It glows while the target is near, and plays nothing.
 const questCovered = (quest) => !quest.target || cardIsClosed(quest.target);
 const known = (id) => !cardIsClosed(id);
 function shownQuestCaption(quest, includeLevel = true) {
@@ -3592,7 +3538,7 @@ function questView(quest) {
 }
 const questLabel = (quest, near) => {
   if (quest.face === "down") return "A face-down card";
-  if (quest.offer && !quest.box) return offerWords(quest, known);
+  if (quest.offer) return offerWords(quest, known);
   const caption = quest.level
     ? `Level Up ${romanLevel(quest.level)}: ${shownQuestCaption(quest, false)}`
     : shownQuestCaption(quest);
@@ -3658,7 +3604,7 @@ function questFrame({ id, quest }) {
   );
   el.addEventListener("click", () => {
     if (finishCardReveal(id) || selectionBlocked() || packTap(id)) return;
-    if (questOpen === id && id !== OFFER_CARD && shownPhase === "choosing") {
+    if (questOpen === id && shownPhase === "choosing") {
       questOpen = false;
       render();
     } else openQuest(id);
@@ -4645,8 +4591,7 @@ function choiceInStack() {
     !borrowedBeat &&
     shownPhase === "choosing" &&
     ($("card-actions").childElementCount > 0 ||
-      !document.querySelector(".action-beat-heading").hidden) &&
-    !offerFront()
+      !document.querySelector(".action-beat-heading").hidden)
   );
 }
 function choiceInFront() {
@@ -4996,7 +4941,6 @@ for (const id of ["hand", "settings-hand"]) {
   });
 }
 function render() {
-  syncOffer();
   if (questOpen && !questEntry(questOpen)) questOpen = false;
   for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
     delete card.dataset.hovered;
@@ -5082,19 +5026,17 @@ function render() {
   if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
   packPlace = placeHere();
   const handCards = packHand(
-    besideBox(
-      chosenFirst(
-        besideOwners(
-          handWithQuest(
-            pipPrelude()
-              ? ["moth"]
-              : stackPlaces(availableCards(world)),
-            world,
-            questEntries().map((entry) => entry.id).filter((id) => !isResidentOffer(id)),
-          ),
-          tableHand(),
+    chosenFirst(
+      besideOwners(
+        handWithQuest(
+          pipPrelude()
+            ? ["moth"]
+            : stackPlaces(availableCards(world)),
           world,
+          questEntries().map((entry) => entry.id).filter((id) => !isResidentOffer(id)),
         ),
+        tableHand(),
+        world,
       ),
     ),
   );
@@ -5187,7 +5129,7 @@ function render() {
         { frames, changed, faces } = keepFrames(
           row,
           handCards.map((id) =>
-            isQuestId(id) || isTarotKey(id) || id === OFFER_CARD || isResidentOffer(id)
+            isQuestId(id) || isTarotKey(id) || isResidentOffer(id)
               ? questFrame(questEntry(id) ?? { id })
               : card(id),
           ),
