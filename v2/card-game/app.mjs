@@ -279,6 +279,7 @@ import {
   sealedReason,
   asleepReason,
   settledChoice,
+  sharedMeal,
 } from "./cards.mjs";
 // The hand holds people, items and places, and the player's quest cards.
 const $ = (id) => document.getElementById(id);
@@ -1981,9 +1982,6 @@ function packDismiss() {
   if (pack.dismiss({ unturned: cardIsCovered, turnNow: packTurnNow, tierOf: packTier }))
     sfx.card("settle", 3);
 }
-function sharingMeal(cards) {
-  return cards.length === 3 && cardPlay(world, cards).action?.kind === "eat";
-}
 function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (reviewing) returnToLive();
@@ -2030,7 +2028,7 @@ function choose(id) {
       selected.filter((cardId) => cardId !== id),
       { keepOpen: true },
     );
-  else if (sharingMeal(withCard)) selectCards(withCard, { keepOpen: true });
+  else if (sharedMeal(world, withCard)) selectCards(withCard, { keepOpen: true });
   else if (id === actor && expandedHolders.has(actor)) {
     const settled = !avatarFan && !questChosen && selected.join("+") === actor;
     avatarFan = null;
@@ -3488,7 +3486,7 @@ function card(id) {
       rowCollapsed = false;
       const withCard = [...dragging, id];
       selectCards(
-        sharingMeal(withCard)
+        sharedMeal(world, withCard)
           ? withCard
           : places[dragging[0]] && places[id]
             ? [id]
