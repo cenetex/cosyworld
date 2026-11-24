@@ -3637,22 +3637,6 @@
             }
           }
         ],
-        topics: [
-          {
-            id: "badger-no-bells",
-            speaker: "badger",
-            at: "clearing",
-            text: "Badger says one more bell will spoil his nap for good.",
-            requires: []
-          },
-          {
-            id: "badger-cold-moss",
-            speaker: "badger",
-            at: "clearing",
-            text: "Badger says the moss goes cold when the clock stops steaming.",
-            requires: []
-          }
-        ],
         hiding: {
           pool: [
             {
@@ -10118,83 +10102,6 @@
         ],
         topics: [
           {
-            id: "greek-hear-decree",
-            speaker: "greek-guard",
-            at: "greek-gate",
-            text: "Creon's order forbids burial for Polyneices.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-hear-mothers",
-            speaker: "greek-aethra",
-            at: "greek-eleusis",
-            text: "The Argive mothers ask Athens to recover their sons' remains for burial.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-hear-adrastus",
-            speaker: "greek-adrastus",
-            at: "greek-eleusis",
-            text: "Adrastus led the failed attack on Thebes and set aside a warning.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-hear-pyre",
-            speaker: "greek-aethra",
-            at: "greek-eleusis",
-            text: "Evadne died at Capaneus's pyre despite Iphis's plea.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-colonus-enter",
-            speaker: "greek-colonus-keeper",
-            at: "greek-colonus",
-            text: "In the earlier tale, Theseus gave Oedipus shelter at Colonus before the Theban brothers died.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-colonus-daughters",
-            speaker: "greek-colonus-keeper",
-            at: "greek-colonus",
-            text: "In the earlier tale, Theseus recovered Oedipus's daughters and Oedipus refused his son's appeal for war.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-colonus-farewell",
-            speaker: "greek-colonus-keeper",
-            at: "greek-colonus",
-            text: "In the earlier tale, Oedipus entrusted his final place to Theseus alone.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-marathon-enter",
-            speaker: "greek-marathon-keeper",
-            at: "greek-marathon",
-            text: "In the separate tale under Demophon, Heracles's children sought shelter and the king upheld their protection.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-marathon-daughter",
-            speaker: "greek-marathon-keeper",
-            at: "greek-marathon",
-            text: "In the separate tale, Heracles's daughter offered her life for her siblings after Demophon refused to compel a household.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-marathon-battle",
-            speaker: "greek-marathon-keeper",
-            at: "greek-marathon",
-            text: "In the separate tale, Athens won the battle after the daughter's sacrifice and Eurystheus was brought back alive.",
-            requires: []
-          },
-          {
-            id: "greek-open-door-marathon-captive",
-            speaker: "greek-marathon-keeper",
-            at: "greek-marathon",
-            text: "In the separate tale, Alcmene demanded Eurystheus's death while the city's rule protected a prisoner taken alive.",
-            requires: []
-          },
-          {
             id: "greek-ajax-plea",
             speaker: "greek-ajax-teucer",
             at: "greek-greek-camp",
@@ -13573,22 +13480,6 @@
             use: "The River Notebook's claims are distilled from its passages. The exact downloaded source is kept in source-text.txt."
           }
         ],
-        topics: [
-          {
-            id: "willows-supper",
-            speaker: "willows-swede",
-            at: "willows-camp",
-            text: "The Swede says a hot supper keeps the fear smaller than the river.",
-            requires: []
-          },
-          {
-            id: "willows-channels",
-            speaker: "willows-swede",
-            at: "willows-camp",
-            text: "The Swede says the river has cut new channels since the map was drawn.",
-            requires: []
-          }
-        ],
         hiding: {
           pool: [
             {
@@ -15283,164 +15174,6 @@
               }
             ],
             choiceId: "forest-hear-walkers-oak"
-          },
-          {
-            id: "forest-warm-kettle",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi keeps the kettle warm for anyone walking home late.",
-            requires: []
-          },
-          {
-            id: "forest-night-watch",
-            speaker: "oak",
-            at: "forest-oak",
-            text: "Oak says the Wolfprint Charm opens the path from his roots to the Moonlit Trail, where Skull walks each night.",
-            requires: []
-          },
-          {
-            id: "forest-button-vale",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi says she would sew Vale's black button into a white scarf, once Vale finds where it has gone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-button-vale-hidden",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-scarf-vale-sewn",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "forest-button-mara",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi says she would sew Mara's red button into a green scarf, once Mara finds where it has gone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-button-mara-hidden",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-scarf-mara-sewn",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "forest-button-ash",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi says she would sew Ash's orange button into a blue scarf, once Ash finds where it has gone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-button-ash-hidden",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-scarf-ash-sewn",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "forest-button-nell",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi says she would sew Iris's yellow button into a violet scarf, once Iris finds where it has gone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-button-nell-hidden",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-scarf-nell-sewn",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "forest-button-tavi",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi says she would sew Tavi's green button into a red scarf, once Tavi finds where it has gone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-button-tavi-hidden",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-scarf-tavi-sewn",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "forest-button-rue",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi says she would sew Rue's blue button into a orange scarf, once Rue finds where it has gone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-button-rue-hidden",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-scarf-rue-sewn",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "forest-button-orin",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi says she would sew Cass's indigo button into a amber scarf, once Cass finds where it has gone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-button-orin-hidden",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-scarf-orin-sewn",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "forest-button-ada",
-            speaker: "rati",
-            at: "forest-cottage",
-            text: "RATi says she would sew Sage's violet button into a yellow scarf, once Sage finds where it has gone.",
-            requires: [
-              {
-                kind: "flag",
-                key: "forest-button-ada-hidden",
-                value: true
-              },
-              {
-                kind: "flag",
-                key: "forest-scarf-ada-sewn",
-                value: false
-              }
-            ]
           }
         ],
         sources: [
@@ -15996,41 +15729,6 @@
               }
             ],
             on: "meet"
-          }
-        ],
-        topics: [
-          {
-            id: "ratiradio-bring-them-home",
-            speaker: "ratiradio-rati",
-            at: "ratiradio-listening-room",
-            text: "RATi touches the ring on the table; the glass, the beanie, the little ceramic bird: he has kept their places.",
-            requires: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: false
-              }
-            ]
-          },
-          {
-            id: "ratiradio-rati-home",
-            speaker: "ratiradio-rati",
-            at: "ratiradio-listening-room",
-            text: "RATi calls the Listening Room home; he can wander far, but comes back here before each new level.",
-            requires: []
-          },
-          {
-            id: "ratiradio-little-one",
-            speaker: "ratiradio-raven",
-            at: "ratiradio-listening-room",
-            text: "Raven calls the ceramic figurine its quiet double, a little bird that needs no voice.",
-            requires: [
-              {
-                kind: "flag",
-                key: "raven-awake",
-                value: true
-              }
-            ]
           }
         ],
         bridge: {
@@ -19600,7 +19298,7 @@
       if (text2) fact.text = text2;
       else if (reworked.size) forgetFact(s.knowledge, id);
     }
-    reconcileTopics(s, reworked);
+    reconcileTopics(s);
     reconcileClaims(s);
     for (const pack of packDefinitions)
       if (reworked.has(pack.id)) s.packs[pack.id].revision = pack.revision;
@@ -19742,7 +19440,7 @@
           a.place = pack.entry;
     }
   }
-  function reconcileTopics(s, reworked) {
+  function reconcileTopics(s) {
     const k = s?.knowledge;
     if (!k?.facts || typeof k.facts !== "object") return;
     const topics = new Map(
@@ -19752,7 +19450,7 @@
     );
     for (const [id, fact] of Object.entries(k.facts)) {
       const told = fact?.source?.kind === "topic" && fact.source.topic;
-      if (!told || !reworked.has(told.packId)) continue;
+      if (!told) continue;
       const topic = topics.get(`${told.packId}:${told.id}`);
       if (topic?.id === id && topic.speaker === fact.source.actorId && topic.at === fact.source.locationId) {
         fact.text = topic.text;

@@ -1038,14 +1038,6 @@
       "item:willows-notebook": [
         "flag:willows-willows-paced"
       ],
-      "topic:willows-channels": [
-        "place:willows-camp",
-        "resident:willows-swede"
-      ],
-      "topic:willows-supper": [
-        "place:willows-camp",
-        "resident:willows-swede"
-      ],
       "want:willows-swede": [
         "place:willows-landing",
         "resident:willows-swede"

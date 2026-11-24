@@ -36,7 +36,7 @@ fn remembered() -> Context {
     let mut c = context();
     c.disclosures = serde_json::from_value(json!([{
         "factId": "kettle", "speaker": "vale", "listener": "moth", "eventSeq": 3,
-        "text": "RATi keeps the kettle warm for anyone walking home late.",
+        "text": "Teucer asks Odysseus to support Ajax’s burial in the Trojan account.",
     }]))
     .unwrap();
     c.conversation.push(SpokenLine {

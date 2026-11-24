@@ -46,6 +46,8 @@ fn command(op: &str, key: &str) -> full::Command {
     }
 }
 
+const TOLD: &str = "lane:greek-harbor>greek-piraeus";
+
 #[test]
 fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
     let (path, c, id, _) = fixture(engine::VERSION);
@@ -62,11 +64,11 @@ fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
     let disclosure = &disclosures[0];
     assert_eq!(disclosure["speaker"], "greek-guard");
     assert_eq!(disclosure["listener"], "vale");
-    assert_eq!(disclosure["factId"], "greek-hear-decree");
+    assert_eq!(disclosure["factId"], TOLD);
     let played_turn = work.context["turn"].clone();
     let interrupted = full_store::world(&c, &id, now()).unwrap();
     assert!(interrupted.game["knowledge"]["known"]["vale"]
-        .get("greek-hear-decree")
+        .get(TOLD)
         .is_some());
     assert_eq!(
         interrupted.game["packs"]["greek-drama"]["receipts"]["greek-hear-decree"],
@@ -100,7 +102,7 @@ fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
     full::finish_work(&app, &id, retry, Ok(lines)).unwrap();
     let expected = full_store::world(&c, &id, now()).unwrap();
     assert_eq!(expected.game["turn"], played_turn);
-    let learned = &expected.game["knowledge"]["known"]["vale"]["greek-hear-decree"];
+    let learned = &expected.game["knowledge"]["known"]["vale"][TOLD];
     assert_eq!(learned["kind"], "heard");
     assert_eq!(learned["teller"], "greek-guard");
     assert_eq!(learned["learnedTurn"], played_turn);
@@ -108,7 +110,7 @@ fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
         expected.game["packs"]["greek-drama"]["receipts"]["greek-hear-decree"],
         played_turn
     );
-    // The heard decree is a receipt and a known fact; no quest record joins it.
+    // The heard lane is a known fact; no quest record joins it.
     assert!(expected.game.get("quests").is_none());
     full::finish_work(&app, &id, duplicate, Err("A duplicate reply.".into())).unwrap();
     full::finish_work(&app, &id, stale_attempt, Err("An earlier attempt.".into())).unwrap();

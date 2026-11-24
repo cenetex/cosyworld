@@ -45,7 +45,7 @@ fn rules_sentences_are_authored_and_instructions_are_not() {
             Field::Facts,
             "The keeper refused Vale's request for Bell (refusal: needs-it). The keeper needs it. Nothing changed.",
         ),
-        (Field::Disclosures, "RATi keeps the kettle warm for anyone walking home late."),
+        (Field::Disclosures, "Teucer asks Odysseus to support Ajax’s burial in the Trojan account."),
         (Field::Disclosures, "The keeper wants the Bell given to Pip."),
         (Field::Disclosures, "Pip wants to see Ledger (Opus 4.7)."),
         (
