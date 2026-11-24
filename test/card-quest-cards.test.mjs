@@ -14,8 +14,9 @@ import {
 import { availableCards } from "../v2/card-game/cards.mjs";
 import { restsAt } from "../v2/card-game/world/home.mjs";
 import { offerFrom } from "../v2/card-game/offer-chance.mjs";
-import { DREAM_FROM, heldOf, levelOf, sleepQuest, wantOf } from "../v2/card-game/want.mjs";
+import { DREAM_FROM, heldOf, levelOf, sleepQuest } from "../v2/card-game/want.mjs";
 import { wantFact } from "../v2/card-game/want-talk.mjs";
+import { toldWant } from "../v2/card-game/talk-quest.mjs";
 import { nameOf } from "../v2/card-game/world/catalog.mjs";
 import { greekErrands } from "./helpers/greek-opening.mjs";
 import { acceptBox } from "./helpers/accept-quest.mjs";
@@ -235,15 +236,17 @@ describe("a fresh world to the first level", () => {
     expect(questOffers(w.opened)).toEqual([]);
     expect(heldOf(w.opened.actors.vale)).toEqual([]);
   });
-  it("offers Pip's quest as his Talk ends, always, and holds it once accepted", () => {
+  it("teaches Pip's quest as his Talk ends and holds nothing", () => {
     expect(heldOf(w.told.actors.vale)).toEqual([]);
     expect(offerFrom(w.told, "vale")).toBe("moth");
-    expect(wantOf(w.accepted, "vale")).toMatchObject({ target: "lamp", from: "quest:from:moth" });
+    expect(toldWant(w.told, "vale", "moth")).toBe(true);
   });
-  it("meets the held quest and earns no XP", () => {
-    expect(wantOf(w.accepted, "vale")).toMatchObject({ target: "lamp" });
+  it("meets the known card with no Accept and earns no XP", () => {
     expect(sources(w.met)).toEqual([]);
     expect(w.met.actors.vale.xp).toBe(0);
+    expect(w.met.log.filter((e) => e.verb === "want_met" && e.actorId === "vale")).toEqual([
+      expect.objectContaining({ ownerId: "moth", wantMet: { kind: "item", target: "lamp" } }),
+    ]);
     expect(w.met.actors.vale.closed["quest:from:moth"][1]).toContain("lamp");
   });
   it("levels by cards, not by a long rest at home", () => {

@@ -233,31 +233,23 @@
       ],
       "sha256": "88c42619216f8f27"
     },
-    "accepted": {
-      "turn": 2,
-      "place": "pond",
-      "carried": [
-        "lamp"
-      ],
-      "sha256": "c943d7caa42384d9"
-    },
     "met": {
       "turn": 3,
       "place": "pond",
       "carried": [],
-      "sha256": "8db35aaf56ba5d85"
+      "sha256": "750f17256a0bf1ac"
     },
     "sleepQuest": {
       "turn": 3,
       "place": "pond",
       "carried": [],
-      "sha256": "8db35aaf56ba5d85"
+      "sha256": "750f17256a0bf1ac"
     },
     "levelled": {
       "turn": 24,
       "place": "attic",
       "carried": [],
-      "sha256": "bbda7ee817792905"
+      "sha256": "5670f7378438f78e"
     }
   }
 }

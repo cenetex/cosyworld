@@ -34,6 +34,8 @@ const output = new URL(
 );
 await mkdir(output, { recursive: true });
 const journey = journeyWorlds(questCards);
+const told = decodeSave(encodeSave(journey.told));
+const accepted = play(told, legalActions(told).find((a) => a.kind === "accept" && a.target === "moth")).state;
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -344,7 +346,7 @@ try {
     {
       const t = await open(
         "quest-offers-covered",
-        decodeSave(encodeSave(journey.accepted)),
+        decodeSave(encodeSave(accepted)),
         ["lamp"],
       );
       const { page } = t;
@@ -376,7 +378,7 @@ try {
 
     // 4. Meeting the want pays a traveler no XP and needs no Claim.
     {
-      const t = await open("quest-offers-met", decodeSave(encodeSave(journey.accepted)));
+      const t = await open("quest-offers-met", decodeSave(encodeSave(accepted)));
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-met-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
@@ -436,7 +438,7 @@ try {
     }
 
     {
-      const world = decodeSave(encodeSave(journey.accepted));
+      const world = decodeSave(encodeSave(accepted));
       holdQuest(world, "vale", newWant("item", "cloth", world.turn), "quest:box:test");
       const t = await open("quest-offers-stack", world);
       const { page } = t;
