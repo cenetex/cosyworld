@@ -96,7 +96,7 @@ import {
   settleHomeLevels,
   wantOf,
   wantKey,
-  wantMet,
+  staleWants,
   travels,
   resting,
   settleWants,
@@ -2283,7 +2283,7 @@ function residentRound(s, acted) {
 // starts the round again; an arrival must play before it can complete.
 function perform(s, a, round = null, settle = []) {
   const hands = handSnapshot(s);
-  const stale = actorIds.filter((id) => wantMet(s, id));
+  const stale = staleWants(s, actorIds, a.actor, wantAPI(s));
   settleCrossingUnlocks(s, sensesFor(s));
   settleStandoffs(s); // anyone who walked in joins before playing
   const conflict = standoffFor(s, a.actor);

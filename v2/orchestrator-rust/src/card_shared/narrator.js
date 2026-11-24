@@ -21289,7 +21289,7 @@
       (entry) => entry.turn === world.turn && !entry.generated
     );
     const played = playedEntry(world);
-    const wantMet2 = played && events.find(
+    const wantMet = played && events.find(
       (entry) => entry.verb === "want_met" && entry.actorId === played.actorId
     )?.wantMet;
     const here2 = world.actors[currentActor(world)].place;
@@ -21325,7 +21325,7 @@
         receive: played?.receiveId || null,
         destination: played?.destinationId || null,
         accepted: played?.accepted ?? null,
-        ...wantMet2 ? { wantMet: structuredClone(wantMet2) } : {}
+        ...wantMet ? { wantMet: structuredClone(wantMet) } : {}
       },
       avatars: actorIds2.map((id) => {
         const actor = world.actors[id];
