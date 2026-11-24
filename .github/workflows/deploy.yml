@@ -152,6 +152,7 @@ jobs:
           key: ${{ steps.release-cache.outputs.cache-primary-key }}
 
   # Rollouts never cancel: a newer one waits, replacing any older waiting one.
+  # It skips a commit .dev contains and undoes a rollout that fails a check.
   dev-deploy:
     name: Deploy main to .dev
     needs: [dev-plan, dev-image]
@@ -190,13 +191,28 @@ jobs:
       - name: Wait for production deploys
         run: bash scripts/serialize-primary-rollout.sh dev
 
-      # A Fly release started outside the train while this one runs (a
-      # `fly secrets set` without --stage) waits for the machine lease and
-      # then writes back the config it read earlier, restoring the previous
-      # image after flyctl has reported success. Check the machines kept this
-      # commit and roll out again when they did not.
+      - name: Check what .dev serves
+        id: serving
+        run: |
+          release="$(node scripts/fly-machines-serve-commit.mjs cosyworld --serving)"
+          echo "$release" >> "$GITHUB_OUTPUT"
+          commit="$(sed -n 's/^commit=//p' <<< "$release")"
+          status=ahead
+          if [ -n "$commit" ]; then
+            status="$(gh api "repos/${GH_REPO}/compare/${commit}...${GITHUB_SHA}" --jq .status)" ||
+              { echo "::error::Could not compare ${GITHUB_SHA:0:7} with ${commit:0:7}, which .dev serves; not rolling out." >&2; exit 1; }
+          fi
+          case "$status" in
+            ahead | diverged) echo "rollout=true" >> "$GITHUB_OUTPUT" ;;
+            identical) echo ".dev already serves ${GITHUB_SHA:0:7}." ;;
+            *) echo "::notice::.dev serves ${commit:0:7}, which contains ${GITHUB_SHA:0:7} ($status); not rolling it back." ;;
+          esac
+
+      # Another Fly release can restore the old image after flyctl reports
+      # success (scripts/fly-machines-serve-commit.mjs); roll out again.
       - name: Roll out .dev
         id: rollout
+        if: steps.serving.outputs.rollout == 'true'
         run: |
           for attempt in 1 2 3; do
             bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
@@ -212,6 +228,7 @@ jobs:
           RELEASE_IMAGE: ${{ needs.dev-image.outputs.image }}
 
       - name: Verify primary readiness and persistence
+        if: steps.rollout.outcome == 'success'
         run: |
           for attempt in {1..13}; do
             if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
@@ -227,12 +244,24 @@ jobs:
 
       # The card smoke compares every served file with this commit's.
       - name: Checkout committed release
+        if: steps.rollout.outcome == 'success'
         uses: actions/checkout@v7
         with:
           path: release
 
       - name: Verify primary card game
+        if: steps.rollout.outcome == 'success'
         run: node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
+
+      - name: Roll .dev back to ${{ steps.serving.outputs.commit }}
+        if: failure() && steps.rollout.outcome != 'skipped' && steps.serving.outputs.image != ''
+        env:
+          PREVIOUS_IMAGE: ${{ steps.serving.outputs.image }}
+          PREVIOUS_COMMIT: ${{ steps.serving.outputs.commit }}
+        run: |
+          echo "::error::${GITHUB_SHA:0:7} failed its .dev rollout or checks; returning .dev to ${PREVIOUS_COMMIT:0:7}."
+          bash scripts/fly-rollout.sh --config fly.toml --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"
+          node scripts/fly-machines-serve-commit.mjs cosyworld "$PREVIOUS_COMMIT"
 
   deployment-impact:
     name: Check production impact

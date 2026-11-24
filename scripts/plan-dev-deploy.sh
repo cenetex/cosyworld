@@ -3,8 +3,9 @@ set -euo pipefail
 
 # Decide whether this .dev run builds and rolls out, as GitHub output lines.
 # $1 is the commit .dev last rolled out (scripts/last-dev-rollout.mjs), or
-# empty. A run whose commit .dev already contains deploys nothing, so it
-# never cancels a newer build. Everything else goes to the impact check.
+# empty. A run whose commit .dev already contains, and a rerun after main
+# moved, deploy nothing, so they never cancel a newer build. Everything else
+# goes to the impact check.
 : "${GH_REPO:?Repository is required}"
 [[ "${GITHUB_SHA:-}" =~ ^[0-9a-f]{40}$ ]]
 base="${1:-}"
@@ -16,6 +17,10 @@ skip() {
   exit 0
 }
 
+if [ "${GITHUB_RUN_ATTEMPT:-1}" != 1 ]; then
+  main="$(gh api "repos/${GH_REPO}/commits/main" --jq .sha || true)"
+  [ "$main" = "$GITHUB_SHA" ] || skip "main moved past ${GITHUB_SHA:0:7}; a rerun deploys only main's head"
+fi
 if [ -n "$base" ]; then
   echo "[dev-plan] The primary app last rolled out ${base:0:7}." >&2
   case "$(gh api "repos/${GH_REPO}/compare/${base}...${GITHUB_SHA}" --jq .status || true)" in

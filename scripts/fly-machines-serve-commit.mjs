@@ -2,12 +2,13 @@
 
 // Exit 0 when every started app machine of a Fly app carries the commit a
 // rollout just deployed; otherwise name the machines that do not and exit 1.
+// `--serving` prints the commit and image they serve, empty if they disagree.
 // `flyctl deploy` can report success and still lose its machines: a release
 // started outside the train (a `fly secrets set` without `--stage`) reads the
 // machine config before the rollout updates it, waits for the machine lease,
 // and then writes that older config back, restoring the previous image. On
 // 2026-11-02 that left .dev on 0456b60d9 after two trains.
-// Usage: node scripts/fly-machines-serve-commit.mjs <app> <commit>
+// Usage: node scripts/fly-machines-serve-commit.mjs <app> <commit|--serving>
 
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -33,6 +34,22 @@ export function staleMachines(machines, commit) {
     .filter((machine) => machine.commit !== commit);
 }
 
+export function servingRelease(machines) {
+  const releases = new Set(
+    servingMachines(machines).map((machine) =>
+      JSON.stringify([
+        machine.config?.env?.COSYWORLD_SOURCE_COMMIT ?? "",
+        machine.config?.image ?? "",
+      ]),
+    ),
+  );
+  const [commit, image] =
+    releases.size === 1 ? JSON.parse([...releases][0]) : ["", ""];
+  return /^[0-9a-f]{40}$/.test(commit) && image
+    ? { commit, image }
+    : { commit: "", image: "" };
+}
+
 if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
@@ -47,6 +64,11 @@ if (
       encoding: "utf8",
     }),
   );
+  if (commit === "--serving") {
+    const release = servingRelease(machines);
+    console.log(`commit=${release.commit}\nimage=${release.image}`);
+    process.exit(0);
+  }
   const stale = staleMachines(machines, commit);
   if (!servingMachines(machines).length) {
     console.error(`${app}: no started app machines`);

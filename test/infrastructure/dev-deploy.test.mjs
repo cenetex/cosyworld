@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { lastRollout, rolledOut } from "../../scripts/last-dev-rollout.mjs";
-import { staleMachines } from "../../scripts/fly-machines-serve-commit.mjs";
+import {
+  servingRelease,
+  staleMachines,
+} from "../../scripts/fly-machines-serve-commit.mjs";
 
 const sha = "a".repeat(40);
 
@@ -105,6 +108,24 @@ describe("a .dev train compares with the commit .dev runs", () => {
         jobsFor: async () => [],
       }),
     ).toBe("");
+  });
+
+  it("counts a failed rollout's return to the commit .dev served", async () => {
+    const at = (name, completed_at) => ({ ...step(name, "success"), completed_at });
+    const base = await lastRollout({
+      runs: runs.slice(1, 2),
+      currentRunId: 10,
+      jobsFor: async () => [
+        {
+          name: "Deploy main to .dev",
+          steps: [
+            at("Roll out .dev", "2026-11-25T01:00:00Z"),
+            at(`Roll .dev back to ${"6".repeat(40)}`, "2026-11-25T01:03:00Z"),
+          ],
+        },
+      ],
+    });
+    expect(base).toBe("6".repeat(40));
   });
 
   it("does not count a cancelled or failed rollout step", () => {
@@ -380,6 +401,24 @@ describe("a .dev rollout confirms its machines kept the commit", () => {
     ).toEqual([]);
   });
 
+  it("reports the release the machines serve only when they agree", () => {
+    const image = `registry.fly.io/cosyworld@sha256:${"b".repeat(64)}`;
+    const serving = (commit, img = image, state = "started") => {
+      const value = machine("m", state, commit);
+      return { ...value, config: { ...value.config, image: img } };
+    };
+    expect(
+      servingRelease([serving(sha), serving("c".repeat(40), image, "stopped")]),
+    ).toEqual({ commit: sha, image });
+    for (const machines of [
+      [],
+      [serving(sha), serving("c".repeat(40))],
+      [serving("0456b60d9fce")],
+      [serving(sha, "")],
+    ])
+      expect(servingRelease(machines)).toEqual({ commit: "", image: "" });
+  });
+
   it("rolls out again from the workflow when the check fails", () => {
     const workflow = readFileSync(
       new URL("../../.github/workflows/deploy.yml", import.meta.url),
@@ -401,7 +440,7 @@ const planScript = fileURLToPath(
 );
 // The fake gh answers each API path that starts with a key of `api` with
 // that key's value, through the script's own jq filter.
-const plan = (base, api = {}) => {
+const plan = (base, api = {}, attempt = "1") => {
   const directory = mkdtempSync(join(tmpdir(), "cosyworld-dev-plan-"));
   writeFileSync(join(directory, "api.json"), JSON.stringify(api));
   writeFileSync(
@@ -420,6 +459,7 @@ jq -er --arg path "$path" 'to_entries[] | select(.key as $k | $path | startswith
         PATH: `${directory}${delimiter}${process.env.PATH}`,
         GH_REPO: "example/world",
         GITHUB_SHA: sha,
+        GITHUB_RUN_ATTEMPT: attempt,
       },
     });
   } finally {
@@ -445,6 +485,13 @@ describe("a .dev run plans before it joins the build queue", () => {
       expect(result.stdout).toContain(`base=${older}\ndeploy=false\n`);
       expect(result.stderr).toContain("which contains");
     }
+  });
+
+  it("deploys nothing on a rerun after main moved", () => {
+    const main = { "repos/example/world/commits/main": { sha: older } };
+    const moved = plan(older, main, "2");
+    expect(moved.stdout).toContain("deploy=false");
+    expect(moved.stderr).toContain("a rerun deploys only main's head");
   });
 });
 
