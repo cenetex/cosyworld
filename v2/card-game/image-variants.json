@@ -3635,24 +3635,6 @@
       "phone": "assets/optimized/phone/webp/greek-drama/pyre-account.webp",
       "phoneHash": "51d181ba5a78e5eb415d44973547875f7edca309bf84ca8329bd35eabcdfcdbc"
     },
-    "assets/greek-drama/refuge-tablet.png": {
-      "sourceHash": "205ff4d39046d294b8aa7a64e67544e237bf1a56571122042b2d5e50df8e6e2e",
-      "stage": "assets/optimized/stage/png/greek-drama/refuge-tablet.webp",
-      "stageHash": "6de592250b38773e4aa1c71de80fee63deb0e4d651ddcedf721399f8900af421",
-      "card": "assets/optimized/card/png/greek-drama/refuge-tablet.webp",
-      "cardHash": "e7eecf2ea75bcbe7d2ceb470e2ea05d5f225744bbd686eae6c093e1ae4eeb965",
-      "phone": "assets/optimized/phone/png/greek-drama/refuge-tablet.webp",
-      "phoneHash": "7a0fc514117600eda6494cdee53e0fb3161c6c514b9cf87613dcab7b94ca9935"
-    },
-    "assets/greek-drama/return-list.png": {
-      "sourceHash": "ee7b2dde648a5e5f4c22c4cbc041e60e9c0179a9575c2f77cc5be3e4401372ca",
-      "stage": "assets/optimized/stage/png/greek-drama/return-list.webp",
-      "stageHash": "5fd39ded5efec44c18f49d80e8ae18223a1fe0e9eb94ee9dc75a24d5b1d4b1ee",
-      "card": "assets/optimized/card/png/greek-drama/return-list.webp",
-      "cardHash": "910434be656377272f57a22a07ed26ce639bcd152727fe45916ea065e8808b0f",
-      "phone": "assets/optimized/phone/png/greek-drama/return-list.webp",
-      "phoneHash": "d12c7de19ca1e650d258111e66b38b0a990987cffdab6e7dde49ccc7c45e5b5a"
-    },
     "assets/greek-drama/sacred-way-dipylon-night.webp": {
       "sourceHash": "42976e661c604600f008ab1bd67ddd2781c93a0f19aa156f565f8c483284a76a",
       "stage": "assets/greek-drama/sacred-way-dipylon-night.webp",

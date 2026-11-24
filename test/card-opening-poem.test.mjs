@@ -20,11 +20,6 @@ const openingPoem = (world) =>
   recitalPoem(world, packDefinition("greek-drama"));
 const stanzas = (world) => openingPoem(world).stanzas;
 const ids = (world) => stanzas(world).map((s) => s.id);
-const couplets = packDefinition("greek-drama").items[
-  "greek-songbook"
-].lore.flatMap((page) => page.text.split(" / "));
-const quotesLore = (value) =>
-  couplets.some((line) => JSON.stringify(value).includes(line));
 const reload = (world) => decodeSave(encodeSave(world));
 const act = (world, kind, target) => {
   if (kind === "move") {
@@ -62,17 +57,6 @@ const poem = (world) =>
 const poemIds = (world) => poem(world)?.stanzas.map((s) => s.id) || [];
 
 describe("the opening poem", () => {
-  it("keeps every couplet in the songbook, opened by its verse choice", () => {
-    const pack = packDefinition("greek-drama");
-    expect(
-      pack.items["greek-songbook"].lore
-        .map((page) => page.requires[0].choice)
-        .sort(),
-    ).toEqual(pack.recital.verses.map((v) => v.choice).sort());
-    expect(couplets).toHaveLength(60);
-    expect(quotesLore(pack.recital)).toBe(false);
-  });
-
   it("names each traveler of a long earned poem without couplet text", () => {
     const verses = Array.from({ length: 12 }, (_, i) => ({
       choice: `verse-${i}`,
@@ -114,7 +98,6 @@ describe("the opening poem", () => {
     );
     const song = facts(talked);
     expect(poemIds(talked)).toEqual(ids(buried));
-    expect(quotesLore(context)).toBe(false);
     expect(poem(reload(talked))).toEqual(poem(talked));
     expect(song.length).toBeLessThanOrEqual(16);
     expect(

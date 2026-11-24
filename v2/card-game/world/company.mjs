@@ -13,9 +13,9 @@
 //   - the traveler wakes from a long rest holding no quest that pins it;
 //   - the traveler asks another resident to accompany them (replacement);
 //   - in a shared world the traveler has been away for a day;
-//   - the traveler's avatar is reset.
-// A companion who is not an active card (its pack switched off) stays bound
-// and waits, unseen, until it is back.
+//   - the traveler's avatar is reset;
+//   - the companion leaves the world for good.
+// A companion whose pack is switched off stays bound and waits unseen.
 
 // Trust at which a resident will travel with someone (the bond ladder).
 export const ACCOMPANY_TRUST = 2;

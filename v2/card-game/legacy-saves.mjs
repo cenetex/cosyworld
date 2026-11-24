@@ -5,6 +5,7 @@ import {
   entityEnabled,
   packEntity,
   departed,
+  neverBack,
 } from "./pack-registry.mjs";
 import { boxDefs } from "./world/boxes.mjs";
 import { sectionAllows } from "./pack-sections.mjs";
@@ -13,6 +14,7 @@ import forest from "./forest.json" with { type: "json" };
 import { installItemCycle } from "./pack-items.mjs";
 import { authoredClaim } from "./claims.mjs";
 import { installQuestFacts } from "./quest-learn.mjs";
+import { release } from "./world/company.mjs";
 
 // The save schema. The rules 133 bump retired every earlier save and shared
 // world ("we can reset"): a save of another schema is not lifted, it starts
@@ -94,6 +96,9 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
   installPacks(s);
   reconcileContent(s);
   reconcilePackProgress(s, reworked);
+  for (const id of Object.keys(s.actors || {}))
+    if (s.actors[id]?.companion && neverBack(s, s.actors[id].companion))
+      release(s, id);
   // A told lane keeps its id; its words follow the lane's current conditions.
   // A lane the ship no longer sails is forgotten (Greek revision 16).
   for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {

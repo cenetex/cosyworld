@@ -167,7 +167,6 @@ import {
   neverBack,
   packOf,
   packStatesFault,
-  packThings,
 } from "./pack-registry.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { dailyRumours, dayOf, noteRumours, talkRumours } from "./world/rumours.mjs";
@@ -575,11 +574,9 @@ const canReach = (s, actor, item) =>
   rootHolder(s, item) === actor;
 export const canUse = canReach;
 const loadOf = (s, id) => 1 + (s.items.cloth.holder === id ? 1 : 0);
-const burden = (s, actor) =>
-  carried(s, actor).filter((held) => !packThings[held]?.lore).length;
-const weight = (s, id) => (packThings[id]?.lore ? 0 : loadOf(s, id));
+const burden = (s, actor) => carried(s, actor).length;
 const hasSpace = (s, actor, id) =>
-  burden(s, actor) + (rootHolder(s, id) === actor ? 0 : weight(s, id)) <= 3;
+  burden(s, actor) + (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <= 3;
 export const wantText = (want) => wantWords(want);
 const bundle = (s, item) => [
   item,
@@ -619,8 +616,8 @@ export function tradePossible(s, actor, give, receive) {
     s.actors[actor].place !== s.actors[other].place
   )
     return false;
-  const outgoing = weight(s, give),
-    incoming = weight(s, receive);
+  const outgoing = loadOf(s, give),
+    incoming = loadOf(s, receive);
   return (
     burden(s, actor) - outgoing + incoming <= 3 &&
     burden(s, other) - incoming + outgoing <= 3
@@ -1509,8 +1506,7 @@ export function legalActions(s, actor = currentActor(s)) {
       !entityActive(s, id) ||
       itemPlace(s, id) !== here ||
       (actorIds.includes(rootHolder(s, id)) &&
-        !knownActors(s).includes(rootHolder(s, id))) ||
-      (packThings[id]?.lore && !controlledByHuman(s, actor))
+        !knownActors(s).includes(rootHolder(s, id)))
     )
       continue;
     if (
@@ -1837,13 +1833,14 @@ function parts(s, traveler, id, text) {
     locationId: s.actors[id].place,
   });
 }
-// After a play: a bond ends when trust falls below the threshold, or a shared
-// world's traveler has been away a whole day.
+// After a play: a bond ends when the companion has left for good, trust falls
+// too low, or a shared world's traveler has been away a whole day.
 function settleCompanions(s) {
   for (const traveler of Object.keys(s.actors).sort()) {
     const id = companionOf(s, traveler);
     if (!id) continue;
-    if (trustBroken(s, traveler, id))
+    if (neverBack(s, id)) release(s, traveler);
+    else if (trustBroken(s, traveler, id))
       parts(
         s,
         traveler,

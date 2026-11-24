@@ -4,7 +4,7 @@ import { narrativeContext, turnOutcome } from "../v2/card-game/narrative.mjs";
 import { forgetCovered } from "../v2/card-game/speech-knowledge.mjs";
 import { encodeSave, decodeSave, nameOf } from "../v2/card-game/world.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
-import { entityActive, packThings } from "../v2/card-game/pack-registry.mjs";
+import { entityActive } from "../v2/card-game/pack-registry.mjs";
 import { knownActors } from "../v2/card-game/want.mjs";
 it("keeps a received hand through Talk/reload and each speaker's private inventory", () => {
   let world = narrativeContractCases().find((c) => c.name === "accepted give").world;
@@ -36,7 +36,7 @@ it("keeps chosen hands within the item cap after the committed action item", () 
   const actors = knownActors(world).slice(0, 8), here = world.actors.vale.place;
   world.items["greek-shovel"].holder = here;
   for (const id of actors) world.actors[id].place = here;
-  const items = Object.keys(world.items).filter((id) => id !== "greek-shovel" && entityActive(world, id) && !packThings[id]?.lore).slice(0, 24);
+  const items = Object.keys(world.items).filter((id) => id !== "greek-shovel" && entityActive(world, id)).slice(0, 24);
   expect(actors).toHaveLength(8);
   expect(items).toHaveLength(24);
   for (const [i, item] of items.entries()) world.items[item].holder = actors[Math.floor(i / 3)];

@@ -3924,7 +3924,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn full_poem_context_names_every_traveller_and_no_couplet() {
+    fn full_poem_context_names_every_traveller() {
         let packs: Value =
             serde_json::from_str(include_str!("../../card-game/packs.json")).unwrap();
         let recital = &packs["packs"]
@@ -3951,15 +3951,6 @@ pub(crate) mod tests {
             prompt,
             ["My poem Before the Burial holds deeds by Vale, Mara, an earlier traveler."]
         );
-        let greek = packs["packs"].as_array().unwrap().iter();
-        let greek = greek.filter(|pack| pack["id"] == "greek-drama");
-        for page in
-            greek.flat_map(|pack| pack["items"]["greek-songbook"]["lore"].as_array().unwrap())
-        {
-            for line in page["text"].as_str().unwrap().split(" / ") {
-                assert!(!prompt[0].contains(line));
-            }
-        }
     }
 
     #[tokio::test]

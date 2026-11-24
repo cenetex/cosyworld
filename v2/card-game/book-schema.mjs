@@ -23,8 +23,8 @@ export function bookProblems(pack) {
       continue;
     const fail = (message) => problems.push(`${pack.id}: item ${id} ${message}`);
     const claims = Array.isArray(item.claims) ? item.claims : [];
-    if (!claims.length || claims.length > BOOK_CLAIMS || item.lore !== undefined)
-      fail(`needs one to ${BOOK_CLAIMS} claims and no lore pages`);
+    if (!claims.length || claims.length > BOOK_CLAIMS)
+      fail(`needs one to ${BOOK_CLAIMS} claims`);
     const author = card(item.author)?.name;
     if (typeof author !== "string")
       fail("author must be a named place, avatar or item of this pack");

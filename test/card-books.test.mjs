@@ -108,9 +108,6 @@ describe("the read play", () => {
     );
     expect(offers(w, DECREE, "moth")).toContain("take");
     expect(offers(w, WRIT, "keeper")).toContain("ask");
-    w.items["greek-songbook"].holder = "station";
-    expect(offers(w, "greek-songbook", "moth")).toEqual([]);
-    expect(offers(w, "greek-songbook")).toContain("take");
   });
 });
 
@@ -161,7 +158,6 @@ describe("book schema", () => {
       { ...ok, lifecycle: "fixed" },
       { ...ok, pages: ["assets/other/page.png"] },
       { ...ok, pages: Array(4).fill("assets/sample/page.png") },
-      { ...ok, lore: [{ text: "A page." }] },
       { author: "scribe" },
     ])
       expect(bookProblems(pack(book))).not.toEqual([]);

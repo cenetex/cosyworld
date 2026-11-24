@@ -2,7 +2,6 @@
 // actions and goals; experience supplies each avatar's estimates and choices.
 import { grievanceActive } from "./knowledge.mjs";
 import { quietWant } from "./want.mjs";
-import { packThings } from "./pack-registry.mjs";
 export const TRIAL_LIMIT = 32;
 const horizon = 4;
 const discount = 0.7;
@@ -50,9 +49,8 @@ function observation(world, actor, goal) {
             (id) => world.actors[id]?.place === goal.destination,
           ),
     trust: world.actors[goal.target]?.trust?.[actor] || 0,
-    held: Object.entries(world.items).filter(
-      ([id, item]) => item.holder === actor && !packThings[id]?.lore,
-    ).length,
+    held: Object.values(world.items).filter((item) => item.holder === actor)
+      .length,
     strain: Math.min(
       3,
       (world.motives?.grievances[goal.target] || [])
@@ -352,9 +350,7 @@ function matchesObservation(text, observed, actor, goal) {
     if (strain !== observed.strain) return false;
     const items = new Map(parts[5].map(([id, owner]) => [id, owner]));
     if (
-      [...items].filter(
-        ([id, owner]) => owner === actor && !packThings[id]?.lore,
-      ).length !== observed.held
+      [...items.values()].filter((id) => id === actor).length !== observed.held
     )
       return false;
     let root = goal.item;
