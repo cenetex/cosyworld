@@ -53,6 +53,7 @@ const SHARES: &str = "[shares an image]";
 const IMAGE_HOSTS: [&str; 2] = ["cdn.discordapp.com", "media.discordapp.net"];
 const IMAGES_PER_MESSAGE: usize = 2;
 const IMAGES_PER_REQUEST: usize = 4;
+const REPLIES_PER_MESSAGE: usize = 2;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 struct Resident {
@@ -873,6 +874,10 @@ pub(super) async fn lines(
     if let Err(message) = validate(&request, &residents) {
         return error(StatusCode::BAD_REQUEST, message);
     }
+    let replies = request.messages.iter().rev();
+    if replies.take_while(|m| m.resident.is_some()).count() >= REPLIES_PER_MESSAGE {
+        return silent("enough");
+    }
     let Some(config) = state.ai.as_ref().as_ref() else {
         return silent("not-configured");
     };
@@ -1601,19 +1606,19 @@ mod tests {
         assert!(requests.iter().all(|r| r.get("questions").is_none()));
         let voice = &requests[0];
         let turns: Vec<_> = voice["messages"].as_array().unwrap().iter().collect();
-        let said = |at: usize| (turns[at]["role"].as_str(), turns[at]["content"].as_str());
-        let opening = format!("You are RATi, host of the cottage. {SAY_ALOUD}\n\n");
-        assert!(turn_of(voice, "system").starts_with(&opening));
-        assert_eq!(
-            said(1),
-            (Some("user"), Some("Mara: Is anyone in the cottage?"))
+        let roles: Vec<_> = turns.iter().map(|t| t["role"].as_str().unwrap()).collect();
+        assert_eq!(roles, ["system", "user", "assistant", "user"]);
+        let opening = format!("You are RATi, host of the cottage. {SAY_ALOUD}");
+        assert_eq!(turn_of(voice, "system"), opening);
+        let heard = "Jun says, \u{201c}RATi, can I come in?\u{201d}";
+        assert_eq!(turn_of(voice, "user"), heard);
+        let view = turn_of(voice, "assistant");
+        let said = "Mara said: \"Is anyone in the cottage?\" I said: \"The kettle is on.\"";
+        assert!(
+            view.contains(said) && view.contains("I'm talking with Jun."),
+            "{view}"
         );
-        assert_eq!(said(2), (Some("assistant"), Some("The kettle is on.")));
-        assert_eq!(said(3), (Some("user"), Some("Jun: RATi, can I come in?")));
-        assert_eq!(turns.len(), 4);
-        let prompt = prompt_of(voice);
-        assert_eq!(prompt.matches("Reply with").count(), 1);
-        assert!(!prompt.contains(" said:"));
+        assert_eq!(prompt_of(voice).matches("Reply with").count(), 1);
     }
 
     #[tokio::test]
@@ -1624,8 +1629,7 @@ mod tests {
             "pack": "lonely-forest",
             "messages": [
                 {"author": "Jun", "text": "RATi, can I come in?"},
-                {"resident": "rati", "text": own},
-                {"resident": "rati", "text": "The kettle is on."}
+                {"resident": "rati", "text": own}
             ]
         });
         body["continuing"] = json!("rati");
@@ -1636,13 +1640,10 @@ mod tests {
             answer,
             json!({"lines": [{"id": "rati", "name": "RATi", "text": reply}]})
         );
-        let turns: Vec<_> = requests[0]["messages"].as_array().unwrap().iter().collect();
-        let said = |at: usize| (turns[at]["role"].as_str(), turns[at]["content"].as_str());
-        assert_eq!(said(1), (Some("user"), Some("Jun: RATi, can I come in?")));
-        let both = format!("{own}\nThe kettle is on.");
-        assert_eq!(said(2), (Some("assistant"), Some(both.as_str())));
-        assert_eq!(said(3), (Some("user"), Some(FOLLOW_UP)));
-        assert_eq!(turns.len(), 4);
+        assert_eq!(turn_of(&requests[0], "user"), FOLLOW_UP);
+        let view = turn_of(&requests[0], "assistant");
+        let said = format!("Jun said: \"RATi, can I come in?\" I said: \"{own}\"");
+        assert!(view.contains(&said), "{view}");
     }
 
     #[tokio::test]
@@ -1667,31 +1668,23 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["text"], reply);
         let voice = &requests[0];
-        assert_eq!(turn_of(voice, "user"), "Jun: RATi, can I come in?");
-        let view = turn_of(voice, "system");
-        let opening = format!("You are RATi, host of the cottage. {SAY_ALOUD}\n\n");
-        assert!(view.starts_with(&opening), "{view}");
-        assert!(
-            view.contains("Jun and Mara and Skull are here with me."),
-            "{view}"
-        );
-        assert!(!view.contains("alone"));
-        assert!(view.contains("I have spoken 2 times in a row here."));
-        assert!(view.contains("I last spoke here 2 minutes ago."));
-        assert!(view.contains("It was quiet here for 5 minutes before this."));
-        assert!(
-            view.contains("We have been talking about the corridor."),
-            "{view}"
-        );
-        assert!(
-            view.contains("So far here: Jun asked about the corridor."),
-            "{view}"
-        );
-        let card = pack("lonely-forest").unwrap()["avatars"]["rati"]["text"].as_str();
-        for authored in [card.unwrap_or("Home:"), "Likes:", "Sore:", "Paths from"] {
-            assert!(!view.contains(authored), "{authored}");
+        let view = turn_of(voice, "assistant");
+        for line in [
+            "Jun and Mara and Skull are here with me.",
+            "I have spoken 2 times in a row here.",
+            "I last spoke here 2 minutes ago.",
+            "It was quiet here for 5 minutes before this.",
+            "We have been talking about the corridor.",
+            "So far here: Jun asked about the corridor.",
+        ] {
+            assert!(view.contains(line), "{line}: {view}");
         }
-        assert_eq!(view.matches("Reply with").count(), 1);
+        assert!(!view.contains("alone"));
+        let card = pack("lonely-forest").unwrap()["avatars"]["rati"]["text"].as_str();
+        let card = card.unwrap_or("Home:");
+        for authored in [card, "Home:", "Likes:", "Sore:", "Paths from home"] {
+            assert!(!prompt_of(voice).contains(authored), "{authored}");
+        }
     }
 
     #[test]
@@ -1720,9 +1713,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_resident_answers_another_resident_who_named_it() {
+    async fn a_resident_answers_another_resident_who_named_it_and_two_replies_are_enough() {
         let reply = "Only the wind.";
-        let body = json!({
+        let mut body = json!({
             "pack": "lonely-forest",
             "addressed": "rati",
             "messages": [
@@ -1730,12 +1723,18 @@ mod tests {
                 {"resident": "skull", "text": "RATi, did you hear that?"}
             ]
         });
-        let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body).await;
+        let (status, answer, requests) = post_lines("{}", Some(reply), TOKEN, body.clone()).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(answer["lines"][0]["id"], "rati");
         assert!(requests.iter().all(|r| r.get("questions").is_none()));
-        let heard = "Jun: Is anyone awake?\nSkull: RATi, did you hear that?";
+        let heard = "Skull says, \u{201c}RATi, did you hear that?\u{201d}";
         assert_eq!(turn_of(&requests[0], "user"), heard);
+        assert!(turn_of(&requests[0], "assistant").contains("Jun said: \"Is anyone awake?\""));
+        let line = json!({"resident": "vale", "text": "Only the owls."});
+        body["messages"].as_array_mut().unwrap().push(line);
+        let (_, enough, asked) = post_lines("{}", Some(reply), TOKEN, body).await;
+        assert_eq!(enough, json!({"lines": [], "reason": "enough"}));
+        assert!(asked.is_empty());
     }
 
     const PICTURE: &str = "https://cdn.discordapp.com/attachments/1/2/pond.png?ex=1&is=2&hm=3";
@@ -1803,7 +1802,7 @@ mod tests {
         assert_eq!(
             user["content"],
             json!([
-                {"type": "text", "text": "Mara: Is anyone in the cottage?\nJun: [shares an image]"},
+                {"type": "text", "text": "Jun says, \u{201c}[shares an image]\u{201d}"},
                 {"type": "image_url", "image_url": {"url": PICTURE}}
             ])
         );
@@ -1820,7 +1819,7 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["lines"][0]["text"], reply);
         let voice = &requests[0];
-        let heard = "Mara: Is anyone in the cottage?\nJun: Look at this [shares an image]";
+        let heard = "Jun says, \u{201c}Look at this [shares an image]\u{201d}";
         assert_eq!(turn_of(voice, "user"), heard);
         assert!(!voice.to_string().contains("discordapp"));
         assert!(!body.to_string().contains("discordapp"));

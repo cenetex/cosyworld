@@ -137,6 +137,27 @@ test("the run limit is configurable", async () => {
   assert.equal(fixed.asks.length, 1);
 });
 
+test("a reply posted in beats is one of the two replies a message sets off", async () => {
+  const said = {
+    rati: "The kettle has been singing since the rain began, and every cup on the shelf is warm. Sit by the fire, Ash, and tell me where the road took you.",
+    vale: "I came in from the pond with the lamp still lit, and the reflection showed this cottage first. The path behind me is quiet now, and the rain is easing.",
+  };
+  const asked = [];
+  const fixed = fixture([next("rati", 0.9), next("vale", 0.9), next("skull", 0.9)], {
+    lines: async (body) => {
+      asked.push(body);
+      const run = body.messages.length - 1 - body.messages.findLastIndex((m) => !m.resident);
+      if (run >= 2) return { lines: [], reason: "enough" };
+      return { lines: [{ id: body.addressed, text: said[body.addressed] }] };
+    },
+  });
+  await fixed.hear("m1", "Is anyone home?");
+  assert.deepEqual(fixed.sent, ["RATi", "RATi", "Vale", "Vale"]);
+  assert.deepEqual(asked[1].messages.at(-1), { resident: "rati", text: said.rati });
+  assert.equal(asked[2].messages.length, 3);
+  assert.equal(fixed.stats.failures.enough, 1);
+});
+
 test("human messages close together lead to one decision for the latest state", async () => {
   const queued = [];
   const slow = { setTimeout: (fn) => queued.push(fn), clearTimeout: () => queued.shift() };

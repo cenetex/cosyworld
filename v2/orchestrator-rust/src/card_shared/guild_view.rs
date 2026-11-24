@@ -9,16 +9,6 @@ pub(crate) fn guild_view(guild: &str, residents: &[String]) -> Option<Value> {
     view(&crate::event_store_path_from_env()?, guild, residents)
 }
 
-fn ids(all: &Value, key: &str, at: &str, but: &str) -> Vec<Value> {
-    all.as_object()
-        .into_iter()
-        .flatten()
-        .filter(|(id, entry)| id.as_str() != but && entry[key] == at)
-        .map(|(id, _)| json!(id))
-        .take(MOST)
-        .collect()
-}
-
 fn lines(c: &Connection, world: &str, place: &str) -> Option<Vec<Value>> {
     let mut q = c
         .prepare(
@@ -94,18 +84,21 @@ fn talked(path: &Path, guild: &str) -> Option<Vec<String>> {
 fn view(path: &Path, guild: &str, residents: &[String]) -> Option<Value> {
     let (c, world, state) = open(path, guild, "'game',json_extract(k.state,'$.game')")?;
     let game = &state["game"];
-    let (actors, items) = (&game["actors"], &game["items"]);
     let own = super::narrator::own(game, residents).unwrap_or_default();
     let mut seen = Map::new();
     for id in residents {
-        let Some(place) = actors[id.as_str()]["place"].as_str() else {
+        let Some(place) = game["actors"][id.as_str()]["place"].as_str() else {
             continue;
+        };
+        let live = |key: &str| {
+            let all = own["seen"][id.as_str()][key].as_array().cloned();
+            Value::Array(all.unwrap_or_default().into_iter().take(MOST).collect())
         };
         let view = json!({
             "place": place,
-            "here": ids(actors, "place", place, id),
-            "holds": ids(items, "holder", id, ""),
-            "items": ids(items, "holder", place, ""),
+            "here": live("here"),
+            "holds": live("holds"),
+            "items": live("items"),
             "lines": lines(&c, &world, place)?,
             "own": own["own"].get(id).cloned().unwrap_or_else(|| json!([])),
             "known": own["known"].get(id).cloned().unwrap_or_else(|| json!([])),
@@ -153,7 +146,8 @@ mod tests {
 
     #[test]
     fn a_resident_sees_its_place_company_things_and_the_last_public_lines() {
-        let (path, w) = saved(&format!("discord-guild:{GUILD}"));
+        let w = World::create(None).unwrap();
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
         let before = std::fs::read(&path).unwrap();
         let all = view(&path, GUILD, &["moth".into(), "nobody".into()]).unwrap();
         let moth = &all["moth"];
@@ -188,25 +182,28 @@ mod tests {
 
     #[test]
     fn the_view_follows_the_latest_saved_state() {
-        let (path, _) = saved(&format!("discord-guild:{GUILD}"));
+        let path = kept(
+            &format!("discord-guild:{GUILD}"),
+            &World::create(None).unwrap(),
+        );
         let c = store::open(&path).unwrap();
         c.execute(
             "UPDATE card_full_checkpoints SET state=json_set(state,\
-             '$.game.items.cloth.holder','vale','$.game.actors.vale.place','greek-courtyard')",
+             '$.game.items.cloth.holder','keeper','$.game.actors.keeper.place','greek-courtyard')",
             [],
         )
         .unwrap();
         drop(c);
-        let all = view(&path, GUILD, &["moth".into(), "vale".into()]).unwrap();
-        assert_eq!(all["vale"]["place"], "greek-courtyard");
-        assert_eq!(all["vale"]["lines"], json!([]));
+        let all = view(&path, GUILD, &["moth".into(), "keeper".into()]).unwrap();
+        assert_eq!(all["keeper"]["place"], "greek-courtyard");
+        assert_eq!(all["keeper"]["lines"], json!([]));
         let holds = |id: &str| {
             all[id]["holds"]
                 .as_array()
                 .unwrap()
                 .contains(&json!("cloth"))
         };
-        assert!(holds("vale") && !holds("moth"), "{all}");
+        assert!(holds("keeper") && !holds("moth"), "{all}");
     }
 
     #[test]
@@ -253,6 +250,22 @@ mod tests {
         assert!(!all["moth"].to_string().contains("Bell."), "{all}");
         assert!(!all["keeper"].to_string().contains("Lamp."), "{all}");
         assert!(!all.to_string().contains(SECRET));
+    }
+
+    #[test]
+    fn a_resident_sees_no_card_that_still_lies_face_down() {
+        let mut w = World::create(None).unwrap();
+        w.game["packs"]["greek-drama"]["scope"] = json!("full");
+        assert_eq!(w.game["actors"]["greek-adrastus"]["place"], "greek-eleusis");
+        assert_eq!(
+            w.game["items"]["willows-notebook"]["holder"],
+            "willows-camp"
+        );
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
+        let ids: Vec<String> = ["greek-aethra", "willows-swede"].map(String::from).into();
+        let all = view(&path, GUILD, &ids).unwrap();
+        assert_eq!(all["greek-aethra"]["here"], json!([]), "{all}");
+        assert_eq!(all["willows-swede"]["items"], json!([]), "{all}");
     }
 
     #[test]

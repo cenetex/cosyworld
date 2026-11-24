@@ -21450,6 +21450,11 @@
     ];
     return talkKnowledge(world, id, [], [], Math.max(2, 16 - ownFacts(world, id).length), scene);
   }
+  function residentScene(world, id) {
+    const place = world.actors[id].place;
+    const live = (all, key2, at) => Object.keys(all).filter((other) => other !== id && all[other][key2] === at && entityActive(world, other));
+    return { here: live(world.actors, "place", place), holds: live(world.items, "holder", id), items: live(world.items, "holder", place) };
+  }
   function ownFacts(world, id) {
     const place = world.actors[id].place;
     const here2 = Object.keys(world.actors).filter(
@@ -22716,7 +22721,11 @@
     if (Array.isArray(request.own)) {
       const ids3 = request.own.filter((id) => world.actors[id]);
       const each = (facts) => Object.fromEntries(ids3.map((id) => [id, facts(world, id)]));
-      return { own: each(ownFacts), known: each(residentKnowledge) };
+      return {
+        own: each(ownFacts),
+        known: each(residentKnowledge),
+        seen: each(residentScene)
+      };
     }
     const revealed2 = Array.isArray(request.revealed) && new Set(request.revealed);
     const isCovered = revealed2 ? (id) => !revealed2.has(id) : null;

@@ -89,8 +89,7 @@ fn actor_here(context: &Context, entity: &Entity) -> Option<String> {
     (entity.id != actor && !hidden && here).then(|| actor.to_string())
 }
 
-/// A speaking voice after a play, with no line to answer and nobody to
-/// face. A Discord channel has no play and keeps its own turns.
+/// A speaking voice after a play, with no line to answer and nobody to face.
 fn lone(context: &Context, entity: &Entity) -> bool {
     context.outcome.is_some()
         && heard(context, entity).is_none()
@@ -127,6 +126,9 @@ fn alone(context: &Context, entity: &Entity) -> String {
 /// talking with, there ("Pip is here."). A lone speaking voice is asked its
 /// question; a gesture or emoji voice alone keeps silence.
 pub(super) fn user(context: &Context, entity: &Entity) -> String {
+    if adding(context, entity) {
+        return FOLLOW_UP.into();
+    }
     match heard(context, entity) {
         Some(line) => format!(
             "{} says, \u{201c}{}\u{201d}",
@@ -139,6 +141,12 @@ pub(super) fn user(context: &Context, entity: &Entity) -> String {
             |l| format!("{} is here.", name(&l)),
         ),
     }
+}
+
+/// On Discord, when the speaker's own line is the newest, it adds to it.
+fn adding(context: &Context, entity: &Entity) -> bool {
+    let last = context.conversation.last();
+    context.channel && last.is_some_and(|l| l.actor_id == entity.id)
 }
 
 /// A remembered line, "Name: words", as "Pip said: "words"" or, for my
@@ -156,10 +164,8 @@ pub(super) fn said(text: &str, own: &str) -> String {
 /// characters; the answered line is the user message, so it is not
 /// repeated here. Reflection remembers the whole talk.
 pub(super) fn chat(context: &Context, entity: &Entity, part: Part) -> Vec<String> {
-    if part == Part::Line && in_turns(context, entity) {
-        return Vec::new();
-    }
-    let skip = heard(context, entity).filter(|_| part == Part::Line);
+    let answer = part == Part::Line && !adding(context, entity);
+    let skip = heard(context, entity).filter(|_| answer);
     let own = name(&entity.id);
     let mut lines: Vec<String> = context
         .conversation
@@ -291,52 +297,12 @@ fn system(entity: &Entity) -> String {
     }
 }
 
-/// My own view as my turn, then what I just heard.
-fn in_turns(context: &Context, entity: &Entity) -> bool {
-    context.channel && super::system_voice(entity, Part::Line).starts_with("You are ")
-}
-
-fn channel_turns(context: &Context, entity: &Entity, view: &str) -> super::Prompt {
-    let mut turns: Vec<(bool, String)> = Vec::new();
-    for line in &context.conversation {
-        let own = line.actor_id == entity.id;
-        let text = match own {
-            true => line.text.clone(),
-            false => format!("{}: {}", name(&line.actor_id), line.text),
-        };
-        match turns.last_mut() {
-            Some((last, said)) if *last == own => {
-                said.push('\n');
-                said.push_str(&text);
-            }
-            _ => turns.push((own, text)),
-        }
-    }
-    let user = match turns.last() {
-        Some((true, _)) => FOLLOW_UP.to_string(),
-        _ => turns.pop().map_or_else(String::new, |(_, said)| said),
-    };
-    if turns.first().is_some_and(|(own, _)| *own) {
-        turns.insert(0, (false, crate::ai_gateway::SILENCE.into()));
-    }
-    let earlier: Vec<String> = turns.into_iter().map(|(_, said)| said).collect();
-    super::Prompt {
-        system: format!("{}\n\n{}", system(entity), super::prose(view)),
-        lead: crate::ai_gateway::earlier_turns(&earlier),
-        assistant: String::new(),
-        user,
-    }
-}
-
 pub(super) fn messages(context: &Context, entity: &Entity) -> super::Prompt {
     let assistant = [
         super::own_view(entity, Part::Line),
         super::transcript(context, entity, Part::Line),
     ]
     .join("\n\n");
-    if in_turns(context, entity) {
-        return channel_turns(context, entity, &assistant);
-    }
     let lone = lone(context, entity);
     super::Prompt {
         system: match lone {
