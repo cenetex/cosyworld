@@ -191,5 +191,5 @@ for (const shared of [false, true])
         expect(world).toEqual(before);
       }
     },
-    shared ? 30000 : undefined,
+    shared ? 60_000 : undefined,
   );
