@@ -1,28 +1,21 @@
 name: Fast check
 
-# Runs on every pull request and every push to main, in about five minutes.
-# A change to Rust inputs adds the focused Rust tests and the clippy ceiling
-# (rust, rust-lint). The full suite (ci.yml) runs only by hand before a
-# production release; the full Rust gate runs on the train and tags (deploy.yml).
+# Runs on every pull request, not on pushes to main: the deploy path and the
+# nightly check main. A change to Rust inputs adds the focused Rust tests and
+# the clippy ceiling (rust, rust-lint).
 on:
   pull_request:
-  push:
-    branches: [main]
 
-# Cancel a superseded pull request run; never cancel a main run.
 concurrency:
-  group: fast-check-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: fast-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
-# Every checkout is blobless with full history, which took a median 15 s
-# against 33 s for the default depth-1 checkout of the same tree (see ci.yml).
-# On 2026-11-03 GitHub served this repository's ~1 GB of files at 1-2 MB/s,
-# and checkouts ran past the 8-minute job limit. So each checkout borrows the
-# files' Git objects from an Actions cache that main's unit job refreshes
-# daily and whenever the card art changes, and fetches only files changed since.
+# Every checkout is blobless with full history and borrows the files' Git
+# objects from the cache that git-objects.yml refreshes on main, so it fetches
+# only files changed since (GitHub served the ~1 GB tree at 1-2 MB/s on 11-03).
 
 # Every job reads its runner label from the FAST_CHECK_RUNNER repository
 # variable, so switching to the Fly runner (#1565) needs no workflow edit.
@@ -69,29 +62,18 @@ jobs:
           node-version: "24"
       - name: List changed files
         env:
-          EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          BEFORE: ${{ github.event.before }}
         run: |
-          if [ "$EVENT" = pull_request ]; then
-            range="$PR_BASE...$PR_HEAD"
-          elif git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            range="$BEFORE..$GITHUB_SHA"
-          else
-            range="$GITHUB_SHA~1..$GITHUB_SHA"
-          fi
-          git diff --name-only "$range" > "$RUNNER_TEMP/changed.txt"
+          git diff --name-only "$PR_BASE...$PR_HEAD" > "$RUNNER_TEMP/changed.txt"
           cat "$RUNNER_TEMP/changed.txt"
       - name: Check change budget
-        if: github.event_name == 'pull_request'
         env:
           COSYWORLD_PR_BODY: ${{ github.event.pull_request.body }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: node scripts/check-change-budget.mjs --base "$PR_BASE" --head "$PR_HEAD"
       - name: Check comment ratchet
-        if: github.event_name == 'pull_request'
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: npm run check:comments -- --base "$PR_BASE"
@@ -103,7 +85,6 @@ jobs:
       - name: Check UI inventory
         run: npm run check:ui
       - name: Check shared rules engine policy (warning only)
-        if: github.event_name == 'pull_request'
         env:
           PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: node v2/scripts/engine-gate.mjs "$RUNNER_TEMP/changed.txt"
@@ -165,30 +146,6 @@ jobs:
       - *restore-git-objects
       - *borrow-git-objects
       - *checkout
-      # Packs the checkout's files into one pack for later checkouts. The key
-      # changes daily and with the card art, so most main pushes save nothing.
-      # A run that found no cache at all saves one too, even on a pull request.
-      - name: Pack Git objects for later checkouts
-        id: pack-git-objects
-        if: matrix.shard == 1 && (github.event_name == 'push' || steps.git-objects.outputs.cache-matched-key == '')
-        env:
-          MATCHED: ${{ steps.git-objects.outputs.cache-matched-key }}
-        run: |
-          key="git-objects-v1-$(date -u +%Y%m%d)-$(git rev-parse HEAD:v2/card-game/assets)"
-          if [ "$key" != "$MATCHED" ]; then
-            fresh="$RUNNER_TEMP/git-objects-fresh"
-            mkdir -p "$fresh/pack"
-            git ls-tree -r --object-only HEAD | git pack-objects -q --window=0 "$fresh/pack/pack"
-            rm -rf "$RUNNER_TEMP/git-objects"
-            mv "$fresh" "$RUNNER_TEMP/git-objects"
-            echo "key=$key" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Save Git objects for later checkouts
-        if: steps.pack-git-objects.outputs.key
-        uses: actions/cache/save@v6
-        with:
-          path: ${{ runner.temp }}/git-objects
-          key: ${{ steps.pack-git-objects.outputs.key }}
       - uses: actions/setup-node@v7
         with:
           node-version: "24"

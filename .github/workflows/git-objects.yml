@@ -1,0 +1,60 @@
+name: Git objects cache
+
+# Packs main's files into the Git-objects cache every fast-check checkout
+# borrows. A cache saved on main is visible to every pull request.
+on:
+  schedule:
+    - cron: "41 11 * * *"
+  push:
+    branches: [main]
+    paths: ["v2/card-game/assets/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: git-objects
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    name: Pack Git objects for the fast check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Restore cached Git objects
+        id: git-objects
+        uses: actions/cache/restore@v6
+        with:
+          path: ${{ runner.temp }}/git-objects
+          key: git-objects-v1-${{ github.sha }}
+          restore-keys: git-objects-v1-
+      - name: Borrow cached Git objects
+        run: |
+          mkdir -p "$RUNNER_TEMP/git-objects"
+          echo "GIT_ALTERNATE_OBJECT_DIRECTORIES=$RUNNER_TEMP/git-objects" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+      - name: Pack Git objects for later checkouts
+        id: pack-git-objects
+        env:
+          MATCHED: ${{ steps.git-objects.outputs.cache-matched-key }}
+        run: |
+          key="git-objects-v1-$(date -u +%Y%m%d)-$(git rev-parse HEAD:v2/card-game/assets)"
+          if [ "$key" != "$MATCHED" ]; then
+            fresh="$RUNNER_TEMP/git-objects-fresh"
+            mkdir -p "$fresh/pack"
+            git ls-tree -r --object-only HEAD | git pack-objects -q --window=0 "$fresh/pack/pack"
+            rm -rf "$RUNNER_TEMP/git-objects"
+            mv "$fresh" "$RUNNER_TEMP/git-objects"
+            echo "key=$key" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save Git objects for later checkouts
+        if: steps.pack-git-objects.outputs.key
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ runner.temp }}/git-objects
+          key: ${{ steps.pack-git-objects.outputs.key }}
