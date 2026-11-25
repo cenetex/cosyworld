@@ -36,11 +36,17 @@ export function seedCallLead(s, log) {
   learnTold(s, "keeper", "moth");
 }
 
-// The caller is captured while every condition holds, before residents act.
-export function settleCrossingUnlocks(s, senses) {
+// Capture the caller before residents act; narration may wait for the action.
+export function settleCrossingUnlocks(s, senses, { defer = false } = {}) {
+  const pending = [];
   unlockCrossings(s, senses, (crossing, by) => {
     for (const [owner, a] of Object.entries(s.actors))
       if (a.want?.step?.verb === "call" && a.want.step.crossing === crossing.id)
-        completeCall(s, owner, by, wantAPI(s));
+        completeCall(s, owner, by, { ...wantAPI(s), log: (...args) => pending.push(args) });
   });
+  const narrate = () => {
+    for (const args of pending.splice(0)) wantAPI(s).log(...args);
+  };
+  if (!defer) narrate();
+  return narrate;
 }

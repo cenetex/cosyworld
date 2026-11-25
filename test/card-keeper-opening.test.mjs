@@ -122,6 +122,9 @@ test("the drop records Vale before Pip can take the Lamp that same turn", () => 
   assert.equal(done.items.lamp.holder, "moth");
   assert.equal(done.actors.keeper.completedQuest.by, "vale");
   assert.deepEqual(met(done).map((e) => e.actorId), ["vale"]);
+  const drop = done.log.find((e) => e.verb === "drop" && e.itemId === "lamp");
+  const take = done.log.find((e) => e.verb === "take" && e.actorId === "moth" && e.itemId === "lamp");
+  assert(drop.seq < met(done)[0].seq && met(done)[0].seq < take.seq);
 });
 
 test("known helpers receive shared credit without being named as the caller", () => {

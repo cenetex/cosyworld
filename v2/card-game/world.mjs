@@ -678,8 +678,7 @@ function refusalReason(s, a) {
 }
 function saidWant(s, a, reason) {
   const want = wantOf(s, a.target);
-  return want && reason === "wants-something-else" &&
-    toldWant(s, a.actor, a.target) &&
+  return want && reason === "wants-something-else" && toldWant(s, a.actor, a.target) &&
     (want.kind === "item" || (!want.step && want.kind !== "connect"))
     ? { wantId: want.target }
     : {};
@@ -2610,7 +2609,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
   }
   settleHeldItems(s, hands);
   settleLamp(s);
-  settleCrossingUnlocks(s, sensesFor(s));
+  const narrateCall = settleCrossingUnlocks(s, sensesFor(s), { defer: true });
   const recitals =
     here !== s.actors[a.actor].place
       ? arriveRecitals(s, packDefinitions, a.actor)
@@ -2694,6 +2693,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       witnesses: [a.actor, a.target],
     });
   recordLearning(s, a, learningStart, s.log.at(-1));
+  narrateCall();
   for (const visit of recitals)
     addLog(
       s,
