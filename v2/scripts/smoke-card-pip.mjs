@@ -5,13 +5,14 @@ import { createServer } from "../card-game/serve.mjs";
 import { createLandingWorld } from "../card-game/pack-landing.mjs";
 import { decodeSave, encodeSave } from "../card-game/world.mjs";
 import { SAVE_BASE, PLAYING_KEY } from "../card-game/avatar-world.mjs";
-import { openPack } from "./card-browser-helpers.mjs";
+import { openPack, pinSeed } from "./card-browser-helpers.mjs";
 
 async function walkToGivenLamp(browser, base) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: "reduce" });
   page.setDefaultTimeout(20000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await pinSeed(page, SEED);
   await page.route("**/card-game/text", (route) => route.fulfill({ status: 503, body: "Unavailable" }));
   const { choose, buttonReads, press, button } = helpers(page);
   await page.goto(`${base}/pip?c=PIP-TEST-0001`);
@@ -36,6 +37,7 @@ async function walkToGivenLamp(browser, base) {
   assert.equal(secondBox, false, "a scanner is not asked to open a second box");
   await page.locator('#hand [data-card="vale"]').waitFor();
   const carried = decodeSave(await page.evaluate((key) => localStorage.getItem(key), key));
+  assert.equal(carried.run.seed, SEED);
   assert.equal(carried.actors.vale.place, "attic");
   assert.equal(carried.actors.vale.want ?? null, null);
   assert.equal(carried.knowledge.known.vale["quest:moth:lamp"].teller, "moth");
@@ -118,6 +120,7 @@ const browser = await chromium.launch({ headless: true });
 const output = new URL("../../output/card-pip/", import.meta.url);
 await mkdir(output, { recursive: true });
 const key = `${SAVE_BASE}.entry.pip`;
+const SEED = 17;
 const save = encodeSave(createLandingWorld(null, 17));
 try {
   for (const path of ["/pip", "/pip/"])
@@ -128,6 +131,7 @@ try {
     page.setDefaultTimeout(15000);
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    await pinSeed(page, SEED);
     await page.route("**/card-game/text", (route) => route.fulfill({ status: 503, body: "Unavailable" }));
     await page.addInitScript(({ baseKey, playing, save }) => {
       if (!localStorage.getItem(baseKey)) {
@@ -190,6 +194,7 @@ try {
     await page.close();
   }
   const other = await browser.newPage();
+  await pinSeed(other, SEED);
   await other.goto(`${base}/pip`);
   await other.locator('.title-intro[data-phase="card"] .card').click();
   await other.locator(".title-intro").waitFor({ state: "detached" });

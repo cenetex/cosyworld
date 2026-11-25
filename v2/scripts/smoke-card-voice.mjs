@@ -10,6 +10,7 @@ import {
   startNewGame,
   smokeWidths,
   readyActionButton,
+  pinSeed,
 } from "./card-browser-helpers.mjs";
 // Vale wakes knowing only the cards his player has uncovered (#1575).
 const wake = async (page) => {
@@ -37,6 +38,7 @@ try {
       errors = [],
       requests = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    await pinSeed(page, 17);
     await page.addInitScript(() => {
       localStorage.setItem("cosyworld.dialogue.sound", "off");
       localStorage.setItem(
@@ -316,6 +318,7 @@ try {
     errors = [],
     requests = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await pinSeed(page, 17);
   await page.addInitScript(() => {
     localStorage.setItem("cosyworld.dialogue.sound", "off");
     localStorage.setItem(
