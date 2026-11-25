@@ -116,14 +116,16 @@ describe("dousing the lamp in the attic", () => {
       s.actors.keeper.place,
       s.items.oil,
       s.items.cloth,
+      s.actors.moth.want,
+      s.actors.keeper.want,
+      s.memories.moth.events,
+      s.memories.keeper.events,
     ];
     const before = structuredClone(held(s));
     // Each Wait is one turn, even in the attic sanctuary.
     for (let i = 0; i < 25; i++) s = act(s, "wait");
     expect(held(s)).toEqual(before);
     expect(knownActors(s)).toEqual(["vale"]);
-    expect(s.memories.moth.events).toEqual([]);
-    expect(s.memories.keeper.events).toEqual([]);
     // Vale holds no quest in the attic, so nothing is met there.
     expect(s.actors.vale.xp).toBe(0);
     expect(levelOf(s, "vale")).toBe(0);
@@ -253,7 +255,9 @@ describe("dousing the lamp in the attic", () => {
       "Paths visible now: Black pond.",
     );
     expect(
-      narrativeContext(selectLamp(s, "lamp")).entities.find((e) => e.id === "attic").facts,
+      narrativeContext(selectLamp(s, "lamp")).entities.find(
+        (e) => e.id === "attic",
+      ).facts,
     ).not.toContain("Paths visible now: Black pond.");
   });
 
@@ -282,11 +286,10 @@ describe("dousing the lamp in the attic", () => {
         .facts.join(" "),
     ).toContain("You were already here");
     s = act(s, "wait");
-    expect(
-      s.log.some(
-        (e) => e.turn === 3 && e.actorId === "keeper" && e.kind === "action",
-      ),
-    ).toBe(true);
+    expect(s.actors.keeper).toMatchObject({
+      place: "station",
+      want: keeper.want,
+    });
   });
 
   // A scarf opens the attic stair at once; it used to fail the opening check
@@ -354,6 +357,12 @@ describe("dousing the lamp in the attic", () => {
 
   it("keeps new and existing saves on their own routes and authored wants", () => {
     const old = createWorld();
+    old.actors.keeper.want = {
+      kind: "item",
+      target: "bell",
+      since: 0,
+      refusals: 0,
+    };
     const restored = decodeSave(encodeSave(old));
     expect(restored).toEqual(old);
     expect(restored.opening).toBeUndefined();
@@ -381,11 +390,17 @@ describe("dousing the lamp in the attic", () => {
     }
   });
 
-  it("keeps meeting wants and trading through cooperative play after the opening", () => {
+  it("keeps an item-seeking cast meeting wants and trading after the opening", () => {
     for (const seedStart of [7, 42, 1729]) {
       let s = meetEveryone(),
         seed = seedStart,
         trades = 0;
+      s.actors.keeper.want = {
+        kind: "item",
+        target: "bell",
+        since: s.turn,
+        refusals: 0,
+      };
       for (let i = 0; i < 240; i++) {
         seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
         const acts = legalActions(s).filter((a) =>
@@ -411,7 +426,6 @@ describe("dousing the lamp in the attic", () => {
       }
       expect(levelOf(s, "moth")).toBeGreaterThan(3);
       expect(levelOf(s, "keeper")).toBeGreaterThan(3);
-      // Trades are one escalation among several; most wants end sooner.
       expect(trades).toBeGreaterThan(0);
       expect(decodeSave(encodeSave(s))).toEqual(s);
     }

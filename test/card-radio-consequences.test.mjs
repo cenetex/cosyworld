@@ -177,6 +177,8 @@ const skipped = new Set([37, 44, 45]);
 // The plays to add before local command `index`.
 const localLockPlays = (index) =>
   ({
+    11: [["move", "station"]],
+    12: [["move", "pond"]],
     38: [["drop", glass]],
     41: [
       ["drop", stationKey],
@@ -217,14 +219,18 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
       );
       waits++
     ) {
-      const rest = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
+      const rest = legalActions(world).find(
+        (a) => a.kind === "wait" && !a.sleep,
+      );
       world = reload(play(world, rest, world.revision).state);
       added++;
     }
     const before = structuredClone(world),
       request = structuredClone(command);
     if (command.op === "play")
-      expect(legalActions(world), `command ${index}`).toContainEqual(command.action);
+      expect(legalActions(world), `command ${index}`).toContainEqual(
+        command.action,
+      );
     let result;
     if (command.op === "hold") {
       const next = structuredClone(world);
