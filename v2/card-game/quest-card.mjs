@@ -1,6 +1,4 @@
-// The player's one quest, drawn as a quest card in the hand: its target's
-// art with the rules' own words for the want as the caption. Nothing here is
-// authored or decides anything; the rules own the want (want.mjs).
+// Quest cards and earned tarot rewards read their presentation from the rules.
 import { CONNECT_TARGET, layMet, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable, spentByChoice } from "./pack-registry.mjs";
 import { questFor } from "./talk-quest.mjs";
@@ -137,9 +135,9 @@ export function offerWords(quest, known = () => true) {
   return `${who} asks you to ${words[0].toLowerCase()}${words.slice(1)}`;
 }
 export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
-export const discardable = (quest) => quest?.kind === "arcanum" && quest.face !== "down";
+export const discardable = (quest) => quest?.kind === "arcanum" && ["up", "locked"].includes(quest.face);
 export const levelCards = (world, actor = currentActor(world)) =>
-  spreadOf(world, actor).map(({ index, card, face }, _, all) => ({
+  spreadOf(world, actor).map(({ index, card, face, bonus }, _, all) => ({
     key:
       face === "down"
         ? `tarot:${actor}:down:${all.slice(0, index).filter((slot) => slot.face === "down").length}`
@@ -148,12 +146,13 @@ export const levelCards = (world, actor = currentActor(world)) =>
     actor,
     kind: "arcanum",
     face,
+    ...(bonus ? { bonus: true } : {}),
     target: face === "down" ? null : card,
     level: Math.min(21, arcanaLevel(world, actor) + 1),
     left: 1,
     step: null,
-    art: face === "up" ? arcanumArt(card) : TAROT_LOCKED_BACK,
-    conditions: arcanumTerms(world, actor, index),
+    art: ["up", "reward"].includes(face) ? arcanumArt(card) : TAROT_LOCKED_BACK,
+    conditions: face === "reward" ? [] : arcanumTerms(world, actor, index),
     home: homeOf(actor, world) ?? null,
   }));
 export function spreadLocks(world, actor = currentActor(world)) {
@@ -175,6 +174,7 @@ export function questCaption(
   verb = null,
   known = () => true,
 ) {
+  if (quest.face === "reward") return `Collect ${nameOf(quest.target)}`;
   const shown = (id) => !(covered && id === quest.target) && known(id);
   const want = quest.goal ??
     (quest.remaining && !quest.remaining.length
@@ -197,7 +197,19 @@ export function questCaption(
             verb === "Discover" ? "discover" : verb === "Go to" ? "go to" : null,
         });
   const caption = words[0].toUpperCase() + words.slice(1);
-  return quest.level ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
+  return quest.level && !quest.bonus ? `Level ${romanLevel(quest.level)}: ${caption}` : caption;
+}
+
+export const questHeading = (quest) =>
+  quest.face === "reward" ? "Collect" : quest.bonus ? "Bonus quest" : quest.level ? "Level Up" : null;
+
+export function questLabel(quest, near, caption, known = () => true) {
+  if (quest.face === "down") return "A face-down card";
+  if (quest.face === "reward") return questCaption(quest);
+  if (quest.offer) return offerWords(quest, known);
+  if (quest.bonus) return `Bonus quest: ${caption}`;
+  const title = quest.level ? `Level Up ${romanLevel(quest.level)}: ${caption}` : caption;
+  return `Quest: ${title}${near ? ", near" : ""}`;
 }
 
 // Places between here and there along the routes this avatar can use now.

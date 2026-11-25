@@ -106,7 +106,6 @@ import {
 import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
-  discardable,
   isQuestId,
   isTarotKey,
   levelCards,
@@ -114,6 +113,8 @@ import {
   questCards,
   questVisible,
   questCaption,
+  questHeading,
+  questLabel as questCardLabel,
   questBox,
   questGround,
   handWithQuest,
@@ -123,6 +124,7 @@ import {
   spreadLocks,
   questVerb,
 } from "./quest-card.mjs";
+import { pickedQuestAction } from "./quest-action.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
 import { besideOwners, notBehindOwners, syncTableFold, tableBack, tableOwner, tableQuest, tableQuests } from "./quest-hand.mjs";
 import { createLandingWorld, newRunSeed } from "./pack-landing.mjs";
@@ -2906,35 +2908,29 @@ function renderActions() {
     row.append(reveal);
   }
   const picked = !rested && !coveredPick ? pickedQuest() : null;
-  const legal = picked ? legalActions(world) : [];
-  const drop =
-    discardable(picked) &&
-    legal.find((a) => a.kind === "drop" && !a.item && a.tarot === picked.index);
-  const confirmKey = drop ? `${revision}:${picked.key}` : null;
-  if (abandonQuest !== confirmKey) abandonQuest = null;
-  const dropLabel = drop && playLabel(drop, world);
-  const questButtons = abandonQuest
-    ? [{ action: drop, label: "Confirm?" }]
-    : drop
-      ? [{ action: drop, label: dropLabel }]
-      : [];
-  for (const { action, label } of questButtons) {
-    const button = node("button", label, "card-action");
+  const questAction = pickedQuestAction(picked, picked ? legalActions(world) : [], revision, abandonQuest);
+  if (abandonQuest !== questAction?.confirmKey) abandonQuest = null;
+  if (questAction) {
+    const { action, label, collect, confirmKey } = questAction;
+    const button = node("button", label, collect ? "card-primary" : "card-action");
     button.type = "button";
-    button.dataset.dropQuest = String(picked.index);
-    button.dataset.destructive = "";
-    button.title = "Discard this quest";
+    if (collect) button.dataset.action = action.kind;
+    else {
+      button.dataset.dropQuest = String(picked.index);
+      button.dataset.destructive = "";
+    }
+    button.title = questAction.title;
     button.disabled = selectionBlocked();
     button.onclick = () => {
       if (performance.now() - heldAt < TAP_GUARD_MS) return;
-      if (!abandonQuest) {
+      if (!collect && !abandonQuest) {
         abandonQuest = confirmKey;
         renderActions();
         row.lastElementChild?.focus();
         return;
       }
       abandonQuest = null;
-      questOpen = false;
+      if (!collect) questOpen = false;
       commitAction(action, revision);
     };
     row.append(button);
@@ -3025,7 +3021,7 @@ function renderActions() {
   } else if (questShown && row.childElementCount === 1) {
     cardTapHint(
       row.firstElementChild,
-      abandonQuest ? "Confirm" : "Discard",
+      questAction?.tap,
     );
   } else if (
     sentence &&
@@ -3508,7 +3504,7 @@ const questArt = {
 };
 function questView(quest) {
   if (quest.kind === "arcanum")
-    return { verb: "Level Up", actor: null, kind: "place", target: quest.target, covered: false };
+    return { verb: questHeading(quest), actor: null, kind: "place", target: quest.target, covered: false };
   const covered = questCovered(quest);
   return {
     verb: questVerb(world, quest, covered),
@@ -3524,14 +3520,7 @@ function questView(quest) {
     at: quest.step?.at,
   };
 }
-const questLabel = (quest, near) => {
-  if (quest.face === "down") return "A face-down card";
-  if (quest.offer) return offerWords(quest, known);
-  const caption = quest.level
-    ? `Level Up ${romanLevel(quest.level)}: ${shownQuestCaption(quest, false)}`
-    : shownQuestCaption(quest);
-  return `Quest: ${caption}${near ? ", near" : ""}`;
-};
+const questLabel = (quest, near) => questCardLabel(quest, near, shownQuestCaption(quest, false), known);
 function questFace(quest, verb) {
   const rite = quest.art && { ...questView({ ...quest, ...quest.goal }), here: quest.target };
   const screen = questScreen(
@@ -3541,8 +3530,8 @@ function questFace(quest, verb) {
   if (quest.face === "down") return [screen];
   const head = node("span", undefined, "quest-head");
   head.append(
-    setCardLabel(node("span", undefined, "quest-verb"), quest.level ? "Level Up" : verb),
-    node("span", quest.level ? romanLevel(quest.level) : "", "quest-level"),
+    setCardLabel(node("span", undefined, "quest-verb"), questHeading(quest) ?? verb),
+    node("span", questHeading(quest) === "Level Up" ? romanLevel(quest.level) : "", "quest-level"),
   );
   return [screen, head];
 }
@@ -3579,7 +3568,7 @@ function questFrame({ id, quest }) {
       src: imageUrl(
         quest.kind !== "arcanum"
           ? CARD_BACK
-          : quest.face === "up"
+          : ["up", "reward"].includes(quest.face)
             ? TAROT_BACK
             : TAROT_LOCKED_BACK,
         "card",

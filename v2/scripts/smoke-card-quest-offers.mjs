@@ -12,6 +12,8 @@ import { createWorld, decodeSave, encodeSave, legalActions, play } from "../card
 import { questing } from "../../test/helpers/first-quest.mjs";
 import { holdQuest, newWant } from "../card-game/want.mjs";
 import { recordOf } from "../card-game/world/arcana-record.mjs";
+import { dealSpread, deck } from "../card-game/world/arcana.mjs";
+import { levelCards } from "../card-game/quest-card.mjs";
 import { cardLevel } from "../card-game/rarity.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { journeyWorlds } from "../../test/helpers/journey.mjs";
@@ -420,7 +422,7 @@ try {
       await t.ready();
       assert.deepEqual(
         recordOf(await t.state(), "vale").spread.map((slot) => [slot.card, slot.face]),
-        [["arcanum-0", "up"]],
+        [["arcanum-0", "reward"]],
       );
       await showTarot();
       assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
@@ -432,11 +434,58 @@ try {
       await page.locator('#card-actions [data-open-box="tarot:vale:arcanum-0"]').click();
       await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
       assert.equal(await tarot.getAttribute("data-unrevealed"), "false");
-      assert.equal(await heading(), "Carry nothing, be away from home and visit six new places");
+      assert.equal(await heading(), "Collect The Fool");
+      assert.equal(await tarot.locator(".quest-verb").textContent(), "Collect");
+      assert.equal(await tarot.locator(".quest-level").textContent(), "");
+      assert.equal(await tarot.getAttribute("aria-label"), "Collect The Fool");
+      assert.equal(await page.locator("[data-drop-quest]").count(), 0);
       assert.equal(await back.evaluate((el) => getComputedStyle(el).display), "none");
-      await t.shot("level-up-revealed");
+      await t.shot("tarot-reward");
+      await page.reload();
+      await t.ready();
+      await showTarot();
+      if ((await tarot.getAttribute("aria-pressed")) !== "true") await tapCard(tarot);
+      await t.ready();
+      assert.equal(await heading(), "Collect The Fool", "the saved reward still waits for Collect");
+      assert.equal(await page.locator("[data-drop-quest]").count(), 0);
+      const collect = readyActionButton(page, "accept");
+      await page.waitForFunction(() => document.querySelector('#card-actions [data-action="accept"]')?.dataset.tapHint === "Tap to collect");
+      const beforeCollect = await t.state();
+      await collect.click();
+      await page.waitForFunction(() => !document.querySelector('#hand [data-quest-id="tarot:vale:arcanum-0"]'));
+      const collected = await t.state();
+      assert.equal(collected.turn, beforeCollect.turn, "Collect passes no world turn");
+      assert.equal(recordOf(collected, "vale").spread.length, 0);
+      assert.ok(collected.actors.vale.upgrades.includes("arcanum-0"));
+      await t.shot("tarot-collected");
       assert.deepEqual(t.errors, []);
       await page.close();
+
+      const later = decodeSave(encodeSave(collected));
+      const known = deck.cards.filter((card) => ![0, 21].includes(card.number)).map((card) => card.id).sort().slice(0, 4);
+      later.actors.vale.upgrades = [...new Set([...later.actors.vale.upgrades, ...known])].sort();
+      assert.equal(dealSpread(later, "vale"), true);
+      const spread = levelCards(later, "vale");
+      assert.equal(spread.length, 3);
+      assert.equal(spread.filter((card) => card.bonus).length, 1);
+      const next = await open("quest-offers-known", later);
+      await next.page.goto(`${origin}/?table=quest-offers-known-${width}`);
+      await next.ready();
+      await selectCard(next.page, "vale");
+      for (const quest of spread.filter((card) => card.face === "up")) {
+        const card = next.page.locator(`#hand [data-quest-id="${quest.key}"] > .want-card`);
+        await tapCard(card);
+        await next.ready();
+        assert.equal(await card.locator(".quest-verb").textContent(), quest.bonus ? "Bonus quest" : "Level Up");
+        assert.equal((await card.locator(".quest-level").textContent()).length > 0, !quest.bonus);
+        assert.equal(await next.page.locator("[data-drop-quest]").count(), 1);
+        assert.equal(await next.page.locator('#card-actions [data-action="accept"]').count(), 0);
+        const words = await next.page.locator(".action-beat-heading:not([hidden])").textContent();
+        assert.doesNotMatch(words, /Collect|Help (?:three|two|one).*complete their goal/u);
+        await next.shot(quest.bonus ? "tarot-bonus-quest" : "tarot-required-quest");
+      }
+      assert.deepEqual(next.errors, []);
+      await next.page.close();
     }
 
     {
