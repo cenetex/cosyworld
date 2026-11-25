@@ -464,12 +464,16 @@ describe("combat beats from the rules", () => {
     const before = s.log.length;
     const after = act(s, "guard");
     const fresh = after.log.slice(before);
+    const strike = fresh.find((entry) => entry.verb === "attack");
+    const call = fresh.find((entry) => entry.verb === "want_met");
+    expect(call.seq).toBeGreaterThan(strike.seq);
+    expect(after.actors.keeper.completedQuest).toMatchObject({ by: "moth", turn: after.turn });
     const beats = groupBeats(fresh, { viewer: "vale", here: "pond" });
     const text = beats.map((b) => [b.speakerId, b.actions.map((a) => a.text)]);
     // Each fighter's step is a beat; the defeat follows on the loser's beat.
     expect(text).toEqual([
       ["vale", ["Vale braced."]],
-      ["moth", ["Pip struck Vale. Vale gave way."]],
+      ["moth", ["Pip struck Vale. Vale gave way.", "Pip calls the ship for The keeper."]],
       [
         "vale",
         [

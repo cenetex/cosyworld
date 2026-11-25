@@ -5,7 +5,7 @@ import {
   packDefinition,
 } from "../v2/card-game/pack-registry.mjs";
 import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
-import { sleepQuest } from "../v2/card-game/want.mjs";
+import { newWant, sleepQuest } from "../v2/card-game/want.mjs";
 import {
   arcanaLevel,
   bindingOf,
@@ -160,6 +160,7 @@ describe("the second row, played in a created world", () => {
 
   it("XIV: drinks with someone who trusts them", () => {
     let s = only("arcanum-14");
+    s.actors.keeper.want = newWant("item", "bell", s.turn);
     const drink = bindingOf(s, deck.cards[0], "vale").thing;
     s = act(s, kind("take", { item: "bell" }));
     s = meet(s, "keeper");
@@ -281,6 +282,7 @@ describe("the second row, played in a created world", () => {
 
   it("XX: is trusted by five more than at the deal", () => {
     let s = only("arcanum-20");
+    s.actors.keeper.want = newWant("item", "bell", s.turn);
     for (const id of ["badger", "oak", "rati", "skull"])
       s.actors[id].trust.vale = 1;
     s = act(s, kind("take", { item: "bell" }));
