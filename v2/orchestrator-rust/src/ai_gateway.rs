@@ -1386,7 +1386,7 @@ pub(crate) fn led(lead: &str, view: &str) -> String {
 }
 
 /// Whether a user turn is a line someone said (`Pip says, “…”`), which a
-/// prefilled reply answers; silence or a presence ("Pip is here.") is not.
+/// prefilled reply answers; silence or a question ("You face Pip. …") is not.
 pub(crate) fn heard_line(user: &str) -> bool {
     user.contains(" says, \u{201c}") && user.ends_with('\u{201d}')
 }
