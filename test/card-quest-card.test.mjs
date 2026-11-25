@@ -10,7 +10,9 @@ import {
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { availableCards } from "../v2/card-game/cards.mjs";
+import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import {
+  discardable,
   isQuestId,
   levelCards,
   questCaption,
@@ -445,7 +447,36 @@ describe("the quest card", () => {
     });
     expect(JSON.stringify(down)).not.toContain("arcanum-2");
     expect(down.art).toBe("./assets/arcana/tarot-back.png");
-    expect(questCaption(down)).toBe("");
+    expect(questCaption(down)).toBe(
+      "A card the Listener gave you face down: help three people with their quests, then talk with the Listener to turn it over",
+    );
+  });
+
+  it("says who gave the face-down Fool and how it turns over, and offers no Discard", () => {
+    let s = createPipWorld(5);
+    s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
+    const talk = legalActions(s, "vale").find((a) => a.kind === "talk" && a.target === "listener");
+    s = play(s, talk, s.revision, "vale").state;
+    const fool = () => levelCards(s, "vale")[0];
+    expect(fool()).toMatchObject({ face: "down", target: null });
+    const said = (calls) => {
+      s.actors.vale.arcana.calls = calls;
+      return questCaption({ ...fool(), level: null });
+    };
+    expect(said(0)).toBe(
+      "A card the Listener gave you face down: help three people with their quests, then talk with the Listener to turn it over",
+    );
+    expect(said(1)).toBe(
+      "A card the Listener gave you face down: help two more people with their quests, then talk with the Listener to turn it over",
+    );
+    expect(said(2)).toBe(
+      "A card the Listener gave you face down: help one more person with a quest, then talk with the Listener to turn it over",
+    );
+    expect(said(3)).toBe("A card the Listener gave you face down: talk with the Listener to turn it over");
+    expect(JSON.stringify(fool())).not.toContain("arcanum-0");
+    expect(discardable(fool())).toBe(false);
+    s.actors.vale.arcana.spread[0].face = "up";
+    expect(discardable(fool())).toBe(true);
   });
 
   it("draws a locked tarot with the keyhole back and keeps its words", () => {

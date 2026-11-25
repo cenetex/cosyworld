@@ -177,10 +177,6 @@ try {
           .slice(from, to + 1)
           .map((frame) => `${frame.querySelector(".card").dataset.card ?? frame.dataset.questId}${frame.hidden ? "" : " shown"}`);
       });
-    const label = async (page) =>
-      (await page.locator("#card-actions button").first().getAttribute("data-tap-verb")) ||
-      (await page.locator("#card-actions button").first().textContent());
-
     const held = '#hand .want-frame:not([data-quest-id^="offer:"])';
     const openHeld = async (page, t) => {
       await clearSelection(page);
@@ -388,8 +384,11 @@ try {
         "the Fool is given face down",
       );
       await openHeld(page, t);
-      assert.equal(await t.oneButton(), 1);
-      assert.equal(await label(page), "Discard");
+      assert.equal(await t.oneButton(), 0, "a face-down card has no Discard");
+      assert.equal(
+        (await page.locator(".action-beat-heading:not([hidden])").textContent()).trim(),
+        "A card the Listener gave you face down: help three people with their quests, then talk with the Listener to turn it over",
+      );
       const back = page.locator(`${held}:not([hidden]) > .want-card > .card-back`);
       assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
       assert.notEqual(
