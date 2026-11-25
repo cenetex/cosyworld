@@ -10,6 +10,12 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // The signing key: made on first start and kept on the volume, or the
     // `COSYWORLD_SIGNING_KEY` override (docs/release.md#signing-key).
     crate::routes::signed_envelope::init().map_err(deployment_config_error)?;
+    cosyworld_orchestrator::card_assets::load().map_err(deployment_config_error)?;
+    info!(
+        assets = cosyworld_orchestrator::card_assets::manifest_sha256(),
+        elapsed_ms = boot_started.elapsed().as_millis() as u64,
+        "card assets checked"
+    );
     crate::routes::card_game::narrative::catalog_stale();
 
     if let Some(config) =

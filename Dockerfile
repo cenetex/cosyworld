@@ -29,9 +29,6 @@ FROM dependencies AS build
 
 ARG CARGO_BUILD_JOBS=1
 
-# build.rs runs Node to generate the embedded card asset list.
-COPY --from=node:24.11.0-bookworm-slim /usr/local/bin/node /usr/local/bin/node
-COPY v2/scripts/build-card-assets.mjs /app/v2/scripts/build-card-assets.mjs
 COPY v2/core-c /app/v2/core-c
 COPY v2/content /app/v2/content
 COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt
@@ -47,13 +44,21 @@ COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 RUN --mount=type=cache,id=cosyworld-release-target-v1,target=/app/v2/orchestrator-rust/target,from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked \
   touch build.rs \
   && find src ../ai-model-rust/src ../core-c ../content ../card-game ../media -type f -exec touch {} + \
-  && touch ../scripts/build-card-assets.mjs \
   && touch ../content-engine-version.txt \
   && CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} cargo build --release --locked \
   && mkdir -p /app/bin \
   && cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator
 
 FROM ${ORCHESTRATOR_BINARY} AS orchestrator-binary
+
+# The public card-game files and their manifest, read by the server at startup.
+# Images and audio form their own layer, which only art changes rebuild.
+FROM node:24.11.0-bookworm-slim AS assets
+
+WORKDIR /app
+COPY v2/card-game /app/v2/card-game
+COPY v2/scripts/build-card-assets.mjs /app/v2/scripts/build-card-assets.mjs
+RUN node v2/scripts/build-card-assets.mjs --release /out
 
 FROM debian:bookworm-slim AS runtime
 
@@ -62,6 +67,7 @@ ENV COSYWORLD_V2_ADDR=0.0.0.0:3000
 ENV COSYWORLD_V2_SNAPSHOT_PATH=/data/cosyworld-v2-snapshot.json
 ENV COSYWORLD_V2_EVENT_DB_PATH=/data/cosyworld-v2-events.sqlite
 ENV RUST_LOG=cosyworld_orchestrator=info,tower_http=warn
+ENV COSYWORLD_ASSETS_DIR=/app/assets
 
 WORKDIR /app
 
@@ -74,6 +80,8 @@ RUN apt-get update \
   && chown cosyworld:cosyworld /data \
   && chmod 0770 /data
 
+COPY --link --from=assets /out/media/ /app/assets/
+COPY --link --from=assets /out/text/ /app/assets/
 COPY --from=orchestrator-binary /app/bin/cosyworld-orchestrator /app/cosyworld-orchestrator
 COPY v2/content /app/v2/content
 COPY models/card-policy /app/models/card-policy

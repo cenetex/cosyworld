@@ -46,6 +46,12 @@ def main():
                 raise RuntimeError("The game helper needs a system-only library build: " + library)
     (bundle / "game").mkdir(exist_ok=True)
     shutil.copy2(target / "release" / name, bundle / "game" / name)
+    release = ROOT / ".runtime/desktop-assets"
+    shutil.rmtree(release, ignore_errors=True)
+    shutil.rmtree(bundle / "game/assets", ignore_errors=True)
+    run(["node", "v2/scripts/build-card-assets.mjs", "--release", str(release)])
+    for layer in ("media", "text"):
+        shutil.copytree(release / layer, bundle / "game/assets", dirs_exist_ok=True)
     (bundle / "game/build-info.json").write_bytes(subprocess.check_output(
         ["node", "v2/desktop/check-package.mjs", "--manifest"], cwd=ROOT))
     run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir",

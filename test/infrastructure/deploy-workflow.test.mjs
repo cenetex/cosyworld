@@ -1301,4 +1301,11 @@ describe("deploy workflow", () => {
       dockerfile.indexOf(releaseBuild),
     );
   });
+
+  it("points the server at the assets directory the image ships", () => {
+    expect(dockerfile).toContain(
+      "COPY --link --from=assets /out/text/ /app/assets/",
+    );
+    expect(dockerfile).toContain("ENV COSYWORLD_ASSETS_DIR=/app/assets");
+  });
 });
