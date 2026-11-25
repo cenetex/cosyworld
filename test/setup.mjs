@@ -7,6 +7,7 @@
  */
 
 import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { setImmediate } from 'node:timers/promises';
 import dotenv from 'dotenv';
 
 // Load test environment variables
@@ -49,8 +50,9 @@ beforeEach(() => {
   vi.clearAllTimers();
 });
 
-// Cleanup after each test
-afterEach(() => {
-  // Clear all mocks
+// Yields to the event loop between tests, so the worker reads the runner's
+// replies before two long synchronous tests outlast its 60-second RPC timeout.
+afterEach(async () => {
   vi.clearAllMocks();
+  await setImmediate();
 });
