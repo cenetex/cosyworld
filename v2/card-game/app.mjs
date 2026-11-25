@@ -61,6 +61,7 @@ import {
   TRAVEL_EASE,
   TRAVEL_MS,
   closeTiming,
+  createHandMotions,
   handedOver,
   heldFrom,
   travelFrames,
@@ -3146,9 +3147,7 @@ function updateCardSelection(frame) {
       ? ` ${places[id] ? "Contains" : "Carries"} ${held.map((item) => cardIsClosed(item) ? "covered" : nameOf(item)).join(", ")}. Select to show these cards.`
       : "");
 }
-const handMotions = new Map();
-// Cards new to the hand rise in, and quests are dealt face down
-// (card-entry.mjs).
+const handMotions = createHandMotions();
 const handEntries = createCardEntries(),
   questsInView = createQuestEntries();
 // Quests turned face up at least once: only these show their parts' tier
@@ -3262,20 +3261,7 @@ function turnQuest(key) {
   setQuestClosed(card, false);
   void turnCard(card);
 }
-function moveHandPart(key, element, frames, duration = 220, delay = 0, easing = "ease-out") {
-  const motion = element.animate(frames, {
-    duration,
-    delay,
-    easing,
-    fill: delay ? "backwards" : "none",
-  });
-  handMotions.set(key, motion);
-  motion.finished
-    .then(() => {
-      if (handMotions.get(key) === motion) handMotions.delete(key);
-    })
-    .catch(() => {});
-}
+const moveHandPart = handMotions.move;
 function tuckQuest(frame, from) {
   frame.hidden = false;
   const [ghost] = ghostsOver([frame], handExits());
@@ -5111,8 +5097,7 @@ function render() {
         else holders.set(key, frame.dataset.holder);
         before.set(key, at);
       }
-    for (const motion of handMotions.values()) motion.cancel();
-    handMotions.clear();
+    handMotions.redraw(animate && samePlace && !sceneChanged);
     const wasExpanded = document.body.dataset.handExpanded;
     renderedHand = handKey;
     renderedHandRevision = world.revision;
@@ -5168,6 +5153,7 @@ function render() {
     // Lean the new row before measuring it, so each card moves from where
     // it was to its fanned place.
     fanHand();
+    handMotions.reconcile();
     $("hand").scrollLeft = stayed ? scroll : 0;
     // A thing taken or received by the player's own play is in their hand
     // at once: the row keeps its scroll, so the card would land out of view
@@ -5257,7 +5243,7 @@ function render() {
       const dx = previous.left - next.left,
         dy = previous.top - next.top;
       if (flight)
-        moveHandPart(`frame:${id}`, frame, travelFrames(previous, next), TRAVEL_MS, 0, TRAVEL_EASE);
+        moveHandPart(`frame:${id}`, frame, travelFrames(previous, next), TRAVEL_MS, 0, TRAVEL_EASE, true);
       else if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || !before.has(id))
         moveHandPart(
           `frame:${id}`,
