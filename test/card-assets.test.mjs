@@ -40,6 +40,8 @@ describe("one public card asset list", () => {
         "v2/scripts/build-card-assets.mjs",
         "--rust-out",
         out,
+        "--manifest",
+        `${out}.json`,
       ]);
       return readFileSync(out, "utf8");
     };
@@ -48,6 +50,11 @@ describe("one public card asset list", () => {
     expect(
       first.match(/include_bytes!|let \(_, bytes\) = get\(/g),
     ).toHaveLength(publicAssets.length);
+    const listed = JSON.parse(readFileSync(join(dir, "a.rs.json"), "utf8"));
+    expect(Object.keys(listed.files)).toEqual(
+      publicAssets.map(({ file }) => `card-game/${file}`),
+    );
+    expect(first).toContain(`"${listed.sha256}"`);
   });
 
   it("serves every listed file with the expected type and bytes", async () => {
