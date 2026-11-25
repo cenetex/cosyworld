@@ -31,6 +31,7 @@ export function recordOf(s, traveler) {
     done: record?.done || [],
     spread: record?.spread || [],
     sale: record?.sale === true,
+    paid: record?.paid === true,
   };
 }
 
@@ -43,6 +44,8 @@ export const tarotsHeld = (actor) => actor?.arcana?.spread?.length ?? 0;
 
 export const unlockedOf = (s, traveler) =>
   [...new Set((s.actors?.[traveler]?.upgrades || []).filter(isArcanum))].sort();
+export const rewardPending = (s, traveler) =>
+  recordOf(s, traveler).spread.some((slot) => slot.face === "reward");
 
 export function countResidentQuest(actor, resident) {
   const record = (actor.arcana ??= { proved: [], did: [] });
@@ -54,9 +57,9 @@ export function countResidentQuest(actor, resident) {
 }
 
 export function called(s, traveler) {
-  if (!humanPresent(s, traveler)) return false;
+  if (!humanPresent(s, traveler) || rewardPending(s, traveler)) return false;
   const record = recordOf(s, traveler);
-  return (
+  return !record.paid && (
     record.sale ||
     (record.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP)
   );
@@ -68,9 +71,11 @@ export const calledTravelers = (s) =>
     .filter((id) => called(s, id));
 
 export const selling = (s, traveler) =>
-  humanPresent(s, traveler) && recordOf(s, traveler).sale;
+  humanPresent(s, traveler) &&
+  !rewardPending(s, traveler) && !recordOf(s, traveler).paid &&
+  recordOf(s, traveler).sale;
 
 export const owesGiving = (s, traveler) =>
   recordOf(s, traveler).spread.some(
-    (slot) => slot.face !== "down" && givingUp.has(slot.card),
+    (slot) => ["up", "locked"].includes(slot.face) && givingUp.has(slot.card),
   );

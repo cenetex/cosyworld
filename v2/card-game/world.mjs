@@ -491,12 +491,13 @@ import {
 export { placeText, exits, sealedWays };
 import { boxIdOpen, creditOpened, validOpened } from "./world/boxes.mjs";
 import {
+  collectTarot,
   discardTarot,
   dreamCard,
   installArcana,
   takes,
   settleArcana,
-  spreadOf,
+  tarotActions,
   validArcana,
 } from "./world/arcana.mjs";
 import { homeOf, restsAt } from "./world/home.mjs";
@@ -1669,17 +1670,7 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push({ ...drop, quest, key: `${drop.key}:${quest}` });
     });
   if (actor === currentActor(s) || controlledByHuman(s, actor))
-    spreadOf(s, actor).forEach(({ card, face }, tarot) => {
-      const drop = offer(
-        "drop",
-        actor,
-        null,
-        null,
-        `${nameOf(actor)} sets down ${face === "down" ? "a face-down card" : nameOf(card)}.`,
-        [],
-      );
-      out.push({ ...drop, tarot, key: `${drop.key}:tarot:${tarot}` });
-    });
+    out.push(...tarotActions(s, actor, offer));
   for (const action of out) {
     if (action.kind === "take" && things[s.items[action.item]?.holder])
       action.label = "Uncover";
@@ -3310,14 +3301,18 @@ export function play(
     };
   const next = structuredClone(s);
   if (exact.kind === "accept") {
-    const asked = exact.box
-      ? boxOffer(next, exact.box, actor)
-      : exact.place
-        ? placeOffer(next, actor)
-        : residentOffer(next, actor, exact.target);
-    const quest = holdQuest(next, actor, asked.want, asked.id);
-    if (!exact.box && !exact.place) lapseOffer(next, actor);
-    bindAsker(next, actor, quest, true);
+    if (exact.tarot !== undefined)
+      collectTarot(next, actor, exact.tarot, (text, detail) => addLog(next, "World", text, detail));
+    else {
+      const asked = exact.box
+        ? boxOffer(next, exact.box, actor)
+        : exact.place
+          ? placeOffer(next, actor)
+          : residentOffer(next, actor, exact.target);
+      const quest = holdQuest(next, actor, asked.want, asked.id);
+      if (!exact.box && !exact.place) lapseOffer(next, actor);
+      bindAsker(next, actor, quest, true);
+    }
     next.revision += 1;
     validateWorld(next);
     return { ok: true, state: next };
@@ -3338,7 +3333,6 @@ export function play(
   const round = beginRound(s, sensesFor(s));
   next.turn += 1;
   next.revision += 1;
-  // Any play but sleeping on wakes a sleeper first.
   if (next.actors[actor].sleeping && !exact.sleep)
     wakeUp(next, actor, "chose", `${nameOf(actor)} wakes.`);
   const reflectionSource = next.actors[actor].place;
@@ -3502,8 +3496,12 @@ export function play(
   settleHomeLevels(next);
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);
-  settleArcana(next, actor, s.eventSeq ?? s.log.length, (text, detail) =>
-    addLog(next, "World", text, detail),
+  settleArcana(
+    next,
+    actor,
+    s.eventSeq ?? s.log.length,
+    (text, detail) => addLog(next, "World", text, detail),
+    s,
   );
   settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);

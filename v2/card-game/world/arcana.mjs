@@ -28,6 +28,7 @@ import {
   isArcanum,
   owesGiving,
   recordOf,
+  rewardPending,
   unlockedOf,
 } from "./arcana-record.mjs";
 import { boxDefs } from "./boxes.mjs";
@@ -409,7 +410,7 @@ function clash(s, traveler, a, b) {
 
 export function nextSpread(s, traveler) {
   const level = arcanaLevel(s, traveler);
-  if (level >= LEVEL_CAP) return [];
+  if (level >= LEVEL_CAP || rewardPending(s, traveler)) return [];
   const unlocked = unlockedOf(s, traveler);
   const world = numbered(WORLD);
   if (
@@ -448,17 +449,16 @@ export function nextSpread(s, traveler) {
     return null;
   };
   const up = pick(known, "up", scale);
-  const down = pick(known, "down", 1);
+  const bonus = pick(known, "up", 1);
+  if (bonus) bonus.bonus = true;
   const locked = unknown.length
     ? pick(unknown, "locked", scale, up)
     : pick(known, "locked", nextScale(level + 1), up);
-  return [up, down, locked].filter(Boolean);
+  return up || locked ? [up, bonus, locked].filter(Boolean) : [];
 }
 
-const needOf = (spread) => {
-  const shown = spread.filter((slot) => slot.face !== "down");
-  return sorted((shown.length ? shown : spread).map((slot) => slot.card));
-};
+const needOf = (spread) =>
+  sorted(spread.filter((slot) => !slot.bonus).map((slot) => slot.card));
 
 function place(s, traveler, slot) {
   const record = s.actors[traveler].arcana;
@@ -489,6 +489,7 @@ export function dealSpread(s, traveler) {
   record.need = needOf(record.spread);
   delete record.done;
   delete record.sale;
+  delete record.paid;
   return true;
 }
 
@@ -507,13 +508,25 @@ function giveFool(s, traveler) {
   delete record.done;
 }
 
-function unlock(s, traveler, id) {
+export function collectTarot(s, traveler, index, say = () => {}) {
   const a = s.actors[traveler];
   const record = a.arcana;
+  const slot = record?.spread?.[index];
+  if (slot?.face !== "reward") return false;
+  const tell = (text) => say(text, {
+    kind: "narration", actorId: traveler, witnesses: [traveler], consequence: true,
+  });
+  const id = slot.card;
   record.level ??= arcanaLevel(s, traveler);
-  record.proved = sorted([...record.proved, id]);
-  record.done = sorted([...(record.done || []), id]);
+  if (slot.done) record.proved = sorted([...record.proved, id]);
+  if (!slot.bonus && record.need?.includes(id))
+    record.done = sorted([...(record.done || []), id]);
   collect(a, [id]);
+  leave(record, slot);
+  tell(`${nameOf(traveler)} collects ${nameOf(id)}.`);
+  rise(s, traveler, tell);
+  if (record.paid) dealSpread(s, traveler);
+  return true;
 }
 
 function leave(record, slot) {
@@ -542,21 +555,15 @@ const unlocks = (s, traveler) =>
   recordOf(s, traveler).spread.some((slot) => slot.face === "down") &&
   holds(s, LOCK, { traveler });
 
-function turnOver(s, traveler, tell) {
+function turnOver(s, traveler) {
   const record = s.actors[traveler].arcana;
   delete record.calls;
   delete record.callers;
   for (const slot of [...record.spread]) {
     if (slot.face !== "down") continue;
-    if (!slot.done) {
-      slot.face = "up";
-      collect(s.actors[traveler], [slot.card]);
-    } else {
-      unlock(s, traveler, slot.card);
-      leave(record, slot);
-    }
+    slot.face = "reward";
   }
-  rise(s, traveler, tell);
+  delete record.sale;
 }
 
 function rise(s, traveler, tell) {
@@ -590,7 +597,8 @@ function rise(s, traveler, tell) {
 }
 
 export const sells = (s, traveler) =>
-  recordOf(s, traveler).sale && nextSpread(s, traveler).length > 0;
+  recordOf(s, traveler).sale && !recordOf(s, traveler).paid &&
+  nextSpread(s, traveler).length > 0;
 
 export const takes = (s, traveler) =>
   sells(s, traveler) || owesGiving(s, traveler);
@@ -600,8 +608,23 @@ export const spreadOf = (s, traveler) =>
     index,
     card: slot.card,
     face: slot.face,
+    ...(slot.bonus ? { bonus: true } : {}),
     binding: slotBinding(s, slot, traveler),
   }));
+
+export const tarotActions = (s, actor, offer) =>
+  spreadOf(s, actor).map(({ card, face, index }) => {
+    const reward = face === "reward";
+    const text = reward
+      ? `${nameOf(actor)} collects ${nameOf(card)}.`
+      : `${nameOf(actor)} sets down ${face === "down" ? "a face-down card" : nameOf(card)}.`;
+    const action = offer(reward ? "accept" : "drop", actor, null, null, text, []);
+    return {
+      ...action, tarot: index,
+      ...(reward ? { label: "Collect" } : {}),
+      key: `${action.key}:tarot:${index}:${card}`,
+    };
+  });
 
 const termsOf = (card) =>
   card.desire?.length
@@ -610,6 +633,7 @@ const termsOf = (card) =>
 
 export function arcanumTerms(s, traveler, index) {
   const slot = recordOf(s, traveler).spread[index];
+  if (slot?.face === "reward") return [];
   const binding = slot && slotBinding(s, slot, traveler);
   if (!binding) return [];
   const { did } = recordOf(s, traveler);
@@ -630,7 +654,7 @@ export function arcanumTerms(s, traveler, index) {
 export function discardTarot(s, traveler, index) {
   const record = s.actors[traveler]?.arcana;
   const slot = record?.spread?.[index];
-  if (slot) leave(record, slot);
+  if (slot && slot.face !== "reward") leave(record, slot);
 }
 
 export function dreamCard(s, traveler) {
@@ -646,6 +670,7 @@ export function dreamCard(s, traveler) {
 function settleSlots(s, traveler) {
   const record = s.actors[traveler].arcana;
   for (const slot of [...(record?.spread || [])]) {
+    if (["down", "reward"].includes(slot.face)) continue;
     const binding = slotBinding(s, slot, traveler);
     if (!binding) {
       leave(record, slot);
@@ -658,15 +683,13 @@ function settleSlots(s, traveler) {
       );
     if (slot.done || !slotCard(slot).proof.every((c) => holds(s, c, binding)))
       continue;
-    if (slot.face === "down") slot.done = true;
-    else {
-      unlock(s, traveler, slot.card);
-      leave(record, slot);
-    }
+    slot.done = true;
+    slot.face = "reward";
+    delete record.sale;
   }
 }
 
-export function settleArcana(s, actor = null, since = 0, say = null) {
+export function settleArcana(s, actor = null, since = 0, say = null, before = s) {
   const seated = (ids) =>
     [...new Set(ids)].filter((id) => humanAvatar(id) && s.actors?.[id]).sort();
   const fresh = (s.log || []).filter((entry) => entry.seq > since);
@@ -681,6 +704,7 @@ export function settleArcana(s, actor = null, since = 0, say = null) {
       seen.set(traveler, { visit: met(data.visit), price: met(data.price) });
       const record = s.actors[traveler].arcana;
       for (const slot of record?.spread || []) {
+        if (["down", "reward"].includes(slot.face)) continue;
         const binding = slotBinding(s, slot, traveler);
         if (!binding) continue;
         for (const c of resolve(slotCard(slot).proof.flatMap(didsIn), binding))
@@ -700,8 +724,10 @@ export function settleArcana(s, actor = null, since = 0, say = null) {
     actor,
     ...humanAvatarIds.filter((id) => humanPresent(s, id)),
   ])) {
-    settleSlots(s, traveler);
     const events = seen.get(traveler);
+    if (events?.price && sells(before, traveler))
+      recordFor(s, traveler).paid = true;
+    settleSlots(s, traveler);
     const tell = (by) => (text) =>
       say?.(text, {
         kind: "narration",
@@ -710,13 +736,10 @@ export function settleArcana(s, actor = null, since = 0, say = null) {
         witnesses: [...new Set([by, traveler])],
         consequence: true,
       });
-    if (events?.price && recordOf(s, traveler).sale) {
-      dealSpread(s, traveler);
-      delete s.actors[traveler].arcana.sale;
-    }
-    if (unlocks(s, traveler)) turnOver(s, traveler, tell(traveler));
+    if (unlocks(s, traveler)) turnOver(s, traveler);
     else if (events?.visit && called(s, traveler))
       visit(s, traveler, tell(LISTENER));
+    if (recordOf(s, traveler).paid) dealSpread(s, traveler);
   }
   return s;
 }
@@ -736,11 +759,13 @@ function validSlot(slot) {
   if (
     !card ||
     !Object.keys(slot).every((key) =>
-      ["base", "bind", "card", "done", "face", "scale"].includes(key),
+      ["base", "bind", "bonus", "card", "done", "face", "scale"].includes(key),
     ) ||
-    !["up", "down", "locked"].includes(slot.face) ||
+    !["up", "down", "locked", "reward"].includes(slot.face) ||
+    (slot.bonus !== undefined &&
+      !(slot.bonus === true && ["up", "reward"].includes(slot.face))) ||
     (slot.done !== undefined &&
-      !(slot.done === true && slot.face === "down")) ||
+      !(slot.done === true && ["down", "reward"].includes(slot.face))) ||
     (slot.scale !== undefined && ![2, 3].includes(slot.scale))
   )
     return false;
@@ -794,6 +819,28 @@ export function installArcana(s) {
     }
     if (record.level !== undefined && !validLevel(record.level))
       delete record.level;
+    const owned = new Set(actor.upgrades || []);
+    const needed = Array.isArray(record.need) ? record.need : [];
+    for (const slot of Array.isArray(record.spread) ? record.spread : []) {
+      if (!plainObject(slot)) continue;
+      const firstFool = slot.card === numbered(FOOL) &&
+        (record.level ?? proved.length) === 0 && needed.includes(slot.card);
+      if (slot.face === "up" && firstFool && !proved.includes(slot.card))
+        slot.face = "reward";
+      else if (slot.face === "down" && owned.has(slot.card) && !firstFool) {
+        slot.face = slot.done ? "reward" : "up";
+        slot.bonus = true;
+        if (Array.isArray(record.need)) {
+          record.need = record.need.filter((id) => id !== slot.card);
+          if (!record.need.length) delete record.need;
+        }
+        if (Array.isArray(record.done)) {
+          record.done = record.done.filter((id) => id !== slot.card);
+          if (!record.done.length) delete record.done;
+        }
+      } else if (slot.face === "up" && !needed.includes(slot.card))
+        slot.bonus = true;
+    }
     if (record.spread !== undefined && !validSpread(record.spread))
       delete record.spread;
     const revealed = (record.spread || [])
@@ -805,6 +852,7 @@ export function installArcana(s) {
     if (record.done !== undefined && !validDone(record.done))
       delete record.done;
     if (record.sale !== undefined && record.sale !== true) delete record.sale;
+    if (record.paid !== undefined && record.paid !== true) delete record.paid;
   }
   return s;
 }
@@ -827,6 +875,7 @@ export function validArcana(s) {
           "done",
           "level",
           "need",
+          "paid",
           "proved",
           "sale",
           "spread",
@@ -841,6 +890,7 @@ export function validArcana(s) {
           record.callers.length >= 1 &&
           record.callers.length <= (record.calls ?? 0))) &&
       (record.sale === undefined || record.sale === true) &&
+      (record.paid === undefined || record.paid === true) &&
       (record.level === undefined || validLevel(record.level)) &&
       (record.spread === undefined || validSpread(record.spread)) &&
       (record.need === undefined || validNeed(record.need)) &&
