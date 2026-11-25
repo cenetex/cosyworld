@@ -108,6 +108,7 @@ import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
   isQuestId,
   isTarotKey,
+  isTarotArtKey,
   levelCards,
   offerWords,
   questCards,
@@ -122,6 +123,8 @@ import {
   questNear,
   questTier,
   spreadLocks,
+  tarotArtSeen,
+  tarotArtKey,
   questVerb,
 } from "./quest-card.mjs";
 import { pickedQuestAction } from "./quest-action.mjs";
@@ -589,9 +592,13 @@ const pipPrelude = () => startingPip && !world.opening;
 // The printed card says "Wants Lamp": a visitor with it in hand already knows
 // Pip and the Lamp, so both are known cards from the first look.
 const PIP_KNOWN = ["moth", "lamp"];
-const cardIsCovered = (id) => unmet(world, id) || (pipPrelude()
-  ? !PIP_KNOWN.includes(id) || coveredCards.has(id)
-  : !encountered.has(id) || coveredCards.has(id));
+const cardIsCovered = (id) => {
+  const artSeen = isTarotKey(id) ? tarotArtSeen(world, id, encountered) : null;
+  if (artSeen !== null) return !artSeen;
+  return unmet(world, id) || (pipPrelude()
+    ? !PIP_KNOWN.includes(id) || coveredCards.has(id)
+    : !encountered.has(id) || coveredCards.has(id));
+};
 const unseenCards = () =>
   availableCards(world).filter((id) => !encountered.has(id) && !unmet(world, id));
 const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
@@ -684,7 +691,7 @@ function loadSeen(reset = false) {
   } catch {}
   encountered = new Set([
     ...(Array.isArray(saved) ? saved : []).filter(
-      (id) => people[id] || things[id] || places[id],
+      (id) => people[id] || things[id] || places[id] || isTarotArtKey(id),
     ),
     ...availableCards(world).filter((id) => !unmet(world, id)),
     ...levelCards(world).map((card) => card.key),
@@ -1798,7 +1805,10 @@ function uncover(
   { flip = true, lid = null, fade = true, batch = false, announce = true } = {},
 ) {
   if (!cardIsCovered(id) || unmet(world, id)) return;
+  const tarot = isTarotKey(id) && questEntry(id)?.quest;
+  const art = tarot && ["up", "reward"].includes(tarot.face) && tarot.target;
   encountered.add(id);
+  if (art) encountered.add(tarotArtKey(art));
   coveredCards.delete(id);
   rememberCards();
   if (fade && !isTarotKey(id)) stageReveals.add(id);
@@ -1806,10 +1816,9 @@ function uncover(
   render();
   const shown = handCard(id);
   if (shown && flip) turnCard(openingLid(shown, lid));
-  const tarot = isTarotKey(id) && questEntry(id)?.quest.target;
   if (announce)
     $("discovery-announcement").textContent = isTarotKey(id)
-      ? tarot ? `New card: ${nameOf(tarot)}.` : "New card."
+      ? art ? `New card: ${nameOf(art)}.` : "New card."
       : `New card: ${nameOf(id)}.`;
   if (openingHeld && openingWordsDue() && avatarKnown()) resumeScene();
   if (sharedSession) syncSharedLine();

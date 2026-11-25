@@ -29,6 +29,9 @@ import {
   questTier,
   questVerb,
   spreadLocks,
+  tarotArtSeen,
+  tarotArtKey,
+  isTarotArtKey,
 } from "../v2/card-game/quest-card.mjs";
 import { createLockedBoxes } from "../v2/card-game/locked-box.mjs";
 import { pickedQuestAction } from "../v2/card-game/quest-action.mjs";
@@ -540,6 +543,31 @@ describe("the quest card", () => {
     expect(pickedQuestAction(reward, [{ ...collect, tarot: 1 }], 8, null)).toBeNull();
     expect(reward).toEqual({ kind: "arcanum", face: "reward", index: 0, key: "tarot:vale:arcanum-0" });
     expect(pickedQuestAction(reward, [collect], 8, null).action).toBe(collect);
+  });
+
+  it("unlocks a keyhole tarot into an unseen reward without forgetting revealed art", () => {
+    const s = dealtFool();
+    s.actors.vale.arcana.spread[0].face = "locked";
+    const [locked] = levelCards(s, "vale");
+    const seen = new Set([locked.key]);
+    const boxes = createLockedBoxes({ retainAbsent: false });
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    expect(tarotArtSeen(s, locked.key, seen)).toBeNull();
+    s.actors.vale.arcana.spread[0].face = "reward";
+    const [reward] = levelCards(s, "vale");
+    expect(reward.key).toBe(locked.key);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([reward.key]);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    expect(tarotArtSeen(s, reward.key, seen)).toBe(false);
+    expect(tarotArtSeen(s, reward.key, new Set([reward.target]))).toBe(false);
+    expect(isTarotArtKey(tarotArtKey(reward.target))).toBe(true);
+    expect(isTarotArtKey("tarot-art:not-a-card")).toBe(false);
+    seen.add(tarotArtKey(reward.target));
+    expect(tarotArtSeen(s, reward.key, new Set([...seen]))).toBe(true);
+    s.actors.vale.upgrades = [reward.target];
+    expect(tarotArtSeen(s, reward.key, new Set())).toBe(true);
+    s.actors.vale.arcana.spread[0].face = "up";
+    expect(tarotArtSeen(s, reward.key, new Set())).toBe(true);
   });
 
   it("keeps later required and bonus known cards as canonical quests", () => {

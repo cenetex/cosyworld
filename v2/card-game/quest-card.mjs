@@ -6,7 +6,7 @@ import { revealed } from "./want-talk.mjs";
 import { ownerWant } from "./quest-call.mjs";
 import { UNKNOWN, conditionWords, kindOf, wantWords } from "./world/want-words.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
-import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
+import { arcanaLevel, arcanumTerms, isArcanum, spreadOf } from "./world/arcana.mjs";
 import { homeOf } from "./world/home.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
@@ -155,10 +155,19 @@ export const levelCards = (world, actor = currentActor(world)) =>
     conditions: face === "reward" ? [] : arcanumTerms(world, actor, index),
     home: homeOf(actor, world) ?? null,
   }));
+export const tarotArtKey = (id) => `tarot-art:${id}`;
+export const isTarotArtKey = (key) =>
+  typeof key === "string" && key.startsWith("tarot-art:") && isArcanum(key.slice(10));
+export function tarotArtSeen(world, key, seen) {
+  const card = levelCards(world).find((quest) => quest.key === key);
+  if (!card || !["up", "reward"].includes(card.face)) return null;
+  return seen.has(tarotArtKey(card.target)) ||
+    Boolean(world.actors[card.actor]?.upgrades?.includes(card.target));
+}
 export function spreadLocks(world, actor = currentActor(world)) {
   const ids = (down) =>
     spreadOf(world, actor)
-      .filter(({ face }) => !down || face === "down")
+      .filter(({ face }) => !down || ["down", "locked"].includes(face))
       .map(({ card }) => `tarot:${actor}:${card}`);
   return [ids(false), ids(true)];
 }

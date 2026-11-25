@@ -663,9 +663,8 @@ for (const [width, motion] of [
   await page.close();
 }
 
-// A spread the Listener deals for a thing comes as its own face-down cards in
-// the same pack: the locked one under the keyhole back from the start, a
-// chosen card turned by its own Reveal, the rest by Reveal all.
+// Known tarot art shows its canonical quests directly. The unknown card
+// keeps its keyhole back and reveals its quest through the ordinary pack.
 function spreadWorld() {
   let world = createPipWorld(5);
   const talk = legalActions(world, "vale").find((a) => a.kind === "talk" && a.target === "moth");
@@ -704,45 +703,38 @@ const tarotFaces = (page) =>
     () => document.querySelectorAll('#hand .want-card[data-quest-key^="tarot:vale:"]').length === 3,
   );
   await settleHand(page);
+  await selectCard(page, "vale");
+  await page.waitForFunction(() => {
+    const known = [...document.querySelectorAll('#hand .want-card[data-face="up"]')];
+    return known.length === 2 && known.every((card) => card.dataset.unrevealed === "false");
+  });
   const dealt = await tarotFaces(page);
-  assert.deepEqual(dealt.map((c) => c.unrevealed), ["true", "true", "true"], `${label}: the spread is dealt face down`);
-  assert.deepEqual(dealt.map((c) => c.pack), ["closed", "closed", "closed"], `${label}: the spread is one pack`);
-  for (const card of dealt) {
-    assert.match(card.label, /^(A face-down card|3 closed boxes\. Select to open\.)$/u, `${label}: ${card.key} is not named face down`);
-    assert.match(
-      card.back,
-      card.face === "locked" ? /tarot-back-locked/u : /tarot-back(?!-locked)/u,
-      `${label}: ${card.key} lies under its own back`,
-    );
+  for (const card of dealt.filter((entry) => entry.face === "up")) {
+    assert.equal(card.pack, null, `${label}: owned art needs no Reveal pack`);
+    assert.match(card.label, /^(Quest: Level Up|Bonus quest)/u);
+    assert.match(card.back, /tarot-back(?!-locked)/u);
   }
-  await clearSelection(page);
-  await page.mouse.move(2, 2);
-  for (let i = 0; i < 6 && (await page.locator("#action-beat").isHidden()); i++) {
-    if (await page.locator("#dialogue-advance").isVisible()) await page.locator("#dialogue-advance").click();
-    await page.waitForTimeout(500);
-  }
-  assert.equal(await page.locator("#card-actions [data-pack]").count(), 0, `${label}: three cards offer no Reveal all`);
-  assert.equal(
-    (await tarotFaces(page)).filter((c) => c.shown).length,
-    1,
-    `${label}: the lowered spread shows one stack`,
-  );
+  const locked = dealt.find((card) => card.face === "locked");
+  assert.ok(locked, `${label}: one unknown card remains`);
+  assert.equal(locked.unrevealed, "true");
+  assert.equal(locked.pack, "closed");
+  assert.equal(locked.label, "A face-down card");
+  assert.match(locked.back, /tarot-back-locked/u);
   await tapCard(page.locator('#hand [data-pack="closed"]:not([hidden]) > .card'));
-  await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length >= 3);
+  await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length === 1);
   await page.waitForTimeout(900);
-  const up = dealt.find((c) => c.face === "up");
-  const card = page.locator(`#hand .want-card[data-quest-key="${up.key}"]`);
+  const card = page.locator(`#hand .want-card[data-quest-key="${locked.key}"]`);
   await tapCard(card);
   await oneButton(page, "Reveal", `${label}: a chosen face-down tarot asks Reveal`);
-  await page.locator(`#card-actions [data-open-box="${up.key}"]`).click();
+  await page.locator(`#card-actions [data-open-box="${locked.key}"]`).click();
   await page.waitForFunction(
     (key) => document.querySelector(`#hand [data-quest-key="${key}"]`)?.dataset.unrevealed === "false",
-    up.key,
+    locked.key,
   );
-  assert.match(
+  assert.equal(
     await page.locator("#discovery-announcement").textContent(),
-    /^New card: /u,
-    `${label}: the turned tarot is announced`,
+    "New card.",
+    `${label}: turning the keyhole card does not name unknown art`,
   );
   await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
   assert.deepEqual(errors, [], `${label}: no page errors`);
