@@ -512,7 +512,7 @@ import {
 import { lapseOffer } from "./offer-chance.mjs";
 import { settlePlaceCards, validPlaceCard } from "./quest-deck.mjs";
 import { giveUpForGood, goneSince } from "./world/for-good.mjs";
-import { settleStops, stopsOf } from "./world/stops.mjs";
+import { settleStops, unmetAt } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
 export { boxOffer, lockedOffer, placeOffer, questOffers, residentOffer, residentOffers };
 export { boxesAt, boxOpen, boxWant, shutBoxesAt } from "./world/boxes.mjs";
@@ -3410,7 +3410,6 @@ export function play(
   // A fresh ring lasts three plays. Other bells keep their own time.
   if (!rings.length)
     next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
-  // Travellers who learn the roads act every round, wherever they are.
   for (const id of roamingActors) {
     if (controlledByHuman(next, id) || id === respondent ||
       travelerOf(next, id) ||
@@ -3438,18 +3437,7 @@ export function play(
         locationId: to,
       }),
   });
-  const by = next.actors[currentActor(next)]?.place;
-  if (
-    next.opening &&
-    Object.keys(forest.people).some(
-      (id) =>
-        stopsOf(id) &&
-        next.actors[id]?.place === by &&
-        next.opening.met?.[id] === undefined &&
-        entityActive(next, id),
-    )
-  )
-    meetCast(next);
+  if (unmetAt(next, next.actors[currentActor(next)]?.place)) meetCast(next);
   companionRound(
     next,
     [actor, respondent, ...residents].filter(Boolean),

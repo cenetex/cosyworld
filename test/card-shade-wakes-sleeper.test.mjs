@@ -11,12 +11,17 @@ import { funeralJourney } from "./helpers/greek-funeral.mjs";
 const FIELD = "greek-battlefield",
   SHADE = "greek-polynices-shade";
 
-function onTheField(turn) {
-  const world = createWorld();
+function onTheField(turn, opening = false) {
+  const world = createWorld({ opening });
+  if (opening) {
+    Object.assign(world.opening, { crossed: true });
+    world.opening.met.moth ??= 0;
+    world.locations.attic.anchored = true;
+  }
   world.crossings["pond-greek-harbor"].discovered = true;
   world.actors.vale.place = FIELD;
   world.turn = world.revision = turn;
-  return world;
+  return decodeSave(encodeSave(world));
 }
 function step(world, pick) {
   const action = legalActions(world).find(pick);
@@ -37,9 +42,12 @@ function sleepThrough(world) {
 const canTalk = (world) =>
   legalActions(world).some((a) => a.kind === "talk" && a.target === SHADE);
 
-describe("sleeping on the Exposed Battlefield", () => {
+describe.each([
+  ["", false],
+  [" with an opening ledger", true],
+])("sleeping on the Exposed Battlefield%s", (_, opening) => {
   it("is woken by Polynices' Shade when he appears before dawn", () => {
-    let { world, woke } = sleepThrough(onTheField(30));
+    let { world, woke } = sleepThrough(onTheField(30, opening));
     expect(world.turn % 48).toBe(36);
     expect(woke).toMatchObject({ woke: "arrival" });
     expect(woke.text).toBe("Vale wakes as Polynices' Shade arrives.");
@@ -47,14 +55,16 @@ describe("sleeping on the Exposed Battlefield", () => {
   });
 
   it("wakes at dusk from a day's sleep, then to the Shade", () => {
-    let { world, woke } = sleepThrough(onTheField(20));
+    let { world, woke } = sleepThrough(onTheField(20, opening));
     expect(woke).toMatchObject({ woke: "dusk" });
     expect(canTalk(world)).toBe(false);
     ({ world, woke } = sleepThrough(world));
     expect(woke).toMatchObject({ woke: "arrival" });
     expect(canTalk(world)).toBe(true);
   });
+});
 
+describe("sleeping on the Exposed Battlefield", () => {
   it("sleeps through the night once he is buried", () => {
     const world = structuredClone(funeralJourney().buried);
     expect(world.packs["greek-drama"].flags["greek-burial-performed"]).toBe(
