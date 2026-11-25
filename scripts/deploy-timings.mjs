@@ -5,9 +5,8 @@
 //   node scripts/deploy-timings.mjs --run <id>     one-line summary of a run
 // For each run kind (tag, promotion, dispatch, .dev train) it reports p50 and
 // p90 wall time, the wait before the first job started, the critical path,
-// and how often the Rust gate reused a CI run and the image was reused
-// rather than built. Needs the `gh` CLI, authenticated, and GH_REPO or a
-// checkout of the repository.
+// and how often the image was reused rather than built. Needs the `gh` CLI,
+// authenticated, and GH_REPO or a checkout of the repository.
 
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -97,7 +96,6 @@ export function summarize(run, jobs) {
     wallMs: lastEnd - created,
     queueMs: firstStart - created,
     critical: criticalPath(jobs),
-    rustReused: rust ? rust.conclusion === "skipped" : null,
     rustMs: stepMs(rust),
     imageReused: images.length
       ? images.every((s) => stepMs(s) < IMAGE_REUSE_MS)
@@ -118,10 +116,9 @@ export function oneLine(summary) {
   const path = summary.critical
     .map((job) => `${job.name} ${minutes(job.ms)}`)
     .join(" → ");
-  const rust =
-    summary.rustReused === null
-      ? ""
-      : ` · Rust gate ${summary.rustReused ? "reused CI" : `ran ${minutes(summary.rustMs)}`}`;
+  const rust = Number.isFinite(summary.rustMs)
+    ? ` · Rust gate ran ${minutes(summary.rustMs)}`
+    : "";
   const image =
     summary.imageReused === null
       ? ""
@@ -131,8 +128,8 @@ export function oneLine(summary) {
 
 export function report(summaries) {
   const lines = [
-    "| Kind | Runs | Wall p50 | Wall p90 | Queue p50 | Queue p90 | Rust gate reused CI | Image reused | Longest critical job (p50) |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Kind | Runs | Wall p50 | Wall p90 | Queue p50 | Queue p90 | Image reused | Longest critical job (p50) |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
   ];
   for (const kind of ["tag", "promotion", "dispatch", "train"]) {
     const runs = summaries.filter(
@@ -140,7 +137,6 @@ export function report(summaries) {
         s.kind === kind && s.conclusion === "success" && s.critical.length > 1,
     );
     if (!runs.length) continue;
-    const rust = runs.filter((s) => s.rustReused !== null);
     const image = runs.filter((s) => s.imageReused !== null);
     const longest = new Map();
     for (const s of runs) {
@@ -171,7 +167,7 @@ export function report(summaries) {
           runs.map((s) => s.queueMs),
           90,
         ),
-      )} | ${rust.length ? `${rust.filter((s) => s.rustReused).length}/${rust.length}` : "-"} | ${image.length ? `${image.filter((s) => s.imageReused).length}/${image.length}` : "-"} | ${name} ${minutes(percentile(values, 50))} (${values.length}/${runs.length}) |`,
+      )} | ${image.length ? `${image.filter((s) => s.imageReused).length}/${image.length}` : "-"} | ${name} ${minutes(percentile(values, 50))} (${values.length}/${runs.length}) |`,
     );
   }
   return lines.join("\n");

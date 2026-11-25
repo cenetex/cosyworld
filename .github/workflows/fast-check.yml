@@ -135,8 +135,7 @@ jobs:
       - run: npx vitest run --shard=${{ matrix.shard }}/3 --reporter=default --reporter=./test/helpers/retried-tests-reporter.mjs
 
   # cargo fmt reads source only, so this job builds nothing and needs no
-  # Cargo cache. It uses the same stable toolchain as ci.yml and deploy.yml
-  # so its formatting matches the .dev train's Rust gate.
+  # Cargo cache. Its stable toolchain matches the production Rust gate's.
   rustfmt:
     name: Rust formatting
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
@@ -237,9 +236,7 @@ jobs:
             ~/.cargo/git/db
             v2/orchestrator-rust/target
           key: ${{ runner.os }}-cargo-deps-v1-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-deps-v1-
-            ${{ runner.os }}-cargo-compact-v1-
+          restore-keys: ${{ runner.os }}-cargo-deps-v1-
       - name: Run focused Rust tests
         env:
           FILTERS: ${{ needs.plan.outputs.rust-tests }}

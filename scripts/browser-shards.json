@@ -1,6 +1,5 @@
 {
-  "about": "Browser checks for the full suite (.github/workflows/ci.yml), with measured seconds from recent runs. scripts/plan-browser-shards.mjs packs them into even runner shards of at most targetSeconds. An entry is a v2/scripts/<name>.mjs journey, <name>@<width> for one viewport width of a journey that reads COSYWORLD_SMOKE_WIDTHS. A new journey only needs a line here; give it a measured or estimated duration.",
-  "targetSeconds": 400,
+  "about": "Every browser journey, with measured seconds from recent runs. An entry is a v2/scripts/<name>.mjs journey, or <name>@<width> for one viewport width of a journey that reads COSYWORLD_SMOKE_WIDTHS; scripts/select-fast-smokes.mjs runs a journey listed by width one width per entry. No workflow runs the whole list.",
   "checks": {
     "smoke-card-radio-player": 5,
     "smoke-card-portable-radio": 40,
