@@ -48,6 +48,10 @@ tower = { version = "0.5", features = ["util"] }
 [profile.dev.package.rquickjs-sys]
 opt-level = 3
 
+# Startup hashes every file in an assets directory against its manifest.
+[profile.dev.package.sha2]
+opt-level = 3
+
 # Line tables keep file:line in panics and backtraces while dropping the rest
 # of the debug info; dependencies skip it entirely. This trims about 0.6 GB
 # (~11%) from each debug build. Most of the binary is embedded card assets.

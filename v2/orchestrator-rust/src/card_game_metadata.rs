@@ -104,7 +104,7 @@ mod tests {
                 )
                 .unwrap()
                 .1;
-                assert_eq!(&bytes[..], expected);
+                assert_eq!(bytes, expected);
                 serde_json::from_slice::<serde_json::Value>(&bytes).unwrap();
             }
         }

@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     process::Command,
     sync::OnceLock,
 };
@@ -56,7 +56,7 @@ impl Store {
             serde_json::from_str(text).map_err(|e| format!("manifest.json: {e}"))?;
         let mut files = HashMap::new();
         for (key, mut entry) in manifest.files {
-            let path = root.join(entry.source.as_deref().unwrap_or(&key));
+            let path = root.join(inside(entry.source.as_deref().unwrap_or(&key))?);
             let memory = !entry.content_type.as_deref().is_some_and(is_media);
             let mut bytes = None;
             if entry.source.is_none() && (verify || memory) {
@@ -95,6 +95,14 @@ impl Store {
         };
         Some((file.entry.content_type.as_deref()?, bytes))
     }
+}
+
+fn inside(key: &str) -> Result<&str, String> {
+    Path::new(key)
+        .components()
+        .all(|part| matches!(part, Component::Normal(_)))
+        .then_some(key)
+        .ok_or(format!("{key} is not a path inside the assets directory"))
 }
 
 fn source_tree() -> Result<Store, String> {
@@ -202,5 +210,15 @@ mod tests {
         );
         fs::remove_dir_all(&root).unwrap();
         assert!(Store::open(&root).is_err());
+    }
+
+    #[test]
+    fn a_manifest_path_outside_the_assets_directory_stops_startup() {
+        let root = release(&[("../outside.txt", b"outside", "text/plain")]);
+        assert_eq!(
+            Store::open(&root).err().unwrap(),
+            "card-game/../outside.txt is not a path inside the assets directory"
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 }

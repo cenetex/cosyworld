@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { publicAssets } from "../v2/card-game/public-assets.mjs";
 import { createServer } from "../v2/card-game/serve.mjs";
 
@@ -26,7 +27,7 @@ describe("one public card asset list", () => {
     }
   });
 
-  it("keeps the media hashes current and builds the Rust module the same way twice", () => {
+  it("keeps the media hashes current and builds the manifest the same way twice", () => {
     expect(() =>
       execFileSync(process.execPath, [
         "v2/scripts/build-card-assets.mjs",
@@ -38,23 +39,23 @@ describe("one public card asset list", () => {
       const out = join(dir, name);
       execFileSync(process.execPath, [
         "v2/scripts/build-card-assets.mjs",
-        "--rust-out",
-        out,
         "--manifest",
-        `${out}.json`,
+        out,
       ]);
       return readFileSync(out, "utf8");
     };
-    const first = build("a.rs");
-    expect(build("b.rs")).toBe(first);
-    expect(
-      first.match(/include_bytes!|let \(_, bytes\) = get\(/g),
-    ).toHaveLength(publicAssets.length);
-    const listed = JSON.parse(readFileSync(join(dir, "a.rs.json"), "utf8"));
-    expect(Object.keys(listed.files)).toEqual(
-      publicAssets.map(({ file }) => `card-game/${file}`),
+    const first = build("a.json");
+    expect(build("b.json")).toBe(first);
+    const { sha256, files } = JSON.parse(first);
+    const listed = publicAssets.map(({ file }) => `card-game/${file}`);
+    expect(Object.keys(files)).toEqual(listed);
+    const pairs = publicAssets.map(({ file }, i) => [
+      file,
+      files[listed[i]].sha256,
+    ]);
+    expect(sha256).toBe(
+      createHash("sha256").update(JSON.stringify(pairs)).digest("hex"),
     );
-    expect(first).toContain(`"${listed.sha256}"`);
   });
 
   it("serves every listed file with the expected type and bytes", async () => {

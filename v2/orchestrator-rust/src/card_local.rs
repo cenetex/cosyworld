@@ -311,7 +311,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             &bytes[..],
-            cosyworld_orchestrator::card_assets::get(path).unwrap().1
+            &cosyworld_orchestrator::card_assets::get(path).unwrap().1[..]
         );
         let response = app
             .oneshot(
