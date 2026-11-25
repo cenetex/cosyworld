@@ -1,5 +1,6 @@
 import landings from "./pack-landings.json" with { type: "json" };
 import { crossings, packDefinition, transports } from "./pack-registry.mjs";
+import { validSeed } from "./pack-specials.mjs";
 import { addLog, createWorld } from "./world.mjs";
 
 export function landingPack(url) {
@@ -8,9 +9,20 @@ export function landingPack(url) {
   return packDefinition(id);
 }
 
-// New game draws its run seed here, outside the rules.
+// New game draws its run seed here, outside the rules; an automated browser can pin it.
+export const TEST_SEED_KEY = "cosyworld.test.seed";
+function pinnedSeed() {
+  if (globalThis.navigator?.webdriver !== true) return null;
+  try {
+    const text = globalThis.localStorage.getItem(TEST_SEED_KEY) ?? "";
+    const seed = /^\d{1,10}$/u.test(text) ? Number(text) : NaN;
+    return validSeed(seed) ? seed : null;
+  } catch {
+    return null;
+  }
+}
 export const newRunSeed = () =>
-  globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
+  pinnedSeed() ?? globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
 
 export function createLandingWorld(pack = null, seed = newRunSeed()) {
   const world = createWorld({ opening: !pack, seed });

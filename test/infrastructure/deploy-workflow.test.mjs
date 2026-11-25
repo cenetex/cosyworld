@@ -13,6 +13,8 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+import { isKnownNonProductionPath } from "../../scripts/check-deployment-impact.mjs";
+
 const workflow = readFileSync(
   new URL("../../.github/workflows/deploy.yml", import.meta.url),
   "utf8",
@@ -167,8 +169,10 @@ describe("deploy workflow", () => {
     expect(rustGate).toContain("node scripts/await-ci-rust.mjs");
     expect(rustGate).toContain("checks: read");
     expect(rustGate).toContain("actions: read");
-    // CI saves the Cargo cache; a per-tag save only evicts others.
     expect(rustGate).toContain("uses: actions/cache/restore@v6");
+    expect(rustGate).toContain(
+      "restore-keys: |\n            ${{ runner.os }}-cargo-deps-v1-\n            ${{ runner.os }}-cargo-compact-v1-\n",
+    );
     expect(rustGate).not.toContain("uses: actions/cache@v6");
     expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustGate).toContain("bash v2/scripts/check-rust.sh test");
@@ -179,9 +183,6 @@ describe("deploy workflow", () => {
     expect(rustLint).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustLint).toContain("bash v2/scripts/check-main-size.sh");
     expect(rustLint).toContain("bash v2/scripts/check-rust-lint.sh");
-    expect(rustLint).toContain(
-      "needs: [dev-deploy, deployment-impact, release-owner]",
-    );
     expect(gate).toContain(
       "needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]",
     );
@@ -205,12 +206,13 @@ describe("deploy workflow", () => {
     expect(workflow).not.toContain("recovery_capture");
   });
 
-  it("deploys the .dev train from one job without the release path", () => {
+  it("deploys .dev on a main push, outside the release path", () => {
     const fullRelease =
       "(startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))";
     const train =
-      "github.ref == 'refs/heads/main' &&\n      ((github.event_name == 'schedule' && vars.COSYWORLD_DEV_TRAIN != 'off') ||\n       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))";
-    const dev = job("dev-deploy", "deployment-impact");
+      "github.ref == 'refs/heads/main' &&\n      (((github.event_name == 'push' || github.event_name == 'schedule') && vars.COSYWORLD_DEV_TRAIN != 'off') ||\n       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))";
+    // The plan, the image build and the rollout.
+    const dev = job("dev-plan", "deployment-impact");
     const impact = job("deployment-impact", "release-owner");
     const nodeGate = job("production-node-gate", "production-rust-gate");
     const rustGate = job("production-rust-gate", "production-rust-lint");
@@ -219,10 +221,13 @@ describe("deploy workflow", () => {
     const primaryBackup = job("primary-backup", "primary-fly");
     const primaryFly = job("primary-fly", "lonelyforest-image");
 
-    // Trains run only dev-deploy; every release job hangs off the impact
-    // job, which runs only for tags and production dispatches.
+    // Every release job hangs off the impact job, which runs only for tags
+    // and production dispatches.
     expect(dev).toContain(`if: >-\n      ${train}`);
-    expect(dev).not.toContain("needs:");
+    expect(dev).toContain(
+      "needs: dev-plan\n    if: needs.dev-plan.outputs.deploy == 'true'",
+    );
+    expect(dev).toContain("needs: [dev-plan, dev-image]");
     expect(impact).toContain(
       "if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')",
     );
@@ -231,23 +236,16 @@ describe("deploy workflow", () => {
     expect(dev).not.toContain("lonelyforest");
     expect(dev).not.toContain("FLY_LONELYFOREST_API_TOKEN");
 
-    // Tags and dispatches keep the Node and Rust gates and the backup. All
-    // three also run after a train's rollout, so a version-bump tag of that
-    // commit reuses the Rust passes. The train never waits for them.
+    // The gates run only for tags and production dispatches, never after a
+    // train, so no train holds the .dev group for them.
     for (const rust of [nodeGate, rustGate, rustLint]) {
       expect(rust).toContain(
-        "needs: [dev-deploy, deployment-impact, release-owner]",
+        "needs: [deployment-impact, release-owner]\n    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'\n",
       );
-      expect(rust).toContain("!cancelled() &&");
-      expect(rust).toContain(
-        `needs.release-owner.outputs.owns == 'true' &&\n        ${fullRelease}) ||`,
-      );
-      expect(rust).toContain(
-        "(needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true')",
-      );
+      expect(rust).not.toContain("dev-deploy");
     }
     expect(gate).toContain(`if: \${{ always() && ${fullRelease} }}`);
-    expect(gate).toContain(`FULL_RELEASE: \${{ ${fullRelease} }}`);
+    expect(gate).not.toContain("FULL_RELEASE");
     expect(primaryBackup).toContain("startsWith(github.ref, 'refs/tags/') ||");
     expect(primaryBackup).toContain(
       "(github.event_name == 'workflow_dispatch' &&\n        (inputs.target == 'both' || inputs.target == 'primary'))",
@@ -261,25 +259,43 @@ describe("deploy workflow", () => {
     expect(primaryFly).toContain("needs.primary-backup.result == 'success'");
     expect(primaryFly).not.toContain("refs/heads/main");
 
-    // The train compares with what .dev runs, labels the drop, builds the
-    // commit it started on, then rolls out and verifies.
+    // The plan compares with what .dev runs and labels the drop, the build
+    // saves its cache while the rollout runs, then the rollout verifies.
     const order = [
-      "node scripts/last-dev-rollout.mjs",
-      'node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA"',
+      'bash scripts/plan-dev-deploy.sh "$(node scripts/last-dev-rollout.mjs)"',
       'bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"',
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
-      "bash scripts/serialize-primary-rollout.sh dev",
-      'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
-      "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
-      "node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
       "actions/cache/save@v6",
+      "bash scripts/serialize-primary-rollout.sh dev",
+      "node scripts/fly-machines-serve-commit.mjs cosyworld --serving",
+      'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
+      "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
+      "node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
+      'git show "$PREVIOUS_COMMIT:fly.toml" > fly.previous.toml',
+      'bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE"',
     ];
     for (const [index, text] of order.entries()) {
       expect(dev).toContain(text);
       if (index)
         expect(dev.indexOf(order[index - 1])).toBeLessThan(dev.indexOf(text));
     }
-    expect(dev).toContain("RELEASE_IMAGE: ${{ steps.image.outputs.image }}");
+    expect(dev).toContain(
+      "RELEASE_IMAGE: ${{ needs.dev-image.outputs.image }}",
+    );
+    // A newer push cancels an older build, never a rollout. A run that
+    // deploys nothing gets a group of its own and cancels nothing.
+    expect(dev).toContain(
+      "concurrency:\n      group: deploy-${{ github.repository }}-dev-image${{ needs.dev-plan.outputs.deploy != 'true' && format('-{0}', github.run_id) || '' }}\n      cancel-in-progress: true\n",
+    );
+    expect(dev).toContain(
+      "concurrency:\n      group: deploy-${{ github.repository }}-dev\n      cancel-in-progress: false\n",
+    );
+    expect(dev).toContain('compare/${commit}...${GITHUB_SHA}" --jq .status)" ||');
+    expect(dev).toContain('ahead | diverged) echo "rollout=true" >> "$GITHUB_OUTPUT" ;;');
+    expect(dev).toContain("id: rollout\n        if: steps.serving.outputs.rollout == 'true'");
+    expect(dev).toContain(
+      "- name: Roll .dev back to ${{ steps.serving.outputs.commit }}\n        if: failure() && steps.rollout.outcome != 'skipped' && steps.serving.outputs.image != ''",
+    );
     expect(dev).toContain("FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}");
     expect(dev).toContain("actions: read");
     expect(dev).not.toContain("actions: write");
@@ -289,6 +305,23 @@ describe("deploy workflow", () => {
     );
     expect(dev).toContain("for attempt in {1..13}");
     expect(dev).toContain("remained degraded after 120 seconds");
+  });
+
+  it("skips a push that changes only paths the impact check ignores", () => {
+    const ignored = workflow.match(/^ {4}paths-ignore: \[(.*)\]$/m)[1];
+    expect(ignored).toBe(
+      '"**.md", "docs/**", "sites/**", "test/**", "v2/docs/**", "v2/tests/**", "v2/mvp.sh"',
+    );
+    for (const file of [
+      "v2/card-game/README.md",
+      "docs/design/books.md",
+      "sites/lonelyforest/index.html",
+      "test/card-rest.test.mjs",
+      "v2/docs/a.txt",
+      "v2/tests/a.mjs",
+      "v2/mvp.sh",
+    ])
+      expect(isKnownNonProductionPath(file), file).toBe(true);
   });
 
   it("keeps every Lonely Forest gate and backup for tags and dispatches", () => {
@@ -314,12 +347,13 @@ describe("deploy workflow", () => {
       "utf8",
     );
     expect(check).not.toContain("Please bump the version");
-    const deploys = workflow.match(/flyctl deploy --config [^\n]+/g);
-    expect(deploys).toHaveLength(4);
-    // Each rollout names the commit it serves; restore-dev serves .dev's.
-    const restoring = deploys.filter((deploy) => deploy.includes("DEV_SHA"));
+    expect(workflow).not.toMatch(/flyctl deploy --config/);
+    const deploys = workflow.match(/fly-rollout\.sh --config [^\n]+/g);
+    expect(deploys).toHaveLength(5);
+    const restoring = deploys.filter((deploy) => /DEV_SHA|PREVIOUS/.test(deploy));
     expect(restoring).toEqual([
-      'flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
+      'fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"',
+      'fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
     ]);
     for (const deploy of deploys.filter((d) => !restoring.includes(d))) {
       expect(deploy).toContain('--env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"');
@@ -368,6 +402,20 @@ describe("deploy workflow", () => {
     expect(hook).not.toContain("v2:rust:test");
     expect(hook).not.toContain("v2:kernel");
     expect(packageScripts.check).toContain("v2:rust:test");
+  });
+
+  it("promotes the image .dev built instead of building it again", () => {
+    const primary = job("primary-image", "primary-backup");
+    expect(primary).toContain("actions: read");
+    expect(primary.indexOf("bash scripts/await-dev-image.sh")).toBeLessThan(
+      primary.indexOf("bash scripts/prepare-fly-image.sh cosyworld fly.toml"),
+    );
+    expect(primary).toContain(
+      'node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA" | grep -qx deploy=false',
+    );
+    expect(primary).toContain(
+      "EQUIVALENT_COMMIT: ${{ steps.dev.outputs.commit }}",
+    );
   });
 
   it("shares a commit image while each app keeps its own registry and rollout gates", () => {
@@ -547,7 +595,7 @@ describe("deploy workflow", () => {
   });
 
   it("keeps the release target between main-push deploys only", () => {
-    const dev = job("dev-deploy", "deployment-impact");
+    const dev = job("dev-image", "dev-deploy");
     expect(dev).toContain("actions/cache/restore@v6");
     expect(dev).toContain("actions/cache/save@v6");
     expect(dev).toContain("path: ${{ runner.temp }}/release-target");
@@ -562,8 +610,7 @@ describe("deploy workflow", () => {
     expect(dev).toContain(
       "key: ${{ steps.release-cache.outputs.cache-primary-key }}",
     );
-    // The save waits until .dev is live.
-    expect(dev.indexOf("Verify primary card game")).toBeLessThan(
+    expect(dev.indexOf("Prepare primary image")).toBeLessThan(
       dev.indexOf("Save release build cache"),
     );
     for (const [name, next] of [
@@ -661,15 +708,17 @@ describe("deploy workflow", () => {
     const primaryFly = job("primary-fly", "lonelyforest-image");
     const lonelyForestFly = job("lonelyforest-fly", "deploy-outcome");
     expect(primaryFly).toContain(
-      'flyctl deploy --config fly.toml --image "$RELEASE_IMAGE"',
+      'fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE"',
     );
     expect(primaryJobs).toContain(
       "FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}",
     );
     expect(primaryJobs).not.toContain("FLY_LONELYFOREST_API_TOKEN");
     expect(lonelyForestFly).toContain(
-      'flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false',
+      'fly-rollout.sh --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false',
     );
+    for (const deploy of [primaryFly, lonelyForestFly])
+      expect(deploy).toContain("COSYWORLD_FLY_WAIT_TIMEOUT: 5m");
     expect(lonelyForestJobs).toContain(
       "FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}",
     );
@@ -749,7 +798,9 @@ describe("deploy workflow", () => {
 
   it("reports only for runs that own their commit and closes shipped alerts (#1044)", () => {
     const outcome = job("deploy-outcome", "github-release");
-    expect(outcome).toContain("if: ${{ !cancelled() }}");
+    expect(outcome).toContain(
+      "if: ${{ !cancelled() && needs.dev-plan.outputs.deploy != 'false' }}",
+    );
     expect(outcome).not.toContain("if: always()");
     expect(outcome).toMatch(/permissions:\s+contents: read\s+issues: write/);
     expect(outcome).toContain("gh api --paginate");
@@ -763,12 +814,11 @@ describe("deploy workflow", () => {
     const outcome = job("deploy-outcome", "github-release");
     expect(outcome).toContain("- Trigger: ${TRIGGER}");
     expect(outcome).toContain(
-      "TRIGGER: ${{ (github.event_name == 'schedule' || inputs.target == 'dev') && '.dev train' || format('{0} {1}', github.event_name, github.ref) }}",
+      "TRIGGER: ${{ ((github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch') || inputs.target == 'dev') && '.dev train' || format('{0} {1}', github.event_name, github.ref) }}",
     );
     expect(outcome).toContain(
-      "DEV_TRAIN: ${{ github.event_name == 'schedule' || inputs.target == 'dev' }}",
+      "DEV_TRAIN: ${{ (github.ref == 'refs/heads/main' && github.event_name != 'workflow_dispatch') || inputs.target == 'dev' }}",
     );
-    // Issues opened by main pushes before the train still count as .dev's.
     expect(outcome).toContain(
       String.raw`test("- Trigger: (push refs/heads/main|\\.dev train)\\r?\\n")`,
     );
@@ -782,6 +832,8 @@ describe("deploy workflow", () => {
       outcome.indexOf("Close tracking issues"),
     );
     expect(open).toContain("needs.lonelyforest-fly.result == 'failure'");
+    for (const name of ["dev-plan", "dev-image", "dev-deploy"])
+      expect(open).toContain(`needs.${name}.result == 'failure' ||`);
     expect(open).not.toContain("needs.lonelyforest-fly.result != 'success'");
   });
 

@@ -44,10 +44,10 @@ describe("check workflows run only by manual dispatch", () => {
     expect(workflow).not.toMatch(/cancel-in-progress: (?!false\b)/);
   });
 
-  it("tags deploy production and a schedule runs the .dev train", () => {
-    expect(deployWorkflow).toMatch(/on:\n {2}push:\n {4}tags: \["v\*"\]\n {2}schedule:\n {4}- cron: /);
-    // Merges to main no longer deploy on their own.
-    expect(deployWorkflow).not.toMatch(/^ {4}branches: \[main\]/m);
+  it("main pushes deploy .dev, tags deploy production, and a schedule catches up", () => {
+    expect(deployWorkflow).toMatch(
+      /on:\n {2}push:\n {4}branches: \[main\]\n {4}tags: \["v\*"\]\n {4}paths-ignore: .*\n {2}schedule:\n {4}- cron: "23 \*\/2 \* \* \*"\n {2}workflow_dispatch:\n/,
+    );
   });
 });
 
@@ -63,14 +63,10 @@ describe("exactly one actor owns the release lever", () => {
     );
   });
 
-  it("workflow concurrency serializes release actors without self-rejection", () => {
-    // .dev trains and production runs queue apart, so a train can never
-    // replace a waiting tag deploy. Each production run has its own group,
-    // so a newer release never waits behind a whole older run; the
-    // supersede script serializes the Fly rollouts instead.
-    expect(deployWorkflow).toContain(
-      "group: deploy-${{ github.repository }}-${{ (github.event_name == 'schedule' || inputs.target == 'dev') && 'dev' || format('production-{0}', github.run_id) }}\n  cancel-in-progress: false",
-    );
+  it("only the .dev jobs queue, so no .dev run can replace a production run", () => {
+    // The supersede script serializes production rollouts instead.
+    expect(deployWorkflow).not.toMatch(/^concurrency:/m);
+    expect(deployWorkflow.match(/^ {4}concurrency:$/gm)).toHaveLength(2);
     expect(deployWorkflow).not.toContain("actions/runs?status=");
     expect(deployWorkflow).not.toContain("group: deploy-lonelyforest-production");
   });
@@ -103,11 +99,11 @@ describe("exactly one actor owns the release lever", () => {
     expect(deployWorkflow).toMatch(/permissions:\s*\n(?:\s*contents: read\n)?\s*issues: write/);
   });
 
-  it("the deploy workflow never cancels an in-progress production run", () => {
-    for (const match of deployWorkflow.matchAll(
-      /cancel-in-progress:\s*(\S+)/g,
-    )) {
-      expect(["false"]).toContain(match[1]);
-    }
+  it("the deploy workflow cancels only an older .dev build", () => {
+    // deploy-workflow.test.mjs checks that the build is the one that cancels.
+    expect(deployWorkflow.match(/cancel-in-progress: \S+/g)).toEqual([
+      "cancel-in-progress: true",
+      "cancel-in-progress: false",
+    ]);
   });
 });

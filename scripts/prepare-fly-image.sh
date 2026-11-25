@@ -39,7 +39,6 @@ image="registry.fly.io/${app}:deploy-${GITHUB_SHA}"
 digest="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://${image}" 2>/dev/null || true)"
 
 # A successful push may reach the registry before its manifest can be read.
-# Try seven reads with five-second gaps before reporting the final error.
 wait_for_image() {
   local attempt value
   for attempt in {1..7}; do
@@ -75,6 +74,19 @@ if [ -z "$source_image" ] && [[ "$app" == cosyworld-lonelyforest ]] &&
   if [[ "$train_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
     source_image="registry.fly.io/cosyworld@${train_digest}"
     echo "Reusing the primary app's image for ${GITHUB_SHA:0:7}: ${train_digest}"
+  fi
+fi
+
+# A dispatch, never a tag, of a docs- or tests-only commit promotes .dev's image.
+if [ -z "$source_image" ] && [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] &&
+  [[ "${GITHUB_REF:-}" != refs/tags/* ]] && [[ "${EQUIVALENT_COMMIT:-}" =~ ^[0-9a-f]{40}$ ]]; then
+  equivalent="$(skopeo inspect --no-tags --authfile "$authfile" --format '{{.Digest}}' "docker://registry.fly.io/${app}:deploy-${EQUIVALENT_COMMIT}" 2>/dev/null || true)"
+  if [[ "$equivalent" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+    echo "Reusing ${EQUIVALENT_COMMIT:0:7}'s image for ${GITHUB_SHA:0:7}: ${equivalent}"
+    skopeo copy --retry-times 3 --all --preserve-digests --src-authfile "$authfile" --dest-authfile "$authfile" \
+      "docker://registry.fly.io/${app}@${equivalent}" "docker://${image}"
+    digest="$(wait_for_image)"
+    test "$digest" = "$equivalent"
   fi
 fi
 
