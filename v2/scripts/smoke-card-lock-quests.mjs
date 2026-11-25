@@ -37,6 +37,7 @@ try {
     ]) {
       const world = createWorld();
       world.packs["greek-drama"].scope = "full";
+      world.crossings["pond-greek-harbor"].discovered = true;
       world.actors.vale.place = place;
       if (place === "greek-ship")
         world.transports["greek-ship"].dock = "greek-harbor";

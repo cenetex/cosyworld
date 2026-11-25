@@ -23,6 +23,7 @@ import {
   rootHolder,
   exits,
   shutBoxesAt,
+  knownActors,
 } from "./world.mjs";
 import {
   companionOf,
@@ -95,6 +96,18 @@ export function availableCards(world) {
     ...new Set(sealed),
   ];
 }
+// A person here whom the rules have not met yet, whatever this browser saw.
+export function unmet(world, id) {
+  const player = currentActor(world);
+  return Boolean(people[id]) && id !== player &&
+    world.actors[id]?.place === world.actors[player]?.place &&
+    entityActive(world, id) && !knownActors(world).includes(id);
+}
+// The people here whom the rules met after `turn`.
+export const metSince = (world, turn) =>
+  availableCards(world).filter((id) => people[id] && id !== currentActor(world) && [
+    world.opening?.met, world.packs?.[packPeople[id]?.packId]?.met,
+  ].some((met) => met?.[id] > turn));
 export function cardType(id) {
   return things[id] ? "item" : people[id] ? "avatar" : "location";
 }
@@ -229,6 +242,8 @@ export function cardPlay(world, selected) {
   ];
   for (const id of order.filter(Boolean)) {
     const alone = selectionPlay(world, [id]);
+    if (order[0] && alone.action?.kind === "wait")
+      return selectionPlay(world, [order[0]]);
     if (alone.action) return alone;
   }
   return own;
@@ -329,7 +344,7 @@ function selectionPlay(world, selected) {
     const other = cards.find((id) => people[id] && id !== currentActor(world));
     return result(
       find("threaten", undefined, other) || find("intercept", undefined, other),
-      `Select ${nameOf(other)} on their own to talk.`,
+      selectionPlay(world, [other]).hint,
     );
   }
   if (item && avatar === currentActor(world)) return cardPlay(world, [item]);

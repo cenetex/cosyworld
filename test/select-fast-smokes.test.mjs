@@ -21,7 +21,7 @@ describe("fast check smoke selection", () => {
     ]) expect(pick(path)).toContain(smoke);
     const selected = pick("v2/content/ratiradio/card-world.json", "v2/card-game/app.mjs");
     expect(selected.slice(config.core.length)).toEqual([
-      "smoke-card-ratiradio", "smoke-card-combat", smoke,
+      "smoke-card-ratiradio", "smoke-card-combat", "smoke-card-shade-wake", smoke,
       "smoke-card-speech-queue", "smoke-card-read", "smoke-card-quest-offers",
     ]);
     const shards = JSON.parse(readFileSync("scripts/browser-shards.json", "utf8"));
@@ -129,6 +129,7 @@ describe("fast check smoke selection", () => {
     expect(smokes).toEqual([
       ...config.core,
       "smoke-card-combat",
+      "smoke-card-shade-wake",
       "smoke-card-dialogue-timing",
       "smoke-card-pond-access",
       "smoke-card-save-validation",

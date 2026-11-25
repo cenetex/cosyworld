@@ -280,6 +280,8 @@ import {
   asleepReason,
   settledChoice,
   sharedMeal,
+  unmet,
+  metSince,
 } from "./cards.mjs";
 // The hand holds people, items and places, and the player's quest cards.
 const $ = (id) => document.getElementById(id);
@@ -528,7 +530,7 @@ function wordsOnLoad() {
   }
 }
 let encountered = new Set(),
-  discoveryDone = Promise.resolve();
+  discoveryDone = Promise.resolve(), seenAt = null;
 // Cards just revealed whose figure or item has yet to fade into the scene.
 const stageReveals = new Set();
 const fresh = new Set();
@@ -582,11 +584,11 @@ const pipPrelude = () => startingPip && !world.opening;
 // The printed card says "Wants Lamp": a visitor with it in hand already knows
 // Pip and the Lamp, so both are known cards from the first look.
 const PIP_KNOWN = ["moth", "lamp"];
-const cardIsCovered = (id) => pipPrelude()
+const cardIsCovered = (id) => unmet(world, id) || (pipPrelude()
   ? !PIP_KNOWN.includes(id) || coveredCards.has(id)
-  : !encountered.has(id) || coveredCards.has(id);
+  : !encountered.has(id) || coveredCards.has(id));
 const unseenCards = () =>
-  availableCards(world).filter((id) => !encountered.has(id));
+  availableCards(world).filter((id) => !encountered.has(id) && !unmet(world, id));
 const cardIsClosed = (id) => cardIsCovered(id) || isLockedBox(world, id);
 // The pack opening (pack-opening.mjs): three or more cards not yet turned sit
 // in the hand as one face-down stack. It holds card ids only.
@@ -676,12 +678,10 @@ function loadSeen(reset = false) {
         coveredCards.add(id);
   } catch {}
   encountered = new Set([
-    ...(Array.isArray(saved)
-      ? saved.filter(
-          (id) => people[id] || things[id] || places[id],
-        )
-      : []),
-    ...availableCards(world),
+    ...(Array.isArray(saved) ? saved : []).filter(
+      (id) => people[id] || things[id] || places[id],
+    ),
+    ...availableCards(world).filter((id) => !unmet(world, id)),
     ...levelCards(world).map((card) => card.key),
   ]);
   if (opening)
@@ -781,7 +781,7 @@ const exits = new Map();
 let shownSceneLine = null;
 // Speakers whose words did not come this turn show "…"; never saved or voiced.
 let silence = { turn: -1, lines: [] };
-// The sleeper keeps the sleeping art while their wake plays (sleep-view.mjs).
+// The sleeper keeps the sleeping art under the wake's dark (sleep-view.mjs).
 function asleepWorld(w) {
   const id = sleepView.sleeper;
   return id ? asleepView(w, id) : w;
@@ -1792,11 +1792,10 @@ function uncover(
   id,
   { flip = true, lid = null, fade = true, batch = false, announce = true } = {},
 ) {
-  if (!cardIsCovered(id)) return;
+  if (!cardIsCovered(id) || unmet(world, id)) return;
   encountered.add(id);
   coveredCards.delete(id);
   rememberCards();
-  // Its figure or item fades into the scene (stage-reveal.mjs).
   if (fade && !isTarotKey(id)) stageReveals.add(id);
   if (batch) return;
   render();
@@ -1939,10 +1938,12 @@ function revealAllPack() {
 function skipPack() {
   pack.skip({ unturned: cardIsCovered, turnNow: packTurnNow });
 }
+const meetingCard = (id) => people[id] && id !== currentActor(world) && cardIsCovered(id) &&
+  !isLockedBox(world, id) && pack.ids.every((other) => other === id);
 // A tap on a pack's card: the stack opens; during the run a tap finishes it.
 // An open pack's card is chosen as any card is.
 function packTap(id) {
-  if (!pack.has(id)) return false;
+  if (!pack.has(id) || meetingCard(id)) return false;
   if (pack.state === "closed") {
     if (pack.frameFor(id)?.top) openPack();
     return true;
@@ -1975,6 +1976,7 @@ function choose(id) {
   dropQueuedPlay();
   lastPlayAt = -Infinity;
   fresh.delete(id);
+  if (meetingCard(id)) uncover(id);
   const questChosen = questOpen;
   questOpen = false;
   // Any tap opens a folded row again; the held item is still raised.
@@ -5016,12 +5018,14 @@ function render() {
     expandedHolders.add(currentActor(world));
     heldAt = performance.now();
   }
-  // A new quest stops glowing once its card has been seen.
   if (questShown(foldQuest())) questFresh = false;
   for (const id of encountered)
     if (id.startsWith(`tarot:${currentActor(world)}:`) && !tarotKeys().includes(id))
       encountered.delete(id);
-  packSync([...availableCards(world), ...tarotKeys()]);
+  const dealt = availableCards(world).filter((id) => !unmet(world, id));
+  if (seenAt?.place === placeHere()) for (const id of metSince(world, seenAt.turn)) encountered.delete(id);
+  seenAt = { place: placeHere(), turn: world.turn };
+  packSync([...dealt, ...tarotKeys()]);
   if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
   packPlace = placeHere();
   const handCards = packHand(
@@ -5030,7 +5034,7 @@ function render() {
         handWithQuest(
           pipPrelude()
             ? ["moth"]
-            : stackPlaces(availableCards(world)),
+            : stackPlaces(dealt),
           world,
           questEntries().map((entry) => entry.id).filter((id) => !isResidentOffer(id)),
         ),
@@ -5046,7 +5050,6 @@ function render() {
     [...coveredCards],
     legalActions(world).map((action) => action.key),
     pack.key(),
-    // The sleeper's card shows the sleeping art until the wake ends.
     sleepView.sleeper,
   ]);
   const handKey = JSON.stringify([
@@ -5802,7 +5805,7 @@ function showSharedPlay(state, reason = "") {
       revision: world.revision,
     };
   if (state === "uncertain") notice(reason, state);
-  else if (shown === "uncertain") notice("");
+  else if (["uncertain", "queued"].includes(shown)) notice("");
   renderActions();
 }
 // Follow the play's key through the room queue into the committed history.
@@ -5923,13 +5926,10 @@ function resumeCurrentSharedPlay() {
   syncSharedLine();
 }
 async function submitSharedPlay(action) {
-  if (
-    sharedSending ||
-    sharedSession.state.queue?.some(
-      (entry) => entry.actor === currentActor(world),
-    )
-  )
-    return;
+  if (sharedSending || ownSharedEntry()) {
+    const who = nameOf(currentActor(world));
+    return notice(`${who}'s last play is still waiting its turn.`, "queued");
+  }
   const current = legalActions(world).find((entry) => entry.key === action.key);
   if (!current) {
     render();

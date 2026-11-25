@@ -149,16 +149,17 @@ try {
   assert.equal(await sprite.count(), 0);
   const before = (await state()).turn;
   await page.locator('[data-card="badger"]').focus();
-  // Press once to open the closed pack, once to select the box; its button opens it.
+  // Alone, its card turns at one press; in a pack, open it, choose it, then Reveal.
   await page.keyboard.press("Enter");
-  await page.locator('.card-frame[data-pack="open"] [data-card="badger"]').waitFor();
-  assert.equal(await page.locator('[data-card="badger"]').getAttribute("data-unrevealed"), "true");
-  await page.locator('[data-card="badger"]').focus();
-  await page.keyboard.press("Enter");
-  assert.equal(await page.locator('[data-card="badger"]').getAttribute("data-unrevealed"), "true");
+  if ((await page.locator('[data-card="badger"]').getAttribute("data-unrevealed")) === "true") {
+    await page.locator('.card-frame[data-pack="open"] [data-card="badger"]').waitFor();
+    await page.locator('[data-card="badger"]').focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator('[data-card="badger"]').getAttribute("data-unrevealed"), "true");
+    await page.locator("#card-actions [data-open-box]").focus();
+    await page.keyboard.press("Enter");
+  }
   assert.equal((await state()).turn, before);
-  await page.locator("#card-actions [data-open-box]").focus();
-  await page.keyboard.press("Enter");
   await page.waitForFunction(
     () =>
       document.querySelector('[data-card="badger"]')?.dataset.unrevealed ===

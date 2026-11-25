@@ -64,8 +64,9 @@ export function createSleepView({
   const cast = stage.querySelector("#cast");
   stage.insertBefore(veil, cast);
   root.append(catcher);
+  const dark = () => DARK_BEATS.has(sequence?.beat);
   const onKey = (event) => {
-    if (!sequence) return;
+    if (!dark()) return;
     if (event.key === "Escape") return sequence.disarm();
     if (event.key !== " " && event.key !== "Enter") return;
     if (event.target.closest?.("dialog, input, textarea, select")) return;
@@ -95,7 +96,7 @@ export function createSleepView({
       "--sleep-ms",
       stage.style.getPropertyValue("--sleep-ms"),
     );
-    catcher.hidden = !active;
+    catcher.hidden = !DARK_BEATS.has(beat);
     markDreamer(active ? wake?.id : null);
     if (beat === "enter") riseIn(speechRow, { reduced });
     if (!active) {
@@ -160,9 +161,8 @@ export function createSleepView({
     get active() {
       return Boolean(sequence);
     },
-    // Who still shows asleep: the dreamer, until the wake sequence ends.
     get sleeper() {
-      return sequence && wake ? wake.id : null;
+      return dark() && wake ? wake.id : null;
     },
     // The catcher and the dialogue button take the same next tap.
     get dreamTap() {
