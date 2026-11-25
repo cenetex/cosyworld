@@ -1,6 +1,5 @@
-// Collect the authored text a browser scene may quote, per field kind. The
-// story service accepts a scene's rules-built sentences only when they are
-// made of these pieces (card_narrative/authored.rs).
+// Collect each scene field's authored pieces for the story service's
+// sentence matcher (card_narrative/authored.rs).
 // Each kind takes the strings and template literals of the code that builds
 // that field (its roots below, and every function, constant and JSON file
 // they reach), so a fact template cannot dress up an event and the reverse.
@@ -499,6 +498,18 @@ catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
   (1 << KINDS.length) - 1,
   "n",
 ]);
+
+const listener208 = JSON.parse(
+  await readFile(new URL("./listener-208-text.json", import.meta.url), "utf8"),
+);
+for (const [text, mask] of listener208.literals)
+  catalog.literals.set(text, (catalog.literals.get(text) ?? 0) | mask);
+for (const [parts, mask, slots] of listener208.templates) {
+  const key = JSON.stringify([parts, slots]);
+  catalog.templates.set(key, [
+    parts, (catalog.templates.get(key)?.[1] ?? 0) | mask, slots,
+  ]);
+}
 
 const contentDir = new URL("../content/", import.meta.url);
 const retiredSentences = [];
