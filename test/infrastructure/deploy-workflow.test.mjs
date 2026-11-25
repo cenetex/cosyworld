@@ -265,9 +265,12 @@ describe("deploy workflow", () => {
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
       "actions/cache/save@v6",
       "bash scripts/serialize-primary-rollout.sh dev",
+      "node scripts/fly-machines-serve-commit.mjs cosyworld --serving",
       'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
       "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
       "node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
+      'git show "$PREVIOUS_COMMIT:fly.toml" > fly.previous.toml',
+      'bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE"',
     ];
     for (const [index, text] of order.entries()) {
       expect(dev).toContain(text);
@@ -284,6 +287,12 @@ describe("deploy workflow", () => {
     );
     expect(dev).toContain(
       "concurrency:\n      group: deploy-${{ github.repository }}-dev\n      cancel-in-progress: false\n",
+    );
+    expect(dev).toContain('compare/${commit}...${GITHUB_SHA}" --jq .status)" ||');
+    expect(dev).toContain('ahead | diverged) echo "rollout=true" >> "$GITHUB_OUTPUT" ;;');
+    expect(dev).toContain("id: rollout\n        if: steps.serving.outputs.rollout == 'true'");
+    expect(dev).toContain(
+      "- name: Roll .dev back to ${{ steps.serving.outputs.commit }}\n        if: failure() && steps.rollout.outcome != 'skipped' && steps.serving.outputs.image != ''",
     );
     expect(dev).toContain("FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}");
     expect(dev).toContain("actions: read");
@@ -338,10 +347,10 @@ describe("deploy workflow", () => {
     expect(check).not.toContain("Please bump the version");
     expect(workflow).not.toMatch(/flyctl deploy --config/);
     const deploys = workflow.match(/fly-rollout\.sh --config [^\n]+/g);
-    expect(deploys).toHaveLength(4);
-    // Each rollout names the commit it serves; restore-dev serves .dev's.
-    const restoring = deploys.filter((deploy) => deploy.includes("DEV_SHA"));
+    expect(deploys).toHaveLength(5);
+    const restoring = deploys.filter((deploy) => /DEV_SHA|PREVIOUS/.test(deploy));
     expect(restoring).toEqual([
+      'fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"',
       'fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
     ]);
     for (const deploy of deploys.filter((d) => !restoring.includes(d))) {

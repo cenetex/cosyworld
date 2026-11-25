@@ -3,8 +3,9 @@ set -euo pipefail
 
 # Decide whether this .dev run builds and rolls out, as GitHub output lines.
 # $1 is the commit .dev last rolled out (scripts/last-dev-rollout.mjs), or
-# empty. A run whose commit .dev already contains deploys nothing, so it
-# never cancels a newer build. Everything else goes to the impact check.
+# empty. A run whose commit .dev already contains, a rerun after main moved,
+# and a run whose newer main head has a live .dev run deploy nothing, so they
+# never cancel a newer build. Everything else goes to the impact check.
 : "${GH_REPO:?Repository is required}"
 [[ "${GITHUB_SHA:-}" =~ ^[0-9a-f]{40}$ ]]
 base="${1:-}"
@@ -16,6 +17,14 @@ skip() {
   exit 0
 }
 
+main="$(gh api "repos/${GH_REPO}/commits/main" --jq .sha || true)"
+if [ "${GITHUB_RUN_ATTEMPT:-1}" != 1 ]; then
+  [ "$main" = "$GITHUB_SHA" ] || skip "main moved past ${GITHUB_SHA:0:7}; a rerun deploys only main's head"
+elif [[ "$main" =~ ^[0-9a-f]{40}$ ]] && [ "$main" != "$GITHUB_SHA" ]; then
+  live="$(gh api "repos/${GH_REPO}/actions/workflows/deploy.yml/runs?head_sha=${main}&branch=main" \
+    --jq '[.workflow_runs[] | select((.display_title | startswith(".dev train ")) and (.status != "completed" or .conclusion == "success"))] | length' || echo 0)"
+  [ "${live:-0}" = 0 ] || skip "the .dev run for main's head ${main:0:7} deploys it"
+fi
 if [ -n "$base" ]; then
   echo "[dev-plan] The primary app last rolled out ${base:0:7}." >&2
   case "$(gh api "repos/${GH_REPO}/compare/${base}...${GITHUB_SHA}" --jq .status || true)" in

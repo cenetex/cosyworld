@@ -67,9 +67,9 @@ function legacyTarget(history, index, step) {
   return "";
 }
 
-// A restore step records its exact commit in its name. Its completion time
-// orders it with train and tag rollouts, including reruns of older runs.
-// A running train counts once its rollout job is done.
+// A restore or a failed .dev rollout's return records its exact commit in its
+// name. Its completion time orders it with the other rollouts, including
+// reruns of older runs. A running train counts once its rollout job is done.
 export async function lastRollout({ runs, jobsFor, currentRunId }) {
   const eligible = runs.filter(
     (run) =>
@@ -96,9 +96,14 @@ export async function lastRollout({ runs, jobsFor, currentRunId }) {
           )
         ) {
           sha = run.head_sha;
-        } else if (job.name === RESTORE_JOB) {
-          sha = step.name?.match(/^Roll \.dev forward to ([0-9a-f]{40})$/)?.[1];
-          if (step.name === RESTORE_STEP) {
+        } else if (
+          job.name === RESTORE_JOB ||
+          job.name === ROLLOUT_STEPS[0].job
+        ) {
+          sha = step.name?.match(
+            /^Roll \.dev (?:forward|back) to ([0-9a-f]{40})$/,
+          )?.[1];
+          if (job.name === RESTORE_JOB && step.name === RESTORE_STEP) {
             // Older workflows restored the first earlier rollout's head SHA.
             // Preserve that recorded behavior while their runs remain in view.
             sha = legacyTarget(history, index, step);
