@@ -174,9 +174,11 @@ const thermos = "ratiradio-thermos",
 // key in the kitchen, and setting the beanie and Thermos down in the
 // Listening Room.
 const skipped = new Set([37, 44, 45]);
-// The plays to add before local command `index`.
-const localLockPlays = (index) =>
+// Meet the keeper at the station, then return to Pip's pond.
+const localRoutePlays = (index) =>
   ({
+    11: [["move", "station"]],
+    12: [["move", "pond"]],
     38: [["drop", glass]],
     41: [
       ["drop", stationKey],
@@ -195,7 +197,7 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
     added = 0;
   for (const [index, command] of ravenTrace.localRoute.commands.entries()) {
     if (skipped.has(index)) continue;
-    for (const [kind, to] of localLockPlays(index)) {
+    for (const [kind, to] of localRoutePlays(index)) {
       const action = legalActions(world).find(
         (a) => a.kind === kind && (a.item === to || a.target === to),
       );
@@ -217,14 +219,18 @@ it("reaches a local Raven return using the local NPC route and reloads every pla
       );
       waits++
     ) {
-      const rest = legalActions(world).find((a) => a.kind === "wait" && !a.sleep);
+      const rest = legalActions(world).find(
+        (a) => a.kind === "wait" && !a.sleep,
+      );
       world = reload(play(world, rest, world.revision).state);
       added++;
     }
     const before = structuredClone(world),
       request = structuredClone(command);
     if (command.op === "play")
-      expect(legalActions(world), `command ${index}`).toContainEqual(command.action);
+      expect(legalActions(world), `command ${index}`).toContainEqual(
+        command.action,
+      );
     let result;
     if (command.op === "hold") {
       const next = structuredClone(world);
