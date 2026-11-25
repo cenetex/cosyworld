@@ -19,9 +19,7 @@ export const GENERATED_FILES = [
 // Shared rules version wiring, which v2/scripts/next-shared-rules.mjs
 // restores from the base.
 export const RULES_WIRING = [
-  `${RULES_DIR}/engine.rs`,
   "test/card-released-rules.test.mjs",
-  "v2/scripts/build-card-shared-engine.mjs",
   `${RULES_DIR}/rules.json`,
 ];
 

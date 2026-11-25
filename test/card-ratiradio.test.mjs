@@ -24,6 +24,7 @@ import * as itemRules from "../v2/card-game/pack-items.mjs";
 import { roamingActors } from "../v2/card-game/roaming-routes.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { newWant, questsOf } from "../v2/card-game/want.mjs";
+import { newest } from "../v2/scripts/rules-pins.mjs";
 
 // This acceptance contract runs only when its pack is mounted.
 const it = check.skipIf(!packPeople["ratiradio-rati"]);
@@ -242,9 +243,7 @@ it("lets a newly active roamer stand down from a standoff", () => {
 it("replays the full shared journal through the compiled rules identically", () => {
   const read = (file) =>
     readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-  const version = read("v2/scripts/build-card-shared-engine.mjs").match(
-    /engine-v\d+\.js/u,
-  )[0];
+  const version = `engine-v${newest(read("v2/orchestrator-rust/src/card_shared/rules.json"))}.js`;
   const sandbox = {
     cardContent: JSON.parse(
       read("v2/orchestrator-rust/src/card_shared/content.json"),
