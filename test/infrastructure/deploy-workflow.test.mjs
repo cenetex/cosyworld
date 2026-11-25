@@ -210,7 +210,7 @@ describe("deploy workflow", () => {
     const fullRelease =
       "(startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))";
     const train =
-      "github.ref == 'refs/heads/main' &&\n      ((github.event_name == 'push' && vars.COSYWORLD_DEV_TRAIN != 'off') ||\n       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))";
+      "github.ref == 'refs/heads/main' &&\n      (((github.event_name == 'push' || github.event_name == 'schedule') && vars.COSYWORLD_DEV_TRAIN != 'off') ||\n       (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))";
     // The plan, the image build and the rollout.
     const dev = job("dev-plan", "deployment-impact");
     const impact = job("deployment-impact", "release-owner");

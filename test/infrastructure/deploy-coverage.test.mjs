@@ -44,9 +44,9 @@ describe("check workflows run only by manual dispatch", () => {
     expect(workflow).not.toMatch(/cancel-in-progress: (?!false\b)/);
   });
 
-  it("main pushes deploy .dev and tags deploy production", () => {
+  it("main pushes deploy .dev, tags deploy production, and a schedule catches up", () => {
     expect(deployWorkflow).toMatch(
-      /on:\n {2}push:\n {4}branches: \[main\]\n {4}tags: \["v\*"\]\n {4}paths-ignore: .*\n {2}workflow_dispatch:\n/,
+      /on:\n {2}push:\n {4}branches: \[main\]\n {4}tags: \["v\*"\]\n {4}paths-ignore: .*\n {2}schedule:\n {4}- cron: "23 \*\/2 \* \* \*"\n {2}workflow_dispatch:\n/,
     );
   });
 });

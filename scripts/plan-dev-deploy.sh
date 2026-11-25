@@ -3,9 +3,10 @@ set -euo pipefail
 
 # Decide whether this .dev run builds and rolls out, as GitHub output lines.
 # $1 is the commit .dev last rolled out (scripts/last-dev-rollout.mjs), or
-# empty. A run whose commit .dev already contains, a rerun after main moved,
-# and a run whose newer main head has a live .dev run deploy nothing, so they
-# never cancel a newer build. Everything else goes to the impact check.
+# empty. A commit .dev contains, a rerun after main moved, a run whose newer
+# main head has a live .dev run, and a scheduled run for a commit a push run
+# took deploy nothing, so they never cancel a newer build. Everything else
+# goes to the impact check.
 : "${GH_REPO:?Repository is required}"
 [[ "${GITHUB_SHA:-}" =~ ^[0-9a-f]{40}$ ]]
 base="${1:-}"
@@ -17,6 +18,11 @@ skip() {
   exit 0
 }
 
+if [ "${GITHUB_EVENT_NAME:-}" = schedule ]; then
+  pushed="$(gh api "repos/${GH_REPO}/actions/workflows/deploy.yml/runs?head_sha=${GITHUB_SHA}&event=push" \
+    --jq '[.workflow_runs[] | select(.conclusion != "cancelled")] | length' || echo 0)"
+  [ "${pushed:-0}" = 0 ] || skip "the push run for ${GITHUB_SHA:0:7} deploys it"
+fi
 main="$(gh api "repos/${GH_REPO}/commits/main" --jq .sha || true)"
 if [ "${GITHUB_RUN_ATTEMPT:-1}" != 1 ]; then
   [ "$main" = "$GITHUB_SHA" ] || skip "main moved past ${GITHUB_SHA:0:7}; a rerun deploys only main's head"
