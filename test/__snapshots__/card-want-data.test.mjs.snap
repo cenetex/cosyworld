@@ -50,7 +50,7 @@ exports[`want data > keeps the hub tastes and decisions 2`] = `
     "keeper": [
       3,
       8,
-      16,
+      10,
       6,
     ],
     "moth": [

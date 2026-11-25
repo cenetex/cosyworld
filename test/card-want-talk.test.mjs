@@ -12,6 +12,7 @@ import { enableMotives } from "../v2/card-game/motives.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { wantFact, wantOf } from "../v2/card-game/want-talk.mjs";
 import { learnTold } from "../v2/card-game/quest-learn.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
 
 const QUEST_LINES =
   /^(What I want most now|I also want to pursue|I just finished|Help needed here|Open story here)|is pursuing /u;
@@ -40,6 +41,10 @@ describe("a want in Talk context", () => {
     const world = atStation();
     expect(wantOf(world, "moth")).toMatchObject({ kind: "item", target: "lamp" });
     expect(wantFact(world, "moth", nameOf)).toBe("I want the Lamp.");
+    expect(wantFact(world, "keeper", nameOf)).toBe(
+      "I want you to call the ship: hold Black cloth at Black pond while Lamp burns on the ground there.",
+    );
+    world.actors.keeper.want = newWant("item", "bell", world.turn);
     world.items.bell.holder = "keeper";
     expect(wantFact(world, "keeper", nameOf)).toBe(null);
     world.items.bell.holder = "vale";

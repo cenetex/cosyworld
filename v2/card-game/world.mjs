@@ -678,7 +678,7 @@ function refusalReason(s, a) {
 }
 function saidWant(s, a, reason) {
   const want = wantOf(s, a.target);
-  return reason === "wants-something-else" &&
+  return want && reason === "wants-something-else" &&
     toldWant(s, a.actor, a.target) &&
     (want.kind === "item" || (!want.step && want.kind !== "connect"))
     ? { wantId: want.target }

@@ -14,6 +14,7 @@ import { recordOf } from "../v2/card-game/world/arcana-record.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { wantFact } from "../v2/card-game/want-talk.mjs";
+import { pinnedCompanion, toldWant } from "../v2/card-game/talk-quest.mjs";
 
 const crossing = "pond-greek-harbor", fact = "quest:keeper:pond";
 const reload = (s) => decodeSave(encodeSave(s));
@@ -158,4 +159,28 @@ test("later Talk, custody changes, dawn replacement and reload cannot repay the 
   assert.equal(wantFact(s, "keeper", nameOf, "vale"), "Vale called the ship for me.");
   s.actors.keeper.completedQuest.by = "nobody";
   assert.throws(() => validateWorld(s));
+});
+
+test("refuses a trade after the call without treating completion as a live want", () => {
+  let s = arrangement();
+  choose(s, "cloth");
+  const receipt = structuredClone(s.actors.keeper.completedQuest);
+  s = act(act(s, "take", undefined, "lamp"), "move", "station");
+  s = act(s, "trade", "keeper", "lamp");
+  const trade = s.log.findLast((e) => e.verb === "trade" && e.actorId === "vale");
+  assert.equal(trade.accepted, false);
+  assert.equal(trade.reason, "wants-something-else");
+  assert.equal(trade.wantId, undefined);
+  assert.equal(s.actors.keeper.want, null);
+  assert.deepEqual(reload(s).actors.keeper.completedQuest, receipt);
+  assert.equal(s.actors.keeper.trust.vale, 1);
+  assert.equal(met(s).length, 1);
+});
+
+test("a completed call does not pin the keeper as an escort", () => {
+  const s = arrangement();
+  choose(s, "cloth");
+  assert.equal(toldWant(s, "vale", "keeper"), true);
+  assert.equal(pinnedCompanion(s, "vale", "keeper"), false);
+  assert.equal(tableQuest(s, "vale", "keeper").quest.completed.by, "vale");
 });
