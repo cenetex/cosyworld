@@ -5,12 +5,12 @@ import { membersLock, request } from "./shared-auth.mjs";
 import { playTitleIntro, titleIntroWanted } from "./title-intro.mjs";
 import { logoSite, showToolbarLogo, worldLogo } from "./title-logo.mjs";
 import { pipEntry } from "./pip-landing.mjs";
-// A new world opens with the Lonely Forest title over the booting table; the
-// same logo stands in the toolbar for as long as that world is played.
+// A new world opens under the Lonely Forest title; its logo stays in the toolbar.
 let storage = null;
 try {
   storage = localStorage;
 } catch {}
+if (/^\/arcana\/\d+\/?$/u.test(location.pathname)) history.replaceState(null, "", "/");
 const page = {
   href: location.href,
   local: !!document.querySelector('meta[name="cosy-local-app"]'),

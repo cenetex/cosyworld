@@ -350,6 +350,14 @@ describe("the reflected shore card game", () => {
       const html = await page.text();
       expect(html).toContain("Current scene");
       expect(html).toContain('<base href="/card-game/" />');
+      for (const [path, status] of [
+        ["/arcana/0", 200],
+        ["/arcana/21/", 200],
+        ["/arcana/22", 404],
+        ["/arcana/07", 404],
+      ])
+        expect((await fetch(`${url}${path}`)).status, path).toBe(status);
+      expect(await (await fetch(`${url}/arcana/7`)).text()).toBe(html);
       for (const file of [
         "",
         "style.css",

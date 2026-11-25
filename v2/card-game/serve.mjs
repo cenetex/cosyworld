@@ -130,7 +130,8 @@ export function createServer({
       return;
     }
     const authoring = pathname === "/make" || pathname === "/make/";
-    const path = authoring
+    const arcanum = /^\/arcana\/(?:\d|1\d|2[01])\/?$/u.test(pathname);
+    const path = authoring || arcanum
       ? "/index.html"
       : pathname.startsWith("/card-game/")
         ? pathname.slice("/card-game".length)

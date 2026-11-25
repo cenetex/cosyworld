@@ -5,6 +5,8 @@ mod media_http;
 #[path = "card_radio.rs"]
 mod radio;
 
+#[path = "card_game_arcana.rs"]
+mod arcana;
 #[path = "card_game_metadata.rs"]
 pub(crate) mod metadata;
 #[path = "card_narrative.rs"]
@@ -36,6 +38,8 @@ pub(super) fn router<S: Clone + Send + Sync + 'static>() -> Router<S> {
         .route("/", get(index))
         .route("/pip", get(index))
         .route("/pip/", get(index))
+        .route("/arcana/{number}", get(arcana::page))
+        .route("/arcana/{number}/", get(arcana::page))
         .route("/make", get(authoring_index))
         .route("/make/", get(authoring_index))
         .route(
@@ -59,10 +63,15 @@ async fn download() -> Response {
 }
 
 async fn index(headers: HeaderMap) -> Response {
+    match table_page(&headers) {
+        Some(page) => page_response(page),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+fn table_page(headers: &HeaderMap) -> Option<String> {
     let budget = narrative::client_budget_ms();
-    let Some((_, page)) = cosyworld_orchestrator::card_assets::get("index.html") else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
+    let (_, page) = cosyworld_orchestrator::card_assets::get("index.html")?;
     let mut page = String::from_utf8_lossy(&page).replacen(
         r#"name="cosy-story-budget-ms" content="30000""#,
         &format!(r#"name="cosy-story-budget-ms" content="{budget}""#),
@@ -87,6 +96,10 @@ async fn index(headers: HeaderMap) -> Response {
             1,
         );
     }
+    Some(page)
+}
+
+fn page_response(page: String) -> Response {
     let mut response = serve("index.html");
     *response.body_mut() = page.into();
     response.headers_mut().remove(header::CONTENT_LENGTH);
@@ -210,6 +223,40 @@ mod tests {
                     assert!(body.is_empty());
                 }
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn an_arcanum_page_is_the_table_with_that_cards_share_tags() {
+        for path in ["/arcana/7", "/arcana/7/", "/arcana/7?utm_source=x"] {
+            let response = request(path, "GET").await;
+            assert_eq!(response.status(), StatusCode::OK, "{path}");
+            assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
+            let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            let page = String::from_utf8(body.to_vec()).unwrap();
+            for tag in [
+                r#"property="og:title" content="The Chariot · Lonely Forest""#,
+                r#"name="twitter:title" content="The Chariot · Lonely Forest""#,
+                r#"property="og:url" content="https://lonelyforest.com/arcana/7""#,
+                r#"property="og:image" content="https://lonelyforest.com/card-game/assets/optimized/phone/png/arcana/full-size/arcanum-7.webp""#,
+                r#"property="og:image:type" content="image/webp""#,
+                r#"property="og:image:alt" content="The Chariot""#,
+                r#"name="twitter:card" content="summary""#,
+                r#"property="og:description" content="A woodcut card."#,
+                r#"<script type="module" src="./entry.mjs"></script>"#,
+            ] {
+                assert!(page.contains(tag), "{path} lacks {tag}");
+            }
+            assert!(!page.contains("og:image:width") && !page.contains("og:image:height"));
+            assert!(!page.contains("lonely-forest.jpg"));
+        }
+        for number in 0..=21 {
+            let response = request(&format!("/arcana/{number}"), "GET").await;
+            assert_eq!(response.status(), StatusCode::OK, "{number}");
+        }
+        for path in ["/arcana/22", "/arcana/07", "/arcana/+7", "/arcana/fool"] {
+            let response = request(path, "GET").await;
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
         }
     }
 
