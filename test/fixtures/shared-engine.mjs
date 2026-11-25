@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { newest } from "../../v2/scripts/rules-pins.mjs";
 
 const read = (path) =>
   readFileSync(
@@ -12,9 +13,7 @@ const read = (path) =>
 
 // The current compiled shared rules use this build's content, as Rust does.
 export function currentSharedEngine() {
-  const version = read("engine.rs").match(
-    /const VERSION: &str = "full-card-world\/(\d+)"/,
-  )[1];
+  const version = newest(read("rules.json"));
   const runtime = vm.createContext({
     structuredClone,
     cardContent: JSON.parse(read("content.json")),

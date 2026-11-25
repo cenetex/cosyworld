@@ -1296,29 +1296,23 @@ describe("deploy workflow", () => {
   it("copies every out-of-crate compile-time input into the release image build", () => {
     const dependencyBuild =
       "RUN cargo chef cook --release --recipe-path /app/recipe.json";
-    const engineVersionCopy =
-      "COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt";
-    const mediaCopy = "COPY v2/media /app/v2/media";
     // Matched without the RUN prefix so the ordering contract survives
     // env prefixes on the build command, such as CARGO_BUILD_JOBS.
     const releaseBuild = "cargo build --release";
+    const build = dockerfile.slice(
+      dockerfile.indexOf(dependencyBuild),
+      dockerfile.indexOf(releaseBuild),
+    );
 
-    expect(dockerignore).toContain("!v2/content-engine-version.txt");
-    expect(dockerignore).toContain("!v2/media/");
-    expect(dockerignore).toContain("!v2/media/**");
-    expect(dockerfile).toContain(engineVersionCopy);
-    expect(dockerfile).toContain(mediaCopy);
-    expect(dockerfile.indexOf(dependencyBuild)).toBeLessThan(
-      dockerfile.indexOf(engineVersionCopy),
+    expect(build).toContain("COPY v2/core-c /app/v2/core-c");
+    for (const dir of ["v2/card-game", "v2/content", "v2/media"])
+      expect(build).not.toContain(`COPY ${dir} `);
+  });
+
+  it("points the server at the assets directory the image ships", () => {
+    expect(dockerfile).toContain(
+      "COPY --link --from=assets /out/text/ /app/assets/",
     );
-    expect(dockerfile.indexOf(engineVersionCopy)).toBeLessThan(
-      dockerfile.indexOf(releaseBuild),
-    );
-    expect(dockerfile.indexOf(dependencyBuild)).toBeLessThan(
-      dockerfile.indexOf(mediaCopy),
-    );
-    expect(dockerfile.indexOf(mediaCopy)).toBeLessThan(
-      dockerfile.indexOf(releaseBuild),
-    );
+    expect(dockerfile).toContain("ENV COSYWORLD_ASSETS_DIR=/app/assets");
   });
 });

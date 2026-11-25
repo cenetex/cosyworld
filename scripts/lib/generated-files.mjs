@@ -19,10 +19,8 @@ export const GENERATED_FILES = [
 // Shared rules version wiring, which v2/scripts/next-shared-rules.mjs
 // restores from the base.
 export const RULES_WIRING = [
-  `${RULES_DIR}/engine.rs`,
-  `${RULES_DIR}/full_world.rs`,
   "test/card-released-rules.test.mjs",
-  "v2/scripts/build-card-shared-engine.mjs",
+  `${RULES_DIR}/rules.json`,
 ];
 
 export const isLevelMap = (file) =>
@@ -30,10 +28,9 @@ export const isLevelMap = (file) =>
 export const isRulesBundle = (file) =>
   /^v2\/orchestrator-rust\/src\/card_shared\/engine-v\d+\.js$/u.test(file);
 
-// A version line, a bundle path or a pinned hash is wiring; anything else is
-// real work.
+// Version lines, bundle paths and pinned hashes are wiring; the rest is work.
 export const isWiringLine = (line) =>
-  /VERSION|SOURCE|engine-v\d+\.js|^\s*\d+: "[0-9a-f]{64}",$|^\/\/ Rules /u.test(
+  /VERSION|SOURCE|engine-v\d+\.js|^\s*"?\d+"?: "[0-9a-f]{64}",?$|^[{}]$|^\/\/ Rules /u.test(
     line,
   );
 

@@ -1391,7 +1391,7 @@ fn a_refused_save_names_where_the_rules_refused_it() {
         "claimed":["vale"], "present":["vale"]
     });
     let error = super::engine::reduce_pack(
-        super::engine::VERSION,
+        super::engine::version(),
         Some(super::content::current()),
         request,
     )

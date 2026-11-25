@@ -40,7 +40,7 @@ describe('land-branch', () => {
   it('regenerates bundles, assets and wiring instead of merging them', () => {
     expect(isRulesBundle('v2/orchestrator-rust/src/card_shared/engine-v42.js')).toBe(true);
     expect(isRulesBundle('v2/orchestrator-rust/src/card_shared/engine.rs')).toBe(false);
-    expect(RULES_WIRING).toContain('v2/orchestrator-rust/src/card_shared/engine.rs');
+    expect(RULES_WIRING).toEqual(['test/card-released-rules.test.mjs', 'v2/orchestrator-rust/src/card_shared/rules.json']);
   });
 
   it('names the landing branch after the prepared one', () => {

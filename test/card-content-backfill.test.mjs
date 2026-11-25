@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
 import { createWorld, encodeSave } from "../v2/card-game/world.mjs";
+import { newest } from "../v2/scripts/rules-pins.mjs";
 
 const read = (path) =>
   readFileSync(
@@ -13,9 +14,7 @@ const read = (path) =>
     "utf8",
   );
 const content = JSON.parse(read("content.json"));
-const version = read("engine.rs").match(
-  /const VERSION: &str = "full-card-world\/(\d+)"/,
-)[1];
+const version = newest(read("rules.json"));
 
 // A released bundle hosted as Rust hosts it, with the given pack content.
 function engine(rules, files) {

@@ -8,12 +8,7 @@ use axum::{
 const REVALIDATE: &str = "public, no-cache";
 const IMMUTABLE: &str = "public, max-age=31536000, immutable";
 
-pub(super) fn is_media(content_type: &str) -> bool {
-    !content_type.starts_with("image/svg+xml")
-        && ["image/", "audio/", "video/"]
-            .iter()
-            .any(|prefix| content_type.starts_with(prefix))
-}
+use cosyworld_orchestrator::card_assets::is_media;
 
 fn unchanged(headers: &HeaderMap, etag: &str) -> bool {
     headers.get_all(header::IF_NONE_MATCH).iter().any(|value| {
@@ -73,13 +68,14 @@ fn byte_range(value: &str, length: usize) -> Option<Result<(usize, usize), ()>> 
 
 pub(super) fn serve(
     content_type: &'static str,
-    bytes: &'static [u8],
+    bytes: impl Into<Bytes>,
     etag: &'static str,
     query: Option<&str>,
     method: &Method,
     request: &HeaderMap,
 ) -> Response {
     let media = is_media(content_type);
+    let bytes: Bytes = bytes.into();
     let immutable = query.and_then(|value| value.strip_prefix("v="))
         == etag
             .strip_prefix('"')
@@ -142,7 +138,7 @@ pub(super) fn serve(
                     .parse()
                     .unwrap(),
             );
-            Bytes::from_static(bytes).slice(start..=end)
+            bytes.slice(start..=end)
         }
         Some(Err(())) => {
             *response.status_mut() = StatusCode::RANGE_NOT_SATISFIABLE;
@@ -152,7 +148,7 @@ pub(super) fn serve(
             );
             Bytes::new()
         }
-        None => Bytes::from_static(bytes),
+        None => bytes,
     };
     response
         .headers_mut()
@@ -252,7 +248,7 @@ mod tests {
     async fn empty_media_and_large_numbers_have_bounded_range_replies() {
         let empty = serve(
             "audio/mpeg",
-            b"",
+            Bytes::new(),
             ETAG,
             None,
             &Method::GET,

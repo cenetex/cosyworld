@@ -16,8 +16,11 @@ describe("regen", () => {
       classify("v2/orchestrator-rust/src/card_shared/engine-v133.js"),
     ).toBe("generated");
     expect(classify("test/journeys/checkpoints.json")).toBe("generated");
-    expect(classify("v2/orchestrator-rust/src/card_shared/engine.rs")).toBe(
+    expect(classify("v2/orchestrator-rust/src/card_shared/rules.json")).toBe(
       "wiring",
+    );
+    expect(classify("v2/orchestrator-rust/src/card_shared/engine.rs")).toBe(
+      "other",
     );
     expect(classify("test/card-released-rules.test.mjs")).toBe("wiring");
     expect(classify("v2/card-game/world.mjs")).toBe("other");

@@ -60,7 +60,10 @@ async fn download() -> Response {
 
 async fn index(headers: HeaderMap) -> Response {
     let budget = narrative::client_budget_ms();
-    let mut page = String::from_utf8_lossy(include_bytes!("../../card-game/index.html")).replacen(
+    let Some((_, page)) = cosyworld_orchestrator::card_assets::get("index.html") else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let mut page = String::from_utf8_lossy(&page).replacen(
         r#"name="cosy-story-budget-ms" content="30000""#,
         &format!(r#"name="cosy-story-budget-ms" content="{budget}""#),
         1,
@@ -116,11 +119,13 @@ async fn asset(
     if path == "index.html" {
         return index(headers).await;
     }
-    let Some((content_type, bytes)) = cosyworld_orchestrator::card_assets::get(&path) else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
     let Some(etag) = cosyworld_orchestrator::card_assets::etag(&path) else {
         return StatusCode::NOT_FOUND.into_response();
+    };
+    let found =
+        tokio::task::spawn_blocking(move || cosyworld_orchestrator::card_assets::get(&path));
+    let Ok(Some((content_type, bytes))) = found.await else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
     media_http::serve(
         content_type,

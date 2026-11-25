@@ -73,14 +73,14 @@ fn resident_passage_checks_each_traveller_in_the_c_host() {
     .unwrap();
     content::preload(&c, &hash).unwrap();
     let game = engine::reduce_pack(
-        engine::VERSION,
+        engine::version(),
         Some(&hash),
         json!({"op":"create","seed":9}),
     )
     .unwrap()["world"]
         .clone();
     let mut world = World {
-        version: engine::VERSION.into(),
+        version: engine::version().into(),
         game,
         claimed: [0; 8],
         present: [0; 8],
@@ -133,7 +133,7 @@ fn resident_passage_checks_each_traveller_in_the_c_host() {
 // exactly, here and reopened.
 #[test]
 fn rules_100_world_life_commits_and_replays_in_the_c_host() {
-    let mut world = created(engine::VERSION);
+    let mut world = created(engine::version());
     let game = &mut world.game;
     game.as_object_mut().unwrap().remove("opening");
     game["turn"] = json!(116);

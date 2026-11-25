@@ -50,7 +50,7 @@ const TOLD: &str = "lane:greek-harbor>greek-piraeus";
 
 #[test]
 fn quest_core_talk_teaches_its_fact_at_the_play_and_replays_it() {
-    let (path, c, id, _) = fixture(engine::VERSION);
+    let (path, c, id, _) = fixture(engine::version());
     full::run(&c, &id, "user0", &command("claim", ""), now()).unwrap();
     let before = full_store::world(&c, &id, now()).unwrap();
     let mut talk = command("play", "quest-core-talk-request");

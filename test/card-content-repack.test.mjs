@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
+import { newest } from "../v2/scripts/rules-pins.mjs";
 
 const dir = "v2/orchestrator-rust/src/card_shared";
 const here = (path) =>
@@ -16,8 +17,13 @@ const git = (...args) =>
     maxBuffer: 64 << 20,
     stdio: ["ignore", "pipe", "ignore"],
   });
-const versionOf = (text) =>
-  text.match(/const VERSION: &str = "full-card-world\/(\d+)"/)[1];
+const versionOf = (read) => {
+  try {
+    return String(newest(read("rules.json")));
+  } catch {
+    return read("engine.rs").match(/const VERSION: &str = "full-card-world\/(\d+)"/)[1];
+  }
+};
 
 // Main as this branch left it: the fork point, or main itself in a PR's
 // merge checkout. CI fetches full history, so it always has one.
@@ -58,7 +64,7 @@ function engine(bundle, files) {
   vm.runInContext(bundle, runtime);
   return (request) => JSON.parse(runtime.cardShared(JSON.stringify(request)));
 }
-const version = versionOf(here("engine.rs"));
+const version = versionOf(here);
 const current = engine(
   here(`engine-v${version}.js`),
   JSON.parse(here("content.json")),
@@ -78,7 +84,7 @@ describe("a shared world saved on main loads on this branch", () => {
   // fails. Also skipped while main still holds the schema this branch retired.
   it.skipIf((!base && !process.env.CI) || retiredByBump)("repacks onto this content", () => {
     expect(base, "fetch origin/main").toBeTruthy();
-    const from = versionOf(at("engine.rs"));
+    const from = versionOf(at);
     const saved = engine(
       at(`engine-v${from}.js`),
       JSON.parse(at("content.json")),

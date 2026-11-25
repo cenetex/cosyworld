@@ -17,7 +17,10 @@ mod js_bridge_tests;
 mod live_rules_tests;
 #[cfg(test)]
 mod move_tests;
-pub(crate) const RULES_VERSION: &str = engine::VERSION;
+pub(crate) fn rules_version() -> &'static str {
+    engine::version()
+}
+pub(crate) use engine::check_rules;
 mod full;
 mod full_floor;
 #[cfg(test)]
@@ -84,7 +87,10 @@ fn now() -> i64 {
 pub(super) fn cast() -> &'static Value {
     static CAST: OnceLock<Value> = OnceLock::new();
     CAST.get_or_init(|| {
-        serde_json::from_str(include_str!("../../card-game/shared-cast.json")).expect("shared cast")
+        serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card-game/shared-cast.json",
+        ))
+        .expect("shared cast")
     })
 }
 fn capacity() -> &'static Arc<tokio::sync::Semaphore> {

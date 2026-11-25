@@ -15,7 +15,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-const SOURCE: &str = include_str!("narrator.js");
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 
 /// The dialogue context for `request`: a `view`-shaped request for the world
@@ -55,7 +54,7 @@ fn describe(request: &Value) -> Result<Value> {
     let output = context.with(|ctx| -> Result<String> {
         ctx.eval::<(), _>("globalThis.structuredClone = value => JSON.parse(JSON.stringify(value)); globalThis.Date = undefined; Math.random = () => { throw new Error('Randomness must come from the saved world.'); };")
             .map_err(host_error)?;
-        ctx.eval::<(), _>(SOURCE).map_err(|error| {
+        ctx.eval::<(), _>(cosyworld_orchestrator::card_assets::text("card_shared/narrator.js")).map_err(|error| {
             tracing::error!(error=%error, exception=?ctx.catch(), "shared narrator failed to load");
             "The shared world is taking a moment. Try again.".to_string()
         })?;
