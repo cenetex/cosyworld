@@ -122,9 +122,9 @@ fn alone(context: &Context, entity: &Entity) -> String {
     }
 }
 
-/// The user turn: what I just heard, as `Pip says, "…"`; else what I say to
-/// the person I face ("Pip is here." drew "He is." and narration, 2026-11-25),
-/// a lone voice's question, or silence for a gesture or emoji voice alone.
+/// The user turn: what I just heard, as `Pip says, "…"`; else who I face, and a
+/// speaking voice is asked what it says ("Pip is here." drew "He is.", 2026-11-25);
+/// a lone voice's question; or silence for a gesture or emoji voice alone.
 pub(super) fn user(context: &Context, entity: &Entity) -> String {
     if adding(context, entity) {
         return FOLLOW_UP.into();
@@ -138,7 +138,12 @@ pub(super) fn user(context: &Context, entity: &Entity) -> String {
         None if lone(context, entity) => alone(context, entity),
         None => facing(context, entity).map_or_else(
             || crate::ai_gateway::SILENCE.into(),
-            |l| format!("You face {}. {FACE}", name(&l)),
+            |l| match super::system_voice(entity, Part::Line) {
+                shaped if shaped.starts_with(crate::ai_gateway::SHAPE) => {
+                    format!("You face {}.", name(&l))
+                }
+                _ => format!("You face {}. {FACE}", name(&l)),
+            },
         ),
     }
 }
@@ -439,6 +444,15 @@ mod tests {
             );
             assert_eq!(prompt.lead, "");
             assert!(prompt.system.ends_with(SAY_ALOUD), "{}", prompt.system);
+        }
+        for (id, shape) in [("skull", "body language"), ("whiskerwind", "symbols only")] {
+            let text = serde_json::to_string(&c)
+                .unwrap()
+                .replace("\"moth\"", &format!("{id:?}"));
+            let gesture: Context = serde_json::from_str(&text).unwrap();
+            let prompt = messages(&gesture, super::super::entity(&gesture, id));
+            assert!(prompt.system.contains(shape), "{}", prompt.system);
+            assert_eq!(prompt.user, "You face Vale.", "{id}");
         }
         c.speakers = vec!["vale".into()];
         c.outcome.as_mut().unwrap().card.kind = "wait".into();
