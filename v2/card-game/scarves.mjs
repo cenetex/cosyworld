@@ -1,8 +1,6 @@
 import { accountStorage as localStorage } from "./account-reset-storage.mjs";
-// Cosmetic upgrades on a traveler's portrait (#1873). The rules record each
-// one-way upgrade in the traveler's `upgrades` set; this module only paints
-// it, and keeps the local passkey's set between local worlds. RATi's scarf is
-// the first: she sews each traveler's scarf as `forest-scarf-<traveler id>`.
+// Cosmetic portraits use the traveler's upgrades; local worlds retain that set.
+// Revealed tarot belongs to the same set, shared across local travelers.
 import { humanAvatar, humanAvatarIds } from "./human-cast.mjs";
 
 export const scarfItemId = (actor) => `forest-scarf-${actor}`;

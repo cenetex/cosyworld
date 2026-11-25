@@ -19600,6 +19600,7 @@
   var cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
   var LISTENER = arcana_default.visit.match.targetId;
   var sorted = (ids3) => [...new Set(ids3)].sort();
+  var collect = (actor, ids3) => actor.upgrades = sorted([...actor.upgrades || [], ...ids3]);
   var validList = (list) => Array.isArray(list) && list.length <= 64 && list.every(
     (id, i) => typeof id === "string" && id && (i === 0 || list[i - 1] < id)
   );
@@ -19638,6 +19639,8 @@
         delete record7.level;
       if (record7.spread !== void 0 && !validSpread(record7.spread))
         delete record7.spread;
+      const revealed2 = (record7.spread || []).filter((slot) => slot.face === "up").map((slot) => slot.card);
+      if (revealed2.length) collect(actor, revealed2);
       if (record7.need !== void 0 && !validNeed(record7.need))
         delete record7.need;
       if (record7.done !== void 0 && !validDone(record7.done))
