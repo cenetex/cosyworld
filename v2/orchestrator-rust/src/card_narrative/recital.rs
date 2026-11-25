@@ -22,7 +22,10 @@ pub(super) struct Stanza {
 fn authored_recital(actor: &str) -> Option<&'static Value> {
     static PACKS: OnceLock<Value> = OnceLock::new();
     let packs = PACKS.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/packs.json")).expect("card packs")
+        serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card-game/packs.json",
+        ))
+        .expect("card packs")
     });
     packs["packs"]
         .as_array()?

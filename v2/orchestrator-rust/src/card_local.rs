@@ -168,8 +168,10 @@ struct Speech {
 }
 
 async fn speech(State(config): State<Arc<Config>>, Json(input): Json<Speech>) -> Response {
-    let cast: serde_json::Value =
-        serde_json::from_str(include_str!("../../card-game/voices.json")).unwrap();
+    let cast: serde_json::Value = serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+        "card-game/voices.json",
+    ))
+    .unwrap();
     if cast["voices"].get(&input.speaker).is_none()
         || input.text.trim().is_empty()
         || input.text.chars().count() > 1200

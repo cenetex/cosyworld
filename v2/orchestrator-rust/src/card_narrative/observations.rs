@@ -68,8 +68,10 @@ impl Definition {
 fn definitions() -> &'static Vec<Definition> {
     static DEFINITIONS: OnceLock<Vec<Definition>> = OnceLock::new();
     DEFINITIONS.get_or_init(|| {
-        let packs: Value = serde_json::from_str(include_str!("../../../card-game/packs.json"))
-            .expect("compiled card packs");
+        let packs: Value = serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card-game/packs.json",
+        ))
+        .expect("compiled card packs");
         std::iter::once(&packs["hub"])
             .chain(packs["packs"].as_array().expect("packs"))
             .flat_map(|pack| pack["observations"].as_array().into_iter().flatten())

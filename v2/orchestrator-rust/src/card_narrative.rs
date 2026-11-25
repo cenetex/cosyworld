@@ -9,6 +9,7 @@ use axum::{
     routing::post,
     Json, Router,
 };
+use cosyworld_orchestrator::card_assets;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -185,14 +186,14 @@ fn base_profiles() -> &'static Value {
     static PROFILES: OnceLock<Value> = OnceLock::new();
     PROFILES.get_or_init(|| {
         let mut profiles: Value =
-            serde_json::from_str(include_str!("../../card-game/entity-profiles.json"))
+            serde_json::from_str(card_assets::text("card-game/entity-profiles.json"))
                 .expect("embedded entity profiles");
         // World packs mounted on the table add their places and residents. The
         // browser reads the same compiled file, so ids and personas agree.
-        let packs: Value = serde_json::from_str(include_str!("../../card-game/packs.json"))
+        let packs: Value = serde_json::from_str(card_assets::text("card-game/packs.json"))
             .expect("embedded card world packs");
         let map = profiles.as_object_mut().expect("profiles");
-        let boardy: Value = serde_json::from_str(include_str!("../../card-game/boardyai.json"))
+        let boardy: Value = serde_json::from_str(card_assets::text("card-game/boardyai.json"))
             .expect("BoardyAI guest");
         for pack in packs["packs"]
             .as_array()
@@ -234,7 +235,7 @@ fn base_profiles() -> &'static Value {
                 }
             }
         }
-        let cast: Value = serde_json::from_str(include_str!("../../card-game/shared-cast.json"))
+        let cast: Value = serde_json::from_str(card_assets::text("card-game/shared-cast.json"))
             .expect("shared cast");
         for human in cast["avatars"].as_array().expect("human avatars") {
             if human["id"] == "vale" {
@@ -258,9 +259,8 @@ fn base_profiles() -> &'static Value {
                 }
             }
         }
-        // Each place's first-person sense line and each avatar's pronouns,
-        // for the speaker's own view (P3). The rules never read this file.
-        let senses: Value = serde_json::from_str(include_str!("../../card-game/senses.json"))
+        // Sense lines and pronouns for the speaker's own view (P3); rules never read them.
+        let senses: Value = serde_json::from_str(card_assets::text("card-game/senses.json"))
             .expect("embedded senses");
         for (key, field) in [("places", "sense"), ("pronouns", "pronouns")] {
             for (id, value) in senses[key].as_object().expect("sense entries") {
@@ -864,7 +864,7 @@ pub(crate) fn catalog_stale() -> bool {
     *STALE.get_or_init(|| {
         let stale = !authored::catalog_current(|path| {
             let file = path.strip_prefix("v2/card-game/")?;
-            cosyworld_orchestrator::card_assets::get(file).map(|(_, bytes)| bytes.to_vec())
+            card_assets::get(file).map(|(_, bytes)| bytes.to_vec())
         });
         if stale {
             tracing::error!(

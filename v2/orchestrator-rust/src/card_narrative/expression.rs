@@ -19,8 +19,10 @@ pub(super) fn mode(profile: &Value) -> Mode {
 fn symbols() -> &'static BTreeMap<String, String> {
     static SYMBOLS: OnceLock<BTreeMap<String, String>> = OnceLock::new();
     SYMBOLS.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/emoji-symbols.json"))
-            .expect("authored emoji names")
+        serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card-game/emoji-symbols.json",
+        ))
+        .expect("authored emoji names")
     })
 }
 

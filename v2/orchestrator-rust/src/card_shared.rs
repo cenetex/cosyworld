@@ -87,7 +87,10 @@ fn now() -> i64 {
 pub(super) fn cast() -> &'static Value {
     static CAST: OnceLock<Value> = OnceLock::new();
     CAST.get_or_init(|| {
-        serde_json::from_str(include_str!("../../card-game/shared-cast.json")).expect("shared cast")
+        serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card-game/shared-cast.json",
+        ))
+        .expect("shared cast")
     })
 }
 fn capacity() -> &'static Arc<tokio::sync::Semaphore> {

@@ -30,10 +30,6 @@ FROM dependencies AS build
 ARG CARGO_BUILD_JOBS=1
 
 COPY v2/core-c /app/v2/core-c
-COPY v2/content /app/v2/content
-COPY v2/content-engine-version.txt /app/v2/content-engine-version.txt
-COPY v2/card-game /app/v2/card-game
-COPY v2/media /app/v2/media
 COPY v2/ai-model-rust /app/v2/ai-model-rust
 COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 
@@ -43,8 +39,7 @@ COPY v2/orchestrator-rust /app/v2/orchestrator-rust
 # Small builders use one worker; CI can set this to match its memory budget.
 RUN --mount=type=cache,id=cosyworld-release-target-v1,target=/app/v2/orchestrator-rust/target,from=dependencies,source=/app/v2/orchestrator-rust/target,sharing=locked \
   touch build.rs \
-  && find src ../ai-model-rust/src ../core-c ../content ../card-game ../media -type f -exec touch {} + \
-  && touch ../content-engine-version.txt \
+  && find src ../ai-model-rust/src ../core-c -type f -exec touch {} + \
   && CARGO_INCREMENTAL=1 CARGO_BUILD_JOBS=${CARGO_BUILD_JOBS} cargo build --release --locked \
   && mkdir -p /app/bin \
   && cp target/release/cosyworld-orchestrator /app/bin/cosyworld-orchestrator
@@ -58,8 +53,10 @@ FROM node:24.11.0-bookworm-slim AS assets
 WORKDIR /app
 COPY v2/card-game /app/v2/card-game
 COPY v2/scripts/build-card-assets.mjs /app/v2/scripts/build-card-assets.mjs
-COPY v2/orchestrator-rust/src/card_shared/rules.json v2/orchestrator-rust/src/card_shared/*.js \
+COPY v2/orchestrator-rust/src/card_shared/*.json v2/orchestrator-rust/src/card_shared/*.js \
   /app/v2/orchestrator-rust/src/card_shared/
+COPY v2/orchestrator-rust/src/card_narrative/authored-text.json \
+  /app/v2/orchestrator-rust/src/card_narrative/
 RUN node v2/scripts/build-card-assets.mjs --release /out
 
 FROM debian:bookworm-slim AS runtime
