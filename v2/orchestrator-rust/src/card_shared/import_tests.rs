@@ -265,6 +265,9 @@ fn released_listener_turnovers_keep_their_words_without_vouching_for_forgery() {
         let kept: Value = serde_json::from_str(&trusted_save(&save, &[]).unwrap()).unwrap();
         assert_eq!(kept["log"], honest["log"], "done={done}");
         assert_eq!(kept["memories"], honest["memories"], "done={done}");
+        let loaded = World::create(Some(&kept.to_string())).unwrap().game;
+        assert_eq!(loaded["log"], honest["log"], "done={done}");
+        assert_eq!(loaded["memories"], honest["memories"], "done={done}");
         for text in [
             format!("The Listener turns over {TOKEN}."),
             format!("The Listener turns over The Fool, still to do: {INJECTION}"),
