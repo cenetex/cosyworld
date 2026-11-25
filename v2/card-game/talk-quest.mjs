@@ -31,6 +31,7 @@ function served(w) {
 // The quest that meets this want of theirs, or null for a want Talk gives
 // no quest for.
 export function questFor(s, them, want) {
+  if (!want) return null;
   const base = { since: s.turn, refusals: 0 };
   // Their wish to eat or drink something somewhere is the player's to meet
   // there too (rules 102): "eat the Travel Provisions at Piraeus Quays".

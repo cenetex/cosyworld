@@ -45,6 +45,7 @@ const RULES = [
   "pack-specials.mjs",
   "pack-toggle.mjs",
   "pack-transport.mjs",
+  "quest-call.mjs", // rules 207: crossing completion and sourced call facts
   "quest-deck.mjs",
   "quest-learn.mjs",
   "radio-item.mjs",

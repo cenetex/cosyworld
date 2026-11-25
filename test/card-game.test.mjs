@@ -24,6 +24,7 @@ const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { createServer } from "../v2/card-game/serve.mjs";
 import { roomTracks } from "../v2/card-game/music.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
 
 function act(s, kind, item, target) {
   s = endStandoff(s);
@@ -179,6 +180,7 @@ describe("the reflected shore card game", () => {
 
   it("lets the keeper go for its wanted bell and carry it", () => {
     const start = createWorld();
+    start.actors.keeper.want = newWant("item", "bell", start.turn);
     start.actors.keeper.place = "pond";
     start.items.bell.holder = "station";
     let s = act(start, "wait");
