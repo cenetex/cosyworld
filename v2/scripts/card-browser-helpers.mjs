@@ -121,7 +121,13 @@ export async function openPack(page, id) {
   );
   if (await stack.count()) {
     await stack.first().click({ position: await visibleSpot(stack.first()) });
-    await page.locator('#hand [data-pack="open"]').first().waitFor();
+    // A resident's lone card turns over at the first tap, and is chosen.
+    await page.waitForFunction((id) => {
+      const card = document.querySelector(`#hand [data-card="${id}"]`);
+      return document.querySelector('#hand [data-pack="open"]') ||
+        (card?.dataset.unrevealed === "false" && !card.dataset.revealing);
+    }, id);
+    if (!(await inPack())) return page.keyboard.press("Escape").then(() => true);
     // The hand rises and the cards rise into the row (460 ms, 350 ms apart).
     await page.waitForTimeout(900);
   }

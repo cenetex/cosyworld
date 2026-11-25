@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cardActions, cardPlay } from "../v2/card-game/cards.mjs";
+import { cardActions, cardPlay, metSince, unmet } from "../v2/card-game/cards.mjs";
 import { createWorld } from "../v2/card-game/world.mjs";
 
 function station() {
@@ -52,7 +52,9 @@ describe("a pair with no play of its own", () => {
     expect(actions).toHaveLength(1);
     expect(actions[0]).toMatchObject(talk);
     expect(hint).toBe("");
-    expect(cardPlay(world, ["moth", "pond"])).toEqual(cardPlay(world, ["moth"]));
+    expect(cardPlay(world, ["moth", "pond"])).toEqual(
+      cardPlay(world, ["moth"]),
+    );
   });
 
   it("plays the item before the place", () => {
@@ -69,5 +71,33 @@ describe("a pair with no play of its own", () => {
     expect(cardPlay(world, ["vale", "moth"]).action?.kind).not.toBe("talk");
     world.items.lamp.holder = "vale";
     expect(cardPlay(world, ["lamp", "moth"]).action?.kind).toBe("give");
+  });
+});
+
+describe("a person with no play yet", () => {
+  it("gives their reason, never the place's Wait", () => {
+    const world = createWorld({ opening: true });
+    world.actors.vale.place = "pond";
+    expect(cardPlay(world, ["pond"]).action?.kind).toBe("wait");
+    for (const cards of [["pond", "moth"], ["vale", "moth"]]) {
+      expect(cardPlay(world, cards).action).toBeFalsy();
+      expect(cardActions(world, cards)).toEqual({
+        actions: [],
+        hint: "Meet Pip here.",
+      });
+    }
+  });
+
+  it("lies face down until the rules meet them, whatever was seen", () => {
+    const world = createWorld({ opening: true });
+    world.actors.vale.place = "pond";
+    expect(unmet(world, "moth")).toBe(true);
+    expect(unmet(world, "vale")).toBe(false);
+    expect(unmet(world, "greek-polynices-shade")).toBe(false);
+    expect(metSince(world, -1)).toEqual([]);
+    world.opening.met.moth = world.turn;
+    expect(unmet(world, "moth")).toBe(false);
+    expect(metSince(world, world.turn - 1)).toEqual(["moth"]);
+    expect(metSince(world, world.turn)).toEqual([]);
   });
 });

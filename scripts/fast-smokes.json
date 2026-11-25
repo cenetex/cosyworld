@@ -52,6 +52,7 @@
       "smoke-card-save-validation": 9,
       "smoke-card-seed-maker": 42,
       "smoke-card-settings": 38,
+      "smoke-card-shade-wake": 27,
       "smoke-card-shared-updating": 14,
       "smoke-card-ship-fade": 146,
       "smoke-card-sleep-dream": 73,
@@ -136,6 +137,10 @@
     {
       "paths": "^v2/card-game/sleep-(view|presentation)\\.mjs$",
       "smokes": ["smoke-card-sleep-dream"]
+    },
+    {
+      "paths": "^v2/card-game/(app|cards|sleep-view|world)\\.mjs$",
+      "smokes": ["smoke-card-shade-wake"]
     },
     {
       "paths": "^v2/card-game/(read-view|claims|book-schema)\\.mjs$|^v2/content/willows/",
