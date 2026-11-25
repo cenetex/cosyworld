@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
-import { GENERATED_FILES, classify } from "../scripts/regen.mjs";
+import { GENERATED_FILES, classify } from "../scripts/lib/generated-files.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 
