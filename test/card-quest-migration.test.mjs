@@ -76,7 +76,7 @@ const engine = (version) => {
   vm.runInContext(
     source.replace(
       "globalThis.cardShared =",
-      "globalThis.rules = { createWorld, legalActions, play }; $&",
+      "globalThis.rules = { createWorld, legalActions, play, nextWant, wantAPI }; $&",
     ),
     runtime,
   );
@@ -86,6 +86,34 @@ const ask = (runtime, request) =>
   JSON.parse(runtime.cardShared(JSON.stringify(request)));
 
 describe("saves that kept a heard map", () => {
+  it.each([189, 194])(
+    "keep the authored Bell after rules %i renewal and upgrade",
+    (version) => {
+      const old = engine(version),
+        { createWorld, nextWant, wantAPI } = old.rules;
+      const w = createWorld();
+      w.items.bell.holder = "vale";
+      w.actors.keeper.want = nextWant(w, "keeper", wantAPI(w), {
+        ...w.actors.keeper.want,
+        from: "quest:heard",
+      });
+      expect(w.actors.keeper.want).toMatchObject({
+        kind: "item",
+        target: "bell",
+      });
+      const world = ask(old, { op: "create", save: JSON.stringify(w) }).world;
+      const up = ask(currentSharedEngine(), {
+        world,
+        op: "upgrade",
+        actor: "vale",
+        claimed: humanAvatarIds,
+        present: humanAvatarIds,
+      });
+      expect(up.ok).toBe(true);
+      expect(up.world.actors.keeper.want).toEqual(world.actors.keeper.want);
+    },
+  );
+
   it.each([0, 1, 2])(
     "load every entry as a quest fact, and II at base %i keeps its progress",
     (base) => {
