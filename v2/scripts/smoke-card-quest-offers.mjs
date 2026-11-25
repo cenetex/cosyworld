@@ -2,7 +2,6 @@
 // nothing: no word, aria label, title, alt text or image of it, in the bar,
 // the button or the quest card; it shows the face-down back, and names the
 // card once it is discovered.
-//
 //   node v2/scripts/smoke-card-quest-offers.mjs [screenshot-dir]
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
@@ -466,7 +465,7 @@ try {
       const owned = collection.getByRole("button", { name: "View The Fool", exact: true });
       await owned.waitFor();
       assert.equal(await collection.getByRole("button").count(), 1);
-      assert.match(await sheet.locator(".sheet-level").innerText(), /Level I · Common/u);
+      assert.match(await sheet.locator(".sheet-level").textContent(), /Level I · Common/u);
       assert.doesNotMatch(await collection.innerText(), /Carry nothing|Discard|Level Up/u);
       assert.equal(await sheet.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true);
       await t.shot("character-sheet-fool");
