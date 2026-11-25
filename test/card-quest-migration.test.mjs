@@ -51,7 +51,14 @@ const migrated = (s, base) => {
   expect(toldWant(s, "vale", "moth")).toBe(true);
   expect(toldWant(s, "vale", "keeper")).toBe(false);
   expect(questOwners(s, "vale").sort()).toEqual(["keeper", "moth"]);
-  expect(s.actors.vale.arcana.spread).toEqual(spread(base));
+  expect(s.actors.vale.arcana.spread).toEqual([
+    { ...spread(base)[0], bonus: true },
+  ]);
+  expect(recordOf(s, "vale")).toMatchObject({
+    level: 1,
+    proved: ["arcanum-0"],
+    did: [],
+  });
 };
 const engine = (version) => {
   const dir = new URL(
@@ -129,7 +136,14 @@ describe("saves that kept a heard map", () => {
     delete old.actors.vale.heard;
     const s = decodeSave(JSON.stringify(old));
     expect(questOwners(s, "vale")).toEqual([]);
-    expect(s.actors.vale.arcana.spread).toEqual(spread(1));
+    expect(s.actors.vale.arcana.spread).toEqual([
+      { ...spread(1)[0], bonus: true },
+    ]);
+    expect(recordOf(s, "vale")).toMatchObject({
+      level: 1,
+      proved: ["arcanum-0"],
+      did: [],
+    });
   });
 
   it("count II from the quest facts of a save without told", () => {
