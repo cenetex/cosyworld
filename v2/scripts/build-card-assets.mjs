@@ -1,6 +1,7 @@
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { publicAssets } from "../card-game/public-assets.mjs";
 
 const manifestPath = new URL(
@@ -65,19 +66,44 @@ const files = Object.fromEntries(
     },
   ]),
 );
-const full = `${JSON.stringify({ sha256: identity, files }, null, 1)}\n`;
-if (manifestOut === "-") process.stdout.write(full);
-else if (manifestOut) writeFileSync(manifestOut, full);
+const dirs = {
+  "card-game": new URL("../card-game/", import.meta.url),
+  card_shared: new URL(
+    "../orchestrator-rust/src/card_shared/",
+    import.meta.url,
+  ),
+};
+const rules = Object.keys(
+  JSON.parse(readFileSync(new URL("rules.json", dirs.card_shared), "utf8")),
+);
+const server = [
+  "card_shared/rules.json",
+  ...rules.map((version) => `card_shared/engine-v${version}.js`),
+];
+for (const key of server) {
+  const [dir, file] = key.split("/");
+  const bytes = readFileSync(new URL(file, dirs[dir]));
+  files[key] = { sha256: hash(bytes), size: bytes.length };
+}
+const full = (located) =>
+  `${JSON.stringify({ sha256: identity, dirs: located, files }, null, 1)}\n`;
+const here = Object.fromEntries(
+  Object.entries(dirs).map(([dir, url]) => [dir, fileURLToPath(url)]),
+);
+if (manifestOut === "-") process.stdout.write(full(here));
+else if (manifestOut) writeFileSync(manifestOut, full(here));
 if (releaseOut) {
-  for (const asset of assets) {
-    if (asset.source) continue;
-    const { file, contentType } = asset;
-    const layer = isMedia(contentType) ? "media" : "text";
-    const out = join(releaseOut, layer, "card-game", file);
+  const copy = (layer, dir, file) => {
+    const out = join(releaseOut, layer, dir, file);
     mkdirSync(dirname(out), { recursive: true });
-    copyFileSync(source(file), out);
-  }
-  writeFileSync(join(releaseOut, "text", "manifest.json"), full);
+    copyFileSync(new URL(file, dirs[dir]), out);
+  };
+  for (const { file, contentType, source } of assets)
+    if (!source)
+      copy(isMedia(contentType) ? "media" : "text", "card-game", file);
+  for (const key of server) copy("text", ...key.split("/"));
+  const named = Object.fromEntries(Object.keys(dirs).map((dir) => [dir, dir]));
+  writeFileSync(join(releaseOut, "text", "manifest.json"), full(named));
 }
 (manifestOut === "-" ? console.error : console.log)(
   `Card assets ${identity}: ${publicAssets.length} files${releaseOut ? ` -> ${releaseOut}` : ""}.`,

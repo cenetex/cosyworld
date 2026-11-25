@@ -1,7 +1,5 @@
-// Give a branch's shared rules the next free version after main's live rules.
-// Every merge to main deploys, so main's newest rules bundle is live and its
-// bytes are fixed for journal replay. Branches that change rule modules all
-// want the next version. Run this after rebasing or merging main:
+// Give a branch's shared rules the next free version after main's live rules,
+// whose bytes are fixed for journal replay. Run this after rebasing on main:
 //
 //   node v2/scripts/next-shared-rules.mjs [base-ref]
 //
@@ -22,6 +20,7 @@ import {
   RULES_WIRING as wiring,
   isWiringLine as isWiring,
 } from "../../scripts/lib/generated-files.mjs";
+import { pin } from "./rules-pins.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const base = process.argv[2] || "origin/main";
@@ -62,7 +61,7 @@ git(
   "checkout",
   base,
   "--",
-  ...wiring,
+  ...wiring.filter((path) => git("ls-tree", base, path)),
   ...Array.from(
     { length: live - 1 },
     (_, i) => `${dir}/engine-v${i + 2}.js`,
@@ -188,6 +187,7 @@ edit("test/card-released-rules.test.mjs", (t) =>
   ),
 );
 write(`${dir}/engine-v${live + 1}.js`, built);
+await pin(new URL(`${dir}/engine-v${live + 1}.js`, `file://${root}`), built);
 console.log(
   `Rules ${live} stay live and pinned; this branch now builds rules ${live + 1}.` +
     "\nRebuild card assets, bump the release version and commit the generated files.",

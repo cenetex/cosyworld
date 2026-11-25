@@ -23,6 +23,7 @@ export const RULES_WIRING = [
   `${RULES_DIR}/full_world.rs`,
   "test/card-released-rules.test.mjs",
   "v2/scripts/build-card-shared-engine.mjs",
+  `${RULES_DIR}/rules.json`,
 ];
 
 export const isLevelMap = (file) =>
@@ -33,7 +34,7 @@ export const isRulesBundle = (file) =>
 // A version line, a bundle path or a pinned hash is wiring; anything else is
 // real work.
 export const isWiringLine = (line) =>
-  /VERSION|SOURCE|engine-v\d+\.js|^\s*\d+: "[0-9a-f]{64}",$|^\/\/ Rules /u.test(
+  /VERSION|SOURCE|engine-v\d+\.js|^\s*"?\d+"?: "[0-9a-f]{64}",?$|^[{}]$|^\/\/ Rules /u.test(
     line,
   );
 

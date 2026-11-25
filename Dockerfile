@@ -58,6 +58,8 @@ FROM node:24.11.0-bookworm-slim AS assets
 WORKDIR /app
 COPY v2/card-game /app/v2/card-game
 COPY v2/scripts/build-card-assets.mjs /app/v2/scripts/build-card-assets.mjs
+COPY v2/orchestrator-rust/src/card_shared/rules.json v2/orchestrator-rust/src/card_shared/*.js \
+  /app/v2/orchestrator-rust/src/card_shared/
 RUN node v2/scripts/build-card-assets.mjs --release /out
 
 FROM debian:bookworm-slim AS runtime

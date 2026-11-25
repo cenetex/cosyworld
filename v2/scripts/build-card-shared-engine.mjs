@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { sharedContentInput } from "./shared-content-input.mjs";
 import { releasedBundleRefusal } from "./released-bundles.mjs";
+import { pin, pinned } from "./rules-pins.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const output = new URL(
   "../orchestrator-rust/src/card_shared/engine-v204.js",
@@ -25,7 +26,10 @@ const result = await build({
 });
 const text = result.outputFiles[0].text;
 if (process.argv.includes("--check")) {
-  if ((await readFile(output, "utf8")) !== text)
+  if (
+    (await readFile(output, "utf8")) !== text ||
+    !(await pinned(output, text))
+  )
     throw new Error(
       "Rebuild the shared card rules with node v2/scripts/build-card-shared-engine.mjs.",
     );
@@ -37,4 +41,5 @@ if (process.argv.includes("--check")) {
       : await releasedBundleRefusal(output, text, root);
   if (refusal) throw new Error(refusal);
   await writeFile(output, text);
+  if (process.env.COSYWORLD_MINT_PROBE !== "1") await pin(output, text);
 }

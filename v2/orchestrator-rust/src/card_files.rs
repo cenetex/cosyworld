@@ -12,6 +12,7 @@ use std::{
 #[derive(Deserialize)]
 struct Manifest {
     sha256: String,
+    dirs: HashMap<String, PathBuf>,
     files: HashMap<String, Entry>,
 }
 
@@ -28,6 +29,7 @@ struct Entry {
 
 struct File {
     entry: Entry,
+    etag: String,
     path: PathBuf,
     bytes: Option<Bytes>,
 }
@@ -48,16 +50,24 @@ impl Store {
     pub fn open(root: &Path) -> Result<Self, String> {
         let path = root.join("manifest.json");
         let text = fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-        Self::read(root, &text, true)
+        Self::parse(root, &text, true)
     }
 
-    fn read(root: &Path, text: &str, verify: bool) -> Result<Self, String> {
+    fn parse(root: &Path, text: &str, verify: bool) -> Result<Self, String> {
         let manifest: Manifest =
             serde_json::from_str(text).map_err(|e| format!("manifest.json: {e}"))?;
+        let locate = |key: &str| {
+            let (dir, rest) = key.split_once('/').unwrap_or_default();
+            let dir = manifest
+                .dirs
+                .get(dir)
+                .ok_or(format!("{key}: unknown directory"));
+            Ok::<_, String>(root.join(dir?).join(rest))
+        };
         let mut files = HashMap::new();
-        for (key, mut entry) in manifest.files {
-            let path = root.join(inside(entry.source.as_deref().unwrap_or(&key))?);
-            let memory = !entry.content_type.as_deref().is_some_and(is_media);
+        for (key, entry) in manifest.files {
+            let path = locate(inside(entry.source.as_deref().unwrap_or(&key))?)?;
+            let memory = entry.content_type.as_deref().is_some_and(|t| !is_media(t));
             let mut bytes = None;
             if entry.source.is_none() && (verify || memory) {
                 let body = fs::read(&path).map_err(|e| format!("{key}: {e}"))?;
@@ -69,8 +79,16 @@ impl Store {
                 }
                 bytes = memory.then(|| Bytes::from(body));
             }
-            entry.sha256 = format!("\"{}\"", entry.sha256);
-            files.insert(key, File { entry, path, bytes });
+            let etag = format!("\"{}\"", entry.sha256);
+            files.insert(
+                key,
+                File {
+                    entry,
+                    etag,
+                    path,
+                    bytes,
+                },
+            );
         }
         Ok(Self {
             sha256: manifest.sha256,
@@ -95,6 +113,16 @@ impl Store {
         };
         Some((file.entry.content_type.as_deref()?, bytes))
     }
+
+    pub fn read(&self, key: &str) -> Option<Bytes> {
+        let file = self.files.get(key)?;
+        let body = fs::read(&file.path).ok()?;
+        (format!("{:x}", Sha256::digest(&body)) == file.entry.sha256).then(|| Bytes::from(body))
+    }
+
+    pub fn sha256(&self, key: &str) -> Option<&str> {
+        Some(&self.files.get(key)?.entry.sha256)
+    }
 }
 
 fn inside(key: &str) -> Result<&str, String> {
@@ -115,7 +143,7 @@ fn source_tree() -> Result<Store, String> {
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).into_owned());
     }
-    Store::read(&root, &String::from_utf8_lossy(&output.stdout), false)
+    Store::parse(&root, &String::from_utf8_lossy(&output.stdout), false)
 }
 
 fn open() -> Result<Store, String> {
@@ -150,7 +178,15 @@ pub fn get(path: &str) -> Option<(&'static str, Bytes)> {
 }
 
 pub fn etag(path: &str) -> Option<&'static str> {
-    Some(&store().public(path)?.entry.sha256)
+    Some(&store().public(path)?.etag)
+}
+
+pub fn read(key: &str) -> Option<Bytes> {
+    store().read(key)
+}
+
+pub fn sha256(key: &str) -> Option<&'static str> {
+    store().sha256(key)
 }
 
 #[cfg(test)]
@@ -171,7 +207,8 @@ mod tests {
                 serde_json::json!({"type": content_type, "sha256": sha256, "size": bytes.len()});
             listed.insert(format!("card-game/{name}"), entry);
         }
-        let manifest = serde_json::json!({"sha256": "set", "files": listed});
+        let dirs = serde_json::json!({"card-game": "card-game"});
+        let manifest = serde_json::json!({"sha256": "set", "dirs": dirs, "files": listed});
         fs::write(root.join("manifest.json"), manifest.to_string()).unwrap();
         root
     }
@@ -190,7 +227,7 @@ mod tests {
         );
         assert_eq!(&store.get("assets/song.mp3").unwrap().1[..], b"song");
         assert_eq!(
-            store.public("assets/song.mp3").unwrap().entry.sha256,
+            store.public("assets/song.mp3").unwrap().etag,
             format!("\"{:x}\"", Sha256::digest(b"song"))
         );
         assert!(store.get("missing.mjs").is_none());
