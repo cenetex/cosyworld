@@ -30,20 +30,7 @@ describe("deployment-only contracts run in main's checks", () => {
   });
 });
 
-describe("check workflows run only by manual dispatch", () => {
-  const checkWorkflows = ["local-desktop"];
-
-  it.each(checkWorkflows)("%s.yml has only a workflow_dispatch trigger", (name) => {
-    const workflow = readFileSync(
-      new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
-      "utf8",
-    );
-    const triggers = workflow.match(/^on:\n((?: {2}.*\n|\n)*)/m)?.[1] ?? "";
-    expect(triggers).toMatch(/^ {2}workflow_dispatch:/m);
-    expect(triggers).not.toMatch(/^ {2}(pull_request|push|pull_request_target):/m);
-    expect(workflow).not.toMatch(/cancel-in-progress: (?!false\b)/);
-  });
-
+describe("deploy triggers", () => {
   it("main pushes deploy .dev, tags deploy production, and a schedule catches up", () => {
     expect(deployWorkflow).toMatch(
       /on:\n {2}push:\n {4}branches: \[main\]\n {4}tags: \["v\*"\]\n {4}paths-ignore: .*\n {2}schedule:\n {4}- cron: "23 \*\/2 \* \* \*"\n {2}workflow_dispatch:\n/,
