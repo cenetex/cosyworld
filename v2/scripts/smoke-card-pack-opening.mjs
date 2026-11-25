@@ -24,6 +24,7 @@ import { isLockedBox } from "../card-game/locked-box.mjs";
 import { levelTier } from "../card-game/level-tiers.mjs";
 import { cardLevel } from "../card-game/rarity.mjs";
 import { tableQuests } from "../card-game/quest-hand.mjs";
+import { TRAVEL_MS, travelFrames } from "../card-game/card-travel.mjs";
 import {
   createWorld,
   encodeSave,
@@ -602,11 +603,15 @@ for (const [width, motion] of [
   await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length > 1);
   await page.waitForTimeout(900);
   await turnAndChoose(page, item);
-  await page.evaluate((item) => {
+  await page.evaluate(({ item, travelMs, signature }) => {
     const animate = Element.prototype.animate, motions = [];
-    Element.prototype.animate = function (...args) {
-      const animation = animate.apply(this, args);
-      if (this.matches("#hand > .card-frame") && this.dataset.holder === "vale" &&
+    Element.prototype.animate = function (frames, options) {
+      const animation = animate.call(this, frames, options);
+      const flight = options?.duration === travelMs && Array.isArray(frames) &&
+        frames.length === signature.length && frames.every((frame, index) =>
+          frame.scale === signature[index].scale && frame.zIndex === signature[index].zIndex) &&
+        frames.at(-1).translate === signature.at(-1).translate;
+      if (flight && this.matches("#hand > .card-frame") && this.dataset.holder === "vale" &&
           this.querySelector(".card")?.dataset.card === item)
         motions.push(animation);
       return animation;
@@ -618,15 +623,17 @@ for (const [width, motion] of [
         duration: animation.effect.getTiming().duration,
       }));
     };
-  }, item);
+  }, { item, travelMs: TRAVEL_MS, signature: travelFrames({ left: 0, top: 0 }, { left: 0, top: 0 }) });
   await page.locator('#card-actions [data-action="take"]:not([data-revealing="true"])').click();
   const taken = await lies(page, item, "vale", `${label}: at once after Take`, { settled: false });
   assert.equal(taken.hidden, false, `${label}: the taken card shows`);
   assert.equal(taken.pressed, "true", `${label}: the taken card stays chosen`);
   const takeMotions = await page.evaluate(() => window.finishTakeMotion());
-  const travelled = takeMotions.some(({ state, duration }) =>
-    duration > 0 && ["running", "finished"].includes(state));
-  assert.equal(travelled, motion !== "reduce", `${label}: the card travels only with motion: ${JSON.stringify(takeMotions)}`);
+  if (motion === "reduce")
+    assert.deepEqual(takeMotions, [], `${label}: reduced motion starts no handover flight`);
+  else
+    assert.ok(takeMotions.some(({ state }) => ["running", "finished"].includes(state)),
+      `${label}: the handover flight runs or finishes: ${JSON.stringify(takeMotions)}`);
   if (motion === "reduce") await lies(page, item, "vale", `${label}: at once, without motion`);
   await page.waitForTimeout(700);
   await lies(page, item, "vale", `${label}: settled after Take`);
