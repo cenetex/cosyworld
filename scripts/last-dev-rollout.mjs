@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
 // Print the commit the primary Fly app last rolled out, from earlier Deploy
-// runs, or nothing when none is found. A main push compares with this commit
-// rather than the previous push: a superseded run cancels itself, and the
-// commit after it may change only docs, so the previous push may never have
-// reached .dev. Printing nothing makes the impact check deploy.
+// runs, or nothing when none is found; with --checked, the newest train whose
+// checks passed. A main push compares with the rollout rather than the
+// previous push: a superseded run cancels itself, and the commit after it may
+// change only docs, so the previous push may never have reached .dev.
+// Printing nothing makes the impact check deploy.
 
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -132,6 +133,27 @@ export async function lastRollout({ runs, jobsFor, currentRunId }) {
   return events[0]?.sha ?? "";
 }
 
+export const CHECKS_JOB = "Check main / All checks";
+
+export async function lastChecked({ runs, jobsFor, currentRunId }) {
+  for (const run of runs) {
+    if (
+      String(run.id) === String(currentRunId) ||
+      !/^[0-9a-f]{40}$/.test(run.head_sha ?? "") ||
+      !String(run.display_title ?? "").startsWith(".dev train ")
+    )
+      continue;
+    const jobs = (await jobsFor(run.id)) ?? [];
+    if (
+      jobs.some(
+        (job) => job.name === CHECKS_JOB && job.conclusion === "success",
+      )
+    )
+      return run.head_sha;
+  }
+  return "";
+}
+
 async function api(route) {
   const base = process.env.GITHUB_API_URL || "https://api.github.com";
   const response = await fetch(`${base}${route}`, {
@@ -153,7 +175,8 @@ async function main() {
   const { workflow_runs: runs } = await api(
     `/repos/${repo}/actions/workflows/deploy.yml/runs?per_page=40&exclude_pull_requests=true`,
   );
-  const sha = await lastRollout({
+  const checked = process.argv.includes("--checked");
+  const sha = await (checked ? lastChecked : lastRollout)({
     runs,
     currentRunId: process.env.GITHUB_RUN_ID,
     jobsFor: async (id) => {
@@ -170,7 +193,8 @@ async function main() {
     },
   });
   if (sha) console.log(sha);
-  else console.error("[last-dev-rollout] no earlier rollout found; deploying");
+  else if (!checked)
+    console.error("[last-dev-rollout] no earlier rollout found; deploying");
 }
 
 const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";

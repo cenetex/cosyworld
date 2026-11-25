@@ -1,21 +1,18 @@
-name: Fast check
+name: Checks
 
-# Runs on every pull request, not on pushes to main: the deploy path and the
-# nightly check main. A change to Rust inputs adds the focused Rust tests and
-# the clippy ceiling (rust, rust-lint).
+# The .dev train calls this beside its build (deploy.yml dev-checks). It checks
+# main from the commit its checks last passed on; it never gates .dev. A change
+# to Rust inputs adds the focused Rust tests and the clippy ceiling.
 on:
-  pull_request:
-
-concurrency:
-  group: fast-check-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  workflow_call:
+    inputs:
+      base:
+        description: Commit main's checks last passed on; empty checks only the newest commit
+        type: string
+        default: ""
 
 permissions:
   contents: read
-
-# Every checkout is blobless with full history and borrows the files' Git
-# objects from the cache that git-objects.yml refreshes on main, so it fetches
-# only files changed since (GitHub served the ~1 GB tree at 1-2 MB/s on 11-03).
 
 # Every job reads its runner label from the FAST_CHECK_RUNNER repository
 # variable, so switching to the Fly runner (#1565) needs no workflow edit.
@@ -32,19 +29,6 @@ jobs:
       smokes: ${{ steps.smokes.outputs.smokes }}
       rust-tests: ${{ steps.rust.outputs.tests }}
     steps:
-      - &restore-git-objects
-        name: Restore cached Git objects
-        id: git-objects
-        uses: actions/cache/restore@v6
-        with:
-          path: ${{ runner.temp }}/git-objects
-          key: git-objects-v1-${{ github.sha }}
-          restore-keys: git-objects-v1-
-      - &borrow-git-objects
-        name: Borrow cached Git objects
-        run: |
-          mkdir -p "$RUNNER_TEMP/git-objects"
-          echo "GIT_ALTERNATE_OBJECT_DIRECTORIES=$RUNNER_TEMP/git-objects" >> "$GITHUB_ENV"
       - &checkout
         uses: actions/checkout@v7
         with:
@@ -62,31 +46,34 @@ jobs:
           node-version: "24"
       - name: List changed files
         env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ inputs.base }}
         run: |
-          git diff --name-only "$PR_BASE...$PR_HEAD" > "$RUNNER_TEMP/changed.txt"
+          base="$BASE"
+          git cat-file -e "$base^{commit}" 2>/dev/null || base="$GITHUB_SHA~1"
+          git diff --name-only "$base" "$GITHUB_SHA" > "$RUNNER_TEMP/changed.txt"
           cat "$RUNNER_TEMP/changed.txt"
+      # The budget, ratchet and ceilings measure the newest merge alone.
+      - name: Read the merged pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" > "$RUNNER_TEMP/pulls.json" || echo "[]" > "$RUNNER_TEMP/pulls.json"
+          echo "PR_LABELS=$(jq -c '[.[0].labels[]?.name]' "$RUNNER_TEMP/pulls.json")" >> "$GITHUB_ENV"
       - name: Check change budget
-        env:
-          COSYWORLD_PR_BODY: ${{ github.event.pull_request.body }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: node scripts/check-change-budget.mjs --base "$PR_BASE" --head "$PR_HEAD"
+        run: |
+          COSYWORLD_PR_BODY="$(jq -r '.[0].body // ""' "$RUNNER_TEMP/pulls.json")" \
+            node scripts/check-change-budget.mjs --base "$GITHUB_SHA~1" --head "$GITHUB_SHA"
       - name: Check comment ratchet
-        env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-        run: npm run check:comments -- --base "$PR_BASE"
+        run: npm run check:comments -- --base "$GITHUB_SHA~1"
       - name: Check large-file line ceilings
-        run: npm run check:lines -- --base "$PR_BASE"
+        run: npm run check:lines -- --base "$GITHUB_SHA~1"
       - name: Check version alignment
         run: npm run check:version
       # New card-table UI needs the owner's approval in ui-inventory.json.
       - name: Check UI inventory
         run: npm run check:ui
       - name: Check shared rules engine policy (warning only)
-        env:
-          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: node v2/scripts/engine-gate.mjs "$RUNNER_TEMP/changed.txt"
       - name: Choose browser smokes
         id: smokes
@@ -109,12 +96,8 @@ jobs:
   lint:
     name: Lint and guides
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    # A cache miss fetches the whole tree from Git, which took up to 11
-    # minutes on 2026-11-03; with the cache the job takes about 5.
     timeout-minutes: 15
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
       - uses: actions/setup-node@v7
         with:
@@ -133,8 +116,6 @@ jobs:
   unit-shard:
     name: JavaScript unit tests (${{ matrix.shard }}/3)
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
-    # A cache miss fetches the whole tree from Git, which took up to 11
-    # minutes on 2026-11-03; with the cache the job takes about 5.
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -143,8 +124,6 @@ jobs:
     env:
       CI: true
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
       - uses: actions/setup-node@v7
         with:
@@ -194,8 +173,6 @@ jobs:
     env:
       CI: true
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
       - uses: actions/setup-node@v7
         with:
@@ -243,8 +220,6 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       # build.rs hashes the card game's public files, art included.
       - *checkout
       - uses: dtolnay/rust-toolchain@stable
@@ -282,8 +257,6 @@ jobs:
       CI: true
       CARGO_PROFILE_DEV_DEBUG: "0"
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v7
@@ -335,8 +308,6 @@ jobs:
     env:
       CI: true
     steps:
-      - *restore-git-objects
-      - *borrow-git-objects
       - *checkout
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -349,10 +320,10 @@ jobs:
           bash v2/scripts/check-main-size.sh
           bash v2/scripts/check-rust-lint.sh
 
-  # One stable context for branch protection. A Rust job counts when it runs.
+  # A Rust job counts when it runs. Cancelled checks skip this rather than fail.
   fast:
-    name: fast
-    if: ${{ always() }}
+    name: All checks
+    if: ${{ !cancelled() }}
     needs: [plan, lint, unit-shard, rustfmt, smoke, rust, rust-lint, rust-smokes]
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     steps:

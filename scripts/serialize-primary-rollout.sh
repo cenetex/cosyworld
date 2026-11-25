@@ -45,7 +45,7 @@ dev_rollouts() {
   runs="$(deploy_runs "${train} and .head_branch == \"main\"" in_progress)" || return 1
   while read -r id branch; do
     [ -n "$id" ] || continue
-    gh api "repos/${GH_REPO}/actions/runs/${id}/jobs" --jq \
+    gh api "repos/${GH_REPO}/actions/runs/${id}/jobs?per_page=100" --jq \
       ".jobs[] | select(.name == \"Deploy main to .dev\" and .status == \"in_progress\") | select(any(.steps[]; .name == \"${wait_step}\" and .status == \"completed\")) | \"${id} ${branch}\"" ||
       return 1
   done <<< "$runs"

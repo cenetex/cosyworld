@@ -66,7 +66,7 @@ describe("exactly one actor owns the release lever", () => {
   it("only the .dev jobs queue, so no .dev run can replace a production run", () => {
     // The supersede script serializes production rollouts instead.
     expect(deployWorkflow).not.toMatch(/^concurrency:/m);
-    expect(deployWorkflow.match(/^ {4}concurrency:$/gm)).toHaveLength(2);
+    expect(deployWorkflow.match(/^ {4}concurrency:$/gm)).toHaveLength(3);
     expect(deployWorkflow).not.toContain("actions/runs?status=");
     expect(deployWorkflow).not.toContain("group: deploy-lonelyforest-production");
   });
@@ -99,9 +99,10 @@ describe("exactly one actor owns the release lever", () => {
     expect(deployWorkflow).toMatch(/permissions:\s*\n(?:\s*contents: read\n)?\s*issues: write/);
   });
 
-  it("the deploy workflow cancels only an older .dev build", () => {
-    // deploy-workflow.test.mjs checks that the build is the one that cancels.
+  it("the deploy workflow cancels only older .dev checks and builds", () => {
+    // deploy-workflow.test.mjs checks which jobs cancel.
     expect(deployWorkflow.match(/cancel-in-progress: \S+/g)).toEqual([
+      "cancel-in-progress: true",
       "cancel-in-progress: true",
       "cancel-in-progress: false",
     ]);

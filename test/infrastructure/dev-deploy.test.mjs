@@ -175,7 +175,7 @@ ${options.apiFails ? "exit 1" : ""}
 path="$2"; filter=""; while [ $# -gt 0 ]; do [ "$1" = --jq ] && filter="$2"; shift; done
 case "$path" in
   */deploy.yml/runs*) name="runs-\${path##*status=}"; name="\${name%%&*}" ;;
-  */jobs) name="jobs-$(basename "$(dirname "$path")")" ;;
+  */jobs"?per_page=100") name="jobs-$(basename "$(dirname "$path")")" ;;
 esac
 file="${directory}/$name.json"; [ -e "$file" ] || echo '{"workflow_runs":[],"jobs":[]}' > "$file"
 jq -r "$filter" < "$file"
@@ -604,7 +604,7 @@ ${fail ? "exit 1" : ""}
 path="$2"; filter=""; while [ $# -gt 0 ]; do [ "$1" = --jq ] && filter="$2"; shift; done
 case "$path" in
   */deploy.yml/runs*) echo '{"workflow_runs":[{"id":7,"status":"in_progress","display_title":".dev train x"},{"id":8,"status":"in_progress","display_title":"Deploy v1 to both"}]}' ;;
-  */runs/7/jobs) n=$(cat "${directory}/n" 2>/dev/null || echo 0); echo $((n + 1)) > "${directory}/n"
+  */runs/7/jobs"?per_page=100") n=$(cat "${directory}/n" 2>/dev/null || echo 0); echo $((n + 1)) > "${directory}/n"
     status=in_progress; [ "$n" -ge ${buildsFor} ] && status=completed
     printf '{"jobs":[{"name":"Build the .dev image","status":"%s"}]}' "$status" ;;
   *) exit 1 ;;
