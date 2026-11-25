@@ -11,6 +11,7 @@ pub(super) async fn run() -> Result<(), Box<dyn std::error::Error>> {
     // `COSYWORLD_SIGNING_KEY` override (docs/release.md#signing-key).
     crate::routes::signed_envelope::init().map_err(deployment_config_error)?;
     cosyworld_orchestrator::card_assets::load().map_err(deployment_config_error)?;
+    crate::card_shared::check_rules().map_err(deployment_config_error)?;
     info!(
         assets = cosyworld_orchestrator::card_assets::manifest_sha256(),
         elapsed_ms = boot_started.elapsed().as_millis() as u64,

@@ -159,16 +159,8 @@ edit(`${dir}/engine.rs`, (t) =>
       `VERSION: &str = "full-card-world/${live + 1}";\npub(super) const ${name}_VERSION: &str = "full-card-world/${live}";`,
     )
     .replace(
-      `const SOURCE: &str = include_str!("engine-v${live}.js");`,
-      `const SOURCE: &str = include_str!("engine-v${live + 1}.js");\nconst ${name}_SOURCE: &str = include_str!("engine-v${live}.js");`,
-    )
-    .replace(
       `| ${prev}_VERSION\n`,
       `| ${prev}_VERSION\n            | ${name}_VERSION\n`,
-    )
-    .replace(
-      `        ${prev}_VERSION => ${prev}_SOURCE,`,
-      `        ${name}_VERSION => ${name}_SOURCE,\n        ${prev}_VERSION => ${prev}_SOURCE,`,
     ),
 );
 edit(`${dir}/full_world.rs`, (t) =>
