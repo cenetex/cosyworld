@@ -1,4 +1,10 @@
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,10 +41,22 @@ function assetBytes(asset) {
     throw new Error(`Publish the original source for ${asset.file}`);
   return bytes.subarray(offset);
 }
+const knownPath = option("--known");
+const known = knownPath && JSON.parse(readFileSync(knownPath, "utf8")).files;
+function measure(asset) {
+  if (known && !existsSync(source(asset.source || asset.file))) {
+    const entry = known[`card-game/${asset.file}`];
+    if (!entry) throw new Error(`${asset.file} is not checked out or known`);
+    return { hash: entry.sha256, size: entry.size };
+  }
+  const bytes = assetBytes(asset);
+  return { hash: hash(bytes), size: bytes.length };
+}
+const measured = new Map(publicAssets.map((asset) => [asset, measure(asset)]));
 const media = Object.fromEntries(
   publicAssets
     .filter(({ contentType }) => /^(image|audio)\//.test(contentType))
-    .map((asset) => [asset.file, hash(assetBytes(asset))]),
+    .map((asset) => [asset.file, measured.get(asset).hash]),
 );
 const manifest = `${JSON.stringify(media, null, 2)}\n`;
 if (check || manifestOut || releaseOut) {
@@ -47,10 +65,10 @@ if (check || manifestOut || releaseOut) {
       "Card media hashes changed. Run npm run v2:card:assets:build.",
     );
 } else writeFileSync(manifestPath, manifest);
-const assets = publicAssets.map((asset) => {
-  const bytes = assetBytes(asset);
-  return { ...asset, hash: hash(bytes), size: bytes.length };
-});
+const assets = publicAssets.map((asset) => ({
+  ...asset,
+  ...measured.get(asset),
+}));
 const identity = hash(JSON.stringify(assets.map(({ file, hash }) => [file, hash])));
 
 const isMedia = (type) =>

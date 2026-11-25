@@ -3,12 +3,13 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, statSync, utimesSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { NOT_RUST } from "../../scripts/dev-release.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const crate = join(repo, "v2/orchestrator-rust");
 const strict = process.argv.includes("--strict");
 const dirs = process.argv.slice(2).filter((arg) => arg !== "--strict");
-if (!dirs.length) dirs.push("v2/card-game");
+if (!dirs.length) dirs.push(...NOT_RUST.map((dir) => dir.slice(0, -1)));
 const build = () =>
   execFileSync("cargo", ["build", "--message-format=json"], {
     cwd: crate,
