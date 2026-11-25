@@ -196,13 +196,12 @@ try {
   await page.screenshot({ path: "output/badger-check/desktop-awake.png" });
   await openSettings(page);
   await closeSettings(page);
-  // Vale's level waits for her level quest (#1583), so Pip, a level up, would
-  // pick a fight over the lamp as soon as she reaches the pond. Level her with
-  // her experience so the walk there stays peaceful.
+  // Stage Pip at the pond. Vale's level keeps their arrival peaceful.
   await page.evaluate(() => {
     const key = "cosyworld.reflected-shore.v1.badger-check";
     const saved = JSON.parse(localStorage.getItem(key));
     saved.actors.vale.level = 2;
+    saved.actors.moth.place = "pond";
     localStorage.setItem(key, JSON.stringify(saved));
   });
   await page.reload();
@@ -211,7 +210,10 @@ try {
   assert.equal((await state()).actors.vale.place, "pond");
   await play("bell");
   await ready();
-  assert.ok(await endStandoff(page, await state()), "Pip threatens Vale");
+  const threatened = await state();
+  assert.ok(threatened.standoffs.some(({ challenger, defender }) =>
+    challenger === "moth" && defender === "vale"), "Pip threatens Vale");
+  assert.ok(await endStandoff(page, threatened), "Vale can wait out the standoff");
   await ready();
   assert.equal((await state()).standoffs.length, 0);
   assert.equal((await state()).crossings["pond-clearing"].phase, 0);

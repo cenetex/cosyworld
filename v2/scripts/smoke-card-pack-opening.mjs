@@ -23,6 +23,7 @@ import { heldItem } from "../card-game/held-item.mjs";
 import { isLockedBox } from "../card-game/locked-box.mjs";
 import { levelTier } from "../card-game/level-tiers.mjs";
 import { cardLevel } from "../card-game/rarity.mjs";
+import { tableQuests } from "../card-game/quest-hand.mjs";
 import {
   createWorld,
   encodeSave,
@@ -385,7 +386,16 @@ for (const [width, motion] of [
   assert.ok(before.includes(await focusedHandCard(page)), `${label}: Done leaves focus on a card`);
   assert.equal(await page.locator("body").getAttribute("data-hand-expanded"), "false");
   assert.deepEqual([...(await handIds(page))].sort(), [...before].sort(), `${label}: every card is in the hand`);
-  assert.equal(await page.locator("#hand [data-unrevealed='true']").count(), 0);
+  const unknownQuests = tableQuests(scenario.world, "vale", members.filter(
+    (id) => !isLockedBox(scenario.world, id),
+  )).filter(({ quest }) => !quest).map(({ id }) => id).sort();
+  assert.deepEqual(
+    await page.locator("#hand .card[data-unrevealed='true']").evaluateAll(
+      (cards) => cards.map((card) => card.dataset.questId ?? card.dataset.card).sort(),
+    ),
+    unknownQuests,
+    `${label}: only unheard quests stay face down`,
+  );
   assert.equal(await page.locator("#hand [data-pack]").count(), 0);
   assert.deepEqual(await unreachableCards(page), [], `${label}: settled cards are reachable`);
   await shot("6-settled");
