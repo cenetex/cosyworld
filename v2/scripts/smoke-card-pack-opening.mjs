@@ -24,6 +24,7 @@ import { isLockedBox } from "../card-game/locked-box.mjs";
 import { levelTier } from "../card-game/level-tiers.mjs";
 import { cardLevel } from "../card-game/rarity.mjs";
 import { tableQuests } from "../card-game/quest-hand.mjs";
+import { TRAVEL_MS, travelFrames } from "../card-game/card-travel.mjs";
 import {
   createWorld,
   encodeSave,
@@ -357,7 +358,6 @@ for (const [width, motion] of [
     assert.equal(card.tell, "", `${label}: ${card.id} keeps no tell once turned`);
     assert.equal(card.glow, 0, `${label}: ${card.id} keeps no glow once turned`);
   }
-  // A locked box in the pack is turned and still locked.
   for (const id of members.filter((id) => isLockedBox(scenario.world, id))) {
     const box = turned.find((card) => card.id === id);
     assert.ok(box, `${label}: the locked box ${id} was in the pack`);
@@ -542,7 +542,6 @@ const besideHolder = (page, item, holder) =>
         hidden: frame.hidden,
         pressed: frame.querySelector(".card").getAttribute("aria-pressed"),
         grouped: lead === owner,
-        moving: frame.getAnimations().some((a) => a.playState === "running"),
         between: shown.filter((f) => {
           const left = f.getBoundingClientRect().left;
           return f !== frame && f !== owner && left > base.left && left < box.left;
@@ -604,11 +603,37 @@ for (const [width, motion] of [
   await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length > 1);
   await page.waitForTimeout(900);
   await turnAndChoose(page, item);
+  await page.evaluate(({ item, travelMs, signature }) => {
+    const animate = Element.prototype.animate, motions = [];
+    Element.prototype.animate = function (frames, options) {
+      const animation = animate.call(this, frames, options);
+      const flight = options?.duration === travelMs && Array.isArray(frames) &&
+        frames.length === signature.length && frames.every((frame, index) =>
+          frame.scale === signature[index].scale && frame.zIndex === signature[index].zIndex) &&
+        frames.at(-1).translate === signature.at(-1).translate;
+      if (flight && this.matches("#hand > .card-frame") && this.dataset.holder === "vale" &&
+          this.querySelector(".card")?.dataset.card === item)
+        motions.push(animation);
+      return animation;
+    };
+    window.finishTakeMotion = () => {
+      Element.prototype.animate = animate;
+      return motions.map((animation) => ({
+        state: animation.playState,
+        duration: animation.effect.getTiming().duration,
+      }));
+    };
+  }, { item, travelMs: TRAVEL_MS, signature: travelFrames({ left: 0, top: 0 }, { left: 0, top: 0 }) });
   await page.locator('#card-actions [data-action="take"]:not([data-revealing="true"])').click();
   const taken = await lies(page, item, "vale", `${label}: at once after Take`, { settled: false });
   assert.equal(taken.hidden, false, `${label}: the taken card shows`);
   assert.equal(taken.pressed, "true", `${label}: the taken card stays chosen`);
-  assert.equal(taken.moving, motion !== "reduce", `${label}: the card travels only with motion`);
+  const takeMotions = await page.evaluate(() => window.finishTakeMotion());
+  if (motion === "reduce")
+    assert.deepEqual(takeMotions, [], `${label}: reduced motion starts no handover flight`);
+  else
+    assert.ok(takeMotions.some(({ state }) => ["running", "finished"].includes(state)),
+      `${label}: the handover flight runs or finishes: ${JSON.stringify(takeMotions)}`);
   if (motion === "reduce") await lies(page, item, "vale", `${label}: at once, without motion`);
   await page.waitForTimeout(700);
   await lies(page, item, "vale", `${label}: settled after Take`);
