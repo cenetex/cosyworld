@@ -179,6 +179,11 @@ try {
       );
       const fade = () => hand.evaluate((h) => h.dataset.fade ?? "");
       assert.equal(await page.locator(".hand-scroll").count(), 0, "no arrows");
+      assert.equal(
+        await hand.evaluate((h) => getComputedStyle(h).overflowAnchor),
+        "none",
+        "each redraw sets the hand's scroll, so no scroll anchoring moves it",
+      );
       if (overflow) {
         await hand.evaluate((h) => (h.scrollLeft = 0));
         await page.waitForFunction(
