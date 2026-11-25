@@ -2,7 +2,7 @@
 
 A persistent world played as cards. You choose a card, the world changes, and someone in the room may answer. The card, and the message the world writes for that play, are what happened. A spoken line can color the scene, and it can be wrong about the table.
 
-Play the live world at **[lonelyforest.com](https://lonelyforest.com)**.
+CosyWorld is the engine. The game it runs is **Lonely Forest**: play it at **[lonelyforest.com](https://lonelyforest.com)**.
 
 The same rules run for a solo table and for a shared one. A shared world stays on the server. Residents keep homes, wants, and trust while you are away. Further shores are world packs on the same table: a forest, a Greek coast, a hoppycat archive, and others named in [ARCHITECTURE.md](ARCHITECTURE.md).
 

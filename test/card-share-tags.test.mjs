@@ -25,6 +25,14 @@ describe("link preview tags", () => {
     ])
       expect(tag(key), key).toBeTruthy();
     expect(tag("og:title")).toBe("Lonely Forest");
+    expect(head).toContain("<title>Lonely Forest</title>");
+    expect(head).toContain(`<link rel="canonical" href="${tag("og:url")}" />`);
+    const data = JSON.parse(
+      head.match(/<script type="application\/ld\+json">([^<]*)<\/script>/)[1],
+    );
+    expect(data.name).toBe(tag("og:title"));
+    expect(data.description).toBe(tag("description"));
+    expect(data.image).toBe(tag("og:image"));
     expect(tag("twitter:card")).toBe("summary_large_image");
     for (const key of ["og:image", "twitter:image"]) {
       const url = new URL(tag(key));
