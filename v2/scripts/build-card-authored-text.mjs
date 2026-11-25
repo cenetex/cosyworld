@@ -1,5 +1,4 @@
-// Collect each scene field's authored pieces for the story service's
-// sentence matcher (card_narrative/authored.rs).
+// Collect each scene field's authored pieces for card_narrative/authored.rs.
 // Each kind takes the strings and template literals of the code that builds
 // that field (its roots below, and every function, constant and JSON file
 // they reach), so a fact template cannot dress up an event and the reverse.
@@ -510,6 +509,15 @@ for (const [parts, mask, slots] of listener208.templates) {
     parts, (catalog.templates.get(key)?.[1] ?? 0) | mask, slots,
   ]);
 }
+for (const [card, conditions, slots] of listener208.conditionLists)
+  for (const lead of [", still to do: ", ": "]) {
+    const parts = [...conditions];
+    parts[0] = `The Listener turns over ${card}${lead}${parts[0]}`;
+    parts[parts.length - 1] += ".";
+    if (slots)
+      catalog.templates.set(JSON.stringify([parts, slots]), [parts, 31, slots]);
+    else catalog.literals.set(parts[0], 31);
+  }
 
 const contentDir = new URL("../content/", import.meta.url);
 const retiredSentences = [];
