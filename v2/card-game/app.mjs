@@ -3723,9 +3723,9 @@ function renderStage(locationId) {
   const brandName = document.querySelector(".brand span");
   brandName.textContent = worldName || "…";
   brandName.toggleAttribute("data-covered", !worldName);
-  document.title = startingPip
-    ? "Lonely Forest"
-    : worldName ? `CosyWorld · ${worldName}` : "CosyWorld";
+  const site = startingPip || document.querySelector(".brand [data-logo]");
+  const brand = site ? "Lonely Forest" : "CosyWorld"; // the toolbar's name
+  document.title = worldName && !startingPip ? `${brand} · ${worldName}` : brand;
   const fraction = (value, fallback) => String((value ?? fallback) / 100);
   view.style.setProperty("--focus-x", fraction(stage.focus?.x, 50));
   view.style.setProperty("--focus-y", fraction(stage.focus?.y, 50));

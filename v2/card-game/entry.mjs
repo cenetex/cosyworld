@@ -15,8 +15,6 @@ const page = {
   href: location.href,
   local: !!document.querySelector('meta[name="cosy-local-app"]'),
 };
-// The Pip card's page is the game's own: its tab is named so from the first paint.
-if (pipEntry(page.href)) document.title = "Lonely Forest";
 const authoring =/^\/make\/?$/u.test(location.pathname);
 const introWanted =
   !authoring &&
