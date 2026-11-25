@@ -218,7 +218,6 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_PROFILE_TEST_DEBUG: "0"
     steps:
-      # build.rs hashes the card game's public files, art included.
       - *checkout
       - uses: dtolnay/rust-toolchain@stable
       # build.rs and the narrative tests run Node.
@@ -262,9 +261,8 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci --prefer-offline --no-audit --no-fund
       - *restore-cargo
-      - name: Build the server
-        working-directory: v2/orchestrator-rust
-        run: cargo build
+      - name: Build the server and check no card-game, content or rules file is compiled in
+        run: node v2/scripts/check-rust-inputs.mjs --strict
       - name: Restore Playwright browsers
         id: playwright-cache
         uses: actions/cache@v6

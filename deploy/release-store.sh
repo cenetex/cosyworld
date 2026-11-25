@@ -54,6 +54,8 @@ stage() {
   current="$(link current)" previous="$(link previous)"
   [ "$store/$commit" != "$current" ] || fail "$commit is the release .dev serves"
   mkdir -p "$store/objects"
+  exec 9< "$store"
+  flock -n 9 || fail "another stage is running on $store; try again once it ends"
   set -- $(df -Pk "$store" | tail -n 1)
   [ $((($3 + bytes / 1024) * 100)) -lt $((limit * ($3 + $4))) ] ||
     fail "$bytes more bytes would fill $6 past ${limit}%; extend the volume (flyctl volumes extend)"

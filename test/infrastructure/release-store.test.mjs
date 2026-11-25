@@ -14,9 +14,9 @@ import {
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 const script = fileURLToPath(
   new URL("../../deploy/release-store.sh", import.meta.url),
@@ -142,6 +142,35 @@ describe(".dev's release store", () => {
     expect(damaged.stderr).toContain("does not match its name");
     for (const sha of [commit(2), commit(3), "incoming"]) expect(existsSync(join(store.store, sha))).toBe(false);
     expect(stage(store, "main", archive(store, {})).stderr).toContain("stage needs a commit and its image's commit");
+  });
+
+  it("refuses a second stage at once while another is still checking", async () => {
+    const store = volume();
+    const gate = join(root, "gate");
+    writeFileSync(join(root, "slow"), `#!/bin/sh\ntouch "${gate}.started"\nuntil [ -e "${gate}" ]; do sleep 0.05; done\nexec "${join(root, "server")}" "$@"\n`);
+    chmodSync(join(root, "slow"), 0o755);
+    const body = archive(store, { "card-game/b.webp": "b" });
+    const first = spawn("sh", [script, "stage", commit(2), String(body.length), imageCommit], {
+      env: { ...store.env, COSYWORLD_SERVER_BINARY: join(root, "slow") },
+    });
+    let out = "";
+    first.stdout.on("data", (chunk) => (out += chunk));
+    const done = new Promise((resolve) => first.on("close", resolve));
+    first.stdin.end(body);
+    let refused;
+    try {
+      await vi.waitFor(() => expect(existsSync(`${gate}.started`)).toBe(true), { timeout: 10_000 });
+      const second = archive(store, { "card-game/b.webp": "c" });
+      refused = store.run(["stage", commit(3), String(second.length), imageCommit], { input: second, timeout: 5_000 });
+    } finally {
+      writeFileSync(gate, "");
+      await done;
+    }
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain(`another stage is running on ${store.store}`);
+    expect(await done).toBe(0);
+    expect(out).toBe(`staged ${commit(2)}\n`);
+    expect(existsSync(join(store.store, commit(3)))).toBe(false);
   });
 
   it("refuses to stage onto a nearly full volume", () => {
