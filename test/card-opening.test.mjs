@@ -3,6 +3,7 @@ import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { roomFuelFromTurns } from "../v2/card-game/lamp-room-fuel.mjs";
 import { settleLamp } from "../v2/card-game/lamp-state.mjs";
 import { describe, expect, it } from "vitest";
+import forest from "../v2/card-game/forest.json" with { type: "json" };
 import {
   createWorld,
   legalActions,
@@ -72,7 +73,6 @@ describe("dousing the lamp in the attic", () => {
     expect(
       legalActions(s).some((a) => ["light", "snuff"].includes(a.kind)),
     ).toBe(false);
-    // The first quest comes at the Black Pond.
     expect(s.actors.vale.want).toBeNull();
     expect(placeText(s, "attic")).toContain("Dust gathers");
     expect(JSON.stringify(narrativeContext(s))).not.toMatch(
@@ -390,44 +390,47 @@ describe("dousing the lamp in the attic", () => {
     }
   });
 
-  it("keeps an item-seeking cast meeting wants and trading after the opening", () => {
-    for (const seedStart of [7, 42, 1729]) {
-      let s = meetEveryone(),
-        seed = seedStart,
-        trades = 0;
-      s.actors.keeper.want = {
-        kind: "item",
-        target: "bell",
-        since: s.turn,
-        refusals: 0,
-      };
-      for (let i = 0; i < 240; i++) {
-        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-        const acts = legalActions(s).filter((a) =>
-            [
-              "wait",
-              "move",
-              "take",
-              "give",
-              "trade",
-              "accompany",
-              "talk",
-            ].includes(a.kind),
-          ),
-          a = i % 3 ? plan(s).action : acts[seed % acts.length];
-        const result = play(s, a);
-        if (i % 20 === 0)
-          expect(play(decodeSave(encodeSave(s)), a)).toEqual(result);
-        expect(result.ok).toBe(true);
-        s = result.state;
-        trades += s.log.filter(
-          (e) => e.turn === s.turn && e.verb === "trade",
-        ).length;
+  it("keeps a legacy item-seeking cast meeting wants and trading after the opening", () => {
+    const authored = forest.people.keeper.want;
+    try {
+      forest.people.keeper.want = { kind: "item", target: "bell" };
+      for (const seedStart of [7, 42, 1729]) {
+        let s = meetEveryone(),
+          seed = seedStart,
+          trades = 0;
+        for (let i = 0; i < 240; i++) {
+          seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+          const acts = legalActions(s).filter((a) =>
+              [
+                "wait",
+                "move",
+                "take",
+                "give",
+                "trade",
+                "accompany",
+                "talk",
+              ].includes(a.kind),
+            ),
+            a = i % 3 ? plan(s).action : acts[seed % acts.length];
+          const result = play(s, a);
+          if (i % 20 === 0)
+            expect(play(decodeSave(encodeSave(s)), a)).toEqual(result);
+          expect(result.ok).toBe(true);
+          s = result.state;
+          trades += s.log.filter(
+            (e) => e.turn === s.turn && e.verb === "trade",
+          ).length;
+        }
+        expect(levelOf(s, "moth")).toBeGreaterThan(3);
+        expect(
+          levelOf(s, "keeper"),
+          `keeper progress for seed ${seedStart}`,
+        ).toBeGreaterThan(3);
+        expect(trades).toBeGreaterThan(0);
+        expect(decodeSave(encodeSave(s))).toEqual(s);
       }
-      expect(levelOf(s, "moth")).toBeGreaterThan(3);
-      expect(levelOf(s, "keeper")).toBeGreaterThan(3);
-      expect(trades).toBeGreaterThan(0);
-      expect(decodeSave(encodeSave(s))).toEqual(s);
+    } finally {
+      forest.people.keeper.want = authored;
     }
   }, 60_000);
   it("preserves the world through mixed combat, item use, and travel after discovery", () => {
