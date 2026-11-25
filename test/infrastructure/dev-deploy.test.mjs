@@ -445,7 +445,7 @@ const planScript = fileURLToPath(
 );
 // The fake gh answers each API path that starts with a key of `api` with
 // that key's value, through the script's own jq filter.
-const plan = (base, api = {}, attempt = "1") => {
+const plan = (base, api = {}, attempt = "1", event = "push") => {
   const directory = mkdtempSync(join(tmpdir(), "cosyworld-dev-plan-"));
   writeFileSync(join(directory, "api.json"), JSON.stringify(api));
   writeFileSync(
@@ -465,6 +465,7 @@ jq -er --arg path "$path" 'to_entries[] | select(.key as $k | $path | startswith
         GH_REPO: "example/world",
         GITHUB_SHA: sha,
         GITHUB_RUN_ATTEMPT: attempt,
+        GITHUB_EVENT_NAME: event,
       },
     });
   } finally {
@@ -497,6 +498,21 @@ describe("a .dev run plans before it joins the build queue", () => {
     const moved = plan(older, main, "2");
     expect(moved.stdout).toContain("deploy=false");
     expect(moved.stderr).toContain("a rerun deploys only main's head");
+  });
+
+  it("leaves a scheduled run to a push run of the same commit", () => {
+    const runs = (conclusion) => ({
+      "repos/example/world/actions/workflows/deploy.yml/runs": {
+        workflow_runs: [{ conclusion }],
+      },
+    });
+    for (const conclusion of [null, "success", "failure"]) {
+      const taken = plan("", runs(conclusion), "1", "schedule");
+      expect(taken.stdout).toContain("deploy=false");
+      expect(taken.stderr).toContain("the push run for");
+    }
+    const missed = plan("", runs("cancelled"), "1", "schedule");
+    expect(missed.stdout).toContain("deploy=true");
   });
 
   it("leaves the build to a live .dev run of main's newer head", () => {
