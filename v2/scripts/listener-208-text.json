@@ -2,6 +2,17 @@
   "rules": 208,
   "source": "e953dd2aedaaf82ebebe030c13fcdbb7009c284b:v2/orchestrator-rust/src/card_narrative/authored-text.json",
   "sourceBlob": "06260adf8d52f5ca73dfa02e51942c81a7a25a77",
+  "conditionSource": "e953dd2aedaaf82ebebe030c13fcdbb7009c284b:v2/card-game/arcana.json",
+  "conditionSourceBlob": "29eb16cdb88737863d8c565657e297e5a838b035",
+  "wordingSource": "e953dd2aedaaf82ebebe030c13fcdbb7009c284b:v2/card-game/world/want-words.mjs",
+  "wordingSourceBlob": "29472e0a720039260ff2da488ae9ba429600fe34",
+  "conditionLists": [
+    ["The Fool",["",", "," and ",""],"aaa"],
+    ["The Lover",["invite someone and travel with them"],""],
+    ["The Wheel of Fortune",["eat "," and find ",""],"nn"],
+    ["The Wheel of Fortune",["drink "," and find ",""],"nn"],
+    ["The Sun",["travel with a companion and go home"],""]
+  ],
   "literals": [
     [" deeply",31],
     [" home",31],
