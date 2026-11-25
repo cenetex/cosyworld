@@ -150,9 +150,8 @@ try {
       };
       return { page, key, errors, state, ready, shot, oneButton, layout };
     };
-    // Everything the traveler can read or see of the bar, the context button
-    // and the quest cards: words, aria labels, titles, alt text and images.
-    // A card the traveler has not discovered must appear in none of it.
+    // Check words, aria labels, titles, alt text and images across the bar,
+    // button and quest cards. Undiscovered targets must appear in none of them.
     const surfaces = (page) =>
       page.evaluate(() => {
         const roots = [
@@ -456,6 +455,8 @@ try {
       const collected = await t.state();
       assert.equal(collected.turn, beforeCollect.turn, "Collect passes no world turn");
       assert.equal(recordOf(collected, "vale").spread.length, 0);
+      assert.equal(recordOf(collected, "vale").level, 1, "the first Collect reaches level 1");
+      assert.deepEqual(recordOf(collected, "vale").proved, [], "acquisition does not prove the Fool's canonical deed");
       assert.ok(collected.actors.vale.upgrades.includes("arcanum-0"));
       await t.shot("tarot-collected");
       assert.deepEqual(t.errors, []);
