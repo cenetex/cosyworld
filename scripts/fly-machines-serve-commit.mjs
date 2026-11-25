@@ -2,19 +2,15 @@
 
 // Exit 0 when every started app machine of a Fly app carries the commit a
 // rollout just deployed; otherwise name the machines that do not and exit 1.
-// `--serving` prints the commit and image they serve, empty if they disagree.
-// `flyctl deploy` can report success and still lose its machines: a release
-// started outside the train (a `fly secrets set` without `--stage`) reads the
-// machine config before the rollout updates it, waits for the machine lease,
-// and then writes that older config back, restoring the previous image. On
-// 2026-11-02 that left .dev on 0456b60d9 after two trains.
-// Usage: node scripts/fly-machines-serve-commit.mjs <app> <commit|--serving>
+// `--serving` prints the commit, image, image commit and machine they serve.
+// A release started outside the train (a `fly secrets set` without `--stage`)
+// can write an older config back after flyctl reports success, as it did on
+// 2026-11-02. Usage: node scripts/fly-machines-serve-commit.mjs <app> <commit|--serving>
 
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// The started app-group machines. Stopped helper machines are ignored.
 export function servingMachines(machines) {
   return machines.filter(
     (machine) =>
@@ -23,8 +19,6 @@ export function servingMachines(machines) {
   );
 }
 
-// The serving machines whose COSYWORLD_SOURCE_COMMIT is not `commit`, as
-// `{ id, commit }`.
 export function staleMachines(machines, commit) {
   return servingMachines(machines)
     .map((machine) => ({
@@ -39,13 +33,18 @@ export function servingRelease(machines) {
     const values = new Set(servingMachines(machines).map(read));
     return values.size === 1 ? [...values][0] : "";
   };
+  const sha = (read) => {
+    const value = agreed((machine) => read(machine.config?.env ?? {}) ?? "");
+    return image && /^[0-9a-f]{40}$/.test(value) ? value : "";
+  };
   const image = agreed((machine) => machine.config?.image ?? "");
-  const commit = agreed(
-    (machine) => machine.config?.env?.COSYWORLD_SOURCE_COMMIT ?? "",
-  );
+  const commit = sha((env) => env.COSYWORLD_SOURCE_COMMIT);
+  const serving = servingMachines(machines);
   return {
-    commit: image && /^[0-9a-f]{40}$/.test(commit) ? commit : "",
+    commit,
     image,
+    imageCommit: commit && (sha((env) => env.COSYWORLD_IMAGE_COMMIT) || commit),
+    machine: serving.length === 1 ? serving[0].id : "",
   };
 }
 
@@ -65,7 +64,9 @@ if (
   );
   if (commit === "--serving") {
     const release = servingRelease(machines);
-    console.log(`commit=${release.commit}\nimage=${release.image}`);
+    console.log(
+      `commit=${release.commit}\nimage=${release.image}\nimage_commit=${release.imageCommit}\nmachine=${release.machine}`,
+    );
     process.exit(0);
   }
   const stale = staleMachines(machines, commit);

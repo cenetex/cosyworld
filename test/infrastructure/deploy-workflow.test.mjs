@@ -279,14 +279,18 @@ describe("deploy workflow", () => {
     // The plan compares with what .dev runs and labels the drop, the build
     // saves its cache while the rollout runs, then the rollout verifies.
     const order = [
-      'bash scripts/plan-dev-deploy.sh "$(node scripts/last-dev-rollout.mjs)"',
+      "node scripts/fly-machines-serve-commit.mjs cosyworld --serving || true",
+      'bash scripts/plan-dev-deploy.sh "${base:-$(node scripts/last-dev-rollout.mjs)}"',
+      'node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA"',
       'bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"',
       "bash scripts/prepare-fly-image.sh cosyworld fly.toml",
       "actions/cache/save@v6",
       "bash scripts/serialize-primary-rollout.sh dev",
-      "node scripts/fly-machines-serve-commit.mjs cosyworld --serving",
-      'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling',
+      'release="$(node scripts/fly-machines-serve-commit.mjs cosyworld --serving)"',
+      'bash scripts/stage-dev-release.sh >> "$GITHUB_OUTPUT"',
+      'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy "$STRATEGY" --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA" --env "COSYWORLD_IMAGE_COMMIT=$IMAGE_COMMIT"',
       "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
+      'COSYWORLD_SMOKE_MANIFEST="$RUNNER_TEMP/dev-release/manifest.json" node v2/scripts/smoke-deployed-card-game.mjs',
       "node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
       'git show "$PREVIOUS_COMMIT:fly.toml" > fly.previous.toml',
       'bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE"',
@@ -296,9 +300,16 @@ describe("deploy workflow", () => {
       if (index)
         expect(dev.indexOf(order[index - 1])).toBeLessThan(dev.indexOf(text));
     }
-    expect(dev).toContain(
-      "RELEASE_IMAGE: ${{ needs.dev-image.outputs.image }}",
-    );
+    expect(dev).toContain("needs.dev-plan.outputs.deploy == 'true' && needs.dev-plan.outputs.image == 'true'");
+    expect(dev).toContain("(needs.dev-image.result == 'success' || needs.dev-plan.outputs.image != 'true')");
+    expect(dev).toContain("FAST: ${{ needs.dev-plan.outputs.image != 'true' }}");
+    expect(dev).toContain("if: steps.serving.outputs.rollout == 'true' && env.FAST == 'true'");
+    expect(dev).toContain("RELEASE_IMAGE: ${{ needs.dev-image.outputs.image || steps.serving.outputs.image }}");
+    expect(dev).toContain("IMAGE_COMMIT: ${{ env.FAST == 'true' && steps.serving.outputs.image_commit || github.sha }}");
+    expect(dev).toContain("if: steps.rollout.outcome == 'success' && env.FAST != 'true'");
+    expect(dev).toContain('[ "$RELEASES" != off ]');
+    expect(dev).toContain("COSYWORLD_EXPECT_COMMIT: ${{ github.sha }}");
+    expect(dev).toContain("POLLS: ${{ env.FAST == 'true' && '20' || '1' }}");
     // A newer push cancels an older build, never a rollout. A run that
     // deploys nothing gets a group of its own and cancels nothing.
     expect(dev).toContain(
@@ -320,7 +331,7 @@ describe("deploy workflow", () => {
     expect(dev).toContain(
       "rolled-out: ${{ steps.rollout.outcome == 'success' }}",
     );
-    expect(dev).toContain("for attempt in {1..13}");
+    expect(dev).toContain("for attempt in {1..60}");
     expect(dev).toContain("remained degraded after 120 seconds");
   });
 
@@ -369,8 +380,8 @@ describe("deploy workflow", () => {
     expect(deploys).toHaveLength(5);
     const restoring = deploys.filter((deploy) => /DEV_SHA|PREVIOUS/.test(deploy));
     expect(restoring).toEqual([
-      'fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"',
-      'fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"',
+      'fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT" --env "COSYWORLD_IMAGE_COMMIT=$PREVIOUS_IMAGE_COMMIT"',
+      'fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${built}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}" --env "COSYWORLD_IMAGE_COMMIT=${built}"',
     ]);
     for (const deploy of deploys.filter((d) => !restoring.includes(d))) {
       expect(deploy).toContain('--env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"');

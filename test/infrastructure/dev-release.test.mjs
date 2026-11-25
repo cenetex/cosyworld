@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -10,7 +11,7 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,6 +20,7 @@ import { imageInput, neededMedia, pack } from "../../scripts/dev-release.mjs";
 
 const tool = fileURLToPath(new URL("../../scripts/dev-release.mjs", import.meta.url));
 const store = fileURLToPath(new URL("../../deploy/release-store.sh", import.meta.url));
+const repo = fileURLToPath(new URL("../..", import.meta.url));
 const sha256 = (body) => createHash("sha256").update(body).digest("hex");
 let root;
 afterEach(() => root && rmSync(root, { recursive: true, force: true }));
@@ -157,5 +159,80 @@ describe("a .dev release without an image", () => {
 
     const again = pack({ manifest: built, image: imageManifest, imageDir: image, serving: JSON.parse(text), servingText: text, out: archive });
     expect(again).toMatchObject({ objects: 0, unchanged: true });
+  });
+
+  it("stages a commit from a blobless checkout through flyctl, and nothing when .dev serves the same", () => {
+    root = mkdtempSync(join(tmpdir(), "dev-release-stage-"));
+    const origin = join(root, "origin");
+    const clone = join(root, "clone");
+    const run = (cwd, command, ...args) => spawnSync(command, args, { cwd, encoding: "utf8" });
+    const write = (files) => {
+      for (const [file, body] of Object.entries(files)) {
+        mkdirSync(dirname(join(origin, file)), { recursive: true });
+        writeFileSync(join(origin, file), body);
+      }
+      run(origin, "node", "v2/scripts/build-card-assets.mjs");
+      run(origin, "git", "add", "-A");
+      run(origin, "git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "c");
+      return run(origin, "git", "rev-parse", "HEAD").stdout.trim();
+    };
+    for (const file of ["scripts/dev-release.mjs", "scripts/stage-dev-release.sh", "v2/scripts/build-card-assets.mjs"])
+      cpSync(join(repo, file), join(origin, file));
+    run(root, "git", "init", "-q", "-b", "main", origin);
+    for (const key of ["allowFilter", "allowAnySHA1InWant"]) run(origin, "git", "config", `uploadpack.${key}`, "true");
+    const shared = "v2/orchestrator-rust/src/card_shared";
+    const image = write({
+      "v2/card-game/public-assets.mjs": `export const publicAssets = ${JSON.stringify(
+        ["app.mjs", "a.webp", "b.webp"].map((file) => ({ file, contentType: file.endsWith(".mjs") ? "text/javascript" : "image/webp" })),
+      )};\n`,
+      "v2/card-game/app.mjs": "app",
+      "v2/card-game/a.webp": "a",
+      "v2/card-game/b.webp": "b",
+      ...Object.fromEntries(
+        ["v2/card-game/senses.json", "v2/card-game/assets/discord-faces.json", "v2/card-game/assets/music/radio-catalog.json",
+          "v2/orchestrator-rust/src/card_narrative/authored-text.json", `${shared}/content.json`, `${shared}/narrator.js`, `${shared}/rules.json`]
+          .map((file) => [file, "{}"]),
+      ),
+      "fly.toml": "app = 'cosyworld'\n",
+    });
+    run(origin, "node", "v2/scripts/build-card-assets.mjs", "--release", join(root, "out"));
+    const assets = join(root, "app/assets");
+    for (const layer of ["media", "text"]) cpSync(join(root, "out", layer), assets, { recursive: true });
+    const next = write({ "v2/card-game/app.mjs": "app 2", "v2/card-game/b.webp": "b 2" });
+    run(root, "git", "clone", "-q", "--filter=blob:none", "--depth=1", "--no-checkout", `file://${origin}`, clone);
+    run(clone, "git", "sparse-checkout", "set", "scripts", "v2/scripts");
+    run(clone, "git", "checkout", "-q", "main");
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "flyctl"), `#!/bin/sh\necho "$*" >> "${root}/flyctl.log"\nwhile [ $# -gt 0 ]; do [ "$1" = --command ] && c="$2"; shift; done\nexec sh -c "$(echo "$c" | sed "s#/app/release-store.sh#${store}#")"\n`);
+    writeFileSync(join(bin, "server"), "#!/bin/sh\n");
+    for (const file of ["flyctl", "server"]) chmodSync(join(bin, file), 0o755);
+    const env = {
+      ...process.env,
+      PATH: `${bin}${delimiter}${process.env.PATH}`,
+      MACHINE: "e8262d2fd31de8",
+      IMAGE_COMMIT: image,
+      RUNNER_TEMP: root,
+      COSYWORLD_RELEASE_STORE: join(root, "releases"),
+      COSYWORLD_IMAGE_ASSETS: assets,
+      COSYWORLD_SERVER_BINARY: join(bin, "server"),
+      COSYWORLD_RELEASE_STORE_LIMIT: "100",
+    };
+    const stage = (sha) => spawnSync("bash", ["scripts/stage-dev-release.sh"], { cwd: clone, encoding: "utf8", env: { ...env, GITHUB_SHA: sha } });
+    const first = stage(next);
+    expect(first.stdout).toBe("unchanged=false\n");
+    const release = join(root, "releases", next);
+    expect(readFileSync(join(release, "card-game/b.webp"), "utf8")).toBe("b 2");
+    expect(readlinkSync(join(release, "card-game/a.webp"))).toBe(join(assets, "card-game/a.webp"));
+    expect(existsSync(join(clone, "v2/card-game/a.webp"))).toBe(false);
+    expect(readFileSync(join(root, "flyctl.log"), "utf8")).toContain("--app cosyworld --machine e8262d2fd31de8");
+    spawnSync("sh", [store, "choose"], { env: { ...env, COSYWORLD_SOURCE_COMMIT: next, COSYWORLD_IMAGE_COMMIT: image } });
+    expect(stage(next).stdout).toBe("unchanged=true\n");
+
+    const rust = write({ "v2/orchestrator-rust/src/main.rs": "fn main() {}" });
+    run(clone, "git", "fetch", "-q", "--depth=1", "origin", rust);
+    const refused = stage(rust);
+    expect(refused.status).toBe(1);
+    expect(refused.stderr).toContain(".dev's image changed since the plan: v2/orchestrator-rust/src/main.rs is built into the image");
   });
 });

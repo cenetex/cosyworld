@@ -28,6 +28,8 @@ async function inspectTarget(value) {
   assert(meta.deployment?.profile === "production", `${baseUrl.origin} is not in production mode`);
   assert(typeof meta.deployment?.process_id === "string" && meta.deployment.process_id.length > 0, `${baseUrl.origin} has no process id`);
   assert(meta.primary_game === "card-table", `${baseUrl.origin} is not serving the card table`);
+  const expected = process.env.COSYWORLD_EXPECT_COMMIT;
+  assert(!expected || (meta.commit && expected.startsWith(meta.commit)), `${baseUrl.origin} serves ${meta.commit || "no commit"}, not ${expected?.slice(0, 12)}`);
   assert(
     typeof meta.card_game?.shared_rules_version === "string" && meta.card_game.shared_rules_version.length > 0,
     `${baseUrl.origin} reports no shared card rules version`,
