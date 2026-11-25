@@ -300,8 +300,7 @@ try {
       await page.close();
     }
 
-    // 2b. A quest for a card not yet discovered shows the card back and names
-    // nothing; it names the card once it is discovered.
+    // Undiscovered quest targets show the card back; discovery reveals their names.
     {
       const t = await open(
         "quest-offers-covered",
@@ -476,7 +475,7 @@ try {
       await page.keyboard.press("Escape");
       assert.equal(await owned.evaluate((el) => document.activeElement === el), true);
       await page.keyboard.press("Escape");
-      assert.equal(await page.locator("#messages img").count(), 0);
+      await page.waitForFunction(() => !document.querySelector("#history-dialog").open && !document.querySelector("#messages img"));
       const afterView = await t.state();
       assert.equal(afterView.turn, beforeView.turn);
       assert.equal(afterView.revision, beforeView.revision);
