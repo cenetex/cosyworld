@@ -33,6 +33,7 @@ import { holdQuest, newWant } from "../v2/card-game/want.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
+import { dealSpread, settleArcana } from "../v2/card-game/world/arcana.mjs";
 
 // An undiscovered card is worded by its kind, never by name.
 const { person: PERSON, place: PLACE } = UNKNOWN;
@@ -479,7 +480,7 @@ describe("the quest card", () => {
 
   it("unlocks the face-down Fool once when the third person is helped, as a new card to reveal", () => {
     let s = dealtFool();
-    const boxes = createLockedBoxes();
+    const boxes = createLockedBoxes({ retainAbsent: false });
     expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
     const [down] = levelCards(s, "vale");
     Object.assign(s.actors.vale.arcana, { calls: 2, callers: ["badger", "keeper"] });
@@ -491,6 +492,22 @@ describe("the quest card", () => {
     expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([up.key]);
     expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
     expect(questCaption({ ...up, level: null })).toBe("Carry nothing, be away from home and visit six new places");
+  });
+
+  it("forgets a completed hidden Fool before the next spread deals it face up", () => {
+    const s = dealtFool();
+    const boxes = createLockedBoxes({ retainAbsent: false });
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    s.actors.vale.arcana.spread[0].done = true;
+    s.actors.vale.arcana.calls = 3;
+    settleArcana(s, "vale");
+    expect(levelCards(s, "vale")).toEqual([]);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    expect(boxes.boxed("tarot:vale:arcanum-0")).toBe(false);
+    expect(dealSpread(s, "vale")).toBe(true);
+    expect(levelCards(s, "vale").find((card) => card.target === "arcanum-0"))
+      .toMatchObject({ face: "up" });
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
   });
 
   it("draws a locked tarot with the keyhole back and keeps its words", () => {

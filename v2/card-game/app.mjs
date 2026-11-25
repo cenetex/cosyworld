@@ -540,7 +540,7 @@ const fresh = new Set();
 // The level each card last showed, so a rise plays on the card itself.
 const shownLevels = new Map();
 const shownStageLevels = new Map();
-const tarotLocks = createLockedBoxes();
+const tarotLocks = createLockedBoxes({ retainAbsent: false });
 const coveredCards = new Set();
 let openingHeld = false;
 // The held quest on show (none or one) and whether its card is chosen. A
