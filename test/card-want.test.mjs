@@ -39,7 +39,10 @@ describe("one want per avatar", () => {
       ...newWant("item", "lamp", 0),
       lit: true,
     });
-    expect(s.actors.keeper.want).toEqual(newWant("item", "bell", 0));
+    expect(s.actors.keeper.want).toEqual({
+      ...newWant("place", "pond", 0),
+      step: { verb: "call", crossing: "pond-greek-harbor" },
+    });
     expect(s.actors.vale.xp).toBe(0);
     expect(validateWorld(s)).toBe(s);
   });
