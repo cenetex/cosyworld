@@ -229,6 +229,8 @@ mod tests {
     #[test]
     fn a_resident_knows_its_own_want_and_favours_and_no_one_elses() {
         let mut w = World::create(None).unwrap();
+        w.game["actors"]["keeper"]["want"] =
+            json!({"kind":"item","target":"bell","since":0,"refusals":0});
         let pond = w.game["actors"]["moth"]["place"].clone();
         w.game["actors"]["keeper"]["place"] = pond.clone();
         w.game["actors"]["vale"]["place"] = pond;
