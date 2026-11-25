@@ -85,10 +85,7 @@ fn released_listener_lists_keep_their_authored_boundaries() {
                 "The Wheel of Fortune",
                 "eat Courtyard Bread and find Courtyard Bread",
             ),
-            (
-                "The Wheel of Fortune",
-                "drink Wine Skin and find Wine Skin",
-            ),
+            ("The Wheel of Fortune", "drink Wine Skin and find Wine Skin"),
             (
                 "The Wheel of Fortune",
                 "eat something you haven't found and find something",
@@ -146,7 +143,6 @@ fn recombined_catalog_strings_are_not_authored() {
     }
 }
 
-/// Each field matches only the text the code that builds it writes.
 #[test]
 fn each_field_takes_only_its_own_templates() {
     // A fact template is not an event, and the browser never sends a place's
