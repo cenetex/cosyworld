@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { GENERATED_FILES, classify, steps } from "../scripts/regen.mjs";
+import { GENERATED_FILES, classify } from "../scripts/lib/generated-files.mjs";
+import { steps } from "../scripts/regen.mjs";
 
 const read = (file) =>
   readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -23,11 +24,14 @@ describe("regen", () => {
     expect(classify("v2/card-game/public-assets.mjs")).toBe("other");
   });
 
-  it("names real generated files", () => {
-    for (const file of GENERATED_FILES)
+  it("names real generated files, which GitHub collapses", () => {
+    const attributes = read(".gitattributes");
+    for (const file of GENERATED_FILES) {
       expect(existsSync(new URL(`../${file}`, import.meta.url)), file).toBe(
         true,
       );
+      expect(attributes, file).toContain(`${file} linguist-generated=true`);
+    }
   });
 
   it("runs every generator the pack scripts run, and checks what it builds", () => {
@@ -52,7 +56,6 @@ describe("regen", () => {
       for (const file of script.match(/v2\/scripts\/[\w-]+\.mjs/gu) ?? [])
         expect(used, file).toContain(file);
     }
-    // Rules are minted from main's wiring before any bundle is rebuilt.
     const order = list.map((s) => s.name);
     expect(order.indexOf("rules")).toBeLessThan(order.indexOf("narrator"));
     expect(order.indexOf("packs")).toBeLessThan(order.indexOf("authored-text"));

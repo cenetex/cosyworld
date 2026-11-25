@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 // Land a ready branch on top of main without hand-resolving generated files.
-// Most prepared branches change the embedded card asset manifest or claim the
-// next shared rules version, and those lines conflict once main moves. This
-// applies only the branch's own work onto main, keeps dependency changes in
+// This applies only the branch's own work onto main, keeps dependency changes in
 // the version files at main's release version (branches never bump it; a
 // release does, see docs/release.md), then regenerates the outputs:
 //   node scripts/land-branch.mjs claude/prep-dark-attic
@@ -13,10 +11,17 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  GENERATED_FILES,
+  RULES_DIR as rulesDir,
+  RULES_WIRING,
+  isLevelMap,
+  isRulesBundle,
+  realWiringChanges,
+} from './lib/generated-files.mjs';
+import { steps } from './regen.mjs';
 
-// The checkout being landed into: the current directory's repository.
 const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
-const rulesDir = 'v2/orchestrator-rust/src/card_shared';
 
 // Files carrying the release version. A branch keeps main's version in them.
 export const VERSION_FILES = [
@@ -27,34 +32,6 @@ export const VERSION_FILES = [
   'v2/desktop/src-tauri/Cargo.toml',
   'v2/desktop/src-tauri/Cargo.lock',
 ];
-
-// Shared rules version wiring, as v2/scripts/next-shared-rules.mjs restores it.
-export const RULES_WIRING = [
-  `${rulesDir}/engine.rs`,
-  `${rulesDir}/full_world.rs`,
-  'test/card-released-rules.test.mjs',
-  'v2/scripts/build-card-shared-engine.mjs',
-];
-
-// Always rebuilt from source after the branch's work is applied.
-// (scripts/regen.mjs lists every output and the order that rebuilds them.)
-export const GENERATED = [
-  'v2/orchestrator-rust/src/card_assets.rs',
-  `${rulesDir}/narrator.js`,
-  `${rulesDir}/content.json`,
-  'v2/orchestrator-rust/src/card_narrative/authored-text.json',
-  'test/journeys/checkpoints.json',
-  'v2/card-game/packs.json',
-  'v2/card-game/media-manifest.json',
-  'v2/card-game/image-variants.json',
-];
-export const isLevelMap = (file) => /^docs\/maps\/[^/]+\.graph\.json$/u.test(file);
-export const isRulesBundle = (file) => /^v2\/orchestrator-rust\/src\/card_shared\/engine-v\d+\.js$/u.test(file);
-
-// Same test as next-shared-rules.mjs: a version line, a bundle path or a
-// pinned hash is wiring; anything else is real work.
-export const isWiringLine = (line) =>
-  /VERSION|SOURCE|engine-v\d+\.js|^\s*\d+: "[0-9a-f]{64}",$|^\/\/ Rules /u.test(line);
 
 // Put `version` on the release version lines of one file.
 export function setVersion(file, source, version) {
@@ -75,15 +52,6 @@ export function setVersion(file, source, version) {
     default:
       throw new Error(`${file} is not a release version file.`);
   }
-}
-
-// Changed lines in a unified diff that are not rules version wiring.
-export function realWiringChanges(diff) {
-  return diff
-    .split('\n')
-    .filter((line) => /^[+-](?![+-])/u.test(line))
-    .map((line) => line.slice(1).trim())
-    .filter((line) => line && !isWiringLine(line));
 }
 
 const git = (args, options = {}) =>
@@ -116,7 +84,7 @@ function parseArgs(argv) {
   return options;
 }
 
-async function land({ base, branch, name }) {
+function land({ base, branch, name }) {
   if (git(['status', '--porcelain', '--untracked-files=no']).trim()) {
     throw new Error('Commit or stash tracked changes first.');
   }
@@ -137,7 +105,7 @@ async function land({ base, branch, name }) {
   );
   const skipped = new Set([
     ...VERSION_FILES,
-    ...GENERATED,
+    ...GENERATED_FILES,
     ...RULES_WIRING.filter((file) => !realWiring.includes(file)),
     ...changed.filter(isRulesBundle),
     ...changed.filter(isLevelMap),
@@ -190,9 +158,7 @@ async function land({ base, branch, name }) {
     rmSync(scratch, { recursive: true, force: true });
   }
 
-  // Same steps, same order as `npm run regen`.
-  const { steps } = await import('./regen.mjs');
-  for (const step of steps(base)) run(process.execPath, [step.build.script, ...step.build.args]);
+  for (const step of steps(base).filter((s) => !s.optional)) run(process.execPath, [step.build.script, ...step.build.args]);
 
   const subjects = git(['log', '--reverse', '--format=%s', `${mergeBase}..${tip}`])
     .split('\n')
@@ -227,7 +193,7 @@ async function land({ base, branch, name }) {
 const invoked = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invoked) {
   try {
-    await land(parseArgs(process.argv.slice(2)));
+    land(parseArgs(process.argv.slice(2)));
   } catch (error) {
     console.error(`[land] ${error.message}`);
     process.exitCode = 1;
