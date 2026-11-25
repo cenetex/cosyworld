@@ -380,11 +380,63 @@ describe("a .dev rollout confirms its machines kept the commit", () => {
       "utf8",
     );
     const rollout = workflow.slice(workflow.indexOf("- name: Roll out .dev"));
-    expect(rollout.indexOf("flyctl deploy --config fly.toml")).toBeLessThan(
+    expect(rollout).toContain("bash scripts/fly-rollout.sh --config fly.toml");
+    expect(rollout.indexOf("fly-rollout.sh --config fly.toml")).toBeLessThan(
       rollout.indexOf(
         'node scripts/fly-machines-serve-commit.mjs cosyworld "$GITHUB_SHA"',
       ),
     );
     expect(rollout).toContain("for attempt in 1 2 3");
+  });
+});
+
+const rolloutScript = fileURLToPath(
+  new URL("../../scripts/fly-rollout.sh", import.meta.url),
+);
+const rollout = (status, wait) => {
+  const directory = mkdtempSync(join(tmpdir(), "cosyworld-fly-rollout-"));
+  writeFileSync(
+    join(directory, "flyctl"),
+    `#!/usr/bin/env bash\necho "$*" > "${directory}/args"\nexit ${status}\n`,
+  );
+  chmodSync(join(directory, "flyctl"), 0o755);
+  try {
+    const result = spawnSync(
+      "bash",
+      [rolloutScript, "--config", "fly.toml", "--image", "x"],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${directory}${delimiter}${process.env.PATH}`,
+          ...(wait ? { COSYWORLD_FLY_WAIT_TIMEOUT: wait } : {}),
+        },
+      },
+    );
+    const args = existsSync(join(directory, "args"))
+      ? readFileSync(join(directory, "args"), "utf8").trim()
+      : "";
+    return { ...result, args };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
+
+describe("a Fly rollout fails fast on a stuck machine", () => {
+  it("bounds the machine wait and turns off flyctl's retries", () => {
+    const result = rollout(0);
+    expect(result.status).toBe(0);
+    expect(result.args).toBe(
+      "deploy --config fly.toml --image x --wait-timeout 3m --deploy-retries 0",
+    );
+    expect(rollout(0, "5m").args).toContain("--wait-timeout 5m");
+  });
+
+  it("names the stuck rollout and keeps flyctl's exit status", () => {
+    const result = rollout(7);
+    expect(result.status).toBe(7);
+    expect(result.stderr).toContain("::error title=Fly rollout::");
+    expect(result.stderr).toContain("within 3m");
+    expect(rollout(0, "soon").status).toBe(2);
   });
 });

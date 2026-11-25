@@ -156,7 +156,7 @@ jobs:
         if: steps.impact.outputs.deploy == 'true'
         run: |
           for attempt in 1 2 3; do
-            flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
+            bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
             sleep 20
             if node scripts/fly-machines-serve-commit.mjs cosyworld "$GITHUB_SHA"; then
               exit 0
@@ -172,8 +172,6 @@ jobs:
       - name: Verify primary readiness and persistence
         if: steps.impact.outputs.deploy == 'true'
         run: |
-          # A fresh process may take a moment to report healthy persistence
-          # after a rolling deploy; retry for two minutes before failing.
           for attempt in {1..13}; do
             if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
               exit 0
@@ -609,16 +607,15 @@ jobs:
       - name: Deploy primary Fly app
         id: deploy
         if: steps.claim.outputs.superseded != 'true'
-        run: flyctl deploy --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
+        run: bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
         env:
+          COSYWORLD_FLY_WAIT_TIMEOUT: 5m
           RELEASE_IMAGE: ${{ needs.primary-image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
       - name: Verify primary readiness and persistence
         if: steps.claim.outputs.superseded != 'true'
         run: |
-          # A fresh process may take a moment to report healthy persistence
-          # after a rolling deploy; retry for two minutes before failing.
           for attempt in {1..13}; do
             if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
               exit 0
@@ -718,7 +715,7 @@ jobs:
       # Keep the restored SHA in the job record for the next train or tag.
       - name: Roll .dev forward to ${{ steps.previous.outputs.sha }}
         if: steps.previous.outputs.sha != ''
-        run: flyctl deploy --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"
+        run: bash scripts/fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"
         env:
           DEV_SHA: ${{ steps.previous.outputs.sha }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -847,9 +844,8 @@ jobs:
       actions: read
     outputs:
       deployed: ${{ steps.deploy.outcome == 'success' }}
-    # No job concurrency group: GitHub keeps one pending job per group and
-    # cancels the rest, whatever their commit. The claim step serializes
-    # Lonely Forest rollouts instead.
+    # No job concurrency group: GitHub keeps one pending job per group. The
+    # claim step serializes Lonely Forest rollouts instead.
     steps:
       - name: Checkout committed release
         uses: actions/checkout@v7
@@ -877,7 +873,7 @@ jobs:
         if: steps.claim.outputs.superseded != 'true'
         run: |
           for attempt in 1 2; do
-            if flyctl deploy --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"; then
+            if bash scripts/fly-rollout.sh --config fly.lonelyforest.toml --image "$RELEASE_IMAGE" --ha=false --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"; then
               exit 0
             fi
             if [ "$attempt" -eq 2 ]; then
@@ -887,6 +883,7 @@ jobs:
             sleep 15
           done
         env:
+          COSYWORLD_FLY_WAIT_TIMEOUT: 5m
           RELEASE_IMAGE: ${{ needs.lonelyforest-image.outputs.image }}
           FLY_API_TOKEN: ${{ secrets.FLY_LONELYFOREST_API_TOKEN }}
 
