@@ -58,8 +58,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   installLife(world, travels);
   installRouteKnowledge(world);
   installKnowledge(world);
-  // A new world starts with one want on every resident; a player holds none
-  // and takes its quests by a tap.
+  // Residents start with wants; the player starts without a held quest.
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
   seedCallLead(world, addLog);
