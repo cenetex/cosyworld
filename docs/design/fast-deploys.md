@@ -62,12 +62,15 @@ A journal row names `full-card-world/N`. N must resolve to the bytes released as
 - Runtime: `COPY --link --from=assets /out/media/ /app/assets/` (950 MB, changes only with art or music), then `/out/text/` (about 45 MB with the bundles), then the binary. Each is its own layer. A JS change leaves the media layer and the binary unchanged.
 - The media layer is reused across runs only if the builder has a cache for it or the layer is reproducible. The main-push path builds on a fresh buildx builder and does not export a cache, so it also needs `SOURCE_DATE_EPOCH` and `rewrite-timestamp=true` in `scripts/build-release-image.sh`, or a registry cache for the `assets` stage. That is a workflow change; this design does not make it.
 
-### Sync and reload on .dev (a later step)
+### Releases on the .dev volume
 
-- Keep releases on the volume: `/data/releases/<sha>/` holds the `text` tree (and `media` when art changed, hard-linked from the previous release otherwise). `COSYWORLD_ASSETS_DIR=/data/releases/current`.
-- A non-Rust main push (classified by `scripts/check-deployment-impact.mjs`) builds the release directory, syncs it to the machine over Fly's private network, writes `manifest.json` last, and points `current` at it.
-- The server then restarts in place (0.7 s cold start plus journal load), verifying the new directory before it serves. A failed verification exits, and a supervisor puts `current` back and restarts on the previous release. Hot reload without a restart can come later for public files only; rules and content changes go through a restart so that open shared worlds upgrade through the existing load path.
-- A Rust change still builds an image. The binary layer becomes tens of MB instead of ~1 GB.
+A main push that changes no image input deploys .dev without an image: the runner sends only the files the machine lacks, the machine checks the release with the binary it runs, and the same image restarts on it. `deploy/release-store.sh` keeps the releases in `/data/releases`:
+
+- `<commit>/` is one release: `manifest.json`, `ready`, `image` (the commit the image was built from), and every file the manifest lists. A file the image already ships (same sha256) is a symlink into `/app/assets`; any other file is a hard link to `objects/<sha256>`. The volume therefore holds only what differs from the image, not another 1 GB: it is capped at 5 GB, and on a shared-cpu-4x machine it reads and writes at most 32 MiB/s.
+- `current` and `previous` point at the assets the last two boots served (a release or `/app/assets`).
+- `stage <commit> <bytes>` reads a gzip tar of the tree (directories, the manifest and the symlinks), the new objects and the list of hard links. It refuses when the volume would pass 75% used as `df` counts it, below Fly's 80% auto-extend and the production deploy guard's 85%, because the primary app shares this volume. It refuses an object whose bytes do not match its name, runs `cosyworld-orchestrator --check-assets` on the tree and writes `ready` only when that passes. It keeps the new release, `current` and `previous`, and deletes every other release and every object no release links.
+- `choose` runs in the entrypoint. A release serves only when the machine's environment names a commit other than its image's (`COSYWORLD_IMAGE_COMMIT`), and that release's `ready` equals the sha256 of this binary and this image's manifest. Anything else serves `/app/assets` as before. Tags, production dispatches and Lonely Forest never set an image commit, so they always serve `/app/assets`; a tag boot on the primary app only records that in `current`.
+- The cutover is `flyctl deploy` of the image .dev already runs, with `COSYWORLD_SOURCE_COMMIT` set to the new commit and `COSYWORLD_IMAGE_COMMIT` to the image's. The machine restarts without pulling anything, verifies every file again at startup, and the readiness and deployed card-game smokes run. A failure rolls back by deploying the previous commit and image commit, which choose the previous release.
 
 ### What stays embedded
 

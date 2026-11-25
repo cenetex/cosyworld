@@ -85,6 +85,7 @@ COPY --from=orchestrator-binary /app/bin/cosyworld-orchestrator /app/cosyworld-o
 COPY v2/content /app/v2/content
 COPY models/card-policy /app/models/card-policy
 COPY deploy/entrypoint.sh /app/entrypoint.sh
+COPY deploy/release-store.sh /app/release-store.sh
 
 RUN chmod 0755 /app/entrypoint.sh
 
