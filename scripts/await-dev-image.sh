@@ -15,7 +15,7 @@ building() {
   ids="$(gh api "repos/${GH_REPO}/actions/workflows/deploy.yml/runs?head_sha=${GITHUB_SHA}&per_page=20" \
     --jq '.workflow_runs[] | select(.status != "completed" and (.display_title | startswith(".dev train "))) | .id')" || return 1
   for id in $ids; do
-    gh api "repos/${GH_REPO}/actions/runs/${id}/jobs" \
+    gh api "repos/${GH_REPO}/actions/runs/${id}/jobs?per_page=100" \
       --jq "if any(.jobs[]; .name == \"Build the .dev image\" and .status == \"completed\") then empty else \"${id}\" end" || return 1
   done
 }

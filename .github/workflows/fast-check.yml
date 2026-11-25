@@ -1,13 +1,13 @@
 name: Checks
 
 # The .dev train calls this beside its build (deploy.yml dev-checks). It checks
-# main from the commit .dev last ran; it never gates .dev. A change to Rust
-# inputs adds the focused Rust tests and the clippy ceiling.
+# main from the commit its checks last passed on; it never gates .dev. A change
+# to Rust inputs adds the focused Rust tests and the clippy ceiling.
 on:
   workflow_call:
     inputs:
       base:
-        description: Commit .dev last rolled out; empty checks only the newest commit
+        description: Commit main's checks last passed on; empty checks only the newest commit
         type: string
         default: ""
 
@@ -320,10 +320,10 @@ jobs:
           bash v2/scripts/check-main-size.sh
           bash v2/scripts/check-rust-lint.sh
 
-  # A Rust job counts when it runs.
+  # A Rust job counts when it runs. Cancelled checks skip this rather than fail.
   fast:
     name: All checks
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     needs: [plan, lint, unit-shard, rustfmt, smoke, rust, rust-lint, rust-smokes]
     runs-on: ${{ vars.FAST_CHECK_RUNNER || 'ubuntu-latest' }}
     steps:

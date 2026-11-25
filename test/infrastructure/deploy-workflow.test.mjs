@@ -217,8 +217,11 @@ describe("deploy workflow", () => {
     expect(checks).toContain("needs: dev-plan\n    if: needs.dev-plan.outputs.deploy == 'true'");
     expect(checks).toContain("cancel-in-progress: true");
     expect(checks).toContain("uses: ./.github/workflows/fast-check.yml");
-    expect(checks).toContain("base: ${{ needs.dev-plan.outputs.base }}");
-    expect(job("dev-plan", "dev-checks")).toContain("base: ${{ steps.impact.outputs.base }}");
+    expect(checks).toContain("base: ${{ needs.dev-plan.outputs.checks-base }}");
+    expect(job("dev-plan", "dev-checks")).toContain(
+      "checks-base: ${{ steps.checked.outputs.base || steps.impact.outputs.base }}",
+    );
+    expect(job("dev-plan", "dev-checks")).toContain("node scripts/last-dev-rollout.mjs --checked");
     expect(job("dev-deploy", "deployment-impact")).toContain("needs: [dev-plan, dev-image]");
     const called = readFileSync(
       new URL("../../.github/workflows/fast-check.yml", import.meta.url),
@@ -226,6 +229,7 @@ describe("deploy workflow", () => {
     );
     expect(called).toMatch(/^on:\n  workflow_call:\n/m);
     expect(called).not.toContain("pull_request");
+    expect(called).toContain("name: All checks\n    if: ${{ !cancelled() }}");
   });
 
   it("deploys .dev on a main push, outside the release path", () => {

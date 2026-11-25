@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lastRollout } from "../../scripts/last-dev-rollout.mjs";
+import { lastChecked, lastRollout } from "../../scripts/last-dev-rollout.mjs";
 
 const sha = (letter) => letter.repeat(40);
 const run = (id, commit, extra = {}) => ({
@@ -163,5 +163,34 @@ describe("the commit left live by a .dev return", () => {
     expect(await lookup([run(20, "a")], { 20: [primary("10"), legacy] })).toBe(
       "",
     );
+  });
+});
+
+describe("the commit main's checks last passed on", () => {
+  const checks = (conclusion) => [
+    { name: "Check main / All checks", conclusion },
+  ];
+  const trainRun = (id, commit) =>
+    run(id, commit, { display_title: `.dev train ${sha(commit)}` });
+  const find = (runs, jobs) =>
+    lastChecked({ runs, jobsFor: async (id) => jobs[id], currentRunId: 40 });
+
+  it("skips this run, cancelled or failed checks and production runs", async () => {
+    const runs = [
+      trainRun(40, "e"),
+      trainRun(30, "d"),
+      trainRun(25, "c"),
+      run(20, "b", { display_title: "Deploy v1.2.3 to both" }),
+      trainRun(10, "a"),
+    ];
+    const jobs = {
+      40: checks("success"),
+      30: checks("skipped"),
+      25: checks("failure"),
+      20: checks("success"),
+      10: checks("success"),
+    };
+    expect(await find(runs, jobs)).toBe(sha("a"));
+    expect(await find(runs.slice(0, 4), jobs)).toBe("");
   });
 });
