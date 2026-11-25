@@ -47,6 +47,7 @@
     <link rel="stylesheet" href="./combat.css" />
     <link rel="stylesheet" href="./card-tiers.css" />
     <link rel="stylesheet" href="./sleep.css" />
+    <link rel="stylesheet" href="./character-sheet.css" />
     <!-- card-image-preload:start -->
     <!-- card-image-preload:end -->
     <script type="module" src="./entry.mjs"></script>
@@ -59,7 +60,7 @@
         <span>…</span>
       </div>
       <div class="top-actions">
-        <button id="history-button">Memory</button
+        <button id="history-button">Character</button
         ><button id="menu-button">Settings</button>
       </div>
     </header>
@@ -222,7 +223,9 @@
       aria-live="assertive"
       aria-atomic="true"
     ></span>
-    <dialog id="history-dialog" class="memory-dialog" aria-label="Memory">
+    <dialog id="history-dialog" class="memory-dialog" aria-labelledby="character-sheet-title">
+      <div class="modal-heading">
+      <h2 id="character-sheet-title">Character</h2>
       <button
         type="button"
         class="memory-close"
@@ -231,6 +234,7 @@
       >
         ×
       </button>
+      </div>
       <div id="messages" class="messages"></div>
     </dialog>
     <dialog id="menu-dialog" aria-labelledby="settings-title">

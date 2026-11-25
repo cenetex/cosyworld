@@ -46,6 +46,7 @@
     "card-name",
     "card-primary",
     "cast",
+    "character-sheet",
     "combat-aim",
     "combat-caption",
     "combat-dim",
@@ -136,6 +137,19 @@
     "settings-veil",
     "shared-lobby",
     "shared-room-status",
+    "sheet-count",
+    "sheet-deck",
+    "sheet-facts",
+    "sheet-heading",
+    "sheet-identity",
+    "sheet-level",
+    "sheet-name",
+    "sheet-note",
+    "sheet-portrait",
+    "sheet-quest",
+    "sheet-section",
+    "sheet-tarot",
+    "sheet-title",
     "short",
     "sleep-catcher",
     "sleep-veil",
@@ -198,6 +212,7 @@
     "card-actions",
     "card-detail-*",
     "cast",
+    "character-sheet-title",
     "combat-announcement",
     "combat-caption",
     "combat-speed",
@@ -268,7 +283,7 @@
     "world-menu"
   ],
   "elements": {
-    "v2/card-game/app.mjs": 58,
+    "v2/card-game/app.mjs": 59,
     "v2/card-game/avatar-menu.mjs": 19,
     "v2/card-game/build-info.mjs": 2,
     "v2/card-game/card-label.mjs": 1,
@@ -278,7 +293,7 @@
     "v2/card-game/defeat-view.mjs": 8,
     "v2/card-game/dialogue.mjs": 1,
     "v2/card-game/glimpse-card.mjs": 4,
-    "v2/card-game/index.html": 107,
+    "v2/card-game/index.html": 109,
     "v2/card-game/inner-life.mjs": 7,
     "v2/card-game/local-saves.mjs": 1,
     "v2/card-game/page-fade.mjs": 1,
@@ -295,6 +310,7 @@
     "v2/card-game/toolbar.mjs": 12,
     "v2/card-game/weather-shader.mjs": 1,
     "v2/card-game/weather-view.mjs": 2,
-    "v2/card-game/card-descriptor.mjs": 8
+    "v2/card-game/card-descriptor.mjs": 8,
+    "v2/card-game/character-sheet.mjs": 32
   }
 }

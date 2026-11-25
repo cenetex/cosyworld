@@ -164,6 +164,7 @@ import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { showWorldTier } from "./world-level.mjs";
 import { worldLogoKey } from "./title-logo.mjs";
 import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
+import { characterSheet, characterSheetSection } from "./character-sheet.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
   beatSummary,
@@ -2442,14 +2443,18 @@ async function travel(place, arrive, landed, lost = false) {
   landed();
 }
 
-function showItemView(id) {
+function showItemView(id, source = `./${things[id].view}`) {
   const dialog = $("item-view"),
     image = $("item-view-image");
   dialog.dataset.zoomed = "false";
   $("item-view-zoom").textContent = "Enlarge";
   dialog.setAttribute("aria-label", nameOf(id));
-  image.src = `./${things[id].view}`;
+  image.src = source;
   image.alt = nameOf(id);
+  dialog.onclose = () => {
+    image.removeAttribute("src");
+    if ($("history-dialog").open) $("messages").querySelector(`[data-tarot="${id}"]`)?.focus({ preventScroll: true });
+  };
   dialog.showModal();
   pauseSpeech();
 }
@@ -4817,9 +4822,6 @@ document.addEventListener("keydown", (event) => {
   });
 }
 let renderedMemory = "";
-// Memory is opened on purpose: the avatar's inner life (I'm, I'm becoming,
-// I dream), then every remembered visit, newest first, as the same beats the
-// stack shows. Closed, it holds no portraits at all.
 function renderLog(open = $("history-dialog").open) {
   const box = $("messages");
   if (!open) {
@@ -4829,6 +4831,7 @@ function renderLog(open = $("history-dialog").open) {
     return;
   }
   const visibleText = coveredTextReader(world, cardIsCovered);
+  const sheet = characterSheet(world, { known: (id) => !cardIsCovered(id) });
   const visits = memoryVisits(shownWorld(), {
     viewer: currentActor(world),
     shared: Boolean(sharedSession),
@@ -4845,21 +4848,21 @@ function renderLog(open = $("history-dialog").open) {
     dreams: chain.dreams.map(visibleText),
   };
   const key = JSON.stringify([
-    inner,
+    sheet, inner,
     ...visits.map((visit) => [
       visit.key,
       visibleText(nameOf(visit.placeId)),
-      visit.beats.map((beat) => [
-        beat.key,
-        beat.line?.text,
-        beat.actions.map((action) => action.text),
-      ]),
+      visit.beats.map((beat) => [beat.key, beat.line?.text, beat.actions.map((action) => action.text)]),
     ]),
   ]);
   if (key === renderedMemory) return;
   renderedMemory = key;
+  const focused = box.contains(document.activeElement) && document.activeElement.dataset.tarot;
+  const scroll = box.scrollTop;
   box.replaceChildren(
+    characterSheetSection(sheet, { viewCard: showItemView }),
     innerLifeSection(inner),
+    node("h3", "Memory", "memory-place"),
     ...visits.map((visit) => {
       const section = node("section", undefined, "memory-visit");
       section.append(
@@ -4886,13 +4889,7 @@ function renderLog(open = $("history-dialog").open) {
           face.append(image);
         }
         const body = node("div", undefined, "memory-body");
-        body.append(
-          node(
-            "div",
-            visibleText(beat.line?.speaker || nameOf(beat.speakerId)),
-            "speaker",
-          ),
-        );
+        body.append(node("div", visibleText(beat.line?.speaker || nameOf(beat.speakerId)), "speaker"));
         if (beat.line) body.append(node("p", beat.line.text));
         for (const action of beat.actions) {
           const caption = node("p", undefined, "beat-caption");
@@ -4907,6 +4904,8 @@ function renderLog(open = $("history-dialog").open) {
       return section;
     }),
   );
+  box.scrollTop = scroll;
+  if (focused) box.querySelector(`[data-tarot="${focused}"]`)?.focus({ preventScroll: true });
 }
 
 // A card responds to a moved pointer. A new deal clears that hover so a
@@ -5541,7 +5540,6 @@ $("history-button").onclick = () => {
   renderLog(true);
   $("history-dialog").showModal();
   pauseSpeech();
-  // The newest visit is first; the past is further down.
   $("messages").scrollTop = 0;
 };
 startMetrics($("metrics-toggle"));
