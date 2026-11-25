@@ -231,7 +231,8 @@ fn a_call_receipt_keeps_only_authored_crossing_ids() {
         .as_str()
         .unwrap();
     assert!(key.contains("pond-greek-harbor"));
-    let kept: Value = serde_json::from_str(&trusted_save(&honest.to_string(), &[]).unwrap()).unwrap();
+    let kept: Value =
+        serde_json::from_str(&trusted_save(&honest.to_string(), &[]).unwrap()).unwrap();
     assert_eq!(kept["log"], honest["log"]);
     assert_eq!(&kept["actors"]["keeper"]["completedQuest"], receipt);
     for crossing in ["lamp", "pond-greek-harbor-lamp", TOKEN, INJECTION] {
@@ -270,7 +271,6 @@ fn a_token_shaped_injection_is_not_an_id() {
     let kept = trusted_save(&text, &[]).unwrap();
     let world = World::create(Some(&kept)).unwrap().game;
     assert!(!world.to_string().contains("PWNED"), "{world}");
-    // An authored grievance stays.
     let mut save = honest_save();
     let fight = json!([{"other":"vale","kind":"threat","reason":"Vale picked a fight.","turn":0,"weight":1}]);
     save["motives"]["grievances"]["moth"] = fight.clone();
