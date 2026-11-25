@@ -50,6 +50,7 @@ jobs:
       actions: read
     outputs:
       deploy: ${{ steps.impact.outputs.deploy }}
+      base: ${{ steps.impact.outputs.base }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -74,6 +75,23 @@ jobs:
           BASE: ${{ steps.impact.outputs.base }}
           DEPLOY: ${{ steps.impact.outputs.deploy }}
         run: bash scripts/dev-train-summary.sh >> "$GITHUB_STEP_SUMMARY"
+
+  # Lint, tests and smokes for main, beside the build. They never hold .dev;
+  # a failure turns main red, and the tag's gates keep it out of production.
+  # Latest wins: a newer train's checks cover this one's commits too.
+  dev-checks:
+    name: Check main
+    needs: dev-plan
+    if: needs.dev-plan.outputs.deploy == 'true'
+    concurrency:
+      group: deploy-${{ github.repository }}-dev-checks
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/fast-check.yml
+    with:
+      base: ${{ needs.dev-plan.outputs.base }}
 
   # Latest wins: a newer main push cancels this build. Only a run that will
   # deploy joins the group, so a no-op run never cancels a real build.
