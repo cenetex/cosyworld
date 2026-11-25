@@ -141,6 +141,7 @@ const files = [
   "rarity-portraits.mjs",
   ...rarityPortraitAssets,
   "quest-card.mjs",
+  "quest-call.mjs",
   "quest-step.mjs",
   "quest-screen.mjs",
   "quest-hand.mjs",

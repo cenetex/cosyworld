@@ -5,6 +5,7 @@ import { BOARDY, connectedHumans } from "./boardyai.mjs";
 import { controlledByHuman, humanAvatarIds, sharedEnabled } from "./human-cast.mjs";
 import {
   entityActive,
+  crossings,
   isFood,
   freed,
   isPackActor,
@@ -505,6 +506,7 @@ function stepMet(s, actor, want, action) {
       (verb === "give"
         ? action.item === want.target && action.target === to && action.accepted
         : action.target === want.target);
+  if (verb === "call") return false; // settled with the crossing's exact predicate
   if (verb === "lay") return layMet(s, want);
   if (verb === "find") return placeOfItem(s, want.target) === me.place;
   // Eat (rules 102): this avatar eats the food, there and with that
@@ -661,6 +663,23 @@ export function settleWants(s, actors, api, action = null, stale = []) {
   }
   return met;
 }
+export function completeCall(s, owner, by, api) {
+  const a = s.actors[owner], want = a.want;
+  if (!want || (a.completedQuest && sameQuest(a.completedQuest.want, want))) return;
+  const helpers = Object.keys(s.actors).filter((id) => id !== owner &&
+    (id === by || knowsFact(s, id, questFactId(owner, want))));
+  a.completedQuest = { want: structuredClone(want), by, turn: s.turn };
+  const met = [], quiet = { ...api, log: () => {} };
+  commitMet(s, owner, quiet, met, want);
+  helped(s, owner, quiet, { kind: "call", actor: by }, met, want);
+  api.log(by, want, owner);
+  for (const id of helpers) {
+    if (id !== by) gainTrust(s, owner, id);
+    const card = { ...api.card(owner, want), from: `quest:from:${owner}` };
+    if (api.player(id) && !closedBy(s.actors[id], card.from, card))
+      commitMet(s, id, quiet, met, card);
+  }
+}
 // A refused gift or trade meets nothing, and a handover under pressure is no
 // help. A plain Give earns trust in `trustGiver`.
 function helped(s, owner, api, action, met, card) {
@@ -782,6 +801,7 @@ export function reviseStalledWants(s, actors, api, before = s) {
     if (
       !api.player(id) &&
       !accepted(s, id) &&
+      want?.step?.verb !== "call" &&
       (travels(id, s) || api.wanders?.(id)) &&
       (want?.kind === "place"
         ? want.target !== s.actors[id].place &&
@@ -800,6 +820,7 @@ export function reviseStalledWants(s, actors, api, before = s) {
     const want = s.actors[id].want;
     if (
       want &&
+      want.step?.verb !== "call" &&
       !api.player(id) &&
       !humanAvatarIds.includes(id) &&
       entityActive(s, id) &&
@@ -851,7 +872,7 @@ function sawLost(s, id, lost, action, api) {
 export function fillWants(s, api, now = false) {
   for (const [id, a] of Object.entries(s.actors)) {
     if (a.want) delete a.content;
-    if (api.player(id) || wantless(id)) continue;
+    if (api.player(id) || wantless(id) || a.completedQuest) continue;
     if (
       !a.want &&
       entityActive(s, id) &&
@@ -864,7 +885,7 @@ export function fillWants(s, api, now = false) {
 // drawn as ever.
 export function renewWant(s, id, api) {
   const a = s.actors[id];
-  if (!a?.content || api.player(id)) return;
+  if (!a?.content || api.player(id) || a.completedQuest) return;
   delete a.content;
   if (!a.want) setWant(a, nextWant(s, id, api));
 }
@@ -872,6 +893,9 @@ export function renewWant(s, id, api) {
 const STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
 function validStep(s, w, id) {
   const { verb, ...cards } = w.step;
+  if (verb === "call")
+    return w.kind === "place" && Object.keys(cards).join() === "crossing" &&
+      crossings.some((c) => c.id === cards.crossing && c.from === w.target && c.unlockWhen?.length);
   if (verb === "lay")
     return (
       w.kind === "place" &&
@@ -956,6 +980,7 @@ export function validWant(s, id) {
     (a.metTurn === undefined || whole(a.metTurn)) &&
     validUnder(s, id) &&
     validClosed(s, a) &&
+    (a.completedQuest === undefined || validCompletion(s, id, a.completedQuest)) &&
     a.questRewards === undefined &&
     (a.content === undefined || a.content === true) &&
     (a.glimpse === undefined || validGlimpse(a.glimpse)) &&
@@ -974,6 +999,12 @@ export function validWant(s, id) {
     Array.isArray(a.visited) &&
     (a.want === null || validQuest(s, id, a.want))
   );
+}
+function validCompletion(s, id, done) {
+  return Boolean(done && Object.keys(done).sort().join() === "by,turn,want" &&
+    Object.hasOwn(s.actors, done.by) && Number.isSafeInteger(done.turn) &&
+    done.turn >= done.want?.since && done.turn <= s.turn &&
+    done.want?.step?.verb === "call" && validQuest(s, id, done.want));
 }
 function validTold(s, id) {
   const told = s.actors[id].told;

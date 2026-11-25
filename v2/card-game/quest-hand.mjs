@@ -9,9 +9,10 @@ import { revealed } from "./want-talk.mjs";
 import { entityActive } from "./pack-registry.mjs";
 import { people, places } from "./world.mjs";
 import { knowsFact, placeFactId } from "./knowledge.mjs";
+import { callTeller, ownerWant } from "./quest-call.mjs";
 
 export function tableQuest(world, viewer, owner) {
-  const want = world.actors[owner]?.want,
+  const want = ownerWant(world, owner),
     item = places[owner] && world.actors[viewer]?.place === owner && world.placeCard?.[owner];
   if (item)
     return { id: `offer:${owner}`, owner, quest: knowsFact(world, viewer, placeFactId(owner, item)) ? ownerCard(world, viewer, owner) : null };
@@ -27,8 +28,15 @@ export function tableQuest(world, viewer, owner) {
   return { id: `offer:${owner}`, owner, quest };
 }
 
-export const tableQuests = (world, viewer, ids) =>
-  ids.map((owner) => tableQuest(world, viewer, owner)).filter(Boolean);
+export function tableQuests(world, viewer, ids) {
+  const local = ids.map((owner) => tableQuest(world, viewer, owner)).filter(Boolean);
+  const heard = Object.keys(world.actors).filter((owner) =>
+    !ids.includes(owner) && ids.includes(callTeller(world, viewer, owner)));
+  return [...local, ...heard.map((owner) => {
+    const table = tableQuest(world, viewer, owner), teller = callTeller(world, viewer, owner);
+    return table?.quest ? { ...table, beside: teller, quest: { ...table.quest, heardFrom: teller } } : null;
+  }).filter(Boolean)];
+}
 
 export function notBehindOwners(quests, tableHand) {
   const table = quests.some((q) => q.from?.startsWith("quest:from:")) ? tableHand() : [];
@@ -36,14 +44,17 @@ export function notBehindOwners(quests, tableHand) {
   return quests.filter((q) => !table.some(shown(q)));
 }
 
-export const tableOwner = (id) => id.slice("offer:".length);
+export const tableOwner = (id, world = null, viewer = null) => {
+  const owner = id.slice("offer:".length);
+  return (world && callTeller(world, viewer, owner)) || owner;
+};
 
 export function besideOwners(cards, entries, world) {
   const hand = [...cards];
-  for (const { id, owner } of entries) {
-    let at = hand.indexOf(owner) + 1;
+  for (const { id, owner, beside = owner } of entries) {
+    let at = hand.indexOf(beside) + 1;
     if (!at) continue;
-    while (at < hand.length && tableHolder(world, hand[at]) === owner) at++;
+    while (at < hand.length && tableHolder(world, hand[at]) === beside) at++;
     hand.splice(at, 0, id);
   }
   return hand;

@@ -6,6 +6,7 @@ import { CONNECT_TARGET, layMet, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable, spentByChoice } from "./pack-registry.mjs";
 import { questFor } from "./talk-quest.mjs";
 import { revealed } from "./want-talk.mjs";
+import { ownerWant } from "./quest-call.mjs";
 import { UNKNOWN, conditionWords, kindOf, numberWord, wantWords } from "./world/want-words.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
@@ -79,12 +80,13 @@ export const questCards = (world, actor = currentActor(world)) =>
   );
 export function ownerCard(world, viewer, owner) {
   const place = places[owner] && placeWant(world, owner),
-    want = place || world.actors[owner]?.want,
+    want = place || ownerWant(world, owner),
     card = want && (place || revealed(world, owner, want, viewer)) && questFor(world, owner, want);
   return card
     ? {
         ...questShape(world, viewer, card, `offer:${viewer}:${owner}:${card.kind}:${card.target}`, -1),
         offer: owner,
+        ...(!place && !world.actors[owner].want ? { completed: world.actors[owner].completedQuest } : {}),
         ...(place ? { lies: rootHolder(world, card.step.items[0]) } : {}),
       }
     : null;
@@ -118,8 +120,10 @@ const lies = ({ lies, actor }, known) =>
       ? `which lies ${known(lies) ? `at ${theName(lies)}` : UNKNOWN.place}`
       : `which ${known(lies) ? nameOf(lies) : "someone"} carries`;
 export function offerWords(quest, known = () => true) {
+  if (quest.heardFrom) return `${nameOf(quest.heardFrom)} told you: ${offerWords({ ...quest, heardFrom: null }, known)}`;
   const who = nameOf(quest.offer),
     said = quest.goal ?? quest;
+  if (quest.completed) return `${nameOf(quest.completed.by)} called the ship for ${who}`;
   if (quest.lies) {
     const [item] = quest.step.items,
       place = theName(quest.offer);
@@ -253,6 +257,7 @@ export function questNear(world, quest) {
 // shows the way there, and the rest once the player stands there (#2255); an
 // unvisited or covered place is discovered.
 const STEP_LABELS = {
+  call: "Call ship",
   find: "Find",
   give: "Give",
   bring: "Bring",
@@ -261,6 +266,7 @@ const STEP_LABELS = {
   attack: "Strike",
 };
 export function questVerb(world, quest, covered = false) {
+  if (quest.completed) return "Called";
   if (quest.step?.verb === "lay")
     return quest.goal ? questVerb(world, { ...quest.goal, actor: quest.actor }, covered) : "Lay";
   if (quest.step?.verb === "eat")

@@ -1684,7 +1684,7 @@ function avatarStack(id) {
       open: false,
       top: true,
       under: 0,
-      shown: questOpen === id || expandedHolders.has(tableOwner(id)),
+      shown: questOpen === id || expandedHolders.has(tableOwner(id, world, actor)),
     };
   if (isQuestId(id) || isTarotKey(id))
     return {
@@ -3561,7 +3561,7 @@ function questFace(quest, verb) {
   return [screen, head];
 }
 function questFrame({ id, quest }) {
-  if (!quest) return tableBack(id, tableView(tableOwner(id)));
+  if (!quest) return tableBack(id, tableView(tableOwner(id, world, currentActor(world))));
   const picked = questOpen === id,
     covered = isTarotKey(id) && cardIsCovered(id);
   const hidden = questCovered(quest),
@@ -3614,7 +3614,7 @@ function questFrame({ id, quest }) {
   frame.dataset.want = quest.kind;
   frame.dataset.questId = id;
   frame.dataset.raised = String(picked);
-  frame.dataset.holder = isResidentOffer(id) ? quest.offer : quest.actor;
+  frame.dataset.holder = isResidentOffer(id) ? tableOwner(id, world, currentActor(world)) : quest.actor;
   frame.append(el);
   syncAvatarStack(frame, id);
   applyPackFrame(frame, id);

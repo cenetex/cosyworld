@@ -567,6 +567,10 @@ export function knowledgeFacts(
     const place = fact.source.kind === "topic" ? null : fact.source.locationId;
     const where =
       place && !fact.text.includes(nameOf(place)) ? ` at ${nameOf(place)}` : "";
+    const retold = fact.source.kind === "quest" && memory.kind === "heard" && memory.teller !== fact.source.actorId;
+    const heardAt = retold && world.log?.find((e) => e.seq === memory.eventSeq)?.locationId;
+    const heardWhere = retold ? (heardAt ? ` at ${nameOf(heardAt)}` : "") : where;
+    const source = retold ? ` ${nameOf(fact.source.actorId)} made the request${where}.` : "";
     // Authored topics and finished stories hold. Witnessed events, such as
     // who carried what where, can go stale, and saying so keeps an old
     // account honest instead of a quiet lie.
@@ -575,7 +579,7 @@ export function knowledgeFacts(
       (fact.source.kind === "quest" && !protectedFact(fact, world))
         ? " Things may have changed since."
         : "";
-    return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale}`.slice(
+    return `${origin} this ${ageText(age)}${heardWhere}: ${fact.text}${source}${stale}`.slice(
       0,
       240,
     );

@@ -1,5 +1,6 @@
 import { consumable } from "../pack-registry.mjs";
 import { nameOf, people, places } from "./catalog.mjs";
+import { callWords } from "../want-talk.mjs";
 
 export const UNKNOWN = {
   item: "something you haven't found",
@@ -65,6 +66,8 @@ export function wantWords(
         : `${verb} ${what}`;
   if (step?.verb === "lay")
     return `lay ${want.lit ? "the lit " : ""}${list(step.items)} ${near("in", want.target)}`;
+  if (step?.verb === "call")
+    return callWords(want, name);
   if (step?.verb === "give")
     return `give ${what} to ${name(step.to, "person")}`;
   if (step?.verb === "trade")
