@@ -99,8 +99,6 @@ const files = [
   // Rest card paintings for issue #1849; the rest-card feature follows.
   "assets/rest/short-rest.webp",
   "assets/rest/long-rest.webp",
-  // The song for the end of Polynices' burial (issue #2290); its cue follows
-  // when the burial is built.
   "mood-art.mjs",
   "mood.mjs",
   "sleep-portraits.mjs",
@@ -140,6 +138,7 @@ const files = [
   "rarity.mjs",
   "rarity-portraits.mjs",
   ...rarityPortraitAssets,
+  "quest-action.mjs",
   "quest-card.mjs",
   "quest-call.mjs",
   "quest-step.mjs",
