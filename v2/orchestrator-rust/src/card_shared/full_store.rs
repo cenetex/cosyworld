@@ -124,7 +124,7 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         if engine::historical(&w.version) {
             let from = w.version.clone();
             let mut upgrade =
-                json!({"op":"upgrade", "from":from, "to":engine::VERSION, "seed":run_seed(id)});
+                json!({"op":"upgrade", "from":from, "to":engine::version(), "seed":run_seed(id)});
             content::save(c)?;
             upgrade["pack"] = json!(content::current());
             commit(c, id, &mut w, upgrade, now)?;
@@ -133,7 +133,7 @@ pub(super) fn world(c: &Connection, id: &str, now: i64) -> Result<World> {
         if engine::newer(&w.version) {
             return Err(engine::UPDATING.into());
         }
-        if w.version != engine::VERSION {
+        if w.version != engine::version() {
             return Err("This world's rules need a saved migration.".into());
         }
         if w.pack.as_deref() != Some(content::current()) {
@@ -533,16 +533,16 @@ mod tests {
     fn newer_rules_wait_for_the_swap_and_older_ones_are_closed() {
         let next = format!(
             "full-card-world/{}",
-            engine::VERSION[16..].parse::<u32>().unwrap() + 1
+            engine::version()[16..].parse::<u32>().unwrap() + 1
         );
         let closed = floor::CLOSED;
         // The release swap: a newer checkpoint, a newer play, a newer upgrade.
         assert_eq!(opened(&next, None).unwrap_err(), engine::UPDATING);
         let play = json!({"op":"release","actor":"mara"});
         assert_eq!(opened(&next, Some(play)).unwrap_err(), engine::UPDATING);
-        let upgrade = json!({"op":"upgrade","from":engine::VERSION,"to":next,"seed":1});
+        let upgrade = json!({"op":"upgrade","from":engine::version(),"to":next,"seed":1});
         assert_eq!(
-            opened(engine::VERSION, Some(upgrade)).unwrap_err(),
+            opened(engine::version(), Some(upgrade)).unwrap_err(),
             engine::UPDATING
         );
         // Rules older than the floor, or unreadable, are closed (full_floor.rs).
@@ -550,6 +550,6 @@ mod tests {
         assert_eq!(opened("full-card-world/132", None).unwrap_err(), closed);
         assert_eq!(opened("full-card-world/x", None).unwrap_err(), closed);
         assert_eq!(opened("other-world/999", None).unwrap_err(), closed);
-        assert!(opened(engine::VERSION, None).is_ok());
+        assert!(opened(engine::version(), None).is_ok());
     }
 }

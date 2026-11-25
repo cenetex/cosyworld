@@ -228,7 +228,7 @@ fn with_history(seed: u32, hide: &Value) -> Result<World> {
     }
     let result = super::engine::reduce(request)?;
     Ok(World {
-        version: super::engine::VERSION.into(),
+        version: super::engine::version().into(),
         game: result["world"].clone(),
         claimed: [0; 8],
         present: [0; 8],

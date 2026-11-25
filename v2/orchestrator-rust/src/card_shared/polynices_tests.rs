@@ -49,7 +49,7 @@ fn polynices_rites_match_the_source_model_and_replay_from_the_journal() {
     );
     let fixture: Value = serde_json::from_slice(&output.stdout).unwrap();
     let mut world = World::create(fixture["save"].as_str()).unwrap();
-    assert_eq!(world.version, engine::VERSION);
+    assert_eq!(world.version, engine::version());
     assert_eq!(world.game, fixture["initial"]);
     world.claimed[0] = 1;
     world.present[0] = 1;

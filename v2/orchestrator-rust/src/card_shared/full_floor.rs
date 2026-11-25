@@ -18,7 +18,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 
 /// The oldest rules a shared world may still run on. Raise it deliberately
-/// and never together with `engine::VERSION` in one change: doing both would
+/// and never together with a new rules version in one change: doing both would
 /// retire every live world at once.
 pub(super) const FLOOR: u32 = 133;
 pub(super) const CLOSED: &str = "This world has closed.";
