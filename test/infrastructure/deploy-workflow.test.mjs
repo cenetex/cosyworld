@@ -308,6 +308,7 @@ describe("deploy workflow", () => {
       'bash scripts/stage-dev-release.sh >> "$GITHUB_OUTPUT"',
       'bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy "$STRATEGY" --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA" --env "COSYWORLD_IMAGE_COMMIT=$IMAGE_COMMIT"',
       "node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev",
+      '--command "readlink /data/releases/current"',
       'COSYWORLD_SMOKE_MANIFEST="$RUNNER_TEMP/dev-release/manifest.json" node v2/scripts/smoke-deployed-card-game.mjs',
       "node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev",
       'git show "$PREVIOUS_COMMIT:fly.toml" > fly.previous.toml',
@@ -325,6 +326,7 @@ describe("deploy workflow", () => {
     expect(dev).toContain("RELEASE_IMAGE: ${{ needs.dev-image.outputs.image || steps.serving.outputs.image }}");
     expect(dev).toContain("IMAGE_COMMIT: ${{ env.FAST == 'true' && steps.serving.outputs.image_commit || github.sha }}");
     expect(dev).toContain("if: steps.rollout.outcome == 'success' && env.FAST != 'true'");
+    expect(dev).toContain('[ "$served" = "/data/releases/$GITHUB_SHA" ] ||');
     expect(dev).toContain('[ "$RELEASES" != off ]');
     expect(dev).toContain("COSYWORLD_EXPECT_COMMIT: ${{ github.sha }}");
     expect(dev).toContain("POLLS: ${{ env.FAST == 'true' && '20' || '1' }}");
@@ -428,6 +430,7 @@ describe("deploy workflow", () => {
     expect(restore).toContain("compare/${GITHUB_SHA}...${sha}");
     expect(restore).toContain('if [ "$status" = ahead ]; then');
     expect(restore).toContain('git checkout --quiet "$DEV_SHA"');
+    expect(restore).toContain('built="$(timeout 60 flyctl ssh console');
     expect(restore).toContain(
       'GITHUB_SHA="$DEV_SHA" exec node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev',
     );
@@ -503,6 +506,12 @@ describe("deploy workflow", () => {
       expect(source).toContain("-cargo-deps-v1-");
       expect(source).not.toMatch(/-cargo-(compact|orchestrator)-/);
     }
+  });
+
+  it("checks on each Rust change that no file the fast path ships is compiled in", () => {
+    const smokes = workflowJob(checksWorkflow, "rust-smokes", "rust-lint");
+    expect(smokes).toContain("if: needs.plan.outputs.rust-tests != ''");
+    expect(smokes).toContain("run: node v2/scripts/check-rust-inputs.mjs --strict");
   });
 
   it("skips each quarantined flaky Rust test, which still exists", () => {
