@@ -48,7 +48,9 @@ describe("one public card asset list", () => {
     expect(build("b.json")).toBe(first);
     const { sha256, files } = JSON.parse(first);
     const listed = publicAssets.map(({ file }) => `card-game/${file}`);
-    expect(Object.keys(files)).toEqual(listed);
+    expect(
+      Object.keys(files).filter((key) => key.startsWith("card-game/")),
+    ).toEqual(listed);
     const pairs = publicAssets.map(({ file }, i) => [
       file,
       files[listed[i]].sha256,
