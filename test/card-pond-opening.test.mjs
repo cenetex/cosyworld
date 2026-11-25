@@ -71,7 +71,6 @@ describe("the attic opening and saved pond journeys", () => {
   });
   it("meets Vale's lamp want and then the keeper through the pond and station", () => {
     let world = fresh();
-    // A player takes its own quest by a tap; give Vale the lamp quest.
     world.actors.vale.want = { kind: "item", target: "lamp", since: 0, refusals: 0 };
     world = selectLamp(world, "lamp");
     const xp = world.actors.vale.xp;

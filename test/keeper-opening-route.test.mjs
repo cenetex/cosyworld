@@ -27,8 +27,6 @@ it("calls the ship before gifting the Lamp through the unchanged seed 23 opening
     assert.equal(world.turn, turn, "Choosing a hand spends no turn");
   };
 
-  // Use the real new-game state and resident rounds. No custody, trust,
-  // location, fuel, or resident goal is supplied by a fixture.
   assert.equal(world.actors.vale.place, "attic");
   assert.equal(world.items.cloth.holder, "moth");
   assert.equal(world.items.lamp.holder, "vale");
@@ -44,8 +42,6 @@ it("calls the ship before gifting the Lamp through the unchanged seed 23 opening
     assert.equal(world.items.lamp.holder, "vale");
   }
 
-  // Pip follows the Lamp to the station, then tries a gift after his request
-  // was declined. This is his own accepted play, not a successful Ask.
   assert.equal(world.actors.moth.place, "station");
   assert.equal(world.actors.moth.trust.vale, 0);
   assert.equal(world.items.cloth.holder, "vale");
@@ -59,6 +55,7 @@ it("calls the ship before gifting the Lamp through the unchanged seed 23 opening
         event.targetId === "vale" &&
         event.accepted === true,
     ),
+    "Pip gives the cloth in his own accepted turn while Vale retains the Lamp",
   );
   act("move:vale::pond");
   hold("cloth");
@@ -76,8 +73,6 @@ it("calls the ship before gifting the Lamp through the unchanged seed 23 opening
   assert.equal(world.crossings["pond-greek-harbor"].discovered, true);
   assert.equal(world.transports["greek-ship"].dock, "pond");
 
-  // Saving requires no extra Wait. The same Lamp remains available for Pip
-  // after the call; taking it back does not revoke the discovered crossing.
   world = decodeSave(encodeSave(world));
   act("take:vale:lamp:");
   act("move:vale::station");
