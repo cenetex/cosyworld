@@ -104,6 +104,7 @@ import {
 import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
 import { crossedPortraitTier } from "./rarity-portraits.mjs";
 import {
+  discardable,
   isQuestId,
   isTarotKey,
   levelCards,
@@ -2730,8 +2731,6 @@ function renderActions() {
       lastWait.revision === world.revision,
     chosen,
   );
-  // A chosen play leaves the beat: the Thinking card stands for it, and its
-  // reply types into the full-size front card.
   const coveredPick =
     !rested && !selected.length && isTarotKey(questOpen) && cardIsCovered(questOpen)
       ? questOpen
@@ -2904,7 +2903,7 @@ function renderActions() {
   const picked = !rested && !coveredPick ? pickedQuest() : null;
   const legal = picked ? legalActions(world) : [];
   const drop =
-    picked?.kind === "arcanum" &&
+    discardable(picked) &&
     legal.find((a) => a.kind === "drop" && !a.item && a.tarot === picked.index);
   const confirmKey = drop ? `${revision}:${picked.key}` : null;
   if (abandonQuest !== confirmKey) abandonQuest = null;
@@ -3043,7 +3042,7 @@ function renderActions() {
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
-    noteText = picked.face === "down" ? "" : `${shownQuestCaption(picked, false)}.`;
+    noteText = `${shownQuestCaption(picked, false)}.`;
   }
   showActionBeatNote(note, { note: noteText });
   const text = abandonQuest ? "Discard this quest?" : sentence;
