@@ -107,9 +107,8 @@ jobs:
       - run: npm ci --prefer-offline --no-audit --no-fund
       - run: npm run lint
       - run: npm run check:test-guards
-      # Every generated output rebuilds from its sources; a stale one fails
-      # here with the command that fixes it (`npm run regen`). It runs once
-      # here, not in each unit shard.
+      - run: node --test v2/discord-gateway/test/*.test.mjs
+      # A stale generated output fails here with the fix (`npm run regen`).
       - run: npm run regen:check
 
   # Three vitest shards balanced by test/durations.json, three workers each.
