@@ -1120,7 +1120,8 @@
       need: record7?.need || [],
       done: record7?.done || [],
       spread: record7?.spread || [],
-      sale: record7?.sale === true
+      sale: record7?.sale === true,
+      paid: record7?.paid === true
     };
   }
   var arcanaLevel = (s, id) => {
@@ -1128,13 +1129,14 @@
     return Math.min(LEVEL_CAP, record7.level ?? record7.proved.length);
   };
   var tarotsHeld = (actor) => actor?.arcana?.spread?.length ?? 0;
+  var rewardPending = (s, traveler) => recordOf(s, traveler).spread.some((slot) => slot.face === "reward");
   function called(s, traveler) {
-    if (!humanPresent(s, traveler)) return false;
+    if (!humanPresent(s, traveler) || rewardPending(s, traveler)) return false;
     const record7 = recordOf(s, traveler);
-    return record7.sale || record7.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP;
+    return !record7.paid && (record7.sale || record7.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP);
   }
   var calledTravelers = (s) => Object.keys(s.actors || {}).sort().filter((id) => called(s, id));
-  var selling = (s, traveler) => humanPresent(s, traveler) && recordOf(s, traveler).sale;
+  var selling = (s, traveler) => humanPresent(s, traveler) && !rewardPending(s, traveler) && !recordOf(s, traveler).paid && recordOf(s, traveler).sale;
 
   // v2/card-game/forest.json
   var forest_default = {
@@ -19663,7 +19665,9 @@
   );
   var risingIn = (card) => card.proof.flatMap(countsIn).filter((c) => c.min !== void 0);
   var cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
+  var FOOL = 0;
   var LISTENER = arcana_default.visit.match.targetId;
+  var numbered = (n) => deck.cards.find((card) => card.number === n)?.id;
   var sorted = (ids3) => [...new Set(ids3)].sort();
   var collect = (actor, ids3) => actor.upgrades = sorted([...actor.upgrades || [], ...ids3]);
   var validList = (list) => Array.isArray(list) && list.length <= 64 && list.every(
@@ -19674,8 +19678,8 @@
     if (!plainObject(slot)) return false;
     const card = cardOf(slot.card);
     if (!card || !Object.keys(slot).every(
-      (key2) => ["base", "bind", "card", "done", "face", "scale"].includes(key2)
-    ) || !["up", "down", "locked"].includes(slot.face) || slot.done !== void 0 && !(slot.done === true && slot.face === "down") || slot.scale !== void 0 && ![2, 3].includes(slot.scale))
+      (key2) => ["base", "bind", "bonus", "card", "done", "face", "scale"].includes(key2)
+    ) || !["up", "down", "locked", "reward"].includes(slot.face) || slot.bonus !== void 0 && !(slot.bonus === true && ["up", "reward"].includes(slot.face)) || slot.done !== void 0 && !(slot.done === true && ["down", "reward"].includes(slot.face)) || slot.scale !== void 0 && ![2, 3].includes(slot.scale))
       return false;
     const roles = (card.roles || []).map((role) => role.name).sort();
     if (roles.length ? !plainObject(slot.bind) || Object.keys(slot.bind).sort().join() !== roles.join() || !Object.values(slot.bind).every((id) => typeof id === "string" && id) : slot.bind !== void 0)
@@ -19702,6 +19706,27 @@
       }
       if (record7.level !== void 0 && !validLevel(record7.level))
         delete record7.level;
+      const owned = new Set(actor.upgrades || []);
+      const needed2 = Array.isArray(record7.need) ? record7.need : [];
+      for (const slot of Array.isArray(record7.spread) ? record7.spread : []) {
+        if (!plainObject(slot)) continue;
+        const firstFool = slot.card === numbered(FOOL) && (record7.level ?? proved.length) === 0 && needed2.includes(slot.card);
+        if (slot.face === "up" && firstFool && !proved.includes(slot.card))
+          slot.face = "reward";
+        else if (slot.face === "down" && owned.has(slot.card) && !firstFool) {
+          slot.face = slot.done ? "reward" : "up";
+          slot.bonus = true;
+          if (Array.isArray(record7.need)) {
+            record7.need = record7.need.filter((id) => id !== slot.card);
+            if (!record7.need.length) delete record7.need;
+          }
+          if (Array.isArray(record7.done)) {
+            record7.done = record7.done.filter((id) => id !== slot.card);
+            if (!record7.done.length) delete record7.done;
+          }
+        } else if (slot.face === "up" && !needed2.includes(slot.card))
+          slot.bonus = true;
+      }
       if (record7.spread !== void 0 && !validSpread(record7.spread))
         delete record7.spread;
       const revealed2 = (record7.spread || []).filter((slot) => slot.face === "up").map((slot) => slot.card);
@@ -19711,6 +19736,7 @@
       if (record7.done !== void 0 && !validDone(record7.done))
         delete record7.done;
       if (record7.sale !== void 0 && record7.sale !== true) delete record7.sale;
+      if (record7.paid !== void 0 && record7.paid !== true) delete record7.paid;
     }
     return s;
   }
@@ -19728,11 +19754,12 @@
           "done",
           "level",
           "need",
+          "paid",
           "proved",
           "sale",
           "spread"
         ].includes(key2)
-      ) && (record7.calls === void 0 || Number.isSafeInteger(record7.calls) && record7.calls >= 1 && record7.calls <= CALLS) && (record7.callers === void 0 || validList(record7.callers) && record7.callers.length >= 1 && record7.callers.length <= (record7.calls ?? 0)) && (record7.sale === void 0 || record7.sale === true) && (record7.level === void 0 || validLevel(record7.level)) && (record7.spread === void 0 || validSpread(record7.spread)) && (record7.need === void 0 || validNeed(record7.need)) && (record7.done === void 0 || validDone(record7.done)) && validList(record7.did) && validList(record7.proved);
+      ) && (record7.calls === void 0 || Number.isSafeInteger(record7.calls) && record7.calls >= 1 && record7.calls <= CALLS) && (record7.callers === void 0 || validList(record7.callers) && record7.callers.length >= 1 && record7.callers.length <= (record7.calls ?? 0)) && (record7.sale === void 0 || record7.sale === true) && (record7.paid === void 0 || record7.paid === true) && (record7.level === void 0 || validLevel(record7.level)) && (record7.spread === void 0 || validSpread(record7.spread)) && (record7.need === void 0 || validNeed(record7.need)) && (record7.done === void 0 || validDone(record7.done)) && validList(record7.did) && validList(record7.proved);
     });
   }
 

@@ -1,7 +1,7 @@
 import { entityActive, neverBack, packOf, transports } from "../pack-registry.mjs";
 import { packDiscovered, runHash } from "../pack-rules.mjs";
 import { usedUp } from "../item-use.mjs";
-import { arcanaLevel, owesGiving, recordOf } from "./arcana-record.mjs";
+import { arcanaLevel, owesGiving, recordOf, selling } from "./arcana-record.mjs";
 import { rootHolder } from "./items.mjs";
 import { controlledByHuman, currentActor, humanAvatar } from "../human-cast.mjs";
 import {
@@ -177,7 +177,7 @@ export function questOffers(s, actor = currentActor(s)) {
     }
   }
   if (
-    (recordOf(s, actor).sale || owesGiving(s, actor)) &&
+    (selling(s, actor) || owesGiving(s, actor)) &&
     s.actors[LISTENER]?.place === here &&
     entityActive(s, LISTENER) &&
     !Object.values(s.items).some((item) => item.holder === actor)
