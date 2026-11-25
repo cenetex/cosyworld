@@ -48,9 +48,8 @@ env:
 
 jobs:
   # The .dev train deploys main's head from this one job, so it waits for one
-  # runner, not five in a row. It skips the production gates, primary backup,
-  # and Lonely Forest; the fast check still checks main, and bugs on .dev are
-  # fixed forward. Tags and production dispatches use the jobs below.
+  # runner, not five in a row. The production gates, primary backup and
+  # Lonely Forest run only for tags and production dispatches, below.
   # The train deploys the commit it started on even if main moves meanwhile;
   # the next train takes the rest.
   dev-deploy:
@@ -275,16 +274,8 @@ jobs:
 
   production-node-gate:
     name: Production Node and content gate
-    needs: [dev-deploy, deployment-impact, release-owner]
-    # Tags and production dispatches run it before their rollouts. A train
-    # that rolled out runs it after, off the .dev path, with the Rust gate
-    # and lint, so a tag of that train's commit can reuse their results.
-    if: >-
-      !cancelled() &&
-      ((needs.deployment-impact.outputs.deploy == 'true' &&
-        needs.release-owner.outputs.owns == 'true' &&
-        (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))) ||
-       (needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true'))
+    needs: [deployment-impact, release-owner]
+    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -318,18 +309,8 @@ jobs:
 
   production-rust-gate:
     name: Production Rust gate
-    needs: [dev-deploy, deployment-impact, release-owner]
-    # The .dev train deploys without this gate; the fast check still checks
-    # main. Tags and production dispatches keep it. A train that rolled out
-    # runs it after its rollout, off the .dev path, so a tag that only bumps
-    # that train's version reuses the result
-    # (scripts/await-ci-rust.mjs) instead of running it again.
-    if: >-
-      !cancelled() &&
-      ((needs.deployment-impact.outputs.deploy == 'true' &&
-        needs.release-owner.outputs.owns == 'true' &&
-        (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))) ||
-       (needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true'))
+    needs: [deployment-impact, release-owner]
+    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -346,9 +327,8 @@ jobs:
           fetch-depth: 0
           filter: blob:none
 
-      # A manual CI run or a .dev train's gate on this commit (or on the
-      # commit a release only bumps the version of) runs the same Rust tests
-      # and lint. Reuse success; otherwise run the checks here.
+      # Reuse a manual CI run's Rust tests and lint for this commit (or the
+      # commit a release only bumps the version of).
       - name: Reuse CI Rust checks for this commit
         id: ci
         env:
@@ -391,14 +371,8 @@ jobs:
   # test build; in sequence it added about two minutes to every release.
   production-rust-lint:
     name: Production Rust architecture and lint
-    needs: [dev-deploy, deployment-impact, release-owner]
-    # Like the Rust gate, a train that rolled out runs it after its rollout.
-    if: >-
-      !cancelled() &&
-      ((needs.deployment-impact.outputs.deploy == 'true' &&
-        needs.release-owner.outputs.owns == 'true' &&
-        (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))) ||
-       (needs.dev-deploy.result == 'success' && needs.dev-deploy.outputs.rolled-out == 'true'))
+    needs: [deployment-impact, release-owner]
+    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -437,8 +411,6 @@ jobs:
 
   production-gate:
     name: V2 production deployment gate
-    # The .dev train deploys from dev-deploy, which needs no gate, so it
-    # skips this job instead of holding a runner to report that.
     if: ${{ always() && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')) }}
     needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]
     runs-on: ubuntu-latest
@@ -451,7 +423,6 @@ jobs:
           NODE_RESULT: ${{ needs.production-node-gate.result }}
           RUST_RESULT: ${{ needs.production-rust-gate.result }}
           RUST_LINT_RESULT: ${{ needs.production-rust-lint.result }}
-          FULL_RELEASE: ${{ (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')) }}
         run: |
           if [ "$DEPLOY" != true ]; then
             echo "No production inputs changed; deployment is not needed."
@@ -460,10 +431,6 @@ jobs:
           test "$OWNER_RESULT" = success
           if [ "$OWNS_RELEASE" != true ]; then
             echo "This commit was superseded before its production gates; nothing will deploy."
-            exit 0
-          fi
-          if [ "$FULL_RELEASE" != true ]; then
-            echo ".dev train: deploys without the production gates; the fast check checks main."
             exit 0
           fi
           test "$NODE_RESULT" = success
