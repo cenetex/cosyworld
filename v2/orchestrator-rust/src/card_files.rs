@@ -6,7 +6,7 @@ use std::{
     fs,
     path::{Component, Path, PathBuf},
     process::Command,
-    sync::OnceLock,
+    sync::{Mutex, OnceLock},
 };
 
 #[derive(Deserialize)]
@@ -164,9 +164,28 @@ fn store() -> &'static Store {
     load().unwrap_or_else(|error| panic!("Card assets: {error}"))
 }
 
+const SERVER: [&str; 6] = [
+    "card-game/senses.json",
+    "card-game/assets/discord-faces.json",
+    "card-game/assets/music/radio-catalog.json",
+    "card_narrative/authored-text.json",
+    "card_shared/content.json",
+    "card_shared/narrator.js",
+];
+
+fn checked(store: Store) -> Result<Store, String> {
+    match SERVER.iter().find(|key| !store.files.contains_key(**key)) {
+        Some(key) => Err(format!("manifest.json does not list {key}")),
+        None => Ok(store),
+    }
+}
+
 pub fn load() -> Result<&'static Store, String> {
     static STORE: OnceLock<Result<Store, String>> = OnceLock::new();
-    STORE.get_or_init(open).as_ref().map_err(Clone::clone)
+    STORE
+        .get_or_init(|| open().and_then(checked))
+        .as_ref()
+        .map_err(Clone::clone)
 }
 
 pub fn manifest_sha256() -> &'static str {
@@ -187,6 +206,20 @@ pub fn read(key: &str) -> Option<Bytes> {
 
 pub fn sha256(key: &str) -> Option<&'static str> {
     store().sha256(key)
+}
+
+pub fn text(key: &str) -> &'static str {
+    static TEXTS: OnceLock<Mutex<HashMap<String, &'static str>>> = OnceLock::new();
+    let mut texts = TEXTS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    texts.entry(key.to_string()).or_insert_with(|| {
+        let bytes = read(key).unwrap_or_else(|| panic!("Card assets: {key} is missing or changed"));
+        String::from_utf8(bytes.to_vec())
+            .expect("UTF-8 card asset")
+            .leak()
+    })
 }
 
 #[cfg(test)]
@@ -247,6 +280,17 @@ mod tests {
         );
         fs::remove_dir_all(&root).unwrap();
         assert!(Store::open(&root).is_err());
+    }
+
+    #[test]
+    fn a_manifest_without_a_file_the_server_reads_stops_startup() {
+        let root = release(&[("app.mjs", b"export {};", "text/javascript; charset=utf-8")]);
+        let error = checked(Store::open(&root).unwrap()).err();
+        assert_eq!(
+            error.as_deref(),
+            Some("manifest.json does not list card-game/senses.json")
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

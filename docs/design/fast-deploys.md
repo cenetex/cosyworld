@@ -52,12 +52,12 @@ A journal row names `full-card-world/N`. N must resolve to the bytes released as
 
 - `card_shared/rules.json` maps each version to the sha256 of its bundle: `{"133": "…", …, "204": "…"}`. A mint writes the bundle and appends one line. That file is the table the server runs from: the current version is the highest key, historical versions are the rest, and the upgrade order is numeric. It replaces the constants and match arms in `engine.rs` and `full_world.rs`, the output path hard-coded in `build-card-shared-engine.mjs`, and the 71 pins in `test/card-released-rules.test.mjs`, the four files every mint edits today.
 - At startup every pinned bundle must appear in the manifest with exactly its pinned hash. A bundle's bytes are hashed again when it is first loaded for a replay. A mismatch refuses startup, and in the lazy case the version reports itself unsupported instead of running different bytes.
-- The pins only grow. `test/card-released-rules.test.mjs` compares `rules.json` with the released base (`released-bundles.mjs`): a released version's pin may never change or disappear above the floor.
+- The pins only grow. `test/card-released-rules.test.mjs` keeps its released pins, which the mint appends to. `test/card-rules-pins.test.mjs` requires `rules.json` to agree with them, to name exactly the bundle files present, and to match each bundle's bytes. `released-bundles.mjs` still refuses to rebuild a released bundle in place.
 - Phase 4 (rules identity by content hash, stored in the database before any journal row names it) builds on the same pins and the same load path.
 
 ### Image
 
-- Build stage: Rust only. It no longer needs `card-game/`, `v2/content` or Node, and `build.rs` watches only the C kernel.
+- Build stage: Rust only. It no longer needs `card-game/`, `v2/content`, `v2/media` or Node, and `build.rs` watches only the C kernel. `scripts/build-release-image.sh` still mounts those into its compile container; that is harmless, and removing it is a deploy-script change.
 - A new `assets` stage on the same `node:24` image the build stage borrows today copies the asset sources and runs `build-card-assets.mjs --release /out`.
 - Runtime: `COPY --link --from=assets /out/media/ /app/assets/` (950 MB, changes only with art or music), then `/out/text/` (about 45 MB with the bundles), then the binary. Each is its own layer. A JS change leaves the media layer and the binary unchanged.
 - The media layer is reused across runs only if the builder has a cache for it or the layer is reproducible. The main-push path builds on a fresh buildx builder and does not export a cache, so it also needs `SOURCE_DATE_EPOCH` and `rewrite-timestamp=true` in `scripts/build-release-image.sh`, or a registry cache for the `assets` stage. That is a workflow change; this design does not make it.
@@ -78,4 +78,4 @@ Nothing from `card-game/` or the generated outputs. There is no fallback copy: a
 1. Public files load from disk, served by the existing static handler; the image copies them; `build.rs` stops generating the asset module and stops watching `card-game/`.
 2. Rules bundles load from `card_shared/` through `rules.json`, with the hash checks above.
 3. `content.json`, `narrator.js`, `authored-text.json` and the JSON catalogs load from the assets dir.
-4. The build stage and the image scripts drop Node and `card-game/`. A check proves that touching every file under `card-game/`, `v2/content/` and the generated outputs leaves `cargo build` fresh.
+4. The build stage drops Node, `card-game/`, `v2/content` and `v2/media`. `node v2/scripts/check-rust-inputs.mjs --strict v2/card-game v2/orchestrator-rust/src/card_shared v2/orchestrator-rust/src/card_narrative v2/content` proves that touching every non-Rust file there leaves `cargo build` fresh.

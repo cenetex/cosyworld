@@ -84,6 +84,18 @@ describe("fast check Rust test selection", () => {
     ).toContain("card_shared::world_life_tests::");
   });
 
+  it("runs the readers of a file the server loads from its assets", () => {
+    expect(pick("v2/card-game/forest.json")).toContain(`${N}channel::`);
+    expect(pick("v2/card-game/emoji-symbols.json")).toEqual([
+      `${N}expression::`,
+    ]);
+    expect(pick("v2/card-game/assets/music/radio-catalog.json")).toEqual([
+      "routes::card_game::radio::",
+    ]);
+    for (const file of ["shared-cast", "entity-profiles", "boardyai"])
+      expect(pick(`v2/card-game/${file}.json`), file).toContain(N);
+  });
+
   it("runs the narrative and voice tests when their inputs change", () => {
     const narrator = `${SRC}/card_shared/narrator.js`;
     expect(pick("v2/card-game/senses.json", narrator)).toEqual([

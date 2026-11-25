@@ -35,7 +35,7 @@ const walk = (dir) =>
   readdirSync(join(repo, dir), { withFileTypes: true }).flatMap((entry) =>
     entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)],
   );
-const files = dirs.flatMap(walk);
+const files = dirs.flatMap(walk).filter((file) => !file.endsWith(".rs"));
 const embedded = files.filter((file) => inputs.has(file));
 const touched = files
   .filter((file) => !inputs.has(file))

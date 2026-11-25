@@ -95,7 +95,7 @@ impl Harness {
 
     fn id(index: usize) -> String {
         clip_id(
-            &serde_json::from_str(VOICES).unwrap(),
+            &serde_json::from_str(voices()).unwrap(),
             "vale",
             if index == 0 { "Hello." } else { "Again?" },
         )

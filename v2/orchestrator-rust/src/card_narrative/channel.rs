@@ -15,6 +15,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use cosyworld_orchestrator::card_assets;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::{
@@ -138,7 +139,7 @@ fn authorized(headers: &HeaderMap, expected: Option<&str>) -> bool {
 fn packs() -> &'static Value {
     static PACKS: OnceLock<Value> = OnceLock::new();
     PACKS.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/packs.json"))
+        serde_json::from_str(card_assets::text("card-game/packs.json"))
             .expect("embedded card world packs")
     })
 }
@@ -146,7 +147,7 @@ fn packs() -> &'static Value {
 fn face_avatar(portrait: &str) -> Option<String> {
     static FACES: OnceLock<Value> = OnceLock::new();
     let faces = FACES.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/assets/discord-faces.json"))
+        serde_json::from_str(card_assets::text("card-game/assets/discord-faces.json"))
             .expect("embedded discord face boxes")
     });
     faces.get(portrait)?;
@@ -184,8 +185,7 @@ fn core() -> Vec<Resident> {
 fn forest_data() -> &'static Value {
     static FOREST: OnceLock<Value> = OnceLock::new();
     FOREST.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/forest.json"))
-            .expect("embedded forest")
+        serde_json::from_str(card_assets::text("card-game/forest.json")).expect("embedded forest")
     })
 }
 
@@ -505,8 +505,7 @@ fn validate(request: &LinesRequest, cast: &[Resident]) -> Result<(), &'static st
 fn shared_cast() -> &'static Value {
     static SHARED: OnceLock<Value> = OnceLock::new();
     SHARED.get_or_init(|| {
-        serde_json::from_str(include_str!("../../../card-game/shared-cast.json"))
-            .expect("shared cast")
+        serde_json::from_str(card_assets::text("card-game/shared-cast.json")).expect("shared cast")
     })
 }
 

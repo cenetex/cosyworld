@@ -234,8 +234,10 @@ fn without_article(part: &str) -> String {
 fn catalog() -> &'static Catalog {
     static CATALOG: OnceLock<Catalog> = OnceLock::new();
     CATALOG.get_or_init(|| {
-        let source: Source = serde_json::from_str(include_str!("authored-text.json"))
-            .expect("authored text catalog");
+        let source: Source = serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card_narrative/authored-text.json",
+        ))
+        .expect("authored text catalog");
         assert_eq!(
             source.kinds,
             ["action", "events", "facts", "memories", "disclosures"],

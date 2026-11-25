@@ -203,8 +203,10 @@ impl Vocabulary {
             walk(&content, "", &mut words, &mut ids);
         }
         // Old learning conditions retain exact retired item IDs, never new map keys.
-        let historical: Value = serde_json::from_str(include_str!("authored-text.json"))
-            .expect("authored text catalog");
+        let historical: Value = serde_json::from_str(cosyworld_orchestrator::card_assets::text(
+            "card_narrative/authored-text.json",
+        ))
+        .expect("authored text catalog");
         for entry in historical["retired_names"].as_array().into_iter().flatten() {
             if let Some(id) = entry[0].as_str() {
                 words.insert(id.into());

@@ -72,18 +72,29 @@ const dirs = {
     "../orchestrator-rust/src/card_shared/",
     import.meta.url,
   ),
+  card_narrative: new URL(
+    "../orchestrator-rust/src/card_narrative/",
+    import.meta.url,
+  ),
 };
 const rules = Object.keys(
   JSON.parse(readFileSync(new URL("rules.json", dirs.card_shared), "utf8")),
 );
 const server = [
+  "card-game/senses.json",
+  "card-game/assets/discord-faces.json",
+  "card-game/assets/music/radio-catalog.json",
+  "card_narrative/authored-text.json",
+  "card_shared/content.json",
+  "card_shared/narrator.js",
   "card_shared/rules.json",
   ...rules.map((version) => `card_shared/engine-v${version}.js`),
 ];
+const split = (key) => [key.split("/")[0], key.slice(key.indexOf("/") + 1)];
 for (const key of server) {
-  const [dir, file] = key.split("/");
+  const [dir, file] = split(key);
   const bytes = readFileSync(new URL(file, dirs[dir]));
-  files[key] = { sha256: hash(bytes), size: bytes.length };
+  files[key] ??= { sha256: hash(bytes), size: bytes.length };
 }
 const full = (located) =>
   `${JSON.stringify({ sha256: identity, dirs: located, files }, null, 1)}\n`;
@@ -101,7 +112,7 @@ if (releaseOut) {
   for (const { file, contentType, source } of assets)
     if (!source)
       copy(isMedia(contentType) ? "media" : "text", "card-game", file);
-  for (const key of server) copy("text", ...key.split("/"));
+  for (const key of server) copy("text", ...split(key));
   const named = Object.fromEntries(Object.keys(dirs).map((dir) => [dir, dir]));
   writeFileSync(join(releaseOut, "text", "manifest.json"), full(named));
 }

@@ -31,7 +31,9 @@ mod clips;
 #[path = "card_voices/flights.rs"]
 mod flights;
 
-const VOICES: &str = include_str!("../../card-game/voices.json");
+fn voices() -> &'static str {
+    cosyworld_orchestrator::card_assets::text("card-game/voices.json")
+}
 const MAX_TEXT: usize = 1200;
 const MAX_AUDIO: usize = 2 * 1024 * 1024;
 
@@ -174,7 +176,7 @@ async fn speak_with_flights(
     line: &Line,
     flights: &flights::Flights,
 ) -> Result<Vec<u8>, Failure> {
-    let cast: Value = serde_json::from_str(VOICES).map_err(|e| Failure::Store(e.to_string()))?;
+    let cast: Value = serde_json::from_str(voices()).map_err(|e| Failure::Store(e.to_string()))?;
     let world = line.world.clone().unwrap_or_default();
     let (speaker, words) = if world.is_empty() {
         match line.occasion.as_deref() {
@@ -539,7 +541,7 @@ mod tests {
         let first = speak(&path, &config, "u1", &forged).await.unwrap();
         assert_eq!(
             seen.lock().unwrap()[0],
-            payload(&serde_json::from_str(VOICES).unwrap(), "vale", "Hello.").unwrap()
+            payload(&serde_json::from_str(voices()).unwrap(), "vale", "Hello.").unwrap()
         );
         let second = speak(&path, &config, "u2", &line("Hello.")).await.unwrap();
         assert_eq!(first, second);
