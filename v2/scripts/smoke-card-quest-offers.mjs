@@ -20,6 +20,7 @@ import {
   clearSelection,
   openPack,
   putOutOpening,
+  readyActionButton,
   revealCard,
   selectCard,
   smokeWidths,
@@ -47,10 +48,10 @@ try {
   });
   for (const width of smokeWidths([1440, 390, 320])) {
     const height = width === 1440 ? 900 : width === 390 ? 844 : 640;
-    const open = async (name, world, covered = []) => {
+    const open = async (name, world, covered = [], motion = "reduce") => {
       const page = await browser.newPage({
         viewport: { width, height },
-        reducedMotion: "reduce",
+        reducedMotion: motion,
       });
       page.setDefaultTimeout(20000);
       const key = `cosyworld.reflected-shore.v1.${name}-${width}`;
@@ -370,34 +371,70 @@ try {
         called,
         legalActions(called).find((a) => a.kind === "talk" && a.target === "listener"),
       ).state;
-      const t = await open("quest-offers-level", called);
+      Object.assign(called.actors.vale.arcana, { calls: 2, callers: ["badger", "keeper"] });
+      const here = called.actors.vale.place;
+      holdQuest(called, "vale", newWant("place", here, called.turn), "quest:from:moth");
+      const t = await open("quest-offers-level", called, [], "no-preference");
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-level-${width}`);
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
-      const level = await t.state();
-      assert.equal(level.actors.vale.want?.quest, undefined);
       assert.deepEqual(
-        recordOf(level, "vale").spread.map((slot) => slot.face),
+        recordOf(await t.state(), "vale").spread.map((slot) => slot.face),
         ["down"],
         "the Fool is given face down",
       );
-      await openHeld(page, t);
+      const heading = async () =>
+        (await page.locator(".action-beat-heading:not([hidden])").textContent()).trim();
+      const tarot = page.locator('#hand .want-frame[data-quest-id^="tarot:"] > .want-card');
+      const back = tarot.locator(".card-back");
+      const showTarot = async () => {
+        await clearSelection(page);
+        await selectCard(page, "vale");
+        const fold = page.locator("#hand .quest-fold:not([data-owner])");
+        if (await fold.isVisible()) await fold.click();
+        await tarot.waitFor();
+      };
+      await showTarot();
+      if ((await tarot.getAttribute("aria-pressed")) !== "true") await tapCard(tarot);
+      await t.ready();
       assert.equal(await t.oneButton(), 0, "a face-down card has no Discard");
-      assert.equal(
-        (await page.locator(".action-beat-heading:not([hidden])").textContent()).trim(),
-        "A card the Listener gave you face down: help three people with their quests, then talk with the Listener to turn it over",
-      );
-      const back = page.locator(`${held}:not([hidden]) > .want-card > .card-back`);
-      assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
-      assert.notEqual(
-        await back.evaluate((el) => getComputedStyle(el).display),
-        "none",
-        "the face-down tarot shows the star back",
-      );
+      assert.equal(await heading(), "Help one more person complete their goal");
+      assert.match(await back.getAttribute("src"), /tarot-back-locked\.webp/u);
+      assert.notEqual(await back.evaluate((el) => getComputedStyle(el).display), "none");
       await t.layout();
       await t.shot("level-up");
+      const unlocked = page.waitForFunction(
+        () =>
+          [...document.querySelectorAll("#hand .want-card > .portrait-transforming")].some((img) =>
+            /tarot-back-locked/u.test(img.src),
+          ),
+        null,
+        { timeout: 15000 },
+      );
+      await clearSelection(page);
+      await selectCard(page, here);
+      await readyActionButton(page, "wait").click();
+      await unlocked;
+      await t.ready();
+      assert.deepEqual(
+        recordOf(await t.state(), "vale").spread.map((slot) => [slot.card, slot.face]),
+        [["arcanum-0", "up"]],
+      );
+      await showTarot();
+      assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
+      assert.equal(await tarot.getAttribute("data-unrevealed"), "true");
+      await tapCard(tarot);
+      await page.locator('#hand [data-pack="open"]').first().waitFor();
+      await page.waitForTimeout(900);
+      await tapCard(tarot);
+      await page.locator('#card-actions [data-open-box="tarot:vale:arcanum-0"]').click();
+      await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
+      assert.equal(await tarot.getAttribute("data-unrevealed"), "false");
+      assert.equal(await heading(), "Carry nothing, be away from home and visit six new places");
+      assert.equal(await back.evaluate((el) => getComputedStyle(el).display), "none");
+      await t.shot("level-up-revealed");
       assert.deepEqual(t.errors, []);
       await page.close();
     }

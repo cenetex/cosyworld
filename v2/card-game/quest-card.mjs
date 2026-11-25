@@ -1,20 +1,18 @@
 // The player's one quest, drawn as a quest card in the hand: its target's
 // art with the rules' own words for the want as the caption. Nothing here is
 // authored or decides anything; the rules own the want (want.mjs).
-import arcana from "./arcana.json" with { type: "json" };
 import { CONNECT_TARGET, layMet, questsOf, wantKey } from "./want.mjs";
 import { conditionsMet, consumable, spentByChoice } from "./pack-registry.mjs";
 import { questFor } from "./talk-quest.mjs";
 import { revealed } from "./want-talk.mjs";
 import { ownerWant } from "./quest-call.mjs";
-import { UNKNOWN, conditionWords, kindOf, numberWord, wantWords } from "./world/want-words.mjs";
+import { UNKNOWN, conditionWords, kindOf, wantWords } from "./world/want-words.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 import { arcanaLevel, arcanumTerms, spreadOf } from "./world/arcana.mjs";
-import { CALLS, recordOf } from "./world/arcana-record.mjs";
 import { homeOf } from "./world/home.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
-import { TAROT_BACK, TAROT_LOCKED_BACK } from "./locked-box.mjs";
+import { TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   boxOffer,
@@ -140,8 +138,6 @@ export function offerWords(quest, known = () => true) {
 }
 export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
 export const discardable = (quest) => quest?.kind === "arcanum" && quest.face !== "down";
-const callsLeft = (world, actor) =>
-  recordOf(world, actor).sale ? 0 : Math.max(0, CALLS - recordOf(world, actor).calls);
 export const levelCards = (world, actor = currentActor(world)) =>
   spreadOf(world, actor).map(({ index, card, face }, _, all) => ({
     key:
@@ -156,20 +152,20 @@ export const levelCards = (world, actor = currentActor(world)) =>
     level: Math.min(21, arcanaLevel(world, actor) + 1),
     left: 1,
     step: null,
-    art: face === "down" ? TAROT_BACK : face === "locked" ? TAROT_LOCKED_BACK : arcanumArt(card),
-    conditions: face === "down" ? null : arcanumTerms(world, actor, index),
+    art: face === "up" ? arcanumArt(card) : TAROT_LOCKED_BACK,
+    conditions: arcanumTerms(world, actor, index),
     home: homeOf(actor, world) ?? null,
-    ...(face === "down" ? { by: arcana.visit.match.targetId, calls: callsLeft(world, actor) } : {}),
   }));
+export function spreadLocks(world, actor = currentActor(world)) {
+  const ids = (down) =>
+    spreadOf(world, actor)
+      .filter(({ face }) => !down || face === "down")
+      .map(({ card }) => `tarot:${actor}:${card}`);
+  return [ids(false), ids(true)];
+}
 export const questCard = (world, actor = currentActor(world)) =>
   questCards(world, actor)[0] ?? null;
 
-function downWords({ by, calls }) {
-  const helped = calls === 1 ? "person with a quest" : "people with their quests";
-  return `A card ${inSentence(by)} gave you face down: ${
-    calls ? `help ${numberWord(calls)}${calls < CALLS ? " more" : ""} ${helped}, then talk` : "talk"
-  } with ${inSentence(by)} to turn it over`;
-}
 // A quest in words: the one wording of a want (world/want-words.mjs), with
 // the first letter raised. A card the traveler has not discovered is worded
 // as unknown; `covered` marks the target as one even when `known` is not given.
@@ -190,7 +186,6 @@ export function questCaption(
         ...(quest.lit === undefined ? {} : { lit: quest.lit }),
         ...(quest.story ? { story: true } : {}),
       });
-  if (quest.kind === "arcanum" && quest.face === "down") return downWords(quest);
   const words =
     quest.kind === "arcanum"
       ? (conditionWords(quest.conditions, known, { home: quest.home, cards: SPOKEN }) ?? "…")

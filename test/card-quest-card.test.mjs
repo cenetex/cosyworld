@@ -26,7 +26,10 @@ import {
   questNear,
   questTier,
   questVerb,
+  spreadLocks,
 } from "../v2/card-game/quest-card.mjs";
+import { createLockedBoxes } from "../v2/card-game/locked-box.mjs";
+import { holdQuest, newWant } from "../v2/card-game/want.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
@@ -443,40 +446,51 @@ describe("the quest card", () => {
       index: 1,
       face: "down",
       target: null,
-      conditions: null,
+      conditions: [{ kind: "count", of: "helped", min: 3 }],
     });
     expect(JSON.stringify(down)).not.toContain("arcanum-2");
-    expect(down.art).toBe("./assets/arcana/tarot-back.png");
-    expect(questCaption(down)).toBe(
-      "A card the Listener gave you face down: help three people with their quests, then talk with the Listener to turn it over",
-    );
+    expect(down.art).toBe("./assets/arcana/tarot-back-locked.png");
+    expect(questCaption(down)).toBe("Level II: Help three people complete their goals");
   });
 
-  it("says who gave the face-down Fool and how it turns over, and offers no Discard", () => {
-    let s = createPipWorld(5);
+  const dealtFool = () => {
+    const s = createPipWorld(5);
     s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
     const talk = legalActions(s, "vale").find((a) => a.kind === "talk" && a.target === "listener");
-    s = play(s, talk, s.revision, "vale").state;
+    return play(s, talk, s.revision, "vale").state;
+  };
+
+  it("words the face-down Fool as the people still to help, locked, with no Discard", () => {
+    const s = dealtFool();
     const fool = () => levelCards(s, "vale")[0];
-    expect(fool()).toMatchObject({ face: "down", target: null });
+    expect(fool()).toMatchObject({ face: "down", target: null, art: "./assets/arcana/tarot-back-locked.png" });
     const said = (calls) => {
       s.actors.vale.arcana.calls = calls;
       return questCaption({ ...fool(), level: null });
     };
-    expect(said(0)).toBe(
-      "A card the Listener gave you face down: help three people with their quests, then talk with the Listener to turn it over",
-    );
-    expect(said(1)).toBe(
-      "A card the Listener gave you face down: help two more people with their quests, then talk with the Listener to turn it over",
-    );
-    expect(said(2)).toBe(
-      "A card the Listener gave you face down: help one more person with a quest, then talk with the Listener to turn it over",
-    );
-    expect(said(3)).toBe("A card the Listener gave you face down: talk with the Listener to turn it over");
-    expect(JSON.stringify(fool())).not.toContain("arcanum-0");
+    expect(said(0)).toBe("Help three people complete their goals");
+    expect(said(1)).toBe("Help two more people complete their goals");
+    expect(said(2)).toBe("Help one more person complete their goal");
+    expect(JSON.stringify(fool())).not.toMatch(/arcanum-0|[Ll]istener/u);
     expect(discardable(fool())).toBe(false);
     s.actors.vale.arcana.spread[0].face = "up";
     expect(discardable(fool())).toBe(true);
+  });
+
+  it("unlocks the face-down Fool once when the third person is helped, as a new card to reveal", () => {
+    let s = dealtFool();
+    const boxes = createLockedBoxes();
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    const [down] = levelCards(s, "vale");
+    Object.assign(s.actors.vale.arcana, { calls: 2, callers: ["badger", "keeper"] });
+    holdQuest(s, "vale", newWant("place", s.actors.vale.place, s.turn), "quest:from:moth");
+    s = play(s, legalActions(s, "vale").find((a) => a.kind === "wait" && !a.sleep && !a.guards), s.revision, "vale").state;
+    const [up] = levelCards(s, "vale");
+    expect(up).toMatchObject({ face: "up", target: "arcanum-0", art: "./assets/arcana/full-size/arcanum-0.png" });
+    expect(up.key).not.toBe(down.key);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([up.key]);
+    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
+    expect(questCaption({ ...up, level: null })).toBe("Carry nothing, be away from home and visit six new places");
   });
 
   it("draws a locked tarot with the keyhole back and keeps its words", () => {
