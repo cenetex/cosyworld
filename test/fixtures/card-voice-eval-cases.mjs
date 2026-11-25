@@ -224,6 +224,7 @@ export function assistantRoleScenes() {
 // a want that points through an exit, and a moment alone.
 export function perceptionScenes() {
   const crowd = enableMotives(createWorld());
+  crowd.actors.keeper.want = { kind: "item", target: "bell", since: crowd.turn, refusals: 0 };
   for (const id of ["moth", "keeper"]) crowd.actors[id].place = "station";
   for (const id of ["bell", "oil", "cloth"]) crowd.items[id].holder = "station";
   crowd.items.lamp.holder = "vale";

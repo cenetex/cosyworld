@@ -27,9 +27,9 @@ export function completionWords(actor, want, owner) {
 }
 
 // This authored conversation predates Vale's arrival; Pip is now at the pond.
-export function seedCallLead(s, log) {
+export function seedCallLead(s, addLog) {
   if (!s.opening || s.actors.keeper.want?.step?.verb !== "call") return;
-  log(s, "World", "Before Vale arrived, the keeper told Pip how to call the ship.", {
+  addLog(s, "World", "Before Vale arrived, the keeper told Pip how to call the ship.", {
     kind: "action", verb: "talk", actorId: "keeper", targetId: "moth",
     locationId: "station", cast: ["keeper", "moth"], witnesses: ["keeper", "moth"], items: [],
   });

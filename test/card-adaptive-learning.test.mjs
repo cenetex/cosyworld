@@ -11,6 +11,7 @@ import {
 // Play here starts past the pond, where the first quest begins.
 const createWorld = (...args) => questing(baseCreateWorld(...args));
 import { enableMotives } from "../v2/card-game/motives.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
 import {
   reconsiderPlan,
   requestConditions,
@@ -24,6 +25,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 function setup() {
   const w = enableMotives(createWorld());
   w.actors.keeper.place = "station";
+  w.actors.keeper.want = newWant("item", "bell", w.turn);
   w.items.lamp.holder = "vale";
   w.items.bell.holder = "vale";
   w.items.cloth.holder = "keeper";

@@ -11,7 +11,6 @@ const read = (path) =>
     "utf8",
   );
 
-// The current compiled shared rules use this build's content, as Rust does.
 export function currentSharedEngine() {
   const version = newest(read("rules.json"));
   const runtime = vm.createContext({

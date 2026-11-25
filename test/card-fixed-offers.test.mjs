@@ -9,6 +9,7 @@ import {
   play,
 } from "../v2/card-game/world.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 
 // Vale holds the cloth and the lamp; the keeper holds the bell at the station.
@@ -124,6 +125,7 @@ describe("Give and Trade are always offered", () => {
 
   it("commits a code when an ask is refused and briefs it, without canned text", () => {
     const s = enableMotives(table());
+    s.actors.keeper.want = newWant("item", "bell", s.turn);
     const ask = find(s, "ask", "bell", { target: "keeper" });
     expect(ask).toBeDefined();
     const next = play(s, ask).state;
