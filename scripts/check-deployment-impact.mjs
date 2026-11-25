@@ -104,7 +104,7 @@ function main() {
     return;
   }
 
-  const files = git(['diff', '--name-only', base, head])
+  const files = git(['diff', '--name-only', '--no-renames', base, head])
     .split('\n')
     .filter(Boolean);
   const readAt = (side, file) =>

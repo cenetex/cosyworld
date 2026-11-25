@@ -240,11 +240,17 @@ describe("a .dev deploy and a production deploy never roll out together", () => 
     expect(quiet.status).toBe(0);
   });
 
-  it("only a .dev train on main waits", () => {
+  it("only a .dev deploy from main waits, a main push included", () => {
     expect(
       runSerialize("dev", { event: "push", ref: "refs/tags/v1.2.3" }).calls,
     ).toBe("");
     expect(runSerialize("dev", { ref: "refs/heads/other" }).calls).toBe("");
+    const push = runSerialize("dev", {
+      event: "push",
+      fixtures: { "runs-queued": runs([5, "push", "v1.2.3"]) },
+      once: ["runs-queued"],
+    });
+    expect(push.stdout).toContain("run(s): 5 v1.2.3");
   });
 
   it("production sees a `dev` dispatch as a .dev rollout", () => {
@@ -387,6 +393,58 @@ describe("a .dev rollout confirms its machines kept the commit", () => {
       ),
     );
     expect(rollout).toContain("for attempt in 1 2 3");
+  });
+});
+
+const planScript = fileURLToPath(
+  new URL("../../scripts/plan-dev-deploy.sh", import.meta.url),
+);
+// The fake gh answers each API path that starts with a key of `api` with
+// that key's value, through the script's own jq filter.
+const plan = (base, api = {}) => {
+  const directory = mkdtempSync(join(tmpdir(), "cosyworld-dev-plan-"));
+  writeFileSync(join(directory, "api.json"), JSON.stringify(api));
+  writeFileSync(
+    join(directory, "gh"),
+    `#!/usr/bin/env bash
+path="$2"; filter=""; while [ $# -gt 0 ]; do [ "$1" = --jq ] && filter="$2"; shift; done
+jq -er --arg path "$path" 'to_entries[] | select(.key as $k | $path | startswith($k)) | .value' "${directory}/api.json" | jq -r "$filter"
+`,
+  );
+  chmodSync(join(directory, "gh"), 0o755);
+  try {
+    return spawnSync("bash", [planScript, base], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${directory}${delimiter}${process.env.PATH}`,
+        GH_REPO: "example/world",
+        GITHUB_SHA: sha,
+      },
+    });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
+
+describe("a .dev run plans before it joins the build queue", () => {
+  const older = "b".repeat(40);
+  const compare = (status) => ({
+    [`repos/example/world/compare/${older}...${sha}`]: { status },
+  });
+
+  it("deploys a push with no earlier rollout", () => {
+    const result = plan("");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("base=\ndeploy=true\n");
+  });
+
+  it("deploys nothing for a commit .dev already contains", () => {
+    for (const status of ["identical", "behind"]) {
+      const result = plan(older, compare(status));
+      expect(result.stdout).toContain(`base=${older}\ndeploy=false\n`);
+      expect(result.stderr).toContain("which contains");
+    }
   });
 });
 
