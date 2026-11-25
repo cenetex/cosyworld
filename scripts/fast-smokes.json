@@ -315,9 +315,10 @@
     }
   ],
   "rust": {
-    "about": "The fast check's Rust job (scripts/select-rust-tests.mjs). It runs when a change touches the crate, a file the crate's sources name (include_str!, include_bytes!, a file or directory a test reads, a module a test imports through Node), or a path below. Each touched module or input adds the test filter of the modules that own or read it; crate-wide files (main.rs, build.rs, Cargo files, fixtures only main.rs reads) and paths with no rule add default. A parent module's filter covers its children; at most max filters run. ignoreInputs lists named inputs a fast check already covers.",
+    "about": "The fast check's Rust jobs (scripts/select-rust-tests.mjs). They run only when a change touches Rust, the rules or the shared bundles: paths, which holds the crate and its generated bundles, a rule's paths below, or a file the crate compiles in (include_str!, include_bytes!). Then each touched module, rule or input adds the test filter of the modules that own or read it. An input is a file the crate's sources name (include_str!, include_bytes!, a file or directory a test reads, a module a test imports through Node), and a bundle belongs to the module that embeds it. Crate-wide files (main.rs, build.rs, Cargo files, fixtures only main.rs reads) and paths with no rule add default. A parent module's filter covers its children; at most max filters run. ignoreInputs lists named inputs a fast check already covers. smokes start the debug server and run beside the tests; smoke-shared-cards waits until it is brought up to date with the waking question (#3001) and the dialogue advance.",
     "paths": "^v2/(orchestrator-rust|ai-model-rust|core-c)/|^v2/scripts/check-rust\\.sh$",
-    "max": 6,
+    "max": 12,
+    "smokes": ["smoke-card-greek-capacity", "smoke-card-narrative-contract"],
     "default": ["card_shared.rs", "card_narrative.rs"],
     "ignoreInputs": [],
     "rules": [
