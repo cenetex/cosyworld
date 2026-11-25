@@ -403,25 +403,34 @@ describe("a .dev rollout confirms its machines kept the commit", () => {
 
   it("reports the release the machines serve only when they agree", () => {
     const image = `registry.fly.io/cosyworld@sha256:${"b".repeat(64)}`;
-    const serving = (commit, img = image, state = "started") => {
+    const serving = (commit, img = image, state = "started", built) => {
       const value = machine("m", state, commit);
-      return { ...value, config: { ...value.config, image: img } };
+      const env = { ...value.config.env, COSYWORLD_IMAGE_COMMIT: built };
+      return { ...value, config: { ...value.config, env, image: img } };
     };
+    const none = { commit: "", imageCommit: "", machine: "m" };
     expect(
       servingRelease([serving(sha), serving("c".repeat(40), image, "stopped")]),
-    ).toEqual({ commit: sha, image });
+    ).toEqual({ commit: sha, image, imageCommit: sha, machine: "m" });
+    expect(servingRelease([serving(sha, image, "started", "d".repeat(40))])).toEqual(
+      { commit: sha, image, imageCommit: "d".repeat(40), machine: "m" },
+    );
     for (const machines of [
-      [serving(sha), serving("c".repeat(40))],
       [serving("0456b60d9fce")],
       [serving(undefined)],
     ])
-      expect(servingRelease(machines)).toEqual({ commit: "", image });
+      expect(servingRelease(machines)).toEqual({ ...none, image });
+    expect(servingRelease([serving(sha), serving("c".repeat(40))])).toEqual({
+      ...none,
+      image,
+      machine: "",
+    });
     for (const machines of [
       [],
       [serving(sha, "")],
       [serving(sha), serving(sha, `${image}0`)],
     ])
-      expect(servingRelease(machines)).toEqual({ commit: "", image: "" });
+      expect(servingRelease(machines)).toMatchObject({ commit: "", image: "", imageCommit: "" });
   });
 
   it("rolls out again from the workflow when the check fails", () => {

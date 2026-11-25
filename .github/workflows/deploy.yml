@@ -49,15 +49,18 @@ jobs:
       # Reads earlier Deploy runs to find what .dev runs.
       actions: read
     outputs:
+      image: ${{ steps.path.outputs.image }}
       deploy: ${{ steps.impact.outputs.deploy }}
       checks-base: ${{ steps.checked.outputs.base || steps.impact.outputs.base }}
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
       - name: Checkout deploy scripts
         uses: actions/checkout@v7
         with:
+          filter: blob:none
           sparse-checkout: scripts
 
       - name: Setup Node.js
@@ -65,9 +68,31 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
       - name: Check whether production inputs changed
         id: impact
-        run: bash scripts/plan-dev-deploy.sh "$(node scripts/last-dev-rollout.mjs)" >> "$GITHUB_OUTPUT"
+        run: |
+          serving="$(node scripts/fly-machines-serve-commit.mjs cosyworld --serving || true)"
+          grep '^image_commit=' <<< "$serving" >> "$GITHUB_OUTPUT" || true
+          base="$(sed -n 's/^commit=//p' <<< "$serving")"
+          bash scripts/plan-dev-deploy.sh "${base:-$(node scripts/last-dev-rollout.mjs)}" >> "$GITHUB_OUTPUT"
+
+      # COSYWORLD_DEV_RELEASES=off builds an image for every change.
+      - name: Choose between a new image and a release on the volume
+        id: path
+        if: steps.impact.outputs.deploy == 'true'
+        env:
+          IMAGE_COMMIT: ${{ steps.impact.outputs.image_commit }}
+          RELEASES: ${{ vars.COSYWORLD_DEV_RELEASES }}
+        run: |
+          if [ "$RELEASES" != off ] && [ -n "$IMAGE_COMMIT" ] &&
+            git fetch --quiet --no-tags --depth=1 --filter=blob:none origin "$IMAGE_COMMIT"; then
+            node scripts/dev-release.mjs image-input "$IMAGE_COMMIT" "$GITHUB_SHA" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "image=true" | tee -a "$GITHUB_OUTPUT"
+          fi
 
       - name: Find the commit main's checks last passed
         id: checked
@@ -103,7 +128,7 @@ jobs:
   dev-image:
     name: Build the .dev image
     needs: dev-plan
-    if: needs.dev-plan.outputs.deploy == 'true'
+    if: needs.dev-plan.outputs.deploy == 'true' && needs.dev-plan.outputs.image == 'true'
     concurrency:
       group: deploy-${{ github.repository }}-dev-image${{ needs.dev-plan.outputs.deploy != 'true' && format('-{0}', github.run_id) || '' }}
       cancel-in-progress: true
@@ -179,6 +204,9 @@ jobs:
   dev-deploy:
     name: Deploy main to .dev
     needs: [dev-plan, dev-image]
+    if: >-
+      !cancelled() && needs.dev-plan.outputs.deploy == 'true' &&
+      (needs.dev-image.result == 'success' || needs.dev-plan.outputs.image != 'true')
     concurrency:
       group: deploy-${{ github.repository }}-dev
       cancel-in-progress: false
@@ -193,10 +221,12 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FAST: ${{ needs.dev-plan.outputs.image != 'true' }}
     steps:
       - name: Checkout deploy scripts
         uses: actions/checkout@v7
         with:
+          filter: blob:none
           sparse-checkout: |
             scripts
             v2/scripts
@@ -231,56 +261,77 @@ jobs:
             *) echo "::notice::.dev serves ${commit:0:7}, which contains ${GITHUB_SHA:0:7} ($status); not rolling it back." ;;
           esac
 
+      - name: Stage the release on .dev
+        id: stage
+        if: steps.serving.outputs.rollout == 'true' && env.FAST == 'true'
+        env:
+          IMAGE_COMMIT: ${{ steps.serving.outputs.image_commit }}
+          MACHINE: ${{ steps.serving.outputs.machine }}
+        run: bash scripts/stage-dev-release.sh >> "$GITHUB_OUTPUT"
+
       # Another Fly release can restore the old image after flyctl reports
       # success (scripts/fly-machines-serve-commit.mjs); roll out again.
       - name: Roll out .dev
         id: rollout
-        if: steps.serving.outputs.rollout == 'true'
+        if: steps.serving.outputs.rollout == 'true' && steps.stage.outputs.unchanged != 'true'
         run: |
           for attempt in 1 2 3; do
-            bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA"
-            sleep 20
-            if node scripts/fly-machines-serve-commit.mjs cosyworld "$GITHUB_SHA"; then
-              exit 0
-            fi
+            bash scripts/fly-rollout.sh --config fly.toml --image "$RELEASE_IMAGE" --strategy "$STRATEGY" --env "COSYWORLD_SOURCE_COMMIT=$GITHUB_SHA" --env "COSYWORLD_IMAGE_COMMIT=$IMAGE_COMMIT"
+            sleep "$SETTLE"
+            for poll in $(seq "$POLLS"); do
+              node scripts/fly-machines-serve-commit.mjs cosyworld "$GITHUB_SHA" && exit 0
+              [ "$poll" = "$POLLS" ] || sleep 3
+            done
             echo "::warning::Another Fly release replaced rollout $attempt; rolling out again"
           done
           echo "::error::.dev machines did not keep $GITHUB_SHA after three rollouts" >&2
           exit 1
         env:
-          RELEASE_IMAGE: ${{ needs.dev-image.outputs.image }}
+          RELEASE_IMAGE: ${{ needs.dev-image.outputs.image || steps.serving.outputs.image }}
+          IMAGE_COMMIT: ${{ env.FAST == 'true' && steps.serving.outputs.image_commit || github.sha }}
+          STRATEGY: ${{ env.FAST == 'true' && 'immediate' || 'rolling' }}
+          SETTLE: ${{ env.FAST == 'true' && '0' || '20' }}
+          POLLS: ${{ env.FAST == 'true' && '20' || '1' }}
 
       - name: Verify primary readiness and persistence
         if: steps.rollout.outcome == 'success'
+        env:
+          COSYWORLD_EXPECT_COMMIT: ${{ github.sha }}
         run: |
-          for attempt in {1..13}; do
+          for attempt in {1..60}; do
             if node v2/scripts/smoke-deployed-readiness.mjs https://cosyworld.fly.dev; then
               exit 0
             fi
-            if [ "$attempt" -eq 13 ]; then
+            if [ "$attempt" -eq 60 ]; then
               echo "Primary readiness remained degraded after 120 seconds" >&2
               exit 1
             fi
-            echo "::warning::Primary readiness attempt $attempt failed; retrying in 10 seconds"
-            sleep 10
+            echo "::warning::Primary readiness attempt $attempt failed; retrying in 2 seconds"
+            sleep 2
           done
 
       # The card smoke compares every served file with this commit's.
       - name: Checkout committed release
-        if: steps.rollout.outcome == 'success'
+        if: steps.rollout.outcome == 'success' && env.FAST != 'true'
         uses: actions/checkout@v7
         with:
           path: release
 
       - name: Verify primary card game
         if: steps.rollout.outcome == 'success'
-        run: node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
+        run: |
+          if [ "$FAST" = true ]; then
+            COSYWORLD_SMOKE_MANIFEST="$RUNNER_TEMP/dev-release/manifest.json" node v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
+          else
+            node release/v2/scripts/smoke-deployed-card-game.mjs https://cosyworld.fly.dev
+          fi
 
       - name: Roll .dev back to ${{ steps.serving.outputs.commit }}
         if: failure() && steps.rollout.outcome != 'skipped' && steps.serving.outputs.image != ''
         env:
           PREVIOUS_IMAGE: ${{ steps.serving.outputs.image }}
           PREVIOUS_COMMIT: ${{ steps.serving.outputs.commit }}
+          PREVIOUS_IMAGE_COMMIT: ${{ steps.serving.outputs.image_commit }}
         run: |
           echo "::error::${GITHUB_SHA:0:7} failed its .dev rollout or checks; returning .dev to ${PREVIOUS_IMAGE}."
           config=fly.toml
@@ -288,7 +339,7 @@ jobs:
             git show "$PREVIOUS_COMMIT:fly.toml" > fly.previous.toml; then
             config=fly.previous.toml
           fi
-          bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT"
+          bash scripts/fly-rollout.sh --config "$config" --image "$PREVIOUS_IMAGE" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=$PREVIOUS_COMMIT" --env "COSYWORLD_IMAGE_COMMIT=$PREVIOUS_IMAGE_COMMIT"
           [ -z "$PREVIOUS_COMMIT" ] || node scripts/fly-machines-serve-commit.mjs cosyworld "$PREVIOUS_COMMIT"
 
   deployment-impact:
@@ -800,7 +851,10 @@ jobs:
       # Keep the restored SHA in the job record for the next train or tag.
       - name: Roll .dev forward to ${{ steps.previous.outputs.sha }}
         if: steps.previous.outputs.sha != ''
-        run: bash scripts/fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${DEV_SHA}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}"
+        run: |
+          built="$(flyctl ssh console --quiet --app cosyworld --command "cat /data/releases/${DEV_SHA}/image" | tr -dc 0-9a-f || true)"
+          [[ "$built" =~ ^[0-9a-f]{40}$ ]] || built="$DEV_SHA"
+          bash scripts/fly-rollout.sh --config fly.toml --image "registry.fly.io/cosyworld:deploy-${built}" --strategy rolling --env "COSYWORLD_SOURCE_COMMIT=${DEV_SHA}" --env "COSYWORLD_IMAGE_COMMIT=${built}"
         env:
           DEV_SHA: ${{ steps.previous.outputs.sha }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
