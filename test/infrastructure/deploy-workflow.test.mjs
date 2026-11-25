@@ -156,7 +156,7 @@ describe("deploy workflow", () => {
   });
 
   it("blocks deployment on the real v2 gates before either Fly job runs", () => {
-    const nodeGate = job("production-node-gate", "production-rust-gate");
+    const nodeGate = job("production-node-gate", "production-unit");
     const rustGate = job("production-rust-gate", "production-rust-lint");
     const rustLint = job("production-rust-lint", "production-gate");
     const gate = job("production-gate", "primary-fly");
@@ -166,6 +166,11 @@ describe("deploy workflow", () => {
       "npx vitest run test/infrastructure/deploy-workflow.test.mjs",
     );
     expect(nodeGate).not.toContain("npm test");
+    for (const check of ["npm run lint", "npm run check:test-guards", "npm run regen:check"])
+      expect(nodeGate).toContain(check);
+    const unit = job("production-unit", "production-rust-gate");
+    expect(unit).toContain("shard: [1, 2, 3]");
+    expect(unit).toContain("npx vitest run --shard=${{ matrix.shard }}/3");
     expect(rustGate).toContain("node scripts/await-ci-rust.mjs");
     expect(rustGate).toContain("checks: read");
     expect(rustGate).toContain("actions: read");
@@ -184,9 +189,10 @@ describe("deploy workflow", () => {
     expect(rustLint).toContain("bash v2/scripts/check-main-size.sh");
     expect(rustLint).toContain("bash v2/scripts/check-rust-lint.sh");
     expect(gate).toContain(
-      "needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]",
+      "needs: [deployment-impact, release-owner, production-node-gate, production-unit, production-rust-gate, production-rust-lint]",
     );
     expect(gate).toContain('test "$NODE_RESULT" = success');
+    expect(gate).toContain('test "$UNIT_RESULT" = success');
     expect(gate).toContain('test "$RUST_RESULT" = success');
     expect(gate).toContain('test "$RUST_LINT_RESULT" = success');
     expect(job("primary-backup", "primary-fly")).toContain(
@@ -214,7 +220,8 @@ describe("deploy workflow", () => {
     // The plan, the image build and the rollout.
     const dev = job("dev-plan", "deployment-impact");
     const impact = job("deployment-impact", "release-owner");
-    const nodeGate = job("production-node-gate", "production-rust-gate");
+    const nodeGate = job("production-node-gate", "production-unit");
+    const unitGate = job("production-unit", "production-rust-gate");
     const rustGate = job("production-rust-gate", "production-rust-lint");
     const rustLint = job("production-rust-lint", "production-gate");
     const gate = job("production-gate", "primary-fly");
@@ -238,7 +245,7 @@ describe("deploy workflow", () => {
 
     // The gates run only for tags and production dispatches, never after a
     // train, so no train holds the .dev group for them.
-    for (const rust of [nodeGate, rustGate, rustLint]) {
+    for (const rust of [nodeGate, unitGate, rustGate, rustLint]) {
       expect(rust).toContain(
         "needs: [deployment-impact, release-owner]\n    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'\n",
       );

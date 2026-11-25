@@ -366,6 +366,48 @@ jobs:
           npm run v2:worldpack
           npm run v2:syntax
           npx vitest run test/infrastructure/deploy-workflow.test.mjs --reporter=dot
+          npm run lint
+          npm run check:test-guards
+          npm run regen:check
+
+  production-unit:
+    name: Production JavaScript unit tests (${{ matrix.shard }}/3)
+    needs: [deployment-impact, release-owner]
+    if: needs.deployment-impact.outputs.deploy == 'true' && needs.release-owner.outputs.owns == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      CI: true
+    steps:
+      - name: Checkout committed release
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Checkout pinned SRD 5.1 source
+        uses: actions/checkout@v7
+        with:
+          repository: Tabyltop/CC-SRD
+          ref: c05c0438ea6c638bb7cb25224d97c9bd0e187c49
+          path: reference-library/rpg-systems/sources/cc-srd-5e
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --no-fund
+
+      - name: Run unit tests
+        run: npx vitest run --shard=${{ matrix.shard }}/3 --reporter=dot
 
   production-rust-gate:
     name: Production Rust gate
@@ -426,8 +468,7 @@ jobs:
         run: bash v2/scripts/check-rust.sh test
 
   # Lint runs beside the tests, not after them. Clippy builds in its own empty
-  # target directory, so it needs no Cargo cache and shares nothing with the
-  # test build; in sequence it added about two minutes to every release.
+  # target directory, so it needs no Cargo cache.
   production-rust-lint:
     name: Production Rust architecture and lint
     needs: [deployment-impact, release-owner]
@@ -471,7 +512,7 @@ jobs:
   production-gate:
     name: V2 production deployment gate
     if: ${{ always() && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev')) }}
-    needs: [deployment-impact, release-owner, production-node-gate, production-rust-gate, production-rust-lint]
+    needs: [deployment-impact, release-owner, production-node-gate, production-unit, production-rust-gate, production-rust-lint]
     runs-on: ubuntu-latest
     steps:
       - name: Verify required production gates passed
@@ -480,6 +521,7 @@ jobs:
           OWNER_RESULT: ${{ needs.release-owner.result }}
           OWNS_RELEASE: ${{ needs.release-owner.outputs.owns }}
           NODE_RESULT: ${{ needs.production-node-gate.result }}
+          UNIT_RESULT: ${{ needs.production-unit.result }}
           RUST_RESULT: ${{ needs.production-rust-gate.result }}
           RUST_LINT_RESULT: ${{ needs.production-rust-lint.result }}
         run: |
@@ -493,6 +535,7 @@ jobs:
             exit 0
           fi
           test "$NODE_RESULT" = success
+          test "$UNIT_RESULT" = success
           test "$RUST_RESULT" = success
           test "$RUST_LINT_RESULT" = success
 
