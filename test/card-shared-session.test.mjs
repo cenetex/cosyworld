@@ -63,6 +63,22 @@ async function session() {
 
 afterEach(() => vi.unstubAllGlobals());
 
+it("sends only narrator cards when collecting a revealed tarot reward", async () => {
+  const { connection, fetch, respond } = await session();
+  fetch.mockResolvedValueOnce(respond(snapshot(2)));
+  const action = {
+    kind: "accept", actor: "vale", tarot: 0, label: "Collect",
+    key: "accept:vale:::tarot:0:arcanum-0",
+  };
+  const cards = ["vale", "lamp", "pond", "greek-antigone"];
+  const revealed = [...cards, "tarot:vale:arcanum-0", "tarot-art:arcanum-0", "arcanum-0"];
+  await connection.play(action, "collect-reward", revealed);
+  expect(JSON.parse(fetch.mock.calls.at(-1)[1].body)).toEqual({
+    op: "play", key: "collect-reward", action, revealed: cards,
+  });
+  expect(revealed).toHaveLength(7);
+});
+
 describe("shared snapshot ordering", () => {
   it("keeps an accepted play when an older poll arrives in the same millisecond", async () => {
     const { connection, fetch, respond } = await session();

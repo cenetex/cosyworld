@@ -7,6 +7,7 @@ import roster from "./shared-cast.json" with { type: "json" };
 import { worldNameOf } from "./world-name.mjs";
 import { signedEnvelopes } from "./signed-words.mjs";
 import { INVITE_KEY, PLAYING_KEY } from "./avatar-world.mjs";
+import { profiles } from "./memory.mjs";
 
 export const humanAvatars = roster.avatars;
 const $ = (id) => document.getElementById(id);
@@ -310,7 +311,10 @@ export async function connectSharedWorld(id) {
     async play(action, key = crypto.randomUUID(), revealed = undefined) {
       playError = null;
       try {
-        return await command({ op: "play", key, action, revealed });
+        return await command({
+          op: "play", key, action,
+          revealed: revealed?.filter((id) => Object.hasOwn(profiles, id)),
+        });
       } catch (error) {
         if (error.message === "Your play is already at the table.") {
           // Another tab (or a newer server view) already owns this turn.
