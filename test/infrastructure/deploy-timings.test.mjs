@@ -60,7 +60,7 @@ describe("deploy timings", () => {
     ]);
   });
 
-  it("reports queue, wall time, Rust reuse, and image reuse", () => {
+  it("reports queue, wall time, the Rust gate, and image reuse", () => {
     const summary = summarize(
       {
         databaseId: 1,
@@ -74,25 +74,19 @@ describe("deploy timings", () => {
       kind: "promotion",
       wallMs: 15 * 60_000,
       queueMs: 60_000,
-      rustReused: false,
       imageReused: false,
     });
     expect(oneLine(summary)).toContain(
       "15.0m total, 1.0m queued · Rust gate ran 6.0m · image built 9.0m",
     );
     const reused = jobs.map((j) =>
-      j.name === "Production Rust gate"
-        ? {
-            ...j,
-            steps: [step("Verify Rust orchestrator tests", 3, 3, "skipped")],
-          }
-        : j.name === "Prepare Lonely Forest image"
-          ? { ...j, steps: [step("Prepare Lonely Forest image", 3, 4)] }
-          : j,
+      j.name === "Prepare Lonely Forest image"
+        ? { ...j, steps: [step("Prepare Lonely Forest image", 3, 4)] }
+        : j,
     );
     expect(
       summarize({ event: "push", headBranch: "v1", createdAt: at(0) }, reused),
-    ).toMatchObject({ rustReused: true, imageReused: true });
+    ).toMatchObject({ imageReused: true });
   });
 
   it("takes nearest-rank percentiles", () => {

@@ -21,9 +21,9 @@ if [ "${COSYWORLD_SKIP_PREPUSH:-}" = "1" ]; then
   exit 0
 fi
 
-# Fast checks only. CI runs the full suite on every PR and main commit, and
-# main deploys .dev as soon as its image is built. Run `npm run check` by hand
-# when you want the full local gate before pushing.
+# Fast checks only. Pull requests run no checks: main's run beside each .dev
+# build, which deploys as soon as its image is built. Run `npm run check` by
+# hand when you want the full local gate before pushing.
 echo "[pre-push] npm run check:version" >&2
 npm run check:version
 echo "[pre-push] npm run check:test-guards" >&2

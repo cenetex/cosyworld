@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const ciWorkflow = readFileSync(
-  new URL("../../.github/workflows/ci.yml", import.meta.url),
+const checksWorkflow = readFileSync(
+  new URL("../../.github/workflows/fast-check.yml", import.meta.url),
   "utf8",
 );
 const deployWorkflow = readFileSync(
@@ -14,9 +14,9 @@ const vitestConfig = readFileSync(
   "utf8",
 );
 
-describe("deployment-only contracts run in manual CI", () => {
-  it("the CI Node job runs the full vitest suite, which includes every infrastructure contract", () => {
-    expect(ciWorkflow).toContain("npm test");
+describe("deployment-only contracts run in main's checks", () => {
+  it("the unit shards run the full vitest suite, which includes every infrastructure contract", () => {
+    expect(checksWorkflow).toContain("npx vitest run --shard=${{ matrix.shard }}/3");
     expect(vitestConfig).toMatch(/include:\s*\[\s*'test\/\*\*\/\*\.test\.\{js,mjs\}'/);
   });
 
@@ -31,7 +31,7 @@ describe("deployment-only contracts run in manual CI", () => {
 });
 
 describe("check workflows run only by manual dispatch", () => {
-  const checkWorkflows = ["ci", "image-build", "local-desktop"];
+  const checkWorkflows = ["local-desktop"];
 
   it.each(checkWorkflows)("%s.yml has only a workflow_dispatch trigger", (name) => {
     const workflow = readFileSync(

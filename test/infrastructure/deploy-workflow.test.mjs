@@ -19,8 +19,8 @@ const workflow = readFileSync(
   new URL("../../.github/workflows/deploy.yml", import.meta.url),
   "utf8",
 );
-const ciWorkflow = readFileSync(
-  new URL("../../.github/workflows/ci.yml", import.meta.url),
+const checksWorkflow = readFileSync(
+  new URL("../../.github/workflows/fast-check.yml", import.meta.url),
   "utf8",
 );
 const deployScripts = readFileSync(
@@ -107,11 +107,10 @@ const workflowJob = (source, name, nextName) => {
   return source.slice(start, end);
 };
 const job = (name, nextName) => workflowJob(workflow, name, nextName);
-const ciJob = (name, nextName) => workflowJob(ciWorkflow, name, nextName);
 
 describe("deploy workflow", () => {
   it("only invokes package scripts that exist", () => {
-    const invokedScripts = [ciWorkflow, deployScripts].flatMap((source) =>
+    const invokedScripts = [checksWorkflow, deployScripts].flatMap((source) =>
       [...source.matchAll(/\bnpm run ([\w:-]+)/g)].map(([, script]) => script),
     );
     expect(invokedScripts.filter((script) => !packageScripts[script])).toEqual(
@@ -171,21 +170,16 @@ describe("deploy workflow", () => {
     const unit = job("production-unit", "production-rust-gate");
     expect(unit).toContain("shard: [1, 2, 3]");
     expect(unit).toContain("npx vitest run --shard=${{ matrix.shard }}/3");
-    expect(rustGate).toContain("node scripts/await-ci-rust.mjs");
-    expect(rustGate).toContain("checks: read");
-    expect(rustGate).toContain("actions: read");
     expect(rustGate).toContain("uses: actions/cache/restore@v6");
     expect(rustGate).toContain(
-      "restore-keys: |\n            ${{ runner.os }}-cargo-deps-v1-\n            ${{ runner.os }}-cargo-compact-v1-\n",
+      "restore-keys: ${{ runner.os }}-cargo-deps-v1-\n",
     );
     expect(rustGate).not.toContain("uses: actions/cache@v6");
-    expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustGate).toContain("bash v2/scripts/check-rust.sh test");
-    // Lint runs in its own job beside the tests, with the same CI reuse.
+    // Lint runs in its own job beside the tests.
     expect(rustGate).not.toContain("check-rust-lint.sh");
-    expect(rustLint).toContain("node scripts/await-ci-rust.mjs");
-    expect(rustLint).toContain("checks: read");
-    expect(rustLint).toContain("if: steps.ci.outputs.reuse != 'true'");
+    for (const rust of [rustGate, rustLint])
+      expect(rust).not.toMatch(/await-ci-rust|steps\.ci\.|checks: read/);
     expect(rustLint).toContain("bash v2/scripts/check-main-size.sh");
     expect(rustLint).toContain("bash v2/scripts/check-rust-lint.sh");
     expect(gate).toContain(
@@ -367,8 +361,8 @@ describe("deploy workflow", () => {
   });
 
   it("checks version alignment without requiring a bump per change", () => {
-    expect(ciWorkflow).toContain("name: Check version alignment");
-    expect(ciWorkflow).not.toContain("Ensure version bumped");
+    expect(checksWorkflow).toContain("name: Check version alignment");
+    expect(checksWorkflow).not.toContain("Ensure version bumped");
     const check = readFileSync(
       new URL("../../scripts/check-version-bump.mjs", import.meta.url),
       "utf8",
@@ -477,48 +471,20 @@ describe("deploy workflow", () => {
     }
   });
 
-  it("uses matching compact Rust profiles and cache namespaces in CI and deployment", () => {
-    for (const source of [ciWorkflow, workflow]) {
+  it("uses compact Rust profiles and the dependency cache rust-cache.yml saves", () => {
+    for (const source of [checksWorkflow, workflow]) {
       expect(source).toContain('CARGO_PROFILE_DEV_DEBUG: "0"');
       expect(source).toContain('CARGO_PROFILE_TEST_DEBUG: "0"');
-      expect(source).toContain("-cargo-compact-v1-");
-      expect(source).not.toContain("-cargo-orchestrator-");
+      expect(source).toContain("-cargo-deps-v1-");
+      expect(source).not.toMatch(/-cargo-(compact|orchestrator)-/);
     }
-  });
-
-  it("runs the long CI smoke suites in parallel from one shared binary", () => {
-    const runtime = ciJob("runtime", "smoke-binary");
-    const binary = ciJob("smoke-binary", "rust-quality");
-    const browser = ciJob("browser", "build");
-    const build = ciJob("build");
-
-    // The binary builds beside the Rust tests, so the smoke suites need not
-    // wait for the tests.
-    expect(binary).toContain("actions/upload-artifact@v7");
-    expect(binary).not.toContain("check-rust.sh test");
-    expect(runtime).toContain("check-rust.sh test");
-    expect(runtime).not.toContain("v2:composition:smoke");
-    expect(runtime).not.toContain("v2:browser:check");
-    expect(browser).toContain("needs: smoke-binary");
-    // The browser matrix comes from the measured shard plan.
-    expect(binary).toContain("node scripts/plan-browser-shards.mjs");
-    expect(browser).toContain(
-      "matrix: ${{ fromJSON(needs.smoke-binary.outputs.browser-shards) }}",
-    );
-    expect(browser).toContain('node "v2/scripts/$check.mjs"');
-    // The classic shell and its fresh-seed browser gate are retired.
-    expect(browser).not.toContain("v2:browser:check");
-    expect(browser).toContain("actions/download-artifact@v8");
-    for (const job of ["node", "runtime", "smoke-binary", "rust-quality"])
-      expect(build).toContain(job);
-    expect(build).toContain('test "$SMOKE_BINARY_RESULT" = success');
   });
 
   it("never cancels a check workflow run", () => {
     // Check workflows run only by hand. Deploy serializes on its own group
     // and never cancels (see deploy-coverage.test.mjs); Fly health runs only
     // on a schedule or by hand.
-    for (const name of ["ci", "image-build", "local-desktop"]) {
+    for (const name of ["local-desktop"]) {
       const source = readFileSync(
         new URL(`../../.github/workflows/${name}.yml`, import.meta.url),
         "utf8",
@@ -529,18 +495,11 @@ describe("deploy workflow", () => {
     }
   });
 
-  it("runs quarantined flaky Rust tests in a non-blocking job", () => {
-    const quarantine = ciJob("rust-quarantine", "rust-quality");
-    const build = ciJob("build");
+  it("skips each quarantined flaky Rust test, which still exists", () => {
     const checkRust = readFileSync(
       new URL("../../v2/scripts/check-rust.sh", import.meta.url),
       "utf8",
     );
-    expect(quarantine).toContain("continue-on-error: true");
-    expect(quarantine).toContain("bash v2/scripts/check-rust.sh quarantine");
-    expect(quarantine).not.toContain("actions/cache/save");
-    expect(build).not.toContain("rust-quarantine");
-    // The blocking suite skips each quarantined test, which still exists.
     // The list may be empty; every entry names its issue and fix-by date.
     const entries = checkRust
       .match(/^QUARANTINED_TESTS=\(\n([\s\S]*?)^\)$/m)[1]
@@ -558,26 +517,6 @@ describe("deploy workflow", () => {
     for (const name of names) {
       expect(rustMain).toContain(`#[test]\n    fn ${name}()`);
     }
-  });
-
-  it("saves the Cargo cache only from main", () => {
-    const runtime = ciJob("runtime", "smoke-binary");
-    expect(runtime).toContain("actions/cache/restore@v6");
-    expect(runtime).toContain("actions/cache/save@v6");
-    expect(runtime).toContain("github.ref == 'refs/heads/main'");
-    // One entry per UTC day, saved before the tests run.
-    expect(runtime).toContain("-cargo-compact-v1-day-");
-    expect(runtime).toContain("steps.cargo-cache.outputs.cache-hit != 'true'");
-    expect(runtime.indexOf("actions/cache/save@v6")).toBeLessThan(
-      runtime.indexOf("check-rust.sh test"),
-    );
-    // The smoke binary keeps main's cache only while the Rust tests run on
-    // the Fly runners, whose volume keeps their own.
-    const binary = ciJob("smoke-binary", "rust-quality");
-    expect(binary.match(/actions\/cache\/save/g)).toHaveLength(1);
-    expect(binary).toContain(
-      "if: vars.FLY_RUNNERS == 'on' && github.ref == 'refs/heads/main'",
-    );
   });
 
   it("skips docs-only deploys and reuses release compilation work", () => {
@@ -607,8 +546,8 @@ describe("deploy workflow", () => {
   });
 
   it("builds the binary in the Dockerfile unless a main push supplies one", () => {
-    // The default stays the in-image build used by tags, dispatches, the
-    // Fly builder, and the release-image check.
+    // The default stays the in-image build used by tags, dispatches and the
+    // Fly builder.
     const [preamble] = dockerfile.split(/^FROM /m);
     expect(preamble).toContain("ARG ORCHESTRATOR_BINARY=build");
     expect(dockerfile).toContain(
@@ -676,15 +615,6 @@ describe("deploy workflow", () => {
     );
     expect(desktop).not.toContain("macos-arm64-local-v1-${{ hashFiles");
     expect(desktop).toContain("!.runtime/desktop-target/release/bundle");
-    const runtime = ciJob("runtime", "smoke-binary");
-    // The restore uses today's key, so an exact hit means today is saved.
-    expect(runtime).toContain(
-      "key: ${{ runner.os }}-cargo-compact-v1-day-${{ steps.cargo-cache-day.outputs.day }}",
-    );
-    expect(runtime).toContain("steps.cargo-cache.outputs.cache-hit != 'true'");
-    expect(runtime.slice(runtime.indexOf("Save Cargo build cache"))).toContain(
-      "key: ${{ steps.cargo-cache.outputs.cache-primary-key }}",
-    );
   });
 
   it("runs Lonely Forest as one process like primary", () => {
