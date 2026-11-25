@@ -286,14 +286,23 @@ const isMiddle = (id) =>
   Boolean(cardOf(id)) && numberOf(id) !== FOOL && numberOf(id) !== WORLD;
 const numbered = (n) => deck.cards.find((card) => card.number === n)?.id;
 const sorted = (ids) => [...new Set(ids)].sort();
+const collect = (actor, ids) =>
+  (actor.upgrades = sorted([...(actor.upgrades || []), ...ids]));
+const shuffled = (s, traveler, level, ids) => {
+  const score = (id) => runHash(s, `arcana-deal:${traveler}:${level}:${id}`);
+  return [...ids].sort(
+    (a, b) => score(a) - score(b) || (a < b ? -1 : a > b ? 1 : 0),
+  );
+};
 
 export function deckOrder(s, traveler, level = 0) {
-  const score = (id) => runHash(s, `arcana-deal:${traveler}:${level}:${id}`);
   const ids = (list) => list.map((card) => card.id);
-  const middle = deck.cards
-    .filter((card) => card.number !== FOOL && card.number !== WORLD)
-    .map((card) => card.id)
-    .sort((a, b) => score(a) - score(b) || (a < b ? -1 : a > b ? 1 : 0));
+  const middle = shuffled(
+    s,
+    traveler,
+    level,
+    deck.cards.filter((card) => isMiddle(card.id)).map((card) => card.id),
+  );
   return [
     ...ids(deck.cards.filter((card) => card.number === FOOL)),
     ...middle,
@@ -414,9 +423,14 @@ export function nextSpread(s, traveler) {
     return slot ? [slot] : [];
   }
   const scale = stepAt(level + 1).scale;
-  const middle = deckOrder(s, traveler, level).filter(isMiddle);
-  const known = middle.filter((id) => unlocked.includes(id));
-  const unknown = middle.filter((id) => !unlocked.includes(id));
+  const order = deckOrder(s, traveler, level);
+  const known = shuffled(
+    s,
+    traveler,
+    level,
+    order.filter((id) => id !== world && unlocked.includes(id)),
+  );
+  const unknown = order.filter((id) => isMiddle(id) && !unlocked.includes(id));
   const used = new Set();
   const tried = recordOf(s, traveler).need;
   const pick = (all, face, at, other = null) => {
@@ -499,7 +513,7 @@ function unlock(s, traveler, id) {
   record.level ??= arcanaLevel(s, traveler);
   record.proved = sorted([...record.proved, id]);
   record.done = sorted([...(record.done || []), id]);
-  a.upgrades = sorted([...(a.upgrades || []), id]);
+  collect(a, [id]);
 }
 
 function leave(record, slot) {
@@ -546,6 +560,7 @@ function visit(s, traveler, say) {
         deed = deedOf(slot);
       if (!slot.done) {
         slot.face = "up";
+        collect(s.actors[traveler], [slot.card]);
         tell(
           `${nameOf(LISTENER)} turns over ${name}${deed ? `, still to do: ${deed}` : ""}.`,
         );
@@ -780,6 +795,10 @@ export function installArcana(s) {
       delete record.level;
     if (record.spread !== undefined && !validSpread(record.spread))
       delete record.spread;
+    const revealed = (record.spread || [])
+      .filter((slot) => slot.face === "up")
+      .map((slot) => slot.card);
+    if (revealed.length) collect(actor, revealed);
     if (record.need !== undefined && !validNeed(record.need))
       delete record.need;
     if (record.done !== undefined && !validDone(record.done))

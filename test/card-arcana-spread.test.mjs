@@ -246,8 +246,8 @@ describe("a spread bought for a thing", () => {
   };
 
   it("deals a face-up and a face-down card it knows and a locked one it does not, in place of every quest", () => {
-    const known = middle.slice(0, 4);
-    const s = bought([FOOL, ...known]);
+    const known = [FOOL, ...middle.slice(0, 4)];
+    const s = bought(known);
     expect(faces(s)).toEqual(["up", "down", "locked"]);
     const [up, down, locked] = s.actors.vale.arcana.spread;
     expect(known).toContain(up.card);
@@ -263,7 +263,7 @@ describe("a spread bought for a thing", () => {
   });
 
   it("lets a done card leave its slot, and a resident's quest takes the slot", () => {
-    let s = bought([FOOL, "arcanum-12"]);
+    let s = bought(["arcanum-12"]);
     expect(cards(s)[0]).toBe("arcanum-12");
     expect(faces(s)).toEqual(["up", "locked"]);
     s = wait(s);
@@ -281,7 +281,7 @@ describe("a spread bought for a thing", () => {
   });
 
   it("gives no level for a discarded locked card, and sells a redraw at the next visit", () => {
-    let s = bought([FOOL, "arcanum-12"]);
+    let s = bought(["arcanum-12"]);
     const [, locked] = cards(s);
     s = discard(s, 1);
     expect(cards(s)).toEqual([]);
@@ -296,7 +296,7 @@ describe("a spread bought for a thing", () => {
 describe("a redraw and a card given up", () => {
   it("deals a different locked card after the last one was discarded", () => {
     let s = createPipWorld(5);
-    level(s, 1, [FOOL, "arcanum-12"], { sale: true });
+    level(s, 1, ["arcanum-12"], { sale: true });
     s.items.bell.holder = "vale";
     s = pay(s, "bell");
     const first = s.actors.vale.arcana.spread.find((slot) => slot.face === "locked");

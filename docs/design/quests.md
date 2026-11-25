@@ -1,5 +1,17 @@
 # Quests belong to avatars, items and places
 
+## Tarot direction — 25 November 2026
+
+Revealing a tarot adds it to the player's reusable pack. Later level-quest
+spreads draw from that pack, with new cards shuffled in gradually. The existing
+spread introduces at most one unfamiliar card at a time; the known cards can
+return with fresh proofs. A revealed card belongs to the pack before its current
+proof is complete. Collection does not award the level.
+
+This replaces the one-card-only tarot proposal below. A face-down card has not
+been revealed. A locked card keeps its back until its proof reveals it. The
+individual tarot website proposal (#3166) is closed; the cards belong in play.
+
 Written against rules 187 (`65cfa23ad`). Paths are relative to the repository root; `card-game/` means `v2/card-game/` and `rust/` means `v2/orchestrator-rust/src/`.
 
 Today a quest is something a person takes. Offers stand at boxes, residents, homes, places and the Listener (`OFFER_KINDS`, `card-game/world/offers.mjs:24`). Accept moves one into a stack of up to three held quests (`MAX_HELD`, `card-game/want.mjs:126`); home and Listener offers are held without it. Discard sets one down. The arcana spread shares those slots. Residents run a separate machine: each has one want, authored, staged, taken from a rumour or drawn from the world (`nextWant`, `want.mjs:439-467`), and the world's planner pursues it.
