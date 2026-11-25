@@ -21,8 +21,8 @@ const HERE = "arcanum-0";
 const WAITED = "arcanum-1";
 
 function act(s, kind, who = "vale") {
-  const action = legalActions(s, who).find(
-    (a) => typeof kind === "function" ? kind(a) : a.kind === kind,
+  const action = legalActions(s, who).find((a) =>
+    typeof kind === "function" ? kind(a) : a.kind === kind,
   );
   const result = play(s, action, s.revision, who);
   expect(result.ok).toBe(true);
@@ -76,7 +76,9 @@ describe("settling after a play", () => {
     let s = holding(createWorld({ seed: 3 }), "vale", HERE);
     s = act(s, "move");
     expect(s.actors.vale.place).toBe(far);
-    expect(recordOf(s, "vale").spread).toEqual([{ card: HERE, face: "reward", done: true }]);
+    expect(recordOf(s, "vale").spread).toEqual([
+      { card: HERE, face: "reward", done: true },
+    ]);
     expect(recordOf(s, "vale").proved).toEqual([]);
     s = collect(s);
     expect(s.actors.vale.arcana).toEqual({
@@ -146,7 +148,9 @@ describe("settling after a play", () => {
         cast: ["vale"],
         ...entry,
       });
-      return recordOf(settleArcana(s, "vale"), "vale").spread[0].face === "reward";
+      return (
+        recordOf(settleArcana(s, "vale"), "vale").spread[0].face === "reward"
+      );
     };
     expect(proved({}, {})).toBe(true);
     expect(proved({}, { verb: "move" })).toBe(false);
@@ -240,7 +244,9 @@ describe("settling after a play", () => {
     s.presentActors.push(other);
     s.controlledActors.push(other);
     s.log = [];
-    expect(recordOf(collect(settleArcana(s, other), other), other).proved).toEqual([WAITED]);
+    expect(
+      recordOf(collect(settleArcana(s, other), other), other).proved,
+    ).toEqual([WAITED]);
     expect(asleep(["vale"]).actors[other].arcana.did).toEqual([]);
   });
 });
@@ -259,6 +265,7 @@ describe("the saved record", () => {
       done: [],
       spread: [],
       sale: false,
+      paid: false,
     });
     expect(fresh.actors.vale.arcana).toBeUndefined();
     const s = collect(act(holding(fresh, "vale", HERE), "move"));

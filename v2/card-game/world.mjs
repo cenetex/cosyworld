@@ -3496,8 +3496,12 @@ export function play(
   settleHomeLevels(next);
   // A round of waits still ends a standoff nobody would carry on.
   settleStandoffs(next);
-  settleArcana(next, actor, s.eventSeq ?? s.log.length, (text, detail) =>
-    addLog(next, "World", text, detail),
+  settleArcana(
+    next,
+    actor,
+    s.eventSeq ?? s.log.length,
+    (text, detail) => addLog(next, "World", text, detail),
+    s,
   );
   settleSealedItems(next, nameOf, worldLine);
   settleGuards(next);

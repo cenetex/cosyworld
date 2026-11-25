@@ -124,10 +124,16 @@ describe("a card stays done once met", () => {
     s.actors.vale.place = "pond";
     s.actors.vale.visited = Object.keys(places).slice(0, 8);
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0]).toMatchObject({ face: "reward", done: true });
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      face: "reward",
+      done: true,
+    });
     s.actors.vale.place = homeOf("vale");
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0]).toMatchObject({ face: "reward", done: true });
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      face: "reward",
+      done: true,
+    });
   });
 
   it("IX: the Hermit stays done after the lamp goes out", () => {
@@ -135,10 +141,16 @@ describe("a card stays done once met", () => {
     deck.cards = data.cards.filter((card) => card.number === 9);
     holding(s, { card: "arcanum-9", face: "up", bind: { light: "lamp" } });
     s = act(litNight(s), walk("station"));
-    expect(recordOf(s, "vale").spread[0]).toMatchObject({ face: "reward", done: true });
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      face: "reward",
+      done: true,
+    });
     s.items.lamp.lit = false;
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0]).toMatchObject({ face: "reward", done: true });
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({
+      face: "reward",
+      done: true,
+    });
   });
 });
 

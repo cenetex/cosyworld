@@ -37,8 +37,10 @@ const act = (s, test) => {
   expect(result.ok, result.error).toBe(true);
   return result.state;
 };
-const collect = (s) => act(s, (a) => a.kind === "accept" && a.tarot !== undefined);
-const reward = (s) => recordOf(s, "vale").spread.some((slot) => slot.face === "reward");
+const collect = (s) =>
+  act(s, (a) => a.kind === "accept" && a.tarot !== undefined);
+const reward = (s) =>
+  recordOf(s, "vale").spread.some((slot) => slot.face === "reward");
 const walk = (to) => (a) => a.kind === "move" && a.target === to && !a.item;
 const kind =
   (k, fields = {}) =>

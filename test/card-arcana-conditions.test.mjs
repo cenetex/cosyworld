@@ -139,6 +139,7 @@ describe("did conditions", () => {
       done: [],
       spread: [],
       sale: false,
+      paid: false,
     });
     expect(s.actors.walker.arcana).toBeUndefined();
   });
