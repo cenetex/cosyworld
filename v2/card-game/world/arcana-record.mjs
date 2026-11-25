@@ -58,9 +58,7 @@ export function called(s, traveler) {
   const record = recordOf(s, traveler);
   return (
     record.sale ||
-    (record.calls >= CALLS &&
-      (arcanaLevel(s, traveler) < LEVEL_CAP ||
-        record.spread.some((slot) => slot.face === "down")))
+    (record.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP)
   );
 }
 

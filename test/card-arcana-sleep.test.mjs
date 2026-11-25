@@ -72,6 +72,10 @@ function visit(s) {
   s.actors.listener.place = s.actors.vale.place;
   return act(s, (a) => a.kind === "talk" && a.target === "listener");
 }
+function helpThree(s) {
+  s.actors.vale.arcana.calls = 3;
+  return wait(s);
+}
 function leveledFool(cards) {
   let s = createWorld({ seed: 3 });
   const far = legalActions(s, "vale").find((a) => a.kind === "move").target;
@@ -81,7 +85,7 @@ function leveledFool(cards) {
   s.actors.vale.place = far;
   settleArcana(s, "vale");
   expect(recordOf(s, "vale").spread[0].done).toBe(true);
-  s = visit(s);
+  s = helpThree(s);
   expect(levelOf(s, "vale")).toBe(1);
   s.actors.vale.place = homeOf("vale");
   return quiet(s);
@@ -92,7 +96,7 @@ afterEach(() => {
 });
 
 describe("travelers level by cards", () => {
-  it("raises the level from 0 to 1 when the Listener turns over a done Fool", () => {
+  it("raises the level from 0 to 1 when a done Fool unlocks", () => {
     let s = createWorld({ seed: 3 });
     s.actors.vale.place = "pond";
     s = visit(s);
@@ -110,7 +114,7 @@ describe("travelers level by cards", () => {
       done: true,
     });
     expect(levelOf(s, "vale")).toBe(0);
-    s = visit(s);
+    s = helpThree(s);
     expect(recordOf(s, "vale").proved).toEqual([FOOL]);
     expect(s.actors.vale.upgrades).toContain(FOOL);
     expect(levelOf(s, "vale")).toBe(1);

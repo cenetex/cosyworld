@@ -26,10 +26,8 @@ const TABLE = {
   drink: (id) => consumable(id) === "drink",
 };
 
-/**
- * Several wants said together, joined plainly: the first begins the
- * sentence, the rest follow "and". `say(want)` words one, capitalized.
- */
+// Several wants said together: the first begins the sentence, the rest
+// follow "and". `say(want)` words one, capitalized.
 export const joinWants = (wants, say) =>
   wants
     .map((want, i) => {
@@ -135,6 +133,10 @@ const COUNT_WORDS = {
   },
   heard: {
     min: (n) => `hear the wants of ${many(n, "more person", "more people")}`,
+  },
+  helped: {
+    min: (n, c) =>
+      `help ${numberWord(n)}${c.more ? " more" : ""} ${n === 1 ? "person complete their goal" : "people complete their goals"}`,
   },
   trusting: {
     min: (n, c) =>

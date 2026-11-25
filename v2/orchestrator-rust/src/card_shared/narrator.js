@@ -1131,7 +1131,7 @@
   function called(s, traveler) {
     if (!humanPresent(s, traveler)) return false;
     const record7 = recordOf(s, traveler);
-    return record7.sale || record7.calls >= CALLS && (arcanaLevel(s, traveler) < LEVEL_CAP || record7.spread.some((slot) => slot.face === "down"));
+    return record7.sale || record7.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP;
   }
   var calledTravelers = (s) => Object.keys(s.actors || {}).sort().filter((id) => called(s, id));
   var selling = (s, traveler) => humanPresent(s, traveler) && recordOf(s, traveler).sale;
@@ -19656,14 +19656,6 @@
     return true;
   }
 
-  // v2/card-game/world/found.mjs
-  function found(world, speaker, id) {
-    const a = world.actors[speaker];
-    if (world.actors[id])
-      return !a?.talked || a.talked.includes(id) || world.opening?.met?.[id] !== void 0 || world.packs?.[packOf(id)?.id]?.met?.[id] !== void 0;
-    return Boolean(world.items[id]) || !a?.visited || a.visited.includes(id);
-  }
-
   // v2/card-game/world/arcana.mjs
   var deck = { cards: arcana_default.cards };
   var countsIn = (c) => c.kind === "count" ? [c] : [...c.conditions || [], ...c.condition ? [c.condition] : []].flatMap(
@@ -20749,6 +20741,14 @@
     if (!s.actors[id])
       return truth.every((c) => claimTruth(packId, id).some((own2) => own2.key === c.key));
     return truth.every((c) => settled(s, id, packId, c.key));
+  }
+
+  // v2/card-game/world/found.mjs
+  function found(world, speaker, id) {
+    const a = world.actors[speaker];
+    if (world.actors[id])
+      return !a?.talked || a.talked.includes(id) || world.opening?.met?.[id] !== void 0 || world.packs?.[packOf(id)?.id]?.met?.[id] !== void 0;
+    return Boolean(world.items[id]) || !a?.visited || a.visited.includes(id);
   }
 
   // v2/card-game/speech-knowledge.mjs

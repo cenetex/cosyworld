@@ -87,6 +87,7 @@ import {
   TAROT_BACK,
   TAROT_LOCKED_BACK,
   LOCKED_BOX,
+  createLockedBoxes,
   isLockedBox,
   lockedQuest,
 } from "./locked-box.mjs";
@@ -119,6 +120,7 @@ import {
   questId,
   questNear,
   questTier,
+  spreadLocks,
   questVerb,
 } from "./quest-card.mjs";
 import { actionScene, questScreen } from "./quest-screen.mjs";
@@ -538,6 +540,7 @@ const fresh = new Set();
 // The level each card last showed, so a rise plays on the card itself.
 const shownLevels = new Map();
 const shownStageLevels = new Map();
+const tarotLocks = createLockedBoxes({ retainAbsent: false });
 const coveredCards = new Set();
 let openingHeld = false;
 // The held quest on show (none or one) and whether its card is chosen. A
@@ -573,7 +576,6 @@ const questEntries = () => {
 const questEntry = (id) => questEntries().find((entry) => entry.id === id);
 const pickedQuest = () => (questOpen && questEntry(questOpen)?.quest) || null;
 const tarotKeys = () => questEntries().map((entry) => entry.id).filter(isTarotKey);
-// Card art: a pack's own art, a hub item's authored art, or the forest card.
 const cardArt = (id) =>
   packMedia(id, "art") ||
   (things[id]?.art ? `./${things[id].art}` : `./assets/${id}-card.png`);
@@ -700,6 +702,7 @@ function loadSeen(reset = false) {
   fresh.clear();
   shownLevels.clear();
   shownStageLevels.clear();
+  tarotLocks.clear();
   shownQuests = [];
   questSeq = null;
   questFresh = false;
@@ -1736,7 +1739,6 @@ function syncAvatarStack(frame, id) {
   }
   stackEdges(frame, part.under);
 }
-// Face-down cards behind a stack's top card, up to three.
 function stackEdges(frame, count) {
   for (let i = Math.min(count, 3); i > 0; i--) {
     const edge = node("span", undefined, "place-edge");
@@ -3197,7 +3199,6 @@ function departHand() {
     frame.style.visibility = "hidden";
   }
 }
-// The key a hand card's motion is tracked by: its card, or its quest.
 function motionKey(frame) {
   const card = frame.querySelector(".card");
   if (card.dataset.card || !frame.dataset.questId) return card.dataset.card;
@@ -3531,7 +3532,6 @@ const questLabel = (quest, near) => {
     : shownQuestCaption(quest);
   return `Quest: ${caption}${near ? ", near" : ""}`;
 };
-// The face every quest card shares, held or offered: the scene and its head.
 function questFace(quest, verb) {
   const rite = quest.art && { ...questView({ ...quest, ...quest.goal }), here: quest.target };
   const screen = questScreen(
@@ -3579,9 +3579,9 @@ function questFrame({ id, quest }) {
       src: imageUrl(
         quest.kind !== "arcanum"
           ? CARD_BACK
-          : quest.face === "locked"
-            ? TAROT_LOCKED_BACK
-            : TAROT_BACK,
+          : quest.face === "up"
+            ? TAROT_BACK
+            : TAROT_LOCKED_BACK,
         "card",
       ),
       alt: "",
@@ -4967,12 +4967,10 @@ function render() {
       if (!cardIsClosed(id) && (people[id] || id === placeHere())) expandedHolders.add(id);
     }
   if (rowCollapsed || waysOpen !== placeHere()) waysOpen = null;
-  // Folding the avatar's stacks folds its fan and lowers a chosen quest.
   if (!expandedHolders.has(currentActor(world))) {
     avatarFan = null;
     questOpen = false;
   }
-  // The wants the rules met since the last look are counted.
   for (let i = metWants(world.log, questSeq, currentActor(world)); i > 0; i--)
     count("quest.met");
   questSeq = world.eventSeq;
@@ -5298,6 +5296,8 @@ function playLevelUps() {
           : null,
       });
   }
+  for (const id of tarotLocks.draw(...spreadLocks(world)))
+    void transformPortrait(handCard(id)?.querySelector(".card-back"), imageUrl(TAROT_LOCKED_BACK, "card"), { reduced: reducedMotion.matches });
 }
 function revealHandCard(id, { instant = false, nextFrame = null } = {}) {
   const hand = $("hand"),
