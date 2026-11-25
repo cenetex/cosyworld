@@ -169,8 +169,10 @@ describe("deploy workflow", () => {
     expect(rustGate).toContain("node scripts/await-ci-rust.mjs");
     expect(rustGate).toContain("checks: read");
     expect(rustGate).toContain("actions: read");
-    // CI saves the Cargo cache; a per-tag save only evicts others.
     expect(rustGate).toContain("uses: actions/cache/restore@v6");
+    expect(rustGate).toContain(
+      "restore-keys: |\n            ${{ runner.os }}-cargo-deps-v1-\n            ${{ runner.os }}-cargo-compact-v1-\n",
+    );
     expect(rustGate).not.toContain("uses: actions/cache@v6");
     expect(rustGate).toContain("if: steps.ci.outputs.reuse != 'true'");
     expect(rustGate).toContain("bash v2/scripts/check-rust.sh test");
@@ -400,6 +402,20 @@ describe("deploy workflow", () => {
     expect(hook).not.toContain("v2:rust:test");
     expect(hook).not.toContain("v2:kernel");
     expect(packageScripts.check).toContain("v2:rust:test");
+  });
+
+  it("promotes the image .dev built instead of building it again", () => {
+    const primary = job("primary-image", "primary-backup");
+    expect(primary).toContain("actions: read");
+    expect(primary.indexOf("bash scripts/await-dev-image.sh")).toBeLessThan(
+      primary.indexOf("bash scripts/prepare-fly-image.sh cosyworld fly.toml"),
+    );
+    expect(primary).toContain(
+      'node scripts/check-deployment-impact.mjs "$base" "$GITHUB_SHA" | grep -qx deploy=false',
+    );
+    expect(primary).toContain(
+      "EQUIVALENT_COMMIT: ${{ steps.dev.outputs.commit }}",
+    );
   });
 
   it("shares a commit image while each app keeps its own registry and rollout gates", () => {

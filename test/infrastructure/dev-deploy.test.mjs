@@ -575,3 +575,57 @@ describe("a Fly rollout fails fast on a stuck machine", () => {
     expect(rollout(0, "soon").status).toBe(2);
   });
 });
+
+const awaitScript = fileURLToPath(
+  new URL("../../scripts/await-dev-image.sh", import.meta.url),
+);
+const awaitImage = ({ buildsFor = 0, fail = false, limit = "30" } = {}) => {
+  const directory = mkdtempSync(join(tmpdir(), "cosyworld-dev-image-"));
+  writeFileSync(
+    join(directory, "gh"),
+    `#!/usr/bin/env bash
+${fail ? "exit 1" : ""}
+path="$2"; filter=""; while [ $# -gt 0 ]; do [ "$1" = --jq ] && filter="$2"; shift; done
+case "$path" in
+  */deploy.yml/runs*) echo '{"workflow_runs":[{"id":7,"status":"in_progress","display_title":".dev train x"},{"id":8,"status":"in_progress","display_title":"Deploy v1 to both"}]}' ;;
+  */runs/7/jobs) n=$(cat "${directory}/n" 2>/dev/null || echo 0); echo $((n + 1)) > "${directory}/n"
+    status=in_progress; [ "$n" -ge ${buildsFor} ] && status=completed
+    printf '{"jobs":[{"name":"Build the .dev image","status":"%s"}]}' "$status" ;;
+  *) exit 1 ;;
+esac | jq -r "$filter"
+`,
+  );
+  chmodSync(join(directory, "gh"), 0o755);
+  try {
+    return spawnSync("bash", [awaitScript], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${directory}${delimiter}${process.env.PATH}`,
+        GH_REPO: "example/world",
+        GITHUB_SHA: sha,
+        COSYWORLD_DEV_IMAGE_WAIT_INTERVAL: "1",
+        COSYWORLD_DEV_IMAGE_WAIT_SECS: limit,
+      },
+    });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+};
+
+describe("production waits for .dev's image of its commit", () => {
+  it("waits only while a .dev run is still building it", () => {
+    const waited = awaitImage({ buildsFor: 2 });
+    expect(waited.status).toBe(0);
+    expect(waited.stdout).toContain("Waiting for .dev run(s) building aaaaaaa: 7");
+    expect(waited.stdout).toContain("No .dev run is building aaaaaaa.");
+    expect(awaitImage().stdout).not.toContain("Waiting");
+  });
+
+  it("stops waiting at its limit or when runs cannot be read", () => {
+    const slow = awaitImage({ buildsFor: 100, limit: "1" });
+    expect(slow.status).toBe(0);
+    expect(slow.stdout).toContain("::warning::");
+    expect(awaitImage({ fail: true }).stdout).not.toContain("Waiting");
+  });
+});
