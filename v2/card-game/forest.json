@@ -88,7 +88,7 @@
       },
       "home": "station",
       "values": { "lamp": 3, "oil": 8, "bell": 10, "cloth": 6 },
-      "want": { "kind": "item", "target": "bell" },
+      "want": { "kind": "place", "target": "pond", "step": { "verb": "call", "crossing": "pond-greek-harbor" } },
       "valueRules": {
         "cloth": [{ "when": [{ "item": "bell", "field": "ringing", "min": 1 }], "add": 9 }]
       },

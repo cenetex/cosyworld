@@ -443,19 +443,17 @@ export function noteAct(s, a, place, holder, round, senses, log) {
 }
 // A physical arrangement can reveal a vessel without a synthetic action.
 // Any resident or player may make it; completed access survives later moves.
-export function settleCrossingUnlocks(s, senses) {
+export function settleCrossingUnlocks(s, senses, called = () => {}) {
   for (const c of crossings) {
-    if (!c.unlockWhen || s.crossings[c.id].discovered) continue;
-    if (
-      !Object.keys(s.actors).some(
-        (actor) =>
-          entityActive(s, actor) &&
-          c.unlockWhen.every((r) =>
-            conditionMet(s, r, senses, c.packId, actor),
-          ),
-      )
-    )
-      continue;
+    if (!c.unlockWhen) continue;
+    const actor = Object.keys(s.actors).find(
+      (actor) =>
+        entityActive(s, actor) &&
+        c.unlockWhen.every((r) => conditionMet(s, r, senses, c.packId, actor)),
+    );
+    if (!actor) continue;
+    called(c, actor);
+    if (s.crossings[c.id].discovered) continue;
     s.crossings[c.id].discovered = true;
     summonTransport(s, c.transport, c.from);
   }

@@ -1227,7 +1227,7 @@
         },
         home: "station",
         values: { lamp: 3, oil: 8, bell: 10, cloth: 6 },
-        want: { kind: "item", target: "bell" },
+        want: { kind: "place", target: "pond", step: { verb: "call", crossing: "pond-greek-harbor" } },
         valueRules: {
           cloth: [{ when: [{ item: "bell", field: "ringing", min: 1 }], add: 9 }]
         },
@@ -1967,8 +1967,12 @@
       const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
       const place = fact.source.kind === "topic" ? null : fact.source.locationId;
       const where = place && !fact.text.includes(nameOf3(place)) ? ` at ${nameOf3(place)}` : "";
+      const retold = fact.source.kind === "quest" && memory.kind === "heard" && memory.teller !== fact.source.actorId;
+      const heardAt = retold && world.log?.find((e) => e.seq === memory.eventSeq)?.locationId;
+      const heardWhere = retold ? heardAt ? ` at ${nameOf3(heardAt)}` : "" : where;
+      const source = retold ? ` ${nameOf3(fact.source.actorId)} made the request${where}.` : "";
       const stale2 = fact.source.kind === "event" && age >= STALE_TURNS || fact.source.kind === "quest" && !protectedFact(fact, world) ? " Things may have changed since." : "";
-      return `${origin} this ${ageText(age)}${where}: ${fact.text}${stale2}`.slice(
+      return `${origin} this ${ageText(age)}${heardWhere}: ${fact.text}${source}${stale2}`.slice(
         0,
         240
       );
@@ -3034,8 +3038,10 @@
     return holder;
   };
   var article = (name) => /^(the|a|an) /iu.test(name) ? name : `the ${name}`;
+  var callWords = (want, name) => `call the ship: hold ${name("cloth")} at ${name(want.target)} while ${name("lamp")} burns on the ground there`;
   function met(world, id, want) {
     if (want.kind === "connect") return false;
+    if (want.step?.verb === "call") return false;
     const here2 = world.actors[id].place;
     if (want.kind === "item")
       return want.step?.verb !== "eat" && rootOf(world, want.target) === id;
@@ -3060,6 +3066,8 @@
     );
   }
   function wantFact(world, id, nameOf3, listener) {
+    const done = world.actors?.[id]?.completedQuest;
+    if (done && !world.actors[id].want) return `${nameOf3(done.by)} called the ship for me.`;
     const want = wantOf(world, id);
     if (want?.kind === "connect" && world.actors?.[id])
       return "I want to introduce you to someone.";
@@ -3076,6 +3084,7 @@
     const help = listener && offerFrom(world, listener) === id ? " I would be glad of your help." : "";
     if (said.step?.verb === "lay")
       return `I want ${said.step.items.map((item) => article(nameOf3(item))).join(", ")} laid in ${name}.${help}`;
+    if (said.step?.verb === "call") return `I want you to ${callWords(said, nameOf3)}.${help}`;
     return (said.kind === "item" ? said.step?.verb === "eat" ? `I want to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${article(name)}${said.step.at ? ` at ${nameOf3(said.step.at)}` : ""}.` : said.step?.verb === "bring" && said.step.at ? `I want ${article(name)} brought to ${nameOf3(said.step.at)}.` : said.step?.verb === "give" && said.step.to !== id ? `I want ${article(name)} given to ${nameOf3(said.step.to)}.` : `I want ${article(name)}.` : said.kind === "place" ? `I want to be at ${name}.` : `I want to see ${name}.`) + help;
   }
   function refusalWhy(entry, nameOf3) {
@@ -3251,6 +3260,7 @@
   }
   function stepMet(s, actor, want, action) {
     const { verb, to, at } = want.step, me = s.actors[actor], by = (kind) => action?.kind === kind && action.actor === actor && (verb === "give" ? action.item === want.target && action.target === to && action.accepted : action.target === want.target);
+    if (verb === "call") return false;
     if (verb === "lay") return layMet(s, want);
     if (verb === "find") return placeOfItem(s, want.target) === me.place;
     if (verb === "eat")
@@ -3295,6 +3305,8 @@
   var STEP_CARDS = { give: ["to"], bring: ["to", "at"] };
   function validStep(s, w, id) {
     const { verb, ...cards } = w.step;
+    if (verb === "call")
+      return w.kind === "place" && Object.keys(cards).join() === "crossing" && crossings.some((c) => c.id === cards.crossing && c.from === w.target && c.unlockWhen?.length);
     if (verb === "lay")
       return w.kind === "place" && Object.keys(cards).every((key2) => ["items", "finish"].includes(key2)) && Array.isArray(cards.items) && cards.items.length >= 1 && cards.items.length <= 3 && new Set(cards.items).size === cards.items.length && cards.items.every((item) => Object.hasOwn(s.items, item)) && (cards.finish === void 0 || packOf(w.target)?.avatars && Object.values(packOf(w.target).avatars).some(
         (resident) => resident.want?.target === w.target && resident.want?.step?.verb === "lay" && resident.want.step.finish === cards.finish && JSON.stringify(resident.want.step.items) === JSON.stringify(cards.items)
@@ -3317,7 +3329,10 @@
     const whole6 = (n) => Number.isSafeInteger(n) && n >= 0 && n <= s.turn;
     const list = (v, of) => Array.isArray(v) && v.length <= 64 && new Set(v).size === v.length && v.every((x) => Object.hasOwn(of, x));
     const most = startXp(id) + (a.carried ?? 0) + s.turn * 8 + (humanAvatarIds.includes(id) ? 0 : rankXp(rankOf(LEVEL_CAP))) + Object.values(s.opened || {}).filter((who) => who.includes?.(id)).length;
-    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && a.heard === void 0 && validTold(s, id) && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+    return Number.isSafeInteger(a.xp) && a.xp >= 0 && (a.carried === void 0 || Number.isSafeInteger(a.carried) && a.carried >= 0) && (a.level === void 0 || Number.isSafeInteger(a.level) && a.level >= 1 && a.level <= levelFor(most)) && a.xp <= most && (a.metTurn === void 0 || whole6(a.metTurn)) && validUnder(s, id) && validClosed(s, a) && (a.completedQuest === void 0 || validCompletion(s, id, a.completedQuest)) && a.questRewards === void 0 && (a.content === void 0 || a.content === true) && (a.glimpse === void 0 || validGlimpse(a.glimpse)) && a.halfwayIssued === void 0 && (a.gaveUp === void 0 || a.gaveUp && Object.keys(a.gaveUp).length === 2 && typeof a.gaveUp.target === "string" && whole6(a.gaveUp.turn)) && list(a.talked, s.actors) && a.heard === void 0 && validTold(s, id) && validRumours(s, id) && validOffered(s, id) && !a.talked.includes(id) && Array.isArray(a.visited) && (a.want === null || validQuest(s, id, a.want));
+  }
+  function validCompletion(s, id, done) {
+    return Boolean(done && Object.keys(done).sort().join() === "by,turn,want" && Object.hasOwn(s.actors, done.by) && Number.isSafeInteger(done.turn) && done.turn >= done.want?.since && done.turn <= s.turn && done.want?.step?.verb === "call" && validQuest(s, id, done.want));
   }
   function validTold(s, id) {
     const told = s.actors[id].told;
@@ -17979,6 +17994,63 @@
   var NAMED2 = /^(?:The|An?) |^\p{L}+['’]s? /u;
   var theName2 = (id) => NAMED2.test(nameOf2(id)) ? nameOf2(id) : `the ${nameOf2(id)}`;
 
+  // v2/card-game/world/want-words.mjs
+  var UNKNOWN = {
+    item: "something you haven't found",
+    person: "someone you haven't met",
+    place: "somewhere you haven't discovered"
+  };
+  var ANY = {
+    item: "something",
+    person: "someone",
+    place: "somewhere",
+    quest: "a quest"
+  };
+  var SEEK = {
+    item: "find something",
+    person: "meet someone",
+    place: "discover somewhere"
+  };
+  var kindOf2 = (id) => people[id] ? "person" : places[id] ? "place" : "item";
+  var TABLE = {
+    name: nameOf2,
+    kind: kindOf2,
+    drink: (id) => consumable(id) === "drink"
+  };
+  function wantWords(want, known = () => true, { approach: approach2 = null, cards = TABLE } = {}) {
+    if (!want) return "nothing in particular";
+    if (want.kind === "connect") return "introduce two people";
+    const name = (id, kind) => id == null ? ANY[kind] : known(id) ? cards.name(id) : UNKNOWN[cards.kind(id)];
+    const list = (ids3) => [...new Set(ids3.map(name))].join(", ");
+    const near = (word, id) => id == null || known(id) || cards.kind(id) !== "place" ? `${word} ${name(id, "place")}` : name(id);
+    const step = want.step, what = name(want.target, want.kind), cold = want.target != null && !known(want.target), verb = step?.verb === "attack" ? "strike" : step?.verb, act = cold && SEEK[want.kind]?.startsWith(`${verb} `) ? SEEK[want.kind] : `${verb} ${what}`;
+    if (step?.verb === "lay")
+      return `lay ${want.lit ? "the lit " : ""}${list(step.items)} ${near("in", want.target)}`;
+    if (step?.verb === "call")
+      return callWords(want, name);
+    if (step?.verb === "give")
+      return `give ${what} to ${name(step.to, "person")}`;
+    if (step?.verb === "trade")
+      return `trade ${what} for ${name(step.for, "item")}`;
+    if (step?.verb === "eat")
+      return `${cards.drink(want.target) ? "drink" : "eat"} ${what}${step.with !== void 0 ? ` with ${name(step.with, "person")}` : ""}${step.at ? ` ${near("at", step.at)}` : ""}`;
+    if (step?.verb === "bring" && want.kind === "person")
+      return `bring ${what} ${near("to", step.at ?? step.to)}`;
+    if (step?.verb === "bring")
+      return `${cold ? `${SEEK.item}, and bring it` : `bring ${what}`} ${step.to ? `to ${name(step.to)} ${near("at", step.at)}` : near("to", step.at)}`;
+    if (step?.at) return `${act} ${near("at", step.at)}`;
+    if (step?.verb === "wait") return `wait ${near("at", want.target)}`;
+    if (step?.verb === "rest")
+      return approach2 && !cold ? `${approach2} ${what} and rest there` : `rest ${near("at", want.target)}`;
+    if (step?.verb === "depart") return `see ${what} depart`;
+    if (step) return act;
+    if (cold) return SEEK[want.kind] ?? SEEK.person;
+    if (want.kind === "item")
+      return `hold ${want.lit === void 0 ? "" : want.lit ? "the lit " : "the dark "}${what}`;
+    if (want.kind === "place") return `${approach2 ?? "go to"} ${what}`;
+    return `talk with ${what}`;
+  }
+
   // v2/card-game/lamp-room-fuel.mjs
   var LAMP_ROOM_LIMIT = 3;
   var validPlace = (place) => typeof place === "string" && place.length > 0;
@@ -18942,6 +19014,7 @@
     const said = stepGoal(s, want, owner2);
     const step = said.step;
     const what = theName2(said.target);
+    if (step?.verb === "call") return `${who} wants you to ${wantWords(said)}.`;
     if (step?.verb === "lay")
       return `${who} wants ${step.items.map(nameOf2).join(", ")} ${said.target === owner2 ? "back" : `laid in ${nameOf2(said.target)}`}.`;
     if (said.kind === "place")

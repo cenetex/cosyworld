@@ -2,12 +2,14 @@ import { learnQuest, questFactId } from "./knowledge.mjs";
 import { consumable } from "./pack-registry.mjs";
 import { nameOf, people, places, theName, things } from "./world/catalog.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
+import { wantWords } from "./world/want-words.mjs";
 
 export function questText(s, owner, want) {
   const who = nameOf(owner);
   const said = stepGoal(s, want, owner);
   const step = said.step;
   const what = theName(said.target);
+  if (step?.verb === "call") return `${who} wants you to ${wantWords(said)}.`;
   if (step?.verb === "lay")
     return `${who} wants ${step.items.map(nameOf).join(", ")} ${said.target === owner ? "back" : `laid in ${nameOf(said.target)}`}.`;
   if (said.kind === "place")

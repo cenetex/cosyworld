@@ -176,7 +176,6 @@ import {
   crossingBetween,
   markCrossed,
   beginRound,
-  settleCrossingUnlocks,
   holderBefore,
   noteAct,
   endRound,
@@ -191,6 +190,7 @@ import {
   DAYLIGHT_TURNS,
   runHash,
 } from "./pack-rules.mjs";
+import { settleCrossingUnlocks, completionWords } from "./quest-call.mjs";
 import {
   installTransports,
   moveTransport,
@@ -756,13 +756,7 @@ export function wantAPI(s) {
       addLog(
         s,
         "World",
-        want.kind === "item"
-          ? `${nameOf(want.step?.verb === "give" ? want.step.to : actor)} has ${theName(want.target)} at last.`
-          : want.kind === "place"
-            ? `${nameOf(actor)} reaches ${nameOf(want.target)}.`
-            : want.kind === "connect"
-              ? `${nameOf(actor)} makes an introduction at last.`
-              : `${nameOf(actor)} and ${nameOf(want.target)} talk at last.`,
+        completionWords(actor, want, owner),
         {
           kind: "narration",
           actorId: actor,
@@ -3135,6 +3129,7 @@ function wantPlan(s, actor) {
   );
   if (meal) return { action: meal };
   if (!want) return drift();
+  if (want.step?.verb === "call") return homeStep();
   // A meal it can only have somewhere it cannot go is left where it lies.
   if (
     want.step?.verb === "eat" &&

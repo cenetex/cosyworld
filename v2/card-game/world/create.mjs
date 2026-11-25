@@ -12,12 +12,14 @@ import { packDefinition, packDefinitions } from "../pack-registry.mjs";
 import { validSeed } from "../pack-specials.mjs";
 import forest from "../forest.json" with { type: "json" };
 import { settleGuards } from "../resident-guard.mjs";
+import { seedCallLead } from "../quest-call.mjs";
 // These still live in world.mjs; the cycle resolves at call time.
 import {
   installPacks,
   installRouteKnowledge,
   wantAPI,
   settleStationExits,
+  addLog,
 } from "../world.mjs";
 
 export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
@@ -60,6 +62,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   // and takes its quests by a tap.
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
+  seedCallLead(world, addLog);
   settleGuards(world);
   settleHeldItems(world);
   settleLamp(world);

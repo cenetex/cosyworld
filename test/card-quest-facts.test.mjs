@@ -169,7 +169,7 @@ describe("quest facts", () => {
     expect(tell("vale", "keeper")[0].factId).toBe(Q);
     expect(w.knowledge.known.keeper[Q]).toMatchObject({ teller: "vale" });
     expect(knowledgeFacts(w, "keeper", nameOf)).toEqual([
-      `${nameOf("vale")} told me this just now at ${nameOf("station")}: ${w.knowledge.facts[Q].text}`,
+      `${nameOf("vale")} told me this just now: ${w.knowledge.facts[Q].text} ${nameOf("moth")} made the request at ${nameOf("station")}.`,
     ]);
     w.actors.moth.want = null;
     expect(knowledgeFacts(w, "keeper", nameOf)[0]).toMatch(
