@@ -255,6 +255,50 @@ fn a_call_receipt_keeps_only_authored_crossing_ids() {
 }
 
 #[test]
+fn released_listener_turnovers_keep_their_words_without_vouching_for_forgery() {
+    for done in [false, true] {
+        let save = played_save(
+            "test/helpers/listener-208-import.mjs",
+            &format!("listener208Import({done})"),
+        );
+        let honest: Value = serde_json::from_str(&save).unwrap();
+        let kept: Value = serde_json::from_str(&trusted_save(&save, &[]).unwrap()).unwrap();
+        assert_eq!(kept["log"], honest["log"], "done={done}");
+        assert_eq!(kept["memories"], honest["memories"], "done={done}");
+        for text in [
+            format!("The Listener turns over {TOKEN}."),
+            format!("The Listener turns over The Fool, still to do: {INJECTION}"),
+        ] {
+            let mut bad = honest.clone();
+            bad["log"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|event| {
+                    event["text"]
+                        .as_str()
+                        .is_some_and(|line| line.starts_with("The Listener turns over"))
+                })
+                .unwrap()["text"] = json!(text);
+            bad["memories"]["vale"]["events"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|event| {
+                    event["text"]
+                        .as_str()
+                        .is_some_and(|line| line.starts_with("World: The Listener turns over"))
+                })
+                .unwrap()["text"] = json!(format!("World: {text}"));
+            let kept = trusted_save(&bad.to_string(), &[]).unwrap();
+            assert!(!kept.contains(TOKEN));
+            assert!(!kept.contains(INJECTION));
+            World::create(Some(&kept)).unwrap();
+        }
+    }
+}
+
+#[test]
 fn a_token_shaped_injection_is_not_an_id() {
     let mut save = honest_save();
     save["motives"]["grievances"]["moth"] =
