@@ -45,28 +45,40 @@ const reveal = () => {
   return result.state;
 };
 
+const collect = (s) => {
+  const action = legalActions(s, "vale").find(
+    (a) => a.kind === "accept" && a.tarot !== undefined,
+  );
+  const result = play(s, action, s.revision, "vale");
+  expect(result.ok, result.error).toBe(true);
+  return result.state;
+};
+
 describe("the revealed tarot pack", () => {
-  it("keeps a card when the Listener reveals it before its proof is complete", () => {
+  it("collects an unlocked reward without awarding its later quest proof", () => {
     const s = reveal();
-    expect(s.actors.vale.upgrades).toContain(FOOL);
+    expect(s.actors.vale.upgrades || []).not.toContain(FOOL);
     expect(recordOf(s, "vale")).toMatchObject({
       proved: [],
       done: [],
       level: null,
-      spread: [{ card: FOOL, face: "up" }],
+      spread: [{ card: FOOL, face: "reward" }],
     });
     expect(arcanaLevel(s, "vale")).toBe(0);
-    const back = reload(reload(s));
+    const back = reload(reload(collect(s)));
     expect(back.actors.vale.upgrades).toEqual([FOOL]);
     expect(recordOf(back, "vale").proved).toEqual([]);
     expect(validateWorld(back)).toBeTruthy();
   });
 
-  it("recovers revealed cards from an older save without awarding proof", () => {
+  it("recovers a revealed first Fool as an unclaimed reward", () => {
     const back = reload(holding("up"));
-    expect(back.actors.vale.upgrades).toEqual([FOOL]);
-    expect(recordOf(back, "vale").proved).toEqual([]);
+    expect(recordOf(back, "vale").spread[0].face).toBe("reward");
     expect(arcanaLevel(back, "vale")).toBe(0);
+    const kept = collect(back);
+    expect(kept.actors.vale.upgrades).toEqual([FOOL]);
+    expect(recordOf(kept, "vale").proved).toEqual([]);
+    expect(arcanaLevel(kept, "vale")).toBe(1);
   });
 
   it.each(["down", "locked"])(
@@ -84,7 +96,7 @@ describe("the revealed tarot pack", () => {
       getItem: (key) => saved.get(key),
       setItem: (key, value) => saved.set(key, value),
     };
-    rememberLocalUpgrades(reveal(), storage);
+    rememberLocalUpgrades(collect(reveal()), storage);
     const fresh = wearLocalUpgrades(createPipWorld(6), storage);
     expect(fresh.actors.vale.upgrades).toContain(FOOL);
     expect(recordOf(fresh, "vale").proved).toEqual([]);
@@ -92,8 +104,8 @@ describe("the revealed tarot pack", () => {
   });
 
   it("draws a revealed Fool again with at most one unfamiliar card", () => {
-    const s = reveal();
-    s.actors.vale.arcana.level = 1;
+    const s = collect(reveal());
+    expect(arcanaLevel(s, "vale")).toBe(1);
     const spread = nextSpread(s, "vale");
     expect(spread).toContainEqual(
       expect.objectContaining({ card: FOOL, face: "up" }),

@@ -37,9 +37,12 @@ function states(seed) {
   out.fool = world = talk(world);
   for (const item of Object.values(world.items))
     if (item.holder === "vale") item.holder = world.actors.vale.place;
-  world.actors.vale.arcana.spread[0].done = true;
   world.actors.vale.arcana.calls = 3;
-  out.selling = world = talk(reload(world));
+  out.reward = world = talk(reload(world));
+  out.selling = world = act(
+    world,
+    (a) => a.kind === "accept" && a.tarot !== undefined,
+  );
   out.sellingReloaded = reload(world);
   world = structuredClone(world);
   world.items["willows-pipe"].holder = "vale";

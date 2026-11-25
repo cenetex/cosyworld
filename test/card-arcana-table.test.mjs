@@ -58,6 +58,10 @@ describe("the table of cards", () => {
           spread: [{ card: card.id }],
           proved: [],
         });
+        expect(
+          recordOf(t, "vale").spread.some((slot) => slot.face === "reward"),
+          `${card.id} seed ${seed}`,
+        ).toBe(false);
       }
     }
   });
