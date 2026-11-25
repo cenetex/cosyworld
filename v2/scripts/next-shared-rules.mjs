@@ -163,12 +163,6 @@ edit(`${dir}/engine.rs`, (t) =>
       `| ${prev}_VERSION\n            | ${name}_VERSION\n`,
     ),
 );
-edit(`${dir}/full_world.rs`, (t) =>
-  t.replace(
-    new RegExp(`\\n(\\s*)engine::${prev}_VERSION,`, "gu"),
-    (line, indent) => `${line}\n${indent}engine::${name}_VERSION,`,
-  ),
-);
 edit("v2/scripts/build-card-shared-engine.mjs", (t) =>
   t.replace(`engine-v${live}.js`, `engine-v${live + 1}.js`),
 );

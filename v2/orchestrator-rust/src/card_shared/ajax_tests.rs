@@ -121,7 +121,7 @@ fn fixture() -> (std::path::PathBuf, rusqlite::Connection, String, World) {
 #[test]
 fn ajax_appeal_custody_spoken_accounts_and_second_carrier_replay_from_the_journal() {
     let (path, c, id, mut world) = fixture();
-    assert_eq!(world.version, engine::VERSION);
+    assert_eq!(world.version, engine::version());
     assert!(world.game["packs"]["greek-drama"]["receipts"]["greek-ajax-bury-appeal"].is_null());
     play(
         &c,

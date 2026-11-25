@@ -88,7 +88,7 @@ pub(super) const HUNDRED_THIRTY_FOURTH_VERSION: &str = "full-card-world/134";
 pub(super) const HUNDRED_THIRTY_THIRD_VERSION: &str = "full-card-world/133";
 /// The current rules' source, whose words an imported save may use.
 pub(super) fn current_source() -> &'static str {
-    source(VERSION).expect("the current rules bundle")
+    source(version()).expect("the current rules bundle")
 }
 // A world saved by rules newer than this server's: a release swap briefly
 // runs the older build (docs/release.md), so the world waits, unchanged.
@@ -96,7 +96,7 @@ pub(super) const UPDATING: &str = "This world is updating. Back in a moment.";
 pub(super) fn newer(version: &str) -> bool {
     let number = |v: &str| v.strip_prefix("full-card-world/")?.parse::<u32>().ok();
     number(version)
-        .zip(number(VERSION))
+        .zip(number(self::version()))
         .is_some_and(|(v, ours)| v > ours)
 }
 pub(super) fn historical(version: &str) -> bool {
@@ -220,7 +220,7 @@ fn view_cache_key(version: &str, input: &str) -> String {
 }
 
 pub(super) fn reduce(request: Value) -> Result<Value> {
-    reduce_pack(VERSION, Some(content::current()), request)
+    reduce_pack(version(), Some(content::current()), request)
 }
 #[cfg(test)]
 pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
@@ -256,6 +256,17 @@ fn pins() -> Result<&'static Pins> {
     static PINS: OnceLock<Result<Pins>> = OnceLock::new();
     let pins = PINS.get_or_init(|| pinned(card_assets::load()?));
     pins.as_ref().map_err(Clone::clone)
+}
+fn table() -> &'static [(String, String)] {
+    &pins()
+        .unwrap_or_else(|error| panic!("Shared rules: {error}"))
+        .0
+}
+pub(super) fn version() -> &'static str {
+    &table().last().expect("rules.json names a version").0
+}
+pub(super) fn versions() -> impl Iterator<Item = &'static str> {
+    table().iter().map(|(version, _)| version.as_str())
 }
 pub(crate) fn check_rules() -> Result<()> {
     pins().map(|_| ())
@@ -387,7 +398,7 @@ mod tests {
                 "{version}"
             );
         }
-        assert_ne!(source(TWO_HUNDRED_THIRD_VERSION), source(VERSION));
+        assert_ne!(source(TWO_HUNDRED_THIRD_VERSION), source(version()));
         assert!(source("full-card-world/132").is_none());
     }
 
@@ -422,8 +433,8 @@ mod tests {
             "op":"view", "world":{"revision":4}, "actor":"vale",
             "claimed":["vale"], "present":["vale"]
         });
-        let original = view_cache_key(VERSION, &input.to_string());
-        assert_eq!(original, view_cache_key(VERSION, &input.to_string()));
+        let original = view_cache_key(version(), &input.to_string());
+        assert_eq!(original, view_cache_key(version(), &input.to_string()));
         assert_ne!(
             original,
             view_cache_key(HUNDRED_THIRTY_THIRD_VERSION, &input.to_string())
@@ -438,7 +449,7 @@ mod tests {
             changed[field] = value;
             assert_ne!(
                 original,
-                view_cache_key(VERSION, &changed.to_string()),
+                view_cache_key(version(), &changed.to_string()),
                 "{field}"
             );
         }
@@ -454,9 +465,9 @@ mod tests {
         let mut original_bytes = 0;
         for actor in 0..8 {
             let input = serde_json::json!({"actor":actor,"world":world}).to_string();
-            let key = view_cache_key(VERSION, &input);
+            let key = view_cache_key(version(), &input);
             assert!(key.len() < 128);
-            original_bytes += VERSION.len() + 1 + input.len() + output.len();
+            original_bytes += version().len() + 1 + input.len() + output.len();
             cache.put(key.clone(), output.clone());
             keys.push(key);
         }

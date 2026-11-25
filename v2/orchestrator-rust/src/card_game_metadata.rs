@@ -42,7 +42,7 @@ impl GameMetadata {
                 entry_url: if cards { "/" } else { "/card-game/" },
                 source_root: "v2/card-game/",
                 play_modes: ["local", "shared"],
-                shared_rules_version: crate::card_shared::RULES_VERSION,
+                shared_rules_version: crate::card_shared::rules_version(),
                 assets_sha256: cosyworld_orchestrator::card_assets::manifest_sha256(),
                 catalogs: Catalogs {
                     forest: "/card-game/forest.json",
@@ -77,7 +77,7 @@ mod tests {
             );
             assert_eq!(
                 meta["card_game"]["shared_rules_version"],
-                crate::card_shared::RULES_VERSION
+                crate::card_shared::rules_version()
             );
             assert!(meta.get("metadata_scopes").is_none());
             assert_eq!(meta["card_game"]["card_text"]["catalog_stale"], false);

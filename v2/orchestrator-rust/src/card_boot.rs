@@ -252,7 +252,7 @@ mod tests {
         assert_eq!(meta["primary_game"], "card-table");
         assert_eq!(
             meta["card_game"]["shared_rules_version"],
-            crate::card_shared::RULES_VERSION
+            crate::card_shared::rules_version()
         );
         assert_eq!(meta["persistence"]["event_store_enabled"], false);
         for classic in [

@@ -17,7 +17,9 @@ mod js_bridge_tests;
 mod live_rules_tests;
 #[cfg(test)]
 mod move_tests;
-pub(crate) const RULES_VERSION: &str = engine::VERSION;
+pub(crate) fn rules_version() -> &'static str {
+    engine::version()
+}
 pub(crate) use engine::check_rules;
 mod full;
 mod full_floor;
