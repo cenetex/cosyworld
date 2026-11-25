@@ -4,12 +4,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { sharedContentInput } from "./shared-content-input.mjs";
 import { releasedBundleRefusal } from "./released-bundles.mjs";
-import { pin, pinned } from "./rules-pins.mjs";
+import { newest, pin, pinned } from "./rules-pins.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
-const output = new URL(
-  "../orchestrator-rust/src/card_shared/engine-v204.js",
-  import.meta.url,
-);
+const rules = new URL("../orchestrator-rust/src/card_shared/", import.meta.url);
+const pins = await readFile(new URL("rules.json", rules), "utf8");
+const output = new URL(`engine-v${newest(pins)}.js`, rules);
 const result = await build({
   absWorkingDir: root,
   entryPoints: ["v2/card-game/shared-world-entry.mjs"],

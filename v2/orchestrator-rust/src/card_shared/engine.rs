@@ -14,78 +14,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(super) const VERSION: &str = "full-card-world/204";
-pub(super) const TWO_HUNDRED_THIRD_VERSION: &str = "full-card-world/203";
-pub(super) const TWO_HUNDRED_SECOND_VERSION: &str = "full-card-world/202";
-pub(super) const TWO_HUNDRED_FIRST_VERSION: &str = "full-card-world/201";
-pub(super) const TWO_HUNDREDTH_VERSION: &str = "full-card-world/200";
-pub(super) const HUNDRED_NINETY_NINTH_VERSION: &str = "full-card-world/199";
-pub(super) const HUNDRED_NINETY_EIGHTH_VERSION: &str = "full-card-world/198";
-pub(super) const HUNDRED_NINETY_SEVENTH_VERSION: &str = "full-card-world/197";
-pub(super) const HUNDRED_NINETY_SIXTH_VERSION: &str = "full-card-world/196";
-pub(super) const HUNDRED_NINETY_FIFTH_VERSION: &str = "full-card-world/195";
-pub(super) const HUNDRED_NINETY_FOURTH_VERSION: &str = "full-card-world/194";
-pub(super) const HUNDRED_NINETY_THIRD_VERSION: &str = "full-card-world/193";
-pub(super) const HUNDRED_NINETY_SECOND_VERSION: &str = "full-card-world/192";
-pub(super) const HUNDRED_NINETY_FIRST_VERSION: &str = "full-card-world/191";
-pub(super) const HUNDRED_NINETIETH_VERSION: &str = "full-card-world/190";
-pub(super) const HUNDRED_EIGHTY_NINTH_VERSION: &str = "full-card-world/189";
-pub(super) const HUNDRED_EIGHTY_EIGHTH_VERSION: &str = "full-card-world/188";
-pub(super) const HUNDRED_EIGHTY_SEVENTH_VERSION: &str = "full-card-world/187";
-pub(super) const HUNDRED_EIGHTY_SIXTH_VERSION: &str = "full-card-world/186";
-pub(super) const HUNDRED_EIGHTY_FIFTH_VERSION: &str = "full-card-world/185";
-pub(super) const HUNDRED_EIGHTY_FOURTH_VERSION: &str = "full-card-world/184";
-pub(super) const HUNDRED_EIGHTY_THIRD_VERSION: &str = "full-card-world/183";
-pub(super) const HUNDRED_EIGHTY_SECOND_VERSION: &str = "full-card-world/182";
-pub(super) const HUNDRED_EIGHTY_FIRST_VERSION: &str = "full-card-world/181";
-pub(super) const HUNDRED_EIGHTIETH_VERSION: &str = "full-card-world/180";
-pub(super) const HUNDRED_SEVENTY_NINTH_VERSION: &str = "full-card-world/179";
-pub(super) const HUNDRED_SEVENTY_EIGHTH_VERSION: &str = "full-card-world/178";
-pub(super) const HUNDRED_SEVENTY_SEVENTH_VERSION: &str = "full-card-world/177";
-pub(super) const HUNDRED_SEVENTY_SIXTH_VERSION: &str = "full-card-world/176";
-pub(super) const HUNDRED_SEVENTY_FIFTH_VERSION: &str = "full-card-world/175";
-pub(super) const HUNDRED_SEVENTY_FOURTH_VERSION: &str = "full-card-world/174";
-pub(super) const HUNDRED_SEVENTY_THIRD_VERSION: &str = "full-card-world/173";
-pub(super) const HUNDRED_SEVENTY_SECOND_VERSION: &str = "full-card-world/172";
-pub(super) const HUNDRED_SEVENTY_FIRST_VERSION: &str = "full-card-world/171";
-pub(super) const HUNDRED_SEVENTIETH_VERSION: &str = "full-card-world/170";
-pub(super) const HUNDRED_SIXTY_NINTH_VERSION: &str = "full-card-world/169";
-pub(super) const HUNDRED_SIXTY_EIGHTH_VERSION: &str = "full-card-world/168";
-pub(super) const HUNDRED_SIXTY_SEVENTH_VERSION: &str = "full-card-world/167";
-pub(super) const HUNDRED_SIXTY_SIXTH_VERSION: &str = "full-card-world/166";
-pub(super) const HUNDRED_SIXTY_FIFTH_VERSION: &str = "full-card-world/165";
-pub(super) const HUNDRED_SIXTY_FOURTH_VERSION: &str = "full-card-world/164";
-pub(super) const HUNDRED_SIXTY_THIRD_VERSION: &str = "full-card-world/163";
-pub(super) const HUNDRED_SIXTY_SECOND_VERSION: &str = "full-card-world/162";
-pub(super) const HUNDRED_SIXTY_FIRST_VERSION: &str = "full-card-world/161";
-pub(super) const HUNDRED_SIXTIETH_VERSION: &str = "full-card-world/160";
-pub(super) const HUNDRED_FIFTY_NINTH_VERSION: &str = "full-card-world/159";
-pub(super) const HUNDRED_FIFTY_EIGHTH_VERSION: &str = "full-card-world/158";
-pub(super) const HUNDRED_FIFTY_SEVENTH_VERSION: &str = "full-card-world/157";
-pub(super) const HUNDRED_FIFTY_SIXTH_VERSION: &str = "full-card-world/156";
-pub(super) const HUNDRED_FIFTY_FIFTH_VERSION: &str = "full-card-world/155";
-pub(super) const HUNDRED_FIFTY_FOURTH_VERSION: &str = "full-card-world/154";
-pub(super) const HUNDRED_FIFTY_THIRD_VERSION: &str = "full-card-world/153";
-pub(super) const HUNDRED_FIFTY_SECOND_VERSION: &str = "full-card-world/152";
-pub(super) const HUNDRED_FIFTY_FIRST_VERSION: &str = "full-card-world/151";
-pub(super) const HUNDRED_FIFTIETH_VERSION: &str = "full-card-world/150";
-pub(super) const HUNDRED_FORTY_NINTH_VERSION: &str = "full-card-world/149";
-pub(super) const HUNDRED_FORTY_EIGHTH_VERSION: &str = "full-card-world/148";
-pub(super) const HUNDRED_FORTY_SEVENTH_VERSION: &str = "full-card-world/147";
-pub(super) const HUNDRED_FORTY_SIXTH_VERSION: &str = "full-card-world/146";
-pub(super) const HUNDRED_FORTY_FIFTH_VERSION: &str = "full-card-world/145";
-pub(super) const HUNDRED_FORTY_FOURTH_VERSION: &str = "full-card-world/144";
-pub(super) const HUNDRED_FORTY_THIRD_VERSION: &str = "full-card-world/143";
-pub(super) const HUNDRED_FORTY_SECOND_VERSION: &str = "full-card-world/142";
-pub(super) const HUNDRED_FORTY_FIRST_VERSION: &str = "full-card-world/141";
-pub(super) const HUNDRED_FORTIETH_VERSION: &str = "full-card-world/140";
-pub(super) const HUNDRED_THIRTY_NINTH_VERSION: &str = "full-card-world/139";
-pub(super) const HUNDRED_THIRTY_EIGHTH_VERSION: &str = "full-card-world/138";
-pub(super) const HUNDRED_THIRTY_SEVENTH_VERSION: &str = "full-card-world/137";
-pub(super) const HUNDRED_THIRTY_SIXTH_VERSION: &str = "full-card-world/136";
-pub(super) const HUNDRED_THIRTY_FIFTH_VERSION: &str = "full-card-world/135";
-pub(super) const HUNDRED_THIRTY_FOURTH_VERSION: &str = "full-card-world/134";
-pub(super) const HUNDRED_THIRTY_THIRD_VERSION: &str = "full-card-world/133";
 /// The current rules' source, whose words an imported save may use.
 pub(super) fn current_source() -> &'static str {
     source(version()).expect("the current rules bundle")
@@ -100,80 +28,7 @@ pub(super) fn newer(version: &str) -> bool {
         .is_some_and(|(v, ours)| v > ours)
 }
 pub(super) fn historical(version: &str) -> bool {
-    matches!(
-        version,
-        HUNDRED_THIRTY_THIRD_VERSION
-            | HUNDRED_THIRTY_FOURTH_VERSION
-            | HUNDRED_THIRTY_FIFTH_VERSION
-            | HUNDRED_THIRTY_SIXTH_VERSION
-            | HUNDRED_THIRTY_SEVENTH_VERSION
-            | HUNDRED_THIRTY_EIGHTH_VERSION
-            | HUNDRED_THIRTY_NINTH_VERSION
-            | HUNDRED_FORTIETH_VERSION
-            | HUNDRED_FORTY_FIRST_VERSION
-            | HUNDRED_FORTY_SECOND_VERSION
-            | HUNDRED_FORTY_THIRD_VERSION
-            | HUNDRED_FORTY_FOURTH_VERSION
-            | HUNDRED_FORTY_FIFTH_VERSION
-            | HUNDRED_FORTY_SIXTH_VERSION
-            | HUNDRED_FORTY_SEVENTH_VERSION
-            | HUNDRED_FORTY_EIGHTH_VERSION
-            | HUNDRED_FORTY_NINTH_VERSION
-            | HUNDRED_FIFTIETH_VERSION
-            | HUNDRED_FIFTY_FIRST_VERSION
-            | HUNDRED_FIFTY_SECOND_VERSION
-            | HUNDRED_FIFTY_THIRD_VERSION
-            | HUNDRED_FIFTY_FOURTH_VERSION
-            | HUNDRED_FIFTY_FIFTH_VERSION
-            | HUNDRED_FIFTY_SIXTH_VERSION
-            | HUNDRED_FIFTY_SEVENTH_VERSION
-            | HUNDRED_FIFTY_EIGHTH_VERSION
-            | HUNDRED_FIFTY_NINTH_VERSION
-            | HUNDRED_SIXTIETH_VERSION
-            | HUNDRED_SIXTY_FIRST_VERSION
-            | HUNDRED_SIXTY_SECOND_VERSION
-            | HUNDRED_SIXTY_THIRD_VERSION
-            | HUNDRED_SIXTY_FOURTH_VERSION
-            | HUNDRED_SIXTY_FIFTH_VERSION
-            | HUNDRED_SIXTY_SIXTH_VERSION
-            | HUNDRED_SIXTY_SEVENTH_VERSION
-            | HUNDRED_SIXTY_EIGHTH_VERSION
-            | HUNDRED_SIXTY_NINTH_VERSION
-            | HUNDRED_SEVENTIETH_VERSION
-            | HUNDRED_SEVENTY_FIRST_VERSION
-            | HUNDRED_SEVENTY_SECOND_VERSION
-            | HUNDRED_SEVENTY_THIRD_VERSION
-            | HUNDRED_SEVENTY_FOURTH_VERSION
-            | HUNDRED_SEVENTY_FIFTH_VERSION
-            | HUNDRED_SEVENTY_SIXTH_VERSION
-            | HUNDRED_SEVENTY_SEVENTH_VERSION
-            | HUNDRED_SEVENTY_EIGHTH_VERSION
-            | HUNDRED_SEVENTY_NINTH_VERSION
-            | HUNDRED_EIGHTIETH_VERSION
-            | HUNDRED_EIGHTY_FIRST_VERSION
-            | HUNDRED_EIGHTY_SECOND_VERSION
-            | HUNDRED_EIGHTY_THIRD_VERSION
-            | HUNDRED_EIGHTY_FOURTH_VERSION
-            | HUNDRED_EIGHTY_FIFTH_VERSION
-            | HUNDRED_EIGHTY_SIXTH_VERSION
-            | HUNDRED_EIGHTY_SEVENTH_VERSION
-            | HUNDRED_EIGHTY_EIGHTH_VERSION
-            | HUNDRED_EIGHTY_NINTH_VERSION
-            | HUNDRED_NINETIETH_VERSION
-            | HUNDRED_NINETY_FIRST_VERSION
-            | HUNDRED_NINETY_SECOND_VERSION
-            | HUNDRED_NINETY_THIRD_VERSION
-            | HUNDRED_NINETY_FOURTH_VERSION
-            | HUNDRED_NINETY_FIFTH_VERSION
-            | HUNDRED_NINETY_SIXTH_VERSION
-            | HUNDRED_NINETY_SEVENTH_VERSION
-            | HUNDRED_NINETY_EIGHTH_VERSION
-            | HUNDRED_NINETY_NINTH_VERSION
-            | TWO_HUNDREDTH_VERSION
-            | TWO_HUNDRED_FIRST_VERSION
-            | TWO_HUNDRED_SECOND_VERSION
-            | TWO_HUNDRED_THIRD_VERSION
-    )
+    version != self::version() && versions().any(|v| v == version)
 }
 const MAX_BYTES: usize = 4 * 1024 * 1024;
 const CACHE_ENTRIES: usize = 32;
@@ -240,6 +95,10 @@ fn pinned(store: &card_assets::Store) -> Result<Pins> {
         .ok_or("rules.json is missing")?;
     let pins: std::collections::BTreeMap<u32, String> =
         serde_json::from_slice(&text).map_err(|e| format!("rules.json: {e}"))?;
+    let newest = pins.keys().last().copied().unwrap_or_default();
+    if let Some(gap) = (super::full_floor::FLOOR..=newest).find(|n| !pins.contains_key(n)) {
+        return Err(format!("rules.json does not pin rules {gap}"));
+    }
     let mut versions = Vec::new();
     for (number, sha256) in pins {
         if store.sha256(&format!("card_shared/engine-v{number}.js")) != Some(&sha256) {
@@ -247,10 +106,10 @@ fn pinned(store: &card_assets::Store) -> Result<Pins> {
         }
         versions.push((format!("full-card-world/{number}"), sha256));
     }
-    match versions.last() {
-        Some((last, _)) if last == VERSION => Ok(Pins(versions)),
-        _ => Err(format!("rules.json does not end at {VERSION}")),
+    if versions.is_empty() {
+        return Err("rules.json lists no versions".into());
     }
+    Ok(Pins(versions))
 }
 fn pins() -> Result<&'static Pins> {
     static PINS: OnceLock<Result<Pins>> = OnceLock::new();
@@ -398,7 +257,7 @@ mod tests {
                 "{version}"
             );
         }
-        assert_ne!(source(TWO_HUNDRED_THIRD_VERSION), source(version()));
+        assert_ne!(source("full-card-world/203"), source(version()));
         assert!(source("full-card-world/132").is_none());
     }
 
@@ -409,7 +268,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let hex = |bytes: &[u8]| format!("{:x}", Sha256::digest(bytes));
         let bundle = b"globalThis.cardShared = () => '{}';";
-        let number = &VERSION["full-card-world/".len()..];
+        let number = "1";
         for (pinned_to, accepted) in [(&bundle[..], true), (b"older bytes", false)] {
             let rules = serde_json::json!({ number: hex(pinned_to) }).to_string();
             let mut files = serde_json::Map::new();
@@ -428,6 +287,40 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
+    fn a_version_missing_between_the_floor_and_the_newest_is_refused() {
+        let root = std::env::temp_dir().join(format!("rules-gap-{}", std::process::id()));
+        let dir = root.join("card_shared");
+        std::fs::create_dir_all(&dir).unwrap();
+        let entry = |bytes: &[u8]| serde_json::json!({"sha256": format!("{:x}", Sha256::digest(bytes)), "size": bytes.len()});
+        let floor = super::super::full_floor::FLOOR;
+        let (mut pins, mut files) = (serde_json::Map::new(), serde_json::Map::new());
+        for number in [floor, floor + 2] {
+            let bundle = format!("globalThis.cardShared = () => '{number}';");
+            std::fs::write(dir.join(format!("engine-v{number}.js")), &bundle).unwrap();
+            pins.insert(
+                number.to_string(),
+                entry(bundle.as_bytes())["sha256"].clone(),
+            );
+            files.insert(
+                format!("card_shared/engine-v{number}.js"),
+                entry(bundle.as_bytes()),
+            );
+        }
+        let rules = serde_json::Value::Object(pins).to_string();
+        std::fs::write(dir.join("rules.json"), &rules).unwrap();
+        files.insert("card_shared/rules.json".into(), entry(rules.as_bytes()));
+        let dirs = serde_json::json!({"card_shared": "card_shared"});
+        let manifest = serde_json::json!({"sha256": "", "dirs": dirs, "files": files});
+        std::fs::write(root.join("manifest.json"), manifest.to_string()).unwrap();
+        let store = card_assets::Store::open(&root).unwrap();
+        let refused = pinned(&store).err();
+        assert_eq!(
+            refused,
+            Some(format!("rules.json does not pin rules {}", floor + 1))
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn view_cache_keys_cover_the_exact_world_and_viewer() {
         let input = serde_json::json!({
             "op":"view", "world":{"revision":4}, "actor":"vale",
@@ -437,7 +330,7 @@ mod tests {
         assert_eq!(original, view_cache_key(version(), &input.to_string()));
         assert_ne!(
             original,
-            view_cache_key(HUNDRED_THIRTY_THIRD_VERSION, &input.to_string())
+            view_cache_key("full-card-world/133", &input.to_string())
         );
         for (field, value) in [
             ("world", serde_json::json!({"revision":5})),

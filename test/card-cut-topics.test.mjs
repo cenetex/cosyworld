@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { expect, it } from "vitest";
 import { decodeSave, encodeSave } from "../v2/card-game/world.mjs";
+import { newest } from "../v2/scripts/rules-pins.mjs";
 
 const base = "825d83db3e70da8530a90ddfc018ac442fcc4dd1";
 const dir = "v2/orchestrator-rust/src/card_shared/";
@@ -25,9 +26,7 @@ const rules = (bundle, content) => {
   return context;
 };
 const old = rules(prior("engine-v200.js"), JSON.parse(prior("content.json")));
-const version = /const VERSION: &str = "full-card-world\/(\d+)"/.exec(
-  now("engine.rs"),
-)[1];
+const version = newest(now("rules.json"));
 const current = rules(
   now(`engine-v${version}.js`),
   JSON.parse(now("content.json")),

@@ -8,10 +8,11 @@ import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave, addLog, legalActions, play } from "../card-game/world.mjs";
 import { availableCards } from "../card-game/cards.mjs";
 import { selectCard, smokeWidths } from "./card-browser-helpers.mjs";
+import { newest } from "./rules-pins.mjs";
 
 const output = new URL("../../output/speech-queue/", import.meta.url);
-const wiring = await readFile(new URL("../orchestrator-rust/src/card_shared/engine.rs", import.meta.url), "utf8");
-const version = /const VERSION: &str = "([^"]+)"/u.exec(wiring)[1];
+const rules = await readFile(new URL("../orchestrator-rust/src/card_shared/rules.json", import.meta.url), "utf8");
+const version = `full-card-world/${newest(rules)}`;
 await mkdir(output, { recursive: true });
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));

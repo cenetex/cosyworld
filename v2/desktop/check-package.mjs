@@ -5,6 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { publicAssets } from "../card-game/public-assets.mjs";
+import { newest } from "../scripts/rules-pins.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const source = (file) => new URL(`../card-game/${file}`, import.meta.url);
@@ -12,8 +13,8 @@ const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const pkg = JSON.parse(
   await readFile(new URL("../../package.json", import.meta.url)),
 );
-const engine = await readFile(
-  new URL("../orchestrator-rust/src/card_shared/engine.rs", import.meta.url),
+const rules = await readFile(
+  new URL("../orchestrator-rust/src/card_shared/rules.json", import.meta.url),
   "utf8",
 );
 const assets = [];
@@ -25,7 +26,7 @@ for (const asset of publicAssets) {
 }
 const manifest = {
   version: pkg.version,
-  sharedRulesVersion: engine.match(/const VERSION: &str = "([^"]+)"/)[1],
+  sharedRulesVersion: `full-card-world/${newest(rules)}`,
   assetsSha256: hash(JSON.stringify(assets)),
   sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: root,

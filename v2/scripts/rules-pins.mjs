@@ -6,6 +6,9 @@ const number = (name) => /engine-v(\d+)\.js$/u.exec(name)?.[1];
 const read = async (bundle) =>
   JSON.parse(await readFile(new URL("rules.json", bundle), "utf8"));
 
+export const newest = (rules) =>
+  Math.max(...Object.keys(JSON.parse(rules)).map(Number));
+
 export async function pinned(bundle, text) {
   return (await read(bundle))[number(bundle.pathname)] === sha(text);
 }

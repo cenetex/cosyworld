@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { publicAssets } from "../card-game/public-assets.mjs";
+import { newest } from "./rules-pins.mjs";
 
 const ASSET_CHECK_CONCURRENCY = 8;
 const targets = process.argv.slice(2);
@@ -31,13 +32,13 @@ for (const target of targets) {
   assert.equal(meta.card_game.source_root, "v2/card-game/");
   assert.equal(meta.card_game.entry_url, "/");
   assert.deepEqual(meta.card_game.play_modes, ["local", "shared"]);
-  const engine = await readFile(
-    new URL("../orchestrator-rust/src/card_shared/engine.rs", import.meta.url),
+  const rules = await readFile(
+    new URL("../orchestrator-rust/src/card_shared/rules.json", import.meta.url),
     "utf8",
   );
   assert.equal(
     meta.card_game.shared_rules_version,
-    engine.match(/const VERSION: &str = "([^"]+)"/)[1],
+    `full-card-world/${newest(rules)}`,
   );
   assert.deepEqual(meta.card_game.catalogs, {
     forest: "/card-game/forest.json",
