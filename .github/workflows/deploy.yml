@@ -330,7 +330,7 @@ jobs:
         env:
           MACHINE: ${{ steps.serving.outputs.machine }}
         run: |
-          served="$(timeout 60 flyctl ssh console --quiet --app cosyworld --machine "$MACHINE" --command "readlink /data/releases/current" || true)"
+          served="$(timeout 60 flyctl ssh console --quiet --app cosyworld --machine "$MACHINE" --command "readlink /data/releases/current" | tr -d '\r' || true)"
           [ "$served" = "/data/releases/$GITHUB_SHA" ] ||
             { echo "::error::.dev serves ${served:-unknown assets}, not the release staged for ${GITHUB_SHA:0:7}." >&2; exit 1; }
 
