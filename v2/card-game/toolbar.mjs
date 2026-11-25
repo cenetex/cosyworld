@@ -6,8 +6,8 @@ import { installAvatarMenu } from "./avatar-menu.mjs";
 
 const icons = {
   share: '<path d="M12 15V3m-4 4 4-4 4 4M5 12v8h14v-8"/>',
-  conversation:
-    '<path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6 3V6a2 2 0 0 1 2-2Z"/><path d="M7 9h10M7 13h6"/>',
+  character:
+    '<circle cx="12" cy="7" r="3"/><path d="M5 21v-3a7 7 0 0 1 14 0v3M4 3v18M20 3v18"/>',
   menu: '<path d="M5 6h14M5 12h14M5 18h14"/>',
   settings:
     '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="#141b22"/><circle cx="15" cy="17" r="3" fill="#141b22"/>',
@@ -103,7 +103,7 @@ export function installToolbar({
   const tools = element("div", "menu-tools");
   menu.append(tools);
   for (const [id, icon, label] of [
-    ["history-button", "conversation", "Memory"],
+    ["history-button", "character", "Character"],
     ["shared-worlds-button", "share", "Invite"],
     ["menu-button", "settings", "Settings"],
   ]) {

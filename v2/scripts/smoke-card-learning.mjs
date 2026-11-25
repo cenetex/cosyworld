@@ -159,9 +159,8 @@ try {
     ]);
     for (let attempt = 0; attempt < 2; attempt++) {
       await page.getByRole("button", { name: "Menu", exact: true }).click();
-      // Inner life opens Memory: the present first, the past below (#1579).
-      await page.getByRole("button", { name: "Memory", exact: true }).click();
-      const dialog = page.getByRole("dialog", { name: "Memory" });
+      await page.getByRole("button", { name: "Character", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: "Character", exact: true });
       await dialog.waitFor();
       const inner = dialog.getByRole("region", { name: "Vale's inner life" });
       await inner.waitFor();
@@ -169,7 +168,7 @@ try {
         await dialog.evaluate(
           (box) => box.querySelector("#messages > *")?.className,
         ),
-        "inner-life",
+        "character-sheet",
       );
       // The region's name is visually hidden: what shows opens on "I'm",
       // then "I dream".
@@ -187,15 +186,7 @@ try {
       assert(text.includes("I dream"));
       assert(text.includes("little boat"));
       assert(text.trim().endsWith("— Vale"));
-      assert.equal(
-        await dialog.evaluate((box) => {
-          const visible = [...box.querySelectorAll("h2, h3")].filter(
-            (h) => h.closest(".memory-visit") === null,
-          );
-          return visible.filter((h) => h.offsetWidth > 1).length;
-        }),
-        0,
-      );
+      await dialog.getByRole("heading", { name: "Character", exact: true }).waitFor();
       assert.equal(
         await dialog.getByRole("button", { name: "Save conversation" }).count(),
         0,

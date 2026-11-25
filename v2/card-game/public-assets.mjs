@@ -74,6 +74,8 @@ const files = [
   "unlock-view.mjs",
   "world-names.json",
   "inner-life.mjs",
+  "character-sheet.mjs",
+  "character-sheet.css",
   "toolbar.css",
   "shared-cast.json",
   "human-cast.mjs",

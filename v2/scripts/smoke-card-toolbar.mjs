@@ -227,7 +227,7 @@ try {
     );
     assert.deepEqual(
       await menu.locator(".menu-tools button").allTextContents(),
-      ["Memory", "Invite", "Settings"],
+      ["Character", "Invite", "Settings"],
     );
     assert.equal(await menu.locator(".menu-tools a").count(), 0);
     // ☰ lists world slots; the world played now shows, on one line, the
@@ -352,9 +352,9 @@ try {
       await waitForMenu(page, false);
       assert(await page.locator(`#${target}`).evaluate((node) => node.open));
       if (target === "history-dialog") {
-        // Memory has no title bar: a quiet × in the corner, no export.
-        const memory = page.getByRole("dialog", { name: "Memory" });
-        assert.equal(await memory.getByRole("button").count(), 1);
+        const memory = page.getByRole("dialog", { name: "Character", exact: true });
+        await memory.getByRole("heading", { name: "Character", exact: true }).waitFor();
+        await memory.getByRole("region", { name: "Tarot collection" }).waitFor();
         await memory
           .getByRole("button", { name: "Close", exact: true })
           .waitFor();
