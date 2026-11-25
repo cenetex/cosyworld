@@ -61,6 +61,11 @@ const engine = (version) => {
   const cardContent = JSON.parse(
     readFileSync(new URL("content.json", dir), "utf8"),
   );
+  if ([189, 194].includes(version))
+    cardContent.files["v2/card-game/forest.json"].people.keeper.want = {
+      kind: "item",
+      target: "bell",
+    };
   for (const pack of cardContent.files["v2/card-game/packs.json"].packs)
     for (const item of Object.values(pack.items || {})) {
       delete item.pages;
