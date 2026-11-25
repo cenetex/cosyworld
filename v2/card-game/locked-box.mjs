@@ -22,15 +22,16 @@ export const TAROT_LOCKED_BACK = "./assets/arcana/tarot-back-locked.png";
 // Whether the card is still locked behind its quest for this player.
 export const isLockedBox = (world, id) => sealedReason(world, id) !== null;
 
-// Boxes this view has drawn. `draw(shown, locked)` takes the cards in view
-// now and the cards drawn locked now (in view or tucked in a stack), and
-// returns the ones due to turn over: drawn locked before, in view and open
-// now. Each turns once; a redraw never covers it again. A box that leaves
-// the hand still locked turns when it is next seen open.
-export function createLockedBoxes() {
+// Tracks cards drawn locked, then reports each when it is drawn open.
+// `shown` lists the current cards; `locked` includes tucked cards.
+// By default a box that leaves the view locked still turns when next seen.
+// Tarot opts out so a completed spread slot cannot unlock again later.
+export function createLockedBoxes({ retainAbsent = true } = {}) {
   const boxed = new Set();
   return {
     draw(shown, locked) {
+      if (!retainAbsent)
+        for (const id of boxed) if (!shown.includes(id)) boxed.delete(id);
       const shut = new Set(locked);
       for (const id of shut) boxed.add(id);
       return shown.filter((id) => !shut.has(id) && boxed.delete(id));
