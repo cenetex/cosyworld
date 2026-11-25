@@ -357,7 +357,6 @@ for (const [width, motion] of [
     assert.equal(card.tell, "", `${label}: ${card.id} keeps no tell once turned`);
     assert.equal(card.glow, 0, `${label}: ${card.id} keeps no glow once turned`);
   }
-  // A locked box in the pack is turned and still locked.
   for (const id of members.filter((id) => isLockedBox(scenario.world, id))) {
     const box = turned.find((card) => card.id === id);
     assert.ok(box, `${label}: the locked box ${id} was in the pack`);
@@ -542,7 +541,6 @@ const besideHolder = (page, item, holder) =>
         hidden: frame.hidden,
         pressed: frame.querySelector(".card").getAttribute("aria-pressed"),
         grouped: lead === owner,
-        moving: frame.getAnimations().some((a) => a.playState === "running"),
         between: shown.filter((f) => {
           const left = f.getBoundingClientRect().left;
           return f !== frame && f !== owner && left > base.left && left < box.left;
@@ -604,11 +602,31 @@ for (const [width, motion] of [
   await page.waitForFunction(() => document.querySelectorAll('#hand [data-pack="open"]').length > 1);
   await page.waitForTimeout(900);
   await turnAndChoose(page, item);
+  await page.evaluate((item) => {
+    const animate = Element.prototype.animate, motions = [];
+    Element.prototype.animate = function (...args) {
+      const animation = animate.apply(this, args);
+      if (this.matches("#hand > .card-frame") && this.dataset.holder === "vale" &&
+          this.querySelector(".card")?.dataset.card === item)
+        motions.push(animation);
+      return animation;
+    };
+    window.finishTakeMotion = () => {
+      Element.prototype.animate = animate;
+      return motions.map((animation) => ({
+        state: animation.playState,
+        duration: animation.effect.getTiming().duration,
+      }));
+    };
+  }, item);
   await page.locator('#card-actions [data-action="take"]:not([data-revealing="true"])').click();
   const taken = await lies(page, item, "vale", `${label}: at once after Take`, { settled: false });
   assert.equal(taken.hidden, false, `${label}: the taken card shows`);
   assert.equal(taken.pressed, "true", `${label}: the taken card stays chosen`);
-  assert.equal(taken.moving, motion !== "reduce", `${label}: the card travels only with motion`);
+  const takeMotions = await page.evaluate(() => window.finishTakeMotion());
+  const travelled = takeMotions.some(({ state, duration }) =>
+    duration > 0 && ["running", "finished"].includes(state));
+  assert.equal(travelled, motion !== "reduce", `${label}: the card travels only with motion: ${JSON.stringify(takeMotions)}`);
   if (motion === "reduce") await lies(page, item, "vale", `${label}: at once, without motion`);
   await page.waitForTimeout(700);
   await lies(page, item, "vale", `${label}: settled after Take`);
