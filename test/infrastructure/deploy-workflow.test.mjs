@@ -222,6 +222,24 @@ describe("deploy workflow", () => {
     expect(called).toContain("name: All checks\n    if: ${{ !cancelled() }}");
   });
 
+  it("runs the .dev plan and rollout on the Fly runners only when DEV_DEPLOY_RUNNER is fly", () => {
+    const fly =
+      "runs-on: ${{ vars.DEV_DEPLOY_RUNNER == 'fly' && fromJSON('[\"self-hosted\",\"fly\",\"cosyworld\"]') || 'ubuntu-latest' }}";
+    for (const [name, next] of [
+      ["dev-plan", "dev-checks"],
+      ["dev-deploy", "deployment-impact"],
+    ]) {
+      const devJob = job(name, next);
+      expect(devJob).toContain(fly);
+      // The Fly runner image has no GitHub CLI, and these jobs call gh.
+      const install = devJob.indexOf("Install the GitHub CLI on a Fly runner");
+      expect(install).toBeGreaterThan(-1);
+      expect(install).toBeLessThan(devJob.indexOf("scripts/"));
+      expect(devJob).toContain("if: runner.environment != 'github-hosted'");
+    }
+    expect(workflow.match(/vars\.DEV_DEPLOY_RUNNER/g)).toHaveLength(2);
+  });
+
   it("deploys .dev on a main push, outside the release path", () => {
     const fullRelease =
       "(startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.target != 'dev'))";

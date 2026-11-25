@@ -42,7 +42,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       (((github.event_name == 'push' || github.event_name == 'schedule') && vars.COSYWORLD_DEV_TRAIN != 'off') ||
        (github.event_name == 'workflow_dispatch' && inputs.target == 'dev'))
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEV_DEPLOY_RUNNER == 'fly' && fromJSON('["self-hosted","fly","cosyworld"]') || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -62,6 +62,14 @@ jobs:
         with:
           filter: blob:none
           sparse-checkout: scripts
+
+      - name: Install the GitHub CLI on a Fly runner
+        if: runner.environment != 'github-hosted'
+        run: |
+          command -v gh >/dev/null || {
+            curl -fsSL "https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+            echo "$RUNNER_TEMP/gh_2.63.2_linux_amd64/bin" >> "$GITHUB_PATH"
+          }
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -164,7 +172,6 @@ jobs:
             release-target-v1-${{ hashFiles('Dockerfile') }}-
             release-target-v1-
 
-      # build.rs runs Node to generate the embedded card asset list.
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -210,7 +217,7 @@ jobs:
     concurrency:
       group: deploy-${{ github.repository }}-dev
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEV_DEPLOY_RUNNER == 'fly' && fromJSON('["self-hosted","fly","cosyworld"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -230,6 +237,14 @@ jobs:
           sparse-checkout: |
             scripts
             v2/scripts
+
+      - name: Install the GitHub CLI on a Fly runner
+        if: runner.environment != 'github-hosted'
+        run: |
+          command -v gh >/dev/null || {
+            curl -fsSL "https://github.com/cli/cli/releases/download/v2.63.2/gh_2.63.2_linux_amd64.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+            echo "$RUNNER_TEMP/gh_2.63.2_linux_amd64/bin" >> "$GITHUB_PATH"
+          }
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -502,7 +517,6 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # build.rs runs Node to generate the embedded card asset list.
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -542,7 +556,6 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # build.rs runs Node to generate the embedded card asset list.
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
