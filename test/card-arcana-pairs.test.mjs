@@ -51,8 +51,8 @@ const litNight = (s) => {
   expect(s.items.lamp).toMatchObject({ holder: "vale", lit: true });
   return s;
 };
-const faceDown = (s, slot) => {
-  s.actors.vale.arcana = { proved: [], did: [], spread: [slot] };
+const holding = (s, slot) => {
+  s.actors.vale.arcana = { proved: [], did: [], level: 1, spread: [slot] };
   return s;
 };
 
@@ -81,6 +81,7 @@ describe("cards that say what they check", () => {
     expect(s.actors.vale.companion).toBe("moth");
     expect(s.actors.moth.place).toBe("pond");
     expect(proved(s)).toEqual([]);
+    expect(recordOf(s, "vale").spread[0].face).toBe("locked");
   });
 
   it("IX: a night walk with a companion along is not alone", () => {
@@ -89,6 +90,7 @@ describe("cards that say what they check", () => {
     s = act(s, walk("station"));
     expect(s.actors.keeper.place).toBe("station");
     expect(proved(s)).toEqual([]);
+    expect(recordOf(s, "vale").spread[0].face).toBe("locked");
   });
 
   it("IX and XVIII: a light counts only lit and carried", () => {
@@ -108,6 +110,7 @@ describe("cards that say what they check", () => {
     let s = litNight(only("arcanum-18"));
     s = act(s, walk("station"));
     expect(proved(s)).toEqual([]);
+    expect(recordOf(s, "vale").spread[0].face).toBe("locked");
   });
 });
 
@@ -115,27 +118,27 @@ describe("a card stays done once met", () => {
   it("0: the Fool stays done after the walk home", () => {
     let s = createWorld({ seed: 7 });
     deck.cards = data.cards.filter((card) => card.number === 0);
-    faceDown(s, { card: "arcanum-0", face: "down", base: { visited: 0 } });
+    holding(s, { card: "arcanum-0", face: "up", base: { visited: 0 } });
     for (const item of Object.values(s.items))
       if (item.holder === "vale") item.holder = "pond";
     s.actors.vale.place = "pond";
     s.actors.vale.visited = Object.keys(places).slice(0, 8);
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0].done).toBe(true);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({ face: "reward", done: true });
     s.actors.vale.place = homeOf("vale");
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0].done).toBe(true);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({ face: "reward", done: true });
   });
 
   it("IX: the Hermit stays done after the lamp goes out", () => {
     let s = createWorld({ seed: 7 });
     deck.cards = data.cards.filter((card) => card.number === 9);
-    faceDown(s, { card: "arcanum-9", face: "down", bind: { light: "lamp" } });
+    holding(s, { card: "arcanum-9", face: "up", bind: { light: "lamp" } });
     s = act(litNight(s), walk("station"));
-    expect(recordOf(s, "vale").spread[0].done).toBe(true);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({ face: "reward", done: true });
     s.items.lamp.lit = false;
     s = wait(s);
-    expect(recordOf(s, "vale").spread[0].done).toBe(true);
+    expect(recordOf(s, "vale").spread[0]).toMatchObject({ face: "reward", done: true });
   });
 });
 

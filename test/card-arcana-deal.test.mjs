@@ -176,7 +176,10 @@ describe("the deal", () => {
       };
     s.actors[other].place = "nowhere-near";
     settleArcana(s, "vale");
-    expect(recordOf(s, "vale").proved).toEqual(["arcanum-1"]);
+    expect(recordOf(s, "vale").proved).toEqual([]);
+    expect(recordOf(s, "vale").spread).toMatchObject([
+      { card: "arcanum-1", face: "reward", done: true },
+    ]);
     expect(recordOf(s, other)).toMatchObject({
       proved: [],
       spread: [{ card: "arcanum-1", face: "up" }],
