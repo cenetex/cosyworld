@@ -82,7 +82,6 @@ const RULES = [
   "world/offers.mjs",
   "world/rumours.mjs",
   "world/for-good.mjs",
-  "world/found.mjs",
   "world/senses.mjs",
   "world/station.mjs",
   "world/stops.mjs",

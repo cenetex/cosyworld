@@ -211,7 +211,19 @@ describe("the words of a level card", () => {
       conditionWords(arcanumTerms(hold(s, "arcanum-10", "up", did), "vale", 0));
     expect(wheel([])).toBe("eat Dried Figs and find Dried Figs");
     expect(wheel(["spent"])).toBe("find Dried Figs");
-    expect(arcanumTerms(hold(s, "arcanum-10", "down"), "vale", 0)).toEqual([]);
+  });
+
+  it("words a face-down card by the people still to help", () => {
+    const s = hold(createWorld({ seed: 7 }), "arcanum-10", "down");
+    const said = (calls) => {
+      s.actors.vale.arcana.calls = calls;
+      const terms = arcanumTerms(s, "vale", 0);
+      expect(JSON.stringify(terms)).not.toContain("arcanum-10");
+      return conditionWords(terms);
+    };
+    expect(said(0)).toBe("help three people complete their goals");
+    expect(said(1)).toBe("help two more people complete their goals");
+    expect(said(2)).toBe("help one more person complete their goal");
   });
 
   it("words every card in a fresh world", () => {
