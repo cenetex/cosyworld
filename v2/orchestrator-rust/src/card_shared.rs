@@ -18,6 +18,7 @@ mod live_rules_tests;
 #[cfg(test)]
 mod move_tests;
 pub(crate) const RULES_VERSION: &str = engine::VERSION;
+pub(crate) use engine::check_rules;
 mod full;
 mod full_floor;
 #[cfg(test)]

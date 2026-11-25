@@ -1,11 +1,12 @@
 //! The shipping card rules run in QuickJS, a C interpreter. Rust supplies JSON
 //! and owns IO; the interpreter has no filesystem, network, clocks or randomness.
 use super::{content, store::Result};
+use cosyworld_orchestrator::card_assets;
 use rquickjs::{Context, Function, Runtime};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
-    collections::VecDeque,
+    collections::{HashMap, VecDeque},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex, OnceLock,
@@ -85,81 +86,9 @@ pub(super) const HUNDRED_THIRTY_SIXTH_VERSION: &str = "full-card-world/136";
 pub(super) const HUNDRED_THIRTY_FIFTH_VERSION: &str = "full-card-world/135";
 pub(super) const HUNDRED_THIRTY_FOURTH_VERSION: &str = "full-card-world/134";
 pub(super) const HUNDRED_THIRTY_THIRD_VERSION: &str = "full-card-world/133";
-const SOURCE: &str = include_str!("engine-v204.js");
-const TWO_HUNDRED_THIRD_SOURCE: &str = include_str!("engine-v203.js");
-const TWO_HUNDRED_SECOND_SOURCE: &str = include_str!("engine-v202.js");
-const TWO_HUNDRED_FIRST_SOURCE: &str = include_str!("engine-v201.js");
-const TWO_HUNDREDTH_SOURCE: &str = include_str!("engine-v200.js");
-const HUNDRED_NINETY_NINTH_SOURCE: &str = include_str!("engine-v199.js");
-const HUNDRED_NINETY_EIGHTH_SOURCE: &str = include_str!("engine-v198.js");
-const HUNDRED_NINETY_SEVENTH_SOURCE: &str = include_str!("engine-v197.js");
-const HUNDRED_NINETY_SIXTH_SOURCE: &str = include_str!("engine-v196.js");
-const HUNDRED_NINETY_FIFTH_SOURCE: &str = include_str!("engine-v195.js");
-const HUNDRED_NINETY_FOURTH_SOURCE: &str = include_str!("engine-v194.js");
-const HUNDRED_NINETY_THIRD_SOURCE: &str = include_str!("engine-v193.js");
-const HUNDRED_NINETY_SECOND_SOURCE: &str = include_str!("engine-v192.js");
-const HUNDRED_NINETY_FIRST_SOURCE: &str = include_str!("engine-v191.js");
-const HUNDRED_NINETIETH_SOURCE: &str = include_str!("engine-v190.js");
-const HUNDRED_EIGHTY_NINTH_SOURCE: &str = include_str!("engine-v189.js");
-const HUNDRED_EIGHTY_EIGHTH_SOURCE: &str = include_str!("engine-v188.js");
-const HUNDRED_EIGHTY_SEVENTH_SOURCE: &str = include_str!("engine-v187.js");
-const HUNDRED_EIGHTY_SIXTH_SOURCE: &str = include_str!("engine-v186.js");
-const HUNDRED_EIGHTY_FIFTH_SOURCE: &str = include_str!("engine-v185.js");
-const HUNDRED_EIGHTY_FOURTH_SOURCE: &str = include_str!("engine-v184.js");
-const HUNDRED_EIGHTY_THIRD_SOURCE: &str = include_str!("engine-v183.js");
-const HUNDRED_EIGHTY_SECOND_SOURCE: &str = include_str!("engine-v182.js");
-const HUNDRED_EIGHTY_FIRST_SOURCE: &str = include_str!("engine-v181.js");
-const HUNDRED_EIGHTIETH_SOURCE: &str = include_str!("engine-v180.js");
-const HUNDRED_SEVENTY_NINTH_SOURCE: &str = include_str!("engine-v179.js");
-const HUNDRED_SEVENTY_EIGHTH_SOURCE: &str = include_str!("engine-v178.js");
-const HUNDRED_SEVENTY_SEVENTH_SOURCE: &str = include_str!("engine-v177.js");
-const HUNDRED_SEVENTY_SIXTH_SOURCE: &str = include_str!("engine-v176.js");
-const HUNDRED_SEVENTY_FIFTH_SOURCE: &str = include_str!("engine-v175.js");
-const HUNDRED_SEVENTY_FOURTH_SOURCE: &str = include_str!("engine-v174.js");
-const HUNDRED_SEVENTY_THIRD_SOURCE: &str = include_str!("engine-v173.js");
-const HUNDRED_SEVENTY_SECOND_SOURCE: &str = include_str!("engine-v172.js");
-const HUNDRED_SEVENTY_FIRST_SOURCE: &str = include_str!("engine-v171.js");
-const HUNDRED_SEVENTIETH_SOURCE: &str = include_str!("engine-v170.js");
-const HUNDRED_SIXTY_NINTH_SOURCE: &str = include_str!("engine-v169.js");
-const HUNDRED_SIXTY_EIGHTH_SOURCE: &str = include_str!("engine-v168.js");
-const HUNDRED_SIXTY_SEVENTH_SOURCE: &str = include_str!("engine-v167.js");
-const HUNDRED_SIXTY_SIXTH_SOURCE: &str = include_str!("engine-v166.js");
-const HUNDRED_SIXTY_FIFTH_SOURCE: &str = include_str!("engine-v165.js");
-const HUNDRED_SIXTY_FOURTH_SOURCE: &str = include_str!("engine-v164.js");
-const HUNDRED_SIXTY_THIRD_SOURCE: &str = include_str!("engine-v163.js");
-const HUNDRED_SIXTY_SECOND_SOURCE: &str = include_str!("engine-v162.js");
-const HUNDRED_SIXTY_FIRST_SOURCE: &str = include_str!("engine-v161.js");
-const HUNDRED_SIXTIETH_SOURCE: &str = include_str!("engine-v160.js");
-const HUNDRED_FIFTY_NINTH_SOURCE: &str = include_str!("engine-v159.js");
-const HUNDRED_FIFTY_EIGHTH_SOURCE: &str = include_str!("engine-v158.js");
-const HUNDRED_FIFTY_SEVENTH_SOURCE: &str = include_str!("engine-v157.js");
-const HUNDRED_FIFTY_SIXTH_SOURCE: &str = include_str!("engine-v156.js");
-const HUNDRED_FIFTY_FIFTH_SOURCE: &str = include_str!("engine-v155.js");
-const HUNDRED_FIFTY_FOURTH_SOURCE: &str = include_str!("engine-v154.js");
-const HUNDRED_FIFTY_THIRD_SOURCE: &str = include_str!("engine-v153.js");
-const HUNDRED_FIFTY_SECOND_SOURCE: &str = include_str!("engine-v152.js");
-const HUNDRED_FIFTY_FIRST_SOURCE: &str = include_str!("engine-v151.js");
-const HUNDRED_FIFTIETH_SOURCE: &str = include_str!("engine-v150.js");
-const HUNDRED_FORTY_NINTH_SOURCE: &str = include_str!("engine-v149.js");
-const HUNDRED_FORTY_EIGHTH_SOURCE: &str = include_str!("engine-v148.js");
-const HUNDRED_FORTY_SEVENTH_SOURCE: &str = include_str!("engine-v147.js");
-const HUNDRED_FORTY_SIXTH_SOURCE: &str = include_str!("engine-v146.js");
-const HUNDRED_FORTY_FIFTH_SOURCE: &str = include_str!("engine-v145.js");
-const HUNDRED_FORTY_FOURTH_SOURCE: &str = include_str!("engine-v144.js");
-const HUNDRED_FORTY_THIRD_SOURCE: &str = include_str!("engine-v143.js");
-const HUNDRED_FORTY_SECOND_SOURCE: &str = include_str!("engine-v142.js");
-const HUNDRED_FORTY_FIRST_SOURCE: &str = include_str!("engine-v141.js");
-const HUNDRED_FORTIETH_SOURCE: &str = include_str!("engine-v140.js");
-const HUNDRED_THIRTY_NINTH_SOURCE: &str = include_str!("engine-v139.js");
-const HUNDRED_THIRTY_EIGHTH_SOURCE: &str = include_str!("engine-v138.js");
-const HUNDRED_THIRTY_SEVENTH_SOURCE: &str = include_str!("engine-v137.js");
-const HUNDRED_THIRTY_SIXTH_SOURCE: &str = include_str!("engine-v136.js");
-const HUNDRED_THIRTY_FIFTH_SOURCE: &str = include_str!("engine-v135.js");
-const HUNDRED_THIRTY_FOURTH_SOURCE: &str = include_str!("engine-v134.js");
-const HUNDRED_THIRTY_THIRD_SOURCE: &str = include_str!("engine-v133.js");
 /// The current rules' source, whose words an imported save may use.
 pub(super) fn current_source() -> &'static str {
-    SOURCE
+    source(VERSION).expect("the current rules bundle")
 }
 // A world saved by rules newer than this server's: a release swap briefly
 // runs the older build (docs/release.md), so the world waits, unchanged.
@@ -293,7 +222,6 @@ fn view_cache_key(version: &str, input: &str) -> String {
 pub(super) fn reduce(request: Value) -> Result<Value> {
     reduce_pack(VERSION, Some(content::current()), request)
 }
-// Tests reduce released rules directly; content-taking rules get this binary's.
 #[cfg(test)]
 pub(super) fn reduce_version(version: &str, request: Value) -> Result<Value> {
     reduce_pack(version, Some(content::current()), request)
@@ -304,82 +232,47 @@ pub(super) fn reduce_pack(version: &str, pack: Option<&str>, request: Value) -> 
     let content = content::text(pack)?;
     reduce_source(version, source, Some((&*content, pack)), request)
 }
+struct Pins(Vec<(String, String)>);
+
+fn pinned(store: &card_assets::Store) -> Result<Pins> {
+    let text = store
+        .read("card_shared/rules.json")
+        .ok_or("rules.json is missing")?;
+    let pins: std::collections::BTreeMap<u32, String> =
+        serde_json::from_slice(&text).map_err(|e| format!("rules.json: {e}"))?;
+    let mut versions = Vec::new();
+    for (number, sha256) in pins {
+        if store.sha256(&format!("card_shared/engine-v{number}.js")) != Some(&sha256) {
+            return Err(format!("engine-v{number}.js does not match rules.json"));
+        }
+        versions.push((format!("full-card-world/{number}"), sha256));
+    }
+    match versions.last() {
+        Some((last, _)) if last == VERSION => Ok(Pins(versions)),
+        _ => Err(format!("rules.json does not end at {VERSION}")),
+    }
+}
+fn pins() -> Result<&'static Pins> {
+    static PINS: OnceLock<Result<Pins>> = OnceLock::new();
+    let pins = PINS.get_or_init(|| pinned(card_assets::load()?));
+    pins.as_ref().map_err(Clone::clone)
+}
+pub(crate) fn check_rules() -> Result<()> {
+    pins().map(|_| ())
+}
 fn source(version: &str) -> Option<&'static str> {
-    Some(match version {
-        VERSION => SOURCE,
-        TWO_HUNDRED_THIRD_VERSION => TWO_HUNDRED_THIRD_SOURCE,
-        TWO_HUNDRED_SECOND_VERSION => TWO_HUNDRED_SECOND_SOURCE,
-        TWO_HUNDRED_FIRST_VERSION => TWO_HUNDRED_FIRST_SOURCE,
-        TWO_HUNDREDTH_VERSION => TWO_HUNDREDTH_SOURCE,
-        HUNDRED_NINETY_NINTH_VERSION => HUNDRED_NINETY_NINTH_SOURCE,
-        HUNDRED_NINETY_EIGHTH_VERSION => HUNDRED_NINETY_EIGHTH_SOURCE,
-        HUNDRED_NINETY_SEVENTH_VERSION => HUNDRED_NINETY_SEVENTH_SOURCE,
-        HUNDRED_NINETY_SIXTH_VERSION => HUNDRED_NINETY_SIXTH_SOURCE,
-        HUNDRED_NINETY_FIFTH_VERSION => HUNDRED_NINETY_FIFTH_SOURCE,
-        HUNDRED_NINETY_FOURTH_VERSION => HUNDRED_NINETY_FOURTH_SOURCE,
-        HUNDRED_NINETY_THIRD_VERSION => HUNDRED_NINETY_THIRD_SOURCE,
-        HUNDRED_NINETY_SECOND_VERSION => HUNDRED_NINETY_SECOND_SOURCE,
-        HUNDRED_NINETY_FIRST_VERSION => HUNDRED_NINETY_FIRST_SOURCE,
-        HUNDRED_NINETIETH_VERSION => HUNDRED_NINETIETH_SOURCE,
-        HUNDRED_EIGHTY_NINTH_VERSION => HUNDRED_EIGHTY_NINTH_SOURCE,
-        HUNDRED_EIGHTY_EIGHTH_VERSION => HUNDRED_EIGHTY_EIGHTH_SOURCE,
-        HUNDRED_EIGHTY_SEVENTH_VERSION => HUNDRED_EIGHTY_SEVENTH_SOURCE,
-        HUNDRED_EIGHTY_SIXTH_VERSION => HUNDRED_EIGHTY_SIXTH_SOURCE,
-        HUNDRED_EIGHTY_FIFTH_VERSION => HUNDRED_EIGHTY_FIFTH_SOURCE,
-        HUNDRED_EIGHTY_FOURTH_VERSION => HUNDRED_EIGHTY_FOURTH_SOURCE,
-        HUNDRED_EIGHTY_THIRD_VERSION => HUNDRED_EIGHTY_THIRD_SOURCE,
-        HUNDRED_EIGHTY_SECOND_VERSION => HUNDRED_EIGHTY_SECOND_SOURCE,
-        HUNDRED_EIGHTY_FIRST_VERSION => HUNDRED_EIGHTY_FIRST_SOURCE,
-        HUNDRED_EIGHTIETH_VERSION => HUNDRED_EIGHTIETH_SOURCE,
-        HUNDRED_SEVENTY_NINTH_VERSION => HUNDRED_SEVENTY_NINTH_SOURCE,
-        HUNDRED_SEVENTY_EIGHTH_VERSION => HUNDRED_SEVENTY_EIGHTH_SOURCE,
-        HUNDRED_SEVENTY_SEVENTH_VERSION => HUNDRED_SEVENTY_SEVENTH_SOURCE,
-        HUNDRED_SEVENTY_SIXTH_VERSION => HUNDRED_SEVENTY_SIXTH_SOURCE,
-        HUNDRED_SEVENTY_FIFTH_VERSION => HUNDRED_SEVENTY_FIFTH_SOURCE,
-        HUNDRED_SEVENTY_FOURTH_VERSION => HUNDRED_SEVENTY_FOURTH_SOURCE,
-        HUNDRED_SEVENTY_THIRD_VERSION => HUNDRED_SEVENTY_THIRD_SOURCE,
-        HUNDRED_SEVENTY_SECOND_VERSION => HUNDRED_SEVENTY_SECOND_SOURCE,
-        HUNDRED_SEVENTY_FIRST_VERSION => HUNDRED_SEVENTY_FIRST_SOURCE,
-        HUNDRED_SEVENTIETH_VERSION => HUNDRED_SEVENTIETH_SOURCE,
-        HUNDRED_SIXTY_NINTH_VERSION => HUNDRED_SIXTY_NINTH_SOURCE,
-        HUNDRED_SIXTY_EIGHTH_VERSION => HUNDRED_SIXTY_EIGHTH_SOURCE,
-        HUNDRED_SIXTY_SEVENTH_VERSION => HUNDRED_SIXTY_SEVENTH_SOURCE,
-        HUNDRED_SIXTY_SIXTH_VERSION => HUNDRED_SIXTY_SIXTH_SOURCE,
-        HUNDRED_SIXTY_FIFTH_VERSION => HUNDRED_SIXTY_FIFTH_SOURCE,
-        HUNDRED_SIXTY_FOURTH_VERSION => HUNDRED_SIXTY_FOURTH_SOURCE,
-        HUNDRED_SIXTY_THIRD_VERSION => HUNDRED_SIXTY_THIRD_SOURCE,
-        HUNDRED_SIXTY_SECOND_VERSION => HUNDRED_SIXTY_SECOND_SOURCE,
-        HUNDRED_SIXTY_FIRST_VERSION => HUNDRED_SIXTY_FIRST_SOURCE,
-        HUNDRED_SIXTIETH_VERSION => HUNDRED_SIXTIETH_SOURCE,
-        HUNDRED_FIFTY_NINTH_VERSION => HUNDRED_FIFTY_NINTH_SOURCE,
-        HUNDRED_FIFTY_EIGHTH_VERSION => HUNDRED_FIFTY_EIGHTH_SOURCE,
-        HUNDRED_FIFTY_SEVENTH_VERSION => HUNDRED_FIFTY_SEVENTH_SOURCE,
-        HUNDRED_FIFTY_SIXTH_VERSION => HUNDRED_FIFTY_SIXTH_SOURCE,
-        HUNDRED_FIFTY_FIFTH_VERSION => HUNDRED_FIFTY_FIFTH_SOURCE,
-        HUNDRED_FIFTY_FOURTH_VERSION => HUNDRED_FIFTY_FOURTH_SOURCE,
-        HUNDRED_FIFTY_THIRD_VERSION => HUNDRED_FIFTY_THIRD_SOURCE,
-        HUNDRED_FIFTY_SECOND_VERSION => HUNDRED_FIFTY_SECOND_SOURCE,
-        HUNDRED_FIFTY_FIRST_VERSION => HUNDRED_FIFTY_FIRST_SOURCE,
-        HUNDRED_FIFTIETH_VERSION => HUNDRED_FIFTIETH_SOURCE,
-        HUNDRED_FORTY_NINTH_VERSION => HUNDRED_FORTY_NINTH_SOURCE,
-        HUNDRED_FORTY_EIGHTH_VERSION => HUNDRED_FORTY_EIGHTH_SOURCE,
-        HUNDRED_FORTY_SEVENTH_VERSION => HUNDRED_FORTY_SEVENTH_SOURCE,
-        HUNDRED_FORTY_SIXTH_VERSION => HUNDRED_FORTY_SIXTH_SOURCE,
-        HUNDRED_FORTY_FIFTH_VERSION => HUNDRED_FORTY_FIFTH_SOURCE,
-        HUNDRED_FORTY_FOURTH_VERSION => HUNDRED_FORTY_FOURTH_SOURCE,
-        HUNDRED_FORTY_THIRD_VERSION => HUNDRED_FORTY_THIRD_SOURCE,
-        HUNDRED_FORTY_SECOND_VERSION => HUNDRED_FORTY_SECOND_SOURCE,
-        HUNDRED_FORTY_FIRST_VERSION => HUNDRED_FORTY_FIRST_SOURCE,
-        HUNDRED_FORTIETH_VERSION => HUNDRED_FORTIETH_SOURCE,
-        HUNDRED_THIRTY_NINTH_VERSION => HUNDRED_THIRTY_NINTH_SOURCE,
-        HUNDRED_THIRTY_EIGHTH_VERSION => HUNDRED_THIRTY_EIGHTH_SOURCE,
-        HUNDRED_THIRTY_SEVENTH_VERSION => HUNDRED_THIRTY_SEVENTH_SOURCE,
-        HUNDRED_THIRTY_SIXTH_VERSION => HUNDRED_THIRTY_SIXTH_SOURCE,
-        HUNDRED_THIRTY_FIFTH_VERSION => HUNDRED_THIRTY_FIFTH_SOURCE,
-        HUNDRED_THIRTY_FOURTH_VERSION => HUNDRED_THIRTY_FOURTH_SOURCE,
-        HUNDRED_THIRTY_THIRD_VERSION => HUNDRED_THIRTY_THIRD_SOURCE,
-        _ => return None,
-    })
+    static SOURCES: OnceLock<Mutex<HashMap<String, &'static str>>> = OnceLock::new();
+    let mut sources = SOURCES.get_or_init(Default::default).lock().ok()?;
+    if let Some(source) = sources.get(version) {
+        return Some(source);
+    }
+    let pins = pins().ok()?;
+    pins.0.iter().find(|(v, _)| v == version)?;
+    let number = version.strip_prefix("full-card-world/")?;
+    let bytes = card_assets::read(&format!("card_shared/engine-v{number}.js"))?;
+    let source: &'static str = String::from_utf8(bytes.to_vec()).ok()?.leak();
+    sources.insert(version.to_string(), source);
+    Some(source)
 }
 fn reduce_source(
     version: &str,
@@ -483,6 +376,46 @@ fn engine_error(error: impl std::fmt::Display) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_pinned_version_runs_exactly_its_pinned_bytes() {
+        for (version, sha256) in &pins().unwrap().0 {
+            let source = source(version).unwrap();
+            assert_eq!(
+                &format!("{:x}", Sha256::digest(source)),
+                sha256,
+                "{version}"
+            );
+        }
+        assert_ne!(source(TWO_HUNDRED_THIRD_VERSION), source(VERSION));
+        assert!(source("full-card-world/132").is_none());
+    }
+
+    #[test]
+    fn a_bundle_that_differs_from_its_pin_is_refused() {
+        let root = std::env::temp_dir().join(format!("rules-pins-{}", std::process::id()));
+        let dir = root.join("card_shared");
+        std::fs::create_dir_all(&dir).unwrap();
+        let hex = |bytes: &[u8]| format!("{:x}", Sha256::digest(bytes));
+        let bundle = b"globalThis.cardShared = () => '{}';";
+        let number = &VERSION["full-card-world/".len()..];
+        for (pinned_to, accepted) in [(&bundle[..], true), (b"older bytes", false)] {
+            let rules = serde_json::json!({ number: hex(pinned_to) }).to_string();
+            let mut files = serde_json::Map::new();
+            for (name, bytes) in [("rules.json", rules.as_bytes()), ("engine-v0.js", bundle)] {
+                let name = name.replace("v0", &format!("v{number}"));
+                std::fs::write(dir.join(&name), bytes).unwrap();
+                let entry = serde_json::json!({"sha256": hex(bytes), "size": bytes.len()});
+                files.insert(format!("card_shared/{name}"), entry);
+            }
+            let dirs = serde_json::json!({"card_shared": "card_shared"});
+            let manifest = serde_json::json!({"sha256": "", "dirs": dirs, "files": files});
+            std::fs::write(root.join("manifest.json"), manifest.to_string()).unwrap();
+            let store = card_assets::Store::open(&root).unwrap();
+            assert_eq!(pinned(&store).is_ok(), accepted);
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn view_cache_keys_cover_the_exact_world_and_viewer() {
         let input = serde_json::json!({
