@@ -26,9 +26,12 @@ pub(super) const NAME_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-ident
 pub(super) const PORTRAIT_ROUTE: &str = "/card-game/shared/worlds/{id}/elysium-portrait/{resident}";
 const MAX_PORTRAIT: u64 = 8 * 1024 * 1024;
 const PORTRAIT_RETRY: Duration = Duration::from_secs(300);
+const NAME_PENDING: &str = "My name is still taking shape. Ask me again, traveler.";
+const REPLY_PENDING: &str = "Stay a moment. This Void has more to say if you listen.";
+const AUTHORED_VOICE: &str = "elysium-authored";
 
 pub(super) struct Resident {
-    id: &'static str,
+    pub(super) id: &'static str,
     room: &'static str,
     token: &'static str,
     model: &'static str,
@@ -250,21 +253,48 @@ fn read_name(dir: &Path) -> Option<String> {
     valid_name(&name).then_some(name)
 }
 
+fn normalize_name(text: &str) -> Option<String> {
+    let name = text.trim().trim_end_matches('.').trim_matches(|c: char| {
+        c.is_ascii_whitespace() || matches!(c, '"' | '\'' | '“' | '”' | '‘' | '’' | '*' | '`')
+    });
+    let lower = name.to_lowercase();
+    (valid_name(name)
+        && !["i am ", "my name ", "i call ", "call me ", "as an "]
+            .iter()
+            .any(|prefix| lower.starts_with(prefix)))
+    .then(|| name.to_string())
+}
+
+fn voice_issue(resident: &Resident, stage: &str, code: &str, http_status: Option<u16>) {
+    tracing::warn!(
+        resident = resident.id,
+        model = resident.model,
+        stage,
+        code,
+        http_status,
+        "Elysium voice unavailable"
+    );
+}
+
 async fn model_words(
     state: &AppState,
     resident: &Resident,
+    stage: &str,
     task: &str,
     max_tokens: u32,
 ) -> Result<String> {
-    let mut config = state
-        .ai_config
-        .as_ref()
-        .clone()
-        .ok_or("Elysium's voices are unavailable.")?;
+    let mut config = state.ai_config.as_ref().clone().ok_or_else(|| {
+        voice_issue(resident, stage, "elysium_model_unavailable", None);
+        "elysium_model_unavailable".to_owned()
+    })?;
+    if stage == "name" {
+        config.reasoning_effort = None;
+    }
     config
         .capability_models
         .insert(ModelCapability::WorldContent, resident.model.into());
     let context = format!("Your Void is {}. {task}", resident.setting);
+    let timeout = if stage == "name" { 8 } else { 22 };
     let output = request_chat_completion(&config, ChatCompletionRequest {
         feature: "elysium_identity",
         prompt_version: "elysium-identity/1",
@@ -273,48 +303,92 @@ async fn model_words(
         user: &context,
         temperature: 0.8,
         max_tokens,
-        timeout: Duration::from_secs(22),
+        timeout: Duration::from_secs(timeout),
         max_attempts: 1,
         referer: "https://lonelyforest.com",
         response_format: None,
         room_id: None,
-    }).await.map_err(|error| error.code().to_string())?;
-    if output.resolved_model_id != resident.model {
-        return Err("Elysium's resident received a different voice.".into());
+    }).await.map_err(|error| {
+        voice_issue(resident, stage, error.code(), error.provider_http_status());
+        error.code().to_string()
+    })?;
+    let invalid = if output.resolved_model_id != resident.model {
+        Some("elysium_model_mismatch")
+    } else if stage != "appearance" && !matches!(output.finish_reason.as_str(), "stop" | "end_turn")
+    {
+        Some("elysium_incomplete_reply")
+    } else {
+        None
+    };
+    if let Some(code) = invalid {
+        voice_issue(resident, stage, code, None);
+        return Err(code.into());
     }
     Ok(output.text.trim().to_string())
+}
+
+async fn request_name(state: &AppState, resident: &Resident) -> Result<String> {
+    let prompts = [
+        ("Choose a name for yourself in this world. Return only the name, one to three words with letters, spaces or hyphens. Do not use a company, product, or real person's name.", 768),
+        ("Give yourself an original fantasy name. Print only your chosen name in one to three words, with no title, explanation, or punctuation.", 1536),
+    ];
+    for (prompt, max_tokens) in prompts {
+        if let Ok(words) = model_words(state, resident, "name", prompt, max_tokens).await {
+            if let Some(name) = normalize_name(&words) {
+                return Ok(name);
+            }
+            voice_issue(resident, "name", "elysium_invalid_name", None);
+        }
+    }
+    Err("elysium_name_unavailable".into())
 }
 
 async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<(String, bool)> {
     let dir = directory(&state.generated_asset_dir, resident);
     let path = dir.clone();
     let (_lease, existing) = tokio::task::spawn_blocking(move || {
-        let lease = open_lock(&path, ".name.lock")?;
-        lease.lock()?;
-        Ok::<_, io::Error>((lease, read_name(&path)))
+        if let Some(name) = read_name(&path) {
+            return Ok((None, Some(name)));
+        }
+        let lease = open_lock(&path, ".name.lock").map_err(TryLockError::Error)?;
+        lease.try_lock()?;
+        Ok::<_, TryLockError>((Some(lease), read_name(&path)))
     })
     .await
-    .map_err(|error| error.to_string())?
-    .map_err(|error| error.to_string())?;
+    .map_err(|_| "elysium_name_storage".to_owned())?
+    .map_err(|error| match error {
+        TryLockError::WouldBlock => "elysium_name_busy".to_owned(),
+        TryLockError::Error(_) => "elysium_name_storage".to_owned(),
+    })?;
     if let Some(name) = existing {
         return Ok((name, false));
     }
-    let name = model_words(state, resident,
-        "Choose a name for yourself in this world. Return only the name, one to three words with letters, spaces or hyphens. Do not use a company, product, or real person's name.",
-        512
-    ).await?;
-    if !valid_name(&name) {
-        return Err("Elysium's resident has not settled on a name.".into());
-    }
+    let name = request_name(state, resident).await?;
     let copy = name.clone();
     tokio::task::spawn_blocking(move || {
         let _lease = _lease;
         atomic_write(&dir, &dir.join("name.txt"), copy.as_bytes())
     })
     .await
-    .map_err(|error| error.to_string())?
-    .map_err(|error| error.to_string())?;
+    .map_err(|_| "elysium_name_storage".to_owned())?
+    .map_err(|_| "elysium_name_storage".to_owned())?;
     Ok((name, true))
+}
+
+async fn name_for_talk(state: &AppState, resident: &'static Resident) -> Option<(String, bool)> {
+    match tokio::time::timeout(Duration::from_secs(18), choose_name(state, resident)).await {
+        Ok(Ok(name)) => Some(name),
+        Ok(Err(code)) => {
+            if code == "elysium_name_storage" {
+                voice_issue(resident, "name", &code, None);
+            }
+            None
+        }
+        Err(_) => {
+            voice_issue(resident, "name", "elysium_name_deadline", None);
+            None
+        }
+    }
 }
 
 pub(super) async fn dialogue(
@@ -322,24 +396,39 @@ pub(super) async fn dialogue(
     resident: &'static Resident,
     first: bool,
 ) -> Result<Value> {
-    let (name, named_now) = choose_name(state, resident).await?;
-    let text = if first || named_now {
-        introduction(&name)
+    let Some((name, named_now)) = name_for_talk(state, resident).await else {
+        return Ok(dialogue_line(resident, "???", NAME_PENDING, AUTHORED_VOICE));
+    };
+    if first || named_now {
+        Ok(dialogue_line(
+            resident,
+            &name,
+            &introduction(&name),
+            resident.model,
+        ))
     } else {
         let task = format!("Your name is {name}. A traveler has returned to speak with you. Reply with one new, short line, no more than 180 characters, grounded in what your room looks and sounds like.");
-        let line = model_words(state, resident, &task, 224).await?;
-        if line.is_empty()
-            || line.chars().count() > 180
-            || !human_message_is_cozy_safe(&line)
-            || line.chars().any(char::is_control)
-        {
-            return Err("Elysium's resident stayed quiet.".into());
+        if let Ok(line) = model_words(state, resident, "reply", &task, 1024).await {
+            if !line.is_empty()
+                && line.chars().count() <= 180
+                && human_message_is_cozy_safe(&line)
+                && !line.chars().any(char::is_control)
+            {
+                return Ok(dialogue_line(resident, &name, &line, resident.model));
+            }
+            voice_issue(resident, "reply", "elysium_invalid_reply", None);
         }
-        line
-    };
-    Ok(
-        json!([{"speaker":name,"text":text,"entityId":resident.id,"actorId":resident.id,"model":resident.model}]),
-    )
+        Ok(dialogue_line(
+            resident,
+            &name,
+            REPLY_PENDING,
+            AUTHORED_VOICE,
+        ))
+    }
+}
+
+fn dialogue_line(resident: &Resident, speaker: &str, text: &str, model: &str) -> Value {
+    json!([{"speaker":speaker,"text":text,"entityId":resident.id,"actorId":resident.id,"model":model}])
 }
 
 const INTRO_START: &str = "I call myself ";
@@ -359,12 +448,13 @@ pub(crate) async fn personal_introduction(
     state: &AppState,
     id: &str,
     room: &str,
-) -> Option<Result<(String, &'static str)>> {
+) -> Option<(String, &'static str)> {
     let resident = resident(id).filter(|resident| resident.room == room)?;
     Some(
-        choose_name(state, resident)
+        name_for_talk(state, resident)
             .await
-            .map(|(name, _)| (introduction(&name), resident.model)),
+            .map(|(name, _)| (introduction(&name), resident.model))
+            .unwrap_or_else(|| (NAME_PENDING.into(), AUTHORED_VOICE)),
     )
 }
 
@@ -434,7 +524,7 @@ async fn render(state: &AppState, resident: &'static Resident) -> Result<()> {
         return Ok(());
     };
     let task = format!("Your name is {name}. Describe how you would draw yourself as one complete, original fantasy figure. Give only visible physical features and clothing, in no more than 400 characters.");
-    let appearance = model_words(state, resident, &task, 400).await?;
+    let appearance = model_words(state, resident, "appearance", &task, 400).await?;
     if appearance.is_empty()
         || appearance.chars().count() > 400
         || !human_message_is_cozy_safe(&appearance)
@@ -606,5 +696,26 @@ mod tests {
         ] {
             assert!(!valid_name(name), "{name}");
         }
+    }
+
+    #[tokio::test]
+    async fn shared_void_resident_answers_even_when_its_model_is_unavailable() {
+        let mut state = crate::test_support::test_app_state(None);
+        let root = std::env::temp_dir().join(format!("elysium-voice-{}", crate::random_hex(8)));
+        state.generated_asset_dir = std::sync::Arc::new(root.clone());
+        let resident = &RESIDENTS[3];
+        let path = directory(&root, resident).join("name.txt");
+        let intro = dialogue(&state, resident, true).await.unwrap();
+        assert_eq!(intro[0]["actorId"], resident.id);
+        assert_eq!(intro[0]["speaker"], "???");
+        assert_eq!(intro[0]["text"], NAME_PENDING);
+        assert_eq!(intro[0]["model"], AUTHORED_VOICE);
+        assert!(!path.exists());
+        assert!(!is_elysium_introduction(NAME_PENDING));
+        fs::write(path, "Copper Bell").unwrap();
+        let later = dialogue(&state, resident, false).await.unwrap();
+        assert_eq!(later[0]["speaker"], "Copper Bell");
+        assert_eq!(later[0]["text"], REPLY_PENDING);
+        fs::remove_dir_all(root).unwrap();
     }
 }

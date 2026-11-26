@@ -1,32 +1,26 @@
 //! Shared narration consumes the original card scene facts. It can describe
-//! committed actions and write resident replies, while game outcomes stay in C.
+//! committed actions and write character replies, while game outcomes stay in C.
 use super::{full_world::actor_id, store::Result};
 use crate::ai_gateway::{AiConfig, ModelCapability};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 pub(super) fn prepared(actor: usize, work: &Value) -> Result<(Value, Vec<String>)> {
     let scene = &work["context"];
     if !scene.is_object() {
         return Err("The play is saved. Its scene needs another moment.".into());
     }
-    let roster: BTreeSet<&str> = (0..8).map(actor_id).collect();
     let room = scene["location"]
         .as_str()
         .or_else(|| work["room"].as_str())
         .ok_or("The scene needs a place.")?;
-    let speakers: Vec<&str> = scene["speakers"]
+    // The committed scene already chooses who is due to speak.
+    let mut ids: Vec<String> = scene["speakers"]
         .as_array()
         .into_iter()
         .flatten()
         .filter_map(Value::as_str)
-        .collect();
-    // The scene's speakers speak as given, except other players' avatars:
-    // their own players speak for them. A due place caption follows.
-    let mut ids: Vec<String> = speakers
-        .iter()
-        .filter(|id| **id == actor_id(actor) || !roster.contains(*id))
-        .map(|id| id.to_string())
+        .map(str::to_owned)
         .collect();
     if scene["scenery"].as_bool().unwrap_or(true) && !ids.iter().any(|id| id == room) {
         ids.push(room.to_string());
@@ -139,6 +133,11 @@ pub(super) async fn generate(state: &crate::AppState, actor: usize, work: &Value
 }
 #[cfg(test)]
 mod tests {
+    use super::super::{
+        full, full_store,
+        full_world::{actor_index, World},
+        now, store,
+    };
     use super::*;
     #[test]
     fn shared_bard_can_comment_on_the_earned_poem() {
@@ -162,13 +161,16 @@ mod tests {
         .is_ok());
     }
     #[test]
-    fn resident_dialogue_and_human_authority_share_one_scene() {
-        let mut work = json!({"room":"station","context":{"location":"station","speakers":["vale","pip","mara"],"scenery":false,"outcome":{"card":{"target":"pip"}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"mara":{"name":"Mara","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
-        // Mara's own player speaks for her.
-        let (_, ids) = prepared(0, &work).unwrap();
-        assert_eq!(ids, vec!["vale", "pip"]);
-        let result=parse(r#"{"entries":[{"id":"vale","text":"What caught your eye?"},{"id":"pip","text":"That shine belongs in my collection."}]}"#, &work, &ids).unwrap();
+    fn listed_player_and_resident_voices_share_one_scene() {
+        let mut work = json!({"room":"station","context":{"location":"station","speakers":["vale","pip","mara"],"scenery":false,"outcome":{"card":{"target":"pip"}}},"profiles":{"vale":{"name":"Vale","kind":"avatar"},"pip":{"name":"Pip","kind":"avatar"},"mara":{"name":"Mara","kind":"avatar"},"rue":{"name":"Rue","kind":"avatar"},"station":{"name":"Empty station","kind":"location"}}});
+        let (payload, ids) = prepared(0, &work).unwrap();
+        assert_eq!(ids, vec!["vale", "pip", "mara"]);
+        assert_eq!(payload["acting_avatar"], "vale");
+        assert!(payload["profiles"].get("rue").is_none());
+        let result=parse(r#"{"entries":[{"id":"vale","text":"What caught your eye?"},{"id":"pip","text":"That shine belongs in my collection."},{"id":"mara","text":"I see it too."},{"id":"rue","text":"I'm here."}]}"#, &work, &ids).unwrap();
+        assert_eq!(result.as_array().unwrap().len(), 3);
         assert_eq!(result[1]["actorId"], "pip");
+        assert_eq!(result[2]["actorId"], "mara");
         assert!(silent(&work, 0, &result).is_empty());
         // A line that does not come stays silent, the actor's too.
         let quiet = parse(
@@ -178,16 +180,94 @@ mod tests {
         )
         .unwrap();
         assert_eq!(quiet.as_array().unwrap().len(), 1);
-        assert_eq!(silent(&work, 0, &quiet), vec!["pip"]);
+        assert_eq!(silent(&work, 0, &quiet), vec!["pip", "mara"]);
         let reply = r#"{"entries":[{"id":"pip","text":"Mine."},{"id":"vale","text":" "}]}"#;
         let reply = parse(reply, &work, &ids).unwrap();
         assert_eq!(reply[0]["entityId"], "pip");
-        assert_eq!(silent(&work, 0, &reply), vec!["vale"]);
+        assert_eq!(silent(&work, 0, &reply), vec!["vale", "mara"]);
         work["context"]["scenery"] = json!(true);
         assert_eq!(
             prepared(0, &work).unwrap().1,
-            vec!["vale", "pip", "station"]
+            vec!["vale", "pip", "mara", "station"]
         );
+    }
+
+    #[test]
+    fn shared_talk_publishes_the_claimed_target_reply_and_replays_it() {
+        let path =
+            std::env::temp_dir().join(format!("player-dialogue-{}.sqlite", crate::random_hex(12)));
+        let c = store::open(&path).unwrap();
+        full_store::schema(&c).unwrap();
+        let id = "d".repeat(48);
+        store::create(&c, &id, "owner", now()).unwrap();
+        let mut world = World::create(None).unwrap();
+        world.game.as_object_mut().unwrap().remove("opening");
+        let mut command = full::Command {
+            op: "claim".into(),
+            avatar: None,
+            action: Value::Null,
+            target: None,
+            key: String::new(),
+            moving: false,
+            surface: "browser".into(),
+            revealed: None,
+        };
+        for actor in ["vale", "rue", "mara"] {
+            world.game["actors"][actor]["place"] = json!("station");
+        }
+        full_store::seed(&c, &id, &world, "player-dialogue", now()).unwrap();
+        for actor in ["vale", "rue", "mara"] {
+            command.avatar = Some(actor.into());
+            full::run(&c, &id, actor, &command, now()).unwrap();
+        }
+        let world = full_store::world(&c, &id, now()).unwrap();
+        command.op = "play".into();
+        command.avatar = None;
+        command.key = "shared-player-dialogue".into();
+        command.action = world.project(actor_index("vale").unwrap()).unwrap()["actions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|action| action["kind"] == "talk" && action["target"] == "rue")
+            .unwrap()
+            .clone();
+        full::run(&c, &id, "vale", &command, now()).unwrap();
+        let app = crate::test_app_state(Some(path));
+        let work = full::take_work(&app, &id).unwrap().unwrap();
+        let (_, ids) = prepared(work.actor, &work.context).unwrap();
+        assert_eq!(ids, vec!["vale", "rue"]);
+        let reply = "The timetable has me curious.";
+        let entries = json!({"entries":[
+            {"id":"vale","text":"What caught your eye?"},
+            {"id":"rue","text":reply},
+            {"id":"mara","text":"I am here too."}
+        ]});
+        let lines = parse(&entries.to_string(), &work.context, &ids).unwrap();
+        let committed = full_store::world(&c, &id, now()).unwrap();
+        full::finish_work(&app, &id, work, Ok(lines)).unwrap();
+        let expected = full_store::world(&c, &id, now()).unwrap();
+        assert_eq!(expected.claimed, committed.claimed);
+        assert_eq!(expected.present, committed.present);
+        for key in ["turn", "items"] {
+            assert_eq!(expected.game[key], committed.game[key]);
+        }
+        for actor in ["vale", "rue", "mara"] {
+            assert_eq!(
+                store::member(&c, &id, actor).unwrap(),
+                Some(actor_index(actor).unwrap() as i32)
+            );
+            let view = full_store::snapshot(&c, &id, actor, now()).unwrap();
+            let lines = &view["history"][0]["lines"];
+            assert_eq!(lines.as_array().unwrap().len(), 2);
+            assert_eq!(lines[1]["actorId"], "rue");
+            assert_eq!(lines[1]["text"], reply);
+        }
+        assert_eq!(
+            crate::routes::shared_voice_line(&c, &id, &command.key, 1).unwrap(),
+            Some(("rue".into(), reply.into()))
+        );
+        c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
+        assert_eq!(full_store::world(&c, &id, now()).unwrap(), expected);
     }
     #[test]
     fn shared_scenes_voice_only_their_given_speakers() {

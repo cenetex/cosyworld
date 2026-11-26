@@ -109,13 +109,16 @@ pub(in crate::card_shared) fn commit(
 
 /// After a play settles, reflect for its speakers or quietly resting actor.
 pub(in crate::card_shared) fn spawn(state: AppState, id: String, work: Work, lines: &Value) {
+    // Each playable seat's private reflections follow its own plays.
+    let actor = super::actor_id(work.actor);
     let mut spoke: Vec<String> = lines
         .as_array()
         .into_iter()
         .flatten()
-        .filter_map(|line| line["actorId"].as_str().map(str::to_string))
+        .filter_map(|line| line["actorId"].as_str())
+        .filter(|id| *id == actor || super::actor_index(id).is_err())
+        .map(str::to_owned)
         .collect();
-    let actor = super::actor_id(work.actor);
     let scene = &work.context["context"];
     // A quiet Wait can keep its private thought after its scene settles.
     if scene["resting"] == actor
