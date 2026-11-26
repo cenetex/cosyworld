@@ -17,6 +17,7 @@ import {
 } from "./pack-registry.mjs";
 import { sendShipHome } from "./pack-transport.mjs";
 import { restStep } from "./want.mjs";
+import { relocateActor } from "./world/stops.mjs";
 
 const ORDER = Object.keys(GROUPS);
 const rank = (id) => (ORDER.indexOf(packGroup(id)) + 1 || 99) - 1;
@@ -122,7 +123,10 @@ function scatter(s, pack, api) {
   // People from elsewhere: players to the first way out, the rest spread.
   for (const [id, a] of byId(s.actors))
     if (!mine(id) && mine(a.place)) {
-      a.place = api.want.player(id) ? spots[0] : spot();
+      const withOffer = id === "listener" && Object.values(s.actors).some(
+        (traveler) => traveler.arcana?.offer === a.place,
+      );
+      relocateActor(s, id, api.want.player(id) || withOffer ? spots[0] : spot());
       delete a.sleeping;
     }
   // A signal in progress breaks once no player is left where it is made, as

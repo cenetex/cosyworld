@@ -1574,6 +1574,12 @@ body .card-frame[hidden] {
 .card-frame[data-holder] .card {
   border-color: #a48d6370;
 }
+.hand > .card-frame[data-holder="listener"]:has(> [data-face="offered"]) {
+  margin-left: calc(var(--fan-overlap) * -1.4);
+}
+.want-card[data-face="offered"] > .quest-head > .quest-verb {
+  white-space: normal;
+}
 /* The places you can go from here: face-down cards behind the current
    place. Opening the place fans them out like the hand. */
 .place-edge {

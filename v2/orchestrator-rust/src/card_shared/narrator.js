@@ -1121,6 +1121,7 @@
       need: record7?.need || [],
       done: record7?.done || [],
       spread: record7?.spread || [],
+      ...record7?.offer ? { offer: record7.offer } : {},
       sale: record7?.sale === true,
       paid: record7?.paid === true
     };
@@ -1130,6 +1131,7 @@
     return Math.min(LEVEL_CAP, record7.level ?? record7.proved.length);
   };
   var tarotsHeld = (actor) => actor?.arcana?.spread?.length ?? 0;
+  var unlockedOf = (s, traveler) => [...new Set((s.actors?.[traveler]?.upgrades || []).filter(isArcanum))].sort();
   var rewardPending = (s, traveler) => recordOf(s, traveler).spread.some((slot) => slot.face === "reward");
   function firstFoolSlot(s, traveler, record7 = recordOf(s, traveler)) {
     if ((record7.level ?? record7.proved.length) > 0 || !record7.need.includes(FOOL)) return null;
@@ -1138,6 +1140,7 @@
   function called(s, traveler) {
     if (!humanPresent(s, traveler) || rewardPending(s, traveler)) return false;
     const record7 = recordOf(s, traveler);
+    if (record7.offer) return record7.offer === s.actors[traveler].place;
     return !record7.paid && (record7.sale || record7.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP && !firstFoolSlot(s, traveler, record7));
   }
   var calledTravelers = (s) => Object.keys(s.actors || {}).sort().filter((id) => called(s, id));
@@ -2425,41 +2428,6 @@
     return rest;
   }
 
-  // v2/card-game/world/company.mjs
-  var companionOf = (s, who) => s.actors?.[who]?.companion ?? null;
-  function travelerOf(s, resident) {
-    for (const id of Object.keys(s.actors || {}).sort())
-      if (s.actors[id].companion === resident) return id;
-    return null;
-  }
-  function partyOf(s, who) {
-    const here2 = s.actors?.[who]?.place;
-    if (here2 === void 0) return [who];
-    const party = [who];
-    const mine = companionOf(s, who);
-    if (mine && s.actors[mine]?.place === here2) party.push(mine);
-    const traveler = travelerOf(s, who);
-    if (traveler && s.actors[traveler]?.place === here2) party.push(traveler);
-    return party;
-  }
-  function release(s, traveler) {
-    const before = companionOf(s, traveler);
-    delete s.actors[traveler]?.companion;
-    delete s.actors[traveler]?.actedAt;
-    return before;
-  }
-  function validCompanions(s, actorIds2) {
-    const seen = /* @__PURE__ */ new Set();
-    for (const [id, a] of Object.entries(s.actors || {})) {
-      if (a.actedAt !== void 0 && (a.companion === void 0 || !Number.isSafeInteger(a.actedAt) || a.actedAt < 0 || a.actedAt > s.turn)) return false;
-      if (a.companion === void 0) continue;
-      if (typeof a.companion !== "string" || a.companion === id || !actorIds2.includes(a.companion) || seen.has(a.companion))
-        return false;
-      seen.add(a.companion);
-    }
-    return true;
-  }
-
   // v2/card-game/pack-transport.mjs
   var TRANSPORT_VERSION = 3;
   var PHASES = ["docked", "course", "sea", "arrived"];
@@ -2511,10 +2479,8 @@
       return true;
     return storyDock(s, from) || storyDock(s, to);
   }
-  var knowsLaneFrom = (s, id, dock, actor) => !actor || [actor, travelerOf(s, actor)].some(
-    (who) => who && lanesFrom(transports[id], dock).some(
-      (to) => entityActive(s, to) && knowsLane(s, who, dock, to)
-    )
+  var knowsLaneFrom = (s, id, dock, actor) => !actor || lanesFrom(transports[id], dock).some(
+    (to) => entityActive(s, to) && knowsLane(s, actor, dock, to)
   );
   var laneGate = (t, from, to) => (t.lanes || []).find(
     (lane) => lane.opensWith && (lane.from === from && lane.to === to || !lane.oneWay && lane.from === to && lane.to === from)
@@ -17859,9 +17825,11 @@
       ))
     ).map(([id, place]) => [id, place.road])
   );
+  var localRoadEnds = (id) => localRoads.get(id) || null;
   var retiredPlaces = new Map(
     Object.entries(packPlaces).filter(([, place]) => place.retired === true && !place.road).map(([id, place]) => [id, place.exits[0]])
   );
+  var retiredPlace = (id) => retiredPlaces.has(id);
   var transports = merge("transports");
   var packPeople = merge("avatars");
   var packFixtures = merge("fixtures");
@@ -18091,21 +18059,18 @@
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r)
     )
   );
-  var partyMet = (world, pack, conditions, actor) => partyOf(world, actor).some(
-    (who) => conditionsMet(world, pack, conditions, who)
-  );
   function personalRouteOpen(world, from, to, actor) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter((r) => r.from === from && r.to === to).map((route) => ({ pack: pack.id, route }))
     );
     return !routes.some(({ route }) => route.travelerRequires?.length) || routes.some(
-      ({ pack, route }) => routeOpen(world, pack, route) && partyMet(world, pack, route.travelerRequires, actor)
+      ({ pack, route }) => routeOpen(world, pack, route) && conditionsMet(world, pack, route.travelerRequires, actor)
     );
   }
   function packExits(world, place, actor = null) {
     const routes = packDefinitions.flatMap(
       (pack) => (pack.routes || []).filter(
-        (r) => r.from === place && routeOpen(world, pack.id, r) && partyMet(
+        (r) => r.from === place && routeOpen(world, pack.id, r) && conditionsMet(
           world,
           pack.id,
           r.travelerRequires,
@@ -18452,11 +18417,11 @@
   // v2/card-game/station-exits.mjs
   var STATION_EXIT_LIMIT = 3;
   function stationExitOrder(world, eligible) {
-    const candidates = [...new Set(eligible)].filter((id) => id !== "pond");
+    const candidates2 = [...new Set(eligible)].filter((id) => id !== "pond");
     const earlier = (world.stationExitOrder || []).filter(
-      (id) => candidates.includes(id)
+      (id) => candidates2.includes(id)
     );
-    return [...earlier, ...candidates.filter((id) => !earlier.includes(id))];
+    return [...earlier, ...candidates2.filter((id) => !earlier.includes(id))];
   }
   function stationExits(world, eligible, available = eligible) {
     const admitted = ["pond", ...stationExitOrder(world, eligible)].slice(
@@ -19415,7 +19380,7 @@
         continue;
       if (!humanAvatar(id)) {
         const person = packPeople[id];
-        if (traveller && person?.passWhen && partyMet(s, person.packId, person.passWhen, traveller))
+        if (traveller && person?.passWhen && conditionsMet(s, person.packId, person.passWhen, traveller))
           continue;
         return id;
       }
@@ -19782,15 +19747,15 @@
         taken.add(packIdOf(rootOf4(s, id)));
         continue;
       }
-      const candidates = groups2.filter((g) => g.id !== thing.packId).map((g) => ({
+      const candidates2 = groups2.filter((g) => g.id !== thing.packId).map((g) => ({
         ...g,
         places: g.places.filter((p) => entityActive(s, p) && !packPlaces[p]?.requires?.length)
       })).filter((g) => g.places.length);
-      if (!candidates.length) continue;
-      let choices = candidates.filter((g) => !taken.has(g.id));
+      if (!candidates2.length) continue;
+      let choices = candidates2.filter((g) => !taken.has(g.id));
       if (!choices.length) {
         taken.clear();
-        choices = candidates;
+        choices = candidates2;
       }
       const group = choices[runHash(s, `scatter-world:${thing.packId}:${id}`) % choices.length];
       item.holder = group.places[runHash(s, `scatter-place:${id}`) % group.places.length];
@@ -19835,15 +19800,15 @@
       }).map((p) => p.id)
     );
     upgradeSightings(s);
-    for (const a of Object.values(s.actors || {}))
+    for (const a of Object.values(s.actors || {})) {
       if (a?.offered && !Object.hasOwn(a.offered, "from")) delete a.offered;
+      delete a?.companion;
+      delete a?.actedAt;
+    }
     installPacks2(s);
     reconcileContent(s);
     upgradeSubjectMemories(s);
     reconcilePackProgress(s, reworked);
-    for (const id of Object.keys(s.actors || {}))
-      if (s.actors[id]?.companion && neverBack(s, s.actors[id].companion))
-        release(s, id);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
       if (fact?.source?.kind !== "lane") continue;
       const text2 = laneText(id);
@@ -20134,26 +20099,274 @@
 
   // v2/card-game/world/arcana.mjs
   var deck = { cards: arcana_default.cards };
+  function resolve(value, binding) {
+    if (typeof value === "string")
+      return value.startsWith("$") ? binding[value.slice(1)] ?? value : value;
+    if (Array.isArray(value)) return value.map((v) => resolve(v, binding));
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(
+      Object.entries(value).map(([key2, v]) => [key2, resolve(v, binding)])
+    );
+  }
+  var unfilled = (value) => typeof value === "string" ? value.startsWith("$") : Boolean(value) && typeof value === "object" && Object.values(value).some(unfilled);
+  var COUNTS = {
+    carried: (s, who) => Object.keys(s.items || {}).filter((id) => rootHolder(s, id) === who).length,
+    visited: (s, who) => (s.actors[who]?.visited || []).length,
+    heard: (s, who) => questOwners(s, who).length,
+    trusting: (s, who, c) => Object.keys(s.actors).filter(
+      (other) => other !== who && conditionMet(
+        s,
+        { kind: "trusted", actor: other, min: c.level ?? 1 },
+        null,
+        null,
+        who
+      )
+    ).length,
+    opened: (s, who, c) => Object.entries(s.opened || {}).filter(
+      ([id, ids3]) => ids3.includes(who) && boxOf(id, c.box)
+    ).length,
+    helped: (s, who) => recordOf(s, who).calls
+  };
+  var boxOf = (id, kind) => !kind || boxDefs().some((def) => def.id === id && def.kind === kind);
+  var residents = (s) => candidates(s, "resident");
+  var unseen = (ids3, seen) => ids3.filter((id) => !seen.includes(id)).length;
+  var ROOM = {
+    carried: (s, who) => candidates(s, "item").filter((id) => rootHolder(s, id) !== who).length,
+    visited: (s, who) => Math.min(
+      64 - COUNTS.visited(s, who),
+      unseen(candidates(s, "place"), s.actors[who]?.visited || [])
+    ),
+    heard: (s, who) => unseen(residents(s), questOwners(s, who)),
+    trusting: (s, who, c) => residents(s).filter(
+      (other) => other !== who && !conditionMet(
+        s,
+        { kind: "trusted", actor: other, min: c.level ?? 1 },
+        null,
+        null,
+        who
+      )
+    ).length,
+    opened: (s, who, c) => new Set(
+      boxDefs().filter(
+        (def) => (!c.box || def.kind === c.box) && packOn(s, packIdOf(def.at)) && entityActive(s, def.at) && (!def.pack || packOn(s, def.pack)) && !s.opened?.[def.id]?.includes(who)
+      ).map((def) => def.id)
+    ).size
+  };
+  function plain(s, id) {
+    const e = packEntity(id);
+    if (!e) return packOn(s, packIdOf(id));
+    const pack = packDefinition(e.packId);
+    const release = pack?.release;
+    return packOn(s, e.packId) && specialsAllow(s.packs?.[e.packId], pack, id) && !e.requires?.length && !e.appearsWhen?.length && !e.sealed && (!release || [release.places, release.avatars, release.items].some(
+      (list) => list.includes(id)
+    ));
+  }
+  var KINDS2 = {
+    resident: (s) => Object.keys(s.actors || {}).filter((id) => !humanAvatar(id)),
+    item: (s) => Object.keys(s.items || {}).filter((id) => id !== STATION_LANTERN),
+    place: () => Object.keys(places).filter(
+      (id) => !localRoadEnds(id) && !retiredPlace(id) && !Object.values(transports).some((ship) => ship.place === id)
+    ),
+    transport: () => Object.values(transports).map((ship) => ship.place)
+  };
+  var TRAITS = {
+    food: isFood,
+    drink: (id) => consumable(id) === "drink",
+    lamp: (id, s) => typeof s.items[id]?.lit === "boolean",
+    sanctuary: (id) => sanctuaries.includes(id),
+    wanted: (id, s) => residents(s).some(
+      (who) => s.actors[who].want?.kind === "item" && s.actors[who].want.target === id
+    )
+  };
+  var candidates = (s, kind, is) => KINDS2[kind](s).filter((id) => plain(s, id) && (!is || TRAITS[is](id, s))).sort();
+  function bindingOf(s, card, traveler, pool = candidates) {
+    const binding = { traveler };
+    const home = homeOf2(traveler, s);
+    if (home) binding.home = home;
+    const taken = [];
+    for (const role of card.roles || []) {
+      const free = [...pool(s, role.kind, role.is)].sort().filter((id) => !taken.includes(id) && !neverBack(s, id));
+      if (!free.length) return null;
+      const score = (id) => runHash(s, `arcana-role:${card.id}:${role.name}:${id}`);
+      binding[role.name] = free.reduce(
+        (best, id) => score(id) < score(best) ? id : best
+      );
+      taken.push(binding[role.name]);
+    }
+    return unfilled(resolve([card.proof, card.desire || []], binding)) ? null : binding;
+  }
+  var didsIn = (c) => c.kind === "did" ? [c] : [...c.conditions || [], ...c.condition ? [c.condition] : []].flatMap(
+    didsIn
+  );
   var countsIn = (c) => c.kind === "count" ? [c] : [...c.conditions || [], ...c.condition ? [c.condition] : []].flatMap(
     countsIn
   );
   var risingIn = (card) => card.proof.flatMap(countsIn).filter((c) => c.min !== void 0);
   var cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
   var FOOL2 = 0;
+  var WORLD = 21;
   var LISTENER = arcana_default.visit.match.targetId;
-  var listenerCardLine = (traveler) => `${nameOf2(LISTENER)} gives ${nameOf2(traveler)} a face-down card.`;
+  var listenerCardLine = (traveler) => `${nameOf2(LISTENER)} offers ${nameOf2(traveler)} a face-down card.`;
   function listenerDeal(world, traveler) {
     const talk = world.log.findLast(
       (entry) => entry.turn === world.turn && entry.kind === "action" && !entry.generated && entry.actorId === traveler && (entry.verb === "accept" || entry.verb === "talk" && entry.targetId === LISTENER)
     );
     if (talk?.verb !== "talk") return null;
     return world.log.findLast(
-      (entry) => entry.turn === talk.turn && entry.seq > talk.seq && entry.kind === "narration" && !entry.generated && entry.consequence && entry.actorId === LISTENER && entry.locationId === talk.locationId && entry.witnesses?.includes(traveler) && entry.text === listenerCardLine(traveler)
+      (entry) => entry.turn === talk.turn && entry.seq > talk.seq && entry.kind === "narration" && !entry.generated && entry.consequence && entry.actorId === LISTENER && entry.locationId === talk.locationId && entry.witnesses?.includes(traveler) && [listenerCardLine(traveler), `${nameOf2(LISTENER)} gives ${nameOf2(traveler)} a face-down card.`].includes(entry.text)
     ) ?? null;
   }
+  var numberOf = (id) => cardOf(id)?.number;
+  var isMiddle = (id) => Boolean(cardOf(id)) && numberOf(id) !== FOOL2 && numberOf(id) !== WORLD;
   var numbered = (n) => deck.cards.find((card) => card.number === n)?.id;
   var sorted = (ids3) => [...new Set(ids3)].sort();
   var collect = (actor, ids3) => actor.upgrades = sorted([...actor.upgrades || [], ...ids3]);
+  var shuffled = (s, traveler, level, ids3) => {
+    const score = (id) => runHash(s, `arcana-deal:${traveler}:${level}:${id}`);
+    return [...ids3].sort(
+      (a, b) => score(a) - score(b) || (a < b ? -1 : a > b ? 1 : 0)
+    );
+  };
+  function deckOrder(s, traveler, level = 0) {
+    const ids3 = (list) => list.map((card) => card.id);
+    const middle = shuffled(
+      s,
+      traveler,
+      level,
+      deck.cards.filter((card) => isMiddle(card.id)).map((card) => card.id)
+    );
+    return [
+      ...ids3(deck.cards.filter((card) => card.number === FOOL2)),
+      ...middle,
+      ...ids3(deck.cards.filter((card) => card.number === WORLD))
+    ];
+  }
+  function dealable(s, card, traveler, base = null) {
+    const binding = bindingOf(s, card, traveler);
+    return Boolean(binding) && resolve(risingIn(card), binding).every(
+      (c) => ROOM[c.of](s, traveler, c) >= c.min - (base ? COUNTS[c.of](s, traveler, c) - (base[c.of] ?? 0) : 0)
+    );
+  }
+  var stepAt = (level) => (arcana_default.levels || []).filter((step) => level >= step.from).reduce((last, step) => ({ ...last, ...step }), { scale: 1 });
+  var nextScale = (level) => (arcana_default.levels || []).find((step) => step.scale > stepAt(level).scale)?.scale ?? stepAt(level).scale;
+  function scaled(card, scale = 1) {
+    if (!card || scale === 1) return card;
+    const grow = (c) => c.kind === "count" && c.min !== void 0 ? { ...c, min: c.min * scale } : c.conditions ? { ...c, conditions: c.conditions.map(grow) } : c.condition ? { ...c, condition: grow(c.condition) } : c;
+    return { ...card, proof: card.proof.map(grow) };
+  }
+  var slotCard = (slot) => scaled(cardOf(slot?.card), slot?.scale ?? 1);
+  var lostRole = (s, id) => id === STATION_LANTERN || neverBack(s, id) || !(s.items?.[id] || s.actors?.[id] || places[id]);
+  function slotBinding(s, slot, traveler) {
+    const card = slotCard(slot);
+    if (!card) return null;
+    const binding = { traveler };
+    const home = homeOf2(traveler, s);
+    if (home) binding.home = home;
+    const taken = [];
+    for (const role of card.roles || []) {
+      const pinned = slot.bind?.[role.name];
+      if (pinned && !lostRole(s, pinned) && !taken.includes(pinned))
+        binding[role.name] = pinned;
+      else {
+        const free = candidates(s, role.kind, role.is).filter(
+          (id) => !taken.includes(id) && !lostRole(s, id)
+        );
+        if (!free.length) return null;
+        const score = (id) => runHash(s, `arcana-role:${card.id}:${role.name}:${id}`);
+        binding[role.name] = free.reduce(
+          (best, id) => score(id) < score(best) ? id : best
+        );
+      }
+      taken.push(binding[role.name]);
+    }
+    if (unfilled(resolve([card.proof, card.desire || []], binding))) return null;
+    return slot.base ? { ...binding, base: slot.base } : binding;
+  }
+  function makeSlot(s, traveler, id, face, scale = 1) {
+    const card = scaled(cardOf(id), scale);
+    const binding = card && bindingOf(s, card, traveler);
+    if (!binding) return null;
+    const slot = { card: id, face };
+    if (card.roles?.length)
+      slot.bind = Object.fromEntries(
+        card.roles.map((role) => [role.name, binding[role.name]])
+      );
+    if (scale > 1) slot.scale = scale;
+    return slot;
+  }
+  var SPENDS = ["eat", "give", "trade"];
+  function uses(s, traveler, slot) {
+    const card = slotCard(slot);
+    const binding = slotBinding(s, slot, traveler);
+    const spent = new Set(
+      resolve(card.proof.flatMap(didsIn), binding).filter((c) => [c.match?.verb].flat().some((v) => SPENDS.includes(v))).map((c) => c.match.itemId)
+    );
+    return Object.values(slot.bind || {}).map((id) => [id, spent.has(id)]);
+  }
+  function clash(s, traveler, a, b) {
+    const kept = new Map(uses(s, traveler, a));
+    return uses(s, traveler, b).some(
+      ([id, spent]) => kept.has(id) && (spent || kept.get(id))
+    );
+  }
+  function nextSpread(s, traveler) {
+    const level = arcanaLevel(s, traveler);
+    if (level >= LEVEL_CAP || rewardPending(s, traveler)) return [];
+    const unlocked = unlockedOf(s, traveler);
+    const world = numbered(WORLD);
+    if (world && level === LEVEL_CAP - 1 && deck.cards.every((card) => card.id === world || unlocked.includes(card.id))) {
+      const slot = dealable(s, cardOf(world), traveler) && makeSlot(s, traveler, world, "locked");
+      return slot ? [slot] : [];
+    }
+    const scale = stepAt(level + 1).scale;
+    const order = deckOrder(s, traveler, level);
+    const known = shuffled(
+      s,
+      traveler,
+      level,
+      order.filter((id) => id !== world && unlocked.includes(id))
+    );
+    const unknown = order.filter((id) => isMiddle(id) && !unlocked.includes(id));
+    const used = /* @__PURE__ */ new Set();
+    const tried = recordOf(s, traveler).need;
+    const pick2 = (all, face, at, other = null) => {
+      for (const id of [
+        ...all.filter((card) => !tried.includes(card)),
+        ...all.filter((card) => tried.includes(card))
+      ]) {
+        if (used.has(id) || !dealable(s, scaled(cardOf(id), at), traveler))
+          continue;
+        const slot = makeSlot(s, traveler, id, face, at);
+        if (!slot || other && clash(s, traveler, other, slot)) continue;
+        used.add(id);
+        return slot;
+      }
+      return null;
+    };
+    const up = pick2(known, "up", scale);
+    const bonus = pick2(known, "up", 1);
+    if (bonus) bonus.bonus = true;
+    const locked = unknown.length ? pick2(unknown, "locked", scale, up) : pick2(known, "locked", nextScale(level + 1), up);
+    return up || locked ? [up, bonus, locked].filter(Boolean) : [];
+  }
+  function firstOfferSlot(s, traveler, fool = numbered(FOOL2)) {
+    const { spread } = recordOf(s, traveler);
+    return fool && spread.length < MAX_HELD && spread.every((slot) => slot.card !== fool) ? makeSlot(s, traveler, fool, "down") : null;
+  }
+  var sells = (s, traveler) => recordOf(s, traveler).sale && !recordOf(s, traveler).paid && nextSpread(s, traveler).length > 0;
+  function listenerOffer(s, traveler) {
+    const locationId = s.actors[traveler]?.place;
+    if (!locationId || !humanPresent(s, traveler) || s.actors[LISTENER]?.place !== locationId)
+      return null;
+    const record7 = recordOf(s, traveler);
+    if (record7.offer === locationId) {
+      if (record7.paid && nextSpread(s, traveler).length)
+        return { actorId: LISTENER, locationId, kind: "spread", ready: true };
+      if (!record7.paid && firstOfferSlot(s, traveler))
+        return { actorId: LISTENER, locationId, kind: "fool", ready: true };
+    }
+    return sells(s, traveler) ? { actorId: LISTENER, locationId, kind: "spread", ready: false } : null;
+  }
   var validList = (list) => Array.isArray(list) && list.length <= 64 && list.every(
     (id, i) => typeof id === "string" && id && (i === 0 || list[i - 1] < id)
   );
@@ -20221,6 +20434,9 @@
         delete record7.done;
       if (record7.sale !== void 0 && record7.sale !== true) delete record7.sale;
       if (record7.paid !== void 0 && record7.paid !== true) delete record7.paid;
+      if (!validOffer(record7)) delete record7.offer;
+      if (record7.paid && !record7.offer && places[s.actors[LISTENER]?.place])
+        record7.offer = s.actors[LISTENER].place;
     }
     return s;
   }
@@ -20238,14 +20454,16 @@
           "done",
           "level",
           "need",
+          "offer",
           "paid",
           "proved",
           "sale",
           "spread"
         ].includes(key2)
-      ) && (record7.calls === void 0 || Number.isSafeInteger(record7.calls) && record7.calls >= 1 && record7.calls <= CALLS) && (record7.callers === void 0 || validList(record7.callers) && record7.callers.length >= 1 && record7.callers.length <= (record7.calls ?? 0)) && (record7.sale === void 0 || record7.sale === true) && (record7.paid === void 0 || record7.paid === true) && (record7.level === void 0 || validLevel(record7.level)) && (record7.spread === void 0 || validSpread(record7.spread)) && (record7.need === void 0 || validNeed(record7.need)) && (record7.done === void 0 || validDone(record7.done)) && validList(record7.did) && validList(record7.proved);
+      ) && (record7.calls === void 0 || Number.isSafeInteger(record7.calls) && record7.calls >= 1 && record7.calls <= CALLS) && (record7.callers === void 0 || validList(record7.callers) && record7.callers.length >= 1 && record7.callers.length <= (record7.calls ?? 0)) && (record7.sale === void 0 || record7.sale === true) && (record7.paid === void 0 || record7.paid === true) && (record7.level === void 0 || validLevel(record7.level)) && (record7.spread === void 0 || validSpread(record7.spread)) && (record7.need === void 0 || validNeed(record7.need)) && (record7.done === void 0 || validDone(record7.done)) && validOffer(record7) && validList(record7.did) && validList(record7.proved);
     });
   }
+  var validOffer = (record7) => record7.offer === void 0 || typeof record7.offer === "string" && Object.hasOwn(places, record7.offer) && (record7.paid === true || (record7.level ?? record7.proved?.length) === 0 && !(Array.isArray(record7.spread) && record7.spread.some((slot) => slot.card === numbered(FOOL2))));
 
   // v2/card-game/world/offers.mjs
   var placeMet = (s, place) => s.placeMet && Object.hasOwn(s.placeMet, place) ? s.placeMet[place] : [];
@@ -20587,7 +20805,6 @@
       motives: () => validMotives(s),
       life: () => validLife(s, Object.keys(places)),
       home: () => validHome(s),
-      companions: () => validCompanions(s, actorIds),
       dwell: () => validDwell(s),
       sleep: () => validSleep(s, places),
       guard: () => validGuard(s, places)
@@ -22076,7 +22293,7 @@
       hasTemperament(id) ? moodNote(world, id) : null
     ].filter(Boolean);
   }
-  var LISTENER_READING = "The Listener gives a short reading before handing over a face-down card. Its face stays hidden.";
+  var LISTENER_READING = "The Listener gives a short reading and offers a face-down card. Its face stays hidden.";
   function narrativeContext(world, action = null, isCovered = null, remaining = false) {
     const cast = dialogueCast(world, action);
     const original = typeof remaining === "object" ? remaining : null;
@@ -23265,14 +23482,15 @@
   function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
     const here2 = world.actors[currentActor(world)].place;
     const known = recordedCast ? null : new Set(knownActors(world));
-    const reader = known && listenerDeal(world, currentActor(world))?.actorId;
+    const traveler = currentActor(world);
+    const reader = known && (listenerDeal(world, traveler) ?? listenerOffer(world, traveler))?.actorId;
     const present = recordedCast || personIds.filter(
       (id) => (known.has(id) || id === reader) && world.actors[id].place === here2 && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
     const target = world.log.slice(0, through + 1).findLast(
       (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"
     )?.targetId;
-    const priority = [.../* @__PURE__ */ new Set([currentActor(world), target, ...present])].filter((id) => present.includes(id) && people[id]).slice(0, world.controlledActors ? 6 : 3);
+    const priority = [.../* @__PURE__ */ new Set([traveler, target, reader, ...present])].filter((id) => present.includes(id) && people[id]).slice(0, world.controlledActors ? 6 : 3);
     const slots = personIds.filter((id) => priority.includes(id));
     while (slots.length < 2) slots.push(null);
     return slots;

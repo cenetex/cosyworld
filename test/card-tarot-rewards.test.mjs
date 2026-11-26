@@ -3,7 +3,7 @@ import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { owesGiving } from "../v2/card-game/world/arcana-record.mjs";
 import {
-  arcanumTerms, candidates, dealSpread, nextSpread, recordOf, sells, takes,
+  arcanumTerms, candidates, dealSpread, listenerOffer, nextSpread, recordOf, sells, takes,
 } from "../v2/card-game/world/arcana.mjs";
 import { boxDefs } from "../v2/card-game/world/boxes.mjs";
 import { giveUpForGood } from "../v2/card-game/world/for-good.mjs";
@@ -137,6 +137,9 @@ describe("earned tarot rewards", () => {
     s.actors.listener.place = s.actors.vale.place;
     s.items.bell.holder = "vale";
     expect(sells(s, "vale")).toBe(true);
+    expect(listenerOffer(s, "vale")).toMatchObject({ kind: "spread", ready: false });
+    const offered = (world) => legalActions(world, "vale").find((a) => a.tarot === "offer");
+    expect(offered(s)).toBeUndefined();
     const gift = legalActions(s, "vale").find((a) =>
       a.kind === "give" && a.target === "listener" && a.item === "bell");
     const given = play(s, gift, s.revision, "vale");
@@ -152,6 +155,16 @@ describe("earned tarot rewards", () => {
     const turn = s.turn;
     s = claim(s);
     expect(s.turn).toBe(turn);
+    expect(recordOf(s, "vale")).toMatchObject({ paid: true, spread: [] });
+    s = reload(s);
+    expect(listenerOffer(s, "vale")).toMatchObject({ kind: "spread", ready: true });
+    const accept = offered(s);
+    expect(accept).toMatchObject({ kind: "accept", target: "listener", label: "Accept spread" });
+    const accepted = play(s, accept, s.revision, "vale");
+    expect(accepted.ok, accepted.error).toBe(true);
+    s = accepted.state;
+    expect(s.turn).toBe(turn);
+    expect(play(s, accept, s.revision, "vale").ok).toBe(false);
     expect(recordOf(s, "vale")).toMatchObject({ paid: false, sale: false, level: 2, proved: ["arcanum-13"] });
     expect(recordOf(s, "vale").spread.length).toBeGreaterThan(0);
     expect(recordOf(s, "vale").spread.every((slot) => slot.face !== "reward")).toBe(true);

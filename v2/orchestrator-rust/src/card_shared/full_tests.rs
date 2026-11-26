@@ -1317,13 +1317,28 @@ fn invited_carriage_trip_preserves_agreement_visited_places_and_replays() {
         assert_eq!(w.game["actors"]["rue"]["place"], place);
         assert_eq!(w.game["actors"]["moth"]["place"], place);
         assert_eq!(w.game["items"]["routes"]["holder"], "rue");
+        assert!(w.game["actors"]["rue"]["companion"].is_null());
         if agrees {
             assert_eq!(w.game["invitedPlaces"]["moth"], json!(["train"]));
-            // Moth is now Rue's companion (rules 133).
-            assert_eq!(w.game["actors"]["rue"]["companion"], "moth");
+            let return_alone = w.project(5).unwrap()["actions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|a| a["kind"] == "move" && a["target"] == "station")
+                .unwrap()
+                .clone();
+            full_store::commit(
+                &c,
+                &id,
+                &mut w,
+                json!({"op":"play","actor":"rue","action":return_alone}),
+                now(),
+            )
+            .unwrap();
+            assert_eq!(w.game["actors"]["rue"]["place"], "station");
+            assert_eq!(w.game["actors"]["moth"]["place"], "train");
         } else {
             assert!(w.game["invitedPlaces"].is_null());
-            assert!(w.game["actors"]["rue"]["companion"].is_null());
         }
         c.execute("DELETE FROM card_full_checkpoints", []).unwrap();
         assert_eq!(full_store::world(&c, &id, now()).unwrap(), w);

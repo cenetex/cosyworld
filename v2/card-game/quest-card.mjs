@@ -138,7 +138,7 @@ export function offerWords(quest, known = () => true) {
 export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
 export const discardable = (quest) => quest?.kind === "arcanum" && ["up", "locked"].includes(quest.face);
 export const tarotBack = (face) =>
-  ["down", "locked"].includes(face) ? TAROT_LOCKED_BACK : TAROT_BACK;
+  ["down", "locked", "offered"].includes(face) ? TAROT_LOCKED_BACK : TAROT_BACK;
 export function levelCards(world, actor = currentActor(world)) {
   const first = firstFoolSlot(world, actor);
   return spreadOf(world, actor).map(({ index, card, face, bonus, turnable }, _, all) => ({
@@ -191,6 +191,7 @@ export function questCaption(
   verb = null,
   known = () => true,
 ) {
+  if (quest.face === "offered") return quest.caption;
   if (quest.turnable) return "The Listener dealt you a card";
   if (quest.face === "reward") return `Collect ${nameOf(quest.target)}`;
   const shown = (id) => !(covered && id === quest.target) && known(id);
@@ -221,9 +222,10 @@ export function questCaption(
 }
 
 export const questHeading = (quest) =>
-  quest.face === "reward" ? "Collect" : quest.bonus ? "Bonus quest" : quest.level ? "Level Up" : null;
+  quest.face === "offered" ? quest.heading : quest.face === "reward" ? "Collect" : quest.bonus ? "Bonus quest" : quest.level ? "Level Up" : null;
 
 export function questLabel(quest, near, caption, known = () => true) {
+  if (quest.face === "offered") return quest.ready ? `${quest.heading} from the Listener` : "View the Listener's card offer";
   if (quest.turnable) return "Turn over the face-down card";
   if (quest.face === "down") return "A face-down card";
   if (quest.face === "reward") return questCaption(quest);

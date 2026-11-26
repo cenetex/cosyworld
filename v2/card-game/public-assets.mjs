@@ -312,6 +312,7 @@ const files = [
   "app.mjs",
   "action-beat-note.mjs",
   "first-fool-view.mjs",
+  "listener-offer-view.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
   "station-exits.mjs",

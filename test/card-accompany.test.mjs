@@ -7,10 +7,17 @@ import {
   accompanyDecision,
   encodeSave,
   decodeSave,
+  holdChoice,
   itemPlace,
   rootHolder,
 } from "../v2/card-game/world.mjs";
-import { cardPlay, playLabel } from "../v2/card-game/cards.mjs";
+import {
+  cardActions,
+  cardPlay,
+  invitationPartner,
+  playLabel,
+  settledChoice,
+} from "../v2/card-game/cards.mjs";
 import {
   narrativeContext,
   applyGeneratedText,
@@ -66,6 +73,67 @@ describe("accompany card requests", () => {
     expect(cardPlay(world, ["vale", "pond"]).action.kind).toBe("move");
     expect(cardPlay(world, ["vale", "station"]).action.kind).toBe("wait");
     expect(cardPlay(world, ["moth", "station"]).action.kind).toBe("talk");
+  });
+  it("keeps a sleeping resident's invitation blocked instead of showing Travel or Talk", () => {
+    const world = together();
+    world.actors.moth.sleeping = { since: 0, place: "station", until: 4 };
+    const cards = ["moth", "pond"];
+    expect(settledChoice(world, cards, "pond")).toEqual(cards);
+    expect(cardActions(world, cards)).toEqual({
+      actions: [],
+      hint: "Pip is asleep",
+    });
+    expect(cardPlay(world, ["moth"]).action?.kind).toBe("talk");
+    expect(cardPlay(world, ["pond"]).action?.kind).toBe("move");
+  });
+  it("unlocks the Silver Resident's explicit invitation when the Keystone is returned", () => {
+    let world = createWorld({ opening: true, seed: 17 });
+    const resident = "elysium-resident",
+      room = "elysium-void-001";
+    const spiral = "elysium-gold-spiral",
+      keystone = "elysium-keystone",
+      wayfinder = "elysium-wayfinder";
+    holdChoice(world, "vale", { item: null, revision: world.revision });
+    const act = (...cards) => {
+      const { action, hint } = cardPlay(world, cards);
+      expect(action, hint).toBeTruthy();
+      const result = play(world, action, world.revision);
+      expect(result.ok, result.error).toBe(true);
+      world = result.state;
+    };
+    act("pond");
+    act(room);
+    expect(cardActions(world, [resident, "pond"])).toEqual({
+      actions: [],
+      hint: "The Silver Resident stays here",
+    });
+    act(resident);
+    act(wayfinder);
+    act("elysium-keystone-ledge");
+    act(keystone);
+    act(room);
+    act(keystone, room);
+
+    expect(cardPlay(world, [spiral]).action?.kind).toBe("move");
+    expect(world.items[wayfinder].holder).toBe("vale");
+    expect(invitationPartner(world, [wayfinder, resident], spiral)).toBe(
+      resident,
+    );
+    expect(invitationPartner(world, [wayfinder, spiral], resident)).toBe(spiral);
+    expect(invitationPartner(world, [wayfinder, resident], room)).toBeUndefined();
+    const invite = cardPlay(world, [resident, spiral]).action;
+    expect(invite).toMatchObject({
+      kind: "accompany",
+      target: resident,
+      destination: spiral,
+    });
+    expect(playLabel(invite)).toBe("Invite the Silver Resident along");
+    const legacy = structuredClone(world);
+    legacy.actors.vale.companion = resident;
+    expect(cardPlay(legacy, [spiral, resident]).action).toEqual(invite);
+    act(resident, spiral);
+    expect(world.actors[resident].place).toBe(spiral);
+    expect(reply(world)).toMatchObject({ accepted: true });
   });
   it("takes one shared trip toward its want while the other avatar acts", () => {
     const start = together(),

@@ -41,7 +41,7 @@ describe("invited companion travel", () => {
     expect(s.log.filter((e) => e.verb === "accompany")).toHaveLength(1);
     expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
     expect(decodeSave(encodeSave(s))).toEqual(s);
-    expect(s.actors.rue.companion).toBe("moth");
+    expect(s.actors.rue.companion).toBeUndefined();
     expect(start.invitedPlaces).toBeUndefined();
     expect(exits(s, "station", "moth")).not.toContain("train");
     const bad = structuredClone(s);
@@ -56,7 +56,7 @@ describe("invited companion travel", () => {
     expect(s.actors.moth.place).toBe("station");
     expect(s.invitedPlaces).toBeUndefined();
   });
-  it("boards and lands a whole invited party through one saved ship trip", () => {
+  it("boards and lands the pair with a separate invitation on each leg", () => {
     let s = carriage();
     s.actors.rue.place = s.actors.moth.place = "pond";
     s.items.lamp.holder = "rue";
@@ -79,14 +79,8 @@ describe("invited companion travel", () => {
           riders: ["moth", "rue"],
         });
       }
-      // Once Pip is aboard with Rue he is her companion: the landing is a
-      // plain move and he comes too (rules 133).
       const action = legalActions(s, "rue").find((a) =>
-        destination === "greek-ship"
-          ? a.kind === "accompany" &&
-            a.target === "moth" &&
-            a.destination === destination
-          : a.kind === "move" && a.target === destination && !a.item,
+        a.kind === "accompany" && a.target === "moth" && a.destination === destination,
       );
       expect(action).toBeDefined();
       s = play(s, action, s.revision, "rue").state;

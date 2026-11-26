@@ -349,7 +349,7 @@ export function ownFacts(world, id) {
     hasTemperament(id) ? moodNote(world, id) : null,
   ].filter(Boolean);
 }
-const LISTENER_READING = "The Listener gives a short reading before handing over a face-down card. Its face stays hidden.";
+const LISTENER_READING = "The Listener gives a short reading and offers a face-down card. Its face stays hidden.";
 
 export function narrativeContext(world, action = null, isCovered = null, remaining = false) {
   const cast = dialogueCast(world, action);

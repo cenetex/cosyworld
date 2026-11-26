@@ -31,7 +31,6 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { darkMist, isNight } from "../v2/card-game/daylight.mjs";
 import { locationWeather } from "../v2/card-game/weather.mjs";
 import { cardChoices, availableCards, lockWords } from "../v2/card-game/cards.mjs";
-import { bind } from "../v2/card-game/world/company.mjs";
 
 const pack = packDefinitions.find((p) => p.id === "willows");
 const BOOK = "willows-notebook";
@@ -516,7 +515,7 @@ describe("The Willows", () => {
     expect(world.actors["willows-swede"].place).toBe("pond");
   });
 
-  it("lets the Swede leave for good by following his traveler aboard", () => {
+  it("lets the Swede leave for good when invited aboard", () => {
     let world = createWorld({ seed: 7 });
     world.actors.vale.place = "pond";
     world.crossings["pond-greek-harbor"].discovered = true;
@@ -526,8 +525,7 @@ describe("The Willows", () => {
       world.items[`willows-${item}`].holder = "willows-camp";
     world.actors["willows-swede"].place = "willows-landing";
     world.actors["willows-swede"].trust.vale = 2;
-    bind(world, "vale", "willows-swede");
-    world = move(world, "greek-ship");
+    world = act(world, { kind: "accompany", target: "willows-swede", destination: "greek-ship" });
     expect(world.packs.willows.flags["willows-swede-gone"]).toBe(true);
     expect(entityActive(world, "willows-swede")).toBe(false);
     expect(world.actors.vale.companion).toBeUndefined();

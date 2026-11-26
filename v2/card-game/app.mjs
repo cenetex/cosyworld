@@ -3,6 +3,7 @@ import { lockedStack, syncStackFrame, tableHolder, tableType } from "./mystery-v
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
+import { LISTENER, LISTENER_CARD, listenerTableCard } from "./listener-offer-view.mjs";
 import { firstFoolBeat, firstFoolNote } from "./first-fool-view.mjs";
 import { STATION_LANTERN, pondSignalBeat, pondSignalNote, stationLanternState } from "./pond-signal-view.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
@@ -292,6 +293,7 @@ import {
   sealedReason,
   asleepReason,
   settledChoice,
+  invitationPartner,
   sharedMeal,
   shutBoxes,
   unmet,
@@ -569,10 +571,13 @@ const visibleQuests = () =>
 const foldQuest = () => visibleQuests()[0] ?? null;
 const entryIdOf = (quest) => (quest.kind === "arcanum" ? quest.key : questId());
 const isResidentOffer = (id) => typeof id === "string" && id.startsWith("offer:");
-const tableHand = () =>
-  pipPrelude()
-    ? []
-    : tableQuests(world, currentActor(world), availableCards(world).filter((id) => !cardIsClosed(id)));
+const visibleListenerCard = () => !listenerCardHeld && !cardIsClosed(LISTENER) && listenerTableCard(world, currentActor(world));
+const tableHand = () => {
+  if (pipPrelude()) return [];
+  const table = tableQuests(world, currentActor(world), availableCards(world).filter((id) => !cardIsClosed(id)));
+  const offered = visibleListenerCard();
+  return offered ? [...table, offered] : table;
+};
 const questEntries = () => {
   const shown = visibleQuests(),
     quest = shown.find((q) => q.kind !== "arcanum");
@@ -1018,7 +1023,8 @@ function listenerCardPending() {
   if (!deal) return false;
   return sharedSession
     ? sharedDealUnread(sharedSession.state, deal, sharedLineSeq ?? -Infinity,
-        (line) => completedSpeech.has(lineKey(line, deal.locationId)))
+        (line) => completedSpeech.has(lineKey(line, deal.locationId))) ||
+      (characterSpeech.busy && shownSceneLine?.turn === deal.turn)
     : exchange.active;
 }
 function releaseListenerCard() {
@@ -1712,7 +1718,7 @@ function avatarStack(id) {
       open: false,
       top: true,
       under: 0,
-      shown: questOpen === id || Boolean(questEntry(id)?.quest.readFrom) ||
+      shown: id === LISTENER_CARD || questOpen === id || Boolean(questEntry(id)?.quest.readFrom) ||
         expandedHolders.has(tableOwner(id, world, actor)),
     };
   if (isQuestId(id) || isTarotKey(id))
@@ -2070,13 +2076,14 @@ function choose(id) {
     if (places[id] && !selected.includes(id))
       selected = selected.filter((cardId) => !places[cardId]);
     const lowering = selected.includes(id);
+    const partner = invitationPartner(world, selected, id) || selectedHandItem(world, selected);
     const next = lowering
       ? selected.filter((cardId) => cardId !== id)
       : selected.length >= 2
         ? selected.includes(holder)
           ? selected.map((cardId) => (cardId === holder ? id : cardId))
-          : selectedHandItem(world, selected)
-            ? [selectedHandItem(world, selected), id]
+          : partner
+            ? [partner, id]
             : [id]
         : [...selected, id];
     selectCards(lowering ? next : settledChoice(world, next, id), {
@@ -3138,7 +3145,7 @@ function updateCardSelection(frame) {
     const button = frame.querySelector(".card");
     const picked = questOpen === frame.dataset.questId;
     frame.dataset.raised = button.dataset.picked = String(picked);
-    button.setAttribute("aria-pressed", String(picked));
+    if (button.dataset.ready !== "true") button.setAttribute("aria-pressed", String(picked));
     syncHandStack(frame, frame.dataset.questId);
     applyPackFrame(frame, frame.dataset.questId);
     return;
@@ -3231,7 +3238,8 @@ function departHand() {
 function motionKey(frame) {
   const card = frame.querySelector(".card");
   if (card.dataset.card || !frame.dataset.questId) return card.dataset.card;
-  return `${frame.dataset.questId.split(":")[0]}:${card.dataset.questEntry}`;
+  const kind = card.dataset.want === "arcanum" ? "tarot" : frame.dataset.questId.split(":")[0];
+  return `${kind}:${card.dataset.questEntry}`;
 }
 // Deals the shown hand afresh, 70 ms apart; reduced motion fades it in.
 function dealHand() {
@@ -3344,7 +3352,7 @@ function card(id) {
       : type === "item"
       ? cardArt(id)
       : type === "avatar"
-        ? portrait(id, null, asleepWorld(world))
+        ? tablePortrait(id)
         : placeArt(id),
     "card",
   );
@@ -3527,9 +3535,10 @@ function shownQuestCaption(quest, includeLevel = true) {
   const shown = includeLevel ? quest : { ...quest, level: null };
   return questCaption(shown, hidden, questVerb(world, quest, hidden), known);
 }
+const tablePortrait = (id) => portrait(id, null, asleepWorld(world), !listenerCardHeld);
 const questArt = {
   url: (src) => imageUrl(src, "card"),
-  portrait: (id) => portrait(id, null, asleepWorld(world)),
+  portrait: tablePortrait,
   thing: (id) => cardArt(id),
   place: placeArt,
   back: cardBack,
@@ -3576,7 +3585,7 @@ function questFrame({ id, quest }) {
   const hidden = questCovered(quest),
     tier = questTier(quest, world, known),
     verb = questVerb(world, quest, hidden),
-    near = !covered && (quest.reading || (!hidden && questNear(world, quest)));
+    near = !covered && (quest.ready || quest.turnable || (quest.reading && quest.face === "reward") || (!hidden && questNear(world, quest)));
   const el = node("button", undefined, "card want-card");
   el.type = "button";
   el.disabled = selectionBlocked();
@@ -3595,7 +3604,8 @@ function questFrame({ id, quest }) {
   const tell = packTell(id);
   if (tell) el.dataset.tell = tell;
   el.dataset.picked = String(picked);
-  el.setAttribute("aria-pressed", String(picked));
+  if (id === LISTENER_CARD) el.dataset.ready = String(quest.ready);
+  if (!quest.ready) el.setAttribute("aria-pressed", String(picked));
   el.setAttribute("aria-label", covered ? "A face-down card" : questLabel(quest, near));
   el.append(
     Object.assign(node("img", undefined, "card-back"), {
@@ -3607,6 +3617,19 @@ function questFrame({ id, quest }) {
   );
   el.addEventListener("click", () => {
     if (finishCardReveal(id) || selectionBlocked() || packTap(id)) return;
+    if (id === LISTENER_CARD) {
+      const offered = visibleListenerCard();
+      if (!offered) return;
+      if (offered.quest.ready) {
+        const action = legalActions(world).find((offer) => offer.tarot === "offer");
+        if (!action) return;
+        // Taking the offered card can also close the completed shared reply.
+        if (sharedSession && queuedChoice && reveal.complete && !characterSpeech.busy &&
+          !sharedNextLine(readerState(), placeHere(), sharedLineSeq)) advanceFront();
+        commitAction(action, world.revision);
+        return;
+      }
+    }
     if (questOpen === id && shownPhase === "choosing") {
       questOpen = false;
       render();
@@ -3977,6 +4000,7 @@ function renderScene() {
     activeSpeaker: resolvedBeat ? null : scene.activeSpeaker,
     review: true,
     currentState: true,
+    listenerOffering: !listenerCardHeld,
     sharedPlays: sharedSession?.state.history,
     preferredCatalog: {
       ...coreLocations.places,
@@ -4575,7 +4599,7 @@ function beatPortrait(id) {
   if (!id || cardIsCovered(id)) return "";
   return imageUrl(
     people[id]
-      ? portrait(id, null, asleepWorld(world))
+      ? tablePortrait(id)
       : places[id]
         ? placeArt(id)
         : cardArt(id),
@@ -4925,8 +4949,10 @@ function render() {
   for (let i = metWants(world.log, questSeq, currentActor(world)); i > 0; i--)
     count("quest.met");
   questSeq = world.eventSeq;
+  const previousOffer = handCard(LISTENER_CARD);
   const awaitingReading = listenerCardHeld;
   listenerCardHeld = listenerCardPending();
+  const newOffer = !previousOffer && visibleListenerCard();
   const tarots = levelCards(world);
   const withheld = withheldTarot(tarots);
   const liveQuests = [
@@ -4951,10 +4977,12 @@ function render() {
   if (dealtQuest?.turnable) encountered.add(entryIdOf(dealtQuest));
   if (heldSource?.offer)
     $("hand").querySelector(`[data-card="${heldSource.id}"]`).parentElement.dataset.gone = "true";
-  const handed = heldSource?.handed || (awaitingReading && dealtQuest?.turnable);
+  const transferred = previousOffer && dealtQuest?.turnable;
+  const handed = heldSource?.handed || transferred || (awaitingReading && dealtQuest?.turnable);
   if (turned || handed) {
     selected = [];
     questOpen = entryIdOf(turned || dealtQuest);
+    if (transferred) restedChoice = null;
     if (turned) {
       uncover(questOpen, { batch: true });
       restedChoice = null;
@@ -5171,6 +5199,10 @@ function render() {
     showQuests(opening || Boolean(handed));
     // A new quest rises where the player can see its slot in the hand.
     if (dealtQuest && !opening) revealHandCard(entryIdOf(dealtQuest), { instant: true });
+    if (newOffer) {
+      revealHandCard(LISTENER, { instant: true, nextFrame: handCard(LISTENER_CARD)?.parentElement });
+      $("discovery-announcement").textContent = `${newOffer.quest.caption}.`;
+    }
     if (turned) void turnCard(handCard(entryIdOf(turned)), { lid: imageUrl(TAROT_LOCKED_BACK, "card"), tier: "rare" });
     // Every new place is measured before any card starts moving, so the
     // row is laid out once rather than once per card.
@@ -5199,7 +5231,7 @@ function render() {
           frame,
           previous,
           next: frame.getBoundingClientRect(),
-          flight: handedOver(holders, id, frame.dataset.holder),
+          flight: (transferred && frame.dataset.questId === dealtQuest.key) || handedOver(holders, id, frame.dataset.holder),
         });
       }
     // Cards going back from a pack settle a beat apart, the rarest last.
@@ -5410,7 +5442,7 @@ $("hand").addEventListener("keydown", (e) => {
   if (at < 0 || !next) return;
   e.preventDefault();
   next.focus({ preventScroll: true });
-  revealHandCard(next.dataset.card);
+  revealHandCard(next.dataset.card ?? next.dataset.questId);
 });
 $("card-actions").addEventListener("keydown", (e) => {
   if (

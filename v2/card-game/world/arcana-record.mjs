@@ -31,6 +31,7 @@ export function recordOf(s, traveler) {
     need: record?.need || [],
     done: record?.done || [],
     spread: record?.spread || [],
+    ...(record?.offer ? { offer: record.offer } : {}),
     sale: record?.sale === true,
     paid: record?.paid === true,
   };
@@ -62,6 +63,7 @@ export function firstFoolProgress(s, traveler) {
     const phase = slot.face === "reward" ? "revealed" : "dealt";
     return { count: CALLS, target: CALLS, phase };
   }
+  if (record.offer && !record.paid) return { count: CALLS, target: CALLS, phase: "offered" };
   return { count: record.calls, target: CALLS, phase: record.calls >= CALLS ? "called" : "help" };
 }
 
@@ -77,6 +79,7 @@ export function countResidentQuest(actor, resident) {
 export function called(s, traveler) {
   if (!humanPresent(s, traveler) || rewardPending(s, traveler)) return false;
   const record = recordOf(s, traveler);
+  if (record.offer) return record.offer === s.actors[traveler].place;
   return !record.paid && (
     record.sale ||
     (record.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP &&

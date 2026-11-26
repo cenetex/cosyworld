@@ -9,6 +9,7 @@ import {
   actionLabel,
   readyActionButton,
   selectCard,
+  tapCard,
 } from "./card-browser-helpers.mjs";
 
 function calledWorld() {
@@ -31,6 +32,7 @@ const read = (page, text) =>
 const questFold = (page) => page.locator("#hand .quest-fold:not([data-owner])");
 const tarotCard = (page, face) =>
   page.locator(`#hand .want-card[data-face="${face}"]`);
+const listenerCard = (page) => tarotCard(page, "offered");
 
 async function waitingForReading(page) {
   assert.equal(
@@ -40,11 +42,25 @@ async function waitingForReading(page) {
   );
   assert.equal(await tarotCard(page, "down").count(), 0);
   assert.equal(await tarotCard(page, "reward").count(), 0);
+  assert.equal(await listenerCard(page).count(), 0);
+  assert.equal(await page.locator('#cast [data-avatar="listener"] img[data-source*="listener-offering"]').count(), 0);
 }
 
 async function turnAndCollect(page, touch = false) {
+  const offer = listenerCard(page);
+  await offer.waitFor();
+  assert.equal(await offer.locator("..").getAttribute("data-holder"), "listener");
+  assert.equal(await offer.getAttribute("aria-label"), "Accept card from the Listener");
+  assert.equal(await tarotCard(page, "down").count(), 0);
+  const offeredBack = offer.locator(".art img");
+  assert.match(await offeredBack.getAttribute("src"), /tarot-back-locked/u);
+  await offeredBack.evaluate((img) => img.decode());
+  await page.locator('#cast [data-avatar="listener"] img[data-source*="listener-offering"]').waitFor();
+  await tapCard(offer, { touch });
+  await offer.waitFor({ state: "detached" });
   const held = tarotCard(page, "down");
   await held.waitFor();
+  assert.equal(await held.locator("..").getAttribute("data-holder"), "vale");
   const preview = page.locator('#action-beat [data-kind="arcanum"] > img');
   await preview.waitFor();
   const back = await held.locator(".card-back").getAttribute("src");
@@ -165,6 +181,46 @@ async function checkShared(browser, origin) {
   await page.close();
 }
 
+async function checkPaidSpread(browser, origin) {
+  const world = calledWorld();
+  world.actors.vale.upgrades = ["arcanum-0"];
+  world.actors.vale.arcana = { proved: [], did: [], level: 1, sale: true };
+  world.items.bell.holder = "vale";
+  const key = "cosyworld.reflected-shore.v1.listener-sale";
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: "reduce",
+  });
+  page.setDefaultTimeout(15000);
+  await page.addInitScript(({ key, save }) => {
+    if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+    localStorage.setItem("cosyworld.dialogue.sound", "off");
+  }, { key, save: encodeSave(world) });
+  await page.route("**/card-game/text", (route) => route.fulfill({
+    json: { revision: route.request().postDataJSON().revision, model: "listener-sale", entries: [] },
+  }));
+  await page.goto(`${origin}/?table=listener-sale`);
+  const offer = listenerCard(page);
+  await tapCard(offer, { touch: true });
+  await page.locator("#action-beat").getByText("Give the Listener something to keep for good", { exact: true }).waitFor();
+  assert.equal(await offer.getAttribute("data-ready"), "false");
+  assert.equal(await readyActionButton(page, "accept").count(), 0);
+  await selectCard(page, "bell", { touch: true, exposedTop: true });
+  await selectCard(page, "listener", { touch: true, exposedTop: true });
+  await readyActionButton(page, "give").tap();
+  const ready = page.getByRole("button", { name: "Accept spread from the Listener" });
+  await ready.waitFor();
+  const sale = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+  assert.ok(sale.actors.vale.arcana.paid);
+  assert.equal(sale.actors.vale.arcana.spread?.length ?? 0, 0);
+  assert.equal(await ready.locator("..").getAttribute("data-holder"), "listener");
+  await tapCard(ready, { touch: true });
+  await ready.waitFor({ state: "detached" });
+  const accepted = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), key);
+  assert.ok(accepted.actors.vale.arcana.spread.length > 0);
+  assert.equal(accepted.turn, sale.turn);
+  await page.close();
+}
+
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const origin = `http://127.0.0.1:${server.address().port}`;
@@ -210,7 +266,7 @@ try {
     assert.deepEqual(input.speakers, ["vale", "listener"]);
     assert.match(
       input.events.join(" "),
-      /reading before handing over a face-down card/u,
+      /gives a short reading and offers a face-down card/u,
     );
     await page.locator('#speech-row[data-beat="pending"]').waitFor();
     await page.locator('#cast [data-avatar="listener"]').waitFor();
@@ -226,7 +282,7 @@ try {
       width === 390 &&
       page.waitForFunction(
         () =>
-          document.querySelector('#hand .want-card[data-face="down"]') && {
+          document.querySelector('#hand .want-card[data-face="offered"]') && {
             line: document.querySelector("#dialogue-text").textContent,
           },
       );
@@ -257,8 +313,9 @@ try {
     await page.close();
   }
   await checkShared(browser, origin);
+  await checkPaidSpread(browser, origin);
   console.log(
-    "The Listener finishes the reading before the first Fool can be turned and collected on desktop, mobile, and a shared table.",
+    "The Listener finishes the reading before the player can take, turn over and collect the first Fool on desktop, mobile, and a shared table.",
   );
 } finally {
   await browser.close();

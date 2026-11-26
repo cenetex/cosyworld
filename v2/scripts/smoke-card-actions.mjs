@@ -726,6 +726,15 @@ try {
         document.activeElement.matches("#hand .card-frame:not([hidden]) .card"),
       );
       assert.equal(await focusedHandCard(page), "pond", "travel returns focus to the hand");
+      const sleeping = meeting();
+      sleeping.actors.moth.sleeping = { since: 0, place: "station", until: 4 };
+      await load(sleeping);
+      for (const id of ["moth", "pond"]) await selectCard(page, id);
+      assert.deepEqual(await chosen(), ["moth", "pond"]);
+      assert.equal(await reason.count(), 1);
+      assert.equal(await reason.getAttribute("data-blocked"), "asleep");
+      assert.equal(await reason.getAttribute("data-action"), null);
+      assert.equal(await actionLabel(reason), "Pip is asleep");
     }
     assert.deepEqual(errors, []);
     console.log(

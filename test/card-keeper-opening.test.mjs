@@ -14,7 +14,7 @@ import { recordOf } from "../v2/card-game/world/arcana-record.mjs";
 import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { wantFact } from "../v2/card-game/want-talk.mjs";
-import { pinnedCompanion, toldWant } from "../v2/card-game/talk-quest.mjs";
+import { toldWant } from "../v2/card-game/talk-quest.mjs";
 import { readPage } from "../v2/card-game/read-view.mjs";
 
 const crossing = "pond-greek-harbor", fact = "quest:keeper:pond";
@@ -241,6 +241,6 @@ test("a completed call does not pin the keeper as an escort", () => {
   const s = arrangement();
   choose(s, "cloth");
   assert.equal(toldWant(s, "vale", "keeper"), true);
-  assert.equal(pinnedCompanion(s, "vale", "keeper"), false);
+  assert.equal(s.actors.vale.companion, undefined);
   assert.equal(tableQuest(s, "vale", "keeper").quest.completed.by, "vale");
 });

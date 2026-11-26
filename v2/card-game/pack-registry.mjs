@@ -10,7 +10,6 @@ import {
   advanceJourney,
 } from "./pack-journeys.mjs";
 import { newWant, setWant } from "./want.mjs";
-import { partyOf } from "./world/company.mjs";
 import {
   gone,
   usedUp,
@@ -501,13 +500,6 @@ export const packRouteOpen = (world, from, to) =>
       (r) => r.from === from && r.to === to && routeOpen(world, pack.id, r),
     ),
   );
-// A traveler's own condition on a way is met by its party: the traveler or
-// its companion holding the key, or trusted by the keeper, opens the door for
-// both (sticky companions, rules 133).
-export const partyMet = (world, pack, conditions, actor) =>
-  partyOf(world, actor).some((who) =>
-    conditionsMet(world, pack, conditions, who),
-  );
 export function personalRouteOpen(world, from, to, actor) {
   const routes = packDefinitions.flatMap((pack) =>
     (pack.routes || [])
@@ -519,7 +511,7 @@ export function personalRouteOpen(world, from, to, actor) {
     routes.some(
       ({ pack, route }) =>
         routeOpen(world, pack, route) &&
-        partyMet(world, pack, route.travelerRequires, actor),
+        conditionsMet(world, pack, route.travelerRequires, actor),
     )
   );
 }
@@ -530,7 +522,7 @@ export function packExits(world, place, actor = null) {
         (r) =>
           r.from === place &&
           routeOpen(world, pack.id, r) &&
-          partyMet(
+          conditionsMet(
             world,
             pack.id,
             r.travelerRequires,

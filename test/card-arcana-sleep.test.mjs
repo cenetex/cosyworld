@@ -78,7 +78,8 @@ function visit(s) {
   const record = (s.actors.vale.arcana ??= { proved: [], did: [] });
   record.calls = 3;
   s.actors.listener.place = s.actors.vale.place;
-  return act(s, (a) => a.kind === "talk" && a.target === "listener");
+  const offered = act(s, (a) => a.kind === "talk" && a.target === "listener");
+  return act(offered, (a) => a.label === "Accept card");
 }
 const turnOver = (s) =>
   act(

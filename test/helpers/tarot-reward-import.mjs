@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { createWorld, legalActions, play } from "../../v2/card-game/world.mjs";
 
 function playTarot(world, label) {
-  const action = legalActions(world, "vale").find((a) => a.label === label);
+  const action = legalActions(world, "vale").find((a) =>
+    label === "Talk"
+      ? a.kind === "talk" && a.target === "listener"
+      : a.label === label,
+  );
   assert(action, `Missing tarot action ${label}`);
   const result = play(world, action, world.revision, "vale");
   assert(result.ok, result.error);
@@ -11,19 +15,12 @@ function playTarot(world, label) {
 
 export function tarotRewardImport(collect = true) {
   const s = createWorld({ seed: 23 });
-  s.actors.vale.arcana = {
-    proved: [],
-    did: [],
-    need: ["arcanum-0"],
-    spread: [
-      {
-        card: "arcanum-0",
-        face: "down",
-        base: { visited: s.actors.vale.visited.length },
-      },
-    ],
-  };
-  const revealed = playTarot(s, "Turn over");
+  s.actors.vale.place = s.actors.listener.place;
+  s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
+  const offered = playTarot(s, "Talk");
+  assert.equal(offered.actors.vale.arcana.spread, undefined);
+  const dealt = playTarot(offered, "Accept card");
+  const revealed = playTarot(dealt, "Turn over");
   assert.equal(revealed.actors.vale.arcana.spread[0].face, "reward");
   if (!collect) return revealed;
   const collected = playTarot(revealed, "Collect");

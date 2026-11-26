@@ -38,11 +38,9 @@ const untilNight = (s) => {
   while (Math.floor(s.turn / DAYLIGHT_TURNS) % 2 === 0) s = wait(s);
   return s;
 };
-const bond = (s, who) => {
+const trustedCompany = (s, who) => {
   s.actors[who].place = s.actors.vale.place;
   s.actors[who].trust.vale = 2;
-  s.actors.vale.companion = who;
-  s.actors.vale.actedAt = s.turn;
   return s;
 };
 const litNight = (s) => {
@@ -61,9 +59,9 @@ afterEach(() => {
 });
 
 describe("cards that say what they check", () => {
-  it("VI: counts only the one invited, not a companion who walks along", () => {
+  it("VI: counts the accepted invitation even with other trusted residents nearby", () => {
     let s = only("arcanum-6");
-    s = bond(s, "moth");
+    s = trustedCompany(s, "moth");
     s.actors.keeper.place = s.actors.vale.place;
     s.actors.keeper.want = {
       kind: "place",
@@ -78,19 +76,18 @@ describe("cards that say what they check", () => {
         a.target === "keeper" &&
         a.destination === "pond",
     );
-    expect(s.actors.vale.companion).toBe("moth");
-    expect(s.actors.moth.place).toBe("pond");
-    expect(proved(s)).toEqual([]);
-    expect(recordOf(s, "vale").spread[0].face).toBe("locked");
+    expect(s.log.findLast((e) => e.verb === "accompany")).toMatchObject({ accepted: true, targetId: "keeper" });
+    expect(recordOf(s, "vale").spread[0].face).toBe("reward");
   });
 
-  it("IX: a night walk with a companion along is not alone", () => {
-    let s = only("arcanum-9");
-    s = bond(litNight(s), "keeper");
-    s = act(s, walk("station"));
-    expect(s.actors.keeper.place).toBe("station");
-    expect(proved(s)).toEqual([]);
-    expect(recordOf(s, "vale").spread[0].face).toBe("locked");
+  it("IX: a solo night walk counts, but inviting someone along does not", () => {
+    const start = trustedCompany(litNight(only("arcanum-9")), "keeper");
+    const invited = act(start, (a) => a.kind === "accompany" && a.target === "keeper" && a.destination === "station");
+    expect(invited.actors.keeper.place).toBe("station");
+    expect(proved(invited)).toEqual([]);
+    expect(recordOf(invited, "vale").spread[0].face).toBe("locked");
+    const solo = act(start, walk("station"));
+    expect(recordOf(solo, "vale").spread[0].face).toBe("reward");
   });
 
   it("IX and XVIII: a light counts only lit and carried", () => {
