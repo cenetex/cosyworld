@@ -68,6 +68,10 @@ export function handFocusId(frames, ids) {
   }
   return frames.find((frame) => !frame.hidden)?.id;
 }
+export function holdDialogueChoice({ queued, live, complete, speaking, next }) {
+  return Boolean(queued || (live && (!complete || speaking || next)));
+}
+
 export function phase({
   reviewing = false,
   revealing = false,
