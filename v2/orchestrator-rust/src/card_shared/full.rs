@@ -30,6 +30,8 @@ use std::{
 mod continuation;
 #[path = "full_dedupe.rs"]
 mod dedupe;
+#[path = "full_elysium.rs"]
+mod elysium;
 #[path = "full_guild.rs"]
 mod guild;
 #[path = "full_opening.rs"]
@@ -51,6 +53,7 @@ pub(super) fn router() -> Router<AppState> {
                 .layer(DefaultBodyLimit::max(2 * 1024 * 1024)),
         )
         .route("/card-game/shared/worlds/{id}", get(view))
+        .route(elysium::ROUTE, get(elysium::portrait))
         .route(
             "/card-game/shared/worlds/{id}/command",
             post(command).layer(DefaultBodyLimit::max(8192)),
@@ -726,6 +729,7 @@ pub(super) struct Work {
     pub room: String,
     pub actor: usize,
     pub context: Value,
+    portrait_eligible: bool,
     attempt: i32,
     revision: crate::account_revision::Revision,
 }
@@ -813,12 +817,15 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             user: u.clone(),
             epoch: crate::account_revision::current(&tx, &u).map_err(sql_error)?,
         };
+        let portrait_eligible =
+            elysium::eligible(&w.game) && elysium::returned(&tx, id).unwrap_or(false);
         tx.commit().map_err(sql_error)?;
         return Ok(Some(Work {
             id: key,
             room: destination,
             actor: a,
             context,
+            portrait_eligible,
             attempt,
             revision,
         }));
@@ -843,6 +850,9 @@ async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
     let Ok(Ok(Some(work))) = work else {
         return Ok(false);
     };
+    if work.portrait_eligible {
+        elysium::draw(state.clone());
+    }
     reflect::replace(id, work.actor);
     let lines = super::full_speech::generate(state, work.actor, &work.context).await;
     let s = state.clone();

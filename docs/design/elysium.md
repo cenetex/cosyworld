@@ -31,6 +31,14 @@ Decided by the owner on 2026-11-26.
 
 ## Where things stand
 
+Void 001's shared portrait pilot uses the Gold Spiral opening and a server
+record of the Keystone return. A later committed turn can start the job for
+an earlier shared return, or retry after five minutes. Imported progress needs
+a shared return before it can draw the resident. Reading serves only the
+finished PNG. The original art and passage work throughout. Every world shares
+one content-addressed image drawn from public Void context. If that file is
+corrupted, an operator can restore its original bytes under the same hash.
+
 - **Every avatar needs authored identity.** The pack schema requires a name,
   a one-line seed and a portrait file for every avatar
   (`card-game/pack-schema.mjs:759`, `:836`). PR #3200 meets this with the

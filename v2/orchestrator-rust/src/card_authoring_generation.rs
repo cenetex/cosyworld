@@ -24,6 +24,7 @@ use unicode_normalization::UnicodeNormalization;
 mod admission;
 #[path = "card_authoring_image.rs"]
 mod images;
+pub(crate) use images::draw_void_portrait;
 #[path = "card_authoring_jobs.rs"]
 mod jobs;
 #[path = "card_authoring_seed.rs"]
@@ -191,7 +192,9 @@ impl Run {
                 Work::Avatars(config, input) => avatars(config, input).await.map(Done::Json),
                 Work::Seed(config, input) => seed::run(config, input).await.map(Done::Json),
                 Work::Image(config, input, reference) => {
-                    images::run(config, input, reference).await.map(Done::Image)
+                    images::run(config, input, reference, false)
+                        .await
+                        .map(Done::Image)
                 }
             }
         };
