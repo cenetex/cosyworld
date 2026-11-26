@@ -496,13 +496,18 @@ for (const edge of laneEdges())
     SCENE_MASK,
   );
 
-// Earlier rules wrote this sentence into saves that players still import.
-const earlierDrop = ["", " drops the quest."];
-catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
-  earlierDrop,
-  SCENE_MASK,
-  "n",
-]);
+const retiredLogTemplates = [
+  [["", " drops the quest."], "n"],
+  [["", " gives ", " a face-down card."], "nn"],
+  [[" ", " stays behind."], "n"],
+  [["", " comes with ", ". ", " stays behind."], "nnn"],
+  [["", " comes with ", "."], "nn"],
+  [["", " goes on alone after the long rest."], "n"],
+  [["", " no longer trusts ", " enough to travel on."], "nn"],
+  [["", " waits no longer and goes on alone."], "n"],
+];
+for (const [parts, slots] of retiredLogTemplates)
+  catalog.templates.set(JSON.stringify([parts, slots]), [parts, SCENE_MASK, slots]);
 
 const listener208 = JSON.parse(
   await readFile(new URL("./listener-208-text.json", import.meta.url), "utf8"),
