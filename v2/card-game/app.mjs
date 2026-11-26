@@ -415,6 +415,7 @@ let restedChoice = null,
   restedRevision = null;
 // What the dialogue box shows now (presentation.mjs).
 let shownPhase = null;
+let reviewing = false;
 // Since when only committed plays' words have kept the Thinking card.
 let thinkingSince = null;
 let thinkingGrace = null;
@@ -773,7 +774,6 @@ let storyStatus = "ready",
   renderedHandState = null,
   speechKey = null,
   cardsCooling = false,
-  reviewing = false,
   // The beat stepped back to while reviewing, by beat key.
   reviewBeat = null,
   announcedBeat = null,

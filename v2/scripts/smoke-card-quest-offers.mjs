@@ -354,7 +354,8 @@ try {
       const met = await t.state();
       assert.equal(met.actors.vale.xp, xp, "a traveler earns no XP");
       assert.notEqual(met.actors.vale.want?.from, "quest:from:moth");
-      await page.locator(".beat-caption").filter({ hasText: "1 of 3 people helped" }).waitFor();
+      await page.locator("#beat-captions .beat-caption")
+        .filter({ hasText: "1 of 3 people helped" }).waitFor();
       assert.equal(await page.getByText("The Listener is here for a reading.", { exact: true }).count(), 0);
       assert.equal(await page.getByText(/claim/i).count(), 0);
       assert.deepEqual(t.errors, []);

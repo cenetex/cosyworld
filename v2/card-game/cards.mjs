@@ -229,8 +229,10 @@ function invitationReason(world, selected) {
 
 // Resolve one play for the context row and drag gestures.
 export function cardPlay(world, selected) {
-  const cards = [...new Set(selected)];
-  const own = selectionPlay(world, cards);
+  return playFromHand(world, [...new Set(selected)], availableCards(world));
+}
+function playFromHand(world, cards, available) {
+  const own = selectionPlay(world, cards, available);
   if (
     own.action ||
     cards.length < 2 ||
@@ -238,7 +240,7 @@ export function cardPlay(world, selected) {
     invitationTarget(world, cards)
   )
     return own;
-  if (cards.some((id) => !availableCards(world).includes(id))) return own;
+  if (cards.some((id) => !available.includes(id))) return own;
   const player = currentActor(world);
   const order = [
     cards.find((id) => people[id] && id !== player),
@@ -246,16 +248,15 @@ export function cardPlay(world, selected) {
     cards.find((id) => places[id]),
   ];
   for (const id of order.filter(Boolean)) {
-    const alone = selectionPlay(world, [id]);
+    const alone = selectionPlay(world, [id], available);
     if (order[0] && alone.action?.kind === "wait")
-      return selectionPlay(world, [order[0]]);
+      return selectionPlay(world, [order[0]], available);
     if (alone.action) return alone;
   }
   return own;
 }
-function selectionPlay(world, selected) {
+function selectionPlay(world, selected, available = availableCards(world)) {
   const cards = [...new Set(selected)];
-  const available = availableCards(world);
   const result = (found, hint) => {
     const action = shownPlay(world, found, cards);
     return { action, hint: playText(action) || hint };
@@ -352,10 +353,10 @@ function selectionPlay(world, selected) {
     const other = cards.find((id) => people[id] && id !== currentActor(world));
     return result(
       find("threaten", undefined, other) || find("intercept", undefined, other),
-      selectionPlay(world, [other]).hint,
+      selectionPlay(world, [other], available).hint,
     );
   }
-  if (item && avatar === currentActor(world)) return cardPlay(world, [item]);
+  if (item && avatar === currentActor(world)) return playFromHand(world, [item], available);
   if (cards.includes("cloth")) {
     const beneath = cards.find((id) => id !== "cloth");
     if (things[beneath] && world.items.cloth.holder === beneath)
@@ -430,8 +431,9 @@ export function settledChoice(world, cards, id) {
   if (cards.length !== 2 || !cards.includes(id)) return cards;
   if (invitationTarget(world, cards)) return cards;
   if (!things[id] && !places[id]) return cards;
-  if (selectionPlay(world, cards).action) return cards;
-  const alone = cardPlay(world, [id]).action?.kind;
+  const available = availableCards(world);
+  if (selectionPlay(world, cards, available).action) return cards;
+  const alone = playFromHand(world, [id], available).action?.kind;
   return alone === "take" || alone === "move" || alone === "course"
     ? [id]
     : cards;
@@ -439,11 +441,12 @@ export function settledChoice(world, cards, id) {
 // The row shows one play for this selection. The world owns legality.
 export function cardActions(world, selected) {
   const cards = [...new Set(selected)];
-  const primary = cardPlay(world, cards);
+  const available = availableCards(world);
+  const primary = playFromHand(world, cards, available);
   if (
     !cards.length ||
     cards.length > 3 ||
-    cards.some((id) => !availableCards(world).includes(id))
+    cards.some((id) => !available.includes(id))
   )
     return { actions: [], hint: primary.hint };
   const actions = primary.action ? [primary.action] : [];

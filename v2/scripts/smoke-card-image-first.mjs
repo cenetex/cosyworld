@@ -43,7 +43,6 @@ function action(world, kind, item, target) {
 function pond() {
   let s = enableMotives(createWorld({ opening: true, seed: 17 }));
   // Keep the bard at this fixture's first deed so the ship starts at harbor.
-  // The separate bard smoke covers his fresh-harbor voyage.
   s.actors["greek-rhapsode"].place = "attic";
   // Stow the lamp to open the mirror without playing a turn.
   holdChoice(s, "vale", { item: null, revision: s.revision });
@@ -92,6 +91,9 @@ try {
         }),
       });
     });
+    await page.route("**/card-game/memory-summaries", (route) =>
+      route.fulfill({ status: 503 }),
+    );
     const key = `cosyworld.reflected-shore.v1.image-first-${width}`;
     await page.addInitScript(
       ({ key, save }) => {
@@ -478,13 +480,15 @@ try {
       await art();
       await page.locator("#toolbar-menu-button").click();
       await page.locator("#history-button").click();
-      assert.match(
-        await page.locator("#messages").innerText(),
-        /The water is still/,
-      );
+      const lampMemory = page.getByRole("region", { name: "Vale's memories" })
+        .locator("dt").filter({ hasText: /^Lamp$/u })
+        .locator("xpath=following-sibling::dd[1]");
+      const memory = await lampMemory.innerText();
+      assert.match(memory, /Left Lamp at Black pond\./u);
+      assert.match(memory, /Took Lamp at Black pond\./u);
       assert.doesNotMatch(
         await page.locator("#messages").innerText(),
-        /Turn \d|first flash|ritual progress/,
+        /The water is still|Turn \d|first flash|ritual progress/,
       );
       await page.locator('[data-close="history-dialog"]').click();
       await ready();

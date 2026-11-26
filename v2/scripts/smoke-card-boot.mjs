@@ -19,6 +19,7 @@ const cases = {
   retired: { save: RETIRED, notice: null, replaced: true },
   // In-app browsers with DOM storage off refuse every access.
   blocked: { blockStorage: true, notice: /could not save the world/u },
+  members: { lock: true },
 };
 
 const server = createServer();
@@ -40,6 +41,10 @@ try {
       const key = `cosyworld.reflected-shore.v1.${table}`;
       const report = { name, width, errors: [], console: [] };
       results.push(report);
+      const requested = [];
+      page.on("request", (request) =>
+        requested.push(new URL(request.url()).pathname),
+      );
       page.on("pageerror", (error) => report.errors.push(error.message));
       page.on("console", (message) => {
         // The static server has no /meta, account, or credits routes.
@@ -76,9 +81,31 @@ try {
       await page.route("**/card-game/text", (route) =>
         route.fulfill({ status: 503, body: "" }),
       );
-      await page.goto(
-        `http://127.0.0.1:${server.address().port}/?table=${table}`,
-      );
+      if (spec.lock) {
+        let attempts = 0;
+        await page.route("**/auth/account", (route) => {
+          attempts += 1;
+          return route.fulfill(
+            attempts === 1
+              ? { status: 503, body: "Temporarily unavailable" }
+              : { json: { members_only: true, authenticated: false } },
+          );
+        });
+      }
+      await page.goto(`http://127.0.0.1:${server.address().port}/?table=${table}`);
+      const bootedApp = () => requested.indexOf("/card-game/app.mjs");
+      if (spec.lock) {
+        await page.locator("#members-lock").waitFor();
+        assert.equal(
+          requested.filter((path) => path === "/auth/account").length,
+          2,
+        );
+        assert.equal(bootedApp(), -1);
+        assert.deepEqual(report.errors, []);
+        report.passed = true;
+        await page.close();
+        continue;
+      }
       const status = page.locator("#play-status");
       if (spec.freshStart) {
         const button = page.locator("#card-actions #setting-new-game");
@@ -150,6 +177,13 @@ try {
           spec.save,
         );
       assert.deepEqual(report.errors, [], `${name} boot throws nothing`);
+      assert(bootedApp() >= 0);
+      assert.equal(
+        requested.slice(0, bootedApp()).filter((path) => path === "/auth/account")
+          .length,
+        1,
+        "a missing account API is probed once before the table loads",
+      );
       report.passed = true;
       await page.close();
     }
