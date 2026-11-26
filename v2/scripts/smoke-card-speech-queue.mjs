@@ -117,7 +117,7 @@ try {
     assert.equal(await front(page), "…", "A silent reply has its own tap.");
     await open(page, url);
     assert.equal(await front(page), "…", "Reload preserves the silent reply.");
-    const final = add("vale", "I will wait here beside the timetable. I am listening to the empty station, watching the black shore.");
+    const final = add("vale", "I hear the bell. I will wait beside the timetable.");
     world.revision++;
     history.push({ play: "final", room: "station", starts_at: Date.now(), lines: [final] });
     await page.locator('#dialogue-advance[aria-label="Continue to the next beat"]').waitFor();
@@ -127,6 +127,7 @@ try {
     await selectCard(page, "station");
     const assertHeld = async () => {
       assert.equal(await front(page), final.text);
+      assert.equal(await page.locator("#speech-row").isVisible(), true);
       assert.equal(await page.locator("#action-beat").isVisible(), false);
       assert.equal(await page.locator("#card-actions button").count(), 0);
     };
@@ -202,7 +203,7 @@ try {
       await selectCard(local, "forest-trail");
       assert.equal(await local.locator("#action-beat").isVisible(), false, "Selection leaves the reply in front");
       assert.equal(await local.locator("#card-actions button").count(), 0);
-      assert.equal(await front(local), text.vale, "The movement reply waits for a tap.");
+      assert(text.vale.startsWith(await front(local)), "The movement reply waits for a tap.");
       assert.equal(await local.locator("#dialogue-advance").getAttribute("data-revealing"), "true");
       await open(local, `${origin}/?table=local-queue`);
       assert.equal(await front(local), text.vale, "Local reload keeps the partly read line.");

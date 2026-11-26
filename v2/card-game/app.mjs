@@ -2713,8 +2713,6 @@ function syncPhase() {
   if (presentPhase() !== shownPhase) renderActions();
   else syncActionBeat();
 }
-// The server's reason for refusing this play, while its cards stay chosen
-// and the world has not moved on.
 const refusedPlay = (action) =>
   sharedRefusal?.key === action.key ? sharedRefusal.reason : "";
 let abandonQuest = null,
