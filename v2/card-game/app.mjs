@@ -163,7 +163,7 @@ import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { showWorldTier } from "./world-level.mjs";
 import { worldLogoKey } from "./title-logo.mjs";
-import { innerLifeChain, innerLifeSection } from "./inner-life.mjs";
+import { earlierMemoriesSection, innerLifeChain, innerLifeSection, personaSection } from "./inner-life.mjs";
 import { characterSheet, characterSheetSection } from "./character-sheet.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
@@ -4840,13 +4840,7 @@ function renderLog(open = $("history-dialog").open) {
     ...visit,
     beats: visit.beats.map((beat) => revealedBeat(beat, visibleText)),
   }));
-  const chain = innerLifeChain(world);
-  const inner = {
-    ...chain,
-    im: visibleText(chain.im),
-    becoming: chain.becoming.map(visibleText),
-    dreams: chain.dreams.map(visibleText),
-  };
+  const inner = innerLifeChain(world, currentActor(world), visibleText);
   const key = JSON.stringify([
     sheet, inner,
     ...visits.map((visit) => [
@@ -4860,9 +4854,9 @@ function renderLog(open = $("history-dialog").open) {
   const focused = box.contains(document.activeElement) && document.activeElement.dataset.tarot;
   const scroll = box.scrollTop;
   box.replaceChildren(
-    characterSheetSection(sheet, { viewCard: showItemView }),
+    characterSheetSection(sheet, { viewCard: showItemView, persona: personaSection(inner) }),
     innerLifeSection(inner),
-    node("h3", "Memory", "memory-place"),
+    node("h3", "Memories", "sheet-memory-title"),
     ...visits.map((visit) => {
       const section = node("section", undefined, "memory-visit");
       section.append(
@@ -4903,6 +4897,7 @@ function renderLog(open = $("history-dialog").open) {
       section.append(list);
       return section;
     }),
+    ...(inner.memories.length ? [earlierMemoriesSection(inner.memories)] : []),
   );
   box.scrollTop = scroll;
   if (focused) box.querySelector(`[data-tarot="${focused}"]`)?.focus({ preventScroll: true });

@@ -384,6 +384,23 @@ try {
         ["down"],
         "the Fool is given face down",
       );
+      const inspectAlbum = async (state, art, count = "0 / 22") => {
+        await page.locator("#toolbar-menu-button").click();
+        await page.getByRole("button", { name: "Character", exact: true }).click();
+        const collection = page.getByRole("region", { name: "Tarot collection" });
+        const tiles = collection.locator(".sheet-deck > .sheet-tarot");
+        await tiles.first().waitFor();
+        assert.equal(await tiles.count(), 22);
+        assert.equal(await tiles.first().getAttribute("data-tarot-state"), state);
+        assert.match(await tiles.first().locator("img").getAttribute("src"), art);
+        assert.equal(await collection.locator('[data-tarot-state="unknown"]').count(), 21);
+        assert.equal(await collection.locator('[data-tarot-state="unknown"]').first().textContent(), "?");
+        assert.equal(await collection.locator(".sheet-count").textContent(), count);
+        assert.equal(await collection.getByRole("button").count(), state === "reward" ? 1 : 0);
+        if (state !== "reward") assert.equal(await tiles.first().getAttribute("data-tarot"), null);
+        await page.keyboard.press("Escape");
+        await page.waitForFunction(() => !document.querySelector("#history-dialog").open && !document.querySelector("#messages img"));
+      };
       const heading = async () =>
         (await page.locator(".action-beat-heading:not([hidden])").textContent()).trim();
       const tarot = page.locator('#hand .want-frame[data-quest-id^="tarot:"] > .want-card');
@@ -404,6 +421,7 @@ try {
       assert.notEqual(await back.evaluate((el) => getComputedStyle(el).display), "none");
       await t.layout();
       await t.shot("level-up");
+      await inspectAlbum("locked", /tarot-back-locked\.webp/u);
       const unlocked = page.waitForFunction(
         () =>
           [...document.querySelectorAll("#hand .want-card > .portrait-transforming")].some((img) =>
@@ -424,6 +442,8 @@ try {
       await showTarot();
       assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
       assert.equal(await tarot.getAttribute("data-unrevealed"), "true");
+      await inspectAlbum("unlocked", /tarot-back\.webp/u);
+      await showTarot();
       await tapCard(tarot);
       await page.locator('#hand [data-pack="open"]').first().waitFor();
       await page.waitForTimeout(900);
@@ -438,6 +458,7 @@ try {
       assert.equal(await page.locator("[data-drop-quest]").count(), 0);
       assert.equal(await back.evaluate((el) => getComputedStyle(el).display), "none");
       await t.shot("tarot-reward");
+      await inspectAlbum("reward", /arcanum-0/u);
       await page.reload();
       await t.ready();
       await showTarot();
@@ -464,8 +485,23 @@ try {
       const owned = collection.getByRole("button", { name: "View The Fool", exact: true });
       await owned.waitFor();
       assert.equal(await collection.getByRole("button").count(), 1);
+      const tiles = collection.locator(".sheet-deck > .sheet-tarot");
+      const unknown = collection.locator('[data-tarot-state="unknown"]');
+      assert.equal(await tiles.count(), 22);
+      assert.equal(await unknown.count(), 21);
+      assert.equal(await collection.locator('[data-tarot-state="locked"]').count(), 0);
+      assert.equal(await tiles.first().getAttribute("data-tarot"), "arcanum-0");
+      assert.equal(await tiles.first().getAttribute("data-tarot-state"), "collected");
+      assert.equal(await unknown.first().getAttribute("aria-hidden"), "true");
+      assert.equal(await unknown.first().getAttribute("data-tarot"), null);
+      assert.equal(await unknown.first().evaluate((el) => el.tagName), "DIV");
+      assert.equal(await unknown.first().evaluate((el) => el.tabIndex), -1);
+      assert.equal(await collection.locator(".sheet-count").textContent(), "1 / 22");
+      const cardBox = await owned.boundingBox();
+      assert(cardBox.width >= 40 && cardBox.width <= 64, "compact tarot tile");
+      assert(cardBox.height < 100, "compact tarot tile height");
       assert.match(await sheet.locator(".sheet-level").textContent(), /Level I · Common/u);
-      assert.doesNotMatch(await collection.innerText(), /Carry nothing|Discard|Level Up/u);
+      assert.doesNotMatch(await collection.innerText(), /Carry nothing|Discard|Level Up|Yours to keep|later quest spreads/u);
       assert.equal(await sheet.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true);
       await t.shot("character-sheet-fool");
       const beforeView = await t.state();
@@ -484,6 +520,9 @@ try {
       await page.locator("#toolbar-menu-button").click();
       await page.getByRole("button", { name: "Character", exact: true }).click();
       await owned.waitFor();
+      assert.equal(await tiles.count(), 22);
+      assert.equal(await unknown.count(), 21);
+      assert.equal(await tiles.first().getAttribute("data-tarot-state"), "collected");
       await page.keyboard.press("Escape");
       assert.deepEqual(t.errors, []);
       await page.close();

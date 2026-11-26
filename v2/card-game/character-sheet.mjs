@@ -7,6 +7,7 @@ import { arcanaCards } from "./world/catalog.mjs";
 import { recordOf, unlockedOf } from "./world/arcana-record.mjs";
 import { homeOf } from "./world/home.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
+import { TAROT_BACK, TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { levelCards, questCards, questCaption, questHeading } from "./quest-card.mjs";
 import { MAX_RESOLVE } from "./combat-beats.mjs";
 import { imageUrl } from "./images.mjs";
@@ -16,6 +17,20 @@ import { notBehindOwners, tableQuests } from "./quest-hand.mjs";
 export function characterSheet(world, { known = () => false } = {}) {
   const actor = currentActor(world), person = world.actors[actor];
   const level = levelOf(world, actor), record = recordOf(world, actor);
+  const owned = new Set(unlockedOf(world, actor));
+  const spread = new Map(record.spread.map((slot) => [slot.card, slot]));
+  const ids = Object.keys(arcanaCards).sort((a, b) => arcanaCards[a].number - arcanaCards[b].number);
+  const face = (id) => ({ id, name: nameOf(id), art: arcanumArt(id) });
+  const cards = ids.filter((id) => owned.has(id)).map(face);
+  const slots = ids.map((id) => {
+    const slot = spread.get(id);
+    if (!slot) return owned.has(id) ? { ...face(id), state: "collected" } : { state: "unknown" };
+    if (["down", "locked"].includes(slot.face))
+      return { state: "locked", art: TAROT_LOCKED_BACK };
+    if (!owned.has(id) && !known(`tarot:${actor}:${id}`))
+      return { state: "unlocked", art: TAROT_BACK };
+    return { ...face(id), state: slot.face === "reward" ? "reward" : "active" };
+  });
   const resolve = standoffFor(world, actor)?.resolve[actor];
   const label = (id, hidden) => id && known(id) ? nameOf(id) : hidden;
   const tables = tableQuests(world, actor, availableCards(world).filter(known))
@@ -31,10 +46,8 @@ export function characterSheet(world, { known = () => false } = {}) {
       : person.sleeping || person.awake === false ? "Resting" : "Awake",
     visited: new Set((person.visited || []).filter(known)).size,
     items: carried(world, actor).map((id) => label(id, "An unrevealed item")),
-    total: Object.keys(arcanaCards).length,
-    cards: unlockedOf(world, actor)
-      .sort((a, b) => arcanaCards[a].number - arcanaCards[b].number)
-      .map((id) => ({ id, name: nameOf(id), art: arcanumArt(id) })),
+    total: slots.length,
+    cards, slots,
     progress: record.need.length
       ? `${record.done.filter((id) => record.need.includes(id)).length} of ${record.need.length} required cards collected`
       : "",
@@ -47,7 +60,7 @@ export function characterSheet(world, { known = () => false } = {}) {
         : questHeading(quest) || "Quest",
       words: quest.face === "reward" && !known(quest.key) &&
         !unlockedOf(world, actor).includes(quest.target)
-        ? "An earned tarot card is ready to reveal."
+        ? ""
         : questCaption(quest, !known(quest.target), null, known),
     })),
   };
@@ -60,7 +73,7 @@ function element(tag, className, text) {
   return node;
 }
 
-export function characterSheetSection(sheet, { viewCard }) {
+export function characterSheetSection(sheet, { viewCard, persona }) {
   const root = element("section", "character-sheet");
   root.dataset.actor = sheet.actor;
   root.setAttribute("aria-label", `${sheet.name}'s character sheet`);
@@ -85,22 +98,34 @@ export function characterSheetSection(sheet, { viewCard }) {
   const heading = element("div", "sheet-heading");
   heading.append(element("h3", "", "Tarot collection"),
     element("span", "sheet-count", `${sheet.cards.length} / ${sheet.total}`));
-  tarot.append(heading, element("p", "sheet-note", sheet.cards.length
-    ? "Yours to keep. These cards can return in later quest spreads."
-    : "Collect a tarot reward to begin your deck."));
+  tarot.append(heading);
   const deck = element("div", "sheet-deck");
-  for (const card of sheet.cards) {
-    const button = element("button", "sheet-tarot");
-    button.type = "button";
-    button.dataset.tarot = card.id;
-    button.setAttribute("aria-label", `View ${card.name}`);
-    button.onclick = () => viewCard(card.id, card.art);
-    const art = element("img");
-    art.alt = "";
-    art.loading = "lazy";
-    art.src = imageUrl(card.art, "card");
-    button.append(art, element("span", "", card.name));
-    deck.append(button);
+  for (const card of sheet.slots) {
+    const tile = element(card.id ? "button" : "div", "sheet-tarot");
+    tile.dataset.tarotState = card.state;
+    if (card.id) {
+      tile.type = "button";
+      tile.dataset.tarot = card.id;
+      const status = card.state === "reward" ? "Ready to collect" : card.state === "active" ? "In spread" : "Collected";
+      tile.title = `${card.name} · ${status}`;
+      tile.setAttribute("aria-label", `View ${card.name}`);
+      tile.setAttribute("aria-description", status);
+      tile.onclick = () => viewCard(card.id, card.art);
+    } else if (card.art) {
+      tile.setAttribute("role", "img");
+      tile.setAttribute("aria-label", card.state === "locked" ? "Locked tarot card" : "Unlocked tarot card");
+    } else {
+      tile.setAttribute("aria-hidden", "true");
+      tile.textContent = "?";
+    }
+    if (card.art) {
+      const art = element("img");
+      art.alt = "";
+      art.loading = "lazy";
+      art.src = imageUrl(card.art, "card");
+      tile.append(art);
+    }
+    deck.append(tile);
   }
   tarot.append(deck);
   const quests = element("section", "sheet-section");
@@ -110,12 +135,15 @@ export function characterSheetSection(sheet, { viewCard }) {
   if (!sheet.quests.length) quests.append(element("p", "sheet-note", "No active quests."));
   for (const quest of sheet.quests) {
     const row = element("div", "sheet-quest");
-    row.append(element("h4", "", quest.heading), element("p", "", quest.words));
+    row.append(element("h4", "", quest.heading));
+    if (quest.words) row.append(element("p", "", quest.words));
     quests.append(row);
   }
   const items = element("section", "sheet-section");
   items.append(element("h3", "", "Carrying"),
     element("p", "sheet-note", sheet.items.length ? sheet.items.join(" · ") : "Empty hands."));
-  root.append(hero, facts, tarot, quests, items);
+  root.append(hero);
+  if (persona) root.append(persona);
+  root.append(facts, tarot, quests, items);
   return root;
 }

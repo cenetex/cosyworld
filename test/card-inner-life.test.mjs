@@ -26,7 +26,7 @@ function reflective() {
 }
 
 describe("inner life panel", () => {
-  it("shows I'm, I'm becoming and I dream, closed by the name", () => {
+  it("keeps the authored identity, evolving persona and dreams distinct", () => {
     const chain = innerLifeChain(reflective(), "vale");
     expect(chain.im).toBe("I'm Vale. The Lamplighter.");
     // One current intention: the newest grounded thought.
@@ -35,7 +35,9 @@ describe("inner life panel", () => {
     ]);
     expect(chain.dreams).toEqual(["A vast void. I wake. An echo."]);
     expect(chain.name).toBe("Vale");
-    expect(Object.keys(chain)).toEqual(["name", "im", "becoming", "dreams"]);
+    expect(chain.description).toContain("A traveller");
+    expect(chain.persona).toBe("I turn the unlit lamp in my hand and study the empty mirror.");
+    expect(chain.memories).toEqual([]);
   });
 
   it("keeps measured attempts out of the panel", () => {
@@ -51,7 +53,7 @@ describe("inner life panel", () => {
     expect(inCharacter("It seems Vale is looking for a path.")).toBe(false);
     expect(inCharacter("  ")).toBe(false);
     const chain = innerLifeChain(createWorld(), "vale");
-    expect(chain).toMatchObject({ becoming: [], dreams: [] });
+    expect(chain).toMatchObject({ becoming: [], dreams: [], persona: "" });
     expect(chain.im).toBe("I'm Vale. The Lamplighter.");
   });
 
@@ -74,6 +76,23 @@ describe("inner life panel", () => {
       "I am becoming a lamplighter who listens.",
     ]);
     expect(chain.dreams).toEqual(["I dream of the Bell under water."]);
+  });
+
+  it("keeps only the selected avatar's retained events missing from the visit log", () => {
+    const world = reflective();
+    const present = world.log.at(-1).seq;
+    const remembered = { seq: present + 1, kind: "event", text: "A remembered gift." };
+    world.memories.vale.events = [
+      { seq: present, kind: "event", text: "Already in the visits." },
+      remembered,
+      { seq: present + 2, kind: "expression", text: "Generated aside." },
+    ];
+    world.memories.vale.landmarks = [remembered];
+    world.memories.mara.events = [{ seq: present + 3, kind: "event", text: "Mara's private memory." }];
+    expect(innerLifeChain(world, "vale").memories).toEqual(["A remembered gift."]);
+    expect(innerLifeChain(world, "mara").memories).toEqual(["Mara's private memory."]);
+    expect(innerLifeChain(world, "vale", (text) => text.replace("gift", "thing")).memories)
+      .toEqual(["A remembered thing."]);
   });
 
   it("names a cast member without a title plainly", () => {

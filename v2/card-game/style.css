@@ -2474,14 +2474,6 @@ body .beat-live {
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-.inner-life .inner-life-im {
-  font-size: 15px;
-}
-.inner-life .inner-life-name {
-  margin-top: 10px;
-  font-style: italic;
-  text-align: right;
-}
 .memory-visit + .memory-visit {
   margin-top: 18px;
 }
