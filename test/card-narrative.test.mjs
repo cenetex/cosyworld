@@ -1164,6 +1164,7 @@ describe("speech grounding in resolved card plays", () => {
     expect(outcome.items.map((item) => item.id).sort()).toEqual([
       "bell",
       "cloth",
+      "elysium-wayfinder",
       "keeper-log",
       "lamp",
       "oil",

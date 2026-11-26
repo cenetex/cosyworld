@@ -114,10 +114,12 @@ describe("the deal", () => {
 
   it("binds and counts nothing in a pack switched off", () => {
     const s = createWorld({ seed: 3 });
+    const disabledPacks = ["hoppy", "radio", "sea"];
+    const remainingResidents = candidates({ ...s, disabledPacks }, "resident");
     const emperor = data.cards.find((c) => c.id === "arcanum-4");
-    const heard = card(1, [{ kind: "count", of: "heard", min: 10 }]);
+    const heard = card(1, [{ kind: "count", of: "heard", min: remainingResidents.length + 1 }]);
     expect(dealable(s, heard, "vale")).toBe(true);
-    s.disabledPacks = ["hoppy", "radio", "sea"];
+    s.disabledPacks = disabledPacks;
     for (const kind of ["place", "resident", "item"])
       for (const id of candidates(s, kind))
         expect(packOn(s, packIdOf(id)), id).toBe(true);
