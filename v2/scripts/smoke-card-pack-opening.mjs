@@ -10,9 +10,6 @@
 // locked box in the pack is turned and stays locked. Nothing is named before
 // it is turned. At 390 and 1440 px, and with reduced motion.
 //
-// The place is chosen at run time by counting the cards each place deals;
-// the unturned set is seeded into the save's seen list.
-//
 //   node v2/scripts/smoke-card-pack-opening.mjs [screenshot-dir]
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
@@ -98,7 +95,11 @@ const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
 });
 
-async function openTable(width, motion, { covered, tag, place = scenario.place, world: given = null }) {
+async function openTable(
+  width,
+  motion,
+  { covered, tag, place = scenario.place, world: given = null, controlTime = false },
+) {
   const key = `cosyworld.reflected-shore.v1.${tag}`;
   const everything = [
     ...Object.keys(people),
@@ -111,6 +112,7 @@ async function openTable(width, motion, { covered, tag, place = scenario.place, 
     viewport: { width, height: width < 600 ? 844 : 900 },
     reducedMotion: motion,
   });
+  if (controlTime) await page.clock.install();
   page.setDefaultTimeout(15000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -206,7 +208,7 @@ for (const [width, motion] of [
   const tag = `pack-${width}-${motion}`;
   const members = scenario.here;
   const names = members.map((id) => nameOf(id)).filter(Boolean);
-  const { page, key, errors } = await openTable(width, motion, { covered: members, tag });
+  const { page, key, errors } = await openTable(width, motion, { covered: members, tag, controlTime: true });
   const shot = async (name) => {
     if (shots) await page.screenshot({ path: new URL(`${tag}-${name}.png`, shots).pathname });
   };
@@ -312,37 +314,27 @@ for (const [width, motion] of [
   await page.waitForFunction(() => !document.querySelector('#hand [data-pack="open"]'));
   await oneButton(page, "Reveal all", `${label}: the lowered stack asks Reveal all again`);
 
-  // 4. Reveal all: one button, "Tap to finish"; mid-run frames.
+  // Pause before Reveal all so browser and screenshot latency cannot run out the pack.
+  await page.clock.pauseAt(Date.now() + 5000);
   await page.locator("#card-actions [data-pack='reveal']").click();
-  await oneButton(page, "Tap to finish", `${label}: a run asks to be finished`);
   assert.ok(members.includes(await focusedHandCard(page)), `${label}: Reveal all leaves focus on a card`);
-  // 5. A tap finishes it: every card turned, none half turned, one Done.
-  // With motion the run still plays once its button shows: past the quarter
-  // second double-tap guard, this tap is the skip of the cards still down.
-  await page.waitForTimeout(300);
+  const finish = page.locator("#card-actions [data-pack='finish']");
+  const tapFinish = () => finish.evaluate((button) => button.click());
+  if ((await finish.getAttribute("data-revealing")) === "true") await tapFinish();
+  await oneButton(page, "Tap to finish", `${label}: a run asks to be finished`);
+  await tapFinish();
+  assert.equal(await finish.count(), 1, `${label}: an immediate second tap does not skip`);
+
+  // Cross the quarter-second tap guard before the next card can turn.
+  await page.clock.runFor(250);
   await shot("4-mid-run");
-  const skipped = await page.evaluate(
-    ({ key, members }) => {
-      const finish = document.querySelector("#card-actions [data-pack='finish']"),
-        down = JSON.parse(localStorage.getItem(`${key}.seen.covered`) || "[]").filter((id) =>
-          members.includes(id),
-        );
-      finish?.click();
-      return { playing: Boolean(finish), down: down.length };
-    },
-    { key, members },
-  );
-  if (motion !== "reduce") {
-    assert.ok(skipped.playing, `${label}: the run is still playing`);
-    assert.ok(skipped.down >= 1, `${label}: some cards are still face down to skip`);
-  }
+  const faceDownCards = async () => (await unturned(page, key)).filter((id) => members.includes(id));
+  assert.ok((await faceDownCards()).length >= 1, `${label}: some cards are still face down to skip`);
+  await tapFinish();
+  assert.deepEqual(await faceDownCards(), [], `${label}: Finish turns the remaining cards immediately`);
+  await page.clock.resume();
   await oneButton(page, "Done", `${label}: every card turned asks for Done`);
   await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
-  assert.deepEqual(
-    (await unturned(page, key)).filter((id) => members.includes(id)),
-    [],
-    `${label}: nothing is left face down`,
-  );
   const turned = await page.evaluate(() =>
     [...document.querySelectorAll('#hand [data-pack="open"] > .card')].map((c) => ({
       id: c.dataset.card,
