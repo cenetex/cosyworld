@@ -75,22 +75,31 @@ export function innerLifeChain(world, actor = currentActor(world), read = (text)
   };
 }
 
-export function innerLifeSection(chain) {
+function lifeSection(chain, label) {
   const section = document.createElement("section");
   section.className = "inner-life";
-  section.setAttribute("aria-label", `${chain.name}'s inner life`);
+  section.setAttribute("aria-label", `${chain.name}'s ${label}`);
   const add = (tag, text, className) => {
     const node = document.createElement(tag);
     node.textContent = text;
     if (className) node.className = className;
     section.append(node);
   };
-  if (chain.description || chain.persona) {
-    add("h3", "Persona");
-    if (chain.description) add("p", chain.description);
-    if (chain.persona && chain.persona !== chain.description)
-      add("p", chain.persona, "inner-life-persona");
-  }
+  return { section, add };
+}
+
+export function personaSection(chain) {
+  if (!chain.description && !chain.persona) return null;
+  const { section, add } = lifeSection(chain, "persona");
+  add("h3", "Persona");
+  if (chain.description) add("p", chain.description);
+  if (chain.persona && chain.persona !== chain.description)
+    add("p", chain.persona, "inner-life-persona");
+  return section;
+}
+
+export function innerLifeSection(chain) {
+  const { section, add } = lifeSection(chain, "dreams");
   add("h3", "Dreams");
   for (const line of chain.dreams) add("p", line);
   if (!chain.dreams.length) add("p", "None yet.", "sheet-note");

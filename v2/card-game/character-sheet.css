@@ -43,7 +43,7 @@
 #history-dialog .inner-life h3, .sheet-memory-title {
   margin: 0 0 8px; color: var(--gold); font: normal 21px/1.3 Georgia, serif;
 }
-#history-dialog .inner-life h3:not(:first-child) { margin-top: 24px; }
+#history-dialog .character-sheet .inner-life { margin: 12px 0 0; padding: 0; border: 0; }
 #history-dialog .inner-life .inner-life-persona { color: var(--ink); font-style: italic; }
 .sheet-earlier-memories { margin-top: 20px; }
 .sheet-earlier-memories p { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }

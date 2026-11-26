@@ -162,21 +162,29 @@ try {
       await page.getByRole("button", { name: "Character", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "Character", exact: true });
       await dialog.waitFor();
-      const inner = dialog.getByRole("region", { name: "Vale's inner life" });
-      await inner.waitFor();
+      const persona = dialog.getByRole("region", { name: "Vale's persona" });
+      const dreams = dialog.getByRole("region", { name: "Vale's dreams" });
+      await persona.waitFor();
+      await dreams.waitFor();
       assert.equal(
         await dialog.evaluate(
           (box) => box.querySelector("#messages > *")?.className,
         ),
         "character-sheet",
       );
-      const text = await inner.innerText();
-      await inner.getByRole("heading", { name: "Persona", exact: true }).waitFor();
-      await inner.getByRole("heading", { name: "Dreams", exact: true }).waitFor();
+      const text = await dialog.innerText();
+      await persona.getByRole("heading", { name: "Persona", exact: true }).waitFor();
+      await dreams.getByRole("heading", { name: "Dreams", exact: true }).waitFor();
       await dialog.getByRole("heading", { name: "Memories", exact: true }).waitFor();
-      assert(text.includes("A traveller"), text);
-      assert(text.includes("learning to listen"), text);
-      assert(text.includes("little boat"), text);
+      assert.match(await persona.innerText(), /A traveller/u);
+      assert.match(await persona.innerText(), /learning to listen/u);
+      assert.match(await dreams.innerText(), /little boat/u);
+      assert.equal(await persona.evaluate((el) =>
+        el.previousElementSibling?.classList.contains("sheet-identity")), true);
+      const headings = await dialog.locator("#messages h3").allTextContents();
+      assert(headings.indexOf("Persona") < headings.indexOf("Tarot collection"));
+      assert(headings.indexOf("Carrying") < headings.indexOf("Dreams"));
+      assert(headings.indexOf("Dreams") < headings.indexOf("Memories"));
       assert(!text.includes("I'm Vale. The Lamplighter."));
       assert(!text.includes("A fair offer may help."));
       assert(!text.includes("— Vale"));

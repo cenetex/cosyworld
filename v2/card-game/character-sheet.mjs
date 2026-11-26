@@ -60,7 +60,7 @@ function element(tag, className, text) {
   return node;
 }
 
-export function characterSheetSection(sheet, { viewCard }) {
+export function characterSheetSection(sheet, { viewCard, persona }) {
   const root = element("section", "character-sheet");
   root.dataset.actor = sheet.actor;
   root.setAttribute("aria-label", `${sheet.name}'s character sheet`);
@@ -116,6 +116,8 @@ export function characterSheetSection(sheet, { viewCard }) {
   const items = element("section", "sheet-section");
   items.append(element("h3", "", "Carrying"),
     element("p", "sheet-note", sheet.items.length ? sheet.items.join(" · ") : "Empty hands."));
-  root.append(hero, facts, tarot, quests, items);
+  root.append(hero);
+  if (persona) root.append(persona);
+  root.append(facts, tarot, quests, items);
   return root;
 }

@@ -163,7 +163,7 @@ import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { showWorldTier } from "./world-level.mjs";
 import { worldLogoKey } from "./title-logo.mjs";
-import { earlierMemoriesSection, innerLifeChain, innerLifeSection } from "./inner-life.mjs";
+import { earlierMemoriesSection, innerLifeChain, innerLifeSection, personaSection } from "./inner-life.mjs";
 import { characterSheet, characterSheetSection } from "./character-sheet.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
@@ -4854,7 +4854,7 @@ function renderLog(open = $("history-dialog").open) {
   const focused = box.contains(document.activeElement) && document.activeElement.dataset.tarot;
   const scroll = box.scrollTop;
   box.replaceChildren(
-    characterSheetSection(sheet, { viewCard: showItemView }),
+    characterSheetSection(sheet, { viewCard: showItemView, persona: personaSection(inner) }),
     innerLifeSection(inner),
     node("h3", "Memories", "sheet-memory-title"),
     ...visits.map((visit) => {
