@@ -3,10 +3,9 @@ import { profiles } from "./memory.mjs";
 import { humanAvatar } from "./human-cast.mjs";
 import { groundedInner, unfoundBlur } from "./speech-knowledge.mjs";
 
-// Phrases an assistant uses about a scene rather than a character inside it.
-// The server's speech check (`ASSISTANT_SPEAK` in card_narrative.rs) rejects
-// most of these before commit, but older saves and the dream prompt still let
-// a few through, so the panel hides them too (#1467).
+// The server's speech check rejects assistant phrasing before commit.
+// Older saves and the dream prompt can still let it through, so the panel
+// hides it too (#1467).
 const ASSISTANT_TALK = [
   "as an ai",
   "language model",
