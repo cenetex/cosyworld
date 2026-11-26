@@ -2,7 +2,6 @@ import { validLearning } from "./learning.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
 import { packProfiles } from "./pack-registry.mjs";
 
-// The shore's own entities plus every mounted world pack's.
 export const profiles = { ...baseProfiles, ...packProfiles };
 export const MEMORY_LIMIT = 16;
 export const newMemories = () =>

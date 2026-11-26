@@ -18799,7 +18799,7 @@
         landmarks: [],
         text: null,
         turn: null,
-        ...profiles[id].kind === "avatar" ? { seen: {} } : {}
+        ...profiles[id].kind === "avatar" ? { seen: {}, subjects: {} } : {}
       }
     ])
   );
@@ -18828,6 +18828,84 @@
     for (const entry of world.log) rememberSightings(world, entry, missing);
     for (const id of missing) world.memories[id].seen ??= {};
   }
+  var SUBJECT_MEMORY_LIMIT = 64;
+  var MEMORY_VERBS = ["talk", "give", "trade", "ask", "accompany", "take", "drop", "read", "want_met"];
+  var subjectId = (id) => typeof id === "string" && Object.hasOwn(profiles, id);
+  var savedId = (id) => subjectId(id) || typeof id === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,119}$/.test(id);
+  var subjectRef = (id) => subjectId(id) ? id : null;
+  var subjectRecency = (record7) => Math.max(record7.sight?.seq || 0, ...(record7.deeds || []).map((d) => d.seq));
+  function rememberSubjects(world, actor, entry) {
+    if (profiles[actor]?.kind !== "avatar" || entry.generated || !Number.isSafeInteger(entry.seq) || entry.seq < 1 || !Number.isSafeInteger(entry.turn) || entry.turn < 0) return;
+    const cast = entry.cast || [], present = cast.includes(actor);
+    const mine = entry.actorId === actor, theirs = entry.targetId === actor;
+    if (entry.consequence ? !entry.witnesses?.includes(actor) : !(present || mine || entry.witnesses?.includes(actor))) return;
+    const subjects = world.memories[actor].subjects ??= {};
+    const record7 = (id) => subjectId(id) && id !== actor ? subjects[id] ??= {} : null;
+    const stamp = { seq: entry.seq, turn: entry.turn };
+    const place = subjectRef(entry.locationId);
+    const items2 = (entry.items || []).filter((item) => subjectId(item.id) && profiles[item.id].kind === "item" && (item.holder === entry.locationId || cast.includes(item.holder)));
+    const observe = (id, holder = null, company = [], things2 = []) => {
+      const subject = record7(id);
+      if (subject && place && (subject.sight?.seq || 0) < entry.seq)
+        subject.sight = { ...stamp, place, holder, company, things: things2 };
+    };
+    if (place && (present || mine && !entry.consequence)) {
+      observe(
+        place,
+        null,
+        [...new Set(cast.filter((id) => id !== actor && profiles[id]?.kind === "avatar"))].slice(0, 4),
+        [...new Set(items2.filter((item) => item.holder === place).map((item) => item.id))].slice(0, 4)
+      );
+      for (const id of cast)
+        if (profiles[id]?.kind === "avatar") observe(id);
+      for (const item of items2) observe(item.id, subjectRef(item.holder));
+    }
+    if ((mine || theirs) && MEMORY_VERBS.includes(entry.verb)) {
+      const item = entry.itemId || (profiles[entry.targetId]?.kind === "item" ? entry.targetId : null);
+      const deed = {
+        ...stamp,
+        verb: entry.verb,
+        actorId: subjectRef(entry.actorId),
+        targetId: subjectRef(entry.targetId),
+        itemId: subjectRef(item),
+        receiveId: subjectRef(entry.receiveId),
+        ownerId: subjectRef(entry.ownerId),
+        locationId: place,
+        accepted: typeof entry.accepted === "boolean" ? entry.accepted : null
+      };
+      for (const id of /* @__PURE__ */ new Set([mine ? deed.targetId : deed.actorId, deed.itemId, deed.receiveId, deed.ownerId, place])) {
+        const subject = record7(id);
+        if (!subject) continue;
+        const previous = subject.deeds || [];
+        if (previous.some((d) => d.seq === deed.seq)) continue;
+        const distinct = previous.filter((d) => !["verb", "actorId", "targetId", "itemId", "receiveId", "ownerId", "accepted"].every((key2) => d[key2] === deed[key2]));
+        subject.deeds = [...distinct, deed].sort((a, b) => b.seq - a.seq).slice(0, 2);
+      }
+    }
+    const ranked = Object.entries(subjects).sort(([a, x], [b, y]) => subjectRecency(y) - subjectRecency(x) || (a < b ? -1 : a > b ? 1 : 0));
+    for (const [id] of ranked.slice(SUBJECT_MEMORY_LIMIT)) delete subjects[id];
+  }
+  function upgradeSubjectMemories(world) {
+    for (const [actor, memory] of Object.entries(world.memories || {})) {
+      if (profiles[actor]?.kind !== "avatar" || memory.subjects !== void 0) continue;
+      memory.subjects = {};
+      const evidence = new Map([...memory.events || [], ...memory.landmarks || []].filter((e) => e.kind === "event").map((e) => [e.seq, e]));
+      for (const entry of world.log || []) {
+        const saved = evidence.get(entry.seq);
+        if (saved?.turn === entry.turn && saved?.text === `${entry.speaker}: ${entry.text}`.slice(0, 650))
+          rememberSubjects(world, actor, entry);
+      }
+    }
+  }
+  function validSubjectRecords(world, actor, records) {
+    if (records === void 0) return true;
+    const object = (v) => v && typeof v === "object" && !Array.isArray(v);
+    const exact = (v, keys) => object(v) && Object.keys(v).length === keys.length && keys.every((key2) => Object.hasOwn(v, key2));
+    const stamp = (v) => Number.isSafeInteger(v.seq) && v.seq > 0 && v.seq <= world.eventSeq && Number.isSafeInteger(v.turn) && v.turn >= 0 && v.turn <= world.turn;
+    const ref = (v) => v === null || savedId(v);
+    const refs = (v) => Array.isArray(v) && v.length <= 4 && v.every(savedId) && new Set(v).size === v.length;
+    return profiles[actor]?.kind === "avatar" && object(records) && Object.keys(records).length <= SUBJECT_MEMORY_LIMIT && Object.entries(records).every(([id, record7]) => savedId(id) && id !== actor && object(record7) && Object.keys(record7).length > 0 && Object.keys(record7).every((key2) => ["sight", "deeds"].includes(key2)) && (!Object.hasOwn(record7, "sight") || exact(record7.sight, ["seq", "turn", "place", "holder", "company", "things"]) && stamp(record7.sight) && savedId(record7.sight.place) && ref(record7.sight.holder) && refs(record7.sight.company) && refs(record7.sight.things)) && (!Object.hasOwn(record7, "deeds") || Array.isArray(record7.deeds) && record7.deeds.length > 0 && record7.deeds.length <= 2 && record7.deeds.every((d, index) => exact(d, ["seq", "turn", "verb", "actorId", "targetId", "itemId", "receiveId", "ownerId", "locationId", "accepted"]) && stamp(d) && MEMORY_VERBS.includes(d.verb) && (d.actorId === actor || d.targetId === actor) && ["actorId", "targetId", "itemId", "receiveId", "ownerId", "locationId"].every((key2) => ref(d[key2])) && (d.accepted === null || typeof d.accepted === "boolean") && (!index || record7.deeds[index - 1].seq > d.seq))));
+  }
   function validInnerLife(life, turn) {
     if (life === void 0 || life === null) return true;
     const text2 = (value, limit) => typeof value === "string" && value.trim().length > 0 && value.length <= limit && !/[\u0000-\u001f\u007f]/u.test(value);
@@ -18848,7 +18926,7 @@
     return Object.entries(world.memories).every(([id, memory]) => {
       if (memory?.seen !== void 0 && (!memory.seen || typeof memory.seen !== "object" || Array.isArray(memory.seen) || profiles[id].kind !== "avatar" || Object.entries(memory.seen).some(
         ([other, seen]) => other === id || profiles[other]?.kind !== "avatar" || !seen || Object.keys(seen).some((key2) => !SEEN_KEYS.includes(key2)) || !profiles[seen.place] || profiles[seen.place].kind === "avatar" || world.items[seen.place] || !Number.isSafeInteger(seen.turn) || seen.turn < 0 || seen.turn > world.turn || !Number.isSafeInteger(seen.seq) || seen.seq < 1 || seen.seq > world.eventSeq
-      )) || !validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, id, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
+      )) || !validSubjectRecords(world, id, memory?.subjects) || !validInnerLife(memory?.innerLife, world.turn) || !validLearning(world, id, memory?.learning, profiles) || !validReflections(world, id, memory?.reflections) || profiles[id].kind !== "avatar" && memory?.innerLife != null)
         return false;
       if (!memory || !Array.isArray(memory.events) || memory.events.length > MEMORY_LIMIT)
         return false;
@@ -19624,6 +19702,7 @@
       if (a?.offered && !Object.hasOwn(a.offered, "from")) delete a.offered;
     installPacks2(s);
     reconcileContent(s);
+    upgradeSubjectMemories(s);
     reconcilePackProgress(s, reworked);
     for (const id of Object.keys(s.actors || {}))
       if (s.actors[id]?.companion && neverBack(s, s.actors[id].companion))
