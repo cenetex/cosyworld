@@ -3071,7 +3071,7 @@ function renderActions() {
   }
   const note = document.querySelector(".action-beat-note");
   let noteText = !rested && !packAsk && !lockShown && !picked && !pipPrelude()
-    ? pondSignalNote(world, known, selected) || firstFoolNote(world, known)
+    ? (only?.label === "Return Lamp" ? "" : pondSignalNote(world, known, selected)) || firstFoolNote(world, known)
     : "";
   if (abandonQuest) {
     panel.dataset.tier = "danger";

@@ -3253,9 +3253,9 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   color: var(--muted);
   font: 10px/12px Arial, sans-serif;
 }
-/* A status note shares the card with the action message. */
+/* A note shares the card with the action message. */
 .beat-action[data-card-tap=""]
-  .action-beat-body:has(#play-status:not([hidden])) {
+  .action-beat-body:has(:is(#play-status, .action-beat-note:not([contenteditable])):not([hidden])) {
   flex: 0 1 33%;
 }
 .beat-action[data-card-tap] #card-actions button {
@@ -3308,10 +3308,10 @@ body .beat-stack > .action-panel[data-card-tap]:not([hidden]) {
   color: var(--danger);
 }
 @media (max-width: 700px) {
-  body .beat-stack > .action-panel[data-card-tap=""]:has(#play-status:not([hidden])) {
+  body .beat-stack > .action-panel[data-card-tap=""]:has(:is(#play-status, .action-beat-note:not([contenteditable])):not([hidden])) {
     flex-wrap: wrap;
   }
-  .beat-action[data-card-tap=""] .action-beat-body:has(#play-status:not([hidden])) {
+  .beat-action[data-card-tap=""] .action-beat-body:has(:is(#play-status, .action-beat-note:not([contenteditable])):not([hidden])) {
     flex: 1 1 100%;
     order: 1;
     padding-top: 0;
