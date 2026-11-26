@@ -7,6 +7,7 @@ import { currentActor, itemPlace } from "./world.mjs";
 import { entityActive } from "./pack-registry.mjs";
 import { knownActors } from "./want.mjs";
 import { hasTemperament } from "./pack-rules.mjs";
+import { listenerDeal } from "./world/arcana.mjs";
 
 // Residents who arrived at or left the player's place this turn.
 export function sceneChanges(world) {
@@ -120,10 +121,12 @@ export function dialogueCast(world, action = null) {
     world.opening?.version === 1 && !world.locations.attic.anchored,
   );
   const known = knownActors(world);
+  const reader = listenerDeal(world, currentActor(world))?.actorId;
+  if (reader) known.push(reader);
   const present = Object.keys(world.actors).filter(
     (id) =>
       known.includes(id) &&
-      entityActive(world, id) &&
+      (id === reader || entityActive(world, id)) &&
       world.actors[id].place === location &&
       (!world.controlledActors?.includes(id) ||
         world.presentActors?.includes(id)),

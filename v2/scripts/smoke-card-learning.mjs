@@ -107,10 +107,26 @@ try {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(
-      (save) =>
-        localStorage.setItem("cosyworld.reflected-shore.v1.learning", save),
+      (save) => {
+        const key = "cosyworld.reflected-shore.v1.learning";
+        if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+      },
       encodeSave(world),
     );
+    let homeSummaries = 0;
+    const home = world.actors.vale.place;
+    const recollection = "I remember coming back here to rest.";
+    await page.route("**/card-game/memory-summaries", (route) => {
+      const { actor, subjects } = route.request().postDataJSON();
+      assert.equal(actor, "vale");
+      assert(!JSON.stringify(subjects).includes("private sentinel"));
+      const memory = subjects.find(({ id }) => id === home);
+      if (memory) {
+        assert(memory.evidence);
+        homeSummaries++;
+      }
+      return route.fulfill({ json: { summaries: memory ? { [home]: recollection } : {} } });
+    });
     await page.route("**/card-game/text", async (route) => {
       const scene = route.request().postDataJSON();
       await route.fulfill({
@@ -178,6 +194,8 @@ try {
       const memories = dialog.getByRole("region", { name: "Vale's memories" });
       await memories.getByRole("heading", { name: "Memories", exact: true }).waitFor();
       await memories.getByRole("heading", { name: "Places", exact: true }).waitFor();
+      await memories.getByText(recollection, { exact: true }).waitFor();
+      assert.equal(homeSummaries, 1, "the same character and evidence reuse the summary on reload");
       assert.doesNotMatch(await memories.innerText(), /The shore feels quiet|private sentinel/u);
       assert.match(await persona.innerText(), /A traveller/u);
       assert.match(await persona.innerText(), /learning to listen/u);

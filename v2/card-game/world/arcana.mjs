@@ -282,6 +282,23 @@ const cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
 const FOOL = 0;
 const WORLD = 21;
 const LISTENER = data.visit.match.targetId;
+const listenerCardLine = (traveler) =>
+  `${nameOf(LISTENER)} gives ${nameOf(traveler)} a face-down card.`;
+
+export function listenerDeal(world, traveler) {
+  const talk = world.log.findLast(
+    (entry) => entry.turn === world.turn && entry.kind === "action" &&
+      !entry.generated && entry.verb === "talk" && entry.actorId === traveler &&
+      entry.targetId === LISTENER,
+  );
+  if (!talk) return null;
+  return world.log.findLast(
+    (entry) => entry.turn === talk.turn && entry.seq > talk.seq &&
+      entry.kind === "narration" && !entry.generated && entry.consequence &&
+      entry.actorId === LISTENER && entry.locationId === talk.locationId &&
+      entry.witnesses?.includes(traveler) && entry.text === listenerCardLine(traveler),
+  ) ?? null;
+}
 const numberOf = (id) => cardOf(id)?.number;
 const isMiddle = (id) =>
   Boolean(cardOf(id)) && numberOf(id) !== FOOL && numberOf(id) !== WORLD;
@@ -546,7 +563,7 @@ function visit(s, traveler, tell) {
   ) {
     giveFool(s, traveler);
     if ((record.spread || []).some((slot) => slot.card === fool))
-      tell(`${nameOf(LISTENER)} gives ${nameOf(traveler)} a face-down card.`);
+      tell(listenerCardLine(traveler));
   }
   rise(s, traveler, tell);
 }

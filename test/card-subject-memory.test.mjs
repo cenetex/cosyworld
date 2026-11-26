@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createWorld } from "../v2/card-game/world.mjs";
 import { rememberSubjects, upgradeSubjectMemories, validSubjectRecords } from "../v2/card-game/memory.mjs";
-import { subjectMemories } from "../v2/card-game/inner-life.mjs";
+import { createMemorySummaries, subjectMemories } from "../v2/card-game/inner-life.mjs";
 import { privateView } from "../v2/card-game/learning.mjs";
 
 describe("retained subject memories", () => {
@@ -46,5 +46,61 @@ describe("retained subject memories", () => {
     expect(world.memories.vale.subjects.cloth.deeds[0].verb).toBe("give");
     world.memories.vale.subjects.cloth.text = entry.text;
     expect(validSubjectRecords(world, "vale", world.memories.vale.subjects)).toBe(false);
+  });
+});
+
+describe("first-person memory summaries", () => {
+  const memory = { id: "cloth", summary: "Received Black cloth from Pip." };
+  function setup() {
+    let value = null;
+    const requested = [];
+    const storage = {
+      getItem: () => value,
+      setItem: (_, next) => { value = next; },
+    };
+    const request = (actor, subjects, signal) => {
+      const reply = Promise.withResolvers();
+      requested.push({ actor, subjects, signal, ...reply });
+      return reply.promise;
+    };
+    const updated = [];
+    const open = () => createMemorySummaries({
+      storage, key: "summaries", request, update: () => updated.push(true),
+    });
+    return { open, requested, updated };
+  }
+
+  it("keeps facts visible, reuses a summary for the same evidence, and refreshes changed memories", async () => {
+    const { open, requested, updated } = setup();
+    const summary = open();
+    expect(summary.show(1, "vale", [memory])).toEqual([memory]);
+    summary.show(1, "vale", [memory]);
+    expect(requested).toHaveLength(1);
+    expect(requested[0].subjects).toEqual([{ id: "cloth", evidence: memory.summary }]);
+    requested[0].resolve({ cloth: "I remember Pip giving me the black cloth.", pond: "I remember the pond." });
+    await Promise.resolve();
+    expect(updated).toHaveLength(1);
+    const reloaded = open();
+    expect(reloaded.show(1, "vale", [memory])[0].summary).toBe("I remember Pip giving me the black cloth.");
+    expect(requested).toHaveLength(1);
+    const changed = { ...memory, summary: "Left Black cloth at Station." };
+    expect(reloaded.show(1, "vale", [changed])).toEqual([changed]);
+    expect(requested[1].subjects[0].evidence).toBe(changed.summary);
+  });
+
+  it("ignores replies after closing and separates worlds and characters", async () => {
+    const { open, requested, updated } = setup();
+    const summary = open();
+    summary.show(1, "vale", [memory]);
+    summary.close();
+    expect(requested[0].signal.aborted).toBe(true);
+    requested[0].resolve({ cloth: "I carried the cloth." });
+    await Promise.resolve();
+    expect(updated).toHaveLength(0);
+    expect(summary.show(1, "moth", [memory])).toEqual([memory]);
+    expect(requested[1].actor).toBe("moth");
+    requested[1].resolve({ cloth: "I remember the cloth." });
+    await Promise.resolve();
+    expect(summary.show(2, "moth", [memory])).toEqual([memory]);
   });
 });

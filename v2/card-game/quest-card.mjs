@@ -10,7 +10,7 @@ import { arcanaLevel, arcanumTerms, isArcanum, spreadOf } from "./world/arcana.m
 import { homeOf } from "./world/home.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
-import { TAROT_LOCKED_BACK } from "./locked-box.mjs";
+import { TAROT_BACK, TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { cardLevel, levelTier, romanLevel } from "./rarity.mjs";
 import {
   boxOffer,
@@ -135,6 +135,8 @@ export function offerWords(quest, known = () => true) {
 }
 export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
 export const discardable = (quest) => quest?.kind === "arcanum" && ["up", "locked"].includes(quest.face);
+export const tarotBack = (face) =>
+  ["down", "locked"].includes(face) ? TAROT_LOCKED_BACK : TAROT_BACK;
 export const levelCards = (world, actor = currentActor(world)) =>
   spreadOf(world, actor).map(({ index, card, face, bonus }, _, all) => ({
     key:
@@ -150,7 +152,7 @@ export const levelCards = (world, actor = currentActor(world)) =>
     level: Math.min(21, arcanaLevel(world, actor) + 1),
     left: 1,
     step: null,
-    art: ["up", "reward"].includes(face) ? arcanumArt(card) : TAROT_LOCKED_BACK,
+    art: ["up", "reward"].includes(face) ? arcanumArt(card) : tarotBack(face),
     conditions: face === "reward" ? [] : arcanumTerms(world, actor, index),
     home: homeOf(actor, world) ?? null,
   }));

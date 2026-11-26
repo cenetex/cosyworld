@@ -5,6 +5,15 @@
 //! client, and a client's next admitted scene drops its unfinished one.
 use super::*;
 
+#[path = "memory_summaries.rs"]
+mod memory_summaries;
+
+pub(super) fn router() -> Router<TextState> {
+    Router::new()
+        .route("/card-game/reflections", post(generate))
+        .route("/card-game/memory-summaries", post(memory_summaries::generate))
+}
+
 pub(super) struct Queue {
     /// The client whose admitted scene replaces its queued reflections.
     pub cancel: tokio::sync::watch::Sender<Option<IpAddr>>,

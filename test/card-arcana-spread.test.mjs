@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import data from "../v2/card-game/arcana.json" with { type: "json" };
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
+import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { entityActive, neverBack } from "../v2/card-game/pack-registry.mjs";
+import { sceneCast } from "../v2/card-game/scene.mjs";
+import { sharedDealUnread } from "../v2/card-game/shared.mjs";
 import {
   DREAM_FROM,
   heldOf,
@@ -13,6 +16,7 @@ import {
   arcanaLevel,
   dealSpread,
   deck,
+  listenerDeal,
   nextSpread,
   recordOf,
   sells,
@@ -118,7 +122,42 @@ describe("the Listener's first visit", () => {
     expect(s.actors.vale.upgrades ?? []).not.toContain(FOOL);
     expect(arcanaLevel(s, "vale")).toBe(0);
     expect(entityActive(s, "listener")).toBe(false);
+    expect(narrativeContext(s).speakers).toEqual(["vale", "listener"]);
+    expect(sceneCast(s)).toContain("listener");
+    expect(narrativeContext(wait(s)).speakers).not.toContain("listener");
     expect(validateWorld(reload(s))).toBeTruthy();
+  });
+
+  it("accepts the Listener's reading in shared play and waits for its last line", () => {
+    const s = createWorld({ seed: 5 });
+    s.actors.vale.place = "pond";
+    s.actors.vale.visited.push("pond");
+    s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
+    const { world } = dispatchShared({ op: "create", save: encodeSave(s) });
+    const request = (world, op, extra) => dispatchShared({
+      world, op, actor: "vale", claimed: ["vale"], present: ["vale"], ...extra,
+    });
+    const action = request(world, "view").actions.find(
+      (a) => a.kind === "talk" && a.target === "listener",
+    );
+    const played = request(world, "play", { action });
+    expect(played.world.speechVoices.vale).toEqual(["vale", "listener"]);
+    const deal = listenerDeal(played.world, "vale");
+    expect(deal).toBeTruthy();
+    const { lines } = request(played.world, "speech", {
+      room: "pond",
+      lines: [
+        { actorId: "vale", text: "What have you heard?" },
+        { actorId: "listener", text: "Water holds a reflection only while you stand still." },
+      ],
+    });
+    const state = { actor: "vale", queue: [{ actor: "vale", status: "working" }] };
+    expect(sharedDealUnread(state, deal, -Infinity, () => false)).toBe(true);
+    state.queue = [];
+    state.history = [{ actor: "vale", room: "pond", starts_at: 0, lines }];
+    expect(sharedDealUnread(state, deal, lines[0].seq, () => true)).toBe(true);
+    expect(sharedDealUnread(state, deal, lines[1].seq, () => false)).toBe(true);
+    expect(sharedDealUnread(state, deal, lines[1].seq, () => true)).toBe(false);
   });
 
   it("waits for three different residents, not three quests from one", () => {

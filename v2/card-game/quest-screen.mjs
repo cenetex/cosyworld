@@ -57,10 +57,17 @@ const picture = (src, className, url, entity) => {
 // paths.
 export function questScreen(view, art, asScene = false) {
   const screen = document.createElement("span");
-  screen.className = "quest-screen";
   const { verb, actor, kind, target, covered, to } = view;
   const back = (id) => art.back?.(id) || BACK;
   screen.dataset.kind = kind;
+  if (kind === "arcanum") {
+    screen.className = asScene ? "beat-face" : "art";
+    const image = picture(view.art, "", art.url);
+    image.style.objectFit = "contain";
+    screen.append(image);
+    return screen;
+  }
+  screen.className = "quest-screen";
   if (to || (view.atCovered && !asScene)) screen.dataset.parts = "3";
   // An unknown place is the carved back, whole.
   if (kind === "place" && covered && !asScene) {

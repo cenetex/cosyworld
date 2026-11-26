@@ -31,6 +31,7 @@
       "smoke-card-find-hidden": 9,
       "smoke-card-hosted-voices": 35,
       "smoke-card-image-first": 123,
+      "smoke-card-listener": 9,
       "smoke-card-lock-quests": 254,
       "smoke-card-locked-box": 127,
       "smoke-card-movement": 42,
@@ -202,6 +203,10 @@
     {
       "paths": "^v2/card-game/speech-(pages|text)\\.mjs$",
       "smokes": ["smoke-card-voice"]
+    },
+    {
+      "paths": "^v2/card-game/(world/arcana|scene-cast|quest-card)\\.mjs$|^v2/scripts/smoke-card-listener\\.mjs$",
+      "smokes": ["smoke-card-listener"]
     },
     {
       "paths": "^v2/card-game/card-(exit|ghost|swap|entry|travel)\\.",

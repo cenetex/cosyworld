@@ -5,6 +5,7 @@ import { questScreen } from "../v2/card-game/quest-screen.mjs";
 const element = () => ({
   className: "",
   dataset: {},
+  style: {},
   children: [],
   append(...nodes) {
     this.children.push(...nodes);
@@ -63,6 +64,24 @@ describe("the quest card's screen", () => {
     const screen = questScreen({ ...bring, here: "pavilion" }, art);
     expect(screen.dataset.parts).toBeUndefined();
     expect(parts(screen)[0]).toBe("quest-ground:pavilion.webp");
+  });
+
+  it.each([
+    "./assets/arcana/tarot-back-locked.png",
+    "./assets/arcana/tarot-back.png",
+    "./assets/arcana/full-size/arcanum-0.png",
+  ])("shows the whole tarot illustration on the quest and its detail: %s", (src) => {
+    for (const detail of [false, true]) {
+      const screen = questScreen({ kind: "arcanum", art: src }, art, detail);
+      expect(screen.dataset.kind).toBe("arcanum");
+      expect(screen.className).toBe(detail ? "beat-face" : "art");
+      expect(screen.children).toHaveLength(1);
+      expect(screen.children[0]).toMatchObject({
+        src,
+        style: { objectFit: "contain" },
+        dataset: {},
+      });
+    }
   });
 
   it.each([

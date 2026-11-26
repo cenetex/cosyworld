@@ -14,11 +14,11 @@ import { imageUrl } from "./images.mjs";
 import { availableCards } from "./cards.mjs";
 import { notBehindOwners, tableQuests } from "./quest-hand.mjs";
 
-export function characterSheet(world, { known = () => false } = {}) {
+export function characterSheet(world, { known = () => false, withheldTarot } = {}) {
   const actor = currentActor(world), person = world.actors[actor];
   const level = levelOf(world, actor), record = recordOf(world, actor);
   const owned = new Set(unlockedOf(world, actor));
-  const spread = new Map(record.spread.map((slot) => [slot.card, slot]));
+  const spread = new Map(record.spread.filter((_, index) => index !== withheldTarot).map((slot) => [slot.card, slot]));
   const ids = Object.keys(arcanaCards).sort((a, b) => arcanaCards[a].number - arcanaCards[b].number);
   const face = (id) => ({ id, name: nameOf(id), art: arcanumArt(id) });
   const cards = ids.filter((id) => owned.has(id)).map(face);
@@ -35,7 +35,7 @@ export function characterSheet(world, { known = () => false } = {}) {
   const label = (id, hidden) => id && known(id) ? nameOf(id) : hidden;
   const tables = tableQuests(world, actor, availableCards(world).filter(known))
     .filter(({ quest }) => quest && !quest.completed);
-  const quests = [...levelCards(world, actor),
+  const quests = [...levelCards(world, actor).filter((card) => card.index !== withheldTarot),
     ...notBehindOwners(questCards(world, actor), () => tables), ...tables.map(({ quest }) => quest)];
   return {
     actor, name: nameOf(actor), title: humanAvatar(actor)?.title || "",
@@ -48,7 +48,7 @@ export function characterSheet(world, { known = () => false } = {}) {
     items: carried(world, actor).map((id) => label(id, "An unrevealed item")),
     total: slots.length,
     cards, slots,
-    progress: record.need.length
+    progress: withheldTarot === undefined && record.need.length
       ? `${record.done.filter((id) => record.need.includes(id)).length} of ${record.need.length} required cards collected`
       : "",
     quests: quests.map((quest) => ({
