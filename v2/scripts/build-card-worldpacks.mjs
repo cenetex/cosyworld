@@ -1,9 +1,8 @@
 // Compile the card table's world packs and their bridges into one runtime file.
 //   node v2/scripts/build-card-worldpacks.mjs          # write card-game/packs.json
-// Sources: v2/worlds/card-table.json lists the hub and the mounted packs.
-// Each pack reads v2/content/<id>/card-world.json (the reusable world) and
-// v2/worlds/<id>/card-bridge.json (how it joins the hub). The browser and the
-// Rust text route both read the compiled file, so they cannot drift apart.
+// Sources: v2/worlds/card-table.json lists the hub and mounted packs; each pack is
+// v2/content/<id>/card-world.json plus v2/worlds/<id>/card-bridge.json. The browser
+// and the Rust text route both read the compiled file, so they cannot drift apart.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
