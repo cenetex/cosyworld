@@ -8,7 +8,7 @@ import { mediaPathOk } from "./pack-schema.mjs";
 
 export const BOOK_KEYS = ["author", "claims", "lifecycle", "pages", "teachesQuest"];
 export const BOOK_CLAIMS = 3;
-export const LIFECYCLES = ["kept", "spent"];
+export const LIFECYCLES = ["kept", "spent", "fixed"];
 const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const owns = (o, key) =>
   record(o) && typeof key === "string" && Object.hasOwn(o, key);
@@ -45,6 +45,8 @@ export function bookProblems(pack) {
     }
     if (item.lifecycle !== undefined && !LIFECYCLES.includes(item.lifecycle))
       fail(`lifecycle must be ${LIFECYCLES.join(" or ")}`);
+    if (item.lifecycle === "fixed" && !owns(pack.places, item.holder))
+      fail("a fixed book must start in a place of this pack");
     const pages = item.pages ?? [];
     if (
       !Array.isArray(pages) ||

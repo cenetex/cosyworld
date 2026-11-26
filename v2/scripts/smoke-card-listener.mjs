@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
+import { TAP_GUARD_MS } from "../card-game/card-travel.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
@@ -52,7 +53,10 @@ async function turnAndCollect(page, touch = false) {
   await preview.evaluate((img) => img.decode());
 
   const button = readyActionButton(page, "accept");
-  const press = () => (touch ? button.tap() : button.click());
+  const press = async () => {
+    await page.waitForTimeout(TAP_GUARD_MS);
+    return touch ? button.tap() : button.click();
+  };
   await button.waitFor();
   assert.equal(await actionLabel(button), "Turn over");
   await press();

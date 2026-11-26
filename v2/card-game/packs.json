@@ -55,10 +55,13 @@
       "listener"
     ],
     "items": [
+      "station-lantern",
+      "station-lantern-wick",
       "lamp",
       "oil",
       "bell",
-      "cloth"
+      "cloth",
+      "keeper-log"
     ],
     "observations": [
       {
@@ -6918,7 +6921,7 @@
       ],
       "bridge": {
         "id": "shore-greek-drama",
-        "description": "The Charybdis sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions on deck, and to the Signal Jetty, from Black Pond or Piraeus, only with a Hoppy Cat thing aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
+        "description": "The Charybdis sails between Black Pond and the Wine-Dark Harbor with no cargo. It needs Travel Provisions aboard for Piraeus and a Hoppy Cat thing for the Signal Jetty. Every way back toward Black Pond is free. To call it, lay the burning Lamp at Black Pond while holding the Black cloth, or light the repaired Station lantern."
       },
       "crossings": [
         {
@@ -6956,7 +6959,24 @@
               "kind": "actor_at",
               "place": "pond"
             }
-          ]
+          ],
+          "alternateUnlock": {
+            "primary": "pond-lamp",
+            "method": "station-lantern",
+            "requires": [
+              {
+                "kind": "actor_at",
+                "place": "station"
+              },
+              {
+                "kind": "light",
+                "item": "station-lantern",
+                "at": [
+                  "station"
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "greek-harbor-pond",

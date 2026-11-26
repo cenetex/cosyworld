@@ -32,6 +32,7 @@ import {
   withLabel,
 } from "./world/company.mjs";
 import { staysByRole } from "./resident-guard.mjs";
+import { STATION_LANTERN } from "./pond-signal-view.mjs";
 
 // The boxes shut at the player's place: the one list the rules keep (rules
 // 133, world/boxes.mjs). The hand draws each face down and the context
@@ -307,6 +308,12 @@ function selectionPlay(world, selected) {
         sealedReason(world, id) || `Meet ${nameOf(id)} here.`,
       );
     if (sealedReason(world, id)) return single(null, sealedReason(world, id));
+    if (id === "station-lantern") {
+      const hint = world.items[id].lit
+        ? "The station lantern is burning."
+        : "The station lantern needs a fresh wick.";
+      return single(find("use", id), hint);
+    }
     const holder = world.items[id].holder;
     if (
       people[rootHolder(world, id)] &&
@@ -320,7 +327,7 @@ function selectionPlay(world, selected) {
       );
     if (holder !== currentActor(world))
       return single(
-        find("take", id),
+        find("take", id) || find("read", id),
         carryFull(world, id)
           ? TOO_MANY_ITEMS
           : "Pair a carried item with this place to make room.",
@@ -334,6 +341,9 @@ function selectionPlay(world, selected) {
       "Pair with a person to give it, or this place to put it down.",
     );
   }
+  const usePair = actions.find((a) => a.kind === "use" && a.cards.length === 2 &&
+    cards.every((id) => a.cards.includes(id)));
+  if (usePair) return result(usePair);
   const item = cards.find((id) => things[id]);
   const location = cards.find((id) => places[id]);
   const avatar = cards.find((id) => people[id]);
@@ -574,6 +584,8 @@ export function cardObservation(world, id) {
   const item = world.items[id];
   if (item) {
     const observations = [];
+    if (id === STATION_LANTERN)
+      observations.push(item.repaired ? "Repaired" : "The wick mount is damaged");
     if (id === RADIO_ITEM)
       observations.push(item.radioOn === true ? "Radio on" : "Radio off");
     if (typeof item.lit === "boolean")
@@ -593,7 +605,7 @@ export function cardObservation(world, id) {
     );
     if (cover) observations.push(`Covered by ${nameOf(cover)}`);
     observations.push(
-      things[item.holder]
+      id === STATION_LANTERN ? "Mounted here" : things[item.holder]
         ? `On ${nameOf(item.holder)}`
         : people[rootHolder(world, id)]
           ? `Carried by ${nameOf(rootHolder(world, id))}`

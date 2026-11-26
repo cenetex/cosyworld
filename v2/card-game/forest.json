@@ -119,6 +119,18 @@
     }
   },
   "things": {
+    "station-lantern": {
+      "name": "Station lantern",
+      "startLevel": 1,
+      "art": "assets/shared/items/lamp.png",
+      "text": "A fixed signal lantern. Its damaged wick socket faces the water."
+    },
+    "station-lantern-wick": {
+      "name": "Lantern wick",
+      "startLevel": 1,
+      "art": "assets/willows/rope.png",
+      "text": "A short coil of dry braided wick, the right size for a signal lantern."
+    },
     "lamp": {
       "name": "Lamp",
       "startLevel": 19,
@@ -144,6 +156,17 @@
       "name": "Black cloth",
       "startLevel": 11,
       "text": "A square of heavy black cloth."
+    },
+    "keeper-log": {
+      "name": "The keeper’s log",
+      "art": "assets/willows/notebook-book.png",
+      "author": "keeper",
+      "lifecycle": "fixed",
+      "teachesQuest": "pond",
+      "claims": [
+        { "id": "pond-signal", "text": "To call the ship, hold the Black cloth at Black pond while the Lamp burns on the ground there.", "about": "pond" },
+        { "id": "station-signal", "text": "Bring the Lantern wick from Black pond to Empty station, repair the Station lantern, and light it to signal the same ship.", "about": "station" }
+      ]
     }
   },
   "initialState": {
@@ -191,6 +214,17 @@
       }
     },
     "items": {
+      "station-lantern": {
+        "holder": "station",
+        "repaired": false,
+        "fuel": 0,
+        "lit": false,
+        "history": []
+      },
+      "station-lantern-wick": {
+        "holder": "pond",
+        "history": []
+      },
       "lamp": {
         "holder": "station",
         "fuel": 12,
@@ -208,6 +242,10 @@
       },
       "cloth": {
         "holder": "moth",
+        "history": []
+      },
+      "keeper-log": {
+        "holder": "station",
         "history": []
       }
     },

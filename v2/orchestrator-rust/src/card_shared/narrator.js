@@ -1265,6 +1265,18 @@
       }
     },
     things: {
+      "station-lantern": {
+        name: "Station lantern",
+        startLevel: 1,
+        art: "assets/shared/items/lamp.png",
+        text: "A fixed signal lantern. Its damaged wick socket faces the water."
+      },
+      "station-lantern-wick": {
+        name: "Lantern wick",
+        startLevel: 1,
+        art: "assets/willows/rope.png",
+        text: "A short coil of dry braided wick, the right size for a signal lantern."
+      },
       lamp: {
         name: "Lamp",
         startLevel: 19,
@@ -1290,6 +1302,17 @@
         name: "Black cloth",
         startLevel: 11,
         text: "A square of heavy black cloth."
+      },
+      "keeper-log": {
+        name: "The keeper\u2019s log",
+        art: "assets/willows/notebook-book.png",
+        author: "keeper",
+        lifecycle: "fixed",
+        teachesQuest: "pond",
+        claims: [
+          { id: "pond-signal", text: "To call the ship, hold the Black cloth at Black pond while the Lamp burns on the ground there.", about: "pond" },
+          { id: "station-signal", text: "Bring the Lantern wick from Black pond to Empty station, repair the Station lantern, and light it to signal the same ship.", about: "station" }
+        ]
       }
     },
     initialState: {
@@ -1337,6 +1360,17 @@
         }
       },
       items: {
+        "station-lantern": {
+          holder: "station",
+          repaired: false,
+          fuel: 0,
+          lit: false,
+          history: []
+        },
+        "station-lantern-wick": {
+          holder: "pond",
+          history: []
+        },
         lamp: {
           holder: "station",
           fuel: 12,
@@ -1354,6 +1388,10 @@
         },
         cloth: {
           holder: "moth",
+          history: []
+        },
+        "keeper-log": {
+          holder: "station",
           history: []
         }
       },
@@ -2818,8 +2856,8 @@
     for (const c of crossings) {
       const state = s.crossings[c.id];
       if (!c.signal) {
-        if (!exactKeys(state, ["discovered"])) return false;
-        if (typeof state.discovered !== "boolean") return false;
+        const method = state?.method;
+        if (!exactKeys(state, method === void 0 ? ["discovered"] : ["discovered", "method"]) || typeof state.discovered !== "boolean" || method !== void 0 && (!state.discovered || !c.alternateUnlock || ![c.alternateUnlock.primary, c.alternateUnlock.method].includes(method))) return false;
         continue;
       }
       if (!exactKeys(state, ["discovered", "phase", "until"]) || typeof state.discovered !== "boolean" || !whole3(
@@ -3436,10 +3474,13 @@
         "listener"
       ],
       items: [
+        "station-lantern",
+        "station-lantern-wick",
         "lamp",
         "oil",
         "bell",
-        "cloth"
+        "cloth",
+        "keeper-log"
       ],
       observations: [
         {
@@ -10299,7 +10340,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "The Charybdis sails from Black Pond to the Wine-Dark Harbor and back with no cargo. It goes on to Piraeus Quays only with the Travel Provisions on deck, and to the Signal Jetty, from Black Pond or Piraeus, only with a Hoppy Cat thing aboard. Every way back toward Black Pond is free. A fueled lamp placed at Black Pond and the Black cloth held there call it to the pond."
+          description: "The Charybdis sails between Black Pond and the Wine-Dark Harbor with no cargo. It needs Travel Provisions aboard for Piraeus and a Hoppy Cat thing for the Signal Jetty. Every way back toward Black Pond is free. To call it, lay the burning Lamp at Black Pond while holding the Black cloth, or light the repaired Station lantern."
         },
         crossings: [
           {
@@ -10337,7 +10378,24 @@
                 kind: "actor_at",
                 place: "pond"
               }
-            ]
+            ],
+            alternateUnlock: {
+              primary: "pond-lamp",
+              method: "station-lantern",
+              requires: [
+                {
+                  kind: "actor_at",
+                  place: "station"
+                },
+                {
+                  kind: "light",
+                  item: "station-lantern",
+                  at: [
+                    "station"
+                  ]
+                }
+              ]
+            }
           },
           {
             id: "greek-harbor-pond",
@@ -16091,7 +16149,7 @@
   // v2/card-game/book-schema.mjs
   var BOOK_KEYS = ["author", "claims", "lifecycle", "pages", "teachesQuest"];
   var BOOK_CLAIMS = 3;
-  var LIFECYCLES = ["kept", "spent"];
+  var LIFECYCLES = ["kept", "spent", "fixed"];
   var record2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   var owns2 = (o, key2) => record2(o) && typeof key2 === "string" && Object.hasOwn(o, key2);
   var idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
@@ -16118,6 +16176,8 @@
       }
       if (item.lifecycle !== void 0 && !LIFECYCLES.includes(item.lifecycle))
         fail(`lifecycle must be ${LIFECYCLES.join(" or ")}`);
+      if (item.lifecycle === "fixed" && !owns2(pack.places, item.holder))
+        fail("a fixed book must start in a place of this pack");
       const pages = item.pages ?? [];
       if (!Array.isArray(pages) || pages.length > BOOK_CLAIMS || !pages.every((path) => mediaPathOk(pack.id, path)))
         fail(`pages must list up to ${BOOK_CLAIMS} pictures of this pack`);
@@ -17591,6 +17651,7 @@
           "travel",
           "signal",
           "unlockWhen",
+          "alternateUnlock",
           "requires",
           "scenery",
           "opened",
@@ -17652,6 +17713,15 @@
         );
         for (const r of c.unlockWhen || [])
           condition(r, `${name} unlock condition`);
+      }
+      if (c.alternateUnlock !== void 0) {
+        const alternate = c.alternateUnlock;
+        check(
+          Boolean(c.unlockWhen?.length) && keysOk(alternate, ["primary", "method", "requires"]) && idOk3(alternate?.primary) && idOk3(alternate.method) && alternate.primary !== alternate.method && Array.isArray(alternate.requires) && alternate.requires.length > 0 && alternate.requires.length <= 6,
+          `${name} alternate unlock needs distinct method names and conditions alongside unlockWhen`
+        );
+        for (const r of Array.isArray(alternate?.requires) ? alternate.requires : [])
+          condition(r, `${name} alternate unlock condition`);
       }
       const s = c?.signal;
       if (s === void 0) continue;
@@ -18272,6 +18342,16 @@
   var NAMED2 = /^(?:The|An?) |^\p{L}+['’]s? /u;
   var theName2 = (id) => NAMED2.test(nameOf2(id)) ? nameOf2(id) : `the ${nameOf2(id)}`;
 
+  // v2/card-game/station-lantern.mjs
+  var STATION_LANTERN = "station-lantern";
+  var WICK = "station-lantern-wick";
+  var STATION = "station";
+  function validStationLantern(world) {
+    const lantern = world.items[STATION_LANTERN];
+    const stationSignal = world.crossings?.["pond-greek-harbor"]?.method === STATION_LANTERN;
+    return lantern?.holder === STATION && !gone(world, STATION_LANTERN) && typeof lantern.lit === "boolean" && typeof lantern.repaired === "boolean" && lantern.fuel === Number(lantern.repaired) && (!lantern.lit || lantern.repaired) && (!lantern.repaired || gone(world, WICK)) && (!stationSignal || lantern.lit);
+  }
+
   // v2/card-game/world/want-words.mjs
   var UNKNOWN = {
     item: "something you haven't found",
@@ -18762,6 +18842,18 @@
       name: "The Listener",
       seed: "The Listener, behind the grille of a box on wheels."
     },
+    "station-lantern": {
+      kind: "item",
+      name: "Station lantern",
+      persona: "A fixed signal lantern at the empty station. Its glass faces the Black pond. Describe its damaged wick socket until repaired, and its steady beam only after lighting.",
+      idiolect: "I'm the station's signal lantern. My window faces the water."
+    },
+    "station-lantern-wick": {
+      kind: "item",
+      name: "Lantern wick",
+      persona: "A short coil of dry braided wick. Describe its fibres, location and witnessed handling.",
+      idiolect: "I'm a short braid of dry wick. I fit in a signal lantern."
+    },
     lamp: {
       kind: "item",
       name: "Lamp",
@@ -18785,6 +18877,10 @@
       name: "Black cloth",
       persona: "A dark cloth with dense fibres and frayed edges. Folds hold the shape of things it has covered. Describe texture, wear, covering and its journeys between hands.",
       idiolect: "I'm a black cloth, dense, frayed at the edges. Whatever I cover goes dark and quiet under me."
+    },
+    "keeper-log": {
+      kind: "item",
+      name: "The keeper\u2019s log"
     },
     station: {
       kind: "location",
@@ -19358,9 +19454,16 @@
 
   // v2/card-game/claims.mjs
   var itemOf = (packId, book) => {
-    const pack = packDefinitions.find((p) => p.id === packId);
-    return Object.hasOwn(pack?.items || {}, book) ? pack.items[book] : {};
+    const items2 = packId === "hub" ? forest_default.things : packDefinition(packId)?.items;
+    return Object.hasOwn(items2 || {}, book) ? items2[book] : {};
   };
+  var bookPack = (book) => packThings[book]?.packId ?? "hub";
+  function validBookHolder(book, holder) {
+    const pack = bookPack(book);
+    const item = itemOf(pack, book);
+    if (item.lifecycle !== "fixed") return true;
+    return holder === (pack === "hub" ? forest_default.initialState.items[book]?.holder : item.holder);
+  }
   var bookClaims = (packId, book) => {
     const item = itemOf(packId, book);
     return (item.claims || []).map((claim) => ({
@@ -19391,7 +19494,7 @@
     return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
   };
   function bookQuestId(book) {
-    const item = packThings[book];
+    const item = itemOf(bookPack(book), book);
     return item?.teachesQuest ? questFactId(item.author, { target: item.teachesQuest }) : null;
   }
   var claimTruth = (packId, about) => {
@@ -19422,6 +19525,18 @@
     return onBranch(here2) || Object.keys(s.actors).some(
       (id) => s.actors[id].place === here2 && onBranch(id) && entityActive(s, id)
     ) || !!commit && Object.keys(known).some(sawCommit);
+  }
+
+  // v2/card-game/pond-lamp-loan.mjs
+  function validPondLampLoan(world) {
+    const loan = world.pondLampLoan;
+    if (loan === void 0) return true;
+    const validTurn = (turn, first = 0) => Number.isSafeInteger(turn) && turn >= first && turn <= world.turn;
+    return Boolean(
+      loan && humanAvatar(loan.borrower) && validTurn(loan.borrowedTurn) && (!Object.hasOwn(loan, "returnedTurn") || validTurn(loan.returnedTurn, loan.borrowedTurn)) && Object.keys(loan).every(
+        (key2) => ["borrower", "borrowedTurn", "returnedTurn"].includes(key2)
+      )
+    );
   }
 
   // v2/card-game/world/senses.mjs
@@ -20411,6 +20526,7 @@
     if (!s || s.schema !== SAVE_SCHEMA || !Number.isSafeInteger(s.turn) || s.turn < 0 || !Number.isSafeInteger(s.revision) || s.revision < s.turn || s.began !== void 0 && (!Number.isSafeInteger(s.began) || s.began < 0 || s.began > s.turn))
       fail("turn");
     if (!validStationExitOrder(s, stationTargets)) fail("station-exits");
+    if (!validPondLampLoan(s)) fail("pond-lamp-loan");
     if (!validKnowledge(
       s,
       actorIds,
@@ -20525,7 +20641,7 @@
         fail(`actor:${id}:visited`);
     }
     for (const [id, item] of Object.entries(s.items)) {
-      if (!holderIds.has(item.holder) && !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell")))
+      if (!validBookHolder(id, item.holder) || !holderIds.has(item.holder) && !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell")))
         fail(`item:${id}:holder`);
       if (entityActive(s, id) && (!entityActive(s, item.holder) || !entityActive(s, itemPlace(s, id))))
         fail(`item:${id}:active`);
@@ -20538,6 +20654,7 @@
       if (count > (allowance || 3) || allowance && allowance !== count) fail(`actor:${actor}:carried`);
     }
     if (!validRadioItem(s)) fail("radio");
+    if (!validStationLantern(s)) fail("station-lantern");
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
     if (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4 || !Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > LAMP_FUEL || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
       fail("lamp");

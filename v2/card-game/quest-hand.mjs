@@ -7,8 +7,8 @@ import { ownerCard, offerWords, questTier } from "./quest-card.mjs";
 import { questFor, toldWant } from "./talk-quest.mjs";
 import { revealed } from "./want-talk.mjs";
 import { entityActive } from "./pack-registry.mjs";
-import { people, places } from "./world.mjs";
-import { knowsFact, placeFactId } from "./knowledge.mjs";
+import { itemPlace, people, places } from "./world.mjs";
+import { knowsFact, placeFactId, questFactId } from "./knowledge.mjs";
 import { callTeller, ownerWant } from "./quest-call.mjs";
 
 export function tableQuest(world, viewer, owner) {
@@ -28,14 +28,29 @@ export function tableQuest(world, viewer, owner) {
   return { id: `offer:${owner}`, owner, quest };
 }
 
+function callSource(world, viewer, owner) {
+  const teller = callTeller(world, viewer, owner);
+  if (teller) return { beside: teller, heardFrom: teller };
+
+  const want = ownerWant(world, owner), here = world.actors[viewer]?.place;
+  if (want?.step?.verb !== "call" || !here || world.actors[owner]?.place === here) return null;
+  const memory = world.knowledge?.known?.[viewer]?.[questFactId(owner, want)];
+  if (memory?.kind !== "read" ||
+    (here !== want.target && itemPlace(world, memory.book) !== here)) return null;
+  return { beside: here, readFrom: memory.book };
+}
+
 export function tableQuests(world, viewer, ids) {
   const local = ids.map((owner) => tableQuest(world, viewer, owner)).filter(Boolean);
-  const heard = Object.keys(world.actors).filter((owner) =>
-    !ids.includes(owner) && ids.includes(callTeller(world, viewer, owner)));
-  return [...local, ...heard.map((owner) => {
-    const table = tableQuest(world, viewer, owner), teller = callTeller(world, viewer, owner);
-    return table?.quest ? { ...table, beside: teller, quest: { ...table.quest, heardFrom: teller } } : null;
-  }).filter(Boolean)];
+  const remote = Object.keys(world.actors).flatMap((owner) => {
+    if (ids.includes(owner)) return [];
+    const source = callSource(world, viewer, owner);
+    if (!source || !ids.includes(source.beside)) return [];
+    const { beside, ...provenance } = source;
+    const table = tableQuest(world, viewer, owner);
+    return table?.quest ? [{ ...table, beside, quest: { ...table.quest, ...provenance } }] : [];
+  });
+  return [...local, ...remote];
 }
 
 export function notBehindOwners(quests, tableHand) {
@@ -46,7 +61,7 @@ export function notBehindOwners(quests, tableHand) {
 
 export const tableOwner = (id, world = null, viewer = null) => {
   const owner = id.slice("offer:".length);
-  return (world && callTeller(world, viewer, owner)) || owner;
+  return (world && callSource(world, viewer, owner)?.beside) || owner;
 };
 
 export function besideOwners(cards, entries, world) {

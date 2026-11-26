@@ -4,7 +4,6 @@ import {
   conditionsMet,
   entityActive,
   packDefinition,
-  packDefinitions,
   packEntity,
   packThings,
 } from "./pack-registry.mjs";
@@ -19,11 +18,20 @@ import { questText } from "./quest-learn.mjs";
 import { questFor } from "./talk-quest.mjs";
 import { revealed } from "./want-talk.mjs";
 import { giveUpForGood } from "./world/for-good.mjs";
+import forest from "./forest.json" with { type: "json" };
 
 const itemOf = (packId, book) => {
-  const pack = packDefinitions.find((p) => p.id === packId);
-  return Object.hasOwn(pack?.items || {}, book) ? pack.items[book] : {};
+  const items = packId === "hub" ? forest.things : packDefinition(packId)?.items;
+  return Object.hasOwn(items || {}, book) ? items[book] : {};
 };
+const bookPack = (book) => packThings[book]?.packId ?? "hub";
+export const fixedBook = (book) => itemOf(bookPack(book), book).lifecycle === "fixed";
+export function validBookHolder(book, holder) {
+  const pack = bookPack(book);
+  const item = itemOf(pack, book);
+  if (item.lifecycle !== "fixed") return true;
+  return holder === (pack === "hub" ? forest.initialState.items[book]?.holder : item.holder);
+}
 export const bookClaims = (packId, book) => {
   const item = itemOf(packId, book);
   return (item.claims || []).map((claim) => ({
@@ -51,7 +59,8 @@ const record = (packId, book, claim, text) => ({
   about: null,
 });
 const recordClaims = (s, packId, book) => {
-  const pack = packDefinitions.find((p) => p.id === packId);
+  const pack = packDefinition(packId);
+  if (!pack) return [];
   return recorded(s, packId, book)
     .map((choice) => {
       const said = committedChoiceText(s, pack, pack.choices.find((c) => c.id === choice));
@@ -71,12 +80,18 @@ export const savedClaim = (s, id, fact) => {
   return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
 };
 export const claimsIn = (book, s) => {
-  const packId = packThings[book]?.packId;
+  const packId = bookPack(book);
   return [...bookClaims(packId, book), ...recordClaims(s, packId, book)];
 };
 
+export function readableBook(world, book, reader) {
+  const holder = world.items[book]?.holder;
+  const reachable = fixedBook(book) ? world.actors[reader]?.place : reader;
+  return holder === reachable && claimsIn(book, world).length > 0;
+}
+
 export function bookQuestId(book) {
-  const item = packThings[book];
+  const item = itemOf(bookPack(book), book);
   return item?.teachesQuest
     ? questFactId(item.author, { target: item.teachesQuest })
     : null;
@@ -85,7 +100,7 @@ export function bookQuestId(book) {
 function bookQuest(world, book, reader) {
   const id = bookQuestId(book);
   if (!id || knowsFact(world, reader, id)) return null;
-  const owner = packThings[book].author;
+  const owner = itemOf(bookPack(book), book).author;
   const want = world.actors[owner]?.want;
   return owner !== reader &&
     want &&
@@ -116,7 +131,7 @@ export function readBook(s, a, witnesses, addLog) {
       { id: quest.id, text: questText(s, quest.owner, quest.want) },
       { seq: entry.seq, turn: entry.turn, book: a.item },
     );
-  if (itemOf(packThings[a.item].packId, a.item).lifecycle === "spent")
+  if (itemOf(bookPack(a.item), a.item).lifecycle === "spent")
     giveUpForGood(s, a.item);
 }
 

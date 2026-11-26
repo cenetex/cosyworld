@@ -56,10 +56,13 @@
       "listener"
     ],
     "items": [
+      "station-lantern",
+      "station-lantern-wick",
       "lamp",
       "oil",
       "bell",
-      "cloth"
+      "cloth",
+      "keeper-log"
     ],
     "observations": [
       {

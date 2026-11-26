@@ -4,6 +4,7 @@ import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
 import { firstFoolBeat, firstFoolNote } from "./first-fool-view.mjs";
+import { STATION_LANTERN, pondSignalBeat, pondSignalNote, stationLanternState } from "./pond-signal-view.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
 import { createElysiumPortrait } from "./elysium-portrait.mjs";
 import { heldItem } from "./held-item.mjs";
@@ -1701,9 +1702,7 @@ function wayStack(id) {
 const isStackedLock = (id) => roomLocks.length > 1 && roomLocks.includes(id);
 const roomStack = (id) =>
   lockedStack(roomLocks, id, roomFan === "locks", expandedHolders.has(placeHere())) ?? wayStack(id);
-// The avatar's things lie in a stack beside it, as the ways on lie behind
-// the current place (#2256); an empty stack is left out. Its held quest is a
-// card of its own, shown with the stack and chosen by a tap on it.
+// Held things and quests fan beside their avatar.
 function avatarStack(id) {
   const actor = currentActor(world);
   if (isResidentOffer(id))
@@ -1713,7 +1712,8 @@ function avatarStack(id) {
       open: false,
       top: true,
       under: 0,
-      shown: questOpen === id || expandedHolders.has(tableOwner(id, world, actor)),
+      shown: questOpen === id || Boolean(questEntry(id)?.quest.readFrom) ||
+        expandedHolders.has(tableOwner(id, world, actor)),
     };
   if (isQuestId(id) || isTarotKey(id))
     return {
@@ -3070,7 +3070,9 @@ function renderActions() {
     } else panel.dataset.cardTap = "hint";
   }
   const note = document.querySelector(".action-beat-note");
-  let noteText = !rested && !packAsk && !lockShown && !picked && !pipPrelude() ? firstFoolNote(world, known) : "";
+  let noteText = !rested && !packAsk && !lockShown && !picked && !pipPrelude()
+    ? (only?.label === "Return Lamp" ? "" : pondSignalNote(world, known, selected)) || firstFoolNote(world, known)
+    : "";
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
@@ -3366,6 +3368,7 @@ function card(id) {
     const item = world.items[id];
     // Observable physical states, never fuel arithmetic or puzzle progress.
     if (typeof item.lit === "boolean") el.dataset.lit = String(item.lit);
+    if (!hidden && id === STATION_LANTERN) el.dataset.lantern = stationLanternState(item);
     if (typeof item.ringing === "number")
       el.dataset.ringing = String(item.ringing > 0);
     const covering = Object.keys(world.items).find(
@@ -3861,7 +3864,7 @@ function renderFloorItems(items) {
   );
   floor.dataset.count = String(items.length);
   floor.replaceChildren(
-    ...items.map(({ id, cover, lit, ringing, spots }) => {
+    ...items.map(({ id, cover, lit, ringing, spots, lantern }) => {
       let prop = existing.get(id);
       if (!prop) {
         prop = node("span", undefined, "floor-item");
@@ -3890,6 +3893,7 @@ function renderFloorItems(items) {
         prop.style.setProperty(`--${layout}-lift`, String(spot.lift));
       }
       prop.dataset.lit = lit === undefined ? "" : String(lit);
+      if (lantern) prop.dataset.lantern = lantern;
       prop.dataset.covered = String(Boolean(cover));
       prop.dataset.ringing = String(Boolean(ringing));
       return prop;
@@ -3980,7 +3984,10 @@ function renderScene() {
       ...worldLocations.places,
     },
   });
-  renderFloorItems(revealedStage(staging, cardIsCovered).floorItems);
+  const floorItems = revealedStage(staging, cardIsCovered).floorItems;
+  renderFloorItems(floorItems);
+  const stationLantern = floorItems.some((item) => item.lantern === "burning");
+  if (stationLantern) img.alt += " The repaired station lantern burns beside the platform.";
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
   $("cast").dataset.shared = String(Boolean(sharedSession));
@@ -4135,6 +4142,7 @@ function renderScene() {
     }),
     tint: scene.daylight ? null : UNPAINTED_NIGHT_TINT,
     lamp: lampLitHere(view, scene.locationId),
+    stationLantern,
     pools: (authored.lights || []).filter((pool) => pool.item !== "lamp").map((pool) => ({
       ...pool,
       on: !pool.item || lampLitHere(view, scene.locationId),
@@ -4233,7 +4241,8 @@ function renderScene() {
   if (frontIndex < 0) frontIndex = dreamt.front >= 0 ? dreamt.front : liveIndex;
   let front =
     frontIndex === beats.length ? pendingCard : beats[frontIndex] || null;
-  if (!reviewing && !pipPrelude()) front = firstFoolBeat(world, front, known, beats);
+  if (!reviewing && !pipPrelude())
+    front = pondSignalBeat(world, firstFoolBeat(world, front, known, beats), known);
   const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
   const behindLive = reviewing && (frontIndex < liveIndex || choiceInStack());
   stackView = { beats, frontIndex, liveIndex, pending: pendingCard };

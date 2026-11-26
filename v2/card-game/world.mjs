@@ -1,4 +1,5 @@
 import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
+import { STATION_LANTERN, stationLanternAction, useStationLantern, validStationLantern } from "./station-lantern.mjs";
 import { wantWords } from "./world/want-words.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { validLampRoomFuel } from "./lamp-room-fuel.mjs";
@@ -80,7 +81,7 @@ import {
   witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
-import { bookQuestId, claimsIn, readBook, residentRead, savedClaim, settleClaims } from "./claims.mjs";
+import { bookQuestId, fixedBook, readableBook, readBook, residentRead, savedClaim, settleClaims, validBookHolder } from "./claims.mjs";
 import {
   knownActors as readKnownActors,
   installWants,
@@ -191,6 +192,7 @@ import {
   runHash,
 } from "./pack-rules.mjs";
 import { settleCrossingUnlocks, completionWords } from "./quest-call.mjs";
+import { canBorrowPondLamp, owedPondLamp, pipWaitsForLamp, returnsPondLamp, validPondLampLoan } from "./pond-lamp-loan.mjs";
 import {
   installTransports,
   moveTransport,
@@ -947,6 +949,7 @@ function remember(s, item, text) {
 }
 function transfer(s, item, holder, text) {
   s.items[item].holder = holder;
+  if (item === "lamp" && holder === "moth" && owedPondLamp(s)) s.pondLampLoan.returnedTurn = s.turn;
   remember(s, item, text);
 }
 // A fuel item fills its empty target when one avatar holds both, then returns
@@ -1477,6 +1480,7 @@ export function legalActions(s, actor = currentActor(s)) {
     )
       continue;
     if (
+      id !== STATION_LANTERN && !fixedBook(id) &&
       canReach(s, actor, id) &&
       item.holder !== actor &&
       hasSpace(s, actor, id)
@@ -1502,7 +1506,7 @@ export function legalActions(s, actor = currentActor(s)) {
         label: `Turn ${on ? "on" : "off"}`,
       });
     }
-    if (item.holder === actor && claimsIn(id, s).length)
+    if (readableBook(s, id, actor))
       out.push({ ...offer("read", actor, id, null, `${nameOf(actor)} reads ${theName(id)}.`, [id]), label: "Read" });
     if (item.holder === actor) {
       // Food and drink are eaten or drunk by whoever holds them, alone or
@@ -1547,34 +1551,31 @@ export function legalActions(s, actor = currentActor(s)) {
       for (const other of knownActors(s).filter(
         (p) => p !== actor && s.actors[p].place === here && hasSpace(s, p, id),
       )) {
-        out.push(
-          offer(
-            "give",
-            actor,
-            id,
-            other,
-            `${nameOf(actor)} gives ${theName(id)} to ${nameOf(other)}.`,
-            [id, other],
-          ),
-        );
+        const returning = returnsPondLamp(s, { actor, item: id, target: other });
+        const words = returning ? "returns" : "gives";
+        const gift = offer("give", actor, id, other,
+          `${nameOf(actor)} ${words} ${theName(id)} to ${nameOf(other)}.`, [id, other]);
+        if (returning) gift.label = "Return Lamp";
+        out.push(gift);
       }
     } else if (
       actorIds.includes(item.holder) &&
       item.holder !== actor &&
       hasSpace(s, actor, id)
     ) {
-      out.push(
-        offer(
-          "ask",
-          actor,
-          id,
-          item.holder,
-          `${nameOf(actor)} asks ${nameOf(item.holder)} for ${theName(id)}.`,
-          [id, item.holder],
-        ),
-      );
+      const owner = item.holder;
+      const borrowing = canBorrowPondLamp(s, actor, id, owner);
+      const text = borrowing ? `${nameOf(actor)} asks to borrow the Lamp from Pip.`
+        : `${nameOf(actor)} asks ${nameOf(owner)} for ${theName(id)}.`;
+      const ask = offer("ask", actor, id, owner, text, [id, owner]);
+      if (borrowing) ask.label = "Borrow Lamp";
+      out.push(ask);
     }
     if (!canUse(s, actor, id)) continue;
+    if (id === STATION_LANTERN) {
+      const lantern = stationLanternAction(s, actor, offer);
+      if (lantern) out.push(lantern);
+    }
     const belonging = humanAvatarIds
       .map(humanAvatar)
       .find((a) => a.id !== "vale" && a.item.id === id);
@@ -2361,8 +2362,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
   const learningStart = beginLearning(s, a);
   const holder = holderBefore(s, a);
   const pressure = pressureBeforeGive(s, a);
+  const returningLamp = a.kind === "give" && returnsPondLamp(s, a);
   const usefulGift =
-    a.kind === "give" &&
+    a.kind === "give" && !returningLamp &&
     (valueOf(s, a.target, a.item) >= 5 || needed(s, a.target, a.item));
   let text = a.text;
   let requestAccepted = false;
@@ -2378,7 +2380,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       s.items[RADIO_ITEM].radioOn = a.radioOn;
       break;
     case "use":
-      remember(s, a.item, a.text);
+      remember(s, useStationLantern(s, a) ? STATION_LANTERN : a.item, a.text);
       break;
     case "course":
       setCourse(s, here, a.target);
@@ -2541,7 +2543,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
         text += ` ${nameOf(a.target)} declines.`;
         break;
       }
-      if (a.kind === "give" && !pressure)
+      if (a.kind === "give" && !pressure && !returningLamp)
         trustGiver(s, a.target, a.item, a.actor);
       transfer(s, a.item, a.target, a.text);
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
@@ -2581,11 +2583,13 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       break;
     }
     case "ask": {
-      const willing = willingToGive(s, a.target, a.item, a.actor);
+      const borrowing = canBorrowPondLamp(s, a.actor, a.item, a.target);
+      const willing = borrowing || willingToGive(s, a.target, a.item, a.actor);
       requestAccepted = willing;
       if (willing) {
-        trustGiver(s, a.actor, a.item, a.target);
-        text = `${nameOf(a.target)} hands ${theName(a.item)} to ${who}.`;
+        if (borrowing) s.pondLampLoan = { borrower: a.actor, borrowedTurn: s.turn };
+        else trustGiver(s, a.actor, a.item, a.target);
+        text = borrowing ? `Pip lends the Lamp to ${who}.` : `${nameOf(a.target)} hands ${theName(a.item)} to ${who}.`;
         transfer(s, a.item, a.actor, text);
       } else {
         text += ` ${nameOf(a.target)} keeps it for now.`;
@@ -2600,7 +2604,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
   }
   settleHeldItems(s, hands);
   settleLamp(s);
-  const narrateCall = settleCrossingUnlocks(s, sensesFor(s), { defer: true });
+  const narrateCall = settleCrossingUnlocks(s, sensesFor(s), { defer: true, initiator: a.actor });
   const recitals =
     here !== s.actors[a.actor].place
       ? arriveRecitals(s, packDefinitions, a.actor)
@@ -2993,6 +2997,7 @@ function awayPlan(s, actor) {
 }
 function plannedActions(s, actor) {
   return legalActions(s, actor).filter((a) => controlledByHuman(s, actor) || awayAvatar(s, actor) ||
+    !(actor === "moth" && a.kind === "take" && a.item === "lamp" && pipWaitsForLamp(s)) &&
     !(["take", "steal", "ask", "threaten"].includes(a.kind) && reservedItem(s, a.item)) &&
     !(a.kind === "trade" && reservedItem(s, a.receive)));
 }
@@ -3558,6 +3563,7 @@ export function validateWorld(s) {
   )
     fail("turn");
   if (!validStationExitOrder(s, stationTargets)) fail("station-exits");
+  if (!validPondLampLoan(s)) fail("pond-lamp-loan");
   if (
     !validKnowledge(
       s,
@@ -3830,8 +3836,9 @@ export function validateWorld(s) {
 
   for (const [id, item] of Object.entries(s.items)) {
     if (
-      !holderIds.has(item.holder) &&
-      !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell"))
+      !validBookHolder(id, item.holder) ||
+      (!holderIds.has(item.holder) &&
+        !(id === "cloth" && (item.holder === "lamp" || item.holder === "bell")))
     )
       fail(`item:${id}:holder`);
     if (
@@ -3852,6 +3859,7 @@ export function validateWorld(s) {
     if (count > (allowance || 3) || (allowance && allowance !== count)) fail(`actor:${actor}:carried`);
   }
   if (!validRadioItem(s)) fail("radio");
+  if (!validStationLantern(s)) fail("station-lantern");
   const lamp = s.items.lamp,
     oil = s.items.oil,
     bell = s.items.bell;

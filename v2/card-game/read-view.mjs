@@ -1,7 +1,6 @@
 import { bookQuestId, claimsIn } from "./claims.mjs";
 import { imageUrl } from "./images.mjs";
-import { packThings } from "./pack-registry.mjs";
-import { nameOf } from "./world/catalog.mjs";
+import { nameOf, things } from "./world/catalog.mjs";
 
 export function readPage(world, actor, seen) {
   const entry = world.log.findLast(
@@ -22,7 +21,7 @@ export function readPage(world, actor, seen) {
     title: nameOf(entry.itemId),
     author: nameOf(authored[0].author),
     claims,
-    pages: packThings[entry.itemId].pages ?? [],
+    pages: things[entry.itemId].pages ?? [],
   };
 }
 
