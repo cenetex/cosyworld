@@ -28,6 +28,7 @@ function fixture(kind) {
   world.actors.keeper.place = "pond";
   world.opening.met.keeper = world.turn;
   if (kind === "take") {
+    world.actors.keeper.homeward = true;
     world.items.lamp.holder = "pond";
     holdChoice(world, "vale", { item: null, revision: world.revision });
     assert.equal(world.items.lamp.lit, true, "The grounded fueled lamp is lit");

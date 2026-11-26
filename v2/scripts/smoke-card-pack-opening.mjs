@@ -698,6 +698,17 @@ const tarotFaces = (page) =>
   await selectCard(page, "bell");
   await selectCard(page, "listener");
   await readyActionButton(page, "give").click();
+  await settleHand(page);
+  const offer = page.getByRole("button", {
+    name: "Accept spread from the Listener",
+  });
+  await offer.waitFor();
+  assert.deepEqual(
+    await tarotFaces(page),
+    [],
+    `${label}: payment leaves the spread with the Listener`,
+  );
+  await tapCard(offer);
   await page.waitForFunction(
     () => document.querySelectorAll('#hand .want-card[data-quest-key^="tarot:vale:"]').length === 3,
   );

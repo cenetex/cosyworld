@@ -111,9 +111,9 @@ function createResource(endpoint, read, changed, revoke, forget = () => {}) {
       return value;
     },
     clear,
-    observe(earned, nearby, revision) {
+    observe(earned, available, revision) {
       if (!earned) clear();
-      else if (!nearby) {
+      else if (!available) {
         stop();
         checkedRevision = null;
       } else if (!value && !request && checkedRevision !== revision) {
@@ -216,7 +216,8 @@ export function createElysiumPortrait(worldId, redraw) {
     reader: (read) => (value) => text(read(value)),
     observe(world, actor, line) {
       const active = authorized && !suspended;
-      const here = world.actors[actor]?.place;
+      const viewer = world.actors[actor];
+      const here = viewer?.place;
       for (const [id, view] of cast) {
         const nearby = Boolean(here && world.actors[id]?.place === here);
         const { scatteredAt, talkedAt = scatteredAt, returnedAt } =
@@ -225,13 +226,14 @@ export function createElysiumPortrait(worldId, redraw) {
         if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
         const replied =
           line?.actorId === id && line.generated && !line.silent && line.seq > talkedAt;
-        if (!nearby || replied) view.waiting = false;
+        if (!talkedAt || replied) view.waiting = false;
         view.seenTalk = Boolean(talkedAt);
         const ready =
           id === resident ? world.opened?.[spiral]?.length : returnedAt;
         view.name?.observe(
           active && talkedAt && !view.waiting,
-          nearby,
+          nearby || viewer?.talked?.includes(id) ||
+            viewer?.visited?.includes(packPeople[id].place),
           world.revision,
         );
         view.portrait?.observe(active && ready, nearby, world.revision);

@@ -35,10 +35,15 @@ try {
   arrivePage();
   const local = await setupLocalService();
   // Capture identity before either surface starts work, including the maker.
-  // Static/local tables do not have an account service.
-  const account = !local && await request("/auth/account").catch(() => null);
+  // A missing account route is permanent for this page. Other errors can retry.
+  const account =
+    !local &&
+    (await request("/auth/account").catch((error) =>
+      error.status === 404 ? null : undefined,
+    ));
   // A members-only test server shows its sign-in lock instead of the table.
-  const locked = !authoring && !local && (await membersLock(account));
+  const locked =
+    !authoring && !local && account !== null && (await membersLock(account));
   const params = new URLSearchParams(location.search);
   // The old "Your worlds" address (`?shared=1`) is ☰ now (#1877).
   if (!authoring && (params.has("shared") || (local && params.has("world")))) {
