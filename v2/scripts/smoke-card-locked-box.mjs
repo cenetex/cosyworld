@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { encodeSave } from "../card-game/world.mjs";
+import { createWorld, encodeSave } from "../card-game/world.mjs";
 import { greekErrands } from "../../test/helpers/greek-opening.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import {
@@ -18,6 +18,7 @@ import {
   revealCard,
   selectCard,
   smokeWidths,
+  tapCard,
 } from "./card-browser-helpers.mjs";
 
 const FIELD = "greek-battlefield";
@@ -34,6 +35,10 @@ world.crossings["pond-greek-harbor"].discovered = true;
 for (const id of ["lamp", "cloth"]) world.items[id].holder = "pond";
 world.items["greek-creon-writ"].holder = "vale";
 const save = encodeSave(world);
+const pond = createWorld({ seed: 17 });
+pond.actors.vale.place = "pond";
+pond.actors.vale.visited.push("pond");
+const pondSave = encodeSave(pond);
 const server = createServer();
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 let browser;
@@ -43,6 +48,7 @@ try {
     for (const reduced of [false, true]) {
       const page = await browser.newPage({
         viewport: { width, height: width === 390 ? 844 : 900 },
+        hasTouch: width === 390,
         reducedMotion: reduced ? "reduce" : "no-preference",
       });
       // COSYWORLD_CPU_THROTTLE=4 slows the page, as a loaded runner does.
@@ -272,6 +278,53 @@ try {
       await page.reload();
       await ready();
       await open();
+      assert.deepEqual(errors, []);
+      const stackTable = `locked-stack-${width}-${reduced}`;
+      const stackKey = `cosyworld.reflected-shore.v1.${stackTable}`;
+      await page.addInitScript(([key, save]) => {
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, save);
+        localStorage.setItem(`${key}.seen.covered`, JSON.stringify(["attic", "greek-ship"]));
+      }, [stackKey, pondSave]);
+      await page.goto(`${at}/?table=${stackTable}`);
+      await ready();
+      const boxes = '#hand > .card-frame:not([hidden]) > [data-locked="true"]';
+      const visible = page.locator(boxes);
+      const top = visible.first();
+      const tally = (count) =>
+        page.waitForFunction(([selector, count]) => document.querySelectorAll(selector).length === count, [boxes, count]);
+      const press = (card) => tapCard(card, { touch: width === 390 });
+      const stackState = () => page.evaluate((key) => localStorage.getItem(key), stackKey);
+      const snapshot = await stackState();
+      await tally(1);
+      assert.equal(await page.locator("#hand [data-pack]").count(), 0);
+      assert.equal(await top.getAttribute("aria-expanded"), "false");
+      assert.equal(await top.getAttribute("aria-label"), "2 locked boxes. Select to fan out.");
+      assert.match(await top.locator("..").locator(".place-edge").getAttribute("style"), /card-back-locked/u);
+      await shot("locked-stack-folded");
+      await press(top);
+      await tally(2);
+      assert.equal(await top.getAttribute("aria-expanded"), "true");
+      assert.equal(await top.getAttribute("aria-pressed"), "false");
+      await page.waitForFunction((selector) =>
+        [...document.querySelectorAll(selector)].every((card) => {
+          const { left, top, width } = card.getBoundingClientRect();
+          return card.contains(document.elementFromPoint(left + width / 2, top + 24));
+        }), boxes);
+      await shot("locked-stack-fanned");
+      await press(top);
+      assert.equal(await top.getAttribute("aria-pressed"), "true");
+      await press(visible.last());
+      assert.deepEqual(await visible.evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-pressed"))), ["false", "true"]);
+      assert.equal(await lock.isDisabled(), true);
+      assert.notEqual(await lock.getAttribute("title"), "New card unlocked");
+      const vale = page.locator('#hand [data-card="vale"]');
+      await press(vale);
+      await tally(1);
+      assert.equal(await top.getAttribute("aria-expanded"), "false");
+      assert.equal(await top.getAttribute("aria-pressed"), "false");
+      assert.equal(await vale.getAttribute("aria-pressed"), "true");
+      assert.equal(await stackState(), snapshot, "fanning and inspecting are UI-only");
       assert.deepEqual(errors, []);
       await page.close();
       console.log(`Locked box: ${width}px, reduced motion ${reduced}, passed.`);

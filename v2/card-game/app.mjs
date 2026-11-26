@@ -1,5 +1,5 @@
 import { accountStorage as localStorage, accountStorageKey } from "./account-reset-storage.mjs";
-import { tableHolder, tableType } from "./mystery-view.mjs";
+import { lockedStack, syncStackFrame, tableHolder, tableType } from "./mystery-view.mjs";
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
@@ -289,6 +289,7 @@ import {
   asleepReason,
   settledChoice,
   sharedMeal,
+  shutBoxes,
   unmet,
   metSince,
 } from "./cards.mjs";
@@ -556,10 +557,9 @@ let shownQuests = [],
   questSeq = null,
   questOpen = false,
   questFresh = false,
-  // The avatar's fanned stack of things, "items" (#2256).
   avatarFan = null,
-  // The place whose ways on are fanned at the row's right end (#2272).
-  waysOpen = null;
+  roomFan = null,
+  roomLocks = [];
 const visibleQuests = () =>
   notBehindOwners(shownQuests.filter((quest) => questVisible(world, quest)), tableHand);
 const foldQuest = () => visibleQuests()[0] ?? null;
@@ -1668,8 +1668,6 @@ function stackPlaces(cards) {
     ...cards.filter((id) => stackedPlace(id) && id !== back),
   ];
 }
-// The ways on: the first face up, the rest face down behind it until its
-// tap fans them, as the avatar's stacks do; one alone is chosen at once.
 function wayStack(id) {
   if (!stackedPlace(id)) return null;
   const back = cameFrom();
@@ -1677,15 +1675,19 @@ function wayStack(id) {
   const ways = availableCards(world).filter(
       (place) => stackedPlace(place) && place !== back && !packTucked(place),
     ),
-    open = waysOpen === placeHere(),
+    open = roomFan === "ways",
     top = ways[0] === id;
   return {
+    kind: "ways",
     open,
     top,
     under: top && !open ? ways.length - 1 : 0,
     shown: open || top || selected.includes(id),
   };
 }
+const isStackedLock = (id) => roomLocks.length > 1 && roomLocks.includes(id);
+const roomStack = (id) =>
+  lockedStack(roomLocks, id, roomFan === "locks", expandedHolders.has(placeHere())) ?? wayStack(id);
 // The avatar's things lie in a stack beside it, as the ways on lie behind
 // the current place (#2256); an empty stack is left out. Its held quest is a
 // card of its own, shown with the stack and chosen by a tap on it.
@@ -1732,28 +1734,17 @@ function avatarStack(id) {
     shown: expandedHolders.has(actor) ? chosen || open || top : chosen,
   };
 }
-function syncAvatarStack(frame, id) {
-  const part = avatarStack(id) ?? wayStack(id);
+function syncHandStack(frame, id) {
+  const part = roomStack(id) ?? avatarStack(id);
   if (!part) return;
-  frame.hidden = !part.shown;
-  frame
-    .querySelectorAll(":scope > .place-edge")
-    .forEach((edge) => edge.remove());
-  const button = frame.querySelector(".card");
-  if (part.kind !== "quest" && part.top && (part.open || part.under)) {
-    frame.dataset.expanded = String(part.open);
-    button.setAttribute("aria-expanded", String(part.open));
-  } else {
-    delete frame.dataset.expanded;
-    button.removeAttribute("aria-expanded");
-  }
-  stackEdges(frame, part.under);
+  syncStackFrame(frame, part);
+  stackEdges(frame, part.under, part.kind === "locks" ? LOCKED_BACK : CARD_BACK);
 }
-function stackEdges(frame, count) {
+function stackEdges(frame, count, back = CARD_BACK) {
   for (let i = Math.min(count, 3); i > 0; i--) {
     const edge = node("span", undefined, "place-edge");
     edge.style.setProperty("--i", String(i));
-    edge.style.setProperty("--card-back", cardBackImage());
+    edge.style.setProperty("--card-back", cardBackImage(back));
     frame.prepend(edge);
   }
 }
@@ -1837,7 +1828,7 @@ function turnCard(button) {
 // Reveal all), Done (settle back). The page only wires them to the card
 // table; pack-opening.mjs decides everything else.
 function packSync(cards) {
-  return pack.sync(cards, {
+  return pack.sync(cards.filter((id) => !isStackedLock(id)), {
     unturned: cardIsCovered,
     kindOf: packKind,
     holderOf: packHolder,
@@ -1924,7 +1915,7 @@ function openPack() {
   restedChoice = null;
   expandedHolders.clear();
   avatarFan = null;
-  waysOpen = null;
+  roomFan = null;
   questOpen = false;
   rowCollapsed = false;
   render();
@@ -1980,6 +1971,11 @@ function choose(id) {
   if (finishCardReveal(id) || selectionBlocked()) return;
   if (reviewing) returnToLive();
   queueChoice();
+  const room = roomStack(id);
+  if (roomFan && roomFan !== room?.kind) {
+    if (roomFan === "locks") selected = selected.filter((card) => !roomLocks.includes(card));
+    roomFan = null;
+  }
   if (packTap(id)) return;
   if (things[id] && selected.includes(id) &&
     (restedChoice === choiceKey() || (rowCollapsed && cardIsClosed(id)))) {
@@ -1994,20 +1990,18 @@ function choose(id) {
   if (meetingCard(id)) uncover(id);
   const questChosen = questOpen;
   questOpen = false;
-  // Any tap opens a folded row again; the held item is still raised.
   rowCollapsed = false;
-  // Any tap but one on the ways on folds them: one fan at a time.
-  const way = wayStack(id);
-  if (!way) waysOpen = null;
   // While the avatar's stacks show, tapping it folds them back, then lowers
   // it; tapping a stack's top card fans it and chooses that card, so the
   // first tap also shows its full details in the descriptor.
   const actor = currentActor(world),
     part = expandedHolders.has(actor) ? avatarStack(id) : null;
   const withCard = [...selected, id];
-  // Lower the card actually tapped before any stack-folding behavior.
-  // In a pair, tapping the expanded avatar must leave its partner chosen.
-  if (cardIsClosed(id)) {
+  // Lowering a card in a pair leaves its partner chosen.
+  if (room?.kind === "locks" && room.under) {
+    roomFan = "locks";
+    avatarFan = null;
+  } else if (cardIsClosed(id)) {
     // A closed thing replaces its browsing place just like a known thing.
     const holder = tableHolder(world, id);
     const knownCards = selected.filter((card) =>
@@ -2029,10 +2023,10 @@ function choose(id) {
     avatarFan = null;
     if (settled) expandedHolders.delete(actor);
     selectCards(settled ? [] : [actor], { keepOpen: true });
-  } else if (way?.under) {
+  } else if (room?.under) {
     // Fanning the ways on folds the avatar's fan and the place's stack.
     const back = cameFrom();
-    waysOpen = placeHere();
+    roomFan = "ways";
     avatarFan = null;
     selectCards(
       selected.filter((cardId) => cardId !== back && !atHere(cardId)),
@@ -2083,13 +2077,14 @@ function choose(id) {
   }
   selectionRevision = world.revision;
   render();
-  const hand = $("hand");
-  hand.querySelector(`[data-card="${id}"]`)?.focus({ preventScroll: true });
-  const firstItem =
-    id === placeHere()
-      ? hand.querySelector(`.card-frame[data-holder="${id}"]:not([hidden])`)
-      : null;
-  revealHandCard(id, { nextFrame: firstItem });
+  handCard(id)?.focus({ preventScroll: true });
+  const nextFrame =
+    room?.kind === "locks" && room.under
+      ? handCard(roomLocks.at(-1))?.parentElement
+      : id === placeHere()
+        ? $("hand").querySelector(`.card-frame[data-holder="${id}"]:not([hidden])`)
+        : null;
+  revealHandCard(id, { nextFrame });
 }
 function dragPlay(cards) {
   if (cards.some(cardIsClosed)) return null;
@@ -2757,6 +2752,10 @@ function renderActions() {
       ? questOpen
       : null;
   const closed = chosen.some(cardIsClosed) || Boolean(coveredPick);
+  const sealed = !rested && closed;
+  const openingBox = sealed
+    ? selected.find((id) => !isStackedLock(id) && cardIsCovered(id)) ?? coveredPick
+    : null;
   const actions = rested || closed ? [] : ready;
   const clientText = packAsk
       ? packAsk.text
@@ -2795,7 +2794,7 @@ function renderActions() {
       !selected.length && !rested && !coveredPick ? pickedQuest() : null,
     lockShown =
       !rested && closed
-        ? coveredPick || selected.some(cardIsCovered)
+        ? openingBox
           ? { text: PACK_TEXT.one, cards: [] }
           : (selected.length === 1 && lockedQuest(world, selected[0], known)) ||
             { text: LOCKED_BOX, cards: [] }
@@ -2969,8 +2968,6 @@ function renderActions() {
     row.append(look);
   }
   // The context button keeps a closed box's contents concealed.
-  const sealed = !rested && closed;
-  const openingBox = sealed ? (selected.find(cardIsCovered) ?? coveredPick) : null;
   if (sealed) {
     const why = node("button", openingBox ? PACK_REVEAL_ONE : "Locked", "card-action");
     why.type = "button";
@@ -3119,7 +3116,7 @@ function updateCardSelection(frame) {
     const picked = questOpen === frame.dataset.questId;
     frame.dataset.raised = button.dataset.picked = String(picked);
     button.setAttribute("aria-pressed", String(picked));
-    syncAvatarStack(frame, frame.dataset.questId);
+    syncHandStack(frame, frame.dataset.questId);
     applyPackFrame(frame, frame.dataset.questId);
     return;
   }
@@ -3148,7 +3145,7 @@ function updateCardSelection(frame) {
     frame.dataset.expanded = String(expandedHolders.has(id));
     button.setAttribute("aria-expanded", String(expandedHolders.has(id)));
   }
-  syncAvatarStack(frame, id);
+  syncHandStack(frame, id);
   applyPackFrame(frame, id);
   if (cardIsClosed(id)) return;
   button.querySelector(".sr-only").textContent =
@@ -3286,7 +3283,6 @@ function card(id) {
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
     def = crossingFace ? { ...base, name: crossingFace.name } : base,
-    // A card locked behind a quest is a carved wooden box (locked-box.mjs).
     locked = isLockedBox(world, id),
     hidden = cardIsCovered(id) || locked;
   const raised =
@@ -3477,7 +3473,6 @@ function card(id) {
       }
     }
   }
-  syncAvatarStack(frame, id);
   if (!hidden && foldQuest()?.actor === id) frame.prepend(questFold());
   else if (!hidden && !pipPrelude() && tableQuest(world, currentActor(world), id)) frame.prepend(questFold(id));
   el.dataset.locked = String(locked);
@@ -3491,13 +3486,12 @@ function card(id) {
     el.setAttribute("aria-label", locked ? "Locked box" : "Closed box. Select to inspect.");
     el.removeAttribute("aria-describedby");
   }
+  syncHandStack(frame, id);
   applyPackFrame(frame, id);
   return frame;
 }
-// Face-down layers in a stack (the ways on, the folded quest and its steps
-// to come) show the carved card back.
-const cardBackImage = () =>
-  `url("${imageUrl(CARD_BACK, "card")}")`;
+const cardBackImage = (src = CARD_BACK) =>
+  `url("${imageUrl(src, "card")}")`;
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near, and plays nothing.
@@ -3604,7 +3598,7 @@ function questFrame({ id, quest }) {
   frame.dataset.raised = String(picked);
   frame.dataset.holder = isResidentOffer(id) ? tableOwner(id, world, currentActor(world)) : quest.actor;
   frame.append(el);
-  syncAvatarStack(frame, id);
+  syncHandStack(frame, id);
   applyPackFrame(frame, id);
   return frame;
 }
@@ -3617,6 +3611,7 @@ function openQuest(id = entryIdOf(foldQuest()), focus = false) {
   questOpen = id;
   restedChoice = null;
   selected = [];
+  if (roomFan === "locks") roomFan = null;
   expandedHolders.add(currentActor(world));
   rowCollapsed = false;
   render();
@@ -4901,7 +4896,7 @@ function render() {
     for (const id of selected) {
       if (!cardIsClosed(id) && (people[id] || id === placeHere())) expandedHolders.add(id);
     }
-  if (rowCollapsed || waysOpen !== placeHere()) waysOpen = null;
+  if (rowCollapsed || renderedHandPlace !== placeHere()) roomFan = null;
   if (!expandedHolders.has(currentActor(world))) {
     avatarFan = null;
     questOpen = false;
@@ -4942,6 +4937,9 @@ function render() {
     if (id.startsWith(`tarot:${currentActor(world)}:`) && !tarotKeys().includes(id))
       encountered.delete(id);
   const dealt = availableCards(world).filter((id) => !unmet(world, id));
+  const shut = new Set(shutBoxes(world).map((box) => box.id));
+  roomLocks = dealt.filter((id) => shut.has(id));
+  if (roomFan === "locks" && roomLocks.length < 2) roomFan = null;
   if (seenAt?.place === placeHere()) for (const id of metSince(world, seenAt.turn)) encountered.delete(id);
   seenAt = { place: placeHere(), turn: world.turn };
   packSync([...dealt, ...tarotKeys()]);
@@ -4965,6 +4963,7 @@ function render() {
   // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
+    roomLocks,
     [...encountered],
     [...coveredCards],
     legalActions(world).map((action) => action.key),
@@ -4983,7 +4982,7 @@ function render() {
     questOpen,
     questFresh,
     avatarFan,
-    waysOpen,
+    roomFan,
   ]);
   if (handKey !== renderedHand) {
     // The hand a page or a new game opens on is already dealt.
@@ -5257,7 +5256,7 @@ function revealHandCard(id, { instant = false, nextFrame = null } = {}) {
         ? right - hand.clientWidth + margin
         : hand.scrollLeft;
   hand.scrollTo({
-    // Keep the place in view when its first item cannot fully fit beside it.
+    // Keep the first card in view if the rest cannot fully fit beside it.
     left: nextFrame ? Math.min(target, left - margin) : target,
     behavior: instant || reducedMotion.matches ? "instant" : "smooth",
   });
