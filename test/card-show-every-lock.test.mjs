@@ -26,6 +26,10 @@ const source = (pack) =>
 
 // A gated route or conditional resident that is not drawn as a locked box.
 const LEFT_HIDDEN = {
+  elysium: {
+    "elysium-keystone-ledge>elysium-observatory":
+      "the shortcut appears only for parties carrying the Star Chart",
+  },
   // The guard already draws his way (rules 100); not a seal.
   "greek-drama": {
     "greek-gate>greek-battlefield": "guarded way, drawn by its guard",
