@@ -3260,8 +3260,7 @@ export function play(
   // A save from before arrival scatter can already have a player in a Void.
   scatterElysiumToken(next, actor);
   const respondent = perform(next, exact, round, residents);
-  // A human's Talk, Ask, Give, Trade or refused Accompany holds the resident
-  // in the room a moment (rules 133).
+  // An exchange briefly holds the resident in the room.
   if (
     dwellRule.on &&
     controlledByHuman(next, actor) &&

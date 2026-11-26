@@ -60,8 +60,7 @@ pub(crate) fn guild_talked(guild: &str) -> Option<Vec<String>> {
 
 fn talked(path: &Path, guild: &str) -> Option<Vec<String>> {
     let (c, world, _) = open(path, guild, "")?;
-    // A published Listener reply can introduce them without a direct Talk.
-    // Use the saved scene's public speaker ID and the journal's ordering.
+    // Include the Listener's published dialogue in journal order.
     let mut q = c
         .prepare(
             "SELECT seq,json_extract(command,'$.actor'),json_extract(command,'$.action.target') \

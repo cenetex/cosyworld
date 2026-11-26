@@ -221,8 +221,7 @@ export function createElysiumPortrait(worldId, redraw) {
         const nearby = Boolean(here && world.actors[id]?.place === here);
         const { scatteredAt, talkedAt = scatteredAt, returnedAt } =
           world.elysiumEncounters?.[id] || {};
-        // Keep the title covered while the first new reply is being read.
-        // The server only serves a name after it has published an introduction.
+        // An in-room title waits for the introduction to finish.
         if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
         const replied =
           line?.actorId === id && line.generated && !line.silent && line.seq > talkedAt;

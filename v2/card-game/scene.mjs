@@ -72,9 +72,7 @@ export function backdrop(id, world = null) {
     : placeBackdrop(world, id);
   return file ? `./${file}` : `./assets/${id}.png`;
 }
-// A place card shows a place as you would find it on arriving: you and what
-// you carry are there. A lamp lit at the Black Pond opens the mirror, so the
-// attic card shows the lit attic; the stage itself keeps placeBackdrop.
+// Preview arrival with carried light, including the lit attic through the Pond mirror.
 export function placeCardArt(world, id) {
   const who = world?.actors && currentActor(world);
   const actor = who && world.actors[who];

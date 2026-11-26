@@ -47,7 +47,6 @@ import {
   shipAtSea,
 } from "./pack-transport.mjs";
 
-// Day and night each last this many turns on the saved world clock.
 export const DAYLIGHT_TURNS = 24;
 
 const fill = (template, values) =>

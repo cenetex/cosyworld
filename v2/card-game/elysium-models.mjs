@@ -20,7 +20,6 @@ const firstTalk = (record) =>
 export const elysiumModelTalked = (s, id) =>
   isElysiumModel(id) && Boolean(firstTalk(s.elysiumEncounters?.[id]));
 
-// The token belongs with its resident before it scatters and after it is given back.
 export const keepsElysiumToken = (resident, item) =>
   isElysiumModel(resident) && elysiumModelToken(resident) === item;
 
