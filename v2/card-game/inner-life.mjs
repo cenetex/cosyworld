@@ -93,6 +93,57 @@ export function subjectMemories(world, actor = currentActor(world), known = () =
     if (name(item) && name(gift.from))
       note([item, gift.from], gift.turn, `Received ${name(item)} from ${name(gift.from)}.`);
 
+  const rememberDeed = (e, ids = null) => {
+    const mine = e.actorId === actor, theirs = e.targetId === actor;
+    if (!mine && !theirs) return;
+    const here = name(e.locationId);
+    const otherId = mine ? e.targetId : e.actorId;
+    const other = world.actors[otherId] ? name(otherId) : null;
+    const itemId = e.itemId || (world.items[e.targetId] ? e.targetId : null);
+    const item = name(itemId), receive = name(e.receiveId);
+    let text;
+    if (e.verb === "talk" && other) text = `Spoke with ${other}.`;
+    if (e.verb === "give" && item && other && e.accepted !== false)
+      text = mine ? `Gave ${item} to ${other}.` : `Received ${item} from ${other}.`;
+    if (e.verb === "trade" && other && e.accepted !== false)
+      text = item && receive
+        ? `Traded ${mine ? item : receive} for ${mine ? receive : item} with ${other}.`
+        : `Traded with ${other}.`;
+    if (e.verb === "ask" && other && item && e.accepted === false)
+      text = mine ? `${other} declined my request for ${item}.` : `Declined ${other}'s request for ${item}.`;
+    if (e.verb === "accompany" && other && e.accepted === true)
+      text = `Travelled with ${other}.`;
+    if (mine && item && e.accepted !== false && ["take", "drop", "read"].includes(e.verb))
+      text = `${{ take: "Took", drop: "Left", read: "Read" }[e.verb]} ${item}${here ? ` at ${here}` : ""}.`;
+    if (e.verb === "want_met" && mine && name(e.ownerId))
+      text = `Helped ${name(e.ownerId)}.`;
+    if (text) note(ids || [otherId, itemId, e.receiveId, e.ownerId, e.locationId], e.turn, text);
+  };
+  for (const [id, retained] of Object.entries(memory.subjects || {})) {
+    const sight = retained.sight;
+    if (sight) {
+      const here = name(sight.place), holder = name(sight.holder);
+      if (profiles[id]?.kind === "location") {
+        const company = sight.company.map(name).filter(Boolean).slice(0, 2);
+        const things = sight.things.map(name).filter(Boolean).slice(0, 2);
+        observe(id, sight.turn, [
+          company.length ? `Met ${company.join(", ")} here.` : "",
+          things.length ? `Saw ${things.join(", ")} here.` : "",
+        ].filter(Boolean).join(" ") || "Visited.");
+      } else if (profiles[id]?.kind === "avatar") {
+        observe(id, sight.turn, here ? `Last seen at ${here}.` : "Met before.");
+      } else if (profiles[id]?.kind === "item") {
+        const text = sight.holder === sight.place
+          ? (here ? `Last seen on the ground at ${here}.` : "Last seen on the ground.")
+          : sight.holder === actor ? "Held before."
+            : holder ? `Last seen with ${holder}${here ? ` at ${here}` : ""}.`
+              : here ? `Last seen at ${here}.` : "Seen before.";
+        observe(id, sight.turn, text);
+      }
+    }
+    for (const deed of retained.deeds || []) rememberDeed(deed, [id]);
+  }
+
   const evidence = new Map([...(memory.events || []), ...(memory.landmarks || [])]
     .filter((e) => e.kind === "event").map((e) => [e.seq, e]));
   for (const e of world.log || []) {
@@ -122,29 +173,7 @@ export function subjectMemories(world, actor = currentActor(world), known = () =
         observe(item.id, e.turn, text);
       }
     }
-    const mine = e.actorId === actor, theirs = e.targetId === actor;
-    if (!mine && !theirs) continue;
-    const otherId = mine ? e.targetId : e.actorId;
-    const other = world.actors[otherId] ? name(otherId) : null;
-    const itemId = e.itemId || (world.items[e.targetId] ? e.targetId : null);
-    const item = name(itemId), receive = name(e.receiveId);
-    let text;
-    if (e.verb === "talk" && other) text = `Spoke with ${other}.`;
-    if (e.verb === "give" && item && other && e.accepted !== false)
-      text = mine ? `Gave ${item} to ${other}.` : `Received ${item} from ${other}.`;
-    if (e.verb === "trade" && other && e.accepted !== false)
-      text = item && receive
-        ? `Traded ${mine ? item : receive} for ${mine ? receive : item} with ${other}.`
-        : `Traded with ${other}.`;
-    if (e.verb === "ask" && other && item && e.accepted === false)
-      text = mine ? `${other} declined my request for ${item}.` : `Declined ${other}'s request for ${item}.`;
-    if (e.verb === "accompany" && other && e.accepted === true)
-      text = `Travelled with ${other}.`;
-    if (mine && item && e.accepted !== false && ["take", "drop", "read"].includes(e.verb))
-      text = `${{ take: "Took", drop: "Left", read: "Read" }[e.verb]} ${item}${here ? ` at ${here}` : ""}.`;
-    if (e.verb === "want_met" && mine && name(e.ownerId))
-      text = `Helped ${name(e.ownerId)}.`;
-    if (text) note([otherId, itemId, e.receiveId, e.ownerId, e.locationId], e.turn, text);
+    rememberDeed(e);
   }
   for (const [id, learned] of Object.entries(world.knowledge?.known?.[actor] || {})) {
     const fact = world.knowledge.facts[id], source = fact?.source;

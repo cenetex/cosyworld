@@ -19,5 +19,9 @@ export function beginHistory(world, changes = history.changes) {
   for (const memory of Object.values(world.memories))
     for (const event of memory.events || [])
       if (opening.has(event.seq)) event.turn = world.turn;
+  for (const memory of Object.values(world.memories))
+    for (const record of Object.values(memory.subjects || {}))
+      for (const event of [record.sight, ...(record.deeds || [])])
+        if (event && opening.has(event.seq)) event.turn = world.turn;
   return world;
 }

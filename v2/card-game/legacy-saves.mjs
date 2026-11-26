@@ -1,4 +1,4 @@
-import { newMemories, profiles, upgradeSightings } from "./memory.mjs";
+import { newMemories, profiles, upgradeSightings, upgradeSubjectMemories } from "./memory.mjs";
 import {
   packDefinitions,
   conditionsMet,
@@ -95,6 +95,7 @@ export function upgradeSave(s, { installPacks, laneText = () => null }) {
     if (a?.offered && !Object.hasOwn(a.offered, "from")) delete a.offered;
   installPacks(s);
   reconcileContent(s);
+  upgradeSubjectMemories(s);
   reconcilePackProgress(s, reworked);
   for (const id of Object.keys(s.actors || {}))
     if (s.actors[id]?.companion && neverBack(s, s.actors[id].companion))
