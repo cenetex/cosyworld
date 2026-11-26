@@ -67,7 +67,7 @@ it("words the offer as the resident asking, naming nothing undiscovered", () => 
     target: "moth",
     step: { verb: "bring", at: "attic" },
   };
-  expect(offerWords(escort)).toMatch(/^Pip asks you to bring Pip to /u);
+  expect(offerWords(escort)).toMatch(/^Pip: Bring Pip to /u);
   expect(offerWords(escort, (id) => id !== "attic")).not.toMatch(/attic/iu);
 });
 

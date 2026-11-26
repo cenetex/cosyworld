@@ -116,8 +116,8 @@ const lies = ({ lies, actor }, known) =>
       ? `which lies ${known(lies) ? `at ${theName(lies)}` : UNKNOWN.place}`
       : `which ${known(lies) ? nameOf(lies) : "someone"} carries`;
 export function offerWords(quest, known = () => true) {
-  if (quest.heardFrom) return `${nameOf(quest.heardFrom)} told you: ${offerWords({ ...quest, heardFrom: null }, known)}`;
   const who = nameOf(quest.offer),
+    source = quest.heardFrom ? `${who} via ${nameOf(quest.heardFrom)}` : who,
     said = quest.goal ?? quest;
   if (quest.completed) return `${nameOf(quest.completed.by)} called the ship for ${who}`;
   if (quest.lies) {
@@ -130,9 +130,8 @@ export function offerWords(quest, known = () => true) {
     said.step?.verb === "give" &&
     (said === quest || said.step.to === quest.offer)
   )
-    return `${who} asks for ${known(said.target) ? theName(said.target) : UNKNOWN.item}`;
-  const words = questCaption(quest, false, null, known);
-  return `${who} asks you to ${words[0].toLowerCase()}${words.slice(1)}`;
+    return `${source} asks for ${known(said.target) ? theName(said.target) : UNKNOWN.item}`;
+  return `${source}: ${questCaption(quest, false, null, known)}`;
 }
 export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot:");
 export const discardable = (quest) => quest?.kind === "arcanum" && ["up", "locked"].includes(quest.face);
@@ -198,7 +197,9 @@ export function questCaption(
   const words =
     quest.kind === "arcanum"
       ? (conditionWords(quest.conditions, known, { home: quest.home, cards: SPOKEN }) ?? "…")
-      : wantWords(want, shown, {
+      : want.step?.verb === "call"
+        ? `Hold ${shown("cloth") ? inSentence("cloth") : "something"} at ${shown(want.target) ? inSentence(want.target) : "an unknown place"}; keep ${shown("lamp") ? theName("lamp") : "a light"} burning on the ground`
+        : wantWords(want, shown, {
           cards: SPOKEN,
           // The accessible goal names the same verb as the place card, including
           // places whose name is known but which this avatar has not visited yet.

@@ -58,7 +58,13 @@ test("Pip tells a sourced, visible keeper lead on the first pond Talk", () => {
   const lead = table.find((t) => t.owner === "keeper");
   assert(!ids.includes("keeper"));
   assert.equal(lead.beside, "moth");
-  assert.match(offerWords(lead.quest), /^Pip told you: The keeper asks you to call the ship/u);
+  assert.equal(offerWords(lead.quest), "The keeper via Pip: Hold Black cloth at Black pond; keep the Lamp burning on the ground");
+  const hidden = offerWords(lead.quest, (id) => id !== "lamp");
+  assert.equal(hidden, "The keeper via Pip: Hold Black cloth at Black pond; keep a light burning on the ground");
+  assert.doesNotMatch(hidden, /Lamp/u);
+  const undiscovered = offerWords(lead.quest, () => false);
+  assert.doesNotMatch(undiscovered, /Black cloth|Black pond|Lamp/u);
+  assert.match(undiscovered, /keep a light burning on the ground/u);
   assert.equal(tableOwner(lead.id, s, "vale"), "moth");
   const row = besideOwners(ids, table, s);
   assert(row.indexOf(lead.id) > row.indexOf("moth"));
