@@ -11,7 +11,10 @@ mod memory_summaries;
 pub(super) fn router() -> Router<TextState> {
     Router::new()
         .route("/card-game/reflections", post(generate))
-        .route("/card-game/memory-summaries", post(memory_summaries::generate))
+        .route(
+            "/card-game/memory-summaries",
+            post(memory_summaries::generate),
+        )
 }
 
 pub(super) struct Queue {
