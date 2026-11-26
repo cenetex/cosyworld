@@ -7,6 +7,7 @@ import { ownerWant } from "./quest-call.mjs";
 import { UNKNOWN, conditionWords, kindOf, wantWords } from "./world/want-words.mjs";
 import { inSentence, theName } from "./combat-beats.mjs";
 import { arcanaLevel, arcanumTerms, isArcanum, spreadOf } from "./world/arcana.mjs";
+import { firstFoolSlot } from "./world/arcana-record.mjs";
 import { homeOf } from "./world/home.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
@@ -137,8 +138,9 @@ export const isTarotKey = (id) => typeof id === "string" && id.startsWith("tarot
 export const discardable = (quest) => quest?.kind === "arcanum" && ["up", "locked"].includes(quest.face);
 export const tarotBack = (face) =>
   ["down", "locked"].includes(face) ? TAROT_LOCKED_BACK : TAROT_BACK;
-export const levelCards = (world, actor = currentActor(world)) =>
-  spreadOf(world, actor).map(({ index, card, face, bonus }, _, all) => ({
+export function levelCards(world, actor = currentActor(world)) {
+  const first = firstFoolSlot(world, actor);
+  return spreadOf(world, actor).map(({ index, card, face, bonus, turnable }, _, all) => ({
     key:
       face === "down"
         ? `tarot:${actor}:down:${all.slice(0, index).filter((slot) => slot.face === "down").length}`
@@ -147,6 +149,8 @@ export const levelCards = (world, actor = currentActor(world)) =>
     actor,
     kind: "arcanum",
     face,
+    ...(first?.card === card ? { reading: true } : {}),
+    ...(turnable ? { turnable: true } : {}),
     ...(bonus ? { bonus: true } : {}),
     target: face === "down" ? null : card,
     level: Math.min(21, arcanaLevel(world, actor) + 1),
@@ -156,6 +160,7 @@ export const levelCards = (world, actor = currentActor(world)) =>
     conditions: face === "reward" ? [] : arcanumTerms(world, actor, index),
     home: homeOf(actor, world) ?? null,
   }));
+}
 export const tarotArtKey = (id) => `tarot-art:${id}`;
 export const isTarotArtKey = (key) =>
   typeof key === "string" && key.startsWith("tarot-art:") && isArcanum(key.slice(10));
@@ -166,9 +171,10 @@ export function tarotArtSeen(world, key, seen) {
     Boolean(world.actors[card.actor]?.upgrades?.includes(card.target));
 }
 export function spreadLocks(world, actor = currentActor(world)) {
+  const reading = firstFoolSlot(world, actor)?.card;
   const ids = (down) =>
     spreadOf(world, actor)
-      .filter(({ face }) => !down || ["down", "locked"].includes(face))
+      .filter(({ card, face }) => card !== reading && (!down || ["down", "locked"].includes(face)))
       .map(({ card }) => `tarot:${actor}:${card}`);
   return [ids(false), ids(true)];
 }
@@ -184,6 +190,7 @@ export function questCaption(
   verb = null,
   known = () => true,
 ) {
+  if (quest.turnable) return "The Listener dealt you a card";
   if (quest.face === "reward") return `Collect ${nameOf(quest.target)}`;
   const shown = (id) => !(covered && id === quest.target) && known(id);
   const want = quest.goal ??
@@ -216,6 +223,7 @@ export const questHeading = (quest) =>
   quest.face === "reward" ? "Collect" : quest.bonus ? "Bonus quest" : quest.level ? "Level Up" : null;
 
 export function questLabel(quest, near, caption, known = () => true) {
+  if (quest.turnable) return "Turn over the face-down card";
   if (quest.face === "down") return "A face-down card";
   if (quest.face === "reward") return questCaption(quest);
   if (quest.offer) return offerWords(quest, known);

@@ -3,6 +3,7 @@ import { LEVEL_CAP } from "../level-tiers.mjs";
 import { humanPresent } from "../human-cast.mjs";
 
 const cardIds = new Set(data.cards.map((card) => card.id));
+const FOOL = data.cards.find((card) => card.number === 0).id;
 export const isArcanum = (id) => cardIds.has(id);
 export const CALLS = data.calls;
 const didsOf = (c) =>
@@ -47,6 +48,23 @@ export const unlockedOf = (s, traveler) =>
 export const rewardPending = (s, traveler) =>
   recordOf(s, traveler).spread.some((slot) => slot.face === "reward");
 
+export function firstFoolSlot(s, traveler, record = recordOf(s, traveler)) {
+  if ((record.level ?? record.proved.length) > 0 || !record.need.includes(FOOL)) return null;
+  return record.spread.find((entry) => entry.card === FOOL &&
+    ["down", "reward"].includes(entry.face)) ?? null;
+}
+
+export function firstFoolProgress(s, traveler) {
+  if (arcanaLevel(s, traveler) > 0) return null;
+  const record = recordOf(s, traveler);
+  const slot = firstFoolSlot(s, traveler, record);
+  if (slot) {
+    const phase = slot.face === "reward" ? "revealed" : "dealt";
+    return { count: CALLS, target: CALLS, phase };
+  }
+  return { count: record.calls, target: CALLS, phase: record.calls >= CALLS ? "called" : "help" };
+}
+
 export function countResidentQuest(actor, resident) {
   const record = (actor.arcana ??= { proved: [], did: [] });
   const callers = record.callers || [];
@@ -61,7 +79,8 @@ export function called(s, traveler) {
   const record = recordOf(s, traveler);
   return !record.paid && (
     record.sale ||
-    (record.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP)
+    (record.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP &&
+      !firstFoolSlot(s, traveler, record))
   );
 }
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
-import { countResidentQuest, owesGiving } from "../v2/card-game/world/arcana-record.mjs";
+import { owesGiving } from "../v2/card-game/world/arcana-record.mjs";
 import {
   arcanumTerms, candidates, dealSpread, nextSpread, recordOf, sells, takes,
 } from "../v2/card-game/world/arcana.mjs";
@@ -28,10 +28,11 @@ const initial = () => {
   };
   return s;
 };
-const helpThree = (s) => {
-  for (const id of ["keeper", "moth", "badger"]) countResidentQuest(s.actors.vale, id);
-  quiet(s);
-  return s;
+const turnFool = (s) => {
+  const action = legalActions(s, "vale").find((a) => a.label === "Turn over");
+  const result = play(s, action, s.revision, "vale");
+  expect(result.ok, result.error).toBe(true);
+  return result.state;
 };
 const finishFool = (s) => {
   for (const item of Object.values(s.items))
@@ -46,7 +47,7 @@ describe("earned tarot rewards", () => {
     let s = initial();
     finishFool(s);
     expect(s.actors.vale.arcana.spread[0].done).toBeUndefined();
-    s = reload(helpThree(s));
+    s = reload(turnFool(s));
     expect(s.actors.vale.arcana.spread[0]).toMatchObject({ face: "reward" });
     expect(s.actors.vale.upgrades || []).not.toContain(FOOL);
     expect(arcanumTerms(s, "vale", 0)).toEqual([]);
@@ -66,7 +67,7 @@ describe("earned tarot rewards", () => {
   });
 
   it("draws the collected Fool as a fresh canonical quest", () => {
-    let s = claim(helpThree(initial()));
+    let s = claim(turnFool(initial()));
     expect(nextSpread(s, "vale")).toContainEqual(expect.objectContaining({ card: FOOL, face: "up" }));
     expect(dealSpread(s, "vale")).toBe(true);
     expect(reward(s)).toBeUndefined();
@@ -191,7 +192,7 @@ describe("earned tarot rewards", () => {
 
   it("replays shared Collect from the same saved reward and rejects a second claim", () => {
     const context = { actor: "vale", claimed: ["vale"], present: ["vale"] };
-    const start = dispatchShared({ op: "create", save: encodeSave(helpThree(initial())) }).world;
+    const start = dispatchShared({ op: "create", save: encodeSave(turnFool(initial())) }).world;
     const action = dispatchShared({ ...context, op: "view", world: start }).actions.find((a) => a.label === "Collect");
     const request = { ...context, op: "play", world: start, revision: start.revision, action };
     const first = dispatchShared(request), replay = dispatchShared(JSON.parse(JSON.stringify(request)));

@@ -35,11 +35,10 @@ import {
 } from "../v2/card-game/quest-card.mjs";
 import { createLockedBoxes } from "../v2/card-game/locked-box.mjs";
 import { pickedQuestAction } from "../v2/card-game/quest-action.mjs";
-import { holdQuest, newWant } from "../v2/card-game/want.mjs";
 import { cardLevel, levelTier } from "../v2/card-game/rarity.mjs";
 import { UNKNOWN } from "../v2/card-game/world/want-words.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
-import { dealSpread, settleArcana } from "../v2/card-game/world/arcana.mjs";
+import { dealSpread } from "../v2/card-game/world/arcana.mjs";
 
 // An undiscovered card is worded by its kind, never by name.
 const { person: PERSON, place: PLACE } = UNKNOWN;
@@ -467,35 +466,36 @@ describe("the quest card", () => {
     return play(s, talk, s.revision, "vale").state;
   };
 
-  it("words the face-down Fool as the people still to help, locked, with no Discard", () => {
+  it("offers the dealt tarot for turning without naming the card", () => {
     const s = dealtFool();
     const fool = () => levelCards(s, "vale")[0];
-    expect(fool()).toMatchObject({ face: "down", target: null, art: "./assets/arcana/tarot-back-locked.png" });
-    const said = (calls) => {
-      s.actors.vale.arcana.calls = calls;
-      return questCaption({ ...fool(), level: null });
-    };
-    expect(said(0)).toBe("Help three people complete their goals");
-    expect(said(1)).toBe("Help two more people complete their goals");
-    expect(said(2)).toBe("Help one more person complete their goal");
+    expect(fool()).toMatchObject({ face: "down", target: null, turnable: true, conditions: [],
+      art: "./assets/arcana/tarot-back-locked.png" });
+    expect(questCaption(fool())).toBe("The Listener dealt you a card");
+    expect(questLabel(fool(), false)).toBe("Turn over the face-down card");
     expect(JSON.stringify(fool())).not.toMatch(/arcanum-0|[Ll]istener/u);
     expect(discardable(fool())).toBe(false);
     s.actors.vale.arcana.spread[0].face = "up";
     expect(discardable(fool())).toBe(true);
   });
 
-  it("unlocks the face-down Fool once when the third person is helped, as a new card to reveal", () => {
+  const turnFool = (s) => {
+    const turn = legalActions(s, "vale").find((a) => a.label === "Turn over");
+    const quest = levelCards(s, "vale")[0];
+    expect(pickedQuestAction(quest, [turn], s.revision, null))
+      .toMatchObject({ action: turn, confirmKey: null, label: "Turn over", tap: "Turn over" });
+    return play(s, turn, s.revision, "vale").state;
+  };
+
+  it("shows the Fool as a reward without a second reveal after the turn-over action", () => {
     let s = dealtFool();
     const boxes = createLockedBoxes({ retainAbsent: false });
     expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
     const [down] = levelCards(s, "vale");
-    Object.assign(s.actors.vale.arcana, { calls: 2, callers: ["badger", "keeper"] });
-    holdQuest(s, "vale", newWant("place", s.actors.vale.place, s.turn), "quest:from:moth");
-    s = play(s, legalActions(s, "vale").find((a) => a.kind === "wait" && !a.sleep && !a.guards), s.revision, "vale").state;
+    s = turnFool(s);
     const [up] = levelCards(s, "vale");
     expect(up).toMatchObject({ face: "reward", target: "arcanum-0", art: "./assets/arcana/full-size/arcanum-0.png", conditions: [] });
     expect(up.key).not.toBe(down.key);
-    expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([up.key]);
     expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
     expect(questCaption(up)).toBe("Collect The Fool");
   });
@@ -505,8 +505,7 @@ describe("the quest card", () => {
     const boxes = createLockedBoxes({ retainAbsent: false });
     expect(boxes.draw(...spreadLocks(s, "vale"))).toEqual([]);
     s.actors.vale.arcana.spread[0].done = true;
-    s.actors.vale.arcana.calls = 3;
-    settleArcana(s, "vale");
+    s = turnFool(s);
     expect(levelCards(s, "vale")[0].face).toBe("reward");
     const collect = legalActions(s, "vale").find((action) => action.kind === "accept" && action.tarot === 0);
     s = play(s, collect, s.revision, "vale").state;
@@ -537,7 +536,7 @@ describe("the quest card", () => {
     const collect = { kind: "accept", actor: "vale", tarot: 0, label: "Collect", text: "Vale collects The Fool.", key: "collect:0:arcanum-0" };
     const drop = { kind: "drop", actor: "vale", tarot: 0, item: null };
     const picked = pickedQuestAction(reward, [drop, collect], 7, "6:old-quest");
-    expect(picked).toMatchObject({ action: collect, collect: true, confirmKey: null, label: "Collect", tap: "Collect" });
+    expect(picked).toMatchObject({ action: collect, confirmKey: null, label: "Collect", tap: "Collect" });
     expect(picked.action).toBe(collect);
     expect(pickedQuestAction(reward, [drop], 8, null)).toBeNull();
     expect(pickedQuestAction(reward, [{ ...collect, tarot: 1 }], 8, null)).toBeNull();
@@ -547,6 +546,7 @@ describe("the quest card", () => {
 
   it("unlocks a keyhole tarot into an unseen reward without forgetting revealed art", () => {
     const s = dealtFool();
+    s.actors.vale.arcana.level = 1;
     s.actors.vale.arcana.spread[0].face = "locked";
     const [locked] = levelCards(s, "vale");
     const seen = new Set([locked.key]);

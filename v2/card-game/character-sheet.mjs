@@ -54,6 +54,7 @@ export function characterSheet(world, { known = () => false, withheldTarot } = {
     quests: quests.map((quest) => ({
       key: quest.key,
       heading: quest.offer ? label(quest.offer, "A request")
+        : quest.turnable ? "Turn over a tarot card"
         : quest.face === "down" ? "Unlock a tarot card"
         : quest.face === "locked" ? "New tarot quest"
         : quest.face === "reward" ? "Ready to collect"

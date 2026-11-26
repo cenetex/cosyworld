@@ -311,6 +311,7 @@ const files = [
   "pip-landing.mjs",
   "app.mjs",
   "action-beat-note.mjs",
+  "first-fool-view.mjs",
   "pack-landing.mjs",
   "pack-landings.json",
   "station-exits.mjs",

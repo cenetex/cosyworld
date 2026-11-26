@@ -354,6 +354,8 @@ try {
       const met = await t.state();
       assert.equal(met.actors.vale.xp, xp, "a traveler earns no XP");
       assert.notEqual(met.actors.vale.want?.from, "quest:from:moth");
+      await page.locator(".beat-caption").filter({ hasText: "1 of 3 people helped" }).waitFor();
+      assert.equal(await page.getByText("The Listener is here for a reading.", { exact: true }).count(), 0);
       assert.equal(await page.getByText(/claim/i).count(), 0);
       assert.deepEqual(t.errors, []);
       await page.close();
@@ -370,9 +372,6 @@ try {
         called,
         legalActions(called).find((a) => a.kind === "talk" && a.target === "listener"),
       ).state;
-      Object.assign(called.actors.vale.arcana, { calls: 2, callers: ["badger", "keeper"] });
-      const here = called.actors.vale.place;
-      holdQuest(called, "vale", newWant("place", here, called.turn), "quest:from:moth");
       const t = await open("quest-offers-level", called, [], "no-preference");
       const { page } = t;
       await page.goto(`${origin}/?table=quest-offers-level-${width}`);
@@ -415,42 +414,39 @@ try {
       await showTarot();
       if ((await tarot.getAttribute("aria-pressed")) !== "true") await tapCard(tarot);
       await t.ready();
-      assert.equal(await t.oneButton(), 0, "a face-down card has no Discard");
-      assert.equal(await heading(), "Help one more person complete their goal");
+      assert.equal(await t.oneButton(), 1, "the face-down card has one Turn over button");
+      assert.equal(await heading(), "The Listener dealt you a card");
+      assert.equal(await page.locator("[data-drop-quest]").count(), 0);
+      assert.equal(await tarot.getAttribute("aria-label"), "Turn over the face-down card");
       assert.match(await back.getAttribute("src"), /tarot-back-locked\.webp/u);
       assert.notEqual(await back.evaluate((el) => getComputedStyle(el).display), "none");
+      assert.doesNotMatch(await surfaces(page), /arcanum-0|The Fool/iu);
       await t.layout();
       await t.shot("level-up");
       await inspectAlbum("locked", /tarot-back-locked\.webp/u);
-      const unlocked = page.waitForFunction(
-        () =>
-          [...document.querySelectorAll("#hand .want-card > .portrait-transforming")].some((img) =>
-            /tarot-back-locked/u.test(img.src),
-          ),
-        null,
-        { timeout: 15000 },
-      );
-      await clearSelection(page);
-      await selectCard(page, here);
-      await readyActionButton(page, "wait").click();
-      await unlocked;
+      await page.reload();
       await t.ready();
+      await showTarot();
+      if ((await tarot.getAttribute("aria-pressed")) !== "true") await tapCard(tarot);
+      const beforeTurn = await t.state();
+      const turn = readyActionButton(page, "accept");
+      assert.equal(await turn.getAttribute("data-tap-hint"), "Tap to turn over");
+      await Promise.all([
+        page.waitForFunction(() =>
+          /tarot-back-locked/u.test(document.querySelector("#hand .want-card > .reveal-lid")?.src ?? ""),
+        ),
+        turn.click(),
+      ]);
+      await t.ready();
+      assert.equal((await t.state()).turn, beforeTurn.turn, "Turn over passes no world turn");
       assert.deepEqual(
         recordOf(await t.state(), "vale").spread.map((slot) => [slot.card, slot.face]),
         [["arcanum-0", "reward"]],
       );
-      await showTarot();
       assert.match(await back.getAttribute("src"), /tarot-back\.webp/u);
-      assert.equal(await tarot.getAttribute("data-unrevealed"), "true");
-      await inspectAlbum("unlocked", /tarot-back\.webp/u);
-      await showTarot();
-      await tapCard(tarot);
-      await page.locator('#hand [data-pack="open"]').first().waitFor();
-      await page.waitForTimeout(900);
-      await tapCard(tarot);
-      await page.locator('#card-actions [data-open-box="tarot:vale:arcanum-0"]').click();
       await page.waitForFunction(() => !document.querySelector("#hand [data-revealing]"));
       assert.equal(await tarot.getAttribute("data-unrevealed"), "false");
+      assert.match(await tarot.locator(".art img").getAttribute("src"), /arcanum-0/u);
       assert.equal(await heading(), "Collect The Fool");
       assert.equal(await tarot.locator(".quest-verb").textContent(), "Collect");
       assert.equal(await tarot.locator(".quest-level").textContent(), "");

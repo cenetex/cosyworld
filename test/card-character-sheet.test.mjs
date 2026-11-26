@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { characterSheet } from "../v2/card-game/character-sheet.mjs";
-import { createWorld, decodeSave, encodeSave, holdChoice, legalActions, play } from "../v2/card-game/world.mjs";
-import { countResidentQuest } from "../v2/card-game/world/arcana-record.mjs";
+import { createWorld, decodeSave, encodeSave, legalActions, play } from "../v2/card-game/world.mjs";
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 
 describe("character sheet", () => {
@@ -11,8 +10,8 @@ describe("character sheet", () => {
       spread: [{ card: "arcanum-0", face: "down", base: { visited: s.actors.vale.visited.length } }] };
     expect(characterSheet(s).slots[0]).toEqual({ state: "locked", art: "./assets/arcana/tarot-back-locked.png" });
     expect(characterSheet(s).slots.slice(1)).toEqual(Array(21).fill({ state: "unknown" }));
-    for (const id of ["keeper", "moth", "badger"]) countResidentQuest(s.actors.vale, id);
-    holdChoice(s, "vale", { item: null, revision: s.revision });
+    const turn = legalActions(s).find((a) => a.label === "Turn over");
+    s = play(s, turn, s.revision).state;
     expect(characterSheet(s).cards).toEqual([]);
     expect(characterSheet(s).slots[0]).toEqual({ state: "unlocked", art: "./assets/arcana/tarot-back.png" });
     const revealed = characterSheet(s, { known: (id) => id === "tarot:vale:arcanum-0" });

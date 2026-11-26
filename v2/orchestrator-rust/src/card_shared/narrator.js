@@ -1099,6 +1099,7 @@
 
   // v2/card-game/world/arcana-record.mjs
   var cardIds = new Set(arcana_default.cards.map((card) => card.id));
+  var FOOL = arcana_default.cards.find((card) => card.number === 0).id;
   var isArcanum = (id) => cardIds.has(id);
   var CALLS = arcana_default.calls;
   var didsOf = (c) => c.kind === "did" ? [c] : [...c.conditions || [], ...c.condition ? [c.condition] : []].flatMap(
@@ -1130,10 +1131,14 @@
   };
   var tarotsHeld = (actor) => actor?.arcana?.spread?.length ?? 0;
   var rewardPending = (s, traveler) => recordOf(s, traveler).spread.some((slot) => slot.face === "reward");
+  function firstFoolSlot(s, traveler, record7 = recordOf(s, traveler)) {
+    if ((record7.level ?? record7.proved.length) > 0 || !record7.need.includes(FOOL)) return null;
+    return record7.spread.find((entry) => entry.card === FOOL && ["down", "reward"].includes(entry.face)) ?? null;
+  }
   function called(s, traveler) {
     if (!humanPresent(s, traveler) || rewardPending(s, traveler)) return false;
     const record7 = recordOf(s, traveler);
-    return !record7.paid && (record7.sale || record7.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP);
+    return !record7.paid && (record7.sale || record7.calls >= CALLS && arcanaLevel(s, traveler) < LEVEL_CAP && !firstFoolSlot(s, traveler, record7));
   }
   var calledTravelers = (s) => Object.keys(s.actors || {}).sort().filter((id) => called(s, id));
   var selling = (s, traveler) => humanPresent(s, traveler) && !rewardPending(s, traveler) && !recordOf(s, traveler).paid && recordOf(s, traveler).sale;
@@ -20019,14 +20024,14 @@
   );
   var risingIn = (card) => card.proof.flatMap(countsIn).filter((c) => c.min !== void 0);
   var cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
-  var FOOL = 0;
+  var FOOL2 = 0;
   var LISTENER = arcana_default.visit.match.targetId;
   var listenerCardLine = (traveler) => `${nameOf2(LISTENER)} gives ${nameOf2(traveler)} a face-down card.`;
   function listenerDeal(world, traveler) {
     const talk = world.log.findLast(
-      (entry) => entry.turn === world.turn && entry.kind === "action" && !entry.generated && entry.verb === "talk" && entry.actorId === traveler && entry.targetId === LISTENER
+      (entry) => entry.turn === world.turn && entry.kind === "action" && !entry.generated && entry.actorId === traveler && (entry.verb === "accept" || entry.verb === "talk" && entry.targetId === LISTENER)
     );
-    if (!talk) return null;
+    if (talk?.verb !== "talk") return null;
     return world.log.findLast(
       (entry) => entry.turn === talk.turn && entry.seq > talk.seq && entry.kind === "narration" && !entry.generated && entry.consequence && entry.actorId === LISTENER && entry.locationId === talk.locationId && entry.witnesses?.includes(traveler) && entry.text === listenerCardLine(traveler)
     ) ?? null;
@@ -20074,7 +20079,7 @@
       const needed2 = Array.isArray(record7.need) ? record7.need : [];
       for (const slot of Array.isArray(record7.spread) ? record7.spread : []) {
         if (!plainObject(slot)) continue;
-        const firstFool = slot.card === numbered(FOOL) && (record7.level ?? proved.length) === 0 && needed2.includes(slot.card);
+        const firstFool = slot.card === numbered(FOOL2) && (record7.level ?? proved.length) === 0 && needed2.includes(slot.card);
         if (slot.face === "up" && firstFool && !proved.includes(slot.card))
           slot.face = "reward";
         else if (slot.face === "down" && owned.has(slot.card) && !firstFool) {
@@ -20581,6 +20586,7 @@
       "talk",
       "wait",
       "trade",
+      "accept",
       "choose",
       "use",
       "read"
@@ -20904,7 +20910,8 @@
     const actor = currentActor(world);
     const played = playedEntry(world);
     const verb = played?.verb;
-    if (verb === "claim") return { occasion: null, speakers: [], scenery: false };
+    if (verb === "claim" || verb === "accept")
+      return { occasion: null, speakers: [], scenery: false };
     const awake = (id) => !hasTemperament(id) || world.actors[id]?.awake;
     const near = (id) => Boolean(id) && id !== actor && cast.audience.includes(id) && awake(id);
     const thisTurn = world.log.filter(

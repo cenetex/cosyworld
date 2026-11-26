@@ -25,6 +25,7 @@ import {
   arcanaLevel,
   called,
   CALLS,
+  firstFoolSlot,
   isArcanum,
   owesGiving,
   recordOf,
@@ -288,10 +289,10 @@ const listenerCardLine = (traveler) =>
 export function listenerDeal(world, traveler) {
   const talk = world.log.findLast(
     (entry) => entry.turn === world.turn && entry.kind === "action" &&
-      !entry.generated && entry.verb === "talk" && entry.actorId === traveler &&
-      entry.targetId === LISTENER,
+      !entry.generated && entry.actorId === traveler &&
+      (entry.verb === "accept" || (entry.verb === "talk" && entry.targetId === LISTENER)),
   );
-  if (!talk) return null;
+  if (talk?.verb !== "talk") return null;
   return world.log.findLast(
     (entry) => entry.turn === talk.turn && entry.seq > talk.seq &&
       entry.kind === "narration" && !entry.generated && entry.consequence &&
@@ -513,26 +514,35 @@ export function dealSpread(s, traveler) {
 function giveFool(s, traveler) {
   const fool = numbered(FOOL);
   const record = recordFor(s, traveler);
-  if (!fool || (record.spread || []).some((slot) => slot.card === fool)) return;
+  if (!fool || (record.spread || []).some((slot) => slot.card === fool)) return false;
   const a = s.actors[traveler];
   while (slotsUsed(a) >= MAX_HELD && heldOf(a).length)
     releaseQuest(a, heldOf(a).at(-1));
-  if (slotsUsed(a) >= MAX_HELD) return;
+  if (slotsUsed(a) >= MAX_HELD) return false;
   const slot = makeSlot(s, traveler, fool, "down");
-  if (!slot) return;
+  if (!slot) return false;
   record.spread = [...(record.spread || []), place(s, traveler, slot)];
   record.need = [fool];
   delete record.done;
+  return true;
 }
 
-export function collectTarot(s, traveler, index, say = () => {}) {
+export function acceptTarot(s, traveler, index, say = () => {}) {
   const a = s.actors[traveler];
   const record = a.arcana;
   const slot = record?.spread?.[index];
-  if (slot?.face !== "reward") return false;
   const tell = (text) => say(text, {
     kind: "narration", actorId: traveler, witnesses: [traveler], consequence: true,
   });
+  const act = (text) => say(text, {
+    kind: "action", verb: "accept", actorId: traveler, witnesses: [traveler], consequence: true,
+  });
+  if (slot?.face === "down" && slot === firstFoolSlot(s, traveler)) {
+    slot.face = "reward";
+    act(`${nameOf(traveler)} turns over ${nameOf(slot.card)}.`);
+    return true;
+  }
+  if (slot?.face !== "reward") return false;
   const id = slot.card;
   record.level ??= arcanaLevel(s, traveler);
   if (slot.done) record.proved = sorted([...record.proved, id]);
@@ -540,7 +550,7 @@ export function collectTarot(s, traveler, index, say = () => {}) {
     record.done = sorted([...(record.done || []), id]);
   collect(a, [id]);
   leave(record, slot);
-  tell(`${nameOf(traveler)} collects ${nameOf(id)}.`);
+  act(`${nameOf(traveler)} collects ${nameOf(id)}.`);
   rise(s, traveler, tell);
   if (record.paid) dealSpread(s, traveler);
   return true;
@@ -553,31 +563,33 @@ function leave(record, slot) {
 
 function visit(s, traveler, tell) {
   const record = recordFor(s, traveler);
-  delete record.calls;
-  delete record.callers;
   const fool = numbered(FOOL);
   if (
     arcanaLevel(s, traveler) === 0 &&
     !(record.spread || []).some((slot) => slot.card === fool) &&
     !(record.done || []).includes(fool)
   ) {
-    giveFool(s, traveler);
-    if ((record.spread || []).some((slot) => slot.card === fool))
-      tell(listenerCardLine(traveler));
+    if (!giveFool(s, traveler)) return;
+    tell(listenerCardLine(traveler));
   }
+  delete record.calls;
+  delete record.callers;
   rise(s, traveler, tell);
 }
 
-const unlocks = (s, traveler) =>
-  recordOf(s, traveler).spread.some((slot) => slot.face === "down") &&
-  holds(s, LOCK, { traveler });
+const unlocks = (s, traveler) => {
+  const first = firstFoolSlot(s, traveler);
+  return recordOf(s, traveler).spread.some((slot) => slot.face === "down" && slot !== first) &&
+    holds(s, LOCK, { traveler });
+};
 
 function turnOver(s, traveler) {
   const record = s.actors[traveler].arcana;
+  const first = firstFoolSlot(s, traveler);
   delete record.calls;
   delete record.callers;
   for (const slot of [...record.spread]) {
-    if (slot.face !== "down") continue;
+    if (slot.face !== "down" || slot === first) continue;
     slot.face = "reward";
   }
   delete record.sale;
@@ -620,17 +632,26 @@ export const sells = (s, traveler) =>
 export const takes = (s, traveler) =>
   sells(s, traveler) || owesGiving(s, traveler);
 
-export const spreadOf = (s, traveler) =>
-  recordOf(s, traveler).spread.map((slot, index) => ({
+export function spreadOf(s, traveler) {
+  const record = recordOf(s, traveler);
+  const first = firstFoolSlot(s, traveler, record);
+  return record.spread.map((slot, index) => ({
     index,
     card: slot.card,
     face: slot.face,
+    ...(slot === first && slot.face === "down" ? { turnable: true } : {}),
     ...(slot.bonus ? { bonus: true } : {}),
     binding: slotBinding(s, slot, traveler),
   }));
+}
 
 export const tarotActions = (s, actor, offer) =>
-  spreadOf(s, actor).map(({ card, face, index }) => {
+  spreadOf(s, actor).map(({ card, face, index, turnable }) => {
+    if (turnable) {
+      const text = `${nameOf(actor)} turns over the face-down card.`;
+      const action = offer("accept", actor, null, null, text, []);
+      return { ...action, tarot: index, label: "Turn over", key: `${action.key}:tarot:${index}:turn` };
+    }
     const reward = face === "reward";
     const text = reward
       ? `${nameOf(actor)} collects ${nameOf(card)}.`
@@ -650,7 +671,7 @@ const termsOf = (card) =>
 
 export function arcanumTerms(s, traveler, index) {
   const slot = recordOf(s, traveler).spread[index];
-  if (slot?.face === "reward") return [];
+  if (slot?.face === "reward" || slot === firstFoolSlot(s, traveler)) return [];
   const binding = slot && slotBinding(s, slot, traveler);
   if (!binding) return [];
   const { did } = recordOf(s, traveler);
@@ -671,7 +692,7 @@ export function arcanumTerms(s, traveler, index) {
 export function discardTarot(s, traveler, index) {
   const record = s.actors[traveler]?.arcana;
   const slot = record?.spread?.[index];
-  if (slot && slot.face !== "reward") leave(record, slot);
+  if (slot && slot.face !== "reward" && slot !== firstFoolSlot(s, traveler)) leave(record, slot);
 }
 
 export function dreamCard(s, traveler) {

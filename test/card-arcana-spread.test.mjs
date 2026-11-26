@@ -22,6 +22,7 @@ import {
   sells,
   spreadOf,
 } from "../v2/card-game/world/arcana.mjs";
+import { firstFoolProgress } from "../v2/card-game/world/arcana-record.mjs";
 import { giveUpForGood } from "../v2/card-game/world/for-good.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
@@ -57,8 +58,9 @@ const pay = (s, item) =>
   );
 const discard = (s, tarot) =>
   act(s, (a) => a.kind === "drop" && !a.item && a.tarot === tarot);
+const turnover = (s) => act(s, (a) => a.label === "Turn over");
 const collect = (s, tarot = 0) =>
-  act(s, (a) => a.kind === "accept" && a.tarot === tarot);
+  act(s, (a) => a.label === "Collect" && a.tarot === tarot);
 const errand = (s, from = "keeper") => {
   holdQuest(
     s,
@@ -112,12 +114,13 @@ afterEach(() => {
 describe("the Listener's first visit", () => {
   it("comes after three resident quests and gives the Fool face down, free", () => {
     const s = firstVisit();
-    expect(spreadOf(s, "vale")).toMatchObject([{ card: FOOL, face: "down" }]);
+    expect(spreadOf(s, "vale")).toMatchObject([{ card: FOOL, face: "down", turnable: true }]);
     expect(s.log.findLast((e) => e.actorId === "listener")).toMatchObject({
       text: "The Listener gives Vale a face-down card.",
       consequence: true,
     });
     expect(recordOf(s, "vale")).toMatchObject({ calls: 0, need: [FOOL] });
+    expect(firstFoolProgress(s, "vale")).toEqual({ count: 3, target: 3, phase: "dealt" });
     expect(slotsUsed(s.actors.vale)).toBe(1);
     expect(s.actors.vale.upgrades ?? []).not.toContain(FOOL);
     expect(arcanaLevel(s, "vale")).toBe(0);
@@ -144,7 +147,7 @@ describe("the Listener's first visit", () => {
     expect(played.world.speechVoices.vale).toEqual(["vale", "listener"]);
     const deal = listenerDeal(played.world, "vale");
     expect(deal).toBeTruthy();
-    const { lines } = request(played.world, "speech", {
+    const { lines, world: spoken } = request(played.world, "speech", {
       room: "pond",
       lines: [
         { actorId: "vale", text: "What have you heard?" },
@@ -158,6 +161,19 @@ describe("the Listener's first visit", () => {
     expect(sharedDealUnread(state, deal, lines[0].seq, () => true)).toBe(true);
     expect(sharedDealUnread(state, deal, lines[1].seq, () => false)).toBe(true);
     expect(sharedDealUnread(state, deal, lines[1].seq, () => true)).toBe(false);
+
+    const tarotPlay = (world, label) => {
+      const action = request(world, "view").actions.find((a) => a.label === label);
+      const result = request(world, "play", { action });
+      expect(result.ok, result.error).toBe(true);
+      expect(result.world.turn).toBe(played.world.turn);
+      expect(result.world.speechVoices.vale).toEqual([]);
+      return result.world;
+    };
+    const turned = tarotPlay(spoken, "Turn over");
+    expect(listenerDeal(turned, "vale")).toBeNull();
+    const collected = tarotPlay(turned, "Collect");
+    expect(collected.actors.vale.upgrades).toContain(FOOL);
   });
 
   it("waits for three different residents, not three quests from one", () => {
@@ -168,6 +184,7 @@ describe("the Listener's first visit", () => {
       callers: ["keeper"],
     });
     expect(entityActive(s, "listener")).toBe(false);
+    expect(firstFoolProgress(s, "vale")).toEqual({ count: 1, target: 3, phase: "help" });
     expect(validateWorld(reload(s))).toBeTruthy();
     s = errand(errand(s, "moth"), "badger");
     expect(recordOf(s, "vale")).toMatchObject({
@@ -175,6 +192,7 @@ describe("the Listener's first visit", () => {
       callers: ["badger", "keeper", "moth"],
     });
     expect(entityActive(s, "listener")).toBe(true);
+    expect(firstFoolProgress(s, "vale")).toEqual({ count: 3, target: 3, phase: "called" });
     s = talk(s);
     expect(recordOf(s, "vale")).toMatchObject({ calls: 0, callers: [] });
     expect(s.actors.vale.arcana.callers).toBeUndefined();
@@ -212,11 +230,10 @@ describe("the face-down card", () => {
     let s = foolDone(firstVisit());
     expect(spreadOf(s, "vale")).toMatchObject([{ card: FOOL, face: "down" }]);
     expect(s.actors.vale.arcana.spread[0].done).toBeUndefined();
-    s = errands(s, 2);
-    expect(faces(s)).toEqual(["down"]);
     const seen = s.log.length;
-    s = errand(s, "moth");
+    s = turnover(s);
     expect(faces(s)).toEqual(["reward"]);
+    expect(narrativeContext(s)).toMatchObject({ speakers: [], scenery: false });
     expect(arcanaLevel(s, "vale")).toBe(0);
     s = collect(s);
     expect(spreadOf(s, "vale")).toEqual([]);
@@ -227,6 +244,7 @@ describe("the face-down card", () => {
     expect(sells(s, "vale")).toBe(true);
     const told = s.log.slice(seen).filter((e) => e.consequence);
     expect(told).toEqual([
+      expect.objectContaining({ text: "Vale turns over The Fool." }),
       expect.objectContaining({ text: "Vale collects The Fool." }),
       expect.objectContaining({
         kind: "narration",
@@ -239,9 +257,17 @@ describe("the face-down card", () => {
   });
 
   it("collects an unlocked Fool without its later quest or another Listener visit", () => {
-    let s = errands(firstVisit(), 3);
-    expect(faces(s)).toEqual(["reward"]);
+    let s = firstVisit();
+    const list = legalActions(s, "vale");
+    const turn = list.find((a) => a.label === "Turn over");
+    expect(turn).toMatchObject({ kind: "accept", tarot: 0 });
+    expect(turn.key).not.toContain(FOOL);
+    expect(list.some((a) => a.label === "Collect" || (a.kind === "drop" && a.tarot === 0))).toBe(false);
     expect(s.log.some((e) => e.text.includes("The Fool"))).toBe(false);
+    s = turnover(s);
+    expect(faces(s)).toEqual(["reward"]);
+    expect(firstFoolProgress(s, "vale")).toEqual({ count: 3, target: 3, phase: "revealed" });
+    expect(play(s, turn, s.revision, "vale").ok).toBe(false);
     expect(arcanaLevel(s, "vale")).toBe(0);
     expect(recordOf(s, "vale")).toMatchObject({ calls: 0, sale: false });
     expect(entityActive(s, "listener")).toBe(false);
@@ -251,17 +277,21 @@ describe("the face-down card", () => {
     expect(recordOf(s, "vale").proved).toEqual([]);
     expect(arcanaLevel(s, "vale")).toBe(1);
     expect(recordOf(s, "vale").sale).toBe(true);
+    expect(firstFoolProgress(s, "vale")).toBeNull();
   });
 
-  it("gives a discarded Fool back free", () => {
-    let s = discard(firstVisit(), 0);
-    expect(cards(s)).toEqual([]);
-    expect(s.log.findLast((e) => e.verb === "drop").itemId).toBeFalsy();
-    s = talk(errands(s, 3));
-    expect(spreadOf(s, "vale")).toMatchObject([{ card: FOOL, face: "down" }]);
+  it("keeps saved second-round favors when turning and collecting an old down Fool", () => {
+    let s = errands(firstVisit(), 2);
+    const contributed = { calls: 2, callers: ["badger", "keeper"] };
+    s = reload(s);
+    expect(recordOf(s, "vale")).toMatchObject(contributed);
+    expect(firstFoolProgress(s, "vale")).toEqual({ count: 3, target: 3, phase: "dealt" });
+    expect(faces(s)).toEqual(["down"]);
+    s = collect(reload(turnover(s)));
+    expect(recordOf(s, "vale")).toMatchObject({ ...contributed, level: 1 });
   });
 
-  it("unlocks legacy face-down cards together without naming them", () => {
+  it("does not auto-turn the introductory Fool when later favors unlock a legacy card", () => {
     let s = firstVisit();
     s.actors.vale.arcana.spread.push({
       card: "arcanum-4",
@@ -269,7 +299,7 @@ describe("the face-down card", () => {
       bind: { place: "forest-cottage" },
     });
     s = errands(s, 3);
-    expect(faces(s)).toEqual(["reward", "reward"]);
+    expect(faces(s)).toEqual(["down", "reward"]);
     expect(s.log.some((e) => /The Fool|The Emperor/u.test(e.text))).toBe(false);
   });
 });
