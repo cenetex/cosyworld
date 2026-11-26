@@ -13,6 +13,14 @@ use super::authored::{authored, Budget, Field, REQUEST_CHARS};
 use super::*;
 use crate::routes::signed_envelope::{content_hash, keys, Claims, Verdict};
 
+/// Match untrusted scene text off the async workers.
+pub(super) async fn screened(context: Context) -> Option<Context> {
+    tokio::task::spawn_blocking(move || trusted(context))
+        .await
+        .ok()
+        .flatten()
+}
+
 /// Local play has no server-side world id; shared journal rows would carry it.
 const LOCAL_WORLD: &str = "local";
 /// The build family that signs local words.
@@ -348,6 +356,23 @@ pub(super) fn sign_lines(value: &mut Value, context: &Context) {
             entry["signed"] = json!(envelope);
         }
     }
+}
+
+/// A delivered line can be quoted even if the stream closes before completion.
+pub(super) fn send_signed_delta(
+    sender: &mpsc::UnboundedSender<Event>,
+    context: &Context,
+    text: &str,
+) -> bool {
+    let Ok(entry) = serde_json::from_str::<Value>(text) else {
+        return false;
+    };
+    let mut value = json!({"entries": [entry]});
+    sign_lines(&mut value, context);
+    let text = format!("{}\n", value["entries"][0]);
+    sender
+        .send(Event::default().data(json!({"type":"delta","text":text}).to_string()))
+        .is_ok()
 }
 
 /// Sign each private reflection part (`reflections[].signed.{thought,…}`).

@@ -7,7 +7,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{sse::Event, IntoResponse, Response, Sse},
     routing::post,
-    Json, Router,
+    Extension, Json, Router,
 };
 use cosyworld_orchestrator::card_assets;
 use serde::{Deserialize, Serialize};
@@ -38,6 +38,8 @@ mod conversation;
 mod custody;
 #[path = "card_narrative/dream.rs"]
 mod dream;
+#[path = "card_narrative/elysium.rs"]
+mod elysium;
 #[path = "card_narrative/expression.rs"]
 mod expression;
 #[path = "card_narrative/fallback.rs"]
@@ -76,6 +78,7 @@ mod speech;
 mod system_one;
 #[path = "card_narrative/untrusted.rs"]
 mod untrusted;
+use untrusted::screened;
 #[cfg(test)]
 #[path = "card_narrative/voice_eval.rs"]
 mod voice_eval;
@@ -567,6 +570,12 @@ struct Context {
     events: Vec<String>,
     #[serde(default)]
     conversation: Vec<SpokenLine>,
+    #[serde(
+        default,
+        rename = "elysiumIntroduced",
+        skip_serializing_if = "Option::is_none"
+    )]
+    elysium_introduced: Option<String>,
     #[serde(default)]
     outcome: Option<TurnOutcome>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -878,18 +887,11 @@ pub(crate) fn catalog_stale() -> bool {
     })
 }
 
-/// The scene with its untrusted text checked (`untrusted::trusted`), off the
-/// async workers. Matching is bounded per request (`authored::Budget`).
-async fn screened(context: Context) -> Option<Context> {
-    tokio::task::spawn_blocking(move || untrusted::trusted(context))
-        .await
-        .ok()
-        .flatten()
-}
 async fn generate(
     State(state): State<TextState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
+    app: Option<Extension<crate::AppState>>,
     context: Result<Json<Context>, JsonRejection>,
 ) -> Response {
     // Every refusal is counted by cause (`voice_scenes::refused`): the
@@ -995,22 +997,10 @@ async fn generate(
             let _permit = _permit;
             let _client_slot = _client_slot;
             let deltas = sender.clone();
-            let emit = |text: &str| {
-                // Continuations must be able to quote a published line even
-                // when this stream closes before its final response.
-                let Ok(entry) = serde_json::from_str::<Value>(text) else {
-                    return false;
-                };
-                let mut value = json!({"entries": [entry]});
-                untrusted::sign_lines(&mut value, &context);
-                let text = format!("{}\n", value["entries"][0]);
-                deltas
-                    .send(Event::default().data(json!({"type":"delta","text":text}).to_string()))
-                    .is_ok()
-            };
+            let emit = |text: &str| untrusted::send_signed_delta(&deltas, &context, text);
             tokio::select! {
                 _ = sender.closed() => {},
-                result = complete(&config, &context, &character_models, &settings, Some(&emit)) => {
+                result = elysium::complete(app.as_deref(), &config, &context, &character_models, &settings, Some(&emit)) => {
                     let event = match result {
                         Ok(mut value) => {
                             untrusted::sign_lines(&mut value, &context);
@@ -1032,7 +1022,16 @@ async fn generate(
         )
             .into_response();
     }
-    match complete(config, &context, character_models, settings, None).await {
+    match elysium::complete(
+        app.as_deref(),
+        config,
+        &context,
+        character_models,
+        settings,
+        None,
+    )
+    .await
+    {
         Ok(mut value) => {
             untrusted::sign_lines(&mut value, &context);
             ([("cache-control", "no-store")], Json(value)).into_response()

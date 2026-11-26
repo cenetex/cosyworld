@@ -57,6 +57,14 @@ export function rememberSigned(response, storage = localStorage) {
   return response;
 }
 
+export function hasSignedLocalLine(line, revision, storage = localStorage) {
+  const envelope = load(storage).get(key("line", line.actorId, line.text));
+  const claims = envelope?.claims;
+  return Boolean(envelope?.sig && claims?.kind === "line" &&
+    claims.entity === line.actorId && claims.world === "local" &&
+    claims.turn === line.turn && claims.seq === revision);
+}
+
 // The request body: the scene with each remembered word's envelope, and
 // unsigned remembered words left out.
 export function withSignatures(context, storage = localStorage) {

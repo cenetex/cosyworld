@@ -33,7 +33,7 @@ mod dedupe;
 #[path = "full_elysium.rs"]
 mod elysium;
 #[path = "full_elysium_models.rs"]
-mod elysium_models;
+pub(super) mod elysium_models;
 #[path = "full_guild.rs"]
 mod guild;
 #[path = "full_opening.rs"]

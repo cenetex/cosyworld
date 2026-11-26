@@ -353,6 +353,14 @@ pub(super) fn reply_reserve(scene: std::time::Duration) -> std::time::Duration {
 /// The Talk target who answers the actor's line this turn, when both speak.
 pub(super) fn reply_target(context: &Context, voiced: &[String]) -> Option<(String, String)> {
     let actor = context.acting_avatar.as_deref().unwrap_or("vale");
+    reply_target_for(context, voiced, actor)
+}
+
+pub(super) fn reply_target_for(
+    context: &Context,
+    voiced: &[String],
+    actor: &str,
+) -> Option<(String, String)> {
     let card = &context.outcome.as_ref()?.card;
     let target = card.target.as_deref()?;
     (card.kind == "talk"

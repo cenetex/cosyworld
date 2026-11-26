@@ -82,7 +82,10 @@ pub(super) fn card_app_router(state: AppState, shutdown: ShutdownSubscription) -
         .merge(card_voices::router())
         .merge(card_game::router())
         .merge(play_metrics::router())
-        .merge(card_game::text_router(state.ai_config.clone(), true))
+        .merge(
+            card_game::text_router(state.ai_config.clone(), true)
+                .layer(axum::Extension(state.clone())),
+        )
         .route("/health", get(health))
         .route("/health/live", get(health_live))
         .route("/meta", get(super::card_boot::card_meta))

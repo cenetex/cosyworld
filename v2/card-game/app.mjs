@@ -309,7 +309,7 @@ const {
   sharedSession,
   saveKey: SAVE_KEY,
 } = await openTableSession(window.location.href);
-const elysiumPortrait = createElysiumPortrait(sharedSession && sharedWorldId, render);
+const elysiumPortrait = createElysiumPortrait(sharedSession && sharedWorldId, render, SAVE_KEY);
 // Local travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
   wearLocalUpgrades(
@@ -1475,11 +1475,9 @@ const narrator = createNarrator({
   early: Boolean(localRuntime()),
   limit: (context) => markWaking(world, context, (id) => coveredCards.has(id)),
   // Remembered words go back with the envelopes the service signed them with.
-  request: signedRequest(
-    localRuntime()
-      ? (context, signal, progress) =>
-          requestNarrative(context, signal, progress, "/card-game/text", true)
-      : requestNarrative,
+  request: signedRequest((context, signal, progress) =>
+    requestNarrative(elysiumPortrait.withIntroduction(context), signal, progress,
+      "/card-game/text", Boolean(localRuntime())),
   ),
   // Thoughts, persona and dreams come after the line, so they never delay it.
   // A level quest's dream waits on it (sleep-view.mjs).
@@ -3922,6 +3920,7 @@ function renderFloorItems(items) {
 }
 
 function renderScene() {
+  elysiumPortrait.sync(world);
   if (covering) return;
   releaseListenerCard();
   const visibleText = elysiumPortrait.reader(coveredTextReader(world, cardIsCovered));
@@ -4899,6 +4898,7 @@ for (const id of ["hand", "settings-hand"]) {
   });
 }
 function render() {
+  elysiumPortrait.sync(world);
   if (questOpen && !questEntry(questOpen)) questOpen = false;
   for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
     delete card.dataset.hovered;
