@@ -101,6 +101,7 @@ import {
   revealedBeat,
   tapPrompt,
   handFocusId,
+  holdDialogueChoice,
   THINKING_GRACE_MS,
 } from "./presentation.mjs";
 import { levelUpCard, transformPortrait } from "./card-level-up.mjs";
@@ -864,7 +865,7 @@ const playQueue = createPlayQueue({
     performance.now() >= swapEnd &&
     (!localWordsPending() || openingWordsDue()) &&
     !exchange.current &&
-    reveal.complete &&
+    !queuedChoice && reveal.complete &&
     (!sharedSession ||
       (!sharedSending &&
         !sharedSession.state.queue?.some(
@@ -2112,6 +2113,7 @@ function commit(cards, revision) {
 }
 function commitAction(action, revision, renderedAt = -Infinity) {
   if (selectionBlocked()) return;
+  queueChoice();
   if (renderedAt >= lastPlayAt && performance.now() - lastPlayAt < SETTLE_MS)
     return;
   // The drone falls silent just before a discovery is revealed.
@@ -2638,7 +2640,7 @@ function paintActionTap(button, complete) {
     button.textContent = cue.hint;
 }
 function nameActionTap(button, verb, label = button.textContent) {
-  if (button.disabled || button.dataset.blocked) return;
+  if (button.dataset.blocked) return;
   button.dataset.tapVerb = verb;
   button.dataset.tapName = label;
   paintActionTap(button, actionReveal.complete);
@@ -2651,10 +2653,15 @@ function cardTapHint(button, verb = actionTapVerb(null, button.textContent), lab
 const choiceKey = () => `${selected.join("+")}:${questOpen}:${rowCollapsed}`;
 let queuedChoice = false;
 function queueChoice() {
-  queuedChoice ||= Boolean(shownSceneLine && (
-    !reveal.complete || (exchange.current && (!exchange.read || exchange.hasNext)) || replyPending() ||
-    (sharedSession && sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))
-  ));
+  const live = shownSceneLine && !reviewing && (sharedSession
+    ? !sharedAdvanceRequested && shownSceneLine.seq === sharedLineSeq
+    : exchange.current?.seq === shownSceneLine.seq);
+  queuedChoice = holdDialogueChoice({
+    queued: queuedChoice, live, complete: reveal.complete,
+    speaking: characterSpeech.busy || (!sharedSession && !exchange.read),
+    next: live && (exchange.hasNext || replyPending() ||
+      (sharedSession && sharedNextLine(readerState(), shownSceneLine.locationId, shownSceneLine.seq))),
+  });
 }
 function lingeringWords(inFlight) {
   // A play still queued, sending or waiting at the table can be withdrawn;
@@ -2679,24 +2686,20 @@ function lingeringWords(inFlight) {
 }
 function presentPhase() {
   if (restedChoice !== choiceKey()) restedChoice = null;
-  if (queuedChoice ? rowCollapsed || (!selected.length && !questOpen) || restedChoice !== null : restedChoice === null && exchange.read) {
-    queuedChoice = false;
+  const packAsk = Boolean(packPrompt()), chosen = selected.length > 0 || questOpen || packAsk;
+  if ((!rowCollapsed || packAsk) && chosen && restedChoice === null) queueChoice();
+  if (!queuedChoice && restedChoice === null && exchange.read)
     queueMicrotask(() => exchange.settleLast());
-  }
   const inFlight = Boolean(stackView.pending) || Boolean(ownPlayInFlight());
   if (restedChoice !== null && restedRevision !== world.revision && !inFlight && !exchange.active)
     restedChoice = null;
   return phase({
     reviewing: reviewing && stackView.frontIndex < stackView.liveIndex,
-    // An open pack's one button shows over a line still arriving: the pack
-    // is opened first, and the line carries on after Done.
-    revealing:
-      !(packPrompt() && pack.state !== "closed") &&
-      (queuedChoice || !reveal.complete || exchange.hasNext || inscribing.size > 0),
+    revealing: queuedChoice || !reveal.complete || exchange.hasNext || inscribing.size > 0,
     inFlight,
     lingering: lingeringWords(inFlight),
-    raised: !rowCollapsed || Boolean(packPrompt()),
-    chosen: selected.length > 0 || questOpen || Boolean(packPrompt()),
+    raised: !rowCollapsed || packAsk,
+    chosen,
     rested: restedChoice !== null,
   });
 }
@@ -2709,8 +2712,6 @@ function syncPhase() {
   if (presentPhase() !== shownPhase) renderActions();
   else syncActionBeat();
 }
-// The server's reason for refusing this play, while its cards stay chosen
-// and the world has not moved on.
 const refusedPlay = (action) =>
   sharedRefusal?.key === action.key ? sharedRefusal.reason : "";
 let abandonQuest = null,
@@ -3012,7 +3013,6 @@ function renderActions() {
   if (
     sentence &&
     row.childElementCount === 1 &&
-    !row.firstElementChild.disabled &&
     !row.firstElementChild.dataset.blocked &&
     (only || packAsk || openingBox || row.firstElementChild.dataset.look)
   ) {
@@ -4175,7 +4175,7 @@ function renderScene() {
     (moreToRead && entry.turn > shownTurn) ||
     // A zero-turn change joins the stack after the reply being read.
     // Its caption must leave that reply's Continue control in front.
-    (!sharedSession && exchange.current && entry.seq > liveThrough);
+    ((sharedSession ? queuedChoice && !sharedAdvanceRequested : exchange.current) && entry.seq > liveThrough);
   const waiting = sharedSession
     ? sharedSpeech.status === "pending" && sharedLineSeq === null
     : Boolean(
@@ -4193,7 +4193,7 @@ function renderScene() {
   const last = scened.findLast((beat) => beat.line)?.line;
   const lineFirst = sharedSession
     ? moreToRead || (last?.seq === sharedLineSeq && !sharedAdvanceRequested)
-    : Boolean(exchange.current) && (!exchange.read || exchange.hasNext);
+    : Boolean(exchange.current) && (queuedChoice || !exchange.read || exchange.hasNext);
   const own = ownPlayInFlight();
   const stack = withPending(scened, {
     // A committed local play waits through its own exchange.
@@ -4628,16 +4628,15 @@ function syncActionBeat() {
     front = $("speech-row"),
     show =
       Boolean(borrowedBeat) ||
-      ((choiceInStack() || $("card-actions").childElementCount > 0) &&
-        !reviewing) ||
-      (!$("play-status").hidden && shownPhase !== "revealing");
+      (shownPhase !== "revealing" && !reviewing &&
+        (choiceInStack() || !$("play-status").hidden));
   // A notice before the first render (storage refused) only shows the beat.
   const drawn = Boolean(document.body.dataset.handExpanded);
   if (drawn) {
     syncLiveBeat();
     if (show && choiceInStack())
       $("dialogue-advance").setAttribute("aria-label", "Step back in dialogue");
-    else if (!panel.hidden) updateSpeechControls(reveal.pageComplete);
+    else updateSpeechControls(reveal.pageComplete);
   }
   if (panel.hidden !== show) return;
   if (!drawn) {
@@ -4729,7 +4728,8 @@ function advanceFront() {
         queuedChoice = false;
       sharedAdvanceRequested = true;
       syncSharedLine();
-      renderActions();
+      renderScene();
+      queueMicrotask(() => playQueue.flush());
     } else exchange.advance();
     updateSpeechControls(reveal.pageComplete);
   }

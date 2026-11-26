@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   phase,
+  holdDialogueChoice,
   STALE_REFUSALS,
   refusalLabel,
   refusalSentence,
@@ -36,6 +37,18 @@ it("decides what the dialogue box shows", () => {
     [{ ...choosing, reviewing: true }, "choosing"],
   ])
     expect(phase(state), JSON.stringify(state)).toBe(expected);
+});
+
+it("holds a chosen action until a live line is explicitly continued", () => {
+  const read = { queued: false, live: true, complete: true, speaking: false, next: false };
+  expect(holdDialogueChoice(read)).toBe(false);
+  for (const change of [{ complete: false }, { speaking: true }, { next: true }]) {
+    const queued = holdDialogueChoice({ ...read, ...change });
+    expect(queued).toBe(true);
+    expect(holdDialogueChoice({ ...read, queued })).toBe(true);
+    expect(phase({ ...choosing, revealing: queued })).toBe("revealing");
+  }
+  expect(holdDialogueChoice({ ...read, live: false, complete: false })).toBe(false);
 });
 
 it("has no failed phase: words that fail are a silent line", () => {
