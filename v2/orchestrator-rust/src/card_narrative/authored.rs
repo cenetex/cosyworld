@@ -242,7 +242,14 @@ fn catalog() -> &'static Catalog {
         .expect("authored text catalog");
         assert_eq!(
             source.kinds,
-            ["action", "events", "facts", "memories", "disclosures", "subjects"],
+            [
+                "action",
+                "events",
+                "facts",
+                "memories",
+                "disclosures",
+                "subjects"
+            ],
             "authored text kinds"
         );
         let mut lower_names: HashMap<u8, Vec<String>> = HashMap::new();
