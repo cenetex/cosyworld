@@ -93,15 +93,23 @@ export function subjectMemories(world, actor = currentActor(world), known = () =
     if (name(item) && name(gift.from))
       note([item, gift.from], gift.turn, `Received ${name(item)} from ${name(gift.from)}.`);
 
-  const evidence = new Set([...(memory.events || []), ...(memory.landmarks || [])]
-    .filter((e) => e.kind === "event").map((e) => e.seq));
+  const evidence = new Map([...(memory.events || []), ...(memory.landmarks || [])]
+    .filter((e) => e.kind === "event").map((e) => [e.seq, e]));
   for (const e of world.log || []) {
     const cast = e.cast || [], present = cast.includes(actor);
-    if (e.generated || !evidence.has(e.seq) ||
+    const saved = evidence.get(e.seq);
+    if (e.generated || saved?.turn !== e.turn ||
+      saved?.text !== `${e.speaker}: ${e.text}`.slice(0, 650) ||
       !(e.consequence ? e.witnesses?.includes(actor) : present || e.actorId === actor || e.witnesses?.includes(actor))) continue;
     const here = name(e.locationId);
     if (present || (!e.consequence && e.actorId === actor)) {
-      observe(e.locationId, e.turn, "Visited.");
+      const company = cast.filter((id) => id !== actor && world.actors[id]).map(name).filter(Boolean).slice(0, 2);
+      const things = (e.items || []).filter((item) => item.holder === e.locationId).map((item) => name(item.id)).filter(Boolean).slice(0, 2);
+      const glimpse = [
+        company.length ? `Met ${company.join(", ")} here.` : "",
+        things.length ? `Saw ${things.join(", ")} here.` : "",
+      ].filter(Boolean).join(" ");
+      observe(e.locationId, e.turn, glimpse || "Visited.");
       for (const id of cast)
         if (world.actors[id]) observe(id, e.turn, here ? `Last seen at ${here}.` : "Met before.");
       for (const item of e.items || []) {

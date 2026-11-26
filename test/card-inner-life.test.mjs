@@ -83,12 +83,12 @@ describe("inner life panel", () => {
     const entry = { seq: 10, turn: 3, kind: "action", verb: "give", actorId: "moth",
       targetId: "vale", itemId: "cloth", accepted: true, locationId: "station",
       cast: ["vale", "moth"], items: [{ id: "cloth", holder: "vale" }],
-      text: "A raw journal sentence that must not appear." };
+      speaker: "World", text: "A raw journal sentence that must not appear." };
     world.log = [entry, { ...entry, seq: 11, turn: 4, generated: true,
       text: "A private generated aside." }, { ...entry, seq: 12, turn: 5,
       actorId: "mara", targetId: "keeper", cast: ["mara", "keeper"], itemId: "oil",
       items: [{ id: "oil", holder: "keeper" }] }];
-    world.memories.vale.events = [{ seq: 10, kind: "event", text: entry.text }];
+    world.memories.vale.events = [{ seq: 10, turn: 3, kind: "event", text: `World: ${entry.text}` }];
     world.memories.vale.landmarks = [...world.memories.vale.events];
     const found = subjectMemories(world, "vale");
     const by = (id) => found.find((m) => m.id === id);
@@ -100,7 +100,7 @@ describe("inner life panel", () => {
     expect(by("oil")).toBeUndefined();
     expect(subjectMemories(world, "vale", (id) => id !== "cloth").some((m) =>
       m.id === "cloth" || m.summary.includes("Black cloth"))).toBe(false);
-    world.memories.vale.events = [];
+    world.memories.vale.events = [{ seq: 10, turn: 3, kind: "event", text: "World: A new incarnation." }];
     world.memories.vale.landmarks = [];
     expect(subjectMemories(world, "vale").some((m) => m.summary.includes("Received Black cloth"))).toBe(false);
   });
