@@ -283,7 +283,12 @@ fn released_listener_turnovers_keep_their_words_without_vouching_for_forgery() {
         let honest: Value = serde_json::from_str(&save).unwrap();
         let same = |side: &Value| {
             for (id, memory) in honest["memories"].as_object().unwrap() {
-                assert_eq!(&side["memories"][id], memory, "done={done} {id}");
+                let mut imported = side["memories"][id].clone();
+                let subjects = imported.as_object_mut().unwrap().remove("subjects");
+                assert_eq!(&imported, memory, "done={done} {id}");
+                if memory.get("seen").is_some() {
+                    assert!(subjects.is_some_and(|records| records.is_object()), "{id}");
+                }
             }
         };
         let kept: Value = serde_json::from_str(&trusted_save(&save, &[]).unwrap()).unwrap();
@@ -292,6 +297,7 @@ fn released_listener_turnovers_keep_their_words_without_vouching_for_forgery() {
         let loaded = World::create(Some(&kept.to_string())).unwrap().game;
         assert_eq!(loaded["log"], honest["log"], "done={done}");
         same(&loaded);
+        assert_eq!(loaded["memories"], kept["memories"], "done={done}");
         for text in [
             format!("The Listener turns over {TOKEN}."),
             format!("The Listener turns over The Fool, still to do: {INJECTION}"),

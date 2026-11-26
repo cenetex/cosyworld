@@ -151,6 +151,7 @@ export function privateView(world, actor) {
     delete memory.innerLife;
     delete memory.reflections;
     delete memory.learning;
+    delete memory.subjects;
   }
   return view;
 }

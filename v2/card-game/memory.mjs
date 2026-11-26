@@ -2,7 +2,6 @@ import { validLearning } from "./learning.mjs";
 import baseProfiles from "./entity-profiles.json" with { type: "json" };
 import { packProfiles } from "./pack-registry.mjs";
 
-// The shore's own entities plus every mounted world pack's.
 export const profiles = { ...baseProfiles, ...packProfiles };
 export const MEMORY_LIMIT = 16;
 export const newMemories = () =>
@@ -14,7 +13,7 @@ export const newMemories = () =>
         landmarks: [],
         text: null,
         turn: null,
-        ...(profiles[id].kind === "avatar" ? { seen: {} } : {}),
+        ...(profiles[id].kind === "avatar" ? { seen: {}, subjects: {} } : {}),
       },
     ]),
   );
@@ -51,6 +50,102 @@ export function upgradeSightings(world) {
   for (const id of missing) world.memories[id].seen ??= {};
 }
 
+
+export const SUBJECT_MEMORY_LIMIT = 64;
+const MEMORY_VERBS = ["talk", "give", "trade", "ask", "accompany", "take", "drop", "read", "want_met"];
+const subjectId = (id) => typeof id === "string" && Object.hasOwn(profiles, id);
+const savedId = (id) => subjectId(id) || (typeof id === "string" && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,119}$/.test(id));
+const subjectRef = (id) => subjectId(id) ? id : null;
+const subjectRecency = (record) => Math.max(record.sight?.seq || 0, ...(record.deeds || []).map((d) => d.seq));
+
+export function rememberSubjects(world, actor, entry) {
+  if (profiles[actor]?.kind !== "avatar" || entry.generated ||
+    !Number.isSafeInteger(entry.seq) || entry.seq < 1 ||
+    !Number.isSafeInteger(entry.turn) || entry.turn < 0) return;
+  const cast = entry.cast || [], present = cast.includes(actor);
+  const mine = entry.actorId === actor, theirs = entry.targetId === actor;
+  if (entry.consequence ? !entry.witnesses?.includes(actor) :
+    !(present || mine || entry.witnesses?.includes(actor))) return;
+  const subjects = world.memories[actor].subjects ??= {};
+  const record = (id) => subjectId(id) && id !== actor ? (subjects[id] ??= {}) : null;
+  const stamp = { seq: entry.seq, turn: entry.turn };
+  const place = subjectRef(entry.locationId);
+  const items = (entry.items || []).filter((item) =>
+    subjectId(item.id) && profiles[item.id].kind === "item" &&
+    (item.holder === entry.locationId || cast.includes(item.holder)));
+  const observe = (id, holder = null, company = [], things = []) => {
+    const subject = record(id);
+    if (subject && place && (subject.sight?.seq || 0) < entry.seq)
+      subject.sight = { ...stamp, place, holder, company, things };
+  };
+  if (place && (present || (mine && !entry.consequence))) {
+    observe(place, null,
+      [...new Set(cast.filter((id) => id !== actor && profiles[id]?.kind === "avatar"))].slice(0, 4),
+      [...new Set(items.filter((item) => item.holder === place).map((item) => item.id))].slice(0, 4));
+    for (const id of cast)
+      if (profiles[id]?.kind === "avatar") observe(id);
+    for (const item of items) observe(item.id, subjectRef(item.holder));
+  }
+  if ((mine || theirs) && MEMORY_VERBS.includes(entry.verb)) {
+    const item = entry.itemId || (profiles[entry.targetId]?.kind === "item" ? entry.targetId : null);
+    const deed = { ...stamp, verb: entry.verb, actorId: subjectRef(entry.actorId),
+      targetId: subjectRef(entry.targetId), itemId: subjectRef(item), receiveId: subjectRef(entry.receiveId),
+      ownerId: subjectRef(entry.ownerId), locationId: place, accepted: typeof entry.accepted === "boolean" ? entry.accepted : null };
+    for (const id of new Set([mine ? deed.targetId : deed.actorId, deed.itemId, deed.receiveId, deed.ownerId, place])) {
+      const subject = record(id);
+      if (!subject) continue;
+      const previous = subject.deeds || [];
+      if (previous.some((d) => d.seq === deed.seq)) continue;
+      const distinct = previous.filter((d) => !["verb", "actorId", "targetId", "itemId", "receiveId", "ownerId", "accepted"].every((key) => d[key] === deed[key]));
+      subject.deeds = [...distinct, deed].sort((a, b) => b.seq - a.seq).slice(0, 2);
+    }
+  }
+  const ranked = Object.entries(subjects).sort(([a, x], [b, y]) =>
+    subjectRecency(y) - subjectRecency(x) || (a < b ? -1 : a > b ? 1 : 0));
+  for (const [id] of ranked.slice(SUBJECT_MEMORY_LIMIT)) delete subjects[id];
+}
+
+export function upgradeSubjectMemories(world) {
+  for (const [actor, memory] of Object.entries(world.memories || {})) {
+    if (profiles[actor]?.kind !== "avatar" || memory.subjects !== undefined) continue;
+    memory.subjects = {};
+    const evidence = new Map([...(memory.events || []), ...(memory.landmarks || [])]
+      .filter((e) => e.kind === "event").map((e) => [e.seq, e]));
+    for (const entry of world.log || []) {
+      const saved = evidence.get(entry.seq);
+      if (saved?.turn === entry.turn && saved?.text === `${entry.speaker}: ${entry.text}`.slice(0, 650))
+        rememberSubjects(world, actor, entry);
+    }
+  }
+}
+
+export function validSubjectRecords(world, actor, records) {
+  if (records === undefined) return true;
+  const object = (v) => v && typeof v === "object" && !Array.isArray(v);
+  const exact = (v, keys) => object(v) && Object.keys(v).length === keys.length && keys.every((key) => Object.hasOwn(v, key));
+  const stamp = (v) => Number.isSafeInteger(v.seq) && v.seq > 0 && v.seq <= world.eventSeq &&
+    Number.isSafeInteger(v.turn) && v.turn >= 0 && v.turn <= world.turn;
+  const ref = (v) => v === null || savedId(v);
+  const refs = (v) => Array.isArray(v) && v.length <= 4 && v.every(savedId) && new Set(v).size === v.length;
+  return profiles[actor]?.kind === "avatar" && object(records) &&
+    Object.keys(records).length <= SUBJECT_MEMORY_LIMIT &&
+    Object.entries(records).every(([id, record]) =>
+      savedId(id) && id !== actor && object(record) &&
+      Object.keys(record).length > 0 && Object.keys(record).every((key) => ["sight", "deeds"].includes(key)) &&
+      (!Object.hasOwn(record, "sight") || (
+        exact(record.sight, ["seq", "turn", "place", "holder", "company", "things"]) &&
+        stamp(record.sight) && savedId(record.sight.place) && ref(record.sight.holder) &&
+        refs(record.sight.company) && refs(record.sight.things))) &&
+      (!Object.hasOwn(record, "deeds") || (
+        Array.isArray(record.deeds) && record.deeds.length > 0 && record.deeds.length <= 2 &&
+        record.deeds.every((d, index) =>
+          exact(d, ["seq", "turn", "verb", "actorId", "targetId", "itemId", "receiveId", "ownerId", "locationId", "accepted"]) &&
+          stamp(d) && MEMORY_VERBS.includes(d.verb) && (d.actorId === actor || d.targetId === actor) &&
+          ["actorId", "targetId", "itemId", "receiveId", "ownerId", "locationId"].every((key) => ref(d[key])) &&
+          (d.accepted === null || typeof d.accepted === "boolean") &&
+          (!index || record.deeds[index - 1].seq > d.seq)))));
+}
+
 // A place and its contents retain events there. Avatars retain witnessed events.
 export function rememberEvent(world, entry) {
   const related = new Set(
@@ -80,6 +175,7 @@ export function rememberEvent(world, entry) {
       continue;
     const memory = world.memories[id];
     rememberSightings(world, entry, [id]);
+    rememberSubjects(world, id, entry);
 
     if (memory.events.some((event) => event.seq === entry.seq)) continue;
     memory.events.push({
@@ -174,6 +270,7 @@ export function validMemories(world) {
               seen.seq < 1 ||
               seen.seq > world.eventSeq,
           ))) ||
+      !validSubjectRecords(world, id, memory?.subjects) ||
       !validInnerLife(memory?.innerLife, world.turn) ||
       !validLearning(world, id, memory?.learning, profiles) ||
       !validReflections(world, id, memory?.reflections) ||
