@@ -7,7 +7,7 @@ import { arcanaCards } from "./world/catalog.mjs";
 import { recordOf, unlockedOf } from "./world/arcana-record.mjs";
 import { homeOf } from "./world/home.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
-import { TAROT_LOCKED_BACK } from "./locked-box.mjs";
+import { TAROT_BACK, TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { levelCards, questCards, questCaption, questHeading } from "./quest-card.mjs";
 import { MAX_RESOLVE } from "./combat-beats.mjs";
 import { imageUrl } from "./images.mjs";
@@ -18,9 +18,19 @@ export function characterSheet(world, { known = () => false } = {}) {
   const actor = currentActor(world), person = world.actors[actor];
   const level = levelOf(world, actor), record = recordOf(world, actor);
   const owned = new Set(unlockedOf(world, actor));
-  const slots = Object.keys(arcanaCards)
-    .sort((a, b) => arcanaCards[a].number - arcanaCards[b].number)
-    .map((id) => owned.has(id) ? { id, name: nameOf(id), art: arcanumArt(id) } : null);
+  const spread = new Map(record.spread.map((slot) => [slot.card, slot]));
+  const ids = Object.keys(arcanaCards).sort((a, b) => arcanaCards[a].number - arcanaCards[b].number);
+  const face = (id) => ({ id, name: nameOf(id), art: arcanumArt(id) });
+  const cards = ids.filter((id) => owned.has(id)).map(face);
+  const slots = ids.map((id) => {
+    const slot = spread.get(id);
+    if (!slot) return owned.has(id) ? { ...face(id), state: "collected" } : { state: "unknown" };
+    if (["down", "locked"].includes(slot.face))
+      return { state: "locked", art: TAROT_LOCKED_BACK };
+    if (!owned.has(id) && !known(`tarot:${actor}:${id}`))
+      return { state: "unlocked", art: TAROT_BACK };
+    return { ...face(id), state: slot.face === "reward" ? "reward" : "active" };
+  });
   const resolve = standoffFor(world, actor)?.resolve[actor];
   const label = (id, hidden) => id && known(id) ? nameOf(id) : hidden;
   const tables = tableQuests(world, actor, availableCards(world).filter(known))
@@ -37,7 +47,7 @@ export function characterSheet(world, { known = () => false } = {}) {
     visited: new Set((person.visited || []).filter(known)).size,
     items: carried(world, actor).map((id) => label(id, "An unrevealed item")),
     total: slots.length,
-    cards: slots.filter(Boolean), slots,
+    cards, slots,
     progress: record.need.length
       ? `${record.done.filter((id) => record.need.includes(id)).length} of ${record.need.length} required cards collected`
       : "",
@@ -91,22 +101,30 @@ export function characterSheetSection(sheet, { viewCard, persona }) {
   tarot.append(heading);
   const deck = element("div", "sheet-deck");
   for (const card of sheet.slots) {
-    const tile = element(card ? "button" : "div", "sheet-tarot");
-    if (card) {
+    const tile = element(card.id ? "button" : "div", "sheet-tarot");
+    tile.dataset.tarotState = card.state;
+    if (card.id) {
       tile.type = "button";
       tile.dataset.tarot = card.id;
-      tile.title = card.name;
+      const status = card.state === "reward" ? "Ready to collect" : card.state === "active" ? "In spread" : "Collected";
+      tile.title = `${card.name} · ${status}`;
       tile.setAttribute("aria-label", `View ${card.name}`);
+      tile.setAttribute("aria-description", status);
       tile.onclick = () => viewCard(card.id, card.art);
+    } else if (card.art) {
+      tile.setAttribute("role", "img");
+      tile.setAttribute("aria-label", card.state === "locked" ? "Locked tarot card" : "Unlocked tarot card");
     } else {
-      tile.dataset.locked = "true";
       tile.setAttribute("aria-hidden", "true");
+      tile.textContent = "?";
     }
-    const art = element("img");
-    art.alt = "";
-    art.loading = "lazy";
-    art.src = imageUrl(card?.art ?? TAROT_LOCKED_BACK, "card");
-    tile.append(art);
+    if (card.art) {
+      const art = element("img");
+      art.alt = "";
+      art.loading = "lazy";
+      art.src = imageUrl(card.art, "card");
+      tile.append(art);
+    }
     deck.append(tile);
   }
   tarot.append(deck);
