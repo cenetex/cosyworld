@@ -18,10 +18,11 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
-import { availableCards, cardPlay } from "../card-game/cards.mjs";
+import { availableCards, cardPlay, unmet } from "../card-game/cards.mjs";
 import { heldItem } from "../card-game/held-item.mjs";
 import { isLockedBox } from "../card-game/locked-box.mjs";
 import { levelTier } from "../card-game/level-tiers.mjs";
+import { REVEAL_ALL_OVER } from "../card-game/pack-opening.mjs";
 import { cardLevel } from "../card-game/rarity.mjs";
 import { tableQuests } from "../card-game/quest-hand.mjs";
 import { TRAVEL_MS, travelFrames } from "../card-game/card-travel.mjs";
@@ -53,7 +54,7 @@ const shots = process.argv[2]
   : null;
 if (shots) await mkdir(shots, { recursive: true });
 
-// The place that deals the most cards, with a locked box and a Rare or better
+// The place that deals the most cards, with one locked box and a Rare or better
 // among them when one does. Counted now, from the rules, not named.
 function chooseScenario() {
   let best = null;
@@ -68,7 +69,7 @@ function chooseScenario() {
     let here;
     try {
       here = availableCards(world).filter(
-        (id) => id !== "vale" && !id.startsWith("quest:"),
+        (id) => id !== "vale" && !id.startsWith("quest:") && !unmet(world, id),
       );
     } catch {
       continue;
@@ -77,6 +78,7 @@ function chooseScenario() {
       rare = here.filter(
         (id) => !id.startsWith("quest:") && levelTier(cardLevel(world, id)).rank >= 2,
       ).length;
+    if (boxes > 1) continue;
     const score = here.length + (boxes ? 3 : 0) + (rare ? 3 : 0);
     if (!best || score > best.score) best = { place, score, here, world, boxes, rare };
   }
@@ -427,10 +429,14 @@ function chooseArrival(held) {
         const moved = play(world, move);
         if (!moved.ok || heldItem(moved.state, "vale") !== item) continue;
         if (item && cardPlay(moved.state, [item]).action) continue;
-        const fresh = availableCards(moved.state).filter(
-          (id) => id !== "vale" && !id.startsWith("quest:") && !before.includes(id),
+        const dealt = availableCards(moved.state).filter((id) => !unmet(moved.state, id));
+        const stacked = dealt.filter((id) => isLockedBox(moved.state, id));
+        const fresh = dealt.filter(
+          (id) => id !== "vale" && !id.startsWith("quest:") && !before.includes(id) &&
+            (stacked.length < 2 || !stacked.includes(id)),
         );
-        if (fresh.length >= 3) return { world, to: move.target, fresh, item };
+        if (fresh.length > REVEAL_ALL_OVER)
+          return { world, to: move.target, fresh, item };
       }
     } catch {
       continue;
@@ -462,6 +468,7 @@ for (const width of [390, 1440])
       `${label}: the move keeps its chosen cards`,
     );
     await page.keyboard.press("Escape");
+    await settleHand(page);
     await oneButton(page, "Reveal all", `${label}: folding the hand asks Reveal all`);
     assert.deepEqual(await chosen(), held ? [arrival.item] : [], `${label}: only the held thing is chosen`);
     assert.equal(await page.locator("#play-readout").textContent(), "", `${label}: the readout names no other play`);
