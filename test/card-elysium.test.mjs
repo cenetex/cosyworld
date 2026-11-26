@@ -113,6 +113,20 @@ it("opens Void 001 only to the traveler with the Wayfinder in hand at night", ()
     s = act(s, "move", id(`void-00${number}`));
 });
 
+it("uses a night crossing from the Pond without reopening its retired filament", () => {
+  const s = fixture();
+  s.turn = s.revision = DAYLIGHT_TURNS;
+  s.items[wayfinder].holder = "vale";
+  holdChoice(s, "vale", { item: wayfinder, revision: s.revision });
+  const move = legalActions(s).find((a) => a.kind === "move" && a.target === voidNode);
+  const result = play(s, move, s.revision);
+  expect(result.ok, result.error).toBe(true);
+  expect(result.state.actors.vale.place).toBe(voidNode);
+  expect(result.state.crossings["pond-elysium-void-001"].discovered).toBe(false);
+  expect(result.state.crossings).toEqual(decodeSave(encodeSave(result.state)).crossings);
+  expect(moves(result.state)).not.toContain("pond");
+});
+
 it("opens each filament with what it asks for, and keeps it only while that holds", () => {
   let s = enter();
   expect(s.items[wayfinder].holder).toBe("vale");

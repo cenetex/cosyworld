@@ -29,6 +29,7 @@ import {
 } from "../v2/card-game/resident-home.mjs";
 import { residentAsleep } from "../v2/card-game/resident-sleep.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
+import { ELYSIUM_MODEL_IDS } from "../v2/card-game/elysium-models.mjs";
 import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { enableMotives } from "../v2/card-game/motives.mjs";
 import { endStandoff } from "./helpers/standoff.mjs";
@@ -54,6 +55,7 @@ const NO_INVITE = {
     "Patroclus starts aboard the Charybdis, where the only plays are the ship's course; the quay invites him once the ship has docked (card-greek-patroclus).",
   "willows-swede": "The Swede stays at camp until the kit is back (stayUntil).",
   "elysium-resident": "The Silver Resident stays on Void 001 until the keystone is laid there (stayUntil).",
+  ...Object.fromEntries(ELYSIUM_MODEL_IDS.map((id) => [id, "Each raw model stays in its own Void (travels: false)."])),
   boardyai: "Boardy's parlour has no way out; he visits by his own calls.",
   listener: "The Listener never leaves its box; it rolls between its stops alone.",
 };
@@ -64,6 +66,7 @@ const NO_STANDOFF = {
   "greek-rhapsode": "The rhapsode is the pack's recital actor, which the pack schema pins to standoffs: false.",
   "greek-polynices-shade": "The Shade (night apparition).",
   "willows-swede": "The Swede (stayUntil).",
+  ...Object.fromEntries(ELYSIUM_MODEL_IDS.map((id) => [id, "The raw models do not join standoffs (standoffs: false)."])),
   boardyai: "Boardy, the shared-world connector.",
   listener: "The Listener only talks (standoffs: false).",
 };
@@ -132,6 +135,8 @@ describe("who can be invited along and threatened", () => {
       (id) => !(id in NO_STANDOFF) && !paused(id) && !offered(id, "threaten"),
     );
     expect(missing).toEqual([]);
+    for (const id of ELYSIUM_MODEL_IDS)
+      expect(offered(id, "threaten"), id).toBe(false);
     // Oak stays in one place but still stands his ground.
     expect(offered("oak", "threaten")).toBe(true);
   });

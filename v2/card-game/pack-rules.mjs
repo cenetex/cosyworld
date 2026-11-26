@@ -303,7 +303,6 @@ const windowOpen = (s, c) =>
   (c.signal.opens === null
     ? crossingState(s, c.id)?.phase === c.signal.steps.length
     : s.turn < (crossingState(s, c.id)?.until ?? 0));
-// A retired crossing stays open only in saves that had already found it.
 export const crossingOpen = (s, c, senses, actor = senses?.player ?? null) =>
   (!c.retired || Boolean(crossingState(s, c.id)?.discovered)) &&
   entityActive(s, c.from) &&
@@ -350,6 +349,7 @@ export function markCrossed(s, from, to) {
   const c = crossingBetween(from, to, s);
   if (
     c &&
+    !c.retired &&
     !(c.transport && (c.signal || c.unlockWhen)) &&
     crossingState(s, c.id)
   )

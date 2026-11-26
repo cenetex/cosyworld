@@ -199,6 +199,7 @@ describe("the attic opening and saved pond journeys", () => {
     expect(neighbors).toEqual([
       "pond",
       ...(places["ratiradio-staff-kitchen"] ? ["ratiradio-staff-kitchen"] : []),
+      ...(places["elysium-void-002"] ? ["elysium-void-002"] : []),
       ...(doorway === "station" ? ["boardyai-parlour"] : []),
     ]);
     world.items["boardyai-calling-card"].holder = "station";
