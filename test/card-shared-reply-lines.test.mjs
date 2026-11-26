@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import speech from "../v2/card-game/speech.json" with { type: "json" };
+import { sharedContext } from "../v2/card-game/shared-narrator.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { sharedNextLine } from "../v2/card-game/shared.mjs";
+import { createWorld, encodeSave } from "../v2/card-game/world.mjs";
 
 // A speech occasion may voice only the target (a threat, a refusal, a new
 // companion) or only the place. The shared rules must publish those lines,
@@ -82,6 +85,62 @@ describe("shared speech from an occasion's own voices", () => {
       ).lines,
     ).toHaveLength(2);
   });
+
+  it.each([
+    ["present", ["vale", "rue", "mara"]],
+    ["away", ["vale", "mara"]],
+  ])(
+    "publishes a direct Talk reply from Rue while her player is %s",
+    (_, present) => {
+      const room = "elysium-keystone-ledge";
+      const claimed = ["vale", "rue", "mara"];
+      const world = dispatchShared({
+        op: "create",
+        save: encodeSave(createWorld({ seed: 17 })),
+      }).world;
+      for (const id of claimed) world.actors[id].place = room;
+      const seat = { actor: "vale", claimed, present };
+      const { actions } = dispatchShared({ op: "view", world, ...seat });
+      const action = actions.find(
+        (a) => a.kind === "talk" && a.target === "rue",
+      );
+      expect(action).toBeDefined();
+      const played = dispatchShared({ op: "play", world, ...seat, action });
+      expect(played.ok).toBe(true);
+      expect(played.world.speechVoices.vale).toEqual(["vale", "rue"]);
+
+      const scene = { world: played.world, ...seat, action };
+      expect(
+        sharedContext({ ...scene, revealed: [room, ...claimed] }).speakers,
+      ).toEqual(["vale", "rue"]);
+      expect(
+        sharedContext({ ...scene, revealed: [room, "vale", "mara"] }).speakers,
+      ).toEqual(["vale"]);
+      const published = dispatchShared({
+        op: "speech",
+        ...scene,
+        room,
+        lines: [
+          { actorId: "vale", text: "Is this the ledge?" },
+          { actorId: "rue", text: "Follow the gold line." },
+        ],
+      });
+      expect(published.lines.map((line) => line.actorId)).toEqual([
+        "vale",
+        "rue",
+      ]);
+      const [first, reply] = published.lines;
+      const history = [{ room, starts_at: 1, lines: published.lines }];
+      for (const actor of present)
+        expect(
+          sharedNextLine(
+            { actor, world: published.world, history },
+            room,
+            first.seq,
+          ),
+        ).toEqual(reply);
+    },
+  );
 
   it("refuses a voice the play never named, or one voice twice", () => {
     const threatened = played(

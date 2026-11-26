@@ -1,9 +1,9 @@
-use super::{conversation, error, name, voiced, AiConfig, Context, SceneClosed, VoiceSettings};
+use super::{conversation, name, voiced, AiConfig, Context, SceneClosed, VoiceSettings};
 use crate::{
     card_shared::{cast, is_elysium_introduction, personal_introduction},
     AppState,
 };
-use axum::{http::StatusCode, response::Response};
+use axum::response::Response;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
@@ -41,11 +41,7 @@ pub(super) async fn complete(
     on_delta: Option<&(dyn Fn(&str) -> bool + Send + Sync)>,
 ) -> Result<Value, Box<Response>> {
     if let Some((app, target)) = app.zip(unnamed_target(context)) {
-        if let Some(result) = personal_introduction(app, &target, &context.location).await {
-            let (text, model) = result.map_err(|reason| {
-                tracing::warn!(resident = %target, %reason, "personal Elysium introduction pending");
-                Box::new(error(StatusCode::BAD_GATEWAY, "The resident's name needs another try."))
-            })?;
+        if let Some((text, model)) = personal_introduction(app, &target, &context.location).await {
             let entry = json!({"id": target, "text": text, "model": model});
             if on_delta.is_some_and(|emit| !emit(&entry.to_string())) {
                 return Err(SceneClosed.into());
@@ -57,7 +53,7 @@ pub(super) async fn complete(
                 .map(|e| &e.id)
                 .collect();
             return Ok(
-                json!({"revision": context.revision, "entries": [entry], "omitted": omitted, "model": model}),
+                json!({"revision": context.revision, "entries": [entry], "omitted": omitted, "model": model, "silent": []}),
             );
         }
     }
@@ -79,10 +75,13 @@ mod tests {
     };
     use axum::{
         body::{to_bytes, Body},
-        http::Request,
+        http::{Request, StatusCode},
         Extension,
     };
-    use std::sync::{Arc, Mutex};
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    };
     use tower::ServiceExt;
 
     const ID: &str = "elysium-deepseek";
@@ -130,23 +129,30 @@ mod tests {
         assert!(unnamed_target(&context).is_none());
     }
 
-    fn assert_signed(entry: &Value) {
+    fn assert_signed(entry: &Value, (line, model): (&str, &str)) {
         assert_eq!(entry["id"], ID);
-        assert_eq!(entry["text"], LINE);
-        assert_eq!(entry["model"], MODEL);
+        assert_eq!(entry["text"], line);
+        assert_eq!(entry["model"], model);
         let envelope: Envelope = serde_json::from_value(entry["signed"].clone()).unwrap();
         assert_eq!(keys().verify(&envelope), Verdict::Valid);
         assert_eq!(envelope.claims.entity, ID);
         assert_eq!(envelope.claims.kind, "line");
-        assert_eq!(envelope.claims.content, content_hash(LINE));
+        assert_eq!(envelope.claims.content, content_hash(line));
         assert_eq!(envelope.claims.seq, 31);
     }
 
     #[tokio::test]
     async fn personal_talk_uses_bound_model_and_signs_json_and_sse() {
         let seen = Arc::new(Mutex::new(Vec::new()));
-        let (address, server) =
-            serve(plain_provider(seen.clone(), |_, _| "Echo Thread".into())).await;
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let (address, server) = serve(plain_provider(seen.clone(), move |_, _| {
+            match attempts.fetch_add(1, Ordering::Relaxed) {
+                0 => "I have several good ideas.".into(),
+                1 => "My name is".into(),
+                _ => "**“Echo Thread”**.".into(),
+            }
+        }))
+        .await;
         let mut config = test_config(address);
         config.registry = Some(Arc::new(
             CapabilityRegistrySnapshot::from_json(
@@ -176,7 +182,15 @@ mod tests {
             Ok(VoiceSettings::hosted()),
         )
         .layer(Extension(state));
-        for (accept, stream) in [("application/json", false), ("text/event-stream", true)] {
+        let before_name = (
+            "My name is still taking shape. Ask me again, traveler.",
+            "elysium-authored",
+        );
+        for (accept, expected) in [
+            ("application/json", before_name),
+            ("text/event-stream", (LINE, MODEL)),
+            ("application/json", (LINE, MODEL)),
+        ] {
             let mut request = Request::post("/card-game/text")
                 .header("content-type", "application/json")
                 .header("host", "localhost")
@@ -190,7 +204,7 @@ mod tests {
             let status = response.status();
             let body = to_bytes(response.into_body(), 1 << 20).await.unwrap();
             assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
-            if stream {
+            if accept == "text/event-stream" {
                 let frames: Vec<Value> = String::from_utf8_lossy(&body)
                     .lines()
                     .filter_map(|line| line.strip_prefix("data: "))
@@ -198,17 +212,33 @@ mod tests {
                     .collect();
                 assert_eq!(frames.len(), 2, "{frames:?}");
                 assert_eq!(frames[0]["type"], "delta");
-                assert_signed(&serde_json::from_str(frames[0]["text"].as_str().unwrap()).unwrap());
+                assert_signed(
+                    &serde_json::from_str(frames[0]["text"].as_str().unwrap()).unwrap(),
+                    expected,
+                );
                 assert_eq!(frames[1]["type"], "complete");
-                assert_signed(&frames[1]["entries"][0]);
+                assert_eq!(frames[1]["silent"], json!([]));
+                assert_signed(&frames[1]["entries"][0], expected);
             } else {
                 let value: Value = serde_json::from_slice(&body).unwrap();
-                assert_signed(&value["entries"][0]);
+                assert_eq!(value["silent"], json!([]));
+                assert_signed(&value["entries"][0], expected);
+                if expected == before_name {
+                    assert!(!root
+                        .join("elysium-models")
+                        .join(ID)
+                        .join("name.txt")
+                        .exists());
+                }
             }
         }
         let seen = seen.lock().unwrap();
-        assert_eq!(seen.len(), 1, "the committed name is reused");
-        assert_eq!(seen[0]["model"], MODEL);
+        assert_eq!(
+            seen.len(),
+            3,
+            "two initial attempts and one on the next Talk"
+        );
+        assert!(seen.iter().all(|request| request["model"] == MODEL));
         assert!(seen[0].to_string().contains("an indigo well"));
         assert!(!seen[0].to_string().contains("Vale"));
         std::fs::remove_dir_all(root).unwrap();

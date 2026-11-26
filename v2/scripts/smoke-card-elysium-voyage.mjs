@@ -46,6 +46,8 @@ async function personalIntroduction(browser, origin) {
   const resident = "elysium-deepseek";
   const room = "elysium-void-006";
   const name = "Indigo Reed";
+  const pending = "My name is still taking shape. Ask me again, traveler.";
+  const introduced = `I call myself ${name}. My token has slipped into the world beyond this Void.`;
   const key = "cosyworld.reflected-shore.v1.elysium-personal-smoke";
   const initial = createWorld({ seed: 17 });
   initial.turn = initial.revision = DAYLIGHT_TURNS;
@@ -83,30 +85,66 @@ async function personalIntroduction(browser, origin) {
   await page.route("**/auth/account", (route) =>
     route.fulfill({ json: { authenticated: false } }),
   );
-  const model = "deepseek/deepseek-v4.1-flash";
+  const attempts = [];
   await page.route("**/card-game/text", (route) => {
-    const { revision, turn, outcome } = route.request().postDataJSON();
+    const { revision, turn, outcome, elysiumIntroduced } = route.request().postDataJSON();
     if (outcome?.card?.kind !== "talk" || outcome.card.target !== resident)
       return route.fulfill({ status: 503 });
-    const text = `I call myself ${name}. My token has slipped into the world beyond this Void.`;
-    return route.fulfill({ json: { revision, model, entries: [{
+    attempts.push(elysiumIntroduced);
+    const text = attempts.length === 1 ? pending : introduced;
+    const model = attempts.length === 1 ? "elysium-authored" : "deepseek/deepseek-v4.1-flash";
+    const entry = {
       id: resident, text, model, signed: {
         sig: "fixture-introduction",
         claims: { kind: "line", entity: resident, world: "local", seq: revision, turn },
       },
-    }] } });
+    };
+    const frames = [
+      { type: "delta", text: `${JSON.stringify(entry)}\n` },
+      { type: "complete", revision, model, entries: [entry], silent: [] },
+    ];
+    return route.fulfill({
+      contentType: "text/event-stream",
+      body: frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join(""),
+    });
   });
   await page.goto(`${origin}/?table=elysium-personal-smoke`);
   const title = page.locator(`#hand [data-card="${resident}"] .name`);
+  const speech = page.locator("#dialogue-text");
+  const talk = async () => {
+    await settleHand(page);
+    await clearSelection(page);
+    await selectCard(page, resident, { touch: true });
+    await readyActionButton(page, "talk").tap();
+  };
   await title.filter({ hasText: /^\?\?\?$/u }).waitFor();
   await settleHand(page);
-  await clearSelection(page);
-  await selectCard(page, resident, { touch: true });
-  await readyActionButton(page, "talk").tap();
+  const quiet = await page.evaluateHandle(() => {
+    const seen = new Set();
+    const front = document.querySelector("#speech-row");
+    const behind = document.querySelector("#beat-behind");
+    const observer = new MutationObserver(() => {
+      if (!front.hidden && front.dataset.beat === "silent")
+        seen.add(front.querySelector("#speaker").textContent);
+      if (!behind.hidden && behind.querySelector(".beat-behind-speech")?.textContent === "…")
+        seen.add(behind.querySelector("strong").textContent);
+    });
+    observer.observe(front.closest(".dialogue"), {
+      subtree: true, childList: true, attributes: true,
+    });
+    return seen;
+  });
+  await talk();
+  await speech.filter({ hasText: pending }).waitFor();
+  await title.filter({ hasText: /^\?\?\?$/u }).waitFor();
+  await talk();
+  await speech.filter({ hasText: introduced }).waitFor();
   await settleHand(page);
   await title.filter({ hasText: name }).waitFor();
+  assert.deepEqual(await quiet.evaluate((seen) => [...seen]), []);
   await page.reload();
   await title.filter({ hasText: name }).waitFor();
+  assert.deepEqual(attempts, [undefined, undefined]);
   assert.deepEqual(errors, []);
   await page.close();
 }
@@ -466,7 +504,7 @@ try {
   );
   await Promise.all([vale.close(), mara.close()]);
   await personalIntroduction(browser, origin);
-  console.log("Elysium personal table: a prior Talk can earn and keep its name.");
+  console.log("Elysium personal table: an anonymous reply can recover on the next Talk and keep its name.");
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));
