@@ -31,7 +31,7 @@ it("a quiet cloth hold reveals the placed lit lamp's ship identically locally an
   expect(JSON.parse(runtime.cardShared(JSON.stringify(request)))).toEqual(
     shared,
   );
-  expect(shared.world.crossings[gate]).toEqual({ discovered: true });
+  expect(shared.world.crossings[gate]).toEqual({ discovered: true, method: "pond-lamp" });
   expect(shared.world.transports["greek-ship"].dock).toBe("pond");
   expect(shared.world.crossings).toEqual(local.crossings);
   expect(shared.world.turn).toBe(world.turn);

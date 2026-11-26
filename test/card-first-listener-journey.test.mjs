@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 import {
   arcanaLevel,
   listenerDeal,
@@ -88,9 +89,14 @@ it.each(["solo", "shared"])(
     expect(record().callers).toEqual(["moth"]);
     expect(progress()).toEqual({ count: 1, target: 3, phase: "help" });
 
+    const wayfinder = "elysium-wayfinder";
+    const { holder } = table.world.items[wayfinder];
+    if (holder !== table.world.actors.vale.place) move(holder);
+    take(wayfinder);
+    while (table.world.turn < DAYLIGHT_TURNS) act("wait", { label: undefined });
+    hold(wayfinder);
     move("elysium-void-001");
     talk("elysium-resident");
-    take("elysium-wayfinder");
     move("elysium-keystone-ledge");
     take("elysium-keystone");
     move("elysium-void-001");
@@ -99,8 +105,10 @@ it.each(["solo", "shared"])(
     expect(record().callers).toEqual(["elysium-resident", "moth"]);
     expect(progress()).toEqual({ count: 2, target: 3, phase: "help" });
 
-    drop("elysium-wayfinder", "elysium-void-001");
+    drop(wayfinder, "elysium-void-001");
     take("ratiradio-red-beanie");
+    move("elysium-void-002");
+    move("station");
     move("pond");
     take("ratiradio-thermos");
     take("ratiradio-station-key");

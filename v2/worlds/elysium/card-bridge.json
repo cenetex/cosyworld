@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "id": "pond-elysium",
+  "id": "elysium-station",
   "pack": "elysium",
-  "description": "A gold filament runs beneath the still water of Black pond to Void 001, and back again.",
+  "description": "The Wayfinder draws a night path to Void 001. A silver filament leaves Void 002 for Empty station.",
   "entries": [
     {
       "joins": "hub",
-      "at": "pond",
-      "arrive": "elysium-void-001",
-      "via": "pond-elysium-void-001"
+      "at": "station",
+      "arrive": "elysium-void-002",
+      "via": "elysium-void-002-station"
     }
   ],
   "crossings": [
@@ -18,6 +18,7 @@
       "to": "elysium-void-001",
       "travelers": "player",
       "travel": "along the gold filament",
+      "retired": true,
       "requires": []
     },
     {
@@ -26,6 +27,15 @@
       "to": "pond",
       "travelers": "player",
       "travel": "back along the gold filament",
+      "retired": true,
+      "requires": []
+    },
+    {
+      "id": "elysium-void-002-station",
+      "from": "elysium-void-002",
+      "to": "station",
+      "travelers": "player",
+      "travel": "along the silver filament",
       "requires": []
     }
   ],

@@ -41,10 +41,13 @@ import { resetAvatar, settleHomeItems } from "./avatar-reset.mjs";
 import { arrive, hideAvatar } from "./hidden-avatar.mjs";
 import { homecoming } from "./homecoming.mjs";
 import { beginHistory } from "./world/history.mjs";
+import { settleStrandedWayfinder } from "./world/elysium-travel.mjs";
 import { dialogueCast } from "./scene-cast.mjs";
 import { speechOccasions } from "./speech-occasions.mjs";
+import { resetImportedElysiumEncounters } from "./elysium-models.mjs";
 
 function validateTransition(world) {
+  settleStrandedWayfinder(world);
   settleHeldItems(world);
   settleLamp(world);
   settleStationExits(world);
@@ -153,6 +156,7 @@ function importClientSave(save) {
   // Upgrades are per passkey, and a local save is its own passkey (#1873).
   for (const actor of Object.values(raw.actors || {})) delete actor?.upgrades;
   const world = decodeSave(JSON.stringify(raw));
+  resetImportedElysiumEncounters(world);
   for (const actor of Object.values(world.actors || {}))
     if (actor?.upgrades) {
       actor.upgrades = actor.upgrades.filter((id) => !isArcanum(id));

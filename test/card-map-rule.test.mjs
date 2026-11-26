@@ -90,6 +90,12 @@ const TOWNS = {
   ],
   elysium: [
     "elysium-void-001",
+    "elysium-void-002",
+    "elysium-void-003",
+    "elysium-void-004",
+    "elysium-void-005",
+    "elysium-void-006",
+    "elysium-void-007",
     "elysium-keystone-ledge",
     "elysium-gold-spiral",
     "elysium-observatory",

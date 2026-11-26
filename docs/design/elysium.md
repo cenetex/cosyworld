@@ -1,5 +1,24 @@
 # Elysium: residents that name and draw themselves
 
+## Playing the chapter
+
+The Void Wayfinder starts somewhere reachable in the ordinary world. Raise
+it after nightfall to reveal a crossing into Void 001. The silver filament
+in Void 002 leads to Empty Station at any hour. If the last traveler leaves
+the Wayfinder in Elysium, it scatters back into the ordinary world.
+
+Void 001 keeps the Silver Resident and the Keystone chapter. Void 002–007
+each have an unnamed resident, their own illustrated token, and a distinct
+room. First Talk sends that resident's token to the ordinary world. Bring
+it back and give it to the resident to complete their request.
+
+Shared tables call the six bound models for their own names and replies.
+On a token return, its resident's model describes its appearance, then the
+portrait service renders it. The name and portrait are reused across
+tables once earned in each table. Solo tables support the exploration and
+the token quest. The hosted naming and portrait generation use authenticated
+shared plays.
+
 Elysium is the pack for raw models. Each Void holds one resident, and each
 resident is bound to one model. No resident ships with an authored name,
 description or portrait. The first Talk with a resident runs its model for a

@@ -337,6 +337,8 @@ export const crossingExits = (s, place, actor, senses) =>
 
 /** A pack is known once the player has found a way into it. */
 export const packDiscovered = (s, packId) =>
+  (packId === "elysium" && humanAvatarIds.some((id) =>
+    s.actors[id]?.visited?.includes("elysium-void-001"))) ||
   crossings.some(
     (c) =>
       c.packId === packId &&

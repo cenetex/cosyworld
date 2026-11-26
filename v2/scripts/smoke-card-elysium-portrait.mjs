@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import sharp from "sharp";
 import { createServer } from "../card-game/serve.mjs";
 import { profiles } from "../card-game/memory.mjs";
+import { DAYLIGHT_TURNS } from "../card-game/pack-rules.mjs";
 import { createWorld, legalActions, play } from "../card-game/world.mjs";
 
 const room = "elysium-void-001";
@@ -33,12 +34,14 @@ function action(world, kind, target) {
 
 function fixture() {
   let world = createWorld({ seed: 17 });
-  world.actors.vale.place = "pond";
-  world.actors.vale.visited.push("pond");
+  const start = world.items["elysium-wayfinder"].holder;
+  world.actors.vale.place = start;
+  world.actors.vale.visited.push(start);
   for (const item of Object.values(world.items))
-    if (item.holder === "vale") item.holder = "pond";
-  world = action(world, "move", room);
+    if (item.holder === "vale") item.holder = start;
+  world.revision = world.turn = DAYLIGHT_TURNS;
   world = action(world, "take", "elysium-wayfinder");
+  world = action(world, "move", room);
   world = action(world, "move", "elysium-keystone-ledge");
   world = action(world, "take", keystone);
   return action(world, "move", room);

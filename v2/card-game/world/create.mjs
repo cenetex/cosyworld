@@ -13,6 +13,7 @@ import { validSeed } from "../pack-specials.mjs";
 import forest from "../forest.json" with { type: "json" };
 import { settleGuards } from "../resident-guard.mjs";
 import { seedCallLead } from "../quest-call.mjs";
+import { scatterWayfinder } from "./elysium-travel.mjs";
 // These still live in world.mjs; the cycle resolves at call time.
 import {
   installPacks,
@@ -58,6 +59,7 @@ export function createWorld({ opening = false, packScopes = {}, seed } = {}) {
   installLife(world, travels);
   installRouteKnowledge(world);
   installKnowledge(world);
+  scatterWayfinder(world);
   // Residents start with wants; the player starts without a held quest.
   fillWants(world, wantAPI(world), true);
   rememberEvent(world, world.log[0]);
@@ -75,5 +77,6 @@ export function seedRun(s, seed) {
   // Doors placed before the world had a seed move to the seed's picks.
   delete s.doors;
   installPacks(s);
+  if (s.revision === 0) scatterWayfinder(s);
   return s;
 }

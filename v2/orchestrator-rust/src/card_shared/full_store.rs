@@ -21,6 +21,7 @@ pub(super) fn schema_sqlite(c: &Connection) -> rusqlite::Result<()> {
       CREATE TABLE IF NOT EXISTS card_full_scenes(seq INTEGER PRIMARY KEY AUTOINCREMENT,world TEXT NOT NULL,room TEXT NOT NULL,play TEXT NOT NULL UNIQUE,content TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS card_full_scenes_room ON card_full_scenes(world,room,seq);
       CREATE TABLE IF NOT EXISTS card_full_packs(hash TEXT PRIMARY KEY,revision TEXT NOT NULL,content TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS card_full_elysium_receipts(world TEXT NOT NULL,resident TEXT NOT NULL,scattered INTEGER NOT NULL,returned INTEGER,PRIMARY KEY(world,resident));
     ")
 }
 fn checkpoint(c: &Connection, id: &str, w: &World, seq: i64) -> Result<()> {

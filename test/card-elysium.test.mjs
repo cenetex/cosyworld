@@ -14,10 +14,14 @@ import {
   packRouteOpen,
 } from "../v2/card-game/pack-registry.mjs";
 import { backdrop } from "../v2/card-game/scene.mjs";
+import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { elysiumScatterLandings } from "../v2/card-game/world/elysium-travel.mjs";
 import { setLampFuel } from "../v2/scripts/card-browser-helpers.mjs";
 
 const id = (name) => `elysium-${name}`;
 const voidNode = id("void-001"),
+  exitNode = id("void-002"),
   ledge = id("keystone-ledge"),
   spiral = id("gold-spiral"),
   observatory = id("observatory"),
@@ -48,28 +52,73 @@ const act = (s, kind, target) => {
   return decodeSave(encodeSave(result.state));
 };
 
-it("mounts Void 001 along a gold filament from Black pond", () => {
+function enter() {
+  let s = fixture("station");
+  s.turn = s.revision = DAYLIGHT_TURNS;
+  s.items[wayfinder].holder = "station";
+  s = act(s, "take", wayfinder);
+  return act(s, "move", voidNode);
+}
+
+it("scatters the Wayfinder deterministically in ordinary reachable rooms", () => {
+  const seen = new Set();
+  for (const seed of [1, 2, 3, 4]) {
+    const s = createWorld({ seed });
+    const { holder } = s.items[wayfinder];
+    expect(["pond", "station"]).toContain(holder);
+    expect(createWorld({ seed }).items[wayfinder].holder).toBe(holder);
+    expect(decodeSave(encodeSave(s)).items[wayfinder].holder).toBe(holder);
+    seen.add(holder);
+  }
+  expect(seen.size).toBe(2);
+
+  const s = fixture("station");
+  s.items["ratiradio-station-key"].holder = "vale";
+  expect(elysiumScatterLandings(s, "vale")).toEqual(
+    expect.arrayContaining(["pond", "station", "ratiradio-staff-kitchen"]),
+  );
+});
+
+it("opens Void 001 only to the traveler with the Wayfinder in hand at night", () => {
   const pack = packDefinition("elysium");
   expect(pack.entry).toBe(voidNode);
-  expect(Object.keys(pack.places)).toEqual([
-    voidNode,
-    ledge,
-    spiral,
-    observatory,
-  ]);
-  const s = act(fixture(), "move", voidNode);
+  expect(Object.keys(pack.places)).toEqual(
+    expect.arrayContaining([
+      voidNode,
+      ledge,
+      spiral,
+      observatory,
+      ...Array.from({ length: 6 }, (_, index) => id(`void-00${index + 2}`)),
+    ]),
+  );
+  let s = fixture("station");
+  s.items[wayfinder].holder = "station";
+  s = act(s, "take", wayfinder);
+  expect(moves(s)).not.toContain(voidNode);
+  expect(exits(s, "pond", "vale")).not.toContain(voidNode);
+  s.turn = s.revision = DAYLIGHT_TURNS * 2 - 1;
+  holdChoice(s, "vale", { item: null, revision: s.revision });
+  expect(moves(s)).not.toContain(voidNode);
+  holdChoice(s, "vale", { item: wayfinder, revision: s.revision });
+  expect(
+    legalActions(s).some(
+      (a) => a.kind === "accompany" && a.destination === voidNode,
+    ),
+  ).toBe(false);
+  s = act(s, "move", voidNode);
   expect(s.actors.vale.place).toBe(voidNode);
-  expect(moves(s)).toContain("pond");
+  expect(s.turn).toBe(DAYLIGHT_TURNS * 2);
+  expect(moves(s)).not.toContain("pond");
+  for (const number of [2, 3, 4, 7, 6, 5, 3, 2])
+    s = act(s, "move", id(`void-00${number}`));
 });
 
 it("opens each filament with what it asks for, and keeps it only while that holds", () => {
-  let s = act(fixture(), "move", voidNode);
-  expect(s.items[wayfinder].holder).toBe(voidNode);
-  expect(moves(s)).not.toContain(ledge);
+  let s = enter();
+  expect(s.items[wayfinder].holder).toBe("vale");
+  expect(moves(s)).toContain(ledge);
   expect(moves(s)).not.toContain(spiral);
 
-  s = act(s, "take", wayfinder);
-  expect(moves(s)).toContain(ledge);
   s = act(s, "move", ledge);
   s = act(s, "take", keystone);
   s = act(s, "move", voidNode);
@@ -111,6 +160,61 @@ it("opens each filament with what it asks for, and keeps it only while that hold
   expect(moves(s)).not.toContain(spiral);
 });
 
+it("lets the Wayfinder holder leave an underway ship without interrupting its voyage", () => {
+  let s = fixture("greek-ship");
+  s.turn = s.revision = DAYLIGHT_TURNS;
+  s.items[wayfinder].holder = "vale";
+  s.crossings["pond-greek-harbor"].discovered = true;
+  Object.assign(s.transports["greek-ship"], {
+    phase: "sea",
+    dock: "pond",
+    destination: "greek-harbor",
+    since: s.turn,
+  });
+  holdChoice(s, "vale", { item: wayfinder, revision: s.revision });
+  s = act(s, "move", voidNode);
+  expect(s.items[wayfinder].holder).toBe("vale");
+  expect(s.transports["greek-ship"]).toMatchObject({
+    phase: "docked",
+    dock: "greek-harbor",
+    riders: [],
+  });
+});
+
+it("scatters an abandoned Wayfinder when the last traveler leaves", () => {
+  let s = act(enter(), "drop", wayfinder);
+  expect(s.items[wayfinder].holder).toBe(voidNode);
+  s = act(s, "move", exitNode);
+  expect(s.items[wayfinder].holder).toBe(voidNode);
+  s = act(s, "move", "station");
+  expect(["station", "pond"]).toContain(s.items[wayfinder].holder);
+
+  const world = dispatchShared({
+    op: "create",
+    save: encodeSave(enter()),
+  }).world;
+  world.actors.rue.place = exitNode;
+  world.items["ratiradio-station-key"].holder = "vale";
+  const request = {
+    world,
+    actor: "vale",
+    claimed: ["vale", "rue"],
+    present: [],
+  };
+  expect(
+    dispatchShared({ ...request, op: "presence", present: ["rue"] }).world
+      .items[wayfinder].holder,
+  ).toBe("vale");
+  expect(
+    dispatchShared({ ...request, op: "validate" }).world.items[wayfinder]
+      .holder,
+  ).toBe("vale");
+  expect(["station", "pond"]).toContain(
+    dispatchShared({ ...request, op: "presence" }).world.items[wayfinder]
+      .holder,
+  );
+});
+
 it("weaves the bridge only while the lamp's uncovered flame is at the Spiral", () => {
   let s = fixture(spiral);
   s.items.lamp.holder = "vale";
@@ -133,14 +237,18 @@ it("adds the new destination and its chart to an older save without moving its k
   const old = fixture(spiral);
   old.packs.elysium.revision = 1;
   old.items[keystone].holder = voidNode;
+  old.crossings["pond-elysium-void-001"].discovered = true;
+  old.crossings["elysium-void-001-pond"].discovered = true;
   delete old.items[chart];
   delete old.memories[chart];
   delete old.memories[observatory];
 
   const s = decodeSave(JSON.stringify(old));
-  expect(s.packs.elysium.revision).toBe(2);
+  expect(s.packs.elysium.revision).toBe(packDefinition("elysium").revision);
   expect(s.actors.vale.place).toBe(spiral);
   expect(s.items[keystone].holder).toBe(voidNode);
   expect(s.items[chart].holder).toBe(observatory);
   expect(s.memories[observatory]).toBeDefined();
+  expect(s.crossings["pond-elysium-void-001"].discovered).toBe(false);
+  expect(s.crossings["elysium-void-001-pond"].discovered).toBe(false);
 });

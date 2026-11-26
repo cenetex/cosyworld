@@ -14,7 +14,7 @@ import { imageUrl } from "./images.mjs";
 import { availableCards } from "./cards.mjs";
 import { notBehindOwners, tableQuests } from "./quest-hand.mjs";
 
-export function characterSheet(world, { known = () => false, withheldTarot } = {}) {
+export function characterSheet(world, { known = () => false, withheldTarot, caption = (text) => text } = {}) {
   const actor = currentActor(world), person = world.actors[actor];
   const level = levelOf(world, actor), record = recordOf(world, actor);
   const owned = new Set(unlockedOf(world, actor));
@@ -32,7 +32,7 @@ export function characterSheet(world, { known = () => false, withheldTarot } = {
     return { ...face(id), state: slot.face === "reward" ? "reward" : "active" };
   });
   const resolve = standoffFor(world, actor)?.resolve[actor];
-  const label = (id, hidden) => id && known(id) ? nameOf(id) : hidden;
+  const label = (id, hidden) => id && known(id) ? caption(nameOf(id)) : hidden;
   const tables = tableQuests(world, actor, availableCards(world).filter(known))
     .filter(({ quest }) => quest && !quest.completed);
   const quests = [...levelCards(world, actor).filter((card) => card.index !== withheldTarot),
@@ -62,7 +62,7 @@ export function characterSheet(world, { known = () => false, withheldTarot } = {
       words: quest.face === "reward" && !known(quest.key) &&
         !unlockedOf(world, actor).includes(quest.target)
         ? ""
-        : questCaption(quest, !known(quest.target), null, known),
+        : caption(questCaption(quest, !known(quest.target), null, known)),
     })),
   };
 }

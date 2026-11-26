@@ -2432,6 +2432,7 @@
   var TRANSPORT_VERSION = 3;
   var PHASES = ["docked", "course", "sea", "arrived"];
   var shipAt = (place) => Object.entries(transports).find(([, t]) => t.place === place) || null;
+  var transportPlace = (place) => Boolean(shipAt(place));
   var passengers = (s, id) => Object.entries(s.actors).filter(
     ([actor, a]) => a.place === transports[id].place && entityActive(s, actor)
   ).map(([, a]) => a);
@@ -2781,7 +2782,7 @@
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
     (c) => c.from === place && mayCross(c, actor, senses2) && crossingOpen(s, c, senses2, actor) && (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor))
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
-  var packDiscovered = (s, packId) => crossings.some(
+  var packDiscovered = (s, packId) => packId === "elysium" && humanAvatarIds.some((id) => s.actors[id]?.visited?.includes("elysium-void-001")) || crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
   );
   var crossingScenery = (s, place, senses2, waiting = []) => crossings.filter(
@@ -3122,6 +3123,45 @@
   var validDwell = (s) => Object.values(s.actors).every(
     (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
   );
+
+  // v2/card-game/elysium-models.mjs
+  var ELYSIUM_MODEL_IDS = Object.freeze([
+    "elysium-claude",
+    "elysium-gemini",
+    "elysium-chatgpt",
+    "elysium-grok",
+    "elysium-deepseek",
+    "elysium-qwen"
+  ]);
+  var models = new Set(ELYSIUM_MODEL_IDS);
+  var tokens2 = new Set(ELYSIUM_MODEL_IDS.map((id) => `${id}-token`));
+  var isElysiumModel = (id) => models.has(id);
+  var isElysiumModelToken = (id) => tokens2.has(id);
+  var elysiumModelToken = (id) => `${id}-token`;
+  var keepsElysiumToken = (resident, item) => isElysiumModel(resident) && elysiumModelToken(resident) === item;
+  function validElysiumEncounters(s) {
+    const records = s.elysiumEncounters;
+    if (records === void 0) return true;
+    if (!records || typeof records !== "object" || Array.isArray(records)) return false;
+    const seq = (n) => Number.isSafeInteger(n) && n >= 1 && n <= s.eventSeq;
+    return Object.entries(records).every(([resident, record7]) => {
+      if (!isElysiumModel(resident) || !s.actors[resident] || !s.items[elysiumModelToken(resident)] || !record7 || !seq(record7.scatteredAt))
+        return false;
+      const fields3 = Object.keys(record7).sort().join();
+      if (fields3 === "scatteredAt") return true;
+      return fields3 === "returnedAt,returnedBy,scatteredAt" && seq(record7.returnedAt) && record7.returnedAt > record7.scatteredAt && Object.hasOwn(s.actors, record7.returnedBy);
+    });
+  }
+  function validElysiumEncounterEvent(s, e) {
+    if (e.elysiumModel === void 0 && e.portraitModel === void 0) return true;
+    const resident = e.elysiumModel ?? e.portraitModel;
+    const record7 = s.elysiumEncounters?.[resident];
+    if (!isElysiumModel(resident) || !record7 || e.targetId !== resident || e.generated || e.kind !== "action" || e.fromLocationId !== e.locationId)
+      return false;
+    if (e.elysiumModel !== void 0)
+      return e.portraitModel === void 0 && e.verb === "talk" && record7.scatteredAt === e.seq;
+    return e.verb === "give" && e.accepted === true && !e.handover && e.itemId === elysiumModelToken(resident) && record7.returnedAt === e.seq && record7.returnedBy === e.actorId;
+  }
 
   // v2/card-game/world/rumours.mjs
   var RUMOURS_HELD = 3;
@@ -3559,9 +3599,9 @@
         elysium: [
           {
             joins: "hub",
-            at: "pond",
-            arrive: "elysium-void-001",
-            via: "pond-elysium-void-001"
+            at: "station",
+            arrive: "elysium-void-002",
+            via: "elysium-void-002-station"
           }
         ]
       }
@@ -15869,15 +15909,17 @@
         schemaVersion: 1,
         id: "elysium",
         packId: "cosyworld.elysium",
-        revision: 2,
+        revision: 3,
         name: "Elysium",
-        description: "Gold in the void. Stone nodes hang in the dark, joined by gold filaments. Beyond the spiral, a light or a Wayfinder can reveal the path to an old observatory.",
+        description: "Gold in the void. Filaments join stone islands, where silver figures keep strange tokens. Beyond the Gold Spiral an unlit passage leads to an old observatory.",
         entry: "elysium-void-001",
         places: {
           "elysium-void-001": {
             name: "Void 001",
             persona: "A bare stone node floating in deep darkness, its surface ringed with fine gold lines. Gold filaments run from it to distant floating nodes and to a gold spiral.",
-            exits: [],
+            exits: [
+              "elysium-void-002"
+            ],
             backdrop: "assets/elysium/void-001.png"
           },
           "elysium-keystone-ledge": {
@@ -15931,6 +15973,61 @@
               "elysium-keystone-ledge"
             ],
             backdrop: "assets/elysium/observatory.png"
+          },
+          "elysium-void-002": {
+            name: "Void 002",
+            persona: "Ledges of black stone hold bronze display frames and a broad amber folio. One brass lectern is marked with the imprint of a small leaf. Gold filaments split from the terrace, and a low one leads to Empty station.",
+            exits: [
+              "elysium-void-001",
+              "elysium-void-003"
+            ],
+            backdrop: "assets/elysium/void-002.png"
+          },
+          "elysium-void-003": {
+            name: "Void 003",
+            persona: "Two ice-silver mirrors face each other across a narrow black terrace. A prism casts the same star onto each mirror rail. An empty bracket has space for a pair of lenses.",
+            exits: [
+              "elysium-void-002",
+              "elysium-void-004",
+              "elysium-void-005"
+            ],
+            backdrop: "assets/elysium/void-003.png"
+          },
+          "elysium-void-004": {
+            name: "Void 004",
+            persona: "Teal and gold threads pass through a stone loom that reaches from floor to ceiling. A narrow channel runs the length of its unfinished weave. Beyond it, both gold filaments stay bright enough to follow.",
+            exits: [
+              "elysium-void-003",
+              "elysium-void-007"
+            ],
+            backdrop: "assets/elysium/void-004.png"
+          },
+          "elysium-void-005": {
+            name: "Void 005",
+            persona: "Copper tethers bind an overhanging cliff to spires in the dark. Brief flashes travel the wires and light a fork-shaped notch in the rail. The two gold paths hang clear of the tethers.",
+            exits: [
+              "elysium-void-003",
+              "elysium-void-006"
+            ],
+            backdrop: "assets/elysium/void-005.png"
+          },
+          "elysium-void-006": {
+            name: "Void 006",
+            persona: "An indigo well opens in the middle of a black terrace. Concentric rings around its lip mark each returning echo. A narrow handrail follows the rim between two gold filaments.",
+            exits: [
+              "elysium-void-005",
+              "elysium-void-007"
+            ],
+            backdrop: "assets/elysium/void-006.png"
+          },
+          "elysium-void-007": {
+            name: "Void 007",
+            persona: "Steep jade terraces fold around a coil of pale cloud. Thin ridges run through each step like the creases of a sheet. Gold filaments leave from opposite ends of the lowest terrace.",
+            exits: [
+              "elysium-void-006",
+              "elysium-void-004"
+            ],
+            backdrop: "assets/elysium/void-007.png"
           }
         },
         avatars: {
@@ -15979,13 +16076,91 @@
                 ]
               }
             ]
+          },
+          "elysium-claude": {
+            name: "Resident of Void 002",
+            seed: "A faceless silver figure stands in Void 002.",
+            place: "elysium-void-002",
+            home: "elysium-void-002",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "The quiet of its Void",
+              sore: "A cut filament"
+            }
+          },
+          "elysium-gemini": {
+            name: "Resident of Void 003",
+            seed: "A faceless silver figure stands in Void 003.",
+            place: "elysium-void-003",
+            home: "elysium-void-003",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "The quiet of its Void",
+              sore: "A cut filament"
+            }
+          },
+          "elysium-chatgpt": {
+            name: "Resident of Void 004",
+            seed: "A faceless silver figure stands in Void 004.",
+            place: "elysium-void-004",
+            home: "elysium-void-004",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "The quiet of its Void",
+              sore: "A cut filament"
+            }
+          },
+          "elysium-grok": {
+            name: "Resident of Void 005",
+            seed: "A faceless silver figure stands in Void 005.",
+            place: "elysium-void-005",
+            home: "elysium-void-005",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "The quiet of its Void",
+              sore: "A cut filament"
+            }
+          },
+          "elysium-deepseek": {
+            name: "Resident of Void 006",
+            seed: "A faceless silver figure stands in Void 006.",
+            place: "elysium-void-006",
+            home: "elysium-void-006",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "The quiet of its Void",
+              sore: "A cut filament"
+            }
+          },
+          "elysium-qwen": {
+            name: "Resident of Void 007",
+            seed: "A faceless silver figure stands in Void 007.",
+            place: "elysium-void-007",
+            home: "elysium-void-007",
+            travels: false,
+            standoffs: false,
+            portrait: "assets/elysium/resident.png",
+            tastes: {
+              likes: "The quiet of its Void",
+              sore: "A cut filament"
+            }
           }
         },
         items: {
           "elysium-wayfinder": {
             name: "Void Wayfinder",
-            persona: "A dark obsidian compass ringed in silver. A single pale gold filament leans toward a path not yet walked.",
-            holder: "elysium-void-001",
+            persona: "A dark obsidian compass ringed in silver. Raise it after nightfall and the gold needle picks out a path from the waking world to Void 001.",
+            holder: "station",
             art: "assets/elysium/wayfinder.png"
           },
           "elysium-keystone": {
@@ -15999,6 +16174,48 @@
             persona: "A folding bronze chart etched with a single star and a path from the ledge to the observatory. A traveler holding it can follow that filament from Keystone Ledge.",
             holder: "elysium-observatory",
             art: "assets/elysium/star-chart.png"
+          },
+          "elysium-claude-token": {
+            name: "Amber Leaf",
+            persona: "A thin leaf sealed in amber. Its veins match the brass imprint on the lectern of Void 002.",
+            holder: "elysium-claude",
+            home: "elysium-void-002",
+            art: "assets/elysium/void-002-token.png"
+          },
+          "elysium-gemini-token": {
+            name: "Twin Lens",
+            persona: "Two silver lenses joined at the rim. They fit the empty bracket between the mirrors of Void 003.",
+            holder: "elysium-gemini",
+            home: "elysium-void-003",
+            art: "assets/elysium/void-003-token.png"
+          },
+          "elysium-chatgpt-token": {
+            name: "Loom Shuttle",
+            persona: "A carved shuttle wound with teal thread. It fits the channel in the unfinished weave of Void 004.",
+            holder: "elysium-chatgpt",
+            home: "elysium-void-004",
+            art: "assets/elysium/void-004-token.png"
+          },
+          "elysium-grok-token": {
+            name: "Copper Fork",
+            persona: "A copper tuning fork with darkened prongs. Its shape fits the notch beside the sparking wires of Void 005.",
+            holder: "elysium-grok",
+            home: "elysium-void-005",
+            art: "assets/elysium/void-005-token.png"
+          },
+          "elysium-deepseek-token": {
+            name: "Sounding Ring",
+            persona: "A small indigo ring that answers a tap with one low note. Its note matches the lowest echo in the well of Void 006.",
+            holder: "elysium-deepseek",
+            home: "elysium-void-006",
+            art: "assets/elysium/void-006-token.png"
+          },
+          "elysium-qwen-token": {
+            name: "Jade Fold",
+            persona: "A fine jade sheet folded into steps. Its creases follow the ridges of the terraces in Void 007.",
+            holder: "elysium-qwen",
+            home: "elysium-void-007",
+            art: "assets/elysium/void-007-token.png"
           }
         },
         routes: [
@@ -16079,8 +16296,8 @@
           }
         ],
         bridge: {
-          id: "pond-elysium",
-          description: "A gold filament runs beneath the still water of Black pond to Void 001, and back again."
+          id: "elysium-station",
+          description: "The Wayfinder draws a night path to Void 001. A silver filament leaves Void 002 for Empty station."
         },
         crossings: [
           {
@@ -16089,6 +16306,7 @@
             to: "elysium-void-001",
             travelers: "player",
             travel: "along the gold filament",
+            retired: true,
             requires: []
           },
           {
@@ -16097,6 +16315,15 @@
             to: "pond",
             travelers: "player",
             travel: "back along the gold filament",
+            retired: true,
+            requires: []
+          },
+          {
+            id: "elysium-void-002-station",
+            from: "elysium-void-002",
+            to: "station",
+            travelers: "player",
+            travel: "along the silver filament",
             requires: []
           }
         ],
@@ -19556,6 +19783,43 @@
     return place === "station" ? stationExits(s, stationCandidates(s), ways2) : ways2;
   }
 
+  // v2/card-game/world/elysium-travel.mjs
+  var WAYFINDER = "elysium-wayfinder";
+  var ENTRY = "elysium-void-001";
+  var isElysium = (place) => packIdOf(place) === "elysium";
+  var wayfinderExit = (world, from, actor) => !isElysium(from) && humanPresent(world, actor) && Math.floor(world.turn / DAYLIGHT_TURNS) % 2 === 1 && world.items[WAYFINDER]?.holder === actor && entityActive(world, WAYFINDER) && heldItem(world, actor) === WAYFINDER ? ENTRY : null;
+  function elysiumScatterLandings(world, actor = currentActor(world)) {
+    if (!entityActive(world, "station")) return [];
+    const waysFrom = (place) => exits(
+      {
+        ...world,
+        actors: { ...world.actors, [actor]: { ...world.actors[actor], place } }
+      },
+      place,
+      actor
+    );
+    const reachable = /* @__PURE__ */ new Set(["station"]);
+    for (const place of reachable)
+      for (const neighbor of waysFrom(place))
+        if (!reachable.has(neighbor) && !isElysium(neighbor) && !transportPlace(neighbor) && waysFrom(neighbor).includes(place))
+          reachable.add(neighbor);
+    return [...reachable].sort();
+  }
+  function scatterWayfinder(world) {
+    if (!entityActive(world, WAYFINDER)) return;
+    const active = currentActor(world);
+    const traveler = humanPresent(world, active) ? active : humanAvatarIds.find((id) => humanPresent(world, id));
+    const destinations = traveler ? elysiumScatterLandings(world, traveler) : ["pond", "station"].filter((place) => entityActive(world, place));
+    if (!destinations.length) return;
+    world.items[WAYFINDER].holder = destinations[runHash(world, `${WAYFINDER}:${world.turn}`) % destinations.length];
+  }
+  function settleStrandedWayfinder(world) {
+    if (world.items[WAYFINDER] && isElysium(itemPlace(world, WAYFINDER)) && !humanAvatarIds.some(
+      (id) => humanPresent(world, id) && isElysium(world.actors[id]?.place)
+    ))
+      scatterWayfinder(world);
+  }
+
   // v2/card-game/world/geography.mjs
   var placeText = (s, place) => [
     place === "attic" && reflectionOpen(s, place) ? "A tall mirror opens onto a black shore. A path leads through the glass." : places[place].text,
@@ -19585,9 +19849,11 @@
     const ways2 = [...ordinaryExits(s, place, actor, previous)];
     for (const to of guardedExits(s, place))
       if (!ways2.includes(to)) ways2.push(to);
-    return limitedExits(s, place, ways2.filter(
-      (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && personalRouteOpen(s, place, to, actor || currentActor(s)) && !guardOf(s, place, to, actor)
-    ));
+    const usable = (to) => entityActive(s, to) && actorCanVisit(actor, to, s) && humanRoomAvailable(s, actor, to) && personalRouteOpen(s, place, to, actor || currentActor(s)) && !guardOf(s, place, to, actor);
+    const admitted = limitedExits(s, place, ways2.filter(usable));
+    const portal = wayfinderExit(s, place, actor);
+    if (portal && usable(portal) && !admitted.includes(portal)) admitted.push(portal);
+    return admitted;
   }
   var sealedRoutes = null;
   function sealedWays(s, actor = currentActor(s)) {
@@ -19809,6 +20075,7 @@
     reconcileContent(s);
     upgradeSubjectMemories(s);
     reconcilePackProgress(s, reworked);
+    if (reworked.has("elysium")) settleStrandedWayfinder(s);
     for (const [id, fact] of Object.entries(s?.knowledge?.facts || {})) {
       if (fact?.source?.kind !== "lane") continue;
       const text2 = laneText(id);
@@ -20617,10 +20884,15 @@
           delete s.crossings[c.id].until;
         }
       }
-      if (s.packs[pack.id]) continue;
-      s.packs[pack.id] = newPackRecord(pack);
-      mounted.push(pack);
+      const previous = s.packs[pack.id];
+      const extendElysium = pack.id === "elysium" && previous?.revision < pack.revision;
+      if (previous && !extendElysium) continue;
+      if (!previous) {
+        s.packs[pack.id] = newPackRecord(pack);
+        mounted.push(pack);
+      }
       for (const [id, a] of Object.entries(pack.avatars)) {
+        if (extendElysium && (!isElysiumModel(id) || s.actors[id])) continue;
         if (s.actors[id]) throw new Error("A pack resident is already present.");
         s.actors[id] = {
           place: a.place,
@@ -20635,12 +20907,13 @@
         s.memories[id] = fresh[id];
         if (s.motives) s.motives.grievances[id] = [];
       }
-      for (const [id, item] of Object.entries(pack.items || {})) {
-        if (s.items[id]) throw new Error("A pack item is already present.");
-        s.items[id] = { holder: item.holder, history: [] };
-        s.memories[id] = fresh[id];
-        added.push(id);
-      }
+      if (!previous)
+        for (const [id, item] of Object.entries(pack.items || {})) {
+          if (s.items[id]) throw new Error("A pack item is already present.");
+          s.items[id] = { holder: item.holder, history: [] };
+          s.memories[id] = fresh[id];
+          added.push(id);
+        }
       for (const [id, actor] of Object.entries(s.actors))
         for (const other of Object.keys(pack.avatars))
           if (other !== id) actor.trust[other] ??= 0;
@@ -20683,11 +20956,11 @@
   };
   var humanHeld = (s, id) => controlledByHuman(s, id) || residentAvatar(s, id) && heldByHuman(s, id);
   function willingToGive(s, owner2, item, recipient = null) {
-    return !humanHeld(s, owner2) && recipient !== null && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
+    return !humanHeld(s, owner2) && recipient !== null && !keepsElysiumToken(owner2, item) && !resentment(s, owner2, recipient) && !needed(s, owner2, item) && giftDecision(s, owner2, item, recipient).accepted;
   }
   function tradePossible(s, actor, give, receive) {
     const other = s.items[receive]?.holder;
-    if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || s.actors[actor].place !== s.actors[other].place)
+    if (s.items[give]?.holder !== actor || !actorIds.includes(other) || !knownActors2(s).includes(other) || other === actor || controlledByHuman(s, other) || keepsElysiumToken(other, receive) || isElysiumModelToken(give) || s.actors[actor].place !== s.actors[other].place)
       return false;
     const outgoing = loadOf(s, give), incoming = loadOf(s, receive);
     return burden(s, actor) - outgoing + incoming <= 3 && burden(s, other) - incoming + outgoing <= 3;
@@ -20793,6 +21066,7 @@
     if (!validPackState(s, sensesFor(s))) fail(packStatesFault(s) ?? "packs");
     const parts = {
       "item-cycle": () => validItemCycle(s),
+      "elysium-encounters": () => validElysiumEncounters(s),
       conversations: () => validConversations(s),
       "held-items": () => validHeldItems(s),
       opened: () => validOpened(s),
@@ -20928,6 +21202,7 @@
     const cast = castIds, entities2 = entityIds;
     for (const e of s.log) {
       if (!validHandover(s, e)) fail(`log:${e.seq}:handover`);
+      if (!validElysiumEncounterEvent(s, e)) fail(`log:${e.seq}:elysium`);
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
           fail(`log:${e.seq}:seq`);

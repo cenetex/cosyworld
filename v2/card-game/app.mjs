@@ -641,13 +641,12 @@ const handCard = (id) =>
   $("hand").querySelector(`.card[data-card="${id}"], .card[data-quest-id="${id}"]`);
 const CARD_BACK = "./assets/card-back.webp";
 const cardBack = (id) => isLockedBox(world, id) ? LOCKED_BACK : CARD_BACK;
-const visibleText = (text) => coveredText(world, text, cardIsClosed);
-// The scene's uncovered cards, so text writes their names in their card's
-// colour (card-names.mjs).
+const visibleText = (text) => elysiumPortrait.text(coveredText(world, text, cardIsClosed));
+const displayName = (id) => elysiumPortrait.name(id) ?? nameOf(id);
 const cardColours = (ids) =>
   ids.map((id) => ({
     id,
-    name: nameOf(id),
+    name: displayName(id),
     person: Boolean(people[id]),
     color: levelTier(cardLevel(world, id)).color,
   }));
@@ -663,7 +662,7 @@ const namedSpan = (text) => {
 const knownName = (id, unknown = "…") =>
   cardIsClosed(id) || hiddenFor(world, currentActor(world))?.id === id
     ? unknown
-    : nameOf(id);
+    : displayName(id);
 // The avatar lies face down only under the new-world title, which turns it.
 const titleShowing = () => Boolean(document.querySelector(".title-intro"));
 const avatarKnown = () => !coveredCards.has(currentActor(world));
@@ -1233,6 +1232,7 @@ const reveal = createPagedReveal({
     if (value.complete) {
       updateSpeechControls(true);
       completedSpeech.add(value.key);
+      elysiumPortrait.observe(world, currentActor(world), shownSceneLine);
       sleepView.revealed(value.key);
       if (completedSpeech.size > 100)
         completedSpeech.delete(completedSpeech.values().next().value);
@@ -2807,7 +2807,7 @@ function renderActions() {
     !rested && !closed && !questOpen && !rowCollapsed && !actions.length &&
     !asleep && !crowded && !clientText && selected.length > 0 &&
     visibleText(hint ?? "");
-  const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : nameOf(id)).join(" + ");
+  const selectionName = selected.map((id) => cardIsClosed(id) ? "Closed box" : displayName(id)).join(" + ");
   $("selection-name").textContent = selected.length
     ? selectionName
     : "Card actions";
@@ -2910,7 +2910,7 @@ function renderActions() {
       const refused = refusedPlay(action);
       const button = node(
         "button",
-        refused ? refusalLabel(refused) : playLabel(action, world),
+        elysiumPortrait.text(refused ? refusalLabel(refused) : playLabel(action, world)),
         index === 0 ? "card-primary" : "card-action",
       );
       button.type = "button";
@@ -2918,7 +2918,7 @@ function renderActions() {
       // Discarding a quest is destructive: the usual button, red words.
       if (action.kind === "drop" && !action.item)
         button.dataset.destructive = "";
-      button.title = refused || playText(action);
+      button.title = elysiumPortrait.text(refused || playText(action));
       button.disabled = !refused && selectionBlocked();
       if (refused) blockPlay(button, "refused");
       if (action.choiceId) {
@@ -3086,7 +3086,7 @@ function renderActions() {
     noteText = `${shownQuestCaption(picked, false)}.`;
   }
   showActionBeatNote(note, { note: noteText });
-  const text = abandonQuest ? "Discard this quest?" : sentence;
+  const text = abandonQuest ? "Discard this quest?" : elysiumPortrait.text(sentence);
   writeActionMessage(
     message,
     text,
@@ -3115,7 +3115,7 @@ function renderActions() {
   $("play-readout").textContent = chosen.length
     ? [selectionName, lockShown?.text || actions.map(readout).join(". ") || crowdedWords || hint]
         .filter(Boolean)
-        .join(". ")
+        .map(elysiumPortrait.text).join(". ")
     : picked
       ? shownQuestCaption(picked, false)
       : "";
@@ -3179,8 +3179,7 @@ function updateCardSelection(frame) {
   applyPackFrame(frame, id);
   if (cardIsClosed(id)) return;
   button.querySelector(".sr-only").textContent =
-    cardObservation(world, id) +
-    (label ? ` ${label}.` : "") +
+    elysiumPortrait.text(cardObservation(world, id) + (label ? ` ${label}.` : "")) +
     (held.length
       ? ` ${places[id] ? "Contains" : "Carries"} ${held.map((item) => cardIsClosed(item) ? "covered" : nameOf(item)).join(", ")}. Select to show these cards.`
       : "");
@@ -3313,7 +3312,7 @@ function card(id) {
   const type = tableType(world, id),
     base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
-    def = crossingFace ? { ...base, name: crossingFace.name } : base,
+    name = crossingFace?.name ?? elysiumPortrait.name(id) ?? base.name,
     locked = isLockedBox(world, id),
     hidden = cardIsCovered(id) || locked;
   const raised =
@@ -3338,7 +3337,7 @@ function card(id) {
   el.setAttribute("aria-pressed", String(raised));
   el.setAttribute(
     "aria-label",
-    `${def.name}, ${type}, ${tier.label}${levelWords}`,
+    `${name}, ${type}, ${tier.label}${levelWords}`,
   );
   el.setAttribute("aria-describedby", `card-detail-${id}`);
   const graphic = node("span", undefined, "art");
@@ -3392,7 +3391,7 @@ function card(id) {
     }
   }
   const label = playLabel(chosen?.action);
-  const observation = node("span", cardObservation(world, id), "sr-only");
+  const observation = node("span", elysiumPortrait.text(cardObservation(world, id)), "sr-only");
   observation.id = `card-detail-${id}`;
   if (raised && label) observation.textContent += ` ${label}.`;
   if (hidden) observation.textContent = "";
@@ -3401,7 +3400,7 @@ function card(id) {
     graphic,
     setCardLabel(
       node("span", undefined, "name"),
-      hidden ? "" : def.name,
+      hidden ? "" : name,
     ),
     observation,
   );
@@ -3476,7 +3475,7 @@ function card(id) {
       : !raised && !expandedHolders.has(holder);
     el.setAttribute(
       "aria-label",
-      `${def.name}, ${places[holder] ? "at" : "carried by"} ${knownName(holder, "someone")}, ${tier.label}${levelWords}`,
+      `${name}, ${places[holder] ? "at" : "carried by"} ${knownName(holder, "someone")}, ${tier.label}${levelWords}`,
     );
   }
   if (!locked && (people[id] || places[id])) {
@@ -3533,7 +3532,7 @@ const known = (id) => !cardIsClosed(id);
 function shownQuestCaption(quest, includeLevel = true) {
   const hidden = questCovered(quest);
   const shown = includeLevel ? quest : { ...quest, level: null };
-  return questCaption(shown, hidden, questVerb(world, quest, hidden), known);
+  return elysiumPortrait.text(questCaption(shown, hidden, questVerb(world, quest, hidden), known));
 }
 const tablePortrait = (id) => portrait(id, null, asleepWorld(world), !listenerCardHeld);
 const questArt = {
@@ -3927,7 +3926,7 @@ function renderFloorItems(items) {
 function renderScene() {
   if (covering) return;
   releaseListenerCard();
-  const visibleText = coveredTextReader(world, cardIsCovered);
+  const visibleText = elysiumPortrait.reader(coveredTextReader(world, cardIsCovered));
   sleepView.observe(world, currentActor(world));
   const view = asleepWorld(shownWorld());
   const scene = currentScene(view, null, {
@@ -4033,7 +4032,6 @@ function renderScene() {
         figure.dataset.avatar = id;
         if (stageReveals.delete(id))
           fadeInRevealed(figure, { reduced: reducedMotion.matches });
-        figure.setAttribute("aria-label", nameOf(id));
         const body = node("div", undefined, "portrait-body");
         const image = node("img");
         image.alt = "";
@@ -4050,6 +4048,7 @@ function renderScene() {
     const { id } = actor;
     const sleeping = actor.pose === "sleep";
     const figure = $("cast").children[index];
+    figure.setAttribute("aria-label", displayName(id));
     if (
       figure.dataset.removing ||
       (exits.has(figure) && actor.presence !== "departed")
@@ -4318,6 +4317,7 @@ function renderScene() {
   };
   const line = front?.line || null;
   shownSceneLine = line;
+  elysiumPortrait.observe(world, viewer, line && completedSpeech.has(lineKey(line, scene.locationId)) ? line : null);
   const text = line ? line.text : "";
   $("speaker").textContent = visibleText(
     front
@@ -4418,7 +4418,7 @@ function renderScene() {
         );
         item.toggleAttribute(
           "data-named",
-          action.text.startsWith(`${nameOf(front.speakerId)} `),
+          action.text.startsWith(`${displayName(front.speakerId)} `),
         );
         item.append(beatIcon(action.icon), namedSpan(action.text));
         const key = JSON.stringify([action.seq, action.text]);
@@ -4872,8 +4872,8 @@ function renderLog(open = $("history-dialog").open) {
     renderedMemory = "";
     return;
   }
-  const visibleText = coveredTextReader(world, cardIsCovered);
-  const sheet = characterSheet(world, { known: (id) => !cardIsCovered(id), withheldTarot: withheldTarot() });
+  const visibleText = elysiumPortrait.reader(coveredTextReader(world, cardIsCovered));
+  const sheet = characterSheet(world, { known: (id) => !cardIsCovered(id), withheldTarot: withheldTarot(), caption: elysiumPortrait.text });
   const inner = innerLifeChain(world, actor, visibleText, (id) => !cardIsCovered(id));
   inner.memories = memorySummaries.show(world.run?.seed, actor, inner.memories, visibleText);
   const key = JSON.stringify([sheet, inner]);
@@ -4921,7 +4921,6 @@ function render() {
   ringHeard();
   music.setRadio(radioAudible(world, currentActor(world)));
   if (covering) return;
-  elysiumPortrait.observe(world, currentActor(world));
   sleepView.observe(world, currentActor(world));
   readView.observe(world, currentActor(world));
   music.setRoom(
@@ -5023,7 +5022,7 @@ function render() {
   const handState = JSON.stringify([
     handCards,
     roomLocks,
-    elysiumPortrait.ready,
+    elysiumPortrait.key,
     [...encountered],
     [...coveredCards],
     legalActions(world).map((action) => action.key),

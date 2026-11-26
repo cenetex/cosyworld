@@ -21,6 +21,7 @@ import { validGlimpse } from "./glimpse.mjs";
 import { authoredWant, stagedWants } from "./want-talk.mjs";
 import { validOffered } from "./offer-chance.mjs";
 import { MAX_DWELL } from "./world/dwell.mjs";
+import { isElysiumModel } from "./elysium-models.mjs";
 import { knowsFact, questFactId } from "./knowledge.mjs";
 import { gainTrust } from "./world/company.mjs";
 import { HEARD_FROM, heardWant, validRumours } from "./world/rumours.mjs";
@@ -437,7 +438,7 @@ export function wantCandidates(
     .sort();
 }
 export function nextWant(s, actor, api, previous = null) {
-  if (wantless(actor)) return null;
+  if (wantless(actor) || isElysiumModel(actor)) return null;
   const staged = stagedNext(s, actor, previous);
   if (staged) return staged;
   const thick = previous?.from === HEARD_FROM && authoredWant(actor);
@@ -821,6 +822,7 @@ export function reviseStalledWants(s, actors, api, before = s) {
     if (
       want &&
       want.step?.verb !== "call" &&
+      !isElysiumModel(id) &&
       !api.player(id) &&
       !humanAvatarIds.includes(id) &&
       entityActive(s, id) &&

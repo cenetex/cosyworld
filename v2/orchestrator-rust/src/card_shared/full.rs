@@ -32,6 +32,8 @@ mod continuation;
 mod dedupe;
 #[path = "full_elysium.rs"]
 mod elysium;
+#[path = "full_elysium_models.rs"]
+mod elysium_models;
 #[path = "full_guild.rs"]
 mod guild;
 #[path = "full_opening.rs"]
@@ -54,6 +56,11 @@ pub(super) fn router() -> Router<AppState> {
         )
         .route("/card-game/shared/worlds/{id}", get(view))
         .route(elysium::ROUTE, get(elysium::portrait))
+        .route(elysium_models::NAME_ROUTE, get(elysium_models::identity))
+        .route(
+            elysium_models::PORTRAIT_ROUTE,
+            get(elysium_models::portrait),
+        )
         .route(
             "/card-game/shared/worlds/{id}/command",
             post(command).layer(DefaultBodyLimit::max(8192)),
@@ -803,11 +810,14 @@ pub(super) fn take_work(state: &AppState, id: &str) -> Result<Option<Work>> {
             }
         };
         let destination = w.room(a)?.to_string();
-        let context = if retry {
+        let mut context = if retry {
             continuation::context(&tx, &w, &key, a, &prior)?
         } else {
             json!({"play":key,"actor":actor_id(a),"room":destination,"turn":w.game["turn"],"context":result["context"],"profiles":result["profiles"],"events":result["events"],"lines":[],"starts_at":time,"until_at":time,"error":null})
         };
+        if !retry {
+            elysium_models::record(&tx, id, &mut context, actor_id(a), time)?;
+        }
         tx.execute(
             "UPDATE card_full_plays SET status='working',room=?,until_at=?,result=?,narrative=? WHERE id=?",
             params![destination, time + 60_000, context.to_string(), context.to_string(), key],
@@ -853,8 +863,22 @@ async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
     if work.portrait_eligible {
         elysium::draw(state.clone());
     }
+    let actor = actor_id(work.actor);
+    if let Some(resident) = elysium_models::returned_to(&work.context, actor) {
+        elysium_models::draw(state.clone(), resident);
+    }
     reflect::replace(id, work.actor);
-    let lines = super::full_speech::generate(state, work.actor, &work.context).await;
+    let lines = match elysium_models::spoken_to(&work.context, actor) {
+        Some((resident, first)) => {
+            elysium_models::dialogue(
+                state,
+                resident,
+                first || work.context["elysiumIntro"] == true,
+            )
+            .await
+        }
+        None => super::full_speech::generate(state, work.actor, &work.context).await,
+    };
     let s = state.clone();
     let wid = id.to_string();
     let after = lines

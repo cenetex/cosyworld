@@ -2,15 +2,15 @@
   "schemaVersion": 1,
   "id": "elysium",
   "packId": "cosyworld.elysium",
-  "revision": 2,
+  "revision": 3,
   "name": "Elysium",
-  "description": "Gold in the void. Stone nodes hang in the dark, joined by gold filaments. Beyond the spiral, a light or a Wayfinder can reveal the path to an old observatory.",
+  "description": "Gold in the void. Filaments join stone islands, where silver figures keep strange tokens. Beyond the Gold Spiral an unlit passage leads to an old observatory.",
   "entry": "elysium-void-001",
   "places": {
     "elysium-void-001": {
       "name": "Void 001",
       "persona": "A bare stone node floating in deep darkness, its surface ringed with fine gold lines. Gold filaments run from it to distant floating nodes and to a gold spiral.",
-      "exits": [],
+      "exits": ["elysium-void-002"],
       "backdrop": "assets/elysium/void-001.png"
     },
     "elysium-keystone-ledge": {
@@ -57,6 +57,42 @@
       "persona": "Two immense bronze rings hang over a terrace and sight along a single star. A worn groove points back to the Gold Spiral. Another traces a near-invisible path down to Keystone Ledge.",
       "exits": ["elysium-gold-spiral", "elysium-keystone-ledge"],
       "backdrop": "assets/elysium/observatory.png"
+    },
+    "elysium-void-002": {
+      "name": "Void 002",
+      "persona": "Ledges of black stone hold bronze display frames and a broad amber folio. One brass lectern is marked with the imprint of a small leaf. Gold filaments split from the terrace, and a low one leads to Empty station.",
+      "exits": ["elysium-void-001", "elysium-void-003"],
+      "backdrop": "assets/elysium/void-002.png"
+    },
+    "elysium-void-003": {
+      "name": "Void 003",
+      "persona": "Two ice-silver mirrors face each other across a narrow black terrace. A prism casts the same star onto each mirror rail. An empty bracket has space for a pair of lenses.",
+      "exits": ["elysium-void-002", "elysium-void-004", "elysium-void-005"],
+      "backdrop": "assets/elysium/void-003.png"
+    },
+    "elysium-void-004": {
+      "name": "Void 004",
+      "persona": "Teal and gold threads pass through a stone loom that reaches from floor to ceiling. A narrow channel runs the length of its unfinished weave. Beyond it, both gold filaments stay bright enough to follow.",
+      "exits": ["elysium-void-003", "elysium-void-007"],
+      "backdrop": "assets/elysium/void-004.png"
+    },
+    "elysium-void-005": {
+      "name": "Void 005",
+      "persona": "Copper tethers bind an overhanging cliff to spires in the dark. Brief flashes travel the wires and light a fork-shaped notch in the rail. The two gold paths hang clear of the tethers.",
+      "exits": ["elysium-void-003", "elysium-void-006"],
+      "backdrop": "assets/elysium/void-005.png"
+    },
+    "elysium-void-006": {
+      "name": "Void 006",
+      "persona": "An indigo well opens in the middle of a black terrace. Concentric rings around its lip mark each returning echo. A narrow handrail follows the rim between two gold filaments.",
+      "exits": ["elysium-void-005", "elysium-void-007"],
+      "backdrop": "assets/elysium/void-006.png"
+    },
+    "elysium-void-007": {
+      "name": "Void 007",
+      "persona": "Steep jade terraces fold around a coil of pale cloud. Thin ridges run through each step like the creases of a sheet. Gold filaments leave from opposite ends of the lowest terrace.",
+      "exits": ["elysium-void-006", "elysium-void-004"],
+      "backdrop": "assets/elysium/void-007.png"
     }
   },
   "avatars": {
@@ -103,13 +139,73 @@
           ]
         }
       ]
+    },
+    "elysium-claude": {
+      "name": "Resident of Void 002",
+      "seed": "A faceless silver figure stands in Void 002.",
+      "place": "elysium-void-002",
+      "home": "elysium-void-002",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "The quiet of its Void", "sore": "A cut filament" }
+    },
+    "elysium-gemini": {
+      "name": "Resident of Void 003",
+      "seed": "A faceless silver figure stands in Void 003.",
+      "place": "elysium-void-003",
+      "home": "elysium-void-003",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "The quiet of its Void", "sore": "A cut filament" }
+    },
+    "elysium-chatgpt": {
+      "name": "Resident of Void 004",
+      "seed": "A faceless silver figure stands in Void 004.",
+      "place": "elysium-void-004",
+      "home": "elysium-void-004",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "The quiet of its Void", "sore": "A cut filament" }
+    },
+    "elysium-grok": {
+      "name": "Resident of Void 005",
+      "seed": "A faceless silver figure stands in Void 005.",
+      "place": "elysium-void-005",
+      "home": "elysium-void-005",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "The quiet of its Void", "sore": "A cut filament" }
+    },
+    "elysium-deepseek": {
+      "name": "Resident of Void 006",
+      "seed": "A faceless silver figure stands in Void 006.",
+      "place": "elysium-void-006",
+      "home": "elysium-void-006",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "The quiet of its Void", "sore": "A cut filament" }
+    },
+    "elysium-qwen": {
+      "name": "Resident of Void 007",
+      "seed": "A faceless silver figure stands in Void 007.",
+      "place": "elysium-void-007",
+      "home": "elysium-void-007",
+      "travels": false,
+      "standoffs": false,
+      "portrait": "assets/elysium/resident.png",
+      "tastes": { "likes": "The quiet of its Void", "sore": "A cut filament" }
     }
   },
   "items": {
     "elysium-wayfinder": {
       "name": "Void Wayfinder",
-      "persona": "A dark obsidian compass ringed in silver. A single pale gold filament leans toward a path not yet walked.",
-      "holder": "elysium-void-001",
+      "persona": "A dark obsidian compass ringed in silver. Raise it after nightfall and the gold needle picks out a path from the waking world to Void 001.",
+      "holder": "station",
       "art": "assets/elysium/wayfinder.png"
     },
     "elysium-keystone": {
@@ -123,6 +219,48 @@
       "persona": "A folding bronze chart etched with a single star and a path from the ledge to the observatory. A traveler holding it can follow that filament from Keystone Ledge.",
       "holder": "elysium-observatory",
       "art": "assets/elysium/star-chart.png"
+    },
+    "elysium-claude-token": {
+      "name": "Amber Leaf",
+      "persona": "A thin leaf sealed in amber. Its veins match the brass imprint on the lectern of Void 002.",
+      "holder": "elysium-claude",
+      "home": "elysium-void-002",
+      "art": "assets/elysium/void-002-token.png"
+    },
+    "elysium-gemini-token": {
+      "name": "Twin Lens",
+      "persona": "Two silver lenses joined at the rim. They fit the empty bracket between the mirrors of Void 003.",
+      "holder": "elysium-gemini",
+      "home": "elysium-void-003",
+      "art": "assets/elysium/void-003-token.png"
+    },
+    "elysium-chatgpt-token": {
+      "name": "Loom Shuttle",
+      "persona": "A carved shuttle wound with teal thread. It fits the channel in the unfinished weave of Void 004.",
+      "holder": "elysium-chatgpt",
+      "home": "elysium-void-004",
+      "art": "assets/elysium/void-004-token.png"
+    },
+    "elysium-grok-token": {
+      "name": "Copper Fork",
+      "persona": "A copper tuning fork with darkened prongs. Its shape fits the notch beside the sparking wires of Void 005.",
+      "holder": "elysium-grok",
+      "home": "elysium-void-005",
+      "art": "assets/elysium/void-005-token.png"
+    },
+    "elysium-deepseek-token": {
+      "name": "Sounding Ring",
+      "persona": "A small indigo ring that answers a tap with one low note. Its note matches the lowest echo in the well of Void 006.",
+      "holder": "elysium-deepseek",
+      "home": "elysium-void-006",
+      "art": "assets/elysium/void-006-token.png"
+    },
+    "elysium-qwen-token": {
+      "name": "Jade Fold",
+      "persona": "A fine jade sheet folded into steps. Its creases follow the ridges of the terraces in Void 007.",
+      "holder": "elysium-qwen",
+      "home": "elysium-void-007",
+      "art": "assets/elysium/void-007-token.png"
     }
   },
   "routes": [
