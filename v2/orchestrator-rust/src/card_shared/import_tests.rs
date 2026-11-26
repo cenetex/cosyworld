@@ -550,6 +550,7 @@ fn a_long_honest_save_keeps_its_text() {
 
 #[test]
 fn played_released_and_upgraded_open_door_saves_can_be_shared() {
+    let current = World::create(None).unwrap().game;
     for upgraded in [false, true] {
         let save = played_save(
             "test/helpers/open-door-import.mjs",
@@ -568,7 +569,10 @@ fn played_released_and_upgraded_open_door_saves_can_be_shared() {
         let mut invalid = world.clone();
         invalid["actors"]["vale"]["heldItem"] = json!("greek-return-list");
         assert!(World::create(Some(&trusted_save(&invalid.to_string(), &[]).unwrap())).is_err());
-        assert_eq!(world["packs"]["greek-drama"]["revision"], 33);
+        assert_eq!(
+            world["packs"]["greek-drama"]["revision"],
+            current["packs"]["greek-drama"]["revision"]
+        );
     }
 }
 
