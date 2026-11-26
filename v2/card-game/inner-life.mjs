@@ -39,6 +39,72 @@ export const inCharacter = (text) => {
   return lower.trim() !== "" && !ASSISTANT_TALK.some((p) => lower.includes(p));
 };
 
+const summaryFits = (text) =>
+  typeof text === "string" && text.length <= 280 && inCharacter(text) &&
+  /\b(i|me|my|mine|myself)\b/iu.test(text) && !/[\u0000-\u001f\u007f]/u.test(text);
+
+async function fetchMemorySummaries(actor, subjects, signal) {
+  const response = await fetch("/card-game/memory-summaries", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ actor, subjects }),
+    signal,
+  });
+  if (!response.ok) throw new Error("Memory summaries unavailable");
+  const { summaries } = await response.json();
+  return summaries;
+}
+
+export function createMemorySummaries({ storage, key, update, request = fetchMemorySummaries }) {
+  let scope, cache = new Map(), controller = null, requested = false;
+  function close() {
+    controller?.abort();
+    controller = null;
+    requested = false;
+  }
+  return {
+    close,
+    show(seed, actor, memories, read = (text) => text) {
+      const nextScope = JSON.stringify([seed, actor]);
+      if (scope !== nextScope) {
+        close();
+        scope = nextScope;
+        cache = new Map();
+        try {
+          const saved = JSON.parse(storage.getItem(key));
+          if (saved?.scope === scope) cache = new Map(saved.entries);
+        } catch { /* Factual memories remain available without storage. */ }
+      }
+      const pending = memories
+        .filter(({ id, summary }) => cache.get(id)?.evidence !== summary && summary.length <= 600)
+        .slice(0, 12)
+        .map(({ id, summary }) => ({ id, evidence: summary }));
+      if (!requested && pending.length) {
+        requested = true;
+        controller = new AbortController();
+        const { signal } = controller;
+        void request(actor, pending, signal).then((summaries) => {
+          if (signal.aborted || !summaries || Array.isArray(summaries) || typeof summaries !== "object") return;
+          for (const { id, evidence } of pending) {
+            const text = Object.hasOwn(summaries, id) && summaries[id];
+            cache.set(id, { evidence, text: summaryFits(text) ? text : null });
+          }
+          try {
+            storage.setItem(key, JSON.stringify({ scope, entries: [...cache].slice(-160) }));
+          } catch { /* This tab keeps its summaries. */ }
+          update();
+        }).catch(() => {});
+      }
+      return memories.map((memory) => {
+        const saved = cache.get(memory.id);
+        return saved?.evidence === memory.summary && summaryFits(saved.text)
+          ? { ...memory, summary: read(saved.text) }
+          : memory;
+      });
+    },
+  };
+}
+
 const newestFirst = (moments) =>
   (moments || [])
     .slice()
@@ -49,6 +115,7 @@ const newestFirst = (moments) =>
 export function subjectMemories(world, actor = currentActor(world), known = () => true) {
   const person = world.actors[actor], memory = world.memories[actor];
   if (!person || !memory) return [];
+  const visited = "I have been here.";
   const subjects = new Map();
   const name = (id) => id && known(id) && profiles[id] ? nameOf(id) : null;
   const record = (id) => {
@@ -71,7 +138,7 @@ export function subjectMemories(world, actor = currentActor(world), known = () =
     }
   };
   for (const id of new Set([...(person.visited || []), person.place]))
-    observe(id, 0, "Visited.");
+    observe(id, 0, visited);
   for (const id of person.talked || []) note([id], 0, "We have spoken.");
   for (const [id, seen] of Object.entries(memory.seen || {}))
     observe(id, seen.turn, name(seen.place) ? `Last seen at ${name(seen.place)}.` : "Met before.");
@@ -128,7 +195,7 @@ export function subjectMemories(world, actor = currentActor(world), known = () =
         observe(id, sight.turn, [
           company.length ? `Met ${company.join(", ")} here.` : "",
           things.length ? `Saw ${things.join(", ")} here.` : "",
-        ].filter(Boolean).join(" ") || "Visited.");
+        ].filter(Boolean).join(" ") || visited);
       } else if (profiles[id]?.kind === "avatar") {
         observe(id, sight.turn, here ? `Last seen at ${here}.` : "Met before.");
       } else if (profiles[id]?.kind === "item") {
@@ -159,7 +226,7 @@ export function subjectMemories(world, actor = currentActor(world), known = () =
         company.length ? `Met ${company.join(", ")} here.` : "",
         things.length ? `Saw ${things.join(", ")} here.` : "",
       ].filter(Boolean).join(" ");
-      observe(e.locationId, e.turn, glimpse || "Visited.");
+      observe(e.locationId, e.turn, glimpse || visited);
       for (const id of cast)
         if (world.actors[id]) observe(id, e.turn, here ? `Last seen at ${here}.` : "Met before.");
       for (const item of e.items || []) {

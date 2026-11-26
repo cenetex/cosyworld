@@ -116,7 +116,7 @@ describe("inner life panel", () => {
     const memories = subjectMemories(world, "vale");
     expect(memories.find((m) => m.id === "moth").summary).toContain("Last seen at Black pond.");
     expect(memories.find((m) => m.id === "cloth").summary).toContain("Received Black cloth from Pip.");
-    expect(memories.find((m) => m.id === "pond").summary).toContain("Visited.");
+    expect(memories.find((m) => m.id === "pond").summary).toContain("I have been here.");
     expect(JSON.stringify(memories)).not.toContain("Last seen at Mirror attic");
     expect(subjectMemories(world, "mara").some((m) => m.summary.includes("Received Black cloth"))).toBe(false);
   });

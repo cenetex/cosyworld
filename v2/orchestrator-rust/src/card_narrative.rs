@@ -360,7 +360,7 @@ fn router_with_models<S: Clone + Send + Sync + 'static>(
 ) -> Router<S> {
     Router::new()
         .route("/card-game/text", post(generate))
-        .route("/card-game/reflections", post(reflections::generate))
+        .merge(reflections::router())
         .route(
             "/.well-known/cosyworld-signing-keys.json",
             axum::routing::get(crate::routes::signed_envelope::well_known),

@@ -1,4 +1,5 @@
 import { learningFacts } from "./learning.mjs";
+import { listenerDeal } from "./world/arcana.mjs";
 import { knowledgeDisclosures, knowledgeFacts } from "./knowledge.mjs";
 import { expressionKind, validExpression } from "./expression.mjs";
 import { refusalWhy, revealed, wantFact, wantHeard } from "./want-talk.mjs";
@@ -348,6 +349,8 @@ export function ownFacts(world, id) {
     hasTemperament(id) ? moodNote(world, id) : null,
   ].filter(Boolean);
 }
+const LISTENER_READING = "The Listener gives a short reading before handing over a face-down card. Its face stays hidden.";
+
 export function narrativeContext(world, action = null, isCovered = null, remaining = false) {
   const cast = dialogueCast(world, action);
   const original = typeof remaining === "object" ? remaining : null;
@@ -404,7 +407,8 @@ export function narrativeContext(world, action = null, isCovered = null, remaini
           entry.witnesses?.includes(currentActor(world))),
     )
     .slice(-8);
-  const events = eventEntries.map((entry) => entry.text);
+  const deal = listenerDeal(world, currentActor(world));
+  const events = eventEntries.map((entry) => entry === deal ? LISTENER_READING : entry.text);
   // A persona that minds noise reads a handled bell as a ring unless told
   // otherwise. Name the silence for those speakers when nothing rang.
   const bellHandled =

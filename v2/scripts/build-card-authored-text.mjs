@@ -20,28 +20,33 @@ const output = new URL(
   import.meta.url,
 );
 const NARRATIVE = "v2/card-game/narrative.mjs";
+const INNER_LIFE = "v2/card-game/inner-life.mjs";
 // Prompt wording, not scene text.
 const EXCLUDED_SOURCES = new Set(["v2/card-game/speech.json"]);
 // Modules that write rules sentences without calling addLog: an action's
 // `text` becomes its log entry.
 const LOG = { calls: ["addLog", "note"], property: "text" };
-const KINDS = ["action", "events", "facts", "memories", "disclosures"];
+const KINDS = ["action", "events", "facts", "memories", "disclosures", "subjects"];
+const SCENE_KINDS = KINDS.slice(0, -1);
+const SCENE_MASK = (1 << SCENE_KINDS.length) - 1;
 // Roots: [module, top-level name, property path inside it or null].
 const ROOTS = {
   action: [[NARRATIVE, "narrativeContext", "action"]],
-  events: [],
+  events: [[NARRATIVE, "LISTENER_READING", null]],
   facts: [[NARRATIVE, "narrativeContext", "entities"]],
   memories: [["v2/card-game/scene-cast.mjs", "speechMemories", null]],
   // A disclosed fact is a witnessed log entry, a pack topic or a lane.
   disclosures: [["v2/card-game/knowledge.mjs", "*", null]],
+  subjects: [[INNER_LIFE, "subjectMemories", null]],
 };
 // Fields built from the log: an action is a log entry, and an event memory,
 // a witnessed fact and a disclosure quote one.
-const FROM_LOG = new Set(KINDS);
+const FROM_LOG = new Set(SCENE_KINDS);
 
 const { metafile } = await build({
   absWorkingDir: root,
-  entryPoints: [NARRATIVE],
+  entryPoints: [NARRATIVE, INNER_LIFE],
+  outdir: "out",
   bundle: true,
   write: false,
   metafile: true,
@@ -434,7 +439,7 @@ function propertyUnit(input, name, property) {
 // The log: every function that adds a log entry or builds an action's text.
 const logRoots = [];
 for (const [input, module] of modules) {
-  if (module.json || input === NARRATIVE) continue;
+  if (module.json || input === NARRATIVE || input === INNER_LIFE) continue;
   for (const [name, node] of module.decls) {
     let writes = false;
     walk(node, (n, parent) => {
@@ -455,17 +460,17 @@ const logUnits = closure(logRoots);
 
 const catalog = { literals: new Map(), templates: new Map() };
 KINDS.forEach((kind, bit) => {
-  const keys = closure(
-    ROOTS[kind].flatMap(([input, name, property]) =>
-      property
-        ? [propertyUnit(input, name, property)]
-        : name === "*"
-          ? [...modules.get(input).decls.keys()].map(
-              (decl) => `${input}#${decl}`,
-            )
-          : [`${input}#${name}`],
-    ),
+  const roots = ROOTS[kind].flatMap(([input, name, property]) =>
+    property
+      ? [propertyUnit(input, name, property)]
+      : name === "*"
+        ? [...modules.get(input).decls.keys()].map(
+            (decl) => `${input}#${decl}`,
+          )
+        : [`${input}#${name}`],
   );
+  // Subject observations supply their own wording and use catalog names.
+  const keys = kind === "subjects" ? new Set(roots) : closure(roots);
   if (FROM_LOG.has(kind)) for (const key of logUnits) keys.add(key);
   for (const key of keys) {
     const { literals, templates } = units.get(key);
@@ -474,7 +479,8 @@ KINDS.forEach((kind, bit) => {
         text,
         (catalog.literals.get(text) ?? 0) | (1 << bit),
       );
-    for (const [parts, slots] of templates) {
+    for (const [parts, shape] of templates) {
+      const slots = kind === "subjects" ? "n".repeat(shape.length) : shape;
       const id = JSON.stringify([parts, slots]);
       const [, mask = 0] = catalog.templates.get(id) ?? [];
       catalog.templates.set(id, [parts, mask | (1 << bit), slots]);
@@ -487,14 +493,14 @@ KINDS.forEach((kind, bit) => {
 for (const edge of laneEdges())
   catalog.literals.set(
     laneFact(...laneOfEdge(edge)).text,
-    (1 << KINDS.length) - 1,
+    SCENE_MASK,
   );
 
 // Earlier rules wrote this sentence into saves that players still import.
 const earlierDrop = ["", " drops the quest."];
 catalog.templates.set(JSON.stringify([earlierDrop, "n"]), [
   earlierDrop,
-  (1 << KINDS.length) - 1,
+  SCENE_MASK,
   "n",
 ]);
 
@@ -536,9 +542,9 @@ for (const sentence of retiredSentences) {
   if (parts.length > 1)
     catalog.templates.set(
       JSON.stringify([parts, "n".repeat(parts.length - 1)]),
-      [parts, (1 << KINDS.length) - 1, "n".repeat(parts.length - 1)],
+      [parts, SCENE_MASK, "n".repeat(parts.length - 1)],
     );
-  else catalog.literals.set(sentence, (1 << KINDS.length) - 1);
+  else catalog.literals.set(sentence, SCENE_MASK);
 }
 
 // Removed item names still occur in honest event knowledge. This finite map

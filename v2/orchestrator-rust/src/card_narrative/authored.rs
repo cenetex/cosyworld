@@ -47,13 +47,15 @@ pub(super) enum Field {
     Facts = 2,
     Memories = 3,
     Disclosures = 4,
+    Subjects = 5,
 }
-const FIELDS: [Field; 5] = [
+const FIELDS: [Field; 6] = [
     Field::Action,
     Field::Events,
     Field::Facts,
     Field::Memories,
     Field::Disclosures,
+    Field::Subjects,
 ];
 
 /// The work a request has left.
@@ -240,7 +242,7 @@ fn catalog() -> &'static Catalog {
         .expect("authored text catalog");
         assert_eq!(
             source.kinds,
-            ["action", "events", "facts", "memories", "disclosures"],
+            ["action", "events", "facts", "memories", "disclosures", "subjects"],
             "authored text kinds"
         );
         let mut lower_names: HashMap<u8, Vec<String>> = HashMap::new();

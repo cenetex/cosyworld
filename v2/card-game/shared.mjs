@@ -468,6 +468,16 @@ const roomScenes = (state, room) =>
     .map(withSilence)
     .filter((entry) => entry.lines.length)
     .toSorted((a, b) => a.starts_at - b.starts_at);
+
+export function sharedDealUnread(state, deal, seq, read) {
+  if (state.queue?.some((entry) => entry.actor === state.actor && entry.status === "working"))
+    return true;
+  const last = roomScenes(state, deal.locationId)
+    .filter((scene) => scene.actor === state.actor)
+    .flatMap((scene) => scene.lines)
+    .findLast((line) => line.turn === deal.turn && line.seq > deal.seq);
+  return Boolean(last && (seq < last.seq || seq === last.seq && !read(last)));
+}
 // The "…" lines of this room's saved scenes, for the stage and Conversation.
 export const sharedSilentLines = (state, room) =>
   roomScenes(state, room).flatMap((scene) =>

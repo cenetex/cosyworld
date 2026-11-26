@@ -2,6 +2,7 @@ import { accountStorage as localStorage, accountStorageKey } from "./account-res
 import { lockedStack, syncStackFrame, tableHolder, tableType } from "./mystery-view.mjs";
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
+import { listenerDeal } from "./world/arcana.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
 import { createElysiumPortrait } from "./elysium-portrait.mjs";
 import { heldItem } from "./held-item.mjs";
@@ -85,7 +86,6 @@ import {
 } from "./card-entry.mjs";
 import {
   LOCKED_BACK,
-  TAROT_BACK,
   TAROT_LOCKED_BACK,
   LOCKED_BOX,
   createLockedBoxes,
@@ -127,6 +127,7 @@ import {
   spreadLocks,
   tarotArtSeen,
   tarotArtKey,
+  tarotBack,
   questVerb,
 } from "./quest-card.mjs";
 import { pickedQuestAction } from "./quest-action.mjs";
@@ -147,8 +148,7 @@ import {
 import { asleepView, createSleepView } from "./sleep-view.mjs";
 import { createReadView } from "./read-view.mjs";
 import { DREAMING_LABEL, DREAM_TIER, withDream } from "./dream-card.mjs";
-import { arcanumArt, paintGlimpse } from "./glimpse-card.mjs";
-import { isArcanum } from "./world/arcana-record.mjs";
+import { paintGlimpse } from "./glimpse-card.mjs";
 import {
   CHANGE_FADE_MS,
   CROSSFADE_MS,
@@ -165,7 +165,7 @@ import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { showWorldTier } from "./world-level.mjs";
 import { worldLogoKey } from "./title-logo.mjs";
-import { memoriesSection, innerLifeChain, innerLifeSection, personaSection } from "./inner-life.mjs";
+import { createMemorySummaries, memoriesSection, innerLifeChain, innerLifeSection, personaSection } from "./inner-life.mjs";
 import { characterSheet, characterSheetSection } from "./character-sheet.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
@@ -184,6 +184,7 @@ import {
   installSharedControls,
   renderRoomStatus,
   sharedReadingLine,
+  sharedDealUnread,
   sharedReadingState,
   sharedNextLine,
   sharedSilentLines,
@@ -583,6 +584,8 @@ const questEntries = () => {
 const questEntry = (id) => questEntries().find((entry) => entry.id === id);
 const pickedQuest = () => (questOpen && questEntry(questOpen)?.quest) || null;
 const tarotKeys = () => questEntries().map((entry) => entry.id).filter(isTarotKey);
+const withheldTarot = (cards = levelCards(world)) =>
+  listenerCardHeld ? cards.findLast((card) => card.face === "down")?.index : undefined;
 const cardArt = (id) =>
   packMedia(id, "art") ||
   (things[id]?.art ? `./${things[id].art}` : `./assets/${id}-card.png`);
@@ -932,18 +935,13 @@ const exchange = createExchange({
   show: (line) => {
     pendingSpeaker = null;
     const speakerId = line.entityId || line.actorId;
-    // An unrevealed person who speaks is revealed with the line, there at
-    // once so the words never wait on a fade.
     if (people[speakerId] && cardIsCovered(speakerId))
       uncover(speakerId, { fade: false, flip: false });
     lineSeq = line.seq;
     rememberReading(line);
-    // The stack brings the new beat in front as it renders. A player who
-    // stepped back stays there: the line raises the live count and types
-    // when they return (#2017).
+    // A player who stepped back stays there (#2017).
     renderScene();
   },
-  // Let a departing speaker finish moving before their reply steps back.
   transition: () =>
     reducedMotion.matches ? undefined : waitForScene([...exits.values()]),
   busy: (value) => {
@@ -952,14 +950,12 @@ const exchange = createExchange({
     updateCardCooldown();
     if (value && storyStatus === "pending")
       handTimer = setTimeout(releaseHand, HAND_WAIT);
-    // A failed request releases the hand as well.
     if (!value) {
       queuedChoice = false;
       pendingSpeaker = null;
       renderScene();
       queueMicrotask(() => {
-        if (unseenCards().length)
-          queueDiscoveries();
+        if (unseenCards().length) queueDiscoveries();
       });
     }
   },
@@ -1014,6 +1010,19 @@ function lineHeard(spoken) {
 }
 let completedSpokenLine = null;
 let voicedLine = false;
+let listenerCardHeld = false;
+function listenerCardPending() {
+  const deal = listenerDeal(world, currentActor(world));
+  if (!deal) return false;
+  return sharedSession
+    ? sharedDealUnread(sharedSession.state, deal, sharedLineSeq ?? -Infinity,
+        (line) => completedSpeech.has(lineKey(line, deal.locationId)))
+    : exchange.active;
+}
+function releaseListenerCard() {
+  if (listenerCardHeld && !listenerCardPending())
+    queueMicrotask(() => { if (listenerCardHeld) render(); });
+}
 function finishSpokenLine() {
   const line = completedSpokenLine;
   if (
@@ -1023,6 +1032,7 @@ function finishSpokenLine() {
     !characterSpeech.busy
   )
     exchange.revealed(line.seq);
+  if (sharedSession) releaseListenerCard();
 }
 const characterSpeech = createCharacterSpeech({
   history: createVoiceHistory({
@@ -1049,7 +1059,6 @@ const characterSpeech = createCharacterSpeech({
     });
   },
 });
-// Hosted voices are free to a signed-in passkey.
 let signedInSeen;
 hostedVoices().subscribe(({ signed_in }) => {
   if (signedInSeen !== undefined && signed_in !== signedInSeen)
@@ -1468,14 +1477,12 @@ const narrator = createNarrator({
       requestNarrative(context, signal, () => {}, "/card-game/reflections"),
     ),
   ),
-  // A silent play ends its exchange at once; the beat is its caption.
   silent: () => {
     lineHeard(false);
     exchange.cancel();
   },
   started: (context) => {
     if (localRuntime()) characterSpeech.clear();
-    // A speaker who left this turn speaks at the destination, not here.
     sceneSpeakers = context.speakers.filter(
       (id) => world.actors[id]?.place === context.location,
     );
@@ -1502,10 +1509,8 @@ const narrator = createNarrator({
   },
   status: (value, error) => {
     sleepView.words(value);
-    // Words that failed are this scene's silence: each speaker due shows
-    // "…", like a line that came, and play goes on. There is no failed state.
+    // Failed words show as "…".
     storyStatus = value === "failed" ? "ready" : value;
-    // Words that came, or failed, free a play waiting behind them.
     if (value !== "pending" && playQueue.pending)
       queueMicrotask(() => playQueue.flush());
     if (value === "pending") rememberWords(world.revision, true, narrator.pendingCast());
@@ -1520,7 +1525,6 @@ const narrator = createNarrator({
     renderScene();
   },
 });
-// This turn's lines at the player's place, spoken and "…", into the exchange.
 function loadTurnLines({ pending = false } = {}) {
   const lines = shownWorld().log.filter(
     (entry) =>
@@ -2836,7 +2840,9 @@ function renderActions() {
     playLabel(actions[0], world),
     lockShown?.recipe,
     lockShown
-      ? { kind: "place", target: coveredPick ?? selected.find(cardIsClosed), covered: true }
+      ? coveredPick
+        ? { kind: "arcanum", art: tarotBack(pickedQuest()?.face) }
+        : { kind: "place", target: selected.find(cardIsClosed), covered: true }
       : packAsk
         ? // The pack is the carved back, as any unknown card is.
           { kind: "place", target: pack.ids[0], covered: true }
@@ -2855,7 +2861,7 @@ function renderActions() {
               known,
             )
           : null,
-    !lockShown && !packAsk,
+    !packAsk && (!lockShown || Boolean(coveredPick)),
   );
   // A quest keeps its own tier; other plays take the rarest selected card.
   const rarest = questShown
@@ -3508,12 +3514,12 @@ const questArt = {
   url: (src) => imageUrl(src, "card"),
   portrait: (id) => portrait(id, null, asleepWorld(world)),
   thing: (id) => cardArt(id),
-  place: (id) => (isArcanum(id) ? (arcanumArt(id) ?? CARD_BACK) : placeArt(id)),
+  place: placeArt,
   back: cardBack,
 };
 function questView(quest) {
   if (quest.kind === "arcanum")
-    return { verb: questHeading(quest), actor: null, kind: "place", target: quest.target, covered: false };
+    return { kind: quest.kind, art: quest.art ?? tarotBack(quest.face) };
   const covered = questCovered(quest);
   return {
     verb: questVerb(world, quest, covered),
@@ -3531,10 +3537,12 @@ function questView(quest) {
 }
 const questLabel = (quest, near) => questCardLabel(quest, near, shownQuestCaption(quest, false), known);
 function questFace(quest, verb) {
-  const rite = quest.art && { ...questView({ ...quest, ...quest.goal }), here: quest.target };
+  const rite = quest.kind !== "arcanum" && quest.art
+    ? { ...questView({ ...quest, ...quest.goal }), here: quest.target }
+    : null;
   const screen = questScreen(
     rite ? { ...rite, actor: quest.goal ? rite.actor : null } : questView(quest),
-    quest.art ? { ...questArt, place: () => quest.art } : questArt,
+    rite ? { ...questArt, place: () => quest.art } : questArt,
   );
   if (quest.face === "down") return [screen];
   const head = node("span", undefined, "quest-head");
@@ -3574,14 +3582,7 @@ function questFrame({ id, quest }) {
   el.setAttribute("aria-label", covered ? "A face-down card" : questLabel(quest, near));
   el.append(
     Object.assign(node("img", undefined, "card-back"), {
-      src: imageUrl(
-        quest.kind !== "arcanum"
-          ? CARD_BACK
-          : ["up", "reward"].includes(quest.face)
-            ? TAROT_BACK
-            : TAROT_LOCKED_BACK,
-        "card",
-      ),
+      src: imageUrl(quest.kind === "arcanum" ? tarotBack(quest.face) : CARD_BACK, "card"),
       alt: "",
       draggable: false,
     }),
@@ -3631,6 +3632,10 @@ function syncQuestFold(fold) {
   const quest = foldQuest();
   fold.hidden = !quest || questShown(quest);
   if (!quest) return;
+  fold.style.setProperty(
+    "--card-back",
+    cardBackImage(quest.kind === "arcanum" ? tarotBack(quest.face) : CARD_BACK),
+  );
   fold.style.setProperty(
     "--tier-color",
     (revealedQuests.has(questFaceKey(quest))
@@ -3880,6 +3885,7 @@ function renderFloorItems(items) {
 
 function renderScene() {
   if (covering) return;
+  releaseListenerCard();
   const visibleText = coveredTextReader(world, cardIsCovered);
   sleepView.observe(world, currentActor(world));
   const view = asleepWorld(shownWorld());
@@ -3889,16 +3895,13 @@ function renderScene() {
     review: reviewing || Boolean(sharedSession),
   });
   renderStage(scene.locationId);
-  // Reviewing speech keeps the committed cast in place.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
   scene.slots = revealedStage({ cast: sceneCast(world) }, cardIsCovered).cast;
-  // A place still face down is black behind whoever is revealed.
   $("stage").dataset.placeCovered = String(cardIsCovered(scene.locationId));
   $("stage").dataset.presentedRevision = String(world.revision);
   shownSceneLine = scene.line;
   const img = $("backdrop");
   const background = imageUrl(scene.background);
-  // Night falling or weather turning where the player stays fades in.
   const stayed = img.dataset.place === scene.locationId;
   const phase = scene.daylight?.phase || "day";
   const nightfall = stayed && img.dataset.phase !== phase;
@@ -3906,7 +3909,6 @@ function renderScene() {
   img.dataset.phase = phase;
   img.dataset.source = scene.background;
   $("stage").dataset.settled = String(stayed);
-  // A wake fades on the old light and cuts to the new one under the black.
   const sleepLight = sleepView.light(view.turn);
   if (!sleepLight.hold)
     crossfadeImage(img, background, {
@@ -4148,7 +4150,6 @@ function renderScene() {
       : pendingSpeaker;
   const shared = Boolean(sharedSession);
   const viewer = currentActor(world);
-  // Only show shared lines this reader has reached.
   const liveThrough = sharedSession
     ? (sharedLineSeq ?? sharedLineStart ?? -Infinity)
     : exchange.active
@@ -4197,7 +4198,6 @@ function renderScene() {
         : null,
     turn: world.turn,
   });
-  // The halfway dream is a beat after the wake, in front while it plays.
   const dreaming = sleepView.dream();
   const dreamt = withDream(stack.beats, dreaming?.beat, {
     front: dreaming?.front,
@@ -4442,7 +4442,6 @@ function renderScene() {
     } else if (!announce) $("speech-announcement").textContent = "";
   }
   updateSpeechControls(reveal.pageComplete);
-  // The card behind is one earlier beat: tap it to step back in time.
   const behindButton = $("beat-behind");
   behindButton.hidden = !behind;
   // A hidden card runs no animation, so its motion would never end.
@@ -4815,17 +4814,20 @@ document.addEventListener("keydown", (event) => {
   });
 }
 let renderedMemory = "";
+const memorySummaries = createMemorySummaries({ storage: localStorage, key: `${SAVE_KEY}.memory-summaries`, update: renderLog });
 function renderLog(open = $("history-dialog").open) {
-  const box = $("messages");
+  const box = $("messages"), actor = currentActor(world);
   if (!open) {
+    memorySummaries.close();
     releaseImages(box);
     box.replaceChildren();
     renderedMemory = "";
     return;
   }
   const visibleText = coveredTextReader(world, cardIsCovered);
-  const sheet = characterSheet(world, { known: (id) => !cardIsCovered(id) });
-  const inner = innerLifeChain(world, currentActor(world), visibleText, (id) => !cardIsCovered(id));
+  const sheet = characterSheet(world, { known: (id) => !cardIsCovered(id), withheldTarot: withheldTarot() });
+  const inner = innerLifeChain(world, actor, visibleText, (id) => !cardIsCovered(id));
+  inner.memories = memorySummaries.show(world.run?.seed, actor, inner.memories, visibleText);
   const key = JSON.stringify([sheet, inner]);
   if (key === renderedMemory) return;
   renderedMemory = key;
@@ -4839,9 +4841,6 @@ function renderLog(open = $("history-dialog").open) {
   box.scrollTop = scroll;
   if (focused) box.querySelector(`[data-tarot="${focused}"]`)?.focus({ preventScroll: true });
 }
-
-// A card responds to a moved pointer. A new deal clears that hover so a
-// resting mouse leaves the newly centred hand settled.
 const hoverCard = (event) => {
   if (event.pointerType !== "mouse") return;
   for (const card of document.querySelectorAll('.card[data-hovered="true"]'))
@@ -4864,7 +4863,6 @@ function render() {
   renderPlayers();
   music.setStarted(musicHasStarted());
   syncMusicCue();
-  // An open standoff in the player's room holds the painting back too.
   recedeBackdrop(
     $("stage"),
     "standoff",
@@ -4903,10 +4901,12 @@ function render() {
   for (let i = metWants(world.log, questSeq, currentActor(world)); i > 0; i--)
     count("quest.met");
   questSeq = world.eventSeq;
+  listenerCardHeld = listenerCardPending();
   const tarots = levelCards(world);
+  const withheld = withheldTarot(tarots);
   const liveQuests = [
     ...tarots.filter((card) => card.face !== "down"),
-    ...tarots.filter((card) => card.face === "down"),
+    ...tarots.filter((card) => card.face === "down" && card.index !== withheld),
     ...questCards(world),
   ];
   const dealtQuest = liveQuests.find(

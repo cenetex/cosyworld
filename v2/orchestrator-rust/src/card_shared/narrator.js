@@ -20021,6 +20021,16 @@
   var cardOf = (id) => deck.cards.find((card) => card.id === id) ?? null;
   var FOOL = 0;
   var LISTENER = arcana_default.visit.match.targetId;
+  var listenerCardLine = (traveler) => `${nameOf2(LISTENER)} gives ${nameOf2(traveler)} a face-down card.`;
+  function listenerDeal(world, traveler) {
+    const talk = world.log.findLast(
+      (entry) => entry.turn === world.turn && entry.kind === "action" && !entry.generated && entry.verb === "talk" && entry.actorId === traveler && entry.targetId === LISTENER
+    );
+    if (!talk) return null;
+    return world.log.findLast(
+      (entry) => entry.turn === talk.turn && entry.seq > talk.seq && entry.kind === "narration" && !entry.generated && entry.consequence && entry.actorId === LISTENER && entry.locationId === talk.locationId && entry.witnesses?.includes(traveler) && entry.text === listenerCardLine(traveler)
+    ) ?? null;
+  }
   var numbered = (n) => deck.cards.find((card) => card.number === n)?.id;
   var sorted = (ids3) => [...new Set(ids3)].sort();
   var collect = (actor, ids3) => actor.upgrades = sorted([...actor.upgrades || [], ...ids3]);
@@ -20766,8 +20776,10 @@
       world.opening?.version === 1 && !world.locations.attic.anchored
     );
     const known = knownActors(world);
+    const reader = listenerDeal(world, currentActor(world))?.actorId;
+    if (reader) known.push(reader);
     const present = Object.keys(world.actors).filter(
-      (id) => known.includes(id) && entityActive(world, id) && world.actors[id].place === location && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+      (id) => known.includes(id) && (id === reader || entityActive(world, id)) && world.actors[id].place === location && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
     const localItems = Object.keys(world.items).filter(
       (id) => entityActive(world, id) && itemPlace(world, id) === location
@@ -21940,6 +21952,7 @@
       hasTemperament(id) ? moodNote(world, id) : null
     ].filter(Boolean);
   }
+  var LISTENER_READING = "The Listener gives a short reading before handing over a face-down card. Its face stays hidden.";
   function narrativeContext(world, action = null, isCovered = null, remaining = false) {
     const cast = dialogueCast(world, action);
     const original = typeof remaining === "object" ? remaining : null;
@@ -21977,7 +21990,8 @@
     const eventEntries = world.log.filter(
       (entry) => entry.turn === world.turn && !entry.generated && (!entry.consequence || entry.witnesses?.includes(currentActor(world))) && (entry.locationId === location || entry.fromLocationId === location || entry.witnesses?.includes(currentActor(world)))
     ).slice(-8);
-    const events = eventEntries.map((entry) => entry.text);
+    const deal = listenerDeal(world, currentActor(world));
+    const events = eventEntries.map((entry) => entry === deal ? LISTENER_READING : entry.text);
     const bellHandled = localItems.includes("bell") || [played?.itemId, played?.receiveId].includes("bell");
     const bellRang = world.log.some(
       (entry) => entry.turn === world.turn && !entry.generated && entry.verb === "ring" && entry.itemId === "bell"
@@ -23127,8 +23141,9 @@
   function sceneCast(world, through = world.log.length - 1, recordedCast = null) {
     const here2 = world.actors[currentActor(world)].place;
     const known = recordedCast ? null : new Set(knownActors(world));
+    const reader = known && listenerDeal(world, currentActor(world))?.actorId;
     const present = recordedCast || personIds.filter(
-      (id) => known.has(id) && world.actors[id].place === here2 && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
+      (id) => (known.has(id) || id === reader) && world.actors[id].place === here2 && (!world.controlledActors?.includes(id) || world.presentActors?.includes(id))
     );
     const target = world.log.slice(0, through + 1).findLast(
       (entry) => entry.turn === world.turn && entry.actorId === currentActor(world) && entry.kind === "action"

@@ -30,6 +30,7 @@ import { residentPortrait } from "./resident-portrait.mjs";
 import { rarityForm } from "./rarity-portraits.mjs";
 import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
+import { listenerDeal } from "./world/arcana.mjs";
 import { preferredLocations } from "./preferred-locations.mjs";
 export { sceneChanges };
 
@@ -277,11 +278,12 @@ export function sceneCast(
 ) {
   const here = world.actors[currentActor(world)].place;
   const known = recordedCast ? null : new Set(knownActors(world));
+  const reader = known && listenerDeal(world, currentActor(world))?.actorId;
   const present =
     recordedCast ||
     personIds.filter(
       (id) =>
-        known.has(id) &&
+        (known.has(id) || id === reader) &&
         world.actors[id].place === here &&
         (!world.controlledActors?.includes(id) ||
           world.presentActors?.includes(id)),
