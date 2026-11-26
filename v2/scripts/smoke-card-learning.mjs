@@ -175,7 +175,10 @@ try {
       const text = await dialog.innerText();
       await persona.getByRole("heading", { name: "Persona", exact: true }).waitFor();
       await dreams.getByRole("heading", { name: "Dreams", exact: true }).waitFor();
-      await dialog.getByRole("heading", { name: "Memories", exact: true }).waitFor();
+      const memories = dialog.getByRole("region", { name: "Vale's memories" });
+      await memories.getByRole("heading", { name: "Memories", exact: true }).waitFor();
+      await memories.getByRole("heading", { name: "Places", exact: true }).waitFor();
+      assert.doesNotMatch(await memories.innerText(), /The shore feels quiet|private sentinel/u);
       assert.match(await persona.innerText(), /A traveller/u);
       assert.match(await persona.innerText(), /learning to listen/u);
       assert.match(await dreams.innerText(), /little boat/u);

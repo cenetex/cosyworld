@@ -163,12 +163,11 @@ import { groupOn, packToggleBlock } from "./pack-toggle.mjs";
 import { installToolbar, renderPlayers } from "./toolbar.mjs";
 import { showWorldTier } from "./world-level.mjs";
 import { worldLogoKey } from "./title-logo.mjs";
-import { earlierMemoriesSection, innerLifeChain, innerLifeSection, personaSection } from "./inner-life.mjs";
+import { memoriesSection, innerLifeChain, innerLifeSection, personaSection } from "./inner-life.mjs";
 import { characterSheet, characterSheetSection } from "./character-sheet.mjs";
 import { combatBeats, lastSeq, theName } from "./combat-beats.mjs";
 import {
   beatSummary,
-  memoryVisits,
   plainWaitEntry,
   sceneBeats,
   withPending,
@@ -4832,23 +4831,8 @@ function renderLog(open = $("history-dialog").open) {
   }
   const visibleText = coveredTextReader(world, cardIsCovered);
   const sheet = characterSheet(world, { known: (id) => !cardIsCovered(id) });
-  const visits = memoryVisits(shownWorld(), {
-    viewer: currentActor(world),
-    shared: Boolean(sharedSession),
-    held: combatHeld,
-  }).map((visit) => ({
-    ...visit,
-    beats: visit.beats.map((beat) => revealedBeat(beat, visibleText)),
-  }));
-  const inner = innerLifeChain(world, currentActor(world), visibleText);
-  const key = JSON.stringify([
-    sheet, inner,
-    ...visits.map((visit) => [
-      visit.key,
-      visibleText(nameOf(visit.placeId)),
-      visit.beats.map((beat) => [beat.key, beat.line?.text, beat.actions.map((action) => action.text)]),
-    ]),
-  ]);
+  const inner = innerLifeChain(world, currentActor(world), visibleText, (id) => !cardIsCovered(id));
+  const key = JSON.stringify([sheet, inner]);
   if (key === renderedMemory) return;
   renderedMemory = key;
   const focused = box.contains(document.activeElement) && document.activeElement.dataset.tarot;
@@ -4856,48 +4840,7 @@ function renderLog(open = $("history-dialog").open) {
   box.replaceChildren(
     characterSheetSection(sheet, { viewCard: showItemView, persona: personaSection(inner) }),
     innerLifeSection(inner),
-    node("h3", "Memories", "sheet-memory-title"),
-    ...visits.map((visit) => {
-      const section = node("section", undefined, "memory-visit");
-      section.append(
-        node("h3", visibleText(nameOf(visit.placeId)), "memory-place"),
-      );
-      const list = node("ol", undefined, "memory-beats");
-      for (const beat of visit.beats) {
-        const item = node("li", undefined, "message memory-beat");
-        item.dataset.beat = beat.line
-          ? beat.silent
-            ? "silent"
-            : "speech"
-          : "action";
-        const face = node("span", undefined, "memory-portrait");
-        face.setAttribute("aria-hidden", "true");
-        const source = beatPortrait(beat.speakerId);
-        if (source) {
-          const image = node("img");
-          image.alt = "";
-          image.loading = "lazy";
-          image.src = source;
-          face.dataset.kind = people[beat.speakerId] ? "avatar" : "scene";
-          if (people[beat.speakerId]) frameFigure(image);
-          face.append(image);
-        }
-        const body = node("div", undefined, "memory-body");
-        body.append(node("div", visibleText(beat.line?.speaker || nameOf(beat.speakerId)), "speaker"));
-        if (beat.line) body.append(node("p", beat.line.text));
-        for (const action of beat.actions) {
-          const caption = node("p", undefined, "beat-caption");
-          caption.dataset.kind = action.kind;
-          caption.append(beatIcon(action.icon), node("span", action.text));
-          body.append(caption);
-        }
-        item.append(face, body);
-        list.append(item);
-      }
-      section.append(list);
-      return section;
-    }),
-    ...(inner.memories.length ? [earlierMemoriesSection(inner.memories)] : []),
+    memoriesSection(inner),
   );
   box.scrollTop = scroll;
   if (focused) box.querySelector(`[data-tarot="${focused}"]`)?.focus({ preventScroll: true });
