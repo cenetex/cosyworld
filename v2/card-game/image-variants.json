@@ -2474,14 +2474,23 @@
       "phone": "assets/optimized/phone/webp/combat/willows-swede-hit.webp",
       "phoneHash": "4fe79d0a3e09eccdf9c8897aaae03c20b5254047e8ffbecef6014eb93a71cf1a"
     },
+    "assets/elysium/gold-spiral-open.png": {
+      "sourceHash": "3fb727bac555921c3efc13a8a9090b15156343e9bf01d70cf449b0e1c6a434cd",
+      "stage": "assets/optimized/stage/png/elysium/gold-spiral-open.webp",
+      "stageHash": "31cbbdf928828b64970831a84202922a4e024493a072e0c1cea85be5936be275",
+      "card": "assets/optimized/card/png/elysium/gold-spiral-open.webp",
+      "cardHash": "40afa5428582b4c7e3400e079f0ec02060ff22899b50e2a76a18bcceb3e5b041",
+      "phone": "assets/optimized/phone/png/elysium/gold-spiral-open.webp",
+      "phoneHash": "c493e27c5bbcea82ebc7053e6e078d378c6d348c0ea027961654d1d6a7307105"
+    },
     "assets/elysium/gold-spiral.png": {
-      "sourceHash": "b1a35a6c4211fd70aa909f8b762549880150e5df4fa4dc9bc7e6384fd5116f36",
+      "sourceHash": "a6ca223255eb7f8d0d4e56194a38e44280930fd5272c4cf83f5a5099980af692",
       "stage": "assets/optimized/stage/png/elysium/gold-spiral.webp",
-      "stageHash": "00d690375edcddc65b3a40132673d71209b7760a57707f0375085215ef459c01",
+      "stageHash": "d9a8882a50c6b4ff9b92936909d57c3520e2e4e8d29d58e462a055b58a2f1559",
       "card": "assets/optimized/card/png/elysium/gold-spiral.webp",
-      "cardHash": "9e71d0a3fa5a59952fcd64865c0ac259f54b2f55a5a18ed31fddf8e54ba41cd4",
+      "cardHash": "b43612dff7f41d1d1c6cc84a2555165ce26916717abaf20970a06f139ae720a7",
       "phone": "assets/optimized/phone/png/elysium/gold-spiral.webp",
-      "phoneHash": "d80dcd25e67b0a0c76fb2907fa52cb1f29f56bf9975216c6bb1e7baed852b6b2"
+      "phoneHash": "9771c0c7b8824f1a4af334c033239f77e9fb1e8759c980cc019dacf4b2757e1b"
     },
     "assets/elysium/keystone-ledge-empty.png": {
       "sourceHash": "1e23cea4b1147a9473e61500c6329847f04f59f6a99833fe9d7f02ea2c65d450",
@@ -2510,6 +2519,15 @@
       "phone": "assets/optimized/phone/png/elysium/keystone.webp",
       "phoneHash": "278b4bc750f7719a057aae00e9454d22442a2e92fca8cfe16d35fefd12c47f08"
     },
+    "assets/elysium/observatory.png": {
+      "sourceHash": "9d572b7ec18a1b958cb6b0aac7d5a702909570f8e7161abd1b86ab19b6d0beda",
+      "stage": "assets/optimized/stage/png/elysium/observatory.webp",
+      "stageHash": "38f7d2d11e8fbda88d416070a922fda2b484b91e26eb719848de8148efa2e9c2",
+      "card": "assets/optimized/card/png/elysium/observatory.webp",
+      "cardHash": "8a3937ef7865216ce91e8ce3f66e48e31e974e8929bdb1023e6952bd6279f0e4",
+      "phone": "assets/optimized/phone/png/elysium/observatory.webp",
+      "phoneHash": "22b1a2c97849e3451886183dbd3d72d5767d9344fea11ee7d981c765c393d06f"
+    },
     "assets/elysium/resident.png": {
       "sourceHash": "c6fa913e2a6e0ff9e8dab08859352ec6a64edcbe2906c4765e725c6af105329e",
       "stage": "assets/optimized/stage/png/elysium/resident.webp",
@@ -2518,6 +2536,15 @@
       "cardHash": "303b534465035fff1bba9045074ba2b606e4535ae409674aa135aced7d53197b",
       "phone": "assets/optimized/phone/png/elysium/resident.webp",
       "phoneHash": "552b2da55a667921442a140a75a38cf1cf3953c34f37f1fb12bd7d4cf3fbd851"
+    },
+    "assets/elysium/star-chart.png": {
+      "sourceHash": "0ef2ce3efea537bbfb75440a7cc23333c5c50c8dc417cb2fc2c2ad90236be0c6",
+      "stage": "assets/optimized/stage/png/elysium/star-chart.webp",
+      "stageHash": "ce30ee1d689d957914146fd6068e33bac43d85128918b3bfb09ddc5afd9f175f",
+      "card": "assets/optimized/card/png/elysium/star-chart.webp",
+      "cardHash": "051b4c1d0f6580a0f1e52334469aef7268b1016840ec982760781c8b064db04f",
+      "phone": "assets/optimized/phone/png/elysium/star-chart.webp",
+      "phoneHash": "5d3f4da80fe6d7251cb4883033f11b70ef738b5e91a5c196c87b052da644bb57"
     },
     "assets/elysium/void-001.png": {
       "sourceHash": "fbbdfab0c54800378d7381998842db0f9cfdf6b62a0f5e04e3298e2d0da1b3ec",

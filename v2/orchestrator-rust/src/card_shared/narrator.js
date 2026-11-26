@@ -15833,9 +15833,9 @@
         schemaVersion: 1,
         id: "elysium",
         packId: "cosyworld.elysium",
-        revision: 1,
+        revision: 2,
         name: "Elysium",
-        description: "Gold in the void. Stone nodes hang in the dark, joined by gold filaments. A Wayfinder shows the next path, and a keystone holds one open.",
+        description: "Gold in the void. Stone nodes hang in the dark, joined by gold filaments. Beyond the spiral, a light or a Wayfinder can reveal the path to an old observatory.",
         entry: "elysium-void-001",
         places: {
           "elysium-void-001": {
@@ -15869,11 +15869,32 @@
           },
           "elysium-gold-spiral": {
             name: "Gold Spiral",
-            persona: "Gold filaments wind inward to a bright spiral among floating nodes. A large island of black rock hangs beside the spiral. One filament leads back to Void 001.",
+            persona: "Gold filaments wind above a wide terrace of black rock. An unlit filament leads to an old observatory. It comes into view while the Wayfinder rests on this terrace or an uncovered lamp burns here.",
             exits: [
               "elysium-void-001"
             ],
-            backdrop: "assets/elysium/gold-spiral.png"
+            backdrop: "assets/elysium/gold-spiral.png",
+            backdrops: [
+              {
+                backdrop: "assets/elysium/gold-spiral-open.png",
+                requires: [
+                  {
+                    kind: "gate_open",
+                    from: "elysium-gold-spiral",
+                    to: "elysium-observatory"
+                  }
+                ]
+              }
+            ]
+          },
+          "elysium-observatory": {
+            name: "Still Observatory",
+            persona: "Two immense bronze rings hang over a terrace and sight along a single star. A worn groove points back to the Gold Spiral. Another traces a near-invisible path down to Keystone Ledge.",
+            exits: [
+              "elysium-gold-spiral",
+              "elysium-keystone-ledge"
+            ],
+            backdrop: "assets/elysium/observatory.png"
           }
         },
         avatars: {
@@ -15936,6 +15957,12 @@
             persona: "A faceted black stone the size of a hand, split by one vein of gold. It fits the ring-shaped plinth on Keystone Ledge.",
             holder: "elysium-keystone-ledge",
             art: "assets/elysium/keystone.png"
+          },
+          "elysium-star-chart": {
+            name: "Star Chart",
+            persona: "A folding bronze chart etched with a single star and a path from the ledge to the observatory. A traveler holding it can follow that filament from Keystone Ledge.",
+            holder: "elysium-observatory",
+            art: "assets/elysium/star-chart.png"
           }
         },
         routes: [
@@ -15972,6 +15999,47 @@
                 target: "elysium-void-001"
               }
             }
+          },
+          {
+            from: "elysium-gold-spiral",
+            to: "elysium-observatory",
+            requires: [
+              {
+                kind: "any",
+                conditions: [
+                  {
+                    kind: "item_at",
+                    item: "elysium-wayfinder",
+                    place: "elysium-gold-spiral"
+                  },
+                  {
+                    kind: "light",
+                    item: "lamp",
+                    at: [
+                      "elysium-gold-spiral"
+                    ],
+                    uncovered: true
+                  }
+                ]
+              }
+            ],
+            sealed: {
+              quest: {
+                kind: "place",
+                target: "elysium-gold-spiral"
+              }
+            }
+          },
+          {
+            from: "elysium-keystone-ledge",
+            to: "elysium-observatory",
+            travelerRequires: [
+              {
+                kind: "holding",
+                item: "elysium-star-chart",
+                role: "actor"
+              }
+            ]
           }
         ],
         bridge: {
@@ -16909,7 +16977,6 @@
           case "shared_world":
             ok = keysOk(c, ["kind"]);
             break;
-          // A gate route this world has opened for good (pack-registry.mjs).
           case "gate_open":
             ok = keysOk(c, ["kind", "from", "to"]) && anyPlace(c.from) && anyPlace(c.to);
             break;
@@ -16975,7 +17042,7 @@
         `${what} must use the closed condition vocabulary with valid references`
       );
     };
-    const savedCondition = (c) => c?.kind === "any" ? Array.isArray(c.conditions) && c.conditions.every(savedCondition) : c?.kind === "not" ? savedCondition(c.condition) : [
+    const savedCondition = (c, scope) => c?.kind === "any" ? Array.isArray(c.conditions) && c.conditions.every((r) => savedCondition(r, scope)) : c?.kind === "not" ? savedCondition(c.condition, scope) : scope === "route" && c?.kind === "light" && hub2.items.includes(c.item) || [
       "choice",
       "choice_unset",
       "flag",
@@ -17015,7 +17082,7 @@
       }
       return null;
     };
-    const requirements = (cs, what, persistent = true, perTraveler = false) => {
+    const requirements = (cs, what, persistent = true, scope) => {
       if (cs === void 0) return;
       check(
         Array.isArray(cs) && cs.length <= 12,
@@ -17025,7 +17092,7 @@
         cs.forEach((c) => {
           condition(c, what);
           check(
-            !persistent || savedCondition(c) || perTraveler && c?.kind === "trusted",
+            !persistent || savedCondition(c, scope) || scope === "traveler" && c?.kind === "trusted",
             `${what} must use saved state or human presence conditions`
           );
         });
@@ -17156,8 +17223,8 @@
         r.sealed === void 0 || keysOk(r.sealed, ["quest"]) && Boolean(r.requires?.length || r.travelerRequires?.length) && keysOk(q, ["kind", "target", "to"]) && (q.kind === "item" ? owns4(items2, q.target) && (q.to === void 0 || owns4(avatars, q.to)) : q.to === void 0 && (q.kind === "place" ? owns4(places2, q.target) : q.kind === "person" && owns4(avatars, q.target))),
         `route ${r.from}>${r.to} sealed card needs a gate and a quest`
       );
-      requirements(r.requires, "route requires");
-      requirements(r.travelerRequires, "route traveller requires", true, true);
+      requirements(r.requires, "route requires", true, "route");
+      requirements(r.travelerRequires, "route traveller requires", true, "traveler");
       warn(
         routes.some((q2) => q2.from === r.to && q2.to === r.from) || places2[r.to]?.exits?.includes(r.from),
         `a route has no return: ${r.from}>${r.to}`
