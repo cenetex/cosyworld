@@ -32,6 +32,7 @@ import {
   isPackPlace,
   validatePackStates,
   entityActive,
+  packOn,
   roamingQuestActor,
   packRouteOpen,
 } from "./pack-registry.mjs";
@@ -443,18 +444,23 @@ export function noteAct(s, a, place, holder, round, senses, log) {
 }
 // A physical arrangement can reveal a vessel without a synthetic action.
 // Any resident or player may make it; completed access survives later moves.
-export function settleCrossingUnlocks(s, senses, called = () => {}) {
+export function settleCrossingUnlocks(s, senses, called = () => {}, initiator = senses?.player) {
   for (const c of crossings) {
     if (!c.unlockWhen) continue;
-    const actor = Object.keys(s.actors).find(
-      (actor) =>
-        entityActive(s, actor) &&
-        c.unlockWhen.every((r) => conditionMet(s, r, senses, c.packId, actor)),
-    );
+    const eligible = (actor, conditions) => s.actors[actor] &&
+      conditions.every((r) => conditionMet(s, r, senses, c.packId, actor)) &&
+      entityActive(s, actor);
+    const actors = Object.keys(s.actors);
+    const primary = actors.find((actor) => eligible(actor, c.unlockWhen));
+    const alternate = c.alternateUnlock;
+    const actor = primary || (alternate && packOn(s, c.packId) &&
+      [initiator, ...actors].find((id) => eligible(id, alternate.requires)));
     if (!actor) continue;
     called(c, actor);
-    if (s.crossings[c.id].discovered) continue;
-    s.crossings[c.id].discovered = true;
+    const state = s.crossings[c.id];
+    if (state.discovered) continue;
+    state.discovered = true;
+    if (alternate) state.method = primary ? alternate.primary : alternate.method;
     summonTransport(s, c.transport, c.from);
   }
 }
@@ -605,8 +611,11 @@ export function validPackState(s, senses) {
   for (const c of crossings) {
     const state = s.crossings[c.id];
     if (!c.signal) {
-      if (!exactKeys(state, ["discovered"])) return false;
-      if (typeof state.discovered !== "boolean") return false;
+      const method = state?.method;
+      if (!exactKeys(state, method === undefined ? ["discovered"] : ["discovered", "method"]) ||
+          typeof state.discovered !== "boolean" ||
+          (method !== undefined && (!state.discovered || !c.alternateUnlock ||
+            ![c.alternateUnlock.primary, c.alternateUnlock.method].includes(method)))) return false;
       continue;
     }
     if (

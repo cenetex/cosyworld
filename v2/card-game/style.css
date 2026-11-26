@@ -357,6 +357,9 @@ main {
   transform: translate(-50%, var(--held-offset));
   pointer-events: none;
 }
+.portrait-held-item[data-item="station-lantern-wick"] {
+  width: 15%;
+}
 .portrait[data-flip="true"] .portrait-held-item {
   left: calc(100% - var(--hand-x));
 }
@@ -450,6 +453,21 @@ main {
 }
 .floor-item[data-lit="false"] > img:first-child {
   filter: drop-shadow(0 5px 5px #08091399) saturate(0.35) brightness(0.48);
+}
+.floor-item[data-lantern] {
+  --prop-size: clamp(62px, 11cqh, 110px);
+  bottom: max(calc(var(--floor-line) + var(--lift) * 1.2cqh), calc(var(--resting-dock) + 14px));
+}
+@media (max-width: 1299px) and (max-height: 640px) {
+  .floor-item[data-lantern] {
+    --floor-line: calc(var(--resting-dock) + min(110px, 18cqh));
+  }
+}
+.floor-item[data-lantern="burning"] > img:first-child {
+  filter: drop-shadow(0 5px 5px #150904d0) drop-shadow(0 0 14px #f8a449bb);
+}
+.floor-item[data-item="station-lantern-wick"] {
+  width: calc(var(--prop-size) * 0.65);
 }
 .floor-item[data-covered="true"] > img:first-child {
   opacity: 0.35;
@@ -1497,6 +1515,10 @@ body .card[data-lit="true"] .art {
 body .card[data-lit="false"] .art > img:first-child,
 body .card.want-card[data-lit="false"] .quest-ground {
   filter: saturate(0.35) brightness(0.48);
+}
+.floor-item[data-lantern="repaired"] > img:first-child,
+body .card[data-lantern="repaired"] .art > img:first-child {
+  filter: saturate(0.2) brightness(0.68) drop-shadow(0 3px 4px #08091399);
 }
 body .card[data-covered="true"] .art > img:first-child {
   opacity: 0.35;

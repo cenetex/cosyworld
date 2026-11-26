@@ -1161,7 +1161,15 @@ describe("speech grounding in resolved card plays", () => {
     const outcome = turnOutcome(createWorld());
     expect(outcome.card.kind).toBe("arrive");
     expect(outcome.avatars).toHaveLength(3);
-    expect(outcome.items.map((item) => item.id).sort()).toEqual(["bell", "cloth", "lamp", "oil"]);
+    expect(outcome.items.map((item) => item.id).sort()).toEqual([
+      "bell",
+      "cloth",
+      "keeper-log",
+      "lamp",
+      "oil",
+      "station-lantern",
+      "station-lantern-wick",
+    ]);
     expect(avatar(outcome, "moth")).toMatchObject({
       location: "pond",
       travel: null,

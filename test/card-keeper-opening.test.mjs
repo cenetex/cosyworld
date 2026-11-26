@@ -7,7 +7,7 @@ import { knowledgeFacts, knowsFact } from "../v2/card-game/knowledge.mjs";
 import { learnTold } from "../v2/card-game/quest-learn.mjs";
 import { besideOwners, tableOwner, tableQuest, tableQuests } from "../v2/card-game/quest-hand.mjs";
 import { offerWords } from "../v2/card-game/quest-card.mjs";
-import { availableCards } from "../v2/card-game/cards.mjs";
+import { availableCards, cardPlay } from "../v2/card-game/cards.mjs";
 import { fillWants, renewWant } from "../v2/card-game/want.mjs";
 import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
 import { recordOf } from "../v2/card-game/world/arcana-record.mjs";
@@ -15,6 +15,7 @@ import { seatActors } from "../v2/card-game/human-cast.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { wantFact } from "../v2/card-game/want-talk.mjs";
 import { pinnedCompanion, toldWant } from "../v2/card-game/talk-quest.mjs";
+import { readPage } from "../v2/card-game/read-view.mjs";
 
 const crossing = "pond-greek-harbor", fact = "quest:keeper:pond";
 const reload = (s) => decodeSave(encodeSave(s));
@@ -71,6 +72,56 @@ test("Pip tells a sourced, visible keeper lead on the first pond Talk", () => {
   const words = knowledgeFacts(s, "vale", nameOf).find((line) => line.includes("call the ship"));
   assert.match(words, /Pip told me this just now at Black pond/u);
   assert.match(words, /The keeper made the request at Empty station/u);
+});
+
+test("the fixed Station log teaches the same call without Pip and keeps the lead at the Pond", () => {
+  let s = createLandingWorld(null, 23);
+  choose(s, null);
+  s = act(act(s, "move", "pond"), "move", "station");
+  const book = "keeper-log";
+  assert.equal(s.items[book].holder, "station");
+  assert.equal(cardPlay(s, [book]).action?.kind, "read");
+  assert(!legalActions(s, "vale").some((a) => a.kind === "take" && a.item === book));
+  assert(!knowsFact(s, "vale", fact));
+  s.actors.moth.place = "attic";
+  const seen = s.eventSeq;
+  s = act(s, "read", undefined, book);
+  const entry = s.log.findLast((e) => e.verb === "read" && e.actorId === "vale");
+  assert(!entry.witnesses.includes("moth"));
+  assert.deepEqual(s.knowledge.known.vale[fact], {
+    kind: "read", teller: null, book, eventSeq: entry.seq, learnedTurn: entry.turn,
+  });
+  assert.deepEqual(Object.keys(s.knowledge.facts).filter((id) => id.startsWith("quest:keeper:")), [fact]);
+  const page = readPage(s, "vale", seen);
+  assert.equal(page.author, "The keeper");
+  assert(page.claims.some((text) => /Black cloth.*Lamp/u.test(text)));
+  assert(page.claims.some((text) => /wick.*repair.*light/u.test(text)));
+  assert.equal(s.items[book].holder, "station");
+  assert.equal(s.crossings[crossing].discovered, false);
+  assert.equal(met(s).length, 0);
+
+  s = reload(act(s, "move", "pond"));
+  assert.equal(s.knowledge.known.vale[fact].book, book);
+  const ids = availableCards(s), table = tableQuests(s, "vale", ids);
+  const lead = table.find((entry) => entry.owner === "keeper");
+  assert(!ids.includes("moth") && !ids.includes("keeper"));
+  assert.equal(lead.beside, "pond");
+  assert.equal(lead.quest.readFrom, book);
+  assert.equal(tableOwner(lead.id, s, "vale"), "pond");
+  assert.match(offerWords(lead.quest), /The keeper via The keeper’s log/u);
+  assert(besideOwners(ids, table, s).includes(lead.id));
+});
+
+test("an old save gains the fixed log at Station, and a moved log is invalid", () => {
+  const old = JSON.parse(encodeSave(createLandingWorld(null, 23)));
+  const book = "keeper-log";
+  delete old.items[book];
+  delete old.memories[book];
+  const s = decodeSave(JSON.stringify(old));
+  assert.equal(s.items[book].holder, "station");
+  assert(s.memories[book]);
+  s.items[book].holder = "vale";
+  assert.throws(() => validateWorld(s), { check: "item:keeper-log:holder" });
 });
 
 test("shared history retains the request with matching source event chronology", () => {

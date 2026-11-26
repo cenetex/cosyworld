@@ -32,6 +32,7 @@ import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
 import { preferredLocations } from "./preferred-locations.mjs";
+import { STATION_LANTERN, stationLanternState } from "./pond-signal-view.mjs";
 export { sceneChanges };
 
 // The lamp lights a place only while it shines there: held by someone in that
@@ -355,6 +356,7 @@ const FLOOR_SPOTS = {
     [93, 1],
   ],
 };
+const LANTERN_SPOT = { wide: 4, narrow: 1, short: 2 };
 
 function floorHash(text) {
   let hash = 2166136261;
@@ -365,10 +367,16 @@ function floorHash(text) {
 
 // Each thing keeps the same free spot in a place, with a small offset of its
 // own, so props do not jump or stack when the scene renders again.
-function floorSpots(ids, locationId, table) {
+function floorSpots(ids, locationId, table, fixture) {
   const taken = new Set();
   const placed = {};
+  if (ids.includes(STATION_LANTERN)) {
+    const [x, lift] = table[fixture];
+    placed[STATION_LANTERN] = { x, lift };
+    taken.add(fixture);
+  }
   for (const id of [...ids].sort()) {
+    if (id === STATION_LANTERN) continue;
     const hash = floorHash(`${locationId}:${id}`);
     let spot = hash % table.length;
     while (taken.has(spot)) spot = (spot + 1) % table.length;
@@ -581,10 +589,9 @@ export function sceneStaging(
     : Object.entries(world.items).map(([id, item]) => ({ id, ...item }));
   // Things lying in this place rest on the floor behind the cast. The hand
   // keeps every one of them; the stage shows only the first few.
-  const lying = items
-    .filter(
-      (item) => item.holder === locationId && entityActive(world, item.id),
-    )
+  const here = items.filter((item) => item.holder === locationId && entityActive(world, item.id));
+  const fixture = here.find(({ id }) => id === STATION_LANTERN);
+  const lying = (fixture ? [fixture, ...here.filter((item) => item !== fixture)] : here)
     .slice(0, FLOOR_SPOTS.wide.length);
   const spots = Object.fromEntries(
     Object.entries(FLOOR_SPOTS).map(([layout, table]) => [
@@ -593,10 +600,11 @@ export function sceneStaging(
         lying.slice(0, table.length).map(({ id }) => id),
         locationId,
         table,
+        LANTERN_SPOT[layout],
       ),
     ]),
   );
-  const floorItems = lying.map(({ id, lit, ringing }) => {
+  const floorItems = lying.map(({ id, lit, ringing, repaired }) => {
     const cover = items.find((other) => other.holder === id)?.id || null;
     return {
       id,
@@ -607,6 +615,7 @@ export function sceneStaging(
           spots[layout][id] || null,
         ]),
       ),
+      ...(id === STATION_LANTERN ? { lantern: stationLanternState({ lit, repaired }) } : {}),
       ...(typeof lit === "boolean" ? { lit } : {}),
       ...(typeof ringing === "number"
         ? { ringing: ringing > 0 && !cover }

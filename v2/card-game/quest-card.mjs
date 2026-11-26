@@ -118,7 +118,8 @@ const lies = ({ lies, actor }, known) =>
       : `which ${known(lies) ? nameOf(lies) : "someone"} carries`;
 export function offerWords(quest, known = () => true) {
   const who = nameOf(quest.offer),
-    source = quest.heardFrom ? `${who} via ${nameOf(quest.heardFrom)}` : who,
+    from = quest.readFrom ?? quest.heardFrom,
+    source = from ? `${who} via ${nameOf(from)}` : who,
     said = quest.goal ?? quest;
   if (quest.completed) return `${nameOf(quest.completed.by)} called the ship for ${who}`;
   if (quest.lies) {

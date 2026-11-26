@@ -174,6 +174,7 @@
     ".dialogue-heading { align-items: center; display: flex; flex-wrap: wrap; gap: 12px }",
     ".dialogue:has(#live-line:not([hidden])) .beat-behind { padding-right: 92px }",
     ".dialogue[data-dropped=\"true\"] .beat-behind { opacity: 0 }",
+    ".floor-item[data-lantern=\"repaired\"]>img:first-child,body .card[data-lantern=\"repaired\"] .art>img:first-child { filter: saturate(0.2) brightness(0.68) drop-shadow(0 3px 4px #08091399) }",
     ".hand .card .name { transition: opacity 120ms ease-out }",
     ".hand { --fan-overlap: calc(var(--card-height) * 0.14) }",
     ".hand { --hand-fade: 44px }",
