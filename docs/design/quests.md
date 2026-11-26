@@ -2,27 +2,32 @@
 
 ## Tarot direction — 25 November 2026
 
-Revealing a tarot adds it to the player's reusable pack. Later level-quest
-spreads draw from that pack, with new cards shuffled in gradually. The existing
-spread introduces at most one unfamiliar card at a time; the known cards can
-return with fresh proofs. A revealed card belongs to the pack before its current
-proof is complete. Collection does not award the level.
+Revealing a new tarot adds it to the avatar's reusable pack while its current
+level proof can still be open. Later level spreads draw from that pack,
+introducing at most one unfamiliar card per deal. Known cards can return with
+fresh proofs.
 
-This replaces the one-card-only tarot proposal below. A face-down card has not
-been revealed. A locked card keeps its back until its proof reveals it. The
-individual tarot website proposal (#3166) is closed; the cards belong in play.
+Pack membership, collection and level progress are separate. The level comes
+from the spread's required proofs. Collect claims the available reward.
+Face-down and locked slots keep their backs until their reveal conditions hold.
+The individual tarot website proposal (#3166) is closed. The cards belong in play.
 
-Written against rules 187 (`65cfa23ad`). Paths are relative to the repository root; `card-game/` means `v2/card-game/` and `rust/` means `v2/orchestrator-rust/src/`.
+The quest baseline is rules 187 (`65cfa23ad`). Tarot behavior is checked against
+rules 212. Paths are relative to the repository root. `card-game/` means
+`v2/card-game/` and `rust/` means `v2/orchestrator-rust/src/`.
 
 Today a quest is something a person takes. Offers stand at boxes, residents, homes, places and the Listener (`OFFER_KINDS`, `card-game/world/offers.mjs:24`). Accept moves one into a stack of up to three held quests (`MAX_HELD`, `card-game/want.mjs:126`); home and Listener offers are held without it. Discard sets one down. The arcana spread shares those slots. Residents run a separate machine: each has one want, authored, staged, taken from a rumour or drawn from the world (`nextWant`, `want.mjs:439-467`), and the world's planner pursues it.
 
-This design removes taking. Every avatar, item and place can have one quest card, and completing it levels its owner. Only the four points under Decisions are decided. Everything else in this doc is proposed and open to change; the points most in doubt are numbered proposals (P1-P6) or open questions.
+This design removes taking. Every avatar, item and place can have one live
+owner quest card, and completing it levels its owner. A person's tarot spread
+tracks their own level. The decisions and the newer tarot direction set the
+design, with the proposed defaults under P1–P6 and Open questions.
 
 ## Decisions
 
-1. **Quests are never taken.** Accept, held quest slots (`MAX_HELD`, `under`, `slotsUsed`), quest offers and setting a quest down are removed. A quest belongs to its owner; nobody holds it.
-2. **One card per entity.** Each avatar, item and place can have a single quest card. Completing it raises its owner one level. An entity need not have a card.
-3. **A person's avatar card is like the Fool:** one face-down arcanum, as `giveFool` deals today (`card-game/world/arcana.mjs:481-494`).
+1. **Quests belong to their owners.** Replace quest Accept, offers, Discard and the shared held-quest slots with owner cards. Keep the tarot Collect action.
+2. **One live owner quest per entity.** Each avatar, item and place can have a quest card. Its completion raises its owner one level.
+3. **A person's tarot spread draws from a reusable pack.** The Listener deals the first Fool face down. Later spreads reuse revealed cards and introduce at most one unfamiliar card.
 4. **Everyone else's card sits face down behind them.** A Talk teaches you the speaker's quest and the quests of the items they hold. Once you know a quest, its card is face up for you.
 
 ## The model
@@ -39,11 +44,26 @@ This section proposes how the decisions work in the rules. Where a point rests o
 
 ### A person's avatar
 
-- The Listener deals the avatar one arcanum, face down, behind the avatar.
-- Its proof latches `done` while face down, as `settleSlots` does today (`card-game/world/arcana.mjs:641-662`).
-- A Talk with the Listener while called turns it, as for the Fool today (`arcana.mjs:533-557`). If it is done, it unlocks, the level rises by one and the next card is dealt face down. If not, it turns face up with its terms and unlocks the moment its proof holds.
-- The arcana deck gives the next card. `deckOrder` (`arcana.mjs:290`) already deals the Fool first and the World last. `nextSpread` (`arcana.mjs:401`) becomes a one-card deal: a card not yet unlocked while any remain, otherwise a known card at the current scale (`card-game/arcana.json:20-29`).
-- The avatar holds no other quest. Your things' cards sit behind your things.
+- The Listener deals the first Fool face down behind the avatar. A Talk with
+  the Listener while called turns it over.
+- Later spreads have up to three cards. A spread can include a known card at
+  the current scale, a known bonus and an unfamiliar locked card. If the
+  unfamiliar pool is exhausted, a known card can return locked at the next
+  scale. The World is reserved for level 20 after the rest of the pack.
+- A reveal admits a card to the reusable pack. Level progress follows the
+  required proofs in the spread. Bonus slots are optional.
+- Quests attached to your things sit behind those things. The tarot spread
+  has room of its own.
+
+### Tarot in rules 212
+
+The current rules expose a reward when a slot's proof is fulfilled or the
+Listener turns the introductory Fool. Collect records ownership in
+`upgrades`, records the proof if earned and resolves the slot. It can
+trigger a level rise when that resolves the final required slot. This
+includes the first Fool, whose Collect completes level 1 while its later
+proof stays open. See `nextSpread`, `collectTarot` and `settleSlots` in
+`card-game/world/arcana.mjs` and `test/card-arcana-pack.test.mjs`.
 
 ### Learning a quest
 
@@ -79,7 +99,7 @@ Accepted on 2026-11-23, with the defaults under Open questions. Each names the r
 
 ### P1. Completing another's quest earns their trust, and trust feeds the arcana
 
-- Completing another actor's card raises the owner's trust in the completer by one, capped at 3 (`gainTrust`, `card-game/world/company.mjs:79-84`). Rules 176 already does this when someone meets a resident's want (`helped`, `want.mjs:641-662`). Arcana stay outside it, because their proofs read only the avatar's own plays and record.
+- Completing another actor's card raises the owner's trust in the completer by one, capped at 3 (`gainTrust`, `card-game/world/company.mjs:79-84`). Rules 176 already does this when someone meets a resident's want (`helped`, `want.mjs:641-662`). Arcana use their own proof and level rules.
 - Each distinct owner whose trust you earn this way counts toward the Listener's call (`countResidentQuest`, `card-game/world/arcana-record.mjs:47-54`; `CALLS` is 3 in `arcana.json`). This replaces "three accepted resident quests".
 - Later, an arcanum could bind to a resident who trusts you. `bindingOf` (`arcana.mjs:226`) already pins roles per card.
 - Fire Emblem supports usually grow when a pair acts together, step through C, B and A, and in most games open each level with a conversation. That is a close match for trust 0-3 ([Fire Emblem Wiki: Support](https://fireemblemwiki.org/wiki/support)).
@@ -100,14 +120,13 @@ Accepted on 2026-11-23, with the defaults under Open questions. Each names the r
 - This is the least settled point. Today a place offer needs you to stand there (`placeOffer`, `offers.mjs:132-144`), and the client shows it when the place card is selected. Take is not among the verbs that make knowledge (`newsVerbs` and `witnessKnowledge`, `knowledge.mjs:135-163`).
 - The alternative is that a place's card is taught by a resident who lives there, and a loose item's card by whoever saw it last.
 
-### P4. Depth comes from a stack of cards behind one active card
+### P4. Depth comes from a stack of owner quests behind one active card
 
-- Each entity has an ordered stack with one card per level. Only the top card is live, and the next one comes up after a level.
+- Each owner can have an ordered stack of quest cards. Only the top card is live, and the next one comes up after a level.
 - The edges behind the top card (`stackEdges`, `app.mjs:1769`) show how many cards remain, face down.
 - Stacks come from what exists:
   - residents: the staged wants, or the single authored want;
   - places: the missing things from `placeWant` (`offers.mjs:83-113`), one at a time, which already gives one level per thing laid back (`placeRank`, `want.mjs:87-88`);
-  - avatars: the arcana deck;
   - items: authored cards.
 - Persona links run through ranks 1-10 ([megatenwiki: Confidant](https://megatenwiki.com/wiki/Confidant)). Minecraft villagers have five career levels, shown by the badge they wear, and each trade adds to the villager's own experience bar ([Minecraft Wiki: Trading](https://minecraft.fandom.com/wiki/Trading)).
 
@@ -118,7 +137,9 @@ These apply only with P6.
 - **Shared credit.** When a card completes, everyone who knew it gains the owner's trust, not only the completer. The level goes to the owner as always.
   - Guild Wars 2 gives everyone seriously involved in a fight the full experience and loot ([GW2 Wiki: Design Manifesto](https://wiki.guildwars2.com/wiki/Guild_Wars_2_Design_Manifesto)).
   - In Death Stranding, players can add resources to another player's bridges or roads and earn likes for it ([GameSpot](https://gamespot.com/gallery/death-stranding-multiplayer-guide-explaining-how-t/2900-3159/)).
-- **A person's own arcanum is proved only by their own deeds.** Residents can only help indirectly, for example by trusting them for V The Hierophant.
+- **Personal arcana usually require the traveler's deeds.** Residents can supply
+  a condition, such as trust for V The Hierophant. The replacement proof for
+  XII explicitly uses another actor's completion of a quest the traveler knew.
   - Bethesda toned down Oblivion's Radiant AI after residents killed a quest's merchant before the player arrived ([GamesBeat](https://gamesbeat.com/dimming-the-radiant-ai-in-oblivion/)).
 - **The planner ranks a card that a person knows below its other choices,** so residents rarely race a person to the same goal.
 - **A resident's completion turns up the next card.** The person loses one goal and sees a new one. When an Animal Crossing request favor runs out of time, the villager may say they got the thing themselves ([Nookipedia: Favor](https://www.nookipedia.com/wiki/Favor)).
@@ -136,10 +157,10 @@ These apply only with P6.
 | Box | An offer at a shut box that is not your door, taken by Accept (rules 159). It asks for the lock's goal (`boxWant`, `card-game/world/boxes.mjs:473`). | The box's own card is its lock's goal. Completing it opens the box (`creditOpened` still feeds I The Magician and XVI The Tower) and levels the box. |
 | Resident | Told by Talk, then taken by Accept (rules 146, 187). | The resident's live card. Talk teaches it, and nobody takes it. |
 | Home | Held automatically at your own door: bring your belonging home (`offers.mjs:156-167`). | The belonging's own card, known to its avatar. |
-| Listener | Fetch quests held automatically during a sale, or while a face-up card asks for something given up (`fetchPool`, `offers.mjs:173-184,230-271`). | Removed with the price. The Listener turns the arcanum and asks for nothing. |
+| Listener | Fetch quests held automatically during a sale, or while a face-up card asks for something given up (`fetchPool`, `offers.mjs:173-184,230-271`). | Remove fetch quests and the price. The Listener still deals the Fool and later spreads. |
 | Place | Taken by Accept when you stand there (rules 174). `placeMet` is the level. | The place's card asks for one missing thing laid back. Laying it back levels the place (with P2, whoever does it). |
 | Dream | "Rest at home", held after a level rise (`sleepQuest`, `want.mjs:216-226`). | Not a quest. A level rise sets a pending dream on the arcana record, and waking at home gives the glimpse (`wake`, `want.mjs:227-249`). |
-| Arcana spread | Up to three cards, priced by a Give to the Listener, filling quest slots. | One face-down card. |
+| Arcana spread | Up to three cards, priced by a Give to the Listener, filling quest slots. | A separate spread of up to three cards from the reusable pack, with at most one unfamiliar card. |
 
 ## What depends on an accepted quest today
 
@@ -158,23 +179,32 @@ Each resolution below is proposed.
 
 ### XII The Hanged Man
 
-- XII is proved only by a `drop` without an item (`arcana.json:418-442`), which means setting down a quest or a tarot. With no Discard, nothing proves it.
-- Proposal: prove it by letting another finish a card you knew. That is a `did` on a `want_met` entry whose owner and completer are both someone else, for a card you knew. The case P5 guards against becomes a card.
+- XII currently checks for a `drop` without an item, which is the action for
+  setting down a quest or a tarot. See `card-game/arcana.json`.
+- The default replacement proves XII when another actor finishes an owner's
+  quest the traveler already knew. The `want_met` entry identifies the quest
+  and its owner and completer, both of whom are other actors. Give that
+  achievement its own proof key and ship it with the new desire before or
+  alongside removal of the Discard plays that satisfy the old proof.
 - Alternative: give away the most valuable thing you carry.
-- Either way, its `desire` (a quest to "let go of") is rewritten with it.
 - XIII The Nameless Card keeps its proof: anything given up for good. `owesGiving` (`arcana-record.mjs:75-78`) opened the fetch quests for it, and it goes with them.
 
 ### The Listener's paid spread
 
-- After the Fool, `nextSpread` deals three cards (up, down and locked), and a sale needs a Give for good (`arcana.json:11-19`, `dealSpread` at `arcana.mjs:468-479`).
-- The spread becomes one card at a time. The price, the sale and the fetch quests are removed.
-- Re-proving a known card at the current scale (today's `up` slot) remains as the deal once no new cards are left.
+- After the Fool, a sale currently asks for a Give for good. Remove the price,
+  the sale and the related fetch quests. Keep the reusable spread, fresh
+  proofs for known cards and the limit of one unfamiliar card per deal.
+  See `price` in `card-game/arcana.json` and `nextSpread` in
+  `card-game/world/arcana.mjs`.
 
 ### The spread shares the quest slots
 
-- `slotsUsed` adds `tarotsHeld`, so a full spread fills every slot (`want.mjs:130-134`).
-- `dealSpread` releases every held quest, and `giveFool` evicts the bottom ones (`arcana.mjs:472,486-488`).
-- With no slots, nothing competes for them, and this code is removed.
+- `slotsUsed` adds `tarotsHeld`, so a full spread fills every slot. See
+  `card-game/want.mjs`.
+- `dealSpread` releases every held quest, and `giveFool` releases the last held
+  quest until there is room. See `card-game/world/arcana.mjs`.
+- The spread keeps its own deal size and progress. Remove the shared slot
+  accounting and both quest eviction paths.
 
 ### Items do not level, and per-level art is rare
 
@@ -191,7 +221,14 @@ Each resolution below is proposed.
   - A human's `want` and `under` lose their held quests. A held dream quest becomes the pending dream.
   - `closed`, `offered` and a human's `gaveUp` are deleted.
   - A `heard[them]` entry that still matches their live want becomes a quest fact heard from them.
-  - The arcana `spread` keeps one slot. A face-down slot keeps its `done`; otherwise the first unproved card of `need` stays, face up. `sale` is deleted, and an open sale deals the next card at once. `level`, `proved`, `did`, `calls` and `callers` stay, and so do the avatar's `upgrades`.
+  - Keep every valid arcana `spread` slot, including its face, binding and
+    proof progress, with the record's `need`, `done`, `level`, `proved`,
+    `did`, `calls` and `callers` and the avatar's `upgrades`. When
+    `sale` and `paid` are retired, preserve any pending deal and deal it
+    for free when the spread is ready. A waiting reward stays collectable.
+    Migrate ownership, waiting rewards and earned proofs as separate records.
+  - Preserve earned XII rewards, proofs and levels. Check unfinished XII
+    slots against the replacement proof using its own evidence.
   - A resident's `want` stays as its live card. With P6 it loses `from`, and a drawn want stays until it is met or lost; then the resident's authored cards take over.
   - `placeMet` stays. An item with no saved level reads `startLevel`.
 - Shared worlds get the migration through a new rules version (`npm run v2:card:shared:next`, which mints the next free bundle; the books design needs one too). The `upgrade` op loads the save through the target bundle's load path first (`card-game/shared-world.mjs:203-214`), so the same install-time migration applies. `FLOOR` (`rust/card_shared/full_floor.rs:23`) stays.
@@ -208,8 +245,8 @@ Each resolution below is proposed.
 - **Deleted:**
   - `world/offers.mjs`, except `placeWant`, `placeMet` and `validPlaceMet` (about 200 of 271 lines), and `card-game/offer-chance.mjs` (29 lines);
   - in `want.mjs`: `MAX_HELD`, `under`, `slotsUsed`, `holdQuest`, `releaseQuest`, `dropQuest`, the `closed` helpers, `accepted` and `validHeard`; with P6, also stall revision and `fillWants`;
-  - in `world.mjs`: the Accept plays and the quest and tarot Discard plays (`1677-1726`), the Accept branch (`3354-3366`), and `dropOpenedBoxQuests` and `settleQuests` (`1873-1898`);
-  - in `app.mjs`: the offer card (`555-587`), the Accept, Discard and Confirm buttons (`2947-3005`, `3091-3095`) and Accept's no-turn path (`2183-2195`, `880`);
+  - in `world.mjs`, the quest Accept and Discard plays, `dropOpenedBoxQuests` and `settleQuests`. Tarot Collect keeps its play and its no-turn path. Remove tarot Discard once the replacement XII proof is available.
+  - in `app.mjs`, the offer card and its Accept, Discard and Confirm buttons. Preserve tarot Collect and remove tarot Discard with the rule change.
   - the Discard and Accept labels (`card-game/cards.mjs:517,522`), and the `quest.accept` and `quest.abandon` metrics (`card-game/metrics.mjs:15,30-31`, `rust/play_metrics.rs:46`);
   - tests `card-quest-offers`, `card-quest-slots`, `card-resident-offer`, `card-box-quest-accept`, `card-quest-stack`, `card-quest-stack-edges` and `card-quest-stack-shared` (884 lines), plus the Accept half of `card-quest-cards` and `test/helpers/accept-quest.mjs`;
   - most of `v2/scripts/smoke-card-quest-offers.mjs` (470 lines), and its entries in `scripts/fast-smokes.json`.
@@ -228,10 +265,10 @@ Each step is one or more PRs, and each PR stays under the 400-line budget with d
 2. **Quest facts.** Add the `quest` source kind and spare live quest facts from eviction. A Talk teaches the speaker's and their held items' cards. `heard` migrates and the High Priestess recounts. Probably two PRs: the rules, then the migration and its tests.
 3. **Faces from facts.** The client places cards behind their owners, face up or face down from facts.
 4. **Completion by owner.** `want_met` names its owner. The Listener's calls and place levels read it instead of `from`. The Rust `quest_residents` reads the log. `pinnedCompanion` reads the known card, and companions bind on Talk if open question 6 settles that way.
-5. **No Accept in the client.** Remove the offer card, the Accept button, the quest Discard button and Accept's no-turn path, and rewrite the `accept` steps of `smoke-card-quest.mjs` and the `quest-cards` journey. The tarot Discard stays until step 6, so XII stays provable. The rules still offer Accept, but nothing in the client plays it.
-6. **One arcanum.** Once open question 5 is answered: the spread becomes one card; the price, the sale, the Listener's fetch quests and the tarot Discard are removed; XII gets its new proof in the same PR; the dream becomes pending, so no held quest is left that the rules make on their own. Probably two or three PRs.
+5. **Remove quest offers from the client.** Remove the offer card and quest Accept, and rewrite the quest `accept` steps in `smoke-card-quest.mjs` and the `quest-cards` journey. Keep tarot Collect and retain quest and tarot Discard until the proof change in step 6.
+6. **Give tarot its own spread.** Keep the reusable pack and remove the price, sale and fetch quests. Make the dream pending. Before changing the rules 212 sequence, decide what reveals a newly dealt locked card ahead of its level proof and how the first Fool advances under the separate reveal and proof rules. Ship XII's replacement proof, desire, migration and tests before or alongside removal of quest and tarot Discard from the client. Test both a saved XII reward awaiting Collect and a fresh play of the new proof.
 7. **Delete the offer tests and the offers smoke.** First rewrite the five other importers of `test/helpers/accept-quest.mjs`. Then delete the helper, the seven test files and most of the offers smoke in pure-deletion PRs, at least four of them.
-8. **No Accept in the rules.** Remove the Accept and quest Discard plays and the remaining offers, then `MAX_HELD`, `under`, `closed` and `accepted()`. `awayPlan` reads known cards in the PR that removes `under`. Each PR carries its on-load migration and hand-built tests. The offers file alone is about 200 deleted lines, so this step takes two or three PRs.
+8. **Remove quest acceptance from the rules.** Remove quest Accept, quest Discard and the remaining offers, then `MAX_HELD`, `under`, `closed` and `accepted()`. Keep tarot Collect. `awayPlan` reads known cards in the PR that removes `under`. Each PR carries its on-load migration and hand-built tests. The offers file alone is about 200 deleted lines, so this step takes two or three PRs.
 9. **Item levels and item cards.** Add the saved item level, its validator and the optional pack field.
 10. **Proposals,** each as its own step once decided. P6 is the largest: it puts residents on the shared planner, removes drawn wants, `heardWant`, `fillWants` and stall revision, and merges `awayPlan` into the planner.
 
@@ -240,7 +277,7 @@ Each step is one or more PRs, and each PR stays under the 400-line budget with d
 Each has a default, settled on 2026-11-23 so building can start. Any of them can be reopened.
 
 1. A quest fact learned second-hand, told on by Talk or `read` in a book, turns the card face up, the same as the owner's own telling. Knowing is knowing (`reserveKnowledge`, `knowledge.mjs:259-301`).
-2. An unplayed avatar (rules 169) carries only its arcanum and works on others' cards.
+2. An unplayed avatar (rules 169) carries its tarot spread and works on others' quest cards.
 3. An away avatar's planned plays prove its person's arcanum, as P6 implies.
 4. One level is one step on the 0-21 track (`card-game/level-tiers.mjs:6-12`).
 5. XII The Hanged Man is proved when someone else finishes a card you knew.
