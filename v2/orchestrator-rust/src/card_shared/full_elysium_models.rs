@@ -324,7 +324,7 @@ pub(super) async fn dialogue(
 ) -> Result<Value> {
     let (name, named_now) = choose_name(state, resident).await?;
     let text = if first || named_now {
-        format!("I call myself {name}. My token has slipped into the world beyond this Void.")
+        introduction(&name)
     } else {
         let task = format!("Your name is {name}. A traveler has returned to speak with you. Reply with one new, short line, no more than 180 characters, grounded in what your room looks and sounds like.");
         let line = model_words(state, resident, &task, 224).await?;
@@ -339,6 +339,32 @@ pub(super) async fn dialogue(
     };
     Ok(
         json!([{"speaker":name,"text":text,"entityId":resident.id,"actorId":resident.id,"model":resident.model}]),
+    )
+}
+
+const INTRO_START: &str = "I call myself ";
+const INTRO_END: &str = ". My token has slipped into the world beyond this Void.";
+
+fn introduction(name: &str) -> String {
+    format!("{INTRO_START}{name}{INTRO_END}")
+}
+
+pub(crate) fn is_elysium_introduction(text: &str) -> bool {
+    text.strip_prefix(INTRO_START)
+        .and_then(|tail| tail.strip_suffix(INTRO_END))
+        .is_some_and(valid_name)
+}
+
+pub(crate) async fn personal_introduction(
+    state: &AppState,
+    id: &str,
+    room: &str,
+) -> Option<Result<(String, &'static str)>> {
+    let resident = resident(id).filter(|resident| resident.room == room)?;
+    Some(
+        choose_name(state, resident)
+            .await
+            .map(|(name, _)| (introduction(&name), resident.model)),
     )
 }
 

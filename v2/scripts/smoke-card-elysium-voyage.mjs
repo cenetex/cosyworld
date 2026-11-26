@@ -6,7 +6,7 @@ import { heldItem } from "../card-game/held-item.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
-import { createWorld, encodeSave, exits } from "../card-game/world.mjs";
+import { createWorld, encodeSave, exits, holdChoice, legalActions, play as playWorld } from "../card-game/world.mjs";
 import {
   clearSelection,
   readyActionButton,
@@ -40,6 +40,75 @@ function ordinaryStart() {
     return world;
   }
   assert.fail("a seeded run places the Wayfinder at the Empty Station");
+}
+
+async function personalIntroduction(browser, origin) {
+  const resident = "elysium-deepseek";
+  const room = "elysium-void-006";
+  const name = "Indigo Reed";
+  const key = "cosyworld.reflected-shore.v1.elysium-personal-smoke";
+  const initial = createWorld({ seed: 17 });
+  initial.turn = initial.revision = DAYLIGHT_TURNS;
+  initial.actors.vale.place = "station";
+  initial.items[wayfinder].holder = "station";
+  const route = [
+    entry, encounterRoom, "elysium-void-003", "elysium-void-005", room,
+  ];
+  let world = initial;
+  for (const [kind, target] of [
+    ["take", wayfinder], ...route.map((place) => ["move", place]), ["talk", resident],
+  ]) {
+    const action = legalActions(world).find((action) =>
+      action.kind === kind && (action.target === target || action.item === target),
+    );
+    assert.ok(action, `${kind} ${target}`);
+    const result = playWorld(world, action);
+    assert.ok(result.ok, result.error);
+    world = result.state;
+  }
+  assert.ok(world.elysiumEncounters[resident].talkedAt);
+  holdChoice(world, "vale", { item: null, revision: world.revision });
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: "reduce",
+  });
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.setDefaultTimeout(15000);
+  await page.addInitScript(({ key, save, known }) => {
+    if (!localStorage.getItem(key)) localStorage.setItem(key, save);
+    localStorage.setItem(`${key}.seen`, JSON.stringify(known));
+    localStorage.setItem("cosyworld.dialogue.sound", "off");
+    localStorage.setItem("cosyworld.room-music", JSON.stringify({ enabled: false }));
+  }, { key, save: encodeSave(world), known: Object.keys(profiles) });
+  await page.route("**/auth/account", (route) =>
+    route.fulfill({ json: { authenticated: false } }),
+  );
+  const model = "deepseek/deepseek-v4.1-flash";
+  await page.route("**/card-game/text", (route) => {
+    const { revision, turn, outcome } = route.request().postDataJSON();
+    if (outcome?.card?.kind !== "talk" || outcome.card.target !== resident)
+      return route.fulfill({ status: 503 });
+    const text = `I call myself ${name}. My token has slipped into the world beyond this Void.`;
+    return route.fulfill({ json: { revision, model, entries: [{
+      id: resident, text, model, signed: {
+        sig: "fixture-introduction",
+        claims: { kind: "line", entity: resident, world: "local", seq: revision, turn },
+      },
+    }] } });
+  });
+  await page.goto(`${origin}/?table=elysium-personal-smoke`);
+  const title = page.locator(`#hand [data-card="${resident}"] .name`);
+  await title.filter({ hasText: /^\?\?\?$/u }).waitFor();
+  await settleHand(page);
+  await clearSelection(page);
+  await selectCard(page, resident, { touch: true });
+  await readyActionButton(page, "talk").tap();
+  await settleHand(page);
+  await title.filter({ hasText: name }).waitFor();
+  await page.reload();
+  await title.filter({ hasText: name }).waitFor();
+  assert.deepEqual(errors, []);
+  await page.close();
 }
 
 const server = createServer();
@@ -395,6 +464,9 @@ try {
   console.log(
     "Elysium voyage: discovery, night crossing, return, encounter and multiplayer isolation passed.",
   );
+  await Promise.all([vale.close(), mara.close()]);
+  await personalIntroduction(browser, origin);
+  console.log("Elysium personal table: a prior Talk can earn and keep its name.");
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));

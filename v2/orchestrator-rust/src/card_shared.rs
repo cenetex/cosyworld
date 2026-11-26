@@ -22,6 +22,7 @@ pub(crate) fn rules_version() -> &'static str {
 }
 pub(crate) use engine::check_rules;
 mod full;
+pub(crate) use full::elysium_models::{is_elysium_introduction, personal_introduction};
 mod full_floor;
 #[cfg(test)]
 mod full_floor_tests;

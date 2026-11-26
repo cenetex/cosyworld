@@ -1,7 +1,9 @@
 import { accountRevision } from "./account-revision.mjs";
+import { accountStorage } from "./account-reset-storage.mjs";
 import { ELYSIUM_MODEL_IDS } from "./elysium-models.mjs";
 import { imageUrl } from "./images.mjs";
 import { packPeople } from "./pack-registry.mjs";
+import { hasSignedLocalLine } from "./signed-words.mjs";
 
 const resident = "elysium-resident";
 const spiral = "elysium-gold-spiral";
@@ -11,6 +13,17 @@ const retryDelays = [
   1500, 3500, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 135000,
 ];
 const maxPortraitBytes = 8 * 1024 * 1024;
+const introduction = /^I call myself ([\p{Alphabetic} -]+)\. My token has slipped into the world beyond this Void\.$/u;
+
+function validPersonalName(name) {
+  return (
+    typeof name === "string" &&
+    [...name].length <= 40 &&
+    /\p{Alphabetic}/u.test(name) &&
+    !/[^\p{Alphabetic} -]/u.test(name) &&
+    name.trim().split(/ +/u).length <= 3
+  );
+}
 
 async function decodedPortrait(blob) {
   const reader = new FileReader();
@@ -125,14 +138,17 @@ function createResource(endpoint, read, changed, revoke, forget = () => {}) {
   };
 }
 
-export function createElysiumPortrait(worldId, redraw) {
+export function createElysiumPortrait(worldId, redraw, saveKey, storage = accountStorage) {
   const prefix =
     worldId && `/card-game/shared/worlds/${encodeURIComponent(worldId)}`;
+  const personalKey = !prefix && saveKey && `${saveKey}.elysium-names`;
   const cast = new Map();
   let key = 0,
     started = false,
     suspended = false,
-    authorized = true;
+    authorized = true,
+    personalWorld = null,
+    personalNames = {};
 
   function changed(refresh) {
     key++;
@@ -193,9 +209,45 @@ export function createElysiumPortrait(worldId, redraw) {
     });
   }
 
+  function sync(world) {
+    if (!personalKey) return;
+    if (personalWorld?.run?.seed !== world.run?.seed) {
+      personalNames = {};
+      try {
+        const saved = JSON.parse(storage.getItem(personalKey));
+        if (saved?.seed === world.run?.seed && saved.names &&
+          typeof saved.names === "object" && !Array.isArray(saved.names)) personalNames = saved.names;
+      } catch { /* A blocked store only lasts for this page. */ }
+      changed(false);
+    }
+    personalWorld = world;
+  }
+
+  function personalName(id) {
+    const saved = personalNames[id];
+    const { scatteredAt, talkedAt = scatteredAt } = personalWorld?.elysiumEncounters?.[id] || {};
+    return talkedAt && saved?.talkedAt === talkedAt && saved.seq > talkedAt &&
+      saved.seq <= personalWorld.eventSeq && validPersonalName(saved.name) ? saved.name : null;
+  }
+
+  function learn(world, actor, line, talkedAt) {
+    const match = introduction.exec(line.text);
+    if (line.kind !== "dialogue" || !match || match[0] !== line.text || !validPersonalName(match[1]) ||
+      !hasSignedLocalLine(line, world.revision, storage) ||
+      !world.log.some((entry) => entry.seq < line.seq && entry.turn === line.turn &&
+        entry.verb === "talk" && entry.actorId === actor && entry.targetId === line.actorId)) return;
+    const name = match[1].trim().replace(/ +/gu, " ");
+    personalNames[line.actorId] = { name, talkedAt, seq: line.seq };
+    try {
+      storage.setItem(personalKey, JSON.stringify({ seed: world.run.seed, names: personalNames }));
+    } catch { /* The revealed name is still available on this page. */ }
+    changed(false);
+    queueMicrotask(redraw);
+  }
+
   function name(id) {
     const view = cast.get(id);
-    return view?.alias ? view.name?.value ?? UNNAMED_ELYSIUM_RESIDENT : null;
+    return view?.alias ? view.name?.value ?? personalName(id) ?? UNNAMED_ELYSIUM_RESIDENT : null;
   }
 
   function text(value) {
@@ -210,11 +262,19 @@ export function createElysiumPortrait(worldId, redraw) {
       return key;
     },
     revoke,
+    sync,
     name,
+    withIntroduction(context) {
+      const card = context.outcome?.card;
+      return card?.kind === "talk" && personalName(card.target)
+        ? { ...context, elysiumIntroduced: card.target }
+        : context;
+    },
     source: (id, sleeping) => (sleeping ? null : cast.get(id)?.portrait?.value),
     text,
     reader: (read) => (value) => text(read(value)),
     observe(world, actor, line) {
+      sync(world);
       const active = authorized && !suspended;
       const viewer = world.actors[actor];
       const here = viewer?.place;
@@ -226,6 +286,8 @@ export function createElysiumPortrait(worldId, redraw) {
         if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
         const replied =
           line?.actorId === id && line.generated && !line.silent && line.seq > talkedAt;
+        if (personalKey && world.run && active && nearby && replied && line.locationId === here &&
+          line.turn === world.turn && !personalName(id)) learn(world, actor, line, talkedAt);
         if (!talkedAt || replied) view.waiting = false;
         view.seenTalk = Boolean(talkedAt);
         const ready =

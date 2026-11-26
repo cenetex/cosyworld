@@ -1,7 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createElysiumPortrait } from "../v2/card-game/elysium-portrait.mjs";
+import { forgetSigned, rememberSigned } from "../v2/card-game/signed-words.mjs";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  forgetSigned();
+});
 
 const resident = "elysium-claude";
 const room = "elysium-void-002";
@@ -82,4 +86,61 @@ it.each([
   expect(visitor.name(resident)).toBe("???");
   expect(fetch.mock.calls.map(([url]) => url))
     .toEqual([`/card-game/shared/worlds/world/elysium-identity/${resident}`]);
+});
+
+it("learns a signed personal introduction after a later direct Talk and remembers it for this save", async () => {
+  const records = new Map();
+  const storage = { getItem: (key) => records.get(key), setItem: (key, value) => records.set(key, value) };
+  const fetch = vi.fn();
+  vi.stubGlobal("fetch", fetch);
+  const redraw = vi.fn();
+  const display = createElysiumPortrait(null, redraw, "table-one", storage);
+  const world = {
+    run: { seed: 440 }, turn: 5, revision: 7, eventSeq: 22,
+    actors: { vale: { place: room }, [resident]: { place: room } },
+    elysiumEncounters: { [resident]: { scatteredAt: 10, talkedAt: 11 } },
+    log: [{ seq: 20, turn: 5, verb: "talk", actorId: "vale", targetId: resident }],
+  };
+  const line = {
+    actorId: resident, turn: 5, seq: 22, kind: "dialogue", generated: true, locationId: room,
+    text: "I call myself Amber  Thread. My token has slipped into the world beyond this Void.",
+  };
+  const context = { outcome: { card: { kind: "talk", target: resident } } };
+  display.observe(world, "vale", null);
+  display.observe(world, "vale", { ...line, text: "A thread is caught in the dark." });
+  display.observe(world, "vale", line);
+  expect(display.name(resident)).toBe("???");
+  expect(display.withIntroduction(context)).toBe(context);
+  const sign = (claims) => rememberSigned({ entries: [{ id: resident, text: line.text,
+    signed: { sig: "test-signature", claims: { kind: "line", entity: resident, world: "local", turn: 5, seq: 7, ...claims } },
+  }] }, storage);
+  sign({ world: "another-world" });
+  display.observe(world, "vale", line);
+  expect(display.name(resident)).toBe("???");
+  sign();
+  display.observe(world, "vale", { ...line, silent: true });
+  display.observe({ ...world, log: [] }, "vale", line);
+  expect(display.name(resident)).toBe("???");
+  display.observe(world, "vale", line);
+  await Promise.resolve();
+  expect(redraw).toHaveBeenCalledOnce();
+  expect(display.name(resident)).toBe("Amber Thread");
+  expect(display.text("Bring the token to the Resident of Void 002.")).toBe("Bring the token to Amber Thread.");
+  expect(display.withIntroduction(context)).toEqual({ ...context, elysiumIntroduced: resident });
+  const otherTalk = { outcome: { card: { kind: "talk", target: "elysium-gemini" } } };
+  expect(display.withIntroduction(otherTalk)).toBe(otherTalk);
+
+  forgetSigned();
+  const restored = createElysiumPortrait(null, () => {}, "table-one", storage);
+  const later = { ...world, log: [], actors: { ...world.actors, vale: { place: "pond" } } };
+  restored.sync(later);
+  expect(restored.name(resident)).toBe("Amber Thread");
+  restored.sync({ ...later, eventSeq: 15 });
+  expect(restored.name(resident)).toBe("???");
+  restored.sync({ ...later, run: { seed: 441 } });
+  expect(restored.name(resident)).toBe("???");
+  const anotherTable = createElysiumPortrait(null, () => {}, "table-two", storage);
+  anotherTable.sync(later);
+  expect(anotherTable.name(resident)).toBe("???");
+  expect(fetch).not.toHaveBeenCalled();
 });
