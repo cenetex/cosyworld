@@ -1,8 +1,5 @@
-//! Private reflections (thought, persona, dream) after a spoken scene.
-//!
-//! The browser asks for them once its line is shown, so they never delay or
-//! fail the line (#2016). They have their own capacity and one request per
-//! client, and a client's next admitted scene drops its unfinished one.
+//! Private reflections and memory summaries run in the background.
+//! A client's next admitted scene cancels its unfinished reflection.
 use super::*;
 
 #[path = "memory_summaries.rs"]
