@@ -1,106 +1,70 @@
 import { expect, test } from "vitest";
-import { cardActions } from "../v2/card-game/cards.mjs";
-import { gone } from "../v2/card-game/item-use.mjs";
-import { seatActors } from "../v2/card-game/human-cast.mjs";
-import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
 import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
-import { createWorld, decodeSave, encodeSave, legalActions, play, validateWorld } from "../v2/card-game/world.mjs";
+import { summonTransport } from "../v2/card-game/pack-transport.mjs";
+import { dispatchShared } from "../v2/card-game/shared-world.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
+import { decodeSave, legalActions, play } from "../v2/card-game/world.mjs";
 
-const LANTERN = "station-lantern", WICK = "station-lantern-wick";
-const CROSSING = "pond-greek-harbor";
-const repair = (state, actor = "vale") => act(state, "Repair lantern", actor);
-const light = (state, actor = "vale") => act(state, "Light lantern", actor);
-const read = (state, label, actor) => legalActions(state, actor).find((action) => action.label === label);
+const lantern = "station-lantern", wick = "station-lantern-wick";
+const crossing = "pond-greek-harbor", ship = "greek-ship";
+const portableClaim = "claim:hub:keeper-log:pond-signal";
+const retiredClaim = "claim:hub:keeper-log:station-signal";
 
-function act(state, label, actor) {
-  const action = read(state, label, actor);
-  expect(action, label).toBeTruthy();
-  const result = play(state, action, state.revision, actor);
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-}
-
-function atStation(wickHolder = "vale") {
-  const state = createPipWorld(17);
-  state.actors.vale.place = "station";
-  state.actors.vale.visited.push("station");
-  state.items[WICK].holder = wickHolder;
+function oldStation() {
+  const s = createPipWorld(17);
+  s.actors.vale.place = "station";
+  s.actors.vale.visited.push("station");
+  const read = legalActions(s).find((a) => a.kind === "read" && a.item === "keeper-log");
+  const readResult = play(s, read);
+  expect(readResult.ok, readResult.error).toBe(true);
+  const state = readResult.state;
+  const portable = state.knowledge.facts[portableClaim];
+  state.knowledge.facts[retiredClaim] = {
+    ...portable,
+    id: retiredClaim,
+    text: "Repair and light the Station lantern to call the ship.",
+    source: { ...portable.source, claim: "station-signal", about: "station" },
+  };
+  state.knowledge.known.vale[retiredClaim] = { ...state.knowledge.known.vale[portableClaim] };
+  state.items[lantern] = { holder: "station", repaired: false, lit: false, fuel: 0, history: [] };
+  state.items[wick] = { holder: "vale", history: [] };
   return state;
 }
 
-test("the station can be repaired by the wick's carrier and only a separate Light calls", () => {
-  let state = atStation("pond");
-  expect(read(state, "Repair lantern", "vale")).toBeUndefined();
-  expect(read(state, "Light lantern", "vale")).toBeUndefined();
-  expect(legalActions(state).find((a) => a.kind === "take" && a.item === LANTERN)).toBeUndefined();
-  state = atStation();
-  expect(cardActions(state, [WICK, LANTERN]).actions[0]?.label).toBe("Repair lantern");
-  state = repair(state);
-  expect(gone(state, WICK)).toBe(true);
-  expect(state.items[LANTERN]).toMatchObject({ repaired: true, lit: false });
-  expect(state.crossings[CROSSING]).toEqual({ discovered: false });
-  expect(cardActions(state, [LANTERN]).actions[0]?.label).toBe("Light lantern");
-  state = light(decodeSave(encodeSave(state)));
-  expect(state.crossings[CROSSING]).toEqual({ discovered: true, method: LANTERN });
-  expect(state.transports["greek-ship"].dock).toBe("pond");
-  expect(state.actors.keeper.completedQuest.by).toBe("vale");
-  expect(read(state, "Light lantern", "vale")).toBeUndefined();
-  state.items[LANTERN].lit = false;
-  expect(() => validateWorld(state)).toThrow();
+test("a carried retired wick, its want and its clue leave old saves", () => {
+  const old = oldStation();
+  old.actors.vale.heldItem = wick;
+  old.actors.vale.want = newWant("item", wick, old.turn);
+
+  const s = decodeSave(JSON.stringify(old));
+  expect(s.items[lantern]).toBeUndefined();
+  expect(s.items[wick]).toBeUndefined();
+  expect(s.actors.vale.heldItem).not.toBe(wick);
+  expect(s.actors.vale.want).toBeNull();
+  expect(s.items.lamp).toEqual(old.items.lamp);
+  expect(s.crossings[crossing]).toEqual({ discovered: false });
+  expect(s.knowledge.facts[retiredClaim]).toBeUndefined();
+  expect(s.knowledge.known.vale[retiredClaim]).toBeUndefined();
+  expect(s.knowledge.facts[portableClaim]).toEqual(old.knowledge.facts[portableClaim]);
+  expect(s.knowledge.known.vale["quest:keeper:pond"]).toBeDefined();
 });
 
-test("the shared traveller lighting the beam gets credit instead of another person at the station", () => {
-  let state = atStation("mara");
-  state.sharedVersion = 1;
-  state.actors.mara.place = "station";
-  state.actors.mara.visited.push("station");
-  seatActors(state, ["vale", "mara"], ["vale", "mara"]);
-  expect(read(state, "Repair lantern", "vale")).toBeUndefined();
-  state = light(repair(state, "mara"), "mara");
-  expect(state.actors.keeper.completedQuest.by).toBe("mara");
-  expect(state.log.filter((e) => e.ownerId === "keeper" && e.verb === "want_met")
-    .map((e) => e.actorId)).toEqual(["mara"]);
-});
+test("a retired station signal keeps the ship and Keeper's credit in an upgraded shared world", () => {
+  const old = oldStation();
+  old.sharedVersion = 1;
+  old.items[lantern] = { ...old.items[lantern], repaired: true, lit: true, fuel: 1 };
+  old.items[wick].holder = "pond";
+  old.usedUp.push(wick);
+  old.crossings[crossing] = { discovered: true, method: lantern };
+  summonTransport(old, ship, "pond");
+  const credit = { by: "vale", turn: old.turn, want: old.actors.keeper.want };
+  old.actors.keeper.completedQuest = credit;
+  old.actors.keeper.want = null;
 
-test("a save from before the station signal gains the items and keeps its old crossing open", () => {
-  const state = createWorld();
-  for (const id of [LANTERN, WICK]) {
-    delete state.items[id];
-    delete state.memories[id];
-  }
-  state.crossings[CROSSING] = { discovered: true };
-  const restored = decodeSave(JSON.stringify(state));
-  expect(restored.items[LANTERN]).toMatchObject({ holder: "station", repaired: false, lit: false });
-  expect(restored.items[WICK].holder).toBe("pond");
-  expect(restored.crossings[CROSSING]).toEqual({ discovered: true });
-});
-
-test("a disabled sea pack waits for reactivation before responding to a burning beam", () => {
-  const switchSea = (state, enable) => {
-    const result = play(state, { kind: "pack", pack: "sea", enable });
-    expect(result.ok, result.error).toBe(true);
-    return result.state;
-  };
-  const state = light(repair(switchSea(atStation(), false)));
-  expect(state.items[LANTERN].lit).toBe(true);
-  expect(state.crossings[CROSSING]).toEqual({ discovered: false });
-  expect(switchSea(state, true).crossings[CROSSING]).toEqual({ discovered: true, method: LANTERN });
-});
-
-test("the existing pond signal retains priority if both signals are eligible", () => {
-  let state = atStation("mara");
-  state.sharedVersion = 1;
-  state.actors.mara.place = "station";
-  state.actors.mara.visited.push("station");
-  seatActors(state, ["vale", "mara"], ["vale", "mara"]);
-  state = repair(state, "mara");
-  state.actors.vale.place = "pond";
-  state.items.cloth.holder = "vale";
-  state.actors.vale.heldItem = "cloth";
-  state.items.lamp.holder = "pond";
-  fillLampFuel(state);
-  state.items.lamp.lit = true;
-  state = light(state, "mara");
-  expect(state.crossings[CROSSING]).toEqual({ discovered: true, method: "pond-lamp" });
-  expect(state.actors.keeper.completedQuest.by).toBe("vale");
+  const s = dispatchShared({ op: "upgrade", world: old, seed: 17 }).world;
+  expect(s.crossings[crossing]).toEqual({ discovered: true });
+  expect(s.transports[ship]).toEqual(old.transports[ship]);
+  expect(s.actors.keeper.completedQuest).toEqual(credit);
+  expect(s.items[lantern]).toBeUndefined();
+  expect(s.usedUp).not.toContain(wick);
 });

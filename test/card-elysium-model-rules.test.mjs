@@ -34,7 +34,7 @@ function act(s, kind, target, item) {
   return reload(result.state);
 }
 
-function arrive(seed = 17) {
+function approach(seed = 17) {
   const s = createWorld({ seed });
   s.turn = s.revision = DAYLIGHT_TURNS;
   s.actors.vale.place = "station";
@@ -42,8 +42,9 @@ function arrive(seed = 17) {
     if (item.holder === "vale") item.holder = "station";
   s.items[wayfinder].holder = "station";
   const equipped = act(s, "take", null, wayfinder);
-  return act(act(equipped, "move", entry), "move", study);
+  return act(equipped, "move", entry);
 }
+const arrive = (seed) => act(approach(seed), "move", study);
 function bringBack(s) {
   s = act(s, "move", "station");
   if (s.items[token].holder === "pond") s = act(s, "move", "pond");
@@ -53,7 +54,7 @@ function bringBack(s) {
   return act(act(s, "move", entry), "move", study);
 }
 
-it("scatters each resident's own token only on a first Talk", () => {
+it("scatters each resident's own token on arrival and records first Talk separately", () => {
   const routes = [
     [], ["elysium-void-003"], ["elysium-void-003", "elysium-void-004"],
     ["elysium-void-003", "elysium-void-005"],
@@ -62,31 +63,53 @@ it("scatters each resident's own token only on a first Talk", () => {
   ];
   for (const [i, resident] of ELYSIUM_MODEL_IDS.entries()) {
     const item = elysiumModelToken(resident);
-    let s = arrive();
-    for (const place of routes[i]) s = act(s, "move", place);
+    const route = [study, ...routes[i]];
+    let s = approach();
+    for (const place of route.slice(0, -1)) s = act(s, "move", place);
     expect(s.elysiumEncounters?.[resident]).toBeUndefined();
     expect(s.actors[resident].want).toBeNull();
     expect(s.items[item].holder).toBe(resident);
-    expect(legalActions(s).some((a) => a.kind === "ask" && a.item === item)).toBe(false);
-    s = act(s, "talk", resident);
-    const event = s.log.find((e) => e.elysiumModel === resident);
-    expect(event).toMatchObject({ kind: "action", verb: "talk", targetId: resident });
+    s = act(s, "move", route.at(-1));
+    const arrival = s.log.find((e) => e.elysiumArrival === resident);
+    expect(arrival).toMatchObject({
+      kind: "narration", locationId: route.at(-1), targetId: resident, itemId: item,
+    });
     const destination = s.items[item].holder;
     expect(["pond", "station"]).toContain(destination);
     expect(s.actors[resident].want).toMatchObject({ kind: "item", target: item });
-    expect(s.elysiumEncounters[resident]).toEqual({ scatteredAt: event.seq });
+    expect(s.elysiumEncounters[resident]).toEqual({ scatteredAt: arrival.seq, talkedAt: null });
+    expect(s.log.some((e) => e.elysiumModel === resident)).toBe(false);
+    s = act(s, "talk", resident);
+    const talk = s.log.find((e) => e.elysiumModel === resident);
+    expect(talk).toMatchObject({ kind: "action", verb: "talk", targetId: resident });
+    expect(s.elysiumEncounters[resident]).toEqual({ scatteredAt: arrival.seq, talkedAt: talk.seq });
     s = act(s, "talk", resident);
     expect(s.items[item].holder).toBe(destination);
+    expect(s.log.filter((e) => e.elysiumArrival === resident)).toHaveLength(1);
     expect(s.log.filter((e) => e.elysiumModel === resident)).toHaveLength(1);
   }
 });
 
+it("keeps a legacy first-Talk encounter and its token location on reload", () => {
+  const s = act(arrive(), "talk", claude);
+  const destination = s.items[token].holder;
+  const arrival = s.log.find((e) => e.elysiumArrival === claude);
+  delete arrival.elysiumArrival;
+  s.elysiumEncounters[claude] = { scatteredAt: s.elysiumEncounters[claude].talkedAt };
+  const restored = reload(s);
+  const later = act(act(act(restored, "move", entry), "move", study), "talk", claude);
+  expect(later.elysiumEncounters[claude]).toEqual(s.elysiumEncounters[claude]);
+  expect(later.items[token].holder).toBe(destination);
+  expect(later.log.filter((e) => e.elysiumModel === claude)).toHaveLength(1);
+  expect(later.log.some((e) => e.elysiumArrival === claude)).toBe(false);
+});
+
 it("can scatter through an open ordinary door with the Wayfinder put away", () => {
   const kitchen = "ratiradio-staff-kitchen";
-  let s = arrive(4);
+  let s = approach(4);
   s.items["ratiradio-station-key"].holder = kitchen;
   holdChoice(s, "vale", { item: null, revision: s.revision });
-  s = act(s, "talk", claude);
+  s = act(s, "move", study);
   expect(s.items[token].holder).toBe(kitchen);
   s = act(act(s, "move", "station"), "move", kitchen);
   s = act(s, "take", null, token);
@@ -94,7 +117,12 @@ it("can scatter through an open ordinary door with the Wayfinder put away", () =
 });
 
 it("commits the portrait receipt only for an accepted Give to the matching resident", () => {
-  let s = bringBack(act(arrive(), "talk", claude));
+  let s = bringBack(arrive());
+  s = act(s, "give", claude, token);
+  expect(s.items[token].holder).toBe("vale");
+  expect(s.log.findLast((e) => e.verb === "give")).toMatchObject({ accepted: false });
+  expect(s.elysiumEncounters[claude].returnedAt).toBeUndefined();
+  s = act(s, "talk", claude);
   s = act(s, "drop", study, token);
   expect(s.elysiumEncounters[claude].returnedAt).toBeUndefined();
   s = act(s, "take", null, token);
@@ -123,8 +151,8 @@ it("commits the portrait receipt only for an accepted Give to the matching resid
 });
 
 it.each(["scattered", "returned"])("can play the shared encounter after importing a %s local token", (progress) => {
-  let local = act(arrive(), "talk", claude);
-  if (progress === "returned") local = act(bringBack(local), "give", claude, token);
+  let local = arrive();
+  if (progress === "returned") local = act(bringBack(act(local, "talk", claude)), "give", claude, token);
   local.items.cloth.holder = "keeper";
   const localSeq = local.eventSeq;
   const shared = dispatchShared({ op: "create", save: encodeSave(local) }).world;
@@ -133,7 +161,7 @@ it.each(["scattered", "returned"])("can play the shared encounter after importin
   expect(shared.actors[claude].want).toBeNull();
   expect(shared.items.cloth.holder).toBe("keeper");
   expect(shared.actors.vale.xp).toBe(local.actors.vale.xp);
-  expect(shared.log.some((e) => e.elysiumModel || e.portraitModel)).toBe(false);
+  expect(shared.log.some((e) => e.elysiumArrival || e.elysiumModel || e.portraitModel)).toBe(false);
 
   const sharedAct = (world, kind, target, item) => {
     const request = { world, actor: "vale", claimed: ["vale"], present: ["vale"] };
@@ -146,7 +174,9 @@ it.each(["scattered", "returned"])("can play the shared encounter after importin
     return result;
   };
   const met = sharedAct(shared, "talk", claude);
-  expect(met.events.find((e) => e.elysiumModel === claude).seq).toBeGreaterThan(localSeq);
+  const arrivalSeq = met.events.find((e) => e.elysiumArrival === claude).seq;
+  expect(arrivalSeq).toBeGreaterThan(localSeq);
+  expect(met.events.find((e) => e.elysiumModel === claude).seq).toBeGreaterThan(arrivalSeq);
   let s = sharedAct(met.world, "move", "station").world;
   if (s.items[token].holder === "pond") s = sharedAct(s, "move", "pond").world;
   s = sharedAct(s, "take", null, token).world;

@@ -247,7 +247,7 @@ describe("named card actions", () => {
     expect(cards.slice(0, 5)).toEqual(["vale", "lamp", "cloth", "oil", "moth"]);
     expect(
       cards.slice(cards.indexOf("station"), cards.indexOf("pond")),
-    ).toEqual(["station", "elysium-wayfinder", "station-lantern", "bell", "keeper-log"]);
+    ).toEqual(["station", "elysium-wayfinder", "bell", "keeper-log"]);
     expect(cards.slice(-1)).toEqual(["pond"]);
     world.items.lamp.holder = "moth";
     const moved = availableCards(world);

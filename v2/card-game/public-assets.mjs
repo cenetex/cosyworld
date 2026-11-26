@@ -321,7 +321,6 @@ const files = [
   "world.mjs",
   "pond-lamp-loan.mjs",
   "pond-signal-view.mjs",
-  "station-lantern.mjs",
   "world/catalog.mjs",
   "world/create.mjs",
   "world/boxes.mjs",

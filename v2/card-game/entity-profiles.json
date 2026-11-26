@@ -19,18 +19,6 @@
     "name": "The Listener",
     "seed": "The Listener, behind the grille of a box on wheels."
   },
-  "station-lantern": {
-    "kind": "item",
-    "name": "Station lantern",
-    "persona": "A fixed signal lantern at the empty station. Its glass faces the Black pond. Describe its damaged wick socket until repaired, and its steady beam only after lighting.",
-    "idiolect": "I'm the station's signal lantern. My window faces the water."
-  },
-  "station-lantern-wick": {
-    "kind": "item",
-    "name": "Lantern wick",
-    "persona": "A short coil of dry braided wick. Describe its fibres, location and witnessed handling.",
-    "idiolect": "I'm a short braid of dry wick. I fit in a signal lantern."
-  },
   "lamp": {
     "kind": "item",
     "name": "Lamp",

@@ -33,7 +33,6 @@ import {
   isPackPlace,
   validatePackStates,
   entityActive,
-  packOn,
   roamingQuestActor,
   packRouteOpen,
 } from "./pack-registry.mjs";
@@ -48,7 +47,6 @@ import {
   shipAtSea,
 } from "./pack-transport.mjs";
 
-// Day and night each last this many turns on the saved world clock.
 export const DAYLIGHT_TURNS = 24;
 
 const fill = (template, values) =>
@@ -447,23 +445,19 @@ export function noteAct(s, a, place, holder, round, senses, log) {
 }
 // A physical arrangement can reveal a vessel without a synthetic action.
 // Any resident or player may make it; completed access survives later moves.
-export function settleCrossingUnlocks(s, senses, called = () => {}, initiator = senses?.player) {
+export function settleCrossingUnlocks(s, senses, called = () => {}) {
   for (const c of crossings) {
     if (!c.unlockWhen) continue;
-    const eligible = (actor, conditions) => s.actors[actor] &&
-      conditions.every((r) => conditionMet(s, r, senses, c.packId, actor)) &&
-      entityActive(s, actor);
-    const actors = Object.keys(s.actors);
-    const primary = actors.find((actor) => eligible(actor, c.unlockWhen));
-    const alternate = c.alternateUnlock;
-    const actor = primary || (alternate && packOn(s, c.packId) &&
-      [initiator, ...actors].find((id) => eligible(id, alternate.requires)));
+    const actor = Object.keys(s.actors).find((id) =>
+      entityActive(s, id) &&
+      c.unlockWhen.every((r) => conditionMet(s, r, senses, c.packId, id)),
+    );
     if (!actor) continue;
     called(c, actor);
     const state = s.crossings[c.id];
     if (state.discovered) continue;
     state.discovered = true;
-    if (alternate) state.method = primary ? alternate.primary : alternate.method;
+    if (c.unlockMethod) state.method = c.unlockMethod;
     summonTransport(s, c.transport, c.from);
   }
 }
@@ -617,8 +611,7 @@ export function validPackState(s, senses) {
       const method = state?.method;
       if (!exactKeys(state, method === undefined ? ["discovered"] : ["discovered", "method"]) ||
           typeof state.discovered !== "boolean" ||
-          (method !== undefined && (!state.discovered || !c.alternateUnlock ||
-            ![c.alternateUnlock.primary, c.alternateUnlock.method].includes(method)))) return false;
+          (method !== undefined && (!state.discovered || method !== c.unlockMethod))) return false;
       continue;
     }
     if (

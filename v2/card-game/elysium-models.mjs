@@ -14,16 +14,23 @@ const tokens = new Set(ELYSIUM_MODEL_IDS.map((id) => `${id}-token`));
 export const isElysiumModel = (id) => models.has(id);
 export const isElysiumModelToken = (id) => tokens.has(id);
 export const elysiumModelToken = (id) => `${id}-token`;
-export const elysiumModelMet = (s, id) =>
-  isElysiumModel(id) && Boolean(s.elysiumEncounters?.[id]?.scatteredAt);
+// On older saves the first Talk also scattered the token.
+const firstTalk = (record) =>
+  record?.talkedAt === undefined ? record?.scatteredAt : record.talkedAt;
+export const elysiumModelTalked = (s, id) =>
+  isElysiumModel(id) && Boolean(firstTalk(s.elysiumEncounters?.[id]));
 
-// The token belongs with its resident before it scatters and after it is given back.
 export const keepsElysiumToken = (resident, item) =>
   isElysiumModel(resident) && elysiumModelToken(resident) === item;
 
 export function recordElysiumEncounter(s, event) {
-  if (event.elysiumModel) {
-    (s.elysiumEncounters ??= {})[event.elysiumModel] = { scatteredAt: event.seq };
+  if (event.elysiumArrival) {
+    (s.elysiumEncounters ??= {})[event.elysiumArrival] = {
+      scatteredAt: event.seq,
+      talkedAt: null,
+    };
+  } else if (event.elysiumModel) {
+    s.elysiumEncounters[event.elysiumModel].talkedAt = event.seq;
   } else if (event.portraitModel) {
     const record = s.elysiumEncounters[event.portraitModel];
     record.returnedAt = event.seq;
@@ -35,6 +42,7 @@ export function recordElysiumEncounter(s, event) {
 export function resetImportedElysiumEncounters(s) {
   delete s.elysiumEncounters;
   for (const event of s.log) {
+    delete event.elysiumArrival;
     delete event.elysiumModel;
     delete event.portraitModel;
   }
@@ -56,24 +64,35 @@ export function validElysiumEncounters(s) {
     if (!isElysiumModel(resident) || !s.actors[resident] ||
         !s.items[elysiumModelToken(resident)] || !record || !seq(record.scatteredAt))
       return false;
-    const fields = Object.keys(record).sort().join();
+    const { talkedAt, scatteredAt, returnedAt, returnedBy } = record;
+    const fields = Object.keys(record).filter((field) => field !== "talkedAt").sort().join();
+    if (Object.hasOwn(record, "talkedAt") && talkedAt !== null &&
+        (!seq(talkedAt) || talkedAt <= scatteredAt))
+      return false;
     if (fields === "scatteredAt") return true;
     return fields === "returnedAt,returnedBy,scatteredAt" &&
-      seq(record.returnedAt) && record.returnedAt > record.scatteredAt &&
-      Object.hasOwn(s.actors, record.returnedBy);
+      seq(returnedAt) && seq(firstTalk(record)) && returnedAt > firstTalk(record) &&
+      Object.hasOwn(s.actors, returnedBy);
   });
 }
 
-export function validElysiumEncounterEvent(s, e) {
-  if (e.elysiumModel === undefined && e.portraitModel === undefined) return true;
-  const resident = e.elysiumModel ?? e.portraitModel;
+export function validElysiumEncounterEvent(s, e, people) {
+  if (e.elysiumArrival === undefined && e.elysiumModel === undefined &&
+      e.portraitModel === undefined) return true;
+  const resident = e.elysiumArrival ?? e.elysiumModel ?? e.portraitModel;
   const record = s.elysiumEncounters?.[resident];
-  if (!isElysiumModel(resident) || !record || e.targetId !== resident ||
-      e.generated || e.kind !== "action" || e.fromLocationId !== e.locationId)
+  if (!isElysiumModel(resident) || !record || e.targetId !== resident || e.generated)
+    return false;
+  if (e.elysiumArrival !== undefined)
+    return e.elysiumModel === undefined && e.portraitModel === undefined &&
+      e.kind === "narration" && e.locationId === people[resident].home &&
+      e.itemId === elysiumModelToken(resident) &&
+      e.seq === record.scatteredAt && record.talkedAt !== undefined;
+  if (e.kind !== "action" || e.fromLocationId !== e.locationId)
     return false;
   if (e.elysiumModel !== undefined)
     return e.portraitModel === undefined && e.verb === "talk" &&
-      record.scatteredAt === e.seq;
+      firstTalk(record) === e.seq;
   return e.verb === "give" && e.accepted === true && !e.handover &&
     e.itemId === elysiumModelToken(resident) &&
     record.returnedAt === e.seq && record.returnedBy === e.actorId;

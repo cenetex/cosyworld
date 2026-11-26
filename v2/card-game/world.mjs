@@ -1,7 +1,8 @@
 import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
 import {
+  ELYSIUM_MODEL_IDS,
   ELYSIUM_PACK,
-  elysiumModelMet,
+  elysiumModelTalked,
   elysiumModelToken,
   isElysiumModel,
   isElysiumModelToken,
@@ -10,7 +11,6 @@ import {
   validElysiumEncounterEvent,
   validElysiumEncounters,
 } from "./elysium-models.mjs";
-import { STATION_LANTERN, stationLanternAction, useStationLantern, validStationLantern } from "./station-lantern.mjs";
 import { wantWords } from "./world/want-words.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
 import { validLampRoomFuel } from "./lamp-room-fuel.mjs";
@@ -704,7 +704,7 @@ function saidWant(s, a, reason) {
 export function expects(s, a) {
   if (a.kind === "give" && isElysiumModelToken(a.item) &&
       !controlledByHuman(s, a.target))
-    return keepsElysiumToken(a.target, a.item) && elysiumModelMet(s, a.target);
+    return keepsElysiumToken(a.target, a.item) && elysiumModelTalked(s, a.target);
   if (a.kind === "give" && keepsForGood(a.target)) return takes(s, a.actor);
   if (a.kind === "give")
     return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
@@ -857,6 +857,7 @@ export function addLog(s, speaker, text, detail = {}) {
     ...detail,
   });
   const entry = s.log.at(-1);
+  recordElysiumEncounter(s, entry);
   if (
     !entry.generated &&
     entry.actorId === currentActor(s) &&
@@ -968,20 +969,21 @@ function transfer(s, item, holder, text) {
   if (item === "lamp" && holder === "moth" && owedPondLamp(s)) s.pondLampLoan.returnedTurn = s.turn;
   remember(s, item, text);
 }
-function scatterElysiumToken(s, { actor, target }, here) {
-  if (!isElysiumModel(target) || elysiumModelMet(s, target) ||
-      !controlledByHuman(s, actor) || s.actors[target].place !== here)
-    return null;
+function scatterElysiumToken(s, actor) {
+  if (!humanPresent(s, actor)) return;
+  const target = ELYSIUM_MODEL_IDS.find((id) => packPeople[id]?.home === s.actors[actor].place);
+  if (!target || s.elysiumEncounters?.[target] || !entityActive(s, target)) return;
   const token = elysiumModelToken(target);
-  if (s.items[token]?.holder !== target) return null;
-  if (!routeBetween(s, here, "station", actor)) return null;
+  if (s.items[token]?.holder !== target) return;
   const landings = elysiumScatterLandings(s, actor);
-  if (!landings.length) return null;
+  if (!landings.length) return;
   const place = landings[runHash(s, token) % landings.length];
-  const text = `The silver figure opens a hand. ${nameOf(token)} slips into a gold filament and vanishes.`;
+  const text = `The silver figure opens a hand. ${nameOf(token)} slips along a gold filament into the ordinary world and vanishes.`;
   transfer(s, token, place, text);
   setWant(s.actors[target], newWant("item", token, s.turn));
-  return text;
+  addLog(s, "World", text, {
+    kind: "narration", actorId: actor, targetId: target, itemId: token, elysiumArrival: target,
+  });
 }
 // A fuel item fills its empty target when one avatar holds both, then returns
 // full to its authored place. Forest data names the pair (oil refuels lamp).
@@ -1506,7 +1508,7 @@ export function legalActions(s, actor = currentActor(s)) {
     )
       continue;
     if (
-      id !== STATION_LANTERN && !fixedBook(id) &&
+      !fixedBook(id) &&
       canReach(s, actor, id) &&
       item.holder !== actor &&
       hasSpace(s, actor, id)
@@ -1599,10 +1601,6 @@ export function legalActions(s, actor = currentActor(s)) {
       out.push(ask);
     }
     if (!canUse(s, actor, id)) continue;
-    if (id === STATION_LANTERN) {
-      const lantern = stationLanternAction(s, actor, offer);
-      if (lantern) out.push(lantern);
-    }
     const belonging = humanAvatarIds
       .map(humanAvatar)
       .find((a) => a.id !== "vale" && a.item.id === id);
@@ -2294,7 +2292,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       s.items[RADIO_ITEM].radioOn = a.radioOn;
       break;
     case "use":
-      remember(s, useStationLantern(s, a) ? STATION_LANTERN : a.item, a.text);
+      remember(s, a.item, a.text);
       break;
     case "course":
       setCourse(s, here, a.target);
@@ -2443,7 +2441,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
           a.kind === "give"
             ? `${who} offers ${theName(a.item)} to ${nameOf(a.target)}.`
             : `${who} offers ${theName(a.item)} for ${ownName(a.target, a.receive)}.`;
-        text += ` ${nameOf(a.target)} declines.`;
+        text += keepsElysiumToken(a.target, a.item)
+          ? " The figure waits to speak before accepting the token."
+          : ` ${nameOf(a.target)} declines.`;
         break;
       }
       if (a.kind === "give" && !pressure && !returningLamp)
@@ -2483,11 +2483,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
           applyPackChoice(s, told, { mode: "talk", turn }),
           a.actor,
         );
-      const scatter = scatterElysiumToken(s, a, here);
-      if (scatter) {
+      if (humanPresent(s, a.actor) && isElysiumModel(a.target) &&
+          s.elysiumEncounters?.[a.target]?.talkedAt === null)
         elysiumModel = a.target;
-        text += ` ${scatter}`;
-      }
       const woken = wakeByVoice(s, a.target),
         roused = wakeResident(s, a.target);
       if (woken) text += ` ${woken}`;
@@ -2517,7 +2515,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
   }
   settleHeldItems(s, hands);
   settleLamp(s);
-  const narrateCall = settleCrossingUnlocks(s, sensesFor(s), { defer: true, initiator: a.actor });
+  const narrateCall = settleCrossingUnlocks(s, sensesFor(s), { defer: true });
   const recitals =
     here !== s.actors[a.actor].place
       ? arriveRecitals(s, packDefinitions, a.actor)
@@ -2563,7 +2561,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       : {}),
   });
   const event = s.log.at(-1);
-  recordElysiumEncounter(s, event);
   const sourceSeq = event.seq;
   if (a.kind === "threaten")
     standoffFor(s, a.actor).sourceSeq = s.log.at(-1).seq;
@@ -2671,6 +2668,8 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       itemId: held.item,
       witnesses: [held.actor],
     });
+  for (const traveler of [a.actor, ...led, arrival?.actorId])
+    if (traveler && s.actors[traveler].place !== here) scatterElysiumToken(s, traveler);
   // Answering the request is the invited avatar's action for this round.
   return invitation ? a.target : null;
 }
@@ -3258,9 +3257,10 @@ export function play(
       ),
     ]),
   ];
+  // A save from before arrival scatter can already have a player in a Void.
+  scatterElysiumToken(next, actor);
   const respondent = perform(next, exact, round, residents);
-  // A human's Talk, Ask, Give, Trade or refused Accompany holds the resident
-  // in the room a moment (rules 133).
+  // An exchange briefly holds the resident in the room.
   if (
     dwellRule.on &&
     controlledByHuman(next, actor) &&
@@ -3748,7 +3748,6 @@ export function validateWorld(s) {
     if (count > (allowance || 3) || (allowance && allowance !== count)) fail(`actor:${actor}:carried`);
   }
   if (!validRadioItem(s)) fail("radio");
-  if (!validStationLantern(s)) fail("station-lantern");
   const lamp = s.items.lamp,
     oil = s.items.oil,
     bell = s.items.bell;
@@ -3849,7 +3848,7 @@ export function validateWorld(s) {
     entities = entityIds;
   for (const e of s.log) {
     if (!validHandover(s, e)) fail(`log:${e.seq}:handover`);
-    if (!validElysiumEncounterEvent(s, e)) fail(`log:${e.seq}:elysium`);
+    if (!validElysiumEncounterEvent(s, e, packPeople)) fail(`log:${e.seq}:elysium`);
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
         fail(`log:${e.seq}:seq`);

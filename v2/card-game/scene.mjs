@@ -32,7 +32,6 @@ import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
 import { listenerDeal, listenerOffer } from "./world/arcana.mjs";
 import { preferredLocations } from "./preferred-locations.mjs";
-import { STATION_LANTERN, stationLanternState } from "./pond-signal-view.mjs";
 export { sceneChanges };
 
 // The lamp lights a place only while it shines there: held by someone in that
@@ -73,9 +72,7 @@ export function backdrop(id, world = null) {
     : placeBackdrop(world, id);
   return file ? `./${file}` : `./assets/${id}.png`;
 }
-// A place card shows a place as you would find it on arriving: you and what
-// you carry are there. A lamp lit at the Black Pond opens the mirror, so the
-// attic card shows the lit attic; the stage itself keeps placeBackdrop.
+// Preview arrival with carried light, including the lit attic through the Pond mirror.
 export function placeCardArt(world, id) {
   const who = world?.actors && currentActor(world);
   const actor = who && world.actors[who];
@@ -360,7 +357,6 @@ const FLOOR_SPOTS = {
     [93, 1],
   ],
 };
-const LANTERN_SPOT = { wide: 4, narrow: 1, short: 2 };
 
 function floorHash(text) {
   let hash = 2166136261;
@@ -371,16 +367,10 @@ function floorHash(text) {
 
 // Each thing keeps the same free spot in a place, with a small offset of its
 // own, so props do not jump or stack when the scene renders again.
-function floorSpots(ids, locationId, table, fixture) {
+function floorSpots(ids, locationId, table) {
   const taken = new Set();
   const placed = {};
-  if (ids.includes(STATION_LANTERN)) {
-    const [x, lift] = table[fixture];
-    placed[STATION_LANTERN] = { x, lift };
-    taken.add(fixture);
-  }
   for (const id of [...ids].sort()) {
-    if (id === STATION_LANTERN) continue;
     const hash = floorHash(`${locationId}:${id}`);
     let spot = hash % table.length;
     while (taken.has(spot)) spot = (spot + 1) % table.length;
@@ -594,9 +584,8 @@ export function sceneStaging(
     : Object.entries(world.items).map(([id, item]) => ({ id, ...item }));
   // Things lying in this place rest on the floor behind the cast. The hand
   // keeps every one of them; the stage shows only the first few.
-  const here = items.filter((item) => item.holder === locationId && entityActive(world, item.id));
-  const fixture = here.find(({ id }) => id === STATION_LANTERN);
-  const lying = (fixture ? [fixture, ...here.filter((item) => item !== fixture)] : here)
+  const lying = items
+    .filter((item) => item.holder === locationId && entityActive(world, item.id))
     .slice(0, FLOOR_SPOTS.wide.length);
   const spots = Object.fromEntries(
     Object.entries(FLOOR_SPOTS).map(([layout, table]) => [
@@ -605,11 +594,10 @@ export function sceneStaging(
         lying.slice(0, table.length).map(({ id }) => id),
         locationId,
         table,
-        LANTERN_SPOT[layout],
       ),
     ]),
   );
-  const floorItems = lying.map(({ id, lit, ringing, repaired }) => {
+  const floorItems = lying.map(({ id, lit, ringing }) => {
     const cover = items.find((other) => other.holder === id)?.id || null;
     return {
       id,
@@ -620,7 +608,6 @@ export function sceneStaging(
           spots[layout][id] || null,
         ]),
       ),
-      ...(id === STATION_LANTERN ? { lantern: stationLanternState({ lit, repaired }) } : {}),
       ...(typeof lit === "boolean" ? { lit } : {}),
       ...(typeof ringing === "number"
         ? { ringing: ringing > 0 && !cover }

@@ -60,15 +60,25 @@ pub(crate) fn guild_talked(guild: &str) -> Option<Vec<String>> {
 
 fn talked(path: &Path, guild: &str) -> Option<Vec<String>> {
     let (c, world, _) = open(path, guild, "")?;
+    // Include the Listener's published dialogue in journal order.
     let mut q = c
         .prepare(
-            "SELECT json_extract(command,'$.actor'),json_extract(command,'$.action.target') \
-             FROM card_full_log WHERE world=? AND json_extract(command,'$.op')='play' \
-             AND json_extract(command,'$.action.kind')='talk' ORDER BY seq DESC LIMIT 400",
+            "SELECT seq,json_extract(command,'$.actor'),json_extract(command,'$.action.target') \
+             FROM card_full_log WHERE world=?1 AND json_extract(command,'$.op')='play' \
+             AND json_extract(command,'$.action.kind')='talk' \
+             UNION ALL \
+             SELECT logged.seq,NULL,'listener' FROM card_full_log logged \
+             JOIN card_full_scenes saved ON saved.world=logged.world \
+                AND saved.play=json_extract(logged.command,'$.play') \
+             WHERE logged.world=?1 AND json_extract(logged.command,'$.op')='speech' \
+             AND EXISTS (SELECT 1 FROM json_each(saved.content,'$.lines') line \
+                WHERE json_extract(line.value,'$.actorId')='listener' \
+                AND json_extract(line.value,'$.kind')='dialogue') \
+             ORDER BY seq DESC LIMIT 400",
         )
         .ok()?;
     let talks = q
-        .query_map([world], |r| Ok([r.get::<_, Option<String>>(0)?, r.get(1)?]))
+        .query_map([world], |r| Ok([r.get::<_, Option<String>>(1)?, r.get(2)?]))
         .ok()?
         .collect::<Result<Vec<_>, _>>()
         .ok()?;
@@ -373,5 +383,78 @@ mod tests {
         full_store::commit(&c, "world", &mut w, play, 3).unwrap();
         drop(c);
         assert_eq!(talked(&path, GUILD).unwrap(), ["vale", "greek-elder"]);
+    }
+
+    #[test]
+    fn a_real_browser_talk_play_brings_the_listener_to_its_guild() {
+        let mut w = World::create(None).unwrap();
+        w.game.as_object_mut().unwrap().remove("opening");
+        w.game["actors"]["vale"]["place"] = json!("pond");
+        w.game["actors"]["vale"]["arcana"] = json!({"proved":[], "did":[], "calls":3});
+        let path = kept(&format!("discord-guild:{GUILD}"), &w);
+        assert!(talked(&path, GUILD).unwrap().is_empty());
+        let c = store::open(&path).unwrap();
+        for op in ["claim", "enter"] {
+            full_store::commit(&c, "world", &mut w, json!({"op":op,"actor":"vale"}), 2).unwrap();
+        }
+        let actions = w.project(0).unwrap()["actions"].clone();
+        let talk = actions
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|a| a["kind"] == "talk" && a["target"] == "listener")
+            .unwrap_or_else(|| panic!("{actions}"));
+        let play = json!({"op":"play","actor":"vale","action":talk,"surface":"browser"});
+        full_store::commit(&c, "world", &mut w, play, 3).unwrap();
+        assert_eq!(talked(&path, GUILD).unwrap(), ["vale", "listener"]);
+        assert!(talked(&path, "100000000000000002").is_none());
+    }
+
+    #[test]
+    fn only_published_listener_dialogue_in_the_guild_counts_as_an_encounter() {
+        let (path, _) = saved(&format!("discord-guild:{GUILD}"));
+        let c = store::open(&path).unwrap();
+        let journal = |world: &str, command: Value| {
+            c.execute(
+                "INSERT INTO card_full_log(world,command,at) VALUES(?,?,1)",
+                [world, &command.to_string()],
+            )
+            .unwrap();
+        };
+        let spoken = |world: &str, play: &str, kind: &str, published: bool| {
+            let line = json!({"actorId":"listener","text":"What did you bring?"});
+            journal(
+                world,
+                json!({"op":"speech","actor":"vale","play":play,"lines":[line]}),
+            );
+            if published {
+                let mut line = line;
+                line["kind"] = json!(kind);
+                c.execute(
+                    "INSERT INTO card_full_scenes(world,room,play,content) VALUES(?,'pond',?,?)",
+                    [world, play, &json!({"lines":[line]}).to_string()],
+                )
+                .unwrap();
+            }
+        };
+        spoken("other", "other-line", "dialogue", true);
+        spoken("world", "silent-line", "dialogue", false);
+        spoken("world", "private-line", "reflection", true);
+        assert!(talked(&path, GUILD).unwrap().is_empty());
+
+        journal(
+            "world",
+            json!({"op":"play","actor":"vale","action":{"kind":"talk","target":"moth"}}),
+        );
+        spoken("world", "public-line", "dialogue", true);
+        assert_eq!(talked(&path, GUILD).unwrap(), ["listener", "vale", "moth"]);
+        journal(
+            "world",
+            json!({"op":"play","actor":"vale","action":{"kind":"talk","target":"keeper"}}),
+        );
+        assert_eq!(
+            talked(&path, GUILD).unwrap(),
+            ["vale", "keeper", "listener", "moth"]
+        );
     }
 }

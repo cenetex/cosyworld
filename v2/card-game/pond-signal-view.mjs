@@ -1,10 +1,5 @@
 import { currentActor } from "./human-cast.mjs";
 import { owedPondLamp } from "./pond-lamp-loan.mjs";
-import { STATION_LANTERN } from "./station-lantern.mjs";
-
-export { STATION_LANTERN };
-export const stationLanternState = ({ lit, repaired }) =>
-  !repaired ? "damaged" : lit ? "burning" : "repaired";
 
 const POND = "pond";
 const PIP = "moth";
@@ -15,8 +10,6 @@ function pondSignalWords(world, known) {
   const actor = currentActor(world);
   const method = world.crossings?.["pond-greek-harbor"]?.method;
   if (world.actors[actor]?.place !== POND || !known(POND)) return "";
-  if (method === STATION_LANTERN && known(STATION_LANTERN) && world.actors.keeper?.completedQuest?.by === actor)
-    return "The station lantern called the ship.";
   if (method !== "pond-lamp" || world.pondLampLoan?.borrower !== actor ||
     world.actors[PIP]?.place !== POND || !known(PIP) || !known(LAMP)) return "";
   const holder = world.items[LAMP]?.holder;

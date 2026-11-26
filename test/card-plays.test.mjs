@@ -27,7 +27,6 @@ describe("playing the world through cards", () => {
       "vale",
       "station",
       "elysium-wayfinder",
-      "station-lantern",
       "lamp",
       "bell",
       "keeper-log",

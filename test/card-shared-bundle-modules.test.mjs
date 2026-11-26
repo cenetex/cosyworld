@@ -60,7 +60,6 @@ const RULES = [
   "shared-rules.mjs",
   "speech-occasions.mjs",
   "station-exits.mjs",
-  "station-lantern.mjs",
   "visit-speech.mjs",
   "shared-world-entry.mjs",
   "shared-world.mjs",

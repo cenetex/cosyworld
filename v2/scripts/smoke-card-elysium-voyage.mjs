@@ -292,9 +292,14 @@ try {
   await play("move", encounterRoom);
 
   const name = card(vale, resident).locator(".name");
-  assert.match(await name.textContent(), /Resident of Void 002/u);
+  const stageResident = `#cast [data-avatar="${resident}"]`;
+  assert.equal(await name.textContent(), "???");
+  assert.equal(
+    await vale.locator(stageResident).getAttribute("aria-label"),
+    "???",
+  );
   const figures = [
-    `#cast [data-avatar="${resident}"] .portrait-body > img`,
+    `${stageResident} .portrait-body > img`,
     `#hand [data-card="${resident}"] .art > img`,
   ];
   const awaitPortrait = (generated) =>
@@ -311,23 +316,36 @@ try {
     );
   await awaitPortrait(false);
   assert.deepEqual(resourceRequests, []);
-  assert.equal(world.items[token].holder, resident);
-  await withCommand("hold", () => clearSelection(vale));
-  await play("talk", resident);
-  await settleHand(vale);
-  await name.filter({ hasText: identity }).waitFor();
   const destination = world.items[token].holder;
-  const { scatteredAt } = world.elysiumEncounters[resident];
+  const { scatteredAt, talkedAt } = world.elysiumEncounters[resident];
+  assert.equal(talkedAt, null);
   assert.ok(
-    scatteredAt > 0 && world.log.some((event) => event.seq === scatteredAt),
+    world.log.some(
+      (event) => event.seq === scatteredAt && event.elysiumArrival === resident,
+    ),
   );
   assert.notEqual(destination, resident);
   assert(
     !destination.startsWith("elysium-"),
     "the token goes into the ordinary world",
   );
+  await withCommand("hold", () => clearSelection(vale));
   await play("talk", resident);
-  assert.equal(world.elysiumEncounters[resident].scatteredAt, scatteredAt);
+  await settleHand(vale);
+  await name.filter({ hasText: identity }).waitFor();
+  await vale.waitForFunction(
+    ({ stageResident, identity }) =>
+      document.querySelector(stageResident)?.getAttribute("aria-label") ===
+      identity,
+    { stageResident, identity },
+  );
+  const firstTalk = world.elysiumEncounters[resident].talkedAt;
+  assert.ok(firstTalk > scatteredAt);
+  await play("talk", resident);
+  assert.deepEqual(world.elysiumEncounters[resident], {
+    scatteredAt,
+    talkedAt: firstTalk,
+  });
   assert.equal(
     world.log.filter((event) => event.elysiumModel === resident).length,
     1,
@@ -346,6 +364,10 @@ try {
   await withCommand("hold", () => selectCard(vale, wayfinder, { touch: true }));
   await play("move", entry);
   await play("move", encounterRoom);
+  assert.equal(
+    world.log.filter((event) => event.elysiumArrival === resident).length,
+    1,
+  );
   assert(!resourceRequests.some(({ kind }) => kind === "portrait"));
   const waitingForArt = vale.waitForResponse(
     (response) =>
