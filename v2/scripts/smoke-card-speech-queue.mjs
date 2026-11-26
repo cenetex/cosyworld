@@ -117,6 +117,27 @@ try {
     assert.equal(await front(page), "…", "A silent reply has its own tap.");
     await open(page, url);
     assert.equal(await front(page), "…", "Reload preserves the silent reply.");
+    const final = add("vale", "I will wait here beside the timetable. I am listening to the empty station, watching the black shore.");
+    world.revision++;
+    history.push({ play: "final", room: "station", starts_at: Date.now(), lines: [final] });
+    await page.locator('#dialogue-advance[aria-label="Continue to the next beat"]').waitFor();
+    await read(page);
+    await page.waitForFunction((text) => document.querySelector("#dialogue-text").textContent === text, final.text);
+    assert.equal(await page.locator("#dialogue-advance").getAttribute("data-revealing"), "true");
+    await selectCard(page, "station");
+    const assertHeld = async () => {
+      assert.equal(await front(page), final.text);
+      assert.equal(await page.locator("#action-beat").isVisible(), false);
+      assert.equal(await page.locator("#card-actions button").count(), 0);
+    };
+    await assertHeld();
+    await page.waitForFunction(() => document.querySelector("#dialogue-advance").dataset.revealing === "false");
+    await page.locator('#speech-hint:not([hidden])').filter({ hasText: "Tap to continue" }).waitFor();
+    await assertHeld();
+    await page.locator("#dialogue-advance").click();
+    await page.locator('#card-actions [data-action="wait"]').waitFor();
+    assert.equal(await page.locator("#action-beat").getAttribute("data-card-tap"), "");
+    assert.equal(await page.locator(".action-beat-heading").isVisible(), false);
     assert.deepEqual(errors, []);
     reports.push({ width, mode: "shared", first: first.seq, second: second.seq, late: late.seq, errors });
     await page.screenshot({ path: new URL(`shared-${width}.png`, output).pathname });
@@ -178,6 +199,9 @@ try {
       await local.waitForFunction((text) => document.querySelector("#dialogue-text").textContent === text, text.vale);
       if (stream) await local.evaluate(() => window.finishReply());
       await local.waitForTimeout(500);
+      await selectCard(local, "forest-trail");
+      assert.equal(await local.locator("#action-beat").isVisible(), false, "Selection leaves the reply in front");
+      assert.equal(await local.locator("#card-actions button").count(), 0);
       assert.equal(await front(local), text.vale, "The movement reply waits for a tap.");
       assert.equal(await local.locator("#dialogue-advance").getAttribute("data-revealing"), "true");
       await open(local, `${origin}/?table=local-queue`);
