@@ -1040,7 +1040,6 @@ export function packProblems(
         case "shared_world":
           ok = keysOk(c, ["kind"]);
           break;
-        // A gate route this world has opened for good (pack-registry.mjs).
         case "gate_open":
           ok =
             keysOk(c, ["kind", "from", "to"]) &&
@@ -1162,14 +1161,17 @@ export function packProblems(
       `${what} must use the closed condition vocabulary with valid references`,
     );
   };
-  // Saved state, or `any`/`not` over saved state, such as a thing that
-  // shows only while no other thing is in the same place.
-  const savedCondition = (c) =>
+  // Routes can check hub lights without a dependency on pack activation.
+  const savedCondition = (c, scope) =>
     c?.kind === "any"
-      ? Array.isArray(c.conditions) && c.conditions.every(savedCondition)
+      ? Array.isArray(c.conditions) &&
+        c.conditions.every((r) => savedCondition(r, scope))
       : c?.kind === "not"
-        ? savedCondition(c.condition)
-        : [
+        ? savedCondition(c.condition, scope)
+        : (scope === "route" &&
+            c?.kind === "light" &&
+            hub.items.includes(c.item)) ||
+          [
             "choice",
             "choice_unset",
             "flag",
@@ -1214,9 +1216,7 @@ export function packProblems(
     }
     return null;
   };
-  // `perTraveler` conditions are read with the traveler, so a door may ask
-  // for the trust of its keeper (route.travelerRequires only).
-  const requirements = (cs, what, persistent = true, perTraveler = false) => {
+  const requirements = (cs, what, persistent = true, scope) => {
     if (cs === undefined) return;
     check(
       Array.isArray(cs) && cs.length <= 12,
@@ -1227,8 +1227,8 @@ export function packProblems(
         condition(c, what);
         check(
           !persistent ||
-            savedCondition(c) ||
-            (perTraveler && c?.kind === "trusted"),
+            savedCondition(c, scope) ||
+            (scope === "traveler" && c?.kind === "trusted"),
           `${what} must use saved state or human presence conditions`,
         );
       });
@@ -1423,8 +1423,8 @@ export function packProblems(
                 : q.kind === "person" && owns(avatars, q.target)))),
       `route ${r.from}>${r.to} sealed card needs a gate and a quest`,
     );
-    requirements(r.requires, "route requires");
-    requirements(r.travelerRequires, "route traveller requires", true, true);
+    requirements(r.requires, "route requires", true, "route");
+    requirements(r.travelerRequires, "route traveller requires", true, "traveler");
     warn(
       routes.some((q) => q.from === r.to && q.to === r.from) ||
         places[r.to]?.exits?.includes(r.from),

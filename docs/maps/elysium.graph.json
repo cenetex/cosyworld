@@ -1,7 +1,7 @@
 {
   "pack": "elysium",
   "name": "Elysium",
-  "revision": 1,
+  "revision": 2,
   "entry": "elysium-void-001",
   "entries": [
     {
@@ -14,11 +14,12 @@
   "space": {
     "districts": [
       {
-        "id": "d-elysium-void-001",
-        "name": "Void 001",
+        "id": "d-elysium-gold-spiral",
+        "name": "Gold Spiral",
         "places": [
           "elysium-gold-spiral",
           "elysium-keystone-ledge",
+          "elysium-observatory",
           "elysium-void-001"
         ]
       }
@@ -28,19 +29,25 @@
         "id": "elysium-gold-spiral",
         "name": "Gold Spiral",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-gold-spiral"
       },
       {
         "id": "elysium-keystone-ledge",
         "name": "Keystone Ledge",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-gold-spiral"
+      },
+      {
+        "id": "elysium-observatory",
+        "name": "Still Observatory",
+        "kind": "place",
+        "district": "d-elysium-gold-spiral"
       },
       {
         "id": "elysium-void-001",
         "name": "Void 001",
         "kind": "place",
-        "district": "d-elysium-void-001"
+        "district": "d-elysium-gold-spiral"
       },
       {
         "id": "pond",
@@ -51,13 +58,37 @@
     "edges": [
       {
         "from": "elysium-gold-spiral",
+        "to": "elysium-observatory",
+        "kind": "route",
+        "gate": "route:elysium-gold-spiral>elysium-observatory"
+      },
+      {
+        "from": "elysium-gold-spiral",
         "to": "elysium-void-001",
         "kind": "exit",
         "gate": null
       },
       {
         "from": "elysium-keystone-ledge",
+        "to": "elysium-observatory",
+        "kind": "route",
+        "gate": "route:elysium-keystone-ledge>elysium-observatory"
+      },
+      {
+        "from": "elysium-keystone-ledge",
         "to": "elysium-void-001",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-observatory",
+        "to": "elysium-gold-spiral",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-observatory",
+        "to": "elysium-keystone-ledge",
         "kind": "exit",
         "gate": null
       },
@@ -149,6 +180,73 @@
             "elysium-keystone"
           ]
         }
+      },
+      {
+        "id": "route:elysium-gold-spiral>elysium-observatory",
+        "kind": "route",
+        "title": "Gold Spiral to Still Observatory",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "or",
+              "of": [
+                {
+                  "op": "atom",
+                  "atom": "item_at(item=elysium-wayfinder,place=elysium-gold-spiral)"
+                },
+                {
+                  "op": "atom",
+                  "atom": "light(at=elysium-gold-spiral,item=lamp,uncovered=true)"
+                }
+              ]
+            }
+          ]
+        },
+        "words": "(Void Wayfinder lies at Gold Spiral or Lamp is lit at Gold Spiral)",
+        "ids": "(elysium-wayfinder lies at elysium-gold-spiral or lamp is lit at elysium-gold-spiral)",
+        "latch": [],
+        "live": [
+          "item_at(item=elysium-wayfinder,place=elysium-gold-spiral)",
+          "light(at=elysium-gold-spiral,item=lamp,uncovered=true)"
+        ],
+        "follows": "live",
+        "seal": {
+          "kind": "place",
+          "target": "elysium-gold-spiral"
+        },
+        "prerequisites": {
+          "item": [
+            "elysium-wayfinder",
+            "lamp"
+          ]
+        }
+      },
+      {
+        "id": "route:elysium-keystone-ledge>elysium-observatory",
+        "kind": "route",
+        "title": "Keystone Ledge to Still Observatory",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=elysium-star-chart,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Star Chart",
+        "ids": "the traveler holds elysium-star-chart",
+        "latch": [],
+        "live": [
+          "holding(item=elysium-star-chart,role=actor)"
+        ],
+        "follows": "live",
+        "prerequisites": {
+          "item": [
+            "elysium-star-chart"
+          ]
+        }
       }
     ],
     "acts": [],
@@ -176,6 +274,7 @@
         "holder": "elysium-void-001",
         "consumedBy": [],
         "readBy": [
+          "route:elysium-gold-spiral>elysium-observatory",
           "route:elysium-void-001>elysium-keystone-ledge"
         ]
       },
@@ -187,9 +286,26 @@
         "readBy": [
           "route:elysium-void-001>elysium-gold-spiral"
         ]
+      },
+      {
+        "id": "elysium-star-chart",
+        "name": "Star Chart",
+        "holder": "elysium-observatory",
+        "consumedBy": [],
+        "readBy": [
+          "route:elysium-keystone-ledge>elysium-observatory"
+        ]
       }
     ],
     "needs": {
+      "route:elysium-gold-spiral>elysium-observatory": [
+        "item:elysium-wayfinder",
+        "item:lamp",
+        "place:elysium-gold-spiral"
+      ],
+      "route:elysium-keystone-ledge>elysium-observatory": [
+        "item:elysium-star-chart"
+      ],
       "route:elysium-void-001>elysium-gold-spiral": [
         "item:elysium-keystone",
         "place:elysium-void-001"
@@ -207,6 +323,11 @@
     }
   },
   "atoms": {
+    "holding(item=elysium-star-chart,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds elysium-star-chart"
+    },
     "holding(item=elysium-wayfinder,role=actor)": {
       "kind": "holding",
       "class": "live",
@@ -216,10 +337,21 @@
       "kind": "item_at",
       "class": "live",
       "words": "elysium-keystone lies at elysium-void-001"
+    },
+    "item_at(item=elysium-wayfinder,place=elysium-gold-spiral)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "elysium-wayfinder lies at elysium-gold-spiral"
+    },
+    "light(at=elysium-gold-spiral,item=lamp,uncovered=true)": {
+      "kind": "light",
+      "class": "live",
+      "words": "lamp is lit at elysium-gold-spiral"
     }
   },
   "conditionKinds": [
     "holding",
-    "item_at"
+    "item_at",
+    "light"
   ]
 }
