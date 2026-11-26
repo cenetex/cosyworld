@@ -22,6 +22,7 @@
       "smoke-card-combat": 81,
       "smoke-card-content": 14,
       "smoke-card-devices": 49,
+      "smoke-card-elysium-portrait": 18,
       "smoke-card-dialogue-presentation": 73,
       "smoke-card-dialogue-recovery": 48,
       "smoke-card-dialogue-timing": 133,
@@ -105,6 +106,10 @@
     {
       "paths": "^v2/card-game/(quest-hand|card-keep)\\.mjs$",
       "smokes": ["smoke-card-ratiradio", "smoke-card-quest-offers"]
+    },
+    {
+      "paths": "^v2/card-game/elysium-portrait\\.mjs$|^v2/content/elysium/card-world\\.json$",
+      "smokes": ["smoke-card-elysium-portrait"]
     },
     {
       "paths": "^v2/card-game/(world/(boxes|offers|home)|want|want-talk|talk-quest|quest-(card|screen|step)|locked-box|offer-chance|card-level-up|homecoming|resident-home|world-level)\\.mjs$|^v2/scripts/smoke-card-(quest-offers|locked-box|lock-quests)\\.mjs$",

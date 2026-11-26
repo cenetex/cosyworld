@@ -20,7 +20,9 @@ export function createFigureFramer(createCanvas) {
     };
     const measure = () => {
       if (!img.complete || !img.naturalWidth || !img.naturalHeight) return;
-      if (!figures.has(img.src)) {
+      const source = img.src;
+      let framing = figures.get(source);
+      if (!framing) {
         const w = 48,
           h = Math.round((w * img.naturalHeight) / img.naturalWidth) || w;
         const canvas = createCanvas();
@@ -62,7 +64,7 @@ export function createFigureFramer(createCanvas) {
               left = Math.min(left, x);
               right = Math.max(right, x + 1);
             }
-        figures.set(img.src, {
+        framing = {
           top: top / h,
           height: (bottom - top) / h,
           headX: (left + right) / 2 / w,
@@ -71,9 +73,10 @@ export function createFigureFramer(createCanvas) {
           ratio: img.naturalWidth / img.naturalHeight,
           portraitCrop:
             img.naturalHeight / img.naturalWidth < 1.25 ? 0.85 : 0.3,
-        });
+        };
+        if (!source.startsWith("data:")) figures.set(source, framing);
       }
-      apply(figures.get(img.src));
+      apply(framing);
     };
     // Kept hand cards change source in place. Re-measure the live image on
     // every load, not only the first sleeping/standing portrait.

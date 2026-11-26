@@ -31,6 +31,7 @@ export async function request(path, body, headers = {}) {
       new Error(
         playerText(result.error) || "The world is taking a moment. Try again.",
       ),
+      { status: response.status },
       result.code ? { code: result.code } : {},
     );
   if (path === "/auth/account") accountRevision.observe(result);

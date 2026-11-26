@@ -3,6 +3,7 @@ import { lockedStack, syncStackFrame, tableHolder, tableType } from "./mystery-v
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
+import { createElysiumPortrait } from "./elysium-portrait.mjs";
 import { heldItem } from "./held-item.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
 import {
@@ -303,8 +304,8 @@ const {
   sharedSession,
   saveKey: SAVE_KEY,
 } = await openTableSession(window.location.href);
-// A new local world: Vale wakes in the attic, the only avatar played locally
-// (#1892). Its travelers wear the local passkey's cosmetic upgrades (#1873).
+const elysiumPortrait = createElysiumPortrait(sharedSession && sharedWorldId, render);
+// Local travelers wear the local passkey's cosmetic upgrades (#1873).
 const freshWorld = () =>
   wearLocalUpgrades(
     enableMotives(startingPip ? createPipWorld() : createLandingWorld(startingPack)),
@@ -3314,7 +3315,8 @@ function card(id) {
   const img = node("img");
   img.decoding = "async";
   img.fetchPriority = "low";
-  img.src = imageUrl(
+  const drawn = !hidden && type === "avatar" && elysiumPortrait.source(id, world.actors[id]?.sleeping);
+  img.src = drawn || imageUrl(
     locked
       ? LOCKED_BACK
       : type === "item"
@@ -3877,7 +3879,6 @@ function renderFloorItems(items) {
 }
 
 function renderScene() {
-  // Every path to this renderer keeps the source visible until the veil covers it.
   if (covering) return;
   const visibleText = coveredTextReader(world, cardIsCovered);
   sleepView.observe(world, currentActor(world));
@@ -3888,8 +3889,7 @@ function renderScene() {
     review: reviewing || Boolean(sharedSession),
   });
   renderStage(scene.locationId);
-  // The hand and physical stage always show this same committed world.
-  // Reviewing a line changes the words while present people keep their places.
+  // Reviewing speech keeps the committed cast in place.
   const resolvedBeat = exchange.preparing || scene.line?.turn !== world.turn;
   scene.slots = revealedStage({ cast: sceneCast(world) }, cardIsCovered).cast;
   // A place still face down is black behind whoever is revealed.
@@ -4026,16 +4026,15 @@ function renderScene() {
       "--lean",
       actor.facing === "right" ? ".35deg" : "-.35deg",
     );
-    const image = figure.querySelector("img");
-    const source = imageUrl(actor.cutout);
-    const previous = image.getAttribute("src"),
+    const image = figure.querySelector("img"), drawn = elysiumPortrait.source(id, sleeping),
+      source = drawn || imageUrl(actor.cutout), previous = image.getAttribute("src"),
       from = shownStageLevels.get(id);
     const level = cardLevel(view, id);
     shownStageLevels.set(id, level);
     image.decoding = "async";
     image.fetchPriority = "high";
-    if (image.getAttribute("src") !== source) image.src = source;
-    if (!reviewing && crossedPortraitTier(id, from, level))
+    if (previous !== source) image.src = source;
+    if (previous !== source && !reviewing && (drawn || crossedPortraitTier(id, from, level)))
       void transformPortrait(image, previous, {
         reduced: reducedMotion.matches,
       });
@@ -4875,8 +4874,8 @@ function render() {
   hum.setStarted(musicHasStarted());
   ringHeard();
   music.setRadio(radioAudible(world, currentActor(world)));
-  // While the travel veil comes down, the old place stays drawn.
   if (covering) return;
+  elysiumPortrait.observe(world, currentActor(world));
   sleepView.observe(world, currentActor(world));
   readView.observe(world, currentActor(world));
   music.setRoom(
@@ -4960,10 +4959,10 @@ function render() {
       ),
     ),
   );
-  // Published speech can unlock cards and plays during the current turn.
   const handState = JSON.stringify([
     handCards,
     roomLocks,
+    elysiumPortrait.ready,
     [...encountered],
     [...coveredCards],
     legalActions(world).map((action) => action.key),
@@ -6118,9 +6117,9 @@ if (localRuntime()) {
 }
 if (sharedSession) {
   world = sharedWorld(sharedSession.state);
-  sharedSession.subscribe(adoptShared, (message, recoveredFrom) => {
+  sharedSession.subscribe(adoptShared, (message, recoveredFrom, authLost) => {
+    if (authLost) elysiumPortrait.revoke();
     if (!recoveredFrom || $("play-status").textContent === recoveredFrom) {
-      // A refusal stays on its play's button (renderActions).
       notice(message === sharedRefusal?.reason || STALE_REFUSALS.has(message) ? "" : message);
       if (message && message === sharedRefusal?.reason) renderActions();
     }

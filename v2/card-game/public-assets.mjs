@@ -36,6 +36,7 @@ const files = [
   "music-streams.json",
   "shared.mjs",
   "shared-auth.mjs",
+  "elysium-portrait.mjs",
   "authoring-account-tools.mjs",
   "authoring-seed-tools.mjs",
   "authoring-github-source.mjs",
