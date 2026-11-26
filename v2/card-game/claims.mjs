@@ -8,7 +8,16 @@ import {
   packEntity,
   packThings,
 } from "./pack-registry.mjs";
-import { knowsFact, readClaim, validFactText } from "./knowledge.mjs";
+import {
+  knowsFact,
+  learnQuest,
+  questFactId,
+  readClaim,
+  validFactText,
+} from "./knowledge.mjs";
+import { questText } from "./quest-learn.mjs";
+import { questFor } from "./talk-quest.mjs";
+import { revealed } from "./want-talk.mjs";
 import { giveUpForGood } from "./world/for-good.mjs";
 
 const itemOf = (packId, book) => {
@@ -26,7 +35,6 @@ export const bookClaims = (packId, book) => {
     about: claim.about ?? null,
   }));
 };
-// A record book writes down each choice it records, kept as first read.
 const recorded = (s, packId, book) => {
   const item = itemOf(packId, book),
     receipts = s?.packs?.[packId]?.receipts || {};
@@ -67,6 +75,28 @@ export const claimsIn = (book, s) => {
   return [...bookClaims(packId, book), ...recordClaims(s, packId, book)];
 };
 
+export function bookQuestId(book) {
+  const item = packThings[book];
+  return item?.teachesQuest
+    ? questFactId(item.author, { target: item.teachesQuest })
+    : null;
+}
+
+function bookQuest(world, book, reader) {
+  const id = bookQuestId(book);
+  if (!id || knowsFact(world, reader, id)) return null;
+  const owner = packThings[book].author;
+  const want = world.actors[owner]?.want;
+  return owner !== reader &&
+    want &&
+    questFactId(owner, want) === id &&
+    entityActive(world, owner) &&
+    revealed(world, owner, want, reader) &&
+    questFor(world, owner, want)
+    ? { owner, want, id }
+    : null;
+}
+
 export function readBook(s, a, witnesses, addLog) {
   addLog(s, "World", a.text, {
     kind: "action",
@@ -77,6 +107,15 @@ export function readBook(s, a, witnesses, addLog) {
   });
   const entry = s.log.at(-1);
   for (const claim of claimsIn(a.item, s)) readClaim(s, a.actor, claim, entry);
+  const quest = bookQuest(s, a.item, a.actor);
+  if (quest)
+    learnQuest(
+      s,
+      quest.owner,
+      a.actor,
+      { id: quest.id, text: questText(s, quest.owner, quest.want) },
+      { seq: entry.seq, turn: entry.turn, book: a.item },
+    );
   if (itemOf(packThings[a.item].packId, a.item).lifecycle === "spent")
     giveUpForGood(s, a.item);
 }
@@ -85,7 +124,8 @@ export function residentRead(s, id, human, actionsOf) {
   const books = Object.keys(s.items).filter(
     (book) =>
       s.items[book].holder === id &&
-      claimsIn(book, s).some((claim) => !knowsFact(s, id, claim.id)),
+      (claimsIn(book, s).some((claim) => !knowsFact(s, id, claim.id)) ||
+        bookQuest(s, book, id)),
   );
   if (
     !books.length ||

@@ -6,7 +6,7 @@ import {
 } from "./knowledge.mjs";
 import { mediaPathOk } from "./pack-schema.mjs";
 
-export const BOOK_KEYS = ["author", "claims", "lifecycle", "pages"];
+export const BOOK_KEYS = ["author", "claims", "lifecycle", "pages", "teachesQuest"];
 export const BOOK_CLAIMS = 3;
 export const LIFECYCLES = ["kept", "spent"];
 const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -32,6 +32,17 @@ export function bookProblems(pack) {
     const author = card(item.author)?.name;
     if (typeof author !== "string")
       fail("author must be a named place, avatar or item of this pack");
+    if (item.teachesQuest !== undefined) {
+      const avatar = owns(pack.avatars, item.author) && pack.avatars[item.author];
+      const wants = Array.isArray(avatar?.wants)
+        ? avatar.wants.map((entry) => entry?.want)
+        : [avatar?.want];
+      if (
+        !card(item.teachesQuest) ||
+        wants.filter((want) => want?.target === item.teachesQuest).length !== 1
+      )
+        fail("teachesQuest must name one authored request of its author");
+    }
     if (item.lifecycle !== undefined && !LIFECYCLES.includes(item.lifecycle))
       fail(`lifecycle must be ${LIFECYCLES.join(" or ")}`);
     const pages = item.pages ?? [];

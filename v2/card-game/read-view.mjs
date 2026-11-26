@@ -1,5 +1,4 @@
-// The Read view shows only the claims of a book the player has just read.
-import { claimsIn } from "./claims.mjs";
+import { bookQuestId, claimsIn } from "./claims.mjs";
 import { imageUrl } from "./images.mjs";
 import { packThings } from "./pack-registry.mjs";
 import { nameOf } from "./world/catalog.mjs";
@@ -8,15 +7,21 @@ export function readPage(world, actor, seen) {
   const entry = world.log.findLast(
     (e) => e.verb === "read" && e.actorId === actor && !e.generated,
   );
-  const claims = claimsIn(entry?.itemId, world);
-  if (!entry || entry.seq <= seen || entry.turn !== world.turn || !claims.length)
-    return null;
+  if (!entry || entry.seq <= seen || entry.turn !== world.turn) return null;
+  const authored = claimsIn(entry.itemId, world);
+  if (!authored.length) return null;
+  const facts = world.knowledge?.facts;
+  const claims = authored.map((c) => facts?.[c.id]?.text ?? c.text);
+  const quest = bookQuestId(entry.itemId);
+  const learned = world.knowledge?.known?.[actor]?.[quest];
+  if (learned?.kind === "read" && learned.eventSeq === entry.seq && facts?.[quest])
+    claims.push(facts[quest].text);
   return {
     seq: entry.seq,
     book: entry.itemId,
     title: nameOf(entry.itemId),
-    author: nameOf(claims[0].author),
-    claims: claims.map((c) => world.knowledge?.facts?.[c.id]?.text ?? c.text),
+    author: nameOf(authored[0].author),
+    claims,
     pages: packThings[entry.itemId].pages ?? [],
   };
 }

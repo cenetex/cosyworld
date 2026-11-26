@@ -317,6 +317,7 @@ export function readClaim(world, reader, claim, entry) {
 
 export function learnQuest(world, owner, learner, { id, text }, entry) {
   installKnowledge(world);
+  const { book } = entry;
   const seen = entry.at === owner;
   if (
     !(world.actors[owner] || seen) ||
@@ -341,8 +342,11 @@ export function learnQuest(world, owner, learner, { id, text }, entry) {
     },
   });
   if (!fact) return null;
-  if (seen) fact.source.witnesses = [...new Set([...fact.source.witnesses, learner])].sort();
-  remember(world, learner, fact, seen ? "witnessed" : "heard", seen ? null : owner, entry.seq, entry.turn);
+  if (seen || book) fact.source.witnesses = [...new Set([...fact.source.witnesses, learner])].sort();
+  const kind = book ? "read" : seen ? "witnessed" : "heard";
+  const teller = kind === "heard" ? owner : null;
+  if (remember(world, learner, fact, kind, teller, entry.seq, entry.turn) && book)
+    world.knowledge.known[learner][id].book = book;
   return fact;
 }
 
@@ -560,16 +564,15 @@ export function knowledgeFacts(
       const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
       return fits ?? lines.at(-1).slice(0, FACT_LINE_LIMIT);
     }
-    const origin =
-      memory.kind === "witnessed"
-        ? "I witnessed"
-        : `${nameOf(memory.teller)} told me`;
+    const origin = memory.kind === "read" ? "I read"
+      : memory.kind === "witnessed" ? "I witnessed" : `${nameOf(memory.teller)} told me`;
     const place = fact.source.kind === "topic" ? null : fact.source.locationId;
     const where =
       place && !fact.text.includes(nameOf(place)) ? ` at ${nameOf(place)}` : "";
     const retold = fact.source.kind === "quest" && memory.kind === "heard" && memory.teller !== fact.source.actorId;
     const heardAt = retold && world.log?.find((e) => e.seq === memory.eventSeq)?.locationId;
-    const heardWhere = retold ? (heardAt ? ` at ${nameOf(heardAt)}` : "") : where;
+    const learnedWhere = memory.kind === "read" ? ` in ${nameOf(memory.book)}`
+      : retold ? (heardAt ? ` at ${nameOf(heardAt)}` : "") : where;
     const source = retold ? ` ${nameOf(fact.source.actorId)} made the request${where}.` : "";
     // Authored topics and finished stories hold. Witnessed events, such as
     // who carried what where, can go stale, and saying so keeps an old
@@ -579,7 +582,7 @@ export function knowledgeFacts(
       (fact.source.kind === "quest" && !protectedFact(fact, world))
         ? " Things may have changed since."
         : "";
-    return `${origin} this ${ageText(age)}${heardWhere}: ${fact.text}${source}${stale}`.slice(
+    return `${origin} this ${ageText(age)}${learnedWhere}: ${fact.text}${source}${stale}`.slice(
       0,
       240,
     );
@@ -611,6 +614,7 @@ export function validKnowledge(
   topics = [],
   laneText = () => null,
   claimOf = () => null,
+  questIn = () => null,
 ) {
   const k = world.knowledge;
   if (k === undefined) return true;
@@ -756,7 +760,7 @@ export function validKnowledge(
             (m.kind === "read"
               ? !READ_KINDS.has(fact.source.kind) ||
                 !safeId(m.book) ||
-                (fact.source.kind === "claim" && m.book !== fact.source.book)
+                (fact.source.kind === "claim" ? m.book !== fact.source.book : questIn(m.book) !== id)
               : fact.source.kind === "claim"))
       )
         return false;

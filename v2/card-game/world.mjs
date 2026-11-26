@@ -80,7 +80,7 @@ import {
   witnessRepair,
   validKnowledge,
 } from "./knowledge.mjs";
-import { claimsIn, readBook, residentRead, savedClaim, settleClaims } from "./claims.mjs";
+import { bookQuestId, claimsIn, readBook, residentRead, savedClaim, settleClaims } from "./claims.mjs";
 import {
   knownActors as readKnownActors,
   installWants,
@@ -3565,7 +3565,7 @@ export function validateWorld(s) {
       Object.keys(places),
       authoredKnowledgeTopics(),
       laneFactText,
-      (id, fact) => savedClaim(s, id, fact),
+      (id, fact) => savedClaim(s, id, fact), bookQuestId,
     )
   )
     fail("knowledge");

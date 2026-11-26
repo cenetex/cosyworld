@@ -4,12 +4,20 @@ import {
   decodeSave,
   encodeSave,
   legalActions,
+  nameOf,
   play,
+  validateWorld,
 } from "../v2/card-game/world.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import { packDefinition } from "../v2/card-game/pack-registry.mjs";
 import { claimsIn } from "../v2/card-game/claims.mjs";
 import { narrativeContext } from "../v2/card-game/narrative.mjs";
+import { knowledgeFacts } from "../v2/card-game/knowledge.mjs";
+import { tableQuest } from "../v2/card-game/quest-hand.mjs";
+import { readPage } from "../v2/card-game/read-view.mjs";
+import { newWant } from "../v2/card-game/want.mjs";
+import { currentSharedEngine } from "./fixtures/shared-engine.mjs";
+import { greekStart, traveler } from "./helpers/open-door.mjs";
 
 const AUTHORS = {
   "greek-decree": "greek-creon",
@@ -33,6 +41,18 @@ const AUTHORS = {
 };
 const DECREE = "greek-decree",
   WRIT = "greek-creon-writ";
+const TOKEN = "greek-household-token",
+  ISMENE = "greek-ismene",
+  REQUEST = `quest:${ISMENE}:${TOKEN}`;
+const sanctuary = () => {
+  const world = greekStart({ full: true });
+  const here = "greek-sanctuary";
+  world.actors.vale.place = here;
+  world.actors.vale.visited.push(here);
+  const t = traveler(world).take(TOKEN);
+  t.s.actors.moth.place = here;
+  return t;
+};
 const knows = (w, actor, book) =>
   claimsIn(book).every((c) => w.knowledge.known[actor]?.[c.id]?.kind === "read");
 const meeting = (place) => {
@@ -77,6 +97,66 @@ describe("text items that teach what they say", () => {
       expect(knows(w, "willows-swede", book), book).toBe(true);
     expect(w.items[DECREE].holder).toBe("greek-guard");
     expect(knows(w, "vale", DECREE)).toBe(false);
+  });
+
+  it("turns Ismene's request face up only for the token's reader", () => {
+    const t = sanctuary();
+    const seen = t.s.eventSeq;
+    expect(tableQuest(t.s, "vale", ISMENE).quest).toBeNull();
+    t.act("read", { item: TOKEN });
+    const entry = t.s.log.find((e) => e.verb === "read" && e.itemId === TOKEN);
+    expect(entry.witnesses).toContain("moth");
+    expect(t.s.knowledge.known.moth?.[REQUEST]).toBeUndefined();
+    expect(t.s.knowledge.known.vale[REQUEST]).toMatchObject({
+      kind: "read",
+      book: TOKEN,
+      teller: null,
+      eventSeq: entry.seq,
+    });
+    expect(t.s.actors.vale.told ?? []).not.toContain(ISMENE);
+    expect(readPage(t.s, "vale", seen).claims).toContain("Ismene wants the Household Token.");
+    expect(readPage(t.s, "moth", seen)).toBeNull();
+    expect(knowledgeFacts(t.s, "vale", nameOf, [REQUEST])[0]).toBe(
+      "I read this just now in Household Token: Ismene wants the Household Token.",
+    );
+
+    t.s = decodeSave(encodeSave(t.s));
+    const wrongBook = structuredClone(t.s);
+    wrongBook.knowledge.known.vale[REQUEST].book = WRIT;
+    expect(() => validateWorld(wrongBook)).toThrow(expect.objectContaining({ check: "knowledge" }));
+    expect(tableQuest(t.s, "vale", ISMENE).quest).toMatchObject({
+      target: TOKEN,
+      step: { verb: "give", to: ISMENE },
+    });
+    expect(tableQuest(t.s, "moth", ISMENE).quest).toBeNull();
+    t.give(TOKEN, ISMENE);
+    expect(t.s.log).toContainEqual(expect.objectContaining({
+      verb: "want_met",
+      actorId: "vale",
+      ownerId: ISMENE,
+    }));
+  });
+
+  it("still shows the token's written claim when Ismene wants something else", () => {
+    const t = sanctuary();
+    t.s.actors[ISMENE].want = newWant("person", "greek-theseus", t.s.turn);
+    const seen = t.s.eventSeq;
+    t.act("read", { item: TOKEN });
+    expect(t.s.knowledge.known.vale[REQUEST]).toBeUndefined();
+    expect(readPage(t.s, "vale", seen).claims).toEqual(claimsIn(TOKEN).map((c) => c.text));
+  });
+
+  it("replays the Read at the bundled shared rules", () => {
+    const engine = currentSharedEngine();
+    const run = (request) => JSON.parse(engine.cardShared(JSON.stringify(request)));
+    const started = run({ op: "create", save: encodeSave(sanctuary().s) });
+    expect(started.ok, started.error).toBe(true);
+    const read = started.actions.find((a) => a.kind === "read" && a.item === TOKEN);
+    const request = { op: "play", world: started.world, actor: "vale", action: read.key };
+    const played = run(request);
+    expect(played.ok, played.error).toBe(true);
+    expect(played.world.knowledge.known.vale[REQUEST]).toMatchObject({ kind: "read", book: TOKEN });
+    expect(run(request).world).toEqual(played.world);
   });
 
   it("load from an older save, locally and shared, for their holders to read", () => {

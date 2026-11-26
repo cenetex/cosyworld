@@ -390,7 +390,7 @@
       "schemaVersion": 1,
       "id": "greek-drama",
       "packId": "cosyworld.greek-drama",
-      "revision": 33,
+      "revision": 34,
       "name": "The Wine-Dark Sea",
       "description": "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
       "tone": "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -2585,6 +2585,7 @@
           "seed": "A seal naming the bereaved household for a public petition.",
           "art": "assets/greek-drama/household-token.png",
           "author": "greek-ismene",
+          "teachesQuest": "greek-household-token",
           "claims": [
             {
               "id": "seal",
