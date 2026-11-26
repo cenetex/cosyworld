@@ -20,6 +20,7 @@ import {
 } from "../pack-registry.mjs";
 import { conditionMet, runHash } from "../pack-rules.mjs";
 import { specialsAllow } from "../pack-specials.mjs";
+import { STATION_LANTERN } from "../station-lantern.mjs";
 import { nameOf, places, sanctuaries } from "./catalog.mjs";
 import {
   arcanaLevel,
@@ -33,7 +34,6 @@ import {
   unlockedOf,
 } from "./arcana-record.mjs";
 import { boxDefs } from "./boxes.mjs";
-import { companionOf } from "./company.mjs";
 import { homeOf } from "./home.mjs";
 import { rootHolder, shining } from "./items.mjs";
 import { questOwners } from "../quest-learn.mjs";
@@ -152,14 +152,8 @@ export function holds(s, condition, binding) {
       return (s.standoffs || []).some((fight) =>
         Object.hasOwn(fight.resolve || {}, binding.traveler),
       );
-    case "company": {
-      const mate = companionOf(s, binding.traveler);
-      return (
-        Boolean(mate) &&
-        (!c.invited || mate === binding.invited) &&
-        s.actors[mate]?.place === s.actors[binding.traveler]?.place
-      );
-    }
+    case "company":
+      return binding.played?.verb === "accompany" && binding.played.accepted === true;
     case "lit":
       return candidates(s, "item", "lamp").some(
         (id) =>
@@ -192,7 +186,7 @@ function plain(s, id) {
 
 const KINDS = {
   resident: (s) => Object.keys(s.actors || {}).filter((id) => !humanAvatar(id)),
-  item: (s) => Object.keys(s.items || {}),
+  item: (s) => Object.keys(s.items || {}).filter((id) => id !== STATION_LANTERN),
   place: () =>
     Object.keys(places).filter(
       (id) =>
@@ -284,7 +278,7 @@ const FOOL = 0;
 const WORLD = 21;
 const LISTENER = data.visit.match.targetId;
 const listenerCardLine = (traveler) =>
-  `${nameOf(LISTENER)} gives ${nameOf(traveler)} a face-down card.`;
+  `${nameOf(LISTENER)} offers ${nameOf(traveler)} a face-down card.`;
 
 export function listenerDeal(world, traveler) {
   const talk = world.log.findLast(
@@ -297,7 +291,8 @@ export function listenerDeal(world, traveler) {
     (entry) => entry.turn === talk.turn && entry.seq > talk.seq &&
       entry.kind === "narration" && !entry.generated && entry.consequence &&
       entry.actorId === LISTENER && entry.locationId === talk.locationId &&
-      entry.witnesses?.includes(traveler) && entry.text === listenerCardLine(traveler),
+      entry.witnesses?.includes(traveler) &&
+      [listenerCardLine(traveler), `${nameOf(LISTENER)} gives ${nameOf(traveler)} a face-down card.`].includes(entry.text),
   ) ?? null;
 }
 const numberOf = (id) => cardOf(id)?.number;
@@ -364,7 +359,7 @@ export function scaled(card, scale = 1) {
 
 const slotCard = (slot) => scaled(cardOf(slot?.card), slot?.scale ?? 1);
 const lostRole = (s, id) =>
-  neverBack(s, id) || !(s.items?.[id] || s.actors?.[id] || places[id]);
+  id === STATION_LANTERN || neverBack(s, id) || !(s.items?.[id] || s.actors?.[id] || places[id]);
 
 export function slotBinding(s, slot, traveler) {
   const card = slotCard(slot);
@@ -508,23 +503,29 @@ export function dealSpread(s, traveler) {
   delete record.done;
   delete record.sale;
   delete record.paid;
+  delete record.offer;
   return true;
 }
 
 function giveFool(s, traveler) {
   const fool = numbered(FOOL);
+  const slot = firstOfferSlot(s, traveler, fool);
+  if (!slot) return false;
   const record = recordFor(s, traveler);
-  if (!fool || (record.spread || []).some((slot) => slot.card === fool)) return false;
   const a = s.actors[traveler];
   while (slotsUsed(a) >= MAX_HELD && heldOf(a).length)
     releaseQuest(a, heldOf(a).at(-1));
-  if (slotsUsed(a) >= MAX_HELD) return false;
-  const slot = makeSlot(s, traveler, fool, "down");
-  if (!slot) return false;
   record.spread = [...(record.spread || []), place(s, traveler, slot)];
   record.need = [fool];
   delete record.done;
+  delete record.offer;
   return true;
+}
+
+function firstOfferSlot(s, traveler, fool = numbered(FOOL)) {
+  const { spread } = recordOf(s, traveler);
+  return fool && spread.length < MAX_HELD && spread.every((slot) => slot.card !== fool)
+    ? makeSlot(s, traveler, fool, "down") : null;
 }
 
 export function acceptTarot(s, traveler, index, say = () => {}) {
@@ -534,9 +535,17 @@ export function acceptTarot(s, traveler, index, say = () => {}) {
   const tell = (text) => say(text, {
     kind: "narration", actorId: traveler, witnesses: [traveler], consequence: true,
   });
-  const act = (text) => say(text, {
+  const act = (text, detail = {}) => say(text, {
     kind: "action", verb: "accept", actorId: traveler, witnesses: [traveler], consequence: true,
+    ...detail,
   });
+  if (index === "offer") {
+    const offer = listenerOffer(s, traveler);
+    if (!offer?.ready) return false;
+    if (!(offer.kind === "fool" ? giveFool(s, traveler) : dealSpread(s, traveler))) return false;
+    act(listenerAcceptLine(traveler, offer.kind), { targetId: LISTENER });
+    return true;
+  }
   if (slot?.face === "down" && slot === firstFoolSlot(s, traveler)) {
     slot.face = "reward";
     act(`${nameOf(traveler)} turns over ${nameOf(slot.card)}.`);
@@ -552,7 +561,6 @@ export function acceptTarot(s, traveler, index, say = () => {}) {
   leave(record, slot);
   act(`${nameOf(traveler)} collects ${nameOf(id)}.`);
   rise(s, traveler, tell);
-  if (record.paid) dealSpread(s, traveler);
   return true;
 }
 
@@ -561,15 +569,17 @@ function leave(record, slot) {
   if (!record.spread.length) delete record.spread;
 }
 
-function visit(s, traveler, tell) {
+function visit(s, traveler, location, tell) {
   const record = recordFor(s, traveler);
+  if (record.offer) return;
   const fool = numbered(FOOL);
   if (
     arcanaLevel(s, traveler) === 0 &&
     !(record.spread || []).some((slot) => slot.card === fool) &&
     !(record.done || []).includes(fool)
   ) {
-    if (!giveFool(s, traveler)) return;
+    if (!firstOfferSlot(s, traveler, fool)) return;
+    record.offer = location;
     tell(listenerCardLine(traveler));
   }
   delete record.calls;
@@ -632,6 +642,25 @@ export const sells = (s, traveler) =>
 export const takes = (s, traveler) =>
   sells(s, traveler) || owesGiving(s, traveler);
 
+export function listenerOffer(s, traveler) {
+  const locationId = s.actors[traveler]?.place;
+  if (!locationId || !humanPresent(s, traveler) || s.actors[LISTENER]?.place !== locationId)
+    return null;
+  const record = recordOf(s, traveler);
+  if (record.offer === locationId) {
+    if (record.paid && nextSpread(s, traveler).length)
+      return { actorId: LISTENER, locationId, kind: "spread", ready: true };
+    if (!record.paid && firstOfferSlot(s, traveler))
+      return { actorId: LISTENER, locationId, kind: "fool", ready: true };
+  }
+  return sells(s, traveler)
+    ? { actorId: LISTENER, locationId, kind: "spread", ready: false }
+    : null;
+}
+
+const listenerAcceptLine = (traveler, kind) =>
+  `${nameOf(traveler)} accepts ${kind === "fool" ? "a face-down card" : "the spread"} from ${nameOf(LISTENER)}.`;
+
 export function spreadOf(s, traveler) {
   const record = recordOf(s, traveler);
   const first = firstFoolSlot(s, traveler, record);
@@ -645,8 +674,8 @@ export function spreadOf(s, traveler) {
   }));
 }
 
-export const tarotActions = (s, actor, offer) =>
-  spreadOf(s, actor).map(({ card, face, index, turnable }) => {
+export function tarotActions(s, actor, offer) {
+  const actions = spreadOf(s, actor).map(({ card, face, index, turnable }) => {
     if (turnable) {
       const text = `${nameOf(actor)} turns over the face-down card.`;
       const action = offer("accept", actor, null, null, text, []);
@@ -663,6 +692,15 @@ export const tarotActions = (s, actor, offer) =>
       key: `${action.key}:tarot:${index}:${card}`,
     };
   });
+  const pending = listenerOffer(s, actor);
+  if (pending?.ready) {
+    const text = listenerAcceptLine(actor, pending.kind);
+    const action = offer("accept", actor, null, LISTENER, text, []);
+    const label = pending.kind === "fool" ? "Accept card" : "Accept spread";
+    actions.push({ ...action, tarot: "offer", label, key: `${action.key}:tarot:offer` });
+  }
+  return actions;
+}
 
 const termsOf = (card) =>
   card.desire?.length
@@ -738,7 +776,7 @@ export function settleArcana(s, actor = null, since = 0, say = null, before = s)
       ...humanAvatarIds.filter((id) => heldByHuman(s, id)),
     ])) {
       const met = (rule) =>
-        fresh.some((entry) => fits(entry, resolve(rule, { traveler })));
+        fresh.find((entry) => fits(entry, resolve(rule, { traveler })));
       seen.set(traveler, { visit: met(data.visit), price: met(data.price) });
       const record = s.actors[traveler].arcana;
       for (const slot of record?.spread || []) {
@@ -751,7 +789,7 @@ export function settleArcana(s, actor = null, since = 0, say = null, before = s)
               (entry) =>
                 fits(entry, c) &&
                 (c.while || []).every((w) =>
-                  holds(s, w, { ...binding, invited: entry.targetId }),
+                  holds(s, w, { ...binding, played: entry }),
                 ),
             )
           )
@@ -763,8 +801,11 @@ export function settleArcana(s, actor = null, since = 0, say = null, before = s)
     ...humanAvatarIds.filter((id) => humanPresent(s, id)),
   ])) {
     const events = seen.get(traveler);
-    if (events?.price && sells(before, traveler))
-      recordFor(s, traveler).paid = true;
+    if (events?.price && sells(before, traveler)) {
+      const record = recordFor(s, traveler);
+      record.paid = true;
+      record.offer = events.price.locationId ?? s.actors[LISTENER].place;
+    }
     settleSlots(s, traveler);
     const tell = (by) => (text) =>
       say?.(text, {
@@ -776,8 +817,7 @@ export function settleArcana(s, actor = null, since = 0, say = null, before = s)
       });
     if (unlocks(s, traveler)) turnOver(s, traveler);
     else if (events?.visit && called(s, traveler))
-      visit(s, traveler, tell(LISTENER));
-    if (recordOf(s, traveler).paid) dealSpread(s, traveler);
+      visit(s, traveler, events.visit.locationId ?? s.actors[LISTENER].place, tell(LISTENER));
   }
   return s;
 }
@@ -891,6 +931,9 @@ export function installArcana(s) {
       delete record.done;
     if (record.sale !== undefined && record.sale !== true) delete record.sale;
     if (record.paid !== undefined && record.paid !== true) delete record.paid;
+    if (!validOffer(record)) delete record.offer;
+    if (record.paid && !record.offer && places[s.actors[LISTENER]?.place])
+      record.offer = s.actors[LISTENER].place;
   }
   return s;
 }
@@ -913,6 +956,7 @@ export function validArcana(s) {
           "done",
           "level",
           "need",
+          "offer",
           "paid",
           "proved",
           "sale",
@@ -933,8 +977,14 @@ export function validArcana(s) {
       (record.spread === undefined || validSpread(record.spread)) &&
       (record.need === undefined || validNeed(record.need)) &&
       (record.done === undefined || validDone(record.done)) &&
+      validOffer(record) &&
       validList(record.did) &&
       validList(record.proved)
     );
   });
 }
+
+const validOffer = (record) => record.offer === undefined ||
+  (typeof record.offer === "string" && Object.hasOwn(places, record.offer) &&
+    (record.paid === true || ((record.level ?? record.proved?.length) === 0 &&
+      !(Array.isArray(record.spread) && record.spread.some((slot) => slot.card === numbered(FOOL))))));

@@ -11,7 +11,7 @@ import { ownerWant } from "./quest-call.mjs";
 
 // A resident who cannot leave its place (the Oak, Badger, a guard at his
 // post) is never asked to be escorted: its quest is to bring the other
-// person to it (sticky companions, rules 133).
+// person to it.
 const fixedResident = (s, id) => staysByRole(s, id);
 
 // The avatar a quest serves, when Talk gave it: null for any other quest.
@@ -98,13 +98,6 @@ export function askerOf(s, w) {
 }
 const askerWants = (want, wanted) =>
   want?.kind === wanted.kind && want.target === wanted.target;
-// A companion stays while the traveler knows its card asks to be brought
-// somewhere: an escort or meeting, never an errand for an item.
-export function pinnedCompanion(s, traveler, id) {
-  const card = toldWant(s, traveler, id) && questFor(s, id, s.actors[id].want);
-  return card?.kind === "person" && card.step?.verb === "bring" && card.target === id;
-}
-
 // A player's Talk with `them`: the want of theirs that Talk reveals is
 // learned as their quest fact. The quest it would be is `questFor`.
 export function talkQuest(s, actor, them, api) {

@@ -378,11 +378,19 @@ try {
       await page.locator('[data-card="vale"]').waitFor({ state: "attached" });
       await t.ready();
       assert.equal(await offerCards(page).count(), 0);
+      const offer = page.locator('#hand [data-holder="listener"] > .want-card[data-face="offered"]');
+      await offer.waitFor();
       assert.deepEqual(
-        recordOf(await t.state(), "vale").spread.map((slot) => slot.face),
-        ["down"],
-        "the Fool is given face down",
+        recordOf(await t.state(), "vale").spread,
+        [],
+        "the card stays in the Listener's inventory before it is taken",
       );
+      await t.shot("tarot-offered");
+      await page.reload();
+      await t.ready();
+      await offer.waitFor();
+      await tapCard(offer);
+      await offer.waitFor({ state: "detached" });
       const inspectAlbum = async (state, art, count = "0 / 22") => {
         await page.locator("#toolbar-menu-button").click();
         await page.getByRole("button", { name: "Character", exact: true }).click();
@@ -411,9 +419,11 @@ try {
         if (await fold.isVisible()) await fold.click();
         await tarot.waitFor();
       };
-      await showTarot();
-      if ((await tarot.getAttribute("aria-pressed")) !== "true") await tapCard(tarot);
+      await tarot.waitFor();
+      assert.equal(await tarot.locator("..").getAttribute("data-holder"), "vale");
+      assert.equal(await tarot.getAttribute("aria-pressed"), "true");
       await t.ready();
+      await readyActionButton(page, "accept").waitFor();
       assert.equal(await t.oneButton(), 1, "the face-down card has one Turn over button");
       assert.equal(await heading(), "The Listener dealt you a card");
       assert.equal(await page.locator("[data-drop-quest]").count(), 0);

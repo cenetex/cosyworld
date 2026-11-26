@@ -114,20 +114,13 @@ import {
   DREAM_FROM,
   newWant,
 } from "./want.mjs";
-import { askerOf, pruneTalkQuests, questFor, talkQuest, toldWant, pinnedCompanion } from "./talk-quest.mjs";
+import { pruneTalkQuests, questFor, talkQuest, toldWant } from "./talk-quest.mjs";
 import {
-  ABSENT_TURNS,
   ACCOMPANY_TRUST,
   TRUST_LOSS,
-  bind,
-  companionOf,
   fadeTrust,
   gainTrust,
   loseTrust,
-  trustBroken,
-  release,
-  travelerOf,
-  validCompanions,
 } from "./world/company.mjs";
 import {
   keepReason,
@@ -1339,10 +1332,7 @@ export function legalActions(s, actor = currentActor(s)) {
         : reflectionsFrom(s, here).includes(to)
           ? " through the reflection"
           : "";
-    // A human can invite a willing resident along their open route. The
-    // way is the party's: if it is open for the traveler it is open for the
-    // resident. A resident already with someone else is not offered (the
-    // client says whose).
+    // An Invite can bring an eligible resident along the traveler's open route.
     const human = controlledByHuman(s, actor);
     for (const other of knownActors(s).filter(
       (id) =>
@@ -1352,8 +1342,6 @@ export function legalActions(s, actor = currentActor(s)) {
           canDisembark(s, crossing.transport, id)) &&
         id !== actor &&
         !controlledByHuman(s, id) &&
-        id !== companionOf(s, actor) &&
-        (travelerOf(s, id) ?? actor) === actor &&
         (!staysByRole(s, id) ||
           packJourneyDestination(s, id) === to) &&
         !departureWaits(s, id, to) &&
@@ -1759,60 +1747,15 @@ function travelParty(s, actors, destination) {
 }
 const travel = (s, actor, destination) => travelParty(s, [actor], destination);
 
-// --- Sticky companions (rules 133; state and predicates in world/company.mjs)
-// A bond held while its traveler is away from a shared world pauses.
-const companionPaused = (s, traveler) =>
-  sharedEnabled(s) && !humanPresent(s, traveler);
+// Each invitation permits its destination and advances the resident's itinerary.
 function joinTrip(s, id, here, dest) {
   (s.invitedPlaces ??= {})[id] = [dest];
   recordJourneyTravel(s, id, here, dest);
 }
-function partyFor(s, traveler, dest, companion = companionOf(s, traveler)) {
-  const here = s.actors[traveler].place,
-    mate = companion && s.actors[companion];
-  if (
-    !mate ||
-    mate.place !== here ||
-    companionPaused(s, traveler) ||
-    !entityActive(s, companion) ||
-    standoffFor(s, companion)
-  )
-    return [traveler];
-  joinTrip(s, companion, here, dest);
-  return [traveler, companion];
-}
-function parts(s, traveler, id, text) {
-  release(s, traveler);
-  addLog(s, "World", text, {
-    kind: "narration",
-    actorId: id,
-    targetId: traveler,
-    locationId: s.actors[id].place,
-  });
-}
-// After a play: a bond ends when the companion has left for good, trust falls
-// too low, or a shared world's traveler has been away a whole day.
-function settleCompanions(s) {
-  for (const traveler of Object.keys(s.actors).sort()) {
-    const id = companionOf(s, traveler);
-    if (!id) continue;
-    if (neverBack(s, id)) release(s, traveler);
-    else if (trustBroken(s, traveler, id))
-      parts(
-        s,
-        traveler,
-        id,
-        `${nameOf(id)} no longer trusts ${nameOf(traveler)} enough to travel on.`,
-      );
-    else if (
-      companionPaused(s, traveler) &&
-      s.turn - (s.actors[traveler].actedAt ?? s.turn) >= ABSENT_TURNS
-    )
-      parts(s, traveler, id, `${nameOf(id)} waits no longer and goes on alone.`);
-  }
+function settleInvitedPlaces(s) {
   for (const [id, held] of Object.entries(s.invitedPlaces || {})) {
     const place = s.actors[id]?.place;
-    if (held.includes(place) && (travelerOf(s, id) || place !== homeOf(id, s)))
+    if (held.includes(place) && place !== homeOf(id, s))
       s.invitedPlaces[id] = [place];
     else delete s.invitedPlaces[id];
   }
@@ -1825,7 +1768,7 @@ function dropOpenedBoxQuests(s) {
       if (held.from?.startsWith("quest:box:") && boxIdOpen(s, held.from.slice(10), actor))
         releaseQuest(a, held);
 }
-function settleQuests(s, acting) {
+function settleQuests(s) {
   dropOpenedBoxQuests(s);
   for (const actor of Object.keys(s.actors).sort()) {
     if (
@@ -1837,50 +1780,9 @@ function settleQuests(s, acting) {
       if (offer.kind === "box") continue;
       if (heldOf(s.actors[actor]).some((held) => sameQuest(held, offer.want)))
         continue;
-      const quest = holdQuest(s, actor, offer.want, offer.id);
-      if (!quest) break;
-      if (actor === acting) bindAsker(s, actor, quest, true);
+      if (!holdQuest(s, actor, offer.want, offer.id)) break;
     }
-    if (actor === acting && !companionOf(s, actor))
-      for (const held of heldOf(s.actors[actor])) bindAsker(s, actor, held, false);
   }
-}
-function bindAsker(s, actor, quest, replace) {
-  const asker = quest.kind === "person" && quest.step?.verb === "bring"
-    ? askerOf(s, quest)
-    : null;
-  if (
-    !asker ||
-    !controlledByHuman(s, actor) ||
-    asker === companionOf(s, actor) ||
-    (!replace && companionOf(s, actor)) ||
-    s.actors[asker].place !== s.actors[actor].place ||
-    !entityActive(s, asker) ||
-    staysByRole(s, asker) ||
-    (s.actors[asker].trust?.[actor] || 0) < ACCOMPANY_TRUST ||
-    (travelerOf(s, asker) ?? actor) !== actor
-  )
-    return;
-  wakeResident(s, asker);
-  const earlier = bind(s, actor, asker);
-  addLog(
-    s,
-    "World",
-    earlier
-      ? `${nameOf(asker)} comes with ${nameOf(actor)}. ${nameOf(earlier)} stays behind.`
-      : `${nameOf(asker)} comes with ${nameOf(actor)}.`,
-    {
-      kind: "narration",
-      actorId: asker,
-      targetId: actor,
-      locationId: s.actors[actor].place,
-    },
-  );
-}
-function wakeCompanion(s, traveler) {
-  const id = companionOf(s, traveler);
-  if (id && !pinnedCompanion(s, traveler, id))
-    parts(s, traveler, id, `${nameOf(id)} goes on alone after the long rest.`);
 }
 // An act against a resident lowers its trust in the human who did it:
 // a threat 2 (3 when it demands an item), a strike 1 on whom it landed.
@@ -1895,25 +1797,6 @@ function wrongedBy(s, a, entry) {
   if (wrong && s.actors[wrong[0]] && !controlledByHuman(s, wrong[0]))
     loseTrust(s, wrong[0], a.actor, wrong[1]);
 }
-// A resident with no traveler is its own; the others walk to catch up.
-function companionRound(s, acted, round) {
-  for (const traveler of Object.keys(s.actors).sort()) {
-    const id = companionOf(s, traveler);
-    if (
-      !id ||
-      acted.includes(id) ||
-      companionPaused(s, traveler) ||
-      s.actors[id].place === s.actors[traveler].place ||
-      standoffFor(s, id) ||
-      !entityActive(s, id)
-    )
-      continue;
-    const chosen = plan(s, id);
-    if (chosen.action && chosen.action.kind === "move")
-      perform(s, chosen.action, round, [id]);
-  }
-}
-
 function trustGiver(s, recipient, item, giver) {
   if (needed(s, recipient, item)) gainTrust(s, recipient, giver);
 }
@@ -1986,7 +1869,6 @@ function wakeUp(s, id, woke, text) {
     ...(long ? { rest: "long" } : {}),
     ...(dream ? { dream } : {}),
   });
-  if (long) wakeCompanion(s, id);
 }
 // After the lamp burns each round, every sleeper wakes at the first change
 // where it sleeps. `before` is the world as the round began.
@@ -2077,7 +1959,6 @@ function lightPlays(s, round, acted) {
       !(isPackActor(id) || unplayedAvatar(s, id)) ||
       !entityActive(s, id) ||
       seen.has(s.actors[id].place) ||
-      travelerOf(s, id) ||
       residentAsleep(s, id) ||
       standoffFor(s, id)
     )
@@ -2137,10 +2018,6 @@ function residentRound(s, acted) {
       }
       continue;
     }
-    // A companion keeps no schedule of its own: it does not fall asleep,
-    // walk home or take the dawn and dusk step; the rest of the round
-    // above (waking, tidying) still applies to it (rules 133).
-    if (travelerOf(s, id)) continue;
     const w = bedtime(s, id);
     if (
       z ||
@@ -2180,7 +2057,6 @@ function residentRound(s, acted) {
   const walkers = life.filter(
     (id) =>
       !acted.includes(id) &&
-      !travelerOf(s, id) &&
       !s.actors[id].sleeping &&
       !seen(s.actors[id].place) &&
       !standoffFor(s, id) &&
@@ -2275,9 +2151,7 @@ function perform(s, a, round = null, settle = []) {
   const result = performPlay(s, a, round, settle, hands, stale);
   settlePlaceCards(s, a.actor, wantAPI(s), from);
   settleLost(s, wantAPI(s), a);
-  if (companionOf(s, a.actor) && controlledByHuman(s, a.actor))
-    s.actors[a.actor].actedAt = s.turn;
-  settleCompanions(s);
+  settleInvitedPlaces(s);
   settleHeldItems(s, hands);
   settleLamp(s);
   refuelCarried(s);
@@ -2395,19 +2269,10 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       invitation = accompanyDecision(s, a.actor, a.target, a.destination, true);
       s.actors[a.actor].lastTalk = s.turn;
       if (invitation.accepted) {
-        // Only trust makes a bond (rules 133): a trip a resident takes
-        // because it serves its own want is a joint trip and nothing more.
-        // An accepted Invite binds the resident, and the one it replaces
-        // stays where it stands.
-        const bonded =
-          controlledByHuman(s, a.actor) &&
-          (s.actors[a.target].trust?.[a.actor] || 0) >= ACCOMPANY_TRUST;
-        const earlier = bonded ? bind(s, a.actor, a.target) : null;
         joinTrip(s, a.target, here, a.destination);
         led = [a.target];
         const through = travelParty(s, [a.actor, a.target], a.destination);
         text += ` ${nameOf(a.target)} agrees. They travel together.`;
-        if (earlier) text += ` ${nameOf(earlier)} stays behind.`;
         if (through && firstCrossing)
           text += " Something on the far shore turns its head.";
       } else {
@@ -2496,9 +2361,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
         text += ` ${nameOf(guard)} lets ${who} through.`;
         affected = guard;
       }
-      const party = partyFor(s, a.actor, a.target);
-      led = party.slice(1);
-      if (travelParty(s, party, a.target) && firstCrossing)
+      if (travel(s, a.actor, a.target) && firstCrossing)
         text += " Something on the far shore turns its head.";
       break;
     }
@@ -2893,29 +2756,7 @@ export function plan(s, actor = currentActor(s)) {
     planReads = previousReads;
   }
 }
-// A companion (rules 133) walks to its traveler if it is not there, and
-// otherwise plays as itself but never moves on its own: no drift home, no
-// walk toward its want, no stepping ashore alone. Fights are the fight rules'.
 function readPlan(s, actor) {
-  const traveler = travelerOf(s, actor);
-  if (!traveler || standoffFor(s, actor)) return readFreePlan(s, actor);
-  const there = s.actors[traveler].place;
-  if (
-    s.actors[actor].place !== there &&
-    !companionPaused(s, traveler)
-  ) {
-    const step = stepToward(s, actor, there).action;
-    if (step?.kind === "move") return { action: step };
-  }
-  const free = readFreePlan(s, actor);
-  if (!["move", "course"].includes(free.action?.kind)) return free;
-  return {
-    action: legalActions(s, actor).find(
-      (a) => a.kind === "wait" && !a.sleep && !a.guards,
-    ),
-  };
-}
-function readFreePlan(s, actor) {
   const arrival = transportArrival(s, actor);
   const landing =
     arrival &&
@@ -2962,7 +2803,7 @@ function awayPlan(s, actor) {
   const escort = (w, dest) => {
     if (near(w.target) !== here) return go(near(w.target));
     const next = go(dest);
-    if (next?.kind !== "move" || companionOf(s, actor) === w.target) return next;
+    if (next?.kind !== "move") return next;
     return pick(
       (a) => a.kind === "accompany" && a.target === w.target && a.destination === next.target,
     );
@@ -3293,7 +3134,7 @@ export function play(
     settleLamp(next);
     settleCrossingUnlocks(next, sensesFor(next));
     settleStationExits(next);
-    settleQuests(next, actor);
+    settleQuests(next);
     validateWorld(next);
     return { ok: true, state: next };
   }
@@ -3314,9 +3155,8 @@ export function play(
         : exact.place
           ? placeOffer(next, actor)
           : residentOffer(next, actor, exact.target);
-      const quest = holdQuest(next, actor, asked.want, asked.id);
+      holdQuest(next, actor, asked.want, asked.id);
       if (!exact.box && !exact.place) lapseOffer(next, actor);
-      bindAsker(next, actor, quest, true);
     }
     next.revision += 1;
     validateWorld(next);
@@ -3406,7 +3246,6 @@ export function play(
     next.items.bell.ringing = Math.max(0, next.items.bell.ringing - 1);
   for (const id of roamingActors) {
     if (controlledByHuman(next, id) || id === respondent ||
-      travelerOf(next, id) ||
       !roamingQuestActor(id, s) || !roamingQuestActor(id, next)) continue;
     const from = next.actors[id].place;
     rememberRoutes(next, id, visibleRouteEdges(from));
@@ -3432,11 +3271,6 @@ export function play(
       }),
   });
   if (unmetAt(next, next.actors[currentActor(next)]?.place)) meetCast(next);
-  companionRound(
-    next,
-    [actor, respondent, ...residents].filter(Boolean),
-    round,
-  );
   // Sleeping at a dock calls no ship: only the Wait before it does.
   if (exact.kind === "wait" && !exact.sleep)
     waitForTransport(next, next.actors[actor].place, actor);
@@ -3522,7 +3356,7 @@ export function play(
   settleHeldItems(next, handSnapshot(s));
   settleLamp(next);
   settleStationExits(next);
-  settleQuests(next, actor);
+  settleQuests(next);
   noteRumours(s, next, wantAPI(next), wantAPI(s));
   if (dayOf(next) !== dayOf(s)) dailyRumours(next, wantAPI(next));
   validateWorld(next);
@@ -3695,7 +3529,6 @@ export function validateWorld(s) {
     motives: () => validMotives(s),
     life: () => validLife(s, Object.keys(places)),
     home: () => validHome(s),
-    companions: () => validCompanions(s, actorIds),
     dwell: () => validDwell(s),
     sleep: () => validSleep(s, places),
     guard: () => validGuard(s, places),

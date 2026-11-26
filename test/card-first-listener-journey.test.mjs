@@ -5,6 +5,7 @@ import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
   arcanaLevel,
   listenerDeal,
+  listenerOffer,
   recordOf,
 } from "../v2/card-game/world/arcana.mjs";
 import { firstFoolProgress } from "../v2/card-game/world/arcana-record.mjs";
@@ -122,18 +123,37 @@ it.each(["solo", "shared"])(
     move("station");
     move("pond");
     expect(mayCollect()).toBe(false);
+    expect(listenerOffer(table.world, VALE)).toBeFalsy();
     talk("listener");
     expect(listenerDeal(table.world, VALE)).toMatchObject({
       actorId: "listener",
       consequence: true,
     });
     expect(narrativeContext(table.world).speakers).toEqual([VALE, "listener"]);
+    expect(progress()).toEqual({ count: 3, target: 3, phase: "offered" });
+    expect(record().spread).toEqual([]);
+    expect(table.world.actors.vale.upgrades ?? []).not.toContain(FOOL);
+    expect(actions().some((action) => action.label === "Turn over")).toBe(
+      false,
+    );
+    expect(mayCollect()).toBe(false);
+
+    reload();
+    const readingTurn = table.world.turn;
+    expect(listenerOffer(table.world, VALE)).toMatchObject({
+      actorId: "listener",
+      locationId: "pond",
+      kind: "fool",
+      ready: true,
+    });
+    act("accept", { tarot: "offer", target: "listener", label: "Accept card" });
+    expect(table.world.turn).toBe(readingTurn);
+    expect(listenerOffer(table.world, VALE)).toBeFalsy();
     expect(progress()).toEqual({ count: 3, target: 3, phase: "dealt" });
     expect(record().spread).toMatchObject([{ card: FOOL, face: "down" }]);
     expect(mayCollect()).toBe(false);
 
     reload();
-    const readingTurn = table.world.turn;
     act("accept", { tarot: 0, label: "Turn over" });
     expect(table.world.turn).toBe(readingTurn);
     expect(record().spread).toMatchObject([{ card: FOOL, face: "reward" }]);

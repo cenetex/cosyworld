@@ -389,14 +389,17 @@ describe("a ship at a dock nobody showed you", () => {
     );
   });
 
-  it("holds residents to the same rule, and lets a companion follow", () => {
+  it("holds solo residents to the same lane rule and offers a separate invitation", () => {
     const s = setup(DOCK);
     expect(boards(s, "greek-rhapsode")).toBe(true);
     expect(boards(s, "moth")).toBe(false);
     s.actors.moth.place = DOCK;
-    s.actors.vale.companion = "moth";
     expect(boards(s, "moth")).toBe(false);
     learnLane(s, "vale", DOCK, "greek-harbor");
+    expect(boards(s, "moth")).toBe(false);
+    expect(legalActions(s, "vale").some((a) =>
+      a.kind === "accompany" && a.target === "moth" && a.destination === SHIP)).toBe(true);
+    learnLane(s, "moth", DOCK, "greek-harbor");
     expect(boards(s, "moth")).toBe(true);
   });
 

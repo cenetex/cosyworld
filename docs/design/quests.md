@@ -27,7 +27,7 @@ design, with the proposed defaults under P1–P6 and Open questions.
 
 1. **Quests belong to their owners.** Replace quest Accept, offers, Discard and the shared held-quest slots with owner cards. Keep the tarot Collect action.
 2. **One live owner quest per entity.** Each avatar, item and place can have a quest card. Its completion raises its owner one level.
-3. **A person's tarot spread draws from a reusable pack.** The Listener deals the first Fool face down. Later spreads reuse revealed cards and introduce at most one unfamiliar card.
+3. **A person's tarot spread draws from a reusable pack.** The Listener offers the first Fool face down. Later spreads reuse revealed cards and introduce at most one unfamiliar card.
 4. **Everyone else's card sits face down behind them.** A Talk teaches you the speaker's quest and the quests of the items they hold. Once you know a quest, its card is face up for you.
 
 ## The model
@@ -45,8 +45,10 @@ This section proposes how the decisions work in the rules. Where a point rests o
 ### A person's avatar
 
 - Helping three distinct residents with goals you know brings the Listener.
-  Talk to hear the reading and receive the first Fool face down. Once the
-  reading ends, turn over the card and collect it to reach level 1.
+  Talk to hear the reading. Once it ends, tap the face-down card beside the
+  Listener to accept it. Turn over the card and collect it to reach level 1.
+- The Listener shows a face-down offer for later spreads. Give an item when
+  the spread asks for one, then accept the spread from the Listener's hand.
 - Later spreads have up to three cards. A spread can include a known card at
   the current scale, a known bonus and an unfamiliar locked card. If the
   unfamiliar pool is exhausted, a known card can return locked at the next
@@ -167,7 +169,7 @@ These apply only with P6.
 
 - **The Listener's calls.** `countResidentQuest` fires only for a traveller's met `quest:from:` quest (`want.mjs:673-674`). It fires from the `want_met` owner instead: a completed card whose owner is another actor, or with P1, any owner whose trust you earned.
 - **Place levels.** Only a met, held `quest:place:` quest adds to `placeMet` (`want.mjs:675-680`). The place card's completion adds the laid thing.
-- **Companion binding.** `bindAsker` (`world.mjs:1899-1930`) binds an escort quest's asker when the quest is taken, if they trust you at 2 or more (`ACCOMPANY_TRUST`). The proposal is that it binds on the Talk that teaches an escort card instead, with the same checks (open question 6). `pinnedCompanion` (`talk-quest.mjs:108-115`) reads the known card instead of the held one.
+- **Escort travel.** Pair the resident with a destination and choose Invite for each trip. A destination by itself takes the traveler alone. Learning or accepting an escort quest records the goal.
 - **The `closed` record** (`want.mjs:173-189`). Its job of stopping repeat offers goes with the offers. `closedBy`, `closedAny`, `MAX_CLOSED` and `validClosed` are removed. Its two Rust readers change:
   - `rust/card_voices/authority.rs:16-40` (`quest_residents`) picks the residents whose lines are voiced: those whose `closed["quest:from:<id>"]` turn is this turn. It reads `ownerId` from this turn's `want_met` entries instead.
   - `rust/card_narrative/imported.rs:246-258` admits `closed` keys with offer prefixes in imported saves. It keeps admitting them, because old exports still carry `closed` and loading deletes it.
@@ -265,7 +267,7 @@ Each step is one or more PRs, and each PR stays under the 400-line budget with d
 1. **This doc.**
 2. **Quest facts.** Add the `quest` source kind and spare live quest facts from eviction. A Talk teaches the speaker's and their held items' cards. `heard` migrates and the High Priestess recounts. Probably two PRs: the rules, then the migration and its tests.
 3. **Faces from facts.** The client places cards behind their owners, face up or face down from facts.
-4. **Completion by owner.** `want_met` names its owner. The Listener's calls and place levels read it instead of `from`. The Rust `quest_residents` reads the log. `pinnedCompanion` reads the known card, and companions bind on Talk if open question 6 settles that way.
+4. **Completion by owner.** `want_met` names its owner. The Listener's calls and place levels read it instead of `from`. The Rust `quest_residents` reads the log.
 5. **Remove quest offers from the client.** Remove the offer card and quest Accept, and rewrite the quest `accept` steps in `smoke-card-quest.mjs` and the `quest-cards` journey. Keep tarot Collect and retain quest and tarot Discard until the proof change in step 6.
 6. **Give tarot its own spread.** Keep the reusable pack and remove the price, sale and fetch quests. Make the dream pending. Before changing the rules 212 sequence, decide what reveals a newly dealt locked card ahead of its level proof and how the first Fool advances under the separate reveal and proof rules. Ship XII's replacement proof, desire, migration and tests before or alongside removal of quest and tarot Discard from the client. Test both a saved XII reward awaiting Collect and a fresh play of the new proof.
 7. **Delete the offer tests and the offers smoke.** First rewrite the five other importers of `test/helpers/accept-quest.mjs`. Then delete the helper, the seven test files and most of the offers smoke in pure-deletion PRs, at least four of them.
@@ -282,7 +284,7 @@ Each has a default, settled on 2026-11-23 so building can start. Any of them can
 3. An away avatar's planned plays prove its person's arcanum, as P6 implies.
 4. One level is one step on the 0-21 track (`card-game/level-tiers.mjs:6-12`).
 5. XII The Hanged Man is proved when someone else finishes a card you knew.
-6. An escort asker binds as a companion only through Accompany.
+6. Accompany is an invitation for one trip. Repeat it to travel together again.
 7. An item's holder trusts the completer of the item's card. A place's card earns no trust; the place's level is the reward.
 8. An entity with no next card has no card.
 

@@ -1,6 +1,6 @@
 import arcana from "./arcana.json" with { type: "json" };
 import { firstFoolProgress, recordOf } from "./world/arcana-record.mjs";
-import { currentActor, legalActions } from "./world.mjs";
+import { currentActor, legalActions, nameOf } from "./world.mjs";
 
 const listener = arcana.visit.match.targetId;
 const reading = "The Listener is here for a reading.";
@@ -10,8 +10,14 @@ const canRead = (world, known) => known(listener) && legalActions(world).some(
 );
 
 export function firstFoolNote(world, known) {
-  const progress = firstFoolProgress(world, currentActor(world));
+  const actor = currentActor(world);
+  const progress = firstFoolProgress(world, actor);
   if (progress?.phase === "called" && canRead(world, known)) return reading;
+  if (progress?.phase === "offered") {
+    const { offer } = recordOf(world, actor);
+    if (offer === world.actors[actor].place) return "The Listener has a card for you.";
+    return known(offer) ? `The Listener has your card at ${nameOf(offer)}.` : "The Listener is keeping your card.";
+  }
   return progress?.count && ["help", "called"].includes(progress.phase) ? helped(progress) : "";
 }
 

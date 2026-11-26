@@ -6,7 +6,7 @@ import {
   packPeople,
   entityActive,
   packRouteOpen,
-  partyMet,
+  conditionsMet,
   staysPut,
 } from "./pack-registry.mjs";
 import {
@@ -92,7 +92,7 @@ export function guardOf(s, from, to, traveller = null) {
       if (
         traveller &&
         person?.passWhen &&
-        partyMet(s, person.packId, person.passWhen, traveller)
+        conditionsMet(s, person.packId, person.passWhen, traveller)
       )
         continue;
       return id;
@@ -153,9 +153,9 @@ export function validGuard(s, places) {
   return true;
 }
 
-// Who never goes along with a traveler (rules 133), for what they are and
+// Who will decline a trip due to their role, for what they are and
 // not for how far they wander: a resident whose pack says it does not travel
 // (`travels: false`, until its `stayUntil` holds) or who holds a post (a
-// resident guard). Roaming `range` plays no part in following a traveler.
+// resident guard). Roaming `range` plays no part in an invitation.
 export const staysByRole = (s, id) =>
   staysPut(id, s) || Boolean(guardPost(id));

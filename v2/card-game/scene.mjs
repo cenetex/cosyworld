@@ -30,7 +30,7 @@ import { residentPortrait } from "./resident-portrait.mjs";
 import { rarityForm } from "./rarity-portraits.mjs";
 import { flipStagePortrait, nativePortraitFacing } from "./portrait-facing.mjs";
 import { sceneChanges } from "./scene-cast.mjs";
-import { listenerDeal } from "./world/arcana.mjs";
+import { listenerDeal, listenerOffer } from "./world/arcana.mjs";
 import { preferredLocations } from "./preferred-locations.mjs";
 import { STATION_LANTERN, stationLanternState } from "./pond-signal-view.mjs";
 export { sceneChanges };
@@ -93,12 +93,13 @@ export function placeBackdrop(world, id) {
     daylightBackdrop(world, id, baseBackdrop(world, id))
   );
 }
-export function portrait(id, facing = null, world = null) {
+export function portrait(id, facing = null, world = null, listenerOffering = true) {
   const sleeping = sleepingPortrait(world, id);
   if (sleeping) return `./${sleeping}`;
+  const pose = residentPose(world, id, listenerOffering);
   // A face made for the mood (mood.mjs) sits below sleep, a fight and an
   // authored pose, and above the ordinary portrait. No art, no change.
-  const face = world && !residentPose(world, id) && moodPortrait(world, id);
+  const face = world && !pose && moodPortrait(world, id);
   if (face) return `./${face}`;
   const human = avatarImage(world, id);
   if (human) return `./${human}`;
@@ -109,26 +110,28 @@ export function portrait(id, facing = null, world = null) {
       residentPortrait(
         resident,
         world && variantOf(world, id),
-        residentPose(world, id),
+        pose,
       )
     }`;
   const hub = people[id];
   if (hub?.portrait)
-    return `./${residentPose(world, id)?.portrait ?? hub.portrait}`;
+    return `./${pose?.portrait ?? hub.portrait}`;
   return `./assets/${id === "keeper" && facing === "right" ? "keeper-right" : id}.png`;
 }
 
 // A resident's pose is the first authored pose whose place and saved
 // conditions hold. It reads committed state only, so local and shared tables
 // show the same sprite; portrait() returns that sprite's path.
-export function residentPose(world, id) {
+export function residentPose(world, id, listenerOffering = true) {
   const resident = packPeople[id] ?? people[id];
   const place = world?.actors?.[id]?.place;
   if (!resident?.poses || !place) return null;
   const holds = (requires) =>
     resident.packId
       ? conditionsMet(world, resident.packId, requires)
-      : requires.every((c) => conditionMet(world, c, null));
+      : requires.every((c) => id === "listener" && c.kind === "arcana_selling"
+        ? listenerOffering && Boolean(listenerOffer(world, currentActor(world)))
+        : conditionMet(world, c, null));
   return (
     resident.poses.find(
       (pose) => (!pose.at || pose.at === place) && holds(pose.requires),
@@ -279,7 +282,8 @@ export function sceneCast(
 ) {
   const here = world.actors[currentActor(world)].place;
   const known = recordedCast ? null : new Set(knownActors(world));
-  const reader = known && listenerDeal(world, currentActor(world))?.actorId;
+  const traveler = currentActor(world);
+  const reader = known && (listenerDeal(world, traveler) ?? listenerOffer(world, traveler))?.actorId;
   const present =
     recordedCast ||
     personIds.filter(
@@ -297,7 +301,7 @@ export function sceneCast(
         entry.actorId === currentActor(world) &&
         entry.kind === "action",
     )?.targetId;
-  const priority = [...new Set([currentActor(world), target, ...present])]
+  const priority = [...new Set([traveler, target, reader, ...present])]
     .filter((id) => present.includes(id) && people[id])
     .slice(0, world.controlledActors ? 6 : 3);
   const slots = personIds.filter((id) => priority.includes(id));
@@ -404,6 +408,7 @@ export function sceneStaging(
     sharedPlays = [],
     currentState = false,
     preferredCatalog = {},
+    listenerOffering = true,
   } = {},
 ) {
   // Residents painted into the backdrop, and a player the place leaves off
@@ -659,6 +664,7 @@ export function sceneStaging(
             (e.verb === "accompany" && e.accepted && e.targetId === id)),
       );
       const act = events.findLast((e) => e.actorId === id && e.verb);
+      const cutout = portrait(id, facing, world, listenerOffering);
       const props = items.filter((item) => {
         let holder = item.holder;
         const seen = new Set([item.id]);
@@ -699,13 +705,13 @@ export function sceneStaging(
         paintedSpot: preferred[id] || null,
         scale:
           positions[index][1] *
-          (residentPose(world, id)?.scale ?? 1) *
+          (residentPose(world, id, listenerOffering)?.scale ?? 1) *
           (preferred[id]?.[2] ?? 1),
         floor: positions[index][2],
         facing,
         gazeTargetId,
-        cutout: portrait(id, facing, world),
-        flip: flipStagePortrait(portrait(id, facing, world), facing),
+        cutout,
+        flip: flipStagePortrait(cutout, facing),
         pose: sleepingPortrait(world, id)
           ? "sleep"
           : movement

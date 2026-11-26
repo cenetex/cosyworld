@@ -463,7 +463,9 @@ describe("the quest card", () => {
     const s = createPipWorld(5);
     s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
     const talk = legalActions(s, "vale").find((a) => a.kind === "talk" && a.target === "listener");
-    return play(s, talk, s.revision, "vale").state;
+    const offered = play(s, talk, s.revision, "vale").state;
+    const accept = legalActions(offered, "vale").find((a) => a.label === "Accept card");
+    return play(offered, accept, offered.revision, "vale").state;
   };
 
   it("offers the dealt tarot for turning without naming the card", () => {

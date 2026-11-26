@@ -34,7 +34,8 @@ function states(seed) {
   world.actors.vale.arcana = { proved: [], did: [], calls: 3 };
   world.actors.vale.place = world.actors.listener.place;
   const out = { called: (world = reload(world)) };
-  out.fool = world = talk(world);
+  out.offered = world = talk(world);
+  out.fool = world = act(world, (a) => a.label === "Accept card");
   for (const item of Object.values(world.items))
     if (item.holder === "vale") item.holder = world.actors.vale.place;
   out.reward = world = act(
@@ -49,9 +50,14 @@ function states(seed) {
   out.sellingReloaded = reload(world);
   world = structuredClone(world);
   world.items["willows-pipe"].holder = "vale";
-  out.bought = world = act(
+  out.paid = world = act(
     reload(world),
-    (a) => a.kind === "give" && a.item === "willows-pipe",
+    (a) =>
+      a.kind === "give" && a.item === "willows-pipe" && a.target === "listener",
+  );
+  out.bought = world = act(
+    world,
+    (a) => a.kind === "accept" && a.tarot === "offer",
   );
   out.boughtReloaded = reload(world);
   return out;

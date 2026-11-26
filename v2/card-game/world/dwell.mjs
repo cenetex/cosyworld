@@ -7,7 +7,7 @@
 // Dwell holds back the moves a resident chooses: walking for a want, roaming,
 // drifting home with nothing to pursue, and the dawn and dusk steps. It never
 // holds back a walk home that something forced (a lost fight, being scattered,
-// bedtime), stepping off a docked ship, a companion following its traveller,
+// bedtime), stepping off a docked ship, an accepted invitation to travel,
 // an authored journey, or anything a player does to or with the resident:
 // those moves never ask the planner's dwell test.
 // A leaf module: want.mjs reads MAX_DWELL, so it imports nothing. The caller

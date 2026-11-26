@@ -19,7 +19,6 @@ import { questFor, toldWant } from "../talk-quest.mjs";
 import { revealed } from "../want-talk.mjs";
 import { boxWant, shutBoxesAt } from "./boxes.mjs";
 import { nameOf, people, places, things } from "./catalog.mjs";
-import { travelerOf } from "./company.mjs";
 
 export const OFFER_KINDS = ["box", "resident", "home", "listener", "place"];
 const LISTENER = "listener";
@@ -39,17 +38,6 @@ const boxQuest = (s, { kind, target, step, lit }) => ({
   ...(lit === undefined ? {} : { lit }),
 });
 
-function withAnother(s, actor, kind, source, want) {
-  const traveler = travelerOf(s, source);
-  return Boolean(
-    kind === "resident" &&
-      traveler &&
-      traveler !== actor &&
-      want.kind === "person" &&
-      want.target === source,
-  );
-}
-
 const isPlayer = (s, actor) =>
   actor === currentActor(s) || controlledByHuman(s, actor);
 
@@ -61,8 +49,7 @@ const stands = (s, actor, kind, source, want) => {
       !lostOf(s, want) &&
       !closedBy(a, id, want) &&
       !closedAny(a, want) &&
-      !heldOf(a).some((held) => sameQuest(held, want)) &&
-      !withAnother(s, actor, kind, source, want),
+      !heldOf(a).some((held) => sameQuest(held, want)),
   );
 };
 const ownDoor = (box, actor) =>

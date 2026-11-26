@@ -102,10 +102,11 @@ describe("the revealed tarot pack", () => {
     expect(recordOf(fresh, "vale").proved).toEqual([]);
     expect(arcanaLevel(fresh, "vale")).toBe(0);
     fresh.actors.vale.arcana = { proved: [], did: [], calls: 3 };
-    const dealt = act(
+    const offered = act(
       fresh,
       (a) => a.kind === "talk" && a.target === "listener",
     );
+    const dealt = act(offered, (a) => a.label === "Accept card");
     expect(recordOf(dealt, "vale").spread[0].face).toBe("down");
     const leveled = collect(turnOver(dealt));
     expect(arcanaLevel(leveled, "vale")).toBe(1);

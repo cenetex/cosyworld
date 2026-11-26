@@ -5,9 +5,13 @@ import { createPipWorld } from "../v2/card-game/pip-landing.mjs";
 
 describe("character sheet", () => {
   it("keeps initial collection distinct from the Fool's later quest", () => {
-    let s = createWorld();
-    s.actors.vale.arcana = { proved: [], did: [], need: ["arcanum-0"],
-      spread: [{ card: "arcanum-0", face: "down", base: { visited: s.actors.vale.visited.length } }] };
+    let s = createPipWorld(5);
+    s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
+    const talk = legalActions(s).find((a) => a.kind === "talk" && a.target === "listener");
+    s = play(s, talk, s.revision).state;
+    expect(characterSheet(s).slots[0]).toEqual({ state: "unknown" });
+    const accept = legalActions(s).find((a) => a.kind === "accept" && a.tarot === "offer");
+    s = play(s, accept, s.revision).state;
     expect(characterSheet(s).slots[0]).toEqual({ state: "locked", art: "./assets/arcana/tarot-back-locked.png" });
     expect(characterSheet(s).slots.slice(1)).toEqual(Array(21).fill({ state: "unknown" }));
     const turn = legalActions(s).find((a) => a.label === "Turn over");

@@ -16,6 +16,7 @@ import {
   holds,
   nextSpread,
   recordOf,
+  slotBinding,
 } from "../v2/card-game/world/arcana.mjs";
 import { boxDefs } from "../v2/card-game/world/boxes.mjs";
 import { homeOf } from "../v2/card-game/world/home.mjs";
@@ -77,11 +78,11 @@ describe("the second row, played in a created world", () => {
     s = meet(s, "keeper");
     s.actors.keeper.trust.vale = 2;
     s = act(s, kind("accompany", { target: "keeper" }));
-    expect(s.actors.vale.companion).toBe("keeper");
+    expect(s.log.findLast((e) => e.verb === "accompany")).toMatchObject({ accepted: true, targetId: "keeper" });
     expect(proved(collect(s))).toEqual(["arcanum-6"]);
   });
 
-  it("VI: a trip with nobody bound is not enough", () => {
+  it("VI: agreeing to a trip for your own goal also counts", () => {
     let s = only("arcanum-6");
     s = meet(s, "keeper");
     s.actors.keeper.want = {
@@ -93,8 +94,7 @@ describe("the second row, played in a created world", () => {
     s = act(s, kind("accompany", { target: "keeper", destination: "pond" }));
     expect(s.log.findLast((e) => e.verb === "accompany").accepted).toBe(true);
     expect(s.actors.vale.companion).toBeUndefined();
-    expect(proved(s)).toEqual([]);
-    expect(reward(s)).toBe(false);
+    expect(proved(collect(s))).toEqual(["arcanum-6"]);
   });
 
   it("VII: sets the course of a ship once aboard", () => {
@@ -284,11 +284,10 @@ describe("the second row, played in a created world", () => {
       s,
       kind("accompany", { target: "rati", destination: "forest-garden" }),
     );
-    expect(s.actors.vale.companion).toBe("rati");
     expect(proved(s)).toEqual([]);
     expect(reward(s)).toBe(false);
-    s = act(s, walk("forest-cottage"));
-    s = act(s, walk(homeOf("vale")));
+    s = act(s, kind("accompany", { target: "rati", destination: "forest-cottage" }));
+    s = act(s, kind("accompany", { target: "rati", destination: homeOf("vale") }));
     expect(s.actors.rati.place).toBe(homeOf("vale"));
     expect(proved(collect(s))).toEqual(["arcanum-19"]);
     let t = only("arcanum-19");
@@ -358,14 +357,12 @@ describe("the words added for these cards", () => {
     expect(proved(collect(t))).toEqual(["arcanum-0"]);
   });
 
-  it("reads a companion only where the traveler stands, and a fight", () => {
+  it("reads company from a committed invitation, and reads a fight", () => {
     const s = createWorld({ seed: 7 });
     expect(holds(s, { kind: "company" }, binding)).toBe(false);
-    s.actors.vale.companion = "keeper";
-    s.actors.vale.actedAt = 0;
-    expect(holds(s, { kind: "company" }, binding)).toBe(false);
-    s.actors.keeper.place = s.actors.vale.place;
-    expect(holds(s, { kind: "company" }, binding)).toBe(true);
+    const played = { verb: "accompany", accepted: true };
+    expect(holds(s, { kind: "company" }, { ...binding, played })).toBe(true);
+    expect(holds(s, { kind: "company" }, { ...binding, played: { ...played, accepted: false } })).toBe(false);
     expect(holds(s, { kind: "fighting" }, binding)).toBe(false);
     s.standoffs.push({ resolve: { vale: 4, keeper: 4 } });
     expect(holds(s, { kind: "fighting" }, binding)).toBe(true);
@@ -396,6 +393,7 @@ describe("the words added for these cards", () => {
     const s = createWorld({ seed: 7 });
     expect(candidates(s, "transport")).toEqual(["greek-ship"]);
     expect(candidates(s, "item", "lamp")).toEqual(["lamp"]);
+    expect(slotBinding(s, { card: "arcanum-9", bind: { light: "station-lantern" } }, "vale").light).toBe("lamp");
     expect(candidates(s, "item", "drink")).toEqual(["greek-wine-skin"]);
     expect(candidates(s, "item", "wanted")).toContain("lamp");
     s.actors.moth.want = null;

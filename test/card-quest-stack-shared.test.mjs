@@ -22,7 +22,7 @@ const act = (s, actor, pick) => {
 };
 
 describe("companions in a shared world", () => {
-  it("holds a traveler's quest only on their own Accept, and binds only them", () => {
+  it("holds a traveler's quest on their own Accept without moving or reserving its owner", () => {
     let w = dispatchShared({ op: "create", seed: 9 }).world;
     const seats = ["mara", "ash"];
     Object.assign(w, { controlledActors: seats, presentActors: seats });
@@ -38,7 +38,8 @@ describe("companions in a shared world", () => {
     w.actors.moth.place = "pond";
     w = act(w, "ash", (a) => a.kind === "accept" && a.target === "moth");
     expect(sources(w, "ash")).toEqual(["quest:from:moth"]);
-    expect(w.actors.ash.companion).toBe("moth");
+    expect(w.actors.ash.companion).toBeUndefined();
     expect(w.actors.mara.companion).toBeUndefined();
+    expect(w.actors.moth.place).toBe("pond");
   });
 });
