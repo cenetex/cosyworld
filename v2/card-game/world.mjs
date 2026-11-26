@@ -1,4 +1,14 @@
 import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
+import {
+  elysiumModelMet,
+  elysiumModelToken,
+  isElysiumModel,
+  isElysiumModelToken,
+  keepsElysiumToken,
+  recordElysiumEncounter,
+  validElysiumEncounterEvent,
+  validElysiumEncounters,
+} from "./elysium-models.mjs";
 import { STATION_LANTERN, stationLanternAction, useStationLantern, validStationLantern } from "./station-lantern.mjs";
 import { wantWords } from "./world/want-words.mjs";
 import { stepGoal } from "./world/lock-goals.mjs";
@@ -113,6 +123,7 @@ import {
   CONNECT_TARGET,
   DREAM_FROM,
   newWant,
+  setWant,
 } from "./want.mjs";
 import { pruneTalkQuests, questFor, talkQuest, toldWant } from "./talk-quest.mjs";
 import {
@@ -342,8 +353,8 @@ const expectedTrustKeys = Object.fromEntries(
       .join(),
   ]),
 );
-// A run seed draws each pack's specials once (pack-specials.mjs).
 import { createWorld, seedRun } from "./world/create.mjs";
+import { elysiumScatterLandings, settleStrandedWayfinder, wayfinderPassage } from "./world/elysium-travel.mjs";
 export { createWorld, seedRun };
 // Mount every pack missing from this save: its crossings, its state, and its
 // residents with fresh relationships. Earlier saves keep their own history.
@@ -396,10 +407,15 @@ export function installPacks(s) {
         delete s.crossings[c.id].until;
       }
     }
-    if (s.packs[pack.id]) continue;
-    s.packs[pack.id] = newPackRecord(pack);
-    mounted.push(pack);
+    const previous = s.packs[pack.id];
+    const extendElysium = pack.id === "elysium" && previous?.revision < pack.revision;
+    if (previous && !extendElysium) continue;
+    if (!previous) {
+      s.packs[pack.id] = newPackRecord(pack);
+      mounted.push(pack);
+    }
     for (const [id, a] of Object.entries(pack.avatars)) {
+      if (extendElysium && (!isElysiumModel(id) || s.actors[id])) continue;
       if (s.actors[id]) throw new Error("A pack resident is already present.");
       s.actors[id] = {
         place: a.place,
@@ -414,12 +430,13 @@ export function installPacks(s) {
       s.memories[id] = fresh[id];
       if (s.motives) s.motives.grievances[id] = [];
     }
-    for (const [id, item] of Object.entries(pack.items || {})) {
-      if (s.items[id]) throw new Error("A pack item is already present.");
-      s.items[id] = { holder: item.holder, history: [] };
-      s.memories[id] = fresh[id];
-      added.push(id);
-    }
+    if (!previous)
+      for (const [id, item] of Object.entries(pack.items || {})) {
+        if (s.items[id]) throw new Error("A pack item is already present.");
+        s.items[id] = { holder: item.holder, history: [] };
+        s.memories[id] = fresh[id];
+        added.push(id);
+      }
     for (const [id, actor] of Object.entries(s.actors))
       for (const other of Object.keys(pack.avatars))
         if (other !== id) actor.trust[other] ??= 0;
@@ -594,6 +611,7 @@ export function willingToGive(s, owner, item, recipient = null) {
   return (
     !humanHeld(s, owner) &&
     recipient !== null &&
+    !keepsElysiumToken(owner, item) &&
     !resentment(s, owner, recipient) &&
     !needed(s, owner, item) &&
     giftDecision(s, owner, item, recipient).accepted
@@ -609,6 +627,8 @@ export function tradePossible(s, actor, give, receive) {
     !knownActors(s).includes(other) ||
     other === actor ||
     controlledByHuman(s, other) ||
+    keepsElysiumToken(other, receive) ||
+    isElysiumModelToken(give) ||
     s.actors[actor].place !== s.actors[other].place
   )
     return false;
@@ -682,6 +702,9 @@ function saidWant(s, a, reason) {
 // What the other side will say to a Give or Trade. The residents' planner
 // reads this to avoid some offers it expects to be refused.
 export function expects(s, a) {
+  if (a.kind === "give" && isElysiumModelToken(a.item) &&
+      !controlledByHuman(s, a.target))
+    return keepsElysiumToken(a.target, a.item) && elysiumModelMet(s, a.target);
   if (a.kind === "give" && keepsForGood(a.target)) return takes(s, a.actor);
   if (a.kind === "give")
     return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
@@ -944,6 +967,21 @@ function transfer(s, item, holder, text) {
   s.items[item].holder = holder;
   if (item === "lamp" && holder === "moth" && owedPondLamp(s)) s.pondLampLoan.returnedTurn = s.turn;
   remember(s, item, text);
+}
+function scatterElysiumToken(s, { actor, target }, here) {
+  if (!isElysiumModel(target) || elysiumModelMet(s, target) ||
+      !controlledByHuman(s, actor) || s.actors[target].place !== here)
+    return null;
+  const token = elysiumModelToken(target);
+  if (s.items[token]?.holder !== target) return null;
+  if (!routeBetween(s, here, "station", actor)) return null;
+  const landings = elysiumScatterLandings(s, actor);
+  if (!landings.length) return null;
+  const place = landings[runHash(s, token) % landings.length];
+  const text = `The silver figure opens a hand. ${nameOf(token)} slips into a gold filament and vanishes.`;
+  transfer(s, token, place, text);
+  setWant(s.actors[target], newWant("item", token, s.turn));
+  return text;
 }
 // A fuel item fills its empty target when one avatar holds both, then returns
 // full to its authored place. Forest data names the pair (oil refuels lamp).
@@ -1332,10 +1370,10 @@ export function legalActions(s, actor = currentActor(s)) {
         : reflectionsFrom(s, here).includes(to)
           ? " through the reflection"
           : "";
-    // An Invite can bring an eligible resident along the traveler's open route.
     const human = controlledByHuman(s, actor);
     for (const other of knownActors(s).filter(
       (id) =>
+        !wayfinderPassage(here, to) &&
         (crossing?.travelers !== "player" || human) &&
         (!transportPlace(here) ||
           !crossing?.transport ||
@@ -1549,6 +1587,7 @@ export function legalActions(s, actor = currentActor(s)) {
     } else if (
       actorIds.includes(item.holder) &&
       item.holder !== actor &&
+      !keepsElysiumToken(item.holder, id) &&
       hasSpace(s, actor, id)
     ) {
       const owner = item.holder;
@@ -2249,6 +2288,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     combat = null,
     invitation = null,
     led = [];
+  let elysiumModel, portraitModel;
   switch (a.kind) {
     case "radio":
       s.items[RADIO_ITEM].radioOn = a.radioOn;
@@ -2411,6 +2451,11 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       transfer(s, a.item, a.target, a.text);
       if (a.kind === "trade") transfer(s, a.receive, a.actor, a.text);
       else if (keepsForGood(a.target)) giveUpForGood(s, a.item);
+      else if (!pressure && controlledByHuman(s, a.actor) &&
+          keepsElysiumToken(a.target, a.item) &&
+          packPeople[a.target].home === here &&
+          !s.elysiumEncounters?.[a.target]?.returnedAt)
+        portraitModel = a.target;
       break;
     }
     case "ring":
@@ -2438,6 +2483,11 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
           applyPackChoice(s, told, { mode: "talk", turn }),
           a.actor,
         );
+      const scatter = scatterElysiumToken(s, a, here);
+      if (scatter) {
+        elysiumModel = a.target;
+        text += ` ${scatter}`;
+      }
       const woken = wakeByVoice(s, a.target),
         roused = wakeResident(s, a.target);
       if (woken) text += ` ${woken}`;
@@ -2506,11 +2556,15 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       : {}),
     ...(a.kind === "attack" ? { locationId: here, ...combat } : {}),
     ...(handover ? { handover } : {}),
+    ...(elysiumModel ? { elysiumModel } : {}),
+    ...(portraitModel ? { portraitModel } : {}),
     ...(goneSince(s, usedBefore).length
       ? { gone: goneSince(s, usedBefore) }
       : {}),
   });
-  const sourceSeq = s.log.at(-1).seq;
+  const event = s.log.at(-1);
+  recordElysiumEncounter(s, event);
+  const sourceSeq = event.seq;
   if (a.kind === "threaten")
     standoffFor(s, a.actor).sourceSeq = s.log.at(-1).seq;
   recordConversation(s, s.log.at(-1));
@@ -2839,8 +2893,9 @@ function awayPlan(s, actor) {
 function plannedActions(s, actor) {
   return legalActions(s, actor).filter((a) => controlledByHuman(s, actor) || awayAvatar(s, actor) ||
     !(actor === "moth" && a.kind === "take" && a.item === "lamp" && pipWaitsForLamp(s)) &&
+    !(["take", "steal", "ask", "threaten"].includes(a.kind) && isElysiumModelToken(a.item)) &&
     !(["take", "steal", "ask", "threaten"].includes(a.kind) && reservedItem(s, a.item)) &&
-    !(a.kind === "trade" && reservedItem(s, a.receive)));
+    !(a.kind === "trade" && (reservedItem(s, a.receive) || isElysiumModelToken(a.receive))));
 }
 // One legal step toward a place. Travellers who learn the roads keep to
 // the routes they know and explore the edge of that map; the others use
@@ -3110,7 +3165,6 @@ export function play(
       state: s,
       error: "The world changed. Choose a current play.",
     };
-  // Switching a pack is journaled; no turn passes (rules 98, pack-toggle.mjs).
   if (action?.kind === "pack") {
     const next = structuredClone(s);
     settleStationExits(next);
@@ -3130,6 +3184,7 @@ export function play(
     settleGuards(next);
     settleCompany(next, entityActive);
     settleVisitSpeech(s, next, { ...action, actor });
+    settleStrandedWayfinder(next);
     settleHeldItems(next, handSnapshot(s));
     settleLamp(next);
     settleCrossingUnlocks(next, sensesFor(next));
@@ -3165,7 +3220,6 @@ export function play(
   lapseOffer(next, actor);
   settleStationExits(next);
   if (actor !== "vale" || s.playerActorId) next.playerActorId = actor;
-  // resident sleep becomes its returning player's own.
   if (!exact.guards) delete next.actors[actor].guarding;
   const dozing = next.actors[actor].sleeping;
   if (dozing?.until !== undefined)
@@ -3353,6 +3407,7 @@ export function play(
     if (count <= 3) delete next.sharedMigration.inventoryAllowances[id];
     else next.sharedMigration.inventoryAllowances[id] = count;
   }
+  settleStrandedWayfinder(next);
   settleHeldItems(next, handSnapshot(s));
   settleLamp(next);
   settleStationExits(next);
@@ -3515,6 +3570,7 @@ export function validateWorld(s) {
   if (!validPackState(s, sensesFor(s))) fail(packStatesFault(s) ?? "packs");
   const parts = {
     "item-cycle": () => validItemCycle(s),
+    "elysium-encounters": () => validElysiumEncounters(s),
     conversations: () => validConversations(s),
     "held-items": () => validHeldItems(s),
     opened: () => validOpened(s),
@@ -3793,6 +3849,7 @@ export function validateWorld(s) {
     entities = entityIds;
   for (const e of s.log) {
     if (!validHandover(s, e)) fail(`log:${e.seq}:handover`);
+    if (!validElysiumEncounterEvent(s, e)) fail(`log:${e.seq}:elysium`);
     if (e.seq !== undefined) {
       if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
         fail(`log:${e.seq}:seq`);

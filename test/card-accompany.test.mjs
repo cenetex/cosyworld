@@ -24,6 +24,7 @@ import {
 } from "../v2/card-game/narrative.mjs";
 import { sceneScript } from "../v2/card-game/scene.mjs";
 import { profiles } from "../v2/card-game/memory.mjs";
+import { DAYLIGHT_TURNS } from "../v2/card-game/pack-rules.mjs";
 // Pip is at the station with Vale and wants to be at the pond.
 function together() {
   const world = createWorld();
@@ -102,13 +103,15 @@ describe("accompany card requests", () => {
       world = result.state;
     };
     act("pond");
+    if (world.items[wayfinder].holder !== "pond") act(world.items[wayfinder].holder);
+    act(wayfinder);
+    world.turn = world.revision = DAYLIGHT_TURNS;
     act(room);
-    expect(cardActions(world, [resident, "pond"])).toEqual({
+    expect(cardActions(world, [resident, "elysium-keystone-ledge"])).toEqual({
       actions: [],
       hint: "The Silver Resident stays here",
     });
     act(resident);
-    act(wayfinder);
     act("elysium-keystone-ledge");
     act(keystone);
     act(room);

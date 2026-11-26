@@ -37,24 +37,36 @@ fn config(state: &AppState) -> Option<ai_gateway::AiConfig> {
 }
 
 pub(crate) async fn draw_void_portrait(state: &AppState) -> Result<Vec<u8>, &'static str> {
+    draw_model_void_portrait(
+        state,
+        "elysium-void-001",
+        "A silver, humanlike resident of Void 001 with a discernible inhuman face. \
+         Fine silver engraving, deep black fabric and one restrained gold filament in the folds. \
+         Black-paper etching on the figure only, with strong contours and a complete silhouette.",
+    )
+    .await
+}
+
+pub(crate) async fn draw_model_void_portrait(
+    state: &AppState,
+    resident: &str,
+    appearance: &str,
+) -> Result<Vec<u8>, &'static str> {
     let config = config(state).ok_or("generation_unconfigured")?;
     let _permit = super::admission::admit(
         super::scope(state),
         super::admission::Pool::Image,
-        "elysium-void-001",
+        resident,
         Instant::now(),
     )
     .map_err(|error| error.code)?;
     let input = Input {
         kind: "avatar".into(),
         role: "portrait".into(),
-        description: "A silver, humanlike resident of Void 001 with a discernible inhuman face. \
-            Fine silver engraving, deep black fabric and one restrained gold filament in the folds. \
-            Black-paper etching on the figure only, with strong contours and a complete silhouette."
-            .into(),
+        description: appearance.into(),
         instruction: None,
         reference: None,
-        basis: "elysium-void-001".into(),
+        basis: resident.into(),
     };
     run(config, input, None, true)
         .await

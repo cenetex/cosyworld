@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import { cardPlay } from "../v2/card-game/cards.mjs";
 import { knowsFact } from "../v2/card-game/knowledge.mjs";
 import { createLandingWorld } from "../v2/card-game/pack-landing.mjs";
+import { shipDock } from "../v2/card-game/pack-transport.mjs";
 import { pondSignalBeat } from "../v2/card-game/pond-signal-view.mjs";
 import { dispatchShared } from "../v2/card-game/shared-world.mjs";
 import {
@@ -129,14 +130,13 @@ function repairLantern(t, actor) {
 
 function checkReturn(t, method, consequence) {
   const receipt = t.world.actors.keeper.completedQuest;
-  move(t, vale, "elysium-void-001");
+  move(t, vale, "station");
   t.reload();
   move(t, vale, "pond");
   expect(t.signal).toMatchObject({ discovered: true, method });
   expect(t.world.actors.keeper.completedQuest).toEqual(receipt);
-  expect(t.actions(vale)).toContainEqual(
-    expect.objectContaining({ kind: "move", target: "greek-ship" }),
-  );
+  const boardable = t.actions(vale).some((a) => a.kind === "move" && a.target === "greek-ship");
+  expect(boardable).toBe(shipDock(t.world, "greek-ship") === "pond");
   const beat = { turn: t.world.turn, actions: [] };
   const aftermath = pondSignalBeat(t.world, beat, () => true);
   if (consequence) {

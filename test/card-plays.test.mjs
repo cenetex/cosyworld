@@ -26,8 +26,11 @@ describe("playing the world through cards", () => {
     expect(availableCards(s).filter((id) => !isArcanum(id))).toEqual([
       "vale",
       "station",
+      "elysium-wayfinder",
+      "station-lantern",
       "lamp",
       "bell",
+      "keeper-log",
       "pond",
     ]);
     s = cards(s, "lamp");

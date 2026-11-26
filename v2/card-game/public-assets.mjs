@@ -37,6 +37,8 @@ const files = [
   "shared.mjs",
   "shared-auth.mjs",
   "elysium-portrait.mjs",
+  "elysium-models.mjs",
+  "world/elysium-travel.mjs",
   "authoring-account-tools.mjs",
   "authoring-seed-tools.mjs",
   "authoring-github-source.mjs",

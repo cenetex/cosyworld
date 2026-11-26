@@ -19,7 +19,7 @@ use super::*;
 
 #[path = "card_authoring_generation.rs"]
 mod card_authoring_generation;
-pub(crate) use card_authoring_generation::draw_void_portrait;
+pub(crate) use card_authoring_generation::{draw_model_void_portrait, draw_void_portrait};
 #[path = "card_game.rs"]
 pub(crate) mod card_game;
 #[path = "card_voices.rs"]

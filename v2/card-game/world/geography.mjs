@@ -20,6 +20,7 @@ import { stationExits } from "../station-exits.mjs";
 import { reflectionOpen, sensesFor, reflectionsFrom } from "./senses.mjs";
 import { nameOf, places } from "./catalog.mjs";
 import { baseExits, stationCandidates, limitedExits } from "./station.mjs";
+import { wayfinderExit } from "./elysium-travel.mjs";
 
 export const placeText = (s, place) =>
   [
@@ -52,14 +53,16 @@ export function exits(s, place, actor = null, previous = null) {
   // A guardable way, and the way back through it (rules 100).
   for (const to of guardedExits(s, place))
     if (!ways.includes(to)) ways.push(to);
-  return limitedExits(s, place, ways.filter(
-    (to) =>
-      entityActive(s, to) &&
-      actorCanVisit(actor, to, s) &&
-      humanRoomAvailable(s, actor, to) &&
-      personalRouteOpen(s, place, to, actor || currentActor(s)) &&
-      !guardOf(s, place, to, actor),
-  ));
+  const usable = (to) =>
+    entityActive(s, to) &&
+    actorCanVisit(actor, to, s) &&
+    humanRoomAvailable(s, actor, to) &&
+    personalRouteOpen(s, place, to, actor || currentActor(s)) &&
+    !guardOf(s, place, to, actor);
+  const admitted = limitedExits(s, place, ways.filter(usable));
+  const portal = wayfinderExit(s, place, actor);
+  if (portal && usable(portal) && !admitted.includes(portal)) admitted.push(portal);
+  return admitted;
 }
 
 // A sealed way (rules 95): a pack route that names its sealed card and the

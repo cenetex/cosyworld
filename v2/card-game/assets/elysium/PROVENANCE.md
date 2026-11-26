@@ -21,3 +21,18 @@ route. The repository's [MIT license](../../../../LICENSE) applies.
 
 The ledge and keystone images are cut from larger images. If you replace
 either with a dedicated generation, keep the file name.
+
+The six new Void paintings and their token cutouts are original illustrations
+made with the built-in image tool for Elysium. The paintings use 1672 × 941
+canvases with open basalt foregrounds for the cast. The tokens use transparent
+1254 × 1254 canvases. The production originals remain PNGs for the game's
+responsive image build.
+
+| Files                              | Landmark and matching token                         |
+| ---------------------------------- | --------------------------------------------------- |
+| `void-002.png`, `void-002-token.png` | Suspended basalt folio and an Amber Leaf            |
+| `void-003.png`, `void-003-token.png` | Two silver mirrors and a frosted Twin Lens          |
+| `void-004.png`, `void-004-token.png` | Teal and gold loom-gate and a Loom Shuttle           |
+| `void-005.png`, `void-005-token.png` | Storm-struck copper towers and a Copper Fork        |
+| `void-006.png`, `void-006-token.png` | Indigo well with standing waves and a Sounding Ring |
+| `void-007.png`, `void-007-token.png` | Jade stair terraces and a folded jade wedge         |

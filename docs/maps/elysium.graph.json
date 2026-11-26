@@ -1,26 +1,32 @@
 {
   "pack": "elysium",
   "name": "Elysium",
-  "revision": 2,
+  "revision": 3,
   "entry": "elysium-void-001",
   "entries": [
     {
       "joins": "hub",
-      "at": "pond",
-      "arrive": "elysium-void-001",
-      "via": "pond-elysium-void-001"
+      "at": "station",
+      "arrive": "elysium-void-002",
+      "via": "elysium-void-002-station"
     }
   ],
   "space": {
     "districts": [
       {
-        "id": "d-elysium-gold-spiral",
-        "name": "Gold Spiral",
+        "id": "d-elysium-void-001",
+        "name": "Void 001",
         "places": [
           "elysium-gold-spiral",
           "elysium-keystone-ledge",
           "elysium-observatory",
-          "elysium-void-001"
+          "elysium-void-001",
+          "elysium-void-002",
+          "elysium-void-003",
+          "elysium-void-004",
+          "elysium-void-005",
+          "elysium-void-006",
+          "elysium-void-007"
         ]
       }
     ],
@@ -29,29 +35,65 @@
         "id": "elysium-gold-spiral",
         "name": "Gold Spiral",
         "kind": "place",
-        "district": "d-elysium-gold-spiral"
+        "district": "d-elysium-void-001"
       },
       {
         "id": "elysium-keystone-ledge",
         "name": "Keystone Ledge",
         "kind": "place",
-        "district": "d-elysium-gold-spiral"
+        "district": "d-elysium-void-001"
       },
       {
         "id": "elysium-observatory",
         "name": "Still Observatory",
         "kind": "place",
-        "district": "d-elysium-gold-spiral"
+        "district": "d-elysium-void-001"
       },
       {
         "id": "elysium-void-001",
         "name": "Void 001",
         "kind": "place",
-        "district": "d-elysium-gold-spiral"
+        "district": "d-elysium-void-001"
       },
       {
-        "id": "pond",
-        "name": "Black pond",
+        "id": "elysium-void-002",
+        "name": "Void 002",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "elysium-void-003",
+        "name": "Void 003",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "elysium-void-004",
+        "name": "Void 004",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "elysium-void-005",
+        "name": "Void 005",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "elysium-void-006",
+        "name": "Void 006",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "elysium-void-007",
+        "name": "Void 007",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "station",
+        "name": "Empty station",
         "kind": "hub"
       }
     ],
@@ -106,18 +148,99 @@
       },
       {
         "from": "elysium-void-001",
-        "to": "pond",
+        "to": "elysium-void-002",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-002",
+        "to": "elysium-void-001",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-002",
+        "to": "elysium-void-003",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-002",
+        "to": "station",
         "kind": "crossing",
         "gate": null
       },
       {
-        "from": "pond",
-        "to": "elysium-void-001",
-        "kind": "crossing",
+        "from": "elysium-void-003",
+        "to": "elysium-void-002",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-003",
+        "to": "elysium-void-004",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-003",
+        "to": "elysium-void-005",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-004",
+        "to": "elysium-void-003",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-004",
+        "to": "elysium-void-007",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-005",
+        "to": "elysium-void-003",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-005",
+        "to": "elysium-void-006",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-006",
+        "to": "elysium-void-005",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-006",
+        "to": "elysium-void-007",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-007",
+        "to": "elysium-void-004",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-007",
+        "to": "elysium-void-006",
+        "kind": "exit",
         "gate": null
       }
     ],
-    "retired": []
+    "retired": [
+      "crossing:elysium-void-001-pond",
+      "crossing:pond-elysium-void-001"
+    ]
   },
   "mission": {
     "gates": [
@@ -271,7 +394,7 @@
       {
         "id": "elysium-wayfinder",
         "name": "Void Wayfinder",
-        "holder": "elysium-void-001",
+        "holder": "station",
         "consumedBy": [],
         "readBy": [
           "route:elysium-gold-spiral>elysium-observatory",
@@ -295,6 +418,54 @@
         "readBy": [
           "route:elysium-keystone-ledge>elysium-observatory"
         ]
+      },
+      {
+        "id": "elysium-claude-token",
+        "name": "Amber Leaf",
+        "holder": "elysium-claude",
+        "home": "elysium-void-002",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "elysium-gemini-token",
+        "name": "Twin Lens",
+        "holder": "elysium-gemini",
+        "home": "elysium-void-003",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "elysium-chatgpt-token",
+        "name": "Loom Shuttle",
+        "holder": "elysium-chatgpt",
+        "home": "elysium-void-004",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "elysium-grok-token",
+        "name": "Copper Fork",
+        "holder": "elysium-grok",
+        "home": "elysium-void-005",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "elysium-deepseek-token",
+        "name": "Sounding Ring",
+        "holder": "elysium-deepseek",
+        "home": "elysium-void-006",
+        "consumedBy": [],
+        "readBy": []
+      },
+      {
+        "id": "elysium-qwen-token",
+        "name": "Jade Fold",
+        "holder": "elysium-qwen",
+        "home": "elysium-void-007",
+        "consumedBy": [],
+        "readBy": []
       }
     ],
     "needs": {

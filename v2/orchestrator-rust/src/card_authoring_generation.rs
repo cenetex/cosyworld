@@ -24,7 +24,7 @@ use unicode_normalization::UnicodeNormalization;
 mod admission;
 #[path = "card_authoring_image.rs"]
 mod images;
-pub(crate) use images::draw_void_portrait;
+pub(crate) use images::{draw_model_void_portrait, draw_void_portrait};
 #[path = "card_authoring_jobs.rs"]
 mod jobs;
 #[path = "card_authoring_seed.rs"]

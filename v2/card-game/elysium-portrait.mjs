@@ -1,4 +1,5 @@
 import { accountRevision } from "./account-revision.mjs";
+import { ELYSIUM_MODEL_IDS } from "./elysium-models.mjs";
 import { imageUrl } from "./images.mjs";
 import { packPeople } from "./pack-registry.mjs";
 
@@ -23,15 +24,34 @@ async function decodedPortrait(blob) {
   return source;
 }
 
-export function createElysiumPortrait(worldId, redraw) {
-  const endpoint =
-    worldId &&
-    `/card-game/shared/worlds/${encodeURIComponent(worldId)}/elysium-portrait`;
-  let portrait = null,
+async function readPortrait(response) {
+  if (response.headers.get("content-type") !== "image/png") return null;
+  const blob = await response.blob();
+  return blob.size > 0 && blob.size <= maxPortraitBytes
+    ? decodedPortrait(blob)
+    : null;
+}
+
+async function readName(response) {
+  const { name } = await response.json();
+  const title = typeof name === "string" && name.trim();
+  return title && title.length <= 80 ? title : null;
+}
+
+function clearImage(id, source) {
+  const fallback = `./${packPeople[id].portrait}`;
+  for (const image of document.images)
+    if (image.getAttribute("src") === source)
+      image.src = imageUrl(
+        fallback,
+        image.closest("#stage") ? "stage" : "card",
+      );
+}
+
+function createResource(endpoint, read, changed, revoke, forget = () => {}) {
+  let value = null,
     checkedRevision = null,
     request = null;
-  let suspended = false,
-    authorized = true;
 
   function stop() {
     clearTimeout(request?.timer);
@@ -39,40 +59,13 @@ export function createElysiumPortrait(worldId, redraw) {
     request = null;
   }
 
-  function forget() {
-    if (portrait === null) return false;
-    const fallback = `./${packPeople[resident].portrait}`;
-    for (const image of document.images)
-      if (image.getAttribute("src") === portrait)
-        image.src = imageUrl(
-          fallback,
-          image.closest("#stage") ? "stage" : "card",
-        );
-    portrait = null;
-    return true;
-  }
-
   function clear() {
     stop();
     checkedRevision = null;
-    if (forget()) redraw();
-  }
-
-  function revoke() {
-    authorized = false;
-    clear();
-  }
-
-  if (endpoint) {
-    window.addEventListener("pagehide", () => {
-      suspended = true;
-      clear();
-    });
-    window.addEventListener("pageshow", (event) => {
-      if (!event.persisted) return;
-      suspended = false;
-      redraw();
-    });
+    if (value === null) return;
+    forget(value);
+    value = null;
+    changed(false);
   }
 
   async function probe(active, attempt) {
@@ -93,19 +86,15 @@ export function createElysiumPortrait(worldId, redraw) {
         revoke();
         return;
       }
-      if (response.ok && response.headers.get("content-type") === "image/png") {
-        const blob = await response.blob();
-        if (blob.size > 0 && blob.size <= maxPortraitBytes)
-          source = await decodedPortrait(blob);
-      }
+      if (response.ok) source = await read(response);
     } catch {
-      // The authored portrait remains while the generated image is unavailable.
+      // Keep the authored art or anonymous title during a provider delay.
     }
     if (request !== active) return;
     if (source) {
-      portrait = source;
+      value = source;
       request = null;
-      redraw();
+      changed(true);
       return;
     }
     if (attempt === retryDelays.length) request = null;
@@ -117,27 +106,127 @@ export function createElysiumPortrait(worldId, redraw) {
   }
 
   return {
-    get ready() {
-      return portrait !== null;
+    get value() {
+      return value;
     },
-    revoke,
-    source: (id, sleeping) => (id === resident && !sleeping ? portrait : null),
-    observe(world, actor) {
-      if (!endpoint) return;
-      const opened = world.opened?.[spiral];
-      const earned =
-        authorized && !suspended && Array.isArray(opened) && opened.length > 0;
-      const here = world.actors[actor]?.place;
-      if (!earned) forget();
-      if (!earned || !here || world.actors[resident]?.place !== here) {
+    clear,
+    observe(earned, nearby, revision) {
+      if (!earned) clear();
+      else if (!nearby) {
         stop();
         checkedRevision = null;
-        return;
+      } else if (!value && !request && checkedRevision !== revision) {
+        checkedRevision = revision;
+        request = { controller: new AbortController(), timer: null };
+        void probe(request, 0);
       }
-      if (portrait || request || checkedRevision === world.revision) return;
-      checkedRevision = world.revision;
-      request = { controller: new AbortController(), timer: null };
-      void probe(request, 0);
+    },
+  };
+}
+
+export function createElysiumPortrait(worldId, redraw) {
+  const prefix =
+    worldId && `/card-game/shared/worlds/${encodeURIComponent(worldId)}`;
+  const cast = new Map();
+  let key = 0,
+    started = false,
+    suspended = false,
+    authorized = true;
+
+  function changed(refresh) {
+    key++;
+    if (refresh) redraw();
+  }
+
+  function clear() {
+    const before = key;
+    for (const { name, portrait } of cast.values()) {
+      name?.clear();
+      portrait.clear();
+    }
+    if (before !== key) redraw();
+  }
+
+  function revoke() {
+    authorized = false;
+    clear();
+  }
+
+  if (prefix) {
+    for (const id of [resident, ...ELYSIUM_MODEL_IDS]) {
+      if (!packPeople[id]) continue;
+      const legacy = id === resident;
+      const suffix = legacy ? "" : `/${encodeURIComponent(id)}`;
+      const alias = packPeople[id].name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      cast.set(id, {
+        seenTalk: false,
+        waiting: false,
+        alias: new RegExp(`\\b(?:the )?${alias}\\b`, "gi"),
+        name: legacy
+          ? null
+          : createResource(
+              `${prefix}/elysium-identity${suffix}`,
+              readName,
+              changed,
+              revoke,
+            ),
+        portrait: createResource(
+          `${prefix}/elysium-portrait${suffix}`,
+          readPortrait,
+          changed,
+          revoke,
+          (source) => clearImage(id, source),
+        ),
+      });
+    }
+    window.addEventListener("pagehide", () => {
+      suspended = true;
+      clear();
+    });
+    window.addEventListener("pageshow", (event) => {
+      if (!event.persisted) return;
+      suspended = false;
+      redraw();
+    });
+  }
+
+  function text(value) {
+    if (typeof value !== "string") return value;
+    for (const { alias, name } of cast.values())
+      if (name?.value) value = value.replace(alias, () => name.value);
+    return value;
+  }
+
+  return {
+    get key() {
+      return key;
+    },
+    revoke,
+    name: (id) => cast.get(id)?.name?.value,
+    source: (id, sleeping) => (sleeping ? null : cast.get(id)?.portrait.value),
+    text,
+    reader: (read) => (value) => text(read(value)),
+    observe(world, actor, line) {
+      const active = authorized && !suspended;
+      const here = world.actors[actor]?.place;
+      for (const [id, view] of cast) {
+        const nearby = Boolean(here && world.actors[id]?.place === here);
+        const { scatteredAt, returnedAt } = world.elysiumEncounters?.[id] || {};
+        // A new in-room introduction waits for its reply. A reload can use the saved Talk.
+        if (scatteredAt && !view.seenTalk) view.waiting = started && nearby;
+        if (!nearby || (line?.actorId === id && line.seq > scatteredAt))
+          view.waiting = false;
+        view.seenTalk = Boolean(scatteredAt);
+        const ready =
+          id === resident ? world.opened?.[spiral]?.length : returnedAt;
+        view.name?.observe(
+          active && scatteredAt && !view.waiting,
+          nearby,
+          world.revision,
+        );
+        view.portrait.observe(active && ready, nearby, world.revision);
+      }
+      started = true;
     },
   };
 }
