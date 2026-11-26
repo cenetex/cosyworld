@@ -1,5 +1,6 @@
 import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
 import {
+  ELYSIUM_PACK,
   elysiumModelMet,
   elysiumModelToken,
   isElysiumModel,
@@ -392,7 +393,6 @@ export function installPacks(s) {
   for (const home of Object.keys(humanHomeGates))
     for (const id of [`pond-${home}`, `${home}-pond`])
       if (!crossings.some((c) => c.id === id)) delete s.crossings[id];
-  // So does a known way through one.
   const ways = new Set(authoredRouteEdges().map((e) => e.join(">")));
   for (const [id, known] of Object.entries(s.routeKnowledge || {}))
     s.routeKnowledge[id] = known.filter(
@@ -408,7 +408,7 @@ export function installPacks(s) {
       }
     }
     const previous = s.packs[pack.id];
-    const extendElysium = pack.id === "elysium" && previous?.revision < pack.revision;
+    const extendElysium = pack.id === ELYSIUM_PACK && previous?.revision < pack.revision;
     if (previous && !extendElysium) continue;
     if (!previous) {
       s.packs[pack.id] = newPackRecord(pack);

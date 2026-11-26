@@ -1,4 +1,5 @@
 import { heldItem } from "../held-item.mjs";
+import { ELYSIUM_ENTRY, ELYSIUM_PACK } from "../elysium-models.mjs";
 import { currentActor, humanAvatarIds, humanPresent } from "../human-cast.mjs";
 import { entityActive, packIdOf } from "../pack-registry.mjs";
 import { DAYLIGHT_TURNS, runHash } from "../pack-rules.mjs";
@@ -7,10 +8,9 @@ import { exits } from "./geography.mjs";
 import { itemPlace } from "./items.mjs";
 
 const WAYFINDER = "elysium-wayfinder";
-const ENTRY = "elysium-void-001";
-const isElysium = (place) => packIdOf(place) === "elysium";
+const isElysium = (place) => packIdOf(place) === ELYSIUM_PACK;
 
-export const wayfinderPassage = (from, to) => to === ENTRY && !isElysium(from);
+export const wayfinderPassage = (from, to) => to === ELYSIUM_ENTRY && !isElysium(from);
 
 export const wayfinderExit = (world, from, actor) =>
   !isElysium(from) &&
@@ -19,7 +19,7 @@ export const wayfinderExit = (world, from, actor) =>
   world.items[WAYFINDER]?.holder === actor &&
   entityActive(world, WAYFINDER) &&
   heldItem(world, actor) === WAYFINDER
-    ? ENTRY
+    ? ELYSIUM_ENTRY
     : null;
 
 export function elysiumScatterLandings(world, actor = currentActor(world)) {
