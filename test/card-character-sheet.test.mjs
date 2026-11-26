@@ -12,14 +12,16 @@ describe("character sheet", () => {
     for (const id of ["keeper", "moth", "badger"]) countResidentQuest(s.actors.vale, id);
     holdChoice(s, "vale", { item: null, revision: s.revision });
     expect(characterSheet(s).cards).toEqual([]);
+    expect(characterSheet(s).slots).toEqual(Array(22).fill(null));
     expect(characterSheet(s).quests[0].words).not.toContain("The Fool");
     const action = legalActions(s).find((a) => a.label === "Collect");
     s = play(s, action, s.revision).state;
     const before = encodeSave(s), sheet = characterSheet(s);
     expect(sheet.cards.map((card) => card.name)).toEqual(["The Fool"]);
+    expect(sheet.slots).toEqual([sheet.cards[0], ...Array(21).fill(null)]);
     expect(sheet.level).toBe(1);
     expect(s.actors.vale.arcana.proved).toEqual([]);
-    expect(characterSheet(decodeSave(before)).cards).toEqual(sheet.cards);
+    expect(characterSheet(decodeSave(before)).slots).toEqual(sheet.slots);
     expect(encodeSave(s)).toBe(before);
   });
 
@@ -30,8 +32,13 @@ describe("character sheet", () => {
     const sheet = characterSheet(s);
     expect(sheet.cards.map((card) => card.id)).toEqual(["arcanum-0", "arcanum-2", "arcanum-10"]);
     expect(sheet.cards.every((card) => card.art && card.name)).toBe(true);
+    expect(sheet.slots).toHaveLength(22);
+    expect(sheet.slots.flatMap((card, i) => card ? [i] : [])).toEqual([0, 2, 10]);
+    expect(sheet.slots[1]).toBeNull();
+    expect(sheet.slots[21]).toBeNull();
     s.playerActorId = "mara";
     expect(characterSheet(s).cards.map((card) => card.id)).toEqual(["arcanum-1"]);
+    expect(characterSheet(s).slots.flatMap((card, i) => card ? [i] : [])).toEqual([1]);
     expect(characterSheet(s).name).toBe("Mara");
   });
 

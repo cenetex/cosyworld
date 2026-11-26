@@ -311,6 +311,6 @@
     "v2/card-game/weather-shader.mjs": 1,
     "v2/card-game/weather-view.mjs": 2,
     "v2/card-game/card-descriptor.mjs": 8,
-    "v2/card-game/character-sheet.mjs": 32
+    "v2/card-game/character-sheet.mjs": 30
   }
 }

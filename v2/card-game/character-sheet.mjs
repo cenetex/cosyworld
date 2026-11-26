@@ -7,6 +7,7 @@ import { arcanaCards } from "./world/catalog.mjs";
 import { recordOf, unlockedOf } from "./world/arcana-record.mjs";
 import { homeOf } from "./world/home.mjs";
 import { arcanumArt } from "./glimpse-card.mjs";
+import { TAROT_LOCKED_BACK } from "./locked-box.mjs";
 import { levelCards, questCards, questCaption, questHeading } from "./quest-card.mjs";
 import { MAX_RESOLVE } from "./combat-beats.mjs";
 import { imageUrl } from "./images.mjs";
@@ -16,6 +17,10 @@ import { notBehindOwners, tableQuests } from "./quest-hand.mjs";
 export function characterSheet(world, { known = () => false } = {}) {
   const actor = currentActor(world), person = world.actors[actor];
   const level = levelOf(world, actor), record = recordOf(world, actor);
+  const owned = new Set(unlockedOf(world, actor));
+  const slots = Object.keys(arcanaCards)
+    .sort((a, b) => arcanaCards[a].number - arcanaCards[b].number)
+    .map((id) => owned.has(id) ? { id, name: nameOf(id), art: arcanumArt(id) } : null);
   const resolve = standoffFor(world, actor)?.resolve[actor];
   const label = (id, hidden) => id && known(id) ? nameOf(id) : hidden;
   const tables = tableQuests(world, actor, availableCards(world).filter(known))
@@ -31,10 +36,8 @@ export function characterSheet(world, { known = () => false } = {}) {
       : person.sleeping || person.awake === false ? "Resting" : "Awake",
     visited: new Set((person.visited || []).filter(known)).size,
     items: carried(world, actor).map((id) => label(id, "An unrevealed item")),
-    total: Object.keys(arcanaCards).length,
-    cards: unlockedOf(world, actor)
-      .sort((a, b) => arcanaCards[a].number - arcanaCards[b].number)
-      .map((id) => ({ id, name: nameOf(id), art: arcanumArt(id) })),
+    total: slots.length,
+    cards: slots.filter(Boolean), slots,
     progress: record.need.length
       ? `${record.done.filter((id) => record.need.includes(id)).length} of ${record.need.length} required cards collected`
       : "",
@@ -86,20 +89,25 @@ export function characterSheetSection(sheet, { viewCard, persona }) {
   heading.append(element("h3", "", "Tarot collection"),
     element("span", "sheet-count", `${sheet.cards.length} / ${sheet.total}`));
   tarot.append(heading);
-  if (!sheet.cards.length) tarot.append(element("p", "sheet-note", "No cards yet."));
   const deck = element("div", "sheet-deck");
-  for (const card of sheet.cards) {
-    const button = element("button", "sheet-tarot");
-    button.type = "button";
-    button.dataset.tarot = card.id;
-    button.setAttribute("aria-label", `View ${card.name}`);
-    button.onclick = () => viewCard(card.id, card.art);
+  for (const card of sheet.slots) {
+    const tile = element(card ? "button" : "div", "sheet-tarot");
+    if (card) {
+      tile.type = "button";
+      tile.dataset.tarot = card.id;
+      tile.title = card.name;
+      tile.setAttribute("aria-label", `View ${card.name}`);
+      tile.onclick = () => viewCard(card.id, card.art);
+    } else {
+      tile.dataset.locked = "true";
+      tile.setAttribute("aria-hidden", "true");
+    }
     const art = element("img");
     art.alt = "";
     art.loading = "lazy";
-    art.src = imageUrl(card.art, "card");
-    button.append(art, element("span", "", card.name));
-    deck.append(button);
+    art.src = imageUrl(card?.art ?? TAROT_LOCKED_BACK, "card");
+    tile.append(art);
+    deck.append(tile);
   }
   tarot.append(deck);
   const quests = element("section", "sheet-section");

@@ -464,6 +464,19 @@ try {
       const owned = collection.getByRole("button", { name: "View The Fool", exact: true });
       await owned.waitFor();
       assert.equal(await collection.getByRole("button").count(), 1);
+      const tiles = collection.locator(".sheet-deck > .sheet-tarot");
+      const locked = tiles.filter({ has: page.locator('img[src*="tarot-back-locked"]') });
+      assert.equal(await tiles.count(), 22);
+      assert.equal(await locked.count(), 21);
+      assert.equal(await tiles.first().getAttribute("data-tarot"), "arcanum-0");
+      assert.equal(await locked.first().getAttribute("aria-hidden"), "true");
+      assert.equal(await locked.first().getAttribute("data-tarot"), null);
+      assert.equal(await locked.first().evaluate((el) => el.tagName), "DIV");
+      assert.equal(await locked.first().evaluate((el) => el.tabIndex), -1);
+      assert.equal(await collection.locator(".sheet-count").textContent(), "1 / 22");
+      const cardBox = await owned.boundingBox();
+      assert(cardBox.width >= 40 && cardBox.width <= 64, "compact tarot tile");
+      assert(cardBox.height < 100, "compact tarot tile height");
       assert.match(await sheet.locator(".sheet-level").textContent(), /Level I · Common/u);
       assert.doesNotMatch(await collection.innerText(), /Carry nothing|Discard|Level Up|Yours to keep|later quest spreads/u);
       assert.equal(await sheet.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true);
@@ -484,6 +497,8 @@ try {
       await page.locator("#toolbar-menu-button").click();
       await page.getByRole("button", { name: "Character", exact: true }).click();
       await owned.waitFor();
+      assert.equal(await tiles.count(), 22);
+      assert.equal(await locked.count(), 21);
       await page.keyboard.press("Escape");
       assert.deepEqual(t.errors, []);
       await page.close();
