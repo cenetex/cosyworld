@@ -61,11 +61,12 @@ const termsOf = (w) => w && [w.kind, w.target];
 describe("schema", () => {
   const attempt = (patch) => {
     const p = structuredClone(packDefinition("greek-drama"));
+    delete p.items["greek-household-token"].teachesQuest;
     patch(p.avatars[R]);
     return validatePackDefinition(p);
   };
   it("accepts one to three staged wants and the single want as before", () => {
-    expect(() => attempt(() => {})).not.toThrow();
+    expect(() => validatePackDefinition(packDefinition("greek-drama"))).not.toThrow();
     for (const n of [1, 2, 3])
       expect(() =>
         attempt((a) => {
@@ -137,6 +138,7 @@ describe("schema", () => {
   });
   it("warns, without failing, when a give choice takes a staged gift", () => {
     const p = structuredClone(packDefinition("greek-drama"));
+    delete p.items["greek-household-token"].teachesQuest;
     delete p.avatars[R].want;
     p.avatars[R].wants = [item("greek-figs")];
     p.choices.push({

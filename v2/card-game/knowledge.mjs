@@ -531,20 +531,20 @@ export function knowledgeFacts(
     if (fact.source.kind === "claim") {
       const author = nameOf(fact.source.author);
       const from = `${nameOf(fact.source.book)}, by ${author}`;
-      const teller = nameOf(memory.teller),
+      const claimTeller = nameOf(memory.teller),
         that = fact.text.replace(/[.!?。！？]$/u, "");
       const settled = {
         confirmed: [
           memory.kind === "read"
             ? `I read this in ${from}, and I know it is true: ${fact.text}`
-            : `${teller} told me this from ${from}, and I know it is true: ${fact.text}`,
+            : `${claimTeller} told me this from ${from}, and I know it is true: ${fact.text}`,
           `I know what ${author} wrote is true: ${fact.text}`,
           `${author} wrote truly: ${fact.text}`,
         ],
         disproved: [
           memory.kind === "read"
             ? `I read in ${from}, that ${that}; it was wrong.`
-            : `${teller} told me that ${from}, says ${that}; it was wrong.`,
+            : `${claimTeller} told me that ${from}, says ${that}; it was wrong.`,
           `${author} wrote that ${that}; it was wrong.`,
           `${author} was wrong: ${fact.text}`,
         ],
@@ -557,32 +557,30 @@ export function knowledgeFacts(
               `I read what ${author} wrote: ${fact.text}`,
             ]
           : [
-              `${teller} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
-              `${teller} told me what ${author} wrote: ${fact.text}`,
+              `${claimTeller} told me this ${ageText(age)}, from ${from}: ${fact.text}`,
+              `${claimTeller} told me what ${author} wrote: ${fact.text}`,
               heardClaim(author, fact.text),
             ]);
       const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
       return fits ?? lines.at(-1).slice(0, FACT_LINE_LIMIT);
     }
-    const origin = memory.kind === "read" ? "I read"
-      : memory.kind === "witnessed" ? "I witnessed" : `${nameOf(memory.teller)} told me`;
-    const place = fact.source.kind === "topic" ? null : fact.source.locationId;
-    const where =
-      place && !fact.text.includes(nameOf(place)) ? ` at ${nameOf(place)}` : "";
-    const retold = fact.source.kind === "quest" && memory.kind === "heard" && memory.teller !== fact.source.actorId;
-    const heardAt = retold && world.log?.find((e) => e.seq === memory.eventSeq)?.locationId;
-    const learnedWhere = memory.kind === "read" ? ` in ${nameOf(memory.book)}`
-      : retold ? (heardAt ? ` at ${nameOf(heardAt)}` : "") : where;
-    const source = retold ? ` ${nameOf(fact.source.actorId)} made the request${where}.` : "";
-    // Authored topics and finished stories hold. Witnessed events, such as
-    // who carried what where, can go stale, and saying so keeps an old
-    // account honest instead of a quiet lie.
     const stale =
       (fact.source.kind === "event" && age >= STALE_TURNS) ||
       (fact.source.kind === "quest" && !protectedFact(fact, world))
         ? " Things may have changed since."
         : "";
-    return `${origin} this ${ageText(age)}${learnedWhere}: ${fact.text}${source}${stale}`.slice(
+    if (memory.kind === "read")
+      return `I read this ${ageText(age)} in ${nameOf(memory.book)}: ${fact.text}${stale}`.slice(0, FACT_LINE_LIMIT);
+    const origin = memory.kind === "witnessed"
+      ? "I witnessed" : `${nameOf(memory.teller)} told me`;
+    const place = fact.source.kind === "topic" ? null : fact.source.locationId;
+    const where =
+      place && !fact.text.includes(nameOf(place)) ? ` at ${nameOf(place)}` : "";
+    const retold = fact.source.kind === "quest" && memory.kind === "heard" && memory.teller !== fact.source.actorId;
+    const heardAt = retold && world.log?.find((e) => e.seq === memory.eventSeq)?.locationId;
+    const heardWhere = retold ? (heardAt ? ` at ${nameOf(heardAt)}` : "") : where;
+    const source = retold ? ` ${nameOf(fact.source.actorId)} made the request${where}.` : "";
+    return `${origin} this ${ageText(age)}${heardWhere}: ${fact.text}${source}${stale}`.slice(
       0,
       240,
     );
