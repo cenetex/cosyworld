@@ -43,7 +43,11 @@ function act(s, pick, who = "vale") {
   return result.state;
 }
 const collect = (s) =>
-  act(s, (a) => a.kind === "accept" && a.tarot !== undefined);
+  act(
+    s,
+    (a) =>
+      a.kind === "accept" && a.tarot !== undefined && a.label === "Collect",
+  );
 const wait = (s) => act(s, (a) => a.kind === "wait" && !a.sleep);
 function quiet(s) {
   for (const id of ["moth", "keeper"])
@@ -76,10 +80,11 @@ function visit(s) {
   s.actors.listener.place = s.actors.vale.place;
   return act(s, (a) => a.kind === "talk" && a.target === "listener");
 }
-function helpThree(s) {
-  s.actors.vale.arcana.calls = 3;
-  return wait(s);
-}
+const turnOver = (s) =>
+  act(
+    s,
+    (a) => a.kind === "accept" && a.tarot === 0 && a.label === "Turn over",
+  );
 function leveledFool(cards) {
   let s = createWorld({ seed: 3 });
   const far = legalActions(s, "vale").find((a) => a.kind === "move").target;
@@ -89,7 +94,7 @@ function leveledFool(cards) {
   s.actors.vale.place = far;
   settleArcana(s, "vale");
   expect(recordOf(s, "vale").spread[0].done).toBeUndefined();
-  s = collect(helpThree(s));
+  s = collect(turnOver(s));
   expect(levelOf(s, "vale")).toBe(1);
   s.actors.vale.place = homeOf("vale");
   return quiet(s);
@@ -117,7 +122,7 @@ describe("travelers level by cards", () => {
       face: "down",
     });
     expect(levelOf(s, "vale")).toBe(0);
-    s = helpThree(s);
+    s = turnOver(s);
     expect(levelOf(s, "vale")).toBe(0);
     s = collect(s);
     expect(recordOf(s, "vale").proved).toEqual([]);

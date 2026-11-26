@@ -34,25 +34,25 @@ const holding = (face = "down") => {
   };
   return s;
 };
-const reveal = () => {
-  const s = holding();
-  const action = legalActions(s, "vale").find(
-    (a) => a.kind === "talk" && a.target === "listener",
-  );
-  expect(action).toBeTruthy();
+function act(s, pick) {
+  const action = legalActions(s, "vale").find(pick);
+  expect(action, "a legal play").toBeTruthy();
   const result = play(s, action, s.revision, "vale");
   expect(result.ok, result.error).toBe(true);
   return result.state;
-};
-
-const collect = (s) => {
-  const action = legalActions(s, "vale").find(
-    (a) => a.kind === "accept" && a.tarot !== undefined,
+}
+const turnOver = (s) =>
+  act(
+    s,
+    (a) => a.kind === "accept" && a.tarot === 0 && a.label === "Turn over",
   );
-  const result = play(s, action, s.revision, "vale");
-  expect(result.ok, result.error).toBe(true);
-  return result.state;
-};
+const reveal = () => turnOver(holding());
+const collect = (s) =>
+  act(
+    s,
+    (a) =>
+      a.kind === "accept" && a.tarot !== undefined && a.label === "Collect",
+  );
 
 describe("the revealed tarot pack", () => {
   it("collects an unlocked reward without awarding its later quest proof", () => {
@@ -101,6 +101,15 @@ describe("the revealed tarot pack", () => {
     expect(fresh.actors.vale.upgrades).toContain(FOOL);
     expect(recordOf(fresh, "vale").proved).toEqual([]);
     expect(arcanaLevel(fresh, "vale")).toBe(0);
+    fresh.actors.vale.arcana = { proved: [], did: [], calls: 3 };
+    const dealt = act(
+      fresh,
+      (a) => a.kind === "talk" && a.target === "listener",
+    );
+    expect(recordOf(dealt, "vale").spread[0].face).toBe("down");
+    const leveled = collect(turnOver(dealt));
+    expect(arcanaLevel(leveled, "vale")).toBe(1);
+    expect(leveled.actors.vale.upgrades).toEqual([FOOL]);
   });
 
   it("draws a revealed Fool again with at most one unfamiliar card", () => {

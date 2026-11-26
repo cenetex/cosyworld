@@ -3,6 +3,7 @@ import { lockedStack, syncStackFrame, tableHolder, tableType } from "./mystery-v
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
+import { firstFoolBeat, firstFoolNote } from "./first-fool-view.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
 import { createElysiumPortrait } from "./elysium-portrait.mjs";
 import { heldItem } from "./held-item.mjs";
@@ -585,7 +586,7 @@ const questEntry = (id) => questEntries().find((entry) => entry.id === id);
 const pickedQuest = () => (questOpen && questEntry(questOpen)?.quest) || null;
 const tarotKeys = () => questEntries().map((entry) => entry.id).filter(isTarotKey);
 const withheldTarot = (cards = levelCards(world)) =>
-  listenerCardHeld ? cards.findLast((card) => card.face === "down")?.index : undefined;
+  listenerCardHeld ? (cards.find((card) => card.turnable) ?? cards.findLast((card) => card.face === "down"))?.index : undefined;
 const cardArt = (id) =>
   packMedia(id, "art") ||
   (things[id]?.art ? `./${things[id].art}` : `./assets/${id}-card.png`);
@@ -1455,6 +1456,8 @@ window.addEventListener("pagehide", () => {
   hum.setHidden(true);
   sfx.setHidden(true);
 });
+let leavingReading = false;
+const leaveReading = () => { leavingReading = true; };
 window.addEventListener("pageshow", hideAudio);
 const narrator = createNarrator({
   getWorld: () => world,
@@ -1513,12 +1516,17 @@ const narrator = createNarrator({
     storyStatus = value === "failed" ? "ready" : value;
     if (value !== "pending" && playQueue.pending)
       queueMicrotask(() => playQueue.flush());
-    if (value === "pending") rememberWords(world.revision, true, narrator.pendingCast());
+    if (value === "pending") {
+      leavingReading = false;
+      rememberWords(world.revision, true, narrator.pendingCast());
+      if (listenerDeal(world, currentActor(world)))
+        window.addEventListener("beforeunload", leaveReading);
+    } else window.removeEventListener("beforeunload", leaveReading);
     if (value === "pending" && !exchange.active) exchange.begin();
     if (value === "failed") {
       if (error?.code === "mismatch") count("voice.mismatch");
       lineHeard(null);
-      rememberWords(world.revision);
+      if (!leavingReading) rememberWords(world.revision);
       showFailedSilence();
       return;
     }
@@ -1823,11 +1831,11 @@ function uncover(
 // Every card turn plays its reveal, chime and flip at its tier
 // (pack-opening.mjs turnPlan). A card turned from a pack, by a tap, by its
 // speaker's line or by the rules opening its lock all take this one path.
-function turnCard(button) {
-  const plan = turnPlan(button.dataset.tier, { reduced: reducedMotion.matches }),
+function turnCard(button, { lid, tier = button.dataset.tier } = {}) {
+  const plan = turnPlan(tier, { reduced: reducedMotion.matches }),
     id = button.dataset.card ?? button.dataset.questKey ?? "";
   sfx.cardTurn(plan, [...id].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 7));
-  return revealCard(button);
+  return revealCard(button, { lid, tier });
 }
 // The pack, in three moves: tap the stack (open), turn cards (a tap, or
 // Reveal all), Done (settle back). The page only wires them to the card
@@ -2163,11 +2171,17 @@ function performAction(action, revision) {
     render();
     return;
   }
-  // Switching a pack passes no turn and leaves the scene and its speech be.
-  if (action.kind === "pack") {
+  const tarot = action.kind === "accept" && action.tarot !== undefined;
+  if (action.kind === "pack" || tarot) {
     world = result.state;
+    if (tarot) {
+      lastPlayAt = performance.now();
+      restedChoice = null;
+      notice("");
+    }
     save();
     render();
+    if (tarot) restoreHandFocus();
     return;
   }
   reveal.finish();
@@ -2931,10 +2945,10 @@ function renderActions() {
   const questAction = pickedQuestAction(picked, picked ? legalActions(world) : [], revision, abandonQuest);
   if (abandonQuest !== questAction?.confirmKey) abandonQuest = null;
   if (questAction) {
-    const { action, label, collect, confirmKey } = questAction;
-    const button = node("button", label, collect ? "card-primary" : "card-action");
+    const { action, label, confirmKey } = questAction;
+    const button = node("button", label, confirmKey ? "card-action" : "card-primary");
     button.type = "button";
-    if (collect) button.dataset.action = action.kind;
+    if (!confirmKey) button.dataset.action = action.kind;
     else {
       button.dataset.dropQuest = String(picked.index);
       button.dataset.destructive = "";
@@ -2943,14 +2957,14 @@ function renderActions() {
     button.disabled = selectionBlocked();
     button.onclick = () => {
       if (performance.now() - heldAt < TAP_GUARD_MS) return;
-      if (!collect && !abandonQuest) {
+      if (confirmKey && !abandonQuest) {
         abandonQuest = confirmKey;
         renderActions();
         row.lastElementChild?.focus();
         return;
       }
       abandonQuest = null;
-      if (!collect) questOpen = false;
+      if (confirmKey) questOpen = false;
       commitAction(action, revision);
     };
     row.append(button);
@@ -3056,7 +3070,7 @@ function renderActions() {
     } else panel.dataset.cardTap = "hint";
   }
   const note = document.querySelector(".action-beat-note");
-  let noteText = "";
+  let noteText = !rested && !packAsk && !lockShown && !picked && !pipPrelude() ? firstFoolNote(world, known) : "";
   if (abandonQuest) {
     panel.dataset.tier = "danger";
     panel.style.setProperty("--tier-color", "var(--danger)");
@@ -3559,7 +3573,7 @@ function questFrame({ id, quest }) {
   const hidden = questCovered(quest),
     tier = questTier(quest, world, known),
     verb = questVerb(world, quest, hidden),
-    near = !hidden && !covered && questNear(world, quest);
+    near = !covered && (quest.reading || (!hidden && questNear(world, quest)));
   const el = node("button", undefined, "card want-card");
   el.type = "button";
   el.disabled = selectionBlocked();
@@ -4217,8 +4231,9 @@ function renderScene() {
       frontIndex = beats.findIndex((beat) => beat.line?.seq === lineSeq);
   }
   if (frontIndex < 0) frontIndex = dreamt.front >= 0 ? dreamt.front : liveIndex;
-  const front =
+  let front =
     frontIndex === beats.length ? pendingCard : beats[frontIndex] || null;
+  if (!reviewing && !pipPrelude()) front = firstFoolBeat(world, front, known, beats);
   const behind = frontIndex > 0 ? beats[frontIndex - 1] : null;
   const behindLive = reviewing && (frontIndex < liveIndex || choiceInStack());
   stackView = { beats, frontIndex, liveIndex, pending: pendingCard };
@@ -4901,6 +4916,7 @@ function render() {
   for (let i = metWants(world.log, questSeq, currentActor(world)); i > 0; i--)
     count("quest.met");
   questSeq = world.eventSeq;
+  const awaitingReading = listenerCardHeld;
   listenerCardHeld = listenerCardPending();
   const tarots = levelCards(world);
   const withheld = withheldTarot(tarots);
@@ -4912,6 +4928,8 @@ function render() {
   const dealtQuest = liveQuests.find(
     (quest) => questVisible(world, quest) && !shownQuests.some((shown) => shown.key === quest.key),
   );
+  const turning = shownQuests.some((quest) => quest.turnable && quest.key === questOpen);
+  const turned = turning && liveQuests.find((quest) => quest.reading && quest.face === "reward");
   const shownCards = [...$("hand").querySelectorAll(".card[data-card]")].map(
       (el) => ({ id: el.dataset.card, entry: el.dataset.questEntry }),
     ),
@@ -4921,11 +4939,17 @@ function render() {
   if (!shownQuests.length && liveQuests.length && renderedHand)
     questFresh = true;
   shownQuests = liveQuests;
+  if (dealtQuest?.turnable) encountered.add(entryIdOf(dealtQuest));
   if (heldSource?.offer)
     $("hand").querySelector(`[data-card="${heldSource.id}"]`).parentElement.dataset.gone = "true";
-  if (heldSource?.handed) {
+  const handed = heldSource?.handed || (awaitingReading && dealtQuest?.turnable);
+  if (turned || handed) {
     selected = [];
-    questOpen = entryIdOf(dealtQuest);
+    questOpen = entryIdOf(turned || dealtQuest);
+    if (turned) {
+      uncover(questOpen, { batch: true });
+      restedChoice = null;
+    }
     questFresh = false;
     rowCollapsed = false;
     expandedHolders.add(currentActor(world));
@@ -5135,9 +5159,10 @@ function render() {
       // The hand a page, a resumed save or a new game opens on is dealt.
       { reduced: reducedMotion.matches, after: swap ? entering : closing.enter },
     );
-    showQuests(opening || Boolean(heldSource?.handed));
+    showQuests(opening || Boolean(handed));
     // A new quest rises where the player can see its slot in the hand.
     if (dealtQuest && !opening) revealHandCard(entryIdOf(dealtQuest), { instant: true });
+    if (turned) void turnCard(handCard(entryIdOf(turned)), { lid: imageUrl(TAROT_LOCKED_BACK, "card"), tier: "rare" });
     // Every new place is measured before any card starts moving, so the
     // row is laid out once rather than once per card.
     const moves = [];
@@ -5198,8 +5223,8 @@ function render() {
   renderScene();
   renderLog();
   updateCardCooldown();
-  if (heldSource?.handed)
-    $("hand").querySelector(".want-frame > .want-card")?.focus({ preventScroll: true });
+  if (turned || handed)
+    handCard(questOpen)?.focus({ preventScroll: true });
   else if (focused) {
     const frame = $("hand")
       .querySelector(`[data-card="${focused}"]`)
@@ -5660,6 +5685,14 @@ function resumeScene({ otherTab = false } = {}) {
   if (openingWordsDue()) save();
   let words = wordsOnLoad();
   if (words === "pending" && !otherTab) {
+    if (!saveBlocked && listenerDeal(world, currentActor(world))) {
+      lineSeq = null;
+      storyStatus = "pending";
+      exchange.begin();
+      render();
+      narrator.changed(null, { remaining: pendingCast() || true });
+      return;
+    }
     rememberWords(world.revision);
     words = "silent";
   }

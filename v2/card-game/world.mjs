@@ -491,7 +491,7 @@ import {
 export { placeText, exits, sealedWays };
 import { boxIdOpen, creditOpened, validOpened } from "./world/boxes.mjs";
 import {
-  collectTarot,
+  acceptTarot,
   discardTarot,
   dreamCard,
   installArcana,
@@ -3302,7 +3302,7 @@ export function play(
   const next = structuredClone(s);
   if (exact.kind === "accept") {
     if (exact.tarot !== undefined)
-      collectTarot(next, actor, exact.tarot, (text, detail) => addLog(next, "World", text, detail));
+      acceptTarot(next, actor, exact.tarot, (text, detail) => addLog(next, "World", text, detail));
     else {
       const asked = exact.box
         ? boxOffer(next, exact.box, actor)
@@ -3943,6 +3943,7 @@ export function validateWorld(s) {
     "talk",
     "wait",
     "trade",
+    "accept",
     "choose",
     "use",
     "read",

@@ -44,8 +44,9 @@ This section proposes how the decisions work in the rules. Where a point rests o
 
 ### A person's avatar
 
-- The Listener deals the first Fool face down behind the avatar. A Talk with
-  the Listener while called turns it over.
+- Helping three distinct residents with goals you know brings the Listener.
+  Talk to hear the reading and receive the first Fool face down. Once the
+  reading ends, turn over the card and collect it to reach level 1.
 - Later spreads have up to three cards. A spread can include a known card at
   the current scale, a known bonus and an unfamiliar locked card. If the
   unfamiliar pool is exhausted, a known card can return locked at the next

@@ -205,7 +205,7 @@
       "smokes": ["smoke-card-voice"]
     },
     {
-      "paths": "^v2/card-game/(world/arcana|scene-cast|quest-card)\\.mjs$|^v2/scripts/smoke-card-listener\\.mjs$",
+      "paths": "^v2/card-game/(world/arcana(-record)?|scene-cast|quest-card|first-fool-view)\\.mjs$|^v2/scripts/smoke-card-listener\\.mjs$",
       "smokes": ["smoke-card-listener"]
     },
     {

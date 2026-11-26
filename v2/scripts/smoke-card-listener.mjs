@@ -4,7 +4,11 @@ import { profiles } from "../card-game/memory.mjs";
 import { createServer } from "../card-game/serve.mjs";
 import { dispatchShared } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave } from "../card-game/world.mjs";
-import { readyActionButton, selectCard } from "./card-browser-helpers.mjs";
+import {
+  actionLabel,
+  readyActionButton,
+  selectCard,
+} from "./card-browser-helpers.mjs";
 
 function calledWorld() {
   const world = createWorld({ seed: 5 });
@@ -24,6 +28,44 @@ const read = (page, text) =>
     text,
   );
 const questFold = (page) => page.locator("#hand .quest-fold:not([data-owner])");
+const tarotCard = (page, face) =>
+  page.locator(`#hand .want-card[data-face="${face}"]`);
+
+async function waitingForReading(page) {
+  assert.equal(
+    await questFold(page).count(),
+    0,
+    "the reading still holds the dealt card back",
+  );
+  assert.equal(await tarotCard(page, "down").count(), 0);
+  assert.equal(await tarotCard(page, "reward").count(), 0);
+}
+
+async function turnAndCollect(page, touch = false) {
+  const held = tarotCard(page, "down");
+  await held.waitFor();
+  const preview = page.locator('#action-beat [data-kind="arcanum"] > img');
+  await preview.waitFor();
+  const back = await held.locator(".card-back").getAttribute("src");
+  assert.match(back, /tarot-back-locked/u);
+  assert.equal(await preview.getAttribute("src"), back);
+  await preview.evaluate((img) => img.decode());
+
+  const button = readyActionButton(page, "accept");
+  const press = () => (touch ? button.tap() : button.click());
+  await button.waitFor();
+  assert.equal(await actionLabel(button), "Turn over");
+  await press();
+  const reward = tarotCard(page, "reward");
+  await reward.waitFor();
+  const art = reward.locator(".art > img");
+  assert.match(await art.getAttribute("src"), /arcanum-0/u);
+  await art.evaluate((img) => img.decode());
+  await button.waitFor();
+  assert.equal(await actionLabel(button), "Collect");
+  await press();
+  await reward.waitFor({ state: "detached" });
+}
 
 async function checkShared(browser, origin) {
   const id = "listener-shared";
@@ -95,8 +137,7 @@ async function checkShared(browser, origin) {
   await selectCard(page, "listener");
   await readyActionButton(page, "talk").click();
   await page.locator('#speech-row[data-beat="pending"]').waitFor();
-  const fold = questFold(page);
-  assert.equal(await fold.count(), 0, "the shared deal waits for its lines");
+  await waitingForReading(page);
   const speech = request("speech", {
     room: "pond",
     lines: Object.entries(words).map(([actorId, text]) => ({ actorId, text })),
@@ -112,14 +153,11 @@ async function checkShared(browser, origin) {
     },
   ];
   await read(page, words.vale);
-  assert.equal(
-    await fold.count(),
-    0,
-    "the shared deal waits for the Listener's line",
-  );
+  await waitingForReading(page);
   await page.locator("#dialogue-advance").click();
   await read(page, words.listener);
-  await fold.waitFor();
+  await turnAndCollect(page);
+  assert(world.actors.vale.upgrades.includes("arcanum-0"));
   await page.close();
 }
 
@@ -142,13 +180,15 @@ try {
     page.setDefaultTimeout(15000);
     await page.addInitScript(
       ({ key, save }) => {
-        localStorage.setItem(key, save);
+        if (!localStorage.getItem(key)) localStorage.setItem(key, save);
         localStorage.setItem("cosyworld.dialogue.sound", "off");
       },
       { key: `cosyworld.reflected-shore.v1.${table}`, save: encodeSave(world) },
     );
     const response = Promise.withResolvers();
+    let requests = 0;
     await page.route("**/card-game/text", async (route) => {
+      if (++requests === 1 && width === 390) return;
       await response.promise;
       await route.fulfill({
         json: {
@@ -163,7 +203,6 @@ try {
     const request = page.waitForRequest("**/card-game/text");
     await readyActionButton(page, "talk").click();
     const input = (await request).postDataJSON();
-    const fold = questFold(page);
     assert.deepEqual(input.speakers, ["vale", "listener"]);
     assert.match(
       input.events.join(" "),
@@ -171,14 +210,25 @@ try {
     );
     await page.locator('#speech-row[data-beat="pending"]').waitFor();
     await page.locator('#cast [data-avatar="listener"]').waitFor();
-    assert.equal(
-      await fold.count(),
-      0,
-      "the card waits while the reading is being written",
-    );
+    await waitingForReading(page);
+    if (width === 390) {
+      const resumed = page.waitForRequest("**/card-game/text");
+      await page.reload();
+      assert.deepEqual((await resumed).postDataJSON().speakers, input.speakers);
+      await page.locator('#speech-row[data-beat="pending"]').waitFor();
+      await waitingForReading(page);
+    }
+    const mobileHandoff =
+      width === 390 &&
+      page.waitForFunction(
+        () =>
+          document.querySelector('#hand .want-card[data-face="down"]') && {
+            line: document.querySelector("#dialogue-text").textContent,
+          },
+      );
     response.resolve();
     await read(page, words.vale);
-    assert.equal(await fold.count(), 0, "Vale speaks before the deal");
+    await waitingForReading(page);
     const advance = page.locator("#dialogue-advance");
     const continueReading = () =>
       width === 390 ? advance.tap() : advance.click();
@@ -188,38 +238,23 @@ try {
       await page.locator("#speaker-portrait").getAttribute("data-entity"),
       "listener",
     );
-    assert.equal(
-      await fold.count(),
-      0,
-      "the Listener finishes the reading before the deal",
-    );
-    await continueReading();
-    await fold.waitFor();
-    assert.match(
-      await fold.evaluate((el) => getComputedStyle(el).backgroundImage),
-      /tarot-back-locked/u,
-    );
-    await fold.press("Enter");
-    const held = page.locator(
-      '#hand [data-quest-id="tarot:vale:down:0"] .want-card',
-    );
-    await held.waitFor();
-    const preview = page.locator('#action-beat [data-kind="arcanum"] > img');
-    await preview.waitFor();
-    assert.match(
-      await held.locator(".card-back").getAttribute("src"),
-      /tarot-back-locked/u,
-    );
-    assert.equal(
-      await preview.getAttribute("src"),
-      await held.locator(".card-back").getAttribute("src"),
-    );
-    await preview.evaluate((img) => img.decode());
+    if (mobileHandoff) {
+      const { line } = await (await mobileHandoff).jsonValue();
+      assert.equal(
+        line,
+        words.listener,
+        "the resumed Listener line is readable before the deal",
+      );
+    } else {
+      await waitingForReading(page);
+      await continueReading();
+    }
+    await turnAndCollect(page, width === 390);
     await page.close();
   }
   await checkShared(browser, origin);
   console.log(
-    "The Listener reads before dealing the face-down card on desktop, mobile, and a shared table.",
+    "The Listener finishes the reading before the first Fool can be turned and collected on desktop, mobile, and a shared table.",
   );
 } finally {
   await browser.close();
