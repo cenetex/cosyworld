@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { describe, expect, it } from "vitest";
@@ -60,14 +61,17 @@ const migrated = (s, base) => {
     did: [],
   });
 };
+const base = "fe3a196198afd5a6b1dd2c02c2f1c0f280a26f23";
+const contentPath = "v2/orchestrator-rust/src/card_shared/content.json";
+const priorContent = JSON.parse(
+  execFileSync("git", ["show", `${base}:${contentPath}`], { encoding: "utf8" }),
+);
 const engine = (version) => {
   const dir = new URL(
     "../v2/orchestrator-rust/src/card_shared/",
     import.meta.url,
   );
-  const cardContent = JSON.parse(
-    readFileSync(new URL("content.json", dir), "utf8"),
-  );
+  const cardContent = structuredClone(priorContent);
   if ([189, 194].includes(version))
     cardContent.files["v2/card-game/forest.json"].people.keeper.want = {
       kind: "item",
