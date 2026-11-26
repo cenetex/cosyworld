@@ -53,6 +53,7 @@ const NO_INVITE = {
   "greek-patroclus":
     "Patroclus starts aboard the Charybdis, where the only plays are the ship's course; the quay invites him once the ship has docked (card-greek-patroclus).",
   "willows-swede": "The Swede stays at camp until the kit is back (stayUntil).",
+  "elysium-resident": "The Silver Resident stays on Void 001 until the keystone is laid there (stayUntil).",
   boardyai: "Boardy's parlour has no way out; he visits by his own calls.",
   listener: "The Listener never leaves its box; it rolls between its stops alone.",
 };

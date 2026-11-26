@@ -29,6 +29,13 @@
           "hoppycat-archive"
         ]
       },
+      "elysium": {
+        "name": "Elysium",
+        "packs": [
+          "elysium"
+        ],
+        "reachedBy": "shore"
+      },
       "radio": {
         "name": "Night Shift at RatiRadio",
         "packs": [
@@ -108,6 +115,7 @@
     "hoppycat-archive",
     "willows",
     "lonely-forest",
-    "ratiradio"
+    "ratiradio",
+    "elysium"
   ]
 }

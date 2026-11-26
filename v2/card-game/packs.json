@@ -28,6 +28,13 @@
           "hoppycat-archive"
         ]
       },
+      "elysium": {
+        "name": "Elysium",
+        "packs": [
+          "elysium"
+        ],
+        "reachedBy": "shore"
+      },
       "radio": {
         "name": "Night Shift at RatiRadio",
         "packs": [
@@ -159,6 +166,14 @@
           "at": "station",
           "arrive": "ratiradio-staff-kitchen",
           "via": "station-ratiradio"
+        }
+      ],
+      "elysium": [
+        {
+          "joins": "hub",
+          "at": "pond",
+          "arrive": "elysium-void-001",
+          "via": "pond-elysium-void-001"
         }
       ]
     }
@@ -12443,6 +12458,182 @@
           "requires": []
         }
       ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "elysium",
+      "packId": "cosyworld.elysium",
+      "revision": 1,
+      "name": "Elysium",
+      "description": "Gold in the void. Stone nodes hang in the dark, joined by gold filaments. A Wayfinder shows the next path, and a keystone holds one open.",
+      "entry": "elysium-void-001",
+      "places": {
+        "elysium-void-001": {
+          "name": "Void 001",
+          "persona": "A bare stone node floating in deep darkness, its surface ringed with fine gold lines. Gold filaments run from it to distant floating nodes and to a gold spiral.",
+          "exits": [],
+          "backdrop": "assets/elysium/void-001.png"
+        },
+        "elysium-keystone-ledge": {
+          "name": "Keystone Ledge",
+          "persona": "A floating ledge of cracked black rock traced with gold lines. A low ring-shaped plinth stands near its edge. Gold filaments run out to spired islands and a distant gold spiral.",
+          "exits": [
+            "elysium-void-001"
+          ],
+          "backdrop": "assets/elysium/keystone-ledge.png",
+          "backdrops": [
+            {
+              "backdrop": "assets/elysium/keystone-ledge-empty.png",
+              "requires": [
+                {
+                  "kind": "not",
+                  "condition": {
+                    "kind": "item_at",
+                    "item": "elysium-keystone",
+                    "place": "elysium-keystone-ledge"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "elysium-gold-spiral": {
+          "name": "Gold Spiral",
+          "persona": "Gold filaments wind inward to a bright spiral among floating nodes. A large island of black rock hangs beside the spiral. One filament leads back to Void 001.",
+          "exits": [
+            "elysium-void-001"
+          ],
+          "backdrop": "assets/elysium/gold-spiral.png"
+        }
+      },
+      "avatars": {
+        "elysium-resident": {
+          "name": "The Silver Resident",
+          "seed": "The silver resident of Void 001, who listens before it speaks.",
+          "place": "elysium-void-001",
+          "home": "elysium-void-001",
+          "travels": false,
+          "stayUntil": [
+            {
+              "kind": "item_at",
+              "item": "elysium-keystone",
+              "place": "elysium-void-001"
+            }
+          ],
+          "portrait": "assets/elysium/resident.png",
+          "tastes": {
+            "likes": "Quiet, gold light and a path walked for the first time",
+            "sore": "A filament cut or a path left unfinished"
+          },
+          "wants": [
+            {
+              "want": {
+                "kind": "place",
+                "target": "elysium-void-001",
+                "step": {
+                  "verb": "lay",
+                  "items": [
+                    "elysium-keystone"
+                  ]
+                }
+              }
+            },
+            {
+              "want": {
+                "kind": "place",
+                "target": "elysium-gold-spiral"
+              },
+              "when": [
+                {
+                  "kind": "item_at",
+                  "item": "elysium-keystone",
+                  "place": "elysium-void-001"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "items": {
+        "elysium-wayfinder": {
+          "name": "Void Wayfinder",
+          "persona": "A dark obsidian compass ringed in silver. A single pale gold filament leans toward a path not yet walked.",
+          "holder": "elysium-void-001",
+          "art": "assets/elysium/wayfinder.png"
+        },
+        "elysium-keystone": {
+          "name": "Obsidian Keystone",
+          "persona": "A faceted black stone the size of a hand, split by one vein of gold. It fits the ring-shaped plinth on Keystone Ledge.",
+          "holder": "elysium-keystone-ledge",
+          "art": "assets/elysium/keystone.png"
+        }
+      },
+      "routes": [
+        {
+          "from": "elysium-void-001",
+          "to": "elysium-keystone-ledge",
+          "travelerRequires": [
+            {
+              "kind": "holding",
+              "item": "elysium-wayfinder",
+              "role": "actor"
+            }
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "item",
+              "target": "elysium-wayfinder"
+            }
+          }
+        },
+        {
+          "from": "elysium-void-001",
+          "to": "elysium-gold-spiral",
+          "requires": [
+            {
+              "kind": "item_at",
+              "item": "elysium-keystone",
+              "place": "elysium-void-001"
+            }
+          ],
+          "sealed": {
+            "quest": {
+              "kind": "place",
+              "target": "elysium-void-001"
+            }
+          }
+        }
+      ],
+      "bridge": {
+        "id": "pond-elysium",
+        "description": "A gold filament runs beneath the still water of Black pond to Void 001, and back again."
+      },
+      "crossings": [
+        {
+          "id": "pond-elysium-void-001",
+          "from": "pond",
+          "to": "elysium-void-001",
+          "travelers": "player",
+          "travel": "along the gold filament",
+          "requires": []
+        },
+        {
+          "id": "elysium-void-001-pond",
+          "from": "elysium-void-001",
+          "to": "pond",
+          "travelers": "player",
+          "travel": "back along the gold filament",
+          "requires": []
+        }
+      ],
+      "values": {
+        "elysium-resident": {
+          "lamp": 3,
+          "oil": 1,
+          "bell": 1,
+          "cloth": 1
+        }
+      }
     }
   ]
 }

@@ -25,7 +25,7 @@ it("spreads keepsakes across distinct enabled external worlds, deterministically
     expect(s.items["ratiradio-station-key"].holder).toBe("pond");
     expect(holders(decodeSave(encodeSave(s)))).toEqual(places);
   }
-  expect([...seen].sort()).toEqual(["badger-forest", "greek-drama", "hoppycat-archive", "hub", "lonely-forest", "willows"]);
+  expect([...seen].sort()).toEqual(["badger-forest", "elysium", "greek-drama", "hoppycat-archive", "hub", "lonely-forest", "willows"]);
 });
 
 
@@ -132,7 +132,7 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
   let s = createWorld({ seed: 1 });
   // This journey tests the scattered keepsake and real transport route, not gift refusal.
   s.actors.moth.trust.vale = 1;
-  expect(s.items["ratiradio-red-beanie"].holder).toBe("hoppycat-signal-jetty");
+  expect(s.items["ratiradio-raven-figurine"].holder).toBe("hoppycat-signal-jetty");
   const route = [
     ["take", "lamp"], ["move", "pond"],
     ["ask", "cloth"], ["hold", "cloth"], ["drop", "lamp"],
@@ -141,7 +141,7 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
     ["move", "greek-ship"], ["stow"], ["course", "greek-piraeus"], ["wait"], ["move", "greek-piraeus"],
     ["move", "greek-ship"], ["token"], ["course", "hoppycat-signal-jetty"], ["wait"],
     ["move", "hoppycat-signal-jetty"],
-    ["drop", "cloth"], ["take", "ratiradio-red-beanie"],
+    ["drop", "cloth"], ["take", "ratiradio-raven-figurine"],
     ["move", "greek-ship"], ["course", "pond"], ["wait"], ["move", "pond"],
   ];
   for (const [kind, id, target] of route) {
@@ -156,7 +156,7 @@ it("retrieves a naturally scattered Hoppy keepsake via Piraeus, not the retired 
     expect(result.ok, result.error).toBe(true);
     s = decodeSave(encodeSave(result.state));
   }
-  expect(s.items["ratiradio-red-beanie"].holder).toBe("vale");
+  expect(s.items["ratiradio-raven-figurine"].holder).toBe("vale");
   expect(s.actors.vale.place).toBe("pond");
   expect(s.crossings["hoppycat-pond-garden"].discovered).toBe(false);
 }, 15000);

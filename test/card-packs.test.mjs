@@ -78,6 +78,7 @@ describe("world packs on the card table", () => {
       "willows",
       "lonely-forest",
       "ratiradio",
+      "elysium",
       "shared-homes",
       "boardyai",
     ]);
