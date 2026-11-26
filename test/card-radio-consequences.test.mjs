@@ -190,11 +190,19 @@ const localRoutePlays = (index) =>
     57: [["drop", beanie]],
     59: [["take", beanie]],
   })[index] ?? [];
+const recordedPlacement = {
+  [beanie]: "station",
+  [thermos]: "clearing",
+  [figurine]: "forest-cottage",
+  [glass]: "greek-harbor",
+};
 it("reaches a local Raven return using the local NPC route and reloads every play", () => {
   let world = createWorld({ seed: 92 }),
     met,
     awakened,
     added = 0;
+  for (const [id, place] of Object.entries(recordedPlacement))
+    world.items[id].holder = place;
   for (const [index, command] of ravenTrace.localRoute.commands.entries()) {
     if (skipped.has(index)) continue;
     for (const [kind, to] of localRoutePlays(index)) {

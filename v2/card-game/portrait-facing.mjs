@@ -84,6 +84,7 @@ const groups = {
   front: [
     "assets/ratiradio/rati.webp",
     "assets/ratiradio/raven.webp",
+    "assets/elysium/resident.png",
     "assets/greek-drama/patroclus.png",
     "assets/greek-drama/patroclus-bread.png",
     "assets/sleep/residents/greek-patroclus-sleeping.png",

@@ -66,8 +66,7 @@ export const BENCH = [
 function bench(name) {
   return `settings/workbench-${name}.png`;
 }
-// The world's packs, by their switchable groups (pack-toggle.mjs), lead World. A pack card is lit while it is on; its
-// button switches it, or says why it can't.
+// World leads with a card per switchable pack group (pack-toggle.mjs), lit while on; its button switches it or says why not.
 export const PACKS = [
   ["cottage", "Cosy Cottage", "lonely-forest/cottage.png"],
   ["shore", "The Reflected Shore", "pond.png"],
@@ -78,6 +77,7 @@ export const PACKS = [
     "Hoppy Cat Universe",
     "hoppycat-archive/hoppycat-halfway-tea-garden.webp",
   ],
+  ["elysium", "Elysium", "elysium/void-001.png"],
 ];
 // The groups in hand order, [card, name, painting, the settings it holds].
 // Privacy is the first thing You holds, and You opens fanned.

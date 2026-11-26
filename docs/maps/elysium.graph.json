@@ -1,0 +1,225 @@
+{
+  "pack": "elysium",
+  "name": "Elysium",
+  "revision": 1,
+  "entry": "elysium-void-001",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "pond",
+      "arrive": "elysium-void-001",
+      "via": "pond-elysium-void-001"
+    }
+  ],
+  "space": {
+    "districts": [
+      {
+        "id": "d-elysium-void-001",
+        "name": "Void 001",
+        "places": [
+          "elysium-gold-spiral",
+          "elysium-keystone-ledge",
+          "elysium-void-001"
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "elysium-gold-spiral",
+        "name": "Gold Spiral",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "elysium-keystone-ledge",
+        "name": "Keystone Ledge",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "elysium-void-001",
+        "name": "Void 001",
+        "kind": "place",
+        "district": "d-elysium-void-001"
+      },
+      {
+        "id": "pond",
+        "name": "Black pond",
+        "kind": "hub"
+      }
+    ],
+    "edges": [
+      {
+        "from": "elysium-gold-spiral",
+        "to": "elysium-void-001",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-keystone-ledge",
+        "to": "elysium-void-001",
+        "kind": "exit",
+        "gate": null
+      },
+      {
+        "from": "elysium-void-001",
+        "to": "elysium-gold-spiral",
+        "kind": "route",
+        "gate": "route:elysium-void-001>elysium-gold-spiral"
+      },
+      {
+        "from": "elysium-void-001",
+        "to": "elysium-keystone-ledge",
+        "kind": "route",
+        "gate": "route:elysium-void-001>elysium-keystone-ledge"
+      },
+      {
+        "from": "elysium-void-001",
+        "to": "pond",
+        "kind": "crossing",
+        "gate": null
+      },
+      {
+        "from": "pond",
+        "to": "elysium-void-001",
+        "kind": "crossing",
+        "gate": null
+      }
+    ],
+    "retired": []
+  },
+  "mission": {
+    "gates": [
+      {
+        "id": "route:elysium-void-001>elysium-keystone-ledge",
+        "kind": "route",
+        "title": "Void 001 to Keystone Ledge",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "holding(item=elysium-wayfinder,role=actor)"
+            }
+          ]
+        },
+        "words": "the traveler holds Void Wayfinder",
+        "ids": "the traveler holds elysium-wayfinder",
+        "latch": [],
+        "live": [
+          "holding(item=elysium-wayfinder,role=actor)"
+        ],
+        "follows": "live",
+        "seal": {
+          "kind": "item",
+          "target": "elysium-wayfinder"
+        },
+        "prerequisites": {
+          "item": [
+            "elysium-wayfinder"
+          ]
+        }
+      },
+      {
+        "id": "route:elysium-void-001>elysium-gold-spiral",
+        "kind": "route",
+        "title": "Void 001 to Gold Spiral",
+        "cond": {
+          "op": "and",
+          "of": [
+            {
+              "op": "atom",
+              "atom": "item_at(item=elysium-keystone,place=elysium-void-001)"
+            }
+          ]
+        },
+        "words": "Obsidian Keystone lies at Void 001",
+        "ids": "elysium-keystone lies at elysium-void-001",
+        "latch": [],
+        "live": [
+          "item_at(item=elysium-keystone,place=elysium-void-001)"
+        ],
+        "follows": "live",
+        "seal": {
+          "kind": "place",
+          "target": "elysium-void-001"
+        },
+        "prerequisites": {
+          "item": [
+            "elysium-keystone"
+          ]
+        }
+      }
+    ],
+    "acts": [],
+    "wants": [
+      {
+        "avatar": "elysium-resident",
+        "kind": "place",
+        "target": "elysium-void-001",
+        "items": [
+          "elysium-keystone"
+        ]
+      },
+      {
+        "avatar": "elysium-resident",
+        "kind": "place",
+        "target": "elysium-gold-spiral",
+        "items": []
+      }
+    ],
+    "flags": {},
+    "items": [
+      {
+        "id": "elysium-wayfinder",
+        "name": "Void Wayfinder",
+        "holder": "elysium-void-001",
+        "consumedBy": [],
+        "readBy": [
+          "route:elysium-void-001>elysium-keystone-ledge"
+        ]
+      },
+      {
+        "id": "elysium-keystone",
+        "name": "Obsidian Keystone",
+        "holder": "elysium-keystone-ledge",
+        "consumedBy": [],
+        "readBy": [
+          "route:elysium-void-001>elysium-gold-spiral"
+        ]
+      }
+    ],
+    "needs": {
+      "route:elysium-void-001>elysium-gold-spiral": [
+        "item:elysium-keystone",
+        "place:elysium-void-001"
+      ],
+      "route:elysium-void-001>elysium-keystone-ledge": [
+        "item:elysium-wayfinder",
+        "resident:undefined"
+      ],
+      "want:elysium-resident": [
+        "item:elysium-keystone",
+        "place:elysium-gold-spiral",
+        "place:elysium-void-001",
+        "resident:elysium-resident"
+      ]
+    }
+  },
+  "atoms": {
+    "holding(item=elysium-wayfinder,role=actor)": {
+      "kind": "holding",
+      "class": "live",
+      "words": "the traveler holds elysium-wayfinder"
+    },
+    "item_at(item=elysium-keystone,place=elysium-void-001)": {
+      "kind": "item_at",
+      "class": "live",
+      "words": "elysium-keystone lies at elysium-void-001"
+    }
+  },
+  "conditionKinds": [
+    "holding",
+    "item_at"
+  ]
+}

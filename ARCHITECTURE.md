@@ -54,13 +54,13 @@ Residents have a home, a range, a sleep, and sometimes a post they guard. They w
 
 ## World packs
 
-The hub and the places beyond it are data. `v2/worlds/card-table.json` mounts six packs: `badger-forest`, `greek-drama`, `hoppycat-archive`, `willows`, `lonely-forest`, and `ratiradio`. Each pack is a world document under `v2/content/<id>/` plus a bridge under `v2/worlds/<id>/` that says which crossings join it to the hub. `v2/scripts/build-card-worldpacks.mjs` compiles them to `v2/card-game/packs.json`. The browser and the server's text path both read that file, so names and ids cannot drift.
+The hub and the places beyond it are data. `v2/worlds/card-table.json` mounts seven packs: `badger-forest`, `greek-drama`, `hoppycat-archive`, `willows`, `lonely-forest`, `ratiradio`, and `elysium`. Each pack is a world document under `v2/content/<id>/` plus a bridge under `v2/worlds/<id>/` that says which crossings join it to the hub. `v2/scripts/build-card-worldpacks.mjs` compiles them to `v2/card-game/packs.json`. The browser and the server's text path both read that file, so names and ids cannot drift.
 
 A pack supplies places, residents, items, and the conditions those things name. `v2/card-game/pack-rules.mjs` applies the general rules. New fiction is meant to land as pack data. A change that reaches the shared rules engine mints a bundle the journal will keep forever, and CI warns when that change lacks the `engine` label.
 
 ## Authoring
 
-The packs above are compiled from the repository. Separately, a signed-in passkey can keep private authoring drafts on the server: card text, images, and a launch place. A model may propose the first cards. The proposal prompt forbids claiming new powers, earned rewards, changed custody, or opened routes. Those outcomes need authored rules and a play. The live table mounts the six compiled packs. A private draft stays on the author's account.
+The packs above are compiled from the repository. Separately, a signed-in passkey can keep private authoring drafts on the server: card text, images, and a launch place. A model may propose the first cards. The proposal prompt forbids claiming new powers, earned rewards, changed custody, or opened routes. Those outcomes need authored rules and a play. The live table mounts the seven compiled packs. A private draft stays on the author's account.
 
 ## Why this shape matters
 

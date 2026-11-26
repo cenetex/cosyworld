@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "pond-elysium",
+  "pack": "elysium",
+  "description": "A gold filament runs beneath the still water of Black pond to Void 001, and back again.",
+  "entries": [
+    {
+      "joins": "hub",
+      "at": "pond",
+      "arrive": "elysium-void-001",
+      "via": "pond-elysium-void-001"
+    }
+  ],
+  "crossings": [
+    {
+      "id": "pond-elysium-void-001",
+      "from": "pond",
+      "to": "elysium-void-001",
+      "travelers": "player",
+      "travel": "along the gold filament",
+      "requires": []
+    },
+    {
+      "id": "elysium-void-001-pond",
+      "from": "elysium-void-001",
+      "to": "pond",
+      "travelers": "player",
+      "travel": "back along the gold filament",
+      "requires": []
+    }
+  ],
+  "values": {
+    "elysium-resident": {
+      "lamp": 3,
+      "oil": 1,
+      "bell": 1,
+      "cloth": 1
+    }
+  }
+}

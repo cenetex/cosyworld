@@ -28,6 +28,6 @@ The model is still checked. Speakers must be the ones the play named, text has a
 
 ## New fiction prefers pack data
 
-The six mounted worlds are documents and bridges, compiled into one `packs.json` that the browser and the server both read. General rules interpret the conditions a pack names. CI warns when a pull request touches the shared rules engine without the `engine` label, and the warning text asks for pack data when the feature can live there.
+The seven mounted worlds are documents and bridges, compiled into one `packs.json` that the browser and the server both read. General rules interpret the conditions a pack names. CI warns when a pull request touches the shared rules engine without the `engine` label, and the warning text asks for pack data when the feature can live there.
 
 A new resident or shore can ship without freezing another rules bundle for every future replay. A change to how wants, trust, or travel work is an engine release, because every saved world will meet it.
