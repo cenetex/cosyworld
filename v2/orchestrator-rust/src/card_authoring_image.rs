@@ -36,6 +36,47 @@ fn config(state: &AppState) -> Option<ai_gateway::AiConfig> {
     Some(config)
 }
 
+pub(crate) async fn draw_void_portrait(state: &AppState) -> Result<Vec<u8>, &'static str> {
+    let config = config(state).ok_or("generation_unconfigured")?;
+    let _permit = super::admission::admit(
+        super::scope(state),
+        super::admission::Pool::Image,
+        "elysium-void-001",
+        Instant::now(),
+    )
+    .map_err(|error| error.code)?;
+    let input = Input {
+        kind: "avatar".into(),
+        role: "portrait".into(),
+        description: "A silver, humanlike resident of Void 001 with a discernible inhuman face. \
+            Fine silver engraving, deep black fabric and one restrained gold filament in the folds. \
+            Black-paper etching on the figure only, with strong contours and a complete silhouette."
+            .into(),
+        instruction: None,
+        reference: None,
+        basis: "elysium-void-001".into(),
+    };
+    run(config, input, None, true)
+        .await
+        .map(|drawn| drawn.bytes)
+        .map_err(|error| error.code)
+}
+
+fn void_portrait_png(bytes: &[u8], mime: &str) -> Result<Vec<u8>, &'static str> {
+    let source = raster(bytes, mime, false)?.to_rgba8();
+    if source.width() * 3 != source.height() * 2
+        || !source.pixels().any(|pixel| pixel[3] == 0)
+        || !source.pixels().any(|pixel| pixel[3] >= 128)
+    {
+        return Err(IMAGE_INVALID);
+    }
+    encode_png(image::DynamicImage::ImageRgba8(source).resize_exact(
+        1024,
+        1536,
+        image::imageops::FilterType::Lanczos3,
+    ))
+}
+
 async fn generate(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -61,7 +102,6 @@ impl Drawn {
     pub(super) fn sha256(&self) -> String {
         digest(&self.bytes)
     }
-    /// The synchronous route's reply.
     pub(super) fn body(&self) -> Value {
         json!({"image":{"base64":BASE64.encode(&self.bytes),"mime":"image/png","sha256":self.sha256(),"size":self.bytes.len()},"basis":self.basis,"model":MODEL,"usage":self.usage})
     }
@@ -97,6 +137,7 @@ pub(super) async fn run(
     config: ai_gateway::AiConfig,
     input: Input,
     reference: Option<Vec<u8>>,
+    void_portrait: bool,
 ) -> Result<Drawn, Failed> {
     let sheet = input.role == "pose-sheet";
     let framing = if sheet {
@@ -110,8 +151,16 @@ pub(super) async fn run(
     let result = ai_gateway::request_image_generation_for_key(
         &config,
         ImageGenerationRequest {
-            feature: "authoring_image",
-            prompt_version: "authoring-image/2",
+            feature: if void_portrait {
+                "elysium_portrait"
+            } else {
+                "authoring_image"
+            },
+            prompt_version: if void_portrait {
+                "elysium-void-001/1"
+            } else {
+                "authoring-image/2"
+            },
             prompt: &prompt,
             reference: reference.as_ref().map(|bytes| ImageGenerationReference {
                 bytes,
@@ -151,9 +200,14 @@ pub(super) async fn run(
             Err(error) => return Err(provider_failure(admission::Pool::Image, &error)),
         };
     let usage = serde_json::to_value(&output.usage).unwrap_or(Value::Null);
-    let image =
-        tokio::task::spawn_blocking(move || png_output(&output.bytes, &output.content_type, sheet))
-            .await;
+    let image = tokio::task::spawn_blocking(move || {
+        if void_portrait {
+            void_portrait_png(&output.bytes, &output.content_type)
+        } else {
+            png_output(&output.bytes, &output.content_type, sheet)
+        }
+    })
+    .await;
     match image {
         Ok(Ok(bytes)) => Ok(Drawn {
             bytes,
@@ -290,8 +344,12 @@ fn raster(bytes: &[u8], mime: &str, sheet: bool) -> Result<image::DynamicImage, 
 }
 
 fn png_output(bytes: &[u8], mime: &str, sheet: bool) -> Result<Vec<u8>, &'static str> {
+    encode_png(raster(bytes, mime, sheet)?)
+}
+
+fn encode_png(image: image::DynamicImage) -> Result<Vec<u8>, &'static str> {
     let mut output = Cursor::new(Vec::new());
-    raster(bytes, mime, sheet)?
+    image
         .write_to(&mut output, image::ImageFormat::Png)
         .map_err(|_| IMAGE_INVALID)?;
     if output.get_ref().len() > MAX_IMAGE {
