@@ -124,7 +124,7 @@ That every text item is accounted for is decided. What each one becomes is a pro
 - The Herald's Truce (`greek-olive-branch`): opens the same gate and is consumed by Aethra's urn. It keeps both roles and gains one claim.
 - The Burial Decree (`greek-decree`): Creon wants it, the Guard holds it and his wants turn on keeping it, and the Elder values it. It keeps those roles and gains one claim, the official side of a pair with the Mothers' Petition.
 - Station Key (`ratiradio-station-key`): opens the Staff Kitchen. It keeps the lock. Its "STAFF" tag is a one-claim label, and the play instruction leaves its `text`.
-- Household Token (`greek-household-token`): a quest object for Ismene. It keeps that role, and its seal is a one-claim label.
+- Household Token (`greek-household-token`): its seal is a one-claim label. Reading also teaches Ismene's request for the token while that request is live, turning her quest card face up for the reader. The book records the request's target in `teachesQuest` and the memory records the book.
 
 **Documents with a quest or route role** keep the role and teach their claims.
 - The Mothers' Petition (`greek-burial-petition`): one claim by the mothers, the private answer to the Decree.

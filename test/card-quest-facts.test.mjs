@@ -58,7 +58,8 @@ const news = (w, n) =>
     cast: ["keeper"],
     text: `The keeper carried shell number ${n} to the pond.`,
   });
-const valid = (w) => validKnowledge(w, actors, ["station"]);
+const valid = (w) => validKnowledge(w, actors, ["station"], [], undefined, undefined,
+  (book) => book === "letter" ? Q : null);
 
 describe("quest facts", () => {
   it("are learned by a Talk, heard from their owner, and saved", () => {

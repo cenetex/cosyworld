@@ -1887,6 +1887,7 @@
   }
   function learnQuest(world, owner2, learner, { id, text: text2 }, entry) {
     installKnowledge(world);
+    const { book } = entry;
     const seen = entry.at === owner2;
     if (!(world.actors[owner2] || seen) || owner2 === learner || !entry.seq || !safeId(id) || !validQuestText(text2) || knowsFact(world, learner, id))
       return null;
@@ -1904,8 +1905,11 @@
       }
     });
     if (!fact) return null;
-    if (seen) fact.source.witnesses = [.../* @__PURE__ */ new Set([...fact.source.witnesses, learner])].sort();
-    remember(world, learner, fact, seen ? "witnessed" : "heard", seen ? null : owner2, entry.seq, entry.turn);
+    if (seen || book) fact.source.witnesses = [.../* @__PURE__ */ new Set([...fact.source.witnesses, learner])].sort();
+    const kind = book ? "read" : seen ? "witnessed" : "heard";
+    const teller = kind === "heard" ? owner2 : null;
+    if (remember(world, learner, fact, kind, teller, entry.seq, entry.turn) && book)
+      world.knowledge.known[learner][id].book = book;
     return fact;
   }
   function knowledgeDisclosures(world, speakers, entities2, location, eventSeq = 0) {
@@ -1966,15 +1970,15 @@
         const fits = lines.find((line) => line.length <= FACT_LINE_LIMIT);
         return fits ?? lines.at(-1).slice(0, FACT_LINE_LIMIT);
       }
-      const origin = memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
+      const origin = memory.kind === "read" ? "I read" : memory.kind === "witnessed" ? "I witnessed" : `${nameOf3(memory.teller)} told me`;
       const place = fact.source.kind === "topic" ? null : fact.source.locationId;
       const where = place && !fact.text.includes(nameOf3(place)) ? ` at ${nameOf3(place)}` : "";
       const retold = fact.source.kind === "quest" && memory.kind === "heard" && memory.teller !== fact.source.actorId;
       const heardAt = retold && world.log?.find((e) => e.seq === memory.eventSeq)?.locationId;
-      const heardWhere = retold ? heardAt ? ` at ${nameOf3(heardAt)}` : "" : where;
+      const learnedWhere = memory.kind === "read" ? ` in ${nameOf3(memory.book)}` : retold ? heardAt ? ` at ${nameOf3(heardAt)}` : "" : where;
       const source = retold ? ` ${nameOf3(fact.source.actorId)} made the request${where}.` : "";
       const stale2 = fact.source.kind === "event" && age >= STALE_TURNS || fact.source.kind === "quest" && !protectedFact(fact, world) ? " Things may have changed since." : "";
-      return `${origin} this ${ageText(age)}${heardWhere}: ${fact.text}${source}${stale2}`.slice(
+      return `${origin} this ${ageText(age)}${learnedWhere}: ${fact.text}${source}${stale2}`.slice(
         0,
         240
       );
@@ -1984,7 +1988,7 @@
   var GRIEVANCE_DORMANT_TURNS = 24;
   var grievanceActive = (world, g) => !g.repaired && world.turn - (g.lastTouched ?? g.turn) < GRIEVANCE_DORMANT_TURNS;
   var ageText = (turns) => turns <= 1 ? "just now" : turns < STALE_TURNS ? "a little while ago" : turns <= 20 ? "some time ago" : "long ago";
-  function validKnowledge(world, actors2, places2, topics = [], laneText = () => null, claimOf = () => null) {
+  function validKnowledge(world, actors2, places2, topics = [], laneText = () => null, claimOf = () => null, questIn = () => null) {
     const k = world.knowledge;
     if (k === void 0) return true;
     if (!fields(k, ["version", "facts", "known", "pending"]) || k.version !== KNOWLEDGE_VERSION || !record(k.facts) || Object.keys(k.facts).length > KNOWLEDGE_FACT_LIMIT || !record(k.known) || Object.keys(k.known).length > actors2.length || !Array.isArray(k.pending) || k.pending.length > KNOWLEDGE_PENDING_LIMIT)
@@ -2057,7 +2061,7 @@
         if (!owns(k.facts, id) || fact.source.kind === "quest" && fact.source.actorId === actor || !fields(m, [
           ...m?.kind === "read" ? READ_KEYS : MEMORY_KEYS,
           ...m?.status === void 0 ? [] : ["status"]
-        ]) || m.status !== void 0 && (!settles2[id] || m.status !== settles2[id]) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || fact.source.kind === "claim" && m.book !== fact.source.book : fact.source.kind === "claim")))
+        ]) || m.status !== void 0 && (!settles2[id] || m.status !== settles2[id]) || !["witnessed", "heard", "read"].includes(m.kind) || !whole(m.eventSeq, world.eventSeq) || m.eventSeq < fact.source.eventSeq || !whole(m.learnedTurn, world.turn) || m.learnedTurn < fact.source.turn || (m.kind === "heard" ? !actors2.includes(m.teller) || m.teller === actor : m.teller !== null || !fact.source.witnesses.includes(actor) || (m.kind === "read" ? !READ_KINDS.has(fact.source.kind) || !safeId(m.book) || (fact.source.kind === "claim" ? m.book !== fact.source.book : questIn(m.book) !== id) : fact.source.kind === "claim")))
           return false;
       }
     }
@@ -3760,7 +3764,7 @@
         schemaVersion: 1,
         id: "greek-drama",
         packId: "cosyworld.greek-drama",
-        revision: 33,
+        revision: 34,
         name: "The Wine-Dark Sea",
         description: "A branching Greek drama world. A shared ship visits the Wine-Dark Harbor and Piraeus. One road joins Athens and Piraeus, and short paths lead to the Attic places where welcome becomes a growing poem.",
         tone: "Concrete Greek domestic and civic life: bread, work, desire, grief, argument, irreverence, and hospitality. Dialogue expresses committed actions. A tragic ending is never required.",
@@ -5955,6 +5959,7 @@
             seed: "A seal naming the bereaved household for a public petition.",
             art: "assets/greek-drama/household-token.png",
             author: "greek-ismene",
+            teachesQuest: "greek-household-token",
             claims: [
               {
                 id: "seal",
@@ -16077,7 +16082,7 @@
   };
 
   // v2/card-game/book-schema.mjs
-  var BOOK_KEYS = ["author", "claims", "lifecycle", "pages"];
+  var BOOK_KEYS = ["author", "claims", "lifecycle", "pages", "teachesQuest"];
   var BOOK_CLAIMS = 3;
   var LIFECYCLES = ["kept", "spent"];
   var record2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -16098,6 +16103,12 @@
       const author = card(item.author)?.name;
       if (typeof author !== "string")
         fail("author must be a named place, avatar or item of this pack");
+      if (item.teachesQuest !== void 0) {
+        const avatar = owns2(pack.avatars, item.author) && pack.avatars[item.author];
+        const wants = Array.isArray(avatar?.wants) ? avatar.wants.map((entry) => entry?.want) : [avatar?.want];
+        if (!card(item.teachesQuest) || wants.filter((want) => want?.target === item.teachesQuest).length !== 1)
+          fail("teachesQuest must name one authored request of its author");
+      }
       if (item.lifecycle !== void 0 && !LIFECYCLES.includes(item.lifecycle))
         fail(`lifecycle must be ${LIFECYCLES.join(" or ")}`);
       const pages = item.pages ?? [];
@@ -19131,68 +19142,60 @@
     );
   }
 
-  // v2/card-game/claims.mjs
-  var itemOf = (packId, book) => {
-    const pack = packDefinitions.find((p) => p.id === packId);
-    return Object.hasOwn(pack?.items || {}, book) ? pack.items[book] : {};
-  };
-  var bookClaims = (packId, book) => {
-    const item = itemOf(packId, book);
-    return (item.claims || []).map((claim) => ({
-      id: `claim:${packId}:${book}:${claim.id}`,
-      text: claim.text,
-      book,
-      claim: claim.id,
-      author: item.author,
-      about: claim.about ?? null
-    }));
-  };
-  var recorded = (s, packId, book) => {
-    const item = itemOf(packId, book), receipts = s?.packs?.[packId]?.receipts || {};
-    return (item.author ? item.records || [] : []).filter((choice) => Object.hasOwn(receipts, choice)).sort((a, b) => receipts[a] - receipts[b]);
-  };
-  var record6 = (packId, book, claim, text2) => ({
-    id: `claim:${packId}:${book}:${claim}`,
-    text: text2,
-    book,
-    claim,
-    author: itemOf(packId, book).author,
-    about: null
-  });
-  var authoredClaim = (id) => bookClaims(...id.split(":").slice(1, 3)).find((c) => c.id === id) || null;
-  var savedClaim = (s, id, fact) => {
-    const [, packId, book, choice] = id.split(":");
-    const claim = authoredClaim(id) ?? (recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, fact?.text) : null);
-    return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
-  };
-  var claimTruth = (packId, about) => {
-    const keys = (packDefinition(packId)?.continuity?.groups || []).map((g) => g.key);
-    return (packEntity(about)?.requires || []).filter(
-      (c) => c.kind === "choice" && keys.includes(c.key)
-    );
-  };
-  function settles(s, id, about) {
-    const packId = id.split(":")[1], truth = claimTruth(packId, about), chosen = s.packs?.[packId]?.choices || {};
-    if (!truth.length || truth.some((c) => !Object.hasOwn(chosen, c.key))) return null;
-    return conditionsMet(s, packId, truth) ? "confirmed" : "disproved";
+  // v2/card-game/quest-learn.mjs
+  function questText(s, owner2, want) {
+    const who = nameOf2(owner2);
+    const said = stepGoal(s, want, owner2);
+    const step = said.step;
+    const what = theName2(said.target);
+    if (step?.verb === "call") return `${who} wants you to ${wantWords(said)}.`;
+    if (step?.verb === "lay")
+      return `${who} wants ${step.items.map(nameOf2).join(", ")} ${said.target === owner2 ? "back" : `laid in ${nameOf2(said.target)}`}.`;
+    if (said.kind === "place")
+      return `${who} wants to be at ${nameOf2(said.target)}.`;
+    if (said.kind === "person")
+      return `${who} wants to see ${nameOf2(said.target)}.`;
+    if (step?.verb === "eat")
+      return `${who} wants to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${what}${step.at ? ` at ${nameOf2(step.at)}` : ""}.`;
+    if (step?.verb === "bring" && step.at)
+      return `${who} wants ${what} brought to ${nameOf2(step.at)}.`;
+    if (step?.verb === "give" && step.to !== owner2)
+      return `${who} wants ${what} given to ${nameOf2(step.to)}.`;
+    return `${who} wants ${what}.`;
   }
-  function sawBranch(s, actor, packId, key2) {
-    const { choices, receipts } = s.packs[packId], known = s.knowledge.known[actor], here2 = s.actors[actor].place;
-    const onBranch = (id) => (packEntity(id)?.requires || []).some(
-      (c) => c.kind === "choice" && c.key === key2 && c.value === choices[key2]
+  function learnTold(s, owner2, learner, want = s.actors[owner2].want) {
+    noteTold(s, learner, [owner2]);
+    return learnQuest(
+      s,
+      owner2,
+      learner,
+      { id: questFactId(owner2, want), text: questText(s, owner2, want) },
+      { seq: s.eventSeq, turn: s.turn }
     );
-    const commit = packDefinition(packId).choices.find(
-      (c) => Object.hasOwn(receipts, c.id) && c.effects.some(
-        (e) => e.kind === "choose" && e.key === key2 && e.value === choices[key2]
-      )
-    );
-    const sawCommit = (id) => {
-      const f = s.knowledge.facts[id];
-      return known[id].kind === "witnessed" && f?.source.kind === "event" && f.source.turn === receipts[commit.id] && f.source.locationId === commit.at && f.text === choiceText(commit, f.source.actorId);
-    };
-    return onBranch(here2) || Object.keys(s.actors).some(
-      (id) => s.actors[id].place === here2 && onBranch(id) && entityActive(s, id)
-    ) || !!commit && Object.keys(known).some(sawCommit);
+  }
+  var questOwners = (s, who) => s.actors[who]?.told || [];
+  function noteTold(s, who, owners) {
+    const told = [.../* @__PURE__ */ new Set([...questOwners(s, who), ...owners])].filter((o) => o !== who && Object.hasOwn(s.actors, o)).sort();
+    if (told.length) s.actors[who].told = told;
+    else delete s.actors[who].told;
+  }
+  var named = (id) => [places, people, things].some((c) => Object.hasOwn(c, id));
+  function installQuestFacts(s) {
+    for (const [id, a] of Object.entries(s.actors))
+      noteTold(s, id, [
+        ...Object.keys(a.heard || {}),
+        ...Object.entries(s.knowledge?.known?.[id] || {}).map(([fact, m]) => [s.knowledge.facts[fact]?.source, m.teller]).filter(([at, by]) => at?.kind === "quest" && by === at.actorId).map(([at]) => at.actorId)
+      ]);
+    for (const [id, a] of Object.entries(s.actors)) {
+      for (const [them, told] of Object.entries(a.heard || {})) {
+        const live = s.actors[them]?.want;
+        const [kind, target] = told.split(/:(.*)/su);
+        if (live && told === `${live.kind}:${live.target}`)
+          learnTold(s, them, id, live);
+        else if (named(target)) learnTold(s, them, id, { kind, target });
+      }
+      delete a.heard;
+    }
   }
 
   // v2/card-game/world-life.json
@@ -19346,60 +19349,72 @@
     return true;
   }
 
-  // v2/card-game/quest-learn.mjs
-  function questText(s, owner2, want) {
-    const who = nameOf2(owner2);
-    const said = stepGoal(s, want, owner2);
-    const step = said.step;
-    const what = theName2(said.target);
-    if (step?.verb === "call") return `${who} wants you to ${wantWords(said)}.`;
-    if (step?.verb === "lay")
-      return `${who} wants ${step.items.map(nameOf2).join(", ")} ${said.target === owner2 ? "back" : `laid in ${nameOf2(said.target)}`}.`;
-    if (said.kind === "place")
-      return `${who} wants to be at ${nameOf2(said.target)}.`;
-    if (said.kind === "person")
-      return `${who} wants to see ${nameOf2(said.target)}.`;
-    if (step?.verb === "eat")
-      return `${who} wants to ${consumable(said.target) === "drink" ? "drink" : "eat"} ${what}${step.at ? ` at ${nameOf2(step.at)}` : ""}.`;
-    if (step?.verb === "bring" && step.at)
-      return `${who} wants ${what} brought to ${nameOf2(step.at)}.`;
-    if (step?.verb === "give" && step.to !== owner2)
-      return `${who} wants ${what} given to ${nameOf2(step.to)}.`;
-    return `${who} wants ${what}.`;
+  // v2/card-game/claims.mjs
+  var itemOf = (packId, book) => {
+    const pack = packDefinitions.find((p) => p.id === packId);
+    return Object.hasOwn(pack?.items || {}, book) ? pack.items[book] : {};
+  };
+  var bookClaims = (packId, book) => {
+    const item = itemOf(packId, book);
+    return (item.claims || []).map((claim) => ({
+      id: `claim:${packId}:${book}:${claim.id}`,
+      text: claim.text,
+      book,
+      claim: claim.id,
+      author: item.author,
+      about: claim.about ?? null
+    }));
+  };
+  var recorded = (s, packId, book) => {
+    const item = itemOf(packId, book), receipts = s?.packs?.[packId]?.receipts || {};
+    return (item.author ? item.records || [] : []).filter((choice) => Object.hasOwn(receipts, choice)).sort((a, b) => receipts[a] - receipts[b]);
+  };
+  var record6 = (packId, book, claim, text2) => ({
+    id: `claim:${packId}:${book}:${claim}`,
+    text: text2,
+    book,
+    claim,
+    author: itemOf(packId, book).author,
+    about: null
+  });
+  var authoredClaim = (id) => bookClaims(...id.split(":").slice(1, 3)).find((c) => c.id === id) || null;
+  var savedClaim = (s, id, fact) => {
+    const [, packId, book, choice] = id.split(":");
+    const claim = authoredClaim(id) ?? (recorded(s, packId, book).includes(choice) ? record6(packId, book, choice, fact?.text) : null);
+    return claim?.id === id ? { ...claim, settles: settles(s, id, claim.about) } : null;
+  };
+  function bookQuestId(book) {
+    const item = packThings[book];
+    return item?.teachesQuest ? questFactId(item.author, { target: item.teachesQuest }) : null;
   }
-  function learnTold(s, owner2, learner, want = s.actors[owner2].want) {
-    noteTold(s, learner, [owner2]);
-    return learnQuest(
-      s,
-      owner2,
-      learner,
-      { id: questFactId(owner2, want), text: questText(s, owner2, want) },
-      { seq: s.eventSeq, turn: s.turn }
+  var claimTruth = (packId, about) => {
+    const keys = (packDefinition(packId)?.continuity?.groups || []).map((g) => g.key);
+    return (packEntity(about)?.requires || []).filter(
+      (c) => c.kind === "choice" && keys.includes(c.key)
     );
+  };
+  function settles(s, id, about) {
+    const packId = id.split(":")[1], truth = claimTruth(packId, about), chosen = s.packs?.[packId]?.choices || {};
+    if (!truth.length || truth.some((c) => !Object.hasOwn(chosen, c.key))) return null;
+    return conditionsMet(s, packId, truth) ? "confirmed" : "disproved";
   }
-  var questOwners = (s, who) => s.actors[who]?.told || [];
-  function noteTold(s, who, owners) {
-    const told = [.../* @__PURE__ */ new Set([...questOwners(s, who), ...owners])].filter((o) => o !== who && Object.hasOwn(s.actors, o)).sort();
-    if (told.length) s.actors[who].told = told;
-    else delete s.actors[who].told;
-  }
-  var named = (id) => [places, people, things].some((c) => Object.hasOwn(c, id));
-  function installQuestFacts(s) {
-    for (const [id, a] of Object.entries(s.actors))
-      noteTold(s, id, [
-        ...Object.keys(a.heard || {}),
-        ...Object.entries(s.knowledge?.known?.[id] || {}).map(([fact, m]) => [s.knowledge.facts[fact]?.source, m.teller]).filter(([at, by]) => at?.kind === "quest" && by === at.actorId).map(([at]) => at.actorId)
-      ]);
-    for (const [id, a] of Object.entries(s.actors)) {
-      for (const [them, told] of Object.entries(a.heard || {})) {
-        const live = s.actors[them]?.want;
-        const [kind, target] = told.split(/:(.*)/su);
-        if (live && told === `${live.kind}:${live.target}`)
-          learnTold(s, them, id, live);
-        else if (named(target)) learnTold(s, them, id, { kind, target });
-      }
-      delete a.heard;
-    }
+  function sawBranch(s, actor, packId, key2) {
+    const { choices, receipts } = s.packs[packId], known = s.knowledge.known[actor], here2 = s.actors[actor].place;
+    const onBranch = (id) => (packEntity(id)?.requires || []).some(
+      (c) => c.kind === "choice" && c.key === key2 && c.value === choices[key2]
+    );
+    const commit = packDefinition(packId).choices.find(
+      (c) => Object.hasOwn(receipts, c.id) && c.effects.some(
+        (e) => e.kind === "choose" && e.key === key2 && e.value === choices[key2]
+      )
+    );
+    const sawCommit = (id) => {
+      const f = s.knowledge.facts[id];
+      return known[id].kind === "witnessed" && f?.source.kind === "event" && f.source.turn === receipts[commit.id] && f.source.locationId === commit.at && f.text === choiceText(commit, f.source.actorId);
+    };
+    return onBranch(here2) || Object.keys(s.actors).some(
+      (id) => s.actors[id].place === here2 && onBranch(id) && entityActive(s, id)
+    ) || !!commit && Object.keys(known).some(sawCommit);
   }
 
   // v2/card-game/world/senses.mjs
@@ -20385,7 +20400,8 @@
       Object.keys(places),
       authoredKnowledgeTopics(),
       laneFactText,
-      (id, fact) => savedClaim(s, id, fact)
+      (id, fact) => savedClaim(s, id, fact),
+      bookQuestId
     ))
       fail("knowledge");
     if (s.sharedMigration !== void 0) {
