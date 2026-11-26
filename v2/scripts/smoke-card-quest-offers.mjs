@@ -465,7 +465,7 @@ try {
       await owned.waitFor();
       assert.equal(await collection.getByRole("button").count(), 1);
       assert.match(await sheet.locator(".sheet-level").textContent(), /Level I · Common/u);
-      assert.doesNotMatch(await collection.innerText(), /Carry nothing|Discard|Level Up/u);
+      assert.doesNotMatch(await collection.innerText(), /Carry nothing|Discard|Level Up|Yours to keep|later quest spreads/u);
       assert.equal(await sheet.evaluate((el) => el.scrollWidth <= el.clientWidth + 1), true);
       await t.shot("character-sheet-fool");
       const beforeView = await t.state();

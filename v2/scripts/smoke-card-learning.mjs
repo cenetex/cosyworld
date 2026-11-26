@@ -88,7 +88,7 @@ world = applyGeneratedText(world, context, {
   })),
 });
 world.memories.keeper.innerLife = {
-  persona: "Keeper private sentinel.",
+  persona: "I keep a private sentinel.",
   thoughts: [],
   dreams: [],
 };
@@ -170,22 +170,16 @@ try {
         ),
         "character-sheet",
       );
-      // The region's name is visually hidden: what shows opens on "I'm",
-      // then "I dream".
-      const text = await inner.evaluate((section) =>
-        [...section.children]
-          .filter((child) => !child.classList.contains("sr-only"))
-          .map((child) => child.textContent)
-          .join("\n"),
-      );
-      assert(text.startsWith("I'm Vale. The Lamplighter."), text);
-      assert(!text.includes("inner life"));
-      assert(!text.includes("I'm becoming"));
+      const text = await inner.innerText();
+      await inner.getByRole("heading", { name: "Persona", exact: true }).waitFor();
+      await inner.getByRole("heading", { name: "Dreams", exact: true }).waitFor();
+      await dialog.getByRole("heading", { name: "Memories", exact: true }).waitFor();
+      assert(text.includes("A traveller"), text);
+      assert(text.includes("learning to listen"), text);
+      assert(text.includes("little boat"), text);
+      assert(!text.includes("I'm Vale. The Lamplighter."));
       assert(!text.includes("A fair offer may help."));
-      assert(!text.includes("learning to listen"));
-      assert(text.includes("I dream"));
-      assert(text.includes("little boat"));
-      assert(text.trim().endsWith("— Vale"));
+      assert(!text.includes("— Vale"));
       await dialog.getByRole("heading", { name: "Character", exact: true }).waitFor();
       assert.equal(
         await dialog.getByRole("button", { name: "Save conversation" }).count(),
@@ -193,7 +187,7 @@ try {
       );
       // Measured attempts guide the planner; the panel never shows them.
       assert(!text.includes("measured attempt"));
-      assert(!text.includes("Keeper private sentinel"));
+      assert(!(await dialog.innerText()).includes("private sentinel"));
       const box = await dialog.boundingBox();
       assert(box.x >= 0 && box.x + box.width <= width + 1);
       if (!attempt)

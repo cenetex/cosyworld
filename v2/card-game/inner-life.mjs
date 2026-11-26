@@ -45,54 +45,70 @@ const newestFirst = (moments) =>
     .reverse()
     .map((m) => m.text);
 
-// The three-part chain from #1467: "I'm" is authored, "I'm becoming" is the
-// avatar's one current intention, its newest grounded thought, and "I dream"
-// is its dreams. A line that narrates, breaks its quotes, or names a thing
-// the avatar was never near is not shown; a quest target it has not found
-// stays unnamed (#1850). Measured attempts stay in the save.
-export function innerLifeChain(world, actor = currentActor(world)) {
+export function innerLifeChain(world, actor = currentActor(world), read = (text) => text) {
   const name = nameOf(actor);
-  const title = humanAvatar(actor)?.title;
-  const inner = world.memories[actor]?.innerLife || {};
+  const avatar = humanAvatar(actor);
+  const memory = world.memories[actor] || {};
+  const inner = memory.innerLife || {};
   const { blur } = unfoundBlur(world, actor);
   const shown = (lines) =>
     lines
       .filter((t) => inCharacter(t) && groundedInner(world, actor, t))
-      .map(blur);
+      .map(blur)
+      .map(read);
+  const logged = new Set(world.log.map((entry) => entry.seq));
+  const retained = new Map([...memory.events || [], ...memory.landmarks || []]
+    .filter((event) => event.kind === "event" && !logged.has(event.seq))
+    .map((event) => [event.seq, event]));
   return {
     name,
-    im: title ? `I'm ${name}. ${title}.` : `I'm ${name}.`,
+    im: read(avatar?.title ? `I'm ${name}. ${avatar.title}.` : `I'm ${name}.`),
     becoming: shown([...newestFirst(inner.thoughts), inner.persona]).slice(
       0,
       1,
     ),
     dreams: shown(newestFirst(inner.dreams)).slice(0, 4),
+    description: read(avatar?.text || ""),
+    persona: shown([inner.persona])[0] || "",
+    memories: [...retained.values()].sort((a, b) => b.seq - a.seq)
+      .map((event) => read(blur(event.text))),
   };
 }
 
-// Memory opens on the avatar's inner life, the present, before the past
-// visits below it. It reads only the current player's private projection.
 export function innerLifeSection(chain) {
   const section = document.createElement("section");
   section.className = "inner-life";
-  section.setAttribute("aria-labelledby", "inner-life-title");
+  section.setAttribute("aria-label", `${chain.name}'s inner life`);
   const add = (tag, text, className) => {
     const node = document.createElement(tag);
     node.textContent = text;
     if (className) node.className = className;
     section.append(node);
   };
-  // The region keeps its name for assistive tech; Memory shows no heading.
-  add("h3", `${chain.name}'s inner life`, "sr-only");
-  section.firstChild.id = "inner-life-title";
-  // The authored sentence opens the chain; it already says "I'm".
-  add("p", chain.im, "inner-life-im");
-  // "I'm becoming" stays in the chain for other readers; Memory leaves it
-  // out (owner, 2026-11-01).
-  if (chain.dreams.length) {
-    add("h4", "I dream");
-    for (const line of chain.dreams) add("p", line);
+  if (chain.description || chain.persona) {
+    add("h3", "Persona");
+    if (chain.description) add("p", chain.description);
+    if (chain.persona && chain.persona !== chain.description)
+      add("p", chain.persona, "inner-life-persona");
   }
-  add("p", `— ${chain.name}`, "inner-life-name");
+  add("h3", "Dreams");
+  for (const line of chain.dreams) add("p", line);
+  if (!chain.dreams.length) add("p", "None yet.", "sheet-note");
+  return section;
+}
+
+export function earlierMemoriesSection(memories) {
+  const section = document.createElement("section");
+  section.className = "sheet-earlier-memories";
+  section.setAttribute("aria-label", "Earlier memories");
+  const heading = document.createElement("h4");
+  heading.className = "memory-place";
+  heading.textContent = "Earlier memories";
+  section.append(heading);
+  for (const text of memories) {
+    const p = document.createElement("p");
+    p.textContent = text;
+    section.append(p);
+  }
   return section;
 }

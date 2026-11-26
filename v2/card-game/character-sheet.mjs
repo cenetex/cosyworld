@@ -47,7 +47,7 @@ export function characterSheet(world, { known = () => false } = {}) {
         : questHeading(quest) || "Quest",
       words: quest.face === "reward" && !known(quest.key) &&
         !unlockedOf(world, actor).includes(quest.target)
-        ? "An earned tarot card is ready to reveal."
+        ? ""
         : questCaption(quest, !known(quest.target), null, known),
     })),
   };
@@ -85,9 +85,8 @@ export function characterSheetSection(sheet, { viewCard }) {
   const heading = element("div", "sheet-heading");
   heading.append(element("h3", "", "Tarot collection"),
     element("span", "sheet-count", `${sheet.cards.length} / ${sheet.total}`));
-  tarot.append(heading, element("p", "sheet-note", sheet.cards.length
-    ? "Yours to keep. These cards can return in later quest spreads."
-    : "Collect a tarot reward to begin your deck."));
+  tarot.append(heading);
+  if (!sheet.cards.length) tarot.append(element("p", "sheet-note", "No cards yet."));
   const deck = element("div", "sheet-deck");
   for (const card of sheet.cards) {
     const button = element("button", "sheet-tarot");
@@ -110,7 +109,8 @@ export function characterSheetSection(sheet, { viewCard }) {
   if (!sheet.quests.length) quests.append(element("p", "sheet-note", "No active quests."));
   for (const quest of sheet.quests) {
     const row = element("div", "sheet-quest");
-    row.append(element("h4", "", quest.heading), element("p", "", quest.words));
+    row.append(element("h4", "", quest.heading));
+    if (quest.words) row.append(element("p", "", quest.words));
     quests.append(row);
   }
   const items = element("section", "sheet-section");
