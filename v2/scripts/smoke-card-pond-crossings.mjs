@@ -25,7 +25,7 @@ function fixture(place, lit = false) {
   s.items.lamp.holder = lit ? place : "vale";
   setLampFuel(s, 12, place);
   s.items.bell.holder = "vale";
-  s.items.cloth.holder = place === "pond" ? "vale" : "station";
+  s.items.cloth.holder = place === "clearing" ? "station" : "vale";
   if (place === "clearing") {
     s.crossings["pond-clearing"].discovered = true;
     s.opening.met.badger = 0;
@@ -185,6 +185,13 @@ try {
     await ringClock();
     await use("pond");
     assert.equal((await state()).actors.vale.place, "pond");
+    await load(fixture("station", true));
+    assert.equal(await card("station-lantern").count(), 0);
+    assert.equal(await card("station-lantern-wick").count(), 0);
+    await selectCard(page, "cloth");
+    assert.equal((await state()).items.lamp.holder, "station");
+    assert.equal((await state()).actors.vale.heldItem, "cloth");
+    assert.equal((await state()).crossings["pond-greek-harbor"].discovered, false);
     await load(fixture("pond", true));
     await signal({ reloadHalfway: true });
     assert.equal(await card("greek-ship").count(), 1);

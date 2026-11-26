@@ -133,6 +133,8 @@ export function reconcileContent(s) {
     for (const c of pack.crossings)
       if (c.retired && s.crossings?.[c.id])
         s.crossings[c.id].discovered = false;
+  const pondCrossing = s.crossings?.["pond-greek-harbor"];
+  if (pondCrossing?.method === "station-lantern") delete pondCrossing.method;
   const authored = structuredClone(forest.initialState.items);
   for (const pack of packDefinitions)
     for (const [id, item] of Object.entries(pack.items || {}))

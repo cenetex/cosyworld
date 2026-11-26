@@ -1268,18 +1268,6 @@
       }
     },
     things: {
-      "station-lantern": {
-        name: "Station lantern",
-        startLevel: 1,
-        art: "assets/shared/items/lamp.png",
-        text: "A fixed signal lantern. Its damaged wick socket faces the water."
-      },
-      "station-lantern-wick": {
-        name: "Lantern wick",
-        startLevel: 1,
-        art: "assets/willows/rope.png",
-        text: "A short coil of dry braided wick, the right size for a signal lantern."
-      },
       lamp: {
         name: "Lamp",
         startLevel: 19,
@@ -1313,8 +1301,7 @@
         lifecycle: "fixed",
         teachesQuest: "pond",
         claims: [
-          { id: "pond-signal", text: "To call the ship, hold the Black cloth at Black pond while the Lamp burns on the ground there.", about: "pond" },
-          { id: "station-signal", text: "Bring the Lantern wick from Black pond to Empty station, repair the Station lantern, and light it to signal the same ship.", about: "station" }
+          { id: "pond-signal", text: "To call the ship, hold the Black cloth at Black pond while the Lamp burns on the ground there.", about: "pond" }
         ]
       }
     },
@@ -1363,17 +1350,6 @@
         }
       },
       items: {
-        "station-lantern": {
-          holder: "station",
-          repaired: false,
-          fuel: 0,
-          lit: false,
-          history: []
-        },
-        "station-lantern-wick": {
-          holder: "pond",
-          history: []
-        },
         lamp: {
           holder: "station",
           fuel: 12,
@@ -1800,6 +1776,7 @@
   var isElysiumModel = (id) => models.has(id);
   var isElysiumModelToken = (id) => tokens.has(id);
   var elysiumModelToken = (id) => `${id}-token`;
+  var firstTalk = (record7) => record7?.talkedAt === void 0 ? record7?.scatteredAt : record7.talkedAt;
   var keepsElysiumToken = (resident, item) => isElysiumModel(resident) && elysiumModelToken(resident) === item;
   function validElysiumEncounters(s) {
     const records = s.elysiumEncounters;
@@ -1809,19 +1786,26 @@
     return Object.entries(records).every(([resident, record7]) => {
       if (!isElysiumModel(resident) || !s.actors[resident] || !s.items[elysiumModelToken(resident)] || !record7 || !seq(record7.scatteredAt))
         return false;
-      const fields3 = Object.keys(record7).sort().join();
+      const { talkedAt, scatteredAt, returnedAt, returnedBy } = record7;
+      const fields3 = Object.keys(record7).filter((field) => field !== "talkedAt").sort().join();
+      if (Object.hasOwn(record7, "talkedAt") && talkedAt !== null && (!seq(talkedAt) || talkedAt <= scatteredAt))
+        return false;
       if (fields3 === "scatteredAt") return true;
-      return fields3 === "returnedAt,returnedBy,scatteredAt" && seq(record7.returnedAt) && record7.returnedAt > record7.scatteredAt && Object.hasOwn(s.actors, record7.returnedBy);
+      return fields3 === "returnedAt,returnedBy,scatteredAt" && seq(returnedAt) && seq(firstTalk(record7)) && returnedAt > firstTalk(record7) && Object.hasOwn(s.actors, returnedBy);
     });
   }
-  function validElysiumEncounterEvent(s, e) {
-    if (e.elysiumModel === void 0 && e.portraitModel === void 0) return true;
-    const resident = e.elysiumModel ?? e.portraitModel;
+  function validElysiumEncounterEvent(s, e, people2) {
+    if (e.elysiumArrival === void 0 && e.elysiumModel === void 0 && e.portraitModel === void 0) return true;
+    const resident = e.elysiumArrival ?? e.elysiumModel ?? e.portraitModel;
     const record7 = s.elysiumEncounters?.[resident];
-    if (!isElysiumModel(resident) || !record7 || e.targetId !== resident || e.generated || e.kind !== "action" || e.fromLocationId !== e.locationId)
+    if (!isElysiumModel(resident) || !record7 || e.targetId !== resident || e.generated)
+      return false;
+    if (e.elysiumArrival !== void 0)
+      return e.elysiumModel === void 0 && e.portraitModel === void 0 && e.kind === "narration" && e.locationId === people2[resident].home && e.itemId === elysiumModelToken(resident) && e.seq === record7.scatteredAt && record7.talkedAt !== void 0;
+    if (e.kind !== "action" || e.fromLocationId !== e.locationId)
       return false;
     if (e.elysiumModel !== void 0)
-      return e.portraitModel === void 0 && e.verb === "talk" && record7.scatteredAt === e.seq;
+      return e.portraitModel === void 0 && e.verb === "talk" && firstTalk(record7) === e.seq;
     return e.verb === "give" && e.accepted === true && !e.handover && e.itemId === elysiumModelToken(resident) && record7.returnedAt === e.seq && record7.returnedBy === e.actorId;
   }
 
@@ -2865,7 +2849,7 @@
       const state = s.crossings[c.id];
       if (!c.signal) {
         const method = state?.method;
-        if (!exactKeys(state, method === void 0 ? ["discovered"] : ["discovered", "method"]) || typeof state.discovered !== "boolean" || method !== void 0 && (!state.discovered || !c.alternateUnlock || ![c.alternateUnlock.primary, c.alternateUnlock.method].includes(method))) return false;
+        if (!exactKeys(state, method === void 0 ? ["discovered"] : ["discovered", "method"]) || typeof state.discovered !== "boolean" || method !== void 0 && (!state.discovered || method !== c.unlockMethod)) return false;
         continue;
       }
       if (!exactKeys(state, ["discovered", "phase", "until"]) || typeof state.discovered !== "boolean" || !whole3(
@@ -3482,8 +3466,6 @@
         "listener"
       ],
       items: [
-        "station-lantern",
-        "station-lantern-wick",
         "lamp",
         "oil",
         "bell",
@@ -10348,7 +10330,7 @@
         ],
         bridge: {
           id: "shore-greek-drama",
-          description: "The Charybdis sails between Black Pond and the Wine-Dark Harbor with no cargo. It needs Travel Provisions aboard for Piraeus and a Hoppy Cat thing for the Signal Jetty. Every way back toward Black Pond is free. To call it, lay the burning Lamp at Black Pond while holding the Black cloth, or light the repaired Station lantern."
+          description: "The Charybdis sails between Black Pond and the Wine-Dark Harbor with no cargo. It needs Travel Provisions aboard for Piraeus and a Hoppy Cat thing for the Signal Jetty. Every way back toward Black Pond is free. To call it, lay the burning Lamp at Black Pond while holding the Black cloth."
         },
         crossings: [
           {
@@ -10366,6 +10348,7 @@
               cardArt: "assets/greek-drama/ship-card.webp"
             },
             transport: "greek-ship",
+            unlockMethod: "pond-lamp",
             unlockWhen: [
               {
                 kind: "grounded",
@@ -10386,24 +10369,7 @@
                 kind: "actor_at",
                 place: "pond"
               }
-            ],
-            alternateUnlock: {
-              primary: "pond-lamp",
-              method: "station-lantern",
-              requires: [
-                {
-                  kind: "actor_at",
-                  place: "station"
-                },
-                {
-                  kind: "light",
-                  item: "station-lantern",
-                  at: [
-                    "station"
-                  ]
-                }
-              ]
-            }
+            ]
           },
           {
             id: "greek-harbor-pond",
@@ -17846,7 +17812,7 @@
           "travel",
           "signal",
           "unlockWhen",
-          "alternateUnlock",
+          "unlockMethod",
           "requires",
           "scenery",
           "opened",
@@ -17909,15 +17875,11 @@
         for (const r of c.unlockWhen || [])
           condition(r, `${name} unlock condition`);
       }
-      if (c.alternateUnlock !== void 0) {
-        const alternate = c.alternateUnlock;
+      if (c.unlockMethod !== void 0)
         check(
-          Boolean(c.unlockWhen?.length) && keysOk(alternate, ["primary", "method", "requires"]) && idOk3(alternate?.primary) && idOk3(alternate.method) && alternate.primary !== alternate.method && Array.isArray(alternate.requires) && alternate.requires.length > 0 && alternate.requires.length <= 6,
-          `${name} alternate unlock needs distinct method names and conditions alongside unlockWhen`
+          Boolean(c.unlockWhen?.length) && idOk3(c.unlockMethod),
+          `${name} unlockMethod needs an id and unlockWhen conditions`
         );
-        for (const r of Array.isArray(alternate?.requires) ? alternate.requires : [])
-          condition(r, `${name} alternate unlock condition`);
-      }
       const s = c?.signal;
       if (s === void 0) continue;
       check(
@@ -18536,16 +18498,6 @@
   var NAMED2 = /^(?:The|An?) |^\p{L}+['’]s? /u;
   var theName2 = (id) => NAMED2.test(nameOf2(id)) ? nameOf2(id) : `the ${nameOf2(id)}`;
 
-  // v2/card-game/station-lantern.mjs
-  var STATION_LANTERN = "station-lantern";
-  var WICK = "station-lantern-wick";
-  var STATION = "station";
-  function validStationLantern(world) {
-    const lantern = world.items[STATION_LANTERN];
-    const stationSignal = world.crossings?.["pond-greek-harbor"]?.method === STATION_LANTERN;
-    return lantern?.holder === STATION && !gone(world, STATION_LANTERN) && typeof lantern.lit === "boolean" && typeof lantern.repaired === "boolean" && lantern.fuel === Number(lantern.repaired) && (!lantern.lit || lantern.repaired) && (!lantern.repaired || gone(world, WICK)) && (!stationSignal || lantern.lit);
-  }
-
   // v2/card-game/world/want-words.mjs
   var UNKNOWN = {
     item: "something you haven't found",
@@ -19035,18 +18987,6 @@
       kind: "avatar",
       name: "The Listener",
       seed: "The Listener, behind the grille of a box on wheels."
-    },
-    "station-lantern": {
-      kind: "item",
-      name: "Station lantern",
-      persona: "A fixed signal lantern at the empty station. Its glass faces the Black pond. Describe its damaged wick socket until repaired, and its steady beam only after lighting.",
-      idiolect: "I'm the station's signal lantern. My window faces the water."
-    },
-    "station-lantern-wick": {
-      kind: "item",
-      name: "Lantern wick",
-      persona: "A short coil of dry braided wick. Describe its fibres, location and witnessed handling.",
-      idiolect: "I'm a short braid of dry wick. I fit in a signal lantern."
     },
     lamp: {
       kind: "item",
@@ -20101,6 +20041,8 @@
       for (const c of pack.crossings)
         if (c.retired && s.crossings?.[c.id])
           s.crossings[c.id].discovered = false;
+    const pondCrossing = s.crossings?.["pond-greek-harbor"];
+    if (pondCrossing?.method === "station-lantern") delete pondCrossing.method;
     const authored = structuredClone(forest_default.initialState.items);
     for (const pack of packDefinitions)
       for (const [id, item] of Object.entries(pack.items || {}))
@@ -20431,7 +20373,7 @@
   }
   var KINDS2 = {
     resident: (s) => Object.keys(s.actors || {}).filter((id) => !humanAvatar(id)),
-    item: (s) => Object.keys(s.items || {}).filter((id) => id !== STATION_LANTERN),
+    item: (s) => Object.keys(s.items || {}),
     place: () => Object.keys(places).filter(
       (id) => !localRoadEnds(id) && !retiredPlace(id) && !Object.values(transports).some((ship) => ship.place === id)
     ),
@@ -20523,7 +20465,7 @@
     return { ...card, proof: card.proof.map(grow) };
   }
   var slotCard = (slot) => scaled(cardOf(slot?.card), slot?.scale ?? 1);
-  var lostRole = (s, id) => id === STATION_LANTERN || neverBack(s, id) || !(s.items?.[id] || s.actors?.[id] || places[id]);
+  var lostRole = (s, id) => neverBack(s, id) || !(s.items?.[id] || s.actors?.[id] || places[id]);
   function slotBinding(s, slot, traveler) {
     const card = slotCard(slot);
     if (!card) return null;
@@ -21146,7 +21088,6 @@
       if (count > (allowance || 3) || allowance && allowance !== count) fail(`actor:${actor}:carried`);
     }
     if (!validRadioItem(s)) fail("radio");
-    if (!validStationLantern(s)) fail("station-lantern");
     const lamp = s.items.lamp, oil = s.items.oil, bell = s.items.bell;
     if (!validLampRoomFuel(lamp) || !Object.hasOwn(places, lamp.fuelPlace) || lamp.fuel !== lamp.fuelRooms * 4 || !Number.isInteger(lamp.fuel) || lamp.fuel < 0 || lamp.fuel > LAMP_FUEL || typeof lamp.lit !== "boolean" || lamp.lit && lamp.fuel === 0)
       fail("lamp");
@@ -21203,7 +21144,7 @@
     const cast = castIds, entities2 = entityIds;
     for (const e of s.log) {
       if (!validHandover(s, e)) fail(`log:${e.seq}:handover`);
-      if (!validElysiumEncounterEvent(s, e)) fail(`log:${e.seq}:elysium`);
+      if (!validElysiumEncounterEvent(s, e, packPeople)) fail(`log:${e.seq}:elysium`);
       if (e.seq !== void 0) {
         if (!Number.isSafeInteger(e.seq) || e.seq <= seq || e.seq > s.eventSeq)
           fail(`log:${e.seq}:seq`);

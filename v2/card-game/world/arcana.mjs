@@ -20,7 +20,6 @@ import {
 } from "../pack-registry.mjs";
 import { conditionMet, runHash } from "../pack-rules.mjs";
 import { specialsAllow } from "../pack-specials.mjs";
-import { STATION_LANTERN } from "../station-lantern.mjs";
 import { nameOf, places, sanctuaries } from "./catalog.mjs";
 import {
   arcanaLevel,
@@ -186,7 +185,7 @@ function plain(s, id) {
 
 const KINDS = {
   resident: (s) => Object.keys(s.actors || {}).filter((id) => !humanAvatar(id)),
-  item: (s) => Object.keys(s.items || {}).filter((id) => id !== STATION_LANTERN),
+  item: (s) => Object.keys(s.items || {}),
   place: () =>
     Object.keys(places).filter(
       (id) =>
@@ -359,7 +358,7 @@ export function scaled(card, scale = 1) {
 
 const slotCard = (slot) => scaled(cardOf(slot?.card), slot?.scale ?? 1);
 const lostRole = (s, id) =>
-  id === STATION_LANTERN || neverBack(s, id) || !(s.items?.[id] || s.actors?.[id] || places[id]);
+  neverBack(s, id) || !(s.items?.[id] || s.actors?.[id] || places[id]);
 
 export function slotBinding(s, slot, traveler) {
   const card = slotCard(slot);

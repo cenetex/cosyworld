@@ -5,6 +5,7 @@ import { packPeople } from "./pack-registry.mjs";
 
 const resident = "elysium-resident";
 const spiral = "elysium-gold-spiral";
+export const UNNAMED_ELYSIUM_RESIDENT = "???";
 // A final probe follows the server's five-minute generation retry cooldown.
 const retryDelays = [
   1500, 3500, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 135000,
@@ -142,7 +143,7 @@ export function createElysiumPortrait(worldId, redraw) {
     const before = key;
     for (const { name, portrait } of cast.values()) {
       name?.clear();
-      portrait.clear();
+      portrait?.clear();
     }
     if (before !== key) redraw();
   }
@@ -152,33 +153,35 @@ export function createElysiumPortrait(worldId, redraw) {
     clear();
   }
 
+  for (const id of [resident, ...ELYSIUM_MODEL_IDS]) {
+    if (!packPeople[id]) continue;
+    const legacy = id === resident;
+    const suffix = legacy ? "" : `/${encodeURIComponent(id)}`;
+    const alias = packPeople[id].name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    cast.set(id, {
+      seenTalk: false,
+      waiting: false,
+      alias: legacy ? null : new RegExp(`\\b(?:the )?${alias}\\b`, "gi"),
+      name: prefix && !legacy
+        ? createResource(
+            `${prefix}/elysium-identity${suffix}`,
+            readName,
+            changed,
+            revoke,
+          )
+        : null,
+      portrait: prefix
+        ? createResource(
+            `${prefix}/elysium-portrait${suffix}`,
+            readPortrait,
+            changed,
+            revoke,
+            (source) => clearImage(id, source),
+          )
+        : null,
+    });
+  }
   if (prefix) {
-    for (const id of [resident, ...ELYSIUM_MODEL_IDS]) {
-      if (!packPeople[id]) continue;
-      const legacy = id === resident;
-      const suffix = legacy ? "" : `/${encodeURIComponent(id)}`;
-      const alias = packPeople[id].name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      cast.set(id, {
-        seenTalk: false,
-        waiting: false,
-        alias: new RegExp(`\\b(?:the )?${alias}\\b`, "gi"),
-        name: legacy
-          ? null
-          : createResource(
-              `${prefix}/elysium-identity${suffix}`,
-              readName,
-              changed,
-              revoke,
-            ),
-        portrait: createResource(
-          `${prefix}/elysium-portrait${suffix}`,
-          readPortrait,
-          changed,
-          revoke,
-          (source) => clearImage(id, source),
-        ),
-      });
-    }
     window.addEventListener("pagehide", () => {
       suspended = true;
       clear();
@@ -190,10 +193,15 @@ export function createElysiumPortrait(worldId, redraw) {
     });
   }
 
+  function name(id) {
+    const view = cast.get(id);
+    return view?.alias ? view.name?.value ?? UNNAMED_ELYSIUM_RESIDENT : null;
+  }
+
   function text(value) {
     if (typeof value !== "string") return value;
-    for (const { alias, name } of cast.values())
-      if (name?.value) value = value.replace(alias, () => name.value);
+    for (const [id, { alias }] of cast)
+      if (alias) value = value.replace(alias, () => name(id));
     return value;
   }
 
@@ -202,8 +210,8 @@ export function createElysiumPortrait(worldId, redraw) {
       return key;
     },
     revoke,
-    name: (id) => cast.get(id)?.name?.value,
-    source: (id, sleeping) => (sleeping ? null : cast.get(id)?.portrait.value),
+    name,
+    source: (id, sleeping) => (sleeping ? null : cast.get(id)?.portrait?.value),
     text,
     reader: (read) => (value) => text(read(value)),
     observe(world, actor, line) {
@@ -211,20 +219,23 @@ export function createElysiumPortrait(worldId, redraw) {
       const here = world.actors[actor]?.place;
       for (const [id, view] of cast) {
         const nearby = Boolean(here && world.actors[id]?.place === here);
-        const { scatteredAt, returnedAt } = world.elysiumEncounters?.[id] || {};
-        // A new in-room introduction waits for its reply. A reload can use the saved Talk.
-        if (scatteredAt && !view.seenTalk) view.waiting = started && nearby;
-        if (!nearby || (line?.actorId === id && line.seq > scatteredAt))
-          view.waiting = false;
-        view.seenTalk = Boolean(scatteredAt);
+        const { scatteredAt, talkedAt = scatteredAt, returnedAt } =
+          world.elysiumEncounters?.[id] || {};
+        // Keep the title covered while the first new reply is being read.
+        // The server only serves a name after it has published an introduction.
+        if (talkedAt && !view.seenTalk) view.waiting = started && nearby;
+        const replied =
+          line?.actorId === id && line.generated && !line.silent && line.seq > talkedAt;
+        if (!nearby || replied) view.waiting = false;
+        view.seenTalk = Boolean(talkedAt);
         const ready =
           id === resident ? world.opened?.[spiral]?.length : returnedAt;
         view.name?.observe(
-          active && scatteredAt && !view.waiting,
+          active && talkedAt && !view.waiting,
           nearby,
           world.revision,
         );
-        view.portrait.observe(active && ready, nearby, world.revision);
+        view.portrait?.observe(active && ready, nearby, world.revision);
       }
       started = true;
     },

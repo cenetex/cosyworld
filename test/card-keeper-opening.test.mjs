@@ -94,8 +94,10 @@ test("the fixed Station log teaches the same call without Pip and keeps the lead
   assert.deepEqual(Object.keys(s.knowledge.facts).filter((id) => id.startsWith("quest:keeper:")), [fact]);
   const page = readPage(s, "vale", seen);
   assert.equal(page.author, "The keeper");
-  assert(page.claims.some((text) => /Black cloth.*Lamp/u.test(text)));
-  assert(page.claims.some((text) => /wick.*repair.*light/u.test(text)));
+  assert.deepEqual(page.claims, [
+    "To call the ship, hold the Black cloth at Black pond while the Lamp burns on the ground there.",
+    s.knowledge.facts[fact].text,
+  ]);
   assert.equal(s.items[book].holder, "station");
   assert.equal(s.crossings[crossing].discovered, false);
   assert.equal(met(s).length, 0);

@@ -9,8 +9,9 @@ the Wayfinder in Elysium, it scatters back into the ordinary world.
 
 Void 001 keeps the Silver Resident and the Keystone chapter. Void 002–007
 each have an unnamed resident, their own illustrated token, and a distinct
-room. First Talk sends that resident's token to the ordinary world. Bring
-it back and give it to the resident to complete their request.
+room. The first arrival in each Void sends its token into the ordinary
+world. The resident appears as `???` until their introduction. Talk, then
+bring the token back and give it to the resident to complete their request.
 
 Shared tables call the six bound models for their own names and replies.
 On a token return, its resident's model describes its appearance, then the
@@ -22,7 +23,7 @@ shared plays.
 Elysium is the pack for raw models. Each Void holds one resident, and each
 resident is bound to one model. No resident ships with an authored name,
 description or portrait. The first Talk with a resident runs its model for a
-name. Meeting it scatters its void token. The first time the token is
+name. Arriving in its Void scatters its token. The first time the token is
 returned to its Void, its model describes the resident and an image model
 draws it. A name or portrait, once made, holds in every world on the server.
 
@@ -43,8 +44,8 @@ Decided by the owner on 2026-11-26.
    sets it for all.
 3. **The first Talk names the resident.** The first Talk on the server runs the
    bound model for a name.
-4. **Meeting scatters the void token.** Each resident has a void token. Meeting
-   the resident sends it out into the world.
+4. **Arriving scatters the void token.** Each resident has a void token. The
+   first player to enter its Void sends the token out into the world.
 5. **Returning the token draws the resident.** The first time a resident's
    void token is returned to its Void, its portrait is generated.
 

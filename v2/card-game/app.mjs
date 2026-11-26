@@ -5,9 +5,9 @@ import { holdChoice } from "./world.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
 import { LISTENER, LISTENER_CARD, listenerTableCard } from "./listener-offer-view.mjs";
 import { firstFoolBeat, firstFoolNote } from "./first-fool-view.mjs";
-import { STATION_LANTERN, pondSignalBeat, pondSignalNote, stationLanternState } from "./pond-signal-view.mjs";
+import { pondSignalBeat, pondSignalNote } from "./pond-signal-view.mjs";
 import { createFigureFramer } from "./figure-frame.mjs";
-import { createElysiumPortrait } from "./elysium-portrait.mjs";
+import { createElysiumPortrait, UNNAMED_ELYSIUM_RESIDENT } from "./elysium-portrait.mjs";
 import { heldItem } from "./held-item.mjs";
 import { renderCardDescriptor } from "./card-descriptor.mjs";
 import {
@@ -423,7 +423,7 @@ let thinkingGrace = null;
 // beat's status line; a pending play reads on its own button.
 function notice(text, playStatus = "") {
   const line = $("play-status");
-  line.textContent = text;
+  line.textContent = elysiumPortrait.text(text);
   line.hidden = !text;
   line.dataset.playStatus = text ? playStatus : "";
   syncActionBeat();
@@ -651,7 +651,8 @@ const cardColours = (ids) =>
     color: levelTier(cardLevel(world, id)).color,
   }));
 const sceneCards = () =>
-  cardColours(availableCards(world).filter((id) => !cardIsClosed(id)));
+  cardColours(availableCards(world).filter((id) => !cardIsClosed(id)))
+    .filter(({ name }) => name !== UNNAMED_ELYSIUM_RESIDENT);
 const namedSpan = (text) => {
   const span = document.createElement("span");
   span.append(...namedText(text, sceneCards()));
@@ -1829,8 +1830,8 @@ function uncover(
   if (shown && flip) turnCard(openingLid(shown, lid));
   if (announce)
     $("discovery-announcement").textContent = isTarotKey(id)
-      ? art ? `New card: ${nameOf(art)}.` : "New card."
-      : `New card: ${nameOf(id)}.`;
+      ? art ? `New card: ${displayName(art)}.` : "New card."
+      : `New card: ${displayName(id)}.`;
   if (openingHeld && openingWordsDue() && avatarKnown()) resumeScene();
   if (sharedSession) syncSharedLine();
 }
@@ -3310,9 +3311,8 @@ function tuckQuest(frame, from) {
 }
 function card(id) {
   const type = tableType(world, id),
-    base = places[id] || people[id] || things[id],
     crossingFace = type === "location" ? travelCard(world, id) : null,
-    name = crossingFace?.name ?? elysiumPortrait.name(id) ?? base.name,
+    name = crossingFace?.name ?? displayName(id),
     locked = isLockedBox(world, id),
     hidden = cardIsCovered(id) || locked;
   const raised =
@@ -3375,7 +3375,6 @@ function card(id) {
     const item = world.items[id];
     // Observable physical states, never fuel arithmetic or puzzle progress.
     if (typeof item.lit === "boolean") el.dataset.lit = String(item.lit);
-    if (!hidden && id === STATION_LANTERN) el.dataset.lantern = stationLanternState(item);
     if (typeof item.ringing === "number")
       el.dataset.ringing = String(item.ringing > 0);
     const covering = Object.keys(world.items).find(
@@ -3792,7 +3791,7 @@ function renderStage(locationId) {
   figure.dataset.state = mood?.name || "present";
   figure.alt = coveredCards.has(stage.resident)
     ? "Someone"
-    : mood?.alt || nameOf(stage.resident);
+    : elysiumPortrait.text(mood?.alt) || displayName(stage.resident);
 }
 function dropFigure(figure) {
   // An image let go after it left the page is never freed (card-ghost.mjs).
@@ -3886,7 +3885,7 @@ function renderFloorItems(items) {
   );
   floor.dataset.count = String(items.length);
   floor.replaceChildren(
-    ...items.map(({ id, cover, lit, ringing, spots, lantern }) => {
+    ...items.map(({ id, cover, lit, ringing, spots }) => {
       let prop = existing.get(id);
       if (!prop) {
         prop = node("span", undefined, "floor-item");
@@ -3915,7 +3914,6 @@ function renderFloorItems(items) {
         prop.style.setProperty(`--${layout}-lift`, String(spot.lift));
       }
       prop.dataset.lit = lit === undefined ? "" : String(lit);
-      if (lantern) prop.dataset.lantern = lantern;
       prop.dataset.covered = String(Boolean(cover));
       prop.dataset.ringing = String(Boolean(ringing));
       return prop;
@@ -4009,8 +4007,6 @@ function renderScene() {
   });
   const floorItems = revealedStage(staging, cardIsCovered).floorItems;
   renderFloorItems(floorItems);
-  const stationLantern = floorItems.some((item) => item.lantern === "burning");
-  if (stationLantern) img.alt += " The repaired station lantern burns beside the platform.";
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
   $("cast").dataset.shared = String(Boolean(sharedSession));
@@ -4165,7 +4161,6 @@ function renderScene() {
     }),
     tint: scene.daylight ? null : UNPAINTED_NIGHT_TINT,
     lamp: lampLitHere(view, scene.locationId),
-    stationLantern,
     pools: (authored.lights || []).filter((pool) => pool.item !== "lamp").map((pool) => ({
       ...pool,
       on: !pool.item || lampLitHere(view, scene.locationId),

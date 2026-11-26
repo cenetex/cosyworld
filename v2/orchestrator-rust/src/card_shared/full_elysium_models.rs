@@ -126,21 +126,34 @@ pub(super) fn record(
     time: i64,
 ) -> Result<()> {
     if let Some((resident, _)) = spoken_to(work, actor) {
-        let inserted = c.execute(
+        c.execute(
             "INSERT OR IGNORE INTO card_full_elysium_receipts(world,resident,scattered) VALUES(?,?,?)",
             params![world, resident.id, time],
         ).map_err(sql_error)?;
-        if inserted > 0 {
+        if !introduced(c, world, resident).map_err(sql_error)? {
             work["elysiumIntro"] = json!(true);
         }
     }
     if let Some(resident) = returned_to(work, actor) {
-        c.execute(
+        let returned = c.execute(
             "UPDATE card_full_elysium_receipts SET returned=? WHERE world=? AND resident=? AND returned IS NULL",
             params![time, world, resident.id],
         ).map_err(sql_error)?;
+        work["elysiumPortraitEarned"] = json!(returned > 0);
     }
     Ok(())
+}
+
+fn introduced(c: &Connection, world: &str, resident: &Resident) -> rusqlite::Result<bool> {
+    c.query_row(
+        "SELECT EXISTS(SELECT 1 FROM card_full_scenes s, json_each(s.content,'$.lines') l
+           WHERE s.world=? AND s.room=? AND json_extract(l.value,'$.actorId')=?
+             AND json_extract(l.value,'$.kind')='dialogue'
+             AND json_extract(l.value,'$.generated')=1
+             AND json_extract(l.value,'$.text') LIKE 'I call myself %. My token has slipped into the world beyond this Void.')",
+        params![world, resident.room, resident.id],
+        |row| row.get(0),
+    )
 }
 
 fn earned(
@@ -180,6 +193,8 @@ fn entitled(
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
         .is_none()
         || !earned(&tx, world, resident, portrait).map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+        || (!portrait
+            && !introduced(&tx, world, resident).map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?)
     {
         return Err(StatusCode::NOT_FOUND);
     }
@@ -216,7 +231,7 @@ fn atomic_write(dir: &Path, path: &Path, bytes: &[u8]) -> io::Result<()> {
 }
 
 fn valid_name(name: &str) -> bool {
-    (2..=40).contains(&name.chars().count())
+    (1..=40).contains(&name.chars().count())
         && (1..=3).contains(&name.split_ascii_whitespace().count())
         && name.chars().any(char::is_alphabetic)
         && name
@@ -285,7 +300,7 @@ async fn choose_name(state: &AppState, resident: &'static Resident) -> Result<(S
         return Ok((name, false));
     }
     let name = model_words(state, resident,
-        "Choose your own original name for this world. Return only the name, one to three words with letters, spaces or hyphens. Do not use a company, product, or real person's name.",
+        "Choose a name for yourself in this world. Return only the name, one to three words with letters, spaces or hyphens. Do not use a company, product, or real person's name.",
         512
     ).await?;
     if !valid_name(&name) {
@@ -380,14 +395,18 @@ async fn render(state: &AppState, resident: &'static Resident) -> Result<()> {
     let root = state.generated_asset_dir.clone();
     let dir = directory(&root, resident);
     let path = dir.clone();
-    let Some(lease) = tokio::task::spawn_blocking(move || drawing_lease(&path))
-        .await
-        .map_err(|error| error.to_string())?
-        .map_err(|error| error.to_string())?
+    let Some((name, lease)) = tokio::task::spawn_blocking(move || {
+        let Some(name) = read_name(&path) else {
+            return Ok(None);
+        };
+        Ok::<_, io::Error>(drawing_lease(&path)?.map(|lease| (name, lease)))
+    })
+    .await
+    .map_err(|error| error.to_string())?
+    .map_err(|error| error.to_string())?
     else {
         return Ok(());
     };
-    let (name, _) = choose_name(state, resident).await?;
     let task = format!("Your name is {name}. Describe how you would draw yourself as one complete, original fantasy figure. Give only visible physical features and clothing, in no more than 400 characters.");
     let appearance = model_words(state, resident, &task, 400).await?;
     if appearance.is_empty()
@@ -496,6 +515,12 @@ mod tests {
         let c = Connection::open_in_memory().unwrap();
         store::schema_sqlite(&c).unwrap();
         let resident = &RESIDENTS[0];
+        let mut arrival = play(
+            resident,
+            json!({"verb":"move","elysiumArrival":resident.id}),
+        );
+        record(&c, "world", &mut arrival, "vale", 8).unwrap();
+        assert!(!earned(&c, "world", resident, false).unwrap());
         let mut first = play(resident, json!({"verb":"talk","elysiumModel":resident.id}));
         assert!(!earned(&c, "world", resident, false).unwrap());
         record(&c, "world", &mut first, "mara", 9).unwrap();
@@ -503,6 +528,21 @@ mod tests {
         record(&c, "world", &mut first, "vale", 10).unwrap();
         assert_eq!(first["elysiumIntro"], true);
         assert!(earned(&c, "world", resident, false).unwrap());
+        assert!(!introduced(&c, "world", resident).unwrap());
+        let mut line = json!({"actorId": resident.id, "kind":"dialogue", "text":"I call myself Amber Thread. My token has slipped into the world beyond this Void.", "generated":false});
+        let write_scene =
+            |line: &Value| {
+                c.execute(
+                "INSERT OR REPLACE INTO card_full_scenes(world,room,play,content) VALUES(?,?,?,?)",
+                params!["world", resident.room, "intro", json!({"lines":[line]}).to_string()],
+            ).unwrap();
+            };
+        write_scene(&line);
+        assert!(!introduced(&c, "world", resident).unwrap());
+        line["generated"] = json!(true);
+        write_scene(&line);
+        assert!(introduced(&c, "world", resident).unwrap());
+        assert!(!introduced(&c, "other-world", resident).unwrap());
         assert!(!earned(&c, "other-world", resident, false).unwrap());
         assert!(!earned(&c, "world", &RESIDENTS[1], false).unwrap());
         assert!(!earned(&c, "world", resident, true).unwrap());
@@ -522,6 +562,7 @@ mod tests {
         assert!(!earned(&c, "world", resident, true).unwrap());
         returned["events"][0]["itemId"] = resident.token.into();
         record(&c, "world", &mut returned, "vale", 22).unwrap();
+        assert_eq!(returned["elysiumPortraitEarned"], true);
         assert!(earned(&c, "world", resident, true).unwrap());
         assert!(!earned(&c, "other-world", resident, true).unwrap());
     }

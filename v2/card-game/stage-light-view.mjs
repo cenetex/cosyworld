@@ -8,7 +8,6 @@ import {
   nightness,
   tintShade,
 } from "./stage-light.mjs";
-import { STATION_LANTERN } from "./pond-signal-view.mjs";
 
 // Eases the stage's time of day between committed turns. The grade is CSS
 // custom properties on the stage (style.css "Time of day").
@@ -19,10 +18,8 @@ const listeners = new Set();
 export const onStageLight = (listener) => listeners.add(listener);
 export const stageLight = (stage) => states.get(stage)?.light;
 
-const propPools = (stage, { lamp, stationLantern }) => [
-  stationLantern && lampPool(stage, STATION_LANTERN),
-  lamp && portableLampPool(stage),
-].filter(Boolean);
+const propPools = (stage, { lamp }) =>
+  lamp ? [portableLampPool(stage)].filter(Boolean) : [];
 
 function apply(stage, light) {
   const state = states.get(stage);
@@ -31,7 +28,7 @@ function apply(stage, light) {
   light.pools = [
     ...props.map((pool) => ({
       ...pool,
-      on: Math.max(pool.portable ? 0.15 : 0.28, nightness(light.hour)),
+      on: Math.max(0.15, nightness(light.hour)),
     })),
     ...(state.ambientPools || []),
   ].slice(0, 4);
@@ -44,11 +41,9 @@ function apply(stage, light) {
   for (const listener of listeners) listener(stage, light);
 }
 
-export const portableLampPool = (stage) => lampPool(stage, "lamp");
-
 // Light follows the rendered prop, including the responsive floor and hand.
-function lampPool(stage, id) {
-  const lamp = [...stage.querySelectorAll(`[data-item="${id}"]`)].find(
+export function portableLampPool(stage) {
+  const lamp = [...stage.querySelectorAll('[data-item="lamp"]')].find(
     (el) =>
       el.dataset.lit === "true" &&
       el.dataset.covered !== "true" &&
@@ -59,15 +54,13 @@ function lampPool(stage, id) {
   const art = stage.querySelector(".stage-figures")?.getBoundingClientRect();
   const box = lamp?.getBoundingClientRect();
   if (!art?.width || !art.height || !box?.width || !box.height) return null;
-  const portable = id === "lamp";
-  const flame = portable ? 0.5 : 0.62;
   return {
     x: (100 * (box.left + box.width / 2 - art.left)) / art.width,
-    y: (100 * (box.top + box.height * flame - art.top)) / art.height,
-    r: portable ? 0.38 : 0.3,
+    y: (100 * (box.top + box.height / 2 - art.top)) / art.height,
+    r: 0.38,
     tint: "lamp",
     on: true,
-    portable,
+    portable: true,
   };
 }
 
@@ -86,7 +79,6 @@ export function renderStageLight(
     ease = true,
     tint = null,
     lamp = false,
-    stationLantern = false,
   },
 ) {
   let state = states.get(stage);
@@ -102,7 +94,7 @@ export function renderStageLight(
     // Hand/dialogue height and figure visibility can change without resizing
     // the stage. Watch layout changes, never run a permanent polling loop.
     const followLayout = () => {
-      if (state.layoutFrame || !(state.options?.lamp || state.options?.stationLantern)) return;
+      if (state.layoutFrame || !state.options?.lamp) return;
       state.layoutFrame = requestAnimationFrame(() => {
         state.layoutFrame = 0;
         const geometry = JSON.stringify(propPools(stage, state.options));
@@ -146,10 +138,10 @@ export function renderStageLight(
       attributeFilter: ["style", "class"],
     });
   }
-  state.options = { turn, strength, pools, sky, ease, tint, lamp, stationLantern };
+  state.options = { turn, strength, pools, sky, ease, tint, lamp };
   state.followLayout();
   const lit = pools.map((pool) => Number(Boolean(pool.on)));
-  const key = JSON.stringify([pools, tint, lamp, stationLantern]);
+  const key = JSON.stringify([pools, tint, lamp]);
   if (state.turn === turn && state.strength === strength && state.key === key)
     return;
   const shown = state.shown ?? { turn, strength, lit };

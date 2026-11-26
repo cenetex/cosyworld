@@ -864,8 +864,10 @@ async fn voice_once(state: &AppState, id: &str) -> Result<bool> {
         elysium::draw(state.clone());
     }
     let actor = actor_id(work.actor);
-    if let Some(resident) = elysium_models::returned_to(&work.context, actor) {
-        elysium_models::draw(state.clone(), resident);
+    if work.context["elysiumPortraitEarned"] == true {
+        if let Some(resident) = elysium_models::returned_to(&work.context, actor) {
+            elysium_models::draw(state.clone(), resident);
+        }
     }
     reflect::replace(id, work.actor);
     let lines = match elysium_models::spoken_to(&work.context, actor) {

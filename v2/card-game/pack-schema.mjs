@@ -1949,7 +1949,7 @@ export function packProblems(
         "travel",
         "signal",
         "unlockWhen",
-        "alternateUnlock",
+        "unlockMethod",
         "requires",
         "scenery",
         "opened",
@@ -2034,20 +2034,11 @@ export function packProblems(
       for (const r of c.unlockWhen || [])
         condition(r, `${name} unlock condition`);
     }
-    if (c.alternateUnlock !== undefined) {
-      const alternate = c.alternateUnlock;
+    if (c.unlockMethod !== undefined)
       check(
-        Boolean(c.unlockWhen?.length) &&
-          keysOk(alternate, ["primary", "method", "requires"]) &&
-          idOk(alternate?.primary) && idOk(alternate.method) &&
-          alternate.primary !== alternate.method &&
-          Array.isArray(alternate.requires) &&
-          alternate.requires.length > 0 && alternate.requires.length <= 6,
-        `${name} alternate unlock needs distinct method names and conditions alongside unlockWhen`,
+        Boolean(c.unlockWhen?.length) && idOk(c.unlockMethod),
+        `${name} unlockMethod needs an id and unlockWhen conditions`,
       );
-      for (const r of Array.isArray(alternate?.requires) ? alternate.requires : [])
-        condition(r, `${name} alternate unlock condition`);
-    }
     const s = c?.signal;
     if (s === undefined) continue;
     check(

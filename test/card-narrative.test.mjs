@@ -1168,8 +1168,6 @@ describe("speech grounding in resolved card plays", () => {
       "keeper-log",
       "lamp",
       "oil",
-      "station-lantern",
-      "station-lantern-wick",
     ]);
     expect(avatar(outcome, "moth")).toMatchObject({
       location: "pond",

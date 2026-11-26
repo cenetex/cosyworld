@@ -18,9 +18,7 @@ const vale = "vale",
   seed = 17;
 const crossing = "pond-greek-harbor",
   fact = "quest:keeper:pond";
-const wick = "station-lantern-wick",
-  lantern = "station-lantern",
-  log = "keeper-log";
+const log = "keeper-log";
 
 function table(shared = false) {
   let world = shared
@@ -117,14 +115,13 @@ function preparePipSignal(t) {
   expect(t.signal.discovered).toBe(false);
 }
 
-function repairLantern(t, actor) {
+function readLog(t, actor) {
   expect(knowsFact(t.world, actor, fact)).toBe(false);
   t.act(actor, { kind: "read", item: log }, [log]);
   expect(t.world.knowledge.known[actor][fact]).toMatchObject({
     kind: "read",
     book: log,
   });
-  t.act(actor, { label: "Repair lantern" }, [wick, lantern]);
   expect(t.signal.discovered).toBe(false);
 }
 
@@ -160,46 +157,36 @@ it("borrows Pip's Lamp and calls the ship by the original signal", () => {
   checkReturn(t, "pond-lamp", "Pip has the Lamp back.");
 });
 
-it("uses the Keeper's log and restores the lantern after Pip leaves the Pond", () => {
+it("reads the Keeper's log without making Empty Station a ship signal", () => {
   const t = table();
   enterPond(t);
-  take(t, vale, wick);
   move(t, vale, "station", "lamp");
-  expect(t.world.actors.moth.place).not.toBe("pond");
+  readLog(t, vale);
+  if (t.world.items.lamp.holder === "moth") t.world.items.lamp.holder = vale;
+  t.world.actors.moth.place = "attic";
+  t.world.items.cloth.holder = vale;
+  t.hold("cloth");
   drop(t, vale, "lamp", "station");
-  expect(t.world.items.lamp.holder).toBe("moth");
-  repairLantern(t, vale);
-  t.reload();
-  t.act(vale, { label: "Light lantern" }, [lantern]);
-  expect(t.world.items[lantern]).toMatchObject({
-    holder: "station",
-    repaired: true,
-    lit: true,
-  });
-  expect(t.world.actors.keeper.completedQuest.by).toBe(vale);
-  move(t, vale, "pond");
-  checkReturn(t, "station-lantern", "The station lantern called the ship.");
+  expect(t.world.items.lamp).toMatchObject({ holder: "station", lit: true });
+  expect(t.signal).toEqual({ discovered: false });
+  expect(t.world.actors.keeper.completedQuest).toBeUndefined();
 });
 
-it("retains the first signal when another traveler prepared the original signal", () => {
+it("settles the portable signal once after another traveler advances the shared revision", () => {
   const t = table(true);
   t.join();
   preparePipSignal(t);
-  take(t, rue, "routes");
-  move(t, rue, "station");
-  move(t, rue, "pond");
-  take(t, rue, wick);
-  move(t, rue, "station");
-  repairLantern(t, rue);
   const revision = t.world.revision;
   const dropLamp = { kind: "drop", item: "lamp", target: "pond" };
   const action = t.find(vale, dropLamp);
-  t.act(rue, { label: "Light lantern" }, [lantern]);
+  t.act(rue, { kind: "wait" });
   const stale = t.request(vale, "play", { action, revision });
   expect(stale.ok).toBe(false);
   t.act(vale, dropLamp);
-  expect(t.world.actors.keeper.completedQuest.by).toBe(rue);
-  checkReturn(t, "station-lantern");
+  expect(t.world.actors.keeper.completedQuest.by).toBe(vale);
+  take(t, vale, "lamp");
+  t.act(vale, { label: "Return Lamp" }, ["lamp", "moth"]);
+  checkReturn(t, "pond-lamp", "Pip has the Lamp back.");
   expect(
     t.world.log.filter(
       (entry) => entry.verb === "want_met" && entry.ownerId === "keeper",

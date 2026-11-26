@@ -147,21 +147,14 @@ it("moves a pool without cutting an active time-of-day ease", () => {
   tick();
   expect(stageLight(shown).pools.map((p) => p.x)).toEqual([0, 1, 2, 3]);
 
-  const lantern = {
-    ...lamp,
-    dataset: { lit: "true" },
-    getBoundingClientRect: () => rect(300, 126, 20, 20),
-  };
   lamp.dataset.lit = "true";
-  shown.querySelectorAll = (selector) => selector.includes("station-lantern") ? [lantern] : [lamp];
-  renderStageLight(shown, { turn: 0, lamp: true, stationLantern: true, ease: false });
+  renderStageLight(shown, { turn: 0, lamp: true, ease: false });
   expect(stageLight(shown).pools).toMatchObject([
-    { x: 75, y: expect.closeTo(59.2), portable: false, on: 0.28 },
     { x: 50, y: 50, portable: true, on: 0.15 },
   ]);
-  lantern.visibility = "hidden";
+  lamp.visibility = "hidden";
   changed();
   tick();
-  expect(stageLight(shown).pools).toHaveLength(1);
+  expect(stageLight(shown).pools).toHaveLength(0);
   vi.restoreAllMocks();
 });
