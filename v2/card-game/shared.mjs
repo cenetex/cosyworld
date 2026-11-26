@@ -272,7 +272,7 @@ export async function connectSharedWorld(id) {
       }
     } catch (error) {
       connectionError = error.message;
-      report(connectionError);
+      report(connectionError, undefined, error.code === "account_reset" || [401, 403].includes(error.status));
     } finally {
       inFlight = false;
     }
