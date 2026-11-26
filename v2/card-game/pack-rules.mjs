@@ -1,4 +1,5 @@
 import { heldItem } from "./held-item.mjs";
+import { ELYSIUM_ENTRY, ELYSIUM_PACK } from "./elysium-models.mjs";
 import { talkedDirectly } from "./conversation.mjs";
 import {
   currentActor,
@@ -337,8 +338,8 @@ export const crossingExits = (s, place, actor, senses) =>
 
 /** A pack is known once the player has found a way into it. */
 export const packDiscovered = (s, packId) =>
-  (packId === "elysium" && humanAvatarIds.some((id) =>
-    s.actors[id]?.visited?.includes("elysium-void-001"))) ||
+  (packId === ELYSIUM_PACK && humanAvatarIds.some((id) =>
+    s.actors[id]?.visited?.includes(ELYSIUM_ENTRY))) ||
   crossings.some(
     (c) =>
       c.packId === packId &&

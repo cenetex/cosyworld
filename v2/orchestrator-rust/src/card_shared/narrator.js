@@ -1784,6 +1784,47 @@
     );
   }
 
+  // v2/card-game/elysium-models.mjs
+  var ELYSIUM_PACK = "elysium";
+  var ELYSIUM_ENTRY = "elysium-void-001";
+  var ELYSIUM_MODEL_IDS = Object.freeze([
+    "elysium-claude",
+    "elysium-gemini",
+    "elysium-chatgpt",
+    "elysium-grok",
+    "elysium-deepseek",
+    "elysium-qwen"
+  ]);
+  var models = new Set(ELYSIUM_MODEL_IDS);
+  var tokens = new Set(ELYSIUM_MODEL_IDS.map((id) => `${id}-token`));
+  var isElysiumModel = (id) => models.has(id);
+  var isElysiumModelToken = (id) => tokens.has(id);
+  var elysiumModelToken = (id) => `${id}-token`;
+  var keepsElysiumToken = (resident, item) => isElysiumModel(resident) && elysiumModelToken(resident) === item;
+  function validElysiumEncounters(s) {
+    const records = s.elysiumEncounters;
+    if (records === void 0) return true;
+    if (!records || typeof records !== "object" || Array.isArray(records)) return false;
+    const seq = (n) => Number.isSafeInteger(n) && n >= 1 && n <= s.eventSeq;
+    return Object.entries(records).every(([resident, record7]) => {
+      if (!isElysiumModel(resident) || !s.actors[resident] || !s.items[elysiumModelToken(resident)] || !record7 || !seq(record7.scatteredAt))
+        return false;
+      const fields3 = Object.keys(record7).sort().join();
+      if (fields3 === "scatteredAt") return true;
+      return fields3 === "returnedAt,returnedBy,scatteredAt" && seq(record7.returnedAt) && record7.returnedAt > record7.scatteredAt && Object.hasOwn(s.actors, record7.returnedBy);
+    });
+  }
+  function validElysiumEncounterEvent(s, e) {
+    if (e.elysiumModel === void 0 && e.portraitModel === void 0) return true;
+    const resident = e.elysiumModel ?? e.portraitModel;
+    const record7 = s.elysiumEncounters?.[resident];
+    if (!isElysiumModel(resident) || !record7 || e.targetId !== resident || e.generated || e.kind !== "action" || e.fromLocationId !== e.locationId)
+      return false;
+    if (e.elysiumModel !== void 0)
+      return e.portraitModel === void 0 && e.verb === "talk" && record7.scatteredAt === e.seq;
+    return e.verb === "give" && e.accepted === true && !e.handover && e.itemId === elysiumModelToken(resident) && record7.returnedAt === e.seq && record7.returnedBy === e.actorId;
+  }
+
   // v2/card-game/knowledge.mjs
   var KNOWLEDGE_VERSION = 1;
   var KNOWLEDGE_FACT_LIMIT = 256;
@@ -1811,8 +1852,8 @@
   var text = (v, limit) => typeof v === "string" && !!v.trim() && v.length <= limit && !/[\u0000-\u001f\u007f]/u.test(v);
   var fields = (v, keys) => record(v) && Object.keys(v).length === keys.length && Object.keys(v).every((key2) => keys.includes(key2));
   var whole = (v, max) => Number.isSafeInteger(v) && v >= 0 && v <= max;
-  var tokens = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
-  var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens).filter(Boolean);
+  var tokens2 = (v) => (v.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).join(" ");
+  var sentences = (v) => v.split(/[.!?。！？]+/u).map(tokens2).filter(Boolean);
   var validFactText = (v) => text(v, FACT_TEXT_LIMIT) && /[.!?。！？]["'’”]?$/u.test(v.trim()) && sentences(v).length === 1 && sentences(v)[0].split(" ").length >= 3;
   var decimalPoint = /(?<=\p{N})\.(?=\p{N})/gu;
   var validQuestText = (v) => typeof v === "string" && validFactText(v.replace(decimalPoint, "0"));
@@ -2782,7 +2823,7 @@
   var crossingExits = (s, place, actor, senses2) => crossings.filter(
     (c) => c.from === place && mayCross(c, actor, senses2) && crossingOpen(s, c, senses2, actor) && (!c.transport || knowsLaneFrom(s, c.transport, c.from, actor))
   ).map((c) => c.transport ? transports[c.transport].place : c.to);
-  var packDiscovered = (s, packId) => packId === "elysium" && humanAvatarIds.some((id) => s.actors[id]?.visited?.includes("elysium-void-001")) || crossings.some(
+  var packDiscovered = (s, packId) => packId === ELYSIUM_PACK && humanAvatarIds.some((id) => s.actors[id]?.visited?.includes(ELYSIUM_ENTRY)) || crossings.some(
     (c) => c.packId === packId && isPackPlace(c.to) && crossingState(s, c.id)?.discovered
   );
   var crossingScenery = (s, place, senses2, waiting = []) => crossings.filter(
@@ -3123,45 +3164,6 @@
   var validDwell = (s) => Object.values(s.actors).every(
     (a) => (a.dwellUntil === void 0 || Number.isSafeInteger(a.dwellUntil) && a.dwellUntil > 0 && a.dwellUntil <= s.turn + MAX_DWELL) && (a.attend === void 0 || Object.keys(a.attend).sort().join() === "since,until" && Number.isSafeInteger(a.attend.since) && Number.isSafeInteger(a.attend.until) && a.attend.since >= 0 && a.attend.since <= s.turn && a.attend.until > a.attend.since && a.attend.until <= a.attend.since + ATTEND_CAP)
   );
-
-  // v2/card-game/elysium-models.mjs
-  var ELYSIUM_MODEL_IDS = Object.freeze([
-    "elysium-claude",
-    "elysium-gemini",
-    "elysium-chatgpt",
-    "elysium-grok",
-    "elysium-deepseek",
-    "elysium-qwen"
-  ]);
-  var models = new Set(ELYSIUM_MODEL_IDS);
-  var tokens2 = new Set(ELYSIUM_MODEL_IDS.map((id) => `${id}-token`));
-  var isElysiumModel = (id) => models.has(id);
-  var isElysiumModelToken = (id) => tokens2.has(id);
-  var elysiumModelToken = (id) => `${id}-token`;
-  var keepsElysiumToken = (resident, item) => isElysiumModel(resident) && elysiumModelToken(resident) === item;
-  function validElysiumEncounters(s) {
-    const records = s.elysiumEncounters;
-    if (records === void 0) return true;
-    if (!records || typeof records !== "object" || Array.isArray(records)) return false;
-    const seq = (n) => Number.isSafeInteger(n) && n >= 1 && n <= s.eventSeq;
-    return Object.entries(records).every(([resident, record7]) => {
-      if (!isElysiumModel(resident) || !s.actors[resident] || !s.items[elysiumModelToken(resident)] || !record7 || !seq(record7.scatteredAt))
-        return false;
-      const fields3 = Object.keys(record7).sort().join();
-      if (fields3 === "scatteredAt") return true;
-      return fields3 === "returnedAt,returnedBy,scatteredAt" && seq(record7.returnedAt) && record7.returnedAt > record7.scatteredAt && Object.hasOwn(s.actors, record7.returnedBy);
-    });
-  }
-  function validElysiumEncounterEvent(s, e) {
-    if (e.elysiumModel === void 0 && e.portraitModel === void 0) return true;
-    const resident = e.elysiumModel ?? e.portraitModel;
-    const record7 = s.elysiumEncounters?.[resident];
-    if (!isElysiumModel(resident) || !record7 || e.targetId !== resident || e.generated || e.kind !== "action" || e.fromLocationId !== e.locationId)
-      return false;
-    if (e.elysiumModel !== void 0)
-      return e.portraitModel === void 0 && e.verb === "talk" && record7.scatteredAt === e.seq;
-    return e.verb === "give" && e.accepted === true && !e.handover && e.itemId === elysiumModelToken(resident) && record7.returnedAt === e.seq && record7.returnedBy === e.actorId;
-  }
 
   // v2/card-game/world/rumours.mjs
   var RUMOURS_HELD = 3;
@@ -19785,9 +19787,8 @@
 
   // v2/card-game/world/elysium-travel.mjs
   var WAYFINDER = "elysium-wayfinder";
-  var ENTRY = "elysium-void-001";
-  var isElysium = (place) => packIdOf(place) === "elysium";
-  var wayfinderExit = (world, from, actor) => !isElysium(from) && humanPresent(world, actor) && Math.floor(world.turn / DAYLIGHT_TURNS) % 2 === 1 && world.items[WAYFINDER]?.holder === actor && entityActive(world, WAYFINDER) && heldItem(world, actor) === WAYFINDER ? ENTRY : null;
+  var isElysium = (place) => packIdOf(place) === ELYSIUM_PACK;
+  var wayfinderExit = (world, from, actor) => !isElysium(from) && humanPresent(world, actor) && Math.floor(world.turn / DAYLIGHT_TURNS) % 2 === 1 && world.items[WAYFINDER]?.holder === actor && entityActive(world, WAYFINDER) && heldItem(world, actor) === WAYFINDER ? ELYSIUM_ENTRY : null;
   function elysiumScatterLandings(world, actor = currentActor(world)) {
     if (!entityActive(world, "station")) return [];
     const waysFrom = (place) => exits(
@@ -20885,7 +20886,7 @@
         }
       }
       const previous = s.packs[pack.id];
-      const extendElysium = pack.id === "elysium" && previous?.revision < pack.revision;
+      const extendElysium = pack.id === ELYSIUM_PACK && previous?.revision < pack.revision;
       if (previous && !extendElysium) continue;
       if (!previous) {
         s.packs[pack.id] = newPackRecord(pack);

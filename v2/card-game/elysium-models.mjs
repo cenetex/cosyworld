@@ -1,3 +1,6 @@
+export const ELYSIUM_PACK = "elysium";
+export const ELYSIUM_ENTRY = "elysium-void-001";
+
 export const ELYSIUM_MODEL_IDS = Object.freeze([
   "elysium-claude",
   "elysium-gemini",
