@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -23,7 +23,7 @@ const port = Number(process.env.COSYWORLD_PORTFOLIO_PORT || 4188);
 const origin = "http://localhost:" + port;
 const dbPath = join(dir, "events.sqlite");
 const binary = resolve(process.env.COSYWORLD_SHARED_BINARY || orchestratorBinary());
-const evidence = { status: "incomplete", source: "live OpenRouter; seeded starting position only", model, viewport: [1440, 900], files: [], checks: {} };
+const evidence = { commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), status: "incomplete", source: "live OpenRouter; seeded starting position only", model, viewport: [1440, 900], files: [], checks: {} };
 const replies = [];
 const errors = [];
 let child, browser, log = "", relay;
@@ -111,8 +111,10 @@ async function ready() {
     return (await fetch(origin + "/health", { signal: AbortSignal.timeout(2000) })).ok;
   }, "orchestrator health", 30000);
 }
-let worldId;
+let worldId, lastSnapshot = 0;
 async function snapshot(page) {
+  await delay(Math.max(0, lastSnapshot + 1500 - Date.now()));
+  lastSnapshot = Date.now();
   const response = await page.request.get(origin + "/card-game/shared/worlds/" + worldId);
   assert.equal(response.status(), 200);
   return response.json();
@@ -147,6 +149,7 @@ async function render(page) {
     return image?.complete && image.naturalWidth > 0;
   });
   await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => [...document.querySelectorAll('#cast .portrait[aria-hidden="false"] img, #hand img')].filter(img => img.getBoundingClientRect().width > 0).every(img => img.complete && img.naturalWidth > 0));
 }
 async function shot(page, file) {
   await page.screenshot({ path: join(output, file) });
@@ -167,7 +170,7 @@ async function front(page, predicate, backwards = false) {
       kind: document.querySelector("#speech-row").dataset.beat,
       text: document.querySelector("#dialogue-text").textContent.trim(),
       caption: document.querySelector("#beat-captions").textContent.trim(),
-      revealing: document.querySelector("#dialogue-advance").dataset.revealing === "true",
+      revealing: document.querySelector("#dialogue-advance").dataset.revealing === "true" || Boolean(document.querySelector("#beat-captions .inscribe")),
     }));
     if (predicate(state) && !state.revealing) return true;
     const next = page.locator(backwards ? "#beat-behind" : "#dialogue-advance");
@@ -222,7 +225,7 @@ try {
   const auth = await setup.storageState();
   await setup.close();
 
-  const recording = await context({ storageState: auth, recordVideo: { dir: output, size: viewport } });
+  const recording = await context({ storageState: auth, recordVideo: { dir, size: viewport } });
   const page = await newPage(recording);
   const video = page.video();
   await page.goto(sharedUrl);
@@ -246,18 +249,35 @@ try {
   await button.click();
   const command = (await submitted).postDataJSON();
   assert(command.key);
-  let after, scene;
+  assert.equal(command.action.kind, "drop");
+  assert.equal(command.action.item, "bell");
+  let after, scene, event;
+  await until(async () => {
+    after = await snapshot(page);
+    event = after.world.log.find(e => e.seq > before.world.eventSeq && e.kind === "action" && !e.generated && e.actorId === "vale" && e.verb === "drop" && e.itemId === "bell");
+    return event && after.world.items.bell.holder === "pond";
+  }, "the authoritative bell drop");
+  assert(after.world.turn > before.world.turn);
+  const caption = actionCaption(event, { viewer: "vale", here: "pond" });
+  assert(caption?.text);
+  const isAction = state => state.kind === "action" && state.caption.includes(caption.text);
+  try {
+    await page.waitForFunction(text => {
+      const row = document.querySelector("#speech-row");
+      const captions = document.querySelector("#beat-captions");
+      return row.dataset.beat === "action" && captions.textContent.includes(text) && !captions.querySelector(".inscribe");
+    }, caption.text, { timeout: 12000 });
+  } catch {
+    // If the client has already advanced to speech, use its real beat stack.
+    await front(page, isAction, true);
+  }
+  await shot(page, "03-world-message.png");
   await until(async () => {
     after = await snapshot(page);
     scene = after.history.find(entry => entry.play === command.key);
     return scene && !after.queue.some(q => q.id === command.key);
   }, "the server completes the selected play");
   assert.equal(after.world.items.bell.holder, "pond");
-  assert(after.world.turn > before.world.turn);
-  const event = after.world.log.find(e => e.seq > before.world.eventSeq && e.kind === "action" && !e.generated && e.actorId === "vale" && e.verb === "drop" && e.itemId === "bell");
-  assert(event, "expected the authoritative bell drop");
-  const caption = actionCaption(event, { viewer: "vale", here: "pond" });
-  assert(caption?.text);
   const rows = journal().filter(row => row.seq > startSeq);
   const played = rows.find(row => row.command.op === "play");
   const spoken = rows.find(row => row.command.op === "speech" && row.seq > played?.seq);
@@ -267,14 +287,9 @@ try {
   const upstream = replies.find(r => r.started >= started && normalized(r.text).includes(normalized(line.text)));
   assert(upstream, "published line must match an actual upstream completion");
   evidence.checks = { cardPlayed: true, worldMessage: true, journalPlayBeforeSpeech: true, liveProviderMatch: true };
-  evidence.play = { key: command.key, event, caption: caption.text, line, journalPlaySeq: played.seq, journalSpeechSeq: spoken.seq, provider: { id: upstream.id, model: upstream.model, requestedModel: upstream.requestedModel } };
+  evidence.play = { key: command.key, rules: after.version, event, caption: caption.text, line, journalPlaySeq: played.seq, journalSpeechSeq: spoken.seq, provider: { id: upstream.id, model: upstream.model, requestedModel: upstream.requestedModel } };
 
-  // The current renderer keeps committed actions on their own cards.
-  // Capture the action before reading the matching speech, or step back to it.
-  await front(page, s => s.text === line.text);
-  await front(page, s => s.kind === "action" && s.caption.includes(caption.text), true);
-  await shot(page, "03-world-message.png");
-  await front(page, s => s.text === line.text);
+  await front(page, s => s.kind === "speech" && s.text === line.text);
   await shot(page, "04-generated-speech.png");
   await delay(1000);
   await recording.close();
@@ -297,9 +312,6 @@ try {
   evidence.restored = { turn: restored.world.turn, revision: restored.world.revision, bellHolder: restored.world.items.bell.holder };
   await render(restoredPage);
   await wake(restoredPage);
-  await restoredPage.locator("#toolbar-menu-button").click();
-  await restoredPage.locator("#shared-worlds-button").click();
-  await restoredPage.locator("#world-menu").waitFor();
   await shot(restoredPage, "05-shared-world.png");
   await fresh.close();
   assert.deepEqual(errors, []);
@@ -315,5 +327,5 @@ try {
   if (relay) await new Promise(r => relay.close(r));
   await writeFile(join(output, "evidence.json"), JSON.stringify(evidence, null, 2) + "\n");
   console.log("Capture:", evidence.status, output, "SQLite:", dbPath);
-  if (evidence.status !== "passed") console.error("Server diagnostics available from the isolated process; captured bytes:", log.length);
+  if (evidence.status !== "passed") console.error("Isolated server output bytes:", log.length);
 }
