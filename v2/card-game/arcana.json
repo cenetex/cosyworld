@@ -420,7 +420,7 @@
       "number": 12,
       "name": "The Hanged Man",
       "text": "A woodcut card. A figure hangs over still water, and its reflection is a small dark figure.",
-      "art": "assets/arcana/arcanum-12.png",
+      "art": "assets/arcana/full-size/arcanum-12.png",
       "proof": [
         {
           "kind": "did",

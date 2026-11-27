@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-27",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2758",
+  "reference": {
+    "file": "arcanum-12.png",
+    "sha256": "b8c3bd60e5dfd1494705944d210a190702016d6a76910ca93dd42eaaa84b8165"
+  },
+  "prompt": "Restore this small antique Marseille tarot illustration to a crisp 2:3 portrait card for a fictional card game. Keep the whole border, Roman XII, the title THE HANGED MAN, and the calm inverted acrobat pose exactly as in the reference. Retain the original warm cream, black ink and restrained teal accents. Keep the branch, the dark reflection in the still pond, and all the original layout. Restore fine scanned woodcut linework and paper texture. Flat print, filling the frame, no surrounding surface.",
+  "file": "full-size/arcanum-12.png",
+  "sha256": "8a530956f3ce3ac1c6908624545b72874017ffb76f5a9fa86bb4403ff2df6f3a",
+  "width": 1024,
+  "height": 1536,
+  "alpha": false
+}

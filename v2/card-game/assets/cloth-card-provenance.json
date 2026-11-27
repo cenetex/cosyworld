@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-27",
+  "tool": "built-in image_gen",
+  "issue": "https://github.com/cenetex/cosyworld/issues/2758",
+  "reference": {
+    "commit": "0d41ef94448a8e86017f021e62d81d8d46a58b46",
+    "file": "cloth-card.png",
+    "sha256": "9c4a2c383eeac4abeeed6d91f13ede9d0a82576e12a421fa8a4bb5d382e1adaf"
+  },
+  "prompt": "Create a high-resolution clean-alpha item illustration for the original Cosyworld card game. One folded heavy blue-black linen and wool cloth lying in loose broad folds, with a coarse hand-woven texture, two ragged knotted fringed edges and an occasional fine amber thread. Preserve the color and identity of the attached Cosyworld reference: deep blue-black shadow with warm amber rim light, painterly, worn and soft heavy folds rather than smooth fabric. An uncanny storybook painting in 3/4 view, richly hand-painted detail, restrained highlights, readable at a tiny card size. Silhouette should fit with clear margin on each side, filling about 80% of a square canvas. Only the cloth, centered on true fully transparent alpha, no ground, no cast shadow, no other objects, no text, no border.",
+  "generated_sha256": "a4bf44b393cb0cbad89dfc916f42671709075b1f9169f03f47370a9dd04261d2",
+  "width": 1254,
+  "height": 1254,
+  "assets": [
+    {
+      "file": "cloth-card.png",
+      "sha256": "1a1e88ecb3fcb11e4cb96b4fbb8bfb10254f6903c19fecf4cf8819ea8393fdf0",
+      "alpha": true,
+      "processing": "Resized to 1050 pixels square and centered on a transparent 1254-pixel canvas to give the fringe room."
+    },
+    {
+      "file": "cloth-card.jpg",
+      "sha256": "853332eb513165d9c3474c0e9ab6618d5d44c48904ba048597e1853d5cd4c2d8",
+      "alpha": false,
+      "processing": "Flattened the new cutout onto a dark blue-gray background for the existing JPEG URL."
+    }
+  ]
+}
