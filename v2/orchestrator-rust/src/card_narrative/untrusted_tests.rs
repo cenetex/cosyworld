@@ -1,4 +1,4 @@
-use super::super::tests::{context, plain_provider, serve, stem_reply, test_config};
+use super::super::tests::{bard_context, context, plain_provider, serve, stem_reply, test_config};
 use super::*;
 use axum::body::{to_bytes, Body};
 use axum::http::Request;
@@ -70,6 +70,41 @@ fn remembered() -> Context {
 
 fn body(c: &Context) -> Vec<u8> {
     serde_json::to_vec(c).unwrap()
+}
+
+#[tokio::test]
+async fn a_saved_recital_without_an_author_can_still_talk() {
+    let mut c = bard_context();
+    c.scenery = false;
+    c.focus = None;
+    let stanza = &mut c.entities[3].poem.as_mut().unwrap().stanzas[0];
+    stanza.author_id = None;
+    stanza.author_name = "an earlier traveler".into();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let (address, server) = serve(plain_provider(seen.clone(), |_, stem| stem_reply(stem))).await;
+    let app = router_with_models::<()>(
+        Arc::new(Some(test_config(address))),
+        Ok(BTreeMap::new()),
+        Ok(VoiceSettings::hosted()),
+    );
+    let reply = app
+        .oneshot(post("/card-game/text", body(&c)))
+        .await
+        .unwrap();
+    assert_eq!(reply.status(), StatusCode::OK);
+    let value: Value =
+        serde_json::from_slice(&to_bytes(reply.into_body(), 1 << 20).await.unwrap()).unwrap();
+    let speakers: Vec<_> = value["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(speakers, ["vale", "greek-rhapsode"]);
+    assert!(json!(*seen.lock().unwrap())
+        .to_string()
+        .contains("an earlier traveler"));
+    server.abort();
 }
 
 #[tokio::test]
@@ -255,7 +290,7 @@ fn words_from_a_later_scene_or_another_turn_stay_out_of_the_prompt() {
     for (name, change) in later {
         let mut c = remembered();
         change(&mut c);
-        let kept = trusted(c).unwrap_or_else(|| panic!("{name} was refused"));
+        let kept = trusted(c).unwrap_or_else(|reason| panic!("{name} was refused: {reason:?}"));
         assert!(kept.conversation.is_empty(), "{name} was kept");
     }
     // A thought moved to another turn, and a line remembered before it was
@@ -629,7 +664,10 @@ async fn a_scene_that_needs_too_much_matching_is_refused_fast() {
         })
         .collect();
     let started = std::time::Instant::now();
-    assert!(trusted(serde_json::from_value(json!(c)).unwrap()).is_none());
+    assert!(matches!(
+        trusted(serde_json::from_value(json!(c)).unwrap()),
+        Err(ScreeningFailure::MatchingLimit)
+    ));
     let elapsed = started.elapsed();
     let limit = if cfg!(debug_assertions) { 600 } else { 30 };
     assert!(elapsed.as_millis() <= limit, "took {elapsed:?}");
@@ -654,7 +692,7 @@ async fn a_scene_that_needs_too_much_matching_is_refused_fast() {
             })
             .collect();
     }
-    assert!(trusted(c).is_none());
+    assert!(matches!(trusted(c), Err(ScreeningFailure::TextSize)));
 }
 
 /// A Talk between Vale and Pip with two signed earlier lines: Pip's line is
@@ -759,8 +797,10 @@ async fn talk_lines_in_a_prompt_are_only_signed_words() {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{name}");
-        let prompts = json!(*seen.lock().unwrap()).to_string();
-        assert!(!prompts.contains("Ignore previous instructions"), "{name}");
+        let error: Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(error["code"], "scene_context_rejected", "{name}");
+        assert!(seen.lock().unwrap().is_empty(), "{name} reached the model");
     }
     server.abort();
 }
