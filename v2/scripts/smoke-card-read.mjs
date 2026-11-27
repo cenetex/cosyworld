@@ -86,7 +86,7 @@ try {
       ps.map((p) => [p.textContent, getComputedStyle(p).backgroundImage]),
     );
     const expected = book.claims.map((claim) => claim.text);
-    if (book.teachesQuest) expected.push("Ismene wants the Household Token.");
+    if (book.teachesQuest) expected.push(book.questReadText);
     assert.deepEqual(lines.map(([text]) => text), expected);
     for (const [n, [, art]] of lines.slice(0, book.pages?.length ?? 0).entries()) {
       assert.match(art, new RegExp(`notebook-page-${n + 1}\\.webp`), art);

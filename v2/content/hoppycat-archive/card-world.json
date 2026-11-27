@@ -473,7 +473,10 @@
       "author": "hoppycat-penny-vellum",
       "records": [
         "hoppycat-table-credit"
-      ]
+      ],
+      "recordText": {
+        "hoppycat-table-credit": "Penny has inked Ledger’s name on the Maker’s Label, ready for the tea table at the Halfway Tea Garden."
+      }
     },
     "hoppycat-unfinished-prism": {
       "name": "Crooked Prism",
@@ -493,7 +496,10 @@
       "author": "hoppycat-patch-fern",
       "records": [
         "hoppycat-table-patch"
-      ]
+      ],
+      "recordText": {
+        "hoppycat-table-patch": "Patch planted the seed for the traveller who came to Hoppy's table, and the short Ledger fitted the visit on its label."
+      }
     },
     "hoppycat-concordance-compass": {
       "name": "Rill's Compass",
@@ -506,7 +512,7 @@
       "claims": [
         {
           "id": "two-stops",
-          "text": "The route runs by the Signal Jetty and the Halfway Tea Garden.",
+          "text": "The compass has two names scratched into it and two stops to make, the Signal Jetty and the Halfway Tea Garden.",
           "about": "hoppycat-signal-jetty"
         }
       ]
@@ -571,7 +577,11 @@
       "records": [
         "hoppycat-table-invitation",
         "hoppycat-table-signal"
-      ]
+      ],
+      "recordText": {
+        "hoppycat-table-invitation": "Static drew the way from Signal Jetty to the Halfway Tea Garden on the back, with a blank for his signature.",
+        "hoppycat-table-signal": "Static left the signed Invitation Home on the Signal Jetty bench, so the traveller can board or stay for another cup."
+      }
     },
     "hoppycat-draft-page": {
       "name": "Mira's Draft",
@@ -589,7 +599,10 @@
       "author": "hoppycat-mira-meraki",
       "records": [
         "hoppycat-table-draft-chosen"
-      ]
+      ],
+      "recordText": {
+        "hoppycat-table-draft-chosen": "Fable has the empty-chair draft Mira chose, with the reading still to come."
+      }
     },
     "hoppycat-evening-programme": {
       "name": "Evening Programme",
@@ -618,7 +631,11 @@
       "records": [
         "hoppycat-table-draft-ready",
         "hoppycat-table-paint-ready"
-      ]
+      ],
+      "recordText": {
+        "hoppycat-table-draft-ready": "Fable read Mira’s empty-chair draft aloud, and the Evening Programme is ready to take to the Halfway Tea Garden.",
+        "hoppycat-table-paint-ready": "Mira finished the playbill with her worn brush, Fable read the title, and the Evening Programme is ready for tea."
+      }
     },
     "hoppycat-sol-programme": {
       "name": "Sol's Reading",
@@ -636,7 +653,10 @@
       "author": "hoppycat-solwashere",
       "records": [
         "hoppycat-table-reading"
-      ]
+      ],
+      "recordText": {
+        "hoppycat-table-reading": "Sol read about a chair kept ready for a visitor, and the signed programme can go to Hoppy at the Halfway Tea Garden."
+      }
     }
   },
   "specials": {

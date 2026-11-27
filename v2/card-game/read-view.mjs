@@ -14,7 +14,7 @@ export function readPage(world, actor, seen) {
   const quest = bookQuestId(entry.itemId);
   const learned = world.knowledge?.known?.[actor]?.[quest];
   if (learned?.kind === "read" && learned.eventSeq === entry.seq && facts?.[quest])
-    claims.push(facts[quest].text);
+    claims.push(things[entry.itemId].questReadText ?? facts[quest].text);
   return {
     seq: entry.seq,
     book: entry.itemId,

@@ -6,7 +6,15 @@ import {
 } from "./knowledge.mjs";
 import { mediaPathOk } from "./pack-schema.mjs";
 
-export const BOOK_KEYS = ["author", "claims", "lifecycle", "pages", "teachesQuest"];
+export const BOOK_KEYS = [
+  "author",
+  "claims",
+  "lifecycle",
+  "pages",
+  "teachesQuest",
+  "questReadText",
+  "recordText",
+];
 export const BOOK_CLAIMS = 3;
 export const LIFECYCLES = ["kept", "spent", "fixed"];
 const record = (v) => !!v && typeof v === "object" && !Array.isArray(v);
@@ -32,6 +40,23 @@ export function bookProblems(pack) {
     const author = card(item.author)?.name;
     if (typeof author !== "string")
       fail("author must be a named place, avatar or item of this pack");
+    if (
+      item.recordText !== undefined &&
+      !(record(item.recordText) &&
+        Object.keys(item.recordText).length > 0 &&
+        Object.entries(item.recordText).every(
+          ([choice, text]) =>
+            records.includes(choice) &&
+            validFactText(text) &&
+            (typeof author !== "string" || heardClaim(author, text).length <= FACT_LINE_LIMIT),
+        ))
+    )
+      fail("recordText needs one tellable sentence per named record");
+    if (
+      item.questReadText !== undefined &&
+      !(item.teachesQuest && validFactText(item.questReadText))
+    )
+      fail("questReadText needs a taught quest and one sentence");
     if (item.teachesQuest !== undefined) {
       const avatar = owns(pack.avatars, item.author) && pack.avatars[item.author];
       const wants = Array.isArray(avatar?.wants)
