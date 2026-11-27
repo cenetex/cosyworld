@@ -5,7 +5,7 @@ import { DAYLIGHT_TURNS } from "../card-game/pack-rules.mjs";
 import { heldItem } from "../card-game/held-item.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { createServer } from "../card-game/serve.mjs";
-import { dispatchShared } from "../card-game/shared-world.mjs";
+import { dispatchShared, load } from "../card-game/shared-world.mjs";
 import { createWorld, encodeSave, exits, holdChoice, legalActions, play as playWorld } from "../card-game/world.mjs";
 import {
   clearSelection,
@@ -382,12 +382,16 @@ try {
   }
 
   function walkTo(destination) {
-    const start = world.actors.vale.place;
+    // Saved worlds leave presence to the request. Route checks need the same
+    // seats as real plays, including doors that require another player.
+    const routeWorld = load({ world, actor: "vale", claimed: actors, present: actors });
+    const start = routeWorld.actors.vale.place;
     const queue = [[start, []]];
     const seen = new Set([start]);
     for (const [place, path] of queue) {
       if (place === destination) return path;
-      for (const next of exits(world, place, "vale")) {
+      routeWorld.actors.vale.place = place;
+      for (const next of exits(routeWorld, place, "vale")) {
         if (seen.has(next) || next.startsWith("elysium-")) continue;
         seen.add(next);
         queue.push([next, [...path, next]]);

@@ -34,6 +34,7 @@ import { recordLearning, beginLearning, reconsiderPlan } from "./learning.mjs";
 import {
   roamingActors,
   authoredRouteEdges,
+  restoreStationRoutes,
   initialRouteEdges,
   visibleRouteEdges,
   rememberRoutes,
@@ -393,10 +394,12 @@ export function installPacks(s) {
     for (const id of [`pond-${home}`, `${home}-pond`])
       if (!crossings.some((c) => c.id === id)) delete s.crossings[id];
   const ways = new Set(authoredRouteEdges().map((e) => e.join(">")));
-  for (const [id, known] of Object.entries(s.routeKnowledge || {}))
+  for (const [id, known] of Object.entries(s.routeKnowledge || {})) {
     s.routeKnowledge[id] = known.filter(
       (e) => !e.some((p) => humanHomeGates[p]) || ways.has(e.join(">")),
     );
+    restoreStationRoutes(s, id);
+  }
   if (!s.doors) placeDoors(s);
   for (const pack of packDefinitions) {
     for (const c of pack.crossings) {
@@ -533,6 +536,7 @@ import {
   baseExits,
   stationCandidates,
   settleStationExits,
+  restoreStationExits,
   limitedExits,
   stationTargets,
 } from "./world/station.mjs";
@@ -4030,7 +4034,7 @@ export function decodeSave(text) {
     settleGuards(s);
     settleHeldItems(s);
     settleLamp(s);
-    if (s.stationExitOrder === undefined) settleStationExits(s);
+    restoreStationExits(s);
     validateWorld(s);
   } catch (error) {
     // A save that cannot be read starts fresh; it never surfaces a crash.

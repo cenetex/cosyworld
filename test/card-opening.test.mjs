@@ -69,7 +69,7 @@ describe("dousing the lamp in the attic", () => {
     expect(isLockedBox(s, "pond")).toBe(true);
     expect(sceneCast(s)).toEqual(["vale", null]);
     expect(exits(s, "attic")).toEqual([]);
-    expect(exits(s, "station")).toEqual(["pond"]);
+    expect(exits(s, "station")).toEqual(["pond", "behind-station"]);
     expect(
       legalActions(s).some((a) => ["light", "snuff"].includes(a.kind)),
     ).toBe(false);
@@ -347,7 +347,7 @@ describe("dousing the lamp in the attic", () => {
     expect(knownActors(s)).toEqual(["vale"]);
     s = decodeSave(encodeSave(s));
     expect(exits(s, "attic")).toEqual(["pond"]);
-    expect(exits(s, "station")).toEqual(["pond"]);
+    expect(exits(s, "station")).toEqual(["pond", "behind-station"]);
     expect(availableCards(s)).toContain("pond");
     expect(availableCards(s)).not.toContain("station");
     expect(cardPlay(s, ["pond"]).action.kind).toBe("move");

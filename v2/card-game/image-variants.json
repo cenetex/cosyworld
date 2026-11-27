@@ -5822,6 +5822,15 @@
       "phone": "assets/optimized/phone/webp/shared/places/attic-stairs.webp",
       "phoneHash": "8251878f5125313e5ea2df7a8e17d003aa783db120e1c474c399e8331cba85df"
     },
+    "assets/shared/places/behind-station.webp": {
+      "sourceHash": "3bbf9787db669c6b492a74b1f172053516fcc3fa5b796fece3524f3e42586de2",
+      "stage": "assets/shared/places/behind-station.webp",
+      "stageHash": "3bbf9787db669c6b492a74b1f172053516fcc3fa5b796fece3524f3e42586de2",
+      "card": "assets/optimized/card/webp/shared/places/behind-station.webp",
+      "cardHash": "a261ba4de99404097ab347cadc5f9a52de3cbfb3d6d32dc37774b6711cd3be0e",
+      "phone": "assets/optimized/phone/webp/shared/places/behind-station.webp",
+      "phoneHash": "21489ee99703bf129f6d4c9b362c73f8bbff351e99ddb648bf4d8fbb32714dfc"
+    },
     "assets/shared/places/belfry.png": {
       "sourceHash": "cb522e38a8887757d62839616c8fbc7ba0647c7dd3c1b5c4762521050dc2a289",
       "stage": "assets/optimized/stage/png/shared/places/belfry.webp",

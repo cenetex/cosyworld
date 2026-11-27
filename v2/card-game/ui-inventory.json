@@ -281,6 +281,7 @@
     "world-menu"
   ],
   "elements": {
+    "v2/card-game/action-beat-note.mjs": 1,
     "v2/card-game/app.mjs": 47,
     "v2/card-game/avatar-menu.mjs": 19,
     "v2/card-game/build-info.mjs": 2,

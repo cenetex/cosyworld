@@ -258,6 +258,7 @@ const files = [
   // Brace pose art: end
   "assets/shared/characters/vale.png",
   "assets/shared/places/station.png",
+  "assets/shared/places/behind-station.webp",
   "assets/shared/items/lamp.png",
   "assets/shared/characters/mara.png",
   "assets/shared/places/theatre.png",

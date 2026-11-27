@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "id": "shore-ratiradio",
   "pack": "ratiradio",
-  "description": "The Station Key at Black Pond opens the staff entrance at Empty Station while someone carries it, or while it is inside the station. The way back out is always open.",
+  "description": "The Station Key at Black Pond opens the staff entrance Behind the Station for its carrier. Leaving the key inside RATiRadio opens the entrance for everyone. The way back out is always open.",
   "entries": [
     {
       "joins": "hub",
-      "at": "station",
+      "at": "behind-station",
       "arrive": "ratiradio-staff-kitchen",
       "via": "station-ratiradio"
     }
@@ -14,7 +14,7 @@
   "crossings": [
     {
       "id": "station-ratiradio",
-      "from": "station",
+      "from": "behind-station",
       "to": "ratiradio-staff-kitchen",
       "travelers": "any",
       "travel": "through the staff entrance",
@@ -63,7 +63,7 @@
     {
       "id": "ratiradio-station",
       "from": "ratiradio-staff-kitchen",
-      "to": "station",
+      "to": "behind-station",
       "travelers": "any",
       "travel": "through the staff entrance",
       "requires": []

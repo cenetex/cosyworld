@@ -117,24 +117,27 @@ try {
   await play("bell");
   assert.equal((await state()).crossings["pond-clearing"].phase, 1);
   assert.equal((await state()).actors.vale.place, "pond");
-  assert.equal(await page.locator("#speaker").textContent(), "echo");
-  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
   const echoTurn = (await state()).turn;
   const echoRequests = requests.length;
+  const assertEchoCaption = async () => {
+    assert.match(await page.locator("#beat-captions").textContent(), /\bBong\./u);
+    assert.notEqual(await page.locator("#speaker").textContent(), "echo");
+    assert.notEqual(await page.locator("#dialogue-text").textContent(), "bong");
+    const echoes = (await state()).log.filter(
+      (entry) => entry.speaker === "echo" && entry.turn === echoTurn,
+    );
+    assert.equal(echoes.length, 1);
+    assert.equal(echoes[0].kind, "narration");
+    assert.notEqual(echoes[0].generated, true);
+  };
+  await assertEchoCaption();
   assert.equal(await page.locator('[data-card="bell"] .state').count(), 0);
   assert.doesNotMatch(await page.locator("#hand").innerText(), /Ring again/);
   await page.reload();
   await page.locator('[data-card="bell"]').waitFor({ state: "attached" });
   await ready();
   assert.equal(requests.length, echoRequests);
-  assert.equal(
-    (await state()).log.filter(
-      (entry) => entry.generated && entry.turn === echoTurn,
-    ).length,
-    1,
-  );
-  assert.equal(await page.locator("#speaker").textContent(), "echo");
-  assert.equal(await page.locator("#dialogue-text").textContent(), "bong");
+  await assertEchoCaption();
   await play("bell");
   // The second ring reveals the clearing; its card takes Vale there.
   assert.equal((await state()).actors.vale.place, "pond");

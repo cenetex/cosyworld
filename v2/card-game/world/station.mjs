@@ -8,7 +8,7 @@ import {
 } from "../pack-registry.mjs";
 import { humanAvatar, humanPresent, residentAvatar } from "../human-cast.mjs";
 import { crossingOpen } from "../pack-rules.mjs";
-import { stationExits, stationExitOrder } from "../station-exits.mjs";
+import { movedStationDoors, stationExits, stationExitOrder, validStationExitOrder } from "../station-exits.mjs";
 import { reflectionsFrom, sensesFor } from "./senses.mjs";
 import { places } from "./catalog.mjs";
 
@@ -54,6 +54,11 @@ export function stationCandidates(s) {
 }
 export function settleStationExits(s) {
   s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
+}
+export function restoreStationExits(s) {
+  if (s.stationExitOrder === undefined) settleStationExits(s);
+  else if (validStationExitOrder(s, [...stationTargets, ...movedStationDoors]))
+    s.stationExitOrder = s.stationExitOrder.filter((id) => !movedStationDoors.includes(id));
 }
 export function limitedExits(s, place, ways) {
   return place === "station" ? stationExits(s, stationCandidates(s), ways) : ways;

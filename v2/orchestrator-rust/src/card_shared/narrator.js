@@ -733,7 +733,7 @@
       text: "A doorframe stands in the still water. Its reflection holds a window from somewhere else.",
       image: "assets/shared/places/pond.png"
     },
-    lampless: ["pond", "station", "clearing"],
+    lampless: ["pond", "station", "behind-station", "clearing"],
     avatars: [
       {
         id: "vale",
@@ -1170,10 +1170,17 @@
     places: {
       station: {
         name: "Empty station",
-        text: "The timetable lists years that have yet to happen. A path leads along the shore to the pond.",
+        text: "The timetable lists years that have yet to happen. One path leads along the shore to the pond. A narrow walk rounds the station.",
         exits: [
-          "pond"
+          "pond",
+          "behind-station"
         ]
+      },
+      "behind-station": {
+        name: "Behind the Station",
+        text: "Rain-dark stones run along the station's back wall. A blue smile marks a rounded door. Beside it, a brass lock catches the light beneath a thin aerial.",
+        exits: ["station"],
+        backdrop: "assets/shared/places/behind-station.webp"
       },
       attic: {
         sanctuary: true,
@@ -1516,19 +1523,19 @@
     schemaVersion: 1,
     id: "boardyai",
     packId: "cosyworld.boardyai",
-    revision: 4,
+    revision: 5,
     name: "BoardyAI",
     description: "A friendly AI brings human players together.",
     entry: "boardyai-parlour",
     bridge: {
       id: "boardyai-shore",
-      description: "Boardy's calling card opens a parlour door at Empty station."
+      description: "Boardy's calling card opens his parlour door behind Empty station."
     },
     choices: [],
     places: {
       "boardyai-parlour": {
         name: "BoardyAI's Parlour",
-        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door leads to Empty station.",
+        text: "Two armchairs face a small tea table. Misty rails pass the window. A side door returns to the yard behind Empty station.",
         persona: "A warm room beside Empty station. Two comfortable chairs invite a conversation. Calling cards fill the shelves, and a kettle waits on the table.",
         requires: [
           {
@@ -1568,22 +1575,22 @@
     items: {
       "boardyai-calling-card": {
         name: "Boardy's calling card",
-        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. At Empty station, it opens the door to BoardyAI's Parlour.",
-        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door at Empty station.",
+        text: "An ivory card bears a blue smile. A small brass key hangs from its corner. It opens BoardyAI's Parlour behind Empty station.",
+        persona: "BoardyAI's ivory calling card has a blue smile and a brass key on blue thread. It opens his parlour door behind Empty station.",
         requires: [
           {
             kind: "connected_humans",
             minimum: 2
           }
         ],
-        holder: "station",
+        holder: "behind-station",
         art: "assets/boardyai/calling-card.png"
       }
     },
     crossings: [
       {
         id: "station-boardyai-parlour",
-        from: "station",
+        from: "behind-station",
         to: "boardyai-parlour",
         travelers: "player",
         requires: [
@@ -1594,26 +1601,26 @@
           {
             kind: "item_near",
             item: "boardyai-calling-card",
-            place: "station"
+            place: "behind-station"
           }
         ],
         travel: "through BoardyAI's parlour door",
         scenery: {
-          open: "A blue smile marks a warm parlour door beside the station bench.",
+          open: "A blue smile marks a warm parlour door in the station's back wall.",
           cardArt: "assets/boardyai/parlour.png"
         }
       },
       {
         id: "boardyai-parlour-station",
         from: "boardyai-parlour",
-        to: "station",
+        to: "behind-station",
         travelers: "player",
         requires: [
           {
             kind: "shared_world"
           }
         ],
-        travel: "back to Empty station"
+        travel: "back to the yard behind Empty station"
       }
     ]
   };
@@ -1626,7 +1633,7 @@
   function boardyFacts(world, nameOf3) {
     const here2 = world.actors[BOARDY].place;
     return [
-      "My home is BoardyAI's Parlour. My calling card opens its door at Empty station, held or left there.",
+      "My home is BoardyAI's Parlour. My calling card opens its door behind Empty station, held or left in the yard.",
       ...connectedHumans(world).map(
         (id) => world.actors[id].place === here2 ? `${nameOf3(id)} is here with me.` : world.memories[BOARDY].seen?.[id] ? `I last saw ${nameOf3(id)} at ${nameOf3(world.memories[BOARDY].seen[id].place)}. They may have moved since then.` : `I have yet to find ${nameOf3(id)}.`
       )
@@ -1878,6 +1885,7 @@
       },
       places: [
         "station",
+        "behind-station",
         "attic",
         "pond"
       ],
@@ -1997,7 +2005,7 @@
         ratiradio: [
           {
             joins: "hub",
-            at: "station",
+            at: "behind-station",
             arrive: "ratiradio-staff-kitchen",
             via: "station-ratiradio"
           }
@@ -13825,7 +13833,7 @@
           "ratiradio-staff-kitchen": {
             name: "Staff Kitchen",
             text: "The fridges keep the hours here. One door stands barely ajar. \u2018Leave the Station Key inside and the staff entrance will stay open,\u2019 reads a note by the lost-property tray.",
-            persona: "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Empty Station. Movable possessions may be carried away.",
+            persona: "A worn teal staff kitchen with old refrigerators, pale tiles, a chair, a sink, a lost-property tray. The staff entrance leads back to Behind the Station. Movable possessions may be carried away.",
             exits: [],
             backdrop: "assets/ratiradio/staff-kitchen.webp"
           },
@@ -13954,8 +13962,8 @@
         items: {
           "ratiradio-station-key": {
             name: "Station Key",
-            text: "A brass key with a worn STAFF tag. Leaving it inside keeps the entrance open.",
-            persona: "A brass station key with a chipped STAFF tag. It opens the Staff Kitchen entrance from Empty Station while a traveler carries it or it stays inside the station rooms.",
+            text: "A brass key with a worn tag that reads \u2018Staff Kitchen, Behind the Station.\u2019",
+            persona: "A brass station key with a chipped STAFF tag. Its carrier can open the Staff Kitchen entrance Behind the Station. Leaving the key inside RATiRadio opens that door to everyone.",
             holder: "pond",
             art: "assets/ratiradio/station-key.webp",
             reservedUntil: [
@@ -13970,7 +13978,7 @@
             claims: [
               {
                 id: "staff",
-                text: "The staff entrance has one brass key, and the staff have a bad habit of losing it.",
+                text: "The staff entrance Behind the Station has one brass key, and the staff have a bad habit of losing it.",
                 about: "ratiradio-staff-kitchen"
               },
               {
@@ -14308,12 +14316,12 @@
         ],
         bridge: {
           id: "shore-ratiradio",
-          description: "The Station Key at Black Pond opens the staff entrance at Empty Station while someone carries it, or while it is inside the station. The way back out is always open."
+          description: "The Station Key at Black Pond opens the staff entrance Behind the Station for its carrier. Leaving the key inside RATiRadio opens the entrance for everyone. The way back out is always open."
         },
         crossings: [
           {
             id: "station-ratiradio",
-            from: "station",
+            from: "behind-station",
             to: "ratiradio-staff-kitchen",
             travelers: "any",
             travel: "through the staff entrance",
@@ -14362,7 +14370,7 @@
           {
             id: "ratiradio-station",
             from: "ratiradio-staff-kitchen",
-            to: "station",
+            to: "behind-station",
             travelers: "any",
             travel: "through the staff entrance",
             requires: []
@@ -18728,23 +18736,26 @@
   }
 
   // v2/card-game/station-exits.mjs
+  var roads = forest_default.places.station.exits;
   var STATION_EXIT_LIMIT = 3;
+  var movedStationDoors = ["boardyai-parlour", "ratiradio-staff-kitchen"];
   function stationExitOrder(world, eligible) {
-    const candidates2 = [...new Set(eligible)].filter((id) => id !== "pond");
+    const candidates2 = [...new Set(eligible)].filter((id) => !roads.includes(id));
     const earlier = (world.stationExitOrder || []).filter(
       (id) => candidates2.includes(id)
     );
     return [...earlier, ...candidates2.filter((id) => !earlier.includes(id))];
   }
   function stationExits(world, eligible, available = eligible) {
-    const admitted = ["pond", ...stationExitOrder(world, eligible)].slice(
+    const fixed = roads.filter((id) => eligible.includes(id));
+    const admitted = [...fixed, ...stationExitOrder(world, eligible)].slice(
       0,
       STATION_EXIT_LIMIT
     );
     return admitted.filter((id) => available.includes(id));
   }
   var validStationExitOrder = (world, targets) => world.stationExitOrder === void 0 || Array.isArray(world.stationExitOrder) && new Set(world.stationExitOrder).size === world.stationExitOrder.length && [...world.stationExitOrder].every(
-    (id) => id !== "pond" && targets.includes(id)
+    (id) => !roads.includes(id) && targets.includes(id)
   );
 
   // v2/card-game/handover.mjs
@@ -19021,6 +19032,17 @@
       (a, b) => edgeKey(a).localeCompare(edgeKey(b))
     );
   }
+  function restoreStationRoutes(world, actor) {
+    const replacements = [];
+    const routes = world.routeKnowledge[actor].filter(([from, to]) => {
+      if (!(from === "station" && movedStationDoors.includes(to)) && !(to === "station" && movedStationDoors.includes(from))) return true;
+      replacements.push([from, "behind-station"], ["behind-station", to]);
+      return false;
+    });
+    if (!replacements.length) return;
+    world.routeKnowledge[actor] = routes;
+    rememberRoutes(world, actor, replacements);
+  }
   function validRouteKnowledge(world, edges) {
     if (!world.routeKnowledge || typeof world.routeKnowledge !== "object")
       return false;
@@ -19153,6 +19175,11 @@
       name: "Empty station",
       persona: "An empty railway station beside a black shore. Its timetable lists future years. It remembers arrivals, departures and bargains as small changes in dust, echoes and light.",
       idiolect: "I'm an empty railway station beside a black shore. My timetable lists years that haven't come yet. Arrivals and departures leave marks in my dust."
+    },
+    "behind-station": {
+      kind: "location",
+      name: "Behind the Station",
+      persona: "A narrow service yard behind Empty station. Rain darkens the paving. A rounded parlour door bears a blue smile. An aerial rises over a brass-locked staff door. A path bends back to the platform."
     },
     attic: {
       kind: "location",
@@ -19899,6 +19926,11 @@
   function settleStationExits(s) {
     s.stationExitOrder = stationExitOrder(s, stationCandidates(s));
   }
+  function restoreStationExits(s) {
+    if (s.stationExitOrder === void 0) settleStationExits(s);
+    else if (validStationExitOrder(s, [...stationTargets, ...movedStationDoors]))
+      s.stationExitOrder = s.stationExitOrder.filter((id) => !movedStationDoors.includes(id));
+  }
   function limitedExits(s, place, ways2) {
     return place === "station" ? stationExits(s, stationCandidates(s), ways2) : ways2;
   }
@@ -19909,14 +19941,14 @@
   var wayfinderExit = (world, from, actor) => !isElysium(from) && humanPresent(world, actor) && Math.floor(world.turn / DAYLIGHT_TURNS) % 2 === 1 && world.items[WAYFINDER]?.holder === actor && entityActive(world, WAYFINDER) && heldItem(world, actor) === WAYFINDER ? ELYSIUM_ENTRY : null;
   function elysiumScatterLandings(world, actor = currentActor(world)) {
     if (!entityActive(world, "station")) return [];
-    const waysFrom = (place) => exits(
-      {
-        ...world,
-        actors: { ...world.actors, [actor]: { ...world.actors[actor], place } }
-      },
-      place,
-      actor
-    );
+    const company = sharedEnabled(world) && world.controlledActors?.some((id) => id !== actor && humanPresent(world, id));
+    const waysFrom = (place) => {
+      const actors2 = { ...world.actors, [actor]: { ...world.actors[actor], place } };
+      const open = exits({ ...world, actors: actors2 }, place, actor);
+      if (!company) return open;
+      const alone = exits({ ...world, actors: actors2, presentActors: [actor] }, place, actor);
+      return open.filter((neighbor) => alone.includes(neighbor));
+    };
     const reachable = /* @__PURE__ */ new Set(["station"]);
     for (const place of reachable)
       for (const neighbor of waysFrom(place))
@@ -21014,10 +21046,12 @@
       for (const id of [`pond-${home}`, `${home}-pond`])
         if (!crossings.some((c) => c.id === id)) delete s.crossings[id];
     const ways2 = new Set(authoredRouteEdges().map((e) => e.join(">")));
-    for (const [id, known] of Object.entries(s.routeKnowledge || {}))
+    for (const [id, known] of Object.entries(s.routeKnowledge || {})) {
       s.routeKnowledge[id] = known.filter(
         (e) => !e.some((p) => humanHomeGates[p]) || ways2.has(e.join(">"))
       );
+      restoreStationRoutes(s, id);
+    }
     if (!s.doors) placeDoors(s);
     for (const pack of packDefinitions) {
       for (const c of pack.crossings) {
@@ -21427,7 +21461,7 @@
       settleGuards(s);
       settleHeldItems(s);
       settleLamp(s);
-      if (s.stationExitOrder === void 0) settleStationExits(s);
+      restoreStationExits(s);
       validateWorld(s);
     } catch (error) {
       if (error instanceof TypeError) return validateWorld(null);

@@ -103,7 +103,9 @@ describe("accompany card requests", () => {
       world = result.state;
     };
     act("pond");
-    if (world.items[wayfinder].holder !== "pond") act(world.items[wayfinder].holder);
+    const landing = world.items[wayfinder].holder;
+    if (landing === "behind-station") act("station");
+    if (landing !== "pond") act(landing);
     act(wayfinder);
     world.turn = world.revision = DAYLIGHT_TURNS;
     act(room);
