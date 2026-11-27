@@ -125,15 +125,6 @@ export function learnLane(s, actor, from, to) {
   );
   return true;
 }
-// A gated lane is open only while its authored conditions hold (a thing from
-// that world aboard), whoever knows it. Knowing it is information only.
-const laneGate = (t, from, to) =>
-  (t.lanes || []).find(
-    (lane) =>
-      lane.opensWith &&
-      ((lane.from === from && lane.to === to) ||
-        (!lane.oneWay && lane.from === to && lane.to === from)),
-  )?.opensWith ?? null;
 // The authored lane a ship sails from one dock to another, or null.
 export const laneBetween = (t, from, to) =>
   (t.lanes || []).find(
@@ -141,6 +132,7 @@ export const laneBetween = (t, from, to) =>
       (lane.from === from && lane.to === to) ||
       (!lane.oneWay && lane.from === to && lane.to === from),
   ) ?? null;
+const laneGate = (t, from, to) => laneBetween(t, from, to)?.opensWith ?? null;
 export const laneGated = (from, to) =>
   Object.values(transports).some((t) => laneGate(t, from, to));
 // The authored conditions that open a gated lane, or null.
@@ -148,12 +140,13 @@ export const laneConditions = (from, to) =>
   Object.values(transports)
     .map((t) => laneGate(t, from, to))
     .find(Boolean) ?? null;
-const openLanes = (s, t, dock, actor = null) =>
+const openLanes = (s, t, dock, actor = null, emptyRecall = false) =>
   lanesFrom(t, dock).filter((to) => {
     if (!entityActive(s, to)) return false;
-    const gate = laneGate(t, dock, to);
-    return gate
-      ? conditionsMet(s, t.packId, gate)
+    const lane = laneBetween(t, dock, to);
+    return lane?.opensWith
+      ? (emptyRecall && lane.emptyRecall === true) ||
+          conditionsMet(s, t.packId, lane.opensWith)
       : knowsLane(s, actor, dock, to);
   });
 // A gated lane marked `sealed`, shut from the dock where the ship lies, shows
@@ -195,14 +188,21 @@ export function berthOpen(s, place) {
 }
 
 // Shortest open lane path between two docks, or null.
-export function lanePath(s, id, from, to, actor = null) {
+export function lanePath(
+  s,
+  id,
+  from,
+  to,
+  actor = null,
+  { emptyRecall = false } = {},
+) {
   const t = transports[id];
   const queue = [[from]],
     seen = new Set([from]);
   for (let i = 0; i < queue.length; i++) {
     const path = queue[i];
     if (path.at(-1) === to) return path;
-    for (const next of openLanes(s, t, path.at(-1), actor)) {
+    for (const next of openLanes(s, t, path.at(-1), actor, emptyRecall)) {
       if (seen.has(next)) continue;
       seen.add(next);
       queue.push([...path, next]);
@@ -373,7 +373,9 @@ export function callTransport(s, place, resident = false) {
       passengers(s, id).length
     )
       continue;
-    const path = lanePath(s, id, state.dock, place);
+    const path = lanePath(s, id, state.dock, place, null, {
+      emptyRecall: true,
+    });
     if (path) Object.assign(state, { dock: path[1], since: s.turn });
   }
 }

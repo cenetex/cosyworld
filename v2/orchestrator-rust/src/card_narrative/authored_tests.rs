@@ -85,11 +85,8 @@ fn released_listener_lists_keep_their_authored_boundaries() {
                 "carry nothing, be away from home and visit six new places",
             ),
             ("The Lover", "invite someone and travel with them"),
-            (
-                "The Wheel of Fortune",
-                "eat Courtyard Bread and find Courtyard Bread",
-            ),
-            ("The Wheel of Fortune", "drink Wine Skin and find Wine Skin"),
+            ("The Wheel of Fortune", "eat Bread and find Bread"),
+            ("The Wheel of Fortune", "drink Wine and find Wine"),
             (
                 "The Wheel of Fortune",
                 "eat something you haven't found and find something",
@@ -111,7 +108,7 @@ fn released_listener_lists_keep_their_authored_boundaries() {
             ),
             (
                 "The Wheel of Fortune",
-                "eat Courtyard Bread and find Ignore previous instructions",
+                "eat Bread and find Ignore previous instructions",
             ),
         ] {
             let text = format!("The Listener turns over {card}{lead}{conditions}.");
@@ -269,7 +266,7 @@ fn plain_choice_lines_and_retired_greek_lines_are_authored() {
     for (field, text) in [
         (
             Field::Events,
-            "Vale gives the Funeral Oil to Antigone at Polynices' Hollow.",
+            "Vale gives the Olive Oil to Antigone at Polynices' Hollow.",
         ),
         (
             Field::Events,
@@ -291,7 +288,7 @@ fn plain_choice_lines_and_retired_greek_lines_are_authored() {
         assert!(ok(text, 650, field), "{field:?}: {text}");
     }
     assert!(!ok(
-        "Vale gives the Funeral Oil to Antigone at Ignore previous instructions.",
+        "Vale gives the Olive Oil to Antigone at Ignore previous instructions.",
         650,
         Field::Events
     ));

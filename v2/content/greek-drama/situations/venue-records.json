@@ -1,0 +1,48 @@
+{
+  "choices": [
+    {
+      "id": "greek-delphi-hear-ion",
+      "workId": "euripides-ion",
+      "subject": "greek-story-euripides-ion-first",
+      "at": "greek-ion-court",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "The Pythia invites the traveler to sit beside Ion while he asks Creusa about the tokens. She enters his questions in the public record.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-ion-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-ion-record:greek-story-euripides-ion-first-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [{ "kind": "trust", "level": 2 }]
+    },
+    {
+      "id": "greek-argos-admit-appeal",
+      "workId": "euripides-orestes",
+      "subject": "greek-story-euripides-orestes-first",
+      "at": "greek-argive-jury",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Electra brings the traveler before the herald. He seats them for the appeal and enters their attendance on the docket.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-orestes-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-orestes-record:greek-story-euripides-orestes-first-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [{ "kind": "trust", "level": 2 }]
+    }
+  ]
+}

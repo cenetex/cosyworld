@@ -151,7 +151,7 @@ function beforeReturn() {
 // Two scenes from .dev where a character answered its own context back as
 // "you" (2026-11-03): Myrto at the harbor beside Vale (who holds the black
 // cloth and the uncovered, burning Lamp) and Pip, and Dione, who wants the
-// Funeral Oil that Vale carries.
+// Olive Oil that Vale carries.
 export function assistantRoleScenes() {
   let world = selectLamp(enableMotives(atticOpening()));
   world = selectLamp(playCard(world, "move", null, "pond"), "lamp");
@@ -204,7 +204,7 @@ export function assistantRoleScenes() {
       lines: { vale: "Are you sailing tonight?" },
     },
     {
-      name: "Dione wants the Funeral Oil",
+      name: "Dione wants the Olive Oil",
       context: dione.context,
       lines: { vale: "Good evening, Dione. What are you baking?" },
     },
@@ -214,7 +214,7 @@ export function assistantRoleScenes() {
       lines: { vale: "Antigone? What are you doing out here?" },
     },
     {
-      name: "Dione waits for the Funeral Oil",
+      name: "Dione waits for the Olive Oil",
       context: step(dione.world, "wait", null, 2).context,
     },
   ].map(({ name, context, lines = {} }) => ({ name, context, lines }));

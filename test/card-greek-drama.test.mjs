@@ -3,6 +3,7 @@ import { selectLamp } from "./fixtures/card-attic-opening.mjs";
 import { fillLampFuel } from "../v2/card-game/lamp-state.mjs";
 import { greekTravelTargets } from "./helpers/greek-travel.mjs";
 import { summonTransport } from "../v2/card-game/pack-transport.mjs";
+import { sailTo } from "./helpers/voyage.mjs";
 import { describe, expect, it } from "vitest";
 import {
   addLog,
@@ -45,6 +46,9 @@ const SANCTUARY = "greek-sanctuary";
 const BATTLEFIELD = "greek-battlefield";
 const WELL = "greek-well";
 const PALACE = "greek-palace";
+const EGYPT = "greek-egypt-tomb";
+const PAGASAE = "greek-pagasae";
+const SCYLLA = "greek-scylla";
 const stateOf = (world) => world.packs[PACK];
 
 function act(world, kind, field = {}) {
@@ -137,6 +141,19 @@ function move(world, target) {
 
 const walk = (world, ...route) => route.reduce(move, world);
 const take = (world, item) => act(world, "take", { item });
+
+function reachHelen(world, destination) {
+  if (destination !== EGYPT) return move(world, destination);
+  world.actors.vale.place = PAGASAE;
+  return sailTo(move(world, SCYLLA), EGYPT);
+}
+
+function returnFromHelen(world) {
+  if (world.actors.vale.place !== EGYPT) return move(world, HARBOR);
+  world = sailTo(move(world, SCYLLA), PAGASAE);
+  world.actors.vale.place = HARBOR;
+  return world;
+}
 
 function choose(world, choiceId) {
   const choice = packDefinition(PACK).choices.find((c) => c.id === choiceId);
@@ -319,7 +336,6 @@ describe("the Wine-Dark Sea crossing", () => {
   });
 });
 
-// Give carries Thebes's errands and the reports kept in earlier saves.
 const give = (world, item, target) => act(world, "give", { item, target });
 const done = (world, id) => stateOf(world).receipts[`greek-${id}`];
 const noButtons = (world) =>
@@ -337,7 +353,10 @@ describe("Greek choices and their receipts", () => {
     expect(done(reload(world), "return-water-jar")).toBe(receipt);
     expect(world.quests).toBeUndefined();
     expect(stateOf(world).scope).toBe("opening");
-    expect(exits(world, HARBOR, "vale")).not.toContain("greek-argolid-road");
+    const roads = exits(world, HARBOR, "vale");
+    expect(roads).toContain("greek-argolid-road");
+    expect(roads).not.toContain("greek-egypt-tomb");
+    expect(roads).not.toContain("greek-troy-beach");
   });
   it("keeps a saved completed burial complete when supplies reach the Hollow", () => {
     const world = funeralJourney().buried;
@@ -384,14 +403,10 @@ describe("Greek choices and their receipts", () => {
 describe("Before the Burial", () => {
   it("makes the ordinary water errand change custody and access to bread", () => {
     let world = courtyard();
-    // The bread waits at the courtyard used up, shown as the locked box,
-    // until Dione has the jar and her wheat to bake it (rules 102).
     expect(world.usedUp).toContain("greek-bread");
     expect(cardPlay(world, ["greek-bread"]).action).toBeFalsy();
     world = take(move(world, WELL), "greek-water-jar");
     world = give(move(world, COURTYARD), "greek-water-jar", "greek-baker");
-    // Custody leaves Vale: Dione bakes with the jar, which goes home to the
-    // well, and the bread lies ready at the courtyard.
     expect(rootHolder(world, "greek-water-jar")).not.toBe("vale");
     expect(world.items["greek-water-jar"].holder).toBe(WELL);
     expect(stateOf(world).flags["greek-water-returned"]).toBe(true);
@@ -407,13 +422,15 @@ describe("Before the Burial", () => {
 
   it("reaches the palace forecourt through the Market Well", () => {
     const world = courtyard();
-    // Greek revision 19 and later: courtyard, well, forecourt, sanctuary in
-    // a line.
     expect(exits(world, COURTYARD, "vale")).toEqual(
       expect.arrayContaining([WELL, GATE]),
     );
     expect(exits(world, COURTYARD, "vale")).not.toContain(PALACE);
-    expect(exits(world, WELL, "vale")).toEqual([COURTYARD, PALACE]);
+    expect(exits(world, WELL, "vale")).toEqual([
+      COURTYARD,
+      PALACE,
+      "greek-cadmea-street",
+    ]);
     expect(exits(world, PALACE, "vale")).toEqual([WELL, SANCTUARY]);
     expect(availableCards(world)).not.toContain(PALACE);
     const there = walk(world, WELL, PALACE, SANCTUARY);
@@ -433,7 +450,6 @@ describe("Before the Burial", () => {
         [],
       );
       expect(stateOf(world).flags["greek-open-door-open"]).toBeUndefined();
-      // Attica is there before the burial: nothing opens it.
       expect(entityActive(world, "greek-colonus")).toBe(true);
       expect(entityActive(world, "greek-eleusis")).toBe(true);
     }
@@ -494,7 +510,6 @@ describe("Before the Burial", () => {
 describe("incompatible histories become playable branches", () => {
   it("keeps a committed account out of an arriving traveler's facts until it is learned", () => {
     const tablet = "greek-helen-accounts";
-    const egypt = "greek-egypt-tomb";
     const chooser = "mara";
     const witness = "rue";
     const arrived = "vale";
@@ -509,7 +524,8 @@ describe("incompatible histories become playable branches", () => {
       const request = scene(actor);
       const { actions } = dispatchShared({ ...request, op: "view" });
       const action = actions.find(
-        (a) => a.kind === kind &&
+        (a) =>
+          a.kind === kind &&
           Object.entries(field).every(([key, value]) => a[key] === value),
       );
       expect(action, `${actor} ${kind}`).toBeDefined();
@@ -519,16 +535,26 @@ describe("incompatible histories become playable branches", () => {
       return result.events.find((e) => e.actorId === actor && e.verb === kind);
     };
     const facts = (actor, id = actor) =>
-      narrativeContext(load(scene(actor)), null, () => false).entities
-        .find((entity) => entity.id === id)?.facts ?? [];
+      narrativeContext(load(scene(actor)), null, () => false).entities.find(
+        (entity) => entity.id === id,
+      )?.facts ?? [];
+    const voyage = (target) => {
+      commit(arrived, "move", { target: SCYLLA });
+      commit(arrived, "course", { target });
+      commit(arrived, "wait", {});
+      commit(arrived, "move", { target });
+    };
 
     commit(chooser, "take", { item: tablet });
-    const chosen = commit(chooser, "give", { item: tablet, target: "greek-shipmaster" });
+    const chosen = commit(chooser, "give", {
+      item: tablet,
+      target: "greek-shipmaster",
+    });
     const account = `Established account: ${chosen.text}`;
     expect(chosen.witnesses).toContain(witness);
     commit(arrived, "move", { target: HARBOR });
     expect(stateOf(world).choices["greek-helen-account"]).toBe("egypt");
-    expect(exits(load(scene(arrived)), HARBOR, arrived)).toContain(egypt);
+    expect(exits(load(scene(arrived)), HARBOR, arrived)).not.toContain(EGYPT);
     expect(facts(arrived, HARBOR)).toContain(account);
     expect(facts(chooser)).toContain(account);
     expect(facts(witness)).toContain(account);
@@ -539,10 +565,12 @@ describe("incompatible histories become playable branches", () => {
     expect(facts(arrived).join(" ")).toContain("Helen spent the war in Egypt");
     expect(facts(arrived).join(" ")).not.toContain(chosen.text);
 
-    commit(arrived, "move", { target: egypt });
+    world.actors[arrived].place = PAGASAE;
+    voyage(EGYPT);
     expect(facts(arrived).join(" ")).toContain("Proteus's Tomb in Egypt");
     expect(facts(arrived).join(" ")).not.toContain(chosen.text);
-    commit(arrived, "move", { target: HARBOR });
+    voyage(PAGASAE);
+    world.actors[arrived].place = HARBOR;
 
     const eventFact = `event:${chosen.seq}`;
     for (let i = 0; i < 5 && !world.knowledge.known[arrived]?.[eventFact]; i++) {
@@ -623,7 +651,7 @@ describe("incompatible histories become playable branches", () => {
     "retains the %s Helen branch, its witness and physical evidence",
     (branch, destination, evidence, other, otherDestination) => {
       const tablet = "greek-helen-accounts";
-      let world = take(harbor(), tablet);
+      let world = take(harbor("opening"), tablet);
       const choice = packDefinition(PACK).choices.find(
         (c) => c.id === `greek-helen-${branch}`,
       );
@@ -631,9 +659,11 @@ describe("incompatible histories become playable branches", () => {
       world = choose(world, choice.id);
       expect(world.items[tablet].holder).toBe(choice.at);
       if (choice.at !== HARBOR) world = move(world, HARBOR);
-      expect(exits(world, HARBOR, "vale")).toContain(destination);
+      if (branch === "egypt")
+        expect(exits(world, HARBOR, "vale")).not.toContain(destination);
+      else expect(exits(world, HARBOR, "vale")).toContain(destination);
       expect(exits(world, HARBOR, "vale")).not.toContain(otherDestination);
-      world = move(world, destination);
+      world = reachHelen(world, destination);
       expect(knownActors(world)).toContain(`greek-helen-${branch}`);
       expect(knownActors(world)).not.toContain(`greek-helen-${other}`);
       expect(narrativeContext(world).speakers).not.toContain(
@@ -641,7 +671,7 @@ describe("incompatible histories become playable branches", () => {
       );
       world = choose(world, `greek-hear-helen-${branch}`);
       world = take(world, evidence);
-      world = walk(reload(world), HARBOR, "pond", HARBOR);
+      world = walk(returnFromHelen(reload(world)), "pond", HARBOR);
       expect(stateOf(world).choices["greek-helen-account"]).toBe(branch);
       expect(rootHolder(world, evidence)).toBe("vale");
       expect(exits(world, HARBOR, "vale")).not.toContain(otherDestination);
@@ -655,13 +685,16 @@ describe("incompatible histories become playable branches", () => {
       // Myrto has packed a load; the passage uses it up (rules 95).
       if (response === "passage")
         world = take(stowProvisions(world, HARBOR), "greek-provisions");
-      world = move(world, destination);
+      world = reachHelen(world, destination);
       world = choose(world, `greek-helen-${branch}-${response}`);
       expect(stateOf(world).choices["greek-helen-response"]).toBe(response);
       expect(world.items[evidence].holder).toBe(destination);
       if (response === "passage")
         expect(world.usedUp).toContain("greek-provisions");
-      world = walk(reload(world), HARBOR, "pond", HARBOR, destination);
+      world = reachHelen(
+        walk(returnFromHelen(reload(world)), "pond", HARBOR),
+        destination,
+      );
       expect(stateOf(world).choices["greek-helen-response"]).toBe(response);
       expect(world.items[evidence].holder).toBe(destination);
       expect(
@@ -675,15 +708,16 @@ describe("incompatible histories become playable branches", () => {
   it.each([
     ["aeschylus", "greek-argos-tomb", "greek-tomb-testimony", "hearing"],
     ["sophocles", "greek-mycenae-palace", "greek-palace-testimony", "hearing"],
+    ["euripides", "greek-argive-farm", "greek-farm-testimony", "hearing"],
     ["euripides", "greek-argive-farm", "greek-farm-testimony", "refusal"],
   ])(
-    "offers a separate %s Atreid history without opening the other two",
+    "offers the %s Atreid history at %s with %s and %s",
     (branch, destination, evidence, response) => {
       const choice = packDefinition(PACK).choices.find(
         (c) => c.id === `greek-atreid-${branch}`,
       );
       const record = "greek-atreid-record";
-      let world = take(move(harbor(), "greek-argolid-road"), record);
+      let world = take(move(harbor("opening"), "greek-argolid-road"), record);
       world = choose(move(world, choice.at), choice.id);
       expect(world.items[record].holder).toBe(choice.at);
       world = move(world, "greek-argolid-road");
@@ -716,6 +750,31 @@ describe("incompatible histories become playable branches", () => {
       );
       expect(stateOf(world).choices["greek-atreid-response"]).toBe(response);
       expect(world.items[evidence].holder).toBe(destination);
+      if (branch === "aeschylus") {
+        world = act(take(world, evidence), "read", { item: evidence });
+        world = choose(world, "greek-argos-hear-tomb-witness");
+        expect(world.actors["greek-orestes-aeschylus"].trust.vale).toBe(2);
+        expect(
+          world.items["greek-aeschylean-tomb-hearing-water"],
+        ).toBeUndefined();
+      }
+      if (branch === "euripides") {
+        expect(world.items["greek-farmhouse-hearing-writ"]).toBeUndefined();
+        world = act(take(world, evidence), "read", { item: evidence });
+        const facts = world.knowledge.known.vale;
+        const hearing = `claim:${PACK}:${evidence}:greek-atreid-euripides-hearing`;
+        const refusal = `claim:${PACK}:${evidence}:greek-atreid-euripides-refusal`;
+        if (response === "hearing") {
+          expect(facts[hearing]?.kind).toBe("read");
+          expect(world.knowledge.facts[hearing]?.text).toBe(
+            "Orestes left the tablet at the Argive Farmhouse and agreed to hear the farmer’s testimony there.",
+          );
+          expect(facts[refusal]).toBeUndefined();
+        } else {
+          expect(facts[refusal]?.kind).toBe("read");
+          expect(facts[hearing]).toBeUndefined();
+        }
+      }
       expect(reload(world)).toEqual(world);
     },
   );

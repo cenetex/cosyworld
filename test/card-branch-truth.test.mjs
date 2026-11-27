@@ -100,7 +100,8 @@ describe("a claim's truth follows the world's branch", () => {
     w = wait(w);
     w.actors.vale.place = "greek-harbor";
     const heard = () => claimsIn(HELEN).find((c) => w.knowledge.known["greek-shipmaster"]?.[c.id]);
-    for (let n = 0; n < 6 && !heard(); n++) {
+    // The shipmaster shares charted lanes before the conversation turns to the claim.
+    for (let n = 0; n < 12 && !heard(); n++) {
       w = act(w, "talk", (a) => a.target === "greek-shipmaster");
       const context = narrativeContext(w);
       const disclosure = context.disclosures?.[0];
@@ -111,6 +112,7 @@ describe("a claim's truth follows the world's branch", () => {
         });
     }
     const told = heard();
+    expect(told).toBeDefined();
     expect(w.knowledge.known.vale[told.id].status).toBeDefined();
     expect(w.knowledge.known["greek-shipmaster"][told.id]).toMatchObject({ kind: "heard", teller: "vale" });
     expect(held(w, HELEN, "greek-shipmaster")[told.claim]).toBe("belief");

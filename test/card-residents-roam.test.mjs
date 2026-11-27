@@ -27,6 +27,7 @@ import {
   rangeOf,
   worldLife,
 } from "../v2/card-game/resident-home.mjs";
+import { learnLane, summonTransport } from "../v2/card-game/pack-transport.mjs";
 import { residentAsleep } from "../v2/card-game/resident-sleep.mjs";
 import { humanAvatarIds } from "../v2/card-game/human-cast.mjs";
 import { ELYSIUM_MODEL_IDS } from "../v2/card-game/elysium-models.mjs";
@@ -38,7 +39,13 @@ import { ajaxCamp } from "./helpers/greek-ajax.mjs";
 
 // Residents who are not offered Invite (Oak and the Badger because they stay
 // in one place by design; the rest because their place is structural).
+const dramaResidents = Object.fromEntries(
+  Object.keys(packPeople)
+    .filter((id) => id.startsWith("greek-story-"))
+    .map((id) => [id, "The local conflict and its gifts take place here."]),
+);
 const NO_INVITE = {
+  ...dramaResidents,
   oak: "Oak stays in one place by design (a backdrop tree).",
   badger: "The Badger stays on his moss by design; his clearing has no way out.",
   skull:
@@ -50,7 +57,12 @@ const NO_INVITE = {
   "greek-quay-host":
     "Thaleia keeps to her quay; her wheat can come home with nobody there.",
   "greek-colonus-keeper":
-    "The Grove Keeper keeps to his grove; his oil can come home with nobody there.",
+    "Oedipus awaits the daughters and Theseus at Colonus.",
+  "greek-colonus-theseus": "Theseus receives the daughters at the grove.",
+  "greek-marathon-keeper": "Demophon grants refuge and hears the captive's case at the altar.",
+  "greek-marathon-alcmene": "Alcmene stands for the household at the altar.",
+  "greek-piraeus-pilot": "Nausicrates teaches the sea routes at the quay.",
+  "greek-pagasae-pilot": "Philon stays at Pagasae to teach the Scylla's routes.",
   "greek-patroclus":
     "Patroclus starts aboard the Charybdis, where the only plays are the ship's course; the quay invites him once the ship has docked (card-greek-patroclus).",
   "willows-swede": "The Swede stays at camp until the kit is back (stayUntil).",
@@ -61,6 +73,9 @@ const NO_INVITE = {
 };
 // Residents who do not join a standoff.
 const NO_STANDOFF = {
+  ...dramaResidents,
+  "greek-piraeus-pilot": "Nausicrates keeps the quay open for travelers.",
+  "greek-pagasae-pilot": "Philon guides travelers from the mooring stones.",
   badger:
     "The Badger is asleep until greeted and card-packs pins that a sleeper cannot be threatened (standoffs: false).",
   "greek-rhapsode": "The rhapsode is the pack's recital actor, which the pack schema pins to standoffs: false.",
@@ -78,20 +93,34 @@ const scopes = Object.fromEntries(
 );
 
 const restore = [];
-function beside(id, open = true) {
-  const s = createWorld({ seed: 7, packScopes: scopes });
-  if (open)
-    for (const key of Object.keys(s.crossings)) s.crossings[key].discovered = true;
+let castWorld;
+function beside(id) {
+  const s = structuredClone(castWorld);
+  const here = s.actors[id].place;
   const pack = packPeople[id]?.packId;
   if (pack && s.packs[pack].met) s.packs[pack].met[id] = 0;
   if (id === "listener") s.actors.vale.arcana = { proved: [], did: [], calls: 3 };
-  s.actors.vale.place = s.actors[id].place;
+  s.actors.vale.place = here;
+  // At Proteus's tomb, Invite needs the chosen account and a known way aboard.
+  if (here === "greek-egypt-tomb") {
+    s.packs["greek-drama"].choices["greek-helen-account"] = "egypt";
+    summonTransport(s, "greek-scylla", here);
+    learnLane(s, "vale", here, "greek-pagasae");
+  }
   return s;
 }
-const offered = (id, kind) =>
-  legalActions(beside(id)).some((a) => a.kind === kind && a.target === id);
+const besideActions = new Map();
+function offered(id, kind) {
+  if (!besideActions.has(id)) {
+    const kinds = legalActions(beside(id))
+      .filter((action) => action.target === id)
+      .map((action) => action.kind);
+    besideActions.set(id, new Set(kinds));
+  }
+  return besideActions.get(id).has(kind);
+}
 const cast = () =>
-  Object.keys(createWorld({ seed: 7, packScopes: scopes }).actors).filter(
+  Object.keys(castWorld.actors).filter(
     (id) => !humanAvatarIds.includes(id) && id !== "vale",
   );
 
@@ -104,6 +133,8 @@ describe("who can be invited along and threatened", () => {
       a.requires = [];
       a.appearsWhen = [];
     }
+    castWorld = createWorld({ seed: 7, packScopes: scopes });
+    for (const state of Object.values(castWorld.crossings)) state.discovered = true;
   });
   afterAll(() => {
     for (const [a, requires, appearsWhen] of restore) {
@@ -113,9 +144,10 @@ describe("who can be invited along and threatened", () => {
   });
 
   it("lists every resident of every mounted pack", () => {
-    expect(cast().length).toBeGreaterThan(50);
-    for (const id of Object.keys(NO_INVITE)) expect(cast()).toContain(id);
-    for (const id of Object.keys(NO_STANDOFF)) expect(cast()).toContain(id);
+    const residents = cast();
+    expect(residents.length).toBeGreaterThan(50);
+    for (const id of Object.keys(NO_INVITE)) expect(residents).toContain(id);
+    for (const id of Object.keys(NO_STANDOFF)) expect(residents).toContain(id);
   });
 
   it("offers Invite beside everyone except the allow-list", () => {
@@ -156,6 +188,7 @@ describe("who can be invited along and threatened", () => {
     expect(table.whiskerwind).toBe("invite threaten");
     expect(table["greek-adrastus"]).toBe("invite threaten");
     expect(table["greek-aethra"]).toBe("- threaten");
+    expect(table["greek-pagasae-pilot"]).toBe("- -");
   });
 });
 
@@ -166,7 +199,6 @@ const FREED = {
   whiskerwind: "default",
   "greek-adrastus": "opendoor",
   "greek-theseus": "opendoor",
-  "greek-marathon-keeper": "opendoor",
   "greek-argive-mother": "ajax",
   "greek-iphis": "ajax",
   "greek-ajax-tecmessa": "ajax",

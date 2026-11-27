@@ -547,7 +547,7 @@ async fn each_voice_call_counts_its_attempts_reasons_and_tokens() {
     assert!(!metrics.contains("Holding the lamp."));
 }
 
-/// Dione wants the Funeral Oil Vale carries (.dev, 2026-11-03: "Ask Vale to
+/// Dione wants the Olive Oil Vale carries (.dev, 2026-11-03: "Ask Vale to
 /// hand you the Funeral Oil."). Under rules 102 she holds her Sack of Wheat. Her view is her own assistant turn after
 /// silence, the line she answers is the user turn, and the checks still read
 /// the structured facts and the view.
@@ -556,7 +556,7 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     let cases = cases();
     let (_, context, lines) = cases
         .iter()
-        .find(|(name, ..)| name == "Dione wants the Funeral Oil")
+        .find(|(name, ..)| name == "Dione wants the Olive Oil")
         .unwrap();
     let heard = scene_for(context, lines, "greek-baker").unwrap();
     let dione = entity(&heard, "greek-baker");
@@ -567,15 +567,15 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     );
     let view = prose(&prompt.assistant);
     // The system turn says who she is; her own view does not repeat it.
-    assert!(view.starts_with("I want the Funeral Oil. "));
+    assert!(view.starts_with("I want the Olive Oil. "));
     assert!(view.ends_with(
-        "I smell bread cooling under a cloth; one place at the table is empty. I ask Vale for the Funeral Oil. \
+        "I smell bread cooling under a cloth; one place at the table is empty. I ask Vale for the Olive Oil. \
          Vale keeps it for now. Vale, the Lamplighter is right here; I'm talking with them."
     ), "{view}");
     assert!(view.contains("I'm carrying the Sack of Wheat."));
     // A fact she witnessed is not told again as the fact she may share.
     assert_eq!(view.matches("Ships for Piraeus Quays leave").count(), 1);
-    assert!(prompt.assistant.contains("I want the Funeral Oil."));
+    assert!(prompt.assistant.contains("I want the Olive Oil."));
     assert!(view.split("\n\n").all(|part| !part.contains('\n')));
     assert_eq!(
         prompt.user,
@@ -584,7 +584,7 @@ fn a_character_speaks_as_itself_in_the_assistant_turn() {
     // A wrong custody claim about Vale's oil is flagged and published; the
     // view read back across its facts is an echo.
     let check = Check::new(&heard, dione, Part::Line);
-    for claim in ["I'm holding the Funeral Oil.", "The Funeral Oil is mine."] {
+    for claim in ["I'm holding the Olive Oil.", "The Olive Oil is mine."] {
         let (text, flags) = check.verdict(claim, true).unwrap();
         assert_eq!(text, claim);
         assert!(flags.contains(&"custody"), "{claim}");

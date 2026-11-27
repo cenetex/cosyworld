@@ -5,6 +5,8 @@ import { chromium } from "playwright";
 import { createServer } from "../card-game/serve.mjs";
 import { currentActor, encodeSave, legalActions } from "../card-game/world.mjs";
 import { needsVoyage, nextVoyagePlay } from "../../test/helpers/voyage.mjs";
+import { greekTravelTargets } from "../../test/helpers/greek-travel.mjs";
+import { knowsLane } from "../card-game/pack-transport.mjs";
 import { profiles } from "../card-game/memory.mjs";
 import { packDefinition } from "../card-game/pack-registry.mjs";
 import { recitalPoem } from "../card-game/pack-recital.mjs";
@@ -20,6 +22,9 @@ import {
 
 const shieldClue = "greek-ajax-shield-teucer";
 const tecmessa = "greek-ajax-tecmessa";
+const pagasae = "greek-pagasae";
+const lemnos = "greek-lemnos";
+const pilot = "greek-pagasae-pilot";
 
 function steps(route) {
   const move = (target) => ({ kind: "move", target });
@@ -34,8 +39,8 @@ function steps(route) {
     move("greek-road-thebes"),
     move("greek-harbor"),
     choose("invitation"),
-    // The Northern Road walks to Troy: the Charybdis never calls there.
-    move("greek-road-north"),
+    ...greekTravelTargets("greek-harbor", "greek-pagasae").map(move),
+    move("greek-scylla"),
     move("greek-ajax-landing"),
     move("greek-greek-camp"),
     choose("learn-shield-teucer"),
@@ -62,10 +67,9 @@ function steps(route) {
     ...(route === "household" ? [] : [take("plea")]),
     choose(`record-${route}`),
     move("greek-ajax-landing"),
-    move("greek-road-north"),
-    move("greek-harbor"),
-    move("greek-road-thebes"),
-    move("greek-courtyard"),
+    move("greek-scylla"),
+    move("greek-pagasae"),
+    ...greekTravelTargets("greek-pagasae", "greek-courtyard").map(move),
     choose(`return-${route}`),
   ];
 }
@@ -214,12 +218,16 @@ export async function checkAjax(browser, origin) {
             await step(next.target ? next : { kind: next.kind });
           }
           current = { kind, ...fields };
-          if (kind === "move" && fields.target === "greek-ship") {
+          if (kind === "move" && fields.target === "greek-scylla") {
+            const world = await state();
+            if (world.actors.vale.place === pagasae &&
+                !knowsLane(world, "vale", pagasae, lemnos))
+              await step({ kind: "talk", target: pilot });
             for (
               let wait = 0;
               wait < 32 &&
               !legalActions(await state()).some(
-                (a) => a.kind === "move" && a.target === "greek-ship",
+                (a) => a.kind === "move" && a.target === "greek-scylla",
               );
               wait++
             )
@@ -267,13 +275,18 @@ export async function checkAjax(browser, origin) {
           if (kind === "wait") await wait.click();
           else await readyActionButton(page, topic ? "talk" : kind).first().click();
           const learningShield = topic?.id === shieldClue;
-          await settle(learningShield ? "Tecmessa" : "");
+          const learningLemnos = kind === "talk" && fields.target === pilot;
+          await settle(learningShield ? "Tecmessa" : learningLemnos ? "Lemnian Cave" : "");
           const after = await state();
           assert.equal(after.turn, before.turn + 1, "Each action commits once");
           if (learningShield) {
             assert(clueRequest.concealed.includes(tecmessa));
             assert(clueRequest.disclosures[0].text.includes("Tecmessa"));
             assert(after.log.some((line) => line.generated && line.disclosedFactId === shieldClue));
+          }
+          if (learningLemnos) {
+            assert(knowsLane(after, "vale", pagasae, lemnos));
+            assert(after.log.some((line) => line.generated && line.disclosedFactId === `lane:${pagasae}>${lemnos}`));
           }
           if (choiceId)
             assert.equal(
@@ -303,6 +316,7 @@ export async function checkAjax(browser, origin) {
           }
         }
         const world = await state();
+        assert.equal(world.transports["greek-scylla"].dock, "greek-pagasae");
         assert.equal(
           world.packs["greek-drama"].choices["greek-ajax-return"],
           route,

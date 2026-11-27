@@ -23,9 +23,8 @@ function engine(rules, files) {
   return (request) => JSON.parse(runtime.cardShared(JSON.stringify(request)));
 }
 
-// The content with one more harbor place and one more dock for the ship,
-// whose boarding shore copies an existing one.
-function grow(base, port, shore) {
+// Grow the harbor and add a dock to the vessel serving the existing port.
+function grow(base, port) {
   const grown = structuredClone(base);
   const greek = grown.files["v2/card-game/packs.json"].packs.find(
     (p) => p.id === "greek-drama",
@@ -42,17 +41,18 @@ function grow(base, port, shore) {
     ...structuredClone(greek.places["greek-lemnos"]),
     name: "The Test Dock",
   };
-  const ship = greek.transports["greek-ship"];
+  const board = greek.crossings.find((c) => c.from === port && c.transport);
+  const ship = greek.transports[board.transport];
   ship.docks.push("greek-test-dock");
   ship.lanes.push({ from: port, to: "greek-test-dock" });
   greek.crossings.push({
-    ...structuredClone(greek.crossings.find((c) => c.id === shore)),
+    ...structuredClone(board),
     id: "greek-test-dock-ship",
     from: "greek-test-dock",
   });
   return grown;
 }
-const grown = grow(content, "greek-piraeus", "greek-piraeus-ship");
+const grown = grow(content, "greek-sicily");
 const filled = (world) => {
   expect(world.memories["greek-test-quay"]).toMatchObject({ events: [] });
   expect(world.memories["greek-test-dock"]).toMatchObject({ events: [] });
@@ -75,7 +75,6 @@ describe("content added after a world was saved", () => {
     });
     expect(repack.error).toBeUndefined();
     filled(repack.world);
-    // The repacked world plays on.
     const next = engine(
       version,
       grown,

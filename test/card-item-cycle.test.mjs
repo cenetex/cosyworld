@@ -222,7 +222,7 @@ describe("rules 95 item cycle", () => {
       refusals: 0,
     };
     expect(wantFact(s, "greek-shipmaster", nameOf)).toBe(
-      "I want the Travel Provisions: the Courtyard Bread, the Test Figs and the Test Wine or the Test Water.",
+      "I want the Travel Provisions: the Bread, the Test Figs and the Test Wine or the Test Water.",
     );
     s = act(s, "give", { item: "greek-test-figs", target: "greek-shipmaster" });
     expect(s.items["greek-provisions"].holder).toBe("greek-harbor");
@@ -251,7 +251,7 @@ describe("rules 95 item cycle", () => {
     expect(usedUp(s, "greek-test-figs")).toBe(true);
     expect(
       s.log.some(
-        (e) => e.text === "The Theban Courtyard has the Courtyard Bread again.",
+        (e) => e.text === "The Theban Courtyard has the Bread again.",
       ),
     ).toBe(true);
     s = toTurn(s, DAYLIGHT_TURNS * 3 - 1);
@@ -457,7 +457,7 @@ describe("rules 95 item cycle", () => {
       refusals: 0,
     };
     expect(wantFact(s, "greek-shipmaster", nameOf)).toBe(
-      "I want the Travel Provisions: the Courtyard Bread, the Test Figs and the Test Wine or the Test Water.",
+      "I want the Travel Provisions: the Bread, the Test Figs and the Test Wine or the Test Water.",
     );
   });
 });

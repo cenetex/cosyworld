@@ -1,14 +1,12 @@
 // A ship is the quick way to a port, never a trap (#2049). The Charybdis
 // sails the Black Pond route: Black Pond to the Wine-Dark Harbor and back
 // with no cargo, on to Piraeus and the Hoppy Cat jetty only with cargo
-// aboard, and every way back toward Black Pond free. So every dock it sails
-// to reaches home on foot or by a free leg, even with every gate shut.
-// Marathon, Troy and the Far Shores are rumours (rules 94): no way leads
-// there. The land route, Piraeus to Athens, Eleusis, Cithaeron and the
-// battlefield, enters Thebes only through the City Gate. The roads home must
-// not walk around the Greek story gates: each gate is checked by search over
-// every place a traveler could walk to and every thing they could carry or
-// hand over on the way.
+// aboard. The Scylla sails the Far Shores from Pagasae without cargo.
+// Marathon is a walk from Eleusis. Myrto's invitation opens the Scylla's
+// landing at Troy. The land route from Piraeus through Athens,
+// Eleusis, Cithaeron and the battlefield enters Thebes through the City Gate.
+// The search checks each gate against every route a traveler could walk and
+// every thing they could carry or hand over on the way.
 import { describe, expect, it } from "vitest";
 import {
   createWorld,
@@ -26,12 +24,20 @@ import {
 } from "../v2/card-game/pack-registry.mjs";
 import {
   callTransport,
+  knowsLane,
   laneConditions,
+  lanePath,
   lanesFrom,
 } from "../v2/card-game/pack-transport.mjs";
 import { conditionMet } from "../v2/card-game/pack-rules.mjs";
+import { ajaxTalk } from "./helpers/greek-ajax.mjs";
 import { stowProvisions } from "./helpers/provisions.mjs";
-import { openDoorStart } from "./helpers/open-door.mjs";
+import {
+  greekStart,
+  landRoad,
+  openDoorStart,
+  traveler,
+} from "./helpers/open-door.mjs";
 import { settleGate } from "./helpers/world-life.mjs";
 import { settleGuards } from "../v2/card-game/resident-guard.mjs";
 
@@ -61,21 +67,25 @@ const stages = {
       }),
     ),
 };
-// Rumours: no way leads to them in a world of this release, even once the
-// Ajax flag is set. The island and far-shore stops retired into Piraeus.
-const RUMOURS = [
-  "greek-marathon",
-  "greek-road-north",
-  "greek-ajax-landing",
-  "greek-greek-camp",
-  "greek-ajax-household",
-  "greek-ajax-grave",
-];
+const MARATHON = "greek-marathon";
+const PAGASAE = "greek-pagasae";
+const SCYLLA = "greek-scylla";
+const AJAX_LANDING = "greek-ajax-landing";
+const EGYPT_TOMB = "greek-egypt-tomb";
+const AJAX_PLACES = pack.sections.find((s) => s.id === "greek-ajax").places;
 const FAR_SHORES = [
   "greek-lemnos",
   "greek-thrace",
   "greek-tauris",
   "greek-sicily",
+];
+const FAR_SHORE_LANES = [
+  [PAGASAE, "greek-lemnos"],
+  ["greek-lemnos", "greek-thrace"],
+  ["greek-thrace", "greek-tauris"],
+  ["greek-lemnos", AJAX_LANDING],
+  [PAGASAE, "greek-sicily"],
+  [PAGASAE, EGYPT_TOMB],
 ];
 
 // Every thing a route or a sea lane names in its conditions: the keys that
@@ -333,17 +343,122 @@ describe("ports reachable on foot or by a free leg home", () => {
   });
 
   for (const stage of ["opening", "open door", "ajax"])
-    it(`keeps Marathon, Troy and the Far Shores as rumours: ${stage}`, () => {
+    it(`keeps Marathon on land and reaches Ajax by sea after the invitation: ${stage}`, () => {
       const s = stages[stage]();
-      for (const id of RUMOURS) expect(entityActive(s, id), id).toBe(false);
-      for (const id of FAR_SHORES) expect(pack.places[id].retired).toBe(true);
-      // Every walk, carry and voyage from the harbor stays short of them.
+      const opened = stage === "ajax";
+      expect(entityActive(s, MARATHON)).toBe(true);
+      for (const id of AJAX_PLACES)
+        expect(entityActive(s, id), id).toBe(opened);
+      for (const id of FAR_SHORES) expect(entityActive(s, id), id).toBe(true);
       const seen = reach(s, "greek-harbor", { ship: true, local: false });
-      expect(has(seen, [...RUMOURS, ...FAR_SHORES])).toEqual([]);
-      // Nobody is sent there: no want, no lane.
+      expect(seen.has(MARATHON)).toBe(true);
+      expect(seen.has(PAGASAE)).toBe(true);
+      expect(has(seen, FAR_SHORES)).toEqual(FAR_SHORES);
+      expect(has(seen, AJAX_PLACES)).toEqual(opened ? AJAX_PLACES : []);
       for (const t of Object.values(transports))
-        expect(has(new Set(t.docks), [...RUMOURS, ...FAR_SHORES])).toEqual([]);
+        expect(t.docks).not.toContain(MARATHON);
     });
+
+  it("connects the Far Shores to Pagasae by two-way cargo-free Scylla lanes", () => {
+    const ship = transports[SCYLLA];
+    expect(ship.at).toBe(PAGASAE);
+    expect(ship.shipmaster).toBe("greek-pagasae-pilot");
+    expect(new Set(ship.docks)).toEqual(
+      new Set([PAGASAE, ...FAR_SHORES, AJAX_LANDING, EGYPT_TOMB]),
+    );
+    expect(ship.lanes).toHaveLength(FAR_SHORE_LANES.length);
+    for (const [from, to] of FAR_SHORE_LANES) {
+      expect(lanesFrom(ship, from)).toContain(to);
+      expect(lanesFrom(ship, to)).toContain(from);
+      expect(laneConditions(from, to)).toBeNull();
+      expect(laneConditions(to, from)).toBeNull();
+    }
+    const s = stages.opening();
+    for (const dock of FAR_SHORES) {
+      expect(lanePath(s, SCYLLA, dock, PAGASAE)?.at(-1), dock).toBe(PAGASAE);
+      expect(lanePath(s, "greek-ship", dock, "pond"), dock).toBeNull();
+    }
+  });
+
+  it("opens the Scylla's Ajax landing and Egyptian berth only for their own commitments", () => {
+    const s = stages.opening();
+    expect(lanePath(s, SCYLLA, PAGASAE, AJAX_LANDING)).toBeNull();
+    expect(lanePath(s, SCYLLA, PAGASAE, EGYPT_TOMB)).toBeNull();
+    expect(exits(s, "greek-harbor", "vale")).not.toContain(EGYPT_TOMB);
+
+    s.packs["greek-drama"].flags["greek-ajax-open"] = true;
+    expect(lanePath(s, SCYLLA, PAGASAE, AJAX_LANDING)).toEqual([
+      PAGASAE,
+      "greek-lemnos",
+      AJAX_LANDING,
+    ]);
+    expect(lanePath(s, SCYLLA, AJAX_LANDING, PAGASAE)).toEqual([
+      AJAX_LANDING,
+      "greek-lemnos",
+      PAGASAE,
+    ]);
+    expect(lanePath(s, "greek-ship", "greek-harbor", AJAX_LANDING)).toBeNull();
+    expect(entityActive(s, "greek-road-north")).toBe(false);
+    expect(exits(s, "greek-harbor", "vale")).not.toContain("greek-road-north");
+    expect(exits(s, AJAX_LANDING, "vale")).not.toContain("greek-road-north");
+    expect(exits(s, AJAX_LANDING, "vale")).toContain("greek-greek-camp");
+
+    s.packs["greek-drama"].choices["greek-helen-account"] = "troy";
+    expect(lanePath(s, SCYLLA, PAGASAE, EGYPT_TOMB)).toBeNull();
+    s.packs["greek-drama"].choices["greek-helen-account"] = "egypt";
+    expect(lanePath(s, SCYLLA, PAGASAE, EGYPT_TOMB)).toEqual([
+      PAGASAE,
+      EGYPT_TOMB,
+    ]);
+    expect(exits(s, "greek-harbor", "vale")).not.toContain(EGYPT_TOMB);
+    expect(exits(s, EGYPT_TOMB, "vale")).not.toContain("greek-harbor");
+  });
+
+  it("walks to Pagasae, sails to the Ajax landing and returns to the Wine-Dark Harbor cargo-free", () => {
+    const start = traveler(greekStart()).move("harbor");
+    start.act("talk", { target: "greek-shipmaster" });
+    expect(start.s.packs["greek-drama"].flags["greek-ajax-open"]).toBe(true);
+    stowProvisions(start.s, "greek-harbor");
+    const t = landRoad(start.move("road-thebes", "courtyard"));
+    const overland = [
+      "greek-gate",
+      "greek-battlefield",
+      "greek-cithaeron",
+      "greek-eleusis",
+      "greek-road-athens-eleusis",
+      "greek-athens",
+      "greek-road-sacred-way",
+      "greek-delphi",
+      "greek-oeta",
+      "greek-trachis",
+      "greek-pherae",
+      PAGASAE,
+    ];
+    t.move(...overland);
+    expect(t.s.actors.vale.place).toBe(PAGASAE);
+    expect(exits(t.s, PAGASAE, "vale")).toContain("greek-pherae");
+
+    expect(knowsLane(t.s, "vale", PAGASAE, "greek-lemnos")).toBe(false);
+    t.s = ajaxTalk(t.s, `lane:${PAGASAE}>greek-lemnos`, {
+      target: "greek-pagasae-pilot",
+    });
+    const sail = (dock) =>
+      t.move(SCYLLA).act("course", { target: dock }).act("wait").move(dock);
+    sail("greek-lemnos");
+    sail(AJAX_LANDING);
+    t.move("greek-greek-camp", AJAX_LANDING);
+    sail("greek-lemnos");
+    sail(PAGASAE);
+    t.move(
+      ...overland.slice(0, -1).reverse(),
+      "courtyard",
+      "road-thebes",
+      "harbor",
+    );
+    expect(t.s.actors.vale.place).toBe("greek-harbor");
+    expect(t.s.actors.vale.visited).not.toContain("greek-ship");
+    expect(t.s.items["greek-provisions"].holder).toBe("greek-harbor");
+  });
 
   it("walks the land route home from Piraeus along the open Long Walls", () => {
     // After the invitation: Vale ashore at Piraeus, the ship called to the
@@ -450,7 +565,8 @@ describe("the roads home keep the Greek story gates", () => {
           from,
         );
         expect(after.has("greek-battlefield"), from).toBe(true);
-        expect(has(after, RUMOURS), from).toEqual([]);
+        expect(has(after, [...AJAX_PLACES, "greek-troy"]), from).toEqual([]);
+        expect(has(after, FAR_SHORES), from).toEqual([]);
       }
       // The search itself finds the gate's key by the chain of rules 102:
       // Dione bakes the bread from the water jar and her wheat, the bread

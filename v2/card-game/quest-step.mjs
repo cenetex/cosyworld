@@ -2,7 +2,7 @@ import { settleHeldItems, handSnapshot } from "./held-item.mjs";
 import { settleLamp } from "./lamp-state.mjs";
 // A chosen quest offers a legal act that completes its goal or authored stage.
 // The player chooses how to gather supplies and reach the goal.
-import { packGiveChoice } from "./pack-registry.mjs";
+import { entityActive, packGiveChoice } from "./pack-registry.mjs";
 import { questVisible } from "./quest-card.mjs";
 import {
   accompanyDecision,
@@ -10,10 +10,9 @@ import {
   itemPlace,
   legalActions,
   play,
-  rootHolder,
   willingToGive,
 } from "./world.mjs";
-import { holdsAsWanted } from "./want.mjs";
+import { holdsAsWanted, layItemCopies, matchesWantedItem, missingLayItems, wantedItems } from "./want.mjs";
 
 export const NOT_FOUND = {
   item: "Not found yet",
@@ -71,33 +70,36 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
       return choose(
         (a) =>
           a.kind === "give" &&
-          a.item === quest.remaining[0] &&
+          layItemCopies(quest, quest.remaining[0]).includes(a.item) &&
           a.target === "greek-antigone" &&
           packGiveChoice(world, a),
       );
-    const missing = step.items.filter(
-      (id) => world.items[id]?.holder !== target,
-    );
+    const missing = missingLayItems(world, quest);
     return missing.length === 1
-      ? choose((a) => a.kind === "drop" && a.item === missing[0])
+      ? choose((a) => a.kind === "drop" && layItemCopies(quest, missing[0]).includes(a.item))
       : null;
   }
   if (step?.verb === "rest")
     return kind === "place" && here === target ? { rest: true } : null;
   if (step?.verb === "give")
     return choose(
-      (a) => a.kind === "give" && a.item === target && a.target === step.to,
+      (a) => a.kind === "give" && matchesWantedItem(quest, a.item) && a.target === step.to,
     );
   if (step?.verb === "eat")
     return !step.at || here === step.at
       ? choose(
           (a) =>
             a.kind === "eat" &&
-            a.item === target &&
+            matchesWantedItem(quest, a.item) &&
             (!step.with || a.target === step.with),
         )
       : null;
-  if (step?.verb === "find") return arrive(itemPlace(world, target));
+  if (step?.verb === "find") {
+    const sites = wantedItems(quest)
+      .filter((id) => id === target || entityActive(world, id))
+      .map((id) => itemPlace(world, id));
+    return choose((a) => a.kind === "move" && !a.item && sites.includes(a.target));
+  }
   if (step?.verb === "meet")
     return !step.at || placeOf(target) === step.at
       ? arrive(placeOf(target))
@@ -110,10 +112,10 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
           a.kind === "accompany" && a.target === target && a.destination === to,
       );
     if (step.to && placeOf(step.to) !== to) return null;
-    return rootHolder(world, target) === actor
+    return holdsAsWanted(world, actor, quest)
       ? arrive(to)
       : here === to
-        ? choose((a) => ["take", "ask"].includes(a.kind) && a.item === target)
+        ? choose((a) => ["take", "ask"].includes(a.kind) && matchesWantedItem(quest, a.item))
         : null;
   }
   if (step) return choose((a) => a.kind === step.verb && a.target === target);
@@ -121,10 +123,12 @@ export function questStep(world, quest, covered, legal = legalActions(world)) {
   if (kind === "person")
     return choose((a) => a.kind === "talk" && a.target === target);
   if (kind !== "item") return null;
+  const targets = wantedItems(quest);
   return choose((a) => {
     if (
       !["take", "ask"].includes(a.kind) ||
-      (a.item !== target && world.items[a.item]?.holder !== target)
+      !targets.some((id) => a.item === id || world.items[id]?.holder === a.item ||
+        world.items[a.item]?.holder === id)
     )
       return false;
     const next = structuredClone(world);

@@ -1,0 +1,76 @@
+{
+  "items": {
+    "greek-areopagus-cilissa-testimony": {
+      "name": "Cilissa’s Testimony",
+      "holder": "greek-areopagus",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "seed": "The court’s written account of what Cilissa heard when she was sent for Aegisthus.",
+      "lifecycle": "fixed",
+      "author": "greek-cilissa",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-areopagus-cilissa-heard",
+          "value": true
+        }
+      ],
+      "records": ["greek-areopagus-hear-cilissa"],
+      "recordText": {
+        "greek-areopagus-hear-cilissa": "Cilissa says Clytemnestra sent her for Aegisthus and the women at the palace door urged her to tell him to come alone."
+      }
+    }
+  },
+  "choices": [
+    {
+      "id": "greek-cilissa-agrees-to-testify",
+      "subject": "greek-cilissa",
+      "at": "greek-argos-tomb",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "Cilissa hears the terms of Athena’s order and agrees to go with you to Athens. She asks to go through the Theban gate and on past Eleusis so she can say in person what she heard at the palace.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-areopagus-household-evidence-filed",
+          "value": true
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-areopagus-witness-order:greek-areopagus-file-atreid-evidence",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-areopagus-cilissa-agreed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-areopagus-hear-cilissa",
+      "subject": "greek-cilissa",
+      "at": "greek-areopagus",
+      "workId": "aeschylus-eumenides",
+      "humanOnly": true,
+      "on": "talk",
+      "text": "Cilissa tells how the palace sent her for Aegisthus and how the women at the door asked her to call him in alone. The clerk posts her testimony beside the witness order for anyone who comes later.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-areopagus-cilissa-agreed",
+          "value": true
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-areopagus-cilissa-heard",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

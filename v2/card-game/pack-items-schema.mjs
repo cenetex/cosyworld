@@ -9,6 +9,69 @@ const owns = (o, key) =>
   record(o) && typeof key === "string" && Object.hasOwn(o, key);
 const idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
 
+export const ITEM_IDENTITY_FIELDS = ["name", "art", "tags", "startLevel"];
+
+export function itemPlacementEffect(items, places, player, choice, effect) {
+  const fromGround = effect.kind === "fetch_item";
+  if (!owns(items, effect.item) || Object.keys(effect).length !== 3) return false;
+  if (fromGround)
+    return choice.on === "talk" && choice.humanOnly === true &&
+      owns(places, effect.from) && effect.from !== choice.at &&
+      items[effect.item].lifecycle !== "fixed" &&
+      choice.requires?.some((r) =>
+        r.kind === "item_at" && r.item === effect.item && r.place === effect.from,
+      );
+  return effect.place === choice.at && choice.requires?.some((r) =>
+    r.kind === "holding" && r.item === effect.item &&
+    (r.role === "actor" || r.actor === player),
+  );
+}
+const STOCK_FIELDS = [
+  "type",
+  "holder",
+  "home",
+  "regrow",
+  "startsUsed",
+  "absentReturn",
+  "requires",
+  "reservedUntil",
+];
+
+// Stock shares its description and presentation with one local canonical item.
+// A stock card keeps its own custody, activation, and renewal rules.
+export function itemTypeProblem(items, id, { thin = false } = {}) {
+  const item = items[id],
+    type = item?.type;
+  if (type === undefined) return null;
+  const canonical = owns(items, type) && items[type];
+  if (
+    !idOk(type) ||
+    type === id ||
+    !record(canonical) ||
+    canonical.type !== undefined
+  )
+    return `item ${id} type must name a different local item without a type`;
+  const fields = [...STOCK_FIELDS, ...ITEM_IDENTITY_FIELDS];
+  if (!Object.keys(item).every((key) => fields.includes(key)))
+    return `item ${id} type permits only stock and inherited identity fields`;
+  for (const field of ITEM_IDENTITY_FIELDS) {
+    if (thin && !Object.hasOwn(item, field)) continue;
+    const value = item[field],
+      expected = canonical[field];
+    if (
+      value === expected ||
+      (field === "tags" &&
+        Array.isArray(value) &&
+        Array.isArray(expected) &&
+        value.length === expected.length &&
+        value.every((tag, i) => tag === expected[i]))
+    )
+      continue;
+    return `item ${id} ${field} must match its type ${type}`;
+  }
+  return null;
+}
+
 // Every thing a condition list names by custody, nested ones too.
 export function custodyItems(conditions = []) {
   const out = [];
@@ -86,6 +149,8 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
   };
 
   for (const [id, i] of Object.entries(items)) {
+    const typeProblem = itemTypeProblem(items, id);
+    if (typeProblem) problems.push(`${pack.id}: ${typeProblem}`);
     const scatter = i.scatterOutside;
     check(
       scatter === undefined || scatter === true ||
@@ -151,6 +216,8 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
   for (const c of choices) {
     if (c.repeats === undefined) continue;
     const effects = Array.isArray(c.effects) ? c.effects : [];
+    if (c.repeats === true && c.on === "talk" && effects.length === 1 && effects[0].kind === "fetch_item")
+      continue;
     const made = effects.filter((e) => e.kind === "drop_item");
     check(
       c.repeats === true &&
@@ -160,7 +227,7 @@ export function itemCycleProblems(pack, mountedPlaces = [], hubPlaces = []) {
         effects.every((e) =>
           ["retire_item", "drop_item", "set_flag"].includes(e.kind),
         ),
-      `choice ${c.id} repeats only as a give that drops one homed thing`,
+      `choice ${c.id} repeats only as a give that drops one homed thing or a talk that fetches one thing`,
     );
     for (const e of effects.filter((e) => e.kind === "retire_item"))
       check(

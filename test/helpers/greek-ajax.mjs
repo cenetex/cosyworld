@@ -6,6 +6,7 @@ import {
 import { greekStart, playGreek as playOpenDoor } from "./open-door.mjs";
 import { greekTravelTargets } from "./greek-travel.mjs";
 import { packDefinition } from "../../v2/card-game/pack-registry.mjs";
+import { openGreekGate } from "./greek-gate.mjs";
 
 export const ajaxState = (world) => world.packs["greek-drama"];
 export function ajaxChoice(world, id) {
@@ -36,7 +37,8 @@ export const ajaxMove = (world, ...places) =>
 
 let start;
 export function ajaxStart() {
-  start ||= greekStart({ full: true });
+  // The Ajax journey starts with the Theban gate errands already settled.
+  start ||= openGreekGate(greekStart({ full: true }));
   return structuredClone(start);
 }
 
@@ -69,10 +71,22 @@ export function ajaxTalk(
   });
 }
 
-export function ajaxCamp() {
+function reachCamp() {
   let world = ajaxMove(ajaxStart(), "greek-harbor");
   world = ajaxChoice(world, "invitation");
-  return ajaxMove(world, "greek-ajax-landing", "greek-greek-camp");
+  world = ajaxMove(world, "greek-pagasae");
+  world = ajaxTalk(world, "lane:greek-pagasae>greek-lemnos", {
+    target: "greek-pagasae-pilot",
+  });
+  return ajaxMove(world, "greek-scylla", "greek-ajax-landing", "greek-greek-camp");
+}
+
+let camp;
+export function ajaxCamp() {
+  // Dialogue and burial tests need independent camp states, not a repeated
+  // walk across the mainland for every assertion.
+  camp ||= reachCamp();
+  return structuredClone(camp);
 }
 
 export function ajaxShieldKeeper(world) {
@@ -123,7 +137,8 @@ export function ajaxJourney(route = "public") {
   let world = ajaxMove(
     ajaxAccount(route),
     "greek-ajax-landing",
-    "greek-harbor",
+    "greek-scylla",
+    "greek-pagasae",
     "greek-courtyard",
   );
   return ajaxChoice(world, `return-${route}`);

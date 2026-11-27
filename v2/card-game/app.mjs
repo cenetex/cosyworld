@@ -211,7 +211,7 @@ import { rememberLocalUpgrades, wearLocalUpgrades } from "./scarves.mjs";
 import { carryUpgrades } from "./local-carry.mjs";
 import { retiredSave, SAVE_SCHEMA } from "./legacy-saves.mjs";
 import { coveredText, coveredTextReader, markWaking } from "./speech-knowledge.mjs";
-import { packMedia } from "./pack-registry.mjs";
+import { itemCopies, packMedia } from "./pack-registry.mjs";
 import { createRadioPlayer } from "./radio-player.mjs";
 import { createRoomMusic } from "./music.mjs";
 import {
@@ -3518,8 +3518,8 @@ const cardBackImage = (src = CARD_BACK) =>
 // The quest card: a small screen showing the player doing the quest's verb
 // with its target, with only the verb, the level and the tier colour as
 // words. It glows while the target is near, and plays nothing.
-const questCovered = (quest) => !quest.target || cardIsClosed(quest.target);
-const known = (id) => !cardIsClosed(id);
+const questCovered = (quest) => !quest.target || (quest.lit === undefined ? !known(quest.target) : cardIsClosed(quest.target));
+const known = (id) => itemCopies(id).some((stock) => !cardIsClosed(stock));
 function shownQuestCaption(quest, includeLevel = true) {
   const hidden = questCovered(quest);
   const shown = includeLevel ? quest : { ...quest, level: null };

@@ -16,6 +16,7 @@ import { questCaption } from "../v2/card-game/quest-card.mjs";
 import { people, places, things } from "../v2/card-game/world/catalog.mjs";
 import { questFor, toldWant } from "../v2/card-game/talk-quest.mjs";
 import {
+  entityActive,
   packDefinitions,
   packEntity,
   packPeople,
@@ -504,7 +505,6 @@ describe("a lock in a real world shows only what the traveler knows", () => {
       "utf8",
     ),
   );
-  // A world with every pack open and nothing in the traveler's hands.
   const world = () => {
     const s = createWorld({ opening: false, seed: 17 });
     for (const pack of Object.values(s.packs))
@@ -529,6 +529,7 @@ describe("a lock in a real world shows only what the traveler knows", () => {
     const s = world();
     const empty = [];
     for (const def of boxDefs()) {
+      if (def.kind === "ship" && !entityActive(s, def.at)) continue;
       const goalsOfBox = goalsFor(s, def, "vale").slice(0, MOST_GOALS);
       if (!goalsOfBox.length) empty.push(`${def.kind}:${def.at}>${def.id}`);
       for (const goal of goalsOfBox) {
@@ -547,7 +548,6 @@ describe("a lock in a real world shows only what the traveler knows", () => {
     for (const def of boxDefs()) {
       s.actors.vale.place = def.at;
       const text = lockWords(s, def.id);
-      // Not shut at this moment in this world: nothing to show.
       if (text === null) continue;
       shown++;
       expect(text, def.id).toMatch(/\S/u);
@@ -560,7 +560,7 @@ describe("a lock in a real world shows only what the traveler knows", () => {
 
   it("names a card once it is discovered", () => {
     const s = world();
-    const def = boxDefs().find((d) => d.id === "greek-egypt-tomb");
+    const def = boxDefs().find((d) => d.id === "greek-troy-beach");
     s.actors.vale.place = def.at;
     expect(lockWords(s, def.id)).not.toContain("Tablet");
     expect(lockWords(s, def.id, () => true)).toContain("Tablet");
@@ -577,7 +577,6 @@ describe("a lock in a real world shows only what the traveler knows", () => {
       const blind = questCaption(quest, false, null, () => false);
       for (const name of names)
         expect(blind, `${offer.id} must not name ${name}`).not.toContain(name);
-      // Discovered, the same want names its cards.
       expect(questCaption(quest, false, null, () => true)).not.toBe(blind);
     }
   });

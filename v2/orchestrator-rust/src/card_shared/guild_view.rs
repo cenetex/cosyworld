@@ -253,7 +253,7 @@ mod tests {
             .map(String::from)
             .into();
         let all = view(&path, GUILD, &ids).unwrap();
-        let baker = json!(["I want the Water Jar laid in Theban Courtyard."]);
+        let baker = json!(["I want the Water laid in Theban Courtyard."]);
         assert_eq!(all["greek-baker"]["own"], baker);
         let favour = "Owes a favour to Vale; willing to share a spare or take a detour with them.";
         assert_eq!(all["moth"]["own"], json!(["I want the Lamp.", favour]));

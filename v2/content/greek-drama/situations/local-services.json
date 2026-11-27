@@ -1,0 +1,306 @@
+{
+  "choices": [
+    {
+      "id": "greek-susa-read-missing-names",
+      "workId": "aeschylus-persians",
+      "subject": "greek-story-aeschylus-persians-second",
+      "at": "greek-susa",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "The messenger seats you with the families to check the roll. He calls out the names they add before the palace clerk leaves the steps.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-persians-outcome",
+          "value": "second"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-aeschylus-persians-record:greek-story-aeschylus-persians-second-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-seven-gates-set-watch",
+      "workId": "aeschylus-seven-against-thebes",
+      "subject": "greek-story-aeschylus-seven-thebes-first",
+      "at": "greek-seven-gates",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "The scout walks you along the inner wall to see who holds each gate. He passes the watch to the captains and sends you back to the waiting households with the names.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aeschylus-seven-thebes-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-aeschylus-seven-thebes-record:greek-story-aeschylus-seven-thebes-first-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-oedipus-keep-summons-private",
+      "workId": "sophocles-oedipus-tyrannus",
+      "subject": "greek-story-sophocles-oedipus-tyrannus-first",
+      "at": "greek-oedipus-court",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Jocasta hears the shepherd behind the court doors. She entrusts the summons to you so it stays out of the herald’s hands.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-sophocles-oedipus-tyrannus-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-sophocles-oedipus-tyrannus-record:greek-story-sophocles-oedipus-tyrannus-first-answer",
+          "role": "actor"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-story-sophocles-oedipus-tyrannus-object",
+          "place": "greek-oedipus-court"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "give_item",
+          "item": "greek-story-sophocles-oedipus-tyrannus-object"
+        }
+      ]
+    },
+    {
+      "id": "greek-thetis-stand-with-andromache",
+      "workId": "euripides-andromache",
+      "subject": "greek-story-euripides-andromache-first",
+      "at": "greek-thetis",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Andromache asks you to stand beside her linen on the altar rail. In your hearing the attendants promise to shelter her son here if Menelaus returns.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-andromache-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-andromache-record:greek-story-euripides-andromache-first-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-heracles-keep-altar-watch",
+      "workId": "euripides-heracles",
+      "subject": "greek-story-euripides-heracles-first",
+      "at": "greek-heracles-altar",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Amphitryon asks you to keep watch beside the bough while Megara settles the children. He tells the messenger to address the witnesses at the altar if Lycus returns.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-heracles-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-heracles-record:greek-story-euripides-heracles-first-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-heracles-keep-children-inside",
+      "workId": "euripides-heracles",
+      "subject": "greek-story-euripides-heracles-second",
+      "at": "greek-heracles-altar",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Megara trusts you to keep the children together while she answers the messenger at the door. She takes the pledge before the guards herself, so they leave the children inside.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-heracles-outcome",
+          "value": "second"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-heracles-record:greek-story-euripides-heracles-second-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-thrace-protect-hearing-witness",
+      "workId": "euripides-hecuba",
+      "subject": "greek-story-euripides-hecuba-second",
+      "at": "greek-thrace",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Agamemnon seats you with the captains to hear the woman who found the purse. He puts her under their protection until Polymestor answers her account.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-hecuba-outcome",
+          "value": "second"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-hecuba-record:greek-story-euripides-hecuba-second-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-jocasta-lodge-refugees",
+      "workId": "euripides-phoenician-women",
+      "subject": "greek-story-euripides-phoenician-women-second",
+      "at": "greek-jocasta-rooms",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Antigone lets you accompany the households from the side gate. She gives the children places beside her own room and tells the night watch to let their families join them.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-phoenician-women-outcome",
+          "value": "second"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-phoenician-women-record:greek-story-euripides-phoenician-women-second-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-argos-hear-tomb-witness",
+      "workId": "aeschylus-libation-bearers",
+      "subject": "greek-orestes-aeschylus",
+      "at": "greek-argos-tomb",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Orestes hears the account the women kept at the grave. He asks you to stand with Electra if the household challenges their account.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-atreid-account",
+          "value": "aeschylus"
+        },
+        {
+          "kind": "choice",
+          "key": "greek-atreid-response",
+          "value": "hearing"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-tomb-testimony:greek-atreid-aeschylus-hearing",
+          "role": "actor"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-ajax-household-receives-traveler",
+      "workId": "sophocles-ajax",
+      "subject": "greek-ajax-tecmessa",
+      "at": "greek-ajax-household",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Tecmessa brings you into the household for the quiet remembrance of Ajax. She names Eurysaces before the family as the boy who will keep his father’s shield.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-ajax-ending",
+          "value": "household"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    },
+    {
+      "id": "greek-colonus-welcome-at-watch",
+      "workId": "sophocles-oedipus-at-colonus",
+      "subject": "greek-colonus-theseus",
+      "at": "greek-colonus",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Theseus brings you to the bench the watch keeps for strangers. He gives you a place there and tells the watch to welcome the next traveler in the daughters’ name.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-open-door-colonus-done",
+          "value": true
+        },
+        {
+          "kind": "flag",
+          "key": "greek-colonus-household-welcome",
+          "value": false
+        }
+      ],
+      "effects": [
+        {
+          "kind": "trust",
+          "level": 2
+        }
+      ]
+    }
+  ]
+}

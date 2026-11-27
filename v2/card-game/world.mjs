@@ -1,7 +1,6 @@
 import { RADIO_ITEM, validRadioItem } from "./radio-item.mjs";
 import {
   ELYSIUM_MODEL_IDS,
-  ELYSIUM_PACK,
   elysiumModelTalked,
   elysiumModelToken,
   isElysiumModel,
@@ -114,6 +113,10 @@ import {
   settleWants,
   settleLost,
   meetsItemWant,
+  matchesWantedItem,
+  layItemCopies,
+  missingLayItems,
+  wantedItems,
   refuseWant,
   quietWant,
   reviseStalledWants,
@@ -145,6 +148,7 @@ import {
   entityActive,
   actorCanVisit,
   packExits,
+  packChoices,
   applyPackChoice,
   applyMeetingChoices,
   applyHoldChoices,
@@ -213,7 +217,7 @@ import {
   VOYAGE,
   laneEdges,
 } from "./pack-transport.mjs";
-import { SAVE_SCHEMA, upgradeSave } from "./legacy-saves.mjs";
+import { SAVE_SCHEMA, canBackfillPackResidents, upgradeSave } from "./legacy-saves.mjs";
 import { settleVisitSpeech, validVisitSpeech } from "./visit-speech.mjs";
 import { togglePack, validDisabledPacks } from "./pack-toggle.mjs";
 import {
@@ -407,14 +411,14 @@ export function installPacks(s) {
       }
     }
     const previous = s.packs[pack.id];
-    const extendElysium = pack.id === ELYSIUM_PACK && previous?.revision < pack.revision;
-    if (previous && !extendElysium) continue;
+    // A revised pack can add residents to an existing save.
+    if (previous && !canBackfillPackResidents(pack, previous)) continue;
     if (!previous) {
       s.packs[pack.id] = newPackRecord(pack);
       mounted.push(pack);
     }
     for (const [id, a] of Object.entries(pack.avatars)) {
-      if (extendElysium && s.actors[id]) continue;
+      if (previous && s.actors[id]) continue;
       if (s.actors[id]) throw new Error("A pack resident is already present.");
       s.actors[id] = {
         place: a.place,
@@ -524,7 +528,7 @@ import {
 } from "./world/offers.mjs";
 import { lapseOffer } from "./offer-chance.mjs";
 import { settlePlaceCards, validPlaceCard } from "./quest-deck.mjs";
-import { giveUpForGood, goneSince } from "./world/for-good.mjs";
+import { canSacrifice, giveUpForGood, goneSince } from "./world/for-good.mjs";
 import { settleStops, unmetAt } from "./world/stops.mjs";
 const keepsForGood = (id) => forest.people[id]?.keepsForGood === true;
 export { boxOffer, lockedOffer, placeOffer, questOffers, residentOffer, residentOffers };
@@ -592,17 +596,14 @@ const burden = (s, actor) => carried(s, actor).length;
 const hasSpace = (s, actor, id) =>
   burden(s, actor) + (rootHolder(s, id) === actor ? 0 : loadOf(s, id)) <= 3;
 export const wantText = (want) => wantWords(want);
-const bundle = (s, item) => [
-  item,
-  ...(s.items.cloth.holder === item ? ["cloth"] : []),
-];
-// An item is needed when it is, or carries, the actor's wanted item.
-const needed = (s, actor, item) => {
-  const want = wantOf(s, actor);
-  return Boolean(
-    want?.kind === "item" && bundle(s, item).includes(want.target),
-  );
-};
+const bundle = (s, item) => s.items.cloth.holder === item ? [item, "cloth"] : [item];
+const needed = (s, actor, item) =>
+  bundle(s, item).some((id) => matchesWantedItem(wantOf(s, actor), id));
+function nearbyWantedItem(s, actor, want) {
+  const stock = wantedItems(want).filter((id) => entityActive(s, id));
+  return stock.find((id) => rootHolder(s, id) === actor) ??
+    stock.find((id) => itemPlace(s, id) === s.actors[actor].place) ?? stock[0] ?? want.target;
+}
 // An away traveler's avatar is no one's to ask or trade with.
 const humanHeld = (s, id) =>
   controlledByHuman(s, id) || (residentAvatar(s, id) && heldByHuman(s, id));
@@ -706,7 +707,7 @@ export function expects(s, a) {
   if (a.kind === "give" && isElysiumModelToken(a.item) &&
       !controlledByHuman(s, a.target))
     return keepsElysiumToken(a.target, a.item) && elysiumModelTalked(s, a.target);
-  if (a.kind === "give" && keepsForGood(a.target)) return takes(s, a.actor);
+  if (a.kind === "give" && keepsForGood(a.target)) return canSacrifice(a.item) && takes(s, a.actor);
   if (a.kind === "give")
     return residentAsleep(s, a.target) || giftWilling(s, a.item, a.target);
   if (a.kind === "trade") return tradeWilling(s, a.actor, a.item, a.receive);
@@ -1217,15 +1218,16 @@ export function accompanyDecision(
   // A companion goes along when the trip brings its own want closer.
   const want = wantOf(s, companion);
   // A companion stays near its wanted item when the requester carries it.
-  if (want?.kind === "item" && rootHolder(s, want.target) === actor)
-    return { accepted: true };
+  const stock = wantedItems(want).filter((id) => entityActive(s, id) || id === want.target);
+  if (stock.some((id) => rootHolder(s, id) === actor)) return { accepted: true };
+  const item = want?.kind === "item" && nearbyWantedItem(s, companion, want);
   const goal =
     want?.kind === "place"
       ? want.target
       : want?.kind === "person"
         ? s.actors[want.target]?.place
-        : want?.kind === "item" && rootHolder(s, want.target) !== companion
-          ? itemPlace(s, want.target)
+        : item && rootHolder(s, item) !== companion
+          ? itemPlace(s, item)
           : null;
   const distance = (from, to) => {
     const route = routeBetween(s, from, to);
@@ -1261,12 +1263,11 @@ export function legalActions(s, actor = currentActor(s)) {
   const out = [
     ...(asleep ? [sleep] : []),
     offer("wait", actor, null, null, `${nameOf(actor)} waits one turn.`, []),
+    ...packChoices(s, actor),
   ];
   const conflict = standoffFor(s, actor);
   if (conflict)
-    out.push(
-      offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor]),
-    );
+    out.push(offer("guard", actor, null, null, `${nameOf(actor)} braces.`, [actor]));
   // A player's Wait after a Wait may become Sleep, never aboard or mid-fight.
   else if (
     !asleep &&
@@ -1535,6 +1536,7 @@ export function legalActions(s, actor = currentActor(s)) {
       for (const other of knownActors(s).filter(
         (p) => p !== actor && s.actors[p].place === here && hasSpace(s, p, id),
       )) {
+        if (keepsForGood(other) && !canSacrifice(id)) continue;
         const returning = returnsPondLamp(s, { actor, item: id, target: other });
         const words = returning ? "returns" : "gives";
         const gift = offer("give", actor, id, other,
@@ -2238,11 +2240,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
   let requestAccepted = false;
   let chosen = false;
   let refusal = null;
-  let affected = null,
-    arrival = null,
-    combat = null,
-    invitation = null,
-    led = [];
+  let affected = null, arrival = null, combat = null, invitation = null, led = [];
   let elysiumModel, portraitModel;
   switch (a.kind) {
     case "radio":
@@ -2250,6 +2248,9 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       break;
     case "use":
       remember(s, a.item, a.text);
+      break;
+    case "choose":
+      text = choiceText(applyPackChoice(s, a, { turn: s.turn - 1 }), a.actor);
       break;
     case "course":
       setCourse(s, here, a.target);
@@ -2383,7 +2384,6 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       break;
     case "give":
     case "trade": {
-      // A pack can make a gift the trigger of one authored choice.
       const gift = a.kind === "give" ? packGiveChoice(s, a) : null;
       if (gift) {
         requestAccepted = chosen = true;
@@ -2499,6 +2499,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
     fromLocationId: here,
     witnesses,
     itemId: a.item,
+    ...(a.kind === "choose" ? { packId: a.packId, choiceId: a.choiceId, locationId: here } : {}),
     ...(affected ? { entityId: affected } : {}),
     targetId: a.target,
     ...(a.receive ? { receiveId: a.receive } : {}),
@@ -2607,8 +2608,7 @@ function performPlay(s, a, round = null, settle = [], hands = handSnapshot(s), s
       addLog(s, "World", line, { locationId }),
     );
   refuelCarried(s);
-  // Giving a maker the last of a locked thing's set makes it (rules 102).
-  settleCrafting(s, a, nameOf, (text, locationId, outcome) =>
+  if (requestAccepted || a.kind === "drop") settleCrafting(s, a, nameOf, (text, locationId, outcome) =>
     addLog(s, "World", text, {
       kind: "narration",
       verb: "craft",
@@ -2820,24 +2820,25 @@ function awayPlan(s, actor) {
     );
   };
   const step = (w) => {
-    const { verb, to, at, items, finish } = w.step || {};
+    const { verb, to, at, finish } = w.step || {};
     if (!verb || verb === "eat") return as(w);
+    const stock = w.kind === "item" ? nearbyWantedItem(s, actor, w) : null;
     if (verb === "give")
-      return holding(w.target, () =>
+      return holding(stock, () =>
         near(to) === here
-          ? pick((a) => a.kind === "give" && a.item === w.target && a.target === to)
+          ? pick((a) => a.kind === "give" && matchesWantedItem(w, a.item) && a.target === to)
           : go(near(to)),
       );
     if (verb === "bring" && w.kind === "person") return escort(w, at ?? near(to));
-    if (verb === "bring") return holding(w.target, () => go(at) ?? go(near(to)));
+    if (verb === "bring") return holding(stock, () => go(at) ?? go(near(to)));
     if (verb === "meet") return at ? escort(w, at) : go(near(w.target));
-    if (verb === "find") return go(itemPlace(s, w.target));
-    const item = verb === "lay" && !finish && items.find((i) => s.items[i]?.holder !== w.target);
-    return item
-      ? holding(item, () =>
-          here === w.target ? pick((a) => a.kind === "drop" && a.item === item) : go(w.target),
-        )
-      : null;
+    if (verb === "find") return go(itemPlace(s, stock));
+    const item = verb === "lay" && !finish && missingLayItems(s, w)[0];
+    if (!item) return null;
+    const copies = layItemCopies(w, item);
+    return holding(copies.find((id) => rootHolder(s, id) === actor) ?? item, () =>
+      here === w.target ? pick((a) => a.kind === "drop" && copies.includes(a.item)) : go(w.target),
+    );
   };
   const quests = heldOf(s.actors[actor]).filter((w) => w.from !== DREAM_FROM).reverse();
   for (const w of quests) {
@@ -2961,8 +2962,6 @@ function wantPlan(s, actor) {
     s.actors[want.target]?.place === here &&
     find("talk", (a) => a.target === want.target);
   if (!met && walksHome(s, actor)) return settled ? idle() : homeStep();
-  // A resident eats what it holds when a quest of its wants it eaten, there
-  // and with that companion if named.
   const meal = acts.find(
     (a) =>
       a.kind === "eat" &&
@@ -2970,7 +2969,7 @@ function wantPlan(s, actor) {
         const w = wantOf(s, actor);
         return Boolean(
           w?.step?.verb === "eat" &&
-            w.target === a.item &&
+            matchesWantedItem(w, a.item) &&
             (w.step.with ?? null) === (a.target ?? null) &&
             (!w.step.at || w.step.at === here),
         );
@@ -3044,7 +3043,7 @@ function wantPlan(s, actor) {
       ? { action: talk }
       : idle();
   }
-  const item = want.target,
+  const item = nearbyWantedItem(s, actor, want),
     owner = rootHolder(s, item);
   if (owner === actor) {
     if (want.step?.verb === "eat" && want.step.at && want.step.at !== here)

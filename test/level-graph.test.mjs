@@ -127,6 +127,40 @@ describe("level graph", () => {
     expect(g.mission.flags.seen.acts).toEqual(["act:light"]);
   });
 
+  it("traces a recorded claim to its book and the act that made it", () => {
+    const pack = synthetic();
+    pack.items.roll = { name: "Roll", holder: "b", records: ["see"] };
+    const proof = { kind: "knows", topic: "claim:toy:roll:see", role: "actor" };
+    pack.choices[1].requires.push(proof);
+    const graph = buildPackGraph(pack, hub);
+    expect(graph.mission.needs["topic:claim:toy:roll:see"]).toEqual([
+      "act:see", "item:roll",
+    ]);
+    expect(graph.mission.acts.find((row) => row.id === "act:light").prerequisites)
+      .toMatchObject({ act: ["see"], item: ["key", "roll"] });
+    expect(graph.mission.items.find((row) => row.id === "roll").readBy)
+      .toContain("act:light");
+  });
+
+  it("traces receipts and used-up items and shows what a recovery moves", () => {
+    const pack = synthetic();
+    pack.choices.push(act("recover", "a", "su", [
+      { kind: "receipt", choiceId: "light" },
+      { kind: "item_used_up", item: "pie" },
+    ], [{ kind: "fetch_item", item: "gem", from: "b" }]));
+    const graph = buildPackGraph(pack, hub);
+    const recover = graph.mission.acts.find((row) => row.id === "act:recover");
+    expect(recover).toMatchObject({
+      latch: ["receipt(choiceId=light)"],
+      live: ["item_used_up(item=pie)"],
+      ids: "light has happened and pie is used up",
+      prerequisites: { act: ["light", "see"], item: ["gem", "key", "pie"] },
+      fetches: [{ item: "gem", from: "b", to: "a" }],
+    });
+    expect(graph.mission.needs["act:recover"]).toContain("place:b");
+    expect(graph.mission.needs["item:gem"]).not.toContain("act:recover");
+  });
+
   it("stops on a condition kind it does not know", () => {
     const pack = synthetic();
     pack.places.b.requires = [{ kind: "moonphase" }];

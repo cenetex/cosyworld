@@ -19,11 +19,9 @@ import {
   narrativeContext,
   applyGeneratedText,
 } from "../v2/card-game/narrative.mjs";
-import {
-  greekStart,
-  playGreek as playOpenDoor,
-  traveler,
-} from "./helpers/open-door.mjs";
+import { greekStart, playGreek as playOpenDoor } from "./helpers/open-door.mjs";
+import { greekTravelTargets } from "./helpers/greek-travel.mjs";
+import { learnLane } from "../v2/card-game/pack-transport.mjs";
 import {
   ajaxStart,
   ajaxCamp,
@@ -62,33 +60,47 @@ function shieldDelivered() {
 }
 
 describe("Earth Beside the Ships", () => {
-  it("offers the lasting ship invitation in an old full-scope world only", () => {
-    const early = traveler(greekStart()).move("harbor").s;
-    const talked = playOpenDoor(early, "talk", { target: "greek-shipmaster" });
-    expect(ajaxState(talked).receipts["greek-ajax-invitation"]).toBeUndefined();
-    expect(entityActive(early, "greek-ajax-landing")).toBe(false);
-    expect(entityActive(early, "greek-ajax-teucer")).toBe(false);
-    expect(exits(early, "greek-ship")).not.toContain("greek-ajax-landing");
-    let world = ajaxMove(ajaxStart(), "greek-harbor");
-    expect(legalActions(world).filter((a) => a.kind === "choose")).toEqual([]);
-    world = ajaxChoice(world, "invitation");
-    expect(ajaxState(world).choices["greek-ajax-frame"]).toBe(
-      "trojan-after-ajax",
-    );
-    expect(entityActive(reload(world), "greek-ajax-landing")).toBe(true);
-    const talkedAgain = playOpenDoor(world, "talk", {
-      target: "greek-shipmaster",
-    });
-    expect(ajaxState(talkedAgain).receipts["greek-ajax-invitation"]).toBe(
-      world.turn,
-    );
-    expect(world.transports["greek-ship"].dock).toBeTruthy();
-  });
+  it.each([
+    ["opening", greekStart],
+    ["full", ajaxStart],
+  ])(
+    "opens the landing with a lasting ship invitation in %s scope",
+    (scope, start) => {
+      const harbor = ajaxMove(start(), "greek-harbor");
+      expect(ajaxState(harbor).scope).toBe(scope);
+      expect(
+        ajaxState(harbor).receipts["greek-ajax-invitation"],
+      ).toBeUndefined();
+      expect(entityActive(harbor, "greek-ajax-landing")).toBe(false);
+      expect(entityActive(harbor, "greek-ajax-teucer")).toBe(false);
+      expect(exits(harbor, "greek-ship")).not.toContain("greek-ajax-landing");
+      expect(exits(harbor, "greek-scylla")).not.toContain("greek-ajax-landing");
+      expect(legalActions(harbor).filter((a) => a.kind === "choose")).toEqual(
+        [],
+      );
+      const world = ajaxChoice(harbor, "invitation");
+      expect(ajaxState(world).choices["greek-ajax-frame"]).toBe(
+        "trojan-after-ajax",
+      );
+      expect(entityActive(reload(world), "greek-ajax-landing")).toBe(true);
+      expect(exits(world, "greek-harbor")).not.toContain("greek-road-north");
+      expect(exits(world, "greek-ship")).not.toContain("greek-ajax-landing");
+      expect(exits(world, "greek-scylla")).toContain("greek-ajax-landing");
+      const talkedAgain = playOpenDoor(world, "talk", {
+        target: "greek-shipmaster",
+      });
+      expect(ajaxState(talkedAgain).receipts["greek-ajax-invitation"]).toBe(
+        world.turn,
+      );
+      expect(world.transports["greek-scylla"].dock).toBe("greek-pagasae");
+    },
+  );
   it.each(["public", "household", "appeal"])(
     "brings the %s burial home through the ship and source conversations",
     (route) => {
       const world = ajaxJourney(route);
       expect(world.actors.vale.place).toBe("greek-courtyard");
+      expect(world.transports["greek-scylla"].dock).toBe("greek-pagasae");
       expect(ajaxState(world).flags).toMatchObject({
         "greek-ajax-open": true,
         "greek-ajax-buried": true,
@@ -130,6 +142,14 @@ describe("Earth Beside the Ships", () => {
       expect(verses(playOpenDoor(world, "wait"))).toEqual(verses(world));
     },
   );
+  it("lets Tecmessa welcome the traveler after the household burial", () => {
+    const home = ajaxMove(ajaxBuried("household"), "greek-ajax-household");
+    const welcomed = ajaxChoice(home, "household-receives-traveler");
+    expect(welcomed.actors["greek-ajax-tecmessa"].trust.vale).toBe(2);
+    expect(welcomed.items["greek-ajax-tecmessa-water"]).toBeUndefined();
+    expect(reload(welcomed)).toEqual(welcomed);
+  });
+
   it("keeps the appeal open through a saved vigil, witness, and prepared grave", () => {
     let world = ajaxGrave("appeal", false);
     expect(buried(world)).toBeUndefined();
@@ -161,7 +181,9 @@ describe("Earth Beside the Ships", () => {
     for (const id of talkIds)
       expect(pack.choices.find((c) => c.id === id).on).toBe("talk");
     expect(
-      pack.choices.filter((c) => !c.archived && c.on === undefined),
+      pack.choices.filter(
+        (c) => c.workId === "sophocles-ajax" && !c.archived && c.on === undefined,
+      ),
     ).toEqual([]);
     const chooses = (w) => legalActions(w).filter((a) => a.kind === "choose");
     const talkTo = (world, target, topic) => {
@@ -297,6 +319,8 @@ describe("shared Ajax testimony", () => {
       save: encodeSave(original),
     }).world;
     world.actors.mara.place = "greek-ajax-landing";
+    // Mara sailed in before the fixture starts; her port chart reflects that trip.
+    learnLane(world, "mara", "greek-pagasae", "greek-lemnos");
     const claimed = ["vale", "mara"];
     const request = (op, actor, fields = {}) => {
       const result = dispatchShared({
@@ -345,14 +369,14 @@ describe("shared Ajax testimony", () => {
     }
     expect(knowsFact(world, "mara", "greek-ajax-account-public")).toBe(true);
     expect(ajaxState(world).receipts["greek-ajax-record-public"]).toBe(receipt);
-    // Home from the landing by the Northern Road, outside the City Gate.
-    for (const target of [
-      "greek-ajax-landing",
-      "greek-road-north",
-      "greek-harbor",
-      "greek-road-thebes",
-      "greek-courtyard",
-    ])
+    act("mara", "move", { target: "greek-ajax-landing" });
+    act("mara", "move", { target: "greek-scylla" });
+    for (const target of ["greek-lemnos", "greek-pagasae"]) {
+      act("mara", "course", { target });
+      act("mara", "wait");
+    }
+    act("mara", "move", { target: "greek-pagasae" });
+    for (const target of greekTravelTargets("greek-pagasae", "greek-courtyard"))
       act("mara", "move", { target });
     act("mara", "give", { item: "greek-ajax-plea", target: "greek-baker" });
     expect(world.items["greek-ajax-plea"].holder).toBe("greek-courtyard");

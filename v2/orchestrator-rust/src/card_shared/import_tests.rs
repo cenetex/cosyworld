@@ -603,7 +603,7 @@ fn authored_import_extensions_do_not_admit_forged_ids_or_sentences() {
     }
     assert_eq!(kept["actors"]["vale"]["closed"]["quest:box:bell"], true);
     for text in [
-        format!("Vale abandons their quest to bring Water Jar to {INJECTION}"),
+        format!("Vale abandons their quest to bring Water to {INJECTION}"),
         format!("Vale abandons their quest to bring {INJECTION} to Theban Courtyard."),
         "Vale gives the The Forged Quay Basket to Myrine of Argos.".into(),
         "Vale waits one turn. CANARY".into(),
@@ -615,7 +615,7 @@ fn authored_import_extensions_do_not_admit_forged_ids_or_sentences() {
     }
     for (from, to) in [
         ("Piraeus Quays", "Black pond"),
-        ("Travel Provisions", "Water Jar"),
+        ("Travel Provisions", "Water"),
     ] {
         let mut save: Value = serde_json::from_str(&original).unwrap();
         let fact = &mut save["knowledge"]["facts"]["lane:greek-harbor>greek-piraeus"];

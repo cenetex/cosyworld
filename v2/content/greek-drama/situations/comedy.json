@@ -1,0 +1,220 @@
+{
+  "outcomeItems": {
+    "greek-story-aristophanes-knights-first-answer": {
+      "id": "greek-story-aristophanes-knights-private-supper-tally",
+      "name": "Private Supper Tally",
+      "holder": "greek-demos-house",
+      "art": "assets/greek-drama/return-list.png",
+      "lifecycle": "fixed",
+      "author": "greek-story-aristophanes-knights-first",
+      "seed": "A tally of the households allowed to draw flour from Demos’s pantry.",
+      "claims": [
+        {"id": "pantry", "text": "The Paphlagonian keeps Demos’s pantry key and issues supper only to the names on his tally."}
+      ]
+    },
+    "greek-story-aristophanes-clouds-first-answer": {
+      "id": "greek-story-aristophanes-clouds-counter-plea",
+      "name": "Counter-Plea Tablet",
+      "holder": "greek-thinkery",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "lifecycle": "fixed",
+      "author": "greek-story-aristophanes-clouds-first",
+      "seed": "The Thinkery’s argument about the horses, copied by a son who means to apply it to the bread.",
+      "claims": [
+        {"id": "disputed", "text": "Strepsiades disputes the horse bill and his son claims the household’s loaf under the same argument."}
+      ]
+    },
+    "greek-story-aristophanes-wasps-first-answer": {
+      "id": "greek-story-aristophanes-wasps-impounded-plate",
+      "name": "The Dog’s Impounded Plate",
+      "holder": "greek-jury-house",
+      "art": "assets/greek-drama/grove-cup.png",
+      "lifecycle": "fixed",
+      "author": "greek-story-aristophanes-wasps-first",
+      "seed": "Philocleon keeps the plate by his breakfast with an evidence label tied around it.",
+      "claims": [
+        {"id": "conviction", "text": "Philocleon labels the dog’s full plate as evidence after sealing the conviction jar."}
+      ]
+    },
+    "greek-story-aristophanes-wasps-second-answer": {
+      "id": "greek-story-aristophanes-wasps-licked-bowl",
+      "name": "The Dog’s Licked Bowl",
+      "holder": "greek-jury-house",
+      "art": "assets/greek-drama/libation-cup.png",
+      "seed": "The dog licked it clean after acquittal. Bdelycleon will put it away for the next meal."
+    },
+    "greek-story-aristophanes-peace-first-answer": {
+      "id": "greek-story-aristophanes-peace-rimstone-wedge",
+      "name": "Rimstone Wedge",
+      "holder": "greek-divine-heights",
+      "art": "assets/greek-drama/ajax-tools.png",
+      "seed": "An oak wedge the farmers drove under the first stone before pulling on Trygaeus’s line."
+    },
+    "greek-story-aristophanes-peace-second-answer": {
+      "id": "greek-story-aristophanes-peace-passage-token",
+      "name": "Hermes’s Passage Token",
+      "holder": "greek-divine-heights",
+      "art": "assets/greek-drama/household-token.png",
+      "author": "greek-story-aristophanes-peace-second",
+      "seed": "The token Hermes gave the farmers after taking their line as his fee.",
+      "claims": [
+        {"id": "fee", "text": "Hermes accepted the hauling rope as payment for letting the farmers approach Peace’s pit."}
+      ]
+    },
+    "greek-story-aristophanes-birds-first-answer": {
+      "id": "greek-story-aristophanes-birds-smoke-gate-pass",
+      "name": "Smoke Gate Pass",
+      "holder": "greek-bird-wilderness",
+      "art": "assets/greek-drama/guard-tablet.webp",
+      "author": "greek-story-aristophanes-birds-first",
+      "seed": "Peisthetaerus’s first pass after the builders strung the smoke gate.",
+      "claims": [
+        {"id": "pass", "text": "Peisthetaerus requires even the gods to present a pass at the smoke gate."}
+      ]
+    },
+    "greek-story-aristophanes-birds-second-answer": {
+      "id": "greek-story-aristophanes-birds-speaking-sprig",
+      "name": "The Sparrows’ Speaking Sprig",
+      "holder": "greek-bird-wilderness",
+      "art": "assets/greek-drama/olive-branch.webp",
+      "seed": "The sparrows bring this to mark their turn and ask the Hoopoe to tie it to the council perch."
+    },
+    "greek-story-aristophanes-lysistrata-first-answer": {
+      "id": "greek-story-aristophanes-lysistrata-empty-wagon-tally",
+      "name": "Empty Pay Wagon Tally",
+      "holder": "greek-acropolis",
+      "art": "assets/greek-drama/return-list.png",
+      "lifecycle": "fixed",
+      "author": "greek-story-aristophanes-lysistrata-first",
+      "seed": "The treasury clerk’s tally for an army wagon that leaves without a single coin.",
+      "claims": [
+        {"id": "wagon", "text": "Lysistrata withheld the army chest and the delegations began talking on the treasury steps."}
+      ]
+    },
+    "greek-story-aristophanes-thesmophoria-first-answer": {
+      "id": "greek-story-aristophanes-thesmophoria-speakers-roll",
+      "name": "Festival Speakers’ Roll",
+      "holder": "greek-festival",
+      "art": "assets/greek-drama/return-list.png",
+      "lifecycle": "fixed",
+      "author": "greek-story-aristophanes-thesmophoria-first",
+      "seed": "The First Woman leaves the speakers’ roll beside Agathon’s gown on the assembly bench.",
+      "claims": [
+        {"id": "turn", "text": "The First Woman restored the speaking turn Mnesilochus interrupted and kept Agathon’s gown before the assembly."}
+      ]
+    },
+    "greek-story-aristophanes-frogs-first-answer": {
+      "id": "greek-story-aristophanes-frogs-chorus-staff",
+      "name": "Aeschylus’s Chorus Staff",
+      "holder": "greek-underworld",
+      "art": "assets/greek-drama/ajax-tools.png",
+      "seed": "A staff Aeschylus tapped against the landing to test the marching beat before departure."
+    },
+    "greek-story-aristophanes-frogs-second-answer": {
+      "id": "greek-story-aristophanes-frogs-fare-complaint",
+      "name": "Complaint Against Charon’s Fare",
+      "holder": "greek-underworld",
+      "art": "assets/greek-drama/refuge-tablet.png",
+      "author": "greek-story-aristophanes-frogs-second",
+      "seed": "The first few lines of Euripides’s speech against the ferry fare, scratched on a wax tablet.",
+      "claims": [
+        {"id": "fare", "text": "Euripides paid Charon for the Athens crossing and challenged the price from the bow."}
+      ]
+    },
+    "greek-story-aristophanes-assemblywomen-second-answer": {
+      "id": "greek-story-aristophanes-assemblywomen-barley-reserve",
+      "name": "Tomorrow’s Barley Reserve",
+      "holder": "greek-assembly",
+      "art": "assets/greek-drama/wheat.png",
+      "lifecycle": "fixed",
+      "author": "greek-story-aristophanes-assemblywomen-second",
+      "seed": "A sealed sack with a tally for the people who need to bake tomorrow.",
+      "claims": [
+        {"id": "reserve", "text": "Chremes measured out barley for the next day’s bakers after the neighbor brought his grain."}
+      ]
+    },
+    "greek-story-aristophanes-wealth-first-answer": {
+      "id": "greek-story-aristophanes-wealth-sowing-seed",
+      "name": "Chremylus’s Sowing Seed",
+      "holder": "greek-attic-farm",
+      "art": "assets/greek-drama/wheat.png",
+      "seed": "The last seed Chremylus bought with the coin. Take it to him for the final furrow."
+    },
+    "greek-story-aristophanes-wealth-second-answer": {
+      "id": "greek-story-aristophanes-wealth-grain-surety",
+      "name": "Grain Surety Seal",
+      "holder": "greek-attic-farm",
+      "art": "assets/greek-drama/household-token.png",
+      "lifecycle": "fixed",
+      "author": "greek-story-aristophanes-wealth-second",
+      "seed": "The informer’s seal hangs on the sack of grain held while his claim is heard.",
+      "claims": [
+        {"id": "surety", "text": "The informer filed his claim and the grain remains held as surety while Chremylus’s field waits."}
+      ]
+    }
+  },
+  "choices": [
+    {
+      "id": "greek-story-aristophanes-wasps-set-bowl-aside",
+      "subject": "greek-story-aristophanes-wasps-second",
+      "at": "greek-jury-house",
+      "workId": "aristophanes-wasps",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Bdelycleon sets the bowl by the dog’s bed for breakfast and moves the jury jars out of its reach.",
+      "requires": [
+        {"kind": "choice", "key": "greek-story-aristophanes-wasps-outcome", "value": "second"},
+        {"kind": "holding", "item": "greek-story-aristophanes-wasps-licked-bowl", "role": "actor"}
+      ],
+      "effects": [
+        {"kind": "retire_item", "item": "greek-story-aristophanes-wasps-licked-bowl", "forGood": true}
+      ]
+    },
+    {
+      "id": "greek-story-aristophanes-birds-mark-council-turn",
+      "subject": "greek-story-aristophanes-birds-second",
+      "at": "greek-bird-wilderness",
+      "workId": "aristophanes-birds",
+      "on": "give",
+      "humanOnly": true,
+      "text": "The Hoopoe ties the sprig to the council perch and gives the sparrows the first speaking turn.",
+      "requires": [
+        {"kind": "choice", "key": "greek-story-aristophanes-birds-outcome", "value": "second"},
+        {"kind": "holding", "item": "greek-story-aristophanes-birds-speaking-sprig", "role": "actor"}
+      ],
+      "effects": [
+        {"kind": "retire_item", "item": "greek-story-aristophanes-birds-speaking-sprig", "forGood": true}
+      ]
+    },
+    {
+      "id": "greek-story-aristophanes-thesmophoria-dispatch-summons",
+      "subject": "greek-story-aristophanes-thesmophoria-second",
+      "at": "greek-festival",
+      "workId": "aristophanes-women-at-the-thesmophoria",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Mnesilochus agrees to tell Euripides in person that the assembly expects him to answer under his own name.",
+      "requires": [
+        {"kind": "choice", "key": "greek-story-aristophanes-thesmophoria-outcome", "value": "second"},
+        {"kind": "knows", "topic": "claim:greek-drama:greek-story-aristophanes-thesmophoria-record:greek-story-aristophanes-thesmophoria-second-answer", "role": "actor"}
+      ],
+      "effects": [{"kind": "trust", "level": 1}]
+    },
+    {
+      "id": "greek-story-aristophanes-wealth-sow-last-furrow",
+      "subject": "greek-story-aristophanes-wealth-first",
+      "at": "greek-attic-farm",
+      "workId": "aristophanes-wealth",
+      "on": "give",
+      "humanOnly": true,
+      "text": "Chremylus scatters the last seed in the far furrow and rakes the earth over it.",
+      "requires": [
+        {"kind": "choice", "key": "greek-story-aristophanes-wealth-outcome", "value": "first"},
+        {"kind": "holding", "item": "greek-story-aristophanes-wealth-sowing-seed", "role": "actor"}
+      ],
+      "effects": [
+        {"kind": "retire_item", "item": "greek-story-aristophanes-wealth-sowing-seed", "forGood": true}
+      ]
+    }
+  ]
+}

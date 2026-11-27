@@ -22,6 +22,26 @@ const owns = (o, key) =>
   record(o) && typeof key === "string" && Object.hasOwn(o, key);
 const idOk = (v) => typeof v === "string" && /^[a-z][a-z0-9-]{0,79}$/.test(v);
 
+export function knowledgeAuthor(pack, id) {
+  if (!safeId(id)) return null;
+  const topic = (pack.topics || []).find((entry) => entry.id === id);
+  if (topic) return topic.speaker;
+  const [kind, packId, book, claim] = id.split(":");
+  if (
+    kind !== "claim" ||
+    packId !== pack.id ||
+    id !== `claim:${packId}:${book}:${claim}` ||
+    !owns(pack.items, book)
+  )
+    return null;
+  const item = pack.items[book];
+  const records = Array.isArray(item.records) ? item.records : [];
+  const claims = Array.isArray(item.claims) ? item.claims : [];
+  return records.includes(claim) || claims.some((entry) => entry?.id === claim)
+    ? item.author ?? null
+    : null;
+}
+
 export function bookProblems(pack) {
   const problems = [];
   const cards = [pack.places, pack.avatars, pack.items];

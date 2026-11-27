@@ -78,7 +78,12 @@ describe("the Signal Jetty lane", () => {
     expect(ship.docks).toContain(JETTY);
     // Piraeus: the harbor and the jetty, each one way out and one back. The
     // way back toward Black Pond is free (rules 94).
-    expect(lanes("greek-piraeus")).toHaveLength(4);
+    expect(lanes("greek-piraeus").map(({ from, to }) => [from, to])).toEqual([
+      ["greek-harbor", "greek-piraeus"],
+      ["greek-piraeus", "greek-harbor"],
+      ["greek-piraeus", JETTY],
+      [JETTY, "greek-piraeus"],
+    ]);
     expect(lanes(JETTY)).toEqual([
       expect.objectContaining({ from: "greek-piraeus", to: JETTY }),
       expect.objectContaining({ from: "pond", to: JETTY }),

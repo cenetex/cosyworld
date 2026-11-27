@@ -17,6 +17,7 @@ export const LATCH_KINDS = [
   "flag",
   "choice",
   "choice_unset",
+  "receipt",
   "met",
   "knows",
   "talked",
@@ -30,6 +31,7 @@ export const LIVE_KINDS = [
   "item_at",
   "item_near",
   "item_present",
+  "item_used_up",
   "pack_item_present",
   "home_item_present",
   "tag_held",
@@ -53,6 +55,8 @@ const COMPOUND = ["any", "not"];
 
 const sorted = (values) => [...new Set(values)].sort();
 const list = (value) => (Array.isArray(value) ? value : []);
+const factIds = (condition) => condition.topics || [condition.topic];
+const claimBook = (id) => id.startsWith("claim:") ? id.split(":")[2] : null;
 
 // Stable id of a leaf condition: its kind and fields in key order.
 export const atomKey = (c) =>
@@ -67,6 +71,7 @@ const WORDS = {
   flag: (c) => `${c.key} ${c.value ? "is set" : "is not set"}`,
   choice: (c) => `${c.key} chosen as ${c.value}`,
   choice_unset: (c) => `${c.key} not chosen yet`,
+  receipt: (c) => `${c.choiceId} has happened`,
   holding: (c, L) =>
     c.role === "actor"
       ? `the traveler holds ${L.item(c.item)}`
@@ -74,6 +79,7 @@ const WORDS = {
   item_at: (c, L) => `${L.item(c.item)} lies at ${L.place(c.place)}`,
   item_near: (c, L) => `${L.item(c.item)} is in ${L.place(c.place)}`,
   item_present: (c, L) => `${L.item(c.item)} is in ${L.place(c.place)}`,
+  item_used_up: (c, L) => `${L.item(c.item)} is used up`,
   pack_item_present: (c, L) =>
     `a ${c.pack} thing is in ${L.place(c.place)}`,
   home_item_present: (c, L) =>
@@ -96,7 +102,10 @@ const WORDS = {
   shared_world: () => "the world is shared",
   trusted: (c, L) => `${L.who(c.actor)} trusts the traveler (level ${c.min})`,
   met: (c, L) => `${L.who(c.actor)} has been met`,
-  knows: (c) => `the traveler knows ${c.topics ? c.topics.join(" or ") : c.topic}`,
+  knows: (c, L) => `the traveler knows ${factIds(c).map((id) => {
+    const book = claimBook(id);
+    return book ? `the testimony in ${L.item(book)}` : id;
+  }).join(" or ")}`,
   talked: (c, L) => `the traveler has talked to ${L.who(c.person)}`,
   upgraded: (c) => `the traveler has the ${c.upgrade} upgrade`,
   gate_open: (c, L) => `the way ${L.place(c.from)} to ${L.place(c.to)} is open`,
@@ -109,10 +118,12 @@ const WORDS = {
 const NEEDS = {
   flag: (c) => (c.value ? [`flag:${c.key}`] : []),
   choice: (c) => [`choice:${c.key}=${c.value}`],
+  receipt: (c) => [`act:${c.choiceId}`],
   holding: (c) => [`item:${c.item}`, ...(c.actor ? [`resident:${c.actor}`] : [])],
   item_at: (c) => [`item:${c.item}`, `place:${c.place}`],
   item_near: (c) => [`item:${c.item}`, `place:${c.place}`],
   item_present: (c) => [`item:${c.item}`, `place:${c.place}`],
+  item_used_up: (c) => [`item:${c.item}`],
   light: (c) => [`item:${c.item}`],
   grounded: (c) => [`item:${c.item}`],
   in_hand: (c) => [`item:${c.item}`],
@@ -123,7 +134,7 @@ const NEEDS = {
   met: (c) => [`resident:${c.actor}`],
   trusted: (c) => [`resident:${c.actor}`],
   talked: (c) => [`resident:${c.person}`],
-  knows: (c) => (c.topics || [c.topic]).map((t) => `topic:${t}`),
+  knows: (c) => factIds(c).map((t) => `topic:${t}`),
   gate_open: (c) => [`route:${c.from}>${c.to}`],
 };
 
@@ -262,6 +273,7 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
   // when there is nothing to hold.
   const gated = new Set();
   const itemReaders = new Map();
+  const knownClaims = new Set();
   const addGate = (g, bucket = gates) => {
     const tree = treeOf(g.requires, g.id, atoms);
     const seal = g.seal || null;
@@ -284,6 +296,13 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
       const c = atoms.get(k);
       if (c.kind === "flag") flagOf(c.key).read.push(g.id);
       if (c.item) itemReaders.set(c.item, [...(itemReaders.get(c.item) || []), g.id]);
+      if (c.kind === "knows")
+        for (const id of factIds(c)) {
+          const book = claimBook(id);
+          if (!book) continue;
+          knownClaims.add(id);
+          itemReaders.set(book, [...(itemReaders.get(book) || []), g.id]);
+        }
     }
     const needs = positiveAtoms(tree).flatMap((k) => {
       const c = atoms.get(k);
@@ -414,7 +433,10 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
   // Acts and the facts they write. An act needs its own conditions, its
   // subject to be there, and its place to appear.
   const actRows = [];
-  for (const a of acts)
+  for (const a of acts) {
+    const fetchNeeds = a.effects.flatMap((e) =>
+      e.kind === "fetch_item" ? [`item:${e.item}`, `place:${e.from}`] : [],
+    );
     addGate(
       {
         id: `act:${a.id}`,
@@ -423,10 +445,11 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
         title: a.label,
         requires: a.requires,
         always: true,
-        extraNeeds: [`resident:${a.subject}`, `place:${a.at}`],
+        extraNeeds: [`resident:${a.subject}`, `place:${a.at}`, ...fetchNeeds],
       },
       actRows,
     );
+  }
 
   // Topics a traveler can learn.
   for (const t of list(pack.topics))
@@ -442,6 +465,11 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
       },
       [],
     );
+  for (const id of knownClaims) {
+    const [, , book, result] = id.split(":");
+    const recorded = list(items[book]?.records).includes(result);
+    node(`topic:${id}`, [`item:${book}`, ...(recorded ? [`act:${result}`] : [])]);
+  }
   for (const w of wants)
     node(`want:${w.avatar}`, [
       `resident:${w.avatar}`,
@@ -478,6 +506,8 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
   const gateRows = gates.map(withPrereqs);
   const actOut = actRows.map((g) => {
     const a = acts.find((x) => `act:${x.id}` === g.id);
+    const fetches = a.effects.filter((e) => e.kind === "fetch_item")
+      .map(({ item, from }) => ({ item, from, to: a.at }));
     return {
       ...withPrereqs(g),
       at: a.at,
@@ -488,6 +518,7 @@ export function buildPackGraph(pack, hub, nameOf = (id) => id) {
       chooses: sorted(a.effects.filter((e) => e.kind === "choose").map((e) => `${e.key}=${e.value}`)),
       gives: sorted(a.effects.filter((e) => e.kind === "give_item").map((e) => e.item)),
       retires: sorted(a.effects.filter((e) => e.kind === "retire_item").map((e) => e.item)),
+      ...(fetches.length ? { fetches } : {}),
     };
   });
 

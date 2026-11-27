@@ -46,6 +46,7 @@ const RULES = [
   "pack-specials.mjs",
   "pack-toggle.mjs",
   "pack-transport.mjs",
+  "pack-transport-schema.mjs",
   "pond-lamp-loan.mjs",
   "quest-call.mjs", // rules 207: crossing completion and sourced call facts
   "quest-deck.mjs",
@@ -73,6 +74,7 @@ const RULES = [
   "world/boxes.mjs",
   "world/company.mjs",
   "world/dwell.mjs",
+  "world/elysium-coordinates.mjs",
   "world/elysium-travel.mjs",
   "world/catalog.mjs",
   "world/create.mjs",

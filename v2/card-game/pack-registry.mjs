@@ -164,12 +164,23 @@ export const transports = merge("transports");
 export const packPeople = merge("avatars");
 export const packFixtures = merge("fixtures");
 export const packThings = merge("items");
+// Stock keeps its own custody. Only a canonical request accepts other copies.
+const copiesByType = new Map();
+for (const [id, { type }] of Object.entries(packThings)) {
+  if (!type) continue;
+  if (!copiesByType.has(type)) copiesByType.set(type, [type]);
+  copiesByType.get(type).push(id);
+}
+export const itemCopies = (id) => copiesByType.get(id) ?? [id];
+export const itemTypeMatches = (expected, instance) =>
+  expected === instance ||
+  (typeof expected === "string" && packThings[instance]?.type === expected);
 const waitsAtHome = new Set(
   packDefinitions.flatMap((pack) =>
     (pack.choices || []).flatMap((choice) =>
       choice.effects
         .filter((e) => e.kind === "retire_item" && e.waitAtHome)
-        .map((e) => e.item),
+        .flatMap((e) => itemCopies(e.item)),
     ),
   ),
 );
@@ -197,7 +208,7 @@ const waitingAtHome = (world, id) => {
     packDefinition(item.packId).choices.some(
       (c) =>
         world.packs[item.packId]?.receipts[c.id] !== undefined &&
-        c.effects.some((e) => e.item === id && e.waitAtHome),
+        c.effects.some((e) => e.waitAtHome && itemTypeMatches(e.item, id)),
     )
   );
 };
@@ -293,6 +304,8 @@ export const packTastes = Object.fromEntries(
           item,
           packDefinition(a.packId).values?.[id]?.[item] ??
             a.values?.[item] ??
+            packDefinition(a.packId).values?.[id]?.[packThings[item]?.type] ??
+            a.values?.[packThings[item]?.type] ??
             1,
         ]),
       ),
@@ -578,6 +591,13 @@ export function actorCanVisit(actor, place, world = null) {
     );
   });
 }
+// Place and retire effects act on input stock. Prefer the gift that triggered
+// the choice over any other portion the traveler happens to carry.
+function choiceInput(world, item, offered, ready) {
+  const available = (id) => ready(id) && (id === item || entityActive(world, id));
+  if (offered && itemTypeMatches(item, offered) && available(offered)) return offered;
+  return itemCopies(item).find(available);
+}
 function choiceFeasible(
   world,
   pack,
@@ -585,12 +605,14 @@ function choiceFeasible(
   actor,
   mode = null,
   turn = world.turn,
+  offered = null,
 ) {
   const atTurn = turn === world.turn ? world : { ...world, turn };
   const state = packState(world, pack.id);
   if (
     !state ||
     choice.archived ||
+    (choice.humanOnly && !controlledByHuman(world, actor)) ||
     // A repeating give fires again once its output is used up (rules 95).
     (owns(state.receipts, choice.id) && !choice.repeats) ||
     (choice.on ?? null) !== mode ||
@@ -618,10 +640,16 @@ function choiceFeasible(
     e.kind === "choose"
       ? !owns(state.choices, e.key)
       : e.kind === "place_item"
-        ? world.items[e.item]?.holder === actor && e.place === choice.at
-        : e.kind === "drop_item"
-          ? usedUp(world, e.item)
-          : true,
+        ? e.place === choice.at && Boolean(
+            choiceInput(world, e.item, offered, (id) =>
+              world.items[id]?.holder === actor && !usedUp(world, id),
+            ),
+          )
+        : e.kind === "fetch_item"
+          ? world.items[e.item]?.holder === e.from && entityActive(atTurn, e.item)
+          : e.kind === "drop_item"
+            ? usedUp(world, e.item) && !gone(world, e.item)
+            : true,
   );
 }
 export function packChoices(world, actor = "vale") {
@@ -698,15 +726,23 @@ export const heldSlots = (requires = []) =>
 // Choices marked "on": "give" are the effect of giving their subject the
 // item the choice needs the actor to hold. They are never offered as cards.
 export function packGiveChoice(world, action) {
+  if (world.items[action.item]?.holder !== action.actor) return null;
   for (const pack of packDefinitions)
     for (const c of pack.choices || [])
       if (
         c.on === "give" &&
         c.subject === action.target &&
-        heldSlots(c.requires).some((slot) => slot.includes(action.item)) &&
-        choiceFeasible(world, pack, c, action.actor, "give")
+        heldSlots(c.requires).some((slot) =>
+          slot.some((id) => itemTypeMatches(id, action.item)),
+        ) &&
+        choiceFeasible(world, pack, c, action.actor, "give", world.turn, action.item)
       )
-        return { packId: pack.id, choiceId: c.id, actor: action.actor };
+        return {
+          packId: pack.id,
+          choiceId: c.id,
+          actor: action.actor,
+          item: action.item,
+        };
   return null;
 }
 // The repeating give through which a resident makes a thing (rules 95).
@@ -824,6 +860,7 @@ export function applyDeparture(world, actor, to) {
 export function packTalkChoice(world, action, { turn = world.turn, topicId } = {}) {
   if (!controlledByHuman(world, action.actor)) return null;
   const atTurn = turn === world.turn ? world : { ...world, turn };
+  let response = null;
   for (const pack of packDefinitions)
     for (const c of pack.choices || []) {
       if (
@@ -834,14 +871,18 @@ export function packTalkChoice(world, action, { turn = world.turn, topicId } = {
         continue;
       const choice = { packId: pack.id, choiceId: c.id, actor: action.actor };
       const topics = (pack.topics || []).filter((t) => t.choiceId === c.id);
-      if (!topics.length && topicId === undefined) return choice;
-      const topic = topics.find((t) =>
-        (topicId === undefined || t.id === topicId) &&
-        conditionsMet(atTurn, pack.id, t.requires, action.actor),
-      );
-      if (topic) return { ...choice, topicId: topic.id };
+      if (topics.length || topicId !== undefined) {
+        const topic = topics.find((t) =>
+          (topicId === undefined || t.id === topicId) &&
+          conditionsMet(atTurn, pack.id, t.requires, action.actor),
+        );
+        if (!topic) continue;
+        choice.topicId = topic.id;
+      }
+      if (c.effects.length) return choice;
+      response ??= choice;
     }
-  return null;
+  return response;
 }
 export function applyPackChoice(
   world,
@@ -850,8 +891,10 @@ export function applyPackChoice(
 ) {
   const pack = packDefinition(action.packId),
     choice = pack?.choices?.find((c) => c.id === action.choiceId);
-  if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode, turn))
+  const offered = mode === "give" ? action.item : null;
+  if (!choice || !choiceFeasible(world, pack, choice, action.actor, mode, turn, offered))
     throw new Error("That choice is no longer available.");
+  if (!choice.effects.length) return choice;
   const state = packState(world, pack.id);
   const note = (id) => {
     world.items[id].history.push(
@@ -866,23 +909,26 @@ export function applyPackChoice(
     // A homed thing goes straight back to its home, or where it started
     // while its home is out of reach, unless the use is marked for good.
     if (e.kind === "retire_item") {
-      const root = rootOf(world, e.item),
-        thing = pack.items[e.item];
+      const id = choiceInput(world, e.item, offered, (id) =>
+        world.items[id] && !usedUp(world, id) &&
+        [action.actor, choice.at].includes(rootOf(world, id)),
+      );
+      if (!id) continue;
+      const thing = pack.items[id];
       if (!thing || e.forGood) {
-        if (root === action.actor || root === choice.at)
-          useUpForGood(world, e.item, restForGood(e.item));
-      } else if (root === action.actor || root === choice.at) {
-        useUp(world, e.item, thing.holder);
+        useUpForGood(world, id, restForGood(id));
+      } else {
+        useUp(world, id, thing.holder);
         if (thing.home && !thing.regrow && !thing.locked) {
           bringBack(
             world,
-            e.item,
+            id,
             e.waitAtHome || entityActive(world, thing.home)
               ? thing.home
               : thing.holder,
           );
-          if (!e.waitAtHome && !entityEnabled(world, e.item))
-            useUp(world, e.item, thing.holder);
+          if (!e.waitAtHome && !entityEnabled(world, id))
+            useUp(world, id, thing.holder);
         }
       }
     }
@@ -929,12 +975,16 @@ export function applyPackChoice(
     }
     if (e.kind === "choose") state.choices[e.key] = e.value;
     if (e.kind === "set_flag") state.flags[e.key] = e.value;
+    if (e.kind === "fetch_item") {
+      world.items[e.item].holder = choice.at;
+      note(e.item);
+    }
     if (e.kind === "place_item") {
-      world.items[e.item].holder = e.place;
-      world.items[e.item].history.push(
-        choiceText(choice, action.actor).slice(0, 400),
-      );
-      world.items[e.item].history = world.items[e.item].history.slice(-12);
+      const id = choiceInput(world, e.item, offered,
+        (id) => world.items[id]?.holder === action.actor && !usedUp(world, id));
+      if (!id) continue;
+      world.items[id].holder = e.place;
+      note(id);
     }
   }
   state.receipts[choice.id] = world.turn;
@@ -1124,7 +1174,7 @@ export function packStatesFault(world) {
     for (const [id, turn] of events) {
       const c = pack.choices?.find((c) => c.id === id);
       if (
-        !c ||
+        !c?.effects.length ||
         (state.scope === "opening" &&
           pack.release &&
           !pack.release.choices.includes(id)) ||

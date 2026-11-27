@@ -56,11 +56,11 @@ describe("boxes the Greek and RatiRadio content credits", () => {
     expect(world.packs["greek-drama"].choices["greek-helen-account"]).toBe(
       "egypt",
     );
-    // The Egyptian road, Helen and Menelaus: three boxes opened by one gift.
+    // The Scylla passage, Helen and Menelaus: three boxes opened by one gift.
     expect(Object.keys(world.opened).sort()).toEqual([
-      "greek-egypt-tomb",
       "greek-helen-egypt",
       "greek-menelaus-egypt",
+      "greek-scylla",
     ]);
     expect(xp(world) - before).toBe(3);
     expect(paid(world)).toBe(xpBefore);

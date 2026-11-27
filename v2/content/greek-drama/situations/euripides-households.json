@@ -1,0 +1,243 @@
+{
+  "items": {
+    "greek-corinth-nurse-berth-list": {
+      "name": "The Nurse’s Berth List",
+      "holder": "greek-corinth",
+      "art": "assets/greek-drama/return-list.png",
+      "seed": "The nurse leaves a copy of the children’s berths with the Corinthian household.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-medea-outcome",
+          "value": "first"
+        }
+      ],
+      "author": "greek-story-euripides-medea-first",
+      "claims": [
+        {
+          "id": "account",
+          "text": "Both boys sail under the nurse’s care while Medea remains in Corinth to answer Creon’s order.",
+          "about": "greek-corinth"
+        }
+      ]
+    },
+    "greek-corinth-departure-basket": {
+      "name": "The Corinthian Departure Basket",
+      "holder": "greek-corinth",
+      "art": "assets/greek-drama/provision-basket.png",
+      "seed": "This food basket remains at the door after Medea and both boys depart together.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-medea-outcome",
+          "value": "second"
+        }
+      ]
+    },
+    "greek-marathon-guard-summons": {
+      "name": "The Marathon Guard’s Summons",
+      "holder": "greek-marathon",
+      "art": "assets/greek-drama/ajax-plea.png",
+      "seed": "The watch posts the summons beside the altar where it holds the captive.",
+      "lifecycle": "fixed",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-marathon-captive-disposition",
+          "value": "public"
+        }
+      ],
+      "author": "greek-marathon-keeper",
+      "claims": [
+        {
+          "id": "account",
+          "text": "Demophon keeps Eurystheus in the city’s custody and summons witnesses to hear Alcmene’s claim.",
+          "about": "greek-marathon"
+        }
+      ]
+    },
+    "greek-marathon-household-seal": {
+      "name": "Alcmene’s Surety Seal",
+      "holder": "greek-marathon",
+      "art": "assets/greek-drama/household-token.png",
+      "seed": "Alcmene leaves her household seal beside the bond as her attendants take Eurystheus into custody.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-marathon-captive-disposition",
+          "value": "household"
+        }
+      ]
+    },
+    "greek-phthia-peleus-surety": {
+      "name": "Peleus’s Household Surety",
+      "holder": "greek-thetis",
+      "art": "assets/greek-drama/household-token.png",
+      "seed": "Peleus leaves a token of his surety at the temple before bringing mother and son under his roof.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-andromache-outcome",
+          "value": "second"
+        }
+      ],
+      "author": "greek-story-euripides-andromache-second",
+      "claims": [
+        {
+          "id": "account",
+          "text": "Peleus shelters Andromache and her son and takes responsibility for answering Menelaus’s charge.",
+          "about": "greek-thetis"
+        }
+      ]
+    },
+    "greek-eleusis-mothers-rite-cloth": {
+      "name": "The Eleusinian Rite Cloth",
+      "holder": "greek-eleusis",
+      "art": "assets/greek-drama/funeral-cloth.png",
+      "seed": "The Argive mother lays linen beside the altar after receiving the urn.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-eleusis-urn-disposition",
+          "value": "altar"
+        }
+      ]
+    },
+    "greek-delphi-private-door-seal": {
+      "name": "Creusa’s Door Seal",
+      "holder": "greek-ion-court",
+      "art": "assets/greek-drama/household-token.png",
+      "seed": "Creusa leaves a seal for the attendant to mark her private appointment with Ion.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-ion-outcome",
+          "value": "second"
+        }
+      ]
+    },
+    "greek-argos-family-pledge-seal": {
+      "name": "Tyndareus’s Kinship Seal",
+      "holder": "greek-argive-jury",
+      "art": "assets/greek-drama/household-token.png",
+      "seed": "Tyndareus leaves his seal as surety for a private family meeting in the side court.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-orestes-outcome",
+          "value": "second"
+        }
+      ]
+    }
+  },
+  "choices": [
+    {
+      "id": "greek-pherae-tend-vigil-lamp",
+      "subject": "greek-story-euripides-alcestis-first",
+      "at": "greek-pherae",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "euripides-alcestis",
+      "text": "The servant draws oil from the household jar and lights a lamp beside Alcestis. She asks the traveler to sit near the children while she brings another stool.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-alcestis-outcome",
+          "value": "first"
+        }
+      ],
+      "effects": [{ "kind": "trust", "level": 1 }]
+    },
+    {
+      "id": "greek-piraeus-tend-iphis-lamp",
+      "subject": "greek-piraeus-pilot",
+      "at": "greek-piraeus",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "euripides-suppliant-women",
+      "text": "Nausicrates fills the quay lamp from its oil jar and sets it by the bench, so Iphis can find the place the mourners kept for him. The pilot remembers who helped.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-eleusis-urn-disposition",
+          "value": "quay"
+        }
+      ],
+      "effects": [{ "kind": "trust", "level": 1 }]
+    },
+    {
+      "id": "greek-troezen-hear-the-nurse",
+      "workId": "euripides-hippolytus",
+      "subject": "greek-story-euripides-hippolytus-second",
+      "at": "greek-troezen",
+      "on": "talk",
+      "humanOnly": true,
+      "text": "Theseus hears the nurse on the steps before both witnesses. He tells Hippolytus to stay in Troezen while the accusation is examined.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-euripides-hippolytus-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-euripides-hippolytus-record:greek-story-euripides-hippolytus-first-answer",
+          "role": "actor"
+        }
+      ],
+      "effects": [{ "kind": "trust", "level": 2 }]
+    },
+    {
+      "id": "greek-eleusis-urn-at-altar",
+      "workId": "euripides-suppliant-women",
+      "subject": "greek-argive-mother",
+      "at": "greek-eleusis",
+      "on": "meet",
+      "text": "The mother lays linen beside the Eleusinian altar for the rites now that the urn is in her care.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-eleusis-urn-disposition"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-ash-urn",
+          "actor": "greek-argive-mother"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-eleusis-urn-disposition",
+          "value": "altar"
+        }
+      ]
+    },
+    {
+      "id": "greek-eleusis-urn-at-quay",
+      "workId": "euripides-suppliant-women",
+      "subject": "greek-piraeus",
+      "at": "greek-piraeus",
+      "on": "meet",
+      "text": "The urn is laid on the quay for Iphis beside the bench where the pilot keeps an oil lamp.",
+      "requires": [
+        {
+          "kind": "choice_unset",
+          "key": "greek-eleusis-urn-disposition"
+        },
+        {
+          "kind": "item_at",
+          "item": "greek-ash-urn",
+          "place": "greek-piraeus"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-eleusis-urn-disposition",
+          "value": "quay"
+        }
+      ]
+    }
+  ]
+}

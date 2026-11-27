@@ -1,6 +1,6 @@
 // Quest cards and earned tarot rewards read their presentation from the rules.
-import { CONNECT_TARGET, layMet, questsOf, wantKey } from "./want.mjs";
-import { conditionsMet, consumable, spentByChoice } from "./pack-registry.mjs";
+import { CONNECT_TARGET, layMet, questsOf, wantedItems, wantKey } from "./want.mjs";
+import { conditionsMet, consumable, entityActive, spentByChoice } from "./pack-registry.mjs";
 import { questFor } from "./talk-quest.mjs";
 import { revealed } from "./want-talk.mjs";
 import { ownerWant } from "./quest-call.mjs";
@@ -277,14 +277,14 @@ export const NEAR_MOVES = 2;
 export function questNear(world, quest) {
   if (!quest.target || quest.kind === "arcanum") return false;
   const { actor, kind, target } = quest;
-  const at =
-    kind === "place"
-      ? target
-      : kind === "item"
-        ? itemPlace(world, target)
-        : world.actors[target]?.place;
-  const moves = at ? questDistance(world, actor, at) : null;
-  return moves !== null && moves <= NEAR_MOVES;
+  const near = (at) => {
+    const moves = at ? questDistance(world, actor, at) : null;
+    return moves !== null && moves <= NEAR_MOVES;
+  };
+  if (kind === "item") return wantedItems(quest).some((id) =>
+    (id === target || entityActive(world, id)) && near(itemPlace(world, id)),
+  );
+  return near(kind === "place" ? target : world.actors[target]?.place);
 }
 
 // The quest's one short verb, the step's own when it has one. A rest step

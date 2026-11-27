@@ -1,0 +1,256 @@
+{
+  "items": {
+    "greek-acharnae-household-bond": {
+      "name": "Dicaeopolis’s Household Bond",
+      "holder": "greek-acharnae",
+      "art": "assets/greek-drama/atreid-record.png",
+      "seed": "Dicaeopolis pledges his own household as surety for a small order at Thaleia’s quay.",
+      "requires": [
+        {
+          "kind": "flag",
+          "key": "greek-acharnae-household-bond-signed",
+          "value": true
+        }
+      ],
+      "reservedUntil": [
+        {
+          "kind": "choice",
+          "key": "greek-acharnae-quay-order",
+          "value": "private"
+        }
+      ]
+    },
+    "greek-acharnae-quay-ledger": {
+      "name": "Acharnae Orders in the Quay Ledger",
+      "holder": "greek-piraeus",
+      "art": "assets/greek-drama/burial-account.webp",
+      "seed": "Thaleia’s entry names the agreement or the household that backed her order.",
+      "lifecycle": "fixed",
+      "author": "greek-quay-host",
+      "records": [
+        "greek-acharnae-accept-public-order",
+        "greek-acharnae-accept-private-order"
+      ],
+      "requires": [
+        {
+          "kind": "any",
+          "conditions": [
+            {
+              "kind": "choice",
+              "key": "greek-acharnae-quay-order",
+              "value": "public"
+            },
+            {
+              "kind": "choice",
+              "key": "greek-acharnae-quay-order",
+              "value": "private"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "choices": [
+    {
+      "id": "greek-acharnae-hear-quay-invitation",
+      "subject": "greek-story-aristophanes-acharnians-second",
+      "at": "greek-acharnae",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "The Megarian asks the traveler to read the market agreement here and report it to Thaleia, who keeps the quay ledger at Piraeus.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aristophanes-acharnians-outcome",
+          "value": "second"
+        }
+      ],
+      "effects": [{ "kind": "trust", "level": 1 }]
+    },
+    {
+      "id": "greek-acharnae-sign-household-bond",
+      "subject": "greek-story-aristophanes-acharnians-first",
+      "at": "greek-acharnae",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "Dicaeopolis signs his own name as surety and leaves the bond for the bearer to take to Thaleia at Piraeus.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aristophanes-acharnians-outcome",
+          "value": "first"
+        }
+      ],
+      "effects": [
+        {
+          "kind": "set_flag",
+          "key": "greek-acharnae-household-bond-signed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "greek-acharnae-accept-public-order",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "Thaleia enters the public Acharnae agreement in her quay ledger and approves the Bread allotment.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aristophanes-acharnians-outcome",
+          "value": "second"
+        },
+        {
+          "kind": "knows",
+          "topic": "claim:greek-drama:greek-story-aristophanes-acharnians-record:greek-story-aristophanes-acharnians-second-answer",
+          "role": "actor"
+        },
+        { "kind": "choice_unset", "key": "greek-acharnae-quay-order" }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-acharnae-quay-order",
+          "value": "public"
+        }
+      ]
+    },
+    {
+      "id": "greek-acharnae-accept-private-order",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "on": "give",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "Thaleia files the bond under Dicaeopolis’s name and shares a cup of her own wine with its bearer at the quay.",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aristophanes-acharnians-outcome",
+          "value": "first"
+        },
+        {
+          "kind": "holding",
+          "item": "greek-acharnae-household-bond",
+          "role": "actor"
+        },
+        { "kind": "choice_unset", "key": "greek-acharnae-quay-order" }
+      ],
+      "effects": [
+        {
+          "kind": "choose",
+          "key": "greek-acharnae-quay-order",
+          "value": "private"
+        },
+        {
+          "kind": "retire_item",
+          "item": "greek-acharnae-household-bond",
+          "forGood": true
+        },
+        { "kind": "trust", "level": 2 }
+      ]
+    },
+    {
+      "id": "greek-acharnae-quay-needs-proof",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "Thaleia says, “Read the market agreement at Acharnae and tell me what it says. I need those terms before I can enter the order.”",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-story-aristophanes-acharnians-outcome",
+          "value": "second"
+        },
+        { "kind": "choice_unset", "key": "greek-acharnae-quay-order" },
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "knows",
+            "topic": "claim:greek-drama:greek-story-aristophanes-acharnians-record:greek-story-aristophanes-acharnians-second-answer",
+            "role": "actor"
+          }
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-acharnae-quay-bread-waiting",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "Thaleia says, “The Acharnae order is stamped. I have no Bread to set out at this quay just now.”",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-acharnae-quay-order",
+          "value": "public"
+        },
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "receipt",
+            "choiceId": "greek-acharnae-quay-bread-supply"
+          }
+        },
+        {
+          "kind": "not",
+          "condition": { "kind": "item_used_up", "item": "greek-bread" }
+        }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-acharnae-quay-bread-ready",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "Thaleia says, “The Acharnae order is stamped. You can Set out Bread here at the quay.”",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-acharnae-quay-order",
+          "value": "public"
+        },
+        {
+          "kind": "not",
+          "condition": {
+            "kind": "receipt",
+            "choiceId": "greek-acharnae-quay-bread-supply"
+          }
+        },
+        { "kind": "item_used_up", "item": "greek-bread" }
+      ],
+      "effects": []
+    },
+    {
+      "id": "greek-acharnae-quay-bread-set-out",
+      "subject": "greek-quay-host",
+      "at": "greek-piraeus",
+      "on": "talk",
+      "humanOnly": true,
+      "workId": "aristophanes-acharnians",
+      "text": "Thaleia says, “The Bread has been set out. That order has had its one allotment.”",
+      "requires": [
+        {
+          "kind": "choice",
+          "key": "greek-acharnae-quay-order",
+          "value": "public"
+        },
+        { "kind": "receipt", "choiceId": "greek-acharnae-quay-bread-supply" }
+      ],
+      "effects": []
+    }
+  ]
+}

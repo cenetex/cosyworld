@@ -1,5 +1,5 @@
-// Things that are used up and come back (rules 95). Every thing is still one
-// record with one id: nothing is minted, so a world never holds two copies.
+// Things that are used up and come back (rules 95). Each physical thing has
+// its own saved record, even when several portions share one recipe type.
 //
 //   home + regrow   A used-up thing with a `home` place and `regrow` (dawn,
 //                   dusk or rest) reappears at home on the next such event.
@@ -14,12 +14,14 @@
 //                   and the turn.
 import { awayAvatar, humanAvatar, humanPresent } from "./human-cast.mjs";
 import { bringBack, gone, sendHome, usedUp, useUp } from "./item-use.mjs";
-import { DAYLIGHT_TURNS, conditionMet, runHash } from "./pack-rules.mjs";
+import { DAYLIGHT_TURNS, presentStock, runHash } from "./pack-rules.mjs";
 import {
   conditionsMet,
   entityActive,
   entityEnabled,
   entityShown,
+  itemCopies,
+  itemTypeMatches,
   packDefinitions,
   packPlaces,
   packIdOf,
@@ -76,13 +78,13 @@ function tryBack(s, id, holder) {
 
 // A thing consumed (rules 102), eaten or made into something: it leaves
 // whoever held it and goes back to its home, as the one thing it always was.
-// A crafted thing (`locked`) waits there locked, used up, until its maker
-// makes it again; any other comes back at once, ready to fetch again.
+// A crafted thing waits for its maker and a thing with regrow waits for its
+// event. Other homed things come back at once, ready to fetch again.
 export const restOf = (id) => packThings[id].home ?? packThings[id].holder;
 export function consume(s, id) {
   const thing = packThings[id];
   useUp(s, id, restOf(id));
-  if (!thing.locked && thing.home) tryBack(s, id, thing.home);
+  if (!thing.locked && !thing.regrow && thing.home) tryBack(s, id, thing.home);
 }
 const lockedThings = Object.keys(packThings)
   .filter((id) => packThings[id].locked)
@@ -95,6 +97,35 @@ export const lockedAt = (s, place) =>
       packThings[id].home === place &&
       entityActive(s, packThings[id].locked.by),
   );
+
+export function craftSupplies(s, id, offered) {
+  const { home, locked } = packThings[id];
+  const slots = locked.consumes.map((expected) => {
+    const copies = itemCopies(expected).filter(
+      (copy) =>
+        s.items[copy] &&
+        itemTypeMatches(expected, copy) &&
+        entityActive(s, copy),
+    );
+    const ready = copies.filter((copy) =>
+      [locked.by, home].includes(rootOf(s, copy)),
+    );
+    return { expected, copies, ready };
+  });
+  const used = new Set();
+  // Keep a named copy for its exact slot before choosing interchangeable stock.
+  for (const slot of [...slots].sort(
+    (a, b) => itemCopies(a.expected).length - itemCopies(b.expected).length,
+  )) {
+    slot.selected =
+      slot.ready.includes(offered) && !used.has(offered)
+        ? offered
+        : slot.ready.find((copy) => !used.has(copy));
+    if (slot.selected) used.add(slot.selected);
+  }
+  return slots;
+}
+
 // Its maker, standing at its home, makes it on the play that gives her, or
 // lays down there, the last thing it consumes, once every one is in her
 // hands or lying loose there: those are consumed, and it unlocks. Unlocking
@@ -105,25 +136,28 @@ export function settleCrafting(s, a, nameOf, log) {
       maker = s.actors[locked.by];
     if (!usedUp(s, id) || !maker || maker.place !== home) continue;
     const handed =
-      locked.consumes.includes(a.item) &&
       ((["give", "trade"].includes(a.kind) && a.target === locked.by) ||
-        (a.kind === "drop" && a.target === home));
-    if (!handed) continue;
-    const ready =
-      entityActive(s, locked.by) &&
-      locked.consumes.every(
-        (c) => entityActive(s, c) && [locked.by, home].includes(rootOf(s, c)),
-      );
-    if (!ready || !tryBack(s, id, home)) continue;
-    for (const c of locked.consumes) consume(s, c);
-    const used = locked.consumes.map((c) => the(nameOf(c)));
+        (a.kind === "drop" && a.target === home)) &&
+      locked.consumes.some((expected) => itemTypeMatches(expected, a.item));
+    if (!handed || !entityActive(s, locked.by)) continue;
+    const consumedIds = craftSupplies(s, id, a.item).map(
+      (slot) => slot.selected,
+    );
+    if (
+      consumedIds.some((copy) => !copy) ||
+      !consumedIds.includes(a.item) ||
+      !tryBack(s, id, home)
+    )
+      continue;
+    for (const copy of consumedIds) consume(s, copy);
+    const used = consumedIds.map((copy) => the(nameOf(copy)));
     log(
       `${nameOf(locked.by)} uses ${used.slice(0, -1).join(", ")}${used.length > 1 ? " and " : ""}${used.at(-1)}. ${capital(the(nameOf(id)))} is ready.`,
       home,
       {
         actorId: locked.by,
         itemId: id,
-        consumedIds: [...locked.consumes],
+        consumedIds,
         holderId: s.items[id].holder,
       },
     );
@@ -198,23 +232,22 @@ export function itemEvents(s) {
 function cargo(s, t, conditions) {
   const out = [];
   for (const c of conditions) {
-    if (["item_present", "item_at"].includes(c.kind) && c.place === t.place)
-      if (packThings[c.item] && conditionMet(s, c, null, t.packId))
-        out.push(c.item);
+    if (["item_present", "item_at"].includes(c.kind) && c.place === t.place) {
+      const id = presentStock(s, c);
+      if (packThings[id]) out.push(id);
+    }
     if (
       ["pack_item_present", "home_item_present"].includes(c.kind) &&
       c.place === t.place
     ) {
       const id = Object.keys(packThings)
         .sort()
-        .find(
-          (id) =>
-            (c.pack
-              ? packThings[id].packId === c.pack
-              : restForGood(id) === c.home) &&
-            entityActive(s, id) &&
-            conditionMet(s, { kind: "item_present", item: id, place: c.place }),
-        );
+        .find((id) => {
+          if (!(c.pack ? packThings[id].packId === c.pack : restForGood(id) === c.home) ||
+              !entityActive(s, id)) return false;
+          const root = rootOf(s, id);
+          return (s.actors[root]?.place ?? root) === c.place;
+        });
       if (id) out.push(id);
     }
     if (c.kind === "any")

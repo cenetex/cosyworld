@@ -76,10 +76,26 @@ const targets = (s, actor, kind) =>
     .sort();
 
 describe("sea lanes", () => {
-  it("the authored graph keeps at most four lanes per dock", () => {
-    expect(laneProblems(bridge.transports["greek-ship"])).toEqual([]);
-    for (const dock of ship().docks)
-      expect(lanesFrom(ship(), dock).length).toBeLessThanOrEqual(MAX_LANES);
+  it("the two fleets have disjoint docks and at most four lanes per dock", () => {
+    const names = ["greek-ship", "greek-scylla"];
+    for (const name of names) {
+      expect(laneProblems(bridge.transports[name])).toEqual([]);
+      for (const dock of transports[name].docks)
+        expect(lanesFrom(transports[name], dock).length).toBeLessThanOrEqual(
+          MAX_LANES,
+        );
+    }
+    expect(ship().docks).toEqual([
+      "pond",
+      "greek-harbor",
+      "greek-piraeus",
+      "hoppycat-signal-jetty",
+    ]);
+    expect(
+      transports["greek-scylla"].docks.some((dock) =>
+        ship().docks.includes(dock),
+      ),
+    ).toBe(false);
     // From Black Pond: the Wine-Dark Harbor, and the jetty with a Hoppy Cat thing.
     expect(lanesFrom(ship(), "pond").sort()).toEqual([
       "greek-harbor",
@@ -108,6 +124,16 @@ describe("sea lanes", () => {
       ),
     ).toEqual([]);
     expect(notes).toContain("dock b has no lane out");
+  });
+
+  it("allows explicit empty recall only on a gated lane", () => {
+    const lane = { from: "a", to: "b" };
+    const opensWith = [{ kind: "item_at", item: "crate", place: "ship" }];
+    const problems = (extra) =>
+      laneProblems({ docks: ["a", "b"], lanes: [{ ...lane, ...extra }] });
+    expect(problems({ opensWith, emptyRecall: true })).toEqual([]);
+    expect(problems({ emptyRecall: true })).toHaveLength(1);
+    expect(problems({ opensWith, emptyRecall: false })).toHaveLength(1);
   });
 });
 
@@ -273,7 +299,7 @@ describe("a real voyage", () => {
       "greek-harbor",
     ]);
     // Aboard, they open Piraeus; the jetty's spool opens the jetty beyond.
-    // No ship rounds the cape now: Marathon and the Far Shores are rumours.
+    // The Far Shores belong to the Scylla, whose docks do not appear aboard the Charybdis.
     stowProvisions(s, "greek-ship");
     expect(transportExits(s, "greek-ship", "@voyage", "vale").sort()).toEqual([
       "greek-harbor",
@@ -328,14 +354,42 @@ describe("calling the empty ship", () => {
     expect(state(s).dock).toBe("greek-harbor");
   });
 
-  it("a called empty ship does not cross a shut cargo lane", () => {
-    const s = setup("pond");
-    for (const id of players) s.actors[id].place = "greek-piraeus";
-    for (s.turn = 1; s.turn < 5; s.turn++) callTransport(s, "greek-piraeus");
-    expect(state(s).dock).toBe("pond");
-    stowProvisions(s, "greek-ship");
-    callTransport(s, "greek-piraeus");
-    expect(state(s).dock).toBe("greek-harbor");
+  it("recalls either empty ship along its own lanes without moving the other", () => {
+    let s = setup("pond");
+    const scylla = (world) => world.transports["greek-scylla"];
+    for (const id of players) s.actors[id].place = "greek-tauris";
+    expect(s.items["greek-provisions"].holder).not.toBe("greek-ship");
+    expect(s.items["greek-provisions"].holder).not.toBe("greek-scylla");
+    for (const dock of ["greek-lemnos", "greek-thrace", "greek-tauris"]) {
+      s = act(s, "vale", "wait");
+      expect(scylla(s).dock).toBe(dock);
+      expect(state(s).dock).toBe("pond");
+    }
+    expect(targets(s, "vale", "move")).not.toContain("greek-scylla");
+    learnLane(s, "vale", "greek-tauris", "greek-thrace");
+    expect(targets(s, "vale", "move")).toContain("greek-scylla");
+
+    s.actors.vale.place = "greek-piraeus";
+    for (const dock of ["greek-harbor", "greek-piraeus"]) {
+      s = act(s, "vale", "wait");
+      expect(state(s).dock).toBe(dock);
+      expect(scylla(s).dock).toBe("greek-tauris");
+    }
+  });
+
+  it("keeps the provisions course and unmarked cargo recalls gated", () => {
+    const harbor = setup("greek-harbor");
+    let aboard = act(harbor, "vale", "move", "greek-ship");
+    expect(targets(aboard, "vale", "course")).not.toContain("greek-piraeus");
+    aboard = act(aboard, "vale", "wait");
+    callTransport(aboard, "greek-piraeus");
+    expect(state(aboard).dock).toBe("greek-harbor");
+    stowProvisions(aboard, "greek-ship");
+    expect(targets(aboard, "vale", "course")).toContain("greek-piraeus");
+
+    for (const id of players) harbor.actors[id].place = "hoppycat-signal-jetty";
+    const waiting = act(harbor, "vale", "wait");
+    expect(state(waiting).dock).toBe("greek-harbor");
   });
 });
 
@@ -435,8 +489,14 @@ describe("a ship at a dock nobody showed you", () => {
     expect(boards(s, "moth")).toBe(false);
     learnLane(s, "vale", DOCK, "greek-harbor");
     expect(boards(s, "moth")).toBe(false);
-    expect(legalActions(s, "vale").some((a) =>
-      a.kind === "accompany" && a.target === "moth" && a.destination === SHIP)).toBe(true);
+    expect(
+      legalActions(s, "vale").some(
+        (a) =>
+          a.kind === "accompany" &&
+          a.target === "moth" &&
+          a.destination === SHIP,
+      ),
+    ).toBe(true);
     learnLane(s, "moth", DOCK, "greek-harbor");
     expect(boards(s, "moth")).toBe(true);
   });

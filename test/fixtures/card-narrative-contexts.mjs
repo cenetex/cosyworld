@@ -88,7 +88,12 @@ export function narrativeContractCases() {
     tablet,
     "greek-shipmaster",
   );
-  const helen = playCard(egypt, "move", null, "greek-egypt-tomb");
+  const atPagasae = structuredClone(egypt);
+  atPagasae.actors.vale.place = "greek-pagasae";
+  const helen = sailTo(
+    playCard(atPagasae, "move", null, "greek-scylla"),
+    "greek-egypt-tomb",
+  );
   const worlds = [
     ["opening", opening],
     ["first dousing", doused],

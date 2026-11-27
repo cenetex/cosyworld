@@ -1,0 +1,474 @@
+{
+  "insertBefore": "greek-colonus-household-shelter",
+  "encounters": {
+    "aeschylus-persians": {
+      "at": "greek-susa",
+      "opening": "The fleet is lost at Salamis, and I have people waiting at my door for names. Bring me the roll if the elders are to hear the losses in council, or give it to the messenger so the families can hear him while there is light on the steps. Let Atossa enter the losses in the council record. Let the messenger read the names to the families.",
+      "outcomes": [
+        {
+          "text": "Atossa files the roll under her seal and calls the messenger to stand before the elders. The council can no longer claim it is waiting for word of the fleet.",
+          "spend": true
+        },
+        {
+          "text": "The messenger reads the names on the palace steps and lays the roll where the families can check it. They stop waiting for the council doors to open."
+        }
+      ]
+    },
+    "aeschylus-seven-against-thebes": {
+      "stem": "aeschylus-seven-thebes",
+      "at": "greek-seven-gates",
+      "opening": "I have counted a defender at each gate. Eteocles takes the seventh himself, with his brother Polynices outside it. Give me the tally to post their names at the gatehouse, or put it in the chorus leader’s hands so she can keep track of the people coming to the shrine. Post both brothers’ names at the seventh gate. Use the tally to reunite households at the shrine.",
+      "outcomes": [
+        {
+          "text": "The scout hangs the tally at the gatehouse with both brothers named beside the seventh mark. People coming to ask who holds the gate can see the answer."
+        },
+        {
+          "text": "The chorus leader takes the tally to the shrine and starts a register on its reverse. A household missing someone now knows where to leave their name.",
+          "spend": true
+        }
+      ]
+    },
+    "aeschylus-suppliant-women": {
+      "at": "greek-argos-sanctuary",
+      "opening": "The daughters of Danaus ask me for shelter from the men who mean to marry them by force. Put their wool-bound bough in my hands and I will take it to the citizens, or return it to their leader so I can see exactly where they claim sanctuary. Take the Danaids’ claim to the Argive assembly. Mark the Danaids’ sanctuary at Zeus’s altar.",
+      "outcomes": [
+        {
+          "text": "Pelasgus takes the bough into Argos and summons the citizens to vote. The right to shelter the Danaids becomes a decision for the whole city.",
+          "spend": true
+        },
+        {
+          "text": "The Danaid leader sets the bough on Zeus’s altar and gathers her sisters around it. Pelasgus gives them a keeper and pledges that the herald cannot take them from the altar while their appeal is heard."
+        }
+      ]
+    },
+    "aeschylus-prometheus-bound": {
+      "at": "greek-scythian-crag",
+      "direct": true,
+      "opening": "Hera’s gadfly drives me from country to country. Prometheus has written out the crossings from this crag. I can take his tablet with me, or the Oceanid can leave it at the fork and tell me where to start.",
+      "outcomes": [
+        {
+          "label": "Send Io with the directions",
+          "text": "Io ties the tablet into her bundle and takes the path Prometheus named. She has the crossings to hand when she reaches the far side of the mountain."
+        },
+        {
+          "label": "Mark the fork for later travelers",
+          "text": "The Oceanid sets the tablet in the cleft by the fork. Io learns the first turn aloud, and the directions stay where other travelers can find them."
+        }
+      ]
+    },
+    "aeschylus-agamemnon": {
+      "at": "greek-argos-palace",
+      "opening": "I have kept this house through ten years of war. Agamemnon is at the door, and Cassandra is asking the elders to hear her before she goes inside. Bring me the purple cloth for his welcome, or give it to Cassandra so she can make a place to sit with the elders in the open. Lay the purple cloth for Agamemnon’s welcome. Give Cassandra a seat and a hearing outside.",
+      "outcomes": [
+        {
+          "text": "Clytemnestra spreads the cloth at the palace door. Agamemnon steps across it to accept the welcome in front of the elders."
+        },
+        {
+          "text": "Cassandra folds the cloth on the bench and sits. The elders stay with her while she tells them what she fears will happen inside the house."
+        }
+      ]
+    },
+    "aeschylus-eumenides": {
+      "at": "greek-areopagus",
+      "opening": "I have called citizens to hear the charge against Orestes. The Furies have followed him here from Delphi and want to know what place Athens will offer them. Give me the stone for the court’s ballot, or hand it to their leader so she can set a seal on the place I have offered her people. Let Athena cast her stone for Orestes. Seal the Furies’ agreement to a place in Athens.",
+      "outcomes": [
+        {
+          "text": "Athena casts the stone for Orestes and the court declares him acquitted. The clerk keeps the stone with the record of the first hearing.",
+          "spend": true
+        },
+        {
+          "text": "The Fury lays the stone beside her seat and accepts a place for her people in Athens. The Furies agree to leave judgment of Orestes to the court."
+        }
+      ]
+    },
+    "sophocles-women-of-trachis": {
+      "at": "greek-trachis",
+      "opening": "Lichas brings Iole here as a captive, and Heracles means to bring her into our house. I have shut a robe in this chest with the charm Nessus promised would win him back. Lichas wants to take it before Heracles makes his offering. Put the chest back in Deianeira’s hands. Send the sealed chest with Lichas.",
+      "outcomes": [
+        {
+          "text": "Deianeira sets the chest beside her door and calls off the delivery. She asks Iole where she wants to stay before anyone assigns her a bed."
+        },
+        {
+          "text": "Lichas takes the sealed chest and leaves to deliver it to Heracles before the sacrifice. With the messenger gone, Iole stays where his guards have put her.",
+          "spend": true
+        }
+      ]
+    },
+    "sophocles-oedipus-tyrannus": {
+      "at": "greek-oedipus-court",
+      "opening": "Oedipus is looking for the man who killed Laius, and the Corinthian messenger says the same shepherd knows where our king comes from. The shepherd’s name is on this summons. I ask for a word with him before the herald reads it out. Give Jocasta the summons for a private hearing. Give Oedipus the summons to post.",
+      "outcomes": [
+        {
+          "text": "Jocasta sets the summons by the side door and has the shepherd shown into a private room. The herald waits to call the hearing until she has heard him."
+        },
+        {
+          "text": "Oedipus gives the summons to the herald, who fastens it to the palace steps. The shepherd and the Corinthian are called to give evidence side by side before the city.",
+          "spend": true
+        }
+      ]
+    },
+    "sophocles-philoctetes": {
+      "at": "greek-lemnos",
+      "opening": "The Greeks left me on Lemnos with a wound that still keeps me awake, and now they say they need my bow at Troy. Neoptolemus tells me why you are here. Give me the bow and I'll hear what the ships are offering. Return the bow to Philoctetes. Hand the bow to Odysseus for Troy.",
+      "outcomes": [
+        {
+          "text": "Philoctetes lays the bow within reach and makes the crew bring food and water ashore before he hears their terms. Odysseus must ask him in person to sail."
+        },
+        {
+          "text": "Odysseus sends the bow aboard with his crew. Philoctetes refuses the offered berth and tells Neoptolemus to leave him enough water to last the night.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-alcestis": {
+      "at": "greek-pherae",
+      "opening": "I keep watch beside Alcestis, who has died in Admetus’s place. Heracles takes supper as our guest without knowing whom we mourn, and the children hear him singing from the next room. Give the servant the cloth for Alcestis’s bier. Hand Heracles the cloth and disclose the mourning.",
+      "outcomes": [
+        {
+          "text": "The servant folds the cloth around Alcestis and brings her children to sit beside her. Admetus keeps the guest room shut while the household holds its vigil.",
+          "spend": true
+        },
+        {
+          "text": "Heracles recognizes the cloth, learns whose bier it belongs to and sets it on the guest bench. He sends away his supper and goes to Admetus with an offer of help."
+        }
+      ]
+    },
+    "euripides-medea": {
+      "at": "greek-corinth",
+      "opening": "I have one day to get the children out before Creon’s exile order takes effect. Jason goes to his new bride and leaves me here with their mother, who has a promise of refuge if she can reach Athens. Give the nurse the tally to send the children ahead. Give Medea the tally to take her children with her.",
+      "outcomes": [
+        {
+          "text": "The nurse redeems the tally with the boatkeeper and takes both boys aboard under her care. Medea stays in Corinth to answer Creon’s order herself.",
+          "spend": true
+        },
+        {
+          "text": "Medea hands over the tally at the quay and secures passage for herself and her sons. She puts the boys aboard beside her, and the boatkeeper casts off for Athens.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-hippolytus": {
+      "at": "greek-troezen",
+      "opening": "I told Hippolytus what Phaedra begged me to keep secret. She has left a sealed accusation, and Theseus stands ready to punish his son before he has heard how the secret came out. Give the nurse the tablet to hold for witnesses. Deliver Phaedra’s tablet into Theseus’s custody.",
+      "outcomes": [
+        {
+          "text": "The nurse sets the tablet on the steps between two witnesses. Theseus agrees to hear her testimony before ordering Hippolytus out of Troezen."
+        },
+        {
+          "text": "Theseus keeps Phaedra’s tablet and sends an attendant to put his son out of the city. The nurse waits on the steps with her account still unheard.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-andromache": {
+      "at": "greek-thetis",
+      "opening": "I hold Thetis’s altar because Hermione demands my life and Menelaus searches for my son. I can still claim sanctuary here, and old Peleus has come close enough to hear me. Give Andromache the linen to claim sanctuary before witnesses. Give Peleus the linen as Andromache’s plea.",
+      "outcomes": [
+        {
+          "text": "Andromache binds the linen to the altar and two attendants come to stand with her. Menelaus leaves her at the sanctuary while he calls the household to hear his claim."
+        },
+        {
+          "text": "Peleus keeps the linen as a pledge and brings Andromache and her son under his own roof. He takes responsibility for answering Menelaus’s charge.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-hecuba": {
+      "at": "greek-thrace",
+      "opening": "Polymestor swore to keep my son safe, and now Polydorus lies dead on the shore. This purse bears my household seal, and the woman who found it is afraid to speak alone. Give Hecuba the purse to keep with her son’s burial goods. Give Agamemnon the purse and ask for a hearing.",
+      "outcomes": [
+        {
+          "text": "Hecuba folds the purse into Polydorus’s burial cloth. The woman who found it walks beside her in the funeral party and tells the Trojan mourners where it lay.",
+          "spend": true
+        },
+        {
+          "text": "Agamemnon takes the purse as evidence and calls the woman to speak before the Greek captains. He sends for Polymestor while she is still there to answer him.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-heracles": {
+      "at": "greek-heracles-altar",
+      "opening": "I wait at Zeus’s altar with Megara and the children while Lycus claims Thebes and demands their lives. Heracles is still away, and the usurper’s messenger wants an answer at the door. Give Amphitryon the bough to keep the children at the altar. Give Megara the bough to take the plea to the door.",
+      "outcomes": [
+        {
+          "text": "Amphitryon sets the bough on Zeus’s altar and gathers the children around it. The messenger has to bring Lycus back in person to dispute their sanctuary."
+        },
+        {
+          "text": "Megara puts the bough in the messenger’s hands and asks him to carry it as her pledge to answer Lycus in public. He takes the pledge and grants the children time to remain inside.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-trojan-women": {
+      "at": "greek-troy",
+      "opening": "They send me to Neoptolemus, and I still wait to hear where they are taking my son. The roll names our ships and leaves room beside each one for the kin we are losing. Give Andromache the roll for a record of scattered kin. Give Talthybius the roll and ask him to keep two sisters together.",
+      "outcomes": [
+        {
+          "text": "Andromache has the women enter the names of their kin beside each ship. She folds the roll into her bundle, ready to carry it to the next shore.",
+          "spend": true
+        },
+        {
+          "text": "Talthybius moves two sisters onto the same boat before their captains take them. He pins the amended roll to the boarding post where the women can read it."
+        }
+      ]
+    },
+    "euripides-iphigenia-in-tauris": {
+      "stem": "euripides-tauris",
+      "at": "greek-tauris",
+      "opening": "I can send one of these captives home if he takes my letter to Argos. The other must stay for the altar, and I do not know either man’s name. Give Iphigenia the letter to read before the two captives. Give Pylades the sealed letter to carry to Argos.",
+      "outcomes": [
+        {
+          "text": "Orestes hears his sister name their house and tells her who he is. Iphigenia sets the letter on the altar step and orders the attendant to take her brother out of the sacrifice line."
+        },
+        {
+          "text": "Pylades takes the letter to the boat. Iphigenia sends the other captive back inside the temple and forbids the attendant to begin the rite before the boat departs.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-ion": {
+      "at": "greek-ion-court",
+      "opening": "I raised Ion here after finding him in this basket, and now my oracle sends him to Athens as Xuthus’s son. Creusa wants to know what is in the basket before Xuthus takes the boy away. Return the basket to the Pythia for a witnessed opening. Give Creusa the basket to examine in private.",
+      "outcomes": [
+        {
+          "text": "The Pythia sets the basket on the temple bench and calls Ion to stand beside Creusa. Creusa recognizes what she left with her infant, and Ion hears her account himself."
+        },
+        {
+          "text": "Creusa recognizes the tokens and takes the basket into her rooms. She lays claim to it as the child’s mother and asks the temple to hold Ion until she can speak with him alone.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-phoenician-women": {
+      "at": "greek-jocasta-rooms",
+      "opening": "Polynices waits outside with an army, and Eteocles still refuses him the throne. The guard will respect my truce bough, but I can open only one passage before my sons meet. Give Jocasta the bough for her sons’ meeting. Give Antigone the bough to bring households through the gate.",
+      "outcomes": [
+        {
+          "text": "Jocasta lays the bough between her sons’ seats. The guard admits Polynices, and Jocasta has each brother name his terms before the other can answer."
+        },
+        {
+          "text": "Antigone lays the bough at the side gate. The guard holds it open while three households bring their children and water jars into the court."
+        }
+      ]
+    },
+    "euripides-orestes": {
+      "at": "greek-argive-jury",
+      "opening": "I have sat with my brother since he killed our mother, and today Argos votes on both our lives. Our grandfather Tyndareus calls for judgment while I wait at the yard with a written appeal for time to speak. Give Electra the board to lodge before the vote. Entrust Tyndareus with the appeal as a family plea.",
+      "outcomes": [
+        {
+          "text": "Electra lays the board before the herald and reads the appeal aloud. The herald holds the vote until the jurors hear what she has to say."
+        },
+        {
+          "text": "Tyndareus takes the board and keeps it as his pledge to meet Electra before addressing the city. The herald leaves her appeal off the public docket while the family speaks in the side court.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-bacchae": {
+      "at": "greek-cithaeron-shrine",
+      "opening": "I wear the ivy because Dionysus has come to claim his mother’s city. My grandson Pentheus demands our staff before he goes looking for the women on the mountain, and our offerings stand uncovered here in the sanctuary. Give Cadmus the staff to open the rite before Pentheus. Surrender the household staff to Pentheus.",
+      "outcomes": [
+        {
+          "text": "Cadmus sets the staff among the offerings and asks Pentheus to watch from the sanctuary wall. Pentheus pauses his search while the household begins the rite in his sight."
+        },
+        {
+          "text": "Pentheus takes the staff as a forfeit and sends the household down the hill. Cadmus gathers the offerings, and the king leaves the sanctuary with his search still ahead of him.",
+          "spend": true
+        }
+      ]
+    },
+    "euripides-iphigenia-at-aulis": {
+      "at": "greek-aulis",
+      "opening": "Agamemnon calls my daughter here to marry Achilles. Now the men at the quay say Artemis is waiting for a sacrifice, and I have my husband’s promise in my hand. Give Clytemnestra the summons to show Iphigenia in private. Give Achilles the summons to challenge the wedding in public.",
+      "outcomes": [
+        {
+          "text": "Clytemnestra stops the wedding party at her tent and puts the summons in her daughter’s hands. Iphigenia keeps it and calls for her father to come to her.",
+          "spend": true
+        },
+        {
+          "text": "Achilles lays the summons on the herald’s table and denies the wedding before the waiting families. The herald delays the procession while he sends for Agamemnon."
+        }
+      ]
+    },
+    "euripides-rhesus": {
+      "at": "greek-trojan-camp",
+      "direct": true,
+      "opening": "Rhesus came to fight for Troy, and now he lies dead and the horses are gone. I can tell Hector what I remember if he comes to my mat. If he goes to the stalls, he can see which teams are still there.",
+      "outcomes": [
+        {
+          "label": "Hear the charioteer’s account",
+          "text": "The charioteer sets the lantern by his mat, and the healer binds his wound. With Hector in earshot, he gives his account to the watch."
+        },
+        {
+          "label": "Count the surviving horses",
+          "text": "Hector hangs the lantern at the stalls and counts the surviving teams with the stable hands. They move the remaining horses into the inner pen and post a list of the missing teams."
+        }
+      ]
+    },
+    "euripides-cyclops": {
+      "at": "greek-sicily",
+      "opening": "I have cheese, these strangers have wine, and my master counts the wheels when he comes home. Give that skin to the right man and someone may get supper before the goats do. Give Silenus the wine in trade for a round of cheese. Give Polyphemus the wine and ask him to excuse the satyrs.",
+      "outcomes": [
+        {
+          "text": "Silenus slips a cheese into the strangers’ sack and stuffs the wine skin into his bedding before Polyphemus can count the stock.",
+          "spend": true
+        },
+        {
+          "text": "Polyphemus takes the wine and excuses the satyrs from their churns on condition they sing him a drinking song. Their chorus wakes every goat in the cave.",
+          "spend": true
+        }
+      ]
+    },
+    "aristophanes-acharnians": {
+      "at": "greek-acharnae",
+      "opening": "Athens is still at war, and my truce covers only my house. The Megarian at the rope has salt for our unsalted bread, and the charcoal burners are waiting to see who I let through. Give Dicaeopolis the seal for a household sale. Give the Megarian the seal to open the stall.",
+      "outcomes": [
+        {
+          "text": "Dicaeopolis seals the private sale and buys salt for his table, while the charcoal burners go home with their bread unsalted.",
+          "spend": true
+        },
+        {
+          "text": "The Megarian lays the seal beside the scales and drops the rope, so the charcoal burners trade their bread for salt in the open market."
+        }
+      ]
+    },
+    "aristophanes-knights": {
+      "at": "greek-demos-house",
+      "opening": "The Paphlagonian brings me cakes when I ask how he spends the flour, and the sausage seller says they're mine to begin with. The basket is here, and whoever keeps the pantry key feeds us tonight. Bring Demos his basket for a private supper. Give the seller the basket to check in public.",
+      "outcomes": [
+        {
+          "text": "Demos keeps the basket for supper and leaves the pantry key with the Paphlagonian, whose kitchen hands get a speech about loyalty for their meal.",
+          "spend": true
+        },
+        {
+          "text": "The sausage seller sets the basket out and finds Demos's kitchen mark on the loaf, so Demos hands him the pantry key and tells the kitchen hands to eat."
+        }
+      ]
+    },
+    "aristophanes-clouds": {
+      "at": "greek-thinkery",
+      "opening": "My son's horses eat better than I do, and their creditor wants payment. My son says the Thinkery can explain why a horse brought home before the contract was signed was never bought at all. Give Strepsiades the tablet to dispute the debt. Give the creditor the tablet to settle in oats.",
+      "outcomes": [
+        {
+          "text": "Strepsiades keeps the tablet as proof of the disputed sale, and his son uses the same argument about their last loaf before claiming it for himself.",
+          "spend": true
+        },
+        {
+          "text": "The creditor marks the tablet paid and sets it on the bench, then leaves with a sack of oats while Strepsiades keeps his loaf."
+        }
+      ]
+    },
+    "aristophanes-wasps": {
+      "at": "greek-jury-house",
+      "opening": "I have a court right here in the kitchen, and the dog is charged with stealing cheese. My son says the accused ought to be allowed to eat while I count the votes, which shows how little he knows about juries. Give Philocleon the pebble for the conviction jar. Give Bdelycleon the pebble to acquit the dog.",
+      "outcomes": [
+        {
+          "text": "Philocleon drops the pebble in the sealed conviction jar and sends the dog away from its full plate, which he keeps as evidence beside his own breakfast.",
+          "spend": true
+        },
+        {
+          "text": "Bdelycleon sets the acquittal pebble beside the bowls and serves the dog, which licks both plates before Philocleon can appeal."
+        }
+      ]
+    },
+    "aristophanes-peace": {
+      "at": "greek-divine-heights",
+      "opening": "War has buried Peace under these stones, and that beetle won't carry a goddess home. Lend me the rope for the farmers, or give it to Hermes and see what an immortal charges to look the other way. Put the rope in the farmers' hands. Pay Hermes to open the pit path.",
+      "outcomes": [
+        {
+          "text": "Trygaeus loops the rope around the first stone and lays the free end along the rim of the pit. The farmers take their stations while Hermes calls down for them to pull together."
+        },
+        {
+          "text": "Hermes pockets the rope as his fee and lets the farmers pass. Trygaeus sends the beetle back for the vineyard's longest line while Hermes offers advice from a safe distance.",
+          "spend": true
+        }
+      ]
+    },
+    "aristophanes-birds": {
+      "at": "greek-bird-wilderness",
+      "direct": true,
+      "opening": "Put a city between earth and heaven and Zeus will have to ask our permission before he smells his supper. Let my builders string the smoke gate now, or let the Hoopoe hear what every sparrow in Greece thinks of the plan before they start.",
+      "outcomes": [
+        {
+          "label": "Build the smoke gate",
+          "text": "Peisthetaerus plants the peg for the smoke gate. The first builders string a line from it and leave no gap for a god who has arrived without a pass."
+        },
+        {
+          "label": "Call the birds to council",
+          "text": "The Hoopoe carries the peg into the branches as a perch for whichever bird has the floor. The builders set down their tools while the smallest sparrows claim the first turn."
+        }
+      ]
+    },
+    "aristophanes-lysistrata": {
+      "at": "greek-acropolis",
+      "opening": "The envoys are at our steps, but the magistrate still has a wagon waiting for the army's pay. Lampito wants bread enough to keep both parties at one table, and I want that wagon to leave empty. Give Lysistrata the key to keep the chest locked. Give Lampito the key for a witnessed meal.",
+      "outcomes": [
+        {
+          "text": "Lysistrata keeps the key on her belt and turns away the empty pay wagon, so the envoys sit on the steps and start their talks within earshot.",
+          "spend": true
+        },
+        {
+          "text": "Lampito pays the baker from one chest and sets the key on the coalition's table, where both delegations sit down to supper and talk terms."
+        }
+      ]
+    },
+    "aristophanes-women-at-the-thesmophoria": {
+      "stem": "aristophanes-thesmophoria",
+      "at": "greek-festival",
+      "opening": "Euripides fills the theatre with women who can't be trusted, then sends his kinsman here in Agathon's gown to tell us we're the liars. Set the gown before the assembly, or hand it back and hear who told him to wear it. Give the assembly its evidence. Return the gown for an honest answer.",
+      "outcomes": [
+        {
+          "text": "The First Woman spreads Agathon's gown across the speakers' bench. She gives the witness Mnesilochus interrupted her turn back and puts the question of Euripides' conduct to the assembly."
+        },
+        {
+          "text": "Mnesilochus takes the gown under his arm and admits who sent him. The women send for Euripides to answer under his own name, with strict instructions to leave his costumes at home.",
+          "spend": true
+        }
+      ]
+    },
+    "aristophanes-frogs": {
+      "at": "greek-underworld",
+      "opening": "Dionysus is looking for a poet Athens can use, and Charon has room for one of us. Put the fare in my hand and I'll bring the city a chorus that can stand its ground, or give it to Euripides and listen to him cross-examine the oars. Pay Aeschylus' passage to Athens. Pay Euripides' passage to Athens.",
+      "outcomes": [
+        {
+          "text": "Aeschylus pays Charon, claims the seat in the bow and calls for a chorus that can march in time. Euripides is left with the seat of tragedy below and an audience that has heard all his endings.",
+          "spend": true
+        },
+        {
+          "text": "Euripides pays Charon and climbs aboard with a new opening speech about the price of the fare. Aeschylus keeps the seat of tragedy below and tells the frogs to improve their meter.",
+          "spend": true
+        }
+      ]
+    },
+    "aristophanes-assemblywomen": {
+      "at": "greek-assembly",
+      "direct": true,
+      "opening": "We voted to share the stores. Chremes brings his grain while our neighbor hides his barley and lines up for supper. I can open the pot to everyone now, or Chremes can call for the missing barley and set aside enough for tomorrow’s bakers.",
+      "outcomes": [
+        {
+          "label": "Open the pot to everyone",
+          "text": "Praxagora leaves the scoop at the open pot and everyone eats, including the neighbor with the hidden barley, while the bakers go without a reserve."
+        },
+        {
+          "label": "Reserve grain for tomorrow",
+          "text": "Chremes takes the scoop for the grain store and persuades the neighbor to bring his barley, setting aside enough for tomorrow without turning away the hungry."
+        }
+      ]
+    },
+    "aristophanes-wealth": {
+      "at": "greek-attic-farm",
+      "opening": "Wealth can see now, and he means his coin for someone honest. I need seed before a field goes bare, but the informer says I owe him a fee for telling the city what has happened. Give Chremylus the coin for seed. Give the informer the coin to file his claim.",
+      "outcomes": [
+        {
+          "text": "Chremylus spends the coin on seed and starts sowing, while the informer takes his complaint home for lack of anyone who will finance it.",
+          "spend": true
+        },
+        {
+          "text": "The informer pays the filing fee and brings a fresh claim against Chremylus, leaving his field unseeded while the grain is kept back as surety.",
+          "spend": true
+        }
+      ]
+    }
+  }
+}
