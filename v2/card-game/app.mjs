@@ -1,5 +1,5 @@
 import { accountStorage as localStorage, accountStorageKey } from "./account-reset-storage.mjs";
-import { lockedStack, syncStackFrame, tableHolder, tableType } from "./mystery-view.mjs";
+import { lockedStack, roomItemLead, syncStackFrame, tableHolder, tableType } from "./mystery-view.mjs";
 import { radioAudible } from "./radio-item.mjs";
 import { holdChoice } from "./world.mjs";
 import { listenerDeal } from "./world/arcana.mjs";
@@ -99,7 +99,7 @@ import {
   isLockedBox,
   lockedQuest,
 } from "./locked-box.mjs";
-import { fadeInRevealed, revealedStage } from "./stage-reveal.mjs";
+import { fadeInRevealed, revealedCover, revealedStage } from "./stage-reveal.mjs";
 import {
   actionTapVerb,
   phase,
@@ -570,7 +570,8 @@ let shownQuests = [],
   questFresh = false,
   avatarFan = null,
   roomFan = null,
-  roomLocks = [];
+  roomLocks = [],
+  featuredRoomItem = null;
 const visibleQuests = () =>
   notBehindOwners(shownQuests.filter((quest) => questVisible(world, quest)), tableHand);
 const foldQuest = () => visibleQuests()[0] ?? null;
@@ -1687,7 +1688,8 @@ function stackPlaces(cards) {
     local = cards.filter(atHere);
   return [
     ...(back ? [back] : []),
-    ...local,
+    ...local.slice(0, 1), ...(featuredRoomItem ? [featuredRoomItem] : []),
+    ...local.slice(1).filter((id) => id !== featuredRoomItem),
     ...cards.filter((id) => !local.includes(id) && !stackedPlace(id)),
     ...cards.filter((id) => stackedPlace(id) && id !== back),
   ];
@@ -3372,8 +3374,8 @@ function card(id) {
     const covering = Object.keys(world.items).find(
       (other) => world.items[other].holder === id,
     );
-    if (covering) {
-      el.dataset.covered = "true";
+    if (covering) el.dataset.covered = "true";
+    if (revealedCover(covering, cardIsClosed)) {
       const cloth = node("img", undefined, "object-cover");
       cloth.decoding = "async";
       cloth.src = imageUrl(cardArt(covering), "card");
@@ -3482,8 +3484,8 @@ function card(id) {
         named.push(`${held.length - named.length} covered`);
       if (!hidden)
         observation.textContent += ` ${places[id] ? "Contains" : "Carries"} ${named.join(", ")}. Select to show these cards.`;
-      // One carried thing peeks out behind its holder.
-      for (const item of held.slice(0, 1)) {
+      const item = id === placeHere() ? featuredRoomItem ?? held.find((id) => !isStackedLock(id) && !packTucked(id)) : held[0];
+      if (item) {
         const preview = node("img", undefined, "held-preview");
         preview.decoding = "async";
         preview.src = imageUrl(
@@ -3848,9 +3850,9 @@ function renderHeldItem(figure, actor, itemId) {
   const covering = Object.keys(world.items).find(
     (id) => world.items[id].holder === itemId,
   );
-  const key = JSON.stringify([itemId, covering]);
+  const cover = revealedCover(covering, cardIsClosed), key = JSON.stringify([itemId, cover]);
   if (preview.dataset.key !== key) {
-    const images = [itemId, covering].filter(Boolean).map((id, index) => {
+    const images = [itemId, cover].filter(Boolean).map((id, index) => {
       const image = node("img", undefined, index ? "object-cover" : "");
       image.decoding = "async";
       image.src = imageUrl(cardArt(id), "card");
@@ -3867,9 +3869,7 @@ function renderHeldItem(figure, actor, itemId) {
   preview.dataset.ringing = String(item.ringing > 0 && !covering);
 }
 
-// Things lying here stand on the painted floor behind the cast as cutouts of
-// the hand card art. They are scenery only; the hand cards remain the way to
-// play them.
+// Floor cutouts are scenery. The hand cards own their plays.
 function renderFloorItems(items) {
   const floor = $("floor-items");
   const existing = new Map(
@@ -3885,11 +3885,11 @@ function renderFloorItems(items) {
         if (stageReveals.delete(id))
           fadeInRevealed(prop, { reduced: reducedMotion.matches });
       }
-      const key = JSON.stringify([id, cover]);
+      const exposed = revealedCover(cover, cardIsClosed), key = JSON.stringify([id, exposed]);
       if (prop.dataset.key !== key) {
         prop.dataset.key = key;
         prop.replaceChildren(
-          ...[id, cover].filter(Boolean).map((art, index) => {
+          ...[id, exposed].filter(Boolean).map((art, index) => {
             const image = node("img", undefined, index ? "object-cover" : "");
             image.decoding = "async";
             image.src = imageUrl(cardArt(art), "card");
@@ -3989,7 +3989,7 @@ function renderScene() {
     line: resolvedBeat ? null : scene.line,
     activeSpeaker: resolvedBeat ? null : scene.activeSpeaker,
     review: true,
-    currentState: true,
+    currentState: true, floorCovered: cardIsClosed, floorLead: featuredRoomItem,
     listenerOffering: !listenerCardHeld,
     sharedPlays: sharedSession?.state.history,
     preferredCatalog: {
@@ -3998,8 +3998,7 @@ function renderScene() {
       ...worldLocations.places,
     },
   });
-  const floorItems = revealedStage(staging, cardIsCovered).floorItems;
-  renderFloorItems(floorItems);
+  renderFloorItems(staging.floorItems);
   $("cast").dataset.layout = staging.layout;
   $("cast").dataset.count = String(staging.actors.length);
   $("cast").dataset.shared = String(Boolean(sharedSession));
@@ -4983,7 +4982,7 @@ function render() {
   for (const id of encountered)
     if (id.startsWith(`tarot:${currentActor(world)}:`) && !tarotKeys().includes(id))
       encountered.delete(id);
-  const dealt = availableCards(world).filter((id) => !unmet(world, id));
+  const dealt = availableCards(world).filter((id) => !unmet(world, id)), plays = legalActions(world);
   const shut = new Set(shutBoxes(world).map((box) => box.id));
   roomLocks = dealt.filter((id) => shut.has(id));
   if (roomFan === "locks" && roomLocks.length < 2) roomFan = null;
@@ -4992,6 +4991,7 @@ function render() {
   packSync([...dealt, ...tarotKeys()]);
   if (packPlace !== placeHere() && packPrompt()?.kind === "reveal") restedChoice = null;
   packPlace = placeHere();
+  featuredRoomItem = roomItemLead(world, dealt, [pickedQuest(), ...liveQuests.filter((quest) => questVisible(world, quest))], plays, cardIsClosed);
   const handCards = packHand(
     chosenFirst(
       besideOwners(
@@ -5013,7 +5013,7 @@ function render() {
     elysiumPortrait.key,
     [...encountered],
     [...coveredCards],
-    legalActions(world).map((action) => action.key),
+    plays.map((action) => action.key),
     pack.key(),
     sleepView.sleeper,
   ]);

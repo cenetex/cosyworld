@@ -397,6 +397,8 @@ export function sceneStaging(
     review = false,
     sharedPlays = [],
     currentState = false,
+    floorCovered = () => false,
+    floorLead = null,
     preferredCatalog = {},
     listenerOffering = true,
   } = {},
@@ -585,8 +587,10 @@ export function sceneStaging(
   // Things lying in this place rest on the floor behind the cast. The hand
   // keeps every one of them; the stage shows only the first few.
   const lying = items
-    .filter((item) => item.holder === locationId && entityActive(world, item.id))
-    .slice(0, FLOOR_SPOTS.wide.length);
+    .filter((item) => item.holder === locationId && entityActive(world, item.id) && !floorCovered(item.id));
+  const lead = lying.findIndex(({ id }) => id === floorLead);
+  if (lead > 0) lying.unshift(...lying.splice(lead, 1));
+  lying.length = Math.min(lying.length, FLOOR_SPOTS.wide.length);
   const spots = Object.fromEntries(
     Object.entries(FLOOR_SPOTS).map(([layout, table]) => [
       layout,
